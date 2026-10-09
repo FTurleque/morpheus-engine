@@ -547,3 +547,43 @@ développement 1.2.1 antérieurs au correctif le seraient (déduit de la règle 
 
 **Cohérence documentaire** : `AdrIndexCoherenceTest` (5) et `RepositoryDocumentationCoherenceTest` (21) repassent
 verts sur ce document dans son état final, ce que le § 10 laissait en suspens.
+
+## 12. Suivi du 9 octobre 2026 — PIT-AUD-5 traité (`close-pit-survivor-gaps`)
+
+Les 169 mutations survivantes ou non couvertes des six classes de PIT-AUD-5 ont été qualifiées une à une
+(`openspec/changes/close-pit-survivor-gaps/qualification.md`), puis fermées dans la PR #414. Ce paragraphe ajoute des
+mesures ; il ne réécrit pas le constat du § 5.2, qui décrit `3ec3ea46`.
+
+**Deux défauts confirmés et corrigés**, chacun après un test rouge :
+
+- un identifiant de fournisseur portant un saut de ligne était relu par `SqlitePortfolioStore` comme d'autres
+  fournisseurs ; `ProviderId` refuse désormais les caractères de contrôle (amendement d'ADR-0023), et HTTP, MCP et la
+  CLI répondent par un refus nommé ;
+- `SqlitePolicyPackStore.listAudit` triait le texte de `Instant.toString()`, non le temps ; les deux stores trient
+  désormais par instant puis identité. L'audit public, déjà retrié par le service, n'était pas touché : le défaut
+  était une divergence au port.
+
+**Rejeu** des lots P03, P09, P11 et X1 restreints aux six classes, mêmes options qu'au § 4.4, sur la branche fusionnée
+avec `develop` (`908a410f`) et les tests de la tâche 5.1, sous WSL2 Ubuntu (JDK 21). X2 et X3 non rejoués : X3 ne mute
+pas ces classes, et l'apport de X2 est désormais tué par des tests d'application.
+
+| Classe | Avant (union de l'audit) : survivantes + non couvertes | Après (rejeu) : survivantes + non couvertes |
+|---|---:|---:|
+| `MultiProviderCompositionService` | 30 + 2 | 0 + 0 |
+| `QueryExecutionService` | 8 + 10 | 1 + 0 |
+| `NormalizedProjectContent` | 25 + 0 | 0 + 0 |
+| `SyntheticJsonParser` | 26 + 17 | 2 + 0 |
+| `SqlitePolicyPackStore` | 20 + 11 | 5 + 0 |
+| `SqlitePortfolioStore` | 20 + 0 | 8 + 0 |
+| **Total** | **129 + 40 = 169** (sur 723 mutations) | **16 + 0 = 16** (sur 715) |
+
+Les 16 restantes sont qualifiées : onze équivalentes déjà nommées par la qualification, et cinq que l'audit comptait
+détectées — un `boundedRows` qui ne peut échouer (code redondant), deux `ensureOpen` qu'une lecture suivante répète, et
+les deux `Connection::close`, tués sous Windows par le verrou du fichier et inobservables sous Linux.
+
+**Ce que le rejeu a appris sur la mesure de l'audit.** Un `TIMED_OUT` compte comme détecté dans l'union (§ 5.2), mais
+il ne prouve aucune assertion : sur `QueryExecutionService`, huit mutations n'étaient « détectées » que par un
+délai dépassé du lot `cli` (X2) — l'ordre d'une matérialisation complète, un plafond d'une ligne, la validation
+d'une définition, une source d'exactement le budget, `boundedRows` ; sur `SqlitePolicyPackStore`, six autres ne
+l'étaient que par un délai dépassé de P11. Sous Linux, ces tests vont au bout et les mutants survivent. Tous sont
+désormais tués par une assertion, ou qualifiés équivalents ou redondants.

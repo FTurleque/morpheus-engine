@@ -7,6 +7,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MorpheusPortfolioApiContractTest {
@@ -142,6 +143,48 @@ class MorpheusPortfolioApiContractTest {
             assertTrue(unknownResource.body().contains("unknown portfolio API resource"), unknownResource.body());
             assertEquals(404, extraMembersSegment.status(), extraMembersSegment.body());
             assertTrue(extraMembersSegment.body().contains("unknown API route"), extraMembersSegment.body());
+        }
+    }
+
+    /** A JSON-escaped line break inside one identifier must not reach the store, where it would split into two. */
+    @Test
+    void aProviderIdentifierCarryingALineBreakIsARequestErrorAndPersistsNothing() {
+        Path database = temporaryDirectory.resolve("control-characters.db");
+        try (MorpheusHttpServer server = MorpheusHttpServer.start(database, "127.0.0.1", 0)) {
+            String portfolioId = firstUuid(http.postJson(
+                    server, "/portfolios", "{\"name\":\"Platform\"}").body());
+            ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+            ProjectSpecificationId otherProject = ProjectSpecificationId.generate();
+            register(server, portfolioId, otherProject, "Other");
+
+            ApiTestSupport.Response registered = http.postJson(
+                    server,
+                    "/portfolios/" + portfolioId + "/projects",
+                    "{\"projectId\":\"" + projectId + "\",\"name\":\"Alpha\","
+                            + "\"providers\":\"openspec\\nmarkdown\"}");
+            ApiTestSupport.Response reference = http.postJson(
+                    server,
+                    "/portfolios/" + portfolioId + "/references",
+                    "{\"sourceProjectId\":\"" + otherProject + "\","
+                            + "\"sourceType\":\"requirement\",\"sourceId\":\"01900000-0000-7000-8000-000000000001\","
+                            + "\"targetProjectId\":\"" + otherProject + "\","
+                            + "\"targetType\":\"specification\",\"targetId\":\"01900000-0000-7000-8000-000000000002\","
+                            + "\"relation\":\"DEPENDS_ON\",\"providerId\":\"open\\tspec\"}");
+            ApiTestSupport.Response members = http.get(
+                    server, "/portfolios/" + portfolioId + "/members?offset=0&limit=10");
+            ApiTestSupport.Response references = http.get(server, "/portfolios/" + portfolioId + "/references");
+
+            assertEquals(400, registered.status(), registered.body());
+            assertTrue(registered.body().contains(
+                    "provider id must not contain control characters: \\\"openspec[U+000A]markdown\\\""),
+                    registered.body());
+            assertEquals(400, reference.status(), reference.body());
+            assertTrue(reference.body().contains(
+                    "provider id must not contain control characters: \\\"open[U+0009]spec\\\""),
+                    reference.body());
+            assertEquals(200, members.status(), members.body());
+            assertFalse(members.body().contains(projectId.toString()), members.body());
+            assertFalse(references.body().contains("DEPENDS_ON"), references.body());
         }
     }
 

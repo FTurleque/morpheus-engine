@@ -126,6 +126,23 @@ class MorpheusPortfolioCliTest {
         assertFalse(members.out().contains(projectId), "a refused write must not persist the membership");
     }
 
+    /** A line break inside one identifier must not reach the store, where it would split into two providers. */
+    @Test
+    void aProviderIdentifierCarryingALineBreakIsAUsageErrorAndPersistsNothing() {
+        String portfolioId = firstUuid(run("--json", "portfolio", "create", "--name", "Control").out());
+        String projectId = ProjectSpecificationId.generate().toString();
+
+        Result addProject = run("--json", "portfolio", "add-project",
+                "--portfolio", portfolioId, "--project", projectId, "--name", "Alpha",
+                "--providers", "openspec\nmarkdown");
+        Result members = run("--json", "portfolio", "members", "--portfolio", portfolioId);
+
+        assertEquals(CliExitCode.USAGE.code(), addProject.exitCode(), addProject.err());
+        assertTrue(addProject.err().contains(
+                "provider id must not contain control characters: \"openspec[U+000A]markdown\""), addProject.err());
+        assertFalse(members.out().contains(projectId), "a refused write must not persist the membership");
+    }
+
     @Test
     void referencesRefusesAMisspelledProjectFilterInsteadOfListingEverything() {
         String portfolioId = firstUuid(run("--json", "portfolio", "create", "--name", "Filter").out());

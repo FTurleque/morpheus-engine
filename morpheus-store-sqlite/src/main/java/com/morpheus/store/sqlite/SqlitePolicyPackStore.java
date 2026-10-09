@@ -546,12 +546,16 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
         }
     }
 
+    /**
+     * Sorted after reading: {@code at} is stored as {@code Instant.toString()}, whose fractional part varies in length,
+     * so its text does not sort by time ({@code :00.500100Z} sorts before {@code :00.500Z}, {@code :00Z} after both).
+     */
     @Override
     public synchronized List<PolicyConfiguration.AuditRecord> listAudit(PolicyIds.PackId packId) {
         ensureOpen();
         try (PreparedStatement statement = connection.prepareStatement("""
                 SELECT id, action, pack_id, version_id, rule_id, scope_kind, scope_id, actor, reason, at
-                FROM policy_audit WHERE pack_id = ? ORDER BY at, id
+                FROM policy_audit WHERE pack_id = ?
                 """)) {
             statement.setString(1, packId.toString());
             try (ResultSet result = statement.executeQuery()) {
@@ -559,7 +563,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
                 while (result.next()) {
                     values.add(readAudit(result));
                 }
-                return List.copyOf(values);
+                return values.stream().sorted().toList();
             }
         } catch (SQLException failure) {
             throw new KnowledgeStoreException("Cannot list policy audit", failure);

@@ -2,7 +2,6 @@ package com.morpheus.application.composition;
 
 import com.morpheus.application.ingestion.NormalizedProjectContent;
 import com.morpheus.domain.change.ChangeProposal;
-import com.morpheus.domain.diagnostic.Diagnostic;
 import com.morpheus.domain.provenance.Provenance;
 import com.morpheus.domain.requirement.Requirement;
 import com.morpheus.domain.specification.Specification;
@@ -54,14 +53,12 @@ public final class MultiProviderCompositionService {
 
         NormalizedProjectContent composed = concatenate(primary, available);
         List<CompositionConflict> conflicts = detectConflicts(available);
-        List<Diagnostic> diagnostics = distinctDiagnostics(ordered);
 
         return new MultiProviderCompositionResult(
                 available.getFirst().providerId(),
                 composed,
                 ordered,
-                conflicts,
-                diagnostics);
+                conflicts);
     }
 
     private NormalizedProjectContent concatenate(
@@ -146,8 +143,11 @@ public final class MultiProviderCompositionService {
                         logicalKey(item.key(), item.provenance(), item.id().toString()),
                         CompositionEntityType.CHANGE);
             });
-            // Every entity type the composition publishes is observed: a duplicate of a type that is not observed is
-            // published and counted without anything saying so.
+            // Every entity type the composition publishes is observed, since a duplicate of a type that is not observed
+            // is published and counted without anything saying so, with two exceptions. A requirement delta always
+            // belongs to a change of the same content, so two providers contributing deltas to one change both publish
+            // that change, and its conflict already reports the duplication. Evidence is distinct per provider: it
+            // records where that provider read the source.
             content.scenarios().forEach(item -> observeScenario(observations, contribution, item));
             content.constraints().forEach(item -> observeConstraint(observations, contribution, item));
             content.designDecisions().forEach(item -> observeDecision(observations, contribution, item));
@@ -373,16 +373,6 @@ public final class MultiProviderCompositionService {
                 .toList();
         return new CompositionConflict(
                 key.entityType(), key.logicalKey(), key.field(), candidates, resolution, selected, reason);
-    }
-
-    private List<Diagnostic> distinctDiagnostics(List<ProviderContribution> contributions) {
-        List<Diagnostic> result = new ArrayList<>();
-        for (ProviderContribution contribution : contributions) {
-            contribution.readResult().diagnostics().stream()
-                    .filter(item -> !result.contains(item))
-                    .forEach(result::add);
-        }
-        return List.copyOf(result);
     }
 
     private record ObservationKey(CompositionEntityType entityType, String logicalKey, String field) {

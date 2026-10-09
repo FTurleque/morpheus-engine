@@ -91,6 +91,7 @@ Contraintes M22 :
 
 - `plugin.id` stable, minuscule, borné à 128 caractères ;
 - `provider.id` doit correspondre au provider **et** au content reader réellement créés ;
+- `provider.id` ne contient aucun caractère de contrôle : `ProviderId` le refuse, métadonnées comprises (ADR-0023, amendement PIT-AUD-5) ;
 - `plugin.version`, min/max MORPHEUS utilisent une version `x.y.z` avec prerelease/build optionnels ;
 - `sdk.apiVersion` doit être exactement `1` pour M22.
 

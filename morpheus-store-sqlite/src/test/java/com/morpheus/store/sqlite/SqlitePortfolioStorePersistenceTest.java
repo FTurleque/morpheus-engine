@@ -1,5 +1,6 @@
 package com.morpheus.store.sqlite;
 
+import com.morpheus.application.store.EntityStateException;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.identity.DomainIdentity;
@@ -17,15 +18,21 @@ import com.morpheus.domain.provider.ProviderId;
 import com.morpheus.domain.source.SourceLocator;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -96,6 +103,33 @@ class SqlitePortfolioStorePersistenceTest {
         }
     }
 
+    /**
+     * A provider set holding an empty segment can only come from an identifier written with a doubled line break,
+     * which {@link ProviderId} refuses; such a row is refused by name rather than read back as other providers.
+     */
+    @Test
+    void aStoredProviderSetWithAnEmptySegmentIsRefusedRatherThanRecomposed() throws SQLException {
+        Path database = tempDir.resolve("legacy-providers.db");
+        PortfolioId portfolioId = PortfolioId.generate();
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+        try (SqlitePortfolioStore store = new SqlitePortfolioStore(database)) {
+            store.putPortfolio(portfolio(portfolioId, "platform"));
+            store.putMembership(membership(portfolioId, projectId, "checkout"));
+        }
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath());
+                PreparedStatement update = connection.prepareStatement(
+                        "UPDATE portfolio_memberships SET provider_ids = ?")) {
+            update.setString(1, "openspec\n\nmarkdown");
+            assertEquals(1, update.executeUpdate());
+        }
+
+        try (SqlitePortfolioStore reopened = new SqlitePortfolioStore(database)) {
+            IllegalArgumentException refusal = assertThrows(IllegalArgumentException.class,
+                    () -> reopened.findMembership(portfolioId, projectId));
+            assertEquals("provider id must not be blank", refusal.getMessage());
+        }
+    }
+
     @Test
     void replacingAMembershipKeepsItsFirstRegistrationRatherThanAddingASecondRow() {
         Path database = tempDir.resolve("replace.db");
@@ -152,7 +186,7 @@ class SqlitePortfolioStorePersistenceTest {
             store.putPortfolio(portfolio(portfolioId, "platform"));
             store.putMembership(membership(portfolioId, sourceProject, "source"));
             store.putMembership(membership(portfolioId, targetProject, "target"));
-            store.putReference(new CrossProjectReference(
+            CrossProjectReference written = new CrossProjectReference(
                     referenceId,
                     portfolioId,
                     source,
@@ -161,11 +195,12 @@ class SqlitePortfolioStorePersistenceTest {
                     new ProviderId("openspec"),
                     Optional.of(SourceLocator.file("workspace/source/spec.md")),
                     Optional.of(evidenceId),
-                    OBSERVED));
+                    OBSERVED);
+            store.putReference(written);
 
             CrossProjectReference stored = store.findReference(referenceId).orElseThrow();
-            assertEquals("depends-on", stored.relation());
-            assertEquals(Optional.of(evidenceId), stored.evidenceId());
+            assertEquals(written, stored);
+            assertEquals(List.of(written), store.listReferences(portfolioId));
             assertEquals(List.of(stored), store.outgoing(portfolioId, source));
             assertEquals(List.of(stored), store.incoming(portfolioId, target));
             assertEquals(List.of(), store.outgoing(portfolioId, target));
@@ -195,8 +230,21 @@ class SqlitePortfolioStorePersistenceTest {
                     Optional.empty(),
                     OBSERVED);
 
-            assertTrue(assertThrows(IllegalArgumentException.class, () -> store.putReference(dangling))
-                    .getMessage().contains("project is not a portfolio member"));
+            assertEquals("project is not a portfolio member: " + stranger,
+                    assertThrows(EntityStateException.class, () -> store.putReference(dangling)).getMessage());
+
+            CrossProjectReference fromAStranger = new CrossProjectReference(
+                    CrossProjectReferenceId.generate(),
+                    portfolioId,
+                    new PortfolioEntityRef(stranger, "requirement", DomainIdentity.generate()),
+                    new PortfolioEntityRef(member, "requirement", DomainIdentity.generate()),
+                    "depends-on",
+                    new ProviderId("openspec"),
+                    Optional.empty(),
+                    Optional.empty(),
+                    OBSERVED);
+            assertEquals("project is not a portfolio member: " + stranger,
+                    assertThrows(EntityStateException.class, () -> store.putReference(fromAStranger)).getMessage());
             assertEquals(List.of(), store.listReferences(portfolioId));
         }
     }
@@ -218,8 +266,9 @@ class SqlitePortfolioStorePersistenceTest {
                     Optional.of("revision-2"), Optional.of("workspace moved")));
 
             PortfolioFreshness latest = store.findFreshness(portfolioId, projectId).orElseThrow();
-            assertEquals(PortfolioFreshnessState.STALE, latest.state());
-            assertEquals(Optional.of("workspace moved"), latest.explanation());
+            assertEquals(new PortfolioFreshness(
+                    portfolioId, projectId, PortfolioFreshnessState.STALE, OBSERVED.plusSeconds(60),
+                    Optional.of("revision-2"), Optional.of("workspace moved")), latest);
             assertEquals(List.of(latest), store.listFreshness(portfolioId));
 
             PortfolioFreshness stale = new PortfolioFreshness(
@@ -260,9 +309,77 @@ class SqlitePortfolioStorePersistenceTest {
         store.putPortfolio(portfolio(portfolioId, "platform"));
         store.close();
 
-        assertThrows(KnowledgeStoreException.class, () -> store.putPortfolio(portfolio(portfolioId, "renamed")));
-        assertThrows(KnowledgeStoreException.class, () -> store.findPortfolio(portfolioId));
-        assertThrows(KnowledgeStoreException.class, store::listPortfolios);
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+        PortfolioEntityRef entity = new PortfolioEntityRef(projectId, "requirement", DomainIdentity.generate());
+        PortfolioEntityRef other = new PortfolioEntityRef(
+                ProjectSpecificationId.generate(), "requirement", DomainIdentity.generate());
+        List<Executable> operations = List.of(
+                () -> store.putPortfolio(portfolio(portfolioId, "renamed")),
+                () -> store.findPortfolio(portfolioId),
+                store::listPortfolios,
+                () -> store.putMembership(membership(portfolioId, projectId, "checkout")),
+                () -> store.findMembership(portfolioId, projectId),
+                () -> store.listMemberships(portfolioId),
+                () -> store.putReference(new CrossProjectReference(
+                        CrossProjectReferenceId.generate(), portfolioId, entity, other, "depends-on",
+                        new ProviderId("openspec"), Optional.empty(), Optional.empty(), OBSERVED)),
+                () -> store.findReference(CrossProjectReferenceId.generate()),
+                () -> store.listReferences(portfolioId),
+                () -> store.outgoing(portfolioId, entity),
+                () -> store.incoming(portfolioId, entity),
+                () -> store.putFreshness(new PortfolioFreshness(
+                        portfolioId, projectId, PortfolioFreshnessState.FRESH, OBSERVED, Optional.empty(), Optional.empty())),
+                () -> store.findFreshness(portfolioId, projectId),
+                () -> store.listFreshness(portfolioId));
+        // The JDBC path of a closed connection throws the same type: only the message and the missing cause tell
+        // the guard apart from a failure further down.
+        for (Executable operation : operations) {
+            KnowledgeStoreException refusal = assertThrows(KnowledgeStoreException.class, operation);
+            assertEquals("SQLite portfolio store is closed", refusal.getMessage());
+            assertNull(refusal.getCause());
+        }
+    }
+
+    @Test
+    void aMembershipWithEveryObservationRoundTripsUnchanged() {
+        Path database = tempDir.resolve("full-membership.db");
+        PortfolioId portfolioId = PortfolioId.generate();
+        PortfolioMembership written = new PortfolioMembership(
+                portfolioId,
+                ProjectSpecificationId.generate(),
+                "checkout",
+                Optional.of(SourceLocator.file("workspace/checkout")),
+                Optional.of(new SourceLocator("git", "https://example.test/checkout.git")),
+                Set.of(new ProviderId("openspec"), new ProviderId("structured-markdown")),
+                PortfolioMembershipStatus.ACTIVE,
+                CREATED,
+                OBSERVED);
+
+        try (SqlitePortfolioStore store = new SqlitePortfolioStore(database)) {
+            store.putPortfolio(portfolio(portfolioId, "platform"));
+            store.putMembership(written);
+        }
+
+        try (SqlitePortfolioStore reopened = new SqlitePortfolioStore(database)) {
+            assertEquals(Optional.of(written), reopened.findMembership(portfolioId, written.projectId()));
+        }
+    }
+
+    @Test
+    void freshnessIsRefusedForAProjectThatIsNotAMember() {
+        Path database = tempDir.resolve("freshness-guard.db");
+        PortfolioId portfolioId = PortfolioId.generate();
+        ProjectSpecificationId stranger = ProjectSpecificationId.generate();
+
+        try (SqlitePortfolioStore store = new SqlitePortfolioStore(database)) {
+            store.putPortfolio(portfolio(portfolioId, "platform"));
+
+            EntityStateException refusal = assertThrows(EntityStateException.class, () -> store.putFreshness(
+                    new PortfolioFreshness(portfolioId, stranger, PortfolioFreshnessState.FRESH, OBSERVED,
+                            Optional.empty(), Optional.empty())));
+            assertEquals("project is not a portfolio member: " + stranger, refusal.getMessage());
+            assertEquals(Optional.empty(), store.findFreshness(portfolioId, stranger));
+        }
     }
 
     /** Closing twice is how a try-with-resources nested in a shutdown path behaves; it must stay harmless. */
