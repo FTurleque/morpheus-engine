@@ -124,26 +124,62 @@ class PolicyPersistenceParityTest {
                                 Optional.empty(), Optional.of(new PolicyScope.Project(ProjectSpecificationId.generate())))));
     }
 
+    /** The revision, the latest version number and the new version's number must each advance by exactly one. */
     @Test
-    void anUpdateThatSkipsARevisionIsRefusedBeforeAnythingIsWrittenByBothStores() {
-        assertBothRefuse("skipped-revision",
-                new Refusal("IllegalArgumentException", "policy update must advance revision and version by exactly one"),
+    void anUpdateThatSkipsAStepIsRefusedBeforeAnythingIsWrittenByBothStores() {
+        Refusal skipped = new Refusal("IllegalArgumentException", "policy update must advance revision and version by exactly one");
+        assertBothRefuse("skipped-revision", skipped, (store, pack) -> update(store, pack, 1L, 3L, 2L, 2L));
+        assertBothRefuse("skipped-latest-version", skipped, (store, pack) -> update(store, pack, 1L, 2L, 3L, 3L));
+        assertBothRefuse("mismatched-version-number", skipped, (store, pack) -> update(store, pack, 1L, 2L, 2L, 3L));
+    }
+
+    @Test
+    void aStaleDefinitionRevisionIsAConflictInBothStores() {
+        assertBothRefuse("stale-definition",
+                new Refusal("PolicyConflictException", "stale policy pack revision: expected 2 but current is 1"),
+                (store, pack) -> update(store, pack, 2L, 3L, 2L, 2L));
+    }
+
+    @Test
+    void reactivatingAPackThatIsNotActiveIsAConflictInBothStores() {
+        assertBothRefuse("stale-activation",
+                new Refusal("PolicyConflictException", "stale policy activation revision: expected 1 but current is 0"),
+                (store, pack) -> store.compareAndSetActivation(pack.scope(), pack.packId(), 1L,
+                        new PolicyConfiguration.Activation(
+                                pack.scope(), pack.packId(), pack.versionId(), 2L, "alice", CLOCK.instant()),
+                        audit(PolicyConfiguration.AuditAction.ACTIVATE, pack.packId(), Optional.of(pack.versionId()),
+                                Optional.empty(), Optional.of(pack.scope()))));
+    }
+
+    @Test
+    void anOverrideOnAnInactivePackIsRefusedByBothStores() {
+        assertBothRefuse("inactive-override",
+                new Refusal("EntityStateException", "policy pack must be active before adding an override: %s"),
+                (store, pack) -> putOverride(store, pack, 0L));
+    }
+
+    @Test
+    void aStaleOverrideRevisionIsAConflictInBothStores() {
+        assertBothRefuse("stale-override-write",
+                new Refusal("PolicyConflictException", "stale policy override revision: expected 1 but current is 0"),
+                this::activate,
+                (store, pack) -> putOverride(store, pack, 1L));
+        assertBothRefuse("stale-override-removal",
+                new Refusal("PolicyConflictException", "stale policy override revision: expected 2 but current is 1"),
                 (store, pack) -> {
-                    PolicyIds.VersionId next = PolicyIds.VersionId.generate();
-                    store.compareAndSetDefinition(pack.packId(), 1L,
-                            new PolicyPack.Definition(pack.packId(), "Governance", 3L, 2L, CLOCK.instant(), CLOCK.instant()),
-                            new PolicyPack.Version(pack.packId(), next, 2L, "Governance", List.of(rule()), CLOCK.instant()),
-                            audit(PolicyConfiguration.AuditAction.UPDATE, pack.packId(), Optional.of(next),
-                                    Optional.empty(), Optional.empty()));
-                });
+                    activate(store, pack);
+                    putOverride(store, pack, 0L);
+                },
+                (store, pack) -> store.removeOverride(pack.scope(), pack.packId(), pack.ruleId(), 2L,
+                        audit(PolicyConfiguration.AuditAction.REMOVE_OVERRIDE, pack.packId(), Optional.empty(),
+                                Optional.of(pack.ruleId()), Optional.of(pack.scope()))));
     }
 
     @Test
     void aStaleRevisionIsAConflictInBothStores() {
         assertBothRefuse("stale-revision",
                 new Refusal("PolicyConflictException", "stale policy activation revision: expected 2 but current is 1"),
-                (store, pack) -> new PolicyPackService(store, CLOCK).activate(
-                        pack.scope(), pack.packId(), pack.versionId(), 0, "alice", "activate"),
+                this::activate,
                 (store, pack) -> store.removeActivation(pack.scope(), pack.packId(), 2L,
                         audit(PolicyConfiguration.AuditAction.DEACTIVATE, pack.packId(), Optional.of(pack.versionId()),
                                 Optional.empty(), Optional.of(pack.scope()))));
@@ -186,6 +222,28 @@ class PolicyPersistenceParityTest {
         var version = service.versions(definition.id()).getFirst();
         return new PackFixture(definition.id(), version.versionId(), version.rules().getFirst().id(),
                 new PolicyScope.Project(ProjectSpecificationId.generate()));
+    }
+
+    private void update(
+            PolicyPackStore store, PackFixture pack, long expectedRevision, long revision, long latestVersion, long versionNumber) {
+        PolicyIds.VersionId next = PolicyIds.VersionId.generate();
+        store.compareAndSetDefinition(pack.packId(), expectedRevision,
+                new PolicyPack.Definition(pack.packId(), "Governance", revision, latestVersion, CLOCK.instant(), CLOCK.instant()),
+                new PolicyPack.Version(pack.packId(), next, versionNumber, "Governance", List.of(rule()), CLOCK.instant()),
+                audit(PolicyConfiguration.AuditAction.UPDATE, pack.packId(), Optional.of(next), Optional.empty(), Optional.empty()));
+    }
+
+    private void activate(PolicyPackStore store, PackFixture pack) {
+        new PolicyPackService(store, CLOCK).activate(pack.scope(), pack.packId(), pack.versionId(), 0, "alice", "activate");
+    }
+
+    /** Writes the fixture's override directly to the store, expecting {@code expectedRevision}. */
+    private void putOverride(PolicyPackStore store, PackFixture pack, long expectedRevision) {
+        store.compareAndSetOverride(pack.scope(), pack.packId(), pack.ruleId(), expectedRevision,
+                new PolicyConfiguration.Override(pack.scope(), pack.packId(), pack.ruleId(),
+                        PolicyConfiguration.OverrideMode.FORCE_WARN, "waiver", "alice", expectedRevision + 1, CLOCK.instant()),
+                audit(PolicyConfiguration.AuditAction.PUT_OVERRIDE, pack.packId(), Optional.of(pack.versionId()),
+                        Optional.of(pack.ruleId()), Optional.of(pack.scope())));
     }
 
     private PolicyConfiguration.AuditRecord audit(
