@@ -98,8 +98,23 @@ Every test asserts the message, value or order that kills its mutations (`rules/
   qualification marked unreachable in production. PIT on the class with the synthetic provider's tests (WSL,
   2026-10-09): 111 mutations, 109 killed; the two survivors are the equivalent ones of `qualification.md` (an empty
   result returned as an empty collection).
-- [ ] 4.5 `SqlitePolicyPackStore`: a closed store for every public method, re-activation on a new version (UPDATE branch), audit mismatch per write method with no state change, unknown pack, version and inactive pack, full-record audit equality and `listDefinitions` content
-- [ ] 4.6 `SqlitePortfolioStore`: the closed-store test asserts `SQLite portfolio store is closed` and covers `findMembership`, `findReference`, `outgoing`, `incoming`, `findFreshness`; the repository and source locators, the source-membership and freshness-membership guards
+- [x] 4.5 `SqlitePolicyPackStore`: a closed store for every public method, re-activation on a new version (UPDATE branch), audit mismatch per write method with no state change, unknown pack, version and inactive pack, full-record audit equality and `listDefinitions` content
+
+  Added to `SqlitePolicyPackStoreAtomicityTest`, which pins the refusals as they are today (issue #416 may change
+  them deliberately). Beyond the qualified rows: the audit version of `create` and `PUT_OVERRIDE`, the stored audit
+  of an override (its `rule_id`), the version an update inserts, the value `compareAndSetOverride` returns, and a
+  version row whose payload names another version — six of these mutations were `TIMED_OUT` in the audit's Windows
+  lot, so nothing had killed them. PIT on the class with the module's tests (WSL, 2026-10-09): 210 mutations, 205
+  killed; the five survivors are equivalent — four `ensureOpen` calls a later read repeats with the same message,
+  and `Connection::close`, unobservable on Linux (the Windows lot killed it through the file lock).
+- [x] 4.6 `SqlitePortfolioStore`: the closed-store test asserts `SQLite portfolio store is closed` and covers `findMembership`, `findReference`, `outgoing`, `incoming`, `findFreshness`; the repository and source locators, the source-membership and freshness-membership guards
+
+  The closed-store test covers all fourteen operations and asserts the message and the missing cause, the only
+  difference from a JDBC failure of the same type. A membership with every observation and a reference round-trip
+  as whole records, the member guard is asserted from both ends and for freshness, and the listing of references
+  and the freshness revision are asserted (their mutants survived the module's lot and were killed by other lots).
+  PIT on the class with the module's tests (WSL, 2026-10-09): 110 mutations, 102 killed; the survivors are the
+  seven equivalent ones of `qualification.md` and `Connection::close`, unobservable on Linux.
 
 ## 5. Replay and record
 
