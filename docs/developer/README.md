@@ -119,7 +119,8 @@ La CI canonique exécute M21 sur les pull requests ainsi que sur les pushes `mai
 
 Deux profils Maven opt-in, absents de `clean verify` et de la CI : `audit-spotbugs` (analyse statique, contrôle
 bloquant) et `audit-mutation` (tests de mutation, un module à la fois). Configuration, commandes, rapports et lecture des
-résultats : [Audit de code](CODE_AUDIT.md).
+résultats : [Audit de code](CODE_AUDIT.md). Référence détaillée de SpotBugs (versions, périmètre, commandes,
+dépannage, sources officielles) : [SpotBugs](SPOTBUGS.md).
 
 ## Gate D2 spécialisé
 

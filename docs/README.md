@@ -45,6 +45,7 @@ Les distributions Windows/Linux embarquent leur runtime Java.
 | comprendre les modules | [Guide développeur](developer/README.md) |
 | comprendre les couches | [Architecture](developer/ARCHITECTURE.md) |
 | compiler / tester / qualifier | [Build, tests et validation](developer/BUILD_AND_TEST.md) |
+| analyse statique SpotBugs (profil, commandes, rapports, dépannage) | [SpotBugs](developer/SPOTBUGS.md) |
 | analyse statique et tests de mutation (SpotBugs, PIT) | [Audit de code](developer/CODE_AUDIT.md) |
 | Provider SDK | [Provider SDK](developer/PROVIDER_SDK.md) |
 | portfolio | [Portfolio Intelligence](developer/PORTFOLIO_INTELLIGENCE.md) |
