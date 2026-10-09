@@ -3,7 +3,11 @@ package com.morpheus.api;
 import java.util.List;
 import java.util.Objects;
 
-/** Computes the stable local HTTP Allow header without owning route execution or failures. */
+/**
+ * Computes the local HTTP Allow header from {@link MorpheusHttpRouteTable} without owning route execution or failures.
+ *
+ * <p>A path no route matches allows no method, which RFC 9110 writes as an empty {@code Allow}.</p>
+ */
 final class MorpheusHttpAllowedMethods {
     private final MorpheusHttpPathParser pathParser;
 
@@ -16,33 +20,8 @@ final class MorpheusHttpAllowedMethods {
         try {
             segments = pathParser.segments(path);
         } catch (RuntimeException ignored) {
-            return "GET";
+            return "";
         }
-        if (segments.isEmpty()) return "GET";
-        if (segments.size() == 2 && segments.getFirst().equals("provider-plugins")) {
-            return switch (segments.get(1)) {
-                case "discover" -> "GET";
-                case "probe" -> "POST";
-                default -> "GET";
-            };
-        }
-        if (segments.size() == 1 && (segments.getFirst().equals("projects") || segments.getFirst().equals("portfolios"))) {
-            return "GET, POST";
-        }
-        if (segments.getFirst().equals("portfolios")) {
-            if (segments.size() == 3 && (segments.get(2).equals("projects") || segments.get(2).equals("references"))) {
-                return "GET, POST";
-            }
-            if (segments.size() == 3 && segments.get(2).equals("traverse")) return "POST";
-            if (segments.size() == 5 && segments.get(2).equals("projects")
-                    && (segments.get(4).equals("missing") || segments.get(4).equals("freshness"))) return "POST";
-        }
-        if (segments.size() == 3 && segments.getFirst().equals("projects") && segments.get(2).equals("sync")) return "POST";
-        if (segments.size() == 5 && segments.getFirst().equals("projects")
-                && (segments.get(2).equals("requirements") || segments.get(2).equals("changes"))
-                && (segments.get(4).equals("augmented-context")
-                    || segments.get(4).equals("transition-check")
-                    || segments.get(4).equals("lifecycle-transitions"))) return "POST";
-        return "GET";
+        return MorpheusHttpRouteTable.allowHeader(segments);
     }
 }
