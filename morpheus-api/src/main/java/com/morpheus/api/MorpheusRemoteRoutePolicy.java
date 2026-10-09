@@ -130,6 +130,15 @@ final class MorpheusRemoteRoutePolicy {
         return role;
     }
 
+    /** The methods the route at {@code path} accepts, as an {@code Allow} value; empty when no route matches. */
+    static String allowedMethods(String path) {
+        try {
+            return MorpheusHttpRouteTable.allowHeader(apiSegments(path));
+        } catch (RoutePolicyException unrouted) {
+            return "";
+        }
+    }
+
     /**
      * The roles of {@code rules} by template, provided they name exactly the routes and methods of {@code surface}.
      *

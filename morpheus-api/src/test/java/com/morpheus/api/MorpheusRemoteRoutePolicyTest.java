@@ -154,6 +154,16 @@ class MorpheusRemoteRoutePolicyTest {
     }
 
     @Test
+    void allowedMethodsListTheMatchedRouteAndNothingForAnUnroutedPath() {
+        assertEquals("GET, PUT", MorpheusRemoteRoutePolicy.allowedMethods("/api/v1/saved-views/view-1"));
+        assertEquals("PUT", MorpheusRemoteRoutePolicy.allowedMethods("/api/v1/policy-packs/pack-1/overrides/rule-1"));
+        assertEquals("POST", MorpheusRemoteRoutePolicy.allowedMethods("/api/v1/server/backups"));
+        assertEquals("", MorpheusRemoteRoutePolicy.allowedMethods("/api/v1/future/read-model"));
+        assertEquals("", MorpheusRemoteRoutePolicy.allowedMethods("/api/v1/projects//health"));
+        assertEquals("", MorpheusRemoteRoutePolicy.allowedMethods("/other/projects"));
+    }
+
+    @Test
     void theRolesMustCoverTheRouteTableExactlyAndNameEachDefect() {
         Map<String, Set<String>> surface = Map.of("alpha", Set.of("GET"), "beta", Set.of("GET", "POST"));
 

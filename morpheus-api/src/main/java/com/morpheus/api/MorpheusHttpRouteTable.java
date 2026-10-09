@@ -135,13 +135,13 @@ final class MorpheusHttpRouteTable {
                 .findFirst();
     }
 
-    /** The methods of the route the segments match; empty when no route matches. */
-    static Set<String> methodsOf(List<String> segments) {
+    /** The methods of the route the segments match, as an {@code Allow} value; empty when no route matches. */
+    static String allowHeader(List<String> segments) {
         return ROUTES.stream()
                 .filter(route -> route.matches(segments))
-                .map(Route::methods)
+                .map(route -> String.join(", ", route.methods()))
                 .findFirst()
-                .orElse(Set.of());
+                .orElse("");
     }
 
     private static Route route(String template, String... methods) {

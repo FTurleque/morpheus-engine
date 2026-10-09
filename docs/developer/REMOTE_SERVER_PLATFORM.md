@@ -125,7 +125,7 @@ READ < WRITE < ADMIN
 
 `MorpheusRemoteRoutePolicy` porte une table exhaustive `(méthode HTTP, route) -> rôle minimum`. Il n'existe aucun fallback générique du type `GET/HEAD => READ` ou `mutation => WRITE`.
 
-Les routes et leurs méthodes viennent de `MorpheusHttpRouteTable`, qui ne connaît aucun rôle et dont l'en-tête `Allow` local est aussi calculé. La politique refuse de se charger (`IllegalStateException`) si ses entrées ne couvrent pas exactement ces routes et ces méthodes : une route sans rôle, un rôle pour une route ou une méthode non déclarée, ou une entrée en double.
+Les routes et leurs méthodes viennent de `MorpheusHttpRouteTable`, qui ne connaît aucun rôle et dont l'en-tête `Allow` local est aussi calculé. La politique refuse de se charger (`IllegalStateException`) si ses entrées ne couvrent pas exactement ces routes et ces méthodes : une route sans rôle, un rôle pour une route ou une méthode non déclarée, ou une entrée en double. Un `405` décidé par le serveur remote lui-même, avant tout proxy, porte un en-tête `Allow` lu dans la même table ; un `405` proxifié recopie celui du serveur local, calculé de la même façon.
 
 Sémantique fail-closed :
 

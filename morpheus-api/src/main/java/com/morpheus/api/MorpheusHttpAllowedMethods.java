@@ -22,6 +22,6 @@ final class MorpheusHttpAllowedMethods {
         } catch (RuntimeException ignored) {
             return "";
         }
-        return String.join(", ", MorpheusHttpRouteTable.methodsOf(segments));
+        return MorpheusHttpRouteTable.allowHeader(segments);
     }
 }

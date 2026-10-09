@@ -43,7 +43,7 @@ class LocalHttpAllowedMethodsArchitectureTest {
         assertTrue(allowed.contains("final class MorpheusHttpAllowedMethods"));
         assertTrue(allowed.contains("String forPath(String path)"));
         assertTrue(allowed.contains("MorpheusHttpPathParser"));
-        assertTrue(allowed.contains("MorpheusHttpRouteTable.methodsOf(segments)"));
+        assertTrue(allowed.contains("MorpheusHttpRouteTable.allowHeader(segments)"));
         assertFalse(allowed.contains(".equals(\""), "the Allow header is read from the route table, not matched by hand");
         assertFalse(allowed.contains("HttpExchange"));
         assertFalse(allowed.contains("ApiFailure"));
