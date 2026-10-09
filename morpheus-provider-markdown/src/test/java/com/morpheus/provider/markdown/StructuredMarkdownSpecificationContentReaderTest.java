@@ -155,6 +155,26 @@ class StructuredMarkdownSpecificationContentReaderTest {
     }
 
     @Test
+    void aByteOrderMarkBeforeTheFirstBlockIsAccepted() throws Exception {
+        Path source = workspace.resolve(StructuredMarkdownSpecificationProvider.SOURCE_FILE);
+        Files.createDirectories(source.getParent());
+        Files.writeString(source, "\uFEFF" + """
+                ```morpheus specification
+                key=core
+                title=Core
+                ```
+                """);
+
+        EntityIdentityResolver identities = (providerId, entityType, externalId) -> DomainIdentity.generate();
+        var content = new StructuredMarkdownSpecificationContentReader()
+                .read(ProviderReadRequest.all(workspace, ProjectSpecificationId.generate()), identities)
+                .content()
+                .orElseThrow();
+
+        assertEquals(1, content.specifications().size(), content.diagnostics().toString());
+    }
+
+    @Test
     void invalidRelationFailsExplicitlyInsteadOfInventingIdentity() throws Exception {
         Path source = workspace.resolve(StructuredMarkdownSpecificationProvider.SOURCE_FILE);
         Files.createDirectories(source.getParent());

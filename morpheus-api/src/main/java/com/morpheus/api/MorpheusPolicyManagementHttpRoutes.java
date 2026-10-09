@@ -29,19 +29,21 @@ final class MorpheusPolicyManagementHttpRoutes {
 
     private final Path databasePath;
     private final MorpheusHttpRequestDecoder requestDecoder;
+    private final MorpheusHttpAllowedMethods allowedMethods;
     private final MorpheusHttpResponseWriter responseWriter;
 
     private MorpheusPolicyManagementHttpRoutes(Path databasePath, MorpheusHttpRequestDecoder requestDecoder,
-            MorpheusHttpResponseWriter responseWriter) {
+            MorpheusHttpAllowedMethods allowedMethods, MorpheusHttpResponseWriter responseWriter) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
         this.requestDecoder = Objects.requireNonNull(requestDecoder, "requestDecoder");
+        this.allowedMethods = Objects.requireNonNull(allowedMethods, "allowedMethods");
         this.responseWriter = Objects.requireNonNull(responseWriter, "responseWriter");
     }
 
     static void register(HttpServer server, Path databasePath, MorpheusHttpRequestDecoder requestDecoder,
-            MorpheusHttpResponseWriter responseWriter) {
+            MorpheusHttpAllowedMethods allowedMethods, MorpheusHttpResponseWriter responseWriter) {
         MorpheusPolicyManagementHttpRoutes routes = new MorpheusPolicyManagementHttpRoutes(databasePath,
-                requestDecoder, responseWriter);
+                requestDecoder, allowedMethods, responseWriter);
         server.createContext(ACTIVATION_CONTEXT, routes::handleActivations);
         server.createContext(REMOVE_OVERRIDE_CONTEXT, routes::handleRemoveOverride);
     }
@@ -96,7 +98,7 @@ final class MorpheusPolicyManagementHttpRoutes {
             responseWriter.send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("REVISION_CONFLICT", safeMessage(failure), Map.of())));
         } catch (ApiFailure failure) {
             if (failure.status() == 405) {
-                exchange.getResponseHeaders().set("Allow", exchange.getRequestURI().getPath().equals(ACTIVATION_CONTEXT) ? "GET" : "POST");
+                exchange.getResponseHeaders().set("Allow", allowedMethods.forPath(exchange.getRequestURI().getPath()));
             }
             responseWriter.send(exchange, failure.status(), new ApiErrorEnvelope("v1", new ApiError(failure.code(), failure.getMessage(), failure.details())));
         } catch (IllegalArgumentException failure) {

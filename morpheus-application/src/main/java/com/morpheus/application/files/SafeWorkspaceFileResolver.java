@@ -21,6 +21,7 @@ import java.util.Objects;
  */
 public final class SafeWorkspaceFileResolver {
     private static final int DEFAULT_MAX_UTF8_BYTES = 1024 * 1024;
+    private static final String BYTE_ORDER_MARK = "\uFEFF";
 
     private final Path lexicalRoot;
     private final Path realRoot;
@@ -166,13 +167,18 @@ public final class SafeWorkspaceFileResolver {
         return sameIdentity(expectedAttributes, verificationAfter);
     }
 
+    /**
+     * Decodes strict UTF-8 and drops one leading byte order mark, which editors on Windows write and which is an
+     * encoding signature, not content. A second one, or one inside the text, is content and is kept.
+     */
     private String decodeStrictUtf8(byte[] content, Path relativePath) {
         try {
-            return StandardCharsets.UTF_8.newDecoder()
+            String text = StandardCharsets.UTF_8.newDecoder()
                     .onMalformedInput(CodingErrorAction.REPORT)
                     .onUnmappableCharacter(CodingErrorAction.REPORT)
                     .decode(ByteBuffer.wrap(content))
                     .toString();
+            return text.startsWith(BYTE_ORDER_MARK) ? text.substring(BYTE_ORDER_MARK.length()) : text;
         } catch (CharacterCodingException failure) {
             throw new IllegalArgumentException(
                     "workspace file is not valid UTF-8: " + WorkspaceRelativePathText.of(relativePath), failure);
