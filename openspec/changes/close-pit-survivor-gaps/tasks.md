@@ -126,4 +126,13 @@ Every test asserts the message, value or order that kills its mutations (`rules/
   `QueryExecutionService` mutations detected only by a timeout of lot X2 (`cli`) and two killed only by X2's adapter
   suites: application tests now kill them, except `boundedRows`, redundant. Recorded as § 12 of
   `docs/audits/AUDIT_OUTILLE_2026-10-08.md`.
-- [ ] 5.2 Run `./mvnw clean verify` and the persistence parity tests; verify the test ratchets of `config/m21-quality-ratchets.properties` still hold and record whether a ratchet can rise (`coverage-ratchet` skill)
+- [x] 5.2 Run `./mvnw clean verify` and the persistence parity tests; verify the test ratchets of `config/m21-quality-ratchets.properties` still hold and record whether a ratchet can rise (`coverage-ratchet` skill)
+
+  `clean verify` of `2e1ee9e0` green in WSL (2026-10-09): 3,830 executions, 0 failures, 3 skipped by assumption,
+  590 architecture executions; the eight `*PersistenceParityTest` classes pass. Every ratchet holds. Measured on Linux
+  only: per module 69.44 % lines (20,307 / 29,245) and 61.58 % branches (6,359 / 10,326), aggregate 90.31 % and
+  76.11 % — each above its qualified ceiling (64.93 % / 57.24 % per module, 85.73 % / 68.52 % aggregate, qualified on
+  2026-09-22). A ratchet can therefore rise only to its ceiling (per module 0.649 / 0.572, aggregate 0.857 / 0.685);
+  going further means requalifying the ceilings, which needs Windows and Linux measurements of one SHA. Not done in
+  this change: the evidence to use is the `m21-integrity-<OS>` artifacts of `develop` once this change is merged, and
+  a requalification touches every destination `rules/meta.md` lists. Left to a dedicated change.
