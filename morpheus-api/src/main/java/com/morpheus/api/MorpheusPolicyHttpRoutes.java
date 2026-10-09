@@ -27,23 +27,27 @@ final class MorpheusPolicyHttpRoutes {
 
     private final MorpheusPolicyApiService service;
     private final MorpheusHttpRequestDecoder requestDecoder;
+    private final MorpheusHttpAllowedMethods allowedMethods;
     private final MorpheusHttpResponseWriter responseWriter;
 
     private MorpheusPolicyHttpRoutes(Path databasePath, MorpheusHttpRequestDecoder requestDecoder,
-            MorpheusHttpResponseWriter responseWriter) {
+            MorpheusHttpAllowedMethods allowedMethods, MorpheusHttpResponseWriter responseWriter) {
         service = new MorpheusPolicyApiService(databasePath);
         this.requestDecoder = Objects.requireNonNull(requestDecoder, "requestDecoder");
+        this.allowedMethods = Objects.requireNonNull(allowedMethods, "allowedMethods");
         this.responseWriter = Objects.requireNonNull(responseWriter, "responseWriter");
     }
 
     static void register(HttpServer server, Path databasePath, MorpheusHttpRequestDecoder requestDecoder,
-            MorpheusHttpResponseWriter responseWriter) {
+            MorpheusHttpAllowedMethods allowedMethods, MorpheusHttpResponseWriter responseWriter) {
         Objects.requireNonNull(server, "server");
-        MorpheusPolicyHttpRoutes routes = new MorpheusPolicyHttpRoutes(databasePath, requestDecoder, responseWriter);
+        MorpheusPolicyHttpRoutes routes = new MorpheusPolicyHttpRoutes(databasePath, requestDecoder, allowedMethods,
+                responseWriter);
         server.createContext(PACK_CONTEXT, routes::handlePacks);
         server.createContext(POLICY_CONTEXT, routes::handlePolicies);
         server.createContext(OVERRIDE_CONTEXT, routes::handleOverrides);
-        MorpheusPolicyManagementHttpRoutes.register(server, databasePath, requestDecoder, responseWriter);
+        MorpheusPolicyManagementHttpRoutes.register(server, databasePath, requestDecoder, allowedMethods,
+                responseWriter);
     }
 
     private void handlePacks(HttpExchange exchange) throws IOException {
@@ -132,6 +136,10 @@ final class MorpheusPolicyHttpRoutes {
     private void handleOverrides(HttpExchange exchange) throws IOException {
         handle(exchange, () -> {
             requireMethod(exchange, "GET");
+            // The context also receives every deeper path; the list is served at its own path only.
+            if (!suffixSegments(exchange.getRequestURI().getPath(), OVERRIDE_CONTEXT).isEmpty()) {
+                throw ApiFailure.notFound("unknown policy-overrides route");
+            }
             requestDecoder.requireEmptyBody(exchange);
             MorpheusHttpQuery query = MorpheusHttpQuery.parse(exchange.getRequestURI().getRawQuery());
             query.rejectUnknown(Set.of("scopeKind", "scopeId"));
@@ -146,7 +154,9 @@ final class MorpheusPolicyHttpRoutes {
         } catch (PolicyConflictException failure) {
             responseWriter.send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("REVISION_CONFLICT", safeMessage(failure), Map.of())));
         } catch (ApiFailure failure) {
-            if (failure.status() == 405) exchange.getResponseHeaders().set("Allow", allowed(exchange.getRequestURI().getPath()));
+            if (failure.status() == 405) {
+                exchange.getResponseHeaders().set("Allow", allowedMethods.forPath(exchange.getRequestURI().getPath()));
+            }
             responseWriter.send(exchange, failure.status(), new ApiErrorEnvelope("v1", new ApiError(failure.code(), failure.getMessage(), failure.details())));
         } catch (IllegalArgumentException failure) {
             responseWriter.send(exchange, 400, new ApiErrorEnvelope("v1", new ApiError("BAD_REQUEST", safeMessage(failure), Map.of())));
@@ -182,13 +192,6 @@ final class MorpheusPolicyHttpRoutes {
             result.add(URLDecoder.decode(segment, StandardCharsets.UTF_8));
         }
         return List.copyOf(result);
-    }
-
-    private String allowed(String path) {
-        if (path.equals(PACK_CONTEXT)) return "GET, POST";
-        if (path.startsWith(PACK_CONTEXT + "/") && suffixSegments(path, PACK_CONTEXT).size() == 1) return "GET, PUT";
-        if (path.equals(OVERRIDE_CONTEXT)) return "GET";
-        return "POST";
     }
 
     private static String safeMessage(Throwable failure) {

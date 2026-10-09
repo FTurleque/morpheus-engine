@@ -46,12 +46,6 @@ public final class OpenSpecRequirementDeltaReader {
             "^##\\s+RENAMED\\s+Requirements\\s*$",
             Pattern.CASE_INSENSITIVE);
     private static final String SECTION_PREFIX = "## ";
-    private static final String UPSTREAM_WHITESPACE =
-            "[\\t\\n\\u000B\\f\\r \\u00A0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000\\uFEFF]";
-    private static final Pattern OPENING_FENCE = Pattern.compile(
-            "^" + UPSTREAM_WHITESPACE + "*(`{3,}|~{3,})");
-    private static final Pattern CLOSING_FENCE = Pattern.compile(
-            "^" + UPSTREAM_WHITESPACE + "*(`{3,}|~{3,})" + UPSTREAM_WHITESPACE + "*$");
     private static final Pattern REQUIREMENT_HEADING = Pattern.compile("^###\\s+Requirement:\\s*(.+?)\\s*$");
     private static final Pattern SCENARIO_HEADING = Pattern.compile("^####\\s+Scenario:\\s*(.+?)\\s*$");
     private static final Pattern SCENARIO_STEP = Pattern.compile(
@@ -147,8 +141,7 @@ public final class OpenSpecRequirementDeltaReader {
         List<String> lines = readAllLines(workspaceRoot, specificationFile, budget);
         String specificationKey = specificationKey(specsRoot, specificationFile);
         SourceLocator source = SourceLocator.file(workspaceRoot.relativize(specificationFile).toString());
-        CodeFences fences = codeFences(lines);
-        boolean[] fenced = fences.fenced();
+        OpenSpecCodeFences fences = OpenSpecCodeFences.of(lines);
         int unclosedOpening = fences.unclosedOpening();
         RequirementDeltaKind currentKind = null;
         int skippedRequirements = 0;
@@ -156,11 +149,11 @@ public final class OpenSpecRequirementDeltaReader {
         for (int index = 0; index < lines.size(); index++) {
             String line = lines.get(index);
             Matcher section = DELTA_SECTION.matcher(line);
-            if (section.matches() && !fenced[index]) {
+            if (section.matches() && !fences.isFenced(index)) {
                 currentKind = RequirementDeltaKind.valueOf(section.group(1).toUpperCase(Locale.ROOT));
                 continue;
             }
-            if (isSectionHeading(line) && !fenced[index]) {
+            if (isSectionHeading(line) && !fences.isFenced(index)) {
                 currentKind = null;
                 if (!UNNORMALIZED_DELTA_SECTION.matcher(line).matches()) {
                     diagnostics.add(warning(
@@ -256,6 +249,11 @@ public final class OpenSpecRequirementDeltaReader {
                 OpenSpecSpecificationProvider.ID,
                 "requirement-delta",
                 deltaExternalId));
+        // Refused here, inside the file's attribution: the same refusal raised later by NormalizedProjectContent
+        // escapes the reader and names no file.
+        if (deltas.stream().anyMatch(existing -> existing.id().equals(deltaId))) {
+            throw new IllegalArgumentException("OpenSpec delta declares the same requirement twice: " + title);
+        }
 
         int firstScenario = endExclusive;
         for (int index = start + 1; index < endExclusive; index++) {
@@ -291,7 +289,7 @@ public final class OpenSpecRequirementDeltaReader {
             int scenarioEnd = index + 1 < scenarioHeadings.size()
                     ? scenarioHeadings.get(index + 1)
                     : endExclusive;
-            deltaScenarios.add(normalizeScenario(
+            Scenario scenario = normalizeScenario(
                     lines,
                     scenarioStart,
                     scenarioEnd,
@@ -302,7 +300,13 @@ public final class OpenSpecRequirementDeltaReader {
                     source,
                     identities,
                     evidence,
-                    budget));
+                    budget);
+            if (deltaScenarios.stream().anyMatch(existing -> existing.id().equals(scenario.id()))) {
+                throw new IllegalArgumentException(
+                        "OpenSpec delta declares the same scenario twice in requirement " + title + ": "
+                                + scenario.title());
+            }
+            deltaScenarios.add(scenario);
         }
 
         deltas.add(new RequirementDelta(
@@ -408,46 +412,6 @@ public final class OpenSpecRequirementDeltaReader {
 
     private static boolean isSectionHeading(String line) {
         return line.startsWith(SECTION_PREFIX);
-    }
-
-    /**
-     * Marks every line of a fenced code block, delimiters included, by the rules of upstream OpenSpec's
-     * {@code buildCodeFenceMask}, the format these files are written for: a fence opens on a run of three or more
-     * backticks or tildes after any whitespace, whatever follows, and closes only on a run of its own character at
-     * least as long as the opening one with nothing but whitespace after it. Whitespace is JavaScript's {@code \s}.
-     * A fence that never closes masks the rest of the file, as upstream does; unlike upstream, the line that opened it
-     * is reported, so the caller can say that it read a file whose structure escaped it.
-     */
-    private static CodeFences codeFences(List<String> lines) {
-        boolean[] fenced = new boolean[lines.size()];
-        String opening = null;
-        int openingIndex = -1;
-        for (int index = 0; index < lines.size(); index++) {
-            String line = lines.get(index);
-            if (opening == null) {
-                Matcher fence = OPENING_FENCE.matcher(line);
-                if (fence.lookingAt()) {
-                    opening = fence.group(1);
-                    openingIndex = index;
-                    fenced[index] = true;
-                }
-                continue;
-            }
-            fenced[index] = true;
-            Matcher fence = CLOSING_FENCE.matcher(line);
-            if (fence.matches()
-                    && fence.group(1).charAt(0) == opening.charAt(0)
-                    && fence.group(1).length() >= opening.length()) {
-                opening = null;
-            }
-        }
-        return opening == null
-                ? new CodeFences(fenced, -1, "")
-                : new CodeFences(fenced, openingIndex, opening);
-    }
-
-    /** The fence mask, and the opening line and run of a fence still open at the end of the file ({@code -1} if none). */
-    private record CodeFences(boolean[] fenced, int unclosedOpening, String unclosedRun) {
     }
 
     private record FileOutcome(int skippedRequirements, boolean unclosedCodeFence) {

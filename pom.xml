@@ -337,9 +337,18 @@
 
             Reports without failing: add -Dspotbugs.failOnError=false. The blocking check is the same run
             without it. See docs/developer/CODE_AUDIT.md.
+
+            Test bytecode is a separate question with a separate report: -Dspotbugs.audit.includeTests=true
+            -Dspotbugs.audit.xmlOutputFilename=spotbugsXml-with-tests.xml analyses target/classes and
+            target/test-classes together without overwriting the production report. The defaults keep the
+            production-only analysis.
         -->
         <profile>
             <id>audit-spotbugs</id>
+            <properties>
+                <spotbugs.audit.includeTests>false</spotbugs.audit.includeTests>
+                <spotbugs.audit.xmlOutputFilename>spotbugsXml.xml</spotbugs.audit.xmlOutputFilename>
+            </properties>
             <build>
                 <plugins>
                     <plugin>
@@ -358,7 +367,8 @@
                             <threshold>Medium</threshold>
                             <maxRank>20</maxRank>
                             <maxAllowedViolations>0</maxAllowedViolations>
-                            <includeTests>false</includeTests>
+                            <includeTests>${spotbugs.audit.includeTests}</includeTests>
+                            <spotbugsXmlOutputFilename>${spotbugs.audit.xmlOutputFilename}</spotbugsXmlOutputFilename>
                             <xmlOutput>true</xmlOutput>
                             <htmlOutput>true</htmlOutput>
                             <excludeFilterFile>${maven.multiModuleProjectDirectory}/config/spotbugs-exclude.xml</excludeFilterFile>
@@ -385,11 +395,14 @@
 
             PIT runs the tests of the module it is launched in. A test living in another module (the
             architecture tests, for instance) is not on this classpath and cannot kill a mutation, whatever the
-            targetTests pattern says. See docs/developer/CODE_AUDIT.md.
+            targetTests pattern says. -Dpit.crossModule=true lifts that limit in the other direction: launched in
+            a downstream module of the reactor, PIT then also mutates the upstream classes named by
+            pit.targetClasses and kills them with the downstream tests. See docs/developer/CODE_AUDIT.md.
         -->
         <profile>
             <id>audit-mutation</id>
             <properties>
+                <pit.crossModule>false</pit.crossModule>
                 <pit.targetClasses>com.morpheus.domain.constraint.*,com.morpheus.domain.change.lifecycle.*</pit.targetClasses>
                 <pit.targetTests>com.morpheus.domain.constraint.*,com.morpheus.domain.change.lifecycle.*</pit.targetTests>
                 <pit.threads>2</pit.threads>
@@ -422,6 +435,15 @@
                             <timeoutConstant>${pit.timeoutConstant}</timeoutConstant>
                             <timeoutFactor>${pit.timeoutFactor}</timeoutFactor>
                             <coverageThreshold>${pit.coverageThreshold}</coverageThreshold>
+                            <crossModule>${pit.crossModule}</crossModule>
+                            <!--
+                                PIT does not read Surefire's systemPropertyVariables: without this, the minion sees
+                                ProductMetadata.version() as "development" and the version-dependent tests of
+                                morpheus-application fail before any mutation, which PIT refuses as a red suite.
+                            -->
+                            <jvmArgs>
+                                <jvmArg>-Dmorpheus.project.version=${project.version}</jvmArg>
+                            </jvmArgs>
                             <outputFormats>
                                 <outputFormat>HTML</outputFormat>
                                 <outputFormat>XML</outputFormat>

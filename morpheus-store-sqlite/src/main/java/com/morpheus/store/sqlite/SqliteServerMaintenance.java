@@ -175,18 +175,36 @@ public final class SqliteServerMaintenance {
                         "SELECT COALESCE(MAX(version), 0) FROM schema_migrations")) {
                     version = result.next() ? result.getInt(1) : 0;
                 }
-            }
-            if (version <= 0) {
-                throw new IllegalArgumentException("backup does not contain a MORPHEUS migration ledger");
-            }
-            if (version > SUPPORTED_SCHEMA_VERSION) {
-                throw new IllegalArgumentException(
-                        "backup schema version " + version + " is newer than supported " + SUPPORTED_SCHEMA_VERSION);
+                if (version <= 0) {
+                    throw new IllegalArgumentException("backup does not contain a MORPHEUS migration ledger");
+                }
+                if (version > SUPPORTED_SCHEMA_VERSION) {
+                    throw new IllegalArgumentException(
+                            "backup schema version " + version + " is newer than supported " + SUPPORTED_SCHEMA_VERSION);
+                }
+                rejectUnacceptedLedger(statement);
             }
             return new BackupVerification(backup, bytes, sha256(backup), version, true);
         } catch (SQLException | IOException failure) {
             if (failure instanceof IllegalArgumentException illegal) throw illegal;
             throw new KnowledgeStoreException("Cannot verify SQLite server backup", failure);
+        }
+    }
+
+    /**
+     * The restore discards the live database once the backup is in place: a ledger the store would refuse to open has
+     * to be refused here, while the live database is still there.
+     */
+    private static void rejectUnacceptedLedger(Statement statement) throws SQLException {
+        try (ResultSet ledger = statement.executeQuery(
+                "SELECT version, name, checksum FROM schema_migrations ORDER BY version")) {
+            while (ledger.next()) {
+                int recorded = ledger.getInt("version");
+                if (!SqliteSchemaManager.accepts(recorded, ledger.getString("name"), ledger.getString("checksum"))) {
+                    throw new IllegalArgumentException(
+                            "backup migration history is not accepted by this runtime for version " + recorded);
+                }
+            }
         }
     }
 

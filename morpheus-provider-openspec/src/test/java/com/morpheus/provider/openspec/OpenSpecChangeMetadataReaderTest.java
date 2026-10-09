@@ -56,6 +56,24 @@ class OpenSpecChangeMetadataReaderTest {
     }
 
     @Test
+    void aProposalWrittenFromTheCliTemplateTakesItsTitleFromTheDirectoryAndItsIntentFromWhy() {
+        var content = new OpenSpecChangeMetadataReader().read(
+                fixture("openspec-upstream-cli"),
+                ProjectSpecificationId.generate(),
+                new StableTestIdentityResolver());
+
+        var change = content.changes().getFirst();
+        assertEquals(1, content.changes().size());
+        assertEquals("add-remember-me", change.title());
+        assertEquals(
+                "Users who sign in from a personal device ask to stay authenticated across the 30-minute inactivity "
+                        + "limit.",
+                change.intent());
+        assertTrue(content.constraints().isEmpty());
+        assertTrue(content.designDecisions().isEmpty());
+    }
+
+    @Test
     void anonymousConstraintAndTaskKeysAreStructuralNotTextDerived() {
         var content = new OpenSpecChangeMetadataReader().read(
                 fixture("openspec-basic"),

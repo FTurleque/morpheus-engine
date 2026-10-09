@@ -933,3 +933,91 @@ HTTP ; les lignes `diagnostic=` retirées, le test CLI ; la projection remote re
 projection ; `BoundedDiagnostics.remote` remplacé par `.local` dans `MorpheusProjectSyncApiService`, les deux règles
 ArchUnit et le test HTTP ; `truncationReason` retiré du `required` publié de `BoundedDiagnostics`, le test de forme ;
 `diagnostics` retiré du `required` de `SyncResult`, le test HTTP.
+
+## Amendement du 8 octobre 2026 (PRV-AUD-1 à 4) — le provider lit les gabarits de la CLI OpenSpec et contient ses échecs
+
+### Le défaut
+
+La sonde annonce le schéma `spec-driven` SUPPORTED, mais le lecteur de changements n'accepte que le dialecte d'origine
+(`# Proposal: <titre>`, `## Intent`). Les gabarits `spec-driven` de la CLI OpenSpec écrivent `# Proposal`, `## Why`,
+`## What Changes`, `## Capabilities`, `## Impact` : un espace de travail produit par l'outil dont le provider porte le nom
+voyait CHANGES, REQUIREMENT_DELTAS, CONSTRAINTS, DESIGN_DECISIONS et IMPLEMENTATION_TASKS passer `FAILED` (mesuré sur
+l'`openspec/` de ce dépôt, CLI 1.14.1). Trois défauts voisins, reproduits par exécution : une exigence dupliquée dans un
+delta faisait **lever** `read()` (`duplicate requirement delta identity`) au lieu d'un `FAILED` attribué ; un BOM UTF-8
+en tête de `config.yaml` ou de `spec.md` produisait « does not declare a schema » ou « has no title » ; le lecteur de
+spécification courante publiait une exigence écrite en exemple dans un bloc de code, et ajoutait à la dernière exigence
+le texte d'une section `## …` qui la suivait (audit `docs/audits/AUDIT_OUTILLE_2026-10-08.md`).
+
+### Décision
+
+- **Deux dialectes de proposal sont lus**, décision du mainteneur du 8 octobre 2026. Le titre vient de
+  `# Proposal: <titre>` quand il est présent, sinon du nom du répertoire du changement ; l'intention vient de
+  `## Intent` quand elle est présente, sinon de `## Why`. Le dialecte d'origine est lu à l'identique. Les gabarits de la
+  CLI n'ont pas de section de contraintes et écrivent les décisions de conception en texte libre : pour un tel
+  changement, CONSTRAINTS et DESIGN_DECISIONS sont `ABSENT` — rien n'est inventé, et rien n'échoue (décision du
+  mainteneur du 8 octobre 2026 ; lire ces décisions en texte libre reste une évolution possible, non décidée).
+- **Version de référence** : les gabarits de la CLI OpenSpec 1.14.1, épinglés par la fixture
+  `experiments/m0/fixtures/openspec-upstream-cli` (générée par la CLI, version dans son README). Une évolution des
+  gabarits se constate par un test en échec, pas chez un utilisateur.
+- **Un échec reste un échec attribué** : un doublon d'exigence ou de scénario dans un delta ou dans une spécification
+  courante est détecté par le lecteur, là où le fichier est connu, et produit `FAILED` avec un `INVALID_SOURCE` dont la
+  source est le chemin du fichier relatif au workspace ; aucune exception ne sort de `read()` pour un contenu lu.
+- **Un changement mal formé n'emporte pas les autres.** Le lecteur de contenu lit chaque changement séparément : un
+  changement dont la lecture échoue pour une raison attribuée à l'un de ses fichiers est rejeté **en entier** (rien de
+  ce qui a été lu avant l'échec n'est publié) et nommé par un `INVALID_SOURCE` du groupe `changes` dont la source est
+  ce fichier. Les autres sont publiés. CHANGES, CONSTRAINTS, DESIGN_DECISIONS et IMPLEMENTATION_TASKS passent alors
+  `PARTIAL` (`[PARTIAL_INGESTION, INVALID_SOURCE]`), **même à zéro élément** : ce que portait le changement rejeté est
+  inconnu, son silence n'est pas une absence. Ils restent `FAILED` si aucun changement n'a pu être lu. Les deltas d'un
+  changement rejeté sont retirés avec leurs preuves, puisqu'ils désigneraient un changement non publié, et
+  REQUIREMENT_DELTAS passe `PARTIAL` quand il en retire. Un échec qui n'est pas attribuable à un fichier (défaut,
+  magasin d'identités) fait toujours échouer tout le groupe. Le lecteur strict de `sync`
+  (`OpenSpecProjectContentReader`) n'est pas concerné : il refuse toujours l'espace de travail entier.
+- **Un BOM UTF-8 initial est retiré au décodage** par `SafeWorkspaceFileResolver`, une seule fois et seulement en tête :
+  un second BOM, ou un BOM au milieu du texte, est du contenu. Le résolveur sert aussi des lecteurs hors providers
+  (`RemoteIdentityFileStore`) : un fichier d'identités précédé d'un BOM, refusé jusqu'ici par l'analyse JSON, est
+  désormais lu, ce qui ne relâche aucune vérification de son contenu. Une valeur de `schema:` entre guillemets simples
+  ou doubles est acceptée ; des guillemets dépareillés ne déclarent aucun schéma.
+- **Les sections de la spécification courante suivent la structure Markdown** : une exigence se termine à la suivante ou
+  à la prochaine section de niveau deux, et un titre `### Requirement:` ou `## …` écrit dans un bloc de code n'ouvre ni
+  ne ferme rien, pas plus que dans `## Purpose`. Le masque est celui du lecteur de deltas, extrait sans changement de
+  règle dans `OpenSpecCodeFences` (les deux lecteurs le partagent ; les références `OpenSpecRequirementDeltaReader.java:51-54`
+  des amendements précédents désignent désormais cette classe). Un bloc jamais fermé dans une spécification courante
+  est traité comme dans un delta : il masque la fin du fichier, il est nommé par un `UNCLOSED_CODE_FENCE` (source,
+  ligne d'ouverture, suite d'ouverture) et les catégories courantes passent `PARTIAL`
+  (`[PARTIAL_INGESTION, UNCLOSED_CODE_FENCE]`) au lieu de perdre en silence les exigences masquées.
+
+### Hors périmètre, constaté
+
+- **Le lecteur courant va plus loin que le lecteur de deltas, délibérément.** Dans un delta, `### Requirement:` écrit
+  dans un bloc reste interprété, et `requirementEnd` n'utilise pas le masque : une ligne `## ` dans un bloc fermé au
+  milieu d'une exigence en perd la suite, sans diagnostic (constat déjà consigné plus haut). Le corriger changerait des
+  `statement` que `OpenSpecRequirementDeltaReaderTest#aLevelTwoLineInsideACodeFenceNeitherEndsTheSectionNorWarns`
+  fige ; ce changement ne le fait pas. Un essai l'a mesuré : rendre `requirementEnd` sensible au masque fait tomber
+  cinq tests du lecteur de deltas, dont deux qui perdent le compte d'une exigence placée après un bloc jamais fermé.
+- Un `#### Scenario:` écrit dans un bloc reste, dans les deux lecteurs, rattaché à l'exigence qui le contient.
+
+### Preuves exécutables ajoutées
+
+- `OpenSpecSpecificationContentReaderTest#aWorkspaceProducedByTheOpenSpecCliIsRead` — la fixture générée par la CLI
+  1.14.1 : six catégories `READ`, CONSTRAINTS et DESIGN_DECISIONS `ABSENT`, aucun diagnostic.
+- `OpenSpecChangeMetadataReaderTest#normalizesProposalConstraintsDecisionsTasksAndEvidenceFromM0Fixture` (dialecte
+  d'origine, inchangé) et `#aProposalWrittenFromTheCliTemplateTakesItsTitleFromTheDirectoryAndItsIntentFromWhy`.
+- `OpenSpecSpecificationContentReaderTest#aRequirementDuplicatedInADeltaFailsItsCategoryAndNamesTheFileWithoutThrowing`,
+  `#aScenarioDuplicatedInADeltaFailsItsCategoryAndNamesTheFile`,
+  `#aRequirementDuplicatedInACurrentSpecificationFailsAndNamesTheFile`.
+- `#oneMalformedChangeNamesItsProposalAndLeavesTheValidChangeReadAsPartial` — deux changements, l'un sans intention :
+  la source nommée est son `proposal.md`, le valide est publié, CONSTRAINTS est `PARTIAL` à zéro, le delta et la preuve
+  du changement rejeté ne sont pas publiés ; `#whenEveryChangeIsMalformedTheChangeCategoriesFail`.
+- `#aByteOrderMarkBeforeTheSchemaIsAccepted`, `#aByteOrderMarkBeforeASpecificationTitleIsAccepted`,
+  `SafeWorkspaceFileResolverTest#stripsOneLeadingByteOrderMarkAndKeepsAnyOther`,
+  `StructuredMarkdownSpecificationContentReaderTest#aByteOrderMarkBeforeTheFirstBlockIsAccepted`,
+  `SyntheticSpecificationProviderTest#aByteOrderMarkBeforeTheSourceIsAccepted`,
+  `OpenSpecSpecificationProviderTest#aSchemaWrittenAsAQuotedScalarIsTheSameSchema`,
+  `#aSchemaWithMismatchedQuotesIsNotRecognized`.
+- `OpenSpecCurrentSpecificationReaderTest#aRequirementHeadingInsideACodeFenceIsNotARequirement`,
+  `#aLevelTwoSectionAfterTheLastRequirementIsNotPartOfIt`,
+  `OpenSpecSpecificationContentReaderTest#anUnclosedFenceInACurrentSpecificationMakesItsCategoriesPartial`.
+- Le 8 octobre 2026, la lecture de l'`openspec/` de ce dépôt par le JAR construit (`morpheus-cli-1.2.1-all.jar`,
+  lecteur de contenu appelé directement, résolveur d'identités stable) ne rend aucune catégorie `FAILED` : six
+  changements, douze deltas, cinquante-sept tâches `READ` ; la synchronisation stricte `sync` de la CLI publie (code
+  0, quatre `UNRECOGNIZED_SECTION` sur la section `## Purpose` des deltas de ce dépôt).

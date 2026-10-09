@@ -1,5 +1,6 @@
 package com.morpheus.integration.mcp;
 
+import io.modelcontextprotocol.client.McpAsyncClient;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.json.McpJsonDefaults;
@@ -31,6 +32,20 @@ import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BoundedStdioClientTransportTest {
+    /**
+     * The SDK bounds {@code initialize} by the client's request timeout, and the initialize request leaves as soon
+     * as the peer process is spawned: that timeout therefore also covers the fixture JVM's start-up, which a loaded
+     * machine stretches well past a few seconds. No test here asserts start-up latency.
+     */
+    private static final Duration PEER_START_UP_BUDGET = Duration.ofSeconds(20);
+
+    /**
+     * How long a response past the inbound bound is given to show up. It never should: the transport drops it and
+     * fails closed, and the SDK leaves the pending request open when its transport fails, so the call can only end
+     * by timing out. A response wrongly let through would arrive well inside this window.
+     */
+    private static final Duration OVERSIZED_RESPONSE_WINDOW = Duration.ofSeconds(2);
+
     @TempDir
     Path tempDir;
 
@@ -38,7 +53,7 @@ class BoundedStdioClientTransportTest {
     void exchangesJsonRpcFramesOverRealStdioProcess() {
         BoundedStdioClientTransport transport = transport(64 * 1024);
         McpSyncClient client = McpClient.sync(transport)
-                .requestTimeout(Duration.ofSeconds(5))
+                .requestTimeout(PEER_START_UP_BUDGET)
                 .build();
         try {
             client.initialize();
@@ -134,7 +149,7 @@ class BoundedStdioClientTransportTest {
 
     private Set<String> recordedEnvironment(BoundedStdioClientTransport transport, Path record) throws Exception {
         transport.connect(message -> message).block();
-        BoundedWait.untilObserved("the peer to record its environment", Duration.ofSeconds(20),
+        BoundedWait.untilObserved("the peer to record its environment", PEER_START_UP_BUDGET,
                 BoundedWait.FILE_PUBLICATION_POLL, () -> Files.exists(record), published -> published);
         Set<String> received = new TreeSet<>();
         for (String key : Files.readAllLines(record)) {
@@ -260,17 +275,19 @@ class BoundedStdioClientTransportTest {
     @Test
     void terminatesPeerWhenRealInboundFrameExceedsTransportLimit() {
         BoundedStdioClientTransport transport = transport(2048);
-        McpSyncClient client = McpClient.sync(transport)
-                .requestTimeout(Duration.ofSeconds(2))
+        McpAsyncClient client = McpClient.async(transport)
+                .requestTimeout(PEER_START_UP_BUDGET)
                 .build();
         try {
-            client.initialize();
+            client.initialize().block();
             assertThrows(RuntimeException.class, () -> client.callTool(
-                    CallToolRequest.builder(FixtureBoundedMcpServer.TOOL_LARGE)
-                            .arguments(Map.of("size", 8192))
-                            .build()));
+                            CallToolRequest.builder(FixtureBoundedMcpServer.TOOL_LARGE)
+                                    .arguments(Map.of("size", 8192))
+                                    .build())
+                    .timeout(OVERSIZED_RESPONSE_WINDOW)
+                    .block());
         } finally {
-            client.closeGracefully();
+            client.closeGracefully().block();
         }
     }
 
@@ -284,7 +301,7 @@ class BoundedStdioClientTransportTest {
     void anOversizedOutboundRequestIsRefusedWithoutKillingThePeer() {
         BoundedStdioClientTransport transport = transport(4096);
         McpSyncClient client = McpClient.sync(transport)
-                .requestTimeout(Duration.ofSeconds(5))
+                .requestTimeout(PEER_START_UP_BUDGET)
                 .build();
         try {
             client.initialize();
@@ -310,15 +327,17 @@ class BoundedStdioClientTransportTest {
     @Test
     void anInboundFrameOverTheBoundStillFailsClosed() throws Exception {
         BoundedStdioClientTransport transport = transport(2048);
-        McpSyncClient client = McpClient.sync(transport)
-                .requestTimeout(Duration.ofSeconds(2))
+        McpAsyncClient client = McpClient.async(transport)
+                .requestTimeout(PEER_START_UP_BUDGET)
                 .build();
         try {
-            client.initialize();
+            client.initialize().block();
             assertThrows(RuntimeException.class, () -> client.callTool(
-                    CallToolRequest.builder(FixtureBoundedMcpServer.TOOL_LARGE)
-                            .arguments(Map.of("size", 8192))
-                            .build()));
+                            CallToolRequest.builder(FixtureBoundedMcpServer.TOOL_LARGE)
+                                    .arguments(Map.of("size", 8192))
+                                    .build())
+                    .timeout(OVERSIZED_RESPONSE_WINDOW)
+                    .block());
             BoundedWait.until(
                     "the transport to fail closed on an inbound frame past its bound",
                     Duration.ofSeconds(5),
@@ -326,7 +345,7 @@ class BoundedStdioClientTransportTest {
                     () -> transport.state() == BoundedStdioClientTransport.State.FAILED,
                     () -> "state=" + transport.state());
         } finally {
-            client.closeGracefully();
+            client.closeGracefully().block();
         }
     }
 
@@ -381,7 +400,7 @@ class BoundedStdioClientTransportTest {
             throw new RuntimeException("boom from stderr handler");
         });
         McpSyncClient client = McpClient.sync(transport)
-                .requestTimeout(Duration.ofSeconds(5))
+                .requestTimeout(PEER_START_UP_BUDGET)
                 .build();
         try {
             client.initialize();
