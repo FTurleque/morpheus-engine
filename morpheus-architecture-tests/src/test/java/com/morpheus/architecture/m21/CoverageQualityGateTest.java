@@ -9,6 +9,9 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -204,6 +207,76 @@ class CoverageQualityGateTest {
         whole.assertComplete();
     }
 
+    /**
+     * A report that predates the code it measures says nothing about that code. The reference is the module's
+     * sources and tests, not its {@code target/classes} directory: a directory's time moves only when an entry is
+     * created or removed in it, so a class file rewritten below it leaves it untouched and the report would always
+     * look newer. Times are set explicitly; a test that waited for the file system clock to tick would be one more
+     * flaky test.
+     */
+    @Test
+    void aReportOlderThanTheSourcesItMeasuresIsRefusedUnderItsOwnCause(@TempDir Path reactor) throws Exception {
+        Files.writeString(reactor.resolve("pom.xml"), """
+                <project>
+                  <modules>
+                    <module>fresh</module>
+                    <module>stale-main</module>
+                    <module>stale-test</module>
+                    <module>stale-nested</module>
+                    <module>never-built</module>
+                    <module>built-without-report</module>
+                  </modules>
+                </project>
+                """);
+        FileTime reportTime = FileTime.from(Instant.parse("2026-01-01T12:00:00Z"));
+        FileTime older = FileTime.from(reportTime.toInstant().minus(Duration.ofHours(1)));
+        FileTime newer = FileTime.from(reportTime.toInstant().plus(Duration.ofSeconds(1)));
+
+        for (String module : List.of("fresh", "stale-main", "stale-test", "stale-nested")) {
+            Path directory = reactor.resolve(module);
+            declareMainClass(directory);
+            Files.createDirectories(directory.resolve("src/test/java"));
+            Files.writeString(directory.resolve("src/test/java/PlaceholderTest.java"), "class PlaceholderTest {}");
+            Files.setLastModifiedTime(directory.resolve("src/main/java/Placeholder.java"), older);
+            Files.setLastModifiedTime(directory.resolve("src/test/java/PlaceholderTest.java"), older);
+            Files.createDirectories(directory.resolve("target/classes"));
+            Files.setLastModifiedTime(directory.resolve("target/classes"), older);
+            writeReport(directory);
+            Files.setLastModifiedTime(directory.resolve(PER_MODULE_REPORT), reportTime);
+        }
+        Files.setLastModifiedTime(reactor.resolve("stale-main/src/main/java/Placeholder.java"), newer);
+        Files.setLastModifiedTime(reactor.resolve("stale-test/src/test/java/PlaceholderTest.java"), newer);
+        Path nested = reactor.resolve("stale-nested/src/main/java/deep/er/pkg/Deep.java");
+        Files.createDirectories(nested.getParent());
+        Files.writeString(nested, "class Deep {}");
+        Files.setLastModifiedTime(nested, newer);
+        declareMainClass(reactor.resolve("never-built"));
+        declareMainClass(reactor.resolve("built-without-report"));
+        Files.createDirectories(reactor.resolve("built-without-report/target/classes"));
+
+        ReportPopulation population = reportPopulation(reactor);
+        assertEquals(1, population.reports().size(), "only the module whose report postdates its sources may be summed");
+        AssertionError refusal = assertThrows(AssertionError.class, population::assertComplete);
+        String message = refusal.getMessage();
+        for (String stale : List.of("stale-main", "stale-test", "stale-nested")) {
+            assertTrue(message.contains(stale), () -> "the refusal must name the module whose report is stale: " + message);
+        }
+        assertFalse(message.contains("fresh"), () -> "a module whose report postdates its sources is not stale: " + message);
+        assertTrue(message.contains("older than the sources it measures"),
+                () -> "the third cause must be named apart: " + message);
+        assertTrue(message.contains("never built") && message.contains("never-built"),
+                () -> "the first cause must still be named: " + message);
+        assertTrue(message.contains("built but emitted no report") && message.contains("built-without-report"),
+                () -> "the second cause must still be named: " + message);
+        assertTrue(message.contains("./mvnw clean verify"), () -> "the refusal must say what to run: " + message);
+
+        Files.setLastModifiedTime(reactor.resolve("stale-main/src/main/java/Placeholder.java"), older);
+        Files.setLastModifiedTime(reactor.resolve("stale-test/src/test/java/PlaceholderTest.java"), older);
+        Files.setLastModifiedTime(nested, older);
+        assertEquals(4, reportPopulation(reactor).reports().size(),
+                "once no source postdates its report, the four modules with a report are summed again");
+    }
+
     private static void declareMainClass(Path module) throws IOException {
         Path sources = module.resolve("src/main/java");
         Files.createDirectories(sources);
@@ -271,6 +344,7 @@ class CoverageQualityGateTest {
         List<Path> reports = new ArrayList<>();
         List<String> neverBuilt = new ArrayList<>();
         List<String> builtWithoutReport = new ArrayList<>();
+        List<String> stale = new ArrayList<>();
         for (String module : declaredModules(root)) {
             Path directory = root.resolve(module);
             if (!hasMainClasses(directory)) {
@@ -278,14 +352,55 @@ class CoverageQualityGateTest {
             }
             Path report = directory.resolve(PER_MODULE_REPORT);
             if (Files.isRegularFile(report)) {
-                reports.add(report);
+                String staleness = stalenessOf(report, directory);
+                if (staleness == null) {
+                    reports.add(report);
+                } else {
+                    stale.add(module + " (" + staleness + ")");
+                }
             } else if (Files.isDirectory(directory.resolve("target/classes"))) {
                 builtWithoutReport.add(module);
             } else {
                 neverBuilt.add(module);
             }
         }
-        return new ReportPopulation(List.copyOf(reports), List.copyOf(neverBuilt), List.copyOf(builtWithoutReport));
+        return new ReportPopulation(List.copyOf(reports), List.copyOf(neverBuilt), List.copyOf(builtWithoutReport),
+                List.copyOf(stale));
+    }
+
+    /**
+     * Why a module's report cannot be trusted to describe its code, or {@code null} when it can.
+     *
+     * <p>The reference is the newest regular file under {@code src/main/java} and {@code src/test/java}, compared
+     * strictly: a report is stale only when something it should have measured is later than it. Tests count
+     * because deleting one lowers coverage without touching a main source. The {@code target/classes} directory
+     * is not used -- its time moves only when an entry is created or removed in it, never when a class file below
+     * it is rewritten, so a report would always look newer than it.</p>
+     */
+    private static String stalenessOf(Path report, Path module) throws IOException {
+        FileTime reportTime = Files.getLastModifiedTime(report);
+        Path newest = null;
+        FileTime newestTime = null;
+        for (String sources : List.of("src/main/java", "src/test/java")) {
+            Path directory = module.resolve(sources);
+            if (!Files.isDirectory(directory)) {
+                continue;
+            }
+            try (var files = Files.walk(directory)) {
+                for (Path file : files.filter(Files::isRegularFile).toList()) {
+                    FileTime time = Files.getLastModifiedTime(file);
+                    if (newestTime == null || time.compareTo(newestTime) > 0) {
+                        newest = file;
+                        newestTime = time;
+                    }
+                }
+            }
+        }
+        if (newestTime == null || newestTime.compareTo(reportTime) <= 0) {
+            return null;
+        }
+        return "report " + reportTime + " is older than " + module.relativize(newest).toString().replace('\\', '/')
+                + " " + newestTime;
     }
 
     private List<String> declaredModules(Path root) throws Exception {
@@ -324,12 +439,13 @@ class CoverageQualityGateTest {
      * alone reaches this state -- and the fix is to run the reactor. A module that compiled and still emitted no
      * report has stopped reporting, and the fix is to find out why.
      */
-    private record ReportPopulation(List<Path> reports, List<String> neverBuilt, List<String> builtWithoutReport) {
+    private record ReportPopulation(List<Path> reports, List<String> neverBuilt, List<String> builtWithoutReport,
+            List<String> stale) {
         private void assertComplete() {
-            if (neverBuilt.isEmpty() && builtWithoutReport.isEmpty()) {
+            if (neverBuilt.isEmpty() && builtWithoutReport.isEmpty() && stale.isEmpty()) {
                 return;
             }
-            int owed = reports.size() + neverBuilt.size() + builtWithoutReport.size();
+            int owed = reports.size() + neverBuilt.size() + builtWithoutReport.size() + stale.size();
             StringBuilder refusal = new StringBuilder()
                     .append("the per-module scale refuses to conclude from a partial population: ")
                     .append(reports.size()).append(" of ").append(owed)
@@ -339,6 +455,12 @@ class CoverageQualityGateTest {
                         .append("  never built by this invocation, so no ratio can be computed -- run ")
                         .append("./mvnw clean verify over the whole reactor first: ")
                         .append(String.join(", ", neverBuilt));
+            }
+            if (!stale.isEmpty()) {
+                refusal.append(System.lineSeparator())
+                        .append("  report older than the sources it measures, so it describes code that is no longer ")
+                        .append("there -- run ./mvnw clean verify over the whole reactor: ")
+                        .append(String.join("; ", stale));
             }
             if (!builtWithoutReport.isEmpty()) {
                 refusal.append(System.lineSeparator())
