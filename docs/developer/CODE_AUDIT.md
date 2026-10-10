@@ -129,6 +129,8 @@ Maven 3.9.16, le 07/10/2026 ; les deux profils ont ensuite été rejoués sous M
 
 ## 7. SpotBugs
 
+Référence complète, relevé du 09/10/2026 (192 alertes, 1 046 classes) et dépannage : [`SPOTBUGS.md`](SPOTBUGS.md).
+
 ### Générer les rapports, sans échec
 
 Windows PowerShell **[exécutée avec `-pl morpheus-domain`]** (sans `-pl`, c'est le réacteur entier, lancé sous Git Bash) :
