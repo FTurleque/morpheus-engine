@@ -136,8 +136,12 @@ foreach ($report in $reports) {
 if ($failures -ne 0 -or $errors -ne 0) {
     throw "D2 Surefire failures=$failures errors=$errors"
 }
-if ($tests -lt $testsMinimum) { throw "D2 test baseline regression: $tests < $testsMinimum (testsMinimum in config\m21-quality-ratchets.properties)" }
-if ($architectureTests -lt $architectureTestsMinimum) { throw "D2 architecture baseline regression: $architectureTests < $architectureTestsMinimum (architectureTestsMinimum in config\m21-quality-ratchets.properties)" }
+if ($tests -lt $testsMinimum) {
+    throw "D2 test baseline regression: $tests < $testsMinimum (testsMinimum in $ratchetsPath)"
+}
+if ($architectureTests -lt $architectureTestsMinimum) {
+    throw "D2 architecture baseline regression: $architectureTests < $architectureTestsMinimum (architectureTestsMinimum in $ratchetsPath)"
+}
 Write-Host "D2 tests: PASS ($tests tests >= $testsMinimum, architecture=$architectureTests >= $architectureTestsMinimum, skipped=$skipped)"
 
 $coveragePath = Join-Path $repo 'morpheus-architecture-tests\target\m21-aggregate-coverage-summary.txt'

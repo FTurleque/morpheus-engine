@@ -115,11 +115,11 @@ if (( FAILURES != 0 || ERRORS != 0 )); then
   exit 1
 fi
 if (( TESTS < TESTS_MINIMUM )); then
-  echo "D2 test baseline regression: $TESTS < $TESTS_MINIMUM (testsMinimum in config/m21-quality-ratchets.properties)" >&2
+  echo "D2 test baseline regression: $TESTS < $TESTS_MINIMUM (testsMinimum in $RATCHETS)" >&2
   exit 1
 fi
 if (( ARCH_TESTS < ARCH_TESTS_MINIMUM )); then
-  echo "D2 architecture baseline regression: $ARCH_TESTS < $ARCH_TESTS_MINIMUM (architectureTestsMinimum in config/m21-quality-ratchets.properties)" >&2
+  echo "D2 architecture baseline regression: $ARCH_TESTS < $ARCH_TESTS_MINIMUM (architectureTestsMinimum in $RATCHETS)" >&2
   exit 1
 fi
 printf '%s\n' "D2 tests: PASS ($TESTS tests >= $TESTS_MINIMUM, architecture=$ARCH_TESTS >= $ARCH_TESTS_MINIMUM, skipped=$SKIPPED)"

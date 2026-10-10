@@ -31,7 +31,8 @@ class ReadQualityRatchetTest(unittest.TestCase):
             # newline="" keeps the line endings the case asks for instead of translating them.
             with open(self.properties, "w", encoding="utf-8", newline="") as handle:
                 handle.write(content)
-        script = f'. "{LIBRARY.as_posix()}"; V="$(read_quality_ratchet "{self.properties.as_posix()}" {key} {kind})" || exit 1; printf "[%s]" "$V"'
+        library, properties = LIBRARY.as_posix(), self.properties.as_posix()
+        script = f'. "{library}"; V="$(read_quality_ratchet "{properties}" {key} {kind})" || exit 1; printf "[%s]" "$V"'
         return subprocess.run([BASH, "-c", script], capture_output=True, text=True, check=False)
 
     def test_an_integer_is_read(self) -> None:
