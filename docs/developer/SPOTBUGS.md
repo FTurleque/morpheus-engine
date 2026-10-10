@@ -1,7 +1,9 @@
 # SpotBugs : analyse statique du bytecode
 
 SpotBugs est l'analyse statique de MORPHEUS. Elle est portée par le profil Maven **opt-in** `audit-spotbugs` du POM
-racine : elle ne tourne ni dans `./mvnw clean verify`, ni dans la CI. Ce document est la référence de ce profil ;
+racine : elle ne tourne pas dans `./mvnw clean verify` ; la lane `SpotBugs report (report-only)` de `nightly.yml` la lance
+chaque nuit **sans faire échouer le build sur les alertes** (`-Dspotbugs.failOnError=false`) et échoue seulement si une analyse
+n'a pas eu lieu (`scripts/check-spotbugs-reports.py`). Ce document est la référence de ce profil ;
 [`CODE_AUDIT.md`](CODE_AUDIT.md) le replace à côté de PIT (tests de mutation) et des autres contrôles.
 
 Le contrôle bloquant (`spotbugs:check`) est **rouge sur le code actuel** : il n'a pas été masqué pour obtenir un
@@ -243,8 +245,9 @@ pas une erreur de configuration.
 
 Aucun module n'est bloqué par la configuration. Seul le contrôle bloquant échoue, sur huit modules qui ont des
 alertes (colonne ci-dessus). La décision à prendre (qualifier puis corriger, exclure précisément, ou resserrer
-`threshold` / `maxRank`) n'est **pas prise** ici ; tant qu'elle ne l'est pas, ne pas brancher `audit-spotbugs` dans
-la CI.
+`threshold` / `maxRank`) n'est **pas prise** ici ; tant qu'elle ne l'est pas, ne pas brancher le **contrôle bloquant**
+`audit-spotbugs` (sans `failOnError=false`) dans la CI. La lane nocturne en rapport seul ne tranche pas cette décision : elle
+publie les comptes par module et les rapports en artefacts, et ne fait échouer personne.
 
 ## 10. Dépannage
 

@@ -1,8 +1,10 @@
 # Audit de code : SpotBugs et PIT
 
 SpotBugs (analyse statique) et PIT (tests de mutation) sont deux profils Maven **opt-in**. Ni l'un ni l'autre ne
-s'exécute dans `./mvnw clean verify`, ni dans la CI : ce sont des outils d'enquête que l'on lance à la main, sur un
-périmètre choisi, pour produire des constats à qualifier.
+s'exécute dans `./mvnw clean verify`, ni dans une CI qui bloque : ce sont des outils d'enquête, à lancer à la main sur un
+périmètre choisi pour produire des constats à qualifier. `nightly.yml` les exerce en plus chaque nuit **sans rien bloquer**
+(SpotBugs en rapport seul sur tout le réacteur, PIT sur le périmètre par défaut de `morpheus-domain`), pour que les versions
+épinglées ne dérivent pas sans qu'on le voie et que les rapports se comparent d'une révision à l'autre.
 
 Aucun seuil de qualité global n'est imposé par PIT. SpotBugs, lui, a un contrôle bloquant explicite (§ 7) qui est
 **rouge sur le code actuel** : l'état de référence est consigné au § 12, il n'a pas été masqué pour obtenir un vert.
