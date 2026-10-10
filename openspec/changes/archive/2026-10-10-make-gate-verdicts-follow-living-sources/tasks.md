@@ -44,13 +44,14 @@ change, except the one-sentence correction of `governance.md` named in 4.1.
       PowerShell reader has no CI lane: run the same cases by hand with `powershell -File` on Windows and record that this
       half is verified manually.
   - 2026-10-10: `scripts/tests/test_read_quality_ratchet.py`, 9 cases. The CRLF case fails under Linux `sed` when both carriage-return defences are removed; under Git Bash it cannot (that `sed` hides the carriage return). The PowerShell reader: 9 cases run by hand on Windows, all ok - this half is verified manually.
-- [ ] 2.3 `validate-d2.sh` and `validate-d2.ps1`: replace the two comparisons by the shared reader; message
+- [x] 2.3 `validate-d2.sh` and `validate-d2.ps1`: replace the two comparisons by the shared reader; message
       `D2 test baseline regression: <observed> < <required> (testsMinimum)` and the architecture twin. Keep the
       coverage floors (`0.40` / `0.35`) as they are and label them `floor` in the PASS line. Proof: 1.1 passes; with
       `testsMinimum` raised past the observed count in a throw-away commit and
       `MORPHEUS_D2_SKIP_SECURITY_SCAN=true MORPHEUS_D2_SKIP_PORTABLE=true`, `validate-d2` refuses on both platforms,
       naming the key; revert.
   - 2026-10-10: code done (`validate-d2.sh` / `.ps1` read the reader, messages name the key, floors labelled). The throw-away run - raise `testsMinimum` past the observed count and watch `validate-d2` refuse - is not done: it starts with a full build and the OWASP scan. The refusal path is covered by the reader tests and by the guard.
+  - 2026-10-11: the build is stubbed (the refusal comes after it) in a throw-away clone of `origin/develop` with fabricated Surefire reports. Linux: 150 tests -> `D2 test baseline regression: 150 < 3820 (testsMinimum in .../config/m21-quality-ratchets.properties)`, exit 1; 50 architecture tests -> `... 50 < 585 (architectureTestsMinimum in ...)`; control with enough tests -> `D2 tests: PASS (... >= 3820, architecture=... >= 585)`. Windows: same 150 -> `D2 test baseline regression: 150 < 3820 (testsMinimum in ...)` thrown. Clone deleted.
 - [x] 2.4 Remove the three mirrors of the old literals: `scripts/README.md:79-80` (the D2 block states that the
       presence minimums are those of `config/m21-quality-ratchets.properties`), `d2ScriptsKeepCurrentPresenceRatchets`
       (replaced by 1.1), and the two `TESTS < n` / `ARCH_TESTS < n` regular expressions of
@@ -89,6 +90,7 @@ change, except the one-sentence correction of `governance.md` named in 4.1.
       `validate-m21.*`, `validate-d2.*` keeping a coverage floor. Do not copy numbers into it (`rules/meta.md`).
 - [x] 4.2 Run `RepositoryDocumentationCoherenceTest` and `ProductionIntegrityContractTest` and let the failures list any
       destination that still describes the old literals (the method `rules/meta.md` prescribes). Proof: green.
-- [ ] 4.3 Integration on both platforms: `scripts\validate.cmd m21 -Version <current>` on Windows and
+- [x] 4.3 Integration on both platforms: `scripts\validate.cmd m21 -Version <current>` on Windows and
       `bash ./scripts/validate-m21.sh <current>` on Linux, both PASS on the same SHA.
   - 2026-10-10: Windows done (see 2.1). The Linux half is the Linux lane of `ci.yml` on the same SHA; left unchecked until it is green.
+  - 2026-10-11: Windows PASS (see 2.1). Linux: `validate-m21.sh` is run by the Linux `exact-head` lane of `ci.yml`, success on #430 and on the `develop` pushes after it.

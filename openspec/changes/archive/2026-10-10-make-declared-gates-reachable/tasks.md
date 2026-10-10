@@ -78,11 +78,12 @@ request that introduces this change.
       ceiling and the database-size budgets are listed with their margin; the run id and the measured values are recorded in `docs/validation/README.md` as a dated measurement (not a ratchet).
   - 2026-10-10, `workflow_dispatch` run 38072058177 from the branch (`4142c00f`): Linux **PASS** in about 8 minutes (reactor 357 s, performance gates 77 s, packaged startup PASS; every `M19_METRIC` inside its budget, `max_heap_mib=768`); evidence artefact `m19-budget-evidence-Linux`. Windows **refused by the validator**, as predicted: `Logical processors: 4`, `Visible RAM GiB: 16`, `Disk model: Msft Virtual Disk`, `Disk bus: SAS`, `Disk media: Unspecified` -> `Workspace must be on a local SSD; media=Unspecified bus=SAS`. Per this task the work stops here for the decision recorded as an open question in `design.md`; left unchecked.
   - 2026-10-10, run 38073018864 (`92654629`, after the maintainer chose to recognise a GitHub-hosted runner in `validate-m19.ps1`): both platforms **PASS**. Linux job 8 min. Windows job 44 min (reactor 1,104 s, performance gates 1,399 s, packaged startup p95 293 ms). Hosted Windows margins are much tighter than on the developer machine of M19: inventory scan p95 7,654 ms against 20,000 (38 %), full publish p95 15,939 ms against 60,000 (27 %), requirement query 133 ms against 1,000, trace traversal 137 ms against 2,000, composition status 88 ms against 1,000, SQLite reopen 46 ms against 2,000, heap at its 768 MiB ceiling, database 251,491,856 bytes against 512 MiB. No budget is near a miss, but the two slowest sit at 2.6x-3.7x, not 10x. Linux margins as in the previous note.
-- [ ] 4.2 Prove the lane goes red: in a throw-away commit lower one budget constant below the measured value, dispatch,
+- [x] 4.2 Prove the lane goes red: in a throw-away commit lower one budget constant below the measured value, dispatch,
       observe `failure-summary.txt` naming "M19 performance gates" and the job failing on that platform, then discard
       the commit. Proof: run id and the failure summary in the pull request. Never keep a changed budget
       (`M19_PERFORMANCE_BUDGETS.md` §8).
-- [ ] 4.3 `nightly.yml`: add the SpotBugs job (`./mvnw -Paudit-spotbugs -Dspotbugs.failOnError=false -DskipTests
+  - 2026-10-11, run 38092804841 from a throw-away branch (budget `INVENTORY_SCAN_BUDGET_NANOS` lowered to 1 ms): the Linux job failed in "Run the M19 validator on Linux" with `inventory scan p95 exceeded frozen 20s budget: 496 ms` and `M19 VALIDATION FAILURE`. The Windows job was cancelled after the Linux result (44 minutes saved). Branch deleted; no budget was kept changed.
+- [x] 4.3 `nightly.yml`: add the SpotBugs job (`./mvnw -Paudit-spotbugs -Dspotbugs.failOnError=false -DskipTests
       verify`, JDK 21 — Enforcer refuses another) with a completeness step that reads each module's `spotbugsXml.xml`
       (`Project/Jar`, `errors='0'`, `missingClasses='0'`, non-zero `cpu_seconds`, one XML per module that has
       `target/classes`), writes the alert total and per-module counts to `$GITHUB_STEP_SUMMARY`, and uploads
@@ -90,13 +91,15 @@ request that introduces this change.
       matches a local `-Dspotbugs.failOnError=false` run on the same SHA; deleting one module's XML in a throw-away
       commit fails the step naming the module.
   - 2026-10-10, same run: the SpotBugs job passed (analysis proof accepted by `check-spotbugs-reports.py`). The "delete one XML in a throw-away commit" proof was replaced by the unit tests of the checker (`scripts/tests/test_check_spotbugs_reports.py`); left unchecked until it is run for real.
-- [ ] 4.4 `nightly.yml`: add the PIT job on the `audit-mutation` defaults (`-pl morpheus-domain test-compile
+  - 2026-10-11, same run: with `morpheus-store-sqlite/target/spotbugsXml.xml` removed before the check, the SpotBugs job failed on "Prove every module with classes was analysed" with `morpheus-store-sqlite: no SpotBugs report at target/spotbugsXml.xml although it has classes`.
+- [x] 4.4 `nightly.yml`: add the PIT job on the `audit-mutation` defaults (`-pl morpheus-domain test-compile
       org.pitest:pitest-maven:mutationCoverage`, `-Dmorpheus.project.version` is already in the profile's `jvmArgs`),
       uploading `**/target/pit-reports/**`. Proof: a dispatch run passes in about the 13 s the profile's default scope
       takes locally; narrowing `pit.targetClasses` to a package without tests in a throw-away commit fails the step.
       Do not widen the scope here: `CODE_AUDIT.md` lots are serial and leave orphan JVMs on `provider-sdk` and
       `mcp-transport`; widening is its own measured decision.
   - 2026-10-10, same run: the PIT job passed on the profile default scope. The "narrow `pit.targetClasses`" failure proof is not run; left unchecked.
+  - 2026-10-11, same run: with `-Dpit.targetTests=com.morpheus.nonexistent.*` the PIT job failed in "Mutate the profile's declared scope": `Line coverage of 0(0/131) is below threshold of 1`.
 - [x] 4.5 Run `D2RepositoryHardeningArchitectureTest` and `AuditHardeningWorkflowContractTest` — both pin
   - 2026-10-10: `D2RepositoryHardeningArchitectureTest`, `AuditHardeningWorkflowContractTest`, `RepositoryDocumentationCoherenceTest` green.
       `nightly.yml`. Proof: green. If `scripts/validate-d2.*` is run on the branch, remember it refuses a diff that
@@ -128,11 +131,14 @@ request that introduces this change.
 
 ## 6. Integration
 
-- [ ] 6.1 `./mvnw clean verify`, then `./mvnw test -pl morpheus-architecture-tests`. Proof: green, with the new suite's
+- [x] 6.1 `./mvnw clean verify`, then `./mvnw test -pl morpheus-architecture-tests`. Proof: green, with the new suite's
       methods counted.
   - 2026-10-10: the whole `morpheus-architecture-tests` module ran locally, 603 of 604 green; the one failure is `CoverageQualityGateTest`, which needs a preceding full `clean verify` (partial local reports, 0.56 against 0.691). The full reactor is left to CI.
-- [ ] 6.2 Decide, with `coverage-ratchet`, whether `architectureTestsMinimum` rises by the new methods (it never
+  - 2026-10-11: `./mvnw clean verify` BUILD SUCCESS locally (including both coverage gates) and the `exact-head` lanes of #429 green on Linux and Windows, then of every later push to `develop`.
+- [x] 6.2 Decide, with `coverage-ratchet`, whether `architectureTestsMinimum` rises by the new methods (it never
       falls); if so change it and every destination `rules/meta.md` lists in the same commit. This is a decision, not a
       requirement of this change.
-- [ ] 6.3 `scripts\validate.cmd m21 -Version <current>` on Windows and `bash ./scripts/validate-m21.sh <current>` on
+  - 2026-10-11, decision: `architectureTestsMinimum` is not raised. Observed executions: 604 (Linux, nightly run 38073018864) and 605 (Windows, `validate-m21.ps1`), against 585: a margin of 19-20, where the convention of earlier lots is 5. Raising it would touch the sixteen destinations `rules/meta.md` lists, for a hygiene gain; the lot that next moves the coverage ratchets carries it, with a same-SHA measure on both platforms.
+- [x] 6.3 `scripts\validate.cmd m21 -Version <current>` on Windows and `bash ./scripts/validate-m21.sh <current>` on
       Linux. Proof: both PASS on the same SHA.
+  - 2026-10-11: Windows - `validate-m21.ps1 -Version 1.2.1` PASS at `8923ab0e` (3849 tests >= 3820, 605 architecture >= 585, aggregate coverage 0.904/0.763). Linux - `validate-m21.sh` is run by the Linux `exact-head` lane of `ci.yml`, success on #429, #430, #431 and on the `develop` pushes that followed.
