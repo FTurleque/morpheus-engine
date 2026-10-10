@@ -19,6 +19,25 @@ VALIDATION_D2.md   ← preuve historique D2
 
 Chaque preuve historique conserve les décisions, SHA, commandes et résultats réellement observés. Une preuve historique n’est jamais réécrite pour fabriquer un PASS ni pour adopter rétroactivement une commande moderne.
 
+## Points d'entrée cités par les preuves historiques
+
+Les preuves antérieures citent `.\validate-<cible>.cmd` : ce wrapper à la racine n'existe plus (retrait de celui de M19 dans
+`c413a5018`). La commande Windows prise en charge est `scripts\validate.cmd <cible> -Version <version>`, et
+`bash ./scripts/validate-<cible>.sh <version>` sous Linux. M19 ne prend aucune version : `scripts\validate.cmd m19`.
+
+Les validateurs `validate-m15` à `validate-m18` ont été retirés de `scripts/` : ils se plaçaient sur des branches de
+milestone supprimées et n'avaient pas de jumeau `.sh`, donc ils ne pouvaient plus démarrer. Leur code reste dans l'historique
+Git, au dernier commit qui les a modifiés : `git show <commit>:scripts/validate-<cible>.ps1`.
+
+```text
+validate-m15.ps1   d1aebd974
+validate-m16.ps1   3861ccf07
+validate-m17.ps1   1a6fb8b38
+validate-m18.ps1   3d58bb9d4
+```
+
+`VALIDATION_M15.md` à `VALIDATION_M18.md` sont inchangées.
+
 ## Baseline stable publiée
 
 MORPHEUS **1.2.0** a été consolidé via R3.

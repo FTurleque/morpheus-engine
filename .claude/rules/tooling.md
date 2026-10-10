@@ -82,4 +82,6 @@ Un blocage écrit en `exit 1` ne bloque rien. Un avertissement destiné au modè
 
 Toujours passer la version courante, lue dans `ProductMetadata` : chaque validateur a une
 valeur par défaut datée de son milestone et échoue sur la version du lanceur sans cet argument.
-Le hook `pre-bash` avertit quand l'argument manque.
+Le hook `pre-bash` avertit quand l'argument manque. **Exception : `m19`**, dont les budgets ne dépendent pas de la version —
+`validate-m19.ps1` n'a pas de paramètre `-Version` et le refuse (`NamedParameterNotFound`) ; la commande est
+`scripts\validate.cmd m19`.

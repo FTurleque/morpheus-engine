@@ -256,11 +256,11 @@ Les tests M27 de plateforme couvrent en plus la convergence des surfaces, les sc
 ## 11. Qualification
 
 ```powershell
-.\validate-m27.cmd 1.0.0
+scripts\validate.cmd m27 -Version <version>
 ```
 
 ```bash
-bash ./scripts/validate-m27.sh 1.0.0
+bash ./scripts/validate-m27.sh <version>
 ```
 
 Minimums :

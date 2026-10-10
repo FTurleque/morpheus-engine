@@ -29,7 +29,8 @@ touché. Le dispatcher est `scripts/validate.cmd` → `scripts/validate.ps1`.
 **Passer la version explicitement.** Chaque validateur a une version par défaut datée de son
 milestone : un appel sans argument valide contre une version morte et échoue sur la version du
 lanceur empaqueté. Lire la version courante avec [live-numbers](../live-numbers/SKILL.md) et la
-passer. Le hook `pre-bash` avertit quand l'argument manque.
+passer. Le hook `pre-bash` avertit quand l'argument manque. Exception : `m19` ne prend aucune version
+(`scripts\validate.cmd m19`).
 
 ## Écrire la suite ArchUnit
 
@@ -74,7 +75,8 @@ d'exécution de processus. `rules/architecture.md` liste les chaînes exactes pa
 ## Budgets de performance
 
 Les gates de performance sont des budgets **prédéclarés** sur fixtures larges déterministes. Une
-régression de perf casse le build : elle ne se corrige pas en relevant le budget.
+régression de perf casse la lane nocturne qui lance `validate-m19` (pas `clean verify`, qui ne les exécute pas) : elle ne
+se corrige pas en relevant le budget.
 
 ## Vérifier
 

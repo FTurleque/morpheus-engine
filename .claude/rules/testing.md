@@ -178,7 +178,11 @@ Un milestone sans ses 4 artefacts est incomplet — `McpClientIntegrationArchite
 
 `M19PerformanceGate`, `M19QueryPerformanceGate`, `M19CompositionPerformanceGate`,
 `M19TraceabilityPerformanceGate`, `M19FullPublishPerformanceGate` sont des budgets **prédéclarés**
-sur fixtures larges déterministes (ADR-0085). Une régression de perf casse le build.
+sur fixtures larges déterministes (ADR-0085). Leurs noms ne correspondent à aucun motif Surefire : `clean verify` ne les
+exécute **pas**. Une régression de perf casse la lane nocturne `M19 performance budgets` de `nightly.yml` (Linux et Windows,
+via `validate-m19`), qui ne tourne seule qu'une fois ce workflow sur `main` — avant cela, `workflow_dispatch` ou
+`scripts\validate.cmd m19` (sans `-Version`). `GateReachabilityArchitectureTest` refuse une classe de test hors sélection
+Surefire qu'aucun validateur lancé par un workflow ne nomme.
 
 ## Fixtures disponibles
 

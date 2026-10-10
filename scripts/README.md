@@ -4,8 +4,11 @@ Les implémentations de validation sont regroupées dans ce répertoire :
 
 ```text
 validate-<target>.ps1   Windows / PowerShell
-validate-<target>.sh    Linux / WSL lorsque disponible
+validate-<target>.sh    Linux / WSL
 ```
+
+Un validateur existe sur les deux plateformes ou sur aucune : `GateReachabilityArchitectureTest` refuse un `.ps1` sans
+`.sh`, et l'inverse.
 
 Sous Windows, utiliser le dispatcher unique :
 
@@ -18,6 +21,24 @@ Lister les cibles :
 ```powershell
 .\scripts\validate.cmd list
 ```
+
+## M19 — budgets de performance
+
+```powershell
+.\scripts\validate.cmd m19
+```
+
+```bash
+bash ./scripts/validate-m19.sh
+```
+
+`validate-m19` ne prend **pas** de version : `-Version` y est refusé. Il exige l'environnement de référence
+(au moins 4 processeurs logiques, 8 GiB, disque local SSD ; un runner GitHub hébergé, dont le disque virtuel ne déclare
+pas de type, est reconnu par `GITHUB_ACTIONS` et `RUNNER_ENVIRONMENT=github-hosted`, jamais un runner auto-hébergé), lance un `clean verify`, les cinq gates de performance
+(`M19PerformanceGate`, `M19QueryPerformanceGate`, `M19TraceabilityPerformanceGate`, `M19CompositionPerformanceGate`,
+`M19FullPublishPerformanceGate`, dont aucun ne correspond aux motifs par défaut de Surefire), le packaging et le démarrage
+packagé. Le workflow `nightly.yml` le lance chaque nuit sur les deux plateformes. Les switches PowerShell `-SkipPackaging` et `-SkipBenchmarks`
+sont réservés au diagnostic et ne constituent jamais une qualification.
 
 ## M21 — gate durable exact-head
 

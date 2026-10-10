@@ -106,7 +106,8 @@ try {
     # milestone shipped, so a bare invocation validates against a stale version
     # string. Read the current one in ProductMetadata / pom.xml and pass it.
     if ($command -match '(?i)scripts[/\\]validate[-.][a-z0-9]+\.(ps1|sh|cmd)' `
-            -and $command -notmatch '(?i)\d+\.\d+\.\d+') {
+            -and $command -notmatch '(?i)\d+\.\d+\.\d+' `
+            -and $command -notmatch '(?i)validate-m19|validate\.cmd\s+m19') {
         Write-Output "[WARNING] Validateur lance sans argument de version"
         Write-Output "  La valeur par defaut est datee du milestone : passer la version lue dans ProductMetadata"
     }

@@ -118,7 +118,7 @@ Dernier milestone livré : **M28** (intégration client MCP native, livré dans 
 milestone n'est actuellement en cours — la baseline **1.2.1** est une passe corrective et de
 durcissement (audit, sécurité, dette de gouvernance), suivie par l'issue #185 jusqu'à sa
 release réelle, pas un nouveau milestone.
-Gates actifs : **M19** (perf) · **M20** (release) · **M21** (coverage + intégrité) · **M22** (plugins)
+Gates actifs : **M19** (perf, lane nocturne — pas dans `clean verify`) · **M20** (release) · **M21** (coverage + intégrité) · **M22** (plugins)
 · **M23** (portfolio) · **M24** (query DSL) · **M25** (policy) · **M26** (remote) · **M27** (reasoning) · **M28** (MCP clients) · **D2** (hardening repo)
 
 ## Points d'entrée clés

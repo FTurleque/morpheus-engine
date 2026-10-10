@@ -399,8 +399,8 @@ Le gate durable exact-head est M21 sur Linux et Windows, avec la baseline active
 Les gates milestone M26 restent des preuves historiques/spécialisées :
 
 ```text
-Windows  .\validate-m26.cmd 1.0.0
-Linux    bash ./scripts/validate-m26.sh 1.0.0
+Windows  scripts\validate.cmd m26 -Version <version>
+Linux    bash ./scripts/validate-m26.sh <version>
 ```
 
 La CI canonique déclenche M21 sur les pull requests, `main` et `develop`. Le workflow `MORPHEUS Security` ajoute OWASP Dependency-Check aux frontières `main` et `develop` et sur cadence quotidienne (04:17 UTC). Les actions GitHub sont épinglées par SHA immuable et le Maven Wrapper vérifie le SHA-256 de Maven 3.10.0.
