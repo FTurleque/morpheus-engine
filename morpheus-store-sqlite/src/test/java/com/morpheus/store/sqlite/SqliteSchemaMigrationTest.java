@@ -36,7 +36,7 @@ class SqliteSchemaMigrationTest {
         }
 
         try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath())) {
-            assertEquals(20, new SqliteSchemaManager().currentVersion(connection));
+            assertEquals(SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION, new SqliteSchemaManager().currentVersion(connection));
             List<String> expectedTables = List.of(
                     "schema_migrations",
                     "projects",
@@ -137,24 +137,47 @@ class SqliteSchemaMigrationTest {
     }
 
     @Test
-    void migrationReplayIsIdempotentAndLedgerContainsEighteenImmutableEntries() throws Exception {
+    void migrationReplayIsIdempotentAndLedgerContainsOneEntryPerSupportedMigration() throws Exception {
         Path database = tempDir.resolve("replay.db");
         try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
             // First application.
         }
+        List<Integer> afterFirstOpening = ledgerVersions(database);
         try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
             // Replay must be a no-op.
         }
+        List<Integer> afterReplay = ledgerVersions(database);
+
+        assertEquals(afterFirstOpening, afterReplay, "reopening must neither add, remove nor duplicate a ledger row");
+        List<Integer> oneEntryPerSupportedVersion = new ArrayList<>();
+        for (int version = 1; version <= SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION; version++) {
+            oneEntryPerSupportedVersion.add(version);
+        }
+        assertEquals(oneEntryPerSupportedVersion, afterReplay);
 
         try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath());
              var statement = connection.createStatement();
              ResultSet result = statement.executeQuery(
-                     "SELECT COUNT(*) AS count, MIN(LENGTH(checksum)) AS min_checksum, MAX(LENGTH(checksum)) AS max_checksum FROM schema_migrations")) {
+                     "SELECT COUNT(*) AS count, MIN(LENGTH(checksum)) AS min_checksum, MAX(LENGTH(checksum)) AS max_checksum, "
+                             + "SUM(checksum GLOB '*[^0-9a-f]*') AS not_hexadecimal FROM schema_migrations")) {
             assertTrue(result.next());
-            assertEquals(20, result.getInt("count"));
+            assertEquals(SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION, result.getInt("count"));
             assertEquals(64, result.getInt("min_checksum"));
             assertEquals(64, result.getInt("max_checksum"));
+            assertEquals(0, result.getInt("not_hexadecimal"), "every checksum is a SHA-256 in lower-case hexadecimal");
         }
+    }
+
+    private static List<Integer> ledgerVersions(Path database) throws Exception {
+        List<Integer> versions = new ArrayList<>();
+        try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath());
+             var statement = connection.createStatement();
+             ResultSet result = statement.executeQuery("SELECT version FROM schema_migrations ORDER BY version")) {
+            while (result.next()) {
+                versions.add(result.getInt(1));
+            }
+        }
+        return versions;
     }
 
     @Test
@@ -191,7 +214,7 @@ class SqliteSchemaMigrationTest {
             while (result.next()) sequences.add(result.getLong(1));
             assertEquals(List.of(1L, 2L, 3L), sequences);
             assertTrue(indexExists(connection, "uq_specification_versions_project_sequence"));
-            assertEquals(20, new SqliteSchemaManager().currentVersion(connection));
+            assertEquals(SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION, new SqliteSchemaManager().currentVersion(connection));
         }
     }
 
