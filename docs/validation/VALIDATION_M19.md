@@ -89,6 +89,10 @@ Commande canonique réellement exécutée depuis le dépôt local :
 .\validate-m19.cmd
 ```
 
+> Note du 10/10/2026 — le wrapper `validate-m19.cmd` de la racine n'existe plus (`c413a5018`). La commande prise en charge
+> aujourd'hui est `scripts\validate.cmd m19`, **sans** `-Version` : `validate-m19` n'a pas de paramètre de version. La preuve
+> ci-dessous reste celle de la commande exécutée le 27/07/2026.
+
 Environnement enregistré :
 
 ```text

@@ -344,13 +344,13 @@ Ces surfaces exposent discovery/probe. Elles ne remplacent pas implicitement le 
 Windows :
 
 ```powershell
-.\validate-m22.cmd -Version 1.0.0
+scripts\validate.cmd m22 -Version <version>
 ```
 
 Linux :
 
 ```bash
-./scripts/validate-m22.sh 1.0.0
+./scripts/validate-m22.sh <version>
 ```
 
 Le reactor/architecture gate charge le JAR externe, exécute son probe puis son `SpecificationContentReader`. Le packaging gate exige que le SDK soit dans le runtime packagé, que `ReferenceProviderPlugin` n’y soit pas, puis copie le JAR de référence comme véritable plugin externe et exécute discovery + activation + probe.
