@@ -102,11 +102,11 @@ Toute spec `docs/openapi/*.yaml` doit porter :
 **Ne pas se fier aux nombres codés en dur ici** — source de vérité vivante :
 `config/m21-quality-ratchets.properties`. `scripts/validate-m21.*` lisent ce fichier et
 assertent le nombre de tests, le nombre de tests d'architecture, la couverture ligne/branche
-et la version courante (`1.2.1`). `scripts/validate-d2.*` **ne le lisent pas** : ils portent
-des planchers de présence codés en dur, très en deçà des ratchets, et gardent en plus la
-version courante et des planchers absolus de couverture (constat AUD-DEP-06 de l'audit du
-09/10/2026 ; tant que le correctif n'est pas livré, ne pas citer un PASS de `validate-d2`
-comme preuve de présence). La couverture y est déclarée
+et la version courante (`1.2.1`). `scripts/validate-d2.*` lisent aussi `testsMinimum` et
+`architectureTestsMinimum` (aucun littéral : `D2RepositoryHardeningArchitectureTest` le refuse),
+et gardent la version courante et deux planchers absolus de couverture, nommés comme tels ;
+la couverture elle-même est conclue par les gates Java que D2 exécute dans son `clean verify`.
+La couverture y est déclarée
 **deux fois**, une paire de clés par échelle de mesure (`aggregate*` et `perModule*`) — citer
 un seuil sans nommer son échelle n'a pas de sens. Valeurs constatées le 09/10/2026 :
 `3820 / 585`, couverture `90,0% / 75,7%` agrégée et `69,1% / 61,2%` par module

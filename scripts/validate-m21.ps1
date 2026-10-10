@@ -7,6 +7,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'lib\Read-QualityRatchets.ps1')
 $ProgressPreference = 'SilentlyContinue'
 
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
@@ -44,45 +45,26 @@ function Get-SurefireTotals([string]$Root) {
 }
 
 function Get-M21QualityRatchets([string]$Path) {
-    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
-        throw "Missing M21 quality ratchet configuration: $Path"
+    # The path and the key names stay here, so a reader of this script sees which ratchets it enforces. Both scales are
+    # read so that a missing key fails here rather than in whichever gate happens to run first; only the aggregate pair
+    # is compared below, because this validator concludes on the canonical measurement.
+    $tests = Get-QualityRatchet -Path $Path -Key 'testsMinimum' -Kind integer
+    $architectureTests = Get-QualityRatchet -Path $Path -Key 'architectureTestsMinimum' -Kind integer
+    $perModuleLine = Get-QualityRatchet -Path $Path -Key 'perModuleLineCoverageMinimum' -Kind ratio
+    $perModuleBranch = Get-QualityRatchet -Path $Path -Key 'perModuleBranchCoverageMinimum' -Kind ratio
+    $aggregateLine = Get-QualityRatchet -Path $Path -Key 'aggregateLineCoverageMinimum' -Kind ratio
+    $aggregateBranch = Get-QualityRatchet -Path $Path -Key 'aggregateBranchCoverageMinimum' -Kind ratio
+    $invariant = [Globalization.CultureInfo]::InvariantCulture
+    return [pscustomobject]@{
+        Tests = [int]$tests
+        ArchitectureTests = [int]$architectureTests
+        LineCoverage = [double]::Parse($aggregateLine, $invariant)
+        BranchCoverage = [double]::Parse($aggregateBranch, $invariant)
+        LineCoverageText = [string]$aggregateLine
+        BranchCoverageText = [string]$aggregateBranch
+        PerModuleLineCoverage = [double]::Parse($perModuleLine, $invariant)
+        PerModuleBranchCoverage = [double]::Parse($perModuleBranch, $invariant)
     }
-    $values = @{}
-    foreach ($line in Get-Content -LiteralPath $Path) {
-        $trimmed = $line.Trim()
-        if ([string]::IsNullOrWhiteSpace($trimmed) -or $trimmed.StartsWith('#')) { continue }
-        if ($trimmed -notmatch '^([^=]+)=(.+)$') {
-            throw "Invalid M21 quality ratchet entry: $trimmed"
-        }
-        $values[$matches[1].Trim()] = $matches[2].Trim()
-    }
-    # Both scales are required so that a missing key fails here rather than in whichever gate happens to run
-    # first. Only the aggregate pair is compared below: this validator concludes on the canonical measurement.
-    foreach ($required in @('testsMinimum', 'architectureTestsMinimum',
-            'perModuleLineCoverageMinimum', 'perModuleBranchCoverageMinimum',
-            'aggregateLineCoverageMinimum', 'aggregateBranchCoverageMinimum')) {
-        if (-not $values.ContainsKey($required)) { throw "Missing M21 quality ratchet: $required" }
-    }
-    $result = [pscustomobject]@{
-        Tests = [int]$values.testsMinimum
-        ArchitectureTests = [int]$values.architectureTestsMinimum
-        LineCoverage = [double]::Parse($values.aggregateLineCoverageMinimum, [Globalization.CultureInfo]::InvariantCulture)
-        BranchCoverage = [double]::Parse($values.aggregateBranchCoverageMinimum, [Globalization.CultureInfo]::InvariantCulture)
-        LineCoverageText = [string]$values.aggregateLineCoverageMinimum
-        BranchCoverageText = [string]$values.aggregateBranchCoverageMinimum
-        PerModuleLineCoverage = [double]::Parse($values.perModuleLineCoverageMinimum, [Globalization.CultureInfo]::InvariantCulture)
-        PerModuleBranchCoverage = [double]::Parse($values.perModuleBranchCoverageMinimum, [Globalization.CultureInfo]::InvariantCulture)
-    }
-    if ($result.Tests -lt 1 -or $result.ArchitectureTests -lt 1) {
-        throw 'M21 test ratchets must be positive integers'
-    }
-    foreach ($ratio in @($result.LineCoverage, $result.BranchCoverage,
-            $result.PerModuleLineCoverage, $result.PerModuleBranchCoverage)) {
-        if ($ratio -le 0 -or $ratio -gt 1) {
-            throw 'M21 coverage ratchets must be ratios in (0, 1]'
-        }
-    }
-    return $result
 }
 
 function Get-FreeLoopbackPort {

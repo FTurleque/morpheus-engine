@@ -9,8 +9,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -102,15 +104,47 @@ class D2RepositoryHardeningArchitectureTest {
         assertTrue(windows.contains("1.2.1"));
     }
 
+    /**
+     * D2 reads its presence minimums from the living ratchet file; it keeps no copy of them.
+     *
+     * <p>It used to compare the Surefire totals with literals of its own, so it passed a repository that had lost
+     * most of its tests, and the test that pinned those literals asserted {@code script.contains("820")} -- which
+     * {@code "3820"} also satisfies, so it distinguished neither the stale script nor a correct update. The rule is
+     * stated on the operation instead of on a value: no comparison of an observed count has an integer literal for its
+     * right operand, whatever digits it ends with. It also requires that such a comparison exists at all (a rule that
+     * matches nothing passes too), that the properties path and both keys are named in the script, and it keeps the
+     * assertion the replaced method also carried, the product version, since no other test pins it in these scripts.
+     * The two absolute coverage floors are not covered here: they are floors by decision, named as such.</p>
+     */
     @Test
-    void d2ScriptsKeepCurrentPresenceRatchets() throws IOException {
+    void d2ScriptsReadThePresenceMinimumsFromTheLivingRatchetsAndKeepTheProductVersion() throws IOException {
         Path root = repoRoot();
-        String linux = Files.readString(root.resolve("scripts/validate-d2.sh"));
-        String windows = Files.readString(root.resolve("scripts/validate-d2.ps1"));
-        for (String script : List.of(linux, windows)) {
-            assertTrue(script.contains("820"));
-            assertTrue(script.contains("258"));
-            assertTrue(script.contains("1.2.1"));
+        Pattern shellComparison = Pattern.compile("\\(\\(\\s*(ARCH_TESTS|TESTS)\\s*<\\s*([^\\s)]+)\\s*\\)\\)");
+        Pattern windowsComparison = Pattern.compile("\\$(architectureTests|tests)\\s+-lt\\s+([^\\s)]+)");
+        Map<String, String> scripts = Map.of(
+                "scripts/validate-d2.sh", "config/m21-quality-ratchets.properties",
+                "scripts/validate-d2.ps1", "config\\m21-quality-ratchets.properties");
+        for (Map.Entry<String, String> entry : scripts.entrySet()) {
+            String script = Files.readString(root.resolve(entry.getKey()));
+            Pattern comparison = entry.getKey().endsWith(".sh") ? shellComparison : windowsComparison;
+            Matcher matcher = comparison.matcher(script);
+            List<String> operands = new ArrayList<>();
+            while (matcher.find()) {
+                operands.add(matcher.group(2));
+            }
+            assertEquals(2, operands.size(),
+                    () -> entry.getKey() + " must compare the test total and the architecture total, once each");
+            for (String operand : operands) {
+                assertFalse(operand.matches("[0-9][0-9._]*"),
+                        () -> entry.getKey() + " compares an observed count with the literal " + operand
+                                + "; the minimum must be read from the ratchet file");
+            }
+            assertTrue(script.contains(entry.getValue()), () -> entry.getKey() + " must name " + entry.getValue());
+            assertTrue(Pattern.compile("\\btestsMinimum\\b").matcher(script).find(),
+                    () -> entry.getKey() + " must read the testsMinimum key");
+            assertTrue(Pattern.compile("\\barchitectureTestsMinimum\\b").matcher(script).find(),
+                    () -> entry.getKey() + " must read the architectureTestsMinimum key");
+            assertTrue(script.contains("1.2.1"), () -> entry.getKey() + " must still name the product version");
         }
     }
 

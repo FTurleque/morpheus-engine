@@ -97,8 +97,8 @@ D2 reste un gate **local spécialisé** :
 ```text
 .github/workflows delta forbidden
 clean verify required
-baseline Surefire      >= 820
-baseline architecture  >= 258
+Surefire total         >= testsMinimum of config/m21-quality-ratchets.properties
+architecture total     >= architectureTestsMinimum of the same file
 absolute line floor    >= 40.0%
 absolute branch floor  >= 35.0%
 dependency hygiene blocking
