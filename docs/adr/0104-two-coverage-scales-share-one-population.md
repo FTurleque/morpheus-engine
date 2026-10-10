@@ -154,3 +154,21 @@ Les valeurs. Les ratchets vivent dans `config/m21-quality-ratchets.properties`, 
 les commentaires des deux gates ; ils montent au fil des lots et ne doivent jamais être recopiés d'ici
 (`rules/meta.md`). Cet ADR fixe **comment** une valeur est qualifiée et à quelle échelle elle s'applique, pas
 laquelle.
+
+## Amendement du 10 octobre 2026 — un rapport périmé est un troisième refus, sur les deux échelles
+
+La section « Assumé » énumère ce que chaque échelle refuse : un réacteur à moitié construit, un rapport qui ne mesure pas
+toute la population. Un troisième cas manquait (constat AUD-TST-02 de l'audit du 9 octobre 2026) : un rapport qui existe,
+mais qui est plus ancien que le code qu'il prétend mesurer. Sur un poste déjà construit une fois, modifier du code puis
+relancer le seul module de tests d'architecture rendait le gate vert sur les rapports d'avant la modification.
+
+Les deux gates refusent désormais, sous la cause nommée `stale`, un rapport plus ancien que le fichier le plus récent de
+`src/main/java` ou de `src/test/java` des modules qu'il mesure (pour l'échelle agrégée : les modules de la population,
+et `morpheus-architecture-tests`, dont l'exécution inter-modules crédite ce rapport). La comparaison est stricte.
+
+La référence n'est **pas** le répertoire `target/classes` : l'heure d'un répertoire ne change que lorsqu'une entrée y est
+créée ou supprimée, jamais quand un fichier plus bas est réécrit (mesuré : 25 heures de retard sur sa classe la plus
+récente). Les tests posent les dates explicitement et n'attendent jamais l'horloge du système de fichiers.
+
+Le verdict de l'ADR est inchangé, et le refus coûte la même chose que les deux autres : `./mvnw clean verify` sur tout le
+réacteur. Aucune valeur, aucun ratchet ni aucun plafond ne bouge.

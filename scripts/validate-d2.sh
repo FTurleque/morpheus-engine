@@ -12,6 +12,13 @@ cd "$REPO"
 OUTPUT="$REPO/validation-output/d2"
 mkdir -p "$OUTPUT"
 VALIDATION_SHA="$(git rev-parse HEAD)"
+RATCHETS="$REPO/config/m21-quality-ratchets.properties"
+
+# The presence minimums are the living ratchets, never a copy: D2 once compared against its own literals and passed a
+# repository that had lost most of its tests. Read here, before the long build, so a missing key fails at once.
+. "$SCRIPT_DIR/lib/read-quality-ratchet.sh"
+TESTS_MINIMUM="$(read_quality_ratchet "$RATCHETS" testsMinimum integer)"
+ARCH_TESTS_MINIMUM="$(read_quality_ratchet "$RATCHETS" architectureTestsMinimum integer)"
 
 printf '%s\n' "D2 exact-head validation SHA: $VALIDATION_SHA"
 if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
@@ -107,15 +114,15 @@ if (( FAILURES != 0 || ERRORS != 0 )); then
   echo "D2 Surefire failures=$FAILURES errors=$ERRORS" >&2
   exit 1
 fi
-if (( TESTS < 820 )); then
-  echo "D2 test baseline regression: $TESTS < 820" >&2
+if (( TESTS < TESTS_MINIMUM )); then
+  echo "D2 test baseline regression: $TESTS < $TESTS_MINIMUM (testsMinimum in config/m21-quality-ratchets.properties)" >&2
   exit 1
 fi
-if (( ARCH_TESTS < 258 )); then
-  echo "D2 architecture baseline regression: $ARCH_TESTS < 258" >&2
+if (( ARCH_TESTS < ARCH_TESTS_MINIMUM )); then
+  echo "D2 architecture baseline regression: $ARCH_TESTS < $ARCH_TESTS_MINIMUM (architectureTestsMinimum in config/m21-quality-ratchets.properties)" >&2
   exit 1
 fi
-printf '%s\n' "D2 tests: PASS ($TESTS tests, architecture=$ARCH_TESTS, skipped=$SKIPPED)"
+printf '%s\n' "D2 tests: PASS ($TESTS tests >= $TESTS_MINIMUM, architecture=$ARCH_TESTS >= $ARCH_TESTS_MINIMUM, skipped=$SKIPPED)"
 
 COVERAGE="$REPO/morpheus-architecture-tests/target/m21-aggregate-coverage-summary.txt"
 bash "$SCRIPT_DIR/lib/require-aggregate-coverage-evidence.sh" "$COVERAGE"
@@ -130,7 +137,7 @@ if line < 0.40:
 if branch < 0.35:
     raise SystemExit(f'D2 branch coverage below 0.35: {branch}')
 PY
-printf '%s\n' "D2 coverage: PASS (line=$LINE_RATIO branch=$BRANCH_RATIO)"
+printf '%s\n' "D2 coverage: PASS (line=$LINE_RATIO branch=$BRANCH_RATIO, D2 floor 0.40/0.35)"
 
 SBOM_JSON="$REPO/target/m21-supply-chain/morpheus-sbom.json"
 SBOM_XML="$REPO/target/m21-supply-chain/morpheus-sbom.xml"

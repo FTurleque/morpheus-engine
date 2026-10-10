@@ -198,6 +198,6 @@ référencées par plusieurs suites et servent de baseline de non-régression.
 ./mvnw clean verify                                              # reactor complet + coverage
 ./mvnw test -pl morpheus-architecture-tests                      # tous les gates
 ./mvnw test -pl morpheus-architecture-tests -Dtest=*M28*         # gate M28
-./mvnw test -pl morpheus-architecture-tests -Dtest=CoverageQualityGateTest    # échelle par module
-./mvnw test -pl morpheus-coverage-report                                      # échelle agrégée
+./mvnw test -pl morpheus-architecture-tests -Dtest=CoverageQualityGateTest    # échelle par module (après un clean verify : refuse un rapport plus ancien que les sources)
+./mvnw verify                                                                 # échelle agrégée : son gate est lié à verify, default-test est ignoré dans morpheus-coverage-report
 ```

@@ -525,9 +525,10 @@ class RepositoryDocumentationCoherenceTest {
     }
 
     /**
-     * The D2 half of the operator guide has no properties file behind it: both validators carry the baseline as
-     * a literal, and D2RepositoryHardeningArchitectureTest pins those literals. The guide announced the M21
-     * ratchets instead, so an operator reading it expected D2 to refuse a build that D2 accepts.
+     * The D2 guide states what the D2 validators enforce. The presence minimums are not restated: they are the living
+     * ratchets, which the validators read from the properties file, and a number written in the guide would be a copy
+     * that could drift (D2RepositoryHardeningArchitectureTest forbids a literal in the scripts). What remains literal
+     * on purpose is the pair of absolute coverage floors, so those are the only values mirrored here.
      */
     @Test
     void operatorFacingD2GateDocumentationMirrorsWhatTheD2ValidatorsEnforce() throws Exception {
@@ -535,25 +536,19 @@ class RepositoryDocumentationCoherenceTest {
         String linux = Files.readString(root.resolve("scripts/validate-d2.sh"));
         String windows = Files.readString(root.resolve("scripts/validate-d2.ps1"));
 
-        String tests = onlyGroup(Pattern.compile("\\(\\( TESTS < (\\d+) \\)\\)"), linux, "D2 Surefire baseline");
-        String architecture = onlyGroup(Pattern.compile("\\(\\( ARCH_TESTS < (\\d+) \\)\\)"), linux, "D2 architecture baseline");
         String lineFloor = onlyGroup(Pattern.compile("if line < (0\\.\\d+):"), linux, "D2 line coverage floor");
         String branchFloor = onlyGroup(Pattern.compile("if branch < (0\\.\\d+):"), linux, "D2 branch coverage floor");
 
-        assertTrue(windows.contains("$tests -lt " + tests),
-                "the Windows D2 validator must enforce the same Surefire baseline as the Linux one");
-        assertTrue(windows.contains("$architectureTests -lt " + architecture),
-                "the Windows D2 validator must enforce the same architecture baseline as the Linux one");
         assertTrue(windows.contains("$lineCoverage -lt " + lineFloor),
                 "the Windows D2 validator must enforce the same line coverage floor as the Linux one");
         assertTrue(windows.contains("$branchCoverage -lt " + branchFloor),
                 "the Windows D2 validator must enforce the same branch coverage floor as the Linux one");
 
         assertLabelledThresholds(root, "scripts/README.md", Map.of(
-                "baseline Surefire", tests,
-                "baseline architecture", architecture,
                 "absolute line floor", decimalPercentage(lineFloor),
                 "absolute branch floor", decimalPercentage(branchFloor)));
+        assertTrue(Files.readString(root.resolve("scripts/README.md")).contains("testsMinimum"),
+                "the D2 guide must say that the presence minimums are the ratchet file's, not a number of its own");
     }
 
     @Test
