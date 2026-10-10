@@ -144,7 +144,9 @@ class GateReachabilityArchitectureTest {
             }
             boolean run = Stream.concat(shellNamers.stream(), powerShellNamers.stream())
                     .map(path -> path.getFileName().toString().replaceFirst("\\.(?:ps1|sh)$", ""))
-                    .anyMatch(validator -> workflows.contains(validator));
+                    .anyMatch(validator -> Pattern.compile(
+                            "(?<![A-Za-z0-9-])" + Pattern.quote(validator) + "(?![A-Za-z0-9-])")
+                            .matcher(workflows).find());
             if (!run) {
                 unreachable.add(gate + " is named by a validator that no workflow runs");
             }

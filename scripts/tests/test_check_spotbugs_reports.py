@@ -35,11 +35,11 @@ class CheckSpotbugsReportsTest(unittest.TestCase):
 
     def module(self, name: str, xml: str | None, classes: bool = True) -> None:
         target = self.root / name / "target"
+        target.mkdir(parents=True, exist_ok=True)
         if classes:
             (target / "classes").mkdir(parents=True)
             (target / "classes" / "Demo.class").write_bytes(b"\xca\xfe\xba\xbe")
         if xml is not None:
-            target.mkdir(parents=True, exist_ok=True)
             (target / "spotbugsXml.xml").write_text(xml, encoding="utf-8")
 
     def run_script(self) -> subprocess.CompletedProcess[str]:
