@@ -9,14 +9,18 @@ lignes Maven.
 
 `rtk` filtre la sortie des commandes avant qu'elle n'atteigne le contexte. Il est **configuré
 hors du dépôt**, dans le profil Claude Code du mainteneur, qui réécrit les commandes Bash à la
-volée. Le dépôt n'ajoute pas de hook : il apporte uniquement des **filtres projet**.
+volée. Le dépôt n'ajoute ni hook ni filtre versionné : le filtre projet ci-dessous est **local**.
 
 ### Ce qui est déjà couvert sans rien faire
 
 `./mvnw` (le wrapper est bien résolu, ce n'est pas le `mvn` du PATH), `git`, `gh`, `grep`,
 `cat`, `ls`, `find`. Aucune action à prendre : écrire la commande normalement.
 
-### Ce que le dépôt ajoute — `.rtk/filters.toml`
+### Le filtre projet local — `.rtk/filters.toml` (non versionné)
+
+Le répertoire `.rtk/` est dans `.gitignore` depuis le 10/10/2026 (décision du mainteneur) : le filtre vit sur la machine
+du mainteneur et n'est plus publié ; un contributeur qui n'en a pas lit la sortie non filtrée, ce qui est sans danger.
+Son historique reste dans Git.
 
 Un filtre `morpheus-validators` garde les verdicts, les écarts et les échecs des validateurs
 `scripts/validate-*` et `scripts/verify-*`, et coupe la sortie Maven qu'ils produisent en

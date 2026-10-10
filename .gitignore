@@ -29,3 +29,6 @@ Thumbs.db
 # Permissions Claude Code propres a une machine : .claude/settings.json porte
 # ce dont tout contributeur a besoin, settings.local.json le reste.
 .claude/settings.local.json
+
+# Local RTK output filter: the maintainer keeps it on their machine, it is not published
+.rtk/

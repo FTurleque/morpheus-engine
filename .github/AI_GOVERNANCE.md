@@ -56,7 +56,7 @@ ce paramétrage : elle reste entière.
 | Hooks | `.claude/hooks/pre-bash.ps1`, `.claude/hooks/post-edit.ps1` | `PreToolUse`/`PostToolUse`, déclarés dans `.claude/settings.json` | ✅ | Garde-fous fail-open (avertir/bloquer sans jamais bloquer tous les outils par bug interne) |
 | Permissions | `.claude/settings.json` | Claude Code | ✅ | Allow/deny partagés (force-push protégé, `rm -rf` non borné) |
 | Permissions locales | `.claude/settings.local.json` | Claude Code, machine du mainteneur | ❌ | Allow additionnel (commandes `rtk`) ; toute permission utile à tous va dans `settings.json` |
-| Filtres RTK | `.rtk/filters.toml` | `rtk`, une fois la confiance accordée localement (`rtk trust`) | ✅ | Filtre de sortie des validateurs, avec ses propres tests inline |
+| Filtres RTK | `.rtk/filters.toml` | `rtk`, une fois la confiance accordée localement (`rtk trust`) | ❌ (ignoré par Git) | Filtre local de sortie des validateurs, avec ses propres tests inline ; non publié |
 
 ## Ce que les tests vérifient
 
@@ -78,8 +78,8 @@ profil Claude Code de l'utilisateur ; `.claude/settings.local.json` porte les au
 correspondantes sur la machine du mainteneur. Le dépôt ne porte toujours aucun hook RTK et
 n'en dépend pas : sans `rtk` installé, chaque commande s'exécute telle quelle.
 
-Le dépôt porte en revanche un **filtre projet**, `.rtk/filters.toml`, parce que la
-connaissance qu'il encode est celle du dépôt et non celle d'une machine : quelles lignes d'un
+Le mainteneur garde en revanche un **filtre projet local**, `.rtk/filters.toml`, ignoré par Git
+depuis le 10/10/2026 et donc non publié ; la connaissance qu'il encode est celle du dépôt : quelles lignes d'un
 validateur MORPHEUS sont un verdict et lesquelles sont du bruit Maven. Un filtre qui coupe une
 ligne d'échec est pire que pas de filtre, donc il porte ses propres tests inline
 (`rtk verify --filter morpheus-validators`), au même titre qu'un gate porte les siens. La
@@ -97,12 +97,12 @@ d'origine.
 
 Toute modification d'un artefact de gouvernance IA (`.claude/rules/`, `.claude/skills/`,
 `.claude/agents/`, `.claude/commands/`, `.claude/hooks/`, `.claude/settings.json`,
-`.rtk/filters.toml`, ce document) doit :
+ce document) doit :
 
 1. Éviter tout chiffre périssable — renvoyer vers la source vivante
 2. Être mentionnée dans la description de la PR (ce sont des fichiers de gouvernance, pas
    de simples fichiers de config)
 3. Si elle touche un `.ps1` : rester ASCII et être **exécutée une fois** avant de conclure —
    une erreur d'analyse rend un hook muet sans rien casser de visible (`.claude/rules/tooling.md`)
-4. Si elle touche `.rtk/filters.toml` : rejouer les tests inline du filtre, puis réaccorder
-   la confiance locale
+4. Si elle touche le filtre local `.rtk/filters.toml` (non versionné) : rejouer ses tests inline,
+   puis réaccorder la confiance locale
