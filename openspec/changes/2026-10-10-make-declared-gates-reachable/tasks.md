@@ -62,7 +62,7 @@ request that introduces this change.
 
 ## 4. The scheduled lanes
 
-- [ ] 4.1 `nightly.yml`: add a matrix job (`ubuntu-latest` → `bash ./scripts/validate-m19.sh`, `windows-latest` →
+- [x] 4.1 `nightly.yml`: add a matrix job (`ubuntu-latest` → `bash ./scripts/validate-m19.sh`, `windows-latest` →
       `.\scripts\validate-m19.ps1`), checkout of `develop` on `schedule` and of the dispatched ref on `workflow_dispatch`
       (`ref: ${{ github.event_name == 'schedule' && 'develop' || github.ref }}`), pinned action SHAs already present in the
       file, no `continue-on-error`, and no mention of the packaging tool's name in comments (a contract test refuses it
@@ -77,6 +77,7 @@ request that introduces this change.
       hold no secret, and now testing the branch because of the `ref` expression) passes on both platforms; the artefact holds `validation-summary.txt` with five groups of `M19_METRIC`; the five timed budgets, the heap
       ceiling and the database-size budgets are listed with their margin; the run id and the measured values are recorded in `docs/validation/README.md` as a dated measurement (not a ratchet).
   - 2026-10-10, `workflow_dispatch` run 38072058177 from the branch (`4142c00f`): Linux **PASS** in about 8 minutes (reactor 357 s, performance gates 77 s, packaged startup PASS; every `M19_METRIC` inside its budget, `max_heap_mib=768`); evidence artefact `m19-budget-evidence-Linux`. Windows **refused by the validator**, as predicted: `Logical processors: 4`, `Visible RAM GiB: 16`, `Disk model: Msft Virtual Disk`, `Disk bus: SAS`, `Disk media: Unspecified` -> `Workspace must be on a local SSD; media=Unspecified bus=SAS`. Per this task the work stops here for the decision recorded as an open question in `design.md`; left unchecked.
+  - 2026-10-10, run 38073018864 (`92654629`, after the maintainer chose to recognise a GitHub-hosted runner in `validate-m19.ps1`): both platforms **PASS**. Linux job 8 min. Windows job 44 min (reactor 1,104 s, performance gates 1,399 s, packaged startup p95 293 ms). Hosted Windows margins are much tighter than on the developer machine of M19: inventory scan p95 7,654 ms against 20,000 (38 %), full publish p95 15,939 ms against 60,000 (27 %), requirement query 133 ms against 1,000, trace traversal 137 ms against 2,000, composition status 88 ms against 1,000, SQLite reopen 46 ms against 2,000, heap at its 768 MiB ceiling, database 251,491,856 bytes against 512 MiB. No budget is near a miss, but the two slowest sit at 2.6x-3.7x, not 10x. Linux margins as in the previous note.
 - [ ] 4.2 Prove the lane goes red: in a throw-away commit lower one budget constant below the measured value, dispatch,
       observe `failure-summary.txt` naming "M19 performance gates" and the job failing on that platform, then discard
       the commit. Proof: run id and the failure summary in the pull request. Never keep a changed budget
