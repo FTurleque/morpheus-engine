@@ -10,8 +10,11 @@ name: MORPHEUS Nightly
 # does not change between one pull request and the next.
 #
 # A daily verdict on an integration branch is worth nearly as much as a per-merge one and costs a fraction of it;
-# an observation that does not change does not need to be reproduced per pull request. Neither lane gates a
-# merge, and neither is reachable from a `pull_request` event -- this workflow deliberately has no such trigger.
+# an observation that does not change does not need to be reproduced per pull request. No lane gates a
+# merge, and none is reachable from a `pull_request` event -- this workflow deliberately has no such trigger.
+#
+# Three further lanes (M19 budgets, SpotBugs, PIT) run what the repository declares and no other pipeline reached;
+# see the comment above them.
 
 on:
   schedule:
@@ -199,3 +202,147 @@ jobs:
           path: |
             **/target/surefire-reports/*.xml
             morpheus-api/target/remote-load-profile.txt
+
+  # The next three lanes exist because three things were declared, pinned and documented and yet run by nothing: the five
+  # M19 performance budgets (their class names match no Surefire pattern, so only their validator can run them), and the
+  # SpotBugs and PIT profiles of the root POM. A gate that no pipeline reaches protects nobody, and the cost of finding that
+  # out is a regression nobody saw. None of them gates a merge (this workflow has no pull_request trigger), and none holds
+  # a secret, so a manual dispatch from a branch is allowed to prove them before the branch is merged.
+  #
+  # A scheduled run executes this file as it exists on the default branch, so these lanes run on their own only once the
+  # workflow is on main; until then they are exercised by workflow_dispatch.
+  m19-budgets:
+    # The budgets are frozen (docs/roadmap/M19_PERFORMANCE_BUDGETS.md) and are never relaxed to make a run pass. Each
+    # platform runs its own validator because "Windows PASS != Linux PASS". The validator refuses a machine below the
+    # reference environment instead of reporting a verdict, and that refusal fails the job, it is not a pass.
+    #
+    # The checkout follows the dispatched ref and falls back to develop on a schedule, which is dispatched against the
+    # default branch: pinning develop here, as the Sonar lane does to keep its secret away from unmerged code, would make
+    # every proof run before a merge test the wrong tree.
+    name: M19 performance budgets (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Checkout the dispatched ref, or develop on a schedule
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'develop' || github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          check-latest: false
+
+      - name: Run the M19 validator on Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: bash ./scripts/validate-m19.sh
+
+      - name: Run the M19 validator on Windows
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: .\scripts\validate-m19.ps1
+
+      - name: Upload M19 budget evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: m19-budget-evidence-${{ runner.os }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            validation-output/m19/validation-summary.txt
+            validation-output/m19/failure-summary.txt
+            validation-output/m19/logs/**
+            validation-output/m19-linux/validation-summary.txt
+            validation-output/m19-linux/failure-summary.txt
+            validation-output/m19-linux/logs/**
+
+  spotbugs-report:
+    # Report-only: alerts never fail the lane, because the audit-spotbugs check is red on the current code and its alerts are
+    # not qualified yet (docs/developer/CODE_AUDIT.md). What does fail it is an analysis that did not happen -- a module with
+    # classes and no report, missingClasses or errors above zero, no CPU time -- because a green run that analysed nothing is
+    # worse than a red one. check-spotbugs-reports.py reads that proof and writes the alert counts to the job summary.
+    name: SpotBugs report (report-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout the dispatched ref, or develop on a schedule
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'develop' || github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          check-latest: false
+
+      - name: Analyse the whole reactor without failing on alerts
+        shell: bash
+        run: ./mvnw -B -ntp -Paudit-spotbugs -Dspotbugs.failOnError=false -DskipTests verify
+
+      - name: Prove every module with classes was analysed, and count the alerts
+        shell: bash
+        run: python3 scripts/check-spotbugs-reports.py .
+
+      - name: Upload SpotBugs reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: spotbugs-reports
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            **/target/spotbugsXml.xml
+            **/target/reports/spotbugs.html
+
+  pit-mutation:
+    # PIT runs on the scope the audit-mutation profile declares, which lives in morpheus-domain, and nowhere else: the
+    # batches of docs/developer/CODE_AUDIT.md are serial, two at once turn mutations into timeouts counted as killed, and
+    # two modules leave orphan JVMs behind. Widening the scope is a decision with its own measurement. The profile refuses a
+    # scope that covers no line, so a run that mutated nothing fails instead of publishing an empty report.
+    name: PIT mutation report (bounded scope)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout the dispatched ref, or develop on a schedule
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'develop' || github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          check-latest: false
+
+      - name: Mutate the profile's declared scope
+        shell: bash
+        run: ./mvnw -B -ntp -Paudit-mutation -pl morpheus-domain test-compile org.pitest:pitest-maven:mutationCoverage
+
+      - name: Upload PIT reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pit-reports
+          if-no-files-found: warn
+          retention-days: 14
+          path: morpheus-domain/target/pit-reports/**
