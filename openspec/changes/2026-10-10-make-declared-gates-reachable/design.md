@@ -226,5 +226,5 @@ records, highest `0109`, no duplicate — nothing is attributed here.
 
 - Does the maintainer want `validate-m19` to accept `-Version` for uniformity (decision 8), or to stay version-free?
 - Backport `nightly.yml` to `main` ahead of the promotion of 1.2.1, so that the lanes run on their own sooner?
-- If the Windows reference-environment check refuses a hosted runner: recognise `GITHUB_ACTIONS` in the check, or leave the
+- RESOLVED 2026-10-10 (maintainer: option 1): `validate-m19.ps1` recognises a runner GitHub declares hosted (`GITHUB_ACTIONS` and `RUNNER_ENVIRONMENT=github-hosted`); a self-hosted runner or a developer machine must still show an SSD. Was: if the Windows reference-environment check refuses a hosted runner: recognise `GITHUB_ACTIONS` in the check, or leave the
   Windows lane out and keep the Windows proof explicitly missing?
