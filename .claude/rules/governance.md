@@ -58,7 +58,7 @@ servie qui manque à `MorpheusHttpRouteTable` n'est vue par aucun des deux (elle
 - Mettre à jour **ensemble** : le code, `contracts/public-surfaces.tsv`, et `docs/openapi/morpheus-v1-*.yaml`
 - Écrire un ADR dans `docs/adr/` pour toute décision structurelle (compter `docs/adr/0*.md` avec un `glob` — ne jamais recopier un total, cf. `rules/meta.md` ; le `README.md` du répertoire n'est pas un ADR)
 - Livrer le quadruplet complet pour un nouveau milestone (suite ArchUnit + scripts dual-platform + EXECUTION + VALIDATION)
-- Fournir les scripts de validation **en `.ps1` ET `.sh`** — la parité Windows/Linux est assertée
+- Fournir les scripts de validation **en `.ps1` ET `.sh`** — la parité Windows/Linux est assertée pour **tout** `scripts/validate-<cible>.*` par `GateReachabilityArchitectureTest`
 - Justifier dans la description de la PR toute modification de `contracts/public-surfaces.tsv`,
   `config/*ratchets*.properties`, `docs/openapi/*.yaml` ou d'un test sous `morpheus-architecture-tests/` —
   ce sont des fichiers de gouvernance, pas de simples fichiers de configuration
