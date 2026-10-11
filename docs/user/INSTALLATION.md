@@ -66,7 +66,7 @@ Mettre à jour ou désinstaller MORPHEUS ne supprime pas le knowledge store par 
 
 Lancer le setup 1.2.0 avec le même utilisateur Windows. Le setup conserve le même AppId et remplace les fichiers programme sans supprimer `data`, `config`, `logs` ou `backups`.
 
-Depuis 1.1.0, le schéma SQLite reste V015 ; 1.2.0 n’introduit pas de migration de données. Voir [UPGRADE_1_2.md](UPGRADE_1_2.md).
+Depuis 1.1.0, le schéma SQLite reste V015 ; 1.2.0 n’introduit pas de migration de données. Voir [UPGRADE_1_2.md](UPGRADE_1_2.md). La version suivante fait avancer le schéma : lire [UPGRADE_1_2_1.md](UPGRADE_1_2_1.md) avant de l'installer.
 
 ## Désinstallation Windows
 

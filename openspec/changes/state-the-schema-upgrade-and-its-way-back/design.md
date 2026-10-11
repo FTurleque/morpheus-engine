@@ -42,7 +42,10 @@ adds none; rewriting the dated content of older guides.
    the new version.
 
 4. **The guide quotes the refusal, and the test checks the quote against the source.** The sentence
-   `is newer than supported` is what the operator will read; the test asserts it is in the guide and still in
+   `is newer than supported` is what an operator reads from 1.2.1 on — and from 1.2.0 only when it verifies a backup:
+   the published 1.2.0 has no such check on opening (see the proposal). The guide that leaves 1.2.0 therefore carries
+   one more statement, pinned on that file by name because it is a fact about one published release: 1.2.0 does not
+   refuse a migrated database. Both statements are needed; the test asserts it is in the guide and still in
    `SqliteSchemaManager.java`. A reworded refusal fails the build instead of orphaning the guide. This is a textual
    assertion by nature (`.md` target, ADR-0103): the intention is "this sentence appears here".
 
@@ -56,6 +59,9 @@ adds none; rewriting the dated content of older guides.
 
 ## Risks / Trade-offs
 
+- **What 1.2.0 does on a migrated database was read, not run.** The guide says the combination is neither designed nor
+  qualified and forbids it; it does not claim a specific failure. Whether the absence of that check in a published
+  release deserves a `SECURITY.md` or release-note line of its own is the maintainer's call.
 - The test proves the guide names the right number and the right refusal; it cannot prove the prose is correct. Review
   by the maintainer remains the control for the procedure itself.
 - The constant is a compile-time constant; the architecture module reads it through

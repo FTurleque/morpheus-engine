@@ -2,6 +2,9 @@
 
 Statut : **ACTIVE — MORPHEUS 1.2.0 PUBLIÉ**
 
+> Ce guide décrit la mise à niveau vers **1.2.0**, une release publiée. Ce qu'il dit du schéma SQLite vaut pour cette
+> release. Pour la version en cours, voir [`UPGRADE_1_2_1.md`](UPGRADE_1_2_1.md).
+
 Ce guide couvre la mise à niveau depuis MORPHEUS 1.1.0 vers MORPHEUS 1.2.0.
 
 ## Résumé
@@ -105,7 +108,7 @@ Version attendue :
 
 ## Retour à 1.1.0
 
-Le schéma SQLite étant inchangé à V015, les données restent structurellement compatibles. Avant un rollback programme : sauvegarder la base/configuration, retirer ou adapter les intégrations MCP pointant vers le binaire 1.2.0, réinstaller 1.1.0 puis vérifier les launchers enregistrés.
+Entre 1.1.0 et 1.2.0, le schéma SQLite est inchangé à V015 et les données restent structurellement compatibles ; ce n'est plus vrai d'une base ouverte par une version ultérieure, voir [`UPGRADE_1_2_1.md`](UPGRADE_1_2_1.md). Avant un rollback programme : sauvegarder la base/configuration, retirer ou adapter les intégrations MCP pointant vers le binaire 1.2.0, réinstaller 1.1.0 puis vérifier les launchers enregistrés.
 
 Un rollback programme n’est jamais un rollback logique de snapshot MORPHEUS.
 
