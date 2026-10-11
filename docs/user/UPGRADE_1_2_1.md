@@ -65,6 +65,19 @@ une sauvegarde est toujours amenée au schéma du programme qui l'exécute. Cré
 `server restore` de 1.2.0 la refuse. Une sauvegarde prise après le premier démarrage de 1.2.1 protège les données ;
 elle ne permet pas de revenir en arrière.
 
+**Le filet de 1.2.1.** À sa première ouverture d'une base plus ancienne que lui, 1.2.1 en écrit lui-même une copie
+avant de la migrer, à côté de la base :
+
+```text
+morpheus.db.pre-migration-v015-<horodatage UTC>-<8 caractères>.db
+```
+
+C'est la base telle qu'elle était, à son schéma d'origine : elle se vérifie et se restaure comme une sauvegarde
+(`server backup verify`, `server restore`). S'il ne peut pas l'écrire, 1.2.1 refuse de migrer
+(`PRE_MIGRATION_BACKUP_FAILED`) et la base reste intacte. Il y en a une par tentative de migration, elle n'est jamais
+supprimée automatiquement, et elle est sur le même disque que la base : elle ne remplace pas l'étape ci-dessus, elle
+rattrape celui qui l'a oubliée.
+
 Si le programme a déjà été remplacé mais que 1.2.1 n'a **encore jamais été démarré**, la base est toujours en V015.
 Copier alors, tous processus arrêtés, le fichier de base (`data/morpheus.db` par défaut, voir
 [INSTALLATION.md](INSTALLATION.md)) et ses éventuels fichiers compagnons de même nom (`-journal`, `-wal`, `-shm`) avant
