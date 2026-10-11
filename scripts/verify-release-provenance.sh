@@ -63,6 +63,8 @@ EXPECTED_ASSETS=(
   "morpheus-$VERSION-linux-x64.tar.gz.sha256"
   "morpheus-$VERSION-linux-x64-release-manifest.json"
   "morpheus-$VERSION-linux-x64.attestation.jsonl"
+  "morpheus-$VERSION-sbom.cdx.json"
+  "morpheus-$VERSION-sbom.cdx.json.sha256"
   "morpheus-$VERSION-windows-x64.zip"
   "morpheus-$VERSION-windows-x64.zip.sha256"
   "MORPHEUS-$VERSION-windows-x64-setup.exe"
@@ -113,7 +115,7 @@ for checksum in "$WORKDIR/assets"/*.sha256; do
     || fail "checksum mismatch for $(basename "$artifact"): published=$expected_digest actual=$actual_digest"
   CHECKED=$((CHECKED + 1))
 done
-[[ "$CHECKED" -ge 3 ]] || fail "expected at least three published checksums, verified $CHECKED"
+[[ "$CHECKED" -ge 4 ]] || fail "expected at least four published checksums, verified $CHECKED"
 pass "published checksums ($CHECKED verified)"
 
 # ---------------------------------------------------------------------------
@@ -156,13 +158,14 @@ REPO_SLUG="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
 ATTESTED=0
 for artifact in \
   "$WORKDIR/assets/morpheus-$VERSION-linux-x64.tar.gz" \
+  "$WORKDIR/assets/morpheus-$VERSION-sbom.cdx.json" \
   "$WORKDIR/assets/morpheus-$VERSION-windows-x64.zip" \
   "$WORKDIR/assets/MORPHEUS-$VERSION-windows-x64-setup.exe"; do
   gh attestation verify "$artifact" --repo "$REPO_SLUG" >/dev/null \
     || fail "provenance attestation did not verify for $(basename "$artifact")"
   ATTESTED=$((ATTESTED + 1))
 done
-[[ "$ATTESTED" -eq 3 ]] || fail "expected three attested artifacts, verified $ATTESTED"
+[[ "$ATTESTED" -eq 4 ]] || fail "expected four attested artifacts, verified $ATTESTED"
 pass "public provenance ($ATTESTED artifacts)"
 
 # ---------------------------------------------------------------------------
@@ -174,6 +177,46 @@ for bundle in \
   [[ -s "$bundle" ]] || fail "attestation bundle is empty: $(basename "$bundle")"
 done
 pass "preserved attestation bundles"
+
+# ---------------------------------------------------------------------------
+# 7. The published inventory describes this release, and covers what each archive attributes.
+# ---------------------------------------------------------------------------
+morpheus_python - "$WORKDIR/assets" "$VERSION" <<'PY'
+import json
+import re
+import sys
+import tarfile
+import zipfile
+from pathlib import Path
+
+assets, version = Path(sys.argv[1]), sys.argv[2]
+sbom = json.loads((assets / f"morpheus-{version}-sbom.cdx.json").read_text(encoding="utf-8"))
+described = sbom.get("metadata", {}).get("component", {}).get("version")
+if described != version:
+    raise SystemExit(f"published SBOM describes version {described!r}, expected {version!r}")
+inventory = {f"{c.get('group')}:{c.get('name')} {c.get('version')}" for c in sbom.get("components", [])}
+
+with tarfile.open(assets / f"morpheus-{version}-linux-x64.tar.gz") as archive:
+    member = archive.extractfile("morpheus/THIRD-PARTY-NOTICES")
+    if member is None:
+        raise SystemExit("the Linux archive carries no THIRD-PARTY-NOTICES")
+    notices = {"linux": member.read().decode("utf-8")}
+with zipfile.ZipFile(assets / f"morpheus-{version}-windows-x64.zip") as archive:
+    names = [name for name in archive.namelist() if re.fullmatch(r"morpheus[\\/]THIRD-PARTY-NOTICES", name)]
+    if not names:
+        raise SystemExit("the Windows archive carries no THIRD-PARTY-NOTICES")
+    notices["windows"] = archive.read(names[0]).decode("utf-8")
+
+for platform, text in notices.items():
+    attributed = re.findall(r"^  (\S+:\S+ \S+) \(", text, re.MULTILINE)
+    if not attributed:
+        raise SystemExit(f"the {platform} archive attributes no third-party component")
+    absent = sorted(set(attributed) - inventory)
+    if absent:
+        raise SystemExit(f"the {platform} archive attributes components the published SBOM does not list: {absent}")
+print(f"inventory: {len(inventory)} components, both archives covered")
+PY
+pass "published inventory"
 
 echo
 echo "RELEASE QUALIFICATION PASS: $TAG @ $TAG_SHA"

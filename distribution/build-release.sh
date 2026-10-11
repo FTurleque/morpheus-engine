@@ -42,13 +42,32 @@ fi
 
 SHA256="$(sha256sum "$ARCHIVE" | awk '{print $1}')"
 BYTES="$(stat -c '%s' "$ARCHIVE")"
+
+# The inventory of what this commit is built from is published with the release: one CycloneDX document for the
+# release, written here from the tagged commit by the execution the root POM declares. The goal is called by itself;
+# a release build does not run the verify lifecycle that normally triggers it.
+"$REPO/mvnw" -DskipTests cyclonedx:makeAggregateBom@m21-aggregate-sbom
+SBOM_SOURCE="$REPO/target/m21-supply-chain/morpheus-sbom.json"
+SBOM="$DIST/morpheus-$VERSION-sbom.cdx.json"
+if [[ ! -s "$SBOM_SOURCE" ]]; then
+  echo "Release SBOM was not produced: $SBOM_SOURCE" >&2
+  exit 1
+fi
+cp "$SBOM_SOURCE" "$SBOM"
+(
+  cd "$DIST"
+  sha256sum "$(basename "$SBOM")" > "$(basename "$SBOM").sha256"
+  sha256sum -c "$(basename "$SBOM").sha256"
+)
+SBOM_SHA256="$(sha256sum "$SBOM" | awk '{print $1}')"
+SBOM_BYTES="$(stat -c '%s' "$SBOM")"
 MANIFEST="$DIST/morpheus-$VERSION-linux-x64-release-manifest.json"
-python3 - "$MANIFEST" "$VERSION" "$EXPECTED_TAG" "$HEAD_SHA" "$(basename "$ARCHIVE")" "$BYTES" "$SHA256" <<'PY'
+python3 - "$MANIFEST" "$VERSION" "$EXPECTED_TAG" "$HEAD_SHA" "$(basename "$ARCHIVE")" "$BYTES" "$SHA256"   "$(basename "$SBOM")" "$SBOM_BYTES" "$SBOM_SHA256" <<'PY'
 import json
 import sys
 from pathlib import Path
 
-manifest, version, tag, sha, asset, size, digest = sys.argv[1:]
+manifest, version, tag, sha, asset, size, digest, sbom, sbom_size, sbom_digest = sys.argv[1:]
 payload = {
     "schemaVersion": 1,
     "product": "MORPHEUS",
@@ -69,6 +88,11 @@ payload = {
         "bytes": int(size),
         "sha256": digest,
         "checksum": asset + ".sha256",
+    }, {
+        "name": sbom,
+        "bytes": int(sbom_size),
+        "sha256": sbom_digest,
+        "checksum": sbom + ".sha256",
     }],
 }
 Path(manifest).write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -79,3 +103,4 @@ echo "Tag:      $EXPECTED_TAG"
 echo "Git SHA:  $HEAD_SHA"
 echo "Manifest: $MANIFEST"
 echo "Asset: $(basename "$ARCHIVE") bytes=$BYTES sha256=$SHA256"
+echo "Asset: $(basename "$SBOM") bytes=$SBOM_BYTES sha256=$SBOM_SHA256"
