@@ -208,6 +208,18 @@ MORPHEUS_SERVER_TLS_KEYSTORE       alternative à --tls-keystore
 MORPHEUS_SERVER_AUTH_FILE          alternative à --auth-file
 MORPHEUS_SERVER_MAX_CONCURRENT     limite de concurrence
 MORPHEUS_SERVER_WORKSPACE_ROOTS    racines séparées par le séparateur de chemins OS
+MORPHEUS_SERVER_PROVIDER_PLUGIN_DIR alternative à --provider-plugin-dir
+```
+
+Le répertoire de plugins est celui où le serveur cherche du code tiers à exécuter une fois son empreinte SHA-256
+vérifiée : il fait partie de la surface à contrôler lors d'un durcissement. Il est résolu dans cet ordre, la première
+source renseignée l'emporte :
+
+```text
+1. --provider-plugin-dir
+2. MORPHEUS_SERVER_PROVIDER_PLUGIN_DIR
+3. propriété JVM morpheus.server.providerPluginDirectory
+4. <config-dir>/provider-plugins
 ```
 
 La propriété protégée équivalente est `morpheus.server.workspaceRoots`. Les racines sont configurées uniquement au démarrage du serveur. Elles doivent exister, être des répertoires réels et ne pas être des liens symboliques. Le mode remote refuse de démarrer sans racine valide, keystore, mot de passe TLS ou identité ADMIN.
@@ -377,7 +389,7 @@ curl -X POST \
   "https://morpheus.example.internal:8765/api/v1/provider-plugins/probe?pluginId=my-plugin&workspace=/srv/morpheus/workspaces/project&sha256=<64-hex>"
 ```
 
-Le client ne choisit pas le répertoire de plugins : le serveur utilise uniquement son `--provider-plugin-dir`. Le JAR épinglé est copié dans un staging privé, le digest est vérifié sur cette copie puis seule cette copie est chargée ; le chemin mutable d’origine n’est jamais utilisé après la vérification d’intégrité.
+Le client ne choisit pas le répertoire de plugins : le serveur le tire uniquement de sa propre configuration de lancement — `--provider-plugin-dir`, à défaut `MORPHEUS_SERVER_PROVIDER_PLUGIN_DIR`, puis la propriété JVM `morpheus.server.providerPluginDirectory`, puis `<config-dir>/provider-plugins` — jamais d'une requête. Le JAR épinglé est copié dans un staging privé, le digest est vérifié sur cette copie puis seule cette copie est chargée ; le chemin mutable d’origine n’est jamais utilisé après la vérification d’intégrité.
 
 ## 5. Backups
 
