@@ -148,7 +148,8 @@ for required in LICENSE THIRD-PARTY-NOTICES; do
   fi
 done
 for module in $(sed -n 's/^MODULES="\(.*\)"$/\1/p' "$RUNTIME_HOME/release"); do
-  if [[ -z "$(find "$RUNTIME_HOME/legal/$module" -type f -print -quit 2>/dev/null)" ]]; then
+  # On Linux a module's notices are links to those of java.base, so links count as much as files.
+  if [[ -z "$(find -L "$RUNTIME_HOME/legal/$module" -type f -print -quit 2>/dev/null)" ]]; then
     echo "Packaging proof failed; the embedded runtime carries no legal notice for $module" >&2
     exit 1
   fi
