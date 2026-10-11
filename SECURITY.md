@@ -24,6 +24,8 @@ Credential material printed by `server identity create` or `server identity rota
 
 MORPHEUS integrates no secret vault and persists no reusable secret: tokens are stored as SHA-256 hashes only, and the TLS keystore password is read from the `MORPHEUS_SERVER_TLS_PASSWORD` environment variable alone — never from a command-line argument or a `-D` JVM property, both of which other local accounts can read. The protection is bounded to other accounts of the host; it does not extend to a compromise of the account running MORPHEUS, to an administrator, or to unencrypted backups. The full threat model and the conditions that would reopen the decision are in [ADR-0105](docs/architecture/adr/0105-no-secret-vault-no-reusable-secret-at-rest.md).
 
+Before it advances the schema of an existing database, MORPHEUS writes a copy of that database beside it (`<database>.pre-migration-v<NNN>-<timestamp>-<id>.db`, [ADR-0110](docs/architecture/adr/0110-a-copy-is-kept-before-the-schema-advances.md)). The copy holds everything the database held, is unencrypted like any backup, receives the same local permission hardening as the database, and is never removed automatically: it falls under the same handling rules as a backup. If it cannot be written, the upgrade is refused rather than performed without a way back.
+
 ### Response lifetime and abandoned clients
 
 Concurrency permits, the proxied-response memory budget and the request-body deadline are all taken before a
