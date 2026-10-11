@@ -158,6 +158,35 @@ class RemoteApiLaunchOptionsTest {
     }
 
     @Test
+    void remotePluginDirectoryIsTakenFromTheOptionThenTheEnvironmentThenTheJvmProperty() {
+        Path keyStore = temp.resolve("server.p12");
+        Path fromOption = temp.resolve("plugins-from-option");
+        Path fromEnvironment = temp.resolve("plugins-from-environment");
+        Path fromProperty = temp.resolve("plugins-from-property");
+        String[] base = {"--data-dir", temp.toString(), "api", "--remote", "--tls-keystore", keyStore.toString()};
+        String[] withOption = {
+                "--data-dir", temp.toString(), "api", "--remote", "--tls-keystore", keyStore.toString(),
+                "--provider-plugin-dir", fromOption.toString()};
+        Map<String, String> environment = new HashMap<>();
+        environment.put("MORPHEUS_SERVER_TLS_PASSWORD", "protected-source");
+        environment.put("MORPHEUS_SERVER_WORKSPACE_ROOTS", temp.toString());
+        Properties withProperty = properties();
+        withProperty.setProperty("morpheus.server.providerPluginDirectory", fromProperty.toString());
+
+        assertEquals(fromProperty.toAbsolutePath().normalize(),
+                RemoteApiLaunchOptions.parse(base, environment, withProperty).providerPluginDirectory(),
+                "the JVM property is consulted before the default");
+
+        environment.put("MORPHEUS_SERVER_PROVIDER_PLUGIN_DIR", fromEnvironment.toString());
+        assertEquals(fromEnvironment.toAbsolutePath().normalize(),
+                RemoteApiLaunchOptions.parse(base, environment, withProperty).providerPluginDirectory(),
+                "the environment variable wins over the JVM property");
+        assertEquals(fromOption.toAbsolutePath().normalize(),
+                RemoteApiLaunchOptions.parse(withOption, environment, withProperty).providerPluginDirectory(),
+                "the option wins over the environment variable");
+    }
+
+    @Test
     void remoteModeFailsClosedWithoutServerConfiguredWorkspaceRoot() {
         assertThrows(IllegalArgumentException.class, () -> RemoteApiLaunchOptions.parse(
                 new String[]{
