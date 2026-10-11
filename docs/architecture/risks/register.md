@@ -41,7 +41,8 @@
 >
 > **Condition de réouverture** : un résumé de *MORPHEUS Security* publie un « Obtained via » autre que
 > `NVD API key refresh` sur une branche épinglée à 13.0.0 ou au-delà, une annotation
-> `MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESH_FAILED` apparaît, ou `gh secret list` ne retourne plus
+> `MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESH_FAILED` apparaît, une alerte
+> `MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_OVERDUE` est levée, ou `gh secret list` ne retourne plus
 > `NVD_API_KEY`. Le texte ci-dessous est l'analyse du 09/09/2026, conservée telle quelle.
 
 Ce risque n'est pas une hypothèse : c'est une panne **datée**, qui se déclenchera environ
