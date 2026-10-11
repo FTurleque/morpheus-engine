@@ -325,8 +325,11 @@ try {
     Invoke-LoggedStage -Name 'Full Maven reactor' -FilePath $mvnw -Arguments @('clean', 'verify') -LogName '01-full-reactor.log'
     $script:FullTestSummary = Get-SurefireTotals $repo
     $script:ArchitectureTestSummary = Get-SurefireTotals (Join-Path $repo 'morpheus-architecture-tests')
-    if ($script:FullTestSummary.Failures -ne 0 -or $script:FullTestSummary.Errors -ne 0 -or $script:FullTestSummary.Skipped -ne 0) {
-        throw 'Full Maven reactor contains failures/errors/skipped tests'
+    # Skipped tests are reported in the summary and are not a refusal: several tests are conditional on the platform
+    # and skip on the other one, which the Linux validator has never refused either. Refusing them here made this
+    # validator fail on every current tree, on a count that says nothing about the release build.
+    if ($script:FullTestSummary.Failures -ne 0 -or $script:FullTestSummary.Errors -ne 0) {
+        throw 'Full Maven reactor contains failures/errors'
     }
 
     $script:CurrentStage = 'Installer contract'

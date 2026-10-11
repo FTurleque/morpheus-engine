@@ -87,3 +87,12 @@ Implementation is a separate lot, started after this specification is reviewed, 
 - [x] 5.3 Pull request description: finding covered, the corrected numbers (commits since `v1.2.0` re-counted that day),
       the decisions of `design.md`, the four unexercised steps, and the justification for the workflow and gate edits.
   - 2026-10-11: in the description of the pull request that carries this lot.
+
+## 6. Found by the first dispatched run
+
+- [x] 6.1 The Windows rehearsal failed on its first run (run 38164363426): `validate-m20.ps1` refused the reactor for
+      seven skipped tests. They are conditional on the platform (`OpenSpecRefusedFileNameTest`, `SqliteDatabaseLeaseTest`,
+      `MorpheusProjectSyncDisclosureTest`) and the Linux validator never refused a skipped test. The `.ps1` now reports
+      the count and refuses failures and errors only. The Linux leg, M19, SpotBugs and PIT passed in the same run.
+  - 2026-10-11: the validator had been failing on every current tree; nothing ran it, so nothing said so. This is the
+    finding the lane exists to produce.
