@@ -27,7 +27,11 @@ if [[ ! -x "$JIMAGE_TOOL" ]]; then
 fi
 
 printf '%s\n' "Building MORPHEUS $VERSION CLI + MCP + API + provider SDK + optional MINOS/NEXUS adapters + M14-M28 contracts uber-JAR..."
-"$REPO/mvnw" -pl morpheus-cli -am -DskipTests package
+# The dependency list is what the notices are written from: the runtime classpath Maven resolved for the launcher, in
+# this very build. Each module of the reactor writes the file in turn and morpheus-cli, built last, has the last word.
+RUNTIME_DEPENDENCIES="$REPO/morpheus-cli/target/runtime-dependencies.txt"
+"$REPO/mvnw" -pl morpheus-cli -am -DskipTests package dependency:list \
+  -DincludeScope=runtime -DoutputAbsoluteArtifactFilename=true -DoutputFile="$RUNTIME_DEPENDENCIES"
 
 JAR="$(find "$REPO/morpheus-cli/target" -maxdepth 1 -type f -name 'morpheus-cli-*-all.jar' -print | sort | tail -n 1)"
 if [[ -z "$JAR" ]]; then
@@ -123,8 +127,38 @@ if [[ -z "$RUNTIME_JAVA" ]]; then
   find "$IMAGE_ROOT/morpheus" -maxdepth 3 -type d >&2
   exit 1
 fi
-printf '%s
-' "Embedded runtime child Java launcher: PASS ($RUNTIME_JAVA)"
+printf '%s\n' "Embedded runtime child Java launcher: PASS ($RUNTIME_JAVA)"
+
+# A distribution redistributes third-party components and a Java runtime; their licences ask for their texts to travel
+# with them. The product licence and the notices go to the root of the image, where someone who unpacks the archive
+# sees them; the runtime keeps the legal notices the JDK ships, and stripping them is refused here.
+RUNTIME_HOME="$(dirname "$(dirname "$RUNTIME_JAVA")")"
+cp "$REPO/LICENSE" "$IMAGE_ROOT/morpheus/LICENSE"
+python3 "$REPO/scripts/write-third-party-notices.py" \
+  --dependencies "$RUNTIME_DEPENDENCIES" \
+  --third-party "$REPO/distribution/third-party" \
+  --jdk-release "$JAVA_HOME/release" \
+  --runtime-release "$RUNTIME_HOME/release" \
+  --output "$IMAGE_ROOT/morpheus/THIRD-PARTY-NOTICES"
+for required in LICENSE THIRD-PARTY-NOTICES; do
+  if [[ ! -s "$IMAGE_ROOT/morpheus/$required" ]]; then
+    echo "Packaging proof failed; $required is missing or empty at the root of the image" >&2
+    exit 1
+  fi
+done
+RUNTIME_MODULES="$(sed -n 's/^MODULES="\(.*\)"$/\1/p' "$RUNTIME_HOME/release")"
+if [[ -z "$RUNTIME_MODULES" ]]; then
+  echo "Packaging proof failed; the embedded runtime's release file lists no module, so no legal notice was checked" >&2
+  exit 1
+fi
+for module in $RUNTIME_MODULES; do
+  # On Linux a module's notices are links to those of java.base, so links count as much as files.
+  if [[ -z "$(find -L "$RUNTIME_HOME/legal/$module" -type f -print -quit 2>/dev/null)" ]]; then
+    echo "Packaging proof failed; the embedded runtime carries no legal notice for $module" >&2
+    exit 1
+  fi
+done
+printf '%s\n' "Product licence, third-party notices and runtime legal notices: PASS"
 
 INTEGRATION_SOURCE="$REPO/integration"
 INTEGRATION_TARGET="$IMAGE_ROOT/morpheus/integration"

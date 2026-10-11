@@ -111,3 +111,13 @@ checksum != provenance
 Les releases produites par le workflow `MORPHEUS Release` reçoivent une attestation GitHub de provenance liée au workflow et au commit tagué. Le champ `attestationUri` rend cette preuve explicitement référençable par le contrat de découverte distant et elle est désormais conservée dans `UpdateCheckResult`.
 
 MORPHEUS ne vérifie ni ne télécharge cette attestation dans `update-check`. La méthode de validation du manifeste vérifie donc un **contrat de découverte distant**, pas une décision cryptographique de confiance éditeur. Toute installation automatique future devra introduire un niveau de confiance vérifié et vérifier cryptographiquement l’attestation ainsi que son lien avec l’artefact avant d’utiliser celui-ci.
+
+## Composants tiers
+
+Chaque distribution contient, à côté du launcher, `LICENSE` (licence de MORPHEUS) et `THIRD-PARTY-NOTICES` :
+la liste des composants tiers embarqués, leur version, leur licence et les textes que ces licences demandent de
+conserver. Le runtime Java embarqué garde ses propres notices dans son répertoire `legal`.
+
+L'inventaire complet d'une release est publié avec elle : `morpheus-<version>-sbom.cdx.json`, au format CycloneDX,
+avec son `.sha256` et une attestation de provenance vérifiable par `gh attestation verify`. C'est le fichier à
+donner à un outil d'analyse de vulnérabilités ou de conformité.

@@ -46,7 +46,19 @@ runtime Java minimal, avec son bin/java (probe isolé de plugin, ADR-0098)
 integration/configure-mcp-clients.ps1
 integration/configure-mcp-clients-setup.ps1
 integration/README.md
+LICENSE                 licence du produit
+THIRD-PARTY-NOTICES     attribution de chaque composant tiers embarqué, avec ses textes de licence
 ```
+
+`THIRD-PARTY-NOTICES` est écrit par le packaging (`scripts/write-third-party-notices.py`) à partir des dépendances
+que Maven a résolues pour le launcher dans ce build. Un composant embarqué sans déclaration dans
+`distribution/third-party/components.tsv`, ou sans texte de licence, fait échouer le packaging
+(`THIRD_PARTY_NOTICE_MISSING`) ; une déclaration que plus rien n'utilise aussi (`THIRD_PARTY_NOTICE_UNUSED`). Le
+runtime Java garde son répertoire `legal`, et les notices nomment le JDK dont il est tiré. Python 3 est requis pour
+packager.
+
+La release publie en plus l'inventaire du commit tagué : `morpheus-<version>-sbom.cdx.json` (CycloneDX) et son
+`.sha256`, produits par le build Linux et couverts par l'attestation de provenance.
 
 Elles n’embarquent ni l’implémentation MINOS, ni l’implémentation NEXUS, ni JARVIS.
 

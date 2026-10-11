@@ -22,6 +22,8 @@ gate                      scripts/validate-m28.ps1 rejoué avant le build Window
 attestations              actions/attest via OIDC, id-token: write
 bundles                   conservés comme assets .attestation.jsonl
 checksums                 .sha256 publiés à côté de chaque artefact
+inventaire                SBOM CycloneDX du commit tagué, produit par le build Linux, attesté avec l'archive
+attributions              LICENSE + THIRD-PARTY-NOTICES à la racine de chaque image, packaging refusé sinon
 cross-job                 download-artifact avec digest-mismatch: error
 écrasement                refusé : gh release view avant gh release create
 ```
@@ -67,7 +69,7 @@ bash scripts/verify-release-provenance.sh v1.2.1
 scripts\verify-release-provenance.ps1 -Tag v1.2.1
 ```
 
-Les deux exécutent les mêmes six contrôles et échouent fermé sur chacun :
+Les deux exécutent les mêmes sept contrôles et échouent fermé sur chacun :
 
 | # | Contrôle | Échec si |
 |---|---|---|
@@ -75,8 +77,9 @@ Les deux exécutent les mêmes six contrôles et échouent fermé sur chacun :
 | 2 | Ensemble d'assets | un asset attendu manque, **ou** un asset inattendu est publié |
 | 3 | Checksums | un `.sha256` publié ne correspond pas à l'artefact publié à côté |
 | 4 | Manifestes de release | `version`, `tag`, `gitSha`, `product`, la taille d'un asset, ou la couverture des deux plateformes divergent |
-| 5 | Provenance | `gh attestation verify` échoue pour l'archive Linux, le ZIP Windows ou l'installeur |
+| 5 | Provenance | `gh attestation verify` échoue pour l'archive Linux, le SBOM, le ZIP Windows ou l'installeur |
 | 6 | Bundles d'attestation | un `.attestation.jsonl` est absent ou vide |
+| 7 | Inventaire | le SBOM publié décrit une autre version que le tag, une archive n'embarque pas `THIRD-PARTY-NOTICES`, ou une archive attribue un composant que le SBOM ne liste pas |
 
 Prérequis : `gh` authentifié sur le dépôt, `git`, et — pour la variante shell — `sha256sum` et un
 interpréteur Python 3 (résolu par `scripts/lib/python.sh`).
