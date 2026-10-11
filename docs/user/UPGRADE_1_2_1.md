@@ -2,8 +2,13 @@
 
 Statut : **EN PRÉPARATION — MORPHEUS 1.2.1 NON PUBLIÉ**
 
-Ce guide couvre la mise à niveau depuis MORPHEUS 1.2.0 vers MORPHEUS 1.2.1. Il a été écrit pour un départ depuis
-1.2.0 ; la dernière release publiée reste `v1.2.0`, et rien ici ne doit être lu comme l'annonce d'une publication.
+Ce guide couvre la mise à niveau depuis MORPHEUS 1.2.0 vers MORPHEUS 1.2.1. La dernière release publiée reste
+`v1.2.0`, et rien ici ne doit être lu comme l'annonce d'une publication.
+
+**Depuis 1.1.0.** Une base 1.1.0 est au même schéma V015 qu'une base 1.2.0 : les migrations appliquées, la sauvegarde
+à prendre et le retour sont les mêmes, en lisant « 1.1.0 » là où ce guide écrit « 1.2.0 ». Ce chemin n'a pas été
+qualifié séparément, et les changements propres à 1.2.0 (câblage des clients MCP) restent décrits dans
+[`UPGRADE_1_2.md`](UPGRADE_1_2.md).
 
 **À lire avant d'installer.** Contrairement à 1.2.0, cette version fait avancer le schéma SQLite. La première
 ouverture de la base par 1.2.1 la migre, et **1.2.0 ne s'en aperçoit pas** : il ouvrirait la base migrée sans la
