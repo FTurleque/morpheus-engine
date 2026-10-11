@@ -128,6 +128,7 @@ haut numéro attribué ; une ADR acceptée n'est jamais supprimée, elle est ame
 | [ADR-0107](0107-one-vocabulary-for-a-paginated-response.md) | Un seul vocabulaire pour une réponse paginée (`offset`, `limit`, `totalMatches`, `hasMore`, `items`), une page embarquée est une valeur, une fabrique par adaptateur tenue par une garde textuelle | **Acceptée — post-audit 1.2.1** |
 | [ADR-0108](0108-a-response-says-what-it-could-not-observe.md) | Une réponse dit ce qu'elle n'a pas pu observer : traversée de traçabilité bornée avec raison de troncature, budget d'évaluation de garde de contraintes au-delà duquel le fait est `UNKNOWN`, ratio de couverture indéfini sur une population vide | **Acceptée — post-audit 1.2.1** |
 | [ADR-0109](0109-transport-adapters-are-named-composition-roots.md) | Les adaptateurs de transport HTTP et MCP sont des racines de composition nommées (32 classes, liste qui ne fait que rétrécir), le transport MCP ne dépend d'aucun paquet MORPHEUS, le domaine est sans cycle hors deux exceptions nommées | **Acceptée — post-audit 1.2.1** |
+| [ADR-0110](0110-a-copy-is-kept-before-the-schema-advances.md) | Avant de faire avancer le schéma d'une base existante, le store en conserve une copie intègre à sa version d'origine, une par tentative ; s'il ne peut pas, il refuse avec `PRE_MIGRATION_BACKUP_FAILED` et ne migre pas | **Acceptée — post-audit 1.2.1** |
 
 # Preuves par jalon
 
