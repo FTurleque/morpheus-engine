@@ -177,4 +177,4 @@ pass "preserved attestation bundles"
 
 echo
 echo "RELEASE QUALIFICATION PASS: $TAG @ $TAG_SHA"
-echo "Record this output in docs/validation/VALIDATION_RELEASE_<version>.md before closing issue #185."
+echo "Record this output in docs/project/validation/VALIDATION_RELEASE_<version>.md before closing issue #185."

@@ -21,8 +21,8 @@ D2 qualified exact head fa54b3d6a316357b2ef79afd2243619a64a05f3b
 D2 merge commit         c12882d6e43daab600f6580f22f8eff2fbc6f4de
 ```
 
-Preuve de release : [`docs/validation/VALIDATION_R3.md`](docs/validation/VALIDATION_R3.md).
-Preuve historique D2 : [`docs/validation/VALIDATION_D2.md`](docs/validation/VALIDATION_D2.md), complétée par les preuves exact-head de la PR #121.
+Preuve de release : [`docs/project/validation/VALIDATION_R3.md`](docs/project/validation/VALIDATION_R3.md).
+Preuve historique D2 : [`docs/project/validation/VALIDATION_D2.md`](docs/project/validation/VALIDATION_D2.md), complétée par les preuves exact-head de la PR #121.
 
 ## Capacités
 
@@ -227,12 +227,9 @@ La qualification end-to-end du workflow de release attestée sera faite lors de 
 
 ## Documentation
 
-Point d’entrée : [`docs/README.md`](docs/README.md).
+Point d’entrée : [`docs/README.md`](docs/README.md). La documentation est rangée en trois espaces, un par lecteur, plus le dossier d’architecture :
 
-- roadmap globale : [`docs/governance/ROADMAP.md`](docs/governance/ROADMAP.md) ;
-- état documentaire : [`docs/governance/DOCUMENTATION_STATUS.md`](docs/governance/DOCUMENTATION_STATUS.md) ;
-- release 1.2.0 : [`docs/release/RELEASE_NOTES_1.2.0.md`](docs/release/RELEASE_NOTES_1.2.0.md) ;
-- installation : [`docs/user/INSTALLATION.md`](docs/user/INSTALLATION.md) ;
-- clients MCP : [`docs/user/MCP_CLIENTS.md`](docs/user/MCP_CLIENTS.md) ;
-- build/test : [`docs/developer/BUILD_AND_TEST.md`](docs/developer/BUILD_AND_TEST.md) ;
-- preuve historique D2 : [`docs/validation/VALIDATION_D2.md`](docs/validation/VALIDATION_D2.md).
+- **utilisateur** — [`docs/user/`](docs/user/README.md) : [installation](docs/user/INSTALLATION.md), [clients MCP](docs/user/MCP_CLIENTS.md), [notes de version](docs/user/release-notes/) ;
+- **développeur** — [`docs/developer/`](docs/developer/README.md) : [build/test](docs/developer/BUILD_AND_TEST.md), [contrats machine](docs/developer/reference/README.md) ;
+- **architecture** — [`docs/architecture/`](docs/architecture/README.md) : dossier arc42 et [registre des ADR](docs/architecture/adr/README.md) ;
+- **projet** — [`docs/project/`](docs/project/README.md) : [roadmap globale](docs/project/governance/ROADMAP.md), [état documentaire](docs/project/governance/DOCUMENTATION_STATUS.md), [preuve historique D2](docs/project/validation/VALIDATION_D2.md).

@@ -285,7 +285,7 @@ Les trois adapters produisent `PolicyPublicViews`.
 
 ```text
 contracts/public-surfaces.tsv
-docs/openapi/morpheus-v1-policy-m25.yaml
+docs/developer/reference/openapi/morpheus-v1-policy-m25.yaml
 ```
 
 Le manifeste définit READ/WRITE par intention. `policy.evaluate`, `policy.dry-run` et `policy.audit` sont READ.

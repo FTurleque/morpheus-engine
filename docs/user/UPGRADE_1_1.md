@@ -240,6 +240,6 @@ Avant utilisation en production, vérifier que la release GitHub 1.1.0 est stabl
 
 La preuve autoritative sera :
 
-[`../validation/VALIDATION_R2.md`](../validation/VALIDATION_R2.md)
+[`../project/validation/VALIDATION_R2.md`](../project/validation/VALIDATION_R2.md)
 
 Tant que cette preuve reste `NOT RUN` ou `IN PROGRESS`, 1.1.0 ne doit pas être considérée comme publiée.

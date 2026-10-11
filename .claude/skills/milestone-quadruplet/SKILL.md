@@ -11,8 +11,8 @@ une convention.
 ```
 morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m<N>/   <- suite ArchUnit
 scripts/validate-m<N>.ps1  +  scripts/validate-m<N>.sh                     <- dual-platform
-docs/roadmap/M<N>_EXECUTION.md                                             <- plan
-docs/validation/VALIDATION_M<N>.md                                         <- preuve
+docs/project/roadmap/M<N>_EXECUTION.md                                             <- plan
+docs/project/validation/VALIDATION_M<N>.md                                         <- preuve
 ```
 
 Ne jamais deviner le numéro du milestone courant ni du suivant : lire la section Milestones de

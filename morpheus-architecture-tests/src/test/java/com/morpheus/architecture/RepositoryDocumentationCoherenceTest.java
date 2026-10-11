@@ -426,7 +426,7 @@ class RepositoryDocumentationCoherenceTest {
         }
 
         String arc42 = Files.readString(root.resolve("docs/architecture/arc42/11-risques-dette.md"));
-        String adrIndex = Files.readString(root.resolve("docs/adr/README.md"));
+        String adrIndex = Files.readString(root.resolve("docs/architecture/adr/README.md"));
         assertTrue(adrIndex.contains("[ADR-0096](0096-conservative-native-mcp-client"),
                 "ADR index must retain the accepted ADR-0096 entry");
         assertFalse(arc42.contains("| DT-02 |"),
@@ -458,13 +458,6 @@ class RepositoryDocumentationCoherenceTest {
                 "JaCoCo aggregate branches", aggregateBranch,
                 "JaCoCo per-module lines", perModuleLine,
                 "JaCoCo per-module branches", perModuleBranch));
-        assertLabelledThresholds(root, "docs/README.md", Map.of(
-                "Surefire total", tests,
-                "architecture tests", architecture,
-                "JaCoCo aggregate lines", aggregateLine,
-                "JaCoCo aggregate branches", aggregateBranch,
-                "JaCoCo per-module lines", perModuleLine,
-                "JaCoCo per-module branches", perModuleBranch));
         // The operator surfaces an engineer actually opens before running a gate. Each of these still announced
         // the pre-1.2.1 ratchets, so four different numbers were in circulation for one executable threshold.
         // Each now has to name the scale as well as the number: one figure standing alone was exactly how a
@@ -490,14 +483,14 @@ class RepositoryDocumentationCoherenceTest {
                 "JaCoCo aggregate branch ratchet", aggregateBranch,
                 "JaCoCo per-module line ratchet", perModuleLine,
                 "JaCoCo per-module branch ratchet", perModuleBranch));
-        assertLabelledThresholds(root, "docs/governance/DOCUMENTATION_STATUS.md", Map.of(
+        assertLabelledThresholds(root, "docs/project/governance/DOCUMENTATION_STATUS.md", Map.of(
                 "Surefire ratchet", tests,
                 "Architecture ratchet", architecture,
                 "Aggregate line ratchet", aggregateLine,
                 "Aggregate branch ratchet", aggregateBranch,
                 "Per-module line ratchet", perModuleLine,
                 "Per-module branch ratchet", perModuleBranch));
-        assertLabelledThresholds(root, "docs/governance/ROADMAP.md", Map.of(
+        assertLabelledThresholds(root, "docs/project/governance/ROADMAP.md", Map.of(
                 "Surefire ratchet", tests,
                 "architecture ratchet", architecture,
                 "aggregate line ratchet", aggregateLine,
@@ -565,7 +558,7 @@ class RepositoryDocumentationCoherenceTest {
                 "maintenance must consume the declared constant rather than restate the version");
 
         // Active governance surfaces describe the *current* contract, so a literal here silently rots.
-        // Historical snapshots under docs/validation and docs/roadmap legitimately record past versions.
+        // Historical snapshots under docs/project/validation and docs/project/roadmap legitimately record past versions.
         for (Path page : activeGovernanceSurfaces(root)) {
             String content = Files.readString(page);
             Matcher pinned = SCHEMA_VERSION_LITERAL.matcher(content);
@@ -649,7 +642,7 @@ class RepositoryDocumentationCoherenceTest {
     void activeGovernanceSurfacesDoNotRestateAPerishableAdrOrModuleTotal() throws Exception {
         Path root = repositoryRoot();
         long numberedAdrs;
-        try (var files = Files.list(root.resolve("docs/adr"))) {
+        try (var files = Files.list(root.resolve("docs/architecture/adr"))) {
             numberedAdrs = files.filter(path -> path.getFileName().toString().matches("\\d{4}-.*\\.md")).count();
         }
         assertTrue(numberedAdrs > 0, "the ADR directory must contain numbered decision records");
@@ -659,7 +652,7 @@ class RepositoryDocumentationCoherenceTest {
             assertFalse(ADR_OR_MODULE_TOTAL.matcher(content).find(),
                     () -> root.relativize(page) + " restates a perishable total (\""
                             + describeFirstMatch(ADR_OR_MODULE_TOTAL, content)
-                            + "\"); count docs/adr/0*.md or pom.xml <module> entries instead");
+                            + "\"); count docs/architecture/adr/0*.md or pom.xml <module> entries instead");
         }
     }
 
@@ -942,9 +935,9 @@ class RepositoryDocumentationCoherenceTest {
                 root.resolve("docs/user/README.md"),
                 root.resolve("docs/developer/README.md"),
                 root.resolve("docs/developer/BUILD_AND_TEST.md"),
-                root.resolve("docs/governance/ROADMAP.md"),
-                root.resolve("docs/governance/DOCUMENTATION_STATUS.md"),
-                root.resolve("docs/validation/README.md"));
+                root.resolve("docs/project/governance/ROADMAP.md"),
+                root.resolve("docs/project/governance/DOCUMENTATION_STATUS.md"),
+                root.resolve("docs/project/validation/README.md"));
     }
 
     private static String percentage(String decimal) {

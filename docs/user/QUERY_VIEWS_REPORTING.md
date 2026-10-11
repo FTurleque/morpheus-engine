@@ -271,7 +271,7 @@ POST /api/v1/saved-views/{id}/export
 POST /api/v1/exports
 ```
 
-Le contrat machine-readable M24 est `docs/openapi/morpheus-v1-query-m24.yaml`.
+Le contrat machine-readable M24 est `docs/developer/reference/openapi/morpheus-v1-query-m24.yaml`.
 
 ## Garanties
 
@@ -284,4 +284,4 @@ Le contrat machine-readable M24 est `docs/openapi/morpheus-v1-query-m24.yaml`.
 - aucun export ne déclenche une mutation métier ;
 - aucun dépassement de budget n’est présenté comme un résultat complet.
 
-Preuve de qualification : [`../validation/VALIDATION_M24.md`](../validation/VALIDATION_M24.md).
+Preuve de qualification : [`../project/validation/VALIDATION_M24.md`](../project/validation/VALIDATION_M24.md).

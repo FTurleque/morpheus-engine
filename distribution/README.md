@@ -131,8 +131,8 @@ Pour reproduire exactement la release publiée, checkout le tag immuable `v1.2.0
 Preuve autoritative :
 
 ```text
-docs/release/RELEASE_NOTES_1.2.0.md
-docs/validation/VALIDATION_R3.md
+docs/user/release-notes/RELEASE_NOTES_1.2.0.md
+docs/project/validation/VALIDATION_R3.md
 ```
 
 ## Gates de développement
@@ -188,5 +188,5 @@ Linux respecte aussi `XDG_DATA_HOME`, `XDG_CONFIG_HOME` et `XDG_STATE_HOME`.
 - [Clients MCP](../docs/user/MCP_CLIENTS.md)
 - [Version produit active](../docs/developer/PRODUCT_VERSION.md)
 - [Build et tests](../docs/developer/BUILD_AND_TEST.md)
-- [Validation R3 / 1.2.0 publiée](../docs/validation/VALIDATION_R3.md)
+- [Validation R3 / 1.2.0 publiée](../docs/project/validation/VALIDATION_R3.md)
 - [Registre des risques](../docs/architecture/risks/register.md)

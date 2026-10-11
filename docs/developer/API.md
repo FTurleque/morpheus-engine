@@ -1,6 +1,6 @@
 # API HTTP MORPHEUS
 
-MORPHEUS expose une API JSON locale versionnée. Cette page documente la surface humaine du contrat ; le contrat machine complet reste [`../openapi/morpheus-v1.yaml`](../openapi/morpheus-v1.yaml).
+MORPHEUS expose une API JSON locale versionnée. Cette page documente la surface humaine du contrat ; le contrat machine complet reste [`reference/openapi/morpheus-v1.yaml`](reference/openapi/morpheus-v1.yaml).
 
 ```text
 OpenAPI 3.1.0
@@ -372,14 +372,14 @@ API health smoke   PASS
 
 Code testé : `7e8caacff567f51354fcb88bd7505a6d135071c0`.  
 OpenAPI M18 : **1.7.0**. Le candidat M19 ajoute séparément le contrat **1.8.0** et reste pré-gate jusqu'à sa qualification.
-Preuve : [`../validation/VALIDATION_M18.md`](../validation/VALIDATION_M18.md).
+Preuve : [`../project/validation/VALIDATION_M18.md`](../project/validation/VALIDATION_M18.md).
 
 ## 18. Voir aussi
 
 - [Architecture](ARCHITECTURE.md)
 - [Serveur MCP](MCP.md)
 - [Intégrations](INTEGRATIONS.md)
-- [OpenAPI](../openapi/morpheus-v1.yaml)
+- [OpenAPI](reference/openapi/morpheus-v1.yaml)
 - [Référence CLI](../user/CLI.md)
-- [ADR-0083](../adr/0083-controlled-lifecycle-write-operations.md)
-- [ADR-0084](../adr/0084-provider-neutral-multi-provider-composition.md)
+- [ADR-0083](../architecture/adr/0083-controlled-lifecycle-write-operations.md)
+- [ADR-0084](../architecture/adr/0084-provider-neutral-multi-provider-composition.md)

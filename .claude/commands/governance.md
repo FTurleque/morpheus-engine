@@ -45,7 +45,7 @@ mesure canonique) et `morpheus-architecture-tests/target/m21-per-module-coverage
 ### 4. Convergence des contrats
 Vérifier la cohérence entre :
 - `contracts/public-surfaces.tsv`
-- `docs/openapi/morpheus-v1-*.yaml`
+- `docs/developer/reference/openapi/morpheus-v1-*.yaml`
 
 Signaler toute ligne du TSV avec une case vide — chaque absence doit porter un sentinelle explicite
 (`EXPLICITLY_NOT_EXPOSED`, `EXPLICITLY_LOCAL_ONLY`, `EXPLICITLY_REMOTE_ONLY`, `EXPLICITLY_OFFLINE_ONLY`).
@@ -61,8 +61,8 @@ Doit être vide sous `src/main/java/`. Lire la version courante dans `ProductMet
 Pour chaque milestone actif, vérifier le quadruplet :
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m<N>/`
 - `scripts/validate-m<N>.ps1` **et** `scripts/validate-m<N>.sh`
-- `docs/roadmap/M<N>_EXECUTION.md`
-- `docs/validation/VALIDATION_M<N>.md`
+- `docs/project/roadmap/M<N>_EXECUTION.md`
+- `docs/project/validation/VALIDATION_M<N>.md`
 
 ## Rapport
 

@@ -272,4 +272,4 @@ Minimums :
 35% branch coverage
 ```
 
-Voir [`../roadmap/M27_EXECUTION.md`](../roadmap/M27_EXECUTION.md) et [`../adr/0095-evidence-backed-assisted-reasoning.md`](../adr/0095-evidence-backed-assisted-reasoning.md).
+Voir [`../project/roadmap/M27_EXECUTION.md`](../project/roadmap/M27_EXECUTION.md) et [`../architecture/adr/0095-evidence-backed-assisted-reasoning.md`](../architecture/adr/0095-evidence-backed-assisted-reasoning.md).

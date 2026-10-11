@@ -65,10 +65,10 @@ Assert-ReactorVersion $Version
 Assert-NativeSuccess 'M28 inherited exact-head gate'
 
 $requiredDocs = @(
-    'docs\release\RELEASE_NOTES_1.2.0.md',
+    'docs\user\release-notes\RELEASE_NOTES_1.2.0.md',
     'docs\user\UPGRADE_1_2.md',
-    'docs\roadmap\R3_EXECUTION.md',
-    'docs\validation\VALIDATION_R3.md'
+    'docs\project\roadmap\R3_EXECUTION.md',
+    'docs\project\validation\VALIDATION_R3.md'
 )
 foreach ($relative in $requiredDocs) {
     if (-not (Test-Path -LiteralPath (Join-Path $repo $relative) -PathType Leaf)) {
@@ -91,7 +91,7 @@ foreach ($check in $versionChecks) {
 }
 Write-Host 'R3 builder default versions: PASS'
 
-$releaseNotes = Get-Content -LiteralPath (Join-Path $repo 'docs\release\RELEASE_NOTES_1.2.0.md') -Raw
+$releaseNotes = Get-Content -LiteralPath (Join-Path $repo 'docs\user\release-notes\RELEASE_NOTES_1.2.0.md') -Raw
 foreach ($token in @('MORPHEUS 1.2.0', 'GitHub Copilot', 'Claude Code', 'Claude Desktop', 'OpenAI Codex', 'mcp --stdio', 'Docker')) {
     if (-not $releaseNotes.Contains($token)) { throw "R3 release notes token is missing: $token" }
 }

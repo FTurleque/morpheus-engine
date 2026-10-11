@@ -49,7 +49,7 @@ for a user, which is why it gates the tag.
 ## Impact
 
 - `docs/user/UPGRADE_1_2_1.md` (new), `docs/user/UPGRADE_1_2.md`, `docs/user/UPGRADE_1_1.md`, `docs/user/README.md`,
-  `docs/release/RELEASE_NOTES_1.2.1.md` (one pointer).
+  `docs/user/release-notes/RELEASE_NOTES_1.2.1.md` (one pointer).
 - One test in `morpheus-architecture-tests` (documentation coherence family).
 - No CLI command, MCP tool, HTTP route or schema changes. No product code changes.
 - Blocks the `v1.2.1` tag; unblocks AUD-DEP-12, AUD-DEP-16 (`back-up-before-a-schema-migration`) and AUD-TST-10.

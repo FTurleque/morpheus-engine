@@ -33,7 +33,7 @@ qu'elle vient de lire.
 | Ratchets | `config/m21-quality-ratchets.properties` | **Deux paires de clés.** Un seuil de couverture cité sans son échelle (`aggregate*` ou `perModule*`) ne veut rien dire. |
 | Plafonds qualifiés | une constante par échelle, dans le gate de cette échelle | Le ratchet ne doit jamais dépasser le plafond **de sa propre échelle**. Voir [coverage-ratchet](../coverage-ratchet/SKILL.md). |
 | Preuves de couverture | `target/m21-*-coverage-summary.txt` | La première ligne déclare la portée mesurée, et une preuve dont la portée ne correspond pas est refusée. Absente = le `clean verify` n'a pas tourné. |
-| ADR | les fichiers numérotés de `docs/adr/` | Le répertoire contient aussi un `README.md` : « nombre de fichiers » et « nombre d'ADR » ne sont pas le même chiffre. La ligne « doublons » n'est pas décorative — un doublon de numérotation a déjà existé. |
+| ADR | les fichiers numérotés de `docs/architecture/adr/` | Le répertoire contient aussi un `README.md` : « nombre de fichiers » et « nombre d'ADR » ne sont pas le même chiffre. La ligne « doublons » n'est pas décorative — un doublon de numérotation a déjà existé. |
 | Manifeste | `contracts/public-surfaces.tsv` | Le compte de lignes inclut l'en-tête. Les sentinelles se comptent, elles ne se recopient pas. |
 | Schéma SQLite | la constante qui le déclare | `SqliteServerMaintenance` doit **consommer** cette constante, jamais restituer un littéral. |
 

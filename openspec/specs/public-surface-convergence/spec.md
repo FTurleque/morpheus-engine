@@ -9,7 +9,7 @@ in OpenAPI consistently, or explicitly excluded from one of them with a written 
 ### Requirement: Served HTTP routes are documented
 
 Every HTTP route registered by the local or remote server SHALL appear, with the same method and path, in an
-OpenAPI document of `docs/openapi/`, unless it is listed as an explicit exclusion with a reason.
+OpenAPI document of `docs/developer/reference/openapi/`, unless it is listed as an explicit exclusion with a reason.
 
 #### Scenario: The provider-plugin discovery route
 

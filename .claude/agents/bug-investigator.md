@@ -56,7 +56,7 @@ Questions à répondre :
 - Quel objet de domaine est dans un état incorrect ?
 - Quelle invariant est violée ?
 - La cause est-elle dans le domaine, l'application, ou l'infrastructure ?
-- Y a-t-il un ADR pertinent dans `docs/adr/` ?
+- Y a-t-il un ADR pertinent dans `docs/architecture/adr/` ?
 
 ### 5. Correction minimale
 

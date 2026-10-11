@@ -212,7 +212,7 @@ jobs:
   # A scheduled run executes this file as it exists on the default branch, so these lanes run on their own only once the
   # workflow is on main; until then they are exercised by workflow_dispatch.
   m19-budgets:
-    # The budgets are frozen (docs/roadmap/M19_PERFORMANCE_BUDGETS.md) and are never relaxed to make a run pass. Each
+    # The budgets are frozen (docs/project/roadmap/M19_PERFORMANCE_BUDGETS.md) and are never relaxed to make a run pass. Each
     # platform runs its own validator because "Windows PASS != Linux PASS". The validator refuses a machine below the
     # reference environment instead of reporting a verdict, and that refusal fails the job, it is not a pass.
     #

@@ -69,7 +69,7 @@ that introduces this change.
       archive is a component of the SBOM (second scenario of the fourth requirement). The manifest glob
       `morpheus-*-release-manifest.json` (`.sh:128`) must still match two files only. Proof: `bothVariantsVerifyTheSameSixThings` updated to seven things in the same commit, and
       `theQualificationToolingCannotManufactureTheEvidenceItChecks` green unmodified.
-- [ ] 5.4 `docs/validation/RELEASE_QUALIFICATION.md`: the control table gains its row, the guarantees block its line.
+- [ ] 5.4 `docs/project/validation/RELEASE_QUALIFICATION.md`: the control table gains its row, the guarantees block its line.
       Proof: `theOperatorProcedureKeepsIssue185OpenUntilARealReleaseIsQualified` green unmodified.
 
 ## 6. Verification

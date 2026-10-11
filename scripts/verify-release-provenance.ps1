@@ -178,7 +178,7 @@ try {
 
     Write-Host ''
     Write-Host "RELEASE QUALIFICATION PASS: $Tag @ $tagSha"
-    Write-Host 'Record this output in docs/validation/VALIDATION_RELEASE_<version>.md before closing issue #185.'
+    Write-Host 'Record this output in docs/project/validation/VALIDATION_RELEASE_<version>.md before closing issue #185.'
 }
 finally {
     if ($temporary -and (Test-Path -LiteralPath $WorkDirectory)) {

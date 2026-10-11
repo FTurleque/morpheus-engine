@@ -37,7 +37,7 @@ class QueryPlatformArchitectureTest {
     void publicManifestAndOpenApiExposeTheSameM24IntentFamilies() throws IOException {
         Path root = repositoryRoot();
         String manifest = Files.readString(root.resolve("contracts/public-surfaces.tsv"));
-        String openApi = Files.readString(root.resolve("docs/openapi/morpheus-v1-query-m24.yaml"));
+        String openApi = Files.readString(root.resolve("docs/developer/reference/openapi/morpheus-v1-query-m24.yaml"));
 
         assertTrue(manifest.contains("query.execute\tREAD\tquery execute\texecute_query\tPOST /api/v1/queries/execute"));
         assertTrue(manifest.contains("saved-view.create\tWRITE\tviews create\tcreate_saved_view\tPOST /api/v1/saved-views"));

@@ -140,8 +140,8 @@ doute, lancez le test — ne devinez jamais.
 | Sécurité : pas de typage par défaut Jackson, serveur local en loopback, plugins fail-closed, actions CI épinglées par SHA | `D2RepositoryHardeningArchitectureTest` et les suites de sécurité associées |
 | Les deux échelles de couverture ne se mélangent pas | `CoverageScaleSeparationTest` — voir §4 |
 
-Le *pourquoi* de chaque décision structurelle vit dans [`docs/adr/`](../adr/). Comptez les ADR
-avec un `glob` sur `docs/adr/0*.md` avant d'en citer le nombre ou d'en attribuer un nouveau : le
+Le *pourquoi* de chaque décision structurelle vit dans [`docs/architecture/adr/`](../architecture/adr/). Comptez les ADR
+avec un `glob` sur `docs/architecture/adr/0*.md` avant d'en citer le nombre ou d'en attribuer un nouveau : le
 répertoire contient aussi un `README.md`, et un doublon de numérotation a déjà existé.
 
 ---
@@ -244,11 +244,11 @@ variables héritées de Git Bash. Ils sont propres au poste et ne sont pas docum
 | Question | Document |
 |---|---|
 | Qu'est-ce qui est ouvert, connu, accepté ? | [Registre des risques](../architecture/risks/register.md) — risques techniques `RT-*`, dette, incohérences documentaires connues, état CI actif |
-| Pourquoi cette décision plutôt qu'une autre ? | [Index des ADR](../adr/README.md) |
+| Pourquoi cette décision plutôt qu'une autre ? | [Index des ADR](../architecture/adr/README.md) |
 | Comment on compile, teste et qualifie | [BUILD_AND_TEST.md](BUILD_AND_TEST.md) |
 | Ce que la production garantit et comment on le prouve | [PRODUCTION_INTEGRITY.md](PRODUCTION_INTEGRITY.md) |
-| Où en est la feuille de route | [ROADMAP.md](../governance/ROADMAP.md) |
-| Quels documents sont actifs, historiques ou périmés | [DOCUMENTATION_STATUS.md](../governance/DOCUMENTATION_STATUS.md) |
+| Où en est la feuille de route | [ROADMAP.md](../project/governance/ROADMAP.md) |
+| Quels documents sont actifs, historiques ou périmés | [DOCUMENTATION_STATUS.md](../project/governance/DOCUMENTATION_STATUS.md) |
 | Comment l'IA est paramétrée sur ce dépôt | [`.github/AI_GOVERNANCE.md`](../../.github/AI_GOVERNANCE.md) et `.claude/rules/` |
 
 ### Le piège des ratchets

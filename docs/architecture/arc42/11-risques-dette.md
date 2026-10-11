@@ -35,8 +35,8 @@ Les anciens risques de gouvernance liés à l'absence de protection de `main`/`d
 
 `DT-04` (SQLite unique backend), `DT-05` (macOS) et `DT-12` (identités historiques à trois champs) sont
 **requalifiées le 16/09/2026** : ce sont des positions tenues, pas des dettes. Elles partent respectivement vers
-[ADR-0018 §15](../../adr/0018-sqlite-initial-persistent-store.md), [§10.4 ci-contre](10-exigences-qualite.md) et
-[ADR-0094](../../adr/0094-optional-team-remote-server-mode.md), chacune avec l'événement qui la rouvrira.
+[ADR-0018 §15](../adr/0018-sqlite-initial-persistent-store.md), [§10.4 ci-contre](10-exigences-qualite.md) et
+[ADR-0094](../adr/0094-optional-team-remote-server-mode.md), chacune avec l'événement qui la rouvrira.
 `DT-07` et `DT-08` **sortent du registre technique** le même jour : ce sont des réglages de comptes externes,
 suivis dans #154, qu'aucun commit ne ferme et qu'aucun test ne surveille — suivis ailleurs, pas réglés. Détail
 et conditions de réouverture : [`../risks/register.md`](../risks/register.md).
@@ -45,9 +45,9 @@ et conditions de réouverture : [`../risks/register.md`](../risks/register.md).
 
 `DT-03` est **éliminée le 16/09/2026** : [`10-exigences-qualite.md`](10-exigences-qualite.md) §10.3 nomme désormais les cinq gates de performance M19, leur contrat de fixture et ADR-0085, sans reproduire aucun seuil — les budgets restent portés par les constantes des gates.
 
-`DT-01` est **éliminée le 16/09/2026** : les quatre documents vivants dont le statut avait résolu sans être mis à jour sont corrigés (`RELEASE_NOTES_1.1.0.md` et `UPGRADE_1_1.md`, qui présentaient encore comme non publiée une release taguée et vérifiée ; `PROVIDER_PLUGINS.md` et `PROVIDER_SDK.md`, encore en « M22 candidate »), et les huit documents de cadrage C0 du 22/07/2026 reçoivent une notice historique **sans que leur ligne `Statut` soit réécrite**. Les preuves datées de `docs/validation/`, `docs/research/` et `docs/roadmap/*_EXECUTION.md` sont intactes. Détail et condition de réouverture : [`../risks/register.md`](../risks/register.md).
+`DT-01` est **éliminée le 16/09/2026** : les quatre documents vivants dont le statut avait résolu sans être mis à jour sont corrigés (`RELEASE_NOTES_1.1.0.md` et `UPGRADE_1_1.md`, qui présentaient encore comme non publiée une release taguée et vérifiée ; `PROVIDER_PLUGINS.md` et `PROVIDER_SDK.md`, encore en « M22 candidate »), et les huit documents de cadrage C0 du 22/07/2026 reçoivent une notice historique **sans que leur ligne `Statut` soit réécrite**. Les preuves datées de `docs/project/validation/`, `docs/project/research/` et `docs/project/roadmap/*_EXECUTION.md` sont intactes. Détail et condition de réouverture : [`../risks/register.md`](../risks/register.md).
 
-L'ancien `DT-02` relatif à l'absence d'ADR-0096 dans l'index ADR est résolu : `docs/adr/README.md` référence désormais ADR-0096 et sa qualification M28.
+L'ancien `DT-02` relatif à l'absence d'ADR-0096 dans l'index ADR est résolu : `docs/architecture/adr/README.md` référence désormais ADR-0096 et sa qualification M28.
 
 ---
 

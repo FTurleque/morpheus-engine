@@ -62,7 +62,7 @@ pipeline.
 - `distribution/build-portable.{sh,ps1}`, `distribution/build-release.{sh,ps1}`, `distribution/windows/MORPHEUS.iss`
   (if the installer lists payload files), a committed directory of licence texts for components that ship none,
   `.github/workflows/release.yml`, `scripts/verify-release-provenance.{sh,ps1}`,
-  `docs/validation/RELEASE_QUALIFICATION.md` (asset table), `distribution/README.md`, `LICENSE` section 5 (pointer).
+  `docs/project/validation/RELEASE_QUALIFICATION.md` (asset table), `distribution/README.md`, `LICENSE` section 5 (pointer).
 - Tests: `ProductReleaseContractTest`, `ReleaseQualificationContractTest`, `AuditHardeningWorkflowContractTest` pin these
   files textually and are extended, not loosened.
 - No CLI command, MCP tool or HTTP route moves. No dependency is added to the product.

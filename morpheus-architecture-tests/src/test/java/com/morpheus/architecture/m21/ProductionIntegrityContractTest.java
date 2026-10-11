@@ -131,7 +131,7 @@ class ProductionIntegrityContractTest {
     @Test
     void documentationReferencesMachineContractInsteadOfRedefiningIt() throws IOException {
         Path root = repoRoot();
-        String publicSurfaces = Files.readString(root.resolve("docs/reference/PUBLIC_SURFACES.md"));
+        String publicSurfaces = Files.readString(root.resolve("docs/developer/reference/PUBLIC_SURFACES.md"));
         String integrity = Files.readString(root.resolve("docs/developer/PRODUCTION_INTEGRITY.md"));
         String userIntegrity = Files.readString(root.resolve("docs/user/PRODUCT_INTEGRITY.md"));
 

@@ -8,7 +8,7 @@ its cause is narrower and more fixable than written**:
 
 - `pom.xml:9` is `1.2.1`; `git tag -l` gives `v1.0.0`, `v1.1.0`, `v1.2.0`; `git rev-list --count v1.2.0..HEAD` is
   **1663** today (1588 at the audit). `.github/workflows/release.yml:3-6` triggers on `push` of a `v*` tag and on nothing
-  else. `docs/release/RELEASE_NOTES_1.2.1.md` exists.
+  else. `docs/user/release-notes/RELEASE_NOTES_1.2.1.md` exists.
 - **A rehearsal already exists and no workflow runs it.** `scripts/validate-m20.sh:57-61` and `validate-m20.ps1:331-348`
   create a local tag `m20-validation-<sha>`, run `distribution/build-release.{sh,ps1}` on it, check the archive, its
   checksum and the manifest against the head, and delete the tag. The workflows launch `validate-m19.{sh,ps1}`,
@@ -19,8 +19,8 @@ its cause is narrower and more fixable than written**:
   is reached only from `build-release.sh`, i.e. from a tag or from `validate-m20.sh`. A regression there is invisible
   until the tag.
 - **The tracking issue was closed by accident.** Issue #185 ("validate attested workflow on next v1.2.1+ tag") is the
-  one every governance page names as open (`docs/validation/RELEASE_QUALIFICATION.md:6-10`,
-  `docs/architecture/risks/register.md:187`, `docs/governance/ROADMAP.md:100`, `.claude/CLAUDE.md`). It was closed on
+  one every governance page names as open (`docs/project/validation/RELEASE_QUALIFICATION.md:6-10`,
+  `docs/architecture/risks/register.md:187`, `docs/project/governance/ROADMAP.md:100`, `.claude/CLAUDE.md`). It was closed on
   2026-10-09T19:09:40Z by commit `7123238f`, at the minute `develop` was promoted to `main` (merge `20cf2e0d`). That
   commit's message says "#185 stays open" — and also "a qualification tool that … could close #185", which GitHub reads
   as a closing keyword. No release was qualified; the issue's own closing criterion is unmet.
@@ -56,8 +56,8 @@ The audit proposes a throwaway pre-release tag as the fallback. The repository f
 ## Impact
 
 - `.github/workflows/nightly.yml` (one lane, two platforms, one comparison job), `scripts/validate-m20.{sh,ps1}` (default
-  version, a statement of what was not exercised), `docs/validation/RELEASE_QUALIFICATION.md`,
-  `docs/validation/VALIDATION_M20.md`, `docs/architecture/risks/register.md` (DT-11), `GateReachabilityArchitectureTest`.
+  version, a statement of what was not exercised), `docs/project/validation/RELEASE_QUALIFICATION.md`,
+  `docs/project/validation/VALIDATION_M20.md`, `docs/architecture/risks/register.md` (DT-11), `GateReachabilityArchitectureTest`.
 - `release.yml` itself is **not** modified by this change: its trigger, its jobs and its permissions stay as they are.
 - GitHub state outside the repository: issue #185 (reopen), runner minutes for one more nightly lane.
 - No CLI command, MCP tool or HTTP route moves. No product code changes.

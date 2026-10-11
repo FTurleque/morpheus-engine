@@ -450,7 +450,7 @@ analyse, un test sans assertion) dégrade ce que l'outil est censé protéger.
 ## 14. Audit complet du réacteur
 
 Les profils servent aussi à un audit couvrant tous les modules, découpé en lots. Les chiffres d'un tel audit sont
-des relevés datés : celui du 08/10/2026 est [`../audits/AUDIT_OUTILLE_2026-10-08.md`](../audits/AUDIT_OUTILLE_2026-10-08.md).
+des relevés datés : celui du 08/10/2026 est [`../project/audits/AUDIT_OUTILLE_2026-10-08.md`](../project/audits/AUDIT_OUTILLE_2026-10-08.md).
 
 **SpotBugs, deux passes.** La passe production est celle du § 7. La passe qui ajoute le bytecode de test écrit un
 autre fichier et n'écrase pas la première :

@@ -79,10 +79,10 @@ try {
 
     # Governance-sensitive files outside Java: convergence and ratchets
     if ($filePath -match 'contracts[\\/]public-surfaces\.tsv') {
-        Note "[GOVERNANCE] contracts/public-surfaces.tsv modifie. Mettre a jour docs/openapi/morpheus-v1-*.yaml dans le meme changement (comparaison textuelle exacte dans les gates). Aucune case vide: chaque absence porte un sentinelle EXPLICITLY_*."
+        Note "[GOVERNANCE] contracts/public-surfaces.tsv modifie. Mettre a jour docs/developer/reference/openapi/morpheus-v1-*.yaml dans le meme changement (comparaison textuelle exacte dans les gates). Aucune case vide: chaque absence porte un sentinelle EXPLICITLY_*."
     }
 
-    if ($filePath -match 'docs[\\/]openapi[\\/].*\.ya?ml$') {
+    if ($filePath -match 'docs[\\/]developer[\\/]reference[\\/]openapi[\\/].*\.ya?ml$') {
         Note "[GOVERNANCE] Specification OpenAPI modifiee. Verifier la convergence avec contracts/public-surfaces.tsv; additionalProperties: false et bornes explicites (maximum/maxItems/maxLength) exigees sur les schemas d'entree."
     }
 
@@ -90,8 +90,8 @@ try {
         Note "[GOVERNANCE] Ratchets de qualite modifies: $filePath. Un ratchet ne descend jamais. Une hausse exige une preuve Windows ET Linux, et se repercute dans le meme changement partout: lancer RepositoryDocumentationCoherenceTest et ProductionIntegrityContractTest et laisser les echecs enumerer les destinations reelles (cf. .claude/rules/meta.md)."
     }
 
-    if ($filePath -match 'docs[\\/]adr[\\/]\d{4}-.*\.md$') {
-        Note "[GOVERNANCE] ADR ajoutee ou modifiee. AdrIndexCoherenceTest exige une ligne d'index et une seule dans docs/adr/README.md, un verdict identique des deux cotes, et un numero non deja attribue."
+    if ($filePath -match 'docs[\\/]architecture[\\/]adr[\\/]\d{4}-.*\.md$') {
+        Note "[GOVERNANCE] ADR ajoutee ou modifiee. AdrIndexCoherenceTest exige une ligne d'index et une seule dans docs/architecture/adr/README.md, un verdict identique des deux cotes, et un numero non deja attribue."
     }
 
     if ($filePath -match '\.claude[\\/](rules|skills)[\\/]') {

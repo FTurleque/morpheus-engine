@@ -57,9 +57,8 @@ docs/architecture/
 
 ### Registre ADR principal
 
-Les décisions architecturales du produit sont conservées dans [`../adr/`](../adr/).
-Le sous-répertoire [`adr/`](adr/) de cette documentation ne remplace pas ce
-registre : il contient uniquement un index documentaire et un gabarit.
+Les décisions architecturales du produit sont conservées dans [`adr/`](adr/README.md) :
+c'est le seul registre d'ADR du dépôt, et il porte aussi leur [gabarit](adr/template.md).
 
 ---
 
@@ -68,9 +67,9 @@ registre : il contient uniquement un index documentaire et un gabarit.
 | Source | Chemin | Rôle |
 |--------|--------|------|
 | Build et versions | `pom.xml`, `morpheus-*/pom.xml` | Modules, Java et versions de dépendances |
-| ADR produit | `docs/adr/` | Décisions architecturales acceptées |
-| Roadmap / validations | `docs/governance/`, `docs/roadmap/`, `docs/validation/` | État des milestones et preuves |
-| Contrats HTTP | `docs/openapi/` | Surface HTTP `/api/v1` |
+| ADR produit | `docs/architecture/adr/` | Décisions architecturales acceptées |
+| Roadmap / validations | `docs/project/governance/`, `docs/project/roadmap/`, `docs/project/validation/` | État des milestones et preuves |
+| Contrats HTTP | `docs/developer/reference/openapi/` | Surface HTTP `/api/v1` |
 | Contrats de surfaces | `contracts/public-surfaces.tsv` | Convergence CLI / MCP / HTTP |
 | Migrations SQLite | `morpheus-store-sqlite/src/main/resources/db/migration/` | Schéma persistant |
 | Tests d'architecture | `morpheus-architecture-tests/` | Invariants exécutables |

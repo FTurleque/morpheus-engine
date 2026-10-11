@@ -117,6 +117,6 @@ Le travail D2 effectué après R3 ne modifie pas le tag stable `v1.2.0`. Il durc
 
 - [`MCP_CLIENTS.md`](MCP_CLIENTS.md)
 - [`INSTALLATION.md`](INSTALLATION.md)
-- [`../release/RELEASE_NOTES_1.2.0.md`](../release/RELEASE_NOTES_1.2.0.md)
-- [`../validation/VALIDATION_R3.md`](../validation/VALIDATION_R3.md)
-- [`../roadmap/D2_EXECUTION.md`](../roadmap/D2_EXECUTION.md)
+- [`release-notes/RELEASE_NOTES_1.2.0.md`](release-notes/RELEASE_NOTES_1.2.0.md)
+- [`../project/validation/VALIDATION_R3.md`](../project/validation/VALIDATION_R3.md)
+- [`../project/roadmap/D2_EXECUTION.md`](../project/roadmap/D2_EXECUTION.md)

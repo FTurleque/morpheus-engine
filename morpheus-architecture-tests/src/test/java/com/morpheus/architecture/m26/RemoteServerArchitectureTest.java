@@ -38,7 +38,7 @@ class RemoteServerArchitectureTest {
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
         String cli = Files.readString(root.resolve(
                 "morpheus-cli/src/main/java/com/morpheus/cli/MorpheusServerCli.java"));
-        String openApi = Files.readString(root.resolve("docs/openapi/morpheus-v1-remote-m26.yaml"));
+        String openApi = Files.readString(root.resolve("docs/developer/reference/openapi/morpheus-v1-remote-m26.yaml"));
 
         assertTrue(remoteServer.contains("view.put(\"fileName\", fileNameOf(backup.path()))"),
                 "the remote backup view must project the backup to its file name");
@@ -101,7 +101,7 @@ class RemoteServerArchitectureTest {
         assertTrue(declaration.find(), "SqliteSchemaManager must declare SUPPORTED_SCHEMA_VERSION");
         int supported = Integer.parseInt(declaration.group(1));
 
-        String openApi = Files.readString(root.resolve("docs/openapi/morpheus-v1-remote-m26.yaml"));
+        String openApi = Files.readString(root.resolve("docs/developer/reference/openapi/morpheus-v1-remote-m26.yaml"));
         Matcher ceiling = Pattern.compile("schemaVersion:\\s*\\R\\s*type: integer\\s*\\R\\s*minimum: \\d+\\s*\\R\\s*maximum: (\\d+)")
                 .matcher(openApi);
         assertTrue(ceiling.find(), "the remote OpenAPI must bound the reported schemaVersion");
@@ -161,7 +161,7 @@ class RemoteServerArchitectureTest {
 
     @Test
     void remoteOpenApiRequiresBearerAuthenticationAndPluginIntegrityPin() throws IOException {
-        String openApi = Files.readString(repositoryRoot().resolve("docs/openapi/morpheus-v1-remote-m26.yaml"));
+        String openApi = Files.readString(repositoryRoot().resolve("docs/developer/reference/openapi/morpheus-v1-remote-m26.yaml"));
 
         assertTrue(openApi.contains("scheme: bearer"));
         assertTrue(openApi.contains("/server/status:"));
@@ -173,7 +173,7 @@ class RemoteServerArchitectureTest {
 
     @Test
     void remoteOpenApiKeepsOfflineRestorePrivateAndPublicLimitsBounded() throws IOException {
-        String openApi = Files.readString(repositoryRoot().resolve("docs/openapi/morpheus-v1-remote-m26.yaml"));
+        String openApi = Files.readString(repositoryRoot().resolve("docs/developer/reference/openapi/morpheus-v1-remote-m26.yaml"));
 
         assertFalse(openApi.contains("/server/restore"));
         assertTrue(openApi.contains("maximum: 512"));

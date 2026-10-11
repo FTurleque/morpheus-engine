@@ -78,7 +78,7 @@ class ReleaseQualificationContractTest {
 
     @Test
     void theOperatorProcedureKeepsIssue185OpenUntilARealReleaseIsQualified() throws IOException {
-        String procedure = read("docs/validation/RELEASE_QUALIFICATION.md");
+        String procedure = read("docs/project/validation/RELEASE_QUALIFICATION.md");
 
         assertTrue(procedure.contains("scripts/verify-release-provenance.sh"));
         assertTrue(procedure.contains("scripts\\verify-release-provenance.ps1"));

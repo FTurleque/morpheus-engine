@@ -41,8 +41,8 @@ foreach ($proof in @(
     }
 }
 
-Section 'ADR  <- docs/adr/ (compte, jamais recopie)'
-$records = @(Get-ChildItem -LiteralPath 'docs/adr' -Filter '0*.md' -File)
+Section 'ADR  <- docs/architecture/adr/ (compte, jamais recopie)'
+$records = @(Get-ChildItem -LiteralPath 'docs/architecture/adr' -Filter '0*.md' -File)
 $numbers = @($records | ForEach-Object { $_.Name.Substring(0, 4) })
 Item 'records numerotes' $records.Count
 Item 'numero le plus haut attribue' ($numbers | Sort-Object | Select-Object -Last 1)

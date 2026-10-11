@@ -340,7 +340,7 @@ Le mapper HTTP rejette propriétés inconnues et trailing tokens. Les erreurs di
 
 Les exports sont retournés avec leur média type natif, sans wrapper JSON arbitraire.
 
-OpenAPI M24 : [`../openapi/morpheus-v1-query-m24.yaml`](../openapi/morpheus-v1-query-m24.yaml).
+OpenAPI M24 : [`reference/openapi/morpheus-v1-query-m24.yaml`](reference/openapi/morpheus-v1-query-m24.yaml).
 
 ## 14. Convergence des surfaces
 
@@ -403,8 +403,8 @@ Une modification post-gate de code, POM, contrat runtime, packaging ou validateu
 
 ## Références
 
-- [`../adr/0092-provider-neutral-query-dsl-saved-views-reporting.md`](../adr/0092-provider-neutral-query-dsl-saved-views-reporting.md)
-- [`../validation/VALIDATION_M24.md`](../validation/VALIDATION_M24.md)
-- [`../roadmap/M24_EXECUTION.md`](../roadmap/M24_EXECUTION.md)
-- [`../openapi/morpheus-v1-query-m24.yaml`](../openapi/morpheus-v1-query-m24.yaml)
+- [`../architecture/adr/0092-provider-neutral-query-dsl-saved-views-reporting.md`](../architecture/adr/0092-provider-neutral-query-dsl-saved-views-reporting.md)
+- [`../project/validation/VALIDATION_M24.md`](../project/validation/VALIDATION_M24.md)
+- [`../project/roadmap/M24_EXECUTION.md`](../project/roadmap/M24_EXECUTION.md)
+- [`reference/openapi/morpheus-v1-query-m24.yaml`](reference/openapi/morpheus-v1-query-m24.yaml)
 - [`../../contracts/public-surfaces.tsv`](../../contracts/public-surfaces.tsv)

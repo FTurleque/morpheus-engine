@@ -126,7 +126,7 @@ class AdrIndexCoherenceTest {
         var unindexed = new TreeSet<>(records.keySet());
         unindexed.removeAll(rows.keySet());
         assertTrue(unindexed.isEmpty(),
-                () -> "every decision record needs an index row in docs/adr/README.md; missing: " + unindexed);
+                () -> "every decision record needs an index row in docs/architecture/adr/README.md; missing: " + unindexed);
         var orphaned = new TreeSet<>(rows.keySet());
         orphaned.removeAll(records.keySet());
         assertTrue(orphaned.isEmpty(),
@@ -191,9 +191,9 @@ class AdrIndexCoherenceTest {
 
     /** The vocabulary is read from the index legend rather than restated here, so the two cannot drift apart. */
     private static List<String> declaredVerdicts(Path root) throws IOException {
-        String index = Files.readString(root.resolve("docs/adr/README.md")).replace("\r\n", "\n");
+        String index = Files.readString(root.resolve("docs/architecture/adr/README.md")).replace("\r\n", "\n");
         int legend = index.indexOf("## Statuts");
-        assertTrue(legend >= 0, "docs/adr/README.md must declare its status vocabulary under \"## Statuts\"");
+        assertTrue(legend >= 0, "docs/architecture/adr/README.md must declare its status vocabulary under \"## Statuts\"");
         int next = index.indexOf("\n#", legend + 1);
         Matcher matcher = DECLARED_VERDICT.matcher(index.substring(legend, next < 0 ? index.length() : next));
         List<String> verdicts = new ArrayList<>();
@@ -204,7 +204,7 @@ class AdrIndexCoherenceTest {
     }
 
     private static Map<String, IndexRow> indexRows(Path root) throws IOException {
-        String index = Files.readString(root.resolve("docs/adr/README.md")).replace("\r\n", "\n");
+        String index = Files.readString(root.resolve("docs/architecture/adr/README.md")).replace("\r\n", "\n");
         Matcher matcher = INDEX_ROW.matcher(index);
         Map<String, IndexRow> rows = new LinkedHashMap<>();
         while (matcher.find()) {
@@ -212,14 +212,14 @@ class AdrIndexCoherenceTest {
             IndexRow replaced = rows.put(number, new IndexRow(matcher.group(2).trim(), matcher.group(4).trim()));
             assertTrue(replaced == null, () -> "ADR-" + number + " appears twice in the index");
         }
-        assertFalse(rows.isEmpty(), "docs/adr/README.md must index the decision records");
+        assertFalse(rows.isEmpty(), "docs/architecture/adr/README.md must index the decision records");
         return rows;
     }
 
     private static Map<String, String> records(Path root) throws IOException {
         Map<String, String> records = new LinkedHashMap<>();
         for (String name : recordFileNames(root)) {
-            String text = Files.readString(root.resolve("docs/adr").resolve(name)).replace("\r\n", "\n");
+            String text = Files.readString(root.resolve("docs/architecture/adr").resolve(name)).replace("\r\n", "\n");
             Matcher matcher = RECORD_STATUS.matcher(text);
             assertTrue(matcher.find(), () -> name + " must carry a bold \"Statut : **...**\" line");
             records.put(name.substring(0, 4), matcher.group(1).trim());
@@ -228,7 +228,7 @@ class AdrIndexCoherenceTest {
     }
 
     private static List<String> recordFileNames(Path root) throws IOException {
-        try (var files = Files.list(root.resolve("docs/adr"))) {
+        try (var files = Files.list(root.resolve("docs/architecture/adr"))) {
             return files.map(path -> path.getFileName().toString())
                     .filter(name -> RECORD_FILE.matcher(name).matches())
                     .sorted()
@@ -241,7 +241,7 @@ class AdrIndexCoherenceTest {
     private static Path repositoryRoot() {
         Path current = Path.of("").toAbsolutePath().normalize();
         while (current != null) {
-            if (Files.isDirectory(current.resolve("docs/adr")) && Files.isRegularFile(current.resolve("pom.xml"))) {
+            if (Files.isDirectory(current.resolve("docs/architecture/adr")) && Files.isRegularFile(current.resolve("pom.xml"))) {
                 return current;
             }
             current = current.getParent();

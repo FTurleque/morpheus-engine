@@ -11,7 +11,7 @@ Compléter E03 en choisissant et vérifiant un format concret d'identité opaque
 ## Références
 
 - RFC 9562 pour UUIDv7 ;
-- `docs/research/domain-identity-format.md` pour la comparaison UUIDv4 / UUIDv7 / ULID ;
+- `docs/project/research/domain-identity-format.md` pour la comparaison UUIDv4 / UUIDv7 / ULID ;
 - ADR-0015 pour la décision proposée.
 
 ## Spike
