@@ -1,0 +1,17 @@
+# One line per third-party component of the distributed program: coordinates, SPDX licence identifier, where its
+# texts were read. scripts/write-third-party-notices.py refuses a shipped component missing here and a line no
+# shipped component uses. A version bump needs no edit; a new component, or a changed licence, does.
+com.ethlo.time:itu	Apache-2.0	https://github.com/ethlo/itu at tag v1.14.0, read 2026-10-11
+com.fasterxml.jackson.core:jackson-annotations	Apache-2.0	inside the JAR
+com.networknt:json-schema-validator	Apache-2.0	https://github.com/networknt/json-schema-validator at tag 3.0.6, read 2026-10-11
+io.modelcontextprotocol.sdk:mcp-core	MIT	https://github.com/modelcontextprotocol/java-sdk at tag v2.0.1, read 2026-10-11
+io.modelcontextprotocol.sdk:mcp-json-jackson3	MIT	https://github.com/modelcontextprotocol/java-sdk at tag v2.0.1, read 2026-10-11
+io.projectreactor:reactor-core	Apache-2.0	https://github.com/reactor/reactor-core at tag v3.7.0, read 2026-10-11
+org.reactivestreams:reactive-streams	MIT-0	https://github.com/reactive-streams/reactive-streams-jvm at tag v1.0.4, read 2026-10-11
+org.slf4j:slf4j-api	MIT	inside the JAR
+org.slf4j:slf4j-nop	MIT	inside the JAR
+org.snakeyaml:snakeyaml-engine	Apache-2.0	https://bitbucket.org/snakeyaml/snakeyaml-engine at tag snakeyaml-engine-3.0.1, read 2026-10-11
+org.xerial:sqlite-jdbc	Apache-2.0	https://github.com/xerial/sqlite-jdbc at tag 3.53.4.0, read 2026-10-11
+tools.jackson.core:jackson-core	Apache-2.0	inside the JAR
+tools.jackson.core:jackson-databind	Apache-2.0	inside the JAR
+tools.jackson.dataformat:jackson-dataformat-yaml	Apache-2.0	inside the JAR
