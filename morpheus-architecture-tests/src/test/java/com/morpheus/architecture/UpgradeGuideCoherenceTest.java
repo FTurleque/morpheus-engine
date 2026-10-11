@@ -90,13 +90,30 @@ class UpgradeGuideCoherenceTest {
                 "SqliteSchemaManager no longer refuses a future schema with '" + FUTURE_SCHEMA_REFUSAL
                         + "'; the upgrade guide quotes that sentence and must follow the new wording");
         assertTrue(guide.contains(FUTURE_SCHEMA_REFUSAL),
-                latest.name() + " must quote the refusal an older program gives: '" + FUTURE_SCHEMA_REFUSAL + "'");
+                latest.name() + " must quote the refusal the program gives on a newer database: '" + FUTURE_SCHEMA_REFUSAL + "'");
 
         int rollback = guide.indexOf(ROLLBACK_HEADING);
         assertTrue(rollback >= 0, latest.name() + " must keep a section whose title starts with '" + ROLLBACK_HEADING + "'");
         String rollbackSection = guide.substring(rollback);
         assertTrue(rollbackSection.contains("server restore") && rollbackSection.contains("--confirm"),
                 latest.name() + " must name the offline restore as the way back");
+    }
+
+    /**
+     * The refusal of a future schema was added after 1.2.0 was published: 1.2.0 opens a database that 1.2.1 migrated
+     * and runs on a schema it does not know. That is a fact about one published release, so it is pinned on the one
+     * guide that describes leaving it, by name, and stays true of that file whatever guide comes next.
+     */
+    @Test
+    void theGuideThatLeavesOneDotTwoDotZeroSaysThatReleaseDoesNotRefuseAMigratedDatabase() throws IOException {
+        String guide = Files.readString(repositoryRoot().resolve("docs/user/UPGRADE_1_2_1.md"));
+
+        assertTrue(guide.contains("1.2.0 ne refuse pas une base migrée"),
+                "UPGRADE_1_2_1.md must say that 1.2.0 opens a migrated database without refusing it");
+        assertTrue(guide.contains("Ne jamais démarrer 1.2.0 sur une base que 1.2.1 a ouverte"),
+                "UPGRADE_1_2_1.md must forbid starting 1.2.0 on a database 1.2.1 has opened");
+        assertTrue(guide.contains("backup schema version"),
+                "UPGRADE_1_2_1.md must name the one check 1.2.0 does make, on a backup");
     }
 
     @Test
