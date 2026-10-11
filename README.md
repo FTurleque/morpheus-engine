@@ -1,6 +1,6 @@
 # MORPHEUS
 
-> *« There is a difference between knowing the path and walking the path. »*
+> *« Il y a une différence entre connaître le chemin et arpenter le chemin. »*
 > — Morpheus, *The Matrix* (1999)
 
 Le code **parcourt** le chemin. MORPHEUS est ce qui le **connaît**.
