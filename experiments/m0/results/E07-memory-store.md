@@ -52,7 +52,7 @@ Le store ne lit aucun fichier OpenSpec et ne dépend d'aucun concept propre au p
 
 ## Limites
 
-Le port complet décrit dans `docs/contracts/SPECIFICATION_KNOWLEDGE_STORE.md` n'est pas encore implémenté.
+Le port complet décrit dans `docs/developer/reference/contracts/SPECIFICATION_KNOWLEDGE_STORE.md` n'est pas encore implémenté.
 
 Il manque notamment :
 

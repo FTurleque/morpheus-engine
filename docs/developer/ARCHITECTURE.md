@@ -296,10 +296,10 @@ Reactor         14/14 SUCCESS
 Packaging       PASS Windows + Linux
 ```
 
-Preuve autoritative : [`../validation/VALIDATION_M20.md`](../validation/VALIDATION_M20.md).
+Preuve autoritative : [`../project/validation/VALIDATION_M20.md`](../project/validation/VALIDATION_M20.md).
 
 ## 14. Direction post-M20
 
-La trajectoire active est [`../roadmap/POST_M20_EVOLUTION.md`](../roadmap/POST_M20_EVOLUTION.md).
+La trajectoire active est [`../project/roadmap/POST_M20_EVOLUTION.md`](../project/roadmap/POST_M20_EVOLUTION.md).
 
 Le prochain jalon est **M21 — Production Integrity & Surface Convergence**. Les évolutions ultérieures doivent préserver toutes les frontières ci-dessus.

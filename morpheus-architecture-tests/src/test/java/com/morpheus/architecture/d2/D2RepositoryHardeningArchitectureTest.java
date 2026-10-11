@@ -559,8 +559,8 @@ class D2RepositoryHardeningArchitectureTest {
         Path root = repoRoot();
         assertTrue(Files.isRegularFile(root.resolve("scripts/validate-d2.ps1")));
         assertTrue(Files.isRegularFile(root.resolve("scripts/validate-d2.sh")));
-        assertTrue(Files.isRegularFile(root.resolve("docs/roadmap/D2_EXECUTION.md")));
-        assertTrue(Files.isRegularFile(root.resolve("docs/validation/VALIDATION_D2.md")));
+        assertTrue(Files.isRegularFile(root.resolve("docs/project/roadmap/D2_EXECUTION.md")));
+        assertTrue(Files.isRegularFile(root.resolve("docs/project/validation/VALIDATION_D2.md")));
     }
 
     private Properties m21Ratchets(Path root) throws IOException {

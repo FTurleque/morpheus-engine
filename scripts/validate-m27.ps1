@@ -71,7 +71,7 @@ if ($branchRatio -lt 0.35) { throw "M27 branch coverage below 35%: $($coverage.b
 Write-Host "JaCoCo: PASS (line=$($coverage.lineRatio), branch=$($coverage.branchRatio))"
 
 $manifest = Get-Content -LiteralPath (Join-Path $repo 'contracts\public-surfaces.tsv') -Raw
-$openApi = Get-Content -LiteralPath (Join-Path $repo 'docs\openapi\morpheus-v1-reasoning-m27.yaml') -Raw
+$openApi = Get-Content -LiteralPath (Join-Path $repo 'docs\developer\reference\openapi\morpheus-v1-reasoning-m27.yaml') -Raw
 foreach ($contract in @(
     "reasoning.adapters`tREAD`treason adapters`tlist_reasoning_adapters`tGET /api/v1/reasoning/adapters",
     "reasoning.analyze`tREAD`treason analyze`treason_with_evidence`tPOST /api/v1/reasoning/analyze")) {

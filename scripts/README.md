@@ -130,7 +130,7 @@ le commit, attestation de provenance non vérifiable, bundle d'attestation vide.
 un tag, une release ni un asset.
 
 Procédure complète et critère de clôture de l'issue #185 :
-[docs/validation/RELEASE_QUALIFICATION.md](../docs/validation/RELEASE_QUALIFICATION.md).
+[docs/project/validation/RELEASE_QUALIFICATION.md](../docs/project/validation/RELEASE_QUALIFICATION.md).
 
 Le dispatcher Windows sélectionne `scripts/validate-<target>.ps1`, transmet les arguments tels quels et propage son code de sortie.
 

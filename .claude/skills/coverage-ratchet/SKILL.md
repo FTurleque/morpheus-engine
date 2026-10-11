@@ -32,7 +32,7 @@ couvre légèrement moins de lignes à nombre de tests identique.
 `CoverageScaleSeparationTest` fait échouer le build si un gate lit une clé, un rapport ou une
 preuve de l'autre échelle. **Ne jamais comparer un ratio par module à un seuil agrégé, ni
 l'inverse.** Le *pourquoi* est dans
-`docs/adr/0104-two-coverage-scales-share-one-population.md` : la lire avant de toucher à une
+`docs/architecture/adr/0104-two-coverage-scales-share-one-population.md` : la lire avant de toucher à une
 clé, à un plafond ou à la population mesurée.
 
 Conséquence pratique quand on écrit des tests pour faire monter l'échelle par module : un

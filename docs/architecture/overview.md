@@ -9,10 +9,10 @@ Date : 22 juillet 2026
 > intégrés** — le vocabulaire prospectif de ce document (`proposition`, `à valider`, `candidat`) ne doit donc
 > pas être lu comme une question encore ouverte. Les ADR acceptées, contrats machine, validations et roadmaps
 > ultérieures raffinent ce cadrage sans réécrire cette preuve historique. Pour l'état courant, voir
-> [`../governance/ROADMAP.md`](../governance/ROADMAP.md) ; pour la politique d'interprétation des documents historiques,
-> [`../governance/DOCUMENTATION_STATUS.md`](../governance/DOCUMENTATION_STATUS.md).
+> [`../project/governance/ROADMAP.md`](../project/governance/ROADMAP.md) ; pour la politique d'interprétation des documents historiques,
+> [`../project/governance/DOCUMENTATION_STATUS.md`](../project/governance/DOCUMENTATION_STATUS.md).
 
-La source de vérité fonctionnelle reste [`../product/CAHIER_DES_CHARGES.md`](../product/CAHIER_DES_CHARGES.md).
+La source de vérité fonctionnelle reste [`../project/product/CAHIER_DES_CHARGES.md`](../project/product/CAHIER_DES_CHARGES.md).
 
 ---
 
@@ -151,7 +151,7 @@ La sélection tient compte :
 - de la préférence local-first ;
 - des diagnostics de compatibilité.
 
-Le détail du contrat est [`../contracts/SPECIFICATION_PROVIDER.md`](../contracts/SPECIFICATION_PROVIDER.md).
+Le détail du contrat est [`../developer/reference/contracts/SPECIFICATION_PROVIDER.md`](../developer/reference/contracts/SPECIFICATION_PROVIDER.md).
 
 ### Capacités candidates
 
@@ -237,7 +237,7 @@ Règles :
 - les ambiguïtés sont représentées ;
 - une fusion heuristique silencieuse est interdite.
 
-Voir [`../adr/0009-stable-domain-identity.md`](../adr/0009-stable-domain-identity.md).
+Voir [`adr/0009-stable-domain-identity.md`](adr/0009-stable-domain-identity.md).
 
 ---
 
@@ -263,7 +263,7 @@ TraceabilityLink
 ExternalReference
 ```
 
-Le détail est documenté dans [`../domain/MODEL.md`](../domain/MODEL.md).
+Le détail est documenté dans [`../developer/reference/domain/MODEL.md`](../developer/reference/domain/MODEL.md).
 
 ### États orthogonaux
 
@@ -327,7 +327,7 @@ getBlockingConditions
 
 La lecture du cycle de vie reste possible sans capacité d'écriture.
 
-Le détail est [`../domain/CHANGE_LIFECYCLE.md`](../domain/CHANGE_LIFECYCLE.md).
+Le détail est [`../developer/reference/domain/CHANGE_LIFECYCLE.md`](../developer/reference/domain/CHANGE_LIFECYCLE.md).
 
 ---
 
@@ -511,7 +511,7 @@ Un backend persistant local sera sélectionné par M0.
 
 Une graph database ne sera ajoutée que si les benchmarks de traversée démontrent un bénéfice significatif.
 
-Voir [`../contracts/SPECIFICATION_KNOWLEDGE_STORE.md`](../contracts/SPECIFICATION_KNOWLEDGE_STORE.md).
+Voir [`../developer/reference/contracts/SPECIFICATION_KNOWLEDGE_STORE.md`](../developer/reference/contracts/SPECIFICATION_KNOWLEDGE_STORE.md).
 
 ---
 
@@ -582,7 +582,7 @@ analyzeChangeScope
 resolveExternalReference
 ```
 
-Voir [`../product/USE_CASES.md`](../product/USE_CASES.md).
+Voir [`../project/product/USE_CASES.md`](../project/product/USE_CASES.md).
 
 ---
 
@@ -799,4 +799,4 @@ Ne pas construire immédiatement :
 
 C0 cadre.
 
-M0 valide les choix structurants par des expérimentations mesurables définies dans [`../research/M0_EXPERIMENT_MATRIX.md`](../research/M0_EXPERIMENT_MATRIX.md).
+M0 valide les choix structurants par des expérimentations mesurables définies dans [`../project/research/M0_EXPERIMENT_MATRIX.md`](../project/research/M0_EXPERIMENT_MATRIX.md).

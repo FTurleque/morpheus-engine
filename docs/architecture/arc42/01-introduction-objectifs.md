@@ -1,7 +1,7 @@
 # §1 — Introduction et objectifs
 
-> **Sources actives** : `pom.xml`, `docs/adr/`, `docs/governance/`,
-> `docs/validation/`, `contracts/public-surfaces.tsv` et code du HEAD `develop`.
+> **Sources actives** : `pom.xml`, `docs/architecture/adr/`, `docs/project/governance/`,
+> `docs/project/validation/`, `contracts/public-surfaces.tsv` et code du HEAD `develop`.
 > Les documents de conception plus anciens sont utilisés comme contexte
 > historique lorsqu'ils restent cohérents avec ces sources.
 

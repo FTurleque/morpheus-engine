@@ -12,7 +12,7 @@ complets) vivent dans `.claude/rules/*.md` et nulle part ailleurs. Une règle se
 
 **Aucun chiffre périssable n'est recopié tel quel** dans un artefact IA — seuils de
 coverage, nombre de tests, nombre d'ADR, version produit. Chaque artefact renvoie vers sa
-source vivante (`config/m21-quality-ratchets.properties`, `pom.xml`, `docs/adr/` compté
+source vivante (`config/m21-quality-ratchets.properties`, `pom.xml`, `docs/architecture/adr/` compté
 par `glob`, les tests sous `morpheus-architecture-tests/`). Voir `.claude/rules/meta.md`.
 
 ## Le dépôt n'a plus de configuration Copilot — ne pas la reconstruire

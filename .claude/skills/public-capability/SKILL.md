@@ -5,7 +5,7 @@ description: Ajouter, modifier ou retirer une capacité publique MORPHEUS (comma
 
 # Livrer une capacité publique
 
-Le manifeste `contracts/public-surfaces.tsv` et les specs `docs/openapi/morpheus-v1-*.yaml` sont
+Le manifeste `contracts/public-surfaces.tsv` et les specs `docs/developer/reference/openapi/morpheus-v1-*.yaml` sont
 comparés **caractère par caractère** par les gates. Modifier une signature sans mettre à jour les
 deux casse le build. Ce qui suit est l'ordre qui évite d'y revenir trois fois.
 
@@ -83,7 +83,7 @@ un ADR dit *pourquoi*, le test dit *quoi*.
 
 Avant d'attribuer un numéro, lire la sortie de [live-numbers](../live-numbers/SKILL.md) : elle
 donne le plus haut numéro attribué **et** signale les doublons. Un doublon de numérotation a déjà
-existé. Ajouter la ligne d'index dans `docs/adr/README.md` dans le même changement — un gate
+existé. Ajouter la ligne d'index dans `docs/architecture/adr/README.md` dans le même changement — un gate
 exige une ligne et une seule par record, un verdict identique des deux côtés, et un statut pris
 dans le vocabulaire que l'index déclare lui-même.
 
@@ -99,7 +99,7 @@ Puis, si un gate de milestone est concerné, son quadruplet complet — voir
 
 ## 8. Justifier en PR
 
-`contracts/public-surfaces.tsv`, `config/*ratchets*.properties`, `docs/openapi/*.yaml` et tout
+`contracts/public-surfaces.tsv`, `config/*ratchets*.properties`, `docs/developer/reference/openapi/*.yaml` et tout
 test sous `morpheus-architecture-tests/` sont des **fichiers de gouvernance**. Toute modification
 de l'un d'eux se justifie dans la description de la PR.
 

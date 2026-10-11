@@ -95,7 +95,7 @@ failing to keep that copy stops the advance; nothing changes for a new or up-to-
 - **A restrictive data directory** now stops an upgrade that used to succeed. Intended: the refusal names the cause and
   nothing was migrated.
 - **`POST /api/v1/server/backups`** can now be the request that writes the copy or raises the refusal.
-  `docs/openapi/morpheus-v1-remote-m26.yaml:36-48` declares no 5xx for it; the gap exists today and this change makes it
+  `docs/developer/reference/openapi/morpheus-v1-remote-m26.yaml:36-48` declares no 5xx for it; the gap exists today and this change makes it
   easier to reach. Task 4.6 decides whether the contract should say so.
 - **`VACUUM INTO` on a scope's shared connection** has not been tried. If it cannot run there, the copy needs its own
   connection: task 2.1 finds out before anything else is written.

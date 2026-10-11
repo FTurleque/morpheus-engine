@@ -78,7 +78,7 @@ Tokens : `SecureRandom`, `TOKEN_BYTES = 32`, stockés en `sha256`, comparés par
 1. Identifier les fichiers touchés par le diff parmi les 6 domaines ci-dessus
 2. Pour chaque fichier concerné, `grep` les chaînes obligatoires et interdites listées
 3. Si un domaine n'est pas dans `rules/security.md`/ce fichier, chercher l'ADR pertinent
-   dans `docs/adr/` avant de juger — ne pas inventer une règle
+   dans `docs/architecture/adr/` avant de juger — ne pas inventer une règle
 4. Vérifier que la valeur des chiffres cités (CVSS, tailles, versions TLS) correspond à ce
    qui est réellement écrit dans le code, pas à ce qui est mémorisé (cf. `rules/meta.md`)
 

@@ -1,6 +1,6 @@
 # §3 — Contexte et périmètre
 
-> **Sources actives** : `docs/ECOSYSTEME.md`, `docs/openapi/`,
+> **Sources actives** : `docs/project/ECOSYSTEME.md`, `docs/developer/reference/openapi/`,
 > `docs/developer/MCP.md`, ADR-0007, ADR-0062, ADR-0094, ADR-0096 et code
 > du HEAD `develop`.
 

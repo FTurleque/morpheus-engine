@@ -158,7 +158,7 @@ class ProviderPluginTrustBoundaryContractTest {
         assertFalse(sdkGuide.contains("différée au-delà de M22"),
                 "the process boundary exists since M22; only the sandbox does not");
 
-        String adr = read("docs/adr/0101-external-code-is-trusted-code-not-sandboxed-code.md");
+        String adr = read("docs/architecture/adr/0101-external-code-is-trusted-code-not-sandboxed-code.md");
         assertTrue(adr.contains("PAS une sandbox du système d'exploitation"));
         assertTrue(adr.contains("= code de confiance"));
 
@@ -168,7 +168,7 @@ class ProviderPluginTrustBoundaryContractTest {
         for (String page : List.of(
                 "SECURITY.md",
                 "docs/developer/PROVIDER_SDK.md",
-                "docs/adr/0101-external-code-is-trusted-code-not-sandboxed-code.md",
+                "docs/architecture/adr/0101-external-code-is-trusted-code-not-sandboxed-code.md",
                 "docs/developer/MCP.md",
                 SDK + "ProviderPluginProbeProcess.java",
                 SDK + "ProviderPluginActivator.java")) {

@@ -91,8 +91,8 @@ for path in (
     'scripts/verify-windows-setup-lifecycle.ps1',
     'scripts/verify-windows-setup-mcp-smoke.ps1',
     'docs/user/MCP_CLIENTS.md',
-    'docs/roadmap/M28_EXECUTION.md',
-    'docs/validation/VALIDATION_M28.md'):
+    'docs/project/roadmap/M28_EXECUTION.md',
+    'docs/project/validation/VALIDATION_M28.md'):
     if not (root / path).is_file():
         raise SystemExit(f'M28 required file is missing: {path}')
 print('M28 static integration contract: PASS')

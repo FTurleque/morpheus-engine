@@ -48,7 +48,7 @@ be named in the executable text of a workflow of `.github/workflows/`. Comments 
 The scheduled workflow MUST run `scripts/validate-m19.sh` on a Linux runner and `scripts/validate-m19.ps1` on a
 Windows runner, MUST upload the validator's summary, failure summary and logs (including the `M19_METRIC` lines) as
 artefacts whether the run passes or fails, and MUST end failed when a validator fails. The frozen budgets, the fixture
-profile and the iteration protocol of `docs/roadmap/M19_PERFORMANCE_BUDGETS.md` SHALL NOT be changed to make a run pass.
+profile and the iteration protocol of `docs/project/roadmap/M19_PERFORMANCE_BUDGETS.md` SHALL NOT be changed to make a run pass.
 
 #### Scenario: A nightly run produces the evidence on both platforms
 
@@ -141,7 +141,7 @@ scripts, which have no `.sh` and cannot start, SHALL be removed from `scripts/`.
 #### Scenario: The retired validators remain recoverable
 
 - **WHEN** a reader needs the code of a retired validator
-- **THEN** `docs/validation/README.md` names the last commit that held each of the four scripts, and the validation
+- **THEN** `docs/project/validation/README.md` names the last commit that held each of the four scripts, and the validation
   records `VALIDATION_M15.md` to `VALIDATION_M18.md` are unchanged
 
 ### Requirement: A validator SHALL check the checkout it is run from
@@ -158,9 +158,9 @@ branch that disappears makes the validator unable to start.
 
 The current developer-facing surfaces (`docs/developer/*.md`, `scripts/README.md`, `README.md`, `docs/README.md`,
 `distribution/README.md`) MUST NOT name a `validate-<target>.cmd` wrapper, which does not exist, and any
-`scripts\validate.cmd <target>` they name MUST refer to an existing target. Dated records (`docs/validation/VALIDATION_*.md`,
-`docs/roadmap/*_EXECUTION.md`, the ADRs) SHALL keep the command they recorded and MUST be pointed to the supported
-form from `docs/validation/README.md`.
+`scripts\validate.cmd <target>` they name MUST refer to an existing target. Dated records (`docs/project/validation/VALIDATION_*.md`,
+`docs/project/roadmap/*_EXECUTION.md`, the ADRs) SHALL keep the command they recorded and MUST be pointed to the supported
+form from `docs/project/validation/README.md`.
 
 #### Scenario: A current guide cites the removed wrapper
 
@@ -175,9 +175,9 @@ form from `docs/validation/README.md`.
 
 #### Scenario: A dated record is annotated, not rewritten
 
-- **WHEN** `docs/validation/VALIDATION_M19.md` is read after the change
+- **WHEN** `docs/project/validation/VALIDATION_M19.md` is read after the change
 - **THEN** it still shows the command that was run at the time, and a dated note next to it names
-  `scripts\validate.cmd m19` as the form supported today, while `docs/validation/README.md` states the equivalence for
+  `scripts\validate.cmd m19` as the form supported today, while `docs/project/validation/README.md` states the equivalence for
   every other record
 
 #### Scenario: A guide that calls a block historical still has to resolve

@@ -374,7 +374,7 @@ provider plugin probe     HTTP POST ADMIN + trusted SHA-256
 MCP                       aucune surface control-plane M26
 ```
 
-Voir `contracts/public-surfaces.tsv` et `docs/openapi/morpheus-v1-remote-m26.yaml`.
+Voir `contracts/public-surfaces.tsv` et `docs/developer/reference/openapi/morpheus-v1-remote-m26.yaml`.
 
 ## Tests
 

@@ -4,16 +4,6 @@ MORPHEUS est un **Specification & Intent Intelligence Engine** local-first. Il n
 
 Baseline stable publiée : **MORPHEUS 1.2.0**. Baseline de développement courante : **1.2.1**.
 
-```text
-stable tag             v1.2.0
-release commit         3ad9ebf030b58df97482e21e272c24feae6b9d86
-R3 qualification       608 tests / 243 architecture Windows + Linux/WSL
-published assets       8/8 vérifiés
-M28                    livré dans 1.2.0
-D2                     qualifié / intégré dans develop
-D2 issue               #120 CLOSED / completed
-```
-
 Les commandes d’installation ci-dessous et les assets publiés restent ceux de la release stable `1.2.0` tant qu’une nouvelle release n’a pas été réellement publiée.
 
 ## Capacités principales
@@ -137,6 +127,8 @@ MORPHEUS préfère `UNAVAILABLE` ou `UNKNOWN` à un fait inventé.
 - [Assisted Reasoning](ASSISTED_REASONING.md)
 - [Plugins provider](PROVIDER_PLUGINS.md)
 - [Upgrade 1.2](UPGRADE_1_2.md)
-- [Guide développeur](../developer/README.md)
-- [Validation R3](../validation/VALIDATION_R3.md)
-- [Preuve historique D2](../validation/VALIDATION_D2.md)
+- [Intégrité produit](PRODUCT_INTEGRITY.md)
+- [Upgrade 1.1](UPGRADE_1_1.md)
+- [Notes de version](release-notes/)
+
+Pour compiler, modifier ou étendre MORPHEUS, voir le [guide développeur](../developer/README.md). Les preuves de qualification des releases sont dans le [suivi du projet](../project/README.md).

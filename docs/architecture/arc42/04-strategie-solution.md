@@ -1,6 +1,6 @@
 # §4 — Stratégie de solution
 
-> **Sources actives** : `pom.xml`, `docs/adr/`, `contracts/public-surfaces.tsv`,
+> **Sources actives** : `pom.xml`, `docs/architecture/adr/`, `contracts/public-surfaces.tsv`,
 > `morpheus-architecture-tests/` et code du HEAD `develop`.
 
 ---
@@ -111,13 +111,13 @@ baseline au moment de la réconciliation documentaire.
 
 | Décision | ADR |
 |----------|-----|
-| Domaine MORPHEUS indépendant | [ADR-0001](../../adr/0001-morpheus-owned-domain.md) |
-| Local-first sans LLM obligatoire | [ADR-0004](../../adr/0004-local-first-no-llm-core.md) |
-| Store derrière port | [ADR-0003](../../adr/0003-specification-knowledge-store.md) |
-| SQLite initial | [ADR-0018](../../adr/0018-sqlite-initial-persistent-store.md) |
-| Distribution native-first | [ADR-0027](../../adr/0027-native-first-container-supported-distribution.md) |
-| MCP STDIO officiel | [ADR-0062](../../adr/0062-official-java-mcp-sdk-and-native-stdio.md) |
-| Provider SDK | [ADR-0090](../../adr/0090-provider-sdk-plugin-discovery-platform.md) |
-| Remote server optionnel | [ADR-0094](../../adr/0094-optional-team-remote-server-mode.md) |
-| Reasoning fondé sur preuves | [ADR-0095](../../adr/0095-evidence-backed-assisted-reasoning.md) |
-| Intégration native des clients MCP | [ADR-0096](../../adr/0096-conservative-native-mcp-client-integration.md) |
+| Domaine MORPHEUS indépendant | [ADR-0001](../adr/0001-morpheus-owned-domain.md) |
+| Local-first sans LLM obligatoire | [ADR-0004](../adr/0004-local-first-no-llm-core.md) |
+| Store derrière port | [ADR-0003](../adr/0003-specification-knowledge-store.md) |
+| SQLite initial | [ADR-0018](../adr/0018-sqlite-initial-persistent-store.md) |
+| Distribution native-first | [ADR-0027](../adr/0027-native-first-container-supported-distribution.md) |
+| MCP STDIO officiel | [ADR-0062](../adr/0062-official-java-mcp-sdk-and-native-stdio.md) |
+| Provider SDK | [ADR-0090](../adr/0090-provider-sdk-plugin-discovery-platform.md) |
+| Remote server optionnel | [ADR-0094](../adr/0094-optional-team-remote-server-mode.md) |
+| Reasoning fondé sur preuves | [ADR-0095](../adr/0095-evidence-backed-assisted-reasoning.md) |
+| Intégration native des clients MCP | [ADR-0096](../adr/0096-conservative-native-mcp-client-integration.md) |

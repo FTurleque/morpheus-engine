@@ -253,4 +253,4 @@ M27 ne contient pas :
 - de nouvelle table SQLite ;
 - de changement de lifecycle.
 
-Voir aussi le contrat OpenAPI [`../openapi/morpheus-v1-reasoning-m27.yaml`](../openapi/morpheus-v1-reasoning-m27.yaml).
+Voir aussi le contrat OpenAPI [`../developer/reference/openapi/morpheus-v1-reasoning-m27.yaml`](../developer/reference/openapi/morpheus-v1-reasoning-m27.yaml).

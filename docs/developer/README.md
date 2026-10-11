@@ -214,9 +214,24 @@ aucun bypass
 
 Le choix de `0` approbation obligatoire reste cohérent avec le contexte mono-mainteneur. #166 et #154 sont clôturées ; le Quality Gate SonarCloud et les réglages de sécurité administrateur ont été vérifiés directement sur leurs plateformes.
 
-## Documentation d’architecture
+## Index de l'espace développeur
+
+Démarrer :
+
+- [Reprise à froid](COLD_START_RECOVERY.md) — par où recommencer après une longue interruption : la commande unique qui qualifie le dépôt, les secrets externes et ce qui casse sans eux, comment lire une preuve, et quels gates rouges ne sont pas des régressions
+- [Build et tests](BUILD_AND_TEST.md)
+- [Audit de code](CODE_AUDIT.md) · [SpotBugs](SPOTBUGS.md)
+- [Version produit](PRODUCT_VERSION.md)
+- [Production integrity](PRODUCTION_INTEGRITY.md)
+
+Architecture et décisions (dans `docs/architecture/`) :
 
 - [Architecture générale](ARCHITECTURE.md)
+- [Dossier d'architecture arc42](../architecture/README.md) — [vue d'ensemble](../architecture/overview.md), [scénarios qualité](../architecture/quality/scenarios.md), [registre des risques](../architecture/risks/register.md)
+- [Registre des ADR](../architecture/adr/README.md) — [gabarit](../architecture/adr/template.md)
+
+Plateformes et surfaces :
+
 - [Provider SDK](PROVIDER_SDK.md)
 - [Portfolio Intelligence](PORTFOLIO_INTELLIGENCE.md)
 - [Query Platform](QUERY_PLATFORM.md)
@@ -225,10 +240,14 @@ Le choix de `0` approbation obligatoire reste cohérent avec le contexte mono-ma
 - [Assisted Reasoning](ASSISTED_REASONING.md)
 - [API](API.md)
 - [MCP](MCP.md)
-- [Version produit](PRODUCT_VERSION.md)
-- [Reprise à froid](COLD_START_RECOVERY.md) — par où recommencer après une longue interruption : la commande unique qui qualifie le dépôt, les secrets externes et ce qui casse sans eux, comment lire une preuve, et quels gates rouges ne sont pas des régressions
-- [Build et tests](BUILD_AND_TEST.md)
-- [Production integrity](PRODUCTION_INTEGRITY.md)
-- [Registre des risques](../architecture/risks/register.md)
-- [Validation R3 / release 1.2.0 historique](../validation/VALIDATION_R3.md)
-- [Validation D2 historique](../validation/VALIDATION_D2.md)
+- [Intégrations](INTEGRATIONS.md)
+- [Operability](OPERABILITY.md)
+
+Contrats machine — [`reference/`](reference/README.md) :
+
+- [Surfaces publiques](reference/PUBLIC_SURFACES.md) et [`contracts/public-surfaces.tsv`](../../contracts/public-surfaces.tsv)
+- [OpenAPI](reference/openapi/)
+- [Contrats de ports](reference/contracts/) — provider et knowledge store
+- [Modèle de domaine](reference/domain/MODEL.md) · [cycle de vie des changements](reference/domain/CHANGE_LIFECYCLE.md)
+
+Les plans, preuves de validation et audits ne sont pas ici : voir le [suivi du projet](../project/README.md). La documentation d'usage est dans [`../user/`](../user/README.md).

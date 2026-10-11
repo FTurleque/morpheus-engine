@@ -54,11 +54,11 @@ Implementation is a separate lot, started after this specification is reviewed, 
       and never the qualification sentence. Keep the `.ps1` ASCII and test the hook afterwards
       (`rules/tooling.md`). Proof: the summary of a run; a grep for `RELEASE QUALIFICATION PASS` in both scripts
       returns nothing.
-- [ ] 4.4 `docs/validation/RELEASE_QUALIFICATION.md`: a short section "Répétition" — what it runs, what it does not
+- [ ] 4.4 `docs/project/validation/RELEASE_QUALIFICATION.md`: a short section "Répétition" — what it runs, what it does not
       prove, that it never closes #185 — and the warning about closing keywords in commit messages. Proof:
       `ReleaseQualificationContractTest` green unmodified (it pins four sentences of that page).
 - [ ] 4.5 `docs/architecture/risks/register.md` DT-11: the rehearsal as mitigation, the debt still open.
-      `docs/validation/VALIDATION_M20.md`: how the lane is run. `.claude/CLAUDE.md`: "M20 (release)" gains
+      `docs/project/validation/VALIDATION_M20.md`: how the lane is run. `.claude/CLAUDE.md`: "M20 (release)" gains
       "lane nocturne — pas dans `clean verify`", as M19 has. Proof: `RepositoryDocumentationCoherenceTest` green.
 
 ## 5. Verification

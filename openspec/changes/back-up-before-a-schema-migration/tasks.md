@@ -11,7 +11,7 @@ that introduces this change.
 - [ ] 1.2 Write the ADR (decisions 3, 4, 5, 7, 9; the rejected fixed-name-and-reuse design; the installer fallback).
       Cite ADR-0018, 0021, 0086, 0088. Read the highest attributed number with
       `bash .claude/skills/live-numbers/numbers.sh` at that moment; do not reuse the value quoted in `design.md`. Proof:
-      the ADR file, `docs/adr/README.md` updated, no duplicate number.
+      the ADR file, `docs/architecture/adr/README.md` updated, no duplicate number.
 
 ## 2. Find out, then reproduce before fixing
 
@@ -66,6 +66,6 @@ that introduces this change.
 - [ ] 4.5 Pull request description: finding covered, the ADR, the decisions of `design.md`, the review objections it
       records, the rule/code divergence on `rules/security.md`, and the justification for any test added under
       `morpheus-architecture-tests/`.
-- [ ] 4.6 Decide with the maintainer whether `docs/openapi/morpheus-v1-remote-m26.yaml` should declare a 5xx for
+- [ ] 4.6 Decide with the maintainer whether `docs/developer/reference/openapi/morpheus-v1-remote-m26.yaml` should declare a 5xx for
       `POST /api/v1/server/backups`, now that this request can raise the refusal. If yes, it is a contract change with
       its own justification (`contracts/public-surfaces.tsv` itself does not move). Proof: the decision.

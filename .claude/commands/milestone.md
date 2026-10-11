@@ -45,13 +45,13 @@ Jamais deviner le milestone courant ou le numéro du prochain — le lire dans `
    ├── Gate: ✅/❌ (<N constaté> tests)
    ├── Modules couverts: <liste constatée>
    ├── Règles: <liste des règles ArchUnit enforced>
-   └── Documentation: docs/validation/VALIDATION_M<N>.md ✅/❌
+   └── Documentation: docs/project/validation/VALIDATION_M<N>.md ✅/❌
    ```
 
 ### Pour `/milestone next`
 
-1. Lire `docs/roadmap/` pour identifier les fonctionnalités prévues
-2. Lire les ADRs récents dans `docs/adr/` (compter avec `glob`, ne pas citer un total)
+1. Lire `docs/project/roadmap/` pour identifier les fonctionnalités prévues
+2. Lire les ADRs récents dans `docs/architecture/adr/` (compter avec `glob`, ne pas citer un total)
 3. Lire les tests du dernier milestone livré pour comprendre ce qui est déjà en place
 4. Proposer :
    - Les nouvelles règles ArchUnit à ajouter

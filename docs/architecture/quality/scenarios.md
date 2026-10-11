@@ -182,7 +182,7 @@ milestone fonctionnel livré.
 | Réponse | MORPHEUS s'exécute avec le runtime embarqué |
 | Mesure | Smoke test de l'artefact |
 | Seuil | PASS pour les artefacts publiés |
-| Preuve | `docs/validation/VALIDATION_R3.md` |
+| Preuve | `docs/project/validation/VALIDATION_R3.md` |
 
 ### Q-PO-02 — Parité des artefacts publiés — qualifié R3
 

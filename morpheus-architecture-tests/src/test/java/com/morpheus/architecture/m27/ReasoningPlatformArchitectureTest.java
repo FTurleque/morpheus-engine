@@ -49,7 +49,7 @@ class ReasoningPlatformArchitectureTest {
     void publicManifestAndOpenApiExposeSameReadOnlyM27IntentFamilies() throws IOException {
         Path root = repositoryRoot();
         String manifest = Files.readString(root.resolve("contracts/public-surfaces.tsv"));
-        String openApi = Files.readString(root.resolve("docs/openapi/morpheus-v1-reasoning-m27.yaml"));
+        String openApi = Files.readString(root.resolve("docs/developer/reference/openapi/morpheus-v1-reasoning-m27.yaml"));
 
         assertTrue(manifest.contains(
                 "reasoning.adapters\tREAD\treason adapters\tlist_reasoning_adapters\tGET /api/v1/reasoning/adapters"));

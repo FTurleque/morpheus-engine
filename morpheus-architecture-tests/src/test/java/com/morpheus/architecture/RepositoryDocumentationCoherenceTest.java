@@ -85,6 +85,7 @@ class RepositoryDocumentationCoherenceTest {
      */
     private static final List<String> CURRENT_STACK_SURFACES = List.of(
             "README.md",
+            "CONTRIBUTING.md",
             "docs/README.md",
             "docs/developer/README.md",
             "docs/developer/BUILD_AND_TEST.md",
@@ -194,21 +195,21 @@ class RepositoryDocumentationCoherenceTest {
     }
 
     @Test
-    void rootReadmeMatchesPomVersionMcpSdkAndModuleList() throws Exception {
+    void contributingGuideMatchesPomVersionMcpSdkAndModuleList() throws Exception {
         Path root = repositoryRoot();
         String pom = Files.readString(root.resolve("pom.xml"));
-        String readme = Files.readString(root.resolve("README.md"));
+        String readme = Files.readString(root.resolve("CONTRIBUTING.md"));
 
         String version = firstGroup(PROJECT_VERSION, pom, "project version");
         String mcpVersion = firstGroup(MCP_VERSION, pom, "MCP SDK version");
         List<String> pomModules = pomModules(pom);
 
         assertTrue(readme.contains("Baseline développement " + version),
-                () -> "README development baseline must match pom.xml version " + version);
+                () -> "CONTRIBUTING.md development baseline must match pom.xml version " + version);
         assertTrue(readme.contains("Java MCP SDK " + mcpVersion),
-                () -> "README MCP SDK must match pom.xml version " + mcpVersion);
+                () -> "CONTRIBUTING.md MCP SDK must match pom.xml version " + mcpVersion);
         assertEquals(pomModules, readmeModules(readme),
-                "README Maven module list must exactly match root pom.xml <modules>");
+                "CONTRIBUTING.md Maven module list must exactly match root pom.xml <modules>");
     }
 
     @Test
@@ -426,7 +427,7 @@ class RepositoryDocumentationCoherenceTest {
         }
 
         String arc42 = Files.readString(root.resolve("docs/architecture/arc42/11-risques-dette.md"));
-        String adrIndex = Files.readString(root.resolve("docs/adr/README.md"));
+        String adrIndex = Files.readString(root.resolve("docs/architecture/adr/README.md"));
         assertTrue(adrIndex.contains("[ADR-0096](0096-conservative-native-mcp-client"),
                 "ADR index must retain the accepted ADR-0096 entry");
         assertFalse(arc42.contains("| DT-02 |"),
@@ -458,13 +459,6 @@ class RepositoryDocumentationCoherenceTest {
                 "JaCoCo aggregate branches", aggregateBranch,
                 "JaCoCo per-module lines", perModuleLine,
                 "JaCoCo per-module branches", perModuleBranch));
-        assertLabelledThresholds(root, "docs/README.md", Map.of(
-                "Surefire total", tests,
-                "architecture tests", architecture,
-                "JaCoCo aggregate lines", aggregateLine,
-                "JaCoCo aggregate branches", aggregateBranch,
-                "JaCoCo per-module lines", perModuleLine,
-                "JaCoCo per-module branches", perModuleBranch));
         // The operator surfaces an engineer actually opens before running a gate. Each of these still announced
         // the pre-1.2.1 ratchets, so four different numbers were in circulation for one executable threshold.
         // Each now has to name the scale as well as the number: one figure standing alone was exactly how a
@@ -490,14 +484,14 @@ class RepositoryDocumentationCoherenceTest {
                 "JaCoCo aggregate branch ratchet", aggregateBranch,
                 "JaCoCo per-module line ratchet", perModuleLine,
                 "JaCoCo per-module branch ratchet", perModuleBranch));
-        assertLabelledThresholds(root, "docs/governance/DOCUMENTATION_STATUS.md", Map.of(
+        assertLabelledThresholds(root, "docs/project/governance/DOCUMENTATION_STATUS.md", Map.of(
                 "Surefire ratchet", tests,
                 "Architecture ratchet", architecture,
                 "Aggregate line ratchet", aggregateLine,
                 "Aggregate branch ratchet", aggregateBranch,
                 "Per-module line ratchet", perModuleLine,
                 "Per-module branch ratchet", perModuleBranch));
-        assertLabelledThresholds(root, "docs/governance/ROADMAP.md", Map.of(
+        assertLabelledThresholds(root, "docs/project/governance/ROADMAP.md", Map.of(
                 "Surefire ratchet", tests,
                 "architecture ratchet", architecture,
                 "aggregate line ratchet", aggregateLine,
@@ -505,14 +499,14 @@ class RepositoryDocumentationCoherenceTest {
                 "per-module line ratchet", perModuleLine,
                 "per-module branch ratchet", perModuleBranch));
 
-        String readme = Files.readString(root.resolve("README.md"));
+        String readme = Files.readString(root.resolve("CONTRIBUTING.md"));
         String readmeClaim = ("Le ratchet agrégé est **≥ %s %% lignes / ≥ %s %% branches**, le ratchet par module"
                 + " **≥ %s %% lignes / ≥ %s %% branches**, avec **≥ %s tests Surefire** et"
                 + " **≥ %s tests d’architecture**")
                 .formatted(french(aggregateLine), french(aggregateBranch),
                         french(perModuleLine), french(perModuleBranch), tests, architecture);
         assertTrue(readme.contains(readmeClaim),
-                () -> "README.md must state the normative M21 ratchets: " + readmeClaim);
+                () -> "CONTRIBUTING.md must state the normative M21 ratchets: " + readmeClaim);
 
         String buildAndTest = Files.readString(root.resolve("docs/developer/BUILD_AND_TEST.md"));
         String lockedBaseline = "**%s%% lignes / %s%% branches** sur l'échelle agrégée et **%s%% lignes / %s%% branches** par module"
@@ -565,7 +559,7 @@ class RepositoryDocumentationCoherenceTest {
                 "maintenance must consume the declared constant rather than restate the version");
 
         // Active governance surfaces describe the *current* contract, so a literal here silently rots.
-        // Historical snapshots under docs/validation and docs/roadmap legitimately record past versions.
+        // Historical snapshots under docs/project/validation and docs/project/roadmap legitimately record past versions.
         for (Path page : activeGovernanceSurfaces(root)) {
             String content = Files.readString(page);
             Matcher pinned = SCHEMA_VERSION_LITERAL.matcher(content);
@@ -649,7 +643,7 @@ class RepositoryDocumentationCoherenceTest {
     void activeGovernanceSurfacesDoNotRestateAPerishableAdrOrModuleTotal() throws Exception {
         Path root = repositoryRoot();
         long numberedAdrs;
-        try (var files = Files.list(root.resolve("docs/adr"))) {
+        try (var files = Files.list(root.resolve("docs/architecture/adr"))) {
             numberedAdrs = files.filter(path -> path.getFileName().toString().matches("\\d{4}-.*\\.md")).count();
         }
         assertTrue(numberedAdrs > 0, "the ADR directory must contain numbered decision records");
@@ -659,7 +653,7 @@ class RepositoryDocumentationCoherenceTest {
             assertFalse(ADR_OR_MODULE_TOTAL.matcher(content).find(),
                     () -> root.relativize(page) + " restates a perishable total (\""
                             + describeFirstMatch(ADR_OR_MODULE_TOTAL, content)
-                            + "\"); count docs/adr/0*.md or pom.xml <module> entries instead");
+                            + "\"); count docs/architecture/adr/0*.md or pom.xml <module> entries instead");
         }
     }
 
@@ -938,13 +932,14 @@ class RepositoryDocumentationCoherenceTest {
     private static List<Path> activeStatusPages(Path root) {
         return List.of(
                 root.resolve("README.md"),
+                root.resolve("CONTRIBUTING.md"),
                 root.resolve("docs/README.md"),
                 root.resolve("docs/user/README.md"),
                 root.resolve("docs/developer/README.md"),
                 root.resolve("docs/developer/BUILD_AND_TEST.md"),
-                root.resolve("docs/governance/ROADMAP.md"),
-                root.resolve("docs/governance/DOCUMENTATION_STATUS.md"),
-                root.resolve("docs/validation/README.md"));
+                root.resolve("docs/project/governance/ROADMAP.md"),
+                root.resolve("docs/project/governance/DOCUMENTATION_STATUS.md"),
+                root.resolve("docs/project/validation/README.md"));
     }
 
     private static String percentage(String decimal) {
@@ -1004,7 +999,7 @@ class RepositoryDocumentationCoherenceTest {
 
     private static List<String> readmeModules(String readme) {
         int marker = readme.indexOf("Modules Maven :");
-        if (marker < 0) throw new IllegalArgumentException("README has no 'Modules Maven :' section");
+        if (marker < 0) throw new IllegalArgumentException("CONTRIBUTING.md has no 'Modules Maven :' section");
         int fence = readme.indexOf("```text", marker);
         if (fence < 0) throw new IllegalArgumentException("README module section has no text fence");
         int start = readme.indexOf('\n', fence);

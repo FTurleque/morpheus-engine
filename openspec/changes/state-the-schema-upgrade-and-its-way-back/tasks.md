@@ -34,7 +34,7 @@ that introduces this change.
 - [ ] 3.2 Add the opening notice to `UPGRADE_1_2.md` and `UPGRADE_1_1.md`; bound `UPGRADE_1_2.md:108` to 1.2.0. Leave
       every other dated sentence as it is. Proof: 2.1's fourth method passes; `git diff` shows only the notice and that
       one sentence.
-- [ ] 3.3 Link the guide from `docs/user/README.md` and from `docs/release/RELEASE_NOTES_1.2.1.md` (one line each).
+- [ ] 3.3 Link the guide from `docs/user/README.md` and from `docs/user/release-notes/RELEASE_NOTES_1.2.1.md` (one line each).
       Proof: `RepositoryDocumentationCoherenceTest` and the link checks stay green.
 - [ ] 3.4 Break each rule once, then revert: raise the number in the guide by one; remove the refusal quote; remove a
       notice. Proof: three named failures, in the pull request.

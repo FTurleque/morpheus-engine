@@ -67,7 +67,7 @@ if branch < .35: raise SystemExit(f'M27 branch coverage below 35%: {branch}')
 PY
 printf '%s\n' "JaCoCo: PASS (line=$LINE_RATIO, branch=$BRANCH_RATIO)"
 
-morpheus_python - "$REPO/contracts/public-surfaces.tsv" "$REPO/docs/openapi/morpheus-v1-reasoning-m27.yaml" <<'PY'
+morpheus_python - "$REPO/contracts/public-surfaces.tsv" "$REPO/docs/developer/reference/openapi/morpheus-v1-reasoning-m27.yaml" <<'PY'
 import pathlib, sys
 manifest = pathlib.Path(sys.argv[1]).read_text()
 openapi = pathlib.Path(sys.argv[2]).read_text()

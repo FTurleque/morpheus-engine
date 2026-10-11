@@ -64,10 +64,10 @@ import sys
 root = pathlib.Path(sys.argv[1])
 version = sys.argv[2]
 required = [
-    'docs/release/RELEASE_NOTES_1.2.0.md',
+    'docs/user/release-notes/RELEASE_NOTES_1.2.0.md',
     'docs/user/UPGRADE_1_2.md',
-    'docs/roadmap/R3_EXECUTION.md',
-    'docs/validation/VALIDATION_R3.md',
+    'docs/project/roadmap/R3_EXECUTION.md',
+    'docs/project/validation/VALIDATION_R3.md',
 ]
 for relative in required:
     if not (root / relative).is_file():
@@ -85,7 +85,7 @@ for relative, token in checks.items():
     if token not in content:
         raise SystemExit(f'R3 default version is incoherent in {relative}: expected {token}')
 
-notes = (root / 'docs/release/RELEASE_NOTES_1.2.0.md').read_text(encoding='utf-8')
+notes = (root / 'docs/user/release-notes/RELEASE_NOTES_1.2.0.md').read_text(encoding='utf-8')
 for token in ('MORPHEUS 1.2.0', 'GitHub Copilot', 'Claude Code', 'Claude Desktop', 'OpenAI Codex', 'mcp --stdio', 'Docker'):
     if token not in notes:
         raise SystemExit(f'R3 release notes token is missing: {token}')

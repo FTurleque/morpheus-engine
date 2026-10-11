@@ -32,7 +32,7 @@ product also reads (`LOCALAPPDATA`, `XDG_*`), which are not its own.
    a literal, or has no reason, fails. Two entries today: `MORPHEUS_VERSION_TOO_NEW` and `MORPHEUS_VERSION_TOO_OLD`
    ("refusal code of the update check, not an environment variable").
 
-3. **"Documented" means named in `docs/user/**` or `docs/developer/**`.** Not `docs/audit`, `docs/adr`, `openspec/` or
+3. **"Documented" means named in `docs/user/**` or `docs/developer/**`.** Not `docs/project/audits`, `docs/architecture/adr`, `openspec/` or
    release notes: an operator hardening a deployment reads the guides. Whole-word match, so that
    `MORPHEUS_SERVER_PROVIDER_PLUGIN_DIR` is not satisfied by a longer or shorter name.
 

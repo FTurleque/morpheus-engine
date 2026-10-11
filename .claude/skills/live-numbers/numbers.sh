@@ -30,10 +30,10 @@ for proof in morpheus-architecture-tests/target/m21-per-module-coverage-summary.
     else item "$(basename "$proof")" "absente - lancer ./mvnw clean verify"; fi
 done
 
-section "ADR  <- docs/adr/ (compte, jamais recopie)"
-item "records numerotes" "$(ls docs/adr/0*.md 2>/dev/null | wc -l | tr -d ' ')"
-item "numero le plus haut attribue" "$(ls docs/adr/0*.md 2>/dev/null | sed 's:.*/::' | cut -c1-4 | sort -n | tail -1)"
-item "doublons de numerotation" "$(ls docs/adr/0*.md 2>/dev/null | sed 's:.*/::' | cut -c1-4 | sort | uniq -d | tr '\n' ' ')"
+section "ADR  <- docs/architecture/adr/ (compte, jamais recopie)"
+item "records numerotes" "$(ls docs/architecture/adr/0*.md 2>/dev/null | wc -l | tr -d ' ')"
+item "numero le plus haut attribue" "$(ls docs/architecture/adr/0*.md 2>/dev/null | sed 's:.*/::' | cut -c1-4 | sort -n | tail -1)"
+item "doublons de numerotation" "$(ls docs/architecture/adr/0*.md 2>/dev/null | sed 's:.*/::' | cut -c1-4 | sort | uniq -d | tr '\n' ' ')"
 
 section "Reacteur  <- pom.xml <module>"
 item "modules declares" "$(grep -c '<module>' pom.xml)"

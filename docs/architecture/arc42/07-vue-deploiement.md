@@ -115,7 +115,7 @@ Clients ciblés par la baseline M28 :
 La release stable documentée est **1.2.0** (`v1.2.0`). Les artefacts publiés
 sont qualifiés à partir de la release exacte et accompagnés de leurs preuves
 d'intégrité. Les noms précis d'artefacts et checksums restent documentés dans
-`docs/validation/VALIDATION_R3.md` et `docs/release/RELEASE_NOTES_1.2.0.md`.
+`docs/project/validation/VALIDATION_R3.md` et `docs/user/release-notes/RELEASE_NOTES_1.2.0.md`.
 
 ---
 
