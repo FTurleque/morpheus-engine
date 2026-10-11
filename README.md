@@ -11,6 +11,9 @@ Le code **parcourt** le chemin. MORPHEUS est ce qui le **connaît**.
 
 ## Le problème
 
+> *« Qu’est-ce que le réel ? Quelle est ta définition du réel ? »*
+> — Morpheus, *The Matrix* (1999)
+
 Dans un projet, l’intention est éparpillée : des exigences dans des fichiers Markdown, des changements proposés à moitié appliqués, des décisions dans des comptes rendus, des critères d’acceptation dans la tête de quelqu’un. Un développeur — ou un assistant IA — qui ouvre le code voit *ce qui est fait*, jamais *ce qui était voulu*. Il devine, et il devine mal.
 
 MORPHEUS rend cette intention **lisible par une machine**, sans la déformer :
@@ -81,6 +84,9 @@ Guide complet : [`docs/user/INSTALLATION.md`](docs/user/INSTALLATION.md).
 
 ## Premier projet
 
+> *« Suis le lapin blanc. »*
+> — message reçu par Neo, *The Matrix* (1999)
+
 ```bash
 morpheus projects add --workspace /path/to/project
 morpheus projects list
@@ -91,6 +97,11 @@ morpheus requirements find --project <projectId> --query "session"
 La suite pas à pas : [`docs/user/QUICKSTART.md`](docs/user/QUICKSTART.md).
 
 ## Brancher un assistant IA
+
+> *« Je connais le kung-fu. »*
+> — Neo, *The Matrix* (1999)
+
+Une fois branché, l’assistant connaît l’intention du projet sans avoir à la deviner :
 
 ```text
 morpheus mcp --stdio
