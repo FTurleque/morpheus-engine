@@ -9,6 +9,11 @@ qualification de ses artefacts (suivi #185, critère de clôture dans
 Cette page recense, au fil des corrections, les changements qu'un utilisateur de 1.2.0 doit connaître avant de migrer.
 Elle ne revendique aucune publication.
 
+## Avant de migrer
+
+Cette version fait avancer le schéma SQLite, et 1.2.0 ne refuse pas une base migrée. La sauvegarde prise avec 1.2.0
+avant l'installation est le seul retour supporté : voir [`../UPGRADE_1_2_1.md`](../UPGRADE_1_2_1.md).
+
 ## Ruptures
 
 ### Structured Markdown : un bloc `morpheus task` déclare son achèvement
