@@ -112,6 +112,11 @@ Les trois reposent sur les mêmes services. Ce qu’une surface n’expose pas e
 
 ## Ce que MORPHEUS ne confond jamais
 
+> *« Je ne peux que te montrer la porte. C’est à toi de la franchir. »*
+> — Morpheus, *The Matrix* (1999)
+
+MORPHEUS montre ce qui est voulu, d’où cela vient et ce que cela implique. Il ne décide pas à votre place et n’écrit rien sans que vous le demandiez.
+
 Un outil qui parle d’intention n’a de valeur que si l’on peut se fier à ce qu’il affirme. MORPHEUS tient donc quelques distinctions pour acquises, partout :
 
 - **Proposé n’est pas en vigueur.** Un changement proposé n’apparaît jamais dans l’état courant tant qu’il n’a pas été explicitement appliqué.
