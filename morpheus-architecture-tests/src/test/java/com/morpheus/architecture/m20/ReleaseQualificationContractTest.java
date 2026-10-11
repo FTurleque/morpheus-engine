@@ -38,7 +38,7 @@ class ReleaseQualificationContractTest {
     }
 
     @Test
-    void bothVariantsVerifyTheSameSevenThings() throws IOException {
+    void bothVariantsPerformTheSameVerifications() throws IOException {
         for (String script : QUALIFICATION_SCRIPTS) {
             String content = read(script);
 

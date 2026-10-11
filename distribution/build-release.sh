@@ -62,7 +62,8 @@ cp "$SBOM_SOURCE" "$SBOM"
 SBOM_SHA256="$(sha256sum "$SBOM" | awk '{print $1}')"
 SBOM_BYTES="$(stat -c '%s' "$SBOM")"
 MANIFEST="$DIST/morpheus-$VERSION-linux-x64-release-manifest.json"
-python3 - "$MANIFEST" "$VERSION" "$EXPECTED_TAG" "$HEAD_SHA" "$(basename "$ARCHIVE")" "$BYTES" "$SHA256"   "$(basename "$SBOM")" "$SBOM_BYTES" "$SBOM_SHA256" <<'PY'
+python3 - "$MANIFEST" "$VERSION" "$EXPECTED_TAG" "$HEAD_SHA" "$(basename "$ARCHIVE")" "$BYTES" "$SHA256" \
+  "$(basename "$SBOM")" "$SBOM_BYTES" "$SBOM_SHA256" <<'PY'
 import json
 import sys
 from pathlib import Path

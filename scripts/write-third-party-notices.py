@@ -103,9 +103,7 @@ def runtime_origin(jdk_release: Path, runtime_release: Path) -> str:
     return f"{jdk['IMPLEMENTOR']}, Java {jdk.get('JAVA_RUNTIME_VERSION', jdk['JAVA_VERSION'])}"
 
 
-def refusals(components: list[Component], declared: dict, third_party: Path, texts: dict) -> list[str]:
-    shipped = {component.coordinates for component in components}
-    used_directories = {component.directory for component in components}
+def unattributed(components: list[Component], declared: dict, texts: dict) -> list[str]:
     problems = []
     for component in components:
         if component.coordinates not in declared:
@@ -114,15 +112,23 @@ def refusals(components: list[Component], declared: dict, third_party: Path, tex
         elif not texts[component.coordinates]:
             problems.append(f"THIRD_PARTY_NOTICE_MISSING: {component.coordinates} has no licence text, neither in its "
                             f"JAR nor under distribution/third-party/texts/{component.directory}/")
-    for coordinates in sorted(set(declared) - shipped):
-        problems.append(f"THIRD_PARTY_NOTICE_UNUSED: {coordinates} is declared and no longer shipped")
-    texts_root = third_party / "texts"
-    if texts_root.is_dir():
-        for directory in sorted(entry.name for entry in texts_root.iterdir() if entry.is_dir()):
-            if directory not in used_directories:
-                problems.append(f"THIRD_PARTY_NOTICE_UNUSED: distribution/third-party/texts/{directory}/ belongs to "
-                                "no shipped component")
     return problems
+
+
+def unused(components: list[Component], declared: dict, third_party: Path) -> list[str]:
+    shipped = {component.coordinates for component in components}
+    problems = [f"THIRD_PARTY_NOTICE_UNUSED: {coordinates} is declared and no longer shipped"
+                for coordinates in sorted(set(declared) - shipped)]
+    texts_root = third_party / "texts"
+    committed = sorted(entry.name for entry in texts_root.iterdir() if entry.is_dir()) if texts_root.is_dir() else []
+    used = {component.directory for component in components}
+    problems += [f"THIRD_PARTY_NOTICE_UNUSED: distribution/third-party/texts/{directory}/ belongs to no shipped component"
+                 for directory in committed if directory not in used]
+    return problems
+
+
+def refusals(components: list[Component], declared: dict, third_party: Path, texts: dict) -> list[str]:
+    return unattributed(components, declared, texts) + unused(components, declared, third_party)
 
 
 def render(components: list[Component], declared: dict, texts: dict, runtime: str) -> str:

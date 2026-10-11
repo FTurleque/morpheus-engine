@@ -32,7 +32,7 @@ that introduces this change.
 - [x] 2.5 Read what `ProductReleaseContractTest`, `ReleaseQualificationContractTest` and
       `AuditHardeningWorkflowContractTest` pin in the files this change edits. Proof: the list of assertions that must
       still pass unmodified.
-  - 2026-10-11: `bothVariantsVerifyTheSameSixThings` named a count and became `...SevenThings`; nothing else pinned a count of assets.
+  - 2026-10-11: `bothVariantsVerifyTheSameSixThings` named a count and is now `bothVariantsPerformTheSameVerifications`; nothing else pinned a count of assets.
 
 ## 3. Reproduce before fixing
 

@@ -70,15 +70,15 @@ class ThirdPartyNoticesTest(unittest.TestCase):
         self.workspace = Workspace(Path(self._temp.name))
 
     def test_texts_come_from_the_jar_then_from_the_repository_and_own_modules_are_left_out(self):
-        w = self.workspace
-        w.ship(OWN, "morpheus-domain", "1.2.1", {})
-        w.ship("org.example", "with-texts", "2.0", {"META-INF/LICENSE": "LICENCE IN JAR\r\n", "META-INF/NOTICE": "NOTICE IN JAR"})
-        w.ship("org.example", "without-texts", "3.1", {}, scope="runtime")
-        w.declare("org.example:with-texts")
-        w.declare("org.example:without-texts", "MIT", "https://example.org/without-texts at tag v3.1")
-        w.commit_text("org.example__without-texts", "LICENSE", "Copyright (c) Example\nPermission is hereby granted\n")
+        workspace = self.workspace
+        workspace.ship(OWN, "morpheus-domain", "1.2.1", {})
+        workspace.ship("org.example", "with-texts", "2.0", {"META-INF/LICENSE": "LICENCE IN JAR\r\n", "META-INF/NOTICE": "NOTICE IN JAR"})
+        workspace.ship("org.example", "without-texts", "3.1", {}, scope="runtime")
+        workspace.declare("org.example:with-texts")
+        workspace.declare("org.example:without-texts", "MIT", "https://example.org/without-texts at tag v3.1")
+        workspace.commit_text("org.example__without-texts", "LICENSE", "Copyright (c) Example\nPermission is hereby granted\n")
 
-        result, output = w.run()
+        result, output = workspace.run()
 
         self.assertEqual(0, result.returncode, result.stderr)
         notices = output.read_bytes().decode("utf-8")
@@ -93,55 +93,55 @@ class ThirdPartyNoticesTest(unittest.TestCase):
         self.assertNotIn("\r", notices, "the notices are written with LF only, whatever the platform")
 
     def test_a_shipped_component_that_is_not_declared_is_refused(self):
-        w = self.workspace
-        w.ship("org.example", "undeclared", "1.0", {"META-INF/LICENSE": "text"})
+        workspace = self.workspace
+        workspace.ship("org.example", "undeclared", "1.0", {"META-INF/LICENSE": "text"})
 
-        result, output = w.run()
+        result, output = workspace.run()
 
         self.assertEqual(1, result.returncode)
         self.assertIn("THIRD_PARTY_NOTICE_MISSING: org.example:undeclared", result.stderr)
         self.assertFalse(output.exists(), "no notices file may be written when a component is not attributed")
 
     def test_a_declared_component_without_any_text_is_refused(self):
-        w = self.workspace
-        w.ship("org.example", "textless", "1.0", {})
-        w.declare("org.example:textless")
+        workspace = self.workspace
+        workspace.ship("org.example", "textless", "1.0", {})
+        workspace.declare("org.example:textless")
 
-        result, _ = w.run()
+        result, _ = workspace.run()
 
         self.assertEqual(1, result.returncode)
         self.assertIn("THIRD_PARTY_NOTICE_MISSING: org.example:textless has no licence text", result.stderr)
 
     def test_a_declaration_and_a_directory_nobody_ships_are_refused(self):
-        w = self.workspace
-        w.ship("org.example", "kept", "1.0", {"META-INF/LICENSE": "text"})
-        w.declare("org.example:kept")
-        w.declare("org.example:removed")
-        w.commit_text("org.example__orphan", "LICENSE", "text")
+        workspace = self.workspace
+        workspace.ship("org.example", "kept", "1.0", {"META-INF/LICENSE": "text"})
+        workspace.declare("org.example:kept")
+        workspace.declare("org.example:removed")
+        workspace.commit_text("org.example__orphan", "LICENSE", "text")
 
-        result, _ = w.run()
+        result, _ = workspace.run()
 
         self.assertEqual(1, result.returncode)
         self.assertIn("THIRD_PARTY_NOTICE_UNUSED: org.example:removed", result.stderr)
         self.assertIn("THIRD_PARTY_NOTICE_UNUSED: distribution/third-party/texts/org.example__orphan/", result.stderr)
 
     def test_a_version_bump_needs_no_edit(self):
-        w = self.workspace
-        w.ship("org.example", "bumped", "9.9.9", {"META-INF/LICENSE": "text"})
-        w.declare("org.example:bumped")
+        workspace = self.workspace
+        workspace.ship("org.example", "bumped", "9.9.9", {"META-INF/LICENSE": "text"})
+        workspace.declare("org.example:bumped")
 
-        result, output = w.run()
+        result, output = workspace.run()
 
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertIn("org.example:bumped 9.9.9", output.read_text(encoding="utf-8"))
 
     def test_a_runtime_that_is_not_the_one_of_the_jdk_given_is_refused(self):
-        w = self.workspace
-        w.ship("org.example", "kept", "1.0", {"META-INF/LICENSE": "text"})
-        w.declare("org.example:kept")
-        w.runtime.write_text('JAVA_VERSION="17.0.1"\n', encoding="utf-8")
+        workspace = self.workspace
+        workspace.ship("org.example", "kept", "1.0", {"META-INF/LICENSE": "text"})
+        workspace.declare("org.example:kept")
+        workspace.runtime.write_text('JAVA_VERSION="17.0.1"\n', encoding="utf-8")
 
-        result, _ = w.run()
+        result, _ = workspace.run()
 
         self.assertNotEqual(0, result.returncode)
         self.assertIn("would name the wrong runtime", result.stderr)
