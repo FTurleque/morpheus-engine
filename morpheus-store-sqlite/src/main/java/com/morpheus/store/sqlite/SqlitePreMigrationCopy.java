@@ -54,7 +54,7 @@ final class SqlitePreMigrationCopy {
     void keepIfTheSchemaWillAdvance(Connection connection, Path databasePath) {
         int original = recordedVersion(connection);
         if (original > 0 && original < SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION) {
-            keep(connection, databasePath, original);
+            keepUnlessMigratedMeanwhile(connection, databasePath, original);
         }
     }
 
@@ -62,7 +62,7 @@ final class SqlitePreMigrationCopy {
      * @param original the version read before the copy; read outside any transaction, so another process may have
      *                 migrated the database since, in which case the copy is not a pre-migration copy and is discarded
      */
-    void keep(Connection connection, Path databasePath, int original) {
+    void keepUnlessMigratedMeanwhile(Connection connection, Path databasePath, int original) {
         Path copy = Path.of(databasePath.toAbsolutePath().normalize()
                 + String.format(".pre-migration-v%03d-%s.db", original, uniqueSuffix.get()));
         boolean written = false;
@@ -73,7 +73,7 @@ final class SqlitePreMigrationCopy {
             }
             written = true;
             new LocalWritePermissionHardener().hardenFile(copy);
-            if (verifiedVersion(copy) != original) {
+            if (integrityCheckedVersion(copy) != original) {
                 Files.delete(copy);
             }
         } catch (SQLException | IOException | RuntimeException failure) {
@@ -101,7 +101,7 @@ final class SqlitePreMigrationCopy {
         }
     }
 
-    private static int verifiedVersion(Path copy) throws SQLException {
+    private static int integrityCheckedVersion(Path copy) throws SQLException {
         try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + copy);
              Statement statement = connection.createStatement()) {
             statement.execute("PRAGMA query_only = ON");

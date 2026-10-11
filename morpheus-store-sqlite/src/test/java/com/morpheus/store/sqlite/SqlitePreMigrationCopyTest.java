@@ -209,7 +209,7 @@ class SqlitePreMigrationCopyTest {
         }
 
         try (Connection connection = connect(database)) {
-            new SqlitePreMigrationCopy().keep(connection, database, ORIGINAL_VERSION);
+            new SqlitePreMigrationCopy().keepUnlessMigratedMeanwhile(connection, database, ORIGINAL_VERSION);
         }
 
         assertTrue(copies(database).isEmpty(),

@@ -108,5 +108,8 @@ Implementation is a separate lot, started after this specification is reviewed, 
       platform. Proof, each broken once: the Windows step switched off; `id-token: write` at workflow level; a
       publishing command appended to `distribution/build-release.sh`.
 - [x] 7.3 The procedure and DT-11 said "every night" without saying that a schedule runs `main`'s workflow file.
-- [ ] 7.4 Left as they are: the comparison script takes the first `expected=(` block of `release.yml`; both legs upload
+- [x] 7.4 Were left as they were, then done in a follow-up: the comparison script takes the first `expected=(` block of `release.yml`; both legs upload
       the full binaries for a check of names; the POM version is read by three snippets.
+  - 2026-10-11: the script reads the list inside the `publish` job only (a decoy list in an earlier job is covered by a
+    test); each leg uploads a listing of names and sizes instead of its binaries; the product version is read by the
+    script on both platforms (`version pom.xml`), no longer by three snippets.

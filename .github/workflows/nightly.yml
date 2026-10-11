@@ -301,29 +301,34 @@ jobs:
         if: runner.os == 'Linux'
         shell: bash
         run: |
-          version="$(python3 -c "import xml.etree.ElementTree as E; print(E.parse('pom.xml').getroot().find('{http://maven.apache.org/POM/4.0.0}version').text)")"
+          version="$(python3 scripts/check-release-rehearsal-assets.py version pom.xml)"
           bash ./scripts/validate-m20.sh "${version}"
 
       - name: Rehearse the Windows release build with the version the POM declares
         if: runner.os == 'Windows'
         shell: powershell
         run: |
-          $version = ([xml](Get-Content -LiteralPath pom.xml)).project.version
+          $version = python scripts/check-release-rehearsal-assets.py version pom.xml
+          if ($LASTEXITCODE -ne 0) { throw 'Cannot read the product version from pom.xml' }
           .\scripts\validate-m20.ps1 -Version $version
           if ($LASTEXITCODE -ne 0) { throw "M20 release rehearsal failed with exit code $LASTEXITCODE" }
 
-      - name: Upload the rehearsed release files
+      # The comparison looks at names and sizes only, so the legs send a listing, not the binaries.
+      - name: List the rehearsed release files
+        shell: bash
+        run: |
+          if [ "${RUNNER_OS}" = "Windows" ]; then python=python; else python=python3; fi
+          mkdir -p validation-output/release-rehearsal
+          "${python}" scripts/check-release-rehearsal-assets.py list dist > "validation-output/release-rehearsal/built-${RUNNER_OS}.tsv"
+          cat "validation-output/release-rehearsal/built-${RUNNER_OS}.tsv"
+
+      - name: Upload the listing of rehearsed release files
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-rehearsal-${{ runner.os }}
           if-no-files-found: error
-          retention-days: 3
-          path: |
-            dist/morpheus-*-x64.tar.gz
-            dist/morpheus-*-x64.zip
-            dist/MORPHEUS-*-x64-setup.exe
-            dist/*.sha256
-            dist/morpheus-*-release-manifest.json
+          retention-days: 14
+          path: validation-output/release-rehearsal/built-${{ runner.os }}.tsv
 
       - name: Upload the rehearsal evidence
         if: always()
@@ -353,7 +358,7 @@ jobs:
         with:
           ref: ${{ github.event_name == 'schedule' && 'develop' || github.ref }}
 
-      - name: Download the rehearsed release files
+      - name: Download the listings of rehearsed release files
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: 'release-rehearsal-[LW]*'
@@ -364,8 +369,7 @@ jobs:
       - name: Compare with the names the release workflow requires
         shell: bash
         run: |
-          version="$(python3 -c "import xml.etree.ElementTree as E; print(E.parse('pom.xml').getroot().find('{http://maven.apache.org/POM/4.0.0}version').text)")"
-          python3 scripts/check-release-rehearsal-assets.py .github/workflows/release.yml "${version}" rehearsed-assets
+          python3 scripts/check-release-rehearsal-assets.py compare .github/workflows/release.yml pom.xml rehearsed-assets/*.tsv
 
   spotbugs-report:
     # Report-only: alerts never fail the lane, because the audit-spotbugs check is red on the current code and its alerts are
