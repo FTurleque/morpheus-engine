@@ -72,6 +72,9 @@ final class SqliteStoreConnection {
         try (StartupOwnership owned = new StartupOwnership()) {
             Connection connection = owned.keep(opening.open(), SqliteStoreConnection::release);
             prepare.apply(connection);
+            if (!SqliteConnectionScope.schemaReadyIfActive()) {
+                new SqlitePreMigrationCopy().keepIfTheSchemaWillAdvance(connection, databasePath);
+            }
             new SqliteSchemaManager().migrate(connection);
             owned.transferred();
             return connection;
