@@ -195,7 +195,7 @@ POST /portfolios/{portfolioId}/traverse
 
 Le service HTTP `MorpheusPortfolioApiService` reste un adaptateur de transport : parsing/validation transport d'un côté, règles portfolio dans les services applicatifs de l'autre.
 
-OpenAPI M23 : [`../openapi/morpheus-v1-portfolio-m23.yaml`](../openapi/morpheus-v1-portfolio-m23.yaml).
+OpenAPI M23 : [`reference/openapi/morpheus-v1-portfolio-m23.yaml`](reference/openapi/morpheus-v1-portfolio-m23.yaml).
 
 ## Conflits et provenance
 
@@ -249,5 +249,5 @@ Portable             PASS Windows + Linux
 Executable delta     NONE Windows + Linux
 ```
 
-Preuve : [`../validation/VALIDATION_M23.md`](../validation/VALIDATION_M23.md).
-ADR : [`../adr/0091-multi-project-portfolio-intelligence.md`](../adr/0091-multi-project-portfolio-intelligence.md).
+Preuve : [`../project/validation/VALIDATION_M23.md`](../project/validation/VALIDATION_M23.md).
+ADR : [`../architecture/adr/0091-multi-project-portfolio-intelligence.md`](../architecture/adr/0091-multi-project-portfolio-intelligence.md).

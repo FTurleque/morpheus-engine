@@ -8,12 +8,19 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'lib\Read-QualityRatchets.ps1')
 $ProgressPreference = 'SilentlyContinue'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 Set-Location $repo
 $outputRoot = Join-Path $repo 'validation-output\d2'
 New-Item -ItemType Directory -Force -Path $outputRoot | Out-Null
 $validationSha = (git rev-parse HEAD).Trim()
+
+# The presence minimums are the living ratchets, never a copy: D2 once compared against its own literals and passed a
+# repository that had lost most of its tests. Read here, before the long build, so a missing key fails at once.
+$ratchetsPath = Join-Path $repo 'config\m21-quality-ratchets.properties'
+$testsMinimum = [int](Get-QualityRatchet -Path $ratchetsPath -Key 'testsMinimum' -Kind integer)
+$architectureTestsMinimum = [int](Get-QualityRatchet -Path $ratchetsPath -Key 'architectureTestsMinimum' -Kind integer)
 
 function Assert-NativeSuccess([string]$Label) {
     if ($LASTEXITCODE -ne 0) { throw "$Label failed with exit code $LASTEXITCODE" }
@@ -129,9 +136,13 @@ foreach ($report in $reports) {
 if ($failures -ne 0 -or $errors -ne 0) {
     throw "D2 Surefire failures=$failures errors=$errors"
 }
-if ($tests -lt 820) { throw "D2 test baseline regression: $tests < 820" }
-if ($architectureTests -lt 258) { throw "D2 architecture baseline regression: $architectureTests < 258" }
-Write-Host "D2 tests: PASS ($tests tests, architecture=$architectureTests, skipped=$skipped)"
+if ($tests -lt $testsMinimum) {
+    throw "D2 test baseline regression: $tests < $testsMinimum (testsMinimum in $ratchetsPath)"
+}
+if ($architectureTests -lt $architectureTestsMinimum) {
+    throw "D2 architecture baseline regression: $architectureTests < $architectureTestsMinimum (architectureTestsMinimum in $ratchetsPath)"
+}
+Write-Host "D2 tests: PASS ($tests tests >= $testsMinimum, architecture=$architectureTests >= $architectureTestsMinimum, skipped=$skipped)"
 
 $coveragePath = Join-Path $repo 'morpheus-architecture-tests\target\m21-aggregate-coverage-summary.txt'
 & (Join-Path $PSScriptRoot 'lib\Require-AggregateCoverageEvidence.ps1') -EvidencePath $coveragePath
@@ -140,7 +151,7 @@ $lineCoverage = [double]::Parse($coverage.lineRatio, [Globalization.CultureInfo]
 $branchCoverage = [double]::Parse($coverage.branchRatio, [Globalization.CultureInfo]::InvariantCulture)
 if ($lineCoverage -lt 0.40) { throw "D2 line coverage below 0.40: $lineCoverage" }
 if ($branchCoverage -lt 0.35) { throw "D2 branch coverage below 0.35: $branchCoverage" }
-Write-Host "D2 coverage: PASS (line=$lineCoverage branch=$branchCoverage)"
+Write-Host "D2 coverage: PASS (line=$lineCoverage branch=$branchCoverage, D2 floor 0.40/0.35)"
 
 $sbomJson = Join-Path $repo 'target\m21-supply-chain\morpheus-sbom.json'
 $sbomXml = Join-Path $repo 'target\m21-supply-chain\morpheus-sbom.xml'

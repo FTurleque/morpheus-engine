@@ -255,8 +255,8 @@ Windows et Linux doivent qualifier exactement le même SHA pour considérer une 
 
 ## Preuves historiques
 
-- R3 / release 1.2.0 : [`../validation/VALIDATION_R3.md`](../validation/VALIDATION_R3.md)
-- D2 historique : [`../validation/VALIDATION_D2.md`](../validation/VALIDATION_D2.md)
-- plan D2 : [`../roadmap/D2_EXECUTION.md`](../roadmap/D2_EXECUTION.md)
+- R3 / release 1.2.0 : [`../project/validation/VALIDATION_R3.md`](../project/validation/VALIDATION_R3.md)
+- D2 historique : [`../project/validation/VALIDATION_D2.md`](../project/validation/VALIDATION_D2.md)
+- plan D2 : [`../project/roadmap/D2_EXECUTION.md`](../project/roadmap/D2_EXECUTION.md)
 
 Ces documents historiques conservent les commandes et versions réellement utilisées lors de leur qualification ; ils ne doivent pas être réécrits pour faire croire qu'ils validaient `1.2.1`.

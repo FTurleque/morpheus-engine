@@ -256,11 +256,11 @@ Les tests M27 de plateforme couvrent en plus la convergence des surfaces, les sc
 ## 11. Qualification
 
 ```powershell
-.\validate-m27.cmd 1.0.0
+scripts\validate.cmd m27 -Version <version>
 ```
 
 ```bash
-bash ./scripts/validate-m27.sh 1.0.0
+bash ./scripts/validate-m27.sh <version>
 ```
 
 Minimums :
@@ -272,4 +272,4 @@ Minimums :
 35% branch coverage
 ```
 
-Voir [`../roadmap/M27_EXECUTION.md`](../roadmap/M27_EXECUTION.md) et [`../adr/0095-evidence-backed-assisted-reasoning.md`](../adr/0095-evidence-backed-assisted-reasoning.md).
+Voir [`../project/roadmap/M27_EXECUTION.md`](../project/roadmap/M27_EXECUTION.md) et [`../architecture/adr/0095-evidence-backed-assisted-reasoning.md`](../architecture/adr/0095-evidence-backed-assisted-reasoning.md).

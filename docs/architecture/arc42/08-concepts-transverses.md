@@ -194,5 +194,5 @@ compte de la compatibilité de la base et des backups disponibles.
 
 Le pipeline public actuel exécute le gate d'intégrité M21 paramétré pour la
 version 1.2.0 sur Ubuntu et Windows. Les preuves historiques/spécialisées M22 à
-M28 ainsi que D2 restent conservées dans `docs/validation/` et ne sont pas
+M28 ainsi que D2 restent conservées dans `docs/project/validation/` et ne sont pas
 remplacées par le seul workflow CI.

@@ -52,7 +52,7 @@ import org.junit.jupiter.api.Test;
  * <p>Three halves keep the guard from asserting more than it checks:</p>
  * <ol>
  *   <li>every table row resolves to a non-empty YAML enum and equals its Java set;</li>
- *   <li>every {@code enum:} key -- flow or block style -- written in the six {@code docs/openapi/*.yaml} files is either a table row or a
+ *   <li>every {@code enum:} key -- flow or block style -- written in the six {@code docs/developer/reference/openapi/*.yaml} files is either a table row or a
  *   declared {@link #EXEMPT} one, so a new enum is refused until someone classifies it, and the table cannot
  *   quietly be empty or stale;</li>
  *   <li>the locator itself is proved on a synthetic document: a value removed from the YAML, or a schema path that
@@ -143,11 +143,11 @@ class PublishedEnumsMatchJavaEnumsTest {
     @Test
     void everyEnumWrittenInTheSixContractsIsEitherGuardedOrDeclaredExempt() throws IOException {
         List<String> failures = new ArrayList<>();
-        try (Stream<Path> contracts = Files.list(repoRoot().resolve("docs/openapi"))) {
+        try (Stream<Path> contracts = Files.list(repoRoot().resolve("docs/developer/reference/openapi"))) {
             List<String> onDisk = contracts.map(path -> path.getFileName().toString())
                     .filter(name -> name.endsWith(".yaml")).sorted().toList();
             assertEquals(FILES.stream().sorted().toList(), onDisk,
-                    "docs/openapi holds a contract this guard does not read: add it to FILES");
+                    "docs/developer/reference/openapi holds a contract this guard does not read: add it to FILES");
         }
         for (String file : FILES) {
             int written = countEnumLists(read(file));
@@ -299,7 +299,7 @@ class PublishedEnumsMatchJavaEnumsTest {
     }
 
     private static String read(String file) throws IOException {
-        return Files.readString(repoRoot().resolve("docs/openapi").resolve(file));
+        return Files.readString(repoRoot().resolve("docs/developer/reference/openapi").resolve(file));
     }
 
     private static Path repoRoot() {

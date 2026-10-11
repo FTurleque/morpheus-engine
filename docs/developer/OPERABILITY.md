@@ -1,6 +1,6 @@
 # Operability M19
 
-Statut : **M19 livré et intégré** — ce document décrit le comportement actuel ; la preuve de qualification du jalon reste `docs/validation/VALIDATION_M19.md` (historique).
+Statut : **M19 livré et intégré** — ce document décrit le comportement actuel ; la preuve de qualification du jalon reste `docs/project/validation/VALIDATION_M19.md` (historique).
 
 ## Principes
 
@@ -199,7 +199,7 @@ Les tests peuvent utiliser une durée plus courte pour prouver la borne sans ral
 La preuve autoritative est enregistrée dans :
 
 ```text
-docs/validation/VALIDATION_M19.md
+docs/project/validation/VALIDATION_M19.md
 ```
 
 ```text

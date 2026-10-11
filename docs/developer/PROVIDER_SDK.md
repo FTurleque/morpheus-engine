@@ -1,6 +1,6 @@
 # Provider SDK — développer un plugin MORPHEUS
 
-Statut : **M22 livré et intégré** — SDK API `1` ; ce document décrit le comportement actuel ; la preuve de qualification du jalon reste `docs/validation/VALIDATION_M22.md` (historique).
+Statut : **M22 livré et intégré** — SDK API `1` ; ce document décrit le comportement actuel ; la preuve de qualification du jalon reste `docs/project/validation/VALIDATION_M22.md` (historique).
 
 MORPHEUS M22 permet de livrer un provider comme JAR externe sans modifier `morpheus-domain`, `morpheus-application` ni le launcher.
 
@@ -169,7 +169,7 @@ La frontière de processus, elle, existe depuis M22 : le probe s’exécute dans
 n’est pas planifié — c’est une **sandbox du système d’exploitation**. Un plugin approuvé s’exécute
 sous le compte système MORPHEUS et dispose donc des mêmes droits fichiers et réseau que MORPHEUS. Le
 pin SHA-256 garantit que le code exécuté est exactement celui qui a été approuvé ; il ne dit rien de
-ce que ce code fait. Voir [ADR-0101](../adr/0101-external-code-is-trusted-code-not-sandboxed-code.md)
+ce que ce code fait. Voir [ADR-0101](../architecture/adr/0101-external-code-is-trusted-code-not-sandboxed-code.md)
 pour le modèle de confiance complet, garanties et non-garanties.
 
 Pour exécuter du code tiers **non fiable**, isoler MORPHEUS ou le processus externe avec un
@@ -344,17 +344,17 @@ Ces surfaces exposent discovery/probe. Elles ne remplacent pas implicitement le 
 Windows :
 
 ```powershell
-.\validate-m22.cmd -Version 1.0.0
+scripts\validate.cmd m22 -Version <version>
 ```
 
 Linux :
 
 ```bash
-./scripts/validate-m22.sh 1.0.0
+./scripts/validate-m22.sh <version>
 ```
 
 Le reactor/architecture gate charge le JAR externe, exécute son probe puis son `SpecificationContentReader`. Le packaging gate exige que le SDK soit dans le runtime packagé, que `ReferenceProviderPlugin` n’y soit pas, puis copie le JAR de référence comme véritable plugin externe et exécute discovery + activation + probe.
 
 Avant août, la qualification M22 est locale exact-head uniquement ; le workflow GitHub Actions n’est pas utilisé comme preuve.
 
-ADR : [`../adr/0090-provider-sdk-plugin-discovery-platform.md`](../adr/0090-provider-sdk-plugin-discovery-platform.md).
+ADR : [`../architecture/adr/0090-provider-sdk-plugin-discovery-platform.md`](../architecture/adr/0090-provider-sdk-plugin-discovery-platform.md).

@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The sync answer's diagnostics are a copy of code facts in {@code docs/openapi/morpheus-v1.yaml}: the bound, the shape
+ * The sync answer's diagnostics are a copy of code facts in {@code docs/developer/reference/openapi/morpheus-v1.yaml}: the bound, the shape
  * of the list and of one item, and the detail keys the remote projection relays. A copy is tolerated only while this
  * class holds it (PRV-2). The enum values of {@code DiagnosticCode} and {@code DiagnosticSeverity} are held by
  * {@link PublishedEnumsMatchJavaEnumsTest}; the keys of {@code SyncResult} are held against a real answer by
@@ -121,7 +121,7 @@ class SyncDiagnosticsContractTest {
         List<String> lines = read().lines().toList();
         String header = "    " + name + ":";
         int start = lines.indexOf(header);
-        assertTrue(start >= 0, "docs/openapi/morpheus-v1.yaml has no schema " + name);
+        assertTrue(start >= 0, "docs/developer/reference/openapi/morpheus-v1.yaml has no schema " + name);
         List<String> block = new ArrayList<>();
         for (int index = start + 1; index < lines.size(); index++) {
             String line = lines.get(index);
@@ -134,7 +134,7 @@ class SyncDiagnosticsContractTest {
     }
 
     private static String read() throws IOException {
-        return Files.readString(repoRoot().resolve("docs/openapi/morpheus-v1.yaml"));
+        return Files.readString(repoRoot().resolve("docs/developer/reference/openapi/morpheus-v1.yaml"));
     }
 
     private static Path repoRoot() {

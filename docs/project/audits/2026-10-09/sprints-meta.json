@@ -1,0 +1,188 @@
+{
+  "sprints": [
+    {
+      "numero": 1,
+      "titre": "Remettre le dispositif en marche",
+      "pourquoi": "Rien ne se corrige de façon mesurable tant que les gates ne tournent pas. Ce sprint ne touche aucun code applicatif.",
+      "sortie": "Tout gate déclaré par le dépôt est atteignable par une invocation réelle du dépôt, et aucun validateur ne rend PASS sur une valeur périmée.",
+      "constats": [
+        "AUD-TST-01",
+        "AUD-DEP-06",
+        "AUD-TRV-01",
+        "AUD-TST-02",
+        "AUD-TST-12",
+        "AUD-TST-11",
+        "AUD-QUA-14",
+        "AUD-DEP-07"
+      ]
+    },
+    {
+      "numero": 2,
+      "titre": "Débloquer la release 1.2.1",
+      "pourquoi": "Le seul cluster de l'audit dont la matérialisation est irréversible pour un utilisateur. À faire avant de taguer.",
+      "sortie": "v1.2.1 peut être taguée : procédure d'upgrade écrite, sauvegarde impérative, attributions de licence et SBOM publiées, chaîne de release exercée de bout en bout.",
+      "constats": [
+        "AUD-DEP-01",
+        "AUD-DEP-16",
+        "AUD-DEP-03",
+        "AUD-DEP-04",
+        "AUD-DEP-15",
+        "AUD-DEP-12"
+      ]
+    },
+    {
+      "numero": 3,
+      "titre": "Fermer les écarts de sécurité",
+      "pourquoi": "Huit corrections petites et indépendantes, dont la seule divulgation établie vers un appelant hors machine.",
+      "sortie": "Plus aucun message d'exception brut ne sort vers un appelant distant, et plus aucune branche inatteignable sur un chemin de sécurité.",
+      "constats": [
+        "AUD-SEC-02",
+        "AUD-TRV-06",
+        "AUD-SEC-03",
+        "AUD-SEC-07",
+        "AUD-SEC-05",
+        "AUD-SEC-06",
+        "AUD-DEP-02",
+        "AUD-QUA-05"
+      ]
+    },
+    {
+      "numero": 4,
+      "titre": "Rendre le produit observable",
+      "pourquoi": "Sans trace, les sprints suivants corrigent à l'aveugle et aucun incident n'est reconstituable.",
+      "sortie": "Un échec sur un chemin SQLite, MCP ou d'adaptateur laisse une trace exploitable, et aucune variable d'observabilité ne retombe en silence.",
+      "constats": [
+        "AUD-DEP-10",
+        "AUD-TRV-04",
+        "AUD-SEC-04",
+        "AUD-QUA-13",
+        "AUD-QUA-12"
+      ]
+    },
+    {
+      "numero": 5,
+      "titre": "Écarter le risque d'indisponibilité",
+      "pourquoi": "Le chemin vers l'indisponibilité du serveur entier, et la politique de connexion qui le sous-tend.",
+      "sortie": "Une écriture concurrente n'affame plus l'ordonnanceur de threads virtuels, et un pic de charge devient une file d'attente au lieu d'échecs SQLITE_BUSY.",
+      "constats": [
+        "AUD-PRF-18",
+        "AUD-TRV-05",
+        "AUD-PRF-03",
+        "AUD-PRF-09"
+      ]
+    },
+    {
+      "numero": 6,
+      "titre": "Borner les coûts qui croissent avec les données",
+      "pourquoi": "Les quatre chemins dont le coût croît avec le volume, mesurables seulement après le sprint 1.",
+      "sortie": "Aucun chemin public ne charge un volume non borné, et chaque correction est mesurée contre son budget M19.",
+      "constats": [
+        "AUD-PRF-01",
+        "AUD-PRF-02",
+        "AUD-PRF-04",
+        "AUD-PRF-06"
+      ]
+    },
+    {
+      "numero": 7,
+      "titre": "Le SQL de détail",
+      "pourquoi": "Même couche que le sprint 6, volontairement après lui pour éviter les conflits de fusion sur les mêmes fichiers.",
+      "sortie": "Chaque colonne filtrée ou triée est servie par un index, vérifié par EXPLAIN QUERY PLAN avant modification.",
+      "constats": [
+        "AUD-PRF-07",
+        "AUD-PRF-10",
+        "AUD-PRF-08",
+        "AUD-PRF-11",
+        "AUD-PRF-12",
+        "AUD-PRF-13",
+        "AUD-PRF-14"
+      ]
+    },
+    {
+      "numero": 8,
+      "titre": "Fiabiliser les tests",
+      "pourquoi": "Ce qui empêche la suite de détecter une régression, une fois le dispositif remis en marche.",
+      "sortie": "Un test de rejet asserte son motif et non seulement son type, les validateurs sont eux-mêmes testés, et la colonne CLI du manifeste a son gate.",
+      "constats": [
+        "AUD-TST-10",
+        "AUD-TST-03",
+        "AUD-TRV-07",
+        "AUD-TST-06",
+        "AUD-TST-08",
+        "AUD-TST-09",
+        "AUD-QUA-04"
+      ]
+    },
+    {
+      "numero": 9,
+      "titre": "Supprimer la duplication du socle",
+      "pourquoi": "Le thème le mieux soutenu quantitativement : un helper qui existe en six exemplaires dérive déjà.",
+      "sortie": "Chaque helper du socle n'existe qu'une fois, et une copie privée est refusée par un test.",
+      "constats": [
+        "AUD-QUA-02",
+        "AUD-QUA-07",
+        "AUD-QUA-08",
+        "AUD-QUA-06",
+        "AUD-ARC-10",
+        "AUD-QUA-09"
+      ]
+    },
+    {
+      "numero": 10,
+      "titre": "Dire la vérité dans les règles",
+      "pourquoi": "Sept règles du dépôt sont fausses au sens où elles sont écrites, ou absentes là où un javadoc les annonce.",
+      "sortie": "Aucune règle de .claude/rules/ ni aucun javadoc de test n'affirme un invariant que le code ne tient pas.",
+      "constats": [
+        "AUD-ARC-08",
+        "AUD-ARC-11",
+        "AUD-ARC-14",
+        "AUD-QUA-11",
+        "AUD-DEP-13",
+        "AUD-DEP-14",
+        "AUD-ARC-07"
+      ]
+    },
+    {
+      "numero": 11,
+      "titre": "Trancher l'architecture",
+      "pourquoi": "Chantier de fond. Un ADR d'abord : c'est la décision dont dépendent les sprints 12 et 13.",
+      "sortie": "Un ADR dit si le cœur applicatif est pur, les ports d'infrastructure existent ou l'interdit est étendu, et le compte de cycles commence à décroître.",
+      "constats": [
+        "AUD-ARC-01",
+        "AUD-ARC-02",
+        "AUD-ARC-03",
+        "AUD-ARC-13"
+      ]
+    },
+    {
+      "numero": 12,
+      "titre": "Restructurer les adaptateurs",
+      "pourquoi": "Rendre les frontières internes exprimables par la structure, pour que les gates cessent de maintenir des listes de noms.",
+      "sortie": "Les listes nominatives de classes dans les gates sont remplacées par des règles de paquet, et la part textuelle de l'enforcement est plafonnée.",
+      "constats": [
+        "AUD-ARC-06",
+        "AUD-ARC-09",
+        "AUD-TRV-03"
+      ]
+    },
+    {
+      "numero": 13,
+      "titre": "Couverture et pagination",
+      "pourquoi": "Les deux chantiers longs qui ne deviennent mesurables qu'après les sprints 1 et 11.",
+      "sortie": "L'écart de 20,9 points entre les deux échelles de couverture décroît sans requalifier un plafond, et la pagination est portée par le port.",
+      "constats": [
+        "AUD-TRV-02",
+        "AUD-PRF-05"
+      ]
+    },
+    {
+      "numero": 14,
+      "titre": "Signer la distribution",
+      "pourquoi": "Chemin critique externe, pas technique : à amorcer dès le sprint 2 (achat du certificat), à livrer quand il arrive.",
+      "sortie": "Setup.exe et le launcher sont signés, et verify-release-provenance asserte présence et validité de la signature.",
+      "constats": [
+        "AUD-DEP-05"
+      ]
+    }
+  ]
+}

@@ -36,7 +36,7 @@ Ce que les gates comparent réellement — deux mécanismes, à ne pas confondre
 
 - **Route par route, dans les deux sens** : `PublicHttpRouteConvergenceTest` (paquet `com.morpheus.api` des tests
   d'architecture) compare méthode + chemin entre la table `MorpheusHttpRouteTable`, la colonne `http` du manifeste
-  et les opérations de **tous** les `docs/openapi/*.yaml`, paramètres de chemin comparés par position (`{id}`,
+  et les opérations de **tous** les `docs/developer/reference/openapi/*.yaml`, paramètres de chemin comparés par position (`{id}`,
   `{savedViewId}` et `{viewId}` sont le même segment). Une route servie absente de l'OpenAPI, une opération OpenAPI ou
   une ligne du manifeste qu'aucun serveur ne sert, une route servie sans ligne au manifeste font échouer le build. Il
   démarre aussi un vrai serveur local pour prouver qu'il route chaque entrée de la table, et qu'un `405` y porte un
@@ -55,12 +55,13 @@ servie qui manque à `MorpheusHttpRouteTable` n'est vue par aucun des deux (elle
 
 ## TOUJOURS
 
-- Mettre à jour **ensemble** : le code, `contracts/public-surfaces.tsv`, et `docs/openapi/morpheus-v1-*.yaml`
-- Écrire un ADR dans `docs/adr/` pour toute décision structurelle (compter `docs/adr/0*.md` avec un `glob` — ne jamais recopier un total, cf. `rules/meta.md` ; le `README.md` du répertoire n'est pas un ADR)
+- Mettre à jour **ensemble** : le code, `contracts/public-surfaces.tsv`, et `docs/developer/reference/openapi/morpheus-v1-*.yaml`
+- Ranger toute page de `docs/` à l'emplacement que fixe `rules/documentation.md` — l'arborescence est figée
+- Écrire un ADR dans `docs/architecture/adr/` pour toute décision structurelle (compter `docs/architecture/adr/0*.md` avec un `glob` — ne jamais recopier un total, cf. `rules/meta.md` ; le `README.md` du répertoire n'est pas un ADR)
 - Livrer le quadruplet complet pour un nouveau milestone (suite ArchUnit + scripts dual-platform + EXECUTION + VALIDATION)
-- Fournir les scripts de validation **en `.ps1` ET `.sh`** — la parité Windows/Linux est assertée
+- Fournir les scripts de validation **en `.ps1` ET `.sh`** — la parité Windows/Linux est assertée pour **tout** `scripts/validate-<cible>.*` par `GateReachabilityArchitectureTest`
 - Justifier dans la description de la PR toute modification de `contracts/public-surfaces.tsv`,
-  `config/*ratchets*.properties`, `docs/openapi/*.yaml` ou d'un test sous `morpheus-architecture-tests/` —
+  `config/*ratchets*.properties`, `docs/developer/reference/openapi/*.yaml` ou d'un test sous `morpheus-architecture-tests/` —
   ce sont des fichiers de gouvernance, pas de simples fichiers de configuration
 
 ## JAMAIS
@@ -81,7 +82,7 @@ servie qui manque à `MorpheusHttpRouteTable` n'est vue par aucun des deux (elle
 
 ## Contrats OpenAPI — bornes obligatoires
 
-Toute spec `docs/openapi/*.yaml` doit porter :
+Toute spec `docs/developer/reference/openapi/*.yaml` doit porter :
 - `additionalProperties: false` sur les schémas d'entrée
 - Des bornes explicites : `maximum`, `maxItems`, `maxLength`
   (M24 : `maximum: 500`, `maxLength: 16384` · M25 : `maxItems: 128` · M26 : `maximum: 512`, `maximum: 15` · M27 : `maxItems: 256`)
@@ -100,9 +101,13 @@ Toute spec `docs/openapi/*.yaml` doit porter :
 ## Ratchets de présence qualifiée
 
 **Ne pas se fier aux nombres codés en dur ici** — source de vérité vivante :
-`config/m21-quality-ratchets.properties`. `scripts/validate-m21.*` et `scripts/validate-d2.*`
-lisent ce fichier et assertent le nombre de tests, le nombre de tests d'architecture,
-la couverture ligne/branche et la version courante (`1.2.1`). La couverture y est déclarée
+`config/m21-quality-ratchets.properties`. `scripts/validate-m21.*` lisent ce fichier et
+assertent le nombre de tests, le nombre de tests d'architecture, la couverture ligne/branche
+et la version courante (`1.2.1`). `scripts/validate-d2.*` lisent aussi `testsMinimum` et
+`architectureTestsMinimum` (aucun littéral : `D2RepositoryHardeningArchitectureTest` le refuse),
+et gardent la version courante et deux planchers absolus de couverture, nommés comme tels ;
+la couverture elle-même est conclue par les gates Java que D2 exécute dans son `clean verify`.
+La couverture y est déclarée
 **deux fois**, une paire de clés par échelle de mesure (`aggregate*` et `perModule*`) — citer
 un seuil sans nommer son échelle n'a pas de sens. Valeurs constatées le 09/10/2026 :
 `3820 / 585`, couverture `90,0% / 75,7%` agrégée et `69,1% / 61,2%` par module

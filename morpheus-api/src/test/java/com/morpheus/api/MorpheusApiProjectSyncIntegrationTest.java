@@ -284,9 +284,9 @@ class MorpheusApiProjectSyncIntegrationTest {
         if (root == null) {
             throw new IllegalStateException("repository root (contracts/public-surfaces.tsv) not found");
         }
-        List<String> lines = Files.readAllLines(root.resolve("docs/openapi/morpheus-v1.yaml"), StandardCharsets.UTF_8);
+        List<String> lines = Files.readAllLines(root.resolve("docs/developer/reference/openapi/morpheus-v1.yaml"), StandardCharsets.UTF_8);
         int start = lines.indexOf("    " + schema + ":");
-        assertTrue(start >= 0, "docs/openapi/morpheus-v1.yaml has no schema " + schema);
+        assertTrue(start >= 0, "docs/developer/reference/openapi/morpheus-v1.yaml has no schema " + schema);
         for (int index = start + 1; index < lines.size() && lines.get(index).startsWith("      "); index++) {
             String line = lines.get(index).trim();
             if (line.startsWith("required: [")) {

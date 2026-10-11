@@ -11,6 +11,9 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -93,6 +96,7 @@ class AggregateCoverageGateTest {
         var document = parse(report);
         List<String> population = derivedPopulation(root);
         assertReportMeasuresPopulation(population, reportedModules(document.getDocumentElement()));
+        assertReportPostdatesItsSources(report, root, population);
         Counter lines = counter(document.getDocumentElement(), "LINE");
         Counter branches = counter(document.getDocumentElement(), "BRANCH");
         double lineRatio = lines.ratio();
@@ -192,6 +196,54 @@ class AggregateCoverageGateTest {
         assertReportMeasuresPopulation(population, reportedModules(report(reactor, "product", "tooling")));
     }
 
+    /**
+     * A report that predates the code it measures says nothing about that code. The aggregate report is fed by the
+     * tests of every population module and by the cross-module execution of the architecture tests, so the
+     * reference is the sources and tests of all of them. Times are set explicitly: a test that waited for the file
+     * system clock to tick would be one more flaky test.
+     */
+    @Test
+    void anAggregateReportOlderThanTheSourcesItMeasuresIsRefused(@TempDir Path reactor) throws Exception {
+        for (String module : List.of("product", "tooling", "morpheus-architecture-tests")) {
+            Files.createDirectories(reactor.resolve(module).resolve("src/test/java"));
+        }
+        declareMainClass(reactor.resolve("product"));
+        declareMainClass(reactor.resolve("tooling"));
+        Path report = reactor.resolve("jacoco.xml");
+        Files.writeString(report, "<report/>");
+        FileTime reportTime = FileTime.from(Instant.parse("2026-01-01T12:00:00Z"));
+        FileTime older = FileTime.from(reportTime.toInstant().minus(Duration.ofHours(1)));
+        FileTime newer = FileTime.from(reportTime.toInstant().plus(Duration.ofSeconds(1)));
+        Files.setLastModifiedTime(report, reportTime);
+        Path productSource = reactor.resolve("product/src/main/java/Placeholder.java");
+        Path toolingSource = reactor.resolve("tooling/src/main/java/Placeholder.java");
+        Path architectureTest = reactor.resolve("morpheus-architecture-tests/src/test/java/SomeTest.java");
+        Files.writeString(architectureTest, "class SomeTest {}");
+        for (Path source : List.of(productSource, toolingSource, architectureTest)) {
+            Files.setLastModifiedTime(source, older);
+        }
+        List<String> population = List.of("product", "tooling");
+
+        assertReportPostdatesItsSources(report, reactor, population);
+
+        Files.setLastModifiedTime(toolingSource, newer);
+        AssertionError mainSource = assertThrows(AssertionError.class,
+                () -> assertReportPostdatesItsSources(report, reactor, population));
+        assertTrue(mainSource.getMessage().contains("tooling") && mainSource.getMessage().contains("stale"),
+                () -> "the refusal must name the module and the cause: " + mainSource.getMessage());
+        assertTrue(mainSource.getMessage().contains("./mvnw clean verify"),
+                () -> "the refusal must say what to run: " + mainSource.getMessage());
+        assertFalse(mainSource.getMessage().contains("product"),
+                () -> "a module whose sources predate the report is not named: " + mainSource.getMessage());
+
+        Files.setLastModifiedTime(toolingSource, older);
+        Files.setLastModifiedTime(architectureTest, newer);
+        AssertionError crossModule = assertThrows(AssertionError.class,
+                () -> assertReportPostdatesItsSources(report, reactor, population));
+        assertTrue(crossModule.getMessage().contains("morpheus-architecture-tests"),
+                () -> "the architecture tests feed the aggregate report and count: " + crossModule.getMessage());
+    }
+
     private static void declareMainClass(Path module) throws IOException {
         Path sources = module.resolve("src/main/java");
         Files.createDirectories(sources);
@@ -281,6 +333,44 @@ class AggregateCoverageGateTest {
                     .append(String.join(", ", foreign));
         }
         throw new AssertionError(refusal.toString());
+    }
+
+    /**
+     * Refuses an aggregate report older than a source or a test it should have measured.
+     *
+     * <p>The reference is every regular file under {@code src/main/java} and {@code src/test/java} of the population
+     * modules, plus the tests of {@code morpheus-architecture-tests}, which carries no main class and is outside the
+     * population but whose cross-module execution credits lines in this report. It is compared strictly. It is not
+     * the time of a {@code target/classes} directory, which moves only when an entry is created or removed in it.</p>
+     */
+    private static void assertReportPostdatesItsSources(Path report, Path root, List<String> population)
+            throws IOException {
+        FileTime reportTime = Files.getLastModifiedTime(report);
+        List<String> stale = new ArrayList<>();
+        List<String> modules = new ArrayList<>(population);
+        modules.add("morpheus-architecture-tests");
+        for (String module : modules) {
+            for (String sources : List.of("src/main/java", "src/test/java")) {
+                Path directory = root.resolve(module).resolve(sources);
+                if (!Files.isDirectory(directory)) {
+                    continue;
+                }
+                try (var files = Files.walk(directory)) {
+                    for (Path file : files.filter(Files::isRegularFile).toList()) {
+                        if (Files.getLastModifiedTime(file).compareTo(reportTime) > 0) {
+                            stale.add(module + " (" + root.relativize(file).toString().replace('\\', '/') + " "
+                                    + Files.getLastModifiedTime(file) + ")");
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        if (!stale.isEmpty()) {
+            throw new AssertionError("the aggregate report is stale: it is older than the sources it measures ("
+                    + reportTime + "), so it describes code that is no longer there -- run ./mvnw clean verify "
+                    + "over the whole reactor: " + String.join("; ", stale));
+        }
     }
 
     private static void assertRatchetWithinQualifiedWindow(String kind, double ratchet, double floor, double cap) {

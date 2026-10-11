@@ -436,5 +436,5 @@ Merge M18 : `30f11ac3ffc522bcc0c71e31216a3fb70f0631d7`.
 - [Intégrations optionnelles](INTEGRATIONS.md)
 - [API HTTP](../developer/API.md)
 - [MCP](../developer/MCP.md)
-- [ADR-0083](../adr/0083-controlled-lifecycle-write-operations.md)
-- [ADR-0084](../adr/0084-provider-neutral-multi-provider-composition.md)
+- [ADR-0083](../architecture/adr/0083-controlled-lifecycle-write-operations.md)
+- [ADR-0084](../architecture/adr/0084-provider-neutral-multi-provider-composition.md)

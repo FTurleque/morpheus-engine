@@ -1,24 +1,20 @@
 # Documentation MORPHEUS
 
-Cette page est le point d’entrée de la documentation active de MORPHEUS.
+MORPHEUS est un **Specification & Intent Intelligence Engine** local-first : il normalise des spécifications, compose des providers sans effacer provenance ni conflits, publie des snapshots versionnés et les expose par CLI, MCP STDIO et API HTTP.
 
-MORPHEUS est un **Specification & Intent Intelligence Engine** local-first. Il normalise des spécifications, compose des providers sans effacer provenance ni conflits, publie des snapshots versionnés, expose query/traceability/quality/lifecycle, raisonne sur des portfolios, fournit Query DSL/saved views/exports, Policy Packs, un serveur remote HTTPS opt-in et une analyse assistée qui garde faits, inférences et suggestions séparés.
+Version stable publiée : **MORPHEUS 1.2.0** (tag `v1.2.0`). Baseline de développement : **1.2.1**, corrective, non publiée.
 
-## Baseline actuelle
+La documentation est rangée en trois espaces, un par lecteur, plus le dossier d'architecture, qui porte le registre des ADR. Chaque page n'appartient qu'à un seul endroit.
 
-```text
-Stable version          MORPHEUS 1.2.0
-Stable tag              v1.2.0
-R3                      COMPLETE / VALIDATED / PUBLISHED
-M28                     livré dans 1.2.0
-Development baseline    1.2.1
-D2                      COMPLETE / QUALIFIED / MERGED
-D2 issue                #120 CLOSED / completed
-```
+| Vous voulez… | Espace | Entrée |
+|---|---|---|
+| installer, configurer et utiliser MORPHEUS | [`user/`](user/) | [Guide utilisateur](user/README.md) |
+| compiler, modifier, intégrer ou étendre MORPHEUS | [`developer/`](developer/) | [Guide développeur](developer/README.md) |
+| suivre le projet : état, plans, preuves, audits | [`project/`](project/) | [Suivi du projet](project/README.md) |
+| lire le dossier d'architecture (arc42) | [`architecture/`](architecture/) | [Dossier d'architecture](architecture/README.md) |
+| retrouver une décision d'architecture | [`architecture/adr/`](architecture/adr/) | [Registre des ADR](architecture/adr/README.md) |
 
-R3 reste la preuve de la release stable publiée. D2 a été qualifié localement au même SHA sur Windows et Linux/WSL puis intégré dans `develop`; cette preuve historique n’utilisait pas la CI comme gate. La baseline corrective `1.2.1` utilise désormais les workflows exact-head `MORPHEUS CI`, `MORPHEUS Security` et `MORPHEUS CodeQL` comme protections continues complémentaires.
-
-## Parcours utilisateur
+## Utilisateur — [`user/`](user/)
 
 | Besoin | Document |
 |---|---|
@@ -34,100 +30,53 @@ R3 reste la preuve de la release stable publiée. D2 a été qualifié localemen
 | exposer le serveur d’équipe | [Team / Remote Server](user/TEAM_REMOTE_SERVER.md) |
 | produire du reasoning assisté | [Assisted Reasoning](user/ASSISTED_REASONING.md) |
 | configurer MINOS/NEXUS | [Intégrations](user/INTEGRATIONS.md) |
+| vérifier la version et les mises à jour | [Intégrité produit](user/PRODUCT_INTEGRITY.md) |
+| migrer depuis une version antérieure | [Upgrade 1.1](user/UPGRADE_1_1.md) · [Upgrade 1.2](user/UPGRADE_1_2.md) |
+| lire ce qui change dans une version | [Notes de version](user/release-notes/) |
 
 Les distributions Windows/Linux embarquent leur runtime Java.
 
-## Parcours développeur
+## Développeur — [`developer/`](developer/)
 
 | Besoin | Document |
 |---|---|
 | **reprendre le dépôt après une longue interruption** | [**Reprise à froid**](developer/COLD_START_RECOVERY.md) |
-| comprendre les modules | [Guide développeur](developer/README.md) |
-| comprendre les couches | [Architecture](developer/ARCHITECTURE.md) |
+| comprendre les modules et les gates | [Guide développeur](developer/README.md) |
 | compiler / tester / qualifier | [Build, tests et validation](developer/BUILD_AND_TEST.md) |
-| analyse statique et tests de mutation (SpotBugs, PIT) | [Audit de code](developer/CODE_AUDIT.md) |
-| Provider SDK | [Provider SDK](developer/PROVIDER_SDK.md) |
-| portfolio | [Portfolio Intelligence](developer/PORTFOLIO_INTELLIGENCE.md) |
-| query | [Query Platform](developer/QUERY_PLATFORM.md) |
-| policy | [Policy Platform](developer/POLICY_PLATFORM.md) |
-| remote server | [Remote Server Platform](developer/REMOTE_SERVER_PLATFORM.md) |
-| reasoning | [Assisted Reasoning](developer/ASSISTED_REASONING.md) |
-| HTTP | [API](developer/API.md) |
-| MCP | [MCP](developer/MCP.md) |
-| cross-engine | [Intégrations](developer/INTEGRATIONS.md) |
+| comprendre les couches | [Architecture](developer/ARCHITECTURE.md) |
+| lire un contrat machine | [Références](developer/reference/README.md) · [OpenAPI](developer/reference/openapi/) |
+| analyse statique et tests de mutation | [Audit de code](developer/CODE_AUDIT.md) · [SpotBugs](developer/SPOTBUGS.md) |
+| écrire un provider | [Provider SDK](developer/PROVIDER_SDK.md) |
+| HTTP / MCP / cross-engine | [API](developer/API.md) · [MCP](developer/MCP.md) · [Intégrations](developer/INTEGRATIONS.md) |
+| sous-plateformes | [Portfolio](developer/PORTFOLIO_INTELLIGENCE.md) · [Query](developer/QUERY_PLATFORM.md) · [Policy](developer/POLICY_PLATFORM.md) · [Remote](developer/REMOTE_SERVER_PLATFORM.md) · [Reasoning](developer/ASSISTED_REASONING.md) |
+| observabilité, version, intégrité de production | [Operability](developer/OPERABILITY.md) · [Version produit](developer/PRODUCT_VERSION.md) · [Production integrity](developer/PRODUCTION_INTEGRITY.md) |
 
-Baseline technique courante : Java 21, Maven Wrapper 3.10.0, SQLite JDBC 3.53.4.0, Jackson 3.2.3, Java MCP SDK 2.0.1, `jdk.httpserver`, `jpackage` et Inno Setup.
+Les seuils de qualité actifs (tests, couverture, gates) sont énoncés dans le [guide développeur](developer/README.md) et [Build, tests et validation](developer/BUILD_AND_TEST.md) ; leur source normative est `config/m21-quality-ratchets.properties`.
 
-## Gouvernance
+## Architecture — [`architecture/`](architecture/)
 
-- [`governance/ROADMAP.md`](governance/ROADMAP.md) — état global et priorités post-D2 ;
-- [`governance/DOCUMENTATION_STATUS.md`](governance/DOCUMENTATION_STATUS.md) — autorité documentaire courante ;
-- [`audits/README.md`](audits/README.md) — audits datés, relevés jamais réécrits ;
-- [`roadmap/D2_EXECUTION.md`](roadmap/D2_EXECUTION.md) — plan historique D2 ;
-- [`validation/VALIDATION_D2.md`](validation/VALIDATION_D2.md) — preuve historique D2, complétée par les sorties exact-head publiées sur la PR #121 ;
-- [`validation/VALIDATION_R3.md`](validation/VALIDATION_R3.md) — preuve de publication 1.2.0 ;
-- [`release/RELEASE_NOTES_1.2.0.md`](release/RELEASE_NOTES_1.2.0.md) — release publiée ;
-- [`release/RELEASE_NOTES_1.2.1.md`](release/RELEASE_NOTES_1.2.1.md) — baseline corrective non publiée : ruptures à connaître avant de migrer.
+| Besoin | Document |
+|---|---|
+| retrouver ou écrire une décision | [Registre des ADR](architecture/adr/README.md) · [gabarit](architecture/adr/template.md) |
+| vue d'ensemble du système | [Vue d'ensemble](architecture/overview.md) |
+| dossier arc42 complet | [Index arc42](architecture/README.md) |
+| scénarios qualité, risques et dette | [Scénarios qualité](architecture/quality/scenarios.md) · [Registre des risques](architecture/risks/register.md) |
 
-Les documents de preuve historiques ne sont pas réécrits pour leur faire revendiquer des résultats postérieurs à leur SHA. Les pages actives décrivent, elles, la baseline courante.
+## Projet — [`project/`](project/)
 
-## Validation active
+| Besoin | Document |
+|---|---|
+| connaître l'état courant et les priorités | [Roadmap](project/governance/ROADMAP.md) |
+| savoir quel document fait autorité | [Statut documentaire](project/governance/DOCUMENTATION_STATUS.md) |
+| lire le plan d'un jalon | [Plans d'exécution](project/roadmap/README.md) |
+| lire la preuve d'un jalon ou d'une release | [Validations](project/validation/README.md) |
+| lire un audit daté | [Audits](project/audits/README.md) |
+| cadrage produit, études, écosystème | [Produit](project/product/README.md) · [Études](project/research/) · [Écosystème](project/ECOSYSTEME.md) |
 
-Gate Maven développeur :
+Les plans, preuves et audits sont des relevés datés : ils ne sont pas réécrits pour leur faire revendiquer un résultat postérieur à leur SHA. Les pages de `user/` et `developer/` décrivent, elles, la baseline courante.
 
-```text
-mvnw clean verify
-```
+## Hors de `docs/`
 
-Gate durable exact-head :
-
-```powershell
-.\scripts\validate.cmd m21 -Version 1.2.1
-```
-
-```bash
-bash ./scripts/validate-m21.sh 1.2.1
-```
-
-Contrats actifs :
-
-```text
-Surefire total                 >= 3820
-architecture tests             >= 585
-JaCoCo aggregate lines         >= 90.0%
-JaCoCo aggregate branches      >= 75.7%
-JaCoCo per-module lines        >= 69.1%
-JaCoCo per-module branches     >= 61.2%
-PR changed executable lines    >= 80%
-PR changed branches            >= 70%
-dependency hygiene             blocking
-SBOM / provenance              required
-CI exact-head                  Windows + Ubuntu
-security                       Dependency-Check + CodeQL
-```
-
-La qualification historique D2 reste distincte : Windows et Linux/WSL avaient validé le même SHA exact sans CI, conformément à son contrat de sortie.
-
-## Références machine
-
-- [`reference/`](reference/) — contrats machine ;
-- [`openapi/morpheus-v1.yaml`](openapi/morpheus-v1.yaml) — contrat v1 historique/cumulatif ;
-- [`openapi/morpheus-v1-portfolio-m23.yaml`](openapi/morpheus-v1-portfolio-m23.yaml) ;
-- [`openapi/morpheus-v1-query-m24.yaml`](openapi/morpheus-v1-query-m24.yaml) ;
-- [`openapi/morpheus-v1-policy-m25.yaml`](openapi/morpheus-v1-policy-m25.yaml) ;
-- [`openapi/morpheus-v1-remote-m26.yaml`](openapi/morpheus-v1-remote-m26.yaml) ;
-- [`openapi/morpheus-v1-reasoning-m27.yaml`](openapi/morpheus-v1-reasoning-m27.yaml) ;
-- [`../contracts/public-surfaces.tsv`](../contracts/public-surfaces.tsv) — convergence CLI/MCP/HTTP ;
-- [`../distribution/README.md`](../distribution/README.md) — distribution stable 1.2.0.
-
-## État livré / actif
-
-```text
-C0 → M28       ✅ VALIDÉS / INTÉGRÉS
-D0 + D1        ✅ VALIDÉS / INTÉGRÉS
-R1             ✅ 1.0.0 publié
-R2             ✅ 1.1.0 publié
-R3             ✅ 1.2.0 publié
-D2             ✅ QUALIFIÉ / INTÉGRÉ
-1.2.1          🔧 BASELINE DE DÉVELOPPEMENT / HARDENING CONTINU
-```
+- [`../contracts/public-surfaces.tsv`](../contracts/public-surfaces.tsv) — manifeste de convergence CLI/MCP/HTTP ;
+- [`../distribution/README.md`](../distribution/README.md) — construction des distributions ;
+- [`../scripts/README.md`](../scripts/README.md) — validateurs.

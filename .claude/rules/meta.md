@@ -28,7 +28,7 @@ version, compteurs `dependency:analyze`), ce nombre doit être traité comme pé
     `morpheus-architecture-tests/.../d2/D2RepositoryHardeningArchitectureTest.java` —
     planchers D2 asserts textuellement
   - `pom.xml` (racine) — version produit, versions pinnées
-  - `docs/adr/` — compter les fichiers, ne pas répéter un total mémorisé ("N ADRs" doit
+  - `docs/architecture/adr/` — compter les fichiers, ne pas répéter un total mémorisé ("N ADRs" doit
     toujours être vérifié par un `glob`/`ls`, jamais recopié tel quel ; un doublon de
     numérotation `0095-*` a existé jusqu'au 01/09/2026, corrigé en renumérotant le second
     fichier en `0097-*` — la numérotation elle-même n'est donc pas à l'abri d'un futur
@@ -48,13 +48,13 @@ version, compteurs `dependency:analyze`), ce nombre doit être traité comme pé
 
   ```text
   config/m21-quality-ratchets.properties        (source normative, deux paires de clés)
-  README.md                                     (phrase « Le ratchet global est … »)
+  CONTRIBUTING.md                               (phrase « Le ratchet agrégé est … »)
   docs/README.md
   docs/developer/BUILD_AND_TEST.md              (tableau + « verrouillée à » + règle de baisse)
   docs/developer/PRODUCTION_INTEGRITY.md
   docs/developer/README.md
-  docs/governance/DOCUMENTATION_STATUS.md
-  docs/governance/ROADMAP.md
+  docs/project/governance/DOCUMENTATION_STATUS.md
+  docs/project/governance/ROADMAP.md
   docs/architecture/arc42/11-risques-dette.md
   docs/architecture/risks/register.md           (état CI actif + DT-10)
   scripts/README.md

@@ -22,7 +22,7 @@ Workflow structuré de correction de bug pour Morpheus Engine.
 ### Étape 3 — Analyse causale
 - Tracer le chemin d'exécution : de l'entrée (CLI/API/MCP) jusqu'au domaine
 - Identifier le fichier et la ligne précise de la régression
-- Vérifier si l'ADR pertinent existe : `docs/adr/`
+- Vérifier si l'ADR pertinent existe : `docs/architecture/adr/`
 - Contrôler les dépendances de module : le fix ne doit pas violer les règles ArchUnit
 
 ### Étape 4 — Correction minimale

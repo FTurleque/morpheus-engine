@@ -285,7 +285,7 @@ Les trois adapters produisent `PolicyPublicViews`.
 
 ```text
 contracts/public-surfaces.tsv
-docs/openapi/morpheus-v1-policy-m25.yaml
+docs/developer/reference/openapi/morpheus-v1-policy-m25.yaml
 ```
 
 Le manifeste définit READ/WRITE par intention. `policy.evaluate`, `policy.dry-run` et `policy.audit` sont READ.
@@ -329,13 +329,13 @@ Les tests couvrent versioning/CAS, UNKNOWN, overrides, dry-run no-write, codec d
 Windows :
 
 ```powershell
-.\validate-m25.cmd 1.0.0
+scripts\validate.cmd m25 -Version <version>
 ```
 
 Linux :
 
 ```bash
-bash ./scripts/validate-m25.sh 1.0.0
+bash ./scripts/validate-m25.sh <version>
 ```
 
 Le gate M25 utilise `develop` comme base et exige le même SHA exécutable sur Windows + Linux avant acceptation d’ADR-0093 et merge dans `develop`.

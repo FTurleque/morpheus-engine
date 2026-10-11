@@ -176,4 +176,4 @@ Linux :
 sha256sum -c morpheus-1.2.0-linux-x64.tar.gz.sha256
 ```
 
-La preuve exacte de publication et de parité des huit assets est conservée dans [`../validation/VALIDATION_R3.md`](../validation/VALIDATION_R3.md).
+La preuve exacte de publication et de parité des huit assets est conservée dans [`../project/validation/VALIDATION_R3.md`](../project/validation/VALIDATION_R3.md).

@@ -32,7 +32,7 @@ Deux gates mesurent la couverture et ne mesurent **pas la même grandeur**. Jusq
 
 **Même population, attribution différente.** Les deux échelles portent sur les mêmes modules — tout module du réacteur qui porte une classe sous `src/main/java`, **outillage de vérification compris** (`morpheus-store-memory`, `morpheus-provider-synthetic`, `morpheus-provider-testkit`, `morpheus-provider-reference`) — et ne diffèrent que par les exécutions autorisées à créditer une ligne. `AggregateCoverageGateTest` dérive cette population du POM racine, refuse un rapport agrégé qui en mesure une autre, et la nomme dans sa preuve (`population=`). Garder l'outillage dans le dénominateur est un choix : mesuré le 11/09/2026, il déplace le ratio agrégé de 0,15 point, et l'en retirer laisserait `AGGREGATE_QUALIFIED_*` plafonner une population sur laquelle il n'a jamais été mesuré.
 
-La décision et ses raisons — séparation des échelles, population commune, maintien de l'outillage, exigences d'une hausse de plafond — sont consignées dans **ADR-0104** (`docs/adr/0104-two-coverage-scales-share-one-population.md`). La lire avant de toucher à une clé, à un plafond qualifié ou à la population.
+La décision et ses raisons — séparation des échelles, population commune, maintien de l'outillage, exigences d'une hausse de plafond — sont consignées dans **ADR-0104** (`docs/architecture/adr/0104-two-coverage-scales-share-one-population.md`). La lire avant de toucher à une clé, à un plafond qualifié ou à la population.
 
 Chaque gate applique **deux** niveaux :
 
@@ -168,8 +168,8 @@ Chaque milestone livre un quadruplet **obligatoire** (asserté par le test lui-m
 ```
 morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m<N>/   ← suite ArchUnit
 scripts/validate-m<N>.ps1  +  scripts/validate-m<N>.sh                     ← dual-platform
-docs/roadmap/M<N>_EXECUTION.md                                             ← plan
-docs/validation/VALIDATION_M<N>.md                                         ← preuve
+docs/project/roadmap/M<N>_EXECUTION.md                                             ← plan
+docs/project/validation/VALIDATION_M<N>.md                                         ← preuve
 ```
 
 Un milestone sans ses 4 artefacts est incomplet — `McpClientIntegrationArchitectureTest#validationAndUserDocumentationArePartOfTheContract` le vérifie explicitement.
@@ -178,7 +178,11 @@ Un milestone sans ses 4 artefacts est incomplet — `McpClientIntegrationArchite
 
 `M19PerformanceGate`, `M19QueryPerformanceGate`, `M19CompositionPerformanceGate`,
 `M19TraceabilityPerformanceGate`, `M19FullPublishPerformanceGate` sont des budgets **prédéclarés**
-sur fixtures larges déterministes (ADR-0085). Une régression de perf casse le build.
+sur fixtures larges déterministes (ADR-0085). Leurs noms ne correspondent à aucun motif Surefire : `clean verify` ne les
+exécute **pas**. Une régression de perf casse la lane nocturne `M19 performance budgets` de `nightly.yml` (Linux et Windows,
+via `validate-m19`), qui ne tourne seule qu'une fois ce workflow sur `main` — avant cela, `workflow_dispatch` ou
+`scripts\validate.cmd m19` (sans `-Version`). `GateReachabilityArchitectureTest` refuse une classe de test hors sélection
+Surefire qu'aucun validateur lancé par un workflow ne nomme.
 
 ## Fixtures disponibles
 
@@ -194,6 +198,6 @@ référencées par plusieurs suites et servent de baseline de non-régression.
 ./mvnw clean verify                                              # reactor complet + coverage
 ./mvnw test -pl morpheus-architecture-tests                      # tous les gates
 ./mvnw test -pl morpheus-architecture-tests -Dtest=*M28*         # gate M28
-./mvnw test -pl morpheus-architecture-tests -Dtest=CoverageQualityGateTest    # échelle par module
-./mvnw test -pl morpheus-coverage-report                                      # échelle agrégée
+./mvnw test -pl morpheus-architecture-tests -Dtest=CoverageQualityGateTest    # échelle par module (après un clean verify : refuse un rapport plus ancien que les sources)
+./mvnw verify                                                                 # échelle agrégée : son gate est lié à verify, default-test est ignoré dans morpheus-coverage-report
 ```

@@ -54,7 +54,7 @@ class PolicyPlatformArchitectureTest {
     void publicManifestAndOpenApiExposeSameM25IntentFamilies() throws IOException {
         Path root = repositoryRoot();
         String manifest = Files.readString(root.resolve("contracts/public-surfaces.tsv"));
-        String openApi = Files.readString(root.resolve("docs/openapi/morpheus-v1-policy-m25.yaml"));
+        String openApi = Files.readString(root.resolve("docs/developer/reference/openapi/morpheus-v1-policy-m25.yaml"));
 
         assertTrue(manifest.contains("policy.pack.create\tWRITE\tpolicy pack create\tcreate_policy_pack\tPOST /api/v1/policy-packs"));
         assertTrue(manifest.contains("policy.pack.activate\tWRITE\tpolicy activate\tactivate_policy_pack\tPOST /api/v1/policy-packs/{id}/activate"));

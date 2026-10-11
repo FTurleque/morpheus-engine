@@ -92,8 +92,8 @@ class AuditRemediationContractTest {
     void activeDocumentationTracksBuildVersionsAndModuleCount() throws IOException {
         Path root = repoRoot();
         String pom = read(root, "pom.xml");
-        String readme = read(root, "README.md");
-        String status = read(root, "docs/governance/DOCUMENTATION_STATUS.md");
+        String readme = read(root, "CONTRIBUTING.md");
+        String status = read(root, "docs/project/governance/DOCUMENTATION_STATUS.md");
 
         String sqlite = property(pom, "sqlite-jdbc.version");
         String dependencyCheck = property(pom, "dependency-check.maven.plugin.version");

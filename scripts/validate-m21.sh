@@ -13,40 +13,16 @@ mkdir -p "$OUTPUT"
 VALIDATION_SHA="$(git rev-parse HEAD)"
 RATCHETS="$REPO/config/m21-quality-ratchets.properties"
 
-read_ratchet() {
-  local key="$1"
-  local value
-  value="$(sed -n "s/^${key}=//p" "$RATCHETS")"
-  if [[ -z "$value" ]]; then
-    echo "Missing M21 quality ratchet: $key" >&2
-    exit 1
-  fi
-  printf '%s' "$value"
-}
+. "$SCRIPT_DIR/lib/read-quality-ratchet.sh"
 
-if [[ ! -f "$RATCHETS" ]]; then
-  echo "Missing M21 quality ratchet configuration: $RATCHETS" >&2
-  exit 1
-fi
-TESTS_MINIMUM="$(read_ratchet testsMinimum)"
-ARCH_TESTS_MINIMUM="$(read_ratchet architectureTestsMinimum)"
+TESTS_MINIMUM="$(read_quality_ratchet "$RATCHETS" testsMinimum integer)"
+ARCH_TESTS_MINIMUM="$(read_quality_ratchet "$RATCHETS" architectureTestsMinimum integer)"
 # Both scales are read so that a missing key fails here rather than in whichever gate happens to run first.
 # Only the aggregate pair is compared below: this validator concludes on the canonical measurement.
-PER_MODULE_LINE_COVERAGE_MINIMUM="$(read_ratchet perModuleLineCoverageMinimum)"
-PER_MODULE_BRANCH_COVERAGE_MINIMUM="$(read_ratchet perModuleBranchCoverageMinimum)"
-LINE_COVERAGE_MINIMUM="$(read_ratchet aggregateLineCoverageMinimum)"
-BRANCH_COVERAGE_MINIMUM="$(read_ratchet aggregateBranchCoverageMinimum)"
-
-morpheus_python - "$TESTS_MINIMUM" "$ARCH_TESTS_MINIMUM" "$LINE_COVERAGE_MINIMUM" "$BRANCH_COVERAGE_MINIMUM" "$PER_MODULE_LINE_COVERAGE_MINIMUM" "$PER_MODULE_BRANCH_COVERAGE_MINIMUM" <<'PY'
-import sys
-
-tests, architecture = map(int, sys.argv[1:3])
-ratios = list(map(float, sys.argv[3:7]))
-if tests < 1 or architecture < 1:
-    raise SystemExit('M21 test ratchets must be positive integers')
-if any(not 0.0 < ratio <= 1.0 for ratio in ratios):
-    raise SystemExit('M21 coverage ratchets must be ratios in (0, 1]')
-PY
+PER_MODULE_LINE_COVERAGE_MINIMUM="$(read_quality_ratchet "$RATCHETS" perModuleLineCoverageMinimum ratio)"
+PER_MODULE_BRANCH_COVERAGE_MINIMUM="$(read_quality_ratchet "$RATCHETS" perModuleBranchCoverageMinimum ratio)"
+LINE_COVERAGE_MINIMUM="$(read_quality_ratchet "$RATCHETS" aggregateLineCoverageMinimum ratio)"
+BRANCH_COVERAGE_MINIMUM="$(read_quality_ratchet "$RATCHETS" aggregateBranchCoverageMinimum ratio)"
 
 printf '%s\n' "M21 exact-head validation SHA: $VALIDATION_SHA"
 if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then

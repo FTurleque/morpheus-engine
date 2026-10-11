@@ -185,7 +185,7 @@ POST /portfolios/{portfolioId}/traverse
 
 `GET /references` accepte `projectId`, `offset` et `limit` comme query parameters.
 
-Référence machine M23 : [`../openapi/morpheus-v1-portfolio-m23.yaml`](../openapi/morpheus-v1-portfolio-m23.yaml).
+Référence machine M23 : [`../developer/reference/openapi/morpheus-v1-portfolio-m23.yaml`](../developer/reference/openapi/morpheus-v1-portfolio-m23.yaml).
 
 ## MCP
 
@@ -214,4 +214,4 @@ Les sorties CLI JSON, MCP et HTTP passent toutes par les projections transport-s
 - le fonctionnement reste local-first ;
 - aucun LLM n'est requis pour cette intelligence multi-projets.
 
-Preuve technique : [`../validation/VALIDATION_M23.md`](../validation/VALIDATION_M23.md).
+Preuve technique : [`../project/validation/VALIDATION_M23.md`](../project/validation/VALIDATION_M23.md).

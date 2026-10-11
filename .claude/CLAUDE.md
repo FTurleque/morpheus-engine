@@ -10,6 +10,7 @@
 @.claude/rules/build.md
 @.claude/rules/code-style.md
 @.claude/rules/tooling.md
+@.claude/rules/documentation.md
 
 ---
 
@@ -24,8 +25,8 @@ Java 21 · Maven 3.10.0 · multi-module Maven (compter les `<module>` de `pom.xm
 `morpheus-architecture-tests` (compter avec un `glob`, pas de mémoire — le total évolue à
 chaque milestone) assertent la structure, les contrats, la sécurité et jusqu'au contenu
 textuel de fichiers précis.
-`docs/adr/` documente le *pourquoi*. **Ne jamais citer un total d'ADR de mémoire** : compter
-les fichiers numérotés (`docs/adr/0*.md`) avec un `glob` au moment où la réponse est
+`docs/architecture/adr/` documente le *pourquoi*. **Ne jamais citer un total d'ADR de mémoire** : compter
+les fichiers numérotés (`docs/architecture/adr/0*.md`) avec un `glob` au moment où la réponse est
 écrite — le répertoire contient aussi un `README.md`, donc « nombre de fichiers » et
 « nombre d'ADR » ne sont pas le même chiffre. Vérifier aussi le plus haut numéro attribué
 avant d'en assigner un nouveau : un doublon de numérotation a déjà existé.
@@ -118,7 +119,7 @@ Dernier milestone livré : **M28** (intégration client MCP native, livré dans 
 milestone n'est actuellement en cours — la baseline **1.2.1** est une passe corrective et de
 durcissement (audit, sécurité, dette de gouvernance), suivie par l'issue #185 jusqu'à sa
 release réelle, pas un nouveau milestone.
-Gates actifs : **M19** (perf) · **M20** (release) · **M21** (coverage + intégrité) · **M22** (plugins)
+Gates actifs : **M19** (perf, lane nocturne — pas dans `clean verify`) · **M20** (release) · **M21** (coverage + intégrité) · **M22** (plugins)
 · **M23** (portfolio) · **M24** (query DSL) · **M25** (policy) · **M26** (remote) · **M27** (reasoning) · **M28** (MCP clients) · **D2** (hardening repo)
 
 ## Points d'entrée clés

@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /**
  * The public HTTP surface is served, declared in {@code contracts/public-surfaces.tsv} and documented in
- * {@code docs/openapi/} consistently, in both directions, route by route (method and path).
+ * {@code docs/developer/reference/openapi/} consistently, in both directions, route by route (method and path).
  *
  * <p>The served routes are read from {@link MorpheusHttpRouteTable#declaredRoutes()}, the only enumeration of the
  * HTTP surface the code holds: {@code MorpheusRemoteRoutePolicy} refuses to load unless its roles cover exactly that
@@ -275,7 +275,7 @@ class PublicHttpRouteConvergenceTest {
     private static List<String> documentedRoutes() throws IOException {
         List<String> routes = new ArrayList<>();
         List<Path> documents;
-        try (Stream<Path> files = Files.list(repoRoot().resolve("docs/openapi"))) {
+        try (Stream<Path> files = Files.list(repoRoot().resolve("docs/developer/reference/openapi"))) {
             documents = files.filter(file -> file.getFileName().toString().endsWith(".yaml")).sorted().toList();
         }
         for (Path document : documents) {

@@ -1015,7 +1015,7 @@ class ProviderProjectRootArchitectureTest {
     private static Path repoRoot() {
         Path current = Path.of("").toAbsolutePath().normalize();
         while (current != null) {
-            if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("docs/adr"))) {
+            if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("docs/architecture/adr"))) {
                 return current;
             }
             current = current.getParent();

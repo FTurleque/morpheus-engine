@@ -13,7 +13,7 @@ M21 gate               config/m21-quality-ratchets.properties + scripts/validate
 CI durable             .github/workflows/ci.yml
 SCA durable            .github/workflows/security.yml
 SAST durable           .github/workflows/codeql.yml
-Preuve finale          docs/validation/VALIDATION_M21.md
+Preuve finale          docs/project/validation/VALIDATION_M21.md
 ```
 
 La documentation humaine explique ces contrats ; elle ne doit pas devenir une deuxième source normative divergente.
@@ -122,7 +122,7 @@ Toute future capacité d'installation devra vérifier cryptographiquement l'atte
 
 ## Public surface convergence
 
-Voir [`../reference/PUBLIC_SURFACES.md`](../reference/PUBLIC_SURFACES.md) et la source normative [`../../contracts/public-surfaces.tsv`](../../contracts/public-surfaces.tsv).
+Voir [`reference/PUBLIC_SURFACES.md`](reference/PUBLIC_SURFACES.md) et la source normative [`../../contracts/public-surfaces.tsv`](../../contracts/public-surfaces.tsv).
 
 Une capability peut avoir des formes différentes selon CLI/MCP/HTTP. Une différence doit être explicite. Une capacité WRITE reste distincte d’une lecture ou d’une simple décision d’autorisation.
 

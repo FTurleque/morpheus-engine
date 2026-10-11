@@ -1,8 +1,10 @@
 # Audit de code : SpotBugs et PIT
 
 SpotBugs (analyse statique) et PIT (tests de mutation) sont deux profils Maven **opt-in**. Ni l'un ni l'autre ne
-s'exécute dans `./mvnw clean verify`, ni dans la CI : ce sont des outils d'enquête que l'on lance à la main, sur un
-périmètre choisi, pour produire des constats à qualifier.
+s'exécute dans `./mvnw clean verify`, ni dans une CI qui bloque : ce sont des outils d'enquête, à lancer à la main sur un
+périmètre choisi pour produire des constats à qualifier. `nightly.yml` les exerce en plus chaque nuit **sans rien bloquer**
+(SpotBugs en rapport seul sur tout le réacteur, PIT sur le périmètre par défaut de `morpheus-domain`), pour que les versions
+épinglées ne dérivent pas sans qu'on le voie et que les rapports se comparent d'une révision à l'autre.
 
 Aucun seuil de qualité global n'est imposé par PIT. SpotBugs, lui, a un contrôle bloquant explicite (§ 7) qui est
 **rouge sur le code actuel** : l'état de référence est consigné au § 12, il n'a pas été masqué pour obtenir un vert.
@@ -128,6 +130,8 @@ Maven 3.9.16, le 07/10/2026 ; les deux profils ont ensuite été rejoués sous M
 - **[adaptée]** : mêmes arguments, syntaxe Linux/macOS, jamais lancée sur un vrai Linux ou macOS.
 
 ## 7. SpotBugs
+
+Référence complète, relevé du 09/10/2026 (192 alertes, 1 046 classes) et dépannage : [`SPOTBUGS.md`](SPOTBUGS.md).
 
 ### Générer les rapports, sans échec
 
@@ -446,7 +450,7 @@ analyse, un test sans assertion) dégrade ce que l'outil est censé protéger.
 ## 14. Audit complet du réacteur
 
 Les profils servent aussi à un audit couvrant tous les modules, découpé en lots. Les chiffres d'un tel audit sont
-des relevés datés : celui du 08/10/2026 est [`../audits/AUDIT_OUTILLE_2026-10-08.md`](../audits/AUDIT_OUTILLE_2026-10-08.md).
+des relevés datés : celui du 08/10/2026 est [`../project/audits/AUDIT_OUTILLE_2026-10-08.md`](../project/audits/AUDIT_OUTILLE_2026-10-08.md).
 
 **SpotBugs, deux passes.** La passe production est celle du § 7. La passe qui ajoute le bytecode de test écrit un
 autre fichier et n'écrase pas la première :

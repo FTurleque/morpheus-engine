@@ -68,8 +68,8 @@ Partout sous `src/main/java/` : `activateDefaultTyping(` · `enableDefaultTyping
 3. **Vérifier les imports** ligne par ligne contre la matrice ci-dessus
 4. **Vérifier les POMs** si une dépendance Maven change
 5. **Vérifier la convergence** : si une surface publique change, `contracts/public-surfaces.tsv`
-   ET `docs/openapi/morpheus-v1-*.yaml` doivent suivre (comparaison textuelle exacte dans les gates)
-6. **Consulter l'ADR** pertinent dans `docs/adr/` pour le *pourquoi* — lister le répertoire, ne jamais citer un total de mémoire
+   ET `docs/developer/reference/openapi/morpheus-v1-*.yaml` doivent suivre (comparaison textuelle exacte dans les gates)
+6. **Consulter l'ADR** pertinent dans `docs/architecture/adr/` pour le *pourquoi* — lister le répertoire, ne jamais citer un total de mémoire
 
 ## Format de réponse
 

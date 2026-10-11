@@ -130,6 +130,11 @@ function Write-EnvironmentEvidence {
     $disk = Get-Partition -DriveLetter $driveLetter | Get-Disk
     $physicalDisk = Get-PhysicalDisk | Where-Object { [string]$_.DeviceId -eq [string]$disk.Number } | Select-Object -First 1
     $mediaType = if ($physicalDisk) { [string]$physicalDisk.MediaType } else { 'Unknown' }
+    # A GitHub-hosted runner's workspace is on a local virtual disk that reports media=Unspecified, bus=SAS, so the
+    # SSD test below cannot be answered there. M19_PERFORMANCE_BUDGETS.md section 1 accepts "local SSD / runner local
+    # filesystem" as the reference disk; only a runner GitHub itself declares hosted is recognised, never a
+    # self-hosted one or a developer machine, which must still show an SSD.
+    $hostedRunner = ($env:GITHUB_ACTIONS -eq 'true' -and $env:RUNNER_ENVIRONMENT -eq 'github-hosted')
     $lines = @(
         ('OS:                 ' + [Environment]::OSVersion.VersionString),
         ('Architecture:       ' + [Runtime.InteropServices.RuntimeInformation]::OSArchitecture),
@@ -141,13 +146,14 @@ function Write-EnvironmentEvidence {
         ('DB fixture fs:      ' + $drive.DriveFormat + ' (under workspace target/)'),
         ('Disk model:         ' + $disk.FriendlyName),
         ('Disk bus:           ' + $disk.BusType),
-        ('Disk media:         ' + $mediaType)
+        ('Disk media:         ' + $mediaType),
+        ('GitHub-hosted:      ' + $hostedRunner)
     )
     $lines | Tee-Object -FilePath $environmentLog | ForEach-Object { Write-Host $_ }
     if ($logicalProcessors -lt 4) { throw "Reference environment requires at least 4 logical processors; found $logicalProcessors" }
     if ($visibleRamGiB -lt 8.0) { throw "Reference environment requires at least 8 GiB visible RAM; found $visibleRamGiB" }
     if ($drive.DriveType -ne [System.IO.DriveType]::Fixed) { throw "Workspace drive must be local/fixed; found $($drive.DriveType)" }
-    if ($mediaType -ne 'SSD' -and [string]$disk.BusType -ne 'NVMe') {
+    if (-not $hostedRunner -and $mediaType -ne 'SSD' -and [string]$disk.BusType -ne 'NVMe') {
         throw "Workspace must be on a local SSD; media=$mediaType bus=$($disk.BusType)"
     }
     $script:Results['Reference environment'] = 'PASS'

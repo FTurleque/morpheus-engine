@@ -226,8 +226,8 @@ class McpClientIntegrationArchitectureTest {
         assertTrue(Files.isRegularFile(root.resolve("scripts/validate-m28.ps1")));
         assertTrue(Files.isRegularFile(root.resolve("scripts/validate-m28.sh")));
         assertTrue(Files.isRegularFile(root.resolve("docs/user/MCP_CLIENTS.md")));
-        assertTrue(Files.isRegularFile(root.resolve("docs/roadmap/M28_EXECUTION.md")));
-        assertTrue(Files.isRegularFile(root.resolve("docs/validation/VALIDATION_M28.md")));
+        assertTrue(Files.isRegularFile(root.resolve("docs/project/roadmap/M28_EXECUTION.md")));
+        assertTrue(Files.isRegularFile(root.resolve("docs/project/validation/VALIDATION_M28.md")));
     }
 
     /**
