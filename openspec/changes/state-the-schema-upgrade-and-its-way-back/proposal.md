@@ -20,8 +20,17 @@ finding **holds, and is worse than written on one point**:
   refuses it exactly as it refuses the live database. The backup that allows a way back is the one taken **with the
   installed version, before the new one is started once**. A guide that only says "back up first" reproduces the trap.
 
-An operator who installs 1.2.1, starts it once, and returns to 1.2.0 finds a program that no longer opens its data, and
-the only procedure in the tree told them the opposite. This is the one finding of the audit whose effect cannot be undone
+- **Found while implementing, and it overturns the audit's impact statement.** The refusal of a future schema does not
+  exist in the published releases: it was added on 2026-08-12 (`fc2a3c07`, "reject future SQLite schemas"), after
+  `v1.2.0` (2026-07-30). `git show v1.2.0:…/SqliteSchemaManager.java` applies the migrations it knows, finds them
+  recorded, and opens. 1.2.0 therefore does **not** refuse a database migrated by 1.2.1: it starts and runs on a schema
+  it does not know (a sequence table it does not maintain, triggers that may reject its writes, a conflict resolution
+  value it cannot read). Only its backup verification refuses a newer schema
+  (`v1.2.0:…/SqliteServerMaintenance.java:167`). Read from the 1.2.0 source; not executed.
+
+An operator who installs 1.2.1, starts it once, and returns to 1.2.0 does not get the explicit refusal the audit
+describes: they get a program that silently works on data it was never written for, and the only procedure in the tree
+told them the schema was unchanged. This is the one finding of the audit whose effect cannot be undone
 for a user, which is why it gates the tag.
 
 ## What Changes
@@ -31,8 +40,9 @@ for a user, which is why it gates the tag.
   program).
 - The earlier guides say which release they describe and point to the latest guide, so that "schema unchanged" stops
   reading as a statement about the current version.
+- The guide that leaves 1.2.0 says that 1.2.0 does not refuse a migrated database and must never be started on one.
 - A test ties the latest guide to the code: it must state the value of `SUPPORTED_SCHEMA_VERSION` and quote the refusal
-  an older program gives. Adding a migration without touching the guide fails the build, so the guide cannot go stale
+  the program gives from this version on. Adding a migration without touching the guide fails the build, so the guide cannot go stale
   the way `UPGRADE_1_2.md` did.
 
 ## Capabilities

@@ -9,8 +9,9 @@ advances. Re-read on `develop` at `9277a083` on 2026-10-11, the finding **holds*
   migration in one `SqliteTransactionRunner.runVoid`, with no copy taken first. It is reached from one place,
   `SqliteStoreConnection.java:75`, on every open.
 - The migration itself is safe — atomic, checksummed ledger, divergent history refused
-  (`openspec/specs/sqlite-schema-history`). The gap is the way back: once the ledger is ahead, the previous program
-  refuses the database (`SqliteSchemaManager.java:83-91`) and only a copy taken before the advance lets it start again.
+  (`openspec/specs/sqlite-schema-history`). The gap is the way back: once the ledger is ahead, a program that has the
+  check refuses the database (`SqliteSchemaManager.java:83-91`) — and the published 1.2.0, which predates that check,
+  opens it and runs on a schema it does not know. Either way only a copy taken before the advance is a way back.
 - `contracts/public-surfaces.tsv:54-56` exposes `server.backup.create`, `server.backup.verify` and `server.restore`, all
   manual. And the manual path has a trap the audit did not see: `SqliteServerMaintenance.createBackup` opens the store
   before copying (`:134-136`), so a backup requested from the new program is taken **after** the migration. An operator

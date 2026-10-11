@@ -55,8 +55,8 @@ is at the new schema.
 ### Requirement: The latest upgrade guide SHALL describe the way back and quote the refusal an older program gives
 
 The latest upgrade guide MUST state that returning to an earlier version requires restoring a backup taken before the
-upgrade, and MUST quote the refusal the earlier program gives on a database that was migrated, in the words of the
-source.
+upgrade, and MUST quote, in the words of the source, the refusal the program gives when it meets a database newer than
+itself.
 
 #### Scenario: The quoted refusal is the one in the code
 
@@ -73,6 +73,22 @@ source.
 - **WHEN** the latest guide is read
 - **THEN** its rollback section orders: stop the server, reinstall the earlier version, `server restore --confirm` of the
   pre-upgrade backup, start — and says that work recorded after the backup is not carried back
+
+### Requirement: The guide that leaves 1.2.0 SHALL say that 1.2.0 does not refuse a migrated database
+
+`docs/user/UPGRADE_1_2_1.md` MUST state that the published 1.2.0 opens a database migrated by a later version without
+refusing it, MUST forbid starting 1.2.0 on such a database, and MUST name the check 1.2.0 does make, on a backup.
+
+#### Scenario: The guide does not promise a refusal that 1.2.0 never gives
+
+- **WHEN** `UPGRADE_1_2_1.md` is read
+- **THEN** it says 1.2.0 does not refuse a migrated database, forbids starting it on one, and shows that
+  `server backup verify` of 1.2.0 answers `backup schema version <N> is newer than supported 15`
+
+#### Scenario: The statement stays on that guide when a later guide exists
+
+- **WHEN** a guide with a higher version is added
+- **THEN** the test still reads `UPGRADE_1_2_1.md` by name for this statement, and does not require it of the new guide
 
 ### Requirement: An earlier upgrade guide SHALL name the release it describes and point to the latest guide
 
