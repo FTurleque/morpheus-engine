@@ -29,11 +29,15 @@ cross-job                 download-artifact avec digest-mismatch: error
 ## Répétition nocturne — ce qu'elle exerce, ce qu'elle ne prouve pas
 
 Le workflow de release ne tourne que sur un tag poussé. Pour que sa moitié « build » ne soit pas découverte le jour
-du tag, la lane `Release rehearsal` de `.github/workflows/nightly.yml` lance chaque nuit, sur Linux et sur Windows,
+du tag, la lane `Release rehearsal` de `.github/workflows/nightly.yml` lance, sur Linux et sur Windows,
 `scripts/validate-m20.sh` et `scripts/validate-m20.ps1` : les mêmes `distribution/build-release.*` que la release, sur
 un tag local `m20-validation-<sha>` qui ne quitte jamais le checkout. Un troisième job compare les fichiers produits
 aux noms que `release.yml` exige avant de publier (`scripts/check-release-rehearsal-assets.py`, qui lit la liste dans
 le workflow).
+
+**Quand elle tourne.** Une planification exécute le fichier de workflow de `main` : la lane tourne chaque nuit à
+partir du moment où `main` la porte, et seulement à la demande (`workflow_dispatch`, sur n'importe quelle branche)
+avant cela. Ne pas tenir le build de release pour répété tant que la dernière exécution n'a pas été lue.
 
 Une répétition ne publie rien et ne qualifie rien. Elle n'exerce pas :
 

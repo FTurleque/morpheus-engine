@@ -96,3 +96,17 @@ Implementation is a separate lot, started after this specification is reviewed, 
       the count and refuses failures and errors only. The Linux leg, M19, SpotBugs and PIT passed in the same run.
   - 2026-10-11: the validator had been failing on every current tree; nothing ran it, so nothing said so. This is the
     finding the lane exists to produce.
+
+## 7. Found by review after the lane was first seen green
+
+- [x] 7.1 The skipped-test refusal of `validate-m20.ps1` had been removed outright (6.1). It is bounded instead: a skip
+      JUnit records as an operating-system condition is accepted, any other one is named and refused. Proof: on a
+      fabricated report, one accepted and two refused; on the real `morpheus-store-sqlite` reports, none refused.
+- [x] 7.2 The no-publish rule read the nightly workflow between two job names; it now reads each rehearsal job by name,
+      the workflow-level text the jobs inherit their permissions from, and every build script under `distribution/`.
+      The launch rule now requires one step whose `run:` block names the validator and whose only condition is the
+      platform. Proof, each broken once: the Windows step switched off; `id-token: write` at workflow level; a
+      publishing command appended to `distribution/build-release.sh`.
+- [x] 7.3 The procedure and DT-11 said "every night" without saying that a schedule runs `main`'s workflow file.
+- [ ] 7.4 Left as they are: the comparison script takes the first `expected=(` block of `release.yml`; both legs upload
+      the full binaries for a check of names; the POM version is read by three snippets.
