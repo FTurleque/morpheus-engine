@@ -85,6 +85,7 @@ class RepositoryDocumentationCoherenceTest {
      */
     private static final List<String> CURRENT_STACK_SURFACES = List.of(
             "README.md",
+            "CONTRIBUTING.md",
             "docs/README.md",
             "docs/developer/README.md",
             "docs/developer/BUILD_AND_TEST.md",
@@ -194,21 +195,21 @@ class RepositoryDocumentationCoherenceTest {
     }
 
     @Test
-    void rootReadmeMatchesPomVersionMcpSdkAndModuleList() throws Exception {
+    void contributingGuideMatchesPomVersionMcpSdkAndModuleList() throws Exception {
         Path root = repositoryRoot();
         String pom = Files.readString(root.resolve("pom.xml"));
-        String readme = Files.readString(root.resolve("README.md"));
+        String readme = Files.readString(root.resolve("CONTRIBUTING.md"));
 
         String version = firstGroup(PROJECT_VERSION, pom, "project version");
         String mcpVersion = firstGroup(MCP_VERSION, pom, "MCP SDK version");
         List<String> pomModules = pomModules(pom);
 
         assertTrue(readme.contains("Baseline développement " + version),
-                () -> "README development baseline must match pom.xml version " + version);
+                () -> "CONTRIBUTING.md development baseline must match pom.xml version " + version);
         assertTrue(readme.contains("Java MCP SDK " + mcpVersion),
-                () -> "README MCP SDK must match pom.xml version " + mcpVersion);
+                () -> "CONTRIBUTING.md MCP SDK must match pom.xml version " + mcpVersion);
         assertEquals(pomModules, readmeModules(readme),
-                "README Maven module list must exactly match root pom.xml <modules>");
+                "CONTRIBUTING.md Maven module list must exactly match root pom.xml <modules>");
     }
 
     @Test
@@ -498,14 +499,14 @@ class RepositoryDocumentationCoherenceTest {
                 "per-module line ratchet", perModuleLine,
                 "per-module branch ratchet", perModuleBranch));
 
-        String readme = Files.readString(root.resolve("README.md"));
+        String readme = Files.readString(root.resolve("CONTRIBUTING.md"));
         String readmeClaim = ("Le ratchet agrégé est **≥ %s %% lignes / ≥ %s %% branches**, le ratchet par module"
                 + " **≥ %s %% lignes / ≥ %s %% branches**, avec **≥ %s tests Surefire** et"
                 + " **≥ %s tests d’architecture**")
                 .formatted(french(aggregateLine), french(aggregateBranch),
                         french(perModuleLine), french(perModuleBranch), tests, architecture);
         assertTrue(readme.contains(readmeClaim),
-                () -> "README.md must state the normative M21 ratchets: " + readmeClaim);
+                () -> "CONTRIBUTING.md must state the normative M21 ratchets: " + readmeClaim);
 
         String buildAndTest = Files.readString(root.resolve("docs/developer/BUILD_AND_TEST.md"));
         String lockedBaseline = "**%s%% lignes / %s%% branches** sur l'échelle agrégée et **%s%% lignes / %s%% branches** par module"
@@ -931,6 +932,7 @@ class RepositoryDocumentationCoherenceTest {
     private static List<Path> activeStatusPages(Path root) {
         return List.of(
                 root.resolve("README.md"),
+                root.resolve("CONTRIBUTING.md"),
                 root.resolve("docs/README.md"),
                 root.resolve("docs/user/README.md"),
                 root.resolve("docs/developer/README.md"),
@@ -997,7 +999,7 @@ class RepositoryDocumentationCoherenceTest {
 
     private static List<String> readmeModules(String readme) {
         int marker = readme.indexOf("Modules Maven :");
-        if (marker < 0) throw new IllegalArgumentException("README has no 'Modules Maven :' section");
+        if (marker < 0) throw new IllegalArgumentException("CONTRIBUTING.md has no 'Modules Maven :' section");
         int fence = readme.indexOf("```text", marker);
         if (fence < 0) throw new IllegalArgumentException("README module section has no text fence");
         int start = readme.indexOf('\n', fence);

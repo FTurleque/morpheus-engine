@@ -53,7 +53,8 @@ class GateReachabilityArchitectureTest {
 
     /** Documentation that states what to run now. Dated records (validation proofs, execution plans, ADRs) are not here. */
     private static final List<String> CURRENT_DOCUMENT_FILES =
-            List.of("README.md", "scripts/README.md", "docs/README.md", "distribution/README.md");
+            List.of(
+                    "README.md", "CONTRIBUTING.md", "scripts/README.md", "docs/README.md", "distribution/README.md");
 
     @Test
     void everyValidatorExistsOnBothPlatforms() throws IOException {

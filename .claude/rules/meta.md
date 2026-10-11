@@ -48,7 +48,7 @@ version, compteurs `dependency:analyze`), ce nombre doit être traité comme pé
 
   ```text
   config/m21-quality-ratchets.properties        (source normative, deux paires de clés)
-  README.md                                     (phrase « Le ratchet global est … »)
+  CONTRIBUTING.md                               (phrase « Le ratchet agrégé est … »)
   docs/README.md
   docs/developer/BUILD_AND_TEST.md              (tableau + « verrouillée à » + règle de baisse)
   docs/developer/PRODUCTION_INTEGRITY.md
