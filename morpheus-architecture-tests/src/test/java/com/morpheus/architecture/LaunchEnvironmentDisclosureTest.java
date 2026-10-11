@@ -87,20 +87,23 @@ class LaunchEnvironmentDisclosureTest {
         try (var modules = Files.list(root)) {
             for (Path module : modules.sorted().toList()) {
                 Path sources = module.resolve("src/main/java");
-                if (!Files.isDirectory(sources)) {
-                    continue;
-                }
-                try (var files = Files.walk(sources)) {
-                    for (Path file : files.filter(path -> path.toString().endsWith(".java")).sorted().toList()) {
-                        Matcher literal = MORPHEUS_NAME.matcher(Files.readString(file));
-                        while (literal.find()) {
-                            mentioned.putIfAbsent(literal.group(1), file);
-                        }
-                    }
+                if (Files.isDirectory(sources)) {
+                    collectNames(sources, mentioned);
                 }
             }
         }
         return mentioned;
+    }
+
+    private static void collectNames(Path sources, Map<String, Path> mentioned) throws IOException {
+        try (var files = Files.walk(sources)) {
+            for (Path file : files.filter(path -> path.toString().endsWith(".java")).sorted().toList()) {
+                Matcher literal = MORPHEUS_NAME.matcher(Files.readString(file));
+                while (literal.find()) {
+                    mentioned.putIfAbsent(literal.group(1), file);
+                }
+            }
+        }
     }
 
     private static String operatorDocumentation(Path root) throws IOException {
