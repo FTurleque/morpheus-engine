@@ -29,6 +29,13 @@ jobs:
     name: dependency-check (ubuntu-latest)
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    # Facts the refresh-alert job below needs, published by the update step and nothing else: whether this run renewed
+    # the feed, how old the database it scanned is, and why it did not renew it. They are empty when the update step
+    # did not get that far (a pull request, a failure, a cancellation), and the alert job reads empty as "unknown".
+    outputs:
+      refreshed: ${{ steps.dependency-check-update.outputs.updated }}
+      refresh_age_seconds: ${{ steps.dependency-check-update.outputs.refresh_age_seconds }}
+      refresh_cause: ${{ steps.dependency-check-update.outputs.refresh_cause }}
 
     steps:
       - name: Checkout exact head
@@ -168,6 +175,7 @@ jobs:
               bash ./scripts/write-dependency-check-sentinel.sh \
                 "${data_dir}" "${DEPENDENCY_CHECK_PLUGIN_VERSION}" "${DEPENDENCY_CHECK_SCHEMA_VERSION}" "NVD API key refresh"
               echo "updated=true" >> "${GITHUB_OUTPUT}"
+              echo "refresh_age_seconds=0" >> "${GITHUB_OUTPUT}"
               bash ./scripts/report-dependency-check-cache.sh 0 "NVD API key refresh"
             elif grep -qF 'Invalid API Key' "${update_log}"; then
               refresh_skipped_because='NVD_API_KEY was refused by the NVD'
@@ -201,6 +209,8 @@ jobs:
               exit 1
             fi
             echo "Dependency-Check trusted cache fallback PASS (${age_seconds}s since its last trusted refresh; maximum ${max_age_seconds}s; ${refresh_skipped_because})."
+            echo "refresh_age_seconds=${age_seconds}" >> "${GITHUB_OUTPUT}"
+            echo "refresh_cause=${refresh_skipped_because}" >> "${GITHUB_OUTPUT}"
           fi
 
       - name: Save trusted Dependency-Check database
@@ -252,3 +262,52 @@ jobs:
           path: |
             target/d2-security/**
             target/d2-security-tests/**
+
+  # A refresh that did not happen is not a refusal, and it must not become one: the scan above already refuses on the
+  # freshness budget and only on it. What was missing is that anyone be told before that refusal arrives. Every signal
+  # the scan job publishes is an annotation or a summary line on a run that stays green, and a green run notifies
+  # nobody; the first thing that reached a person was every pull request failing at once, 72 hours after the last good
+  # refresh.
+  #
+  # So this is a separate job, run after the scan and the upload of its evidence. It is not the scan job: that job's
+  # name is a required check of the repository ruleset, and failing it on a scheduled run would put a red check of a
+  # required name on the head of main. It is not a step of the update job either: a new `exit 1` there would make a
+  # refresh that failed into a refusal. It fails, and only fails, when the run did not renew the feed and the database
+  # it scanned has spent two thirds of its budget -- the threshold report-dependency-check-cache.sh already warns at, so
+  # the alert and the warning cannot disagree. With a daily schedule a single missed refresh leaves the database well
+  # inside that bound and the run stays green; a second consecutive miss crosses it, with about a day left.
+  #
+  # When the scan job published no age (it failed before, was cancelled, or refused with STALE_DATABASE) the age is
+  # unknown: no alert is raised, and the scan job's own conclusion stands.
+  refresh-alert:
+    name: Dependency-Check refresh alert
+    needs: dependency-check
+    if: always() && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Raise the alert when the refresh did not happen and the budget is two thirds spent
+        shell: bash
+        env:
+          REFRESHED: ${{ needs.dependency-check.outputs.refreshed }}
+          AGE_SECONDS_PUBLISHED: ${{ needs.dependency-check.outputs.refresh_age_seconds }}
+          REFRESH_CAUSE: ${{ needs.dependency-check.outputs.refresh_cause }}
+        run: |
+          age_seconds="${AGE_SECONDS_PUBLISHED:-}"
+          if [[ ! "${age_seconds}" =~ ^[0-9]+$ ]]; then
+            echo "The scan job published no database age (it failed before, was cancelled, or refused): nothing to alert on here."
+            exit 0
+          fi
+          if [[ "${REFRESHED:-}" == 'true' ]]; then
+            echo "The trusted refresh happened in this run: no alert."
+            exit 0
+          fi
+
+          max_age_seconds="$((DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS * 60 * 60))"
+          if (( age_seconds * 3 >= max_age_seconds * 2 )); then
+            remaining_hours="$(( (max_age_seconds - age_seconds) / 3600 ))"
+            echo "::error::MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_OVERDUE. The Dependency-Check database is $((age_seconds / 3600))h old, about ${remaining_hours}h before every scan, including every pull request, starts failing with STALE_DATABASE, and this run did not renew it (${REFRESH_CAUSE:-cause unknown}). If the cause is that NVD_API_KEY was refused, replace it; if it is that the refresh failed with the key configured, do not rotate the key on this evidence alone, read the log of the update step. See docs/developer/COLD_START_RECOVERY.md and RT-13 in docs/architecture/risks/register.md."
+            exit 1
+          fi
+          echo "The database is ${age_seconds}s old, inside two thirds of its budget (${max_age_seconds}s): no alert."

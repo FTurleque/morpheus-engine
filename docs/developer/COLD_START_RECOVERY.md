@@ -86,6 +86,8 @@ résumé « Dependency-Check database freshness » :
 | Annotation `MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESH_FAILED` | Le rafraîchissement par clé a échoué ; le run retombe sur le dernier cache, qui a au plus 72 h de vie |
 | Avertissement « obtained via … not NVD API key refresh » | La base vient d'ailleurs que de la clé sur une branche en 13.0.0 |
 | `STALE_DATABASE` | Le budget de 72 h est dépassé : plus aucun scan ne passe |
+| Le job rouge « Dependency-Check refresh alert », annotation `MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_OVERDUE` | Le run n'a pas rafraîchi la base et elle a consommé les deux tiers de son budget (48 h sur 72 h) : il reste environ un jour avant `STALE_DATABASE`. Le message nomme la cause. Un seul rafraîchissement manqué laisse la base à environ 24 h et ne déclenche rien ; c'est le deuxième manqué consécutif qui franchit le seuil |
+| Avertissement `NVD_API_KEY is not configured` | Le secret a disparu : même conséquence qu'un rafraîchissement refusé, et la seule des trois causes qui ne porte pas de code `REFRESH_FAILED` ; l'alerte ci-dessus la nomme |
 
 **Sur `main`, rien de ce tableau n'existe encore.** Son `security.yml` ne publie pas la section
 « Dependency-Check database freshness » et ne connaît ni `REFRESH_FAILED` ni `STALE_DATABASE` : il faut lire,
@@ -110,6 +112,14 @@ Remplacer la clé : en redemander une sur https://nvd.nist.gov/developers/reques
 lien d'activation du mail** (une clé non activée est refusée comme une clé fausse — la clé posée le
 17/09/2026 a été refusée jusqu'à son remplacement le 22/09/2026), puis `gh secret set NVD_API_KEY` en
 collant l'UUID seul.
+
+**Qui, quoi, comment.**
+
+- *Détenteur* : le compte du propriétaire du dépôt (`FTurleque`). Il n'existe ni secret d'organisation ni environnement GitHub ; c'est cette personne qui remplace la clé.
+- *Détection* : l'annotation `REFRESH_FAILED`, l'avertissement `NVD_API_KEY is not configured`, et l'alerte `REFRESH_OVERDUE` — un job séparé de `security.yml`, lancé après le scan et le dépôt de ses preuves, sur `push` et sur `schedule` seulement, jamais sur une pull request. Son nom n'est pas un check requis : il ne bloque aucune pull request, il fait seulement échouer le run planifié. Un `schedule` exécutant le workflow de la branche par défaut, l'alerte quotidienne n'existe qu'une fois ce workflow sur `main` ; avant cela elle se déclenche sur les `push` de `develop`.
+- *Livraison* : l'alerte est un run en échec, donc elle compte sur la notification GitHub d'un workflow planifié en échec, adressée à la personne qui a modifié en dernier la ligne `cron` du fichier, selon ses réglages (Actions : workflows en échec). **Ce réglage est hors du dépôt et n'a pas été vérifié** : tant qu'il ne l'est pas, l'alerte est visible mais pas démontrée remise.
+- *Échéance de la clé* : aucune durée de vie n'a pu être relevée sur la page de demande du NVD (https://nvd.nist.gov/developers/request-an-api-key, rendue côté client, lue le 11/10/2026). Ne pas supposer d'échéance : la détection ci-dessus est le seul filet.
+- *Vérification d'un remplacement* : la ligne `Obtained via` du résumé « Dependency-Check database freshness » vaut `NVD API key refresh` et l'âge `0`, et l'alerte ne se déclenche plus.
 
 L'historique complet — la panne annoncée, la mesure de fraîcheur corrigée, les trois sorties évaluées —
 est dans [le registre des risques, RT-13](../architecture/risks/register.md).

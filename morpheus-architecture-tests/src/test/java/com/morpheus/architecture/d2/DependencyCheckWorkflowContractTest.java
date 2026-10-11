@@ -512,6 +512,89 @@ class DependencyCheckWorkflowContractTest {
                         + "status but OK, so a missing sentinel is treated as stale rather than as fresh");
     }
 
+    /**
+     * A refresh that did not happen reaches a person before the freshness budget refuses every scan.
+     *
+     * <p>Every signal the scan job publishes is an annotation on a run that stays green, and a green run notifies
+     * nobody; the first thing that reached a person was every pull request failing at once. The alert is a job of its
+     * own, after the scan and the upload of its evidence, for three reasons the assertions below pin: it is not the
+     * scan job (whose name is a required check of the ruleset, so failing it would put a red check of a required name
+     * on the head of main), it is not a new {@code exit 1} in the update step (which must stay a fallback whose only
+     * refusals are the missing sentinel and the exhausted budget, see
+     * {@link #aRefreshThatFailedIsNotARefreshAndIsAlsoNotByItselfARefusal()}), and it never runs on a pull request,
+     * where the budget is already the refusal. The ruleset lives outside the repository, so the four required names
+     * below are a copy to be re-read with {@code gh api repos/FTurleque/morpheus-engine/rulesets} when it changes.</p>
+     */
+    @Test
+    void aRefreshThatDidNotHappenRaisesItsOwnAlertAfterTheScanAndNeverUnderARequiredName() throws IOException {
+        String security = Files.readString(repoRoot().resolve(".github/workflows/security.yml"));
+        int alertStart = security.indexOf("\n  refresh-alert:");
+        assertTrue(alertStart > 0, "the alert must be a job of its own");
+        String scanJob = security.substring(security.indexOf("\n  dependency-check:"), alertStart);
+        String alertJob = security.substring(alertStart);
+
+        assertTrue(alertJob.contains("needs: dependency-check"), "the alert must come after the scan job");
+        assertTrue(alertJob.contains("if: always() && github.event_name != 'pull_request'"),
+                "the alert must run even when the scan failed, and never on a pull request");
+        assertTrue(alertJob.contains("MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_OVERDUE"),
+                "the alert must carry a code of its own, distinct from STALE_DATABASE");
+        assertTrue(alertJob.contains("exit 1"), "the alert job exists to end failed");
+        assertFalse(alertJob.contains("continue-on-error"), "an alert that cannot fail alerts nobody");
+
+        Matcher name = Pattern.compile("(?m)^    name: (.+)$").matcher(alertJob);
+        assertTrue(name.find(), "the alert job must name itself");
+        for (String required : new String[] {"exact-head (ubuntu-latest)", "exact-head (windows-latest)",
+                "dependency-check (ubuntu-latest)", "java (ubuntu-latest)"}) {
+            assertFalse(name.group(1).trim().equals(required),
+                    "the alert must not carry the name of a required check: " + required);
+        }
+
+        String update = section(security, "- name: Update Dependency-Check vulnerability database (trusted events)",
+                "- name: Save trusted Dependency-Check database");
+        assertFalse(update.contains("REFRESH_OVERDUE"), "the alert must not live in the update step");
+        assertTrue(scanJob.contains("refresh_age_seconds: ${{ steps.dependency-check-update.outputs.refresh_age_seconds }}")
+                        && scanJob.contains("refresh_cause: ${{ steps.dependency-check-update.outputs.refresh_cause }}")
+                        && scanJob.contains("refreshed: ${{ steps.dependency-check-update.outputs.updated }}"),
+                "the scan job must publish what the alert reads: whether it refreshed, the age, and the cause");
+    }
+
+    /**
+     * The alert and the warning cannot disagree about when to worry: both use the same two-thirds expression, held
+     * in two files (the reporting script never decides, so the alert's predicate has to sit in the workflow).
+     */
+    @Test
+    void theAlertAndTheWarningShareOneThreshold() throws IOException {
+        String security = Files.readString(repoRoot().resolve(".github/workflows/security.yml"));
+        String report = Files.readString(repoRoot().resolve("scripts/report-dependency-check-cache.sh"));
+        String expression = "(( age_seconds * 3 >= max_age_seconds * 2 ))";
+        assertTrue(report.contains(expression), "the warning must keep the two-thirds expression");
+        assertTrue(security.contains(expression), "the alert must use the very same expression as the warning");
+    }
+
+    /**
+     * Every code the workflow emits is explained where a maintainer lands when it fires. The codes are read from the
+     * workflow, so this test holds no list that could go stale.
+     */
+    @Test
+    void everyDependencyCheckCodeTheWorkflowEmitsIsExplainedInTheRecoveryGuide() throws IOException {
+        String security = Files.readString(repoRoot().resolve(".github/workflows/security.yml"));
+        String guide = Files.readString(repoRoot().resolve("docs/developer/COLD_START_RECOVERY.md"));
+        Matcher codes = Pattern.compile("MORPHEUS_DEPENDENCY_CHECK_[A-Z]+=([A-Z_]+)").matcher(security);
+        java.util.Set<String> values = new java.util.TreeSet<>();
+        while (codes.find()) {
+            values.add(codes.group(1));
+        }
+        assertTrue(values.size() >= 3, () -> "too few codes found in security.yml: " + values);
+        java.util.List<String> unexplained = new java.util.ArrayList<>();
+        for (String value : values) {
+            if (!guide.contains(value)) {
+                unexplained.add(value);
+            }
+        }
+        assertTrue(unexplained.isEmpty(),
+                () -> "docs/developer/COLD_START_RECOVERY.md does not mention " + unexplained);
+    }
+
     private static String section(String workflow, String from, String to) {
         int start = workflow.indexOf(from);
         int end = workflow.indexOf(to);
