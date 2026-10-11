@@ -13,8 +13,8 @@ name: MORPHEUS Nightly
 # an observation that does not change does not need to be reproduced per pull request. No lane gates a
 # merge, and none is reachable from a `pull_request` event -- this workflow deliberately has no such trigger.
 #
-# Three further lanes (M19 budgets, SpotBugs, PIT) run what the repository declares and no other pipeline reached;
-# see the comment above them.
+# Four further lanes (M19 budgets, release rehearsal, SpotBugs, PIT) run what the repository declares and no other
+# pipeline reached; see the comment above them.
 
 on:
   schedule:
@@ -266,6 +266,106 @@ jobs:
             validation-output/m19-linux/validation-summary.txt
             validation-output/m19-linux/failure-summary.txt
             validation-output/m19-linux/logs/**
+
+  release-rehearsal:
+    # The release workflow runs on a pushed tag and on nothing else, so its build half -- distribution/build-release,
+    # the Linux packaging no other workflow reaches, the checksums, the release manifests -- used to be exercised only
+    # on the day of a release. The M20 validator already rehearses it on a tag that never leaves the checkout; this
+    # lane is what runs it. A rehearsal publishes nothing and proves nothing about a release: it does not check that a
+    # tag is reachable from main, does not attest, does not publish and does not read a published release back. Those
+    # stay proven only by a real tag (docs/project/validation/RELEASE_QUALIFICATION.md).
+    name: Release rehearsal (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Checkout the dispatched ref, or develop on a schedule
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'develop' || github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          check-latest: false
+
+      - name: Rehearse the Linux release build with the version the POM declares
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          version="$(python3 -c "import xml.etree.ElementTree as E; print(E.parse('pom.xml').getroot().find('{http://maven.apache.org/POM/4.0.0}version').text)")"
+          bash ./scripts/validate-m20.sh "${version}"
+
+      - name: Rehearse the Windows release build with the version the POM declares
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $version = ([xml](Get-Content -LiteralPath pom.xml)).project.version
+          .\scripts\validate-m20.ps1 -Version $version
+          if ($LASTEXITCODE -ne 0) { throw "M20 release rehearsal failed with exit code $LASTEXITCODE" }
+
+      - name: Upload the rehearsed release files
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-rehearsal-${{ runner.os }}
+          if-no-files-found: error
+          retention-days: 3
+          path: |
+            dist/morpheus-*-x64.tar.gz
+            dist/morpheus-*-x64.zip
+            dist/MORPHEUS-*-x64-setup.exe
+            dist/*.sha256
+            dist/morpheus-*-release-manifest.json
+
+      - name: Upload the rehearsal evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-rehearsal-evidence-${{ runner.os }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            validation-output/m20/validation-summary.txt
+            validation-output/m20/failure-summary.txt
+            validation-output/m20/logs/**
+            validation-output/m20-linux/validation-summary.txt
+            validation-output/m20-linux/logs/**
+
+  release-rehearsal-assets:
+    # What the publish job of the release workflow checks before it publishes, applied to what the two rehearsals built.
+    # The names are read from release.yml: a list restated here would only test itself.
+    name: Release rehearsal (expected asset names)
+    needs: release-rehearsal
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout the dispatched ref, or develop on a schedule
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'develop' || github.ref }}
+
+      - name: Download the rehearsed release files
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: 'release-rehearsal-[LW]*'
+          path: rehearsed-assets
+          merge-multiple: true
+          digest-mismatch: error
+
+      - name: Compare with the names the release workflow requires
+        shell: bash
+        run: |
+          version="$(python3 -c "import xml.etree.ElementTree as E; print(E.parse('pom.xml').getroot().find('{http://maven.apache.org/POM/4.0.0}version').text)")"
+          python3 scripts/check-release-rehearsal-assets.py .github/workflows/release.yml "${version}" rehearsed-assets
 
   spotbugs-report:
     # Report-only: alerts never fail the lane, because the audit-spotbugs check is red on the current code and its alerts are

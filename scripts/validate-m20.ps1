@@ -106,6 +106,24 @@ function Get-SurefireTotals([string]$Root) {
     return [pscustomobject]$totals
 }
 
+# A test that an operating-system condition disables is recorded by JUnit with this reason. It is the only skip this
+# validator accepts: any other one -- a disabled test, an assumption that stopped holding -- is named and refused.
+function Get-UnexplainedSkips([string]$Root) {
+    $unexplained = New-Object System.Collections.Generic.List[string]
+    $reports = @(Get-ChildItem -Path $Root -Recurse -File -Filter 'TEST-*.xml' -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -match '[\\/]target[\\/]surefire-reports[\\/]' })
+    foreach ($report in $reports) {
+        [xml]$document = Get-Content -LiteralPath $report.FullName -Raw
+        foreach ($case in @($document.SelectNodes('//testcase[skipped]'))) {
+            $reason = [string]$case.SelectSingleNode('skipped').GetAttribute('message')
+            if (-not $reason.StartsWith('Disabled on operating system')) {
+                $unexplained.Add(('{0}.{1} ({2})' -f $case.GetAttribute('classname'), $case.GetAttribute('name'), $reason))
+            }
+        }
+    }
+    return ,$unexplained
+}
+
 function Assert-Sha256([string]$AssetPath) {
     if (-not (Test-Path -LiteralPath $AssetPath)) { throw "Missing release asset: $AssetPath" }
     $checksumPath = $AssetPath + '.sha256'
@@ -278,6 +296,13 @@ function Write-Summary([bool]$Success) {
     $lines.Add(('Version:   ' + $Version))
     $lines.Add(('Result:    ' + $(if ($Success) { 'PASS' } else { 'FAIL' })))
     $lines.Add('Linux proof: NOT EXECUTED BY THIS WINDOWS VALIDATOR')
+    if ($Success) {
+        $lines.Add('RELEASE REHEARSAL: the build half of the release ran; nothing was tagged on origin, attested or published.')
+    }
+    $lines.Add('Not exercised by a rehearsal: the tag being reachable from main')
+    $lines.Add('Not exercised by a rehearsal: the provenance attestation')
+    $lines.Add('Not exercised by a rehearsal: the publication of the release')
+    $lines.Add('Not exercised by a rehearsal: the public read-back of a published release')
     if ($script:FullTestSummary) {
         $lines.Add(('Full reactor tests: {0}; failures: {1}; errors: {2}; skipped: {3}; suites: {4}' -f
             $script:FullTestSummary.Tests, $script:FullTestSummary.Failures, $script:FullTestSummary.Errors,
@@ -320,8 +345,15 @@ try {
     Invoke-LoggedStage -Name 'Full Maven reactor' -FilePath $mvnw -Arguments @('clean', 'verify') -LogName '01-full-reactor.log'
     $script:FullTestSummary = Get-SurefireTotals $repo
     $script:ArchitectureTestSummary = Get-SurefireTotals (Join-Path $repo 'morpheus-architecture-tests')
-    if ($script:FullTestSummary.Failures -ne 0 -or $script:FullTestSummary.Errors -ne 0 -or $script:FullTestSummary.Skipped -ne 0) {
-        throw 'Full Maven reactor contains failures/errors/skipped tests'
+    if ($script:FullTestSummary.Failures -ne 0 -or $script:FullTestSummary.Errors -ne 0) {
+        throw 'Full Maven reactor contains failures/errors'
+    }
+    # A skipped test used to be refused whatever its cause, which made this validator fail on every current tree: some
+    # tests are conditional on the operating system and are skipped on the other one. Those are accepted, by the reason
+    # JUnit records, and counted in the summary; every other skip is still a refusal, and is named.
+    $unexplainedSkips = Get-UnexplainedSkips $repo
+    if ($unexplainedSkips.Count -ne 0) {
+        throw ('Full Maven reactor skipped tests for another reason than an operating-system condition: ' + ($unexplainedSkips -join '; '))
     }
 
     $script:CurrentStage = 'Installer contract'
