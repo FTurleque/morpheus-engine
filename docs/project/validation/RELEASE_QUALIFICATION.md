@@ -26,6 +26,30 @@ cross-job                 download-artifact avec digest-mismatch: error
 écrasement                refusé : gh release view avant gh release create
 ```
 
+## Répétition nocturne — ce qu'elle exerce, ce qu'elle ne prouve pas
+
+Le workflow de release ne tourne que sur un tag poussé. Pour que sa moitié « build » ne soit pas découverte le jour
+du tag, la lane `Release rehearsal` de `.github/workflows/nightly.yml` lance chaque nuit, sur Linux et sur Windows,
+`scripts/validate-m20.sh` et `scripts/validate-m20.ps1` : les mêmes `distribution/build-release.*` que la release, sur
+un tag local `m20-validation-<sha>` qui ne quitte jamais le checkout. Un troisième job compare les fichiers produits
+aux noms que `release.yml` exige avant de publier (`scripts/check-release-rehearsal-assets.py`, qui lit la liste dans
+le workflow).
+
+Une répétition ne publie rien et ne qualifie rien. Elle n'exerce pas :
+
+```text
+tag atteignable depuis main        vérifié seulement sur un vrai tag
+attestation de provenance          actions/attest n'est jamais lancé par une répétition
+publication                        aucune release, aucun asset, aucun tag sur origin
+relecture publique                 verify-release-provenance ne lit qu'une release publiée
+```
+
+Une répétition verte ne ferme ni #185 ni `DT-11`, et sa sortie ne se consigne jamais comme preuve de qualification.
+
+**Mots-clés de fermeture.** Un message de commit qui place « close », « fix » ou « resolve » devant un numéro d'issue
+la ferme quand il arrive sur `main`, quelle que soit la phrase autour. C'est ainsi que #185 a été fermée par accident
+le 9 octobre 2026, par un commit qui disait qu'elle restait ouverte. Écrire « l'issue 185 » dans ces phrases.
+
 ## Ce qui doit être vérifié après la publication
 
 Le pipeline construit et publie ; il ne vérifie pas ce que GitHub a **réellement** rendu public. C'est

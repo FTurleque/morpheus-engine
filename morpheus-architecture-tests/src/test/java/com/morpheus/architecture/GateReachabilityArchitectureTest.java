@@ -51,6 +51,13 @@ class GateReachabilityArchitectureTest {
      */
     private static final Map<String, String> MANUAL_ONLY_PROFILES = Map.of();
 
+    private static final List<String> RELEASE_REHEARSAL_VALIDATORS = List.of("validate-m20.sh", "validate-m20.ps1");
+
+    /** What only a real release may do or say. */
+    private static final List<String> REHEARSAL_MUST_NOT = List.of(
+            "git push", "gh release", "actions/attest", "id-token: write", "attestations: write", "contents: write",
+            "RELEASE QUALIFICATION PASS");
+
     /** Documentation that states what to run now. Dated records (validation proofs, execution plans, ADRs) are not here. */
     private static final List<String> CURRENT_DOCUMENT_FILES =
             List.of(
@@ -155,6 +162,51 @@ class GateReachabilityArchitectureTest {
         assertTrue(unreachable.isEmpty(),
                 () -> "Surefire does not select these test classes, so only a validator a workflow runs can: "
                         + unreachable);
+    }
+
+    /**
+     * The release workflow runs on a pushed tag only, so the build half of a release -- and the Linux packaging, which
+     * no other workflow reaches -- was exercised on the day of a release and never before. The M20 validator rehearses
+     * it on a tag that never leaves the checkout; this holds the lane that runs it, on each platform by name: the
+     * extension is part of the match because a lane that kept one variant only would still name the validator.
+     */
+    @Test
+    void theReleaseRehearsalValidatorIsLaunchedByAWorkflowOnEachPlatform() throws IOException {
+        String workflows = workflowsExecutableText(repositoryRoot());
+        assertFalse(workflows.isBlank(), "no workflow text read: the rule would pass on nothing");
+
+        for (String variant : RELEASE_REHEARSAL_VALIDATORS) {
+            assertTrue(Pattern.compile("(?<![A-Za-z0-9-])" + Pattern.quote(variant) + "(?![A-Za-z0-9])")
+                            .matcher(workflows).find(),
+                    () -> "no workflow launches " + variant + ": the release build is rehearsed by nothing on that "
+                            + "platform and a regression in it waits for the day of the tag");
+        }
+    }
+
+    /** A rehearsal that could publish would be a release nobody decided, and evidence nobody should trust. */
+    @Test
+    void aReleaseRehearsalCannotPublishAttestOrPassForAQualification() throws IOException {
+        Path root = repositoryRoot();
+        String nightly = executableText(root.resolve(".github/workflows/nightly.yml"));
+        int lane = nightly.indexOf("\n  release-rehearsal:");
+        int next = nightly.indexOf("\n  spotbugs-report:");
+        assertTrue(lane >= 0 && next > lane, "the release rehearsal lane must exist in the nightly workflow");
+
+        Map<String, String> rehearsal = new TreeMap<>();
+        rehearsal.put("nightly.yml release-rehearsal jobs", nightly.substring(lane, next));
+        for (String variant : RELEASE_REHEARSAL_VALIDATORS) {
+            rehearsal.put(variant, executableText(root.resolve("scripts").resolve(variant)));
+        }
+        rehearsal.put("check-release-rehearsal-assets.py",
+                Files.readString(root.resolve("scripts/check-release-rehearsal-assets.py")));
+
+        rehearsal.forEach((name, text) -> {
+            for (String forbidden : REHEARSAL_MUST_NOT) {
+                assertFalse(text.contains(forbidden),
+                        () -> name + " contains '" + forbidden + "': a rehearsal builds, it does not publish, attest "
+                                + "or claim a qualification");
+            }
+        });
     }
 
     @Test

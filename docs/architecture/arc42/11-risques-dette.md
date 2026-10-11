@@ -31,7 +31,7 @@ Les anciens risques de gouvernance liés à l'absence de protection de `main`/`d
 | ID | Dette | Domaine | Priorité | Traitement |
 |----|-------|---------|----------|------------|
 | DT-10 | Couverture historique globale encore modeste malgré un changed-code gate strict | Qualité | **Moyenne** | Ratchets M21 actifs à `3820 / 585`, couverture `90,0% / 75,7%` agrégée et `69,1% / 61,2%` par module ; chaque échelle a son propre plafond qualifié et ne se relève qu'après nouvelle preuve exact-head reproductible sur les deux plateformes |
-| DT-11 | Nouveau workflow de release attestée pas encore qualifié par une vraie release publiée | Release | **Moyenne** | Valider l'enchaînement tag -> Linux/Windows -> attestations -> assets -> GitHub Release lors de la prochaine vraie release `v1.2.1+` ; suivi #185 |
+| DT-11 | Nouveau workflow de release attestée pas encore qualifié par une vraie release publiée | Release | **Moyenne** | Valider l'enchaînement tag -> Linux/Windows -> attestations -> assets -> GitHub Release lors de la prochaine vraie release `v1.2.1+` ; suivi #185. Atténuation depuis le 11/10/2026 : la moitié « build » est répétée chaque nuit sur les deux plateformes (lane `Release rehearsal` de `nightly.yml`) ; attestation, publication et relecture publique restent non exercées |
 
 `DT-04` (SQLite unique backend), `DT-05` (macOS) et `DT-12` (identités historiques à trois champs) sont
 **requalifiées le 16/09/2026** : ce sont des positions tenues, pas des dettes. Elles partent respectivement vers
