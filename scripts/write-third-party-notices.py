@@ -64,10 +64,14 @@ def shipped_components(dependency_list: str) -> list[Component]:
 
 def declarations(third_party: Path) -> dict[str, tuple[str, str]]:
     declared = {}
-    for line in (third_party / "components.tsv").read_text(encoding="utf-8").splitlines():
-        if line.strip() and not line.startswith("#"):
-            coordinates, licence, source = line.split("\t")
-            declared[coordinates] = (licence, source)
+    for number, line in enumerate((third_party / "components.tsv").read_text(encoding="utf-8").splitlines(), start=1):
+        if not line.strip() or line.startswith("#"):
+            continue
+        columns = line.split("\t")
+        if len(columns) != 3 or not all(column.strip() for column in columns):
+            raise SystemExit(f"distribution/third-party/components.tsv line {number} must hold three tab-separated "
+                             "columns: coordinates, licence identifier, source")
+        declared[columns[0]] = (columns[1], columns[2])
     return declared
 
 

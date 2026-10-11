@@ -152,6 +152,17 @@ class ThirdPartyNoticesTest(unittest.TestCase):
         self.assertNotEqual(0, result.returncode)
         self.assertIn("the notices would be empty", result.stderr)
 
+    def test_a_malformed_declaration_is_refused_by_file_and_line(self):
+        workspace = self.workspace
+        workspace.ship("org.example", "kept", "1.0", {"META-INF/LICENSE": "text"})
+        workspace.declared.append("org.example:kept\tApache-2.0")
+
+        result, _ = workspace.run()
+
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("components.tsv line 2 must hold three tab-separated columns", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
+
     def test_the_committed_declarations_and_texts_agree(self):
         third_party = ROOT / "distribution" / "third-party"
         declared = {}

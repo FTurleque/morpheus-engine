@@ -127,8 +127,7 @@ if [[ -z "$RUNTIME_JAVA" ]]; then
   find "$IMAGE_ROOT/morpheus" -maxdepth 3 -type d >&2
   exit 1
 fi
-printf '%s
-' "Embedded runtime child Java launcher: PASS ($RUNTIME_JAVA)"
+printf '%s\n' "Embedded runtime child Java launcher: PASS ($RUNTIME_JAVA)"
 
 # A distribution redistributes third-party components and a Java runtime; their licences ask for their texts to travel
 # with them. The product licence and the notices go to the root of the image, where someone who unpacks the archive
@@ -147,7 +146,12 @@ for required in LICENSE THIRD-PARTY-NOTICES; do
     exit 1
   fi
 done
-for module in $(sed -n 's/^MODULES="\(.*\)"$/\1/p' "$RUNTIME_HOME/release"); do
+RUNTIME_MODULES="$(sed -n 's/^MODULES="\(.*\)"$/\1/p' "$RUNTIME_HOME/release")"
+if [[ -z "$RUNTIME_MODULES" ]]; then
+  echo "Packaging proof failed; the embedded runtime's release file lists no module, so no legal notice was checked" >&2
+  exit 1
+fi
+for module in $RUNTIME_MODULES; do
   # On Linux a module's notices are links to those of java.base, so links count as much as files.
   if [[ -z "$(find -L "$RUNTIME_HOME/legal/$module" -type f -print -quit 2>/dev/null)" ]]; then
     echo "Packaging proof failed; the embedded runtime carries no legal notice for $module" >&2

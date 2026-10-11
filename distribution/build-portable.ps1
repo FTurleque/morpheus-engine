@@ -243,6 +243,9 @@ foreach ($required in @('LICENSE', 'THIRD-PARTY-NOTICES')) {
 }
 $runtimeModules = (Get-Content -LiteralPath (Join-Path $runtimeHome 'release') |
     Where-Object { $_ -match '^MODULES="(.*)"$' } | ForEach-Object { $Matches[1] }) -split ' '
+if (@($runtimeModules | Where-Object { $_ }).Count -eq 0) {
+    throw "Packaging proof failed; the embedded runtime's release file lists no module, so no legal notice was checked"
+}
 foreach ($module in $runtimeModules) {
     $legal = Join-Path $runtimeHome (Join-Path 'legal' $module)
     if (-not (Test-Path -LiteralPath $legal) -or @(Get-ChildItem -LiteralPath $legal -File).Count -eq 0) {
