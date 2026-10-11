@@ -278,7 +278,9 @@ function Write-Summary([bool]$Success) {
     $lines.Add(('Version:   ' + $Version))
     $lines.Add(('Result:    ' + $(if ($Success) { 'PASS' } else { 'FAIL' })))
     $lines.Add('Linux proof: NOT EXECUTED BY THIS WINDOWS VALIDATOR')
-    $lines.Add('RELEASE REHEARSAL: the build half of the release ran; nothing was tagged on origin, attested or published.')
+    if ($Success) {
+        $lines.Add('RELEASE REHEARSAL: the build half of the release ran; nothing was tagged on origin, attested or published.')
+    }
     $lines.Add('Not exercised by a rehearsal: the tag being reachable from main')
     $lines.Add('Not exercised by a rehearsal: the provenance attestation')
     $lines.Add('Not exercised by a rehearsal: the publication of the release')

@@ -45,21 +45,25 @@ def main(argv: list[str]) -> int:
     names = expected_names(workflow.read_text(encoding="utf-8"), version)
 
     rehearsed = [name for name in names if not name.endswith(tuple(ONLY_A_REAL_RELEASE_PRODUCES))]
-    missing = [name for name in rehearsed if not (directory / name).is_file()]
-    empty = [name for name in rehearsed if (directory / name).is_file() and (directory / name).stat().st_size == 0]
-
     for name in names:
         if name not in rehearsed:
             print(f"not rehearsed: {name}")
-    if missing or empty:
-        for name in missing:
-            print(f"::error::the release workflow expects {name} and the rehearsal did not build it", file=sys.stderr)
-        for name in empty:
-            print(f"::error::the release workflow expects {name} and the rehearsal built it empty", file=sys.stderr)
+    if report_unbuilt(rehearsed, directory):
         return 1
     print(f"RELEASE REHEARSAL asset names: {len(rehearsed)} of {len(names)} expected names built, "
           f"{len(names) - len(rehearsed)} produced only by a real release")
     return 0
+
+
+def report_unbuilt(rehearsed: list[str], directory: Path) -> bool:
+    """Annotates every expected name the rehearsal did not build, or built empty; true when there is one."""
+    missing = [name for name in rehearsed if not (directory / name).is_file()]
+    empty = [name for name in rehearsed if name not in missing and (directory / name).stat().st_size == 0]
+    for name in missing:
+        print(f"::error::the release workflow expects {name} and the rehearsal did not build it", file=sys.stderr)
+    for name in empty:
+        print(f"::error::the release workflow expects {name} and the rehearsal built it empty", file=sys.stderr)
+    return bool(missing or empty)
 
 
 if __name__ == "__main__":
