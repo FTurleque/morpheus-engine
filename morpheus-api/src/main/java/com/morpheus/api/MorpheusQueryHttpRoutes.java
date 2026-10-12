@@ -146,13 +146,13 @@ final class MorpheusQueryHttpRoutes {
             }
         } catch (QueryValidationException failure) {
             responseWriter.send(exchange, 400, new ApiErrorEnvelope(
-                    "v1", new ApiError("QUERY_VALIDATION", safeMessage(failure), Map.of())));
+                    "v1", new ApiError("QUERY_VALIDATION", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (QueryExportBudgetException failure) {
             responseWriter.send(exchange, 400, new ApiErrorEnvelope(
-                    "v1", new ApiError("QUERY_BUDGET_EXCEEDED", safeMessage(failure), Map.of())));
+                    "v1", new ApiError("QUERY_BUDGET_EXCEEDED", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (SavedViewConflictException failure) {
             responseWriter.send(exchange, 409, new ApiErrorEnvelope(
-                    "v1", new ApiError("REVISION_CONFLICT", safeMessage(failure), Map.of())));
+                    "v1", new ApiError("REVISION_CONFLICT", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (ApiFailure failure) {
             if (failure.status() == 405) {
                 exchange.getResponseHeaders().set("Allow", allowedMethods.forPath(exchange.getRequestURI().getPath()));
@@ -161,10 +161,10 @@ final class MorpheusQueryHttpRoutes {
                     "v1", new ApiError(failure.code(), failure.getMessage(), failure.details())));
         } catch (IllegalArgumentException failure) {
             responseWriter.send(exchange, 400, new ApiErrorEnvelope(
-                    "v1", new ApiError("BAD_REQUEST", safeMessage(failure), Map.of())));
+                    "v1", new ApiError("BAD_REQUEST", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (KnowledgeStoreException | IllegalStateException failure) {
             responseWriter.send(exchange, 409, new ApiErrorEnvelope(
-                    "v1", new ApiError("STATE_CONFLICT", safeMessage(failure), Map.of())));
+                    "v1", new ApiError("STATE_CONFLICT", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (RuntimeException failure) {
             responseWriter.send(exchange, 500, new ApiErrorEnvelope(
                     "v1", new ApiError("INTERNAL_ERROR", "internal MORPHEUS API error", Map.of())));
@@ -222,10 +222,6 @@ final class MorpheusQueryHttpRoutes {
         return new Response(status, export, Optional.of(export));
     }
 
-    private static String safeMessage(Throwable failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
 
     private record Response(int status, Object data, Optional<QueryExport> export) {
         private Response {
