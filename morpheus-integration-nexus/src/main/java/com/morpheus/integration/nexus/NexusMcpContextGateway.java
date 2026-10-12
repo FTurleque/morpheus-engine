@@ -231,7 +231,7 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
         Optional<Path> staged = Optional.empty();
         try {
             staged = settings.jarSha256().map(pin -> ExternalJarIntegrity.stageVerifiedCopy(jar, pin));
-            Path launchJar = staged.orElse(jar);
+            Path launchJar = staged.orElseThrow();
             List<String> arguments = new ArrayList<>();
             settings.homeDirectory().ifPresent(home -> arguments.add("-Dnexus.home=" + home));
             arguments.addAll(List.of("-jar", launchJar.toString()));

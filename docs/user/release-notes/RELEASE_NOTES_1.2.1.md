@@ -312,6 +312,17 @@ pour l'autorisation distante et pour le routage :
 qui encodait un segment deux fois, ou qui écrivait une espace `+` dans un chemin, doit l'encoder une seule fois et
 écrire `%20`. Les paramètres de requête (`?nom=valeur`) ne changent pas : `+` y reste une espace.
 
+### MINOS et NEXUS : l'exécutable Java ne se cherche plus dans le `PATH`
+
+Sans `MORPHEUS_MINOS_JAVA` ni `MORPHEUS_NEXUS_JAVA`, MORPHEUS lançait la commande `java`, que le système cherchait dans
+le `PATH`. Il lance maintenant l'exécutable du runtime sur lequel il tourne lui-même.
+
+Une valeur renseignée doit être le chemin absolu d'un fichier exécutable. `java` seul, ou un chemin relatif, est
+refusé : l'intégration passe à l'état invalide avec le motif, et n'est plus lancée.
+
+**Migration.** Retirer la variable si elle valait `java` : le comportement par défaut la remplace. Sinon, lui donner un
+chemin absolu. Une intégration qui a besoin d'un autre Java que celui de MORPHEUS doit le nommer en entier.
+
 ### Synchronisation : l'état de sync s'écrit avec une révision attendue
 
 Jusqu'à 1.2.0, `recordAttempt` et `commitSuccessfulSync` écrivaient l'état de synchronisation par un upsert aveugle. Deux syncs concurrentes

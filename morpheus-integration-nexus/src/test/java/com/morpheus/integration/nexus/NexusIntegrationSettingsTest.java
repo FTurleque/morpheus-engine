@@ -33,7 +33,8 @@ class NexusIntegrationSettingsTest {
         Properties properties = new Properties();
         properties.setProperty(NexusIntegrationSettings.JAR_PROPERTY, propertyJar.toString());
         properties.setProperty(NexusIntegrationSettings.TIMEOUT_PROPERTY, "37");
-        properties.setProperty(NexusIntegrationSettings.JAVA_PROPERTY, "custom-java");
+        Path launcher = Path.of(NexusIntegrationSettings.resolve(Map.of(), new Properties()).javaCommand());
+        properties.setProperty(NexusIntegrationSettings.JAVA_PROPERTY, launcher.toString());
 
         NexusIntegrationSettings settings = NexusIntegrationSettings.resolve(
                 Map.of(
@@ -43,7 +44,7 @@ class NexusIntegrationSettingsTest {
 
         assertEquals(NexusIntegrationSettings.State.CONFIGURED, settings.state());
         assertEquals(propertyJar.toAbsolutePath().normalize(), settings.jarPath().orElseThrow());
-        assertEquals("custom-java", settings.javaCommand());
+        assertEquals(launcher.toRealPath().toString(), settings.javaCommand());
         assertEquals(37, settings.timeout().toSeconds());
     }
 
@@ -59,6 +60,28 @@ class NexusIntegrationSettingsTest {
         properties.setProperty(NexusIntegrationSettings.TIMEOUT_PROPERTY, "999");
         NexusIntegrationSettings invalidTimeout = NexusIntegrationSettings.resolve(Map.of(), properties);
         assertEquals(NexusIntegrationSettings.State.INVALID, invalidTimeout.state());
+    }
+
+    @Test
+    void aPinnedJarThatStillMatchesPassesTheIntegrityCheckAndIsLaunched() throws Exception {
+        Path jar = tempDirectory.resolve("nexus-unchanged.jar");
+        Files.writeString(jar, "trusted-content, and not a server");
+        Properties properties = new Properties();
+        properties.setProperty(NexusIntegrationSettings.JAR_PROPERTY, jar.toString());
+        properties.setProperty(
+                NexusIntegrationSettings.JAR_SHA256_PROPERTY,
+                com.morpheus.application.security.ExternalJarIntegrity.sha256(jar));
+        properties.setProperty(NexusIntegrationSettings.TIMEOUT_PROPERTY, "1");
+        NexusIntegrationSettings settings = NexusIntegrationSettings.resolve(Map.of(), properties);
+
+        NexusIntegrationException failure = assertThrows(
+                NexusIntegrationException.class,
+                () -> new NexusMcpContextGateway(settings));
+
+        assertFalse(failure.getMessage().contains("integrity verification"), failure.getMessage());
+        assertTrue(failure.getMessage().startsWith("cannot start or initialize NEXUS MCP server")
+                        || failure.getMessage().contains("deadline"),
+                failure.getMessage());
     }
 
     @Test
