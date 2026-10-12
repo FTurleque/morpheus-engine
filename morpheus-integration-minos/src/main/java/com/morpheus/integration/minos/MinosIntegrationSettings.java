@@ -2,6 +2,7 @@ package com.morpheus.integration.minos;
 
 import com.morpheus.application.security.ExternalJarIntegrity;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
@@ -65,7 +66,8 @@ public record MinosIntegrationSettings(
 
         String rawJar = value(properties, JAR_PROPERTY, environment, JAR_ENV).orElse(null);
         String rawJarSha256 = value(properties, JAR_SHA256_PROPERTY, environment, JAR_SHA256_ENV).orElse(null);
-        String javaCommand = value(properties, JAVA_PROPERTY, environment, JAVA_ENV).orElse("java");
+        Optional<String> rawJava = value(properties, JAVA_PROPERTY, environment, JAVA_ENV);
+        String javaCommand = runtimeLauncher();
         String rawHome = value(properties, HOME_PROPERTY, environment, HOME_ENV).orElse(null);
         String rawTimeout = value(properties, TIMEOUT_PROPERTY, environment, TIMEOUT_ENV)
                 .orElse(Integer.toString(DEFAULT_TIMEOUT_SECONDS));
@@ -101,9 +103,16 @@ public record MinosIntegrationSettings(
             error = Optional.of("invalid MINOS path: " + failure.getInput());
         }
 
-        if (javaCommand == null || javaCommand.isBlank()) {
-            error = Optional.of("MINOS Java command must not be blank");
-            javaCommand = "java";
+        if (rawJava.isPresent()) {
+            try {
+                javaCommand = configuredLauncher(rawJava.orElseThrow());
+            } catch (InvalidPathException failure) {
+                error = Optional.of("MINOS Java command must be an absolute path");
+            } catch (IllegalArgumentException refused) {
+                error = Optional.of("MINOS Java command " + refused.getMessage());
+            } catch (IOException unresolved) {
+                error = Optional.of("MINOS Java command is not an executable file");
+            }
         }
 
         try {
@@ -148,6 +157,32 @@ public record MinosIntegrationSettings(
         }
         String env = environment.get(environmentName);
         return env == null || env.isBlank() ? Optional.empty() : Optional.of(env.trim());
+    }
+
+    /**
+     * The launcher of the runtime this JVM runs on. A bare command would be looked up on the search path of the
+     * MORPHEUS process, where another executable of that name can be placed first.
+     */
+    private static String runtimeLauncher() {
+        Path bin = Path.of(System.getProperty("java.home")).resolve("bin");
+        Path windowsLauncher = bin.resolve("java.exe");
+        return (Files.isRegularFile(windowsLauncher) ? windowsLauncher : bin.resolve("java"))
+                .toAbsolutePath().normalize().toString();
+    }
+
+    /**
+     * A configured launcher names its file in full. A link is resolved rather than refused -- the usual launcher of a
+     * Linux system is a chain of links -- and the real file is what is launched and reported.
+     */
+    private static String configuredLauncher(String configured) throws IOException {
+        Path launcher = Path.of(configured);
+        if (!launcher.isAbsolute()) {
+            throw new IllegalArgumentException("must be an absolute path");
+        }
+        if (!Files.isRegularFile(launcher) || !Files.isExecutable(launcher)) {
+            throw new IllegalArgumentException("is not an executable file");
+        }
+        return launcher.toRealPath().toString();
     }
 
     private static Path normalize(Path path) {

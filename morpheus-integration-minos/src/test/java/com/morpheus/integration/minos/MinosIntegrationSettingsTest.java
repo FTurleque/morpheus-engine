@@ -34,7 +34,8 @@ class MinosIntegrationSettingsTest {
         Properties properties = new Properties();
         properties.setProperty(MinosIntegrationSettings.JAR_PROPERTY, propertyJar.toString());
         properties.setProperty(MinosIntegrationSettings.TIMEOUT_PROPERTY, "41");
-        properties.setProperty(MinosIntegrationSettings.JAVA_PROPERTY, "custom-java");
+        Path launcher = Path.of(MinosIntegrationSettings.resolve(Map.of(), new Properties()).javaCommand());
+        properties.setProperty(MinosIntegrationSettings.JAVA_PROPERTY, launcher.toString());
 
         MinosIntegrationSettings settings = MinosIntegrationSettings.resolve(
                 Map.of(
@@ -44,7 +45,7 @@ class MinosIntegrationSettingsTest {
 
         assertEquals(MinosIntegrationSettings.State.CONFIGURED, settings.state());
         assertEquals(propertyJar.toAbsolutePath().normalize(), settings.jarPath().orElseThrow());
-        assertEquals("custom-java", settings.javaCommand());
+        assertEquals(launcher.toRealPath().toString(), settings.javaCommand());
         assertEquals(41, settings.timeout().toSeconds());
     }
 

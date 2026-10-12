@@ -41,6 +41,11 @@ MORPHEUS_MINOS_HOME
 MORPHEUS_MINOS_TIMEOUT_SECONDS
 ```
 
+`MORPHEUS_MINOS_JAVA` désigne l'exécutable Java qui lance MINOS. Il est facultatif : sans lui, MINOS tourne sur le
+runtime Java de MORPHEUS lui-même. S'il est renseigné, ce doit être le **chemin absolu** d'un fichier exécutable ;
+`java` seul, ou un chemin relatif, est refusé et l'intégration passe à l'état invalide. Un lien symbolique est accepté :
+c'est le fichier vers lequel il pointe qui est lancé, et c'est lui que le statut affiche.
+
 Vérifier :
 
 ```bash
@@ -81,6 +86,11 @@ MORPHEUS_NEXUS_JAVA
 MORPHEUS_NEXUS_HOME
 MORPHEUS_NEXUS_TIMEOUT_SECONDS
 ```
+
+`MORPHEUS_NEXUS_JAVA` désigne l'exécutable Java qui lance NEXUS. Il est facultatif : sans lui, NEXUS tourne sur le
+runtime Java de MORPHEUS lui-même. S'il est renseigné, ce doit être le **chemin absolu** d'un fichier exécutable ;
+`java` seul, ou un chemin relatif, est refusé et l'intégration passe à l'état invalide. Un lien symbolique est accepté :
+c'est le fichier vers lequel il pointe qui est lancé, et c'est lui que le statut affiche.
 
 Vérifier :
 
