@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SonarQualityGateClassificationContractTest {
@@ -65,7 +66,7 @@ class SonarQualityGateClassificationContractTest {
                 "the nightly lane analyses develop and must name it to the classifier");
         assertTrue(nightly.contains("-Dsonar.qualitygate.wait=true"),
                 "the nightly lane must still ask for a verdict: the exemption is not an upload-only mode");
-        assertTrue(!trustedMain.contains("SONAR_BRANCH_NAME"),
+        assertFalse(trustedMain.contains("SONAR_BRANCH_NAME"),
                 "the analysis of main names no branch, so a refusal to read its gate stays an error");
     }
 
