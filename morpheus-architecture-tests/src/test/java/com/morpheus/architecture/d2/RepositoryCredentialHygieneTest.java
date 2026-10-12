@@ -2,12 +2,14 @@ package com.morpheus.architecture.d2;
 
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
@@ -90,17 +92,39 @@ class RepositoryCredentialHygieneTest {
      */
     private static List<String> trackedFiles(Path root) throws IOException, InterruptedException {
         assumeTrue(Files.exists(root.resolve(".git")), "not a Git checkout: tracked files cannot be listed");
-        Process git;
-        try {
-            git = new ProcessBuilder("git", "ls-files").directory(root.toFile()).redirectErrorStream(true).start();
-        } catch (IOException unavailable) {
-            assumeTrue(false, "git is not available: tracked files cannot be listed");
-            throw unavailable;
-        }
+        Optional<Path> executable = gitExecutable();
+        assumeTrue(executable.isPresent(), "git is not available: tracked files cannot be listed");
+        Process git = new ProcessBuilder(executable.orElseThrow().toString(), "ls-files")
+                .directory(root.toFile())
+                .redirectErrorStream(true)
+                .start();
         String output = new String(git.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertTrue(git.waitFor(60, TimeUnit.SECONDS) && git.exitValue() == 0,
                 () -> "git ls-files failed: " + output);
         return output.lines().map(String::strip).filter(line -> !line.isEmpty()).toList();
+    }
+
+    /**
+     * The Git executable as an absolute path, found on the search path here rather than left to the operating system:
+     * the process is then started from a file this test named, not from whatever a bare command resolves to.
+     */
+    private static Optional<Path> gitExecutable() {
+        String searchPath = System.getenv("PATH");
+        if (searchPath == null) {
+            return Optional.empty();
+        }
+        for (String directory : searchPath.split(File.pathSeparator)) {
+            if (directory.isBlank()) {
+                continue;
+            }
+            for (String name : List.of("git.exe", "git")) {
+                Path candidate = Path.of(directory).resolve(name).toAbsolutePath();
+                if (Files.isRegularFile(candidate) && Files.isExecutable(candidate)) {
+                    return Optional.of(candidate);
+                }
+            }
+        }
+        return Optional.empty();
     }
 
     private static Path repositoryRoot() throws IOException {
