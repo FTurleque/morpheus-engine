@@ -7,9 +7,7 @@ import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.reference.ExternalReference;
 import com.morpheus.domain.reference.ExternalReferenceId;
-import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
-import com.morpheus.domain.snapshot.KnowledgeSnapshotState;
 
 import java.time.Clock;
 import java.util.List;
@@ -52,22 +50,6 @@ public final class LiveExternalReferenceResolutionService {
         Objects.requireNonNull(referenceId, "referenceId");
         return snapshotStore.activeSnapshot(projectId)
                 .map(snapshot -> resolve(snapshot, referenceId));
-    }
-
-    public LiveExternalReferenceResolutionResult resolveSnapshot(
-            KnowledgeSnapshotId snapshotId,
-            ExternalReferenceId referenceId) {
-        Objects.requireNonNull(snapshotId, "snapshotId");
-        Objects.requireNonNull(referenceId, "referenceId");
-        KnowledgeSnapshotMetadata snapshot = snapshotStore.findSnapshot(snapshotId)
-                .orElseThrow(() -> new KnowledgeStoreException("unknown knowledge snapshot: " + snapshotId));
-        if (snapshot.state() != KnowledgeSnapshotState.ACTIVE
-                && snapshot.state() != KnowledgeSnapshotState.RETIRED) {
-            throw new KnowledgeStoreException(
-                    "live external resolution requires an ACTIVE or RETIRED snapshot: "
-                            + snapshot.id() + " is " + snapshot.state());
-        }
-        return resolve(snapshot, referenceId);
     }
 
     private LiveExternalReferenceResolutionResult resolve(

@@ -9,9 +9,7 @@ import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.constraint.Constraint;
 import com.morpheus.domain.constraint.ConstraintEvaluation;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
-import com.morpheus.domain.snapshot.KnowledgeSnapshotState;
 
 import java.util.List;
 import java.util.Objects;
@@ -52,18 +50,6 @@ public final class ConstraintEvaluationQueryService {
                 .map(snapshot -> evaluations(snapshot, changeId, targetState, pageRequest));
     }
 
-    public SnapshotPage<ConstraintEvaluation> snapshotEvaluations(
-            KnowledgeSnapshotId snapshotId,
-            ChangeId changeId,
-            ChangeLifecycleState targetState,
-            PageRequest pageRequest) {
-        Objects.requireNonNull(snapshotId, "snapshotId");
-        Objects.requireNonNull(changeId, "changeId");
-        Objects.requireNonNull(targetState, "targetState");
-        Objects.requireNonNull(pageRequest, "pageRequest");
-        return evaluations(requirePublished(snapshotId), changeId, targetState, pageRequest);
-    }
-
     private SnapshotPage<ConstraintEvaluation> evaluations(
             KnowledgeSnapshotMetadata snapshot,
             ChangeId changeId,
@@ -82,16 +68,5 @@ public final class ConstraintEvaluationQueryService {
                 .map(item -> evaluator.apply(item, targetState))
                 .toList();
         return new SnapshotPage<>(snapshot, items, pageRequest, matches.size(), to < matches.size());
-    }
-
-    private KnowledgeSnapshotMetadata requirePublished(KnowledgeSnapshotId snapshotId) {
-        KnowledgeSnapshotMetadata snapshot = snapshotStore.findSnapshot(snapshotId)
-                .orElseThrow(() -> new KnowledgeStoreException("unknown knowledge snapshot: " + snapshotId));
-        if (snapshot.state() != KnowledgeSnapshotState.ACTIVE
-                && snapshot.state() != KnowledgeSnapshotState.RETIRED) {
-            throw new KnowledgeStoreException(
-                    "query requires an ACTIVE or RETIRED snapshot: " + snapshot.id() + " is " + snapshot.state());
-        }
-        return snapshot;
     }
 }

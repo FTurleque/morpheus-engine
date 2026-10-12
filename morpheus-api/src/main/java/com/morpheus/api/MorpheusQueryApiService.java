@@ -44,10 +44,6 @@ public final class MorpheusQueryApiService {
         return execute(new ProjectQueryScope(ProjectSpecificationId.parse(projectId)), request);
     }
 
-    public Object executePortfolio(String portfolioId, QueryRequest request) {
-        return execute(new PortfolioQueryScope(PortfolioId.parse(portfolioId)), request);
-    }
-
     public Object execute(ScopedQueryRequest request) {
         Objects.requireNonNull(request, "request");
         return execute(scope(request.scopeKind(), request.scopeId()), request.query());
