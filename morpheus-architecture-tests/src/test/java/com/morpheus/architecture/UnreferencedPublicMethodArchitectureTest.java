@@ -34,8 +34,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>A name is looked for in code only: a mention in a comment, in documentation or in a string calls nothing. And a
  * name is referenced when it occurs more often than it is declared, so two overloads nothing calls do not vouch for
- * each other. The known limit is what remains: a dead public method that shares its name with a method of another
- * visibility, or with an overriding one, is not seen.</p>
+ * each other. The known limit is what remains, and it is wide: an occurrence is any identifier of that spelling in any
+ * Java file -- a method of another class, a field, a local variable, a record component. A dead public method is seen
+ * only when its name is used for nothing else in the repository; {@code status()} or {@code parse()} never will be.</p>
+ *
+ * <p>The entry point of a process is called by the launcher, not by Java code, and is not judged: it used to pass only
+ * because tests happened to hold local variables named {@code main}.</p>
  *
  * <p>The published plugin SDK and the verification tooling are outside the scan: a method of the SDK that MORPHEUS
  * does not call is an API offered to plugins, not dead code.</p>
@@ -124,6 +128,18 @@ class UnreferencedPublicMethodArchitectureTest {
     }
 
     @Test
+    void theEntryPointOfAProcessIsNotJudgedAndAnOrdinaryMethodOfThatNameIs() {
+        String launcher = "class Launcher {\n    public static void main(String[] arguments) {\n    }\n}\n";
+        String ordinary = "class Menu {\n    public String main() {\n        return \"\";\n    }\n}\n";
+
+        Scan entryPoint = scan(Map.of("m/src/main/java/Launcher.java", launcher), List.of());
+        assertEquals(Set.of(), entryPoint.namedNowhereElse());
+        assertEquals(0, entryPoint.examined());
+        assertEquals(Set.of("Menu.java#main"),
+                scan(Map.of("m/src/main/java/Menu.java", ordinary), List.of()).namedNowhereElse());
+    }
+
+    @Test
     void overloadsNothingCallsDoNotVouchForEachOther() {
         String declaring = "class A {\n    public int page(int offset) {\n        return 0;\n    }\n\n"
                 + "    public int page(int offset, int limit) {\n        return 0;\n    }\n}\n";
@@ -168,7 +184,7 @@ class UnreferencedPublicMethodArchitectureTest {
             String fileName = source.getKey().substring(source.getKey().lastIndexOf('/') + 1);
             Matcher declaration = PUBLIC_METHOD.matcher(source.getValue());
             while (declaration.find()) {
-                if (overrides(source.getValue(), declaration)) {
+                if (overrides(source.getValue(), declaration) || isAProcessEntryPoint(declaration)) {
                     continue;
                 }
                 examined++;
@@ -210,6 +226,10 @@ class UnreferencedPublicMethodArchitectureTest {
             end = start;
         }
         return false;
+    }
+
+    private static boolean isAProcessEntryPoint(Matcher declaration) {
+        return declaration.group(1).equals("main") && declaration.group().contains("static");
     }
 
     private static String declared(String line) {

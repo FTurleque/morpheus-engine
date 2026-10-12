@@ -29,3 +29,9 @@ Implemented on 2026-10-12 by pull request 452.
 
 - The test started `git` by its bare name, which the code scanner reported as a search-path dependency. It now finds
   the executable on the search path itself and starts it by its absolute path.
+
+## After the review of 2026-10-13
+
+- The tracked-file check matched names case-sensitively and read `git ls-files` without `-z`, which quotes a name
+  that is not ASCII: `SERVER.P12` and a key file with an accented name passed. Both are closed.
+- Outside a checkout or without Git the check is skipped. In a build that is judged (`CI` set) it now fails instead.

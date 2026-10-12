@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.net.http.HttpClient;
 import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
@@ -50,12 +52,20 @@ class LocalResponseSecurityHeadersTest {
                     .POST(HttpRequest.BodyPublishers.ofString("{\"question\":\"\",\"evidence\":[],\"adapterIds\":[]}"))));
             responses.put("refused origin", send(client, HttpRequest.newBuilder(URI.create(base + "/version"))
                     .header("Origin", "https://attacker.example").GET()));
+            Files.write(temporaryDirectory.resolve("headers.db"),
+                    "not a SQLite database, so that a store opened on it fails".repeat(64)
+                            .getBytes(StandardCharsets.UTF_8));
+            responses.put("state conflict", send(client, HttpRequest.newBuilder(URI.create(base + "/policies/evaluate"))
+                    .header("Content-Type", "application/json; charset=utf-8")
+                    .POST(HttpRequest.BodyPublishers.ofString("{\"scopeKind\":\"PROJECT\","
+                            + "\"scopeId\":\"11111111-1111-7111-8111-111111111111\"}"))));
 
             assertEquals(200, responses.get("success").statusCode());
             assertEquals(404, responses.get("unknown route").statusCode());
             assertEquals(405, responses.get("refused method").statusCode());
             assertEquals(400, responses.get("refused body").statusCode());
             assertEquals(403, responses.get("refused origin").statusCode());
+            assertEquals(409, responses.get("state conflict").statusCode());
 
             responses.forEach((kind, response) -> {
                 HttpHeaders headers = response.headers();

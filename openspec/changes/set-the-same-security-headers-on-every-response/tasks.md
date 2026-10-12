@@ -6,9 +6,7 @@ Implemented on 2026-10-12 by pull request 454.
 
 - [ ] 1.1 Record the headers of a success, a 400, a 404, a 405, a 409 and an origin refusal on the local server, and of
       a proxied response, a 401, a 403 and a 429 on the remote facade. Proof: the table.
-      *Not recorded as a table. The local half is held by `LocalResponseSecurityHeadersTest`, which reads five real
-      responses (success, unknown route, refused method, refused body, refused origin); a 409 is not among them. The
-      remote half is asserted on the writer and the server, not response by response.*
+      *Local half done on 2026-10-13: `LocalResponseSecurityHeadersTest` reads six real responses — success, unknown route (404), refused method (405), refused body (400), refused origin (403) and a state conflict (409) — and `CapabilityProtectedHttpServerTest` the refusal for want of the internal capability (401). The remote half is still asserted on the writer and at the top of `serve`, not response by response.*
 - [x] 1.2 Read what the security gate asserts textually about these headers. Proof: the assertions that must still pass.
 
 ## 2. Reproduce before fixing
@@ -34,3 +32,11 @@ Implemented on 2026-10-12 by pull request 454.
 - [x] 4.2 `docs/user/TEAM_REMOTE_SERVER.md`: one sentence on HSTS and its one-year pin. Pull request description: the
       finding, the table of 1.1.
       *The sentence and the finding; of the table, see 1.1.*
+
+## After the reviews of 2026-10-13
+
+- A third local response path wrote its headers itself and missed three of the five: the 401 of
+  `MorpheusInternalCapability`, answered to a loopback request that lacks the internal capability in remote mode. It
+  calls the shared declaration now. Task 3.1 was ticked while this path was outside it.
+- "Every local response" means every response under `/api/v1`: a path outside the context and a malformed request line
+  are answered by the JDK server itself, without these headers. The release note says "under `/api/v1`".

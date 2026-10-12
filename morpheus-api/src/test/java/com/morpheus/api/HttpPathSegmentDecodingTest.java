@@ -37,6 +37,33 @@ class HttpPathSegmentDecodingTest {
         }
     }
 
+    /**
+     * The action that runs is the one the decoded segment names, observed by what each action alone refuses: archiving
+     * needs a body, executing forbids one. The methods a route accepts would not tell them apart -- both take POST.
+     */
+    @Test
+    void anEncodedActionRunsTheActionItNamesAndNoOther() throws Exception {
+        try (MorpheusHttpServer server = MorpheusHttpServer.start(
+                temporaryDirectory.resolve("actions.db"), "127.0.0.1", 0);
+             HttpClient client = HttpClient.newHttpClient()) {
+            HttpResponse<String> archive = send(client, server, "POST", "/saved-views/view-1/%61rchive");
+            HttpResponse<String> execute = client.send(HttpRequest.newBuilder(
+                            URI.create(server.baseUri() + "/saved-views/view-1/%65xecute"))
+                    .header("Content-Type", "application/json; charset=utf-8")
+                    .POST(HttpRequest.BodyPublishers.ofString("{}"))
+                    .build(), HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> doublyEncoded = send(client, server, "POST", "/saved-views/view-1/%2561rchive");
+
+            assertEquals(400, archive.statusCode(), archive::body);
+            assertTrue(archive.body().contains("\"message\":\"JSON request body is required\""), archive::body);
+            assertEquals(400, execute.statusCode(), execute::body);
+            assertTrue(execute.body().contains("\"message\":\"request body must be empty\""), execute::body);
+            assertEquals(404, doublyEncoded.statusCode(), doublyEncoded::body);
+            assertTrue(doublyEncoded.body().contains("\"message\":\"unknown saved-view action: %61rchive\""),
+                    doublyEncoded::body);
+        }
+    }
+
     @Test
     void aContextIsNotEnteredByAPathThatOnlyStartsWithItsName() throws Exception {
         try (MorpheusHttpServer server = MorpheusHttpServer.start(

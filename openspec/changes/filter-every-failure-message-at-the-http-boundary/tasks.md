@@ -9,9 +9,9 @@ Implemented on 2026-10-12 by pull request 453.
       *The excused list of `HttpFailureDisclosureArchitectureTest` is that table: the filter itself and five failure
       types MORPHEUS authors for the caller, each with its reason. The rule found three reads in the remote facade that
       a textual search had been read past.*
-- [ ] 1.2 List the routes each of the four routers serves and which error codes use `safeMessage`. Proof: the table, in
+- [x] 1.2 List the routes each of the four routers serves and which error codes use `safeMessage`. Proof: the table, in
       the pull request.
-      *Not written as a table: the pull request names the four routers and the count of routes, not each route.*
+      *2026-10-13, read from the route table and the four `handle` methods. Query (`queries/execute`, `exports`, `saved-views` and its five sub-routes): `QUERY_VALIDATION`, `QUERY_BUDGET_EXCEEDED`, `REVISION_CONFLICT`, `BAD_REQUEST`, `STATE_CONFLICT`. Policy (`policy-packs` and its six sub-routes, `policies/evaluate`, `policies/dry-run`, `policy-overrides`): `REVISION_CONFLICT`, `BAD_REQUEST`, `STATE_CONFLICT`. Policy management (`policy-activations`, `policy-overrides/remove`): the same three. Reasoning (`reasoning/adapters`, `reasoning/analyze`): `REASONING_VALIDATION`. Every one of these codes relayed the raw message; `INTERNAL_ERROR` always carried a literal.*
 
 ## 2. Reproduce before fixing
 
@@ -48,3 +48,12 @@ Implemented on 2026-10-12 by pull request 453.
 
 - A JSON decoding refusal quotes the Java class of the request. It names no location and the filter lets it through; it
   is a different disclosure and is not in this finding.
+
+## After the reviews of 2026-10-13
+
+- The rule read only `getMessage()`; it reads `getLocalizedMessage()` too, covers sub-packages, and no longer judges
+  the tests that share the adapter's package name. Its known limit: a failure concatenated into a string
+  (`"..." + failure`) calls `toString()`, which the rule does not see.
+- The release note said a refusal that quotes a path-shaped value of the request is replaced. True of a validation
+  refusal; a route refusal (404) quotes the unknown segment the caller wrote. The note says so now. The single
+  decoding made that reachable with an encoded slash; the value is the caller's own.

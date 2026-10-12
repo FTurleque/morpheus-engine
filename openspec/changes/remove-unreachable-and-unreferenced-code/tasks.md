@@ -52,3 +52,19 @@ Implemented on 2026-10-12 by pull request 455.
       `dependency:analyze`.*
 - [x] 4.2 Parity suites and M19 are untouched by construction; the gate of M19 runs in the nightly lane.
 - [x] 4.3 Pull request description: both findings, the measured lists, decision 4 and its scope.
+
+## After the reviews of 2026-10-12 and 2026-10-13
+
+- **Seventeen methods, not sixteen.** The scan counted a mention in a comment or a string as a reference, and let two
+  overloads vouch for each other. Corrected, it found `MinosIntegrationRuntime.disabled()`, removed with the rest. The
+  specification's "sixteen" is the audit's count.
+- The scan no longer judges a process entry point (`main`), which passed only because tests held local variables of
+  that name. Its limit is stated as wide as it is: an occurrence is any identifier of that spelling.
+- Three package-private wrappers this sprint left behind, called by tests only, are removed:
+  `MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout(String, String)` and its policy counterpart,
+  `usesPrivilegedConcurrency(String, String)`, and `MorpheusRemoteRoutePolicy.requiredRole`. The scan could not see
+  them: it judges public methods.
+- The textual rules read every source of the `sync` package and every spelling of the fallback
+  (`staged.orElse(`, `staged.orElseGet(`), not two files and one variable name.
+- The scanner's refusal said a symbolic root "is not followed by the active scan policy"; there is no such setting any
+  more, and the message says "is not followed".

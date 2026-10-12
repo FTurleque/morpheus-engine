@@ -203,7 +203,7 @@ class MorpheusRemoteProxyResponseBudgetTest {
         Semaphore responseSlots = new Semaphore(1, true);
         MorpheusRemoteProxyTransport transport = transport(responseSlots);
 
-        Object outcome = forward(transport, new StubExchange("GET", "/api/v1/unbounded"));
+        Object outcome = forward(transport, new StubExchange("GET", "/api/v1/unbounded"), false);
 
         assertTrue(outcome instanceof MorpheusRemoteProxyTransport.TransportException,
                 () -> "a chunked upstream response must be refused, got: " + outcome);
@@ -226,12 +226,17 @@ class MorpheusRemoteProxyResponseBudgetTest {
     }
 
     private Object forward(MorpheusRemoteProxyTransport transport, StubExchange exchange) {
+        return forward(transport, exchange, MorpheusRemoteRoutePolicy
+                .authorize(exchange.getRequestMethod(), exchange.path).usesBoundedUpstreamTimeout());
+    }
+
+    private Object forward(MorpheusRemoteProxyTransport transport, StubExchange exchange, boolean boundedTimeout) {
         try {
             transport.forward(
                     exchange,
                     URI.create("http://127.0.0.1:" + upstream.getAddress().getPort() + exchange.path),
                     new byte[0],
-                    MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout(exchange.getRequestMethod(), exchange.path));
+                    boundedTimeout);
             return null;
         } catch (IOException | RuntimeException failure) {
             return failure;

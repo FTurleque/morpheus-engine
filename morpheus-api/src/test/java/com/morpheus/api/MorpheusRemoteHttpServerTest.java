@@ -243,13 +243,11 @@ class MorpheusRemoteHttpServerTest {
 
     @Test
     void remoteProxyTimeoutExcludesOperationsWithoutCooperativeCancellation() {
-        assertTrue(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("GET", "/api/v1/health"));
-        assertTrue(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("POST", "/api/v1/reasoning/analyze"));
-        assertFalse(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("POST", "/api/v1/provider-plugins/probe"));
-        assertFalse(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("POST", "/api/v1/projects/p1/sync"));
-        assertFalse(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("POST", "/api/v1/projects"));
-        assertFalse(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("PUT", "/api/v1/anything"));
-        assertFalse(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("DELETE", "/api/v1/anything"));
+        assertTrue(MorpheusRemoteRoutePolicy.authorize("GET", "/api/v1/health").usesBoundedUpstreamTimeout());
+        assertTrue(MorpheusRemoteRoutePolicy.authorize("POST", "/api/v1/reasoning/analyze").usesBoundedUpstreamTimeout());
+        assertFalse(MorpheusRemoteRoutePolicy.authorize("POST", "/api/v1/provider-plugins/probe").usesBoundedUpstreamTimeout());
+        assertFalse(MorpheusRemoteRoutePolicy.authorize("POST", "/api/v1/projects/p1/sync").usesBoundedUpstreamTimeout());
+        assertFalse(MorpheusRemoteRoutePolicy.authorize("POST", "/api/v1/projects").usesBoundedUpstreamTimeout());
     }
 
     private void assertAuthFileNeverPersistsRawTokens(
