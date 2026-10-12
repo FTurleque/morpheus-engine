@@ -38,10 +38,6 @@ public final class SpecificationProviderRegistry {
         return selectionPolicy.select(probeAll(workspaceRoot), request);
     }
 
-    public List<ProviderId> providerIds() {
-        return providers.stream().map(SpecificationProvider::id).toList();
-    }
-
     private void rejectDuplicateIds(List<SpecificationProvider> providers) {
         Set<ProviderId> seen = new HashSet<>();
         for (SpecificationProvider provider : providers) {
