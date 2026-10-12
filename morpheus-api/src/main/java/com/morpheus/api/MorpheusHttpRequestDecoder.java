@@ -16,7 +16,7 @@ final class MorpheusHttpRequestDecoder {
     private final Duration readTimeout;
     private final ExecutorService executor;
     private final JsonMapper mapper;
-    private final MorpheusHttpPathParser pathParser = new MorpheusHttpPathParser(MorpheusHttpServer.API_PREFIX);
+    private final MorpheusHttpPathParser pathParser = MorpheusHttpPathParser.api();
 
     MorpheusHttpRequestDecoder(int maxRequestBodyBytes, Duration readTimeout, ExecutorService executor) {
         if (maxRequestBodyBytes < 1) throw new IllegalArgumentException("maxRequestBodyBytes must be positive");

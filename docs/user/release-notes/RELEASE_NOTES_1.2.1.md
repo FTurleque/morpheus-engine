@@ -318,7 +318,11 @@ Sans `MORPHEUS_MINOS_JAVA` ni `MORPHEUS_NEXUS_JAVA`, MORPHEUS lançait la comman
 le `PATH`. Il lance maintenant l'exécutable du runtime sur lequel il tourne lui-même.
 
 Une valeur renseignée doit être le chemin absolu d'un fichier exécutable. `java` seul, ou un chemin relatif, est
-refusé : l'intégration passe à l'état invalide avec le motif, et n'est plus lancée.
+refusé : l'intégration passe à l'état invalide avec le motif, et n'est plus lancée. Sous Windows, le suffixe `.exe`
+peut être omis, comme avant.
+
+Quand plusieurs réglages d'une intégration sont refusés, le motif les cite tous, séparés par un point-virgule ; il
+ne citait que le dernier.
 
 **Migration.** Retirer la variable si elle valait `java` : le comportement par défaut la remplace. Sinon, lui donner un
 chemin absolu. Une intégration qui a besoin d'un autre Java que celui de MORPHEUS doit le nommer en entier.

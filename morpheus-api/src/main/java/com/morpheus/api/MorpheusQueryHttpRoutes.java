@@ -22,9 +22,12 @@ import java.util.Set;
 
 /** Isolated M24/M25 extension routing contexts so legacy /api/v1 routes remain untouched. */
 final class MorpheusQueryHttpRoutes {
-    private static final String QUERY_CONTEXT = MorpheusHttpServer.API_PREFIX + "/queries";
-    private static final String VIEW_CONTEXT = MorpheusHttpServer.API_PREFIX + "/saved-views";
-    private static final String EXPORT_CONTEXT = MorpheusHttpServer.API_PREFIX + "/exports";
+    private static final String QUERIES = "queries";
+    private static final String VIEWS = "saved-views";
+    private static final String EXPORTS = "exports";
+    private static final String QUERY_CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + QUERIES;
+    private static final String VIEW_CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + VIEWS;
+    private static final String EXPORT_CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + EXPORTS;
 
     private final MorpheusQueryApiService service;
     private final MorpheusHttpRequestDecoder requestDecoder;
@@ -54,7 +57,7 @@ final class MorpheusQueryHttpRoutes {
     private void handleQueries(HttpExchange exchange) throws IOException {
         handle(exchange, () -> {
             requireMethod(exchange, "POST");
-            requireExactPath(exchange, "queries", "execute");
+            requireExactPath(exchange, QUERIES, "execute");
             rejectQueryParameters(exchange);
             return json(200, service.execute(
                     requestDecoder.readRequiredJson(exchange, MorpheusQueryApiService.ScopedQueryRequest.class)));
@@ -64,7 +67,7 @@ final class MorpheusQueryHttpRoutes {
     private void handleExports(HttpExchange exchange) throws IOException {
         handle(exchange, () -> {
             requireMethod(exchange, "POST");
-            requireExactPath(exchange, "exports");
+            requireExactPath(exchange, EXPORTS);
             rejectQueryParameters(exchange);
             return raw(200, service.export(
                     requestDecoder.readRequiredJson(exchange, MorpheusQueryApiService.ExportRequest.class)));
@@ -77,7 +80,7 @@ final class MorpheusQueryHttpRoutes {
 
     private Response routeSavedViews(HttpExchange exchange) {
         String method = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
-        List<String> segments = requestDecoder.pathSegmentsBelow(exchange, "saved-views");
+        List<String> segments = requestDecoder.pathSegmentsBelow(exchange, VIEWS);
         if (segments.isEmpty()) {
             if (method.equals("GET")) {
                 MorpheusHttpQuery query = MorpheusHttpQuery.parse(exchange.getRequestURI().getRawQuery());

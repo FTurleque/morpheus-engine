@@ -7,12 +7,15 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -102,6 +105,62 @@ class NexusPeerLauncherResolutionTest {
 
         assertTrue(settings.configurationError().isEmpty(), () -> String.valueOf(settings.configurationError()));
         assertEquals(launcher.toRealPath().toString(), settings.javaCommand());
+    }
+
+    @Test
+    @EnabledOnOs(OS.WINDOWS)
+    void aWindowsLauncherWrittenWithoutItsSuffixIsTheLauncherItNames() throws Exception {
+        String launcher = NexusIntegrationSettings.resolve(Map.of(), new Properties()).javaCommand();
+        assertTrue(launcher.endsWith(".exe"), launcher);
+
+        NexusIntegrationSettings settings = configured(launcher.substring(0, launcher.length() - ".exe".length()));
+
+        assertTrue(settings.configurationError().isEmpty(), () -> String.valueOf(settings.configurationError()));
+        assertEquals(Path.of(launcher).toRealPath().toString(), settings.javaCommand());
+    }
+
+    @Test
+    void aRuntimeWithoutALauncherIsNamedWhenAPeerIsConfiguredAndOnlyThen() throws Exception {
+        Path jar = Files.writeString(tempDirectory.resolve("peer.jar"), "content");
+        Properties withPeer = new Properties();
+        withPeer.setProperty(NexusIntegrationSettings.JAR_PROPERTY, jar.toString());
+        String runtime = System.getProperty("java.home");
+        System.setProperty("java.home", tempDirectory.toString());
+        try {
+            NexusIntegrationSettings configured = NexusIntegrationSettings.resolve(Map.of(), withPeer);
+            NexusIntegrationSettings unused = NexusIntegrationSettings.resolve(Map.of(), new Properties());
+
+            assertEquals(NexusIntegrationSettings.State.INVALID, configured.state());
+            assertEquals("NEXUS Java command is not configured and the MORPHEUS runtime carries no launcher",
+                    configured.configurationError().orElseThrow());
+            assertEquals(NexusIntegrationSettings.State.DISABLED, unused.state());
+        } finally {
+            System.setProperty("java.home", runtime);
+        }
+    }
+
+    @Test
+    void everyRefusedSettingIsReportedNotOnlyTheLastOne() {
+        Path missingJar = tempDirectory.resolve("no-such.jar").toAbsolutePath().normalize();
+        Properties properties = new Properties();
+        properties.setProperty(NexusIntegrationSettings.JAR_PROPERTY, missingJar.toString());
+        properties.setProperty(NexusIntegrationSettings.JAVA_PROPERTY, "java");
+        properties.setProperty(NexusIntegrationSettings.TIMEOUT_PROPERTY, "soon");
+
+        NexusIntegrationSettings settings = NexusIntegrationSettings.resolve(Map.of(), properties);
+
+        assertEquals("NEXUS runner JAR is not a file: " + missingJar
+                        + "; NEXUS Java command must be an absolute path; invalid NEXUS timeout: soon",
+                settings.configurationError().orElseThrow());
+    }
+
+    @Test
+    void theSettingsCannotBeBuiltAroundACommandTheSearchPathWouldResolve() {
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> new NexusIntegrationSettings(Optional.empty(), "java", Optional.empty(),
+                        Duration.ofSeconds(20), Optional.empty()));
+
+        assertEquals("javaCommand must be an absolute path", refused.getMessage());
     }
 
     private static NexusIntegrationSettings configured(String launcher) {

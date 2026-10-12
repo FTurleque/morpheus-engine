@@ -7,7 +7,6 @@ import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * Turns the path of a request, as it was sent, into the decoded segments below the API prefix.
@@ -19,11 +18,17 @@ import java.util.Objects;
  * sign -- it means a space in a form, not in a path.</p>
  */
 final class MorpheusHttpPathParser {
+    private static final MorpheusHttpPathParser API = new MorpheusHttpPathParser(MorpheusHttpServer.API_PREFIX);
+
     private final List<String> prefixSegments;
 
-    MorpheusHttpPathParser(String apiPrefix) {
-        Objects.requireNonNull(apiPrefix, "apiPrefix");
+    private MorpheusHttpPathParser(String apiPrefix) {
         this.prefixSegments = List.of(apiPrefix.substring(1).split("/"));
+    }
+
+    /** The one parser of the adapter: every reader of a path shares it, so none can read under another prefix. */
+    static MorpheusHttpPathParser api() {
+        return API;
     }
 
     List<String> segments(String rawPath) {

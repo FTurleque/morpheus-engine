@@ -27,10 +27,6 @@ public final class MinosIntegrationRuntime implements ExternalIntegrationStatusP
         return new MinosIntegrationRuntime(MinosIntegrationSettings.resolve(environment, properties));
     }
 
-    public static MinosIntegrationRuntime disabled() {
-        return new MinosIntegrationRuntime(MinosIntegrationSettings.resolve(Map.of(), new Properties()));
-    }
-
     public ExternalReferenceResolverRegistry resolverRegistry() {
         return resolverRegistry;
     }
