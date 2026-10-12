@@ -121,7 +121,11 @@ function Test-PackagedApiOperability {
 }
 
 Write-Host "Building MORPHEUS $Version CLI + MCP + API + provider SDK + optional MINOS/NEXUS adapters + M14-M28 contracts uber-JAR..."
-& $mvnw -pl morpheus-cli -am -DskipTests package
+# The dependency list is what the notices are written from: the runtime classpath Maven resolved for the launcher, in
+# this very build. Each module of the reactor writes the file in turn and morpheus-cli, built last, has the last word.
+$runtimeDependencies = Join-Path $repo 'morpheus-cli\target\runtime-dependencies.txt'
+& $mvnw -pl morpheus-cli -am -DskipTests package dependency:list `
+    '-DincludeScope=runtime' '-DoutputAbsoluteArtifactFilename=true' "-DoutputFile=$runtimeDependencies"
 if ($LASTEXITCODE -ne 0) { throw "Maven package failed with exit code $LASTEXITCODE" }
 
 $jar = Get-ChildItem (Join-Path $repo "morpheus-cli\target") -Filter "morpheus-cli-*-all.jar" |
@@ -215,6 +219,40 @@ if ($null -eq $runtimeJava) {
     throw 'Embedded runtime is missing the Java launcher the isolated provider probe starts'
 }
 Write-Host "Embedded runtime child Java launcher: PASS ($($runtimeJava.FullName))"
+
+# A distribution redistributes third-party components and a Java runtime; their licences ask for their texts to travel
+# with them. The product licence and the notices go to the root of the image, where someone who unpacks the archive
+# sees them; the runtime keeps the legal notices the JDK ships, and stripping them is refused here.
+$imageHome = Join-Path $appImageRoot 'morpheus'
+$runtimeHome = Split-Path -Parent (Split-Path -Parent $runtimeJava.FullName)
+$python = Get-Command python -ErrorAction SilentlyContinue
+if ($null -eq $python) { throw 'Python 3 is required to write THIRD-PARTY-NOTICES and was not found on PATH' }
+Copy-Item -LiteralPath (Join-Path $repo 'LICENSE') -Destination (Join-Path $imageHome 'LICENSE') -Force
+& $python.Source (Join-Path $repo 'scripts\write-third-party-notices.py') `
+    --dependencies $runtimeDependencies `
+    --third-party (Join-Path $repo 'distribution\third-party') `
+    --jdk-release (Join-Path $env:JAVA_HOME 'release') `
+    --runtime-release (Join-Path $runtimeHome 'release') `
+    --output (Join-Path $imageHome 'THIRD-PARTY-NOTICES')
+if ($LASTEXITCODE -ne 0) { throw "Third-party notices were refused with exit code $LASTEXITCODE" }
+foreach ($required in @('LICENSE', 'THIRD-PARTY-NOTICES')) {
+    $requiredFile = Join-Path $imageHome $required
+    if (-not (Test-Path -LiteralPath $requiredFile) -or (Get-Item -LiteralPath $requiredFile).Length -le 0) {
+        throw "Packaging proof failed; $required is missing or empty at the root of the image"
+    }
+}
+$runtimeModules = (Get-Content -LiteralPath (Join-Path $runtimeHome 'release') |
+    Where-Object { $_ -match '^MODULES="(.*)"$' } | ForEach-Object { $Matches[1] }) -split ' '
+if (@($runtimeModules | Where-Object { $_ }).Count -eq 0) {
+    throw "Packaging proof failed; the embedded runtime's release file lists no module, so no legal notice was checked"
+}
+foreach ($module in $runtimeModules) {
+    $legal = Join-Path $runtimeHome (Join-Path 'legal' $module)
+    if (-not (Test-Path -LiteralPath $legal) -or @(Get-ChildItem -LiteralPath $legal -File).Count -eq 0) {
+        throw "Packaging proof failed; the embedded runtime carries no legal notice for $module"
+    }
+}
+Write-Host 'Product licence, third-party notices and runtime legal notices: PASS'
 
 $integrationSource = Join-Path $repo 'integration'
 $integrationTarget = Join-Path $appImageRoot 'morpheus\integration'

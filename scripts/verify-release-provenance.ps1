@@ -72,6 +72,8 @@ try {
         "morpheus-$version-linux-x64.tar.gz.sha256",
         "morpheus-$version-linux-x64-release-manifest.json",
         "morpheus-$version-linux-x64.attestation.jsonl",
+        "morpheus-$version-sbom.cdx.json",
+        "morpheus-$version-sbom.cdx.json.sha256",
         "morpheus-$version-windows-x64.zip",
         "morpheus-$version-windows-x64.zip.sha256",
         "MORPHEUS-$version-windows-x64-setup.exe",
@@ -109,7 +111,7 @@ try {
         }
         $checked++
     }
-    if ($checked -lt 3) { Fail "expected at least three published checksums, verified $checked" }
+    if ($checked -lt 4) { Fail "expected at least four published checksums, verified $checked" }
     Pass "published checksums ($checked verified)"
 
     # -----------------------------------------------------------------------
@@ -154,13 +156,14 @@ try {
     $attested = 0
     foreach ($name in @(
             "morpheus-$version-linux-x64.tar.gz",
+            "morpheus-$version-sbom.cdx.json",
             "morpheus-$version-windows-x64.zip",
             "MORPHEUS-$version-windows-x64-setup.exe")) {
         & gh attestation verify (Join-Path $assets $name) --repo $slug | Out-Null
         if ($LASTEXITCODE -ne 0) { Fail "provenance attestation did not verify for $name" }
         $attested++
     }
-    if ($attested -ne 3) { Fail "expected three attested artifacts, verified $attested" }
+    if ($attested -ne 4) { Fail "expected four attested artifacts, verified $attested" }
     Pass "public provenance ($attested artifacts)"
 
     # -----------------------------------------------------------------------
@@ -175,6 +178,39 @@ try {
         }
     }
     Pass 'preserved attestation bundles'
+
+    # -----------------------------------------------------------------------
+    # 7. The published inventory describes this release, and covers what each archive attributes.
+    # -----------------------------------------------------------------------
+    $sbom = Get-Content -LiteralPath (Join-Path $assets "morpheus-$version-sbom.cdx.json") -Raw | ConvertFrom-Json
+    if ($sbom.metadata.component.version -ne $version) {
+        Fail "published SBOM describes version $($sbom.metadata.component.version), expected $version"
+    }
+    $inventory = @($sbom.components | ForEach-Object { "$($_.group):$($_.name) $($_.version)" })
+    $noticesRoot = Join-Path $workDirectory 'notices'
+    New-Item -ItemType Directory -Force -Path $noticesRoot | Out-Null
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $zip = [System.IO.Compression.ZipFile]::OpenRead((Join-Path $assets "morpheus-$version-windows-x64.zip"))
+    try {
+        $entry = $zip.Entries | Where-Object { $_.FullName -match '^morpheus[\\/]THIRD-PARTY-NOTICES$' } | Select-Object -First 1
+        if ($null -eq $entry) { Fail 'the Windows archive carries no THIRD-PARTY-NOTICES' }
+        [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, (Join-Path $noticesRoot 'windows.txt'), $true)
+    } finally {
+        $zip.Dispose()
+    }
+    $linuxNotices = & tar -xzOf (Join-Path $assets "morpheus-$version-linux-x64.tar.gz") 'morpheus/THIRD-PARTY-NOTICES'
+    if ($LASTEXITCODE -ne 0) { Fail 'the Linux archive carries no THIRD-PARTY-NOTICES' }
+    $linuxNotices | Set-Content -LiteralPath (Join-Path $noticesRoot 'linux.txt') -Encoding utf8
+    foreach ($platform in @('linux', 'windows')) {
+        $attributed = @(Get-Content -LiteralPath (Join-Path $noticesRoot "$platform.txt") |
+            Where-Object { $_ -match '^  (\S+:\S+ \S+) \(' } | ForEach-Object { $Matches[1] })
+        if ($attributed.Count -eq 0) { Fail "the $platform archive attributes no third-party component" }
+        $absent = @($attributed | Where-Object { $inventory -notcontains $_ })
+        if ($absent.Count -ne 0) {
+            Fail "the $platform archive attributes components the published SBOM does not list: $($absent -join ', ')"
+        }
+    }
+    Pass "published inventory ($($inventory.Count) components, both archives covered)"
 
     Write-Host ''
     Write-Host "RELEASE QUALIFICATION PASS: $Tag @ $tagSha"

@@ -134,4 +134,9 @@ printf '%s\n' \
   'Embedded runtime / no user JDK: PASS' \
   'XDG data/config/state layout: PASS' \
   'MINOS/NEXUS opt-in defaults: PASS' \
-  'Exact-head stability: PASS' | tee "$OUTPUT/validation-summary.txt"
+  'Exact-head stability: PASS' \
+  'RELEASE REHEARSAL: the build half of the release ran; nothing was tagged on origin, attested or published.' \
+  'Not exercised by a rehearsal: the tag being reachable from main' \
+  'Not exercised by a rehearsal: the provenance attestation' \
+  'Not exercised by a rehearsal: the publication of the release' \
+  'Not exercised by a rehearsal: the public read-back of a published release' | tee "$OUTPUT/validation-summary.txt"

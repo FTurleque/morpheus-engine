@@ -23,6 +23,10 @@ provider-plugins probe --directory <path> --plugin <id> --workspace <path> --sha
 
 Un probe non épinglé échoue avant tout classloading.
 
+Côté serveur remote, le répertoire de plugins vient de la configuration de lancement du serveur, jamais du client :
+voir l'ordre de résolution dans [TEAM_REMOTE_SERVER.md](TEAM_REMOTE_SERVER.md) (`--provider-plugin-dir`,
+`MORPHEUS_SERVER_PROVIDER_PLUGIN_DIR`).
+
 ## MCP
 
 Le MCP n'expose pas l'exécution du probe. Seule la découverte de métadonnées reste model-facing :

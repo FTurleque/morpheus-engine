@@ -51,6 +51,18 @@ class GateReachabilityArchitectureTest {
      */
     private static final Map<String, String> MANUAL_ONLY_PROFILES = Map.of();
 
+    private static final String REHEARSAL_JOB = "release-rehearsal";
+    private static final String REHEARSAL_ASSETS_JOB = "release-rehearsal-assets";
+
+    /** Each variant of the release rehearsal validator, and the {@code runner.os} whose step must run it. */
+    private static final Map<String, String> RELEASE_REHEARSAL_VALIDATORS =
+            Map.of("validate-m20.sh", "Linux", "validate-m20.ps1", "Windows");
+
+    /** What only a real release may do or say. */
+    private static final List<String> REHEARSAL_MUST_NOT = List.of(
+            "git push", "gh release", "actions/attest", "id-token: write", "attestations: write", "contents: write",
+            "RELEASE QUALIFICATION PASS");
+
     /** Documentation that states what to run now. Dated records (validation proofs, execution plans, ADRs) are not here. */
     private static final List<String> CURRENT_DOCUMENT_FILES =
             List.of(
@@ -155,6 +167,79 @@ class GateReachabilityArchitectureTest {
         assertTrue(unreachable.isEmpty(),
                 () -> "Surefire does not select these test classes, so only a validator a workflow runs can: "
                         + unreachable);
+    }
+
+    /**
+     * The release workflow runs on a pushed tag only, so the build half of a release -- and the Linux packaging, which
+     * no other workflow reaches -- was exercised on the day of a release and never before. The M20 validator rehearses
+     * it on a tag that never leaves the checkout; this holds the lane that runs it, on each platform by name: the
+     * extension is part of the match because a lane that kept one variant only would still name the validator.
+     */
+    @Test
+    void theReleaseRehearsalValidatorIsLaunchedByAWorkflowOnEachPlatform() throws IOException {
+        String lane = jobText(nightlyExecutableText(repositoryRoot()), REHEARSAL_JOB);
+        assertTrue(lane.contains("ubuntu-latest") && lane.contains("windows-latest"),
+                "the release rehearsal must run on both platforms");
+
+        RELEASE_REHEARSAL_VALIDATORS.forEach((variant, platform) -> {
+            Pattern invocation = Pattern.compile("(?<![A-Za-z0-9-])" + Pattern.quote(variant) + "(?![A-Za-z0-9])");
+            List<String> launching = new ArrayList<>();
+            for (String step : lane.split("\n      - ")) {
+                int run = step.indexOf("\n        run:");
+                if (run >= 0 && invocation.matcher(step.substring(run)).find()) {
+                    launching.add(step);
+                }
+            }
+            assertEquals(1, launching.size(),
+                    () -> "exactly one step of the release rehearsal must run " + variant + "; a mention outside a "
+                            + "run: block launches nothing, and a regression in the release build would wait for the "
+                            + "day of the tag");
+            assertTrue(launching.get(0).contains("\n        if: runner.os == '" + platform + "'\n"),
+                    () -> "the step that runs " + variant + " must be conditioned on runner.os == '" + platform
+                            + "' and on nothing else: any other condition can switch the rehearsal off on that "
+                            + "platform");
+        });
+    }
+
+    /** A rehearsal that could publish would be a release nobody decided, and evidence nobody should trust. */
+    @Test
+    void aReleaseRehearsalCannotPublishAttestOrPassForAQualification() throws IOException {
+        Path root = repositoryRoot();
+        String nightly = nightlyExecutableText(root);
+        int jobs = nightly.indexOf("\njobs:");
+        assertTrue(jobs > 0, "the nightly workflow must declare its jobs");
+
+        Map<String, String> rehearsal = new TreeMap<>();
+        // The rehearsal jobs declare no permissions of their own and inherit the workflow's: both are read.
+        rehearsal.put("nightly.yml, before its jobs", nightly.substring(0, jobs));
+        rehearsal.put("nightly.yml job " + REHEARSAL_JOB, jobText(nightly, REHEARSAL_JOB));
+        rehearsal.put("nightly.yml job " + REHEARSAL_ASSETS_JOB, jobText(nightly, REHEARSAL_ASSETS_JOB));
+        for (String variant : RELEASE_REHEARSAL_VALIDATORS.keySet()) {
+            rehearsal.put(variant, executableText(root.resolve("scripts").resolve(variant)));
+        }
+        rehearsal.put("check-release-rehearsal-assets.py",
+                Files.readString(root.resolve("scripts/check-release-rehearsal-assets.py")));
+        // The validators only start the build; the scripts that do it are what a rehearsal really runs.
+        int buildScripts = 0;
+        for (String directory : List.of("distribution", "distribution/windows")) {
+            for (Path script : list(root.resolve(directory))) {
+                String name = script.getFileName().toString();
+                if (name.endsWith(".sh") || name.endsWith(".ps1")) {
+                    rehearsal.put(directory + "/" + name, executableText(script));
+                    buildScripts++;
+                }
+            }
+        }
+        assertTrue(buildScripts >= 4, "too few release build scripts read (" + buildScripts
+                + "): the rule would pass on nothing");
+
+        rehearsal.forEach((name, text) -> {
+            for (String forbidden : REHEARSAL_MUST_NOT) {
+                assertFalse(text.contains(forbidden),
+                        () -> name + " contains '" + forbidden + "': a rehearsal builds, it does not publish, attest "
+                                + "or claim a qualification");
+            }
+        });
     }
 
     @Test
@@ -287,6 +372,22 @@ class GateReachabilityArchitectureTest {
             }
         }
         return text.toString();
+    }
+
+    private static String nightlyExecutableText(Path root) throws IOException {
+        return executableText(root.resolve(".github/workflows/nightly.yml"));
+    }
+
+    /**
+     * One job of a workflow, from its key to the next key at the same indentation. Found by name, so that neither the
+     * order of the jobs nor the name of a neighbour decides what is read.
+     */
+    private static String jobText(String workflow, String job) {
+        Matcher start = Pattern.compile("(?m)^  " + Pattern.quote(job) + ":\\s*$").matcher(workflow);
+        assertTrue(start.find(), () -> "the nightly workflow must declare the job " + job);
+        Matcher next = Pattern.compile("(?m)^  [A-Za-z0-9_-]+:\\s*$").matcher(workflow);
+        int end = next.find(start.end()) ? next.start() : workflow.length();
+        return workflow.substring(start.start(), end);
     }
 
     /** The file without its comments: whole-line {@code #} comments and trailing ones preceded by whitespace. */

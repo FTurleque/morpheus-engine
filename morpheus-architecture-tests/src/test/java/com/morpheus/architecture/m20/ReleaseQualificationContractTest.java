@@ -7,6 +7,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -32,9 +38,16 @@ class ReleaseQualificationContractTest {
     }
 
     @Test
-    void bothVariantsVerifyTheSameSixThings() throws IOException {
+    void bothVariantsPerformTheSameVerifications() throws IOException {
         for (String script : QUALIFICATION_SCRIPTS) {
             String content = read(script);
+
+            assertTrue(content.contains("published SBOM describes version"),
+                    () -> script + " must refuse an inventory that describes another version than the tag");
+            assertTrue(content.contains("attributes components the published SBOM does not list"),
+                    () -> script + " must compare what each archive attributes with the published inventory");
+            assertTrue(content.contains("expected four attested artifacts"),
+                    () -> script + " must verify the provenance of the inventory with that of the three artifacts");
 
             assertTrue(content.contains("merge-base --is-ancestor"),
                     () -> script + " must prove the tagged commit is reachable from main");
@@ -53,6 +66,83 @@ class ReleaseQualificationContractTest {
             assertTrue(content.contains("attestation bundle is empty"),
                     () -> script + " must require the preserved attestation bundles");
         }
+    }
+
+    /**
+     * The release workflow and the two qualification scripts each state the asset set on purpose: the scripts are an
+     * independent read, and a shared file would make them read the pipeline's own expectation. The price is three
+     * lists that can drift, and a drift would only show on the day of a release, as a publication the qualification
+     * refuses. This holds them equal.
+     */
+    @Test
+    void theReleaseWorkflowAndBothQualificationScriptsExpectTheSameAssets() throws IOException {
+        Map<String, Set<String>> lists = new TreeMap<>();
+        lists.put(".github/workflows/release.yml",
+                assetNames(read(".github/workflows/release.yml"), "expected=(", "\"release-assets/([^\"]+)\""));
+        lists.put("scripts/verify-release-provenance.sh",
+                assetNames(read("scripts/verify-release-provenance.sh"), "EXPECTED_ASSETS=(", "\"([^\"/]+)\""));
+        lists.put("scripts/verify-release-provenance.ps1",
+                assetNames(read("scripts/verify-release-provenance.ps1"), "$expected = @(", "\"([^\"/]+)\""));
+
+        Set<String> reference = lists.get(".github/workflows/release.yml");
+        assertTrue(reference.size() >= 4, "the release workflow must expect assets: " + reference);
+        assertTrue(reference.contains("morpheus-<version>-sbom.cdx.json")
+                        && reference.contains("morpheus-<version>-sbom.cdx.json.sha256"),
+                "a release publishes the inventory of the tagged commit with its checksum: " + reference);
+        lists.forEach((file, names) -> {
+            Set<String> missing = new TreeSet<>(reference);
+            missing.removeAll(names);
+            Set<String> extra = new TreeSet<>(names);
+            extra.removeAll(reference);
+            assertTrue(missing.isEmpty() && extra.isEmpty(),
+                    () -> file + " does not expect the asset set of the release workflow; missing " + missing
+                            + ", in excess " + extra);
+        });
+    }
+
+    /**
+     * What a distribution discloses about the third-party code it carries is built by the packaging on both platforms
+     * and refused when incomplete; the inventory is built by the release build from the tagged commit.
+     */
+    @Test
+    void everyDistributionCarriesItsAttributionsAndTheReleaseBuildWritesTheInventory() throws IOException {
+        for (String packaging : List.of("distribution/build-portable.sh", "distribution/build-portable.ps1")) {
+            String content = read(packaging);
+            assertTrue(content.contains("write-third-party-notices.py"),
+                    () -> packaging + " must write the notices from the dependencies resolved by this build");
+            assertTrue(content.contains("dependency:list") && content.contains("-DincludeScope=runtime"),
+                    () -> packaging + " must derive the attributed components from the runtime classpath");
+            assertTrue(content.contains("is missing or empty at the root of the image"),
+                    () -> packaging + " must refuse an image without the product licence or the notices");
+            assertTrue(content.contains("the embedded runtime carries no legal notice for"),
+                    () -> packaging + " must refuse a runtime stripped of its legal notices");
+        }
+        String generator = read("scripts/write-third-party-notices.py");
+        assertTrue(generator.contains("THIRD_PARTY_NOTICE_MISSING") && generator.contains("THIRD_PARTY_NOTICE_UNUSED"),
+                "the notices generator must refuse a shipped component without attribution and a stale declaration");
+
+        String releaseBuild = read("distribution/build-release.sh");
+        assertTrue(releaseBuild.contains("cyclonedx:makeAggregateBom@m21-aggregate-sbom"),
+                "the release build must write the inventory itself, from the tagged commit");
+        assertTrue(releaseBuild.contains("-sbom.cdx.json") && releaseBuild.contains("Release SBOM was not produced"),
+                "the release build must publish the inventory under its release name and refuse its absence");
+    }
+
+    /** The quoted names of the first parenthesised list that follows {@code opening}, with the version made neutral. */
+    private static Set<String> assetNames(String content, String opening, String entry) {
+        int start = content.indexOf(opening);
+        assertTrue(start >= 0, () -> "no list opened by " + opening);
+        int end = content.indexOf(")", start + opening.length());
+        assertTrue(end > start, () -> "the list opened by " + opening + " is not closed");
+        String block = content.substring(start + opening.length(), end);
+        Set<String> names = new TreeSet<>();
+        Matcher name = Pattern.compile(entry).matcher(block);
+        while (name.find()) {
+            names.add(name.group(1).replace("${version}", "<version>").replace("$VERSION", "<version>")
+                    .replace("$version", "<version>"));
+        }
+        assertFalse(names.isEmpty(), () -> "the list opened by " + opening + " is empty");
+        return names;
     }
 
     /**
