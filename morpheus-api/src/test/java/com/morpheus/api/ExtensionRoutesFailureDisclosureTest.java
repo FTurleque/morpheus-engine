@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -74,6 +76,39 @@ class ExtensionRoutesFailureDisclosureTest {
         assertEquals(400, response.statusCode());
         assertEquals("{\"apiVersion\":\"v1\",\"error\":{\"code\":\"REASONING_VALIDATION\",\"message\":"
                 + "\"reasoning question must not be blank\",\"details\":{}}}", response.body());
+    }
+
+    /**
+     * A failure raised below a service, not an echo of the request: the database is replaced by a file that is not one
+     * while the server runs, so every store the routes open fails. Whatever the platform puts in that failure, the
+     * answer names neither the database nor its directory.
+     */
+    @Test
+    void aStorageFailureUnderEachFamilyNamesNoLocation() throws Exception {
+        Path database = temporaryDirectory.resolve("unreadable.db");
+        try (MorpheusHttpServer server = MorpheusHttpServer.start(database, "127.0.0.1", 0);
+             HttpClient client = HttpClient.newHttpClient()) {
+            Files.write(database, "this is not a SQLite database, and every store opened on it fails".repeat(64)
+                    .getBytes(StandardCharsets.UTF_8));
+
+            for (String[] request : new String[][] {
+                    {"/queries/execute", "{\"scopeKind\":\"PROJECT\",\"scopeId\":\"" + PROJECT
+                            + "\",\"query\":{\"entity\":\"change\"}}"},
+                    {"/policies/evaluate", "{\"scopeKind\":\"PROJECT\",\"scopeId\":\"" + PROJECT + "\"}"},
+                    {"/policy-overrides/remove", "{\"scopeKind\":\"PROJECT\",\"scopeId\":\"" + PROJECT
+                            + "\",\"expectedRevision\":0,\"actor\":\"a\",\"reason\":\"r\"}"}}) {
+                HttpResponse<String> response = client.send(HttpRequest.newBuilder(
+                                URI.create(server.baseUri() + request[0]))
+                        .header("Content-Type", JSON)
+                        .POST(HttpRequest.BodyPublishers.ofString(request[1]))
+                        .build(), HttpResponse.BodyHandlers.ofString());
+
+                assertEquals(409, response.statusCode(), () -> request[0] + " -> " + response.body());
+                assertTrue(response.body().contains("\"code\":\"STATE_CONFLICT\""), response::body);
+                assertFalse(response.body().contains("unreadable.db"), response::body);
+                assertFalse(response.body().contains(temporaryDirectory.getFileName().toString()), response::body);
+            }
+        }
     }
 
     private void assertFiltered(String route, String body, int status, String code, String failureType) throws Exception {
