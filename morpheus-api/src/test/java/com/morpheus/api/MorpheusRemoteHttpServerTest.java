@@ -271,6 +271,7 @@ class MorpheusRemoteHttpServerTest {
         assertEquals(200, health.statusCode());
         assertEquals("nosniff", health.headers().firstValue("X-Content-Type-Options").orElseThrow());
         assertEquals("DENY", health.headers().firstValue("X-Frame-Options").orElseThrow());
+        assertEquals("max-age=31536000", health.headers().firstValue("Strict-Transport-Security").orElse(null));
         assertFalse(health.headers().firstValue("Access-Control-Allow-Origin").isPresent());
     }
 

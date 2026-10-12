@@ -31,9 +31,21 @@ final class MorpheusHttpResponseWriter {
     void sendRaw(HttpExchange exchange, int status, String contentType, byte[] bytes) throws IOException {
         Headers headers = exchange.getResponseHeaders();
         headers.set("Content-Type", contentType);
-        headers.set("Cache-Control", "no-store");
-        headers.set("X-Content-Type-Options", "nosniff");
+        applySecurityHeaders(headers);
         exchange.sendResponseHeaders(status, bytes.length);
         exchange.getResponseBody().write(bytes);
+    }
+
+    /**
+     * The security headers of every response of the local server, declared once: a success, an error and a refused
+     * origin are protected alike. No transport-security header: this server speaks plain HTTP on loopback, where the
+     * header would be ignored and would state something false.
+     */
+    static void applySecurityHeaders(Headers headers) {
+        headers.set("Cache-Control", "no-store");
+        headers.set("X-Content-Type-Options", "nosniff");
+        headers.set("X-Frame-Options", "DENY");
+        headers.set("Referrer-Policy", "no-referrer");
+        headers.set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
     }
 }

@@ -32,6 +32,10 @@ class LocalHttpResponseWriterArchitectureTest {
         assertTrue(writer.contains("application/json; charset=utf-8"));
         assertTrue(writer.contains("headers.set(\"Cache-Control\", \"no-store\")"));
         assertTrue(writer.contains("headers.set(\"X-Content-Type-Options\", \"nosniff\")"));
+        assertTrue(writer.contains("static void applySecurityHeaders(Headers headers)"),
+                "the security headers of the local server are declared once, for every writer of a local response");
+        assertFalse(writer.contains("Strict-Transport-Security"),
+                "the loopback server speaks plain HTTP and must not claim transport security");
         assertTrue(writer.contains("exchange.sendResponseHeaders(status, bytes.length)"));
         assertTrue(writer.contains("exchange.getResponseBody().write(bytes)"));
         assertFalse(writer.contains("MorpheusApiService"));

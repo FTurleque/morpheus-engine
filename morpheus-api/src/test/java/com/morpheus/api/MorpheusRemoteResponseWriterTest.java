@@ -51,6 +51,7 @@ class MorpheusRemoteResponseWriterTest {
         assertEquals("no-referrer", headers.getFirst("Referrer-Policy"));
         assertEquals("default-src 'none'; frame-ancestors 'none'", headers.getFirst("Content-Security-Policy"));
         assertEquals("request-123", headers.getFirst("X-Request-Id"));
+        assertEquals("max-age=31536000", headers.getFirst("Strict-Transport-Security"));
         assertFalse(headers.containsKey("Access-Control-Allow-Origin"));
     }
 }

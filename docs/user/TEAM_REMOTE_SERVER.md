@@ -469,8 +469,16 @@ X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
 Referrer-Policy: no-referrer
 Content-Security-Policy: default-src 'none'; frame-ancestors 'none'
+Strict-Transport-Security: max-age=31536000
 X-Request-Id: <uuid>
 ```
+
+`Strict-Transport-Security` demande au navigateur de n'utiliser que HTTPS pour ce nom d'hôte pendant un an. Il vaut
+pour le nom sous lequel le serveur est exposé, pas pour ses sous-domaines. Conséquence à connaître : un navigateur qui
+a reçu cette réponse refusera, pendant cette durée, un service en HTTP simple publié plus tard sous le même nom.
+
+Le serveur local, lui, n'écoute que sur loopback en HTTP simple : ses réponses portent les cinq premiers en-têtes et
+pas celui-ci.
 
 M26 n’active **aucun CORS implicite**.
 
