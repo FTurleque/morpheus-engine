@@ -33,7 +33,8 @@ class NexusIntegrationSettingsTest {
         Properties properties = new Properties();
         properties.setProperty(NexusIntegrationSettings.JAR_PROPERTY, propertyJar.toString());
         properties.setProperty(NexusIntegrationSettings.TIMEOUT_PROPERTY, "37");
-        properties.setProperty(NexusIntegrationSettings.JAVA_PROPERTY, "custom-java");
+        Path launcher = Path.of(NexusIntegrationSettings.resolve(Map.of(), new Properties()).javaCommand());
+        properties.setProperty(NexusIntegrationSettings.JAVA_PROPERTY, launcher.toString());
 
         NexusIntegrationSettings settings = NexusIntegrationSettings.resolve(
                 Map.of(
@@ -43,7 +44,7 @@ class NexusIntegrationSettingsTest {
 
         assertEquals(NexusIntegrationSettings.State.CONFIGURED, settings.state());
         assertEquals(propertyJar.toAbsolutePath().normalize(), settings.jarPath().orElseThrow());
-        assertEquals("custom-java", settings.javaCommand());
+        assertEquals(launcher.toRealPath().toString(), settings.javaCommand());
         assertEquals(37, settings.timeout().toSeconds());
     }
 

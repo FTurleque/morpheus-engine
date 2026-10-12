@@ -290,6 +290,17 @@ Le serveur remote ajoute `Strict-Transport-Security: max-age=31536000`.
 **Migration.** Aucune pour un client d'API. Un outil qui afficherait une réponse de MORPHEUS dans un cadre de page web
 ne le peut plus. Sur le serveur remote, voir la conséquence de l'épinglage HTTPS dans le guide du serveur d'équipe.
 
+### MINOS et NEXUS : l'exécutable Java ne se cherche plus dans le `PATH`
+
+Sans `MORPHEUS_MINOS_JAVA` ni `MORPHEUS_NEXUS_JAVA`, MORPHEUS lançait la commande `java`, que le système cherchait dans
+le `PATH`. Il lance maintenant l'exécutable du runtime sur lequel il tourne lui-même.
+
+Une valeur renseignée doit être le chemin absolu d'un fichier exécutable. `java` seul, ou un chemin relatif, est
+refusé : l'intégration passe à l'état invalide avec le motif, et n'est plus lancée.
+
+**Migration.** Retirer la variable si elle valait `java` : le comportement par défaut la remplace. Sinon, lui donner un
+chemin absolu. Une intégration qui a besoin d'un autre Java que celui de MORPHEUS doit le nommer en entier.
+
 ### Synchronisation : l'état de sync s'écrit avec une révision attendue
 
 Jusqu'à 1.2.0, `recordAttempt` et `commitSuccessfulSync` écrivaient l'état de synchronisation par un upsert aveugle. Deux syncs concurrentes
