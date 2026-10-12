@@ -57,7 +57,7 @@ final class MorpheusHttpRequestDecoder {
         try {
             return HttpRequestBodyReader.read(exchange.getRequestBody(), maxRequestBodyBytes, readTimeout, executor);
         } catch (HttpRequestBodyReader.RequestBodyException failure) {
-            throw ApiFailure.badRequest(failure.getMessage());
+            throw ApiFailure.badRequest(BoundaryFailureMessage.safe(failure));
         }
     }
 
@@ -65,7 +65,7 @@ final class MorpheusHttpRequestDecoder {
         try {
             return mapper.readValue(body, type);
         } catch (Exception failure) {
-            throw ApiFailure.badRequest("invalid JSON request body: " + safeMessage(failure));
+            throw ApiFailure.badRequest("invalid JSON request body: " + BoundaryFailureMessage.safe(failure));
         }
     }
 
@@ -74,10 +74,5 @@ final class MorpheusHttpRequestDecoder {
         if (!JsonMediaType.isJson(value)) {
             throw ApiFailure.unsupportedMediaType("Content-Type application/json is required");
         }
-    }
-
-    private static String safeMessage(Throwable failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 }

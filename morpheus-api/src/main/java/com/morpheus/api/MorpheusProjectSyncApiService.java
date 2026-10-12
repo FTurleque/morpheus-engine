@@ -94,7 +94,7 @@ final class MorpheusProjectSyncApiService {
             }
         } catch (SyncStateConflictException overtaken) {
             // Another sync of this project moved the state first; this one must not overwrite it.
-            throw ApiFailure.conflict(overtaken.getMessage());
+            throw ApiFailure.conflict(BoundaryFailureMessage.safe(overtaken));
         }
     }
 
