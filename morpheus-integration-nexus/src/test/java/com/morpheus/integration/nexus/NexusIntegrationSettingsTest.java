@@ -63,6 +63,28 @@ class NexusIntegrationSettingsTest {
     }
 
     @Test
+    void aPinnedJarThatStillMatchesPassesTheIntegrityCheckAndIsLaunched() throws Exception {
+        Path jar = tempDirectory.resolve("nexus-unchanged.jar");
+        Files.writeString(jar, "trusted-content, and not a server");
+        Properties properties = new Properties();
+        properties.setProperty(NexusIntegrationSettings.JAR_PROPERTY, jar.toString());
+        properties.setProperty(
+                NexusIntegrationSettings.JAR_SHA256_PROPERTY,
+                com.morpheus.application.security.ExternalJarIntegrity.sha256(jar));
+        properties.setProperty(NexusIntegrationSettings.TIMEOUT_PROPERTY, "1");
+        NexusIntegrationSettings settings = NexusIntegrationSettings.resolve(Map.of(), properties);
+
+        NexusIntegrationException failure = assertThrows(
+                NexusIntegrationException.class,
+                () -> new NexusMcpContextGateway(settings));
+
+        assertFalse(failure.getMessage().contains("integrity verification"), failure.getMessage());
+        assertTrue(failure.getMessage().startsWith("cannot start or initialize NEXUS MCP server")
+                        || failure.getMessage().contains("deadline"),
+                failure.getMessage());
+    }
+
+    @Test
     void pinnedJarIsReverifiedImmediatelyBeforeLaunch() throws Exception {
         Path jar = tempDirectory.resolve("nexus.jar");
         Files.writeString(jar, "trusted-content");

@@ -66,13 +66,6 @@ public final class BusinessContentQueryService {
                 .map(snapshot -> change(snapshot, changeId));
     }
 
-    public SnapshotItemResult<ChangeProposal> snapshotChange(
-            KnowledgeSnapshotId snapshotId,
-            ChangeId changeId) {
-        Objects.requireNonNull(changeId, "changeId");
-        return change(requirePublished(snapshotId), changeId);
-    }
-
     public Optional<SnapshotPage<ChangeProposal>> listActiveChanges(
             ProjectSpecificationId projectId,
             PageRequest pageRequest) {
@@ -80,13 +73,6 @@ public final class BusinessContentQueryService {
         Objects.requireNonNull(pageRequest, "pageRequest");
         return snapshotStore.activeSnapshot(projectId)
                 .map(snapshot -> changes(snapshot, pageRequest));
-    }
-
-    public SnapshotPage<ChangeProposal> listSnapshotChanges(
-            KnowledgeSnapshotId snapshotId,
-            PageRequest pageRequest) {
-        Objects.requireNonNull(pageRequest, "pageRequest");
-        return changes(requirePublished(snapshotId), pageRequest);
     }
 
     public Optional<SnapshotPage<Constraint>> activeConstraints(
@@ -100,15 +86,6 @@ public final class BusinessContentQueryService {
                 .map(snapshot -> constraints(snapshot, changeId, pageRequest));
     }
 
-    public SnapshotPage<Constraint> snapshotConstraints(
-            KnowledgeSnapshotId snapshotId,
-            ChangeId changeId,
-            PageRequest pageRequest) {
-        Objects.requireNonNull(changeId, "changeId");
-        Objects.requireNonNull(pageRequest, "pageRequest");
-        return constraints(requirePublished(snapshotId), changeId, pageRequest);
-    }
-
     public Optional<SnapshotPage<DesignDecision>> activeDesignDecisions(
             ProjectSpecificationId projectId,
             ChangeId changeId,
@@ -118,15 +95,6 @@ public final class BusinessContentQueryService {
         Objects.requireNonNull(pageRequest, "pageRequest");
         return snapshotStore.activeSnapshot(projectId)
                 .map(snapshot -> designDecisions(snapshot, changeId, pageRequest));
-    }
-
-    public SnapshotPage<DesignDecision> snapshotDesignDecisions(
-            KnowledgeSnapshotId snapshotId,
-            ChangeId changeId,
-            PageRequest pageRequest) {
-        Objects.requireNonNull(changeId, "changeId");
-        Objects.requireNonNull(pageRequest, "pageRequest");
-        return designDecisions(requirePublished(snapshotId), changeId, pageRequest);
     }
 
     public Optional<SnapshotPage<ImplementationTask>> activeImplementationTasks(
@@ -140,15 +108,6 @@ public final class BusinessContentQueryService {
                 .map(snapshot -> implementationTasks(snapshot, changeId, pageRequest));
     }
 
-    public SnapshotPage<ImplementationTask> snapshotImplementationTasks(
-            KnowledgeSnapshotId snapshotId,
-            ChangeId changeId,
-            PageRequest pageRequest) {
-        Objects.requireNonNull(changeId, "changeId");
-        Objects.requireNonNull(pageRequest, "pageRequest");
-        return implementationTasks(requirePublished(snapshotId), changeId, pageRequest);
-    }
-
     public Optional<SnapshotPage<AcceptanceCriterion>> activeAcceptanceCriteria(
             ProjectSpecificationId projectId,
             PageRequest pageRequest) {
@@ -156,13 +115,6 @@ public final class BusinessContentQueryService {
         Objects.requireNonNull(pageRequest, "pageRequest");
         return snapshotStore.activeSnapshot(projectId)
                 .map(snapshot -> acceptanceCriteria(snapshot, pageRequest));
-    }
-
-    public SnapshotPage<AcceptanceCriterion> snapshotAcceptanceCriteria(
-            KnowledgeSnapshotId snapshotId,
-            PageRequest pageRequest) {
-        Objects.requireNonNull(pageRequest, "pageRequest");
-        return acceptanceCriteria(requirePublished(snapshotId), pageRequest);
     }
 
     public Optional<SnapshotPage<AcceptanceCriterion>> activeAcceptanceCriteriaForChange(

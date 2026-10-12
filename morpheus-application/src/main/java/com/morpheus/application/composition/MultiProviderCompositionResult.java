@@ -22,8 +22,4 @@ public record MultiProviderCompositionResult(
             throw new IllegalArgumentException("primary provider is not part of the composition");
         }
     }
-
-    public boolean hasConflicts() {
-        return !conflicts.isEmpty();
-    }
 }

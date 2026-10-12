@@ -203,7 +203,7 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
         Optional<Path> staged = Optional.empty();
         try {
             staged = settings.jarSha256().map(pin -> ExternalJarIntegrity.stageVerifiedCopy(jar, pin));
-            Path launchJar = staged.orElse(jar);
+            Path launchJar = staged.orElseThrow();
             List<String> arguments = new ArrayList<>();
             settings.homeDirectory().ifPresent(home -> arguments.add("-Dminos.home=" + home));
             arguments.addAll(List.of("-cp", launchJar.toString(), MINOS_SERVER_CLASS));

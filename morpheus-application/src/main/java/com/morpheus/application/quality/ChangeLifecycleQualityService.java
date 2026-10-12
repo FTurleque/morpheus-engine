@@ -74,19 +74,6 @@ public final class ChangeLifecycleQualityService {
                 .map(snapshot -> assessExplicit(snapshot, source, targetState, facts, policy, abandonmentReason));
     }
 
-    public ChangeLifecycleQualityAssessment assessExplicitSnapshot(
-            KnowledgeSnapshotId snapshotId,
-            ChangeLifecycle source,
-            ChangeLifecycleState targetState,
-            ChangeLifecycleFacts facts,
-            ChangeLifecyclePolicy policy,
-            Optional<ChangeAbandonmentReason> abandonmentReason) {
-        Objects.requireNonNull(snapshotId, "snapshotId");
-        KnowledgeSnapshotMetadata snapshot = snapshotStore.findSnapshot(snapshotId)
-                .orElseThrow(() -> new KnowledgeStoreException("unknown knowledge snapshot: " + snapshotId));
-        return assessExplicit(snapshot, source, targetState, facts, policy, abandonmentReason);
-    }
-
     private ChangeLifecycleQualityAssessment assessDerived(
             KnowledgeSnapshotMetadata snapshot,
             ChangeLifecycle source,

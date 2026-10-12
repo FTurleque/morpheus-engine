@@ -20,7 +20,6 @@ class LocalSourceWatcherBudgetTest {
         Files.createDirectories(tempDir.resolve("specs/a/b"));
         SourceScanPolicy policy = new SourceScanPolicy(
                 Set.of(),
-                false,
                 8,
                 2,
                 100,
@@ -36,7 +35,6 @@ class LocalSourceWatcherBudgetTest {
         Files.createDirectories(tempDir.resolve("one/two/three"));
         SourceScanPolicy policy = new SourceScanPolicy(
                 Set.of(),
-                false,
                 2,
                 100,
                 100,

@@ -142,10 +142,6 @@ public record MinosIntegrationSettings(
         return state() == State.CONFIGURED && jarSha256.isPresent();
     }
 
-    public Map<String, String> processEnvironment() {
-        return homeDirectory.map(path -> Map.of("MINOS_HOME", path.toString())).orElseGet(Map::of);
-    }
-
     private static Optional<String> value(
             Properties properties,
             String propertyName,
