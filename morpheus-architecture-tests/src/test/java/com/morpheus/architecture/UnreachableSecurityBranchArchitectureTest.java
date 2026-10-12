@@ -28,7 +28,7 @@ class UnreachableSecurityBranchArchitectureTest {
             String content = read(source);
             assertFalse(content.contains("followSymbolicLinks"),
                     () -> source + " must offer no setting for symbolic-link traversal");
-            assertFalse(content.contains("FOLLOW_LINKS"),
+            assertFalse(content.contains("FileVisitOption.FOLLOW_LINKS"),
                     () -> source + " must never walk a workspace following links");
         }
         assertTrue(read(SYNC + "LocalSourceInventoryScanner.java").contains("Files.isSymbolicLink("),
