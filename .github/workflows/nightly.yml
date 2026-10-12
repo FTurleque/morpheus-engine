@@ -100,6 +100,10 @@ jobs:
         shell: bash
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          # Names the branch whose verdict is being read. SonarQube Cloud refuses to serve the quality gate of a branch
+          # other than main to this organization; the classifier reports that as an unknown verdict for such a branch
+          # only. ci.yml analyses main and does not set it, so the same refusal stays an error there.
+          SONAR_BRANCH_NAME: develop
         run: bash ./scripts/classify-sonar-quality-gate.sh
 
   macos-smoke:
