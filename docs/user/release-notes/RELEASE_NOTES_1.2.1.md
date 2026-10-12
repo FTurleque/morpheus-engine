@@ -261,6 +261,23 @@ prouvé par un test sur le serveur réel ; ceux du CLI et de HTTP sont lus dans 
 
 Décision : [ADR-0102, amendement du 29 septembre 2026 (MCP-3)](../../architecture/adr/0102-mcp-failure-contract-is-one-rule.md).
 
+### HTTP, requêtes, exports, vues, policies et raisonnement : un message d'erreur ne nomme plus d'emplacement
+
+Les routes de requêtes, d'exports, de vues sauvegardées, de policies, de gestion des policies et de raisonnement
+relayaient tel quel le message de l'échec qu'elles rencontraient. Un message qui nomme un emplacement du serveur — un
+chemin de fichier, par exemple — parvenait donc à l'appelant, y compris à travers la façade remote. Le reste de l'API
+le remplaçait déjà ; ces routes le font maintenant aussi.
+
+Quand le message d'un échec nomme un emplacement, le champ `message` de la réponse porte le nom du type d'échec
+(`IllegalArgumentException`, `QueryValidationException`…) à la place du texte. Le statut HTTP et le champ `code` ne
+changent pas, et un message qui ne nomme aucun emplacement est inchangé.
+
+Cela vaut aussi pour un refus qui cite une valeur de la requête : si cette valeur a la forme d'un chemin
+(`/srv/data`, `C:\data`), le message qui la citait est remplacé de la même façon.
+
+**Migration.** Un client qui lisait `error.message` pour décider doit lire `error.code` et le statut HTTP. Aucun
+changement pour un client qui affiche seulement le message.
+
 ### Synchronisation : l'état de sync s'écrit avec une révision attendue
 
 Jusqu'à 1.2.0, `recordAttempt` et `commitSuccessfulSync` écrivaient l'état de synchronisation par un upsert aveugle. Deux syncs concurrentes

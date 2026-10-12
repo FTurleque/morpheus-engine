@@ -63,7 +63,7 @@ final class MorpheusReasoningHttpRoutes {
                     "v1", new ApiError(failure.code(), failure.getMessage(), failure.details())));
         } catch (IllegalArgumentException failure) {
             responseWriter.send(exchange, 400, new ApiErrorEnvelope(
-                    "v1", new ApiError("REASONING_VALIDATION", safeMessage(failure), Map.of())));
+                    "v1", new ApiError("REASONING_VALIDATION", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (RuntimeException failure) {
             responseWriter.send(exchange, 500, new ApiErrorEnvelope(
                     "v1", new ApiError("INTERNAL_ERROR", "internal MORPHEUS reasoning error", Map.of())));
@@ -82,10 +82,5 @@ final class MorpheusReasoningHttpRoutes {
         if (!actual.equals(expected)) {
             throw ApiFailure.methodNotAllowed("expected HTTP " + expected + " but received " + actual);
         }
-    }
-
-    private static String safeMessage(Throwable failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 }
