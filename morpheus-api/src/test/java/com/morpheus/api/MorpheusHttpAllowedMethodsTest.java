@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class MorpheusHttpAllowedMethodsTest {
     private final MorpheusHttpAllowedMethods allowed = new MorpheusHttpAllowedMethods(
-            new MorpheusHttpPathParser(MorpheusHttpServer.API_PREFIX));
+            MorpheusHttpPathParser.api());
 
     @Test
     void rejectsNullPathParser() {

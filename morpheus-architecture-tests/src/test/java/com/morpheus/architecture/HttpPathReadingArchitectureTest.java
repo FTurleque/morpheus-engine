@@ -3,6 +3,7 @@ package com.morpheus.architecture;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -94,20 +95,63 @@ class HttpPathReadingArchitectureTest {
         assertTrue(source("MorpheusRemoteRoutePolicy.java").contains("return PATHS.segments(rawPath);"),
                 "the remote role policy obtains its segments from the parser");
         assertTrue(source("MorpheusRemoteHttpServer.java")
-                        .contains("requiredRole(exchange.getRequestMethod(), exchange.getRequestURI().getRawPath())"),
+                        .contains("authorize(exchange.getRequestMethod(), exchange.getRequestURI().getRawPath())"),
                 "the remote server authorizes the path as it was sent, which is also the path it forwards");
     }
 
+    @Test
+    void theAdapterHoldsOneParserInstance() throws IOException {
+        assertEquals(Set.of("MorpheusHttpPathParser.java"), sourcesMentioning("new MorpheusHttpPathParser("),
+                "every reader of a path shares MorpheusHttpPathParser.api(); a second instance could be given "
+                        + "another prefix and read the same path differently");
+    }
+
+    @Test
+    void theRemoteServerAsksTheAuthorizationNotThePathForWhatFollows() throws IOException {
+        String server = source("MorpheusRemoteHttpServer.java");
+
+        assertEquals(1, occurrences(server, "MorpheusRemoteRoutePolicy.authorize("),
+                "a request is authorized once; the route and the role are then read from that result");
+        assertTrue(server.contains("route.names(\"server/status\")")
+                        && server.contains("route.names(\"server/backups\")")
+                        && server.contains("route.names(\"provider-plugins/probe\")")
+                        && server.contains("route.usesBoundedUpstreamTimeout()"),
+                "the routes the remote server treats itself are named by the authorization of the request");
+    }
+
+    @Test
+    void theTextualRulesReadEverySourceBelowTheAdapterPackage(@TempDir Path directory) throws IOException {
+        Path nested = Files.createDirectories(directory.resolve("remote/deeper"));
+        Files.writeString(directory.resolve("Top.java"), "class Top { String p = uri.getPath(); }");
+        Files.writeString(nested.resolve("Nested.java"), "class Nested { String p = uri.getPath(); }");
+        Files.writeString(nested.resolve("notes.txt"), "uri.getPath()");
+
+        assertEquals(Set.of("Top.java", "remote/deeper/Nested.java"), sourcesMentioning(directory, ".getPath()"));
+    }
+
     private static Set<String> sourcesMentioning(String text) throws IOException {
+        return sourcesMentioning(repositoryRoot().resolve(API_SOURCES), text);
+    }
+
+    /** The Java sources at or below {@code directory} that contain {@code text}, by their path under it. */
+    private static Set<String> sourcesMentioning(Path directory, String text) throws IOException {
         Set<String> mentioning = new TreeSet<>();
-        try (Stream<Path> sources = Files.list(repositoryRoot().resolve(API_SOURCES))) {
+        try (Stream<Path> sources = Files.walk(directory)) {
             for (Path source : sources.filter(path -> path.toString().endsWith(".java")).toList()) {
                 if (Files.readString(source).contains(text)) {
-                    mentioning.add(source.getFileName().toString());
+                    mentioning.add(directory.relativize(source).toString().replace('\\', '/'));
                 }
             }
         }
         return mentioning;
+    }
+
+    private static int occurrences(String text, String sought) {
+        int count = 0;
+        for (int index = text.indexOf(sought); index >= 0; index = text.indexOf(sought, index + 1)) {
+            count++;
+        }
+        return count;
     }
 
     private static String source(String name) throws IOException {

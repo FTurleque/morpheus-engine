@@ -14,9 +14,10 @@ import java.util.Objects;
 
 /** Isolated M27 HTTP context. Reasoning execution never mutates the knowledge store. */
 final class MorpheusReasoningHttpRoutes {
-    static final String CONTEXT = MorpheusHttpServer.API_PREFIX + "/reasoning";
-    private static final List<String> ADAPTERS = List.of("reasoning", "adapters");
-    private static final List<String> ANALYZE = List.of("reasoning", "analyze");
+    private static final String REASONING = "reasoning";
+    static final String CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + REASONING;
+    private static final List<String> ADAPTERS = List.of(REASONING, "adapters");
+    private static final List<String> ANALYZE = List.of(REASONING, "analyze");
 
     private final MorpheusReasoningApiService service = new MorpheusReasoningApiService();
     private final MorpheusHttpRequestDecoder requestDecoder;

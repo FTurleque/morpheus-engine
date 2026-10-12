@@ -19,11 +19,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class NexusMcpTechnicalContextProviderTest {
+    private static final String LAUNCHER =
+            Path.of(System.getProperty("java.home"), "bin", "java").toAbsolutePath().toString();
+
 
     @Test
     void disabledProviderReturnsExplicitAbsenceWithoutOpeningGateway() {
         NexusIntegrationSettings settings = new NexusIntegrationSettings(
-                Optional.empty(), "java", Optional.empty(), Duration.ofSeconds(20), Optional.empty());
+                Optional.empty(), LAUNCHER, Optional.empty(), Duration.ofSeconds(20), Optional.empty());
         NexusMcpTechnicalContextProvider provider = new NexusMcpTechnicalContextProvider(
                 settings, () -> { throw new AssertionError("gateway must not be opened"); });
 
@@ -90,7 +93,7 @@ class NexusMcpTechnicalContextProviderTest {
     private NexusIntegrationSettings configured() {
         return new NexusIntegrationSettings(
                 Optional.of(Path.of("nexus-runner.jar")),
-                "java",
+                LAUNCHER,
                 Optional.empty(),
                 Duration.ofSeconds(20),
                 Optional.of("0".repeat(64)),

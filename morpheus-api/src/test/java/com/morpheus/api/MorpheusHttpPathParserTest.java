@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class MorpheusHttpPathParserTest {
 
-    private final MorpheusHttpPathParser parser = new MorpheusHttpPathParser(MorpheusHttpServer.API_PREFIX);
+    private final MorpheusHttpPathParser parser = MorpheusHttpPathParser.api();
 
     @Test
     void apiRootVariantsProduceNoSegments() {
@@ -107,10 +107,5 @@ class MorpheusHttpPathParserTest {
 
         assertEquals(404, failure.status(), rawPath);
         assertEquals("unknown API route: " + rawPath, failure.getMessage(), rawPath);
-    }
-
-    @Test
-    void constructorRejectsNullPrefix() {
-        assertThrows(NullPointerException.class, () -> new MorpheusHttpPathParser(null));
     }
 }

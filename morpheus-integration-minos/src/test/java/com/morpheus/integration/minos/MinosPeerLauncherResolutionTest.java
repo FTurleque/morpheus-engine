@@ -7,12 +7,15 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -102,6 +105,62 @@ class MinosPeerLauncherResolutionTest {
 
         assertTrue(settings.configurationError().isEmpty(), () -> String.valueOf(settings.configurationError()));
         assertEquals(launcher.toRealPath().toString(), settings.javaCommand());
+    }
+
+    @Test
+    @EnabledOnOs(OS.WINDOWS)
+    void aWindowsLauncherWrittenWithoutItsSuffixIsTheLauncherItNames() throws Exception {
+        String launcher = MinosIntegrationSettings.resolve(Map.of(), new Properties()).javaCommand();
+        assertTrue(launcher.endsWith(".exe"), launcher);
+
+        MinosIntegrationSettings settings = configured(launcher.substring(0, launcher.length() - ".exe".length()));
+
+        assertTrue(settings.configurationError().isEmpty(), () -> String.valueOf(settings.configurationError()));
+        assertEquals(Path.of(launcher).toRealPath().toString(), settings.javaCommand());
+    }
+
+    @Test
+    void aRuntimeWithoutALauncherIsNamedWhenAPeerIsConfiguredAndOnlyThen() throws Exception {
+        Path jar = Files.writeString(tempDirectory.resolve("peer.jar"), "content");
+        Properties withPeer = new Properties();
+        withPeer.setProperty(MinosIntegrationSettings.JAR_PROPERTY, jar.toString());
+        String runtime = System.getProperty("java.home");
+        System.setProperty("java.home", tempDirectory.toString());
+        try {
+            MinosIntegrationSettings configured = MinosIntegrationSettings.resolve(Map.of(), withPeer);
+            MinosIntegrationSettings unused = MinosIntegrationSettings.resolve(Map.of(), new Properties());
+
+            assertEquals(MinosIntegrationSettings.State.INVALID, configured.state());
+            assertEquals("MINOS Java command is not configured and the MORPHEUS runtime carries no launcher",
+                    configured.configurationError().orElseThrow());
+            assertEquals(MinosIntegrationSettings.State.DISABLED, unused.state());
+        } finally {
+            System.setProperty("java.home", runtime);
+        }
+    }
+
+    @Test
+    void everyRefusedSettingIsReportedNotOnlyTheLastOne() {
+        Path missingJar = tempDirectory.resolve("no-such.jar").toAbsolutePath().normalize();
+        Properties properties = new Properties();
+        properties.setProperty(MinosIntegrationSettings.JAR_PROPERTY, missingJar.toString());
+        properties.setProperty(MinosIntegrationSettings.JAVA_PROPERTY, "java");
+        properties.setProperty(MinosIntegrationSettings.TIMEOUT_PROPERTY, "soon");
+
+        MinosIntegrationSettings settings = MinosIntegrationSettings.resolve(Map.of(), properties);
+
+        assertEquals("MINOS JAR is not a file: " + missingJar
+                        + "; MINOS Java command must be an absolute path; invalid MINOS timeout: soon",
+                settings.configurationError().orElseThrow());
+    }
+
+    @Test
+    void theSettingsCannotBeBuiltAroundACommandTheSearchPathWouldResolve() {
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> new MinosIntegrationSettings(Optional.empty(), "java", Optional.empty(),
+                        Duration.ofSeconds(20), Optional.empty()));
+
+        assertEquals("javaCommand must be an absolute path", refused.getMessage());
     }
 
     private static MinosIntegrationSettings configured(String launcher) {

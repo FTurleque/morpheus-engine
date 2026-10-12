@@ -113,7 +113,7 @@ final class MorpheusRemoteRoutePolicy {
             route("reasoning/adapters", Map.of(GET, MorpheusRemoteRole.READ)),
             route("reasoning/analyze", Map.of(POST, MorpheusRemoteRole.READ)));
 
-    private static final MorpheusHttpPathParser PATHS = new MorpheusHttpPathParser(MorpheusHttpServer.API_PREFIX);
+    private static final MorpheusHttpPathParser PATHS = MorpheusHttpPathParser.api();
 
     private static final Map<String, Map<String, MorpheusRemoteRole>> ROLES =
             requireExactCover(MorpheusHttpRouteTable.templates(), ROUTES);
@@ -121,8 +121,12 @@ final class MorpheusRemoteRoutePolicy {
     private MorpheusRemoteRoutePolicy() {
     }
 
-    /** The role the route at {@code rawPath} requires; the path is the one the request carried, never a decoded one. */
-    static MorpheusRemoteRole requiredRole(String rawMethod, String rawPath) {
+    /**
+     * Reads the path of a request once and decides it: the route it names and the role the method requires there.
+     * Everything the remote server then does for that request is asked of the result, never of the path again. The
+     * path is the one the request carried, never a decoded one.
+     */
+    static Authorization authorize(String rawMethod, String rawPath) {
         String method = normalizeMethod(rawMethod);
         String template = MorpheusHttpRouteTable.templateOf(apiSegments(rawPath))
                 .orElseThrow(() -> new RoutePolicyException(404, "NOT_FOUND", "unknown remote API path"));
@@ -130,7 +134,11 @@ final class MorpheusRemoteRoutePolicy {
         if (role == null) {
             throw new RoutePolicyException(405, "METHOD_NOT_ALLOWED", "HTTP method is not allowed for remote API route");
         }
-        return role;
+        return new Authorization(template, role);
+    }
+
+    static MorpheusRemoteRole requiredRole(String rawMethod, String rawPath) {
+        return authorize(rawMethod, rawPath).role();
     }
 
     /** The methods the route at {@code rawPath} accepts, as an {@code Allow} value; empty when no route matches. */
@@ -139,18 +147,6 @@ final class MorpheusRemoteRoutePolicy {
             return MorpheusHttpRouteTable.allowHeader(apiSegments(rawPath));
         } catch (RoutePolicyException unrouted) {
             return "";
-        }
-    }
-
-    /**
-     * Whether {@code rawPath} names the route {@code template}, read as the authorization read it. What the remote
-     * server does for one route in particular is decided here, not on a second reading of the path.
-     */
-    static boolean names(String rawPath, String template) {
-        try {
-            return MorpheusHttpRouteTable.templateOf(apiSegments(rawPath)).filter(template::equals).isPresent();
-        } catch (RoutePolicyException unrouted) {
-            return false;
         }
     }
 
@@ -193,7 +189,7 @@ final class MorpheusRemoteRoutePolicy {
      */
     static boolean usesBoundedUpstreamTimeout(String rawMethod, String rawPath) {
         try {
-            return requiredRole(rawMethod, rawPath) == MorpheusRemoteRole.READ;
+            return authorize(rawMethod, rawPath).usesBoundedUpstreamTimeout();
         } catch (RoutePolicyException failure) {
             if (failure.status() == 404) return false;
             throw failure;
@@ -218,6 +214,17 @@ final class MorpheusRemoteRoutePolicy {
     }
 
     record RouteRule(String template, Map<String, MorpheusRemoteRole> methods) {
+    }
+
+    /** The route a request names and the role its method requires there. */
+    record Authorization(String template, MorpheusRemoteRole role) {
+        boolean names(String route) {
+            return template.equals(route);
+        }
+
+        boolean usesBoundedUpstreamTimeout() {
+            return role == MorpheusRemoteRole.READ;
+        }
     }
 
     static final class RoutePolicyException extends RuntimeException {

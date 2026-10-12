@@ -1,11 +1,13 @@
 package com.morpheus.architecture.d2;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,6 +15,7 @@ import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -82,6 +85,22 @@ class RepositoryCredentialHygieneTest {
         assertFalse(matchesAny("notes/not-remote-auth.txt.md"));
     }
 
+    @Test
+    void aSearchPathEntryThatIsNotAPathnameIsPassedOver(@TempDir Path directory) throws IOException {
+        Path git = Files.createFile(directory.resolve("git"));
+        Path gitForWindows = Files.createFile(directory.resolve("git.exe"));
+        assumeTrue(git.toFile().setExecutable(true) && gitForWindows.toFile().setExecutable(true),
+                "this file system cannot mark a file executable");
+        String malformed = "\"quoted entry\"" + File.pathSeparator + "nul\0entry";
+
+        Optional<Path> found = gitExecutable(malformed + File.pathSeparator + directory);
+
+        assertTrue(found.isPresent(), "the entry after the malformed ones must still be searched");
+        assertEquals(directory.toAbsolutePath(), found.orElseThrow().getParent());
+        assertEquals(Optional.empty(), gitExecutable(malformed));
+        assertEquals(Optional.empty(), gitExecutable(null));
+    }
+
     private static boolean matchesAny(String path) {
         return CREDENTIALS.stream().anyMatch(credential -> credential.trackedPath().matcher(path).find());
     }
@@ -92,7 +111,7 @@ class RepositoryCredentialHygieneTest {
      */
     private static List<String> trackedFiles(Path root) throws IOException, InterruptedException {
         assumeTrue(Files.exists(root.resolve(".git")), "not a Git checkout: tracked files cannot be listed");
-        Optional<Path> executable = gitExecutable();
+        Optional<Path> executable = gitExecutable(System.getenv("PATH"));
         assumeTrue(executable.isPresent(), "git is not available: tracked files cannot be listed");
         Process git = new ProcessBuilder(executable.orElseThrow().toString(), "ls-files")
                 .directory(root.toFile())
@@ -106,10 +125,11 @@ class RepositoryCredentialHygieneTest {
 
     /**
      * The Git executable as an absolute path, found on the search path here rather than left to the operating system:
-     * the process is then started from a file this test named, not from whatever a bare command resolves to.
+     * the process is then started from a file this test named, not from whatever a bare command resolves to. An entry
+     * of the search path that is not a pathname -- quoted, as a Windows shell accepts -- is passed over like a directory
+     * that holds no Git.
      */
-    private static Optional<Path> gitExecutable() {
-        String searchPath = System.getenv("PATH");
+    private static Optional<Path> gitExecutable(String searchPath) {
         if (searchPath == null) {
             return Optional.empty();
         }
@@ -118,9 +138,13 @@ class RepositoryCredentialHygieneTest {
                 continue;
             }
             for (String name : List.of("git.exe", "git")) {
-                Path candidate = Path.of(directory).resolve(name).toAbsolutePath();
-                if (Files.isRegularFile(candidate) && Files.isExecutable(candidate)) {
-                    return Optional.of(candidate);
+                try {
+                    Path candidate = Path.of(directory).resolve(name).toAbsolutePath();
+                    if (Files.isRegularFile(candidate) && Files.isExecutable(candidate)) {
+                        return Optional.of(candidate);
+                    }
+                } catch (InvalidPathException notAPathname) {
+                    break;
                 }
             }
         }

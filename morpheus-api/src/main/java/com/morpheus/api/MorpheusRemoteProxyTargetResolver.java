@@ -18,7 +18,7 @@ import java.util.Objects;
  * not perform authentication, authorization, request-body validation or HTTP transport.</p>
  */
 final class MorpheusRemoteProxyTargetResolver {
-    private static final MorpheusHttpPathParser PATHS = new MorpheusHttpPathParser(MorpheusHttpServer.API_PREFIX);
+    private static final MorpheusHttpPathParser PATHS = MorpheusHttpPathParser.api();
     private static final List<String> DISCOVER = List.of("provider-plugins", "discover");
     private static final List<String> PROBE = List.of("provider-plugins", "probe");
 

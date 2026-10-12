@@ -157,12 +157,20 @@ class MorpheusRemoteRoutePolicyTest {
 
     @Test
     void aRouteIsNamedByThePathTheAuthorizationRead() {
-        assertTrue(MorpheusRemoteRoutePolicy.names("/api/v1/server/status", "server/status"));
-        assertTrue(MorpheusRemoteRoutePolicy.names("/api/v1/server/%73tatus/", "server/status"));
-        assertTrue(MorpheusRemoteRoutePolicy.names("/api/v1/saved-views/view-1", "saved-views/{viewId}"));
-        assertFalse(MorpheusRemoteRoutePolicy.names("/api/v1/server%2Fstatus", "server/status"));
-        assertFalse(MorpheusRemoteRoutePolicy.names("/api/v1/server/backups", "server/status"));
-        assertFalse(MorpheusRemoteRoutePolicy.names("/other/server/status", "server/status"));
+        assertTrue(MorpheusRemoteRoutePolicy.authorize("GET", "/api/v1/server/status").names("server/status"));
+        assertTrue(MorpheusRemoteRoutePolicy.authorize("GET", "/api/v1/server/%73tatus/").names("server/status"));
+        assertFalse(MorpheusRemoteRoutePolicy.authorize("POST", "/api/v1/server/backups").names("server/status"));
+
+        MorpheusRemoteRoutePolicy.Authorization view =
+                MorpheusRemoteRoutePolicy.authorize("PUT", "/api/v1/saved-views/view-1");
+        assertTrue(view.names("saved-views/{viewId}"));
+        assertEquals(MorpheusRemoteRole.WRITE, view.role());
+        assertFalse(view.usesBoundedUpstreamTimeout());
+        assertTrue(MorpheusRemoteRoutePolicy.authorize("GET", "/api/v1/saved-views/view-1")
+                .usesBoundedUpstreamTimeout());
+
+        assertEquals(404, assertThrows(MorpheusRemoteRoutePolicy.RoutePolicyException.class,
+                () -> MorpheusRemoteRoutePolicy.authorize("GET", "/api/v1/server%2Fstatus")).status());
     }
 
     @Test

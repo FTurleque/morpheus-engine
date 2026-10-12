@@ -25,8 +25,11 @@ import java.util.Set;
 
 /** M25 management routes needed to discover CAS state and remove an override explicitly. */
 final class MorpheusPolicyManagementHttpRoutes {
-    private static final String ACTIVATION_CONTEXT = MorpheusHttpServer.API_PREFIX + "/policy-activations";
-    private static final String REMOVE_OVERRIDE_CONTEXT = MorpheusHttpServer.API_PREFIX + "/policy-overrides/remove";
+    private static final String ACTIVATIONS = "policy-activations";
+    private static final String OVERRIDES = "policy-overrides";
+    private static final String REMOVE = "remove";
+    private static final String ACTIVATION_CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + ACTIVATIONS;
+    private static final String REMOVE_OVERRIDE_CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + OVERRIDES + "/" + REMOVE;
 
     private final Path databasePath;
     private final MorpheusHttpRequestDecoder requestDecoder;
@@ -52,7 +55,7 @@ final class MorpheusPolicyManagementHttpRoutes {
     private void handleActivations(HttpExchange exchange) throws IOException {
         handle(exchange, () -> {
             requireMethod(exchange, "GET");
-            requireExactPath(exchange, "policy-activations");
+            requireExactPath(exchange, ACTIVATIONS);
             requestDecoder.requireEmptyBody(exchange);
             MorpheusHttpQuery query = MorpheusHttpQuery.parse(exchange.getRequestURI().getRawQuery());
             query.rejectUnknown(Set.of("scopeKind", "scopeId"));
@@ -66,7 +69,7 @@ final class MorpheusPolicyManagementHttpRoutes {
     private void handleRemoveOverride(HttpExchange exchange) throws IOException {
         handle(exchange, () -> {
             requireMethod(exchange, "POST");
-            requireExactPath(exchange, "policy-overrides", "remove");
+            requireExactPath(exchange, OVERRIDES, REMOVE);
             rejectQueryParameters(exchange);
             RemoveOverrideRequest request = requestDecoder.readRequiredJson(exchange, RemoveOverrideRequest.class);
             try (SqlitePolicyPackStore store = new SqlitePolicyPackStore(databasePath)) {

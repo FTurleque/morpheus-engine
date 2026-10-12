@@ -18,9 +18,12 @@ import java.util.Set;
 
 /** Isolated M25 HTTP contexts for policy registry and read-only governance evaluation. */
 final class MorpheusPolicyHttpRoutes {
-    private static final String PACK_CONTEXT = MorpheusHttpServer.API_PREFIX + "/policy-packs";
-    private static final String POLICY_CONTEXT = MorpheusHttpServer.API_PREFIX + "/policies";
-    private static final String OVERRIDE_CONTEXT = MorpheusHttpServer.API_PREFIX + "/policy-overrides";
+    private static final String PACKS = "policy-packs";
+    private static final String POLICIES = "policies";
+    private static final String OVERRIDES = "policy-overrides";
+    private static final String PACK_CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + PACKS;
+    private static final String POLICY_CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + POLICIES;
+    private static final String OVERRIDE_CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + OVERRIDES;
 
     private final MorpheusPolicyApiService service;
     private final MorpheusHttpRequestDecoder requestDecoder;
@@ -53,7 +56,7 @@ final class MorpheusPolicyHttpRoutes {
 
     private Response routePacks(HttpExchange exchange) {
         String method = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
-        List<String> segments = requestDecoder.pathSegmentsBelow(exchange, "policy-packs");
+        List<String> segments = requestDecoder.pathSegmentsBelow(exchange, PACKS);
         if (segments.isEmpty()) {
             rejectQueryParameters(exchange);
             if (method.equals("GET")) {
@@ -118,7 +121,7 @@ final class MorpheusPolicyHttpRoutes {
         handle(exchange, () -> {
             requireMethod(exchange, "POST");
             rejectQueryParameters(exchange);
-            List<String> segments = requestDecoder.pathSegmentsBelow(exchange, "policies");
+            List<String> segments = requestDecoder.pathSegmentsBelow(exchange, POLICIES);
             if (segments.size() != 1) throw ApiFailure.notFound("unknown policies route");
             return switch (segments.getFirst()) {
                 case "evaluate" -> new Response(200, service.evaluate(
@@ -134,7 +137,7 @@ final class MorpheusPolicyHttpRoutes {
         handle(exchange, () -> {
             requireMethod(exchange, "GET");
             // The context also receives every deeper path; the list is served at its own path only.
-            if (!requestDecoder.pathSegmentsBelow(exchange, "policy-overrides").isEmpty()) {
+            if (!requestDecoder.pathSegmentsBelow(exchange, OVERRIDES).isEmpty()) {
                 throw ApiFailure.notFound("unknown policy-overrides route");
             }
             requestDecoder.requireEmptyBody(exchange);

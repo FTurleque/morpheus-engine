@@ -45,8 +45,8 @@ class RemoteHttpServerBootstrapArchitectureTest {
         assertTrue(bootstrap.contains("https.start()"));
 
         assertTrue(server.contains("private MorpheusRemoteIdentityFile.Identity authenticate(HttpExchange exchange)"));
-        assertTrue(server.contains("private MorpheusRemoteRole requiredRole(String rawMethod, String path)"));
-        assertTrue(server.contains("private void proxy(HttpExchange exchange)"));
+        assertTrue(server.contains("private MorpheusRemoteRoutePolicy.Authorization authorize(String rawMethod, String rawPath)"));
+        assertTrue(server.contains("private void proxy(HttpExchange exchange, MorpheusRemoteRoutePolicy.Authorization route)"));
         assertTrue(server.contains("private byte[] readBoundedBody(HttpExchange exchange)"));
         assertTrue(server.contains("maintenance.createBackup(databasePath, backupDirectory)"));
         assertTrue(server.contains("concurrency.tryAcquire()"));

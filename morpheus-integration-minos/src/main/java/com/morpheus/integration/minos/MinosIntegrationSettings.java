@@ -7,6 +7,8 @@ import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -47,7 +49,7 @@ public record MinosIntegrationSettings(
 
     public MinosIntegrationSettings {
         jarPath = Objects.requireNonNull(jarPath, "jarPath").map(MinosIntegrationSettings::normalize);
-        javaCommand = requireNonBlank(javaCommand, "javaCommand");
+        javaCommand = requireAbsoluteLauncher(requireNonBlank(javaCommand, "javaCommand"));
         homeDirectory = Objects.requireNonNull(homeDirectory, "homeDirectory").map(MinosIntegrationSettings::normalize);
         Objects.requireNonNull(timeout, "timeout");
         jarSha256 = Objects.requireNonNull(jarSha256, "jarSha256")
@@ -72,7 +74,7 @@ public record MinosIntegrationSettings(
         String rawTimeout = value(properties, TIMEOUT_PROPERTY, environment, TIMEOUT_ENV)
                 .orElse(Integer.toString(DEFAULT_TIMEOUT_SECONDS));
 
-        Optional<String> error = Optional.empty();
+        List<String> errors = new ArrayList<>();
         Optional<Path> jar = Optional.empty();
         Optional<String> jarSha256 = Optional.empty();
         Optional<Path> home = Optional.empty();
@@ -82,52 +84,57 @@ public record MinosIntegrationSettings(
             if (rawJar != null) {
                 Path candidate = normalize(Path.of(rawJar));
                 if (!Files.isRegularFile(candidate)) {
-                    error = Optional.of("MINOS JAR is not a file: " + candidate);
+                    errors.add("MINOS JAR is not a file: " + candidate);
                 } else if (rawJarSha256 != null) {
                     try {
                         jar = Optional.of(ExternalJarIntegrity.verifySha256(candidate, rawJarSha256));
                         jarSha256 = Optional.of(ExternalJarIntegrity.normalizeSha256(rawJarSha256));
                     } catch (IllegalArgumentException integrityFailure) {
-                        error = Optional.of("MINOS JAR integrity verification failed: " + integrityFailure.getMessage());
+                        errors.add("MINOS JAR integrity verification failed: " + integrityFailure.getMessage());
                     }
                 } else {
                     jar = Optional.of(candidate);
                 }
             } else if (rawJarSha256 != null) {
-                error = Optional.of("MINOS JAR SHA-256 pin requires MORPHEUS_MINOS_JAR/morpheus.minos.jar");
+                errors.add("MINOS JAR SHA-256 pin requires MORPHEUS_MINOS_JAR/morpheus.minos.jar");
             }
             if (rawHome != null) {
                 home = Optional.of(normalize(Path.of(rawHome)));
             }
         } catch (InvalidPathException failure) {
-            error = Optional.of("invalid MINOS path: " + failure.getInput());
+            errors.add("invalid MINOS path: " + failure.getInput());
         }
 
         if (rawJava.isPresent()) {
             try {
                 javaCommand = configuredLauncher(rawJava.orElseThrow());
             } catch (InvalidPathException failure) {
-                error = Optional.of("MINOS Java command must be an absolute path");
+                errors.add("MINOS Java command must be an absolute path");
             } catch (IllegalArgumentException refused) {
-                error = Optional.of("MINOS Java command " + refused.getMessage());
+                errors.add("MINOS Java command " + refused.getMessage());
             } catch (IOException unresolved) {
-                error = Optional.of("MINOS Java command is not an executable file");
+                errors.add("MINOS Java command is not an executable file");
             }
+        }
+
+        if (rawJava.isEmpty() && rawJar != null && !Files.isRegularFile(Path.of(javaCommand))) {
+            errors.add("MINOS Java command is not configured and the MORPHEUS runtime carries no launcher");
         }
 
         try {
             timeoutSeconds = Integer.parseInt(rawTimeout.trim());
             if (timeoutSeconds < 1 || timeoutSeconds > MAX_TIMEOUT_SECONDS) {
-                error = Optional.of("MINOS timeout must be between 1 and " + MAX_TIMEOUT_SECONDS + " seconds");
+                errors.add("MINOS timeout must be between 1 and " + MAX_TIMEOUT_SECONDS + " seconds");
                 timeoutSeconds = DEFAULT_TIMEOUT_SECONDS;
             }
         } catch (RuntimeException failure) {
-            error = Optional.of("invalid MINOS timeout: " + rawTimeout);
+            errors.add("invalid MINOS timeout: " + rawTimeout);
             timeoutSeconds = DEFAULT_TIMEOUT_SECONDS;
         }
 
         return new MinosIntegrationSettings(
-                jar, javaCommand, home, Duration.ofSeconds(timeoutSeconds), jarSha256, error);
+                jar, javaCommand, home, Duration.ofSeconds(timeoutSeconds), jarSha256,
+                errors.isEmpty() ? Optional.empty() : Optional.of(String.join("; ", errors)));
     }
 
     public State state() {
@@ -168,17 +175,32 @@ public record MinosIntegrationSettings(
 
     /**
      * A configured launcher names its file in full. A link is resolved rather than refused -- the usual launcher of a
-     * Linux system is a chain of links -- and the real file is what is launched and reported.
+     * Linux system is a chain of links -- and the real file is what is launched and reported. On Windows the launcher
+     * is commonly written without its {@code .exe}, which the operating system used to add: it is added here.
      */
     private static String configuredLauncher(String configured) throws IOException {
         Path launcher = Path.of(configured);
         if (!launcher.isAbsolute()) {
             throw new IllegalArgumentException("must be an absolute path");
         }
+        if (!Files.isRegularFile(launcher) && launcher.getFileName() != null) {
+            Path windowsLauncher = launcher.resolveSibling(launcher.getFileName() + ".exe");
+            if (Files.isRegularFile(windowsLauncher)) launcher = windowsLauncher;
+        }
         if (!Files.isRegularFile(launcher) || !Files.isExecutable(launcher)) {
             throw new IllegalArgumentException("is not an executable file");
         }
         return launcher.toRealPath().toString();
+    }
+
+    /** A bare or relative command would be looked up on the search path when the peer is started. */
+    private static String requireAbsoluteLauncher(String javaCommand) {
+        try {
+            if (Path.of(javaCommand).isAbsolute()) return javaCommand;
+        } catch (InvalidPathException malformed) {
+            throw new IllegalArgumentException("javaCommand must be an absolute path", malformed);
+        }
+        throw new IllegalArgumentException("javaCommand must be an absolute path");
     }
 
     private static Path normalize(Path path) {

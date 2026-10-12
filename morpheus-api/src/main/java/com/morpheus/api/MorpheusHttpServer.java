@@ -52,7 +52,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private final MorpheusRequirementsHttpRoutes requirementsRoutes;
     private final MorpheusChangesHttpRoutes changesRoutes;
     private final MorpheusHttpResponseWriter responseWriter = new MorpheusHttpResponseWriter();
-    private final MorpheusHttpPathParser pathParser = new MorpheusHttpPathParser(API_PREFIX);
+    private final MorpheusHttpPathParser pathParser = MorpheusHttpPathParser.api();
     private final MorpheusHttpAllowedMethods allowedMethods = new MorpheusHttpAllowedMethods(pathParser);
 
     MorpheusHttpServer(
