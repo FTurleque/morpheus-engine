@@ -32,3 +32,13 @@ Thumbs.db
 
 # Local RTK output filter: the maintainer keeps it on their machine, it is not published
 .rtk/
+
+# Identity files and key material of a MORPHEUS server. SECURITY.md forbids committing them, and the remote server
+# accepts any path for both, this working tree included. RepositoryCredentialHygieneTest holds these lines and refuses
+# a tracked file that matches one.
+remote-auth*.txt
+*.p12
+*.jks
+*.pfx
+*.pem
+*.key
