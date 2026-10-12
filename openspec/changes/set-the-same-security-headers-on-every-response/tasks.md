@@ -4,9 +4,9 @@ Implemented on 2026-10-12 by pull request 454.
 
 ## 1. Measure before changing
 
-- [ ] 1.1 Record the headers of a success, a 400, a 404, a 405, a 409 and an origin refusal on the local server, and of
+- [x] 1.1 Record the headers of a success, a 400, a 404, a 405, a 409 and an origin refusal on the local server, and of
       a proxied response, a 401, a 403 and a 429 on the remote facade. Proof: the table.
-      *Local half done on 2026-10-13: `LocalResponseSecurityHeadersTest` reads six real responses — success, unknown route (404), refused method (405), refused body (400), refused origin (403) and a state conflict (409) — and `CapabilityProtectedHttpServerTest` the refusal for want of the internal capability (401). The remote half is still asserted on the writer and at the top of `serve`, not response by response.*
+      *2026-10-13: both halves are held by tests on real responses rather than by a table. Local: six kinds in `LocalResponseSecurityHeadersTest` (200, 404, 405, 400, 403, 409) and the capability refusal (401) in `CapabilityProtectedHttpServerTest`. Remote: eight kinds in `MorpheusRemoteHttpServerTest` — 401, a proxied 200, 404, 405, 403, a proxied 400, a 201 the facade serves itself and a 429 — each carrying the five headers, `Strict-Transport-Security`, a request identifier and no CORS header.*
 - [x] 1.2 Read what the security gate asserts textually about these headers. Proof: the assertions that must still pass.
 
 ## 2. Reproduce before fixing

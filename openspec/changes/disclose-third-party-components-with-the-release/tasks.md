@@ -26,9 +26,10 @@ that introduces this change.
 - [ ] 2.3 Resolve the same classpath on Linux and on Windows and compare. Proof: identical sets, or the difference —
       which reopens decision 5.
   - 2026-10-11: not measured on Linux from this machine. The release rehearsal builds both platforms; the seventh qualification check compares what each archive attributes with the single SBOM and would refuse a difference.
-- [ ] 2.4 Trace `write-build-provenance.{sh,ps1}`: can `sbomSha256=missing` be written during a release build after this
+- [x] 2.4 Trace `write-build-provenance.{sh,ps1}`: can `sbomSha256=missing` be written during a release build after this
       change? Proof: the call sites; if reachable, a refusal replaces the fallback (with its own failing test first).
   - 2026-10-11: not traced. `write-build-provenance` belongs to the M21 lane and is not called by `build-release`; the release build refuses a missing SBOM by itself (`Release SBOM was not produced`).
+  - 2026-10-13: traced. `write-build-provenance.{sh,ps1}` is called by the validators of M21 to M27 only, never by `build-release`; each caller runs `clean verify` and checks for the SBOM just before the call, so `sbomSha256=missing` was unreachable from them, and nothing read the value. The fallback is replaced by a refusal, `BUILD_PROVENANCE_SBOM_MISSING`, in both variants, held by `BuildProvenanceSbomContractTest` (red first); the PowerShell variant was run without an SBOM and exits 1.
 - [x] 2.5 Read what `ProductReleaseContractTest`, `ReleaseQualificationContractTest` and
       `AuditHardeningWorkflowContractTest` pin in the files this change edits. Proof: the list of assertions that must
       still pass unmodified.
@@ -66,9 +67,10 @@ that introduces this change.
       lists files, add the two. Proof: the installed tree after the installer's smoke mode
       (`scripts\validate-m28.ps1 -Version <current>`).
   - 2026-10-11: the installer installs the portable ZIP as its payload, so the two files come with it; seen in the image the local Windows packaging produced.
-- [ ] 4.5 Break each rule once, then revert: delete a committed text; add `--exclude-files` for `legal` to the `jlink`
+- [x] 4.5 Break each rule once, then revert: delete a committed text; add `--exclude-files` for `legal` to the `jlink`
       options; drop the copy of `LICENSE`. Proof: three named failures.
   - 2026-10-11: partly: a committed text set aside makes the generator refuse (`THIRD_PARTY_NOTICE_MISSING: com.ethlo.time:itu`). The `jlink` option and the dropped copy of `LICENSE` were not broken by hand.
+  - 2026-10-13: the two remaining breaks, each on an untracked copy of `build-portable.ps1` and a full packaging run. With the copy of `LICENSE` removed: `Packaging proof failed; LICENSE is missing or empty at the root of the image`. With `--exclude-files=**/legal/**` added to the `jlink` options: `Packaging proof failed; the embedded runtime carries no legal notice for java.base`. Three named failures with the one of 2026-10-11. Windows only; the `.sh` variant was not broken.
 
 ## 5. Inventory beside the artifacts (AUD-DEP-04)
 
