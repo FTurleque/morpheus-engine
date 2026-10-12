@@ -69,7 +69,6 @@ public record MinosIntegrationSettings(
         String rawJar = value(properties, JAR_PROPERTY, environment, JAR_ENV).orElse(null);
         String rawJarSha256 = value(properties, JAR_SHA256_PROPERTY, environment, JAR_SHA256_ENV).orElse(null);
         Optional<String> rawJava = value(properties, JAVA_PROPERTY, environment, JAVA_ENV);
-        String javaCommand = runtimeLauncher();
         String rawHome = value(properties, HOME_PROPERTY, environment, HOME_ENV).orElse(null);
         String rawTimeout = value(properties, TIMEOUT_PROPERTY, environment, TIMEOUT_ENV)
                 .orElse(Integer.toString(DEFAULT_TIMEOUT_SECONDS));
@@ -105,21 +104,7 @@ public record MinosIntegrationSettings(
             errors.add("invalid MINOS path: " + failure.getInput());
         }
 
-        if (rawJava.isPresent()) {
-            try {
-                javaCommand = configuredLauncher(rawJava.orElseThrow());
-            } catch (InvalidPathException failure) {
-                errors.add("MINOS Java command must be an absolute path");
-            } catch (IllegalArgumentException refused) {
-                errors.add("MINOS Java command " + refused.getMessage());
-            } catch (IOException unresolved) {
-                errors.add("MINOS Java command is not an executable file");
-            }
-        }
-
-        if (rawJava.isEmpty() && rawJar != null && !Files.isRegularFile(Path.of(javaCommand))) {
-            errors.add("MINOS Java command is not configured and the MORPHEUS runtime carries no launcher");
-        }
+        String javaCommand = launcher(rawJava, rawJar != null, errors);
 
         try {
             timeoutSeconds = Integer.parseInt(rawTimeout.trim());
@@ -160,6 +145,30 @@ public record MinosIntegrationSettings(
         }
         String env = environment.get(environmentName);
         return env == null || env.isBlank() ? Optional.empty() : Optional.of(env.trim());
+    }
+
+    /**
+     * The launcher the peer is started with. A refusal is added to {@code errors} and the launcher of the runtime is
+     * kept, so that the settings stay well formed while they are invalid.
+     */
+    private static String launcher(Optional<String> configured, boolean peerConfigured, List<String> errors) {
+        String runtime = runtimeLauncher();
+        if (configured.isEmpty()) {
+            if (peerConfigured && !Files.isRegularFile(Path.of(runtime))) {
+                errors.add("MINOS Java command is not configured and the MORPHEUS runtime carries no launcher");
+            }
+            return runtime;
+        }
+        try {
+            return configuredLauncher(configured.orElseThrow());
+        } catch (InvalidPathException failure) {
+            errors.add("MINOS Java command must be an absolute path");
+        } catch (IllegalArgumentException refused) {
+            errors.add("MINOS Java command " + refused.getMessage());
+        } catch (IOException unresolved) {
+            errors.add("MINOS Java command is not an executable file");
+        }
+        return runtime;
     }
 
     /**
