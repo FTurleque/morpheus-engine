@@ -42,7 +42,7 @@ Supprimer une de ces chaînes casse le build.
 | Audit | `MAX_AUDIT_RECORDS = 512`, écriture via `FileChannel` + `FileLock` |
 | RBAC | `MorpheusRemoteRole.ADMIN` pour les opérations sensibles |
 | Rate limit | `TOO_MANY_REQUESTS` (429) |
-| Headers | `X-Frame-Options`, `Content-Security-Policy` |
+| Headers | `X-Frame-Options`, `Content-Security-Policy`, `Strict-Transport-Security: max-age=31536000` (façade remote seulement — le serveur local parle HTTP sur loopback et ne le pose pas) |
 
 ### Interdits stricts sur le proxy remote
 - **Jamais** de `Access-Control-Allow-Origin` (pas de CORS)

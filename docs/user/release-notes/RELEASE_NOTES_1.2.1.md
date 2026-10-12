@@ -261,6 +261,18 @@ prouvé par un test sur le serveur réel ; ceux du CLI et de HTTP sont lus dans 
 
 Décision : [ADR-0102, amendement du 29 septembre 2026 (MCP-3)](../../architecture/adr/0102-mcp-failure-contract-is-one-rule.md).
 
+### HTTP : les mêmes en-têtes de sécurité sur toute réponse
+
+Une réponse du serveur local ne portait `X-Frame-Options` et `Referrer-Policy` que lorsqu'elle refusait une origine,
+et jamais `Content-Security-Policy`. Toute réponse locale — succès, erreur, route inconnue, origine refusée — porte
+maintenant `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+`Referrer-Policy: no-referrer` et `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`.
+
+Le serveur remote ajoute `Strict-Transport-Security: max-age=31536000`.
+
+**Migration.** Aucune pour un client d'API. Un outil qui afficherait une réponse de MORPHEUS dans un cadre de page web
+ne le peut plus. Sur le serveur remote, voir la conséquence de l'épinglage HTTPS dans le guide du serveur d'équipe.
+
 ### Synchronisation : l'état de sync s'écrit avec une révision attendue
 
 Jusqu'à 1.2.0, `recordAttempt` et `commitSuccessfulSync` écrivaient l'état de synchronisation par un upsert aveugle. Deux syncs concurrentes

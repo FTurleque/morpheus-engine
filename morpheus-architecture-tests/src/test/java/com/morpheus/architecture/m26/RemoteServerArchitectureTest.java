@@ -248,6 +248,8 @@ class RemoteServerArchitectureTest {
         assertFalse(server.contains("private static void applySecurityHeaders("));
         assertTrue(responses.contains("final class MorpheusRemoteResponseWriter"));
         assertTrue(responses.contains("Content-Security-Policy"));
+        assertTrue(responses.contains("\"Strict-Transport-Security\", \"max-age=31536000\""),
+                "the HTTPS-only facade must pin HTTPS for the host it is exposed on, and for that host only");
         assertFalse(responses.contains("MorpheusRemoteRole"));
         assertFalse(responses.contains("MorpheusRemoteIdentityFile"));
         assertFalse(responses.contains("MorpheusRemoteRoutePolicy"));
