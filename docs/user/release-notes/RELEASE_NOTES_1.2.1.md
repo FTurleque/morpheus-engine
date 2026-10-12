@@ -278,6 +278,18 @@ Cela vaut aussi pour un refus qui cite une valeur de la requête : si cette vale
 **Migration.** Un client qui lisait `error.message` pour décider doit lire `error.code` et le statut HTTP. Aucun
 changement pour un client qui affiche seulement le message.
 
+### HTTP : les mêmes en-têtes de sécurité sur toute réponse
+
+Une réponse du serveur local ne portait `X-Frame-Options` et `Referrer-Policy` que lorsqu'elle refusait une origine,
+et jamais `Content-Security-Policy`. Toute réponse locale — succès, erreur, route inconnue, origine refusée — porte
+maintenant `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+`Referrer-Policy: no-referrer` et `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`.
+
+Le serveur remote ajoute `Strict-Transport-Security: max-age=31536000`.
+
+**Migration.** Aucune pour un client d'API. Un outil qui afficherait une réponse de MORPHEUS dans un cadre de page web
+ne le peut plus. Sur le serveur remote, voir la conséquence de l'épinglage HTTPS dans le guide du serveur d'équipe.
+
 ### Synchronisation : l'état de sync s'écrit avec une révision attendue
 
 Jusqu'à 1.2.0, `recordAttempt` et `commitSuccessfulSync` écrivaient l'état de synchronisation par un upsert aveugle. Deux syncs concurrentes

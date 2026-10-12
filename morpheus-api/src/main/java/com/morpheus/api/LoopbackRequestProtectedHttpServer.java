@@ -34,10 +34,7 @@ final class LoopbackRequestProtectedHttpServer extends RequestProtectedHttpServe
     private static void reject(HttpExchange exchange) throws IOException {
         Headers headers = exchange.getResponseHeaders();
         headers.set("Content-Type", "application/json; charset=utf-8");
-        headers.set("Cache-Control", "no-store");
-        headers.set("X-Content-Type-Options", "nosniff");
-        headers.set("X-Frame-Options", "DENY");
-        headers.set("Referrer-Policy", "no-referrer");
+        MorpheusHttpResponseWriter.applySecurityHeaders(headers);
         exchange.sendResponseHeaders(403, REJECTED_BODY.length);
         exchange.getResponseBody().write(REJECTED_BODY);
         exchange.close();
