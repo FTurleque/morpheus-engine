@@ -144,6 +144,28 @@ class MorpheusRemoteRoutePolicyTest {
     }
 
     @Test
+    void aPathIsReadAsItWasSentAndEachSegmentIsDecodedOnce() {
+        assertEquals(MorpheusRemoteRole.WRITE,
+                MorpheusRemoteRoutePolicy.requiredRole("POST", "/api/v1/saved-views/view-1/%61rchive"));
+        assertEquals("GET, PUT", MorpheusRemoteRoutePolicy.allowedMethods("/api/v1/saved-views/a%2Fb"));
+        assertEquals("", MorpheusRemoteRoutePolicy.allowedMethods("/api/v1/saved-views/view-1/%2561rchive"));
+        assertEquals("", MorpheusRemoteRoutePolicy.allowedMethods("/api/v1/provider-plugins%2Fprobe"));
+        assertEquals("", MorpheusRemoteRoutePolicy.allowedMethods("/api/v1/health//"));
+        assertEquals("", MorpheusRemoteRoutePolicy.allowedMethods("/api/v1health"));
+        assertEquals("", MorpheusRemoteRoutePolicy.allowedMethods("/api/v1/%zz"));
+    }
+
+    @Test
+    void aRouteIsNamedByThePathTheAuthorizationRead() {
+        assertTrue(MorpheusRemoteRoutePolicy.names("/api/v1/server/status", "server/status"));
+        assertTrue(MorpheusRemoteRoutePolicy.names("/api/v1/server/%73tatus/", "server/status"));
+        assertTrue(MorpheusRemoteRoutePolicy.names("/api/v1/saved-views/view-1", "saved-views/{viewId}"));
+        assertFalse(MorpheusRemoteRoutePolicy.names("/api/v1/server%2Fstatus", "server/status"));
+        assertFalse(MorpheusRemoteRoutePolicy.names("/api/v1/server/backups", "server/status"));
+        assertFalse(MorpheusRemoteRoutePolicy.names("/other/server/status", "server/status"));
+    }
+
+    @Test
     void everyRouteOfTheTableCarriesARoleForExactlyItsMethods() {
         MorpheusHttpRouteTable.templates().forEach((template, methods) -> {
             String path = MorpheusHttpServer.API_PREFIX + (template.isEmpty() ? "" : "/" + template);

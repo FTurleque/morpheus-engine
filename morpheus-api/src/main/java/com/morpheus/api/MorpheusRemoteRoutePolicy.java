@@ -113,15 +113,18 @@ final class MorpheusRemoteRoutePolicy {
             route("reasoning/adapters", Map.of(GET, MorpheusRemoteRole.READ)),
             route("reasoning/analyze", Map.of(POST, MorpheusRemoteRole.READ)));
 
+    private static final MorpheusHttpPathParser PATHS = new MorpheusHttpPathParser(MorpheusHttpServer.API_PREFIX);
+
     private static final Map<String, Map<String, MorpheusRemoteRole>> ROLES =
             requireExactCover(MorpheusHttpRouteTable.templates(), ROUTES);
 
     private MorpheusRemoteRoutePolicy() {
     }
 
-    static MorpheusRemoteRole requiredRole(String rawMethod, String path) {
+    /** The role the route at {@code rawPath} requires; the path is the one the request carried, never a decoded one. */
+    static MorpheusRemoteRole requiredRole(String rawMethod, String rawPath) {
         String method = normalizeMethod(rawMethod);
-        String template = MorpheusHttpRouteTable.templateOf(apiSegments(path))
+        String template = MorpheusHttpRouteTable.templateOf(apiSegments(rawPath))
                 .orElseThrow(() -> new RoutePolicyException(404, "NOT_FOUND", "unknown remote API path"));
         MorpheusRemoteRole role = ROLES.get(template).get(method);
         if (role == null) {
@@ -130,12 +133,24 @@ final class MorpheusRemoteRoutePolicy {
         return role;
     }
 
-    /** The methods the route at {@code path} accepts, as an {@code Allow} value; empty when no route matches. */
-    static String allowedMethods(String path) {
+    /** The methods the route at {@code rawPath} accepts, as an {@code Allow} value; empty when no route matches. */
+    static String allowedMethods(String rawPath) {
         try {
-            return MorpheusHttpRouteTable.allowHeader(apiSegments(path));
+            return MorpheusHttpRouteTable.allowHeader(apiSegments(rawPath));
         } catch (RoutePolicyException unrouted) {
             return "";
+        }
+    }
+
+    /**
+     * Whether {@code rawPath} names the route {@code template}, read as the authorization read it. What the remote
+     * server does for one route in particular is decided here, not on a second reading of the path.
+     */
+    static boolean names(String rawPath, String template) {
+        try {
+            return MorpheusHttpRouteTable.templateOf(apiSegments(rawPath)).filter(template::equals).isPresent();
+        } catch (RoutePolicyException unrouted) {
+            return false;
         }
     }
 
@@ -176,9 +191,9 @@ final class MorpheusRemoteRoutePolicy {
      * an unknown path keeps this helper conservative for direct callers while {@link #requiredRole(String, String)}
      * remains the fail-closed authorization gate.
      */
-    static boolean usesBoundedUpstreamTimeout(String rawMethod, String path) {
+    static boolean usesBoundedUpstreamTimeout(String rawMethod, String rawPath) {
         try {
-            return requiredRole(rawMethod, path) == MorpheusRemoteRole.READ;
+            return requiredRole(rawMethod, rawPath) == MorpheusRemoteRole.READ;
         } catch (RoutePolicyException failure) {
             if (failure.status() == 404) return false;
             throw failure;
@@ -189,24 +204,13 @@ final class MorpheusRemoteRoutePolicy {
         return new RouteRule(template, Map.copyOf(methods));
     }
 
-    private static List<String> apiSegments(String path) {
-        Objects.requireNonNull(path, "path");
-        String prefix = MorpheusHttpServer.API_PREFIX;
-        if (path.equals(prefix) || path.equals(prefix + "/")) return List.of();
-        if (!path.startsWith(prefix + "/")) {
+    private static List<String> apiSegments(String rawPath) {
+        Objects.requireNonNull(rawPath, "rawPath");
+        try {
+            return PATHS.segments(rawPath);
+        } catch (ApiFailure refused) {
             throw new RoutePolicyException(404, "NOT_FOUND", "unknown remote API path");
         }
-        String suffix = path.substring(prefix.length() + 1);
-        if (suffix.endsWith("/")) suffix = suffix.substring(0, suffix.length() - 1);
-        if (suffix.isEmpty()) return List.of();
-        List<String> segments = new ArrayList<>();
-        for (String segment : suffix.split("/", -1)) {
-            if (segment.isEmpty()) {
-                throw new RoutePolicyException(404, "NOT_FOUND", "invalid remote API path");
-            }
-            segments.add(segment);
-        }
-        return List.copyOf(segments);
     }
 
     private static String normalizeMethod(String rawMethod) {

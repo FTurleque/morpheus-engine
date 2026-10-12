@@ -12,10 +12,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -57,7 +54,7 @@ final class MorpheusQueryHttpRoutes {
     private void handleQueries(HttpExchange exchange) throws IOException {
         handle(exchange, () -> {
             requireMethod(exchange, "POST");
-            requireExactPath(exchange, QUERY_CONTEXT + "/execute");
+            requireExactPath(exchange, "queries", "execute");
             rejectQueryParameters(exchange);
             return json(200, service.execute(
                     requestDecoder.readRequiredJson(exchange, MorpheusQueryApiService.ScopedQueryRequest.class)));
@@ -67,7 +64,7 @@ final class MorpheusQueryHttpRoutes {
     private void handleExports(HttpExchange exchange) throws IOException {
         handle(exchange, () -> {
             requireMethod(exchange, "POST");
-            requireExactPath(exchange, EXPORT_CONTEXT);
+            requireExactPath(exchange, "exports");
             rejectQueryParameters(exchange);
             return raw(200, service.export(
                     requestDecoder.readRequiredJson(exchange, MorpheusQueryApiService.ExportRequest.class)));
@@ -80,7 +77,7 @@ final class MorpheusQueryHttpRoutes {
 
     private Response routeSavedViews(HttpExchange exchange) {
         String method = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
-        List<String> segments = suffixSegments(exchange.getRequestURI().getPath(), VIEW_CONTEXT);
+        List<String> segments = requestDecoder.pathSegmentsBelow(exchange, "saved-views");
         if (segments.isEmpty()) {
             if (method.equals("GET")) {
                 MorpheusHttpQuery query = MorpheusHttpQuery.parse(exchange.getRequestURI().getRawQuery());
@@ -155,7 +152,7 @@ final class MorpheusQueryHttpRoutes {
                     "v1", new ApiError("REVISION_CONFLICT", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (ApiFailure failure) {
             if (failure.status() == 405) {
-                exchange.getResponseHeaders().set("Allow", allowedMethods.forPath(exchange.getRequestURI().getPath()));
+                exchange.getResponseHeaders().set("Allow", allowedMethods.forPath(exchange.getRequestURI().getRawPath()));
             }
             responseWriter.send(exchange, failure.status(), new ApiErrorEnvelope(
                     "v1", new ApiError(failure.code(), failure.getMessage(), failure.details())));
@@ -180,8 +177,8 @@ final class MorpheusQueryHttpRoutes {
         }
     }
 
-    private void requireExactPath(HttpExchange exchange, String expected) {
-        if (!exchange.getRequestURI().getPath().equals(expected)) {
+    private void requireExactPath(HttpExchange exchange, String... expected) {
+        if (!requestDecoder.pathSegments(exchange).equals(List.of(expected))) {
             throw ApiFailure.notFound("unknown API route");
         }
     }
@@ -190,28 +187,6 @@ final class MorpheusQueryHttpRoutes {
         if (exchange.getRequestURI().getRawQuery() != null && !exchange.getRequestURI().getRawQuery().isBlank()) {
             throw ApiFailure.badRequest("query parameters are not supported on this route");
         }
-    }
-
-    private List<String> suffixSegments(String path, String context) {
-        if (!path.startsWith(context)) {
-            throw ApiFailure.notFound("unknown API route");
-        }
-        String suffix = path.substring(context.length());
-        if (suffix.isEmpty() || suffix.equals("/")) {
-            return List.of();
-        }
-        String normalized = suffix.startsWith("/") ? suffix.substring(1) : suffix;
-        if (normalized.endsWith("/")) {
-            normalized = normalized.substring(0, normalized.length() - 1);
-        }
-        List<String> result = new ArrayList<>();
-        for (String segment : normalized.split("/")) {
-            if (segment.isBlank()) {
-                throw ApiFailure.notFound("invalid API path");
-            }
-            result.add(URLDecoder.decode(segment, StandardCharsets.UTF_8));
-        }
-        return List.copyOf(result);
     }
 
     private Response json(int status, Object data) {

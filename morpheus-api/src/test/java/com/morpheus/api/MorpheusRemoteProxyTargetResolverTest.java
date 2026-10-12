@@ -16,6 +16,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MorpheusRemoteProxyTargetResolverTest {
     private static final int LOCAL_PORT = 8123;
@@ -33,6 +34,21 @@ class MorpheusRemoteProxyTargetResolverTest {
 
         assertEquals("http://127.0.0.1:" + LOCAL_PORT + "/api/v1/projects?name=a%20b&ref=%2Fraw", target.toString());
         assertEquals("http://127.0.0.1:" + LOCAL_PORT + "/api/v1/health", withoutQuery.toString());
+    }
+
+    @Test
+    void aProviderPluginRouteIsRecognisedBySegmentAsTheLocalServerWillReadIt() throws IOException {
+        Fixture fixture = fixture();
+
+        URI encodedLiteral = fixture.resolver().resolve(URI.create("/api/v1/provider-plugins/%64iscover"));
+        URI encodedSlash = fixture.resolver().resolve(URI.create("/api/v1/provider-plugins%2Fdiscover?directory=x"));
+        URI outsideThePrefix = fixture.resolver().resolve(URI.create("/other/provider-plugins/discover?directory=x"));
+
+        assertTrue(encodedLiteral.getRawQuery().startsWith("directory="), encodedLiteral.toString());
+        assertEquals("http://127.0.0.1:" + LOCAL_PORT + "/api/v1/provider-plugins%2Fdiscover?directory=x",
+                encodedSlash.toString());
+        assertEquals("http://127.0.0.1:" + LOCAL_PORT + "/other/provider-plugins/discover?directory=x",
+                outsideThePrefix.toString());
     }
 
     @Test

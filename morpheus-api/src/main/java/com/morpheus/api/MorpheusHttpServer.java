@@ -204,7 +204,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
             send(exchange, response.status(), success(response.data()));
         } catch (ApiFailure failure) {
             if (failure.status() == 405) {
-                exchange.getResponseHeaders().set("Allow", allowedMethods.forPath(exchange.getRequestURI().getPath()));
+                exchange.getResponseHeaders().set("Allow", allowedMethods.forPath(exchange.getRequestURI().getRawPath()));
             }
             send(exchange, failure.status(), error(failure.code(), failure.getMessage(), failure.details()));
         } catch (IllegalArgumentException failure) {
@@ -220,7 +220,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
 
     private MorpheusHttpRouteResponse route(HttpExchange exchange) {
         String method = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
-        List<String> segments = pathSegments(exchange.getRequestURI().getPath());
+        List<String> segments = pathSegments(exchange.getRequestURI().getRawPath());
         MorpheusHttpQuery query = MorpheusHttpQuery.parse(exchange.getRequestURI().getRawQuery());
 
         if (rootRoutes.handles(segments)) {
@@ -238,7 +238,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
             return integrationStatusRoutes.route(method, segments, query);
         }
         if (!segments.getFirst().equals("projects")) {
-            throw ApiFailure.notFound("unknown API route: " + exchange.getRequestURI().getPath());
+            throw ApiFailure.notFound("unknown API route: " + exchange.getRequestURI().getRawPath());
         }
 
         if (segments.size() <= 2) {

@@ -6,6 +6,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -17,7 +18,9 @@ import java.util.Objects;
  * not perform authentication, authorization, request-body validation or HTTP transport.</p>
  */
 final class MorpheusRemoteProxyTargetResolver {
-    private static final String PROVIDER_PLUGIN_PREFIX = MorpheusHttpServer.API_PREFIX + "/provider-plugins/";
+    private static final MorpheusHttpPathParser PATHS = new MorpheusHttpPathParser(MorpheusHttpServer.API_PREFIX);
+    private static final List<String> DISCOVER = List.of("provider-plugins", "discover");
+    private static final List<String> PROBE = List.of("provider-plugins", "probe");
 
     private final int localPort;
     private final Path providerPluginDirectory;
@@ -37,7 +40,9 @@ final class MorpheusRemoteProxyTargetResolver {
     URI resolve(URI requestUri) {
         Objects.requireNonNull(requestUri, "requestUri");
         String suffix = requestUri.getRawPath();
-        if (isProviderPluginPath(requestUri.getPath())) {
+        List<String> segments = segments(suffix);
+        boolean probe = segments.equals(PROBE);
+        if (probe || segments.equals(DISCOVER)) {
             Map<String, String> query = parseQuery(requestUri.getRawQuery());
             if (query.containsKey("directory")) {
                 throw failure(
@@ -46,7 +51,7 @@ final class MorpheusRemoteProxyTargetResolver {
             }
             Map<String, String> upstream = new LinkedHashMap<>(query);
             upstream.put("directory", providerPluginDirectory.toString());
-            if (requestUri.getPath().endsWith("/probe")) {
+            if (probe) {
                 String sha256 = query.get("sha256");
                 if (sha256 == null || sha256.isBlank()) {
                     throw failure(
@@ -71,8 +76,13 @@ final class MorpheusRemoteProxyTargetResolver {
         return URI.create("http://127.0.0.1:" + localPort + suffix);
     }
 
-    private static boolean isProviderPluginPath(String path) {
-        return path.equals(PROVIDER_PLUGIN_PREFIX + "discover") || path.equals(PROVIDER_PLUGIN_PREFIX + "probe");
+    /** The segments the local server will read from the forwarded path; none when it will refuse that path. */
+    private static List<String> segments(String rawPath) {
+        try {
+            return PATHS.segments(rawPath);
+        } catch (ApiFailure unrouted) {
+            return List.of();
+        }
     }
 
     private static Map<String, String> parseQuery(String rawQuery) {
