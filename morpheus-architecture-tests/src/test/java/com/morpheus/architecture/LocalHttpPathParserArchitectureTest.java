@@ -28,8 +28,8 @@ class LocalHttpPathParserArchitectureTest {
         assertFalse(server.contains("String suffix = path.substring(API_PREFIX.length())"));
 
         assertTrue(parser.contains("final class MorpheusHttpPathParser"));
-        assertTrue(parser.contains("List<String> segments(String path)"));
-        assertTrue(parser.contains("URLDecoder.decode"));
+        assertTrue(parser.contains("List<String> segments(String rawPath)"));
+        assertFalse(parser.contains("URLDecoder"));
         assertTrue(parser.contains("invalid API path"));
         assertFalse(parser.contains("allowedMethods"));
         assertFalse(parser.contains("MorpheusHttpAllowedMethods"));

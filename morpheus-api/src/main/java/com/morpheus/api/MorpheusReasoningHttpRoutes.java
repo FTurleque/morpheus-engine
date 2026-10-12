@@ -7,6 +7,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -14,8 +15,8 @@ import java.util.Objects;
 /** Isolated M27 HTTP context. Reasoning execution never mutates the knowledge store. */
 final class MorpheusReasoningHttpRoutes {
     static final String CONTEXT = MorpheusHttpServer.API_PREFIX + "/reasoning";
-    private static final String ADAPTERS = CONTEXT + "/adapters";
-    private static final String ANALYZE = CONTEXT + "/analyze";
+    private static final List<String> ADAPTERS = List.of("reasoning", "adapters");
+    private static final List<String> ANALYZE = List.of("reasoning", "analyze");
 
     private final MorpheusReasoningApiService service = new MorpheusReasoningApiService();
     private final MorpheusHttpRequestDecoder requestDecoder;
@@ -38,8 +39,8 @@ final class MorpheusReasoningHttpRoutes {
     }
 
     private void handle(HttpExchange exchange) throws IOException {
-        String path = exchange.getRequestURI().getPath();
         try {
+            List<String> path = requestDecoder.pathSegments(exchange);
             rejectQueryParameters(exchange);
             String method = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
             Object response;
@@ -57,7 +58,7 @@ final class MorpheusReasoningHttpRoutes {
             responseWriter.send(exchange, 200, new ApiSuccess("v1", response));
         } catch (ApiFailure failure) {
             if (failure.status() == 405) {
-                exchange.getResponseHeaders().set("Allow", allowedMethods.forPath(path));
+                exchange.getResponseHeaders().set("Allow", allowedMethods.forPath(exchange.getRequestURI().getRawPath()));
             }
             responseWriter.send(exchange, failure.status(), new ApiErrorEnvelope(
                     "v1", new ApiError(failure.code(), failure.getMessage(), failure.details())));

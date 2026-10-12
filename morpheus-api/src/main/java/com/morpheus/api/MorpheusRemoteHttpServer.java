@@ -216,7 +216,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                 authenticationConcurrency.release();
             }
 
-            MorpheusRemoteRole required = requiredRole(exchange.getRequestMethod(), exchange.getRequestURI().getPath());
+            MorpheusRemoteRole required = requiredRole(exchange.getRequestMethod(), exchange.getRequestURI().getRawPath());
             if (!identity.role().allows(required)) {
                 runtime.recordAuthorizationFailure();
                 responses.sendError(
@@ -227,8 +227,8 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                 return;
             }
 
-            String path = exchange.getRequestURI().getPath();
-            if (path.equals(MorpheusHttpServer.API_PREFIX + "/server/status")) {
+            String path = exchange.getRequestURI().getRawPath();
+            if (MorpheusRemoteRoutePolicy.names(path, "server/status")) {
                 requireMethod(exchange, "GET");
                 serveStatus(exchange);
                 return;
@@ -247,7 +247,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             requestSlot = true;
             runtime.requestStarted();
 
-            if (path.equals(MorpheusHttpServer.API_PREFIX + "/server/backups")) {
+            if (MorpheusRemoteRoutePolicy.names(path, "server/backups")) {
                 requireMethod(exchange, "POST");
                 requireEmptyBody(exchange);
                 SqliteServerMaintenance.BackupVerification backup = maintenance.createBackup(databasePath, backupDirectory);
@@ -307,7 +307,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         if (failure.status == 403) runtime.recordAuthorizationFailure();
         if (failure.status == 405) {
             exchange.getResponseHeaders().set(
-                    "Allow", MorpheusRemoteRoutePolicy.allowedMethods(exchange.getRequestURI().getPath()));
+                    "Allow", MorpheusRemoteRoutePolicy.allowedMethods(exchange.getRequestURI().getRawPath()));
         }
         responses.sendError(exchange, failure.status, failure.code, failure.getMessage());
     }
@@ -404,7 +404,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     private void proxy(HttpExchange exchange) throws IOException {
         byte[] requestBody = readBoundedBody(exchange);
         URI requestUri = exchange.getRequestURI();
-        boolean providerProbe = requestUri.getPath().equals(MorpheusHttpServer.API_PREFIX + "/provider-plugins/probe");
+        boolean providerProbe = MorpheusRemoteRoutePolicy.names(requestUri.getRawPath(), "provider-plugins/probe");
         if (providerProbe && requestBody.length != 0) {
             throw new RemoteFailure(400, "BAD_REQUEST", "provider-plugin probe request body must be empty");
         }
@@ -419,7 +419,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                     exchange,
                     target,
                     requestBody,
-                    usesBoundedUpstreamTimeout(exchange.getRequestMethod(), requestUri.getPath()));
+                    usesBoundedUpstreamTimeout(exchange.getRequestMethod(), requestUri.getRawPath()));
         } catch (MorpheusRemoteProxyTransport.TransportException failure) {
             throw new RemoteFailure(failure.status(), failure.code(), failure.getMessage());
         }

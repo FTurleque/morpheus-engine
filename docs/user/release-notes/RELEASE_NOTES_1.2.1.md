@@ -290,6 +290,28 @@ Le serveur remote ajoute `Strict-Transport-Security: max-age=31536000`.
 **Migration.** Aucune pour un client d'API. Un outil qui afficherait une réponse de MORPHEUS dans un cadre de page web
 ne le peut plus. Sur le serveur remote, voir la conséquence de l'épinglage HTTPS dans le guide du serveur d'équipe.
 
+### HTTP : un segment de chemin est décodé une seule fois
+
+Le chemin d'une requête était décodé deux fois, la seconde comme un champ de formulaire : `%252e` arrivait à la route
+comme un point, `+` comme une espace, et `%2F` coupait un segment en deux. Le serveur remote, lui, autorisait le chemin
+décodé une seule fois : l'autorisation et le routage ne lisaient pas toujours le même chemin.
+
+Le chemin est maintenant découpé tel qu'il a été envoyé, puis chaque segment est décodé une fois, par le même code
+pour l'autorisation distante et pour le routage :
+
+- `%252e` reste `%2e` ; un caractère encodé deux fois n'est plus décodé deux fois ;
+- `+` reste `+` ; une espace s'écrit `%20` ;
+- `%2F` reste à l'intérieur de son segment et ne crée plus de niveau de chemin ;
+- un seul `/` final est ignoré ; `/api/v1/health//` et `/api/v1//` répondent 404 ;
+- le préfixe se compare segment par segment : `/api/v1health` répond 404 ;
+- un chemin qui commence seulement par le nom d'une route (`/api/v1/saved-viewsx`, `/api/v1/policy-packsx`) répond 404
+  au lieu d'être lu comme un identifiant ;
+- sur le serveur remote, tout chemin refusé porte le message `unknown remote API path`.
+
+**Migration.** Aucune pour un client qui écrit les chemins de la documentation avec des identifiants UUID. Un client
+qui encodait un segment deux fois, ou qui écrivait une espace `+` dans un chemin, doit l'encoder une seule fois et
+écrire `%20`. Les paramètres de requête (`?nom=valeur`) ne changent pas : `+` y reste une espace.
+
 ### MINOS et NEXUS : l'exécutable Java ne se cherche plus dans le `PATH`
 
 Sans `MORPHEUS_MINOS_JAVA` ni `MORPHEUS_NEXUS_JAVA`, MORPHEUS lançait la commande `java`, que le système cherchait dans
