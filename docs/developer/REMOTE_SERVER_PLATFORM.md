@@ -376,6 +376,34 @@ MCP                       aucune surface control-plane M26
 
 Voir `contracts/public-surfaces.tsv` et `docs/developer/reference/openapi/morpheus-v1-remote-m26.yaml`.
 
+## Profil de charge et clients adverses
+
+`MorpheusRemoteLoadProfileTest` (module `morpheus-api`) est le harnais reproductible qui mesure la façade sous charge.
+Il pilote la vraie façade HTTPS et écrit ce qu'il a observé dans `morpheus-api/target/remote-load-profile.txt` :
+
+```bash
+./mvnw -pl morpheus-api test -Dtest=MorpheusRemoteLoadProfileTest
+```
+
+Ce que le harnais **affirme** n'est délibérément pas une latence. Un chiffre absolu sur un runner partagé n'est pas une
+propriété de MORPHEUS, et un build qui casse quand la machine est occupée apprend surtout à ignorer l'échec. Les
+assertions portent sur les propriétés qui doivent tenir à n'importe quelle vitesse :
+
+- toute requête reçoit une réponse ;
+- cette réponse n'est **jamais** un 5xx : la saturation s'exprime en `429` explicite, jamais en drop ni en attente ;
+- `server/status` reste répondable pendant toute une charge mixte lecture + mutation ;
+- un corps surdimensionné (`413`) ne laisse **aucun** slot derrière lui ;
+- fermer la façade libère réellement sa socket et son executor.
+
+Les latences (`p50`, `p95`, `max`, `wall`) sont **enregistrées comme preuve**, pas asserties : elles alimentent les
+critères de remplacement de `jdk.httpserver`, que le guide d'exploitation énonce pour l'opérateur
+([`../user/TEAM_REMOTE_SERVER.md`](../user/TEAM_REMOTE_SERVER.md)). Le tir à 240 lectures concurrentes contre
+`--max-concurrent 8` que ce guide cite est celui du harnais.
+
+`MorpheusRemoteAdversarialClientTest` pilote, depuis une socket TLS brute contre la vraie façade, les trois
+comportements de client que borne ADR-0099 : lecture des seuls en-têtes puis arrêt, lecture lente avec pauses, et
+disparition brutale en cours de réponse.
+
 ## Tests
 
 - `MorpheusRemoteIdentityFileTest` / lifecycle tests : hash-only, auth, expiry rétrocompatible, malformed/duplicates, mutations, concurrence et compaction de l'audit ;
