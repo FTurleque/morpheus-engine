@@ -11,14 +11,19 @@ class MorpheusRemoteConcurrencyPolicyTest {
 
     @Test
     void privilegedBudgetTargetsMutationsWithoutPenalizingAdminReads() {
-        assertTrue(MorpheusRemoteHttpServer.usesPrivilegedConcurrency("POST", MorpheusRemoteRoutePolicy.authorize("POST", "/api/v1/projects").role()));
-        assertTrue(MorpheusRemoteHttpServer.usesPrivilegedConcurrency("POST", MorpheusRemoteRoutePolicy.authorize("POST", "/api/v1/projects/p1/sync").role()));
-        assertTrue(MorpheusRemoteHttpServer.usesPrivilegedConcurrency("POST", MorpheusRemoteRoutePolicy.authorize("POST", "/api/v1/server/backups").role()));
-        assertTrue(MorpheusRemoteHttpServer.usesPrivilegedConcurrency("POST", MorpheusRemoteRoutePolicy.authorize("POST", "/api/v1/provider-plugins/probe").role()));
+        assertTrue(takesAPrivilegedSlot("POST", "/api/v1/projects"));
+        assertTrue(takesAPrivilegedSlot("POST", "/api/v1/projects/p1/sync"));
+        assertTrue(takesAPrivilegedSlot("POST", "/api/v1/server/backups"));
+        assertTrue(takesAPrivilegedSlot("POST", "/api/v1/provider-plugins/probe"));
 
-        assertFalse(MorpheusRemoteHttpServer.usesPrivilegedConcurrency("GET", MorpheusRemoteRoutePolicy.authorize("GET", "/api/v1/health").role()));
-        assertFalse(MorpheusRemoteHttpServer.usesPrivilegedConcurrency("GET", MorpheusRemoteRoutePolicy.authorize("GET", "/api/v1/metrics").role()));
-        assertFalse(MorpheusRemoteHttpServer.usesPrivilegedConcurrency("POST", MorpheusRemoteRoutePolicy.authorize("POST", "/api/v1/reasoning/analyze").role()));
+        assertFalse(takesAPrivilegedSlot("GET", "/api/v1/health"));
+        assertFalse(takesAPrivilegedSlot("GET", "/api/v1/metrics"));
+        assertFalse(takesAPrivilegedSlot("POST", "/api/v1/reasoning/analyze"));
+    }
+
+    private static boolean takesAPrivilegedSlot(String method, String path) {
+        return MorpheusRemoteHttpServer.usesPrivilegedConcurrency(
+                method, MorpheusRemoteRoutePolicy.authorize(method, path).role());
     }
 
     @Test
