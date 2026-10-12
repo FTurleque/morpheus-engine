@@ -148,7 +148,7 @@ public final class LocalSourceInventoryScanner {
             failures.add(new SourceInventoryScanResult.Failure(
                     Optional.of(display(workspace, root)),
                     SourceInventoryScanResult.Failure.Code.SYMLINK_NOT_FOLLOWED,
-                    "symbolic-link source root is not followed by the active scan policy"));
+                    "symbolic-link source root is not followed"));
             return;
         }
         try {

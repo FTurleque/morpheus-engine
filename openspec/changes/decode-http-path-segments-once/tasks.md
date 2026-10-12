@@ -49,10 +49,8 @@
 
 ## 4. Verification
 
-- [ ] 4.1 `./mvnw clean verify`; changed-line coverage gate replayed. Proof: green.
-      *2026-10-12: not run locally. `morpheus-api` in full and the architecture module are green (the per-module
-      coverage gate apart, which refuses to conclude without a full reactor); the reactor and the changed-line gate are
-      left to the required checks of the pull request.*
+- [x] 4.1 `./mvnw clean verify`; changed-line coverage gate replayed. Proof: green.
+      *2026-10-12: by the required checks of pull request 457 on both platforms, the changed-line gate included; not run locally.*
 - [x] 4.2 Release note in the terms of a caller. Pull request description: finding, the table of 1.1, decision 3.
 
 ## Not in the specification, found while doing it
@@ -64,3 +62,18 @@
   changed by this lot.
 - The remote policy had two refusal messages, `unknown remote API path` and `invalid remote API path`. It now has the
   first only: it no longer splits the path, so it no longer knows which of the two it was.
+
+## After the reviews of 2026-10-12 and 2026-10-13
+
+- The design spoke of "two routers"; four register their own context, and all four read segments now.
+- Decision 3 promised a test that proves the family ban still bites. The ban held, but only on a name: a router the
+  server holds could ask the decoder for the path. `onlyARouterThatRegistersItsOwnContextAsksTheDecoderForThePath`
+  closes it, and ADR-0103 is amended after all — not to narrow the ban, to say what it holds.
+- The remote server authorizes a request once (`MorpheusRemoteRoutePolicy.authorize`) and asks the result for the
+  route and the role; the proxy resolver still reads the path once, through the same parser, and knows no role.
+- The readers of the raw path are a closed, named list, and none compares it as text.
+- `RemoteAuthorizationLocalRoutingParityTest` reads the route the local server selected in its `Allow` header, which
+  is computed from the same table as the policy's: it proves that both select a route, not that the route runs the
+  action. `HttpPathSegmentDecodingTest#anEncodedActionRunsTheActionItNamesAndNoOther` observes the action itself.
+- A trailing slash is now ignored on the fixed-path routes too (`/queries/execute/`), which answered 404 locally while
+  the remote policy authorized them. Stated in the release note.

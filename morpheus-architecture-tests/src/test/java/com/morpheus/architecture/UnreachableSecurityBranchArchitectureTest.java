@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -22,17 +24,30 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class UnreachableSecurityBranchArchitectureTest {
     private static final String SYNC = "morpheus-application/src/main/java/com/morpheus/application/sync/";
 
+    /** The one way the package names the traversal options: none of them. */
+    private static final String NO_TRAVERSAL_OPTION = "EnumSet.noneOf(FileVisitOption.class)";
+    private static final Pattern FOLLOWS_LINKS = Pattern.compile("(?<!NO)FOLLOW_LINKS");
+
     @Test
     void aSourceScanCannotBeAskedToFollowSymbolicLinks() throws IOException {
-        for (String source : List.of(SYNC + "SourceScanPolicy.java", SYNC + "LocalSourceInventoryScanner.java")) {
-            String content = read(source);
+        List<Path> sources = javaSources(SYNC);
+        assertTrue(sources.size() > 5, "too few sources of the sync package read (" + sources.size() + ")");
+        for (Path source : sources) {
+            String content = Files.readString(source);
             assertFalse(content.contains("followSymbolicLinks"),
-                    () -> source + " must offer no setting for symbolic-link traversal");
-            assertFalse(content.contains("FileVisitOption.FOLLOW_LINKS"),
-                    () -> source + " must never walk a workspace following links");
+                    () -> source.getFileName() + " must offer no setting for symbolic-link traversal");
+            assertFalse(FOLLOWS_LINKS.matcher(content).find(),
+                    () -> source.getFileName() + " must never walk a workspace following links");
+            String withoutTheAllowedForm = content
+                    .replace(NO_TRAVERSAL_OPTION, "")
+                    .replace("import java.nio.file.FileVisitOption;", "");
+            assertFalse(withoutTheAllowedForm.contains("FileVisitOption"),
+                    () -> source.getFileName() + " may name the traversal options only as " + NO_TRAVERSAL_OPTION
+                            + ": the type has a single constant, so any other set of it follows links");
         }
-        assertTrue(read(SYNC + "LocalSourceInventoryScanner.java").contains("Files.isSymbolicLink("),
-                "the scanner must still refuse symbolic roots, directories and files");
+        String scanner = read(SYNC + "LocalSourceInventoryScanner.java");
+        assertTrue(scanner.split(Pattern.quote("Files.isSymbolicLink("), -1).length - 1 >= 3,
+                "the scanner must still refuse a symbolic root, a symbolic directory and a symbolic file");
     }
 
     @Test
@@ -43,17 +58,27 @@ class UnreachableSecurityBranchArchitectureTest {
             String content = read(gateway);
             assertTrue(content.contains("Path launchJar = staged.orElseThrow();"),
                     () -> gateway + " must launch the staged, verified copy and nothing else");
-            assertFalse(content.contains("orElse(jar)"),
-                    () -> gateway + " must hold no path that launches the configured JAR unverified");
+            assertFalse(content.contains("staged.orElse(") || content.contains("staged.orElseGet("),
+                    () -> gateway + " must hold no path that launches anything but the verified copy");
         }
     }
 
     private static String read(String relative) throws IOException {
+        return Files.readString(repositoryRoot().resolve(relative));
+    }
+
+    private static List<Path> javaSources(String relativeDirectory) throws IOException {
+        try (Stream<Path> files = Files.walk(repositoryRoot().resolve(relativeDirectory))) {
+            return files.filter(path -> path.toString().endsWith(".java")).sorted().toList();
+        }
+    }
+
+    private static Path repositoryRoot() throws IOException {
         Path current = Path.of("").toAbsolutePath().normalize();
         while (current != null) {
             if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
                     && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return Files.readString(current.resolve(relative));
+                return current;
             }
             current = current.getParent();
         }

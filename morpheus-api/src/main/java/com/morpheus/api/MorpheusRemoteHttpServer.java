@@ -368,15 +368,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         }
     }
 
-    static boolean usesBoundedUpstreamTimeout(String rawMethod, String path) {
-        return MorpheusRemoteRoutePolicy.usesBoundedUpstreamTimeout(rawMethod, path);
-    }
-
-    static boolean usesPrivilegedConcurrency(String rawMethod, String path) {
-        return usesPrivilegedConcurrency(rawMethod, MorpheusRemoteRoutePolicy.requiredRole(rawMethod, path));
-    }
-
-    private static boolean usesPrivilegedConcurrency(String rawMethod, MorpheusRemoteRole role) {
+    static boolean usesPrivilegedConcurrency(String rawMethod, MorpheusRemoteRole role) {
         String method = Objects.requireNonNull(rawMethod, "rawMethod").toUpperCase(Locale.ROOT);
         return role == MorpheusRemoteRole.WRITE
                 || role == MorpheusRemoteRole.ADMIN && !method.equals("GET") && !method.equals("HEAD");

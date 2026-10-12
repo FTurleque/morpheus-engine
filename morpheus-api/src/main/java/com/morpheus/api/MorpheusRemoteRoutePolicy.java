@@ -123,8 +123,10 @@ final class MorpheusRemoteRoutePolicy {
 
     /**
      * Reads the path of a request once and decides it: the route it names and the role the method requires there.
-     * Everything the remote server then does for that request is asked of the result, never of the path again. The
-     * path is the one the request carried, never a decoded one.
+     * What the remote server itself then decides for that request -- which route it serves on its own, which
+     * concurrency slot and which upstream timeout apply -- is asked of the result, not of the path again. The proxy
+     * target resolver reads the path once more, through the same parser, to build what it forwards: it knows no role
+     * and is kept ignorant of this policy. The path is the one the request carried, never a decoded one.
      */
     static Authorization authorize(String rawMethod, String rawPath) {
         String method = normalizeMethod(rawMethod);
@@ -135,10 +137,6 @@ final class MorpheusRemoteRoutePolicy {
             throw new RoutePolicyException(405, "METHOD_NOT_ALLOWED", "HTTP method is not allowed for remote API route");
         }
         return new Authorization(template, role);
-    }
-
-    static MorpheusRemoteRole requiredRole(String rawMethod, String rawPath) {
-        return authorize(rawMethod, rawPath).role();
     }
 
     /** The methods the route at {@code rawPath} accepts, as an {@code Allow} value; empty when no route matches. */
@@ -182,20 +180,6 @@ final class MorpheusRemoteRoutePolicy {
         return Collections.unmodifiableMap(roles);
     }
 
-    /**
-     * Timeout classification is only consulted after authorization in the live remote request path. Returning false for
-     * an unknown path keeps this helper conservative for direct callers while {@link #requiredRole(String, String)}
-     * remains the fail-closed authorization gate.
-     */
-    static boolean usesBoundedUpstreamTimeout(String rawMethod, String rawPath) {
-        try {
-            return authorize(rawMethod, rawPath).usesBoundedUpstreamTimeout();
-        } catch (RoutePolicyException failure) {
-            if (failure.status() == 404) return false;
-            throw failure;
-        }
-    }
-
     static RouteRule route(String template, Map<String, MorpheusRemoteRole> methods) {
         return new RouteRule(template, Map.copyOf(methods));
     }
@@ -222,6 +206,10 @@ final class MorpheusRemoteRoutePolicy {
             return template.equals(route);
         }
 
+        /**
+         * A read is bounded upstream; a write or an administration call is not, because the local server cannot
+         * cancel one cooperatively once it has started.
+         */
         boolean usesBoundedUpstreamTimeout() {
             return role == MorpheusRemoteRole.READ;
         }

@@ -43,6 +43,22 @@ class HttpPathReadingArchitectureTest {
     private static final Map<String, String> OTHER_GET_PATH_CALLERS = Map.of(
             "RequestProtectedHttpServer.java", "HttpContext.getPath(), the name a context was registered under");
 
+    /**
+     * The files that read the path as it was sent, each with what it does with it. Reading it is how a class reaches
+     * the parser, and also how it could compare the path as text again -- the form the remote server and the routers
+     * used before they asked for segments. A new reader is named here with its reason, or it does not read the path.
+     */
+    private static final Map<String, String> RAW_PATH_READERS = Map.of(
+            "MorpheusHttpServer.java", "hands it to the parser, to the Allow computation and to the refusal it quotes",
+            "MorpheusHttpRequestDecoder.java", "hands it to the parser for the routers that register their own context",
+            "MorpheusQueryHttpRoutes.java", "hands it to the Allow computation of a refused method",
+            "MorpheusPolicyHttpRoutes.java", "hands it to the Allow computation of a refused method",
+            "MorpheusPolicyManagementHttpRoutes.java", "hands it to the Allow computation of a refused method",
+            "MorpheusReasoningHttpRoutes.java", "hands it to the Allow computation of a refused method",
+            "MorpheusRemoteHttpServer.java", "hands it to the authorization, and to the Allow of a refused method",
+            "MorpheusRemoteProxyTargetResolver.java", "forwards it unchanged and hands it to the parser",
+            "LoopbackRequestPolicy.java", "the path of an Origin or Referer header, which is not the request path");
+
     private final JavaClasses classes = new ClassFileImporter().importPackages("com.morpheus.api");
 
     @Test
@@ -75,6 +91,23 @@ class HttpPathReadingArchitectureTest {
                 "getRequestURI().getPath() is the path decoded once by the JDK: splitting it treats an encoded "
                         + "slash as a separator. The path is read by MorpheusHttpPathParser from getRawPath(); a "
                         + "getPath() that is not a request path is named in OTHER_GET_PATH_CALLERS with its reason");
+    }
+
+    @Test
+    void theReadersOfTheRawPathAreNamed() throws IOException {
+        assertEquals(new TreeSet<>(RAW_PATH_READERS.keySet()), sourcesMentioning(".getRawPath()"),
+                "a class that reads the raw path can compare it as text instead of asking for segments, which is how "
+                        + "authorization and routing came to disagree; name it in RAW_PATH_READERS with what it does "
+                        + "with the path, or have it ask MorpheusHttpRequestDecoder or the authorization instead");
+        for (String reader : RAW_PATH_READERS.keySet()) {
+            String content = source(reader);
+            for (String comparison : new String[] {"getRawPath().equals(", "getRawPath().startsWith(",
+                    "getRawPath().endsWith(", "getRawPath().contains(", "getRawPath().indexOf(",
+                    "getRawPath().matches("}) {
+                assertTrue(!content.contains(comparison),
+                        () -> reader + " compares the raw path as text (" + comparison + "...): ask for its segments");
+            }
+        }
     }
 
     @Test

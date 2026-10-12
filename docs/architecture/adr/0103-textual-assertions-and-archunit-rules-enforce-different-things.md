@@ -625,3 +625,32 @@ Deux conséquences pour qui applique cet ADR :
 
 Les exécutions datées de cet ADR (dont E5, `ProbeHttpRoutes` dans `morpheus-provider-testkit`) ne sont pas réécrites :
 le testkit est toujours hors de l'ensemble importé.
+
+## Amendement du 13 octobre 2026 — l'interdit de famille sur le parseur de chemin tient le parseur, pas le chemin
+
+`noRouterParsesThePathItself` interdit à tout `*HttpRoutes` de dépendre de `MorpheusHttpPathParser`. Son motif disait
+qu'un routeur « reçoit des segments que le serveur a déjà lus ». C'était faux de quatre routeurs sur dix-sept : ceux qui
+enregistrent leur propre contexte ne reçoivent rien du serveur. Ils satisfaisaient l'interdit en gardant chacun une
+copie privée du découpage — deux d'entre eux avec un second décodage — exactement comme, avant DT-17, ils satisfaisaient
+l'interdit sur le writer en gardant une copie de ses huit lignes. La règle nommait la bonne intention et enforçait son
+contraire, une seconde fois.
+
+Depuis le 12 octobre 2026 ces quatre routeurs demandent leurs segments à `MorpheusHttpRequestDecoder`, qu'ils doivent
+déjà tenir, et le parseur n'a plus qu'une instance. L'interdit de famille est inchangé et reste vrai des dix-sept.
+Mais il ne tenait plus que sur un nom : un routeur porté par le serveur tient le même décodeur et pouvait lui demander
+le chemin, ce qui est la seconde lecture que l'interdit veut empêcher, sous un autre collaborateur.
+
+- Le motif et la Javadoc de `noRouterParsesThePathItself` disent maintenant les deux façons d'obtenir des segments.
+- `HttpRoutesTransportBoundaryArchitectureTest#onlyARouterThatRegistersItsOwnContextAsksTheDecoderForThePath` est une
+  règle **de groupe** : seuls les routeurs de `ROUTERS_REGISTERING_THEIR_OWN_CONTEXT` appellent
+  `MorpheusHttpRequestDecoder.pathSegments*`, et ceux-là doivent le faire. Cassée pour preuve le 13 octobre 2026 :
+  `requestDecoder.pathSegments(exchange)` écrit dans `MorpheusProjectSyncHttpRoutes` fait échouer cette méthode, et
+  elle seule — l'interdit de famille passe, ce qui est le trou qu'elle ferme.
+- `HttpPathReadingArchitectureTest` tient le reste par le texte, parce que rien sur le bytecode ne dit ce qu'une classe
+  fait d'une chaîne : les lecteurs du chemin brut sont une liste fermée, nommée, et aucun ne le compare comme du texte.
+
+### Ce qu'il faut en retenir
+
+Un interdit sur un collaborateur ne dit rien du besoin que ce collaborateur servait. Quand le besoin est réel pour une
+partie de la famille, il faut lui donner une voie nommée et interdire cette voie au reste — sinon la famille entière se
+conforme en recopiant.
