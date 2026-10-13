@@ -48,6 +48,11 @@ abstract class RequestProtectedHttpServer extends HttpServer {
     @Override
     public final void stop(int delay) {
         delegate.stop(delay);
+        stopped();
+    }
+
+    /** What a decorator that owns something releases once the server it decorates has stopped. */
+    void stopped() {
     }
 
     @Override
