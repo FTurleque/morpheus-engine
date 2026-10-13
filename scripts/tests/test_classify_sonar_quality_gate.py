@@ -16,9 +16,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from validator_harness import require_bash, require_tool
+
 SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "classify-sonar-quality-gate.sh"
-BASH = shutil.which("bash")
-JQ = shutil.which("jq")
+SCRIPTS_UNDER_TEST = ("classify-sonar-quality-gate.sh",)
 
 STUB_CURL = """#!/usr/bin/env bash
 # Stands for SonarQube Cloud: the compute-engine task always succeeded; the quality gate answers what the test set.
@@ -40,8 +41,13 @@ esac
 """
 
 
-@unittest.skipIf(BASH is None or JQ is None, "bash and jq are required to run the classifier")
 class ClassifySonarQualityGateTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        # In CI a missing tool fails the run; a leg that cannot run the classifier must not report success.
+        cls.bash = require_bash()
+        require_tool("jq", shutil.which("jq"), "the classifier reads the answers of the service with it")
+
     def classify(self, http: str, body: str = "{}", branch: str | None = None) -> subprocess.CompletedProcess:
         with tempfile.TemporaryDirectory() as temp:
             workspace = Path(temp)
@@ -67,7 +73,7 @@ class ClassifySonarQualityGateTest(unittest.TestCase):
             })
             if branch is not None:
                 environment["SONAR_BRANCH_NAME"] = branch
-            return subprocess.run([BASH, str(SCRIPT)], env=environment, capture_output=True, text=True, check=False)
+            return subprocess.run([self.bash, SCRIPT.as_posix()], env=environment, capture_output=True, text=True, check=False)
 
     def test_a_gate_the_service_refuses_to_serve_for_another_branch_is_unknown_not_failed(self):
         result = self.classify("403", branch="develop")

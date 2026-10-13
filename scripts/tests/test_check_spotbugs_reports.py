@@ -13,6 +13,7 @@ import unittest
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[1] / "check-spotbugs-reports.py"
+SCRIPTS_UNDER_TEST = ("check-spotbugs-reports.py",)
 
 
 def report(alerts: int = 0, errors: str = "0", missing: str = "0", cpu: str = "12.5", jar: bool = True) -> str:
