@@ -258,6 +258,132 @@ class SqlitePreMigrationCopyTest {
         }
     }
 
+    /**
+     * The trap the upgrade guide warns about: a backup taken by the new program is not a way back. Taking it opens the
+     * database, and opening it migrates it, so the backup is already at the new schema. What still holds the database
+     * as it was is the copy kept before the schema advanced.
+     */
+    @Test
+    void aServerBackupOfAnOutdatedDatabaseIsAlreadyMigratedAndOnlyTheKeptCopyIsNot() throws Exception {
+        Path database = outdatedDatabase("backed-up.db");
+        Path backups = Files.createDirectory(tempDir.resolve("backups"));
+
+        Path backup = new SqliteServerMaintenance().createBackup(database, backups).path();
+
+        assertEquals(SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION, ledgerVersionOf(backup),
+                "the backup of an outdated database is taken after its migration");
+        List<Path> kept = copies(database);
+        assertEquals(1, kept.size(), () -> "the migration behind the backup keeps its copy: " + kept);
+        assertEquals(ORIGINAL_VERSION, ledgerVersionOf(kept.get(0)));
+    }
+
+    /**
+     * A copy is never reused. A database restored offline to the old schema after a first upgrade is another database
+     * at the same version: its copy must hold its content, not the content the first upgrade saved.
+     */
+    @Test
+    void aDatabaseReplacedByAnotherOfTheSameOldVersionIsCopiedAsItIs() throws Exception {
+        Path database = outdatedDatabase("replaced.db");
+        try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
+            // First upgrade: one copy, holding project-12.
+        }
+        List<Path> afterTheFirstUpgrade = copies(database);
+        assertEquals(1, afterTheFirstUpgrade.size());
+
+        Path other = outdatedDatabase("other.db");
+        try (Connection connection = connect(other)) {
+            execute(connection, "UPDATE projects SET id = 'project-restored'");
+        }
+        Files.copy(other, database, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
+            // Second upgrade, of the restored database.
+        }
+
+        List<Path> afterTheSecondUpgrade = copies(database);
+        assertEquals(2, afterTheSecondUpgrade.size(), () -> "the restored database keeps a copy of its own: "
+                + afterTheSecondUpgrade);
+        Path second = afterTheSecondUpgrade.stream()
+                .filter(copy -> !copy.equals(afterTheFirstUpgrade.get(0))).findFirst().orElseThrow();
+        assertEquals("project-12", projectIn(afterTheFirstUpgrade.get(0)));
+        assertEquals("project-restored", projectIn(second));
+        assertEquals(ORIGINAL_VERSION, ledgerVersionOf(second));
+    }
+
+    /** Measured, so that an operator knows what a database that cannot be migrated costs in disk: one copy per attempt. */
+    @Test
+    void aMigrationThatKeepsFailingKeepsOneCopyPerAttempt() throws Exception {
+        Path database = outdatedDatabase("failing.db");
+        try (Connection connection = connect(database)) {
+            execute(connection, "CREATE TABLE saved_views (leftover TEXT)");
+        }
+
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            assertThrows(KnowledgeStoreException.class, () -> {
+                try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
+                    // Copied, then refused by the migration.
+                }
+            });
+            assertEquals(attempt, copies(database).size(), "one copy per attempt, none reused and none removed");
+        }
+        for (Path copy : copies(database)) {
+            assertEquals(ORIGINAL_VERSION, ledgerVersionOf(copy));
+        }
+        assertEquals(ORIGINAL_VERSION, ledgerVersionOf(database), "a failed migration rolls back in full");
+    }
+
+    /**
+     * Two MORPHEUS processes opening one outdated database at once, not two threads of one process: each has its own
+     * JVM, its own connection and its own view of the file. Whichever migrates, every copy left behind must hold the
+     * database as it was; a copy taken after the other process migrated would be a copy of the new schema under the
+     * name of the old one. The process that loses the migration may be refused -- that predates the copy and is not
+     * what this asserts.
+     */
+    @Test
+    void twoProcessesOpeningOneOutdatedDatabaseLeaveOnlyTrueCopies() throws Exception {
+        for (int round = 1; round <= 3; round++) {
+            Path database = outdatedDatabase("two-processes-" + round + ".db");
+
+            Process first = openInAnotherProcess(database);
+            Process second = openInAnotherProcess(database);
+            assertTrue(first.waitFor(120, TimeUnit.SECONDS) && second.waitFor(120, TimeUnit.SECONDS),
+                    "a process opening the store did not end");
+
+            List<Integer> exits = List.of(first.exitValue(), second.exitValue());
+            assertTrue(exits.contains(0), () -> "one of the two processes must have opened the store: " + exits);
+            assertTrue(exits.stream().allMatch(exit -> exit == 0 || exit == FixtureOpenStoreProcess.REFUSED),
+                    () -> "a process ended otherwise than by opening the store or being refused by it: " + exits);
+            assertEquals(SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION, ledgerVersionOf(database));
+            List<Path> kept = copies(database);
+            assertFalse(kept.isEmpty(), "the migration must have kept a copy");
+            for (Path copy : kept) {
+                assertEquals(ORIGINAL_VERSION, ledgerVersionOf(copy), () -> "a copy holds a migrated database: " + copy);
+                assertEquals("project-12", projectIn(copy));
+            }
+        }
+    }
+
+    private static Process openInAnotherProcess(Path database) throws IOException {
+        Path launcher = Path.of(System.getProperty("java.home"), "bin", "java");
+        String classpath = System.getProperty("surefire.test.class.path", System.getProperty("java.class.path"));
+        return new ProcessBuilder(launcher.toString(), "-cp", classpath,
+                FixtureOpenStoreProcess.class.getName(), database.toString())
+                .redirectErrorStream(true)
+                .redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                .start();
+    }
+
+    private static int ledgerVersionOf(Path database) throws Exception {
+        try (Connection connection = connect(database)) {
+            return ledgerVersion(connection);
+        }
+    }
+
+    private static String projectIn(Path database) throws Exception {
+        try (Connection connection = connect(database)) {
+            return text(connection, "SELECT id FROM projects");
+        }
+    }
+
     private Path outdatedDatabase(String name) throws Exception {
         Path database = tempDir.resolve(name);
         try (Connection connection = connect(database)) {

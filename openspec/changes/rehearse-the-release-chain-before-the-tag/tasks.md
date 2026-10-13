@@ -26,6 +26,7 @@ Implementation is a separate lot, started after this specification is reviewed, 
 - [ ] 2.2 Confirm `validate-m20.ps1` deletes its validation tag on every exit path, including a failed stage. Proof: the
       lines, and `git tag --list 'm20-validation-*'` empty after a forced failure.
   - 2026-10-11: not re-read line by line; the validator already ran this way before this change and its tag handling is untouched.
+  - 2026-10-13: the lines were read. `validate-m20.sh` installs `trap cleanup EXIT` before it creates the tag, and `cleanup` deletes it: every exit path. `validate-m20.ps1` creates the tag inside its main `try`, records `$script:TagCreated`, and deletes the tag in the `finally` of that `try`; its `catch` ends with `exit 1`, and Windows PowerShell 5.1 was checked to run a `finally` on `exit`. Not done: a forced failure of the validator itself followed by `git tag --list 'm20-validation-*'`.
 - [x] 2.3 List every `scripts/validate-*` and which workflow step launches it, per platform. Proof: the table; on
       2026-10-11 the workflows named `validate-m19.{sh,ps1}`, `validate-m21.sh` and `validate-m28.ps1` only. The table
       goes in the pull request as input to AUD-TRV-07 (sprint 8); this change adds no excuse list.
