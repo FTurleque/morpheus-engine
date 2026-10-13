@@ -1,5 +1,8 @@
 package com.morpheus.integration.minos;
 
+import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.operability.SuppressedFailureFamily;
 import com.morpheus.application.reference.ExternalReferenceResolver;
 import com.morpheus.application.reference.ExternalReferenceResolverResult;
 import com.morpheus.domain.reference.ExternalReferenceTarget;
@@ -17,9 +20,15 @@ public final class MinosMcpExternalReferenceResolver implements ExternalReferenc
     private static final int MAX_SYMBOL_RESULTS = 1000;
 
     private final MinosCodeGatewayFactory gatewayFactory;
+    private final OperationalRecorder recorder;
 
     public MinosMcpExternalReferenceResolver(MinosCodeGatewayFactory gatewayFactory) {
+        this(gatewayFactory, LocalOperationalRuntime.recorder());
+    }
+
+    public MinosMcpExternalReferenceResolver(MinosCodeGatewayFactory gatewayFactory, OperationalRecorder recorder) {
         this.gatewayFactory = Objects.requireNonNull(gatewayFactory, "gatewayFactory");
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
     @Override
@@ -70,10 +79,20 @@ public final class MinosMcpExternalReferenceResolver implements ExternalReferenc
                     target,
                     attributes(status, symbol, activeSnapshotId)));
         } catch (MinosIntegrationException failure) {
-            return ExternalReferenceResolverResult.unavailable();
+            return unavailableAfter(failure);
         } catch (RuntimeException failure) {
-            return ExternalReferenceResolverResult.unavailable();
+            return unavailableAfter(failure);
         }
+    }
+
+    /**
+     * The reference is unavailable, and the result carries a status only. So does a project with no active snapshot,
+     * and so does a search that may be truncated: without this count a peer that does not start is indistinguishable
+     * from a peer that has nothing to say.
+     */
+    private ExternalReferenceResolverResult unavailableAfter(RuntimeException peerFailure) {
+        recorder.suppressed(SuppressedFailureFamily.MCP_PEER, peerFailure);
+        return ExternalReferenceResolverResult.unavailable();
     }
 
     private Map<String, String> attributes(

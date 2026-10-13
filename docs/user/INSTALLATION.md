@@ -154,12 +154,31 @@ l'active :
 (absente, vide)            aucun journal
 off, none                  aucun journal
 json, jsonl, structured    un événement JSON par ligne, sur la sortie d'erreur
+file                       un événement JSON par ligne, dans le répertoire de logs
 ```
+
+Avec `file`, MORPHEUS écrit dans `morpheus-operational.jsonl`, sous le répertoire de logs que la commande
+`morpheus paths` affiche et que `MORPHEUS_LOGS_DIR` déplace. Le fichier ne dépasse pas 4 Mio : au-delà, il est renommé
+en `morpheus-operational.jsonl.1` et un nouveau commence ; quatre anciens fichiers sont gardés, le plus vieux est
+supprimé. Le répertoire et les fichiers ne sont lisibles que par le compte qui lance MORPHEUS. Plusieurs processus
+MORPHEUS du même compte peuvent écrire dans le même journal.
+
+Si le répertoire de logs ne peut pas être créé, n'est pas réservé à ce compte ou n'accepte pas l'écriture, MORPHEUS ne
+démarre pas : il affiche une ligne qui commence par `MORPHEUS error: OPERATIONAL_LOG_FILE_UNUSABLE` et sort avec le
+code 5. Il n'écrit jamais le journal ailleurs à la place. Désigner un autre répertoire avec `MORPHEUS_LOGS_DIR`, ou
+choisir un autre mode.
+
+Quelques messages techniques du transport MCP et de la base restent écrits sur la sortie d'erreur dans tous les
+modes ; ils ne figurent pas dans le fichier.
 
 La casse et les espaces autour de la valeur ne comptent pas. Toute autre valeur — `true`, `1`, une faute de frappe —
 est refusée : MORPHEUS ne démarre pas, affiche sur la sortie d'erreur une ligne qui commence par
 `MORPHEUS usage error: OPERATIONAL_LOG_MODE_UNKNOWN` avec les valeurs acceptées, et sort avec le code 2. Une valeur
 inconnue n'est jamais remplacée par « aucun journal ».
+
+Quand le journal est actif, il contient aussi les avertissements et les erreurs des bibliothèques que MORPHEUS
+embarque, sous le code `THIRD_PARTY_LOG` : une liaison avec MINOS ou NEXUS qui échoue y laisse ce que la bibliothèque
+de protocole en a dit. Quand il ne l'est pas, ces bibliothèques n'écrivent rien.
 
 ## MCP natif
 

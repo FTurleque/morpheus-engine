@@ -1,5 +1,9 @@
 package com.morpheus.application.sync;
 
+import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.operability.SuppressedFailureFamily;
+
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
@@ -28,6 +32,7 @@ public final class LocalSourceWatcher implements AutoCloseable {
     private final Path workspaceRoot;
     private final WatchService watchService;
     private final SourceScanPolicy policy;
+    private final OperationalRecorder recorder;
     private final Map<WatchKey, Path> directories = new HashMap<>();
     private final Set<Path> registeredDirectories = new HashSet<>();
     private boolean closed;
@@ -40,9 +45,18 @@ public final class LocalSourceWatcher implements AutoCloseable {
             Path workspaceRoot,
             Collection<Path> watchedRoots,
             SourceScanPolicy policy) throws IOException {
+        this(workspaceRoot, watchedRoots, policy, LocalOperationalRuntime.recorder());
+    }
+
+    public LocalSourceWatcher(
+            Path workspaceRoot,
+            Collection<Path> watchedRoots,
+            SourceScanPolicy policy,
+            OperationalRecorder recorder) throws IOException {
         Objects.requireNonNull(workspaceRoot, "workspaceRoot");
         Objects.requireNonNull(watchedRoots, "watchedRoots");
         this.policy = Objects.requireNonNull(policy, "policy");
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
         this.workspaceRoot = workspaceRoot.toAbsolutePath().normalize();
         this.watchService = FileSystems.getDefault().newWatchService();
         Collection<Path> roots = watchedRoots.isEmpty() ? List.of(this.workspaceRoot) : watchedRoots;
@@ -136,6 +150,9 @@ public final class LocalSourceWatcher implements AutoCloseable {
                     registerRecursively(absolute);
                 }
             } catch (IOException | RuntimeException exception) {
+                // An overflow asks for a rescan, which is the safe answer. It is also what a watcher that merely fell
+                // behind reports, so the failure is counted: a directory left unwatched is not a busy moment.
+                recorder.suppressed(SuppressedFailureFamily.SOURCE_WATCH, exception);
                 signals.add(SourceWatchSignal.overflow());
             }
         }

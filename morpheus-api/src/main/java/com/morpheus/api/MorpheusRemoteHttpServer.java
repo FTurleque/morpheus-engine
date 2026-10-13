@@ -260,6 +260,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         } catch (IllegalArgumentException failure) {
             responses.sendError(exchange, 400, "BAD_REQUEST", BoundaryFailureMessage.safe(failure));
         } catch (RuntimeException failure) {
+            UnforeseenFailureTrace.record(failure);
             responses.sendError(exchange, 500, "INTERNAL_ERROR", "internal MORPHEUS remote server error");
         } finally {
             if (requestSlot) {

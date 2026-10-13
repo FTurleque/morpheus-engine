@@ -1,5 +1,8 @@
 package com.morpheus.integration.minos;
 
+import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.operability.SuppressedFailureFamily;
 import com.morpheus.application.security.ExternalJarIntegrity;
 import com.morpheus.integration.mcp.BoundedStdioClientTransport;
 import com.morpheus.integration.mcp.McpPeerLaunch;
@@ -72,7 +75,8 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
         this.stagedJar = launch.stagedJar();
         McpSyncClient started = buildClient(launch, stagedJar);
         // Closing the client fails the pending request at once, so the operation ends at its deadline.
-        PeerOperationDeadline armed = PeerOperationDeadline.arm(launch.operationDeadline(), started::close);
+        PeerOperationDeadline armed = PeerOperationDeadline.arm(
+                launch.operationDeadline(), countingAbort(started::close, LocalOperationalRuntime.recorder()));
         try {
             started.initialize();
             Set<String> available = started.listTools().tools().stream()
@@ -139,10 +143,11 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
         deadline.close();
         try {
             client.closeGracefully();
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException shutdownFailure) {
             // Closing an optional external process must not mask the primary resolution result.
+            LocalOperationalRuntime.recorder().suppressed(SuppressedFailureFamily.MCP_PEER_SHUTDOWN, shutdownFailure);
         } finally {
-            deleteStagedQuietly(stagedJar);
+            deleteStagedCounting(stagedJar, LocalOperationalRuntime.recorder());
         }
     }
 
@@ -210,11 +215,11 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
             return new Launch(settings.javaCommand(), arguments, Map.of(), settings.timeout(),
                     PeerOperationDeadline.of(settings.timeout(), REQUESTS_PER_OPERATION), staged);
         } catch (IllegalArgumentException integrityFailure) {
-            deleteStagedQuietly(staged);
+            deleteStagedCounting(staged, LocalOperationalRuntime.recorder());
             throw new MinosIntegrationException(
                     "MINOS JAR integrity verification failed immediately before launch", integrityFailure);
         } catch (RuntimeException failure) {
-            deleteStagedQuietly(staged);
+            deleteStagedCounting(staged, LocalOperationalRuntime.recorder());
             throw failure;
         }
     }
@@ -254,13 +259,33 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
         }
     }
 
-    private static void deleteStagedQuietly(Optional<Path> staged) {
+    /**
+     * Deletes the verified copy once the peer has released it. A copy that cannot be deleted stays on disk; nothing
+     * can be done about it here, and it is counted so that the residue is not discovered by its size.
+     */
+    static void deleteStagedCounting(Optional<Path> staged, OperationalRecorder recorder) {
         if (staged.isEmpty()) return;
         try {
             Files.deleteIfExists(staged.orElseThrow());
-        } catch (IOException ignored) {
-            // Best effort after the external process/classpath has been released.
+        } catch (IOException residue) {
+            recorder.suppressed(SuppressedFailureFamily.STAGED_ARTIFACT_CLEANUP, residue);
         }
+    }
+
+    /**
+     * The abort of an operation that passed its deadline, counting its own failure before letting it go on. The
+     * deadline lives in the transport module, which may depend on no other MORPHEUS package and so cannot count; the
+     * gateway that hands it the abort can.
+     */
+    static Runnable countingAbort(Runnable abort, OperationalRecorder recorder) {
+        return () -> {
+            try {
+                abort.run();
+            } catch (RuntimeException abortFailure) {
+                recorder.suppressed(SuppressedFailureFamily.MCP_PEER_SHUTDOWN, abortFailure);
+                throw abortFailure;
+            }
+        };
     }
 
     private static String requireText(String value, String name) {

@@ -345,6 +345,38 @@ démarrage, avec une ligne sur la sortie d'erreur qui nomme la variable et les v
 **Migration.** Vérifier la valeur de la variable là où elle est posée, y compris dans la configuration d'un client MCP :
 un serveur qui tournait muet à cause d'une valeur inconnue ne démarre plus tant qu'elle n'est pas corrigée ou retirée.
 
+### Métriques : les échecs que le produit écarte sont comptés
+
+Deux situations ne laissaient aucune trace. Un adaptateur de raisonnement installé mais défectueux disparaissait de la
+liste comme s'il n'avait jamais été installé. Une requête HTTP qui mourait d'un échec imprévu recevait
+`500 INTERNAL_ERROR`, et le serveur n'en gardait rien.
+
+Les deux réponses ne changent pas. Les métriques (`GET /api/v1/metrics`) gagnent un compteur par situation :
+`failure.suppressed.adapter-discovery` et `failure.suppressed.http-internal-error`. Avec le journal opérationnel
+actif, chaque occurrence écrit aussi un événement `FAILURE_SUPPRESSED` qui porte le type de l'échec, jamais son
+message.
+
+Trois autres compteurs de la même famille signalent un stockage ou un système de fichiers qui ne répond pas comme
+attendu : `failure.suppressed.sync-recovery-read`, `failure.suppressed.sqlite-conflict-read` et
+`failure.suppressed.source-watch`. Dans chaque cas MORPHEUS continue comme avant, par la lecture la plus prudente ; le
+compteur dit qu'il a dû le faire.
+
+Côté MINOS et NEXUS : `failure.suppressed.mcp-peer` compte les pannes d'un pair que la résolution d'une référence
+rendait comme un simple « indisponible », `failure.suppressed.mcp-peer-shutdown` un pair qui n'a pas pu être fermé
+proprement, et `failure.suppressed.staged-artifact-cleanup` une copie de JAR restée dans le répertoire temporaire.
+
+Les bibliothèques embarquées sont entendues. Avec le journal opérationnel actif, leurs avertissements et leurs erreurs
+y figurent sous le code `THIRD_PARTY_LOG`, avec le nom de leur logger ; jusqu'ici ils étaient jetés, journal actif ou
+non. Sans journal, rien ne change : elles n'écrivent toujours rien.
+
+Le répertoire de logs sert enfin à quelque chose. `MORPHEUS_OPERATIONAL_LOGS=file` écrit le journal dans
+`morpheus-operational.jsonl`, sous le répertoire qu'affiche `morpheus paths`, au lieu de la sortie d'erreur. Le fichier
+est borné à 4 Mio et quatre anciens fichiers sont gardés. Si le répertoire n'est pas utilisable, MORPHEUS refuse de
+démarrer avec `OPERATIONAL_LOG_FILE_UNUSABLE` plutôt que d'écrire ailleurs.
+
+**Migration.** Aucune. Un compteur `failure.suppressed.http-internal-error` qui monte désigne un défaut de MORPHEUS à
+signaler ; `failure.suppressed.adapter-discovery`, un adaptateur installé à réparer ou à retirer.
+
 ### MINOS et NEXUS : un avertissement du pair ne coupe plus la liaison
 
 Ce qu'un pair écrit sur sa sortie d'erreur était lu comme de l'UTF-8 strict. Un pair qui y écrivait un caractère

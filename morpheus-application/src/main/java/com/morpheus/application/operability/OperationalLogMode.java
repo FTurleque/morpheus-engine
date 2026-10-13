@@ -12,7 +12,8 @@ import java.util.Locale;
  */
 public enum OperationalLogMode {
     OFF("off", "none"),
-    JSON_LINES("json", "jsonl", "structured");
+    JSON_LINES("json", "jsonl", "structured"),
+    FILE("file");
 
     public static final String ENVIRONMENT_VARIABLE = "MORPHEUS_OPERATIONAL_LOGS";
     public static final String REFUSAL = "OPERATIONAL_LOG_MODE_UNKNOWN";

@@ -28,6 +28,7 @@ class OperationalLogModeTest {
         assertEquals(OperationalLogMode.JSON_LINES, OperationalLogMode.parse("json"));
         assertEquals(OperationalLogMode.JSON_LINES, OperationalLogMode.parse(" JSONL "));
         assertEquals(OperationalLogMode.JSON_LINES, OperationalLogMode.parse("Structured"));
+        assertEquals(OperationalLogMode.FILE, OperationalLogMode.parse(" File "));
     }
 
     @Test
@@ -36,7 +37,7 @@ class OperationalLogModeTest {
                 assertThrows(IllegalArgumentException.class, () -> OperationalLogMode.parse("jsno"));
 
         assertEquals("OPERATIONAL_LOG_MODE_UNKNOWN: MORPHEUS_OPERATIONAL_LOGS must be one of off, none, json, jsonl, "
-                + "structured, or be unset; it is 'jsno'", refused.getMessage());
+                + "structured, file, or be unset; it is 'jsno'", refused.getMessage());
     }
 
     @Test

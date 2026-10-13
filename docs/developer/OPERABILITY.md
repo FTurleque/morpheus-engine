@@ -67,8 +67,23 @@ MORPHEUS_OPERATIONAL_LOGS=json
 
 Les événements sont alors écrits en JSON-lines sur `stderr` uniquement.
 
+```text
+MORPHEUS_OPERATIONAL_LOGS=file
+```
+
+Les mêmes lignes vont dans `morpheus-operational.jsonl` sous le répertoire de logs, et plus sur `stderr`
+(`RotatingOperationalLogFile`, ADR-0112). Le fichier courant est borné à 4 Mio ; quatre générations sont gardées, de
+`.1` à `.4`. Répertoire et fichiers sont privés au compte (`LocalWritePermissionHardener`). Rien n'est tenu ouvert
+entre deux événements : plusieurs processus du même compte écrivent dans le même journal.
+
+`morpheus-application` ne connaît pas la disposition du processus. `MorpheusMain` résout le répertoire - celui que
+`paths` imprime pour les mêmes arguments - et le nomme une fois (`LocalOperationalRuntime.writeLogFileIn`), avant
+toute autre action ; un événement émis plus tôt n'a pas de destination. Un répertoire inutilisable arrête le
+processus : `OPERATIONAL_LOG_FILE_UNUSABLE`, code d'erreur d'entrée-sortie, jamais un repli sur `stderr`. Une écriture
+qui échoue ensuite est perdue et comptée par `operational.log.write.failed`.
+
 Le mode est une liste fermée, `OperationalLogMode` : `off`, `none` (aucun journal), `json`, `jsonl`, `structured`
-(JSON-lines), comparés sans casse ni espaces. Une valeur hors liste est un refus nommé,
+(JSON-lines), `file`, comparés sans casse ni espaces. Une valeur hors liste est un refus nommé,
 `OPERATIONAL_LOG_MODE_UNKNOWN`, jamais un repli : jusqu'au 13/10/2026 toute valeur inconnue sélectionnait le sink
 no-op, et un opérateur qui avait écrit `jsno` exploitait un serveur muet sans le savoir.
 
@@ -77,6 +92,30 @@ Le refus vient du lanceur. `MorpheusMain` lit la variable avant toute autre clas
 d'initialisation de la première classe qui l'utilise.
 
 Aucun transport réseau n'est créé.
+
+### Ce que journalisent les bibliothèques embarquées
+
+Le SDK MCP et ses dépendances journalisent par SLF4J. Le produit embarque un seul binding, le sien
+(`OperationalSlf4jServiceProvider`, dans `morpheus-cli`, ADR-0111) :
+
+```text
+journal coupé   -> aucun niveau accepté, rien n'est écrit
+journal actif   -> WARN et ERROR deviennent un événement THIRD_PARTY_LOG ; INFO et en dessous sont refusés
+```
+
+L'événement porte `logger`, `message` (formaté, borné à 2 048 caractères) et, quand un échec est joint,
+`failureType` - le type seul, comme `FAILURE_SUPPRESSED`. Il passe par le même puits et la même rédaction que les
+événements du produit. Jusqu'au 13/10/2026 le produit embarquait `slf4j-nop` : une poignée de main MCP qui expirait
+n'était dite nulle part, journal actif ou non.
+
+Un second fournisseur SLF4J sur le chemin de classes est une régression : `OperationalSlf4jServiceProviderTest` le
+refuse en énumérant les fournisseurs, `ProductReleaseContractTest` en lisant le POM.
+
+Trois classes du produit journalisent par `System.Logger` (`BoundedStdioClientTransport`,
+`BoundedStdioServerTransportProvider`, `SqliteTransactionRunner`). Elles ne passent pas par ce binding : leurs
+enregistrements `INFO` et au-dessus sortent en texte sur la sortie d'erreur, dans tous les modes. Avec le journal
+sur `stderr`, la sortie d'erreur mêle donc des lignes JSON et ce texte ; avec le journal en fichier, ce texte reste sur
+la sortie d'erreur et n'est pas dans le fichier (ADR-0112, décision 8).
 
 ## Redaction
 
@@ -119,6 +158,46 @@ maxNanos
 ```
 
 Les benchmarks M19 utilisent en plus un protocole p95 reproductible séparé ; les métriques runtime ne prétendent pas remplacer les gates de performance.
+
+## Échecs écartés
+
+Un échec que le produit choisit de ne pas propager laisse une trace. `OperationalRecorder.suppressed(famille, échec)`
+incrémente le compteur `failure.suppressed.<famille>` - quel que soit le mode de journal - et émet un événement
+`FAILURE_SUPPRESSED` portant la famille et le **type** de l'échec. Le message de l'échec n'y figure jamais : il peut
+nommer un emplacement du serveur.
+
+Les familles sont une liste fermée, `SuppressedFailureFamily`. Un compteur non nul veut dire que le produit a continué
+sans quelque chose :
+
+| Famille | Compteur | Ce qu'une valeur non nulle veut dire |
+|---|---|---|
+| `adapter-discovery` | `failure.suppressed.adapter-discovery` | un adaptateur de raisonnement présent sur le class path n'a pas pu être chargé ou décrit ; il est absent de la liste alors qu'il est installé |
+| `http-internal-error` | `failure.suppressed.http-internal-error` | une requête HTTP est morte d'un échec que rien n'avait prévu et a reçu `500 INTERNAL_ERROR` ; c'est un défaut du produit à signaler, pas une erreur de l'appelant |
+| `sync-recovery-read` | `failure.suppressed.sync-recovery-read` | pendant la reprise d'une synchronisation en échec, l'état qui dirait si le commit ou son marqueur est déjà visible n'a pas pu être lu ; il a été pris pour « non visible », ce qui est la lecture sûre, mais le stockage a un problème |
+| `sqlite-conflict-read` | `failure.suppressed.sqlite-conflict-read` | en répondant à un conflit de cycle de vie, l'enregistrement d'audit ou l'état courant n'a pas pu être lu ; le conflit est rendu sans distinguer une mutation déjà appliquée d'une vraie collision |
+| `mcp-peer` | `failure.suppressed.mcp-peer` | un pair MCP a échoué - il n'a pas démarré, a dépassé son délai, a répondu quelque chose d'inutilisable - et l'appelant a reçu un « indisponible » nu, la même réponse que pour un projet sans snapshot actif |
+| `mcp-peer-shutdown` | `failure.suppressed.mcp-peer-shutdown` | un pair MCP n'a pas pu être fermé ou interrompu proprement ; son processus peut survivre à l'opération qui l'a lancé |
+| `staged-artifact-cleanup` | `failure.suppressed.staged-artifact-cleanup` | la copie vérifiée d'un JAR épinglé n'a pas pu être supprimée après usage ; elle reste dans le répertoire temporaire |
+| `source-watch` | `failure.suppressed.source-watch` | un changement sous une racine surveillée n'a pas pu devenir un signal - un répertoire impossible à enregistrer, un chemin hors du workspace - et a été rendu comme un débordement ; un nouveau répertoire peut rester non surveillé |
+
+Ces compteurs sont servis avec les autres par `GET /api/v1/metrics`, en local comme à travers la façade remote.
+
+Le module `morpheus-mcp-transport` ne peut dépendre d'aucun autre paquet MORPHEUS, donc il ne compte rien lui-même.
+L'interruption d'une opération qui a dépassé son délai lui est remise par la passerelle (`MinosMcpCodeGateway`,
+`NexusMcpContextGateway`) : c'est elle qui l'enveloppe (`countingAbort`) et compte son échec avant de le laisser
+remonter.
+
+Le cœur de raisonnement reste pur : `ReasoningAdapterRegistry` ne connaît aucun enregistreur. Il **signale** ce qu'il
+écarte à un observateur (`Consumer<Throwable>`) que lui passent les trois adaptateurs qui le construisent - CLI, MCP,
+HTTP -, et ce sont eux qui comptent.
+
+`SilentCatchArchitectureTest` empêche le suivant d'arriver sans être vu : un `catch` dont le corps ne contient aucune
+instruction, ou dont la variable s'appelle `ignored`, doit enregistrer l'échec ou figurer dans une liste fermée avec sa
+raison - une sonde dont l'exception est la réponse, un nettoyage sur un chemin dont l'issue est déjà décidée. Une
+seconde liste, qui ne fait que rétrécir, nomme ceux qui perdent encore un échec sans le compter.
+
+Avant le 13/10/2026 aucun de ces échecs ne laissait quoi que ce soit : le `catch` portait un commentaire, et après la
+fin du processus rien ne disait qu'un adaptateur avait été présent et cassé, ni que des requêtes mouraient.
 
 ## Recovery
 

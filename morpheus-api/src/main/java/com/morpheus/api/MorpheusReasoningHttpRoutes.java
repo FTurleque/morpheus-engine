@@ -67,6 +67,7 @@ final class MorpheusReasoningHttpRoutes {
             responseWriter.send(exchange, 400, new ApiErrorEnvelope(
                     "v1", new ApiError("REASONING_VALIDATION", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (RuntimeException failure) {
+            UnforeseenFailureTrace.record(failure);
             responseWriter.send(exchange, 500, new ApiErrorEnvelope(
                     "v1", new ApiError("INTERNAL_ERROR", "internal MORPHEUS reasoning error", Map.of())));
         } finally {
