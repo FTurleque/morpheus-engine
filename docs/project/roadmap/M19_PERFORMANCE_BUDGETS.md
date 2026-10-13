@@ -104,6 +104,20 @@ Ce que ces lignes ne changent pas : le protocole (§ 3), le tas de 768 MiB, les 
 et chaque mesure du tableau du gel. La mesure de lecture du contenu publie son propre snapshot dans son propre fichier,
 pour que ni le temps de publication, ni la taille SQLite, ni le coût de rétention ne bougent.
 
+**Première mesure, code non corrigé, 13 octobre 2026** (Windows, 16 processeurs, JDK 24.0.1, tas de 768 MiB, une
+exécution du seul gate) :
+
+```text
+lecture du contenu d'un snapshot   snapshot_content_read_p95_ms=516   budget 1,000 ms   passe
+analyse d'un change                pas encore de gate
+lecture d'une page de journal      pas encore de gate
+```
+
+La lecture du contenu **passe son budget avant correction**. Sa correction (une requête par table fille au lieu d'une
+par ligne parente) ne se justifie donc pas par ce temps : elle se justifie par le nombre de requêtes, qui croît avec
+les données et qu'un test de la suite ordinaire compte. La fixture mesurée tient 2,000 changes, 2,000 contraintes,
+4,000 scénarios et 4,000 critères, chacun avec ses listes filles non vides. Linux n'est pas mesuré.
+
 Les valeurs suivent la recommandation de la spécification
 (`openspec/changes/declare-a-budget-before-bounding-a-cost`), qui les laissait au mainteneur ; il a lancé le sprint sans
 les fixer. Elles sont choisies d'après ce à quoi sert l'opération, pas d'après une exécution.
