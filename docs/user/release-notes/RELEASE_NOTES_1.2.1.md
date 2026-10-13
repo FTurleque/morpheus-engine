@@ -335,6 +335,31 @@ pas dessus ; le statut indique alors que le pair est injoignable. Dans ce cas, d
 d'un JDK complet de la version que le pair demande. Avant cette version, ce cas se réglait sans le dire, par le `java`
 trouvé dans le `PATH`.
 
+### Plugins de provider : un contenu normalisé se construit d'une seule façon
+
+Cette rupture ne concerne que les auteurs de plugins de provider : elle se voit à la compilation du plugin, pas à
+l'usage de MORPHEUS.
+
+Les types que le plugin construit pour rendre son contenu n'ont plus qu'un constructeur, celui qui reçoit tous
+leurs composants. Les constructeurs plus courts, qui remplissaient à la place du plugin ce qu'il ne donnait pas,
+sont retirés ; ceux dont un plugin avait l'usage sont remplacés par des fabriques dont le nom dit ce qu'elles
+supposent.
+
+| Avant | Maintenant |
+|---|---|
+| `new NormalizedProjectContent(...)` à 6 arguments | `NormalizedProjectContent.currentSpecificationsOnly(...)`, mêmes arguments |
+| `new NormalizedProjectContent(...)` à 11 arguments | `NormalizedProjectContent.withoutAcceptanceCriteria(...)`, mêmes arguments |
+| `new NormalizedProjectContent(...)` à 10 arguments | `NormalizedProjectContent.withoutAcceptanceCriteria(...)`, avec la liste des deltas d'exigences, vide s'il n'y en a pas, après celle des changes |
+| `new Constraint(id, changeId, statement, provenance)` | `Constraint.withUnknownSemantics(id, changeId, statement, provenance)` |
+| `new ProviderProbeResult(...)` à 8 arguments | le même avec la source reconnue en sixième argument, `Optional.empty()` s'il n'y en a pas |
+
+Le contenu produit est le même qu'avant : une contrainte construite ainsi reste de sémantique inconnue, un contenu
+sans critères d'acceptation en porte une liste vide.
+
+**Migration.** Recompiler le plugin contre cette version et remplacer les appels du tableau. Un plugin déjà compilé
+qui appelle un constructeur retiré est encore découvert et jugé compatible ; il échoue quand il s'exécute, au
+probe ou à la lecture.
+
 ### Journal opérationnel : une valeur inconnue de `MORPHEUS_OPERATIONAL_LOGS` est refusée
 
 Toute valeur que MORPHEUS ne reconnaissait pas pour cette variable — `true`, `1`, une faute de frappe comme `jsno` —
