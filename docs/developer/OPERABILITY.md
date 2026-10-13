@@ -71,7 +71,15 @@ Un nouveau contexte HTTP du serveur local s'enregistre à travers `databaseWork`
 
 ## Logs structurés locaux
 
-Le runtime process-local partagé est `LocalOperationalRuntime`.
+Le runtime opérationnel est une valeur, `OperationalRuntime` : compteurs, sink, recorder, destination du journal en
+fichier (ADR-0115). `MorpheusMain` prend celui du processus une fois et le remet par constructeur aux commandes qu'il
+construit. `LocalOperationalRuntime` garde ce même objet pour ce qui ne peut rien recevoir - le binding SLF4J, que le
+`ServiceLoader` instancie - et pour les classes qui n'ont pas encore de recorder remis : la liste est nommée dans
+`StaticOperationalRuntimeUsersArchitectureTest` et ne fait que rétrécir.
+
+Dans le store SQLite, le recorder voyage avec la connexion : `SqliteConnectionScope.open(chemin, recorder)` le nomme,
+et chaque transaction exécutée sur cette connexion est comptée là. Une portée ou une connexion ouverte sans recorder
+compte sur le runtime du processus, celui que sert `/metrics`. Un test n'y lit jamais : il construit ses compteurs.
 
 Par défaut :
 
@@ -98,7 +106,7 @@ Les mêmes lignes vont dans `morpheus-operational.jsonl` sous le répertoire de 
 entre deux événements : plusieurs processus du même compte écrivent dans le même journal.
 
 `morpheus-application` ne connaît pas la disposition du processus. `MorpheusMain` résout le répertoire - celui que
-`paths` imprime pour les mêmes arguments - et le nomme une fois (`LocalOperationalRuntime.writeLogFileIn`), avant
+`paths` imprime pour les mêmes arguments - et le nomme une fois (`OperationalRuntime.writeLogFileIn`), avant
 toute autre action ; un événement émis plus tôt n'a pas de destination. Un répertoire inutilisable arrête le
 processus : `OPERATIONAL_LOG_FILE_UNUSABLE`, code d'erreur d'entrée-sortie, jamais un repli sur `stderr`. Une écriture
 qui échoue ensuite est perdue et comptée par `operational.log.write.failed`.
@@ -109,7 +117,8 @@ Le mode est une liste fermée, `OperationalLogMode` : `off`, `none` (aucun journ
 no-op, et un opérateur qui avait écrit `jsno` exploitait un serveur muet sans le savoir.
 
 Le refus vient du lanceur. `MorpheusMain` lit la variable avant toute autre classe du produit et sort en code d'usage ;
-`LocalOperationalRuntime` choisit son sink dans un initialiseur statique, où le même refus sortirait comme une erreur
+`LocalOperationalRuntime` construit le runtime du processus dans un initialiseur statique, où le même refus sortirait
+comme une erreur
 d'initialisation de la première classe qui l'utilise.
 
 Aucun transport réseau n'est créé.
