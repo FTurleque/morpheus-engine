@@ -3,7 +3,7 @@
 Statut : **EN PRÉPARATION — NON PUBLIÉE**
 
 `1.2.1` est la baseline corrective de développement. Elle ne devient une release publiée qu'après création du tag et
-qualification de ses artefacts (suivi #185, critère de clôture dans
+qualification de ses artefacts (suivi et critère de clôture dans
 [`../../project/validation/RELEASE_QUALIFICATION.md`](../../project/validation/RELEASE_QUALIFICATION.md) ; version courante dans
 [`../../developer/PRODUCT_VERSION.md`](../../developer/PRODUCT_VERSION.md)).
 Cette page recense, au fil des corrections, les changements qu'un utilisateur de 1.2.0 doit connaître avant de migrer.
@@ -106,9 +106,9 @@ MORPHEUS error [2]: unknown option: --projet
 ```
 
 **Migration.** Un script qui passait une option ignorée reçoit maintenant le code `2` : corriger ou retirer l'option.
-Les options reconnues par action sont exactement celles que l'action lit (`ACTION_OPTIONS` dans `MorpheusPortfolioCli`).
+Les options reconnues par action sont exactement celles que l'action lit.
 
-Décision : garde `CliOptionParsingRefusesUnknownOptionsTest` (chaque méthode qui appelle `SimpleOptions.parse` appelle aussi `rejectUnknown`) ; un `case` sans entrée dans `ACTION_OPTIONS` est refusé comme action inconnue.
+Décision : [ADR-0103](../../architecture/adr/0103-textual-assertions-and-archunit-rules-enforce-different-things.md), qui décrit le contrôle automatisé tenant cette règle.
 
 ### CLI `policy evaluate` et `policy dry-run` : un refus atteint le code de sortie
 
@@ -127,8 +127,7 @@ Le JSON est toujours imprimé, y compris avec le code `4`. Les autres actions de
 changent pas : elles rendent `0` quand elles réussissent.
 
 **Migration.** Une CI qui appelait `policy evaluate` ou `policy dry-run` sans regarder le JSON échoue maintenant sur `BLOCK` et
-`UNKNOWN` : c'est le but. Pour ne pas échouer, lire `decision` dans le JSON plutôt que le code de sortie. Les validateurs
-`scripts/validate-m25.*` attendent désormais explicitement le code `4` sur leurs deux appels.
+`UNKNOWN` : c'est le but. Pour ne pas échouer, lire `decision` dans le JSON plutôt que le code de sortie.
 
 Décision : [ADR-0108](../../architecture/adr/0108-a-response-says-what-it-could-not-observe.md).
 
@@ -221,7 +220,7 @@ Décision : [ADR-0107, amendement du 29 septembre 2026 (MCP-2)](../../architectu
 Aucun comportement ne change. Le Javadoc de `PageArguments` (MCP-2) affirmait trois choses que le code ne tenait pas : qu'un `limit = 0` est refusé « sans que le store
 ait été ouvert » (le refus de `slice` précède la **lecture de la collection**, mais un appel direct du handler a déjà ouvert le store ; sous le serveur, le SDK refuse `limit = 0`
 contre le schéma publié avant tout handler, donc aucun store n'est ouvert : établi par lecture du code et du SDK, non mesuré de bout en bout) ;
-que les bornes de `limit` sont celles du catalogue « que `PageRequest` applique aussi » (vrai du seul **maximum**, 100, et rien ne le tenait : `PageBoundsAgreementTest` le tient
+que les bornes de `limit` sont celles du catalogue « que `PageRequest` applique aussi » (vrai du seul **maximum**, 100, et rien ne le tenait : un contrôle automatisé, décrit dans l'ADR-0107, le tient
 désormais, ainsi que trois descriptions d'outils qui écrivaient « default 50, maximum 100 » à la main) ; et que tout outil sur une collection qui ne fait que croître prend une page
 (trois outils le font ; `list_policy_packs` et d'autres restent rendus entiers, avec leur raison dans l'ADR-0107).
 
@@ -490,8 +489,8 @@ sous-commande inconnue aussi (`unknown external-references subcommand`). Le code
 **Migration.** Retirer `--revision` des appels à `composition status` et `composition conflicts` ; il n'a jamais eu
 d'effet.
 
-Décision : [ADR-0103, amendement du 26 septembre 2026 (CLI-8)](../../architecture/adr/0103-textual-assertions-and-archunit-rules-enforce-different-things.md) ;
-garde `CliOptionParsingRefusesUnknownOptionsTest`, qui découvre désormais toutes les familles de parseurs du CLI.
+Décision : [ADR-0103, amendement du 26 septembre 2026 (CLI-8)](../../architecture/adr/0103-textual-assertions-and-archunit-rules-enforce-different-things.md) :
+le contrôle automatisé qu'il décrit couvre désormais toutes les familles de commandes du CLI.
 
 ### Qualité (`quality`, diagnostics HTTP) : un ratio sur population vide n'est plus publié comme une mesure
 

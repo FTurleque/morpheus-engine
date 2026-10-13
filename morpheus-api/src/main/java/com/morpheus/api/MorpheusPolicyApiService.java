@@ -132,13 +132,14 @@ public final class MorpheusPolicyApiService {
     }
 
     private List<PolicyRule> rules(List<RuleRequest> requests) {
-        Objects.requireNonNull(requests, "rules");
-        if (requests.isEmpty() || requests.size() > PolicyBudgets.MAX_RULES_PER_PACK) {
+        if (requests == null || requests.isEmpty() || requests.size() > PolicyBudgets.MAX_RULES_PER_PACK) {
             throw new IllegalArgumentException("rules must contain between 1 and " + PolicyBudgets.MAX_RULES_PER_PACK + " items");
         }
         List<PolicyRule> result = new ArrayList<>(requests.size());
         for (RuleRequest request : requests) {
-            Objects.requireNonNull(request, "rules item");
+            if (request == null) {
+                throw new IllegalArgumentException("rules[" + result.size() + "] must be a rule object");
+            }
             PolicyIds.RuleId id = request.id() == null || request.id().isBlank()
                     ? PolicyIds.RuleId.generate() : PolicyIds.RuleId.parse(request.id());
             PolicyRule.Kind kind = PolicyRule.Kind.valueOf(requireText(request.kind(), "rule.kind").toUpperCase(Locale.ROOT));
