@@ -1,5 +1,9 @@
 package com.morpheus.application.security;
 
+import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.operability.SuppressedFailureFamily;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -62,11 +66,7 @@ public final class ExternalJarIntegrity {
             throw new IllegalArgumentException("cannot stage trusted external JAR", failure);
         } finally {
             if (!success && staged != null) {
-                try {
-                    Files.deleteIfExists(staged);
-                } catch (IOException ignored) {
-                    // Preserve the primary integrity/staging failure.
-                }
+                deleteRejectedCopy(staged, LocalOperationalRuntime.recorder());
             }
         }
     }
@@ -87,6 +87,18 @@ public final class ExternalJarIntegrity {
             throw new IllegalStateException("SHA-256 must be available", failure);
         } catch (IOException failure) {
             throw new IllegalArgumentException("cannot hash external JAR", failure);
+        }
+    }
+
+    /**
+     * Deletes a copy that failed its integrity check. The check's failure is what the caller is told; a copy that
+     * cannot be deleted stays in the temporary directory and is counted, since nothing else will say so.
+     */
+    static void deleteRejectedCopy(Path staged, OperationalRecorder recorder) {
+        try {
+            Files.deleteIfExists(staged);
+        } catch (IOException residue) {
+            recorder.suppressed(SuppressedFailureFamily.STAGED_ARTIFACT_CLEANUP, residue);
         }
     }
 
