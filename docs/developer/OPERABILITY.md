@@ -48,6 +48,24 @@ MorpheusOperabilityApiService.readiness()
 MorpheusOperabilityApiService.metrics()
 ```
 
+## Une base qui fait attendre ne fait pas taire le serveur
+
+Chaque requête HTTP arrive sur un thread virtuel. Le pilote SQLite attend une base occupée dans du code natif, où un
+thread virtuel garde son porteur ; les porteurs sont aussi nombreux que les processeurs. Mesuré le 13/10/2026 : 64
+lectures en attente sur 16 processeurs retardaient une sonde `health` de treize secondes (ADR-0114).
+
+Le serveur local remet donc tout gestionnaire qui peut toucher la base à un pool borné de threads plateforme
+(`DatabaseWorkOffloadingHttpServer`, `DATABASE_WORKERS` : le nombre de processeurs, deux au minimum), et le thread
+virtuel de la requête se gare en attendant. La taille du pool est la concurrence de la base ; au-delà, les requêtes
+font la queue.
+
+`health`, `metrics` et `version` répondent sans la base et sont enregistrées hors du pool
+(`MorpheusRootHttpRoutes.ANSWERED_WITHOUT_THE_DATABASE`) : elles restent servies quand tous les travailleurs
+attendent. `readiness` interroge la base et passe par le pool.
+
+Un nouveau contexte HTTP du serveur local s'enregistre à travers `databaseWork`, pas `httpServer` :
+`LocalHttpServerBootstrapArchitectureTest` refuse un second enregistrement direct.
+
 ## Logs structurés locaux
 
 Le runtime process-local partagé est `LocalOperationalRuntime`.

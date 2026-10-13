@@ -381,6 +381,19 @@ démarrer avec `OPERATIONAL_LOG_FILE_UNUSABLE` plutôt que d'écrire ailleurs.
 **Migration.** Aucune. Un compteur `failure.suppressed.http-internal-error` qui monte désigne un défaut de MORPHEUS à
 signaler ; `failure.suppressed.adapter-discovery`, un adaptateur installé à réparer ou à retirer.
 
+### Serveur : une base occupée ne bloque plus les sondes ni les autres requêtes
+
+Quand la base était occupée par une écriture, les requêtes qui l'attendaient pouvaient immobiliser le serveur entier :
+même `health`, qui ne lit pas la base, cessait de répondre pendant plusieurs secondes, et une rafale de lectures
+recevait des refus `409`.
+
+Le serveur traite maintenant les requêtes qui touchent la base sur un nombre fixe de travailleurs, égal au nombre de
+processeurs. Au-delà, les requêtes attendent leur tour au lieu d'échouer. `health`, `metrics` et `version` sont
+servies à part et répondent toujours.
+
+**Migration.** Aucune. Un outil de supervision qui redémarrait le serveur sur une sonde `health` muette ne devrait plus
+le faire pour cette raison ; `readiness`, elle, interroge la base et peut encore attendre.
+
 ### Serveur distant : un journal dit qui a fait quoi
 
 Le serveur distant authentifiait chaque requête sans rien garder du principal : après l'usage abusif d'un jeton, rien

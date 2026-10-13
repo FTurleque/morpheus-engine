@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -37,9 +38,18 @@ class LocalHttpServerBootstrapArchitectureTest {
         assertTrue(bootstrap.contains("new LoopbackRequestProtectedHttpServer(delegate)"));
         assertTrue(bootstrap.contains("new CapabilityProtectedHttpServer(loopbackProtected, capability)"));
         assertTrue(bootstrap.contains("Executors.newVirtualThreadPerTaskExecutor()"));
-        assertTrue(bootstrap.contains("httpServer.createContext(MorpheusHttpServer.API_PREFIX, result::handle)"));
+        assertTrue(bootstrap.contains("DatabaseWorkOffloadingHttpServer.over(httpServer)"));
+        assertTrue(bootstrap.contains("databaseWork.createContext(MorpheusHttpServer.API_PREFIX, result::handle)"));
         assertTrue(bootstrap.contains(
-                "MorpheusQueryHttpRoutes.register(httpServer, databasePath, result.requestDecoder(),"));
+                "MorpheusQueryHttpRoutes.register(databaseWork, databasePath, result.requestDecoder(),"));
+        assertFalse(bootstrap.contains("MorpheusQueryHttpRoutes.register(httpServer,"),
+                "a router that reaches the database is registered through the database workers: on the request's "
+                        + "own virtual thread, a wait inside the SQLite driver holds a carrier of the scheduler");
+        assertEquals(1, bootstrap.split("httpServer\\.createContext\\(", -1).length - 1,
+                "only the routes answered without the database are registered outside the database workers");
+        assertTrue(bootstrap.contains("for (String probe : MorpheusRootHttpRoutes.ANSWERED_WITHOUT_THE_DATABASE) {"));
+        assertTrue(bootstrap.contains(
+                "httpServer.createContext(MorpheusHttpServer.API_PREFIX + \"/\" + probe, result::handle);"));
         assertTrue(bootstrap.contains("result.responseWriter())"));
         assertTrue(bootstrap.contains("httpServer.start()"));
 

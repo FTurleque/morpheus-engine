@@ -163,8 +163,11 @@ final class MorpheusLocalHttpServerBootstrap {
                     .orElse(loopbackProtected);
             ExecutorService executor = owned.keep(
                     Executors.newVirtualThreadPerTaskExecutor(), ExecutorService::shutdownNow);
+            // Stopping it stops the server it decorates, then its workers: it is the server the result owns.
+            HttpServer databaseWork = owned.keep(
+                    DatabaseWorkOffloadingHttpServer.over(httpServer), server -> server.stop(0));
             MorpheusHttpServer result = new MorpheusHttpServer(
-                    httpServer,
+                    databaseWork,
                     executor,
                     allowedWorkspaceRoots
                             .map(policy -> new MorpheusApiService(databasePath, policy))
@@ -178,8 +181,11 @@ final class MorpheusLocalHttpServerBootstrap {
                     new MorpheusOperabilityApiService(databasePath),
                     allowedWorkspaceRoots.isPresent());
             httpServer.setExecutor(executor);
-            httpServer.createContext(MorpheusHttpServer.API_PREFIX, result::handle);
-            MorpheusQueryHttpRoutes.register(httpServer, databasePath, result.requestDecoder(),
+            databaseWork.createContext(MorpheusHttpServer.API_PREFIX, result::handle);
+            for (String probe : MorpheusRootHttpRoutes.ANSWERED_WITHOUT_THE_DATABASE) {
+                httpServer.createContext(MorpheusHttpServer.API_PREFIX + "/" + probe, result::handle);
+            }
+            MorpheusQueryHttpRoutes.register(databaseWork, databasePath, result.requestDecoder(),
                     result.allowedMethods(), result.responseWriter());
             httpServer.start();
             owned.transferred();
