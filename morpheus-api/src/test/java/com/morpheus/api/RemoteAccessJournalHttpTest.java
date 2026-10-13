@@ -63,7 +63,7 @@ class RemoteAccessJournalHttpTest {
             assertEquals(403, refused.statusCode(), refused.body());
             assertEquals(400, written.statusCode(), written.body());
 
-            List<String> lines = Files.readAllLines(journal);
+            List<String> lines = linesOnceThereAre(6, journal);
             assertEquals(6, lines.size(), lines::toString);
             assertRecord(lines.get(0), "completed", read, "reader", "READ", "READ", "GET", "health", "200");
             assertTrue(lines.get(0).contains("\"level\":\"INFO\""), lines.get(0));
@@ -109,6 +109,20 @@ class RemoteAccessJournalHttpTest {
             assertFalse(written.body().contains(temp.toString()), "the refusal names no server location");
             assertEquals(200, read.statusCode(), read.body());
         }
+    }
+
+    /**
+     * The journal once it holds the expected number of records. The outcome of a request is written after its
+     * exchange is closed, so the client can hold a response whose record is not on disk yet.
+     */
+    private static List<String> linesOnceThereAre(int expected, Path journal) throws Exception {
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(10);
+        List<String> lines = Files.readAllLines(journal);
+        while (lines.size() < expected && System.nanoTime() < deadline) {
+            Thread.sleep(20);
+            lines = Files.readAllLines(journal);
+        }
+        return lines;
     }
 
     private MorpheusRemoteHttpServer start(Path auth) throws Exception {
