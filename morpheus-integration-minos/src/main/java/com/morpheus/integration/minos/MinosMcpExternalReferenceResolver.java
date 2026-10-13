@@ -78,13 +78,21 @@ public final class MinosMcpExternalReferenceResolver implements ExternalReferenc
             return ExternalReferenceResolverResult.found(new ResolvedExternalTarget(
                     target,
                     attributes(status, symbol, activeSnapshotId)));
-        } catch (RuntimeException peerFailure) {
-            // The reference is unavailable either way, and the result carries a status only. So does a project with
-            // no active snapshot, and so does a search that may be truncated: without this count a peer that does
-            // not start is indistinguishable from a peer that has nothing to say.
-            recorder.suppressed(SuppressedFailureFamily.MCP_PEER, peerFailure);
-            return ExternalReferenceResolverResult.unavailable();
+        } catch (MinosIntegrationException failure) {
+            return unavailableAfter(failure);
+        } catch (RuntimeException failure) {
+            return unavailableAfter(failure);
         }
+    }
+
+    /**
+     * The reference is unavailable, and the result carries a status only. So does a project with no active snapshot,
+     * and so does a search that may be truncated: without this count a peer that does not start is indistinguishable
+     * from a peer that has nothing to say.
+     */
+    private ExternalReferenceResolverResult unavailableAfter(RuntimeException peerFailure) {
+        recorder.suppressed(SuppressedFailureFamily.MCP_PEER, peerFailure);
+        return ExternalReferenceResolverResult.unavailable();
     }
 
     private Map<String, String> attributes(
