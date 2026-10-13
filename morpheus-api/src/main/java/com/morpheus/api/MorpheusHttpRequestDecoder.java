@@ -81,11 +81,14 @@ final class MorpheusHttpRequestDecoder {
     }
 
     private <T> T decode(byte[] body, Class<T> type) {
+        T decoded;
         try {
-            return mapper.readValue(body, type);
+            decoded = mapper.readValue(body, type);
         } catch (Exception failure) {
             throw ApiFailure.badRequest("invalid JSON request body: " + BoundaryFailureMessage.safe(failure));
         }
+        if (decoded == null) throw ApiFailure.badRequest("JSON request body must not be null");
+        return decoded;
     }
 
     private static void requireJsonContentType(Headers headers) {
