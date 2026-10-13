@@ -163,6 +163,7 @@ final class MorpheusPolicyHttpRoutes {
         } catch (KnowledgeStoreException | IllegalStateException failure) {
             responseWriter.send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("STATE_CONFLICT", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (RuntimeException failure) {
+            UnforeseenFailureTrace.record(failure);
             responseWriter.send(exchange, 500, new ApiErrorEnvelope("v1", new ApiError("INTERNAL_ERROR", "internal MORPHEUS API error", Map.of())));
         } finally {
             exchange.close();

@@ -1,6 +1,8 @@
 package com.morpheus.cli;
 
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
+import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.operability.SuppressedFailureFamily;
 import com.morpheus.application.reasoning.ReasoningContracts;
 import com.morpheus.application.reasoning.ReasoningContracts.Evidence;
 import com.morpheus.application.reasoning.ReasoningContracts.EvidenceKind;
@@ -23,7 +25,8 @@ final class MorpheusReasoningCli {
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
     MorpheusReasoningCli() {
-        this(ReasoningService.standard());
+        this(ReasoningService.standard(LocalOperationalRuntime.recorder()
+                .suppressing(SuppressedFailureFamily.ADAPTER_DISCOVERY)));
     }
 
     MorpheusReasoningCli(ReasoningService service) {

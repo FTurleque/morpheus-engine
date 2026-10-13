@@ -256,8 +256,6 @@ Ne pas résoudre côté client par last-write-wins implicite.
 # 7. Baseline
 
 ```text
-M18 code validé  7e8caacff567f51354fcb88bd7505a6d135071c0
-M18 merge        30f11ac3ffc522bcc0c71e31216a3fb70f0631d7
 OpenAPI          1.7.0
 MCP              22 read-only + 1 write
 ```

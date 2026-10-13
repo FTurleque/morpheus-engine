@@ -7,6 +7,7 @@ import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Turns the path of a request, as it was sent, into the decoded segments below the API prefix.
@@ -45,6 +46,18 @@ final class MorpheusHttpPathParser {
             throw ApiFailure.notFound("unknown API route: " + rawPath);
         }
         return List.copyOf(decoded.subList(prefixSegments.size(), decoded.size()));
+    }
+
+    /**
+     * The segments of a path this parser accepts, or nothing when it refuses the path. For a caller that asks whether
+     * a path names anything, where the refusal is an answer and not a failure.
+     */
+    Optional<List<String>> segmentsIfRoutable(String rawPath) {
+        try {
+            return Optional.of(segments(rawPath));
+        } catch (ApiFailure refusedPath) {
+            return Optional.empty();
+        }
     }
 
     private static String decodeOnce(String segment) {

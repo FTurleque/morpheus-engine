@@ -1,5 +1,7 @@
 package com.morpheus.store.sqlite;
 
+import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.operability.SuppressedFailureFamily;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationAttempt;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationAuditRecord;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationPersistenceResult;
@@ -377,8 +379,10 @@ public final class SqliteChangeLifecycleMutationStore implements ChangeLifecycle
             if (existing.isPresent()) {
                 return existingResult(attempt, existing.orElseThrow());
             }
-        } catch (SQLException ignored) {
-            // Preserve the original collision/concurrency signal.
+        } catch (SQLException auditUnreadable) {
+            // Preserve the original collision/concurrency signal. The caller is then told of a conflict where the
+            // mutation may already have been applied; the read that would have said so is counted.
+            LocalOperationalRuntime.recorder().suppressed(SuppressedFailureFamily.SQLITE_CONFLICT_READ, auditUnreadable);
         }
         return conflict(readCurrentQuietly(attempt), reason == null || reason.isBlank()
                 ? "Lifecycle mutation conflict"
@@ -388,7 +392,9 @@ public final class SqliteChangeLifecycleMutationStore implements ChangeLifecycle
     private Optional<ChangeLifecycleOperationalState> readCurrentQuietly(ChangeLifecycleMutationAttempt attempt) {
         try {
             return Optional.of(currentState(attempt));
-        } catch (SQLException ignored) {
+        } catch (SQLException currentStateUnreadable) {
+            LocalOperationalRuntime.recorder()
+                    .suppressed(SuppressedFailureFamily.SQLITE_CONFLICT_READ, currentStateUnreadable);
             return Optional.empty();
         }
     }
