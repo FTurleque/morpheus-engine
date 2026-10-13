@@ -393,6 +393,14 @@ servies à part et répondent toujours.
 **Migration.** Aucune. Un outil de supervision qui redémarrait le serveur sur une sonde `health` muette ne devrait plus
 le faire pour cette raison ; `readiness`, elle, interroge la base et peut encore attendre.
 
+### MCP : un appel d'outil ouvre une seule connexion à la base
+
+Un appel d'outil MCP ouvrait sept connexions à la base et vérifiait sept fois son schéma, là où la même opération par
+HTTP ou par la ligne de commande en ouvrait une. Il en ouvre une. Les réponses des outils ne changent pas ; les lectures
+d'un même appel voient désormais la base à travers la même connexion.
+
+**Migration.** Aucune.
+
 ### Serveur distant : un journal dit qui a fait quoi
 
 Le serveur distant authentifiait chaque requête sans rien garder du principal : après l'usage abusif d'un jeton, rien

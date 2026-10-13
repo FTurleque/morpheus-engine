@@ -129,7 +129,11 @@ Supprimer une de ces chaînes casse le build.
 - Backup : `VACUUM INTO` + `PRAGMA integrity_check` + `tryLock` + `ATOMIC_MOVE`
 - Restore : exige une **`explicit confirmation`**, et reste `EXPLICITLY_OFFLINE_ONLY`
 - `SqliteTransactionRunner` doit gérer `catch (Error failure)` + `rollbackSuppressing(connection, failure)`
-- Ouvrir les connexions via `SqliteConnectionScope.open(databasePath)`
+- Ouvrir les connexions via `SqliteConnectionScope.open(databasePath)` : les runtimes HTTP, CLI et, depuis le
+  13/10/2026, MCP (`MorpheusMcpRuntime`) ouvrent la portée avant leurs stores — une connexion et une vérification de
+  schéma par opération. Une portée ne s'imbrique pas : le refus est nommé (`SqliteConnectionScope.NESTED_REFUSAL`) et
+  désigne un défaut de l'appelant, jamais un état de la base — un appelant qui traduit un échec d'ouverture doit le
+  laisser passer
 
 ## Chaîne d'approvisionnement CI
 

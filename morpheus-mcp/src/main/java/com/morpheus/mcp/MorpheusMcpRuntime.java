@@ -2,7 +2,9 @@ package com.morpheus.mcp;
 
 import com.morpheus.application.operability.ExhaustiveShutdown;
 import com.morpheus.application.operability.StartupOwnership;
+import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.store.sqlite.SqliteChangeLifecycleMutationStore;
+import com.morpheus.store.sqlite.SqliteConnectionScope;
 import com.morpheus.store.sqlite.SqliteExternalReferenceStore;
 import com.morpheus.store.sqlite.SqliteSnapshotBusinessContentStore;
 import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
@@ -22,16 +24,21 @@ final class MorpheusMcpRuntime implements AutoCloseable {
     final SqliteExternalReferenceStore externalReferences;
     final SqliteSyncStateStore syncState;
     final SqliteChangeLifecycleMutationStore lifecycleMutations;
+    private final SqliteConnectionScope sqliteScope;
 
     /**
-     * Each store opens its own SQLite connection, and the constructor opens seven of them. Assigning straight to
-     * the fields meant a failure on the fourth left the first three open with no way to reach them: the
-     * constructor never returns, so nothing can call {@link #close()} on a half-built runtime. The stores stay
-     * owned here until all seven exist.
+     * The seven stores borrow the one physical connection of a scope opened first, as the HTTP and CLI runtimes do:
+     * one connection and one schema check for a tool call, where each store used to open and check its own. The
+     * scope is thread-confined, so a runtime is built, used and closed by the thread that handles the tool call.
+     *
+     * <p>Assigning straight to the fields meant a failure on the fourth store left the first three open with no way
+     * to reach them: the constructor never returns, so nothing can call {@link #close()} on a half-built runtime. The
+     * scope and the stores stay owned here until all of them exist.</p>
      */
     MorpheusMcpRuntime(Path databasePath) {
         Objects.requireNonNull(databasePath, "databasePath");
         try (StartupOwnership owned = new StartupOwnership()) {
+            SqliteConnectionScope scope = owned.keep(openScope(databasePath), SqliteConnectionScope::close);
             SqliteSpecificationKnowledgeStore openedSnapshots = owned.keep(
                     new SqliteSpecificationKnowledgeStore(databasePath),
                     SqliteSpecificationKnowledgeStore::close);
@@ -62,6 +69,22 @@ final class MorpheusMcpRuntime implements AutoCloseable {
             externalReferences = openedExternalReferences;
             syncState = openedSyncState;
             lifecycleMutations = openedLifecycleMutations;
+            sqliteScope = scope;
+        }
+    }
+
+    /**
+     * Opens the scope, and reports a database that cannot be opened as the store failure every tool handler already
+     * answers: opened without a scope, the first store raised it. A second scope on the same thread is a defect of
+     * the caller and is left as it is.
+     */
+    private static SqliteConnectionScope openScope(Path databasePath) {
+        try {
+            return SqliteConnectionScope.open(databasePath);
+        } catch (SqliteConnectionScope.NestedScopeException nested) {
+            throw nested;
+        } catch (IllegalStateException unavailable) {
+            throw new KnowledgeStoreException("Cannot initialize SQLite connection of the tool call", unavailable);
         }
     }
 
@@ -75,7 +98,8 @@ final class MorpheusMcpRuntime implements AutoCloseable {
                 traceability,
                 content,
                 requirements,
-                snapshots);
+                snapshots,
+                sqliteScope);
     }
 
 }
