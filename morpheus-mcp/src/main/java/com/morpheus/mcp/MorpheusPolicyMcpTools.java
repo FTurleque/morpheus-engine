@@ -187,17 +187,20 @@ final class MorpheusPolicyMcpTools {
     }
 
     private static Map<String, Object> createSchema() {
+        return schema(List.of("name", "rules", "actor", "reason"), createProperties());
+    }
+
+    private static Map<String, Object> createProperties() {
         Map<String, Object> properties = new LinkedHashMap<>();
         properties.put("name", Map.of("type", "string", "minLength", 1, "maxLength", PolicyBudgets.MAX_PACK_NAME));
         properties.put("rules", rulesProperty());
         properties.put("actor", nonBlankString());
         properties.put("reason", nonBlankString());
-        return schema(List.of("name", "rules", "actor", "reason"), properties);
+        return properties;
     }
 
     private static Map<String, Object> updateSchema() {
-        Map<String, Object> properties = new LinkedHashMap<>(createSchema().containsKey("properties")
-                ? castMap(createSchema().get("properties")) : Map.of());
+        Map<String, Object> properties = createProperties();
         properties.put("id", nonBlankString());
         properties.put("expectedRevision", Map.of("type", "integer", "minimum", 1));
         return schema(List.of("id", "expectedRevision", "name", "rules", "actor", "reason"), properties);
@@ -300,10 +303,5 @@ final class MorpheusPolicyMcpTools {
 
     private static Map<String, Object> nonBlankString() {
         return Map.of("type", "string", "minLength", 1);
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Map<String, Object> castMap(Object value) {
-        return (Map<String, Object>) value;
     }
 }
