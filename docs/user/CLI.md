@@ -417,19 +417,7 @@ $data = $result | ConvertFrom-Json
 
 Le contrat d’automatisation est : **code de sortie + JSON structuré**, pas la formulation humaine des messages.
 
-## 21. Validation M18
-
-```text
-CLI              29/29 PASS
-TOTAL            418/418 PASS
-Architecture     170/170 PASS
-Packaging/smokes PASS
-```
-
-Code réellement testé : `7e8caacff567f51354fcb88bd7505a6d135071c0`.  
-Merge M18 : `30f11ac3ffc522bcc0c71e31216a3fb70f0631d7`.
-
-## 22. Voir aussi
+## 21. Voir aussi
 
 - [Guide utilisateur](README.md)
 - [Démarrage rapide](QUICKSTART.md)
