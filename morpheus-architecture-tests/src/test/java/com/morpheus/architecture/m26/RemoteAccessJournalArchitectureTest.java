@@ -30,10 +30,15 @@ class RemoteAccessJournalArchitectureTest {
 
         assertEquals(1, occurrences(server, "accessJournal.completed("),
                 "the outcome of a request is recorded in one place");
-        assertTrue(closing.contains("accessJournal.completed(attributed, exchange.getResponseCode())"),
+        assertTrue(closing.contains("accessJournal.completed(attributed, status)"),
                 "the outcome is recorded in the finally of serve, which every exit goes through");
-        assertTrue(closing.indexOf("accessJournal.completed(") < closing.indexOf("exchange.close()"),
-                "the status is read before the exchange is closed");
+        int statusRead = closing.indexOf("int status = exchange.getResponseCode();");
+        int closed = closing.indexOf("exchange.close()");
+        assertTrue(statusRead >= 0 && statusRead < closed, "the status is read before the exchange is closed");
+        assertTrue(closed < closing.indexOf("accessJournal.completed("),
+                "the exchange is closed before the record is written: a file write between the response and the "
+                        + "close lets the server drop a connection whose request body was not read, and the "
+                        + "client's next request times out");
 
         assertEquals(1, occurrences(server, "accessJournal.accepted("));
         int accepted = serve.indexOf("accessJournal.accepted(attributed)");
