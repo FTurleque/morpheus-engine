@@ -16,6 +16,9 @@ XDG_DATA="$XDG_ROOT/data"
 XDG_CONFIG="$XDG_ROOT/config"
 XDG_STATE="$XDG_ROOT/state"
 mkdir -p "$LOGS"
+# A run that is refused must not leave the summary of an earlier run that passed: the summary is the record a
+# reader is told to read instead of the output.
+rm -f "$OUTPUT/validation-summary.txt"
 cd "$REPO"
 
 VALIDATION_TAG=""

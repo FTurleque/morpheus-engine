@@ -12,6 +12,9 @@ $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 Set-Location $repo
 $outputRoot = Join-Path $repo 'validation-output\m26'
 New-Item -ItemType Directory -Force -Path $outputRoot | Out-Null
+# A run that is refused must not leave the summary of an earlier run that passed: the summary is the record a
+# reader is told to read instead of the output.
+Remove-Item -LiteralPath (Join-Path $outputRoot 'validation-summary.txt') -Force -ErrorAction SilentlyContinue
 $validationSha = (git rev-parse HEAD).Trim()
 $migrationDir = Join-Path $repo 'morpheus-store-sqlite\src\main\resources\db\migration'
 $schemaMeasurement = Get-ChildItem -LiteralPath $migrationDir -File -Filter 'V???__*.sql' |
