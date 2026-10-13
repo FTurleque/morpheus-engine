@@ -7,6 +7,8 @@ import com.morpheus.application.composition.MultiProviderCompositionService;
 import com.morpheus.application.composition.MultiProviderReadService;
 import com.morpheus.application.composition.ProviderCompositionSource;
 import com.morpheus.application.identity.EntityIdentityResolver;
+import com.morpheus.application.operability.OperationalExecution;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.project.ProjectSpecificationId;
@@ -47,7 +49,8 @@ class MultiProviderCompositionContractTest {
                 List.of(
                         new OpenSpecSpecificationContentReader(),
                         new StructuredMarkdownSpecificationContentReader()),
-                new MultiProviderCompositionService());
+                new MultiProviderCompositionService(),
+                new OperationalExecution(OperationalRecorder.noop()));
 
         var result = service.read(
                 request,
@@ -102,7 +105,8 @@ class MultiProviderCompositionContractTest {
         Path workspace = fixture("openspec-basic");
         MultiProviderReadService service = new MultiProviderReadService(
                 List.of(new OpenSpecSpecificationContentReader()),
-                new MultiProviderCompositionService());
+                new MultiProviderCompositionService(),
+                new OperationalExecution(OperationalRecorder.noop()));
 
         var result = service.read(
                 ProviderReadRequest.all(workspace, ProjectSpecificationId.generate()),
@@ -123,7 +127,8 @@ class MultiProviderCompositionContractTest {
         Path workspace = fixture("openspec-basic");
         MultiProviderReadService service = new MultiProviderReadService(
                 List.of(new OpenSpecSpecificationContentReader()),
-                new MultiProviderCompositionService());
+                new MultiProviderCompositionService(),
+                new OperationalExecution(OperationalRecorder.noop()));
 
         IllegalStateException failure = assertThrows(IllegalStateException.class, () -> service.read(
                 ProviderReadRequest.all(workspace, ProjectSpecificationId.generate()),

@@ -115,8 +115,11 @@ class SilentCatchArchitectureTest {
                     () -> gateway + " must hand the transport an observer that counts a failed tree observation");
         }
         assertTrue(Files.readString(root.resolve("morpheus-cli/src/main/java/com/morpheus/cli/MorpheusMain.java"))
-                        .contains("new MorpheusProviderPluginCli(LocalOperationalRuntime.recorder())"),
+                        .contains("new MorpheusProviderPluginCli(runtime.recorder())"),
                 "the CLI probe must count on the recorder of the process");
+        assertTrue(Files.readString(root.resolve("morpheus-cli/src/main/java/com/morpheus/cli/MorpheusMain.java"))
+                        .contains("exitCode = run(runtime, args, out, err, System.getenv(), System.getProperties());"),
+                "the runtime the launcher hands to its commands must be the one of the process");
         assertTrue(Files.readString(root.resolve("morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"))
                         .contains("providerPluginProbeEnabled, operabilityService.recorder());"),
                 "the HTTP probe must count where the same server serves its metrics");

@@ -1,63 +1,44 @@
 package com.morpheus.application.operability;
 
-import java.nio.file.Path;
-
 /**
- * Process-local observability runtime. Counters are always local; optional structured logs go to stderr or to a file
- * of the logs directory. No network exporter, telemetry endpoint or external service is created here.
+ * The operational runtime of this process, for what cannot be handed one.
+ *
+ * <p>The launcher takes {@link #process()} once and passes it on by constructor. The static accessors remain for the
+ * logging binding, which the service loader instantiates and nobody constructs, and for the classes that are not yet
+ * handed a recorder: they all write to the one runtime the launcher holds, so the counters the process serves are
+ * complete. A test never reads it - it builds an {@link OperationalRuntime} or an {@link OperationalMetrics} of its
+ * own.</p>
  */
 public final class LocalOperationalRuntime {
     public static final String LOG_MODE_ENV = OperationalLogMode.ENVIRONMENT_VARIABLE;
 
-    private static final OperationalMetrics METRICS = new OperationalMetrics();
-    private static final OperationalLogMode MODE = OperationalLogMode.parse(System.getenv(LOG_MODE_ENV));
-    private static final DeferredOperationalEventSink LOG_FILE = new DeferredOperationalEventSink();
-    private static final OperationalEventSink SINK = createSink();
-    private static final OperationalRecorder RECORDER = new OperationalRecorder(SINK, METRICS);
+    /**
+     * The mode the environment selects. A value that is no mode is refused by {@link OperationalLogMode}, and the
+     * launcher reads it first so that the refusal is its own message rather than an initialization error here.
+     */
+    private static final OperationalRuntime PROCESS =
+            OperationalRuntime.of(OperationalLogMode.parse(System.getenv(LOG_MODE_ENV)));
 
     private LocalOperationalRuntime() {
     }
 
+    public static OperationalRuntime process() {
+        return PROCESS;
+    }
+
     public static OperationalMetrics metrics() {
-        return METRICS;
+        return PROCESS.metrics();
     }
 
     public static OperationalEventSink sink() {
-        return SINK;
+        return PROCESS.sink();
     }
 
-    /** Whether the sink writes anything: a caller that would format a record for nothing asks before it does. */
     public static boolean writesEvents() {
-        return MODE != OperationalLogMode.OFF;
+        return PROCESS.writesEvents();
     }
 
     public static OperationalRecorder recorder() {
-        return RECORDER;
-    }
-
-    /**
-     * Names the directory of the log file, once, in the mode that writes one. The launcher calls it before anything
-     * else runs: this module does not know the layout of the process, and an event emitted earlier is not kept.
-     *
-     * @throws OperationalLogFileException when the file cannot be written there
-     * @throws IllegalStateException when the mode writes no file, or the directory was already named
-     */
-    public static void writeLogFileIn(Path logsDirectory) {
-        if (MODE != OperationalLogMode.FILE) {
-            throw new IllegalStateException("the operational log mode writes no file");
-        }
-        LOG_FILE.directTo(RotatingOperationalLogFile.open(logsDirectory, METRICS));
-    }
-
-    /**
-     * The sink of the mode the environment selects. A value that is no mode is refused by {@link OperationalLogMode},
-     * and the launcher reads it first so that the refusal is its own message rather than an initialization error here.
-     */
-    private static OperationalEventSink createSink() {
-        return switch (MODE) {
-            case OFF -> OperationalEventSink.noop();
-            case JSON_LINES -> new StructuredOperationalEventSink(System.err);
-            case FILE -> LOG_FILE;
-        };
+        return PROCESS.recorder();
     }
 }

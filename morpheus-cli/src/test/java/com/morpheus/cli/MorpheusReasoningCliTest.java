@@ -1,5 +1,6 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -15,7 +16,7 @@ class MorpheusReasoningCliTest {
     void factsOnlyAnalysisIsReadOnlyWhenNoAdapterIsSelected() {
         ByteArrayOutputStream stdout = new ByteArrayOutputStream();
         ByteArrayOutputStream stderr = new ByteArrayOutputStream();
-        int exit = new MorpheusReasoningCli().run(new String[]{
+        int exit = new MorpheusReasoningCli(OperationalRecorder.noop()).run(new String[]{
                         "--json", "reason", "analyze",
                         "--question", "What is authoritative?",
                         "--evidence", "fact-1|PUBLISHED_FACT|specification|Published history is authoritative|source=snapshot"
@@ -33,7 +34,7 @@ class MorpheusReasoningCliTest {
     void explicitBuiltInAdapterProducesSeparatedClaims() {
         ByteArrayOutputStream stdout = new ByteArrayOutputStream();
         ByteArrayOutputStream stderr = new ByteArrayOutputStream();
-        int exit = new MorpheusReasoningCli().run(new String[]{
+        int exit = new MorpheusReasoningCli(OperationalRecorder.noop()).run(new String[]{
                         "--json", "reason", "analyze",
                         "--question", "Can remote mode be enabled safely?",
                         "--evidence", "fact-1|PUBLISHED_FACT|remote|TLS is required|source=published",
@@ -53,7 +54,7 @@ class MorpheusReasoningCliTest {
     @Test
     void unknownAdapterIsAnExplicitUsageError() {
         ByteArrayOutputStream stderr = new ByteArrayOutputStream();
-        int exit = new MorpheusReasoningCli().run(new String[]{
+        int exit = new MorpheusReasoningCli(OperationalRecorder.noop()).run(new String[]{
                         "reason", "analyze", "--question", "Question", "--adapter", "missing"
                 }, stream(new ByteArrayOutputStream()), stream(stderr));
 

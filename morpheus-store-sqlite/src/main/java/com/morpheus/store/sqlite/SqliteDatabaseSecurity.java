@@ -31,7 +31,14 @@ final class SqliteDatabaseSecurity {
     }
 
     static Connection openPhysical(Path databasePath, int busyTimeoutMillis) throws SQLException {
+        return openPhysical(databasePath, busyTimeoutMillis, SqliteContentionMetrics.processDefault());
+    }
+
+    /** Opens a connection whose transactions and whose failure to open are counted on {@code contention}. */
+    static Connection openPhysical(Path databasePath, int busyTimeoutMillis, SqliteContentionMetrics contention)
+            throws SQLException {
         Objects.requireNonNull(databasePath, "databasePath");
+        Objects.requireNonNull(contention, "contention");
         if (busyTimeoutMillis <= 0 || busyTimeoutMillis > 60_000) {
             throw new IllegalArgumentException("busyTimeoutMillis must be between 1 and 60000");
         }
@@ -54,9 +61,9 @@ final class SqliteDatabaseSecurity {
             hardener.hardenFile(absolutePath);
             configureSecureDefaults(connection, busyTimeoutMillis);
             ensureAndHardenPersistentJournal(connection, absolutePath, hardener);
-            return SqliteDatabaseLease.guard(connection, lease);
+            return SqliteDatabaseLease.guard(connection, lease, contention);
         } catch (SQLException | RuntimeException | Error failure) {
-            SqliteContentionMetrics.connectionOpenFailed(failure);
+            contention.connectionOpenFailed(failure);
             unwind(absolutePath, connection, lease, failure);
             throw failure;
         }

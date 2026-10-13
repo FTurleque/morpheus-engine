@@ -9,7 +9,9 @@ import com.morpheus.application.store.KnowledgeStoreException;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
@@ -111,46 +113,69 @@ final class SqliteDatabaseLease {
     }
 
     static Connection guard(Connection connection, Lease lease) {
-        Objects.requireNonNull(connection, "connection");
-        Objects.requireNonNull(lease, "lease");
-        AtomicBoolean closed = new AtomicBoolean();
-        AtomicBoolean released = new AtomicBoolean();
+        return guard(connection, lease, SqliteContentionMetrics.processDefault());
+    }
+
+    /** Guards a connection whose transactions are counted on {@code contention}. */
+    static Connection guard(Connection connection, Lease lease, SqliteContentionMetrics contention) {
         return (Connection) Proxy.newProxyInstance(
                 SqliteDatabaseLease.class.getClassLoader(),
                 new Class<?>[]{Connection.class},
-                (proxy, method, args) -> {
-                    String name = method.getName();
-                    if (name.equals("close")) {
-                        // Closing makes the connection unusable whatever happens next. Releasing the database
-                        // lease is a different question, and it is answered only by a driver close that
-                        // succeeded: the lease is what makes offline maintenance impossible while a physical
-                        // handle is held, so a close whose outcome is unknown must keep it. Releasing it here
-                        // regardless let acquireExclusive succeed over a connection that may still be alive,
-                        // and a restore may replace the database file and its sidecars underneath one.
-                        closed.set(true);
-                        if (!released.get()) {
-                            connection.close();
-                            // Only now is the physical handle proven gone, so the lease may go with it.
-                            released.set(true);
-                            lease.close();
-                        }
-                        return null;
-                    }
-                    if (name.equals("isClosed")) {
-                        return closed.get() || connection.isClosed();
-                    }
-                    if (name.equals("toString")) {
-                        return "LeasedSqliteConnection[" + connection + "]";
-                    }
-                    if (name.equals("hashCode")) return System.identityHashCode(proxy);
-                    if (name.equals("equals")) return proxy == args[0];
-                    if (closed.get()) throw new SQLException("SQLite connection is closed");
-                    try {
-                        return method.invoke(connection, args);
-                    } catch (InvocationTargetException failure) {
-                        throw failure.getCause();
-                    }
-                });
+                new LeasedConnectionHandler(connection, lease, contention));
+    }
+
+    private static final class LeasedConnectionHandler implements InvocationHandler, SqliteContentionMetrics.Carrier {
+        private final Connection connection;
+        private final Lease lease;
+        private final SqliteContentionMetrics contention;
+        private final AtomicBoolean closed = new AtomicBoolean();
+        private final AtomicBoolean released = new AtomicBoolean();
+
+        private LeasedConnectionHandler(Connection connection, Lease lease, SqliteContentionMetrics contention) {
+            this.connection = Objects.requireNonNull(connection, "connection");
+            this.lease = Objects.requireNonNull(lease, "lease");
+            this.contention = Objects.requireNonNull(contention, "contention");
+        }
+
+        @Override
+        public SqliteContentionMetrics contention() {
+            return contention;
+        }
+
+        @Override
+        public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+            String name = method.getName();
+            if (name.equals("close")) {
+                // Closing makes the connection unusable whatever happens next. Releasing the database
+                // lease is a different question, and it is answered only by a driver close that
+                // succeeded: the lease is what makes offline maintenance impossible while a physical
+                // handle is held, so a close whose outcome is unknown must keep it. Releasing it here
+                // regardless let acquireExclusive succeed over a connection that may still be alive,
+                // and a restore may replace the database file and its sidecars underneath one.
+                closed.set(true);
+                if (!released.get()) {
+                    connection.close();
+                    // Only now is the physical handle proven gone, so the lease may go with it.
+                    released.set(true);
+                    lease.close();
+                }
+                return null;
+            }
+            if (name.equals("isClosed")) {
+                return closed.get() || connection.isClosed();
+            }
+            if (name.equals("toString")) {
+                return "LeasedSqliteConnection[" + connection + "]";
+            }
+            if (name.equals("hashCode")) return System.identityHashCode(proxy);
+            if (name.equals("equals")) return proxy == args[0];
+            if (closed.get()) throw new SQLException("SQLite connection is closed");
+            try {
+                return method.invoke(connection, args);
+            } catch (InvocationTargetException failure) {
+                throw failure.getCause();
+            }
+        }
     }
 
     /**

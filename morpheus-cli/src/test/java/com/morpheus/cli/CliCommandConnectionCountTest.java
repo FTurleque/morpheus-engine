@@ -1,5 +1,7 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.store.sqlite.SqliteConnectionScope;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -61,7 +63,7 @@ class CliCommandConnectionCountTest {
             Properties properties = new Properties();
             properties.setProperty("user.home", temporaryDirectory.resolve("home").toString());
             properties.setProperty("os.name", "Linux");
-            return MorpheusMain.run(args.toArray(String[]::new), out, err, Map.of(), properties);
+            return MorpheusMain.run(OperationalRuntime.of(OperationalLogMode.OFF), args.toArray(String[]::new), out, err, Map.of(), properties);
         }
     }
 }

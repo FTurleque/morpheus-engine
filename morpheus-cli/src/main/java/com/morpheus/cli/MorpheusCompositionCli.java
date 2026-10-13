@@ -9,7 +9,8 @@ import com.morpheus.application.composition.ProviderCompositionSource;
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.application.ingestion.ObservedProjectSnapshotPublisher;
-import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.operability.OperationalExecution;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.domain.project.ProjectSpecificationId;
@@ -26,12 +27,18 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 
 /** M18 CLI surface for explicit multi-provider synchronization and composition diagnostics. */
 final class MorpheusCompositionCli {
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
+    private final OperationalRecorder recorder;
+
+    MorpheusCompositionCli(OperationalRecorder recorder) {
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
+    }
 
     static boolean handles(String[] args) {
         return "composition".equals(command(args));
@@ -98,7 +105,8 @@ final class MorpheusCompositionCli {
                     List.of(
                             new OpenSpecSpecificationContentReader(),
                             new StructuredMarkdownSpecificationContentReader()),
-                    new MultiProviderCompositionService())
+                    new MultiProviderCompositionService(),
+                    new OperationalExecution(recorder))
                     .read(ProviderReadRequest.all(workspace, projectId), identityResolver, sources);
 
             var imported = new ObservedProjectSnapshotPublisher(
@@ -107,7 +115,7 @@ final class MorpheusCompositionCli {
                             runtime.requirements,
                             runtime.content,
                             runtime.traceability),
-                    LocalOperationalRuntime.recorder())
+                    recorder)
                     .publishFull(result.content(), options.optional("revision"), Instant.now());
             CompositionSnapshotState state = CompositionSnapshotState.from(imported.snapshot().id(), result);
             runtime.compositions.save(state);

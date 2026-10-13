@@ -1,5 +1,7 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRuntime;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -109,7 +111,7 @@ class MorpheusMainTest {
         int exit;
         try (PrintStream out = new PrintStream(output, true, StandardCharsets.UTF_8);
              PrintStream err = new PrintStream(errors, true, StandardCharsets.UTF_8)) {
-            exit = MorpheusMain.run(new String[]{"help"}, out, err, Map.of(), properties());
+            exit = MorpheusMain.run(OperationalRuntime.of(OperationalLogMode.OFF), new String[]{"help"}, out, err, Map.of(), properties());
         }
 
         assertEquals(CliExitCode.SUCCESS.code(), exit);
@@ -135,7 +137,7 @@ class MorpheusMainTest {
         int exit;
         try (PrintStream out = new PrintStream(output, true, StandardCharsets.UTF_8);
              PrintStream err = new PrintStream(errors, true, StandardCharsets.UTF_8)) {
-            exit = MorpheusMain.run(new String[]{"--data-dir", "data", "help"}, out, err, Map.of(), properties());
+            exit = MorpheusMain.run(OperationalRuntime.of(OperationalLogMode.OFF), new String[]{"--data-dir", "data", "help"}, out, err, Map.of(), properties());
         }
 
         assertEquals(CliExitCode.SUCCESS.code(), exit);
@@ -152,7 +154,7 @@ class MorpheusMainTest {
         int exit;
         try (PrintStream out = new PrintStream(output, true, StandardCharsets.UTF_8);
              PrintStream err = new PrintStream(errors, true, StandardCharsets.UTF_8)) {
-            exit = MorpheusMain.run(new String[0], out, err, Map.of(), properties());
+            exit = MorpheusMain.run(OperationalRuntime.of(OperationalLogMode.OFF), new String[0], out, err, Map.of(), properties());
         }
 
         assertEquals(CliExitCode.SUCCESS.code(), exit);
@@ -235,7 +237,7 @@ class MorpheusMainTest {
         ByteArrayOutputStream errBytes = new ByteArrayOutputStream();
         try (PrintStream out = new PrintStream(outBytes, true, StandardCharsets.UTF_8);
              PrintStream err = new PrintStream(errBytes, true, StandardCharsets.UTF_8)) {
-            int exitCode = MorpheusMain.run(args, out, err, Map.of(), properties());
+            int exitCode = MorpheusMain.run(OperationalRuntime.of(OperationalLogMode.OFF), args, out, err, Map.of(), properties());
             return new Invocation(
                     exitCode,
                     outBytes.toString(StandardCharsets.UTF_8).replace("\r\n", "\n"),

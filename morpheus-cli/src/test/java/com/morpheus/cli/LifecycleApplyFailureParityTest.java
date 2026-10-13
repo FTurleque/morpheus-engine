@@ -3,6 +3,7 @@ package com.morpheus.cli;
 import com.morpheus.api.MorpheusHttpServer;
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.project.ProjectSpecificationId;
@@ -107,7 +108,7 @@ class LifecycleApplyFailureParityTest {
         int exit;
         try (PrintStream outStream = new PrintStream(out, true, StandardCharsets.UTF_8);
              PrintStream errStream = new PrintStream(err, true, StandardCharsets.UTF_8)) {
-            exit = new MorpheusCli().run(
+            exit = new MorpheusCli(OperationalRecorder.noop()).run(
                     arguments.toArray(String[]::new), outStream, errStream, Map.of(), properties());
         }
 

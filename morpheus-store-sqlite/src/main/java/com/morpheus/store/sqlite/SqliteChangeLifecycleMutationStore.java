@@ -1,6 +1,5 @@
 package com.morpheus.store.sqlite;
 
-import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.operability.SuppressedFailureFamily;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationAttempt;
@@ -38,14 +37,21 @@ public final class SqliteChangeLifecycleMutationStore implements ChangeLifecycle
     private final OperationalRecorder recorder;
     private boolean closed;
 
+    /** The store records where its connection does: with the recorder of whoever opened it or its scope. */
     public SqliteChangeLifecycleMutationStore(Path databasePath) {
-        this(databasePath, LocalOperationalRuntime.recorder());
+        Objects.requireNonNull(databasePath, "databasePath");
+        connection = open(databasePath);
+        recorder = SqliteContentionMetrics.of(connection).recorder();
     }
 
     SqliteChangeLifecycleMutationStore(Path databasePath, OperationalRecorder recorder) {
         Objects.requireNonNull(databasePath, "databasePath");
         this.recorder = Objects.requireNonNull(recorder, "recorder");
-        connection = SqliteStoreConnection.openAndMigrate(
+        connection = open(databasePath);
+    }
+
+    private static Connection open(Path databasePath) {
+        return SqliteStoreConnection.openAndMigrate(
                 databasePath, "Cannot initialize SQLite lifecycle mutation store", SqliteChangeLifecycleMutationStore::configure);
     }
 

@@ -10,6 +10,7 @@ import com.morpheus.application.ingestion.ProjectSnapshotImportResult;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.application.ingestion.ObservedProjectSnapshotPublisher;
 import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.product.ProductMetadata;
 import com.morpheus.application.quality.AcceptanceQualityService;
 import com.morpheus.application.quality.ChangeCompletenessService;
@@ -82,11 +83,17 @@ public final class MorpheusCli {
     private static final String MSG_PROJECT_NO_ACTIVE_SNAPSHOT = "project has no ACTIVE snapshot: ";
 
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
+    private final OperationalRecorder recorder;
+
+    public MorpheusCli(OperationalRecorder recorder) {
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
+    }
 
     public static void main(String[] args) {
         PrintStream out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, StandardCharsets.UTF_8);
         PrintStream err = new PrintStream(new FileOutputStream(FileDescriptor.err), true, StandardCharsets.UTF_8);
-        int exit = new MorpheusCli().run(args, out, err, System.getenv(), System.getProperties());
+        int exit = new MorpheusCli(LocalOperationalRuntime.process().recorder())
+                .run(args, out, err, System.getenv(), System.getProperties());
         if (exit != 0) {
             System.exit(exit);
         }
@@ -276,7 +283,7 @@ public final class MorpheusCli {
                                 runtime.requirements,
                                 runtime.content,
                                 runtime.traceability),
-                        LocalOperationalRuntime.recorder())
+                        recorder)
                         .publishFull(normalized, revision, Instant.now());
                 syncService.complete(plan, Instant.now());
                 SyncView view = new SyncView(

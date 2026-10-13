@@ -1,5 +1,7 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -242,7 +244,7 @@ class MorpheusPortfolioCliTest {
             Properties properties = new Properties();
             properties.setProperty("user.home", tempDirectory.resolve("home").toString());
             properties.setProperty("os.name", "Linux");
-            exit = MorpheusMain.run(args, out, err, Map.of(), properties);
+            exit = MorpheusMain.run(OperationalRuntime.of(OperationalLogMode.OFF), args, out, err, Map.of(), properties);
         }
         return new Result(exit, output.toString(StandardCharsets.UTF_8), errors.toString(StandardCharsets.UTF_8));
     }

@@ -6,6 +6,7 @@ import com.morpheus.api.MorpheusRemoteHttpServer;
 import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.operability.OperationalLogFileException;
 import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.query.dsl.QueryBudgets;
 import com.morpheus.integration.minos.MinosIntegrationRuntime;
 import com.morpheus.integration.nexus.NexusIntegrationRuntime;
@@ -19,6 +20,7 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.function.Consumer;
@@ -36,7 +38,8 @@ public final class MorpheusMain {
             System.err.println("MORPHEUS usage error: " + refusal);
             System.exit(CliExitCode.USAGE.code());
         });
-        refusedOperationalLogFile(args, System.getenv(), System.getProperties(), LocalOperationalRuntime::writeLogFileIn)
+        OperationalRuntime runtime = processRuntime();
+        refusedOperationalLogFile(args, System.getenv(), System.getProperties(), runtime::writeLogFileIn)
                 .ifPresent(refusal -> {
                     System.err.println("MORPHEUS error: " + refusal);
                     System.exit(CliExitCode.IO_ERROR.code());
@@ -51,11 +54,19 @@ public final class MorpheusMain {
         } else {
             PrintStream out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, StandardCharsets.UTF_8);
             PrintStream err = new PrintStream(new FileOutputStream(FileDescriptor.err), true, StandardCharsets.UTF_8);
-            exitCode = run(args, out, err, System.getenv(), System.getProperties());
+            exitCode = run(runtime, args, out, err, System.getenv(), System.getProperties());
         }
         if (exitCode != 0) {
             System.exit(exitCode);
         }
+    }
+
+    /**
+     * The operational runtime of this process, taken once and handed on by constructor. It is the one the logging
+     * binding and every class that is not yet handed a recorder write to, so what the process serves is complete.
+     */
+    static OperationalRuntime processRuntime() {
+        return LocalOperationalRuntime.process();
     }
 
     /**
@@ -109,16 +120,18 @@ public final class MorpheusMain {
     }
 
     static int run(
+            OperationalRuntime runtime,
             String[] args,
             PrintStream out,
             PrintStream err,
             Map<String, String> environment,
             Properties properties) {
+        Objects.requireNonNull(runtime, "runtime");
         if (MorpheusProviderPluginCli.handles(args)) {
-            return new MorpheusProviderPluginCli(LocalOperationalRuntime.recorder()).run(args, out, err);
+            return new MorpheusProviderPluginCli(runtime.recorder()).run(args, out, err);
         }
         if (MorpheusProductCli.handles(args)) {
-            return new MorpheusProductCli().run(args, out, err);
+            return new MorpheusProductCli(runtime.recorder()).run(args, out, err);
         }
         if (MorpheusServerCli.handles(args)) {
             return new MorpheusServerCli().run(args, out, err, environment, properties);
@@ -133,7 +146,7 @@ public final class MorpheusMain {
         } else if (MorpheusPortfolioCli.handles(args)) {
             exitCode = new MorpheusPortfolioCli().run(args, out, err, environment, properties);
         } else if (MorpheusCompositionCli.handles(args)) {
-            exitCode = new MorpheusCompositionCli().run(args, out, err, environment, properties);
+            exitCode = new MorpheusCompositionCli(runtime.recorder()).run(args, out, err, environment, properties);
         } else if (MorpheusControlledLifecycleCli.handles(args)) {
             exitCode = new MorpheusControlledLifecycleCli().run(args, out, err, environment, properties);
         } else if (MorpheusConstraintSemanticsCli.handles(args)) {
@@ -149,7 +162,7 @@ public final class MorpheusMain {
             exitCode = new MorpheusExternalIntegrationCli(minos.resolverRegistry(), minos)
                     .run(args, out, err, environment, properties);
         } else {
-            exitCode = new MorpheusCli().run(args, out, err, environment, properties);
+            exitCode = new MorpheusCli(runtime.recorder()).run(args, out, err, environment, properties);
         }
         if (exitCode == CliExitCode.SUCCESS.code() && isHelpRequest(args)) {
             out.println();

@@ -1,6 +1,5 @@
 package com.morpheus.application.sync;
 
-import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.operability.SuppressedFailureFamily;
 
@@ -36,17 +35,6 @@ public final class LocalSourceWatcher implements AutoCloseable {
     private final Map<WatchKey, Path> directories = new HashMap<>();
     private final Set<Path> registeredDirectories = new HashSet<>();
     private boolean closed;
-
-    public LocalSourceWatcher(Path workspaceRoot, Collection<Path> watchedRoots) throws IOException {
-        this(workspaceRoot, watchedRoots, SourceScanPolicy.safeDefaults());
-    }
-
-    public LocalSourceWatcher(
-            Path workspaceRoot,
-            Collection<Path> watchedRoots,
-            SourceScanPolicy policy) throws IOException {
-        this(workspaceRoot, watchedRoots, policy, LocalOperationalRuntime.recorder());
-    }
 
     public LocalSourceWatcher(
             Path workspaceRoot,
