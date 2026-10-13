@@ -27,11 +27,10 @@ public final class MorpheusMain {
     // PrintStream-taking methods; a logging framework has no place in the OS entry point.
     @SuppressWarnings("java:S106")
     public static void main(String[] args) {
-        Optional<String> refusedLogMode = refusedOperationalLogMode(System.getenv());
-        if (refusedLogMode.isPresent()) {
-            System.err.println("MORPHEUS usage error: " + refusedLogMode.orElseThrow());
+        refusedOperationalLogMode(System.getenv()).ifPresent(refusal -> {
+            System.err.println("MORPHEUS usage error: " + refusal);
             System.exit(CliExitCode.USAGE.code());
-        }
+        });
         int exitCode;
         if (RemoteApiLaunchOptions.isRemoteApiCommand(args)) {
             exitCode = runRemoteApi(args, System.err, System.getenv(), System.getProperties());
