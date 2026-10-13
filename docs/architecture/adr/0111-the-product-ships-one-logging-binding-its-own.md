@@ -40,7 +40,8 @@ ils ne sont simplement pas des événements.
 
 5. **Les trois utilisateurs de `System.Logger` ne bougent pas dans ce changement.** Ils sont entendus aujourd'hui. Les
    faire passer par le même canal change leur destination et leur forme ; cela se décide avec le mode de journal qui
-   écrit ailleurs que sur la sortie d'erreur, où la question « où va cet enregistrement » se pose pour tous à la fois.
+   écrit ailleurs que sur la sortie d'erreur, où la question « où va cet enregistrement » se pose pour tous à la fois
+   (tranché par ADR-0112 : ils restent sur la sortie d'erreur).
 
 Cette décision a été prise sur la recommandation de la spécification
 (`openspec/changes/leave-a-trace-when-a-failure-is-swallowed`, décision 4), le mainteneur ayant lancé le lot sans
