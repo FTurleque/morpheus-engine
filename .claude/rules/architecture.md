@@ -167,6 +167,11 @@ pour la synchronisation HTTP). Seules les classes de `AdapterCompositionRootArch
 droit ; la liste est exactement l'ensemble mesuré et ne fait que rétrécir. En ajouter une exige d'amender ADR-0109.
 > `onlyTheNamedCompositionRootsReachAConcreteStoreOrProvider`, `everyNamedCompositionRootStillReachesAConcreteStoreOrProvider`
 
+Une racine qui construit **plusieurs** stores pour une opération ouvre d'abord une `SqliteConnectionScope` : une
+connexion physique et une vérification de schéma, sur tous les transports. Une classe dont chaque opération ne
+construit qu'un store en est dispensée et **nommée** dans `SqliteConnectionScopeUseArchitectureTest`, avec l'opération
+concernée ; elle y est refusée dès qu'un `try` ouvre deux stores ensemble (amendement d'ADR-0109 du 13/10/2026).
+
 ### `morpheus-mcp-transport` ne dépend d'aucun autre paquet MORPHEUS
 Le transport STDIO borné est partagé par le serveur MCP et les clients MINOS/NEXUS.
 > `theMcpTransportDependsOnNoOtherMorpheusPackage`

@@ -27,13 +27,12 @@ final class MorpheusMcpRuntime implements AutoCloseable {
     private final SqliteConnectionScope sqliteScope;
 
     /**
-     * The seven stores borrow the one physical connection of a scope opened first, as the HTTP and CLI runtimes do:
-     * one connection and one schema check for a tool call, where each store used to open and check its own. The
-     * scope is thread-confined, so a runtime is built, used and closed by the thread that handles the tool call.
+     * The seven stores borrow the one physical connection of a scope opened first: one connection and one schema
+     * check for a tool call. The scope is thread-confined, so a runtime is built, used and closed by the thread that
+     * handles the tool call.
      *
-     * <p>Assigning straight to the fields meant a failure on the fourth store left the first three open with no way
-     * to reach them: the constructor never returns, so nothing can call {@link #close()} on a half-built runtime. The
-     * scope and the stores stay owned here until all of them exist.</p>
+     * <p>The scope and the stores stay owned here until all of them exist: a constructor that fails never returns, so
+     * nothing could call {@link #close()} on a half-built runtime.</p>
      */
     MorpheusMcpRuntime(Path databasePath) {
         Objects.requireNonNull(databasePath, "databasePath");
@@ -74,11 +73,10 @@ final class MorpheusMcpRuntime implements AutoCloseable {
     }
 
     /**
-     * Opens the scope, and reports a database that cannot be opened as the store failure every tool handler already
-     * answers: opened without a scope, the first store raised it. A second scope on the same thread is a defect of
-     * the caller and is left as it is.
+     * Opens the scope, and reports a database that cannot be opened as the store failure every tool handler answers.
+     * A second scope on the same thread is a defect of the caller and is left as it is.
      */
-    private static SqliteConnectionScope openScope(Path databasePath) {
+    static SqliteConnectionScope openScope(Path databasePath) {
         try {
             return SqliteConnectionScope.open(databasePath);
         } catch (SqliteConnectionScope.NestedScopeException nested) {
