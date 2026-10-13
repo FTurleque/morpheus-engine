@@ -287,10 +287,15 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                 runtime.privilegedRequestFinished(privilegedTicket);
                 privilegedConcurrency.release();
             }
-            if (attributed != null) {
-                accessJournal.completed(attributed, exchange.getResponseCode());
-            }
+            // The exchange is closed before the record is written, never after: once a response is sent, the server
+            // drops a connection whose request body it finds unread, and close is what reads it. A file write between
+            // the two let it win that race after a refusal sent without reading the body, and the client's next
+            // request went to a connection being closed.
+            int status = exchange.getResponseCode();
             exchange.close();
+            if (attributed != null) {
+                accessJournal.completed(attributed, status);
+            }
         }
     }
 
