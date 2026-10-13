@@ -118,6 +118,8 @@ par ligne parente) ne se justifie donc pas par ce temps : elle se justifie par l
 les données et qu'un test de la suite ordinaire compte. La fixture mesurée tient 2,000 changes, 2,000 contraintes,
 4,000 scénarios et 4,000 critères, chacun avec ses listes filles non vides. Linux n'est pas mesuré.
 
+Après correction, même machine, même jour : `snapshot_content_read_p95_ms=335`.
+
 Les valeurs suivent la recommandation de la spécification
 (`openspec/changes/declare-a-budget-before-bounding-a-cost`), qui les laissait au mainteneur ; il a lancé le sprint sans
 les fixer. Elles sont choisies d'après ce à quoi sert l'opération, pas d'après une exécution.
