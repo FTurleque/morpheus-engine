@@ -120,7 +120,7 @@ Section 1 is the maintainer's and should start first: identity validation has a 
       asking for the release state), `AppPublisher` per 1.7, the ADR accepted, ADR-0089's pointer. Proof: the contract
       test of the seventh requirement red before the declaration is filled, green after.
 - [ ] 6.5 User pages for the first signed version: `docs/user/INSTALLATION.md` (publisher name, how to read the
-      signature, that a reputation prompt may still appear), the release notes of that version, 
+      signature, that a reputation prompt may still appear), the release notes of that version,
       `docs/user/PRODUCT_INTEGRITY.md`. No SHA, gate name or build command. Proof: the documentation coherence test.
 - [ ] 6.6 Maintainer: cut the tag. Then run `scripts\verify-release-provenance.ps1 -Tag <tag>` on Windows and the
       shell variant on Linux, and record both outputs as the procedure asks. Proof: the signature check's `PASS` line
