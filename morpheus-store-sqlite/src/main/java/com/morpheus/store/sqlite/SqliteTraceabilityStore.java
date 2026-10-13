@@ -22,14 +22,29 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
 /** SQLite adapter for snapshot-scoped traceability persistence introduced by M4-S2. */
 public final class SqliteTraceabilityStore implements TraceabilityStore, AutoCloseable {
+    private static final String INSERT_DEFINITION = """
+            INSERT INTO traceability_links(
+                link_id, source_kind, source_identity_id, relation_type,
+                target_kind, target_identity_id, origin, resolution, confidence, observed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """;
+    /** Rows handed to the driver at a time, so that a large batch does not build an unbounded buffer. */
+    private static final int BATCH_SLICE = 500;
+    /** Identities looked up at a time; well under the bound SQLite puts on the parameters of one statement. */
+    private static final int LOOKUP_SLICE = 200;
+
     private final Connection connection;
     private boolean closed;
 
@@ -37,6 +52,11 @@ public final class SqliteTraceabilityStore implements TraceabilityStore, AutoClo
         Objects.requireNonNull(databasePath, "databasePath");
         this.connection = SqliteStoreConnection.openAndMigrate(
                 databasePath, "Cannot initialize SQLite traceability store", SqliteTraceabilityStore::configure);
+    }
+
+    /** Over a connection the caller opened on a migrated database, so that a test can count what the store prepares. */
+    SqliteTraceabilityStore(Connection connection) {
+        this.connection = Objects.requireNonNull(connection, "connection");
     }
 
     @Override
@@ -65,11 +85,8 @@ public final class SqliteTraceabilityStore implements TraceabilityStore, AutoClo
         }
         try {
             requireSnapshot(snapshotId);
-            SqliteTransactionRunner.runVoid(connection, "Cannot store traceability link batch", ignored -> {
-                for (TraceabilityLink link : batch) {
-                    putLinkInternal(snapshotId, link);
-                }
-            });
+            SqliteTransactionRunner.runVoid(connection, "Cannot store traceability link batch",
+                    ignored -> putBatchInternal(snapshotId, batch));
         } catch (SQLException exception) {
             throw new KnowledgeStoreException("Cannot store traceability link batch", exception);
         }
@@ -166,29 +183,177 @@ public final class SqliteTraceabilityStore implements TraceabilityStore, AutoClo
         }
     }
 
-    private void insertDefinition(TraceabilityLink link) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement("""
-                INSERT INTO traceability_links(
-                    link_id, source_kind, source_identity_id, relation_type,
-                    target_kind, target_identity_id, origin, resolution, confidence, observed_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """)) {
-            statement.setString(1, link.id().toString());
-            statement.setString(2, link.source().kind().name());
-            statement.setString(3, link.source().identity().toString());
-            statement.setString(4, link.relationType().name());
-            statement.setString(5, link.target().kind().name());
-            statement.setString(6, link.target().identity().toString());
-            statement.setString(7, link.origin().name());
-            statement.setString(8, link.resolution().name());
-            if (link.confidence().isPresent()) {
-                statement.setDouble(9, link.confidence().orElseThrow().value());
-            } else {
-                statement.setNull(9, java.sql.Types.REAL);
+    /**
+     * Stores a batch with a number of prepared statements that does not depend on how many links it holds: two to
+     * read what is already defined, three to write. Every statement is prepared once and run in slices, inside the
+     * one transaction of the batch - a snapshot that held half of its links would be worse than a slow one.
+     *
+     * <p>The whole batch is compared with what exists before anything is written: a link already defined identically,
+     * evidence included, is not rewritten; a different definition under the same identity refuses the batch and
+     * names the identity.</p>
+     */
+    private void putBatchInternal(KnowledgeSnapshotId snapshotId, List<TraceabilityLink> batch) throws SQLException {
+        Map<TraceabilityLinkId, TraceabilityLink> accepted = new LinkedHashMap<>();
+        for (TraceabilityLink link : batch) {
+            TraceabilityLink listedEarlier = accepted.putIfAbsent(link.id(), link);
+            if (listedEarlier != null && !listedEarlier.equals(link)) {
+                throw new KnowledgeStoreException("traceability link identity collision: " + link.id());
             }
-            statement.setString(10, link.observedAt().toString());
+        }
+        Map<TraceabilityLinkId, TraceabilityLink> defined = findDefinitions(List.copyOf(accepted.keySet()));
+        List<TraceabilityLink> undefined = new ArrayList<>();
+        for (TraceabilityLink link : accepted.values()) {
+            TraceabilityLink existing = defined.get(link.id());
+            if (existing == null) {
+                undefined.add(link);
+            } else if (!existing.equals(link)) {
+                throw new KnowledgeStoreException("traceability link identity collision: " + link.id());
+            }
+        }
+
+        insertDefinitions(undefined);
+        insertEvidence(undefined);
+        insertMemberships(snapshotId, accepted.keySet());
+    }
+
+    private void insertDefinitions(List<TraceabilityLink> links) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(INSERT_DEFINITION)) {
+            SlicedBatch batch = new SlicedBatch(statement);
+            for (TraceabilityLink link : links) {
+                bindDefinition(statement, link);
+                batch.add();
+            }
+            batch.flush();
+        }
+    }
+
+    private void insertEvidence(List<TraceabilityLink> links) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "INSERT INTO traceability_link_evidence(link_id, evidence_id) VALUES (?, ?)")) {
+            SlicedBatch batch = new SlicedBatch(statement);
+            for (TraceabilityLink link : links) {
+                for (EvidenceId evidenceId : link.evidenceIds().stream().sorted().toList()) {
+                    statement.setString(1, link.id().toString());
+                    statement.setString(2, evidenceId.toString());
+                    batch.add();
+                }
+            }
+            batch.flush();
+        }
+    }
+
+    private void insertMemberships(KnowledgeSnapshotId snapshotId, Set<TraceabilityLinkId> linkIds)
+            throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "INSERT OR IGNORE INTO snapshot_traceability_links(snapshot_id, link_id) VALUES (?, ?)")) {
+            SlicedBatch batch = new SlicedBatch(statement);
+            for (TraceabilityLinkId linkId : linkIds) {
+                statement.setString(1, snapshotId.toString());
+                statement.setString(2, linkId.toString());
+                batch.add();
+            }
+            batch.flush();
+        }
+    }
+
+    /** Hands the rows of one prepared statement to the driver a slice at a time. */
+    private static final class SlicedBatch {
+        private final PreparedStatement statement;
+        private int pending;
+
+        private SlicedBatch(PreparedStatement statement) {
+            this.statement = statement;
+        }
+
+        private void add() throws SQLException {
+            statement.addBatch();
+            pending++;
+            if (pending == BATCH_SLICE) {
+                flush();
+            }
+        }
+
+        private void flush() throws SQLException {
+            if (pending > 0) {
+                statement.executeBatch();
+                pending = 0;
+            }
+        }
+    }
+
+    /**
+     * The definitions that already exist among the given identities, evidence included. Two statements whatever the
+     * number of identities: each is prepared once with a fixed number of placeholders and run per slice, the last
+     * slice being padded with nulls, which match no row.
+     */
+    private Map<TraceabilityLinkId, TraceabilityLink> findDefinitions(List<TraceabilityLinkId> linkIds)
+            throws SQLException {
+        String placeholders = String.join(", ", Collections.nCopies(LOOKUP_SLICE, "?"));
+        Map<TraceabilityLinkId, Set<EvidenceId>> evidenceByLink = new HashMap<>();
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT link_id, evidence_id FROM traceability_link_evidence WHERE link_id IN (" + placeholders + ")")) {
+            for (int from = 0; from < linkIds.size(); from += LOOKUP_SLICE) {
+                bindSlice(statement, linkIds, from);
+                try (ResultSet result = statement.executeQuery()) {
+                    while (result.next()) {
+                        evidenceByLink
+                                .computeIfAbsent(TraceabilityLinkId.parse(result.getString(1)), absent -> new HashSet<>())
+                                .add(EvidenceId.parse(result.getString(2)));
+                    }
+                }
+            }
+        }
+        Map<TraceabilityLinkId, TraceabilityLink> definitions = new HashMap<>();
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT * FROM traceability_links WHERE link_id IN (" + placeholders + ")")) {
+            for (int from = 0; from < linkIds.size(); from += LOOKUP_SLICE) {
+                bindSlice(statement, linkIds, from);
+                try (ResultSet result = statement.executeQuery()) {
+                    while (result.next()) {
+                        TraceabilityLinkId linkId = TraceabilityLinkId.parse(result.getString("link_id"));
+                        definitions.put(linkId, mapLink(
+                                result, linkId, Set.copyOf(evidenceByLink.getOrDefault(linkId, Set.of()))));
+                    }
+                }
+            }
+        }
+        return definitions;
+    }
+
+    private static void bindSlice(PreparedStatement statement, List<TraceabilityLinkId> linkIds, int from)
+            throws SQLException {
+        for (int offset = 0; offset < LOOKUP_SLICE; offset++) {
+            int index = from + offset;
+            if (index < linkIds.size()) {
+                statement.setString(offset + 1, linkIds.get(index).toString());
+            } else {
+                statement.setNull(offset + 1, java.sql.Types.VARCHAR);
+            }
+        }
+    }
+
+    private void insertDefinition(TraceabilityLink link) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(INSERT_DEFINITION)) {
+            bindDefinition(statement, link);
             statement.executeUpdate();
         }
+    }
+
+    private static void bindDefinition(PreparedStatement statement, TraceabilityLink link) throws SQLException {
+        statement.setString(1, link.id().toString());
+        statement.setString(2, link.source().kind().name());
+        statement.setString(3, link.source().identity().toString());
+        statement.setString(4, link.relationType().name());
+        statement.setString(5, link.target().kind().name());
+        statement.setString(6, link.target().identity().toString());
+        statement.setString(7, link.origin().name());
+        statement.setString(8, link.resolution().name());
+        if (link.confidence().isPresent()) {
+            statement.setDouble(9, link.confidence().orElseThrow().value());
+        } else {
+            statement.setNull(9, java.sql.Types.REAL);
+        }
+        statement.setString(10, link.observedAt().toString());
     }
 
     private void insertEvidence(TraceabilityLink link) throws SQLException {
@@ -233,6 +398,11 @@ public final class SqliteTraceabilityStore implements TraceabilityStore, AutoClo
 
     private TraceabilityLink mapLink(ResultSet result) throws SQLException {
         TraceabilityLinkId linkId = TraceabilityLinkId.parse(result.getString("link_id"));
+        return mapLink(result, linkId, evidence(linkId));
+    }
+
+    private static TraceabilityLink mapLink(ResultSet result, TraceabilityLinkId linkId, Set<EvidenceId> evidence)
+            throws SQLException {
         double rawConfidence = result.getDouble("confidence");
         Optional<TraceabilityConfidence> confidence = result.wasNull()
                 ? Optional.empty()
@@ -249,7 +419,7 @@ public final class SqliteTraceabilityStore implements TraceabilityStore, AutoClo
                 TraceabilityLinkOrigin.valueOf(result.getString("origin")),
                 TraceabilityResolutionState.valueOf(result.getString("resolution")),
                 confidence,
-                evidence(linkId),
+                evidence,
                 Instant.parse(result.getString("observed_at")));
     }
 
