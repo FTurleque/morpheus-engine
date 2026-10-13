@@ -33,8 +33,11 @@ Deux choses s'y lisent. La première sonde `health` attend treize secondes sur u
 serveur entier cesse de répondre, sonde de vie comprise. Et la mesure tourne sur un JDK 24, où l'épinglage par moniteur
 n'existe plus (JEP 491) : ce sont bien les trames natives qui tiennent les porteurs, pas les moniteurs.
 `-Djdk.tracePinnedThreads` n'imprime rien pendant l'attente — il signale un thread virtuel qui se *gare* épinglé, pas
-un thread qui occupe son porteur dans du code natif. La mesure Linux est celle du runner de la CI, où le test tourne
-avec la suite.
+un thread qui occupe son porteur dans du code natif.
+
+Après le changement, sur les runners de la CI du 13 octobre 2026, 4 processeurs et 16 lectures en vol, toutes
+servies : Linux `health (ms) = [1, 41, 41, 41, 42, 41, 41, 41]`, Windows `[1, 0, 0, 0, 0, 0, 0, 0]`. L'état « avant »
+n'a été mesuré que sur la machine à 16 processeurs.
 
 ## Décision
 
