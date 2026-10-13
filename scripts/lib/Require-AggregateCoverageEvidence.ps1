@@ -21,12 +21,14 @@ if (-not (Test-Path -LiteralPath $EvidencePath -PathType Leaf)) {
 
 $scope = ''
 foreach ($line in Get-Content -LiteralPath $EvidencePath) {
-    if ($line -match '^coverageScope=(.*)$') {
+    if ($line -cmatch '^coverageScope=(.*)$') {
         $scope = $matches[1].Trim()
         break
     }
 }
-if ($scope -ne 'aggregate') {
+# -cne and -cmatch: PowerShell compares without case by default, and the shell guard does not. 'Aggregate' is not
+# what either gate writes, and a file one guard accepts and the other refuses gives the same commit two verdicts.
+if ($scope -cne 'aggregate') {
     $declared = if ([string]::IsNullOrWhiteSpace($scope)) { '<none>' } else { $scope }
     Write-Error "M21 coverage evidence is not the aggregate scope: $EvidencePath declares '$declared'"
     exit 1
