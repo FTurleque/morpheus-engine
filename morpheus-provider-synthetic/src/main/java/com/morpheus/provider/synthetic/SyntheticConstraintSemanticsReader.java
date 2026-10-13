@@ -137,6 +137,8 @@ final class SyntheticConstraintSemanticsReader {
         if (!(value instanceof Map<?, ?> map)) {
             throw new IllegalArgumentException(name + " must be an object");
         }
+        // The value was checked to be a Map just above, and it comes from SyntheticJsonParser, which builds every
+        // JSON object with the member names -- strings -- as keys.
         @SuppressWarnings("unchecked")
         Map<String, Object> typed = (Map<String, Object>) map;
         return typed;
