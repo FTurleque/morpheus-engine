@@ -213,9 +213,11 @@ class ScriptInventoryTest(unittest.TestCase):
                          "no workflow, launched script or current page names these scripts in executable text; "
                          "launch them, remove them, or name them in NOT_LAUNCHED with the reason they are kept")
         for script, reason in NOT_LAUNCHED.items():
-            self.assertIn(script, self.scripts, f"NOT_LAUNCHED names a script that no longer exists: delete {script}")
-            self.assertNotIn(script, launched,
-                             f"NOT_LAUNCHED names a script that {launched.get(script)} launches: delete {script}")
+            self.assertTrue(script in self.scripts,
+                            f"NOT_LAUNCHED names a script that no longer exists: delete the entry {script}")
+            self.assertFalse(script in launched,
+                             f"NOT_LAUNCHED names a script that {launched.get(script)} launches: delete the entry "
+                             f"{script}")
             self.assertGreater(len(reason.strip()), 40, f"{script} needs the reason it is kept")
 
     def test_every_test_file_says_which_scripts_it_runs(self) -> None:
@@ -226,7 +228,7 @@ class ScriptInventoryTest(unittest.TestCase):
             self.assertIsInstance(declared, tuple, f"{name}.py must declare SCRIPTS_UNDER_TEST, empty if it runs none")
             source = (TESTS / f"{name}.py").read_text(encoding="utf-8")
             for script in declared:
-                self.assertIn(script, self.scripts, f"{name}.py declares a script that does not exist: {script}")
+                self.assertTrue(script in self.scripts, f"{name}.py declares a script that does not exist: {script}")
             if declared:
                 self.assertTrue("subprocess" in source or "validator_harness" in source,
                                 f"{name}.py declares scripts and launches no process: reading a script is not "
@@ -241,9 +243,10 @@ class ScriptInventoryTest(unittest.TestCase):
                          "no test file of scripts/tests declares that it runs these scripts; write the test, or name "
                          "them in NOT_RUN_BY_A_TEST with the reason")
         for script, reason in NOT_RUN_BY_A_TEST.items():
-            self.assertIn(script, self.scripts,
-                          f"NOT_RUN_BY_A_TEST names a script that no longer exists: delete {script}")
-            self.assertNotIn(script, run, f"NOT_RUN_BY_A_TEST names a script {run.get(script)} runs: delete {script}")
+            self.assertTrue(script in self.scripts,
+                            f"NOT_RUN_BY_A_TEST names a script that no longer exists: delete the entry {script}")
+            self.assertFalse(script in run,
+                             f"NOT_RUN_BY_A_TEST names a script that {run.get(script)} runs: delete the entry {script}")
             self.assertGreater(len(reason.strip()), 40, f"{script} needs the reason no test runs it")
 
     def test_every_validator_says_what_no_test_reaches_in_it(self) -> None:
@@ -254,8 +257,8 @@ class ScriptInventoryTest(unittest.TestCase):
         run = tested()
         for target in targets:
             for extension in ("sh", "ps1"):
-                self.assertIn(f"validate-{target}.{extension}", run,
-                              f"validate-{target}.{extension} is run by no test at all")
+                self.assertTrue(f"validate-{target}.{extension}" in run,
+                                f"validate-{target}.{extension} is run by no test at all")
 
 
 SCRIPTS_UNDER_TEST = ()
