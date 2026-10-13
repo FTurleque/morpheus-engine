@@ -48,7 +48,10 @@ l'autorisation unique (`MorpheusRemoteRoutePolicy.authorize`), le gabarit de rou
 
 6. **L'issue est écrite à un seul endroit.** Le `finally` de `serve`, par lequel passent toutes les sorties - servie
    par la façade, relayée, refusée, en échec. Le statut y est lu sur l'échange ; une réponse jamais envoyée est
-   consignée `unsent`.
+   consignée `unsent`. Le statut est lu, l'échange fermé, **puis** l'enregistrement écrit : une écriture de fichier
+   placée entre la réponse et la fermeture laissait le serveur HTTP du JDK fermer une connexion dont le corps de
+   requête n'était pas encore lu — après un 403 rendu sans lire le corps — et la requête suivante du client partait sur
+   une connexion en cours de fermeture. Constaté le 13 octobre 2026 par un délai d'attente intermittent sous Windows.
 
 7. **Quand un enregistrement ne peut pas être écrit.** Une requête d'écriture ou d'administration dont la ligne
    `accepted` ne s'écrit pas est refusée, `503 ACCESS_JOURNAL_UNAVAILABLE`, avant d'être servie : attribuer une
