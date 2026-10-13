@@ -56,6 +56,8 @@ final class SyntheticJsonParser {
         if (!(value instanceof Map<?, ?> map)) {
             throw new IllegalArgumentException("synthetic source root must be a JSON object");
         }
+        // The value was checked to be a Map just above, and this parser builds every JSON object with the member
+        // names -- strings -- as keys.
         @SuppressWarnings("unchecked")
         Map<String, Object> typed = (Map<String, Object>) map;
         return typed;
