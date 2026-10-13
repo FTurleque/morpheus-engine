@@ -1,56 +1,123 @@
 # Tasks
 
+Notes dated 2026-10-13 were written on the branch `test/audit-trv07-validators-under-test`, from `develop` at
+`d5be889b`, on a Windows machine with Git Bash, Windows PowerShell 5.1 and WSL (Ubuntu). No validator was run for real:
+every result below comes from the fabricated checkout of `scripts/tests/validator_harness.py`, unless it says otherwise.
+
 ## 1. Measure before changing
 
-- [ ] 1.1 List every script file under `scripts/` outside `scripts/tests/` with what launches it (workflow step, other
+- [x] 1.1 List every script file under `scripts/` outside `scripts/tests/` with what launches it (workflow step, other
       script, dispatcher, current page) and what tests it (a test that runs it, a test that reads it, nothing). Proof:
       the table. On 2026-10-13 at `8b26d3d7`: 50 files; the audit counted 44. Re-measure, trust neither.
-- [ ] 1.2 List the validator targets and, per platform, the workflow step or chain that launches each. Proof: the table,
+  - 2026-10-13: 50 files, re-counted: 22 `.ps1` (20 at the root, 2 under `lib/`), 23 `.sh` (20 and 3), 4 `.py`,
+    1 `.cmd`. The table is printed by `python scripts/tests/test_script_inventory.py` and is what the inventory rule
+    asserts, so it cannot drift from the directory.
+- [x] 1.2 List the validator targets and, per platform, the workflow step or chain that launches each. Proof: the table,
       compared with the one produced by task 2.3 of `rehearse-the-release-chain-before-the-tag`. On 2026-10-13: 13
       targets, of which `m19`, `m20`, `m21` (Linux), `m28` (Windows), and by chain `r2` and `m27` (Windows).
+  - 2026-10-13: confirmed. `nightly.yml` names `validate-m19` and `validate-m20` in both variants, `ci.yml` names
+    `validate-m21.sh` and `validate-m28.ps1`, `release.yml` names `validate-m28.ps1`; `validate-m28.ps1` runs
+    `validate-r2.ps1`, which runs `validate-m27.ps1`. No workflow names `d2`, `m22` to `m26` or `r3`, nor
+    `validate-m21.ps1`, `validate-m27.sh`, `validate-m28.sh`, `validate-r2.sh`. Not compared with the table of the
+    other change.
 - [ ] 1.3 List the refusals each validator claims (its `exit 1` and `throw` sites) and the files it reads. Proof: the
       table from which the fabricated checkout and the cases are written.
+  - 2026-10-13: not produced as a table. The refusals up to the packaging switch were read validator by validator and
+    are the scenarios of `test_validator_verdicts.py` and `test_validator_entry_refusals.py`; the files read are the
+    ones `validator_harness.py` fabricates. The refusals after the packaging switch are not listed anywhere.
 - [ ] 1.4 Run once, on Windows and on Linux, each validator that no workflow launches on that platform. Proof: per
       target and platform, the exit code and the `validation-summary.txt` or `failure-summary.txt`. A validator that
       does not finish is a finding, reported before anything is repaired.
-- [ ] 1.5 Find whether any test runs the four scripts of the Dependency-Check lane, or only reads them. Proof: the test
+  - 2026-10-13: **not done.** A real run is a full `clean verify` plus packaging, and was excluded from this session.
+    What the fabricated checkout shows instead, with packaging skipped, under Git Bash and Windows PowerShell 5.1 on
+    Windows and under bash on Linux (WSL): `d2`, `m22` to `m27` and `r2` run to `VALIDATION PASS` in both variants;
+    `validate-r3`, both variants, stops on `Unexpected Maven reactor POM count: 19, expected 17` and cannot pass on
+    today's reactor. Whether the packaging half of `d2`, `m22` to `m26` still runs is still not known.
+- [x] 1.5 Find whether any test runs the four scripts of the Dependency-Check lane, or only reads them. Proof: the test
       and the line that launches the process, or the statement that none does.
+  - 2026-10-13: none did (`DependencyCheckWorkflowContractTest` reads them). `test_dependency_check_scripts.py` now
+    runs the four.
 
 ## 2. Reproduce before fixing
 
 - [ ] 2.1 Build the fabricated checkout and compare the files it holds with those a real `./mvnw clean verify` leaves
       (names, first lines, attributes read). Proof: the comparison.
-- [ ] 2.2 Write the cases of the contract for `validate-m21` on both platforms. Proof: the result on `HEAD`; a refusal
+  - 2026-10-13: the checkout is built. Compared by reading, not against a fresh build: the Surefire root element and
+    the attributes the validators read (`tests`, `failures`, `errors`, `skipped`) with reports left by an earlier
+    build, the evidence lines with the format string of `AggregateCoverageGateTest`, the SBOM names with
+    `target/m21-supply-chain/`. The comparison against a `clean verify` of the same commit is not done.
+- [x] 2.2 Write the cases of the contract for `validate-m21` on both platforms. Proof: the result on `HEAD`; a refusal
       that does not happen is a defect of the validator, listed.
-- [ ] 2.3 Run the shared cases of the ratchet reader against `Read-QualityRatchets.ps1`. Proof: the result on `HEAD`.
-- [ ] 2.4 Write the inventory rule with no excuse. Proof: red, naming the scripts of 1.1 that nothing runs in a test.
+  - 2026-10-13: on `d5be889b` the contract was red on two points, both corrected (3.6): the earlier passing summary
+    survived a refused run, and no `.ps1` reached its base-ref fallback.
+- [x] 2.3 Run the shared cases of the ratchet reader against `Read-QualityRatchets.ps1`. Proof: the result on `HEAD`.
+  - 2026-10-13: two cases red on `HEAD` (`9e-1`, `+0.9` accepted by the PowerShell reader only), corrected (3.6).
+- [x] 2.4 Write the inventory rule with no excuse. Proof: red, naming the scripts of 1.1 that nothing runs in a test.
+  - 2026-10-13: `test_script_inventory.py`. With no entry it names three scripts nothing launches
+    (`validate-m23.sh`, `validate-m24.sh`, `validate-r3.sh`) and six no test runs.
 
 ## 3. The change
 
-- [ ] 3.1 Extend the cases to every target that can be run on the fabricated checkout; excuse the others by name with
+- [x] 3.1 Extend the cases to every target that can be run on the fabricated checkout; excuse the others by name with
       the reason. Proof: per target, the cases executed on each platform.
-- [ ] 3.2 The dispatcher's tests.
-- [ ] 3.3 The shared lists of cases for the libraries that exist in two languages.
-- [ ] 3.4 `ci.yml`: run the script tests on the Windows leg; rename the existing step for what it runs. Make a missing
+  - 2026-10-13: the full contract on `m21`, `d2`, `m22` to `m27` (`test_validator_verdicts.py`) and `r2`
+    (`test_validator_entry_refusals.py`); `m19`, `m20`, `m28`, `r3` up to the point they need a product. What no test
+    reaches is said per target in `NOT_REACHED_BY_A_TEST`, which must name exactly the existing targets.
+- [x] 3.2 The dispatcher's tests.
+  - 2026-10-13: `test_validate_dispatcher.py`, `validate.ps1` and `validate.cmd`.
+- [x] 3.3 The shared lists of cases for the libraries that exist in two languages.
+  - 2026-10-13: `test_read_quality_ratchet.py` and `test_require_aggregate_coverage_evidence.py`.
+- [x] 3.4 `ci.yml`: run the script tests on the Windows leg; rename the existing step for what it runs. Make a missing
       tool a failure in CI. Check what `AuditHardeningWorkflowContractTest`, `D2RepositoryHardeningArchitectureTest`
       and `GateReachabilityArchitectureTest` assert about `ci.yml` before editing it.
-- [ ] 3.5 The inventory rule and its excuses. Mechanism: textual assertion, intent "a script that nothing launches, or
+  - 2026-10-13: done; no `uses:` touched. The three classes and eleven others that read scripts, workflows or pages
+    were run after the edit and pass. The Windows step has not run on a GitHub runner yet (4.1).
+- [x] 3.5 The inventory rule and its excuses. Mechanism: textual assertion, intent "a script that nothing launches, or
       that nothing tests and nobody excused, must not be in `scripts/`" (ADR-0103; skill `enforcement-choice`). Add the
       rule that each leg runs the script tests.
-- [ ] 3.6 Correct each validator in which 2.2 or 3.1 showed a refusal that does not happen; one commit per correction,
+  - 2026-10-13: **the inventory is a Python test of `scripts/tests/`, not a rule of `morpheus-architecture-tests`** as
+    the design and the spec say. "Run by a test" is read from what each test file declares (`SCRIPTS_UNDER_TEST`),
+    which Python can import and Java could only parse. The rule that each leg runs the script tests is in
+    `GateReachabilityArchitectureTest`, so the architecture suite holds the step that runs the inventory. To be
+    confirmed by the maintainer, and the spec amended if it stands.
+- [x] 3.6 Correct each validator in which 2.2 or 3.1 showed a refusal that does not happen; one commit per correction,
       with its case.
+  - 2026-10-13: six corrections, one commit each: the stale passing summary (22 validator files and
+    `validate-m20.sh`); the `.ps1` base-ref fallback under Windows PowerShell 5.1 (8 files); `validate-m20.sh` without
+    a failure summary; the dispatcher handing a null argument to a validator launched without one, which made
+    `scripts\validate.cmd m19` fail; the PowerShell ratchet reader accepting ratios the shell one refuses; the
+    PowerShell evidence guard comparing the scale without its case.
 - [ ] 3.7 Put the decision of open question 1 to the maintainer with the results of 1.4, target by target. A retirement
       follows `milestone-quadruplet` and the precedent of `docs/project/validation/README.md`.
-- [ ] 3.8 Break each rule once, then revert: remove a comparison from a validator; remove the step from one leg; add an
+  - 2026-10-13: put, not decided, and without the real runs of 1.4. The three `.sh` nothing launches are named in
+    `NOT_LAUNCHED`, each entry a finding; `validate-r3` cannot pass in either variant.
+- [x] 3.8 Break each rule once, then revert: remove a comparison from a validator; remove the step from one leg; add an
       untested script; move a launch into a comment; leave an excuse for a tested script. Proof: the named failures.
+  - 2026-10-13: each done and reverted. The comparison of the test count removed from `validate-m21.sh` and from
+    `validate-d2.ps1`: two named cases fail on each. The evidence guard removed from `validate-m24.sh`: three. The
+    clean-tree check removed from `validate-m27.ps1`: one. The Windows command removed from `ci.yml`: the Java rule
+    fails and names the Windows leg. A script added: both inventory rules name it. The launches of
+    `check-release-rehearsal-assets.py` commented out in `nightly.yml`: named. An entry left for `validate-m21.sh`
+    in each list: named as the entry to delete.
 
 ## 4. Verification and destinations
 
 - [ ] 4.1 The pull request's required checks on both platforms. Proof: the script tests executed on each leg, with the
       number of cases run and none skipped.
+  - 2026-10-13: no pull request opened. Locally: Windows, 427 cases run, 1 class skipped (`jq` is not installed on
+    this machine; with `CI` set the same class fails instead); Linux (WSL), 238 cases run, 18 skipped, 17 of them the
+    PowerShell classes. "None skipped" cannot hold on the Linux leg: Windows PowerShell 5.1 does not exist there, and
+    those classes are skipped by name on any platform but Windows.
 - [ ] 4.2 Measure the duration of the new step on the Windows leg. Proof: the figure, in the pull request.
-- [ ] 4.3 Every `.ps1` added or edited is ASCII (`rules/tooling.md`); the hook's check is run.
-- [ ] 4.4 `scripts/README.md`: how the validators are tested, how to add a case, how to excuse a script. `.claude/rules`
+  - 2026-10-13: not measured on a runner. On the development machine the whole discovery takes three to four minutes
+    on Windows (measured twice: 179 s for 404 cases, 234 s for 427) and 36 s on Linux. The step is not "counted in
+    seconds" as the design expected: a validator run is a process, and there are several hundred.
+- [x] 4.3 Every `.ps1` added or edited is ASCII (`rules/tooling.md`); the hook's check is run.
+  - 2026-10-13: 14 `.ps1` edited, none holds a non-ASCII byte; no `.ps1` added. `pre-bash.ps1` still parses.
+- [x] 4.4 `scripts/README.md`: how the validators are tested, how to add a case, how to excuse a script. `.claude/rules`
       is touched only if a sentence there describes the old state.
+  - 2026-10-13: done. One sentence of `rules/tooling.md` corrected: it said every validator writes a
+    `failure-summary.txt`.
 - [ ] 4.5 Pull request description: the finding, the tables of 1.1 and 1.2, the validators corrected, the excuses and
       their reasons, the justification of the test added under `morpheus-architecture-tests/` and of the workflow edit.
+  - 2026-10-13: no pull request opened.
