@@ -60,20 +60,38 @@ public final class RotatingOperationalLogFile implements OperationalEventSink {
     static RotatingOperationalLogFile open(
             Path directory, long maxFileBytes, int keptGenerations, OperationalMetrics metrics) {
         Objects.requireNonNull(directory, "directory");
+        Path file = directory.toAbsolutePath().normalize().resolve(FILE_NAME);
+        try {
+            return openFile(file, maxFileBytes, keptGenerations, metrics);
+        } catch (IOException unusable) {
+            throw new OperationalLogFileException(REFUSAL + ": the operational log cannot be written in "
+                    + file.getParent() + " (" + unusable.getClass().getSimpleName() + "); name a directory this "
+                    + "account alone can write with MORPHEUS_LOGS_DIR, or choose another "
+                    + OperationalLogMode.ENVIRONMENT_VARIABLE, unusable);
+        }
+    }
+
+    /**
+     * Opens a bounded file of JSON events under another name, for a record that is not the operational log but is
+     * kept the same way. The caller names its own refusal.
+     *
+     * @throws IOException when the directory cannot be created, is not private to this account, or the file cannot be
+     *         written
+     */
+    public static RotatingOperationalLogFile openFile(
+            Path file, long maxFileBytes, int keptGenerations, OperationalMetrics metrics) throws IOException {
+        Objects.requireNonNull(file, "file");
         Objects.requireNonNull(metrics, "metrics");
         if (maxFileBytes < 1 || keptGenerations < 1) {
-            throw new IllegalArgumentException("the operational log needs a positive size bound and generation count");
+            throw new IllegalArgumentException("a bounded log needs a positive size bound and generation count");
         }
         RotatingOperationalLogFile log = new RotatingOperationalLogFile(
-                directory.toAbsolutePath().normalize().resolve(FILE_NAME), maxFileBytes, keptGenerations, metrics);
+                file.toAbsolutePath().normalize(), maxFileBytes, keptGenerations, metrics);
         try {
             log.hardener.hardenDirectory(log.file.getParent());
             log.createPrivateFileIfMissing();
-        } catch (IOException | LocalWritePermissionException unusable) {
-            throw new OperationalLogFileException(REFUSAL + ": the operational log cannot be written in "
-                    + log.file.getParent() + " (" + unusable.getClass().getSimpleName() + "); name a directory this "
-                    + "account alone can write with MORPHEUS_LOGS_DIR, or choose another "
-                    + OperationalLogMode.ENVIRONMENT_VARIABLE, unusable);
+        } catch (LocalWritePermissionException notPrivate) {
+            throw new IOException(notPrivate.getMessage(), notPrivate);
         }
         return log;
     }
@@ -83,7 +101,16 @@ public final class RotatingOperationalLogFile implements OperationalEventSink {
     }
 
     @Override
-    public synchronized void emit(OperationalEvent event) {
+    public void emit(OperationalEvent event) {
+        try {
+            write(event);
+        } catch (IOException lost) {
+            metrics.increment(WRITE_FAILED);
+        }
+    }
+
+    /** Appends one event, for a caller that must know whether it was written. */
+    public synchronized void write(OperationalEvent event) throws IOException {
         byte[] line = (format.line(event) + "\n").getBytes(StandardCharsets.UTF_8);
         try {
             createPrivateFileIfMissing();
@@ -93,8 +120,8 @@ public final class RotatingOperationalLogFile implements OperationalEventSink {
                 createPrivateFileIfMissing();
             }
             Files.write(file, line, StandardOpenOption.APPEND);
-        } catch (IOException | LocalWritePermissionException lost) {
-            metrics.increment(WRITE_FAILED);
+        } catch (LocalWritePermissionException notPrivate) {
+            throw new IOException(notPrivate.getMessage(), notPrivate);
         }
     }
 
@@ -117,6 +144,6 @@ public final class RotatingOperationalLogFile implements OperationalEventSink {
     }
 
     private Path generation(int number) {
-        return file.resolveSibling(FILE_NAME + "." + number);
+        return file.resolveSibling(file.getFileName() + "." + number);
     }
 }

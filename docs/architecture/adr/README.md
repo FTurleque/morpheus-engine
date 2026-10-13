@@ -131,6 +131,7 @@ haut numéro attribué ; une ADR acceptée n'est jamais supprimée, elle est ame
 | [ADR-0110](0110-a-copy-is-kept-before-the-schema-advances.md) | Avant de faire avancer le schéma d'une base existante, le store en conserve une copie intègre à sa version d'origine, une par tentative ; s'il ne peut pas, il refuse avec `PRE_MIGRATION_BACKUP_FAILED` et ne migre pas | **Acceptée — post-audit 1.2.1** |
 | [ADR-0111](0111-the-product-ships-one-logging-binding-its-own.md) | Le produit embarque un seul binding SLF4J, le sien : avertissements et erreurs des bibliothèques embarquées deviennent des événements `THIRD_PARTY_LOG` du puits opérationnel, rien quand le journal est coupé ; `slf4j-nop` quitte le produit | **Acceptée — post-audit 1.2.1** |
 | [ADR-0112](0112-the-logs-directory-holds-a-bounded-operational-log.md) | Un mode `file` écrit le journal opérationnel dans le répertoire de logs, borné en taille et en générations, privé au compte ; le lanceur nomme le répertoire une fois, et un répertoire inutilisable est le refus `OPERATIONAL_LOG_FILE_UNUSABLE` | **Acceptée — post-audit 1.2.1** |
+| [ADR-0113](0113-the-remote-server-records-who-was-authorized-to-do-what.md) | Le serveur distant tient un journal d'accès à part du fichier d'identités : principal, rôles, méthode, gabarit de route, statut, sans jeton ni texte choisi par l'appelant ; une écriture dont l'enregistrement ne peut pas être écrit est refusée par `ACCESS_JOURNAL_UNAVAILABLE` | **Acceptée — post-audit 1.2.1** |
 
 # Preuves par jalon
 

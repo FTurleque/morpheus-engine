@@ -3,6 +3,7 @@ package com.morpheus.api;
 import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;
 import com.morpheus.application.operability.ExhaustiveShutdown;
+import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.store.sqlite.SqliteServerMaintenance;
@@ -60,6 +61,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     private final MorpheusRemoteResponseWriter responses = new MorpheusRemoteResponseWriter(boundedResponses);
     private final MorpheusRemoteProxyTargetResolver proxyTargets;
     private final MorpheusRemoteProxyTransport proxyTransport;
+    private final RemoteAccessJournal accessJournal;
 
     // Wires together every transport, persistence, and access-control collaborator of the remote HTTPS facade
     // explicitly, per MorpheusMain's explicit-wiring convention (see .claude/rules/architecture.md, "Pas de
@@ -88,6 +90,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         this.backupDirectory = backupDirectory.toAbsolutePath().normalize();
         this.authFile = Objects.requireNonNull(authFile, "authFile").toAbsolutePath().normalize();
         this.identityCache = new MorpheusRemoteIdentitySnapshotCache(this.authFile);
+        this.accessJournal = RemoteAccessJournal.beside(this.authFile, LocalOperationalRuntime.metrics());
         this.authenticationConcurrency = new Semaphore(authenticationConcurrencyLimit(maxConcurrentRequests), true);
         this.concurrency = new Semaphore(maxConcurrentRequests, true);
         this.privilegedConcurrency = new Semaphore(privilegedConcurrencyLimit(maxConcurrentRequests), true);
@@ -201,6 +204,8 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         // Zero means no privileged slot is held: privilegedRequestStarted() never issues that ticket. One piece
         // of state instead of a flag beside it, because a flag and a ticket can disagree and a ticket cannot.
         long privilegedTicket = 0L;
+        // Null until the request is attributed: a principal and a route it asked for. Nothing before that is recorded.
+        RemoteAccessJournal.Request attributed = null;
         try {
             if (!authenticationConcurrency.tryAcquire()) {
                 runtime.recordThrottledRequest();
@@ -218,6 +223,9 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
 
             MorpheusRemoteRoutePolicy.Authorization route =
                     authorize(exchange.getRequestMethod(), exchange.getRequestURI().getRawPath());
+            attributed = new RemoteAccessJournal.Request(
+                    requestId, identity.principal(), identity.role(), route.role(),
+                    exchange.getRequestMethod(), route.template());
             if (!identity.role().allows(route.role())) {
                 runtime.recordAuthorizationFailure();
                 responses.sendError(
@@ -226,6 +234,14 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                         "FORBIDDEN",
                         "authenticated principal is not authorized for this operation");
                 return;
+            }
+
+            if (!accessJournal.accepted(attributed)) {
+                throw new RemoteFailure(
+                        503,
+                        RemoteAccessJournal.REFUSAL,
+                        "the access journal cannot be written; a write or an administration request is not served "
+                                + "without its record");
             }
 
             if (route.names("server/status")) {
@@ -270,6 +286,9 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             if (privilegedTicket != 0L) {
                 runtime.privilegedRequestFinished(privilegedTicket);
                 privilegedConcurrency.release();
+            }
+            if (attributed != null) {
+                accessJournal.completed(attributed, exchange.getResponseCode());
             }
             exchange.close();
         }

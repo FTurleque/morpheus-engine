@@ -161,6 +161,40 @@ Le refus anti-lockout est la contrainte structurante : un fichier dont **toutes*
 
 Le fichier conserve également un audit **sans secret** des mutations. Cet historique est une fenêtre roulante bornée aux **512 événements les plus récents**. Cette compaction fait partie de l'écriture atomique du snapshot : la croissance de l'audit ne peut donc pas remplir indéfiniment le fichier de 256 KiB et empêcher une rotation ou une révocation urgente.
 
+### Journal d'accès : qui a fait quoi
+
+L'audit ci-dessus dit ce qui est arrivé aux identités. Un second fichier dit ce qu'elles ont fait :
+`morpheus-remote-access.jsonl`, créé à côté du fichier d'identités au démarrage du serveur.
+
+Chaque requête autorisée y laisse une ligne JSON : l'instant, l'identifiant de requête (celui que la réponse renvoie
+dans l'en-tête `X-Request-Id`), le principal, le rôle qu'il détient, le rôle que la route exige, la méthode, la route
+et le statut de la réponse.
+
+```json
+{"timestamp":"2026-10-13T09:12:44.512Z","level":"INFO","code":"REMOTE_ACCESS","attributes":{"method":"POST","phase":"completed","principal":"ci-writer","requestId":"0b6c…","roleHeld":"WRITE","roleRequired":"WRITE","route":"projects/{projectId}/sync","status":"200"}}
+```
+
+Ce qu'il faut savoir pour s'en servir :
+
+- **Écritures et administration : deux lignes.** Une ligne `accepted` avant le traitement, une ligne `completed` avec
+  le statut. Une requête dont on ne trouve que la première n'a pas reçu de réponse. Une lecture ne laisse que la
+  ligne `completed`. Consulter une route d'administration avec `GET`, par exemple les métriques, compte comme une
+  lecture : c'est par elle qu'on lit le nombre d'enregistrements perdus quand le journal ne s'écrit plus.
+- **Un refus de rôle est consigné**, avec le statut 403 et le principal qui a essayé.
+- **Un jeton invalide ne l'est pas.** Une requête sans jeton valide n'a pas de principal : elle est comptée dans
+  `server/status`, pas journalisée.
+- **Aucun secret, aucun identifiant.** La route est écrite sous sa forme générique (`projects/{projectId}/sync`) ; le
+  journal ne contient ni jeton, ni empreinte de jeton, ni corps de requête.
+- **Borné.** 4 Mio par fichier, quatre anciens fichiers gardés (`.1` à `.4`), le plus vieux supprimé. Un journal à
+  conserver doit être collecté avant d'être chassé par la rotation.
+- **Sensible.** Il nomme des principaux et ce qu'ils ont fait ; le fichier n'est lisible que par le compte du serveur.
+
+Si le journal ne peut pas être écrit — disque plein, fichier rendu inaccessible — le serveur refuse les écritures et
+l'administration avec `503 ACCESS_JOURNAL_UNAVAILABLE` plutôt que de laisser passer une mutation sans trace. Les
+lectures restent servies. Un serveur dont le journal ne peut pas être créé ne démarre pas.
+
+Pour retrouver ce qu'un client a fait, lui demander l'`X-Request-Id` de sa réponse et le chercher dans le journal.
+
 ### Rôles et autorisation distante
 
 | Rôle | Autorisations |

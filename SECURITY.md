@@ -26,6 +26,32 @@ MORPHEUS integrates no secret vault and persists no reusable secret: tokens are 
 
 Before it advances the schema of an existing database, MORPHEUS writes a copy of that database beside it (`<database>.pre-migration-v<NNN>-<timestamp>-<id>.db`, [ADR-0110](docs/architecture/adr/0110-a-copy-is-kept-before-the-schema-advances.md)). The copy holds everything the database held, is unencrypted like any backup, receives the same local permission hardening as the database, and is never removed automatically: it falls under the same handling rules as a backup. If it cannot be written, the upgrade is refused rather than performed without a way back.
 
+### Two records: what happens to credentials, and what they are used for
+
+The remote server keeps two records, and they answer different questions.
+
+The **credential audit** is held inside the identity file: each creation, revocation, rotation or expiry migration of
+an identity, without a secret, as a rolling window of the most recent events. It says what happened to a credential.
+
+The **access journal** is a file of its own beside the identity file, `morpheus-remote-access.jsonl`
+([ADR-0113](docs/architecture/adr/0113-the-remote-server-records-who-was-authorized-to-do-what.md)). It says what a
+credential was used for: for every request the server authorizes, the time, the request identifier returned in
+`X-Request-Id`, the principal, the role it holds, the role the route requires, the method, the route template and the
+status. A request refused for want of a role (403) is recorded with its principal. A record never holds a token, a
+fingerprint of one, a path, a query string, a header or a body.
+
+A request that fails authentication (401) is not recorded: it has no principal, and a journal an unauthenticated caller
+could fill is one it could rotate. It remains a counter of the server status.
+
+A request that changes something - any call of a write route, and any call of an administration route other than
+a `GET` - is recorded before it is served and again with its outcome. Consulting an administration route, such as the
+metrics, counts as a read. If that first record
+cannot be written the request is refused with `503 ACCESS_JOURNAL_UNAVAILABLE`; a read is still served; the lost record
+is counted either way. A full disk therefore refuses remote writes rather than letting one go unattributed.
+
+The journal is bounded - 4 MiB per file, four older files kept - so the oldest records are lost on rotation. Collect
+it if it must be kept. Treat it as sensitive: it names principals and what they did.
+
 ### Response lifetime and abandoned clients
 
 Concurrency permits, the proxied-response memory budget and the request-body deadline are all taken before a

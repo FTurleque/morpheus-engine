@@ -377,6 +377,21 @@ démarrer avec `OPERATIONAL_LOG_FILE_UNUSABLE` plutôt que d'écrire ailleurs.
 **Migration.** Aucune. Un compteur `failure.suppressed.http-internal-error` qui monte désigne un défaut de MORPHEUS à
 signaler ; `failure.suppressed.adapter-discovery`, un adaptateur installé à réparer ou à retirer.
 
+### Serveur distant : un journal dit qui a fait quoi
+
+Le serveur distant authentifiait chaque requête sans rien garder du principal : après l'usage abusif d'un jeton, rien
+ne disait qui avait enregistré un projet, lancé une synchronisation ou pris une sauvegarde.
+
+Il écrit désormais `morpheus-remote-access.jsonl`, à côté du fichier d'identités : pour chaque requête autorisée, le
+principal, ses rôles, la méthode, la route sous sa forme générique, le statut et l'identifiant renvoyé dans
+`X-Request-Id`. Un refus de rôle y figure ; une requête sans jeton valide n'y figure pas. Le journal ne contient ni
+jeton ni identifiant, et il est borné à 4 Mio avec quatre anciens fichiers.
+
+**Migration.** Le fichier est créé au démarrage ; le répertoire du fichier d'identités doit rester accessible en
+écriture au compte du serveur. Si le journal ne peut plus être écrit, les écritures et l'administration reçoivent
+`503 ACCESS_JOURNAL_UNAVAILABLE` et les lectures restent servies : un client qui écrit doit traiter ce statut comme
+une indisponibilité, pas comme un refus définitif.
+
 ### MINOS et NEXUS : un avertissement du pair ne coupe plus la liaison
 
 Ce qu'un pair écrit sur sa sortie d'erreur était lu comme de l'UTF-8 strict. Un pair qui y écrivait un caractère
