@@ -211,47 +211,73 @@ public final class SqliteTraceabilityStore implements TraceabilityStore, AutoClo
             }
         }
 
-        try (PreparedStatement definition = connection.prepareStatement(INSERT_DEFINITION)) {
-            int pending = 0;
-            for (TraceabilityLink link : undefined) {
-                bindDefinition(definition, link);
-                definition.addBatch();
-                if (++pending == BATCH_SLICE) {
-                    definition.executeBatch();
-                    pending = 0;
-                }
+        insertDefinitions(undefined);
+        insertEvidence(undefined);
+        insertMemberships(snapshotId, accepted.keySet());
+    }
+
+    private void insertDefinitions(List<TraceabilityLink> links) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(INSERT_DEFINITION)) {
+            SlicedBatch batch = new SlicedBatch(statement);
+            for (TraceabilityLink link : links) {
+                bindDefinition(statement, link);
+                batch.add();
             }
-            definition.executeBatch();
+            batch.flush();
         }
-        try (PreparedStatement evidence = connection.prepareStatement(
+    }
+
+    private void insertEvidence(List<TraceabilityLink> links) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
                 "INSERT INTO traceability_link_evidence(link_id, evidence_id) VALUES (?, ?)")) {
-            int pending = 0;
-            for (TraceabilityLink link : undefined) {
+            SlicedBatch batch = new SlicedBatch(statement);
+            for (TraceabilityLink link : links) {
                 for (EvidenceId evidenceId : link.evidenceIds().stream().sorted().toList()) {
-                    evidence.setString(1, link.id().toString());
-                    evidence.setString(2, evidenceId.toString());
-                    evidence.addBatch();
-                    if (++pending == BATCH_SLICE) {
-                        evidence.executeBatch();
-                        pending = 0;
-                    }
+                    statement.setString(1, link.id().toString());
+                    statement.setString(2, evidenceId.toString());
+                    batch.add();
                 }
             }
-            evidence.executeBatch();
+            batch.flush();
         }
-        try (PreparedStatement membership = connection.prepareStatement(
+    }
+
+    private void insertMemberships(KnowledgeSnapshotId snapshotId, Set<TraceabilityLinkId> linkIds)
+            throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
                 "INSERT OR IGNORE INTO snapshot_traceability_links(snapshot_id, link_id) VALUES (?, ?)")) {
-            int pending = 0;
-            for (TraceabilityLinkId linkId : accepted.keySet()) {
-                membership.setString(1, snapshotId.toString());
-                membership.setString(2, linkId.toString());
-                membership.addBatch();
-                if (++pending == BATCH_SLICE) {
-                    membership.executeBatch();
-                    pending = 0;
-                }
+            SlicedBatch batch = new SlicedBatch(statement);
+            for (TraceabilityLinkId linkId : linkIds) {
+                statement.setString(1, snapshotId.toString());
+                statement.setString(2, linkId.toString());
+                batch.add();
             }
-            membership.executeBatch();
+            batch.flush();
+        }
+    }
+
+    /** Hands the rows of one prepared statement to the driver a slice at a time. */
+    private static final class SlicedBatch {
+        private final PreparedStatement statement;
+        private int pending;
+
+        private SlicedBatch(PreparedStatement statement) {
+            this.statement = statement;
+        }
+
+        private void add() throws SQLException {
+            statement.addBatch();
+            pending++;
+            if (pending == BATCH_SLICE) {
+                flush();
+            }
+        }
+
+        private void flush() throws SQLException {
+            if (pending > 0) {
+                statement.executeBatch();
+                pending = 0;
+            }
         }
     }
 
