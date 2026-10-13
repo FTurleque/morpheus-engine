@@ -14,6 +14,7 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 
 /** Official native MORPHEUS launcher for CLI, MCP STDIO and local/remote HTTP API modes. */
@@ -40,6 +41,10 @@ public final class MorpheusMain {
         if (exitCode != 0) {
             System.exit(exitCode);
         }
+    }
+
+    static Optional<String> refusedOperationalLogMode(Map<String, String> environment) {
+        return Optional.empty();
     }
 
     static int run(
