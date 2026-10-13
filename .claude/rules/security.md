@@ -53,9 +53,23 @@ Supprimer une de ces chaînes casse le build.
 | Mot de passe TLS | **variable d'env `MORPHEUS_SERVER_TLS_PASSWORD`** — jamais un flag `--tls-password` |
 | Tokens | `SecureRandom`, `TOKEN_BYTES = 32`, stockés en `sha256`, comparés par `MessageDigest.isEqual` |
 | Audit | `MAX_AUDIT_RECORDS = 512`, écriture via `FileChannel` + `FileLock` |
+| Journal d'accès | fichier à part (`RemoteAccessJournal`), écrit dans le `finally` de `serve` ; ni jeton, ni empreinte, ni chemin (ADR-0113) |
 | RBAC | `MorpheusRemoteRole.ADMIN` pour les opérations sensibles |
 | Rate limit | `TOO_MANY_REQUESTS` (429) |
 | Headers | `X-Frame-Options`, `Content-Security-Policy`, `Strict-Transport-Security: max-age=31536000` (façade remote seulement — le serveur local parle HTTP sur loopback et ne le pose pas) |
+
+### Journal d'accès — qui a été autorisé à faire quoi
+
+- L'audit du fichier d'identités dit ce qui arrive aux identifiants ; le journal d'accès dit ce à quoi ils servent.
+  Ne pas fusionner les deux, ni écrire l'un dans l'autre.
+- Un enregistrement porte le **gabarit** de route, jamais le chemin, et aucune forme de jeton :
+  `RemoteAccessJournal` ne lit ni l'échange HTTP ni `tokenHash` (`RemoteAccessJournalArchitectureTest`).
+- Un 403 est consigné, un 401 ne l'est pas : un appelant non authentifié ne doit pas pouvoir remplir le journal.
+- L'issue s'écrit **une fois**, dans le `finally` de `serve`. Ne pas l'écrire branche par branche : la prochaine
+  branche ajoutée serait celle qui n'en a pas.
+- Une écriture ou une administration dont la ligne `accepted` ne s'écrit pas est refusée
+  (`503 ACCESS_JOURNAL_UNAVAILABLE`) ; une lecture est servie ; la perte est comptée. Ne pas transformer ce refus en
+  repli silencieux.
 
 ### Interdits stricts sur le proxy remote
 - **Jamais** de `Access-Control-Allow-Origin` (pas de CORS)
