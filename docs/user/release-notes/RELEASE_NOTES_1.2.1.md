@@ -357,6 +357,11 @@ Les deux réponses ne changent pas. Les métriques (`GET /api/v1/metrics`) gagne
 actif, chaque occurrence écrit aussi un événement `FAILURE_SUPPRESSED` qui porte le type de l'échec, jamais son
 message.
 
+Trois autres compteurs de la même famille signalent un stockage ou un système de fichiers qui ne répond pas comme
+attendu : `failure.suppressed.sync-recovery-read`, `failure.suppressed.sqlite-conflict-read` et
+`failure.suppressed.source-watch`. Dans chaque cas MORPHEUS continue comme avant, par la lecture la plus prudente ; le
+compteur dit qu'il a dû le faire.
+
 **Migration.** Aucune. Un compteur `failure.suppressed.http-internal-error` qui monte désigne un défaut de MORPHEUS à
 signaler ; `failure.suppressed.adapter-discovery`, un adaptateur installé à réparer ou à retirer.
 
