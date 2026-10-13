@@ -145,6 +145,56 @@ class DatabaseWorkOffloadingHttpServerTest {
         secondCaller.join(10_000);
     }
 
+    @Test
+    void aCallerInterruptedWhileItWaitsForAPlaceGivesUpWithoutTakingOne() throws Exception {
+        server.stop(0);
+        server = DatabaseWorkOffloadingHttpServer.over(HttpServer.create(), 1, Duration.ofSeconds(30));
+        CountDownLatch holderInside = new CountDownLatch(1);
+        CountDownLatch holderMayFinish = new CountDownLatch(1);
+        AtomicReference<Throwable> raised = new AtomicReference<>();
+        AtomicBoolean handled = new AtomicBoolean();
+        HttpHandler holding = offloaded(exchange -> {
+            holderInside.countDown();
+            try {
+                holderMayFinish.await();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        HttpHandler waitingForAPlace = offloaded(exchange -> handled.set(true));
+        Thread holder = Thread.ofPlatform().start(() -> runQuietly(holding));
+        assertTrue(holderInside.await(10, TimeUnit.SECONDS));
+        Thread waiter = Thread.ofPlatform().start(() -> {
+            try {
+                waitingForAPlace.handle(null);
+            } catch (IOException | RuntimeException failure) {
+                raised.set(failure);
+            }
+        });
+        BoundedWait.until(
+                "the second caller to be waiting for a place",
+                Duration.ofSeconds(10),
+                BoundedWait.LOCAL_COUNTER_POLL,
+                () -> waiter.getState() == Thread.State.TIMED_WAITING,
+                () -> "second caller is " + waiter.getState());
+
+        waiter.interrupt();
+        waiter.join(10_000);
+        holderMayFinish.countDown();
+        holder.join(10_000);
+
+        assertEquals("interrupted while waiting for a database worker", raised.get().getMessage());
+        assertEquals(IOException.class, raised.get().getClass());
+        assertTrue(!handled.get(), "a request that never had a place is not handled");
+        assertTrue(offloadedRunsNow(), "the place the holder had is free again, and no other was taken");
+    }
+
+    private boolean offloadedRunsNow() throws IOException {
+        AtomicBoolean ran = new AtomicBoolean();
+        offloaded(exchange -> ran.set(true)).handle(null);
+        return ran.get();
+    }
+
     private static void runQuietly(HttpHandler handler) {
         try {
             handler.handle(null);
