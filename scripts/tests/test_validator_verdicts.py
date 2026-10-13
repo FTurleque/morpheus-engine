@@ -21,7 +21,6 @@ from validator_harness import (COVERAGE_EVIDENCE, FABRICATED_ARCHITECTURE_TESTS,
                                FABRICATED_LINE_RATIO, FABRICATED_RATCHETS, FABRICATED_TESTS, RATCHETS_FILE, SBOM_JSON,
                                SBOM_XML, FabricatedCheckout, PlayedScenarios, Run, require_bash, require_powershell)
 
-DOMAIN_TESTS = FABRICATED_TESTS - FABRICATED_ARCHITECTURE_TESTS
 REFERENCE_JAR = "morpheus-provider-reference/target/morpheus-provider-reference-{version}.jar"
 SECURITY_REPORT = "target/d2-security/dependency-check-report.json"
 MIGRATIONS = "morpheus-store-sqlite/src/main/resources/db/migration"
@@ -84,7 +83,7 @@ class PowerShell:
 
 def _failing_domain_suite(failures: int, errors: int):
     def given(checkout, validate):
-        checkout.surefire("morpheus-domain", DOMAIN_TESTS, failures=failures, errors=errors)
+        checkout.failing_suite(failures=failures, errors=errors)
     return staticmethod(given)
 
 
@@ -292,7 +291,7 @@ class VerdictContract(PlayedScenarios):
         first = validate()
         if first.returncode != 0 or checkout.summary(first_summary_directory(first)) is None:
             raise AssertionError(f"the earlier run must pass and leave its summary:\n{first.output}")
-        checkout.surefire("morpheus-domain", DOMAIN_TESTS, failures=1)
+        checkout.failing_suite(failures=1)
 
     def test_a_refused_run_does_not_leave_the_passing_summary_of_an_earlier_run(self) -> None:
         # validation-summary.txt is the record a reader is told to read instead of the output (rules/tooling.md).

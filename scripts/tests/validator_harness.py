@@ -47,6 +47,10 @@ FABRICATED_RATCHETS = {
     "perModuleLineCoverageMinimum": "0.700",
     "perModuleBranchCoverageMinimum": "0.600",
 }
+# The one suite a validator reads by name: validate-r2 requires the report of the SQLite upgrade test.
+UPGRADE_SUITE = "com.morpheus.store.sqlite.R2UpgradeCompatibilityTest"
+UPGRADE_TESTS = 1
+DOMAIN_TESTS = FABRICATED_TESTS - FABRICATED_ARCHITECTURE_TESTS - UPGRADE_TESTS
 RATCHETS_FILE = "config/m21-quality-ratchets.properties"
 COVERAGE_EVIDENCE = "morpheus-architecture-tests/target/m21-aggregate-coverage-summary.txt"
 SBOM_JSON = "target/m21-supply-chain/morpheus-sbom.json"
@@ -246,6 +250,10 @@ class FabricatedCheckout:
                          "docs/developer/reference/openapi/morpheus-v1-reasoning-m27.yaml"):
             (root / contract).parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(REPOSITORY / contract, root / contract)
+        # The real release scripts: validate-r2 compares the default version they carry with the reactor's.
+        for release in ("distribution/build-release.sh", "distribution/build-release.ps1"):
+            (root / release).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(REPOSITORY / release, root / release)
         _write(root / ".gitignore", "**/target/\nvalidation-output/\n")
         _write(root / RATCHETS_FILE, "# fabricated\n" + "".join(f"{k}={v}\n" for k, v in FABRICATED_RATCHETS.items()))
         _write(root / "mvnw", STUB_MVNW, executable=True)
@@ -266,7 +274,8 @@ class FabricatedCheckout:
 
         version = product_version()
         cls._surefire(root, "morpheus-architecture-tests", "fabricated.ArchitectureTest", FABRICATED_ARCHITECTURE_TESTS)
-        cls._surefire(root, "morpheus-domain", "fabricated.DomainTest", FABRICATED_TESTS - FABRICATED_ARCHITECTURE_TESTS)
+        cls._surefire(root, "morpheus-store-sqlite", UPGRADE_SUITE, UPGRADE_TESTS)
+        cls._surefire(root, "morpheus-domain", "fabricated.DomainTest", DOMAIN_TESTS)
         _write(root / COVERAGE_EVIDENCE, cls.coverage_evidence("aggregate"))
         _write(root / SBOM_JSON, '{"bomFormat":"CycloneDX"}\n')
         _write(root / SBOM_XML, "<bom/>\n")
@@ -297,12 +306,17 @@ class FabricatedCheckout:
         (self.root / relative).unlink()
 
     def surefire(self, module: str, tests: int, failures: int = 0, errors: int = 0) -> None:
-        suite = "fabricated.ArchitectureTest" if module == "morpheus-architecture-tests" else "fabricated.DomainTest"
+        suite = {"morpheus-architecture-tests": "fabricated.ArchitectureTest",
+                 "morpheus-store-sqlite": UPGRADE_SUITE}.get(module, "fabricated.DomainTest")
         self._surefire(self.root, module, suite, tests, failures, errors)
+
+    def failing_suite(self, failures: int = 0, errors: int = 0) -> None:
+        """One suite of the build reports a failure or an error; the total is unchanged."""
+        self.surefire("morpheus-domain", DOMAIN_TESTS, failures=failures, errors=errors)
 
     def total_tests(self, total: int, architecture: int = FABRICATED_ARCHITECTURE_TESTS) -> None:
         self.surefire("morpheus-architecture-tests", architecture)
-        self.surefire("morpheus-domain", total - architecture)
+        self.surefire("morpheus-domain", total - architecture - UPGRADE_TESTS)
 
     def ratchets(self, **changes: str | None) -> None:
         """Rewrites the living ratchet file and commits it: a validator refuses a tree with a tracked change."""
