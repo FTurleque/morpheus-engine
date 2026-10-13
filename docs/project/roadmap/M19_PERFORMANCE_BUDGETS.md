@@ -86,6 +86,28 @@ Les mesures sont exécutées après compilation ; le temps Maven de compilation 
 
 Le budget de `publication full snapshot` couvre la persistance et l'activation du nouveau snapshot mais exclut la génération de la fixture.
 
+### 4 bis. Budgets ajoutés après le gel — 13 octobre 2026
+
+Les lignes ci-dessus sont celles du gel et ne changent pas. Celles-ci sont ajoutées selon l'amendement du 13 octobre
+2026 d'ADR-0085 : un coût trouvé sans budget en reçoit un, daté, **déclaré avant que le code qu'il jugera ne soit
+modifié**. Elles sont écrites avant leurs gates et avant les corrections du sprint 6 de l'audit du 9 octobre 2026, dont
+trois n'avaient aucun budget auquel se mesurer. Aucune n'a encore été mesurée : la première mesure se fera sur le code
+non corrigé, et son résultat sera consigné ici, qu'il passe ou qu'il échoue.
+
+| Opération | Fixture | Budget | Raison de la valeur |
+|---|---|---|---|
+| lecture du contenu d'un snapshot | les 2,000 changes et 4,000 critères du profil gelé, dans une base propre à cette mesure ; chaque change avec périmètre, hors-périmètre et risques, chaque contrainte avec cibles bloquantes et preuves, chaque critère avec preuves de vérification, chaque scénario avec préconditions | p95 <= 1,000 ms | une lecture interactive, comme la recherche de requirements ; elle est derrière la plupart des lectures des trois transports |
+| analyse d'un change | une proposition dont chaque delta atteint, par des liens `DEPENDS_ON`, un sous-graphe au budget de nœuds de la traversée, dans les deux sens | p95 <= 2,000 ms | une analyse est une poignée de traversées et doit en coûter une poignée ; c'est le budget d'une traversée |
+| lecture d'une page de journal | une page de 50 entrées dans un journal de 100,000 | p95 <= 1,000 ms | une lecture interactive ; **ce budget n'aura de gate que si la correction ajoute un index ou une migration** — sinon la preuve par comptage de la suite ordinaire suffit, et cette ligne sera retirée avec sa raison écrite ici |
+
+Ce que ces lignes ne changent pas : le protocole (§ 3), le tas de 768 MiB, les tailles de la fixture `M19-LARGE-GATE-1`
+et chaque mesure du tableau du gel. La mesure de lecture du contenu publie son propre snapshot dans son propre fichier,
+pour que ni le temps de publication, ni la taille SQLite, ni le coût de rétention ne bougent.
+
+Les valeurs suivent la recommandation de la spécification
+(`openspec/changes/declare-a-budget-before-bounding-a-cost`), qui les laissait au mainteneur ; il a lancé le sprint sans
+les fixer. Elles sont choisies d'après ce à quoi sert l'opération, pas d'après une exécution.
+
 ## 5. Budgets de comportement non temporels
 
 Ces contraintes sont également bloquantes :

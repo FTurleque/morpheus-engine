@@ -1,12 +1,13 @@
 # Tasks
 
-Implementation is a separate lot, started after this specification is reviewed. Nothing below is done by the pull request
-that introduces this change.
+Started on 2026-10-13 with the declaration, which must precede everything else. The gates are not written; each task
+says where it stands.
 
 ## 1. Measure before changing
 
 - [ ] 1.1 Run `scripts\validate.cmd m19` (no `-Version`) and its Linux twin on `HEAD`, and keep the `M19_METRIC` lines.
       Proof: the two summaries; they are the baseline no existing row may leave.
+      *2026-10-13: **not run.** The baseline of the existing rows was not taken before the declaration; the declaration changes no code, so the baseline can still be taken before the first gate.*
 - [ ] 1.2 List, per gate, which tables of the content projection the measured database fills. Proof: the table; on
       2026-10-13 no file of the `m19` package builds a change, a constraint or an acceptance criterion, although the
       frozen profile declares 2,000 changes and 4,000 criteria. Re-measure rather than trust this count.
@@ -15,9 +16,11 @@ that introduces this change.
 
 ## 2. Declare before measuring
 
-- [ ] 2.1 The amendment of ADR-0085 (decision 5). Proof: the ADR; `AdrIndexCoherenceTest` green.
-- [ ] 2.2 The three rows in `M19_PERFORMANCE_BUDGETS.md`, dated, each with its fixture and its reason, in a commit of
+- [x] 2.1 The amendment of ADR-0085 (decision 5). Proof: the ADR; `AdrIndexCoherenceTest` green.
+      *2026-10-13: ADR-0085 amended - how a budget is added after the freeze.*
+- [x] 2.2 The three rows in `M19_PERFORMANCE_BUDGETS.md`, dated, each with its fixture and its reason, in a commit of
       their own. Proof: the commit precedes every gate and every correction.
+      *2026-10-13: three rows in section 4 bis of the budget document, in a commit of their own, before any gate and any correction. **The values are the specification's recommendation**: the open question left them to the maintainer, who launched the sprint without setting them; the document says so. The journal row carries the condition under which it will be withdrawn.*
 
 ## 3. The gates
 
