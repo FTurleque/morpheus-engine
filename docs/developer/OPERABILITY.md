@@ -67,6 +67,15 @@ MORPHEUS_OPERATIONAL_LOGS=json
 
 Les événements sont alors écrits en JSON-lines sur `stderr` uniquement.
 
+Le mode est une liste fermée, `OperationalLogMode` : `off`, `none` (aucun journal), `json`, `jsonl`, `structured`
+(JSON-lines), comparés sans casse ni espaces. Une valeur hors liste est un refus nommé,
+`OPERATIONAL_LOG_MODE_UNKNOWN`, jamais un repli : jusqu'au 13/10/2026 toute valeur inconnue sélectionnait le sink
+no-op, et un opérateur qui avait écrit `jsno` exploitait un serveur muet sans le savoir.
+
+Le refus vient du lanceur. `MorpheusMain` lit la variable avant toute autre classe du produit et sort en code d'usage ;
+`LocalOperationalRuntime` choisit son sink dans un initialiseur statique, où le même refus sortirait comme une erreur
+d'initialisation de la première classe qui l'utilise.
+
 Aucun transport réseau n'est créé.
 
 ## Redaction

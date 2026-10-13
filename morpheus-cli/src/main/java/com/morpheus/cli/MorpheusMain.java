@@ -3,6 +3,7 @@ package com.morpheus.cli;
 import com.morpheus.api.AllowedWorkspaceRoots;
 import com.morpheus.api.MorpheusHttpServer;
 import com.morpheus.api.MorpheusRemoteHttpServer;
+import com.morpheus.application.operability.OperationalLogMode;
 import com.morpheus.application.query.dsl.QueryBudgets;
 import com.morpheus.integration.minos.MinosIntegrationRuntime;
 import com.morpheus.integration.nexus.NexusIntegrationRuntime;
@@ -26,6 +27,11 @@ public final class MorpheusMain {
     // PrintStream-taking methods; a logging framework has no place in the OS entry point.
     @SuppressWarnings("java:S106")
     public static void main(String[] args) {
+        Optional<String> refusedLogMode = refusedOperationalLogMode(System.getenv());
+        if (refusedLogMode.isPresent()) {
+            System.err.println("MORPHEUS usage error: " + refusedLogMode.orElseThrow());
+            System.exit(CliExitCode.USAGE.code());
+        }
         int exitCode;
         if (RemoteApiLaunchOptions.isRemoteApiCommand(args)) {
             exitCode = runRemoteApi(args, System.err, System.getenv(), System.getProperties());
@@ -43,8 +49,18 @@ public final class MorpheusMain {
         }
     }
 
+    /**
+     * The refusal of an operational log mode that is none of the accepted ones, if the environment carries one. Read
+     * here, before any other class of the product: the operational runtime chooses its sink in a static initializer,
+     * where a refusal would surface as an initialization error of whichever class used it first.
+     */
     static Optional<String> refusedOperationalLogMode(Map<String, String> environment) {
-        return Optional.empty();
+        try {
+            OperationalLogMode.parse(environment.get(OperationalLogMode.ENVIRONMENT_VARIABLE));
+            return Optional.empty();
+        } catch (IllegalArgumentException refused) {
+            return Optional.of(refused.getMessage());
+        }
     }
 
     static int run(

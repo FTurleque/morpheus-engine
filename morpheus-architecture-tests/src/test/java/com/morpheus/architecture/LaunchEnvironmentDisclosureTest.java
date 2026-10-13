@@ -26,7 +26,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class LaunchEnvironmentDisclosureTest {
     private static final Pattern MORPHEUS_NAME = Pattern.compile("\"(MORPHEUS_[A-Z0-9_]+)\"");
-    private static final List<String> OPERATOR_DOCUMENTATION = List.of("docs/user", "docs/developer");
+    /**
+     * Where an operator looks: the pages about the installed product. A developer page satisfied this gate until
+     * 13/10/2026, and {@code MORPHEUS_OPERATIONAL_LOGS} was documented nowhere an operator reads.
+     */
+    private static final List<String> OPERATOR_DOCUMENTATION = List.of("docs/user");
 
     /** Literals of the same shape that are not environment variables, each with the reason it is one. */
     private static final Map<String, String> NOT_AN_ENVIRONMENT_VARIABLE = Map.of(
