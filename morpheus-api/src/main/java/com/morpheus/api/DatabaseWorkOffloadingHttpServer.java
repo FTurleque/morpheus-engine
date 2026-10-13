@@ -8,10 +8,10 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -46,6 +46,7 @@ final class DatabaseWorkOffloadingHttpServer extends RequestProtectedHttpServer 
      * busy database. A burst queues; a queue that does not move is told so, rather than growing without end.
      */
     static final Duration ADMISSION_WAIT = Duration.ofSeconds(10);
+    static final int BUSY_STATUS = 429;
     static final String BUSY_CODE = "LOCAL_SERVER_BUSY";
     static final String RETRY_AFTER_SECONDS = "1";
 
@@ -95,24 +96,81 @@ final class DatabaseWorkOffloadingHttpServer extends RequestProtectedHttpServer 
                 refuseAsBusy(exchange);
                 return;
             }
+            OffloadedRequest request = new OffloadedRequest(handler, exchange, admission);
             try {
-                Future<Void> handled = workers.submit(() -> {
+                workers.execute(request);
+            } catch (RuntimeException refusedByThePool) {
+                admission.release();
+                throw refusedByThePool;
+            }
+            request.awaitOutcome();
+        };
+    }
+
+    /**
+     * One request on a worker. The place is given back by the worker, when it has finished with the request: a caller
+     * that is interrupted leaves, but its worker is still taken until the handler returns, and a place returned by the
+     * caller would admit a request no worker is free to handle.
+     */
+    private static final class OffloadedRequest implements Runnable {
+        private final HttpHandler handler;
+        private final HttpExchange exchange;
+        private final Semaphore admission;
+        private final CompletableFuture<Void> outcome = new CompletableFuture<>();
+        private Thread worker;
+        private boolean abandoned;
+
+        private OffloadedRequest(HttpHandler handler, HttpExchange exchange, Semaphore admission) {
+            this.handler = handler;
+            this.exchange = exchange;
+            this.admission = admission;
+        }
+
+        @Override
+        public void run() {
+            try {
+                if (taken()) {
                     handler.handle(exchange);
-                    return null;
-                });
-                try {
-                    handled.get();
-                } catch (InterruptedException interrupted) {
-                    handled.cancel(true);
-                    Thread.currentThread().interrupt();
-                    throw new IOException("interrupted while a database worker handled the request", interrupted);
-                } catch (ExecutionException failed) {
-                    rethrow(failed.getCause());
                 }
+                outcome.complete(null);
+            } catch (IOException | RuntimeException | Error raised) {
+                outcome.completeExceptionally(raised);
             } finally {
+                left();
                 admission.release();
             }
-        };
+        }
+
+        /** Whether the caller is still waiting; a request abandoned before a worker took it is not handled. */
+        private synchronized boolean taken() {
+            worker = Thread.currentThread();
+            return !abandoned;
+        }
+
+        /** Under the same lock as the interruption, so that it cannot land on this worker's next request. */
+        private synchronized void left() {
+            worker = null;
+            Thread.interrupted();
+        }
+
+        private synchronized void abandon() {
+            abandoned = true;
+            if (worker != null) {
+                worker.interrupt();
+            }
+        }
+
+        private void awaitOutcome() throws IOException {
+            try {
+                outcome.get();
+            } catch (InterruptedException interrupted) {
+                abandon();
+                Thread.currentThread().interrupt();
+                throw new IOException("interrupted while a database worker handled the request", interrupted);
+            } catch (ExecutionException failed) {
+                rethrow(failed.getCause());
+            }
+        }
     }
 
     private static boolean admitted(Semaphore admission, Duration admissionWait) throws IOException {
@@ -130,7 +188,7 @@ final class DatabaseWorkOffloadingHttpServer extends RequestProtectedHttpServer 
         headers.set("Content-Type", "application/json; charset=utf-8");
         headers.set("Retry-After", RETRY_AFTER_SECONDS);
         MorpheusHttpResponseWriter.applySecurityHeaders(headers);
-        exchange.sendResponseHeaders(429, BUSY_BODY.length);
+        exchange.sendResponseHeaders(BUSY_STATUS, BUSY_BODY.length);
         exchange.getResponseBody().write(BUSY_BODY);
         exchange.close();
     }

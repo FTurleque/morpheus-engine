@@ -7,6 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -98,6 +99,58 @@ class DatabaseWorkOffloadingHttpServerTest {
         assertEquals("interrupted while a database worker handled the request", raised.get().getMessage());
         assertTrue(callerStillInterrupted.get(), "the interruption is not swallowed");
         assertTrue(workerInterrupted.await(10, TimeUnit.SECONDS), "the worker is not left waiting for nobody");
+    }
+
+    /**
+     * The place belongs to the worker, not to the caller: a caller that is interrupted leaves at once, but its worker
+     * is taken until the handler returns, and a place given back by the caller would admit a request that no worker
+     * is free to handle.
+     */
+    @Test
+    void aCallerThatLeavesDoesNotGiveBackThePlaceItsWorkerStillHolds() throws Exception {
+        server.stop(0);
+        server = DatabaseWorkOffloadingHttpServer.over(HttpServer.create(), 1, Duration.ofSeconds(30));
+        CountDownLatch firstInside = new CountDownLatch(1);
+        CountDownLatch firstMayFinish = new CountDownLatch(1);
+        CountDownLatch secondInside = new CountDownLatch(1);
+        HttpHandler deafToInterruption = offloaded(exchange -> {
+            firstInside.countDown();
+            boolean finished = false;
+            while (!finished) {
+                try {
+                    finished = firstMayFinish.await(30, TimeUnit.SECONDS);
+                } catch (InterruptedException ignoredOnPurpose) {
+                    // The handler under test does not stop when interrupted: the worker stays taken.
+                }
+            }
+        });
+        HttpHandler second = offloaded(exchange -> secondInside.countDown());
+        Thread firstCaller = Thread.ofPlatform().start(() -> runQuietly(deafToInterruption));
+        assertTrue(firstInside.await(10, TimeUnit.SECONDS));
+
+        firstCaller.interrupt();
+        firstCaller.join(10_000);
+        Thread secondCaller = Thread.ofPlatform().start(() -> runQuietly(second));
+        BoundedWait.until(
+                "the second caller to be waiting for a place",
+                Duration.ofSeconds(10),
+                BoundedWait.LOCAL_COUNTER_POLL,
+                () -> secondCaller.getState() == Thread.State.TIMED_WAITING,
+                () -> "second caller is " + secondCaller.getState());
+        assertEquals(1, secondInside.getCount(), "the only worker is still handling the first request");
+
+        firstMayFinish.countDown();
+
+        assertTrue(secondInside.await(10, TimeUnit.SECONDS), "the place is given once the worker is free");
+        secondCaller.join(10_000);
+    }
+
+    private static void runQuietly(HttpHandler handler) {
+        try {
+            handler.handle(null);
+        } catch (IOException | RuntimeException leftForTheAssertions) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     @Test
