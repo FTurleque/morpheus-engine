@@ -78,6 +78,29 @@ d'initialisation de la première classe qui l'utilise.
 
 Aucun transport réseau n'est créé.
 
+### Ce que journalisent les bibliothèques embarquées
+
+Le SDK MCP et ses dépendances journalisent par SLF4J. Le produit embarque un seul binding, le sien
+(`OperationalSlf4jServiceProvider`, dans `morpheus-cli`, ADR-0111) :
+
+```text
+journal coupé   -> aucun niveau accepté, rien n'est écrit
+journal actif   -> WARN et ERROR deviennent un événement THIRD_PARTY_LOG ; INFO et en dessous sont refusés
+```
+
+L'événement porte `logger`, `message` (formaté, borné à 2 048 caractères) et, quand un échec est joint,
+`failureType` - le type seul, comme `FAILURE_SUPPRESSED`. Il passe par le même puits et la même rédaction que les
+événements du produit. Jusqu'au 13/10/2026 le produit embarquait `slf4j-nop` : une poignée de main MCP qui expirait
+n'était dite nulle part, journal actif ou non.
+
+Un second fournisseur SLF4J sur le chemin de classes est une régression : `OperationalSlf4jServiceProviderTest` le
+refuse en énumérant les fournisseurs, `ProductReleaseContractTest` en lisant le POM.
+
+Trois classes du produit journalisent par `System.Logger` (`BoundedStdioClientTransport`,
+`BoundedStdioServerTransportProvider`, `SqliteTransactionRunner`). Elles ne passent pas par ce binding : leurs
+enregistrements `INFO` et au-dessus sortent en texte sur la sortie d'erreur, dans tous les modes. Avec le journal
+actif, la sortie d'erreur mêle donc des lignes JSON et ce texte.
+
 ## Redaction
 
 `SensitiveValueRedactor` masque avant écriture :

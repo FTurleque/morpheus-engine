@@ -161,6 +161,10 @@ est refusée : MORPHEUS ne démarre pas, affiche sur la sortie d'erreur une lign
 `MORPHEUS usage error: OPERATIONAL_LOG_MODE_UNKNOWN` avec les valeurs acceptées, et sort avec le code 2. Une valeur
 inconnue n'est jamais remplacée par « aucun journal ».
 
+Quand le journal est actif, il contient aussi les avertissements et les erreurs des bibliothèques que MORPHEUS
+embarque, sous le code `THIRD_PARTY_LOG` : une liaison avec MINOS ou NEXUS qui échoue y laisse ce que la bibliothèque
+de protocole en a dit. Quand il ne l'est pas, ces bibliothèques n'écrivent rien.
+
 ## MCP natif
 
 Le serveur local est :
