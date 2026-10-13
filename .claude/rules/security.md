@@ -59,6 +59,11 @@ Supprimer une de ces chaînes casse le build.
 | Rate limit | `TOO_MANY_REQUESTS` (429) |
 | Headers | `X-Frame-Options`, `Content-Security-Policy`, `Strict-Transport-Security: max-age=31536000` (façade remote seulement — le serveur local parle HTTP sur loopback et ne le pose pas) |
 
+- Un refus rendu par la façade pour une requête **qui portait un corps** annonce `Connection: close`
+  (`MorpheusRemoteResponseWriter.sendError`). La plupart des refus sont décidés avant la lecture du corps ; sans cet
+  en-tête le serveur HTTP du JDK peut fermer la connexion pendant que le client y envoie sa requête suivante, qui
+  expire. Ne pas le retirer, et ne rien écrire entre la réponse et `exchange.close()` dans `serve`
+
 ### Journal d'accès — qui a été autorisé à faire quoi
 
 - L'audit du fichier d'identités dit ce qui arrive aux identifiants ; le journal d'accès dit ce à quoi ils servent.
