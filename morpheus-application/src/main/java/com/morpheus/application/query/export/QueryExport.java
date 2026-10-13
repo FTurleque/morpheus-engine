@@ -18,8 +18,4 @@ public record QueryExport(QueryExportFormat format, String mediaType, String con
     public byte[] utf8() {
         return content.getBytes(StandardCharsets.UTF_8);
     }
-
-    public int byteCount() {
-        return utf8().length;
-    }
 }

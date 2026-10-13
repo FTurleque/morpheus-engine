@@ -12,10 +12,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -25,9 +22,12 @@ import java.util.Set;
 
 /** Isolated M24/M25 extension routing contexts so legacy /api/v1 routes remain untouched. */
 final class MorpheusQueryHttpRoutes {
-    private static final String QUERY_CONTEXT = MorpheusHttpServer.API_PREFIX + "/queries";
-    private static final String VIEW_CONTEXT = MorpheusHttpServer.API_PREFIX + "/saved-views";
-    private static final String EXPORT_CONTEXT = MorpheusHttpServer.API_PREFIX + "/exports";
+    private static final String QUERIES = "queries";
+    private static final String VIEWS = "saved-views";
+    private static final String EXPORTS = "exports";
+    private static final String QUERY_CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + QUERIES;
+    private static final String VIEW_CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + VIEWS;
+    private static final String EXPORT_CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + EXPORTS;
 
     private final MorpheusQueryApiService service;
     private final MorpheusHttpRequestDecoder requestDecoder;
@@ -57,7 +57,7 @@ final class MorpheusQueryHttpRoutes {
     private void handleQueries(HttpExchange exchange) throws IOException {
         handle(exchange, () -> {
             requireMethod(exchange, "POST");
-            requireExactPath(exchange, QUERY_CONTEXT + "/execute");
+            requireExactPath(exchange, QUERIES, "execute");
             rejectQueryParameters(exchange);
             return json(200, service.execute(
                     requestDecoder.readRequiredJson(exchange, MorpheusQueryApiService.ScopedQueryRequest.class)));
@@ -67,7 +67,7 @@ final class MorpheusQueryHttpRoutes {
     private void handleExports(HttpExchange exchange) throws IOException {
         handle(exchange, () -> {
             requireMethod(exchange, "POST");
-            requireExactPath(exchange, EXPORT_CONTEXT);
+            requireExactPath(exchange, EXPORTS);
             rejectQueryParameters(exchange);
             return raw(200, service.export(
                     requestDecoder.readRequiredJson(exchange, MorpheusQueryApiService.ExportRequest.class)));
@@ -80,7 +80,7 @@ final class MorpheusQueryHttpRoutes {
 
     private Response routeSavedViews(HttpExchange exchange) {
         String method = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
-        List<String> segments = suffixSegments(exchange.getRequestURI().getPath(), VIEW_CONTEXT);
+        List<String> segments = requestDecoder.pathSegmentsBelow(exchange, VIEWS);
         if (segments.isEmpty()) {
             if (method.equals("GET")) {
                 MorpheusHttpQuery query = MorpheusHttpQuery.parse(exchange.getRequestURI().getRawQuery());
@@ -146,25 +146,25 @@ final class MorpheusQueryHttpRoutes {
             }
         } catch (QueryValidationException failure) {
             responseWriter.send(exchange, 400, new ApiErrorEnvelope(
-                    "v1", new ApiError("QUERY_VALIDATION", safeMessage(failure), Map.of())));
+                    "v1", new ApiError("QUERY_VALIDATION", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (QueryExportBudgetException failure) {
             responseWriter.send(exchange, 400, new ApiErrorEnvelope(
-                    "v1", new ApiError("QUERY_BUDGET_EXCEEDED", safeMessage(failure), Map.of())));
+                    "v1", new ApiError("QUERY_BUDGET_EXCEEDED", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (SavedViewConflictException failure) {
             responseWriter.send(exchange, 409, new ApiErrorEnvelope(
-                    "v1", new ApiError("REVISION_CONFLICT", safeMessage(failure), Map.of())));
+                    "v1", new ApiError("REVISION_CONFLICT", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (ApiFailure failure) {
             if (failure.status() == 405) {
-                exchange.getResponseHeaders().set("Allow", allowedMethods.forPath(exchange.getRequestURI().getPath()));
+                exchange.getResponseHeaders().set("Allow", allowedMethods.forPath(exchange.getRequestURI().getRawPath()));
             }
             responseWriter.send(exchange, failure.status(), new ApiErrorEnvelope(
                     "v1", new ApiError(failure.code(), failure.getMessage(), failure.details())));
         } catch (IllegalArgumentException failure) {
             responseWriter.send(exchange, 400, new ApiErrorEnvelope(
-                    "v1", new ApiError("BAD_REQUEST", safeMessage(failure), Map.of())));
+                    "v1", new ApiError("BAD_REQUEST", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (KnowledgeStoreException | IllegalStateException failure) {
             responseWriter.send(exchange, 409, new ApiErrorEnvelope(
-                    "v1", new ApiError("STATE_CONFLICT", safeMessage(failure), Map.of())));
+                    "v1", new ApiError("STATE_CONFLICT", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (RuntimeException failure) {
             responseWriter.send(exchange, 500, new ApiErrorEnvelope(
                     "v1", new ApiError("INTERNAL_ERROR", "internal MORPHEUS API error", Map.of())));
@@ -180,8 +180,8 @@ final class MorpheusQueryHttpRoutes {
         }
     }
 
-    private void requireExactPath(HttpExchange exchange, String expected) {
-        if (!exchange.getRequestURI().getPath().equals(expected)) {
+    private void requireExactPath(HttpExchange exchange, String... expected) {
+        if (!requestDecoder.pathSegments(exchange).equals(List.of(expected))) {
             throw ApiFailure.notFound("unknown API route");
         }
     }
@@ -192,28 +192,6 @@ final class MorpheusQueryHttpRoutes {
         }
     }
 
-    private List<String> suffixSegments(String path, String context) {
-        if (!path.startsWith(context)) {
-            throw ApiFailure.notFound("unknown API route");
-        }
-        String suffix = path.substring(context.length());
-        if (suffix.isEmpty() || suffix.equals("/")) {
-            return List.of();
-        }
-        String normalized = suffix.startsWith("/") ? suffix.substring(1) : suffix;
-        if (normalized.endsWith("/")) {
-            normalized = normalized.substring(0, normalized.length() - 1);
-        }
-        List<String> result = new ArrayList<>();
-        for (String segment : normalized.split("/")) {
-            if (segment.isBlank()) {
-                throw ApiFailure.notFound("invalid API path");
-            }
-            result.add(URLDecoder.decode(segment, StandardCharsets.UTF_8));
-        }
-        return List.copyOf(result);
-    }
-
     private Response json(int status, Object data) {
         return new Response(status, Objects.requireNonNull(data, "data"), Optional.empty());
     }
@@ -222,10 +200,6 @@ final class MorpheusQueryHttpRoutes {
         return new Response(status, export, Optional.of(export));
     }
 
-    private static String safeMessage(Throwable failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
 
     private record Response(int status, Object data, Optional<QueryExport> export) {
         private Response {

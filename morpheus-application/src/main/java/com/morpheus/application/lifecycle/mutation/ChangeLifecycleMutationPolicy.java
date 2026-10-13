@@ -5,8 +5,4 @@ public record ChangeLifecycleMutationPolicy(boolean confirmationRequired) {
     public static ChangeLifecycleMutationPolicy strict() {
         return new ChangeLifecycleMutationPolicy(true);
     }
-
-    public static ChangeLifecycleMutationPolicy trustedAutomation() {
-        return new ChangeLifecycleMutationPolicy(false);
-    }
 }

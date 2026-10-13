@@ -25,7 +25,7 @@ class LocalHttpAllowedMethodsArchitectureTest {
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpAllowedMethods.java"));
 
         assertTrue(server.contains("private final MorpheusHttpAllowedMethods allowedMethods"));
-        assertTrue(server.contains("allowedMethods.forPath(exchange.getRequestURI().getPath())"));
+        assertTrue(server.contains("allowedMethods.forPath(exchange.getRequestURI().getRawPath())"));
         assertFalse(server.contains("private void requireMethod(String actual, String expected)"));
         assertTrue(server.contains("projectRootRoutes.route(exchange, method, segments, query)"));
         assertFalse(server.contains("ApiFailure.methodNotAllowed"));

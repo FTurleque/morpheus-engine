@@ -7,15 +7,17 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
 /** Isolated M27 HTTP context. Reasoning execution never mutates the knowledge store. */
 final class MorpheusReasoningHttpRoutes {
-    static final String CONTEXT = MorpheusHttpServer.API_PREFIX + "/reasoning";
-    private static final String ADAPTERS = CONTEXT + "/adapters";
-    private static final String ANALYZE = CONTEXT + "/analyze";
+    private static final String REASONING = "reasoning";
+    static final String CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + REASONING;
+    private static final List<String> ADAPTERS = List.of(REASONING, "adapters");
+    private static final List<String> ANALYZE = List.of(REASONING, "analyze");
 
     private final MorpheusReasoningApiService service = new MorpheusReasoningApiService();
     private final MorpheusHttpRequestDecoder requestDecoder;
@@ -38,8 +40,8 @@ final class MorpheusReasoningHttpRoutes {
     }
 
     private void handle(HttpExchange exchange) throws IOException {
-        String path = exchange.getRequestURI().getPath();
         try {
+            List<String> path = requestDecoder.pathSegments(exchange);
             rejectQueryParameters(exchange);
             String method = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
             Object response;
@@ -57,13 +59,13 @@ final class MorpheusReasoningHttpRoutes {
             responseWriter.send(exchange, 200, new ApiSuccess("v1", response));
         } catch (ApiFailure failure) {
             if (failure.status() == 405) {
-                exchange.getResponseHeaders().set("Allow", allowedMethods.forPath(path));
+                exchange.getResponseHeaders().set("Allow", allowedMethods.forPath(exchange.getRequestURI().getRawPath()));
             }
             responseWriter.send(exchange, failure.status(), new ApiErrorEnvelope(
                     "v1", new ApiError(failure.code(), failure.getMessage(), failure.details())));
         } catch (IllegalArgumentException failure) {
             responseWriter.send(exchange, 400, new ApiErrorEnvelope(
-                    "v1", new ApiError("REASONING_VALIDATION", safeMessage(failure), Map.of())));
+                    "v1", new ApiError("REASONING_VALIDATION", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (RuntimeException failure) {
             responseWriter.send(exchange, 500, new ApiErrorEnvelope(
                     "v1", new ApiError("INTERNAL_ERROR", "internal MORPHEUS reasoning error", Map.of())));
@@ -82,10 +84,5 @@ final class MorpheusReasoningHttpRoutes {
         if (!actual.equals(expected)) {
             throw ApiFailure.methodNotAllowed("expected HTTP " + expected + " but received " + actual);
         }
-    }
-
-    private static String safeMessage(Throwable failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 }

@@ -89,9 +89,18 @@ class MorpheusRemoteHttpServerTest {
 
             HttpResponse<String> unauthenticated = send(client, base.resolve("/api/v1/health"), "GET", null, null);
             assertUnauthenticatedRequestRejected(unauthenticated);
+            assertFacadeSecurityHeaders("unauthenticated (401)", unauthenticated);
 
             HttpResponse<String> health = send(client, base.resolve("/api/v1/health"), "GET", read.token(), null);
             assertHealthResponseHasSecurityHeaders(health);
+            assertFacadeSecurityHeaders("proxied success (200)", health);
+
+            HttpResponse<String> unknownRoute = send(client, base.resolve("/api/v1/nowhere"), "GET", read.token(), null);
+            HttpResponse<String> refusedMethod = send(client, base.resolve("/api/v1/health"), "DELETE", read.token(), null);
+            assertEquals(404, unknownRoute.statusCode(), unknownRoute.body());
+            assertEquals(405, refusedMethod.statusCode(), refusedMethod.body());
+            assertFacadeSecurityHeaders("unknown route (404)", unknownRoute);
+            assertFacadeSecurityHeaders("refused method (405)", refusedMethod);
 
             HttpResponse<String> readReasoning = send(
                     client,
@@ -113,6 +122,8 @@ class MorpheusRemoteHttpServerTest {
                     client, base.resolve("/api/v1/projects"), "POST", read.token(), registrationBody(allowedWorkspace));
             assertRoleEnforcementOnWriteAndAdminRoutes(
                     readCannotWrite, writerReachedWriteRoute, writerCannotReadAdminMetrics, readCannotRegisterWorkspace);
+            assertFacadeSecurityHeaders("forbidden (403)", readCannotWrite);
+            assertFacadeSecurityHeaders("proxied refusal (400)", writerReachedWriteRoute);
 
             HttpResponse<String> exactRootRegistration = send(
                     client, base.resolve("/api/v1/projects"), "POST", write.token(), registrationBody(allowedWorkspaceRoot));
@@ -191,20 +202,24 @@ class MorpheusRemoteHttpServerTest {
             HttpResponse<String> writerCannotBackup = send(client, base.resolve("/api/v1/server/backups"), "POST", write.token(), null);
             HttpResponse<String> backup = send(client, base.resolve("/api/v1/server/backups"), "POST", admin.token(), null);
             assertBackupRequiresAdminRoleAndSucceeds(writerCannotBackup, backup);
+            assertFacadeSecurityHeaders("served by the facade itself (201)", backup);
 
             try (var pool = Executors.newFixedThreadPool(8)) {
-                List<Callable<Integer>> calls = new ArrayList<>();
+                List<Callable<HttpResponse<String>>> calls = new ArrayList<>();
                 for (int index = 0; index < 8; index++) {
-                    calls.add(() -> send(client, base.resolve("/api/v1/server/backups"), "POST", admin.token(), null).statusCode());
+                    calls.add(() -> send(client, base.resolve("/api/v1/server/backups"), "POST", admin.token(), null));
                 }
-                List<Integer> statuses = pool.invokeAll(calls).stream().map(future -> {
+                List<HttpResponse<String>> concurrent = pool.invokeAll(calls).stream().map(future -> {
                     try {
                         return future.get();
                     } catch (Exception failure) {
                         throw new IllegalStateException(failure);
                     }
                 }).toList();
-                assertBoundedConcurrencyProducesThrottling(statuses);
+                assertBoundedConcurrencyProducesThrottling(
+                        concurrent.stream().map(HttpResponse::statusCode).toList());
+                concurrent.stream().filter(response -> response.statusCode() == 429)
+                        .forEach(throttled -> assertFacadeSecurityHeaders("throttled (429)", throttled));
             }
 
             MorpheusRemoteIdentityFile.revoke(auth, "reader");
@@ -243,13 +258,11 @@ class MorpheusRemoteHttpServerTest {
 
     @Test
     void remoteProxyTimeoutExcludesOperationsWithoutCooperativeCancellation() {
-        assertTrue(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("GET", "/api/v1/health"));
-        assertTrue(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("POST", "/api/v1/reasoning/analyze"));
-        assertFalse(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("POST", "/api/v1/provider-plugins/probe"));
-        assertFalse(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("POST", "/api/v1/projects/p1/sync"));
-        assertFalse(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("POST", "/api/v1/projects"));
-        assertFalse(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("PUT", "/api/v1/anything"));
-        assertFalse(MorpheusRemoteHttpServer.usesBoundedUpstreamTimeout("DELETE", "/api/v1/anything"));
+        assertTrue(MorpheusRemoteRoutePolicy.authorize("GET", "/api/v1/health").usesBoundedUpstreamTimeout());
+        assertTrue(MorpheusRemoteRoutePolicy.authorize("POST", "/api/v1/reasoning/analyze").usesBoundedUpstreamTimeout());
+        assertFalse(MorpheusRemoteRoutePolicy.authorize("POST", "/api/v1/provider-plugins/probe").usesBoundedUpstreamTimeout());
+        assertFalse(MorpheusRemoteRoutePolicy.authorize("POST", "/api/v1/projects/p1/sync").usesBoundedUpstreamTimeout());
+        assertFalse(MorpheusRemoteRoutePolicy.authorize("POST", "/api/v1/projects").usesBoundedUpstreamTimeout());
     }
 
     private void assertAuthFileNeverPersistsRawTokens(
@@ -271,7 +284,29 @@ class MorpheusRemoteHttpServerTest {
         assertEquals(200, health.statusCode());
         assertEquals("nosniff", health.headers().firstValue("X-Content-Type-Options").orElseThrow());
         assertEquals("DENY", health.headers().firstValue("X-Frame-Options").orElseThrow());
+        assertEquals("max-age=31536000", health.headers().firstValue("Strict-Transport-Security").orElse(null));
         assertFalse(health.headers().firstValue("Access-Control-Allow-Origin").isPresent());
+    }
+
+    /**
+     * The facade sets its headers before it knows what it will answer, so that a refusal carries what a success
+     * carries. Asserted on each kind of response rather than on one: a path that answered on its own would only show
+     * here.
+     */
+    private void assertFacadeSecurityHeaders(String kind, HttpResponse<String> response) {
+        Map.of(
+                "Cache-Control", "no-store",
+                "X-Content-Type-Options", "nosniff",
+                "X-Frame-Options", "DENY",
+                "Referrer-Policy", "no-referrer",
+                "Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'",
+                "Strict-Transport-Security", "max-age=31536000")
+                .forEach((name, value) -> assertEquals(value, response.headers().firstValue(name).orElse(null),
+                        () -> "a remote response that is " + kind + " must carry " + name));
+        assertTrue(response.headers().firstValue("X-Request-Id").isPresent(),
+                () -> "a remote response that is " + kind + " must carry a request identifier");
+        assertFalse(response.headers().firstValue("Access-Control-Allow-Origin").isPresent(),
+                () -> "a remote response that is " + kind + " must carry no CORS header");
     }
 
     private void assertReadOnlyReasoningSucceeds(HttpResponse<String> readReasoning) {

@@ -54,7 +54,11 @@ try {
     $maven = ($mavenOutput[0].ToString() -replace '[\r\n=]', ' ').Trim()
 
     $sbom = Join-Path $repoRoot "target/m21-supply-chain/morpheus-sbom.json"
-    $sbomSha256 = if (Test-Path $sbom) { Get-Sha256 $sbom } else { "missing" }
+    if (-not (Test-Path $sbom)) {
+        throw ("BUILD_PROVENANCE_SBOM_MISSING: target/m21-supply-chain/morpheus-sbom.json does not exist; " +
+            "run mvnw.cmd clean verify first. A provenance file is not written without the SBOM it vouches for.")
+    }
+    $sbomSha256 = Get-Sha256 $sbom
     $generatedAt = [DateTimeOffset]::UtcNow.ToString("o")
 
     $output = Join-Path $repoRoot $OutputPath

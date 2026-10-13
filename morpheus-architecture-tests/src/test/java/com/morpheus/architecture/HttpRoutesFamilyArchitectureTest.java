@@ -128,8 +128,9 @@ class HttpRoutesFamilyArchitectureTest {
         noClasses()
                 .that().haveSimpleNameEndingWith(ROUTER_SUFFIX)
                 .should().dependOnClassesThat().haveSimpleName("MorpheusHttpPathParser")
-                .because("a router receives segments the server already parsed; parsing the raw path again lets "
-                        + "the two disagree about which route is being served")
+                .because("a router does not parse a path itself: it receives the segments the server parsed, or, "
+                        + "when it registers its own context, asks MorpheusHttpRequestDecoder for them; a parser of "
+                        + "its own lets two readings of one path disagree about which route is being served")
                 .check(classes);
     }
 

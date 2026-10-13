@@ -216,8 +216,9 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                 authenticationConcurrency.release();
             }
 
-            MorpheusRemoteRole required = requiredRole(exchange.getRequestMethod(), exchange.getRequestURI().getPath());
-            if (!identity.role().allows(required)) {
+            MorpheusRemoteRoutePolicy.Authorization route =
+                    authorize(exchange.getRequestMethod(), exchange.getRequestURI().getRawPath());
+            if (!identity.role().allows(route.role())) {
                 runtime.recordAuthorizationFailure();
                 responses.sendError(
                         exchange,
@@ -227,14 +228,13 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                 return;
             }
 
-            String path = exchange.getRequestURI().getPath();
-            if (path.equals(MorpheusHttpServer.API_PREFIX + "/server/status")) {
+            if (route.names("server/status")) {
                 requireMethod(exchange, "GET");
                 serveStatus(exchange);
                 return;
             }
 
-            privilegedTicket = acquirePrivilegedTicket(exchange.getRequestMethod(), path);
+            privilegedTicket = acquirePrivilegedTicket(exchange.getRequestMethod(), route.role());
 
             if (!concurrency.tryAcquire()) {
                 if (privilegedTicket != 0L) {
@@ -247,14 +247,14 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             requestSlot = true;
             runtime.requestStarted();
 
-            if (path.equals(MorpheusHttpServer.API_PREFIX + "/server/backups")) {
+            if (route.names("server/backups")) {
                 requireMethod(exchange, "POST");
                 requireEmptyBody(exchange);
                 SqliteServerMaintenance.BackupVerification backup = maintenance.createBackup(databasePath, backupDirectory);
                 responses.sendSuccess(exchange, 201, backupView(backup));
                 return;
             }
-            proxy(exchange);
+            proxy(exchange, route);
         } catch (RemoteFailure failure) {
             renderFailure(exchange, failure);
         } catch (IllegalArgumentException failure) {
@@ -281,8 +281,8 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
      * ticket is never zero once issued, so the ticket alone says whether a slot is held. A refusal throws before
      * any slot exists, so there is nothing to release on that path.</p>
      */
-    private long acquirePrivilegedTicket(String method, String path) {
-        if (!usesPrivilegedConcurrency(method, path)) return 0L;
+    private long acquirePrivilegedTicket(String method, MorpheusRemoteRole role) {
+        if (!usesPrivilegedConcurrency(method, role)) return 0L;
         if (!privilegedConcurrency.tryAcquire()) {
             runtime.recordThrottledPrivilegedRequest();
             throw new RemoteFailure(
@@ -307,7 +307,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         if (failure.status == 403) runtime.recordAuthorizationFailure();
         if (failure.status == 405) {
             exchange.getResponseHeaders().set(
-                    "Allow", MorpheusRemoteRoutePolicy.allowedMethods(exchange.getRequestURI().getPath()));
+                    "Allow", MorpheusRemoteRoutePolicy.allowedMethods(exchange.getRequestURI().getRawPath()));
         }
         responses.sendError(exchange, failure.status, failure.code, failure.getMessage());
     }
@@ -360,20 +360,15 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         return MorpheusRemoteIdentityFile.authenticate(MorpheusRemoteIdentityFile.load(authFile), token);
     }
 
-    private MorpheusRemoteRole requiredRole(String rawMethod, String path) {
+    private MorpheusRemoteRoutePolicy.Authorization authorize(String rawMethod, String rawPath) {
         try {
-            return MorpheusRemoteRoutePolicy.requiredRole(rawMethod, path);
+            return MorpheusRemoteRoutePolicy.authorize(rawMethod, rawPath);
         } catch (MorpheusRemoteRoutePolicy.RoutePolicyException failure) {
             throw new RemoteFailure(failure.status(), failure.code(), failure.getMessage());
         }
     }
 
-    static boolean usesBoundedUpstreamTimeout(String rawMethod, String path) {
-        return MorpheusRemoteRoutePolicy.usesBoundedUpstreamTimeout(rawMethod, path);
-    }
-
-    static boolean usesPrivilegedConcurrency(String rawMethod, String path) {
-        MorpheusRemoteRole role = MorpheusRemoteRoutePolicy.requiredRole(rawMethod, path);
+    static boolean usesPrivilegedConcurrency(String rawMethod, MorpheusRemoteRole role) {
         String method = Objects.requireNonNull(rawMethod, "rawMethod").toUpperCase(Locale.ROOT);
         return role == MorpheusRemoteRole.WRITE
                 || role == MorpheusRemoteRole.ADMIN && !method.equals("GET") && !method.equals("HEAD");
@@ -401,11 +396,10 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         return 8;
     }
 
-    private void proxy(HttpExchange exchange) throws IOException {
+    private void proxy(HttpExchange exchange, MorpheusRemoteRoutePolicy.Authorization route) throws IOException {
         byte[] requestBody = readBoundedBody(exchange);
         URI requestUri = exchange.getRequestURI();
-        boolean providerProbe = requestUri.getPath().equals(MorpheusHttpServer.API_PREFIX + "/provider-plugins/probe");
-        if (providerProbe && requestBody.length != 0) {
+        if (route.names("provider-plugins/probe") && requestBody.length != 0) {
             throw new RemoteFailure(400, "BAD_REQUEST", "provider-plugin probe request body must be empty");
         }
         final URI target;
@@ -419,7 +413,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                     exchange,
                     target,
                     requestBody,
-                    usesBoundedUpstreamTimeout(exchange.getRequestMethod(), requestUri.getPath()));
+                    route.usesBoundedUpstreamTimeout());
         } catch (MorpheusRemoteProxyTransport.TransportException failure) {
             throw new RemoteFailure(failure.status(), failure.code(), failure.getMessage());
         }

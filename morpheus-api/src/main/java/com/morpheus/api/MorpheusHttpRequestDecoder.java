@@ -6,15 +6,17 @@ import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 
-/** Strict, bounded JSON request decoding for the local HTTP adapter. */
+/** Strict, bounded decoding of a request for the local HTTP adapter: its JSON body and the segments of its path. */
 final class MorpheusHttpRequestDecoder {
     private final int maxRequestBodyBytes;
     private final Duration readTimeout;
     private final ExecutorService executor;
     private final JsonMapper mapper;
+    private final MorpheusHttpPathParser pathParser = MorpheusHttpPathParser.api();
 
     MorpheusHttpRequestDecoder(int maxRequestBodyBytes, Duration readTimeout, ExecutorService executor) {
         if (maxRequestBodyBytes < 1) throw new IllegalArgumentException("maxRequestBodyBytes must be positive");
@@ -53,11 +55,28 @@ final class MorpheusHttpRequestDecoder {
         if (readBody(exchange).length != 0) throw ApiFailure.badRequest("request body must be empty");
     }
 
+    /** The decoded segments of the request path below the API prefix, read from the path as it was sent. */
+    List<String> pathSegments(HttpExchange exchange) {
+        Objects.requireNonNull(exchange, "exchange");
+        return pathParser.segments(exchange.getRequestURI().getRawPath());
+    }
+
+    /**
+     * The segments below {@code head}, for a router that registers its own context: the HTTP server hands a context
+     * every path its name is a prefix of, so the first segment is checked rather than assumed.
+     */
+    List<String> pathSegmentsBelow(HttpExchange exchange, String head) {
+        Objects.requireNonNull(head, "head");
+        List<String> segments = pathSegments(exchange);
+        if (segments.isEmpty() || !segments.getFirst().equals(head)) throw ApiFailure.notFound("unknown API route");
+        return segments.subList(1, segments.size());
+    }
+
     private byte[] readBody(HttpExchange exchange) {
         try {
             return HttpRequestBodyReader.read(exchange.getRequestBody(), maxRequestBodyBytes, readTimeout, executor);
         } catch (HttpRequestBodyReader.RequestBodyException failure) {
-            throw ApiFailure.badRequest(failure.getMessage());
+            throw ApiFailure.badRequest(BoundaryFailureMessage.safe(failure));
         }
     }
 
@@ -65,7 +84,7 @@ final class MorpheusHttpRequestDecoder {
         try {
             return mapper.readValue(body, type);
         } catch (Exception failure) {
-            throw ApiFailure.badRequest("invalid JSON request body: " + safeMessage(failure));
+            throw ApiFailure.badRequest("invalid JSON request body: " + BoundaryFailureMessage.safe(failure));
         }
     }
 
@@ -74,10 +93,5 @@ final class MorpheusHttpRequestDecoder {
         if (!JsonMediaType.isJson(value)) {
             throw ApiFailure.unsupportedMediaType("Content-Type application/json is required");
         }
-    }
-
-    private static String safeMessage(Throwable failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 }

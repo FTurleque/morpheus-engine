@@ -37,8 +37,16 @@ class CapabilityProtectedHttpServerTest {
             URI child = URI.create(root + "/reasoning/analyze");
             HttpClient client = HttpClient.newHttpClient();
 
-            assertEquals(401, client.send(
-                    HttpRequest.newBuilder(root).GET().build(), HttpResponse.BodyHandlers.discarding()).statusCode());
+            HttpResponse<Void> refused = client.send(
+                    HttpRequest.newBuilder(root).GET().build(), HttpResponse.BodyHandlers.discarding());
+            assertEquals(401, refused.statusCode());
+            assertEquals("no-store", refused.headers().firstValue("Cache-Control").orElse(null));
+            assertEquals("nosniff", refused.headers().firstValue("X-Content-Type-Options").orElse(null));
+            assertEquals("DENY", refused.headers().firstValue("X-Frame-Options").orElse(null));
+            assertEquals("no-referrer", refused.headers().firstValue("Referrer-Policy").orElse(null));
+            assertEquals("default-src 'none'; frame-ancestors 'none'",
+                    refused.headers().firstValue("Content-Security-Policy").orElse(null),
+                    "a request refused for want of the internal capability is a local response like any other");
             assertEquals(401, client.send(
                     HttpRequest.newBuilder(child)
                             .header(MorpheusInternalCapability.HEADER, "attacker-controlled")

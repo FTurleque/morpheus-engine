@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
 /** Local-first scanner. Watcher events may trigger it, but this bounded content scan remains the source of truth. */
 public final class LocalSourceInventoryScanner {
@@ -115,14 +114,11 @@ public final class LocalSourceInventoryScanner {
 
         Map<SourcePath, SourceInventory.Entry> entries = new LinkedHashMap<>();
         List<SourceInventoryScanResult.Failure> failures = new ArrayList<>();
-        Set<FileVisitOption> visitOptions = policy.followSymbolicLinks()
-                ? EnumSet.of(FileVisitOption.FOLLOW_LINKS)
-                : EnumSet.noneOf(FileVisitOption.class);
         ScanBudget budget = new ScanBudget(policy);
 
         for (Path root : roots) {
             if (budget.exhausted()) break;
-            scanRoot(workspace, root, visitOptions, budget, entries, failures);
+            scanRoot(workspace, root, budget, entries, failures);
         }
 
         if (!failures.isEmpty()) {
@@ -138,7 +134,6 @@ public final class LocalSourceInventoryScanner {
     private void scanRoot(
             Path workspace,
             Path root,
-            Set<FileVisitOption> visitOptions,
             ScanBudget budget,
             Map<SourcePath, SourceInventory.Entry> entries,
             List<SourceInventoryScanResult.Failure> failures) {
@@ -149,11 +144,11 @@ public final class LocalSourceInventoryScanner {
                     "source root does not exist"));
             return;
         }
-        if (!policy.followSymbolicLinks() && Files.isSymbolicLink(root)) {
+        if (Files.isSymbolicLink(root)) {
             failures.add(new SourceInventoryScanResult.Failure(
                     Optional.of(display(workspace, root)),
                     SourceInventoryScanResult.Failure.Code.SYMLINK_NOT_FOLLOWED,
-                    "symbolic-link source root is not followed by the active scan policy"));
+                    "symbolic-link source root is not followed"));
             return;
         }
         try {
@@ -166,13 +161,13 @@ public final class LocalSourceInventoryScanner {
             return;
         }
         try {
-            Files.walkFileTree(root, visitOptions, Integer.MAX_VALUE, new SimpleFileVisitor<>() {
+            Files.walkFileTree(root, EnumSet.noneOf(FileVisitOption.class), Integer.MAX_VALUE, new SimpleFileVisitor<>() {
                 @Override
                 public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attrs) {
                     if (policy.ignoresDirectory(directory)) {
                         return FileVisitResult.SKIP_SUBTREE;
                     }
-                    if (!policy.followSymbolicLinks() && Files.isSymbolicLink(directory)) {
+                    if (Files.isSymbolicLink(directory)) {
                         return FileVisitResult.SKIP_SUBTREE;
                     }
                     try {
@@ -204,7 +199,7 @@ public final class LocalSourceInventoryScanner {
 
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-                    if (!policy.followSymbolicLinks() && (attrs.isSymbolicLink() || Files.isSymbolicLink(file))) {
+                    if ((attrs.isSymbolicLink() || Files.isSymbolicLink(file))) {
                         return FileVisitResult.CONTINUE;
                     }
                     try {

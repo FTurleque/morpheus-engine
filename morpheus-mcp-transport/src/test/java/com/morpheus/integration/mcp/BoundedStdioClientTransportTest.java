@@ -22,6 +22,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -409,6 +410,39 @@ class BoundedStdioClientTransportTest {
             assertTrue(client.listTools().tools().stream()
                             .anyMatch(tool -> tool.name().equals(FixtureStderrChattyMcpServer.TOOL_ECHO)),
                     "transport must remain usable after its stderr handler threw");
+        } finally {
+            client.closeGracefully();
+        }
+    }
+
+    /**
+     * What a peer writes to stderr is a diagnostic for a human, in whatever encoding its platform logs in. A French
+     * Windows writes an accented letter as one byte; read as strict UTF-8 it closed the transport, and a peer that
+     * was serving correctly was reported unreachable after the whole request timeout.
+     */
+    @Test
+    void aDiagnosticThatIsNotUtf8IsRelayedWithAReplacementAndDoesNotCloseTheTransport() throws Exception {
+        BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
+                peerLaunch(FixtureStderrChattyMcpServer.class),
+                McpJsonDefaults.getMapper(),
+                4096);
+        List<String> diagnostics = new CopyOnWriteArrayList<>();
+        CountDownLatch bothLinesRead = new CountDownLatch(2);
+        transport.setStdErrorHandler(line -> {
+            diagnostics.add(line);
+            bothLinesRead.countDown();
+        });
+        McpSyncClient client = McpClient.sync(transport)
+                .requestTimeout(PEER_START_UP_BUDGET)
+                .build();
+        try {
+            client.initialize();
+            assertTrue(bothLinesRead.await(5, TimeUnit.SECONDS), () -> "diagnostics read: " + diagnostics);
+            assertEquals(List.of("peut \ufffdtre accessible", FixtureStderrChattyMcpServer.PLAIN_DIAGNOSTIC),
+                    List.copyOf(diagnostics).subList(0, 2));
+            assertTrue(client.listTools().tools().stream()
+                            .anyMatch(tool -> tool.name().equals(FixtureStderrChattyMcpServer.TOOL_ECHO)),
+                    "the peer answers on stdout whatever it wrote on stderr");
         } finally {
             client.closeGracefully();
         }

@@ -41,6 +41,16 @@ MORPHEUS_MINOS_HOME
 MORPHEUS_MINOS_TIMEOUT_SECONDS
 ```
 
+`MORPHEUS_MINOS_JAVA` désigne l'exécutable Java qui lance MINOS. Il est facultatif : sans lui, MINOS tourne sur le
+runtime Java de MORPHEUS lui-même. S'il est renseigné, ce doit être le **chemin absolu** d'un fichier exécutable ;
+`java` seul, ou un chemin relatif, est refusé et l'intégration passe à l'état invalide. Un lien symbolique est accepté :
+c'est le fichier vers lequel il pointe qui est lancé, et c'est lui que le statut affiche. Sous Windows, le suffixe
+`.exe` peut être omis. Quand plusieurs réglages sont refusés, le statut les cite tous, séparés par un point-virgule.
+
+Sur une installation, le runtime de MORPHEUS est un Java 21 réduit à ses propres besoins. Si le pair est compilé pour
+une version de Java plus récente, ou a besoin d'un module que ce runtime ne porte pas, il ne démarre pas dessus et le
+statut l'annonce injoignable : donner alors à la variable le chemin absolu d'un JDK complet de la version voulue.
+
 Vérifier :
 
 ```bash
@@ -81,6 +91,16 @@ MORPHEUS_NEXUS_JAVA
 MORPHEUS_NEXUS_HOME
 MORPHEUS_NEXUS_TIMEOUT_SECONDS
 ```
+
+`MORPHEUS_NEXUS_JAVA` désigne l'exécutable Java qui lance NEXUS. Il est facultatif : sans lui, NEXUS tourne sur le
+runtime Java de MORPHEUS lui-même. S'il est renseigné, ce doit être le **chemin absolu** d'un fichier exécutable ;
+`java` seul, ou un chemin relatif, est refusé et l'intégration passe à l'état invalide. Un lien symbolique est accepté :
+c'est le fichier vers lequel il pointe qui est lancé, et c'est lui que le statut affiche. Sous Windows, le suffixe
+`.exe` peut être omis. Quand plusieurs réglages sont refusés, le statut les cite tous, séparés par un point-virgule.
+
+Sur une installation, le runtime de MORPHEUS est un Java 21 réduit à ses propres besoins. Si le pair est compilé pour
+une version de Java plus récente, ou a besoin d'un module que ce runtime ne porte pas, il ne démarre pas dessus et le
+statut l'annonce injoignable : donner alors à la variable le chemin absolu d'un JDK complet de la version voulue.
 
 Vérifier :
 

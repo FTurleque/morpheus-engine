@@ -261,6 +261,92 @@ prouvé par un test sur le serveur réel ; ceux du CLI et de HTTP sont lus dans 
 
 Décision : [ADR-0102, amendement du 29 septembre 2026 (MCP-3)](../../architecture/adr/0102-mcp-failure-contract-is-one-rule.md).
 
+### HTTP, requêtes, exports, vues, policies et raisonnement : un message d'erreur ne nomme plus d'emplacement
+
+Les routes de requêtes, d'exports, de vues sauvegardées, de policies, de gestion des policies et de raisonnement
+relayaient tel quel le message de l'échec qu'elles rencontraient. Un message qui nomme un emplacement du serveur — un
+chemin de fichier, par exemple — parvenait donc à l'appelant, y compris à travers la façade remote. Le reste de l'API
+le remplaçait déjà, à deux exceptions près, corrigées du même coup : le refus d'un corps de requête illisible, sur
+toutes les routes, et le conflit d'une synchronisation.
+
+Quand le message d'un échec nomme un emplacement, le champ `message` de la réponse porte le nom du type d'échec
+(`IllegalArgumentException`, `QueryValidationException`…) à la place du texte. Le statut HTTP et le champ `code` ne
+changent pas, et un message qui ne nomme aucun emplacement est inchangé.
+
+Cela vaut aussi pour un refus de validation qui cite une valeur de la requête : si cette valeur a la forme d'un chemin
+(`/srv/data`, `C:\data`), le message qui la citait est remplacé de la même façon. Un refus de route (404) qui cite le
+segment inconnu que l'appelant a lui-même écrit dans le chemin le cite toujours.
+
+**Migration.** Un client qui lisait `error.message` pour décider doit lire `error.code` et le statut HTTP. Aucun
+changement pour un client qui affiche seulement le message.
+
+### HTTP : les mêmes en-têtes de sécurité sur toute réponse
+
+Une réponse du serveur local ne portait `X-Frame-Options` et `Referrer-Policy` que lorsqu'elle refusait une origine,
+et jamais `Content-Security-Policy`. Toute réponse locale sous `/api/v1` — succès, erreur, route inconnue, origine
+refusée — porte maintenant `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+`Referrer-Policy: no-referrer` et `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`.
+
+Le serveur remote ajoute `Strict-Transport-Security: max-age=31536000`.
+
+**Migration.** Aucune pour un client d'API. Un outil qui afficherait une réponse de MORPHEUS dans un cadre de page web
+ne le peut plus. Sur le serveur remote, voir la conséquence de l'épinglage HTTPS dans le guide du serveur d'équipe.
+
+### HTTP : un segment de chemin est décodé une seule fois
+
+Le chemin d'une requête était décodé deux fois, la seconde comme un champ de formulaire : `%252e` arrivait à la route
+comme un point, `+` comme une espace, et `%2F` coupait un segment en deux. Le serveur remote, lui, autorisait le chemin
+décodé une seule fois : l'autorisation et le routage ne lisaient pas toujours le même chemin.
+
+Le chemin est maintenant découpé tel qu'il a été envoyé, puis chaque segment est décodé une fois, par le même code
+pour l'autorisation distante et pour le routage :
+
+- `%252e` reste `%2e` ; un caractère encodé deux fois n'est plus décodé deux fois ;
+- `+` reste `+` ; une espace s'écrit `%20` ;
+- `%2F` reste à l'intérieur de son segment et ne crée plus de niveau de chemin ;
+- un seul `/` final est ignoré ; `/api/v1/health//` et `/api/v1//` répondent 404 ;
+- le préfixe se compare segment par segment : `/api/v1health` répond 404 ;
+- `/api/v1/saved-viewsx` et `/api/v1/policy-packsx` répondent 404 au lieu d'être lus comme l'identifiant `x` ;
+- un seul `/` final est aussi ignoré sur les routes à chemin fixe (`/api/v1/queries/execute/`, `/api/v1/exports/`),
+  qui répondaient 404 en local alors que le serveur remote les autorisait ;
+- sur le serveur remote, tout chemin refusé porte le message `unknown remote API path`.
+
+**Migration.** Aucune pour un client qui écrit les chemins de la documentation avec des identifiants UUID. Un client
+qui encodait un segment deux fois, ou qui écrivait une espace `+` dans un chemin, doit l'encoder une seule fois et
+écrire `%20`. Les paramètres de requête (`?nom=valeur`) ne changent pas : `+` y reste une espace.
+
+### MINOS et NEXUS : l'exécutable Java ne se cherche plus dans le `PATH`
+
+Sans `MORPHEUS_MINOS_JAVA` ni `MORPHEUS_NEXUS_JAVA`, MORPHEUS lançait la commande `java`, que le système cherchait dans
+le `PATH`. Il lance maintenant l'exécutable du runtime sur lequel il tourne lui-même.
+
+Une valeur renseignée doit être le chemin absolu d'un fichier exécutable. `java` seul, ou un chemin relatif, est
+refusé : l'intégration passe à l'état invalide avec le motif, et n'est plus lancée. Sous Windows, le suffixe `.exe`
+peut être omis, comme avant.
+
+Quand plusieurs réglages d'une intégration sont refusés, le motif les cite tous, séparés par un point-virgule ; il
+ne citait que le dernier.
+
+**Migration.** Une variable qui valait `java` doit être retirée ou recevoir un chemin absolu : même sans JAR
+configuré, elle fait passer l'intégration de désactivée à invalide.
+
+Sur une installation, le runtime de MORPHEUS est celui qu'il embarque : un Java 21 réduit à ses propres besoins. Un
+pair compilé pour une version de Java plus récente, ou qui a besoin d'un module que ce runtime ne porte pas, ne démarre
+pas dessus ; le statut indique alors que le pair est injoignable. Dans ce cas, donner à la variable le chemin absolu
+d'un JDK complet de la version que le pair demande. Avant cette version, ce cas se réglait sans le dire, par le `java`
+trouvé dans le `PATH`.
+
+### MINOS et NEXUS : un avertissement du pair ne coupe plus la liaison
+
+Ce qu'un pair écrit sur sa sortie d'erreur était lu comme de l'UTF-8 strict. Un pair qui y écrivait un caractère
+accentué dans l'encodage de son système — un avertissement en français sous Windows, par exemple — faisait fermer la
+liaison : le pair répondait correctement et le statut l'annonçait injoignable, après le délai entier.
+
+La sortie d'erreur d'un pair est maintenant lue comme un diagnostic : un octet qui n'est pas de l'UTF-8 y devient un
+caractère de remplacement. Les messages du protocole, eux, restent lus en UTF-8 strict.
+
+**Migration.** Aucune.
+
 ### Synchronisation : l'état de sync s'écrit avec une révision attendue
 
 Jusqu'à 1.2.0, `recordAttempt` et `commitSuccessfulSync` écrivaient l'état de synchronisation par un upsert aveugle. Deux syncs concurrentes

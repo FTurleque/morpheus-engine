@@ -9,10 +9,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -21,9 +18,12 @@ import java.util.Set;
 
 /** Isolated M25 HTTP contexts for policy registry and read-only governance evaluation. */
 final class MorpheusPolicyHttpRoutes {
-    private static final String PACK_CONTEXT = MorpheusHttpServer.API_PREFIX + "/policy-packs";
-    private static final String POLICY_CONTEXT = MorpheusHttpServer.API_PREFIX + "/policies";
-    private static final String OVERRIDE_CONTEXT = MorpheusHttpServer.API_PREFIX + "/policy-overrides";
+    private static final String PACKS = "policy-packs";
+    private static final String POLICIES = "policies";
+    private static final String OVERRIDES = "policy-overrides";
+    private static final String PACK_CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + PACKS;
+    private static final String POLICY_CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + POLICIES;
+    private static final String OVERRIDE_CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + OVERRIDES;
 
     private final MorpheusPolicyApiService service;
     private final MorpheusHttpRequestDecoder requestDecoder;
@@ -56,7 +56,7 @@ final class MorpheusPolicyHttpRoutes {
 
     private Response routePacks(HttpExchange exchange) {
         String method = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
-        List<String> segments = suffixSegments(exchange.getRequestURI().getPath(), PACK_CONTEXT);
+        List<String> segments = requestDecoder.pathSegmentsBelow(exchange, PACKS);
         if (segments.isEmpty()) {
             rejectQueryParameters(exchange);
             if (method.equals("GET")) {
@@ -121,7 +121,7 @@ final class MorpheusPolicyHttpRoutes {
         handle(exchange, () -> {
             requireMethod(exchange, "POST");
             rejectQueryParameters(exchange);
-            List<String> segments = suffixSegments(exchange.getRequestURI().getPath(), POLICY_CONTEXT);
+            List<String> segments = requestDecoder.pathSegmentsBelow(exchange, POLICIES);
             if (segments.size() != 1) throw ApiFailure.notFound("unknown policies route");
             return switch (segments.getFirst()) {
                 case "evaluate" -> new Response(200, service.evaluate(
@@ -137,7 +137,7 @@ final class MorpheusPolicyHttpRoutes {
         handle(exchange, () -> {
             requireMethod(exchange, "GET");
             // The context also receives every deeper path; the list is served at its own path only.
-            if (!suffixSegments(exchange.getRequestURI().getPath(), OVERRIDE_CONTEXT).isEmpty()) {
+            if (!requestDecoder.pathSegmentsBelow(exchange, OVERRIDES).isEmpty()) {
                 throw ApiFailure.notFound("unknown policy-overrides route");
             }
             requestDecoder.requireEmptyBody(exchange);
@@ -152,16 +152,16 @@ final class MorpheusPolicyHttpRoutes {
             Response response = handler.route();
             responseWriter.send(exchange, response.status(), new ApiSuccess("v1", response.data()));
         } catch (PolicyConflictException failure) {
-            responseWriter.send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("REVISION_CONFLICT", safeMessage(failure), Map.of())));
+            responseWriter.send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("REVISION_CONFLICT", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (ApiFailure failure) {
             if (failure.status() == 405) {
-                exchange.getResponseHeaders().set("Allow", allowedMethods.forPath(exchange.getRequestURI().getPath()));
+                exchange.getResponseHeaders().set("Allow", allowedMethods.forPath(exchange.getRequestURI().getRawPath()));
             }
             responseWriter.send(exchange, failure.status(), new ApiErrorEnvelope("v1", new ApiError(failure.code(), failure.getMessage(), failure.details())));
         } catch (IllegalArgumentException failure) {
-            responseWriter.send(exchange, 400, new ApiErrorEnvelope("v1", new ApiError("BAD_REQUEST", safeMessage(failure), Map.of())));
+            responseWriter.send(exchange, 400, new ApiErrorEnvelope("v1", new ApiError("BAD_REQUEST", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (KnowledgeStoreException | IllegalStateException failure) {
-            responseWriter.send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("STATE_CONFLICT", safeMessage(failure), Map.of())));
+            responseWriter.send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("STATE_CONFLICT", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (RuntimeException failure) {
             responseWriter.send(exchange, 500, new ApiErrorEnvelope("v1", new ApiError("INTERNAL_ERROR", "internal MORPHEUS API error", Map.of())));
         } finally {
@@ -178,25 +178,6 @@ final class MorpheusPolicyHttpRoutes {
         if (exchange.getRequestURI().getRawQuery() != null && !exchange.getRequestURI().getRawQuery().isBlank()) {
             throw ApiFailure.badRequest("query parameters are not supported on this route");
         }
-    }
-
-    private List<String> suffixSegments(String path, String context) {
-        if (!path.startsWith(context)) throw ApiFailure.notFound("unknown API route");
-        String suffix = path.substring(context.length());
-        if (suffix.isEmpty() || suffix.equals("/")) return List.of();
-        String normalized = suffix.startsWith("/") ? suffix.substring(1) : suffix;
-        if (normalized.endsWith("/")) normalized = normalized.substring(0, normalized.length() - 1);
-        List<String> result = new ArrayList<>();
-        for (String segment : normalized.split("/")) {
-            if (segment.isBlank()) throw ApiFailure.notFound("invalid API path");
-            result.add(URLDecoder.decode(segment, StandardCharsets.UTF_8));
-        }
-        return List.copyOf(result);
-    }
-
-    private static String safeMessage(Throwable failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 
     private record Response(int status, Object data) {}

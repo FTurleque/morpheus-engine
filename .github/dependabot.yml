@@ -9,6 +9,12 @@ updates:
       time: "05:00"
       timezone: Europe/Paris
     open-pull-requests-limit: 5
+    ignore:
+      # The root POM holds Reactor on the line the MCP SDK is built on. A change of line is refused there, so it is not
+      # proposed here; the patches of the line are. DependencyLineCurrencyTest holds this entry and the POM comment
+      # together.
+      - dependency-name: "io.projectreactor:reactor-bom"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
 
   - package-ecosystem: github-actions
     directory: /

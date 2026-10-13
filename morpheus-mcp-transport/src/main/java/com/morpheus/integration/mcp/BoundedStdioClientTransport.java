@@ -349,7 +349,7 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
     private void startErrorProcessing() {
         errorScheduler.schedule(() -> {
             try (InputStream input = process.get().getErrorStream()) {
-                BoundedStdioLineReader frames = new BoundedStdioLineReader(input);
+                BoundedStdioLineReader frames = BoundedStdioLineReader.diagnostics(input);
                 String line;
                 while (!isClosing() && (line = frames.readLine(maxMessageBytes)) != null) {
                     handleErrorLine(line);

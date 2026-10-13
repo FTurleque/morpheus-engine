@@ -35,6 +35,9 @@ final class MorpheusRemoteResponseWriter {
         headers.set("X-Frame-Options", "DENY");
         headers.set("Referrer-Policy", "no-referrer");
         headers.set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
+        // The facade serves HTTPS only. One year, for the host the operator exposes and no other: MORPHEUS does not own
+        // that domain, so it does not speak for its subdomains.
+        headers.set("Strict-Transport-Security", "max-age=31536000");
         headers.set("X-Request-Id", requestId);
     }
 

@@ -34,7 +34,8 @@ class MinosIntegrationSettingsTest {
         Properties properties = new Properties();
         properties.setProperty(MinosIntegrationSettings.JAR_PROPERTY, propertyJar.toString());
         properties.setProperty(MinosIntegrationSettings.TIMEOUT_PROPERTY, "41");
-        properties.setProperty(MinosIntegrationSettings.JAVA_PROPERTY, "custom-java");
+        Path launcher = Path.of(MinosIntegrationSettings.resolve(Map.of(), new Properties()).javaCommand());
+        properties.setProperty(MinosIntegrationSettings.JAVA_PROPERTY, launcher.toString());
 
         MinosIntegrationSettings settings = MinosIntegrationSettings.resolve(
                 Map.of(
@@ -44,7 +45,7 @@ class MinosIntegrationSettingsTest {
 
         assertEquals(MinosIntegrationSettings.State.CONFIGURED, settings.state());
         assertEquals(propertyJar.toAbsolutePath().normalize(), settings.jarPath().orElseThrow());
-        assertEquals("custom-java", settings.javaCommand());
+        assertEquals(launcher.toRealPath().toString(), settings.javaCommand());
         assertEquals(41, settings.timeout().toSeconds());
     }
 
@@ -60,6 +61,28 @@ class MinosIntegrationSettingsTest {
         properties.setProperty(MinosIntegrationSettings.TIMEOUT_PROPERTY, "999");
         MinosIntegrationSettings invalidTimeout = MinosIntegrationSettings.resolve(Map.of(), properties);
         assertEquals(MinosIntegrationSettings.State.INVALID, invalidTimeout.state());
+    }
+
+    @Test
+    void aPinnedJarThatStillMatchesPassesTheIntegrityCheckAndIsLaunched() throws Exception {
+        Path jar = tempDirectory.resolve("minos-unchanged.jar");
+        Files.writeString(jar, "trusted-content, and not a server");
+        Properties properties = new Properties();
+        properties.setProperty(MinosIntegrationSettings.JAR_PROPERTY, jar.toString());
+        properties.setProperty(
+                MinosIntegrationSettings.JAR_SHA256_PROPERTY,
+                com.morpheus.application.security.ExternalJarIntegrity.sha256(jar));
+        properties.setProperty(MinosIntegrationSettings.TIMEOUT_PROPERTY, "1");
+        MinosIntegrationSettings settings = MinosIntegrationSettings.resolve(Map.of(), properties);
+
+        MinosIntegrationException failure = assertThrows(
+                MinosIntegrationException.class,
+                () -> new MinosMcpCodeGateway(settings));
+
+        assertFalse(failure.getMessage().contains("integrity verification"), failure.getMessage());
+        assertTrue(failure.getMessage().startsWith("cannot start or initialize MINOS MCP server")
+                        || failure.getMessage().contains("deadline"),
+                failure.getMessage());
     }
 
     @Test

@@ -17,6 +17,7 @@ import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -24,8 +25,11 @@ import java.util.Set;
 
 /** M25 management routes needed to discover CAS state and remove an override explicitly. */
 final class MorpheusPolicyManagementHttpRoutes {
-    private static final String ACTIVATION_CONTEXT = MorpheusHttpServer.API_PREFIX + "/policy-activations";
-    private static final String REMOVE_OVERRIDE_CONTEXT = MorpheusHttpServer.API_PREFIX + "/policy-overrides/remove";
+    private static final String ACTIVATIONS = "policy-activations";
+    private static final String OVERRIDES = "policy-overrides";
+    private static final String REMOVE = "remove";
+    private static final String ACTIVATION_CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + ACTIVATIONS;
+    private static final String REMOVE_OVERRIDE_CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + OVERRIDES + "/" + REMOVE;
 
     private final Path databasePath;
     private final MorpheusHttpRequestDecoder requestDecoder;
@@ -51,7 +55,7 @@ final class MorpheusPolicyManagementHttpRoutes {
     private void handleActivations(HttpExchange exchange) throws IOException {
         handle(exchange, () -> {
             requireMethod(exchange, "GET");
-            requireExactPath(exchange, ACTIVATION_CONTEXT);
+            requireExactPath(exchange, ACTIVATIONS);
             requestDecoder.requireEmptyBody(exchange);
             MorpheusHttpQuery query = MorpheusHttpQuery.parse(exchange.getRequestURI().getRawQuery());
             query.rejectUnknown(Set.of("scopeKind", "scopeId"));
@@ -65,7 +69,7 @@ final class MorpheusPolicyManagementHttpRoutes {
     private void handleRemoveOverride(HttpExchange exchange) throws IOException {
         handle(exchange, () -> {
             requireMethod(exchange, "POST");
-            requireExactPath(exchange, REMOVE_OVERRIDE_CONTEXT);
+            requireExactPath(exchange, OVERRIDES, REMOVE);
             rejectQueryParameters(exchange);
             RemoveOverrideRequest request = requestDecoder.readRequiredJson(exchange, RemoveOverrideRequest.class);
             try (SqlitePolicyPackStore store = new SqlitePolicyPackStore(databasePath)) {
@@ -95,16 +99,16 @@ final class MorpheusPolicyManagementHttpRoutes {
         try {
             responseWriter.send(exchange, 200, new ApiSuccess("v1", handler.execute()));
         } catch (PolicyConflictException failure) {
-            responseWriter.send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("REVISION_CONFLICT", safeMessage(failure), Map.of())));
+            responseWriter.send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("REVISION_CONFLICT", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (ApiFailure failure) {
             if (failure.status() == 405) {
-                exchange.getResponseHeaders().set("Allow", allowedMethods.forPath(exchange.getRequestURI().getPath()));
+                exchange.getResponseHeaders().set("Allow", allowedMethods.forPath(exchange.getRequestURI().getRawPath()));
             }
             responseWriter.send(exchange, failure.status(), new ApiErrorEnvelope("v1", new ApiError(failure.code(), failure.getMessage(), failure.details())));
         } catch (IllegalArgumentException failure) {
-            responseWriter.send(exchange, 400, new ApiErrorEnvelope("v1", new ApiError("BAD_REQUEST", safeMessage(failure), Map.of())));
+            responseWriter.send(exchange, 400, new ApiErrorEnvelope("v1", new ApiError("BAD_REQUEST", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (KnowledgeStoreException | IllegalStateException failure) {
-            responseWriter.send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("STATE_CONFLICT", safeMessage(failure), Map.of())));
+            responseWriter.send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("STATE_CONFLICT", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (RuntimeException failure) {
             responseWriter.send(exchange, 500, new ApiErrorEnvelope("v1", new ApiError("INTERNAL_ERROR", "internal MORPHEUS API error", Map.of())));
         } finally {
@@ -119,8 +123,8 @@ final class MorpheusPolicyManagementHttpRoutes {
         }
     }
 
-    private void requireExactPath(HttpExchange exchange, String expected) {
-        if (!exchange.getRequestURI().getPath().equals(expected)) {
+    private void requireExactPath(HttpExchange exchange, String... expected) {
+        if (!requestDecoder.pathSegments(exchange).equals(List.of(expected))) {
             throw ApiFailure.notFound("unknown API route");
         }
     }
@@ -145,10 +149,6 @@ final class MorpheusPolicyManagementHttpRoutes {
         return value;
     }
 
-    private static String safeMessage(Throwable failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
 
     record RemoveOverrideRequest(
             String id,
