@@ -71,6 +71,7 @@ final class DatabaseWorkOffloadingHttpServer extends RequestProtectedHttpServer 
         };
     }
 
+    /** A handler declares {@link IOException} and nothing else checked: what is neither that nor unchecked is an error. */
     private static void rethrow(Throwable cause) throws IOException {
         if (cause instanceof IOException io) {
             throw io;
@@ -78,9 +79,6 @@ final class DatabaseWorkOffloadingHttpServer extends RequestProtectedHttpServer 
         if (cause instanceof RuntimeException runtime) {
             throw runtime;
         }
-        if (cause instanceof Error error) {
-            throw error;
-        }
-        throw new IllegalStateException(cause);
+        throw (Error) cause;
     }
 }
