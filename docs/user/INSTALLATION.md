@@ -145,6 +145,22 @@ MORPHEUS_BACKUPS_DIR
 MORPHEUS_DB
 ```
 
+## Journal opérationnel
+
+Par défaut MORPHEUS n'écrit aucun journal opérationnel. La variable d'environnement `MORPHEUS_OPERATIONAL_LOGS`
+l'active :
+
+```text
+(absente, vide)            aucun journal
+off, none                  aucun journal
+json, jsonl, structured    un événement JSON par ligne, sur la sortie d'erreur
+```
+
+La casse et les espaces autour de la valeur ne comptent pas. Toute autre valeur — `true`, `1`, une faute de frappe —
+est refusée : MORPHEUS ne démarre pas, affiche sur la sortie d'erreur une ligne qui commence par
+`MORPHEUS usage error: OPERATIONAL_LOG_MODE_UNKNOWN` avec les valeurs acceptées, et sort avec le code 2. Une valeur
+inconnue n'est jamais remplacée par « aucun journal ».
+
 ## MCP natif
 
 Le serveur local est :

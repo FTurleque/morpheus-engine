@@ -297,6 +297,10 @@ MORPHEUS_CONFIG_DIR=~/.config/morpheus
 
 ## 10. Diagnostic
 
+Si le client annonce que le serveur MORPHEUS ne démarre pas, vérifier la variable `MORPHEUS_OPERATIONAL_LOGS` de son
+environnement : une valeur qui n'est pas un mode connu fait refuser le démarrage, avec le motif sur la sortie d'erreur
+du serveur. Voir « Journal opérationnel » dans le guide d'installation.
+
 Tester le launcher :
 
 ```powershell

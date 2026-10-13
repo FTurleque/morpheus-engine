@@ -336,6 +336,16 @@ pas dessus ; le statut indique alors que le pair est injoignable. Dans ce cas, d
 d'un JDK complet de la version que le pair demande. Avant cette version, ce cas se réglait sans le dire, par le `java`
 trouvé dans le `PATH`.
 
+### Journal opérationnel : une valeur inconnue de `MORPHEUS_OPERATIONAL_LOGS` est refusée
+
+Toute valeur que MORPHEUS ne reconnaissait pas pour cette variable — `true`, `1`, une faute de frappe comme `jsno` —
+désactivait le journal sans rien dire : l'opérateur croyait l'avoir activé. Une telle valeur fait maintenant refuser le
+démarrage, avec une ligne sur la sortie d'erreur qui nomme la variable et les valeurs acceptées (`off`, `none`, `json`,
+`jsonl`, `structured`), et le code de sortie 2. Une variable absente ou vide signifie toujours « aucun journal ».
+
+**Migration.** Vérifier la valeur de la variable là où elle est posée, y compris dans la configuration d'un client MCP :
+un serveur qui tournait muet à cause d'une valeur inconnue ne démarre plus tant qu'elle n'est pas corrigée ou retirée.
+
 ### MINOS et NEXUS : un avertissement du pair ne coupe plus la liaison
 
 Ce qu'un pair écrit sur sa sortie d'erreur était lu comme de l'UTF-8 strict. Un pair qui y écrivait un caractère
