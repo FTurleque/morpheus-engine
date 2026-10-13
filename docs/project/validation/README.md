@@ -36,7 +36,10 @@ validate-m17.ps1   1a6fb8b38
 validate-m18.ps1   3d58bb9d4
 ```
 
-`VALIDATION_M15.md` à `VALIDATION_M18.md` sont inchangées.
+Depuis le 13/10/2026, chaque relevé de ce dossier et de `../roadmap/` qui cite un wrapper `.cmd` retiré porte en tête une note
+datée qui nomme la commande de remplacement, ou, pour `VALIDATION_M15.md` à `VALIDATION_M18.md`, la commande `git show` qui
+retrouve le validateur. Le reste de ces relevés est inchangé. `GateReachabilityArchitectureTest` refuse un relevé qui cite un
+wrapper sans cette note.
 
 ## Baseline stable publiée
 
