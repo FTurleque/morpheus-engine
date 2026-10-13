@@ -31,8 +31,9 @@ Supprimer une de ces chaînes casse le build.
 - `ApiLaunchOptions` → `LoopbackHostPolicy.requireLoopback`
 - Toute exposition non-loopback **exige le mode remote explicite**
 - Toute réponse locale pose le même jeu d'en-têtes, déclaré une fois dans
-  `MorpheusHttpResponseWriter.applySecurityHeaders` : le writer partagé, le refus d'origine et le refus de capacité
-  interne l'appellent. Une réponse qui écrit ses en-têtes elle-même en oublie ; ne pas en ajouter une quatrième
+  `MorpheusHttpResponseWriter.applySecurityHeaders` : le writer partagé, le refus d'origine, le refus de capacité
+  interne et le refus d'admission (`LOCAL_SERVER_BUSY`) l'appellent. Une réponse qui écrit ses en-têtes elle-même en
+  oublie ; toute nouvelle réponse écrite hors du writer appelle cette méthode
 
 ## Chemin d'une requête HTTP — une seule lecture
 

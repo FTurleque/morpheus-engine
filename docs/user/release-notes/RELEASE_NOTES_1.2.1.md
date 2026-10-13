@@ -391,8 +391,13 @@ Le serveur traite maintenant les requêtes qui touchent la base sur un nombre fi
 processeurs. Au-delà, les requêtes attendent leur tour au lieu d'échouer. `health`, `metrics` et `version` sont
 servies à part et répondent toujours.
 
-**Migration.** Aucune. Un outil de supervision qui redémarrait le serveur sur une sonde `health` muette ne devrait plus
-le faire pour cette raison ; `readiness`, elle, interroge la base et peut encore attendre.
+Une requête qui attend son tour plus de dix secondes est refusée : statut `429`, code `LOCAL_SERVER_BUSY`, en-tête
+`Retry-After`. Le serveur distant relaie ce refus tel quel.
+
+**Migration.** Un client doit traiter `429 LOCAL_SERVER_BUSY` comme une invitation à réessayer, pas comme un échec
+définitif : là où il voyait une réponse lente ou un `409`, il peut maintenant voir ce refus. Un outil de supervision
+qui redémarrait le serveur sur une sonde `health` muette ne devrait plus le faire pour cette raison ; `readiness`,
+elle, interroge la base et peut encore attendre.
 
 ### MCP : un appel d'outil ouvre une seule connexion à la base
 

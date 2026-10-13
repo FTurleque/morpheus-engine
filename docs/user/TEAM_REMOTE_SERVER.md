@@ -194,6 +194,8 @@ l'administration avec `503 ACCESS_JOURNAL_UNAVAILABLE` plutôt que de laisser pa
 lectures restent servies. Un serveur dont le journal ne peut pas être créé ne démarre pas.
 
 Pour retrouver ce qu'un client a fait, lui demander l'`X-Request-Id` de sa réponse et le chercher dans le journal.
+La ligne `completed` est écrite juste après l'envoi de la réponse : elle peut apparaître un instant après que le
+client a reçu la sienne.
 
 ### Rôles et autorisation distante
 
