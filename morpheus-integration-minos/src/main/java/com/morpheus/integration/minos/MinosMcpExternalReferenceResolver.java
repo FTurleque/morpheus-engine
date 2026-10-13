@@ -1,5 +1,8 @@
 package com.morpheus.integration.minos;
 
+import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.operability.SuppressedFailureFamily;
 import com.morpheus.application.reference.ExternalReferenceResolver;
 import com.morpheus.application.reference.ExternalReferenceResolverResult;
 import com.morpheus.domain.reference.ExternalReferenceTarget;
@@ -17,9 +20,15 @@ public final class MinosMcpExternalReferenceResolver implements ExternalReferenc
     private static final int MAX_SYMBOL_RESULTS = 1000;
 
     private final MinosCodeGatewayFactory gatewayFactory;
+    private final OperationalRecorder recorder;
 
     public MinosMcpExternalReferenceResolver(MinosCodeGatewayFactory gatewayFactory) {
+        this(gatewayFactory, LocalOperationalRuntime.recorder());
+    }
+
+    public MinosMcpExternalReferenceResolver(MinosCodeGatewayFactory gatewayFactory, OperationalRecorder recorder) {
         this.gatewayFactory = Objects.requireNonNull(gatewayFactory, "gatewayFactory");
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
     @Override
@@ -69,9 +78,11 @@ public final class MinosMcpExternalReferenceResolver implements ExternalReferenc
             return ExternalReferenceResolverResult.found(new ResolvedExternalTarget(
                     target,
                     attributes(status, symbol, activeSnapshotId)));
-        } catch (MinosIntegrationException failure) {
-            return ExternalReferenceResolverResult.unavailable();
-        } catch (RuntimeException failure) {
+        } catch (RuntimeException peerFailure) {
+            // The reference is unavailable either way, and the result carries a status only. So does a project with
+            // no active snapshot, and so does a search that may be truncated: without this count a peer that does
+            // not start is indistinguishable from a peer that has nothing to say.
+            recorder.suppressed(SuppressedFailureFamily.MCP_PEER, peerFailure);
             return ExternalReferenceResolverResult.unavailable();
         }
     }

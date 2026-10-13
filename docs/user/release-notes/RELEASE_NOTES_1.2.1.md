@@ -362,6 +362,10 @@ attendu : `failure.suppressed.sync-recovery-read`, `failure.suppressed.sqlite-co
 `failure.suppressed.source-watch`. Dans chaque cas MORPHEUS continue comme avant, par la lecture la plus prudente ; le
 compteur dit qu'il a dû le faire.
 
+Côté MINOS et NEXUS : `failure.suppressed.mcp-peer` compte les pannes d'un pair que la résolution d'une référence
+rendait comme un simple « indisponible », `failure.suppressed.mcp-peer-shutdown` un pair qui n'a pas pu être fermé
+proprement, et `failure.suppressed.staged-artifact-cleanup` une copie de JAR restée dans le répertoire temporaire.
+
 **Migration.** Aucune. Un compteur `failure.suppressed.http-internal-error` qui monte désigne un défaut de MORPHEUS à
 signaler ; `failure.suppressed.adapter-discovery`, un adaptateur installé à réparer ou à retirer.
 
