@@ -104,7 +104,8 @@ class RotatingOperationalLogFileTest {
 
         assertEquals("rwx------", PosixFilePermissions.toString(Files.getPosixFilePermissions(logs)));
         assertEquals("rw-------", PosixFilePermissions.toString(Files.getPosixFilePermissions(log.file())));
-        assertEquals("rw-------", PosixFilePermissions.toString(Files.getPosixFilePermissions(generation(1))));
+        assertEquals("rw-------", PosixFilePermissions.toString(Files.getPosixFilePermissions(
+                logs.resolve(RotatingOperationalLogFile.FILE_NAME + ".1"))));
     }
 
     @Test
