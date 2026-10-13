@@ -38,7 +38,13 @@ public enum SuppressedFailureFamily {
     /** An MCP peer could not be closed or aborted cleanly; its process may outlive the operation that started it. */
     MCP_PEER_SHUTDOWN("mcp-peer-shutdown", OperationalEventLevel.WARNING),
     /** The verified copy of a pinned JAR could not be deleted after use and remains on disk. */
-    STAGED_ARTIFACT_CLEANUP("staged-artifact-cleanup", OperationalEventLevel.WARNING);
+    STAGED_ARTIFACT_CLEANUP("staged-artifact-cleanup", OperationalEventLevel.WARNING),
+
+    /**
+     * The lock or the channel of a database lease could not be released or closed. The lease is reported as returned
+     * while the operating system may still hold the lock: the next open of that database can be refused as busy.
+     */
+    SQLITE_LEASE_RELEASE("sqlite-lease-release", OperationalEventLevel.WARNING);
 
     private final String key;
     private final OperationalEventLevel level;

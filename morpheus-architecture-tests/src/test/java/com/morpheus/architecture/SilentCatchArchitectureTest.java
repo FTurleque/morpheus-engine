@@ -70,15 +70,11 @@ class SilentCatchArchitectureTest {
      */
     private static final Map<String, Explained> NOT_YET_RECORDED = Map.ofEntries(
             Map.entry("BoundedStdioClientTransport.java#RuntimeException", new Explained(1, "mcp-peer-process-tree")),
-            Map.entry("ExternalJarIntegrity.java#IOException", new Explained(1, "staged-artifact-cleanup")),
             Map.entry("ProviderPluginProbeProcess.java#IOException", new Explained(1, "staged-artifact-cleanup")),
             Map.entry("ProviderPluginProbeProcess.java#RuntimeException", new Explained(2,
                     "plugin-probe-process-tree and plugin-probe-shutdown")),
             Map.entry("ProviderPluginDescendantTermination.java#RuntimeException", new Explained(1,
-                    "plugin-probe-shutdown; runs in the probe worker, not in the MORPHEUS process")),
-            Map.entry("SqliteDatabaseLease.java#IOException", new Explained(2,
-                    "sqlite-lease-release: a failed close on the normal release can leave the operating-system lock "
-                            + "held while the lease is reported as returned")));
+                    "plugin-probe-shutdown; runs in the probe worker, not in the MORPHEUS process")));
 
     private record Explained(int count, String reason) {
     }

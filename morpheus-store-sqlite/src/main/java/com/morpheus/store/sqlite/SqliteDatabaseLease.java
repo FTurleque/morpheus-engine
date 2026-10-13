@@ -1,9 +1,13 @@
 package com.morpheus.store.sqlite;
 
+import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.operability.StartupOwnership;
+import com.morpheus.application.operability.SuppressedFailureFamily;
 import com.morpheus.application.security.LocalWritePermissionHardener;
 import com.morpheus.application.store.KnowledgeStoreException;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
@@ -287,19 +291,32 @@ final class SqliteDatabaseLease {
     }
 
     private static void release(FileLock lock, FileChannel channel) {
+        releaseCounting(lock, channel, LocalOperationalRuntime.recorder());
+    }
+
+    /**
+     * Gives a lease back. Closing the channel also releases the operating-system lock, so a lock that cannot be
+     * released is not yet a lock that is held - but it is counted, and so is a channel that cannot be closed, after
+     * which nothing releases it. The lease is reported as returned either way: there is no caller left to refuse.
+     */
+    static void releaseCounting(FileLock lock, Closeable channel, OperationalRecorder recorder) {
         try {
             lock.release();
-        } catch (IOException ignored) {
-            // Closing the channel below also releases the operating-system lock.
+        } catch (IOException unreleased) {
+            recorder.suppressed(SuppressedFailureFamily.SQLITE_LEASE_RELEASE, unreleased);
         }
-        closeQuietly(channel);
+        closeCounting(channel, recorder);
     }
 
     private static void closeQuietly(FileChannel channel) {
+        closeCounting(channel, LocalOperationalRuntime.recorder());
+    }
+
+    static void closeCounting(Closeable channel, OperationalRecorder recorder) {
         try {
             channel.close();
-        } catch (IOException ignored) {
-            // Best effort while unwinding lease acquisition or release.
+        } catch (IOException unclosed) {
+            recorder.suppressed(SuppressedFailureFamily.SQLITE_LEASE_RELEASE, unclosed);
         }
     }
 

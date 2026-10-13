@@ -366,6 +366,9 @@ Côté MINOS et NEXUS : `failure.suppressed.mcp-peer` compte les pannes d'un pai
 rendait comme un simple « indisponible », `failure.suppressed.mcp-peer-shutdown` un pair qui n'a pas pu être fermé
 proprement, et `failure.suppressed.staged-artifact-cleanup` une copie de JAR restée dans le répertoire temporaire.
 
+Côté base : `failure.suppressed.sqlite-lease-release` compte un verrou de base qui n'a pas pu être relâché proprement.
+S'il monte et qu'une ouverture de la base est ensuite refusée comme occupée, c'est la cause à regarder en premier.
+
 Les bibliothèques embarquées sont entendues. Avec le journal opérationnel actif, leurs avertissements et leurs erreurs
 y figurent sous le code `THIRD_PARTY_LOG`, avec le nom de leur logger ; jusqu'ici ils étaient jetés, journal actif ou
 non. Sans journal, rien ne change : elles n'écrivent toujours rien.
