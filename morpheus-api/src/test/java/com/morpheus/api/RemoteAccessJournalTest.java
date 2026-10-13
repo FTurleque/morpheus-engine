@@ -82,6 +82,9 @@ class RemoteAccessJournalTest {
 
         assertFalse(journal.accepted(request("writer", MorpheusRemoteRole.WRITE, MorpheusRemoteRole.WRITE)));
         assertTrue(journal.accepted(request("reader", MorpheusRemoteRole.READ, MorpheusRemoteRole.READ)));
+        assertTrue(journal.accepted(new RemoteAccessJournal.Request(
+                        "request-2", "admin", MorpheusRemoteRole.ADMIN, MorpheusRemoteRole.ADMIN, "GET", "metrics")),
+                "the route that serves the counter of lost records is not refused for want of the journal");
         journal.completed(request("reader", MorpheusRemoteRole.READ, MorpheusRemoteRole.READ), 200);
 
         assertEquals(Map.of(RemoteAccessJournal.LOST, 2L), metrics.snapshot().counters());

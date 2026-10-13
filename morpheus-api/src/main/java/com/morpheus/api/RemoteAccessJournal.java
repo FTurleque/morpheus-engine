@@ -29,7 +29,7 @@ import java.util.Objects;
  *
  * <p>A write or an administration request is recorded before it is served, then again with its outcome: a record
  * written only afterwards would be missing for exactly the request that brought the server down. If that first record
- * cannot be written the request is refused. A read is served either way. Every record that cannot be written is
+ * cannot be written the request is refused. A request that changes nothing is served either way. Every record that cannot be written is
  * counted ({@link #LOST}).</p>
  */
 final class RemoteAccessJournal {
@@ -71,13 +71,14 @@ final class RemoteAccessJournal {
     }
 
     /**
-     * Records a request about to be served. A read is not recorded here - its outcome is enough - and is always
-     * accepted.
+     * Records a request about to be served. A request that changes nothing is not recorded here - its outcome is
+     * enough - and is always accepted: a read, and the consultation of an administration route such as the metrics,
+     * which is where the counter of lost records is read when this journal cannot be written.
      *
-     * @return false when the request changes or administers something and its record could not be written
+     * @return false when the request changes something and its record could not be written
      */
     boolean accepted(Request request) {
-        if (request.required() == MorpheusRemoteRole.READ) {
+        if (!MorpheusRemoteHttpServer.usesPrivilegedConcurrency(request.method(), request.required())) {
             return true;
         }
         return write(request, "accepted", OperationalEventLevel.INFO, Map.of());

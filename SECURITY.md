@@ -43,7 +43,9 @@ fingerprint of one, a path, a query string, a header or a body.
 A request that fails authentication (401) is not recorded: it has no principal, and a journal an unauthenticated caller
 could fill is one it could rotate. It remains a counter of the server status.
 
-A write or an administration request is recorded before it is served and again with its outcome. If that first record
+A request that changes something - any call of a write route, and any call of an administration route other than
+a `GET` - is recorded before it is served and again with its outcome. Consulting an administration route, such as the
+metrics, counts as a read. If that first record
 cannot be written the request is refused with `503 ACCESS_JOURNAL_UNAVAILABLE`; a read is still served; the lost record
 is counted either way. A full disk therefore refuses remote writes rather than letting one go unattributed.
 
