@@ -155,7 +155,7 @@ class QueryExecutionContractTest {
                 versionId, projectId, Optional.of(1L), Optional.of("provider-v1"), Optional.of("rev-1"), NOW, Optional.empty()));
         fixture.core().bindSnapshotVersion(new SnapshotSpecificationVersionBinding(snapshotId, versionId));
         fixture.content().putSnapshotContent(new SnapshotBusinessContent(
-                snapshotId, versionId, List.of(), List.of(), normalized, List.of(), List.of(), List.of(), List.of(evidence)));
+                snapshotId, versionId, List.of(), List.of(), normalized, List.of(), List.of(), List.of(), List.of(), List.of(evidence)));
         fixture.core().activateSnapshot(snapshotId, Optional.empty());
     }
 

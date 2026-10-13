@@ -83,11 +83,6 @@ public record ChangeOrchestrationState(
             List<String> supportingEvidenceIds,
             String sourceEvidenceId) {
 
-        /** Compatibility constructor for pre-M16 tests/callers. */
-        public ConstraintView(String id, String statement) {
-            this(id, statement, "UNKNOWN", "UNKNOWN", "UNKNOWN", "UNKNOWN", List.of(), List.of(), "UNKNOWN");
-        }
-
         public ConstraintView {
             id = requireNonBlank(id, "id");
             statement = requireNonBlank(statement, "statement");

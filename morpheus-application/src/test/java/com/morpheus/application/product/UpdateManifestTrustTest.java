@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -38,7 +39,7 @@ class UpdateManifestTrustTest {
     @Test
     void relativeArtifactAndAttestationUrisAreRejected() {
         assertThrows(IllegalArgumentException.class, () -> new UpdateManifest(
-                "1.2.2", "stable", URI.create("morpheus.zip"), SHA256));
+                "1.2.2", "stable", URI.create("morpheus.zip"), SHA256, Optional.empty()));
 
         URI validArtifactUri = URI.create("https://downloads.example.invalid/morpheus.zip");
         java.util.Optional<URI> relativeAttestationUri = java.util.Optional.of(URI.create("attestation.jsonl"));

@@ -328,11 +328,11 @@ class BusinessContentQueryContractTest {
         ChangeProposal secondary = change(projectId, provenance, "CHG-B", "Secondary change");
         ChangeProposal tertiary = change(projectId, provenance, "CHG-C", "Tertiary change");
 
-        Constraint constraintOne = new Constraint(
+        Constraint constraintOne = Constraint.withUnknownSemantics(
                 ConstraintId.generate(), primary.id(), "must remain deterministic", provenance);
-        Constraint constraintTwo = new Constraint(
+        Constraint constraintTwo = Constraint.withUnknownSemantics(
                 ConstraintId.generate(), primary.id(), "must preserve auditability", provenance);
-        Constraint otherConstraint = new Constraint(
+        Constraint otherConstraint = Constraint.withUnknownSemantics(
                 ConstraintId.generate(), secondary.id(), "must isolate changes", provenance);
 
         DesignDecision decisionOne = new DesignDecision(
@@ -367,6 +367,7 @@ class BusinessContentQueryContractTest {
                 List.of(constraintTwo, otherConstraint, constraintOne),
                 List.of(decisionTwo, otherDecision, decisionOne),
                 List.of(taskTwo, otherTask, taskOne),
+                List.of(),
                 List.of(evidence));
 
         return new Fixture(projectId, snapshotId, versionId, specification.id(), primary.id(), content);
@@ -391,9 +392,9 @@ class BusinessContentQueryContractTest {
                 SpecificationId.generate(), projectId, "history", "History v2", Optional.empty(), activeProvenance);
 
         SnapshotBusinessContent retiredContent = new SnapshotBusinessContent(
-                retiredId, retiredVersionId, List.of(retiredSpecification), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(retiredEvidence));
+                retiredId, retiredVersionId, List.of(retiredSpecification), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(retiredEvidence));
         SnapshotBusinessContent activeContent = new SnapshotBusinessContent(
-                activeId, activeVersionId, List.of(activeSpecification), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(activeEvidence));
+                activeId, activeVersionId, List.of(activeSpecification), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), List.of(activeEvidence));
 
         KnowledgeSnapshotMetadata retiredSnapshot = readySnapshot(retiredId, projectId, Optional.empty(), "revision-1");
         KnowledgeSnapshotMetadata activeSnapshot = readySnapshot(activeId, projectId, Optional.of(retiredId), "revision-2");

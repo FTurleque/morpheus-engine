@@ -379,7 +379,7 @@ class QuerySourceBudgetTest {
                         ScenarioId.generate(), Optional.of(RequirementId.generate()), "Scenario", List.of(),
                         "act", "outcome", provenance)),
                 List.of(change),
-                List.of(new Constraint(ConstraintId.generate(), change.id(), "Constraint", provenance)),
+                List.of(Constraint.withUnknownSemantics(ConstraintId.generate(), change.id(), "Constraint", provenance)),
                 List.of(new DesignDecision(DesignDecisionId.generate(), change.id(), "Decision", "Because", provenance)),
                 List.of(new ImplementationTask(
                         TaskId.generate(), change.id(), Optional.of("T-1"), "Task", false, provenance)),

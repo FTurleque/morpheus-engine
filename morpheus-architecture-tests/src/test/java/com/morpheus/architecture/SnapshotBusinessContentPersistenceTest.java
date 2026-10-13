@@ -124,7 +124,7 @@ class SnapshotBusinessContentPersistenceTest {
                 content.scenarios(), content.changes(), content.constraints(), content.designDecisions(), content.tasks(),
                 content.acceptanceCriteria(), content.evidence()));
 
-        Constraint broken = new Constraint(
+        Constraint broken = Constraint.withUnknownSemantics(
                 ConstraintId.generate(), ChangeId.generate(), "must remain auditable", content.constraints().get(0).provenance());
         assertThrows(IllegalArgumentException.class, () -> new SnapshotBusinessContent(
                 fixture.snapshotId(), fixture.versionId(), content.specifications(), content.scenarios(), content.changes(),
@@ -342,7 +342,7 @@ class SnapshotBusinessContentPersistenceTest {
                 List.of("reporting", "mobile"),
                 List.of("migration", "compatibility"),
                 provenance);
-        Constraint constraint = new Constraint(
+        Constraint constraint = Constraint.withUnknownSemantics(
                 ConstraintId.generate(), change.id(), "must preserve audit history", provenance);
         DesignDecision decision = new DesignDecision(
                 DesignDecisionId.generate(), change.id(), "Use explicit state", "Persist explicit state transitions", provenance);

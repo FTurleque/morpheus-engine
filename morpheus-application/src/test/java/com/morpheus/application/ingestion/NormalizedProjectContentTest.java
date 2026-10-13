@@ -55,13 +55,92 @@ class NormalizedProjectContentTest {
     void acceptsCoherentProjectSpecificationRequirementAndEvidenceGraph() {
         Fixture fixture = fixture();
 
-        assertDoesNotThrow(() -> new NormalizedProjectContent(
+        assertDoesNotThrow(() -> NormalizedProjectContent.currentSpecificationsOnly(
                 fixture.project,
                 List.of(fixture.specification),
                 List.of(fixture.requirement),
                 List.of(),
                 List.of(fixture.evidence),
                 List.of()));
+    }
+
+    @Test
+    void contentOfCurrentSpecificationsOnlyCarriesNoChangeArtefactAndNoAcceptanceCriterion() {
+        Fixture fixture = fixture();
+        Scenario scenario = scenario(Optional.of(fixture.requirement.id()), fixture.provenance);
+
+        NormalizedProjectContent content = NormalizedProjectContent.currentSpecificationsOnly(
+                fixture.project,
+                List.of(fixture.specification),
+                List.of(fixture.requirement),
+                List.of(scenario),
+                List.of(fixture.evidence),
+                List.of());
+
+        assertEquals(List.of(), content.changes());
+        assertEquals(List.of(), content.requirementDeltas());
+        assertEquals(List.of(), content.constraints());
+        assertEquals(List.of(), content.designDecisions());
+        assertEquals(List.of(), content.tasks());
+        assertEquals(List.of(), content.acceptanceCriteria());
+        assertEquals(
+                new NormalizedProjectContent(
+                        fixture.project,
+                        List.of(fixture.specification),
+                        List.of(fixture.requirement),
+                        List.of(scenario),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(fixture.evidence),
+                        List.of()),
+                content);
+    }
+
+    @Test
+    void contentWithoutAcceptanceCriteriaKeepsEveryOtherListItWasGiven() {
+        Fixture fixture = fixture();
+        ChangeProposal change = change(fixture);
+        RequirementDelta delta = delta(fixture, change.id(), fixture.requirement.id());
+        Constraint constraint = Constraint.withUnknownSemantics(
+                ConstraintId.generate(), change.id(), "No persistence without explicit opt-in.", fixture.provenance);
+        DesignDecision decision = new DesignDecision(
+                DesignDecisionId.generate(), change.id(), "Decision", "Body", fixture.provenance);
+        ImplementationTask task = new ImplementationTask(
+                TaskId.generate(), change.id(), Optional.empty(), "Task", false, fixture.provenance);
+
+        NormalizedProjectContent content = NormalizedProjectContent.withoutAcceptanceCriteria(
+                fixture.project,
+                List.of(fixture.specification),
+                List.of(fixture.requirement),
+                List.of(),
+                List.of(change),
+                List.of(delta),
+                List.of(constraint),
+                List.of(decision),
+                List.of(task),
+                List.of(fixture.evidence),
+                List.of());
+
+        assertEquals(List.of(), content.acceptanceCriteria());
+        assertEquals(
+                new NormalizedProjectContent(
+                        fixture.project,
+                        List.of(fixture.specification),
+                        List.of(fixture.requirement),
+                        List.of(),
+                        List.of(change),
+                        List.of(delta),
+                        List.of(constraint),
+                        List.of(decision),
+                        List.of(task),
+                        List.of(),
+                        List.of(fixture.evidence),
+                        List.of()),
+                content);
     }
 
     @Test
@@ -75,7 +154,7 @@ class NormalizedProjectContentTest {
                 fixture.requirement.statement(),
                 fixture.requirement.provenance());
 
-        assertRefused("requirement references unknown specification: " + invalid.id(), () -> new NormalizedProjectContent(
+        assertRefused("requirement references unknown specification: " + invalid.id(), () -> NormalizedProjectContent.currentSpecificationsOnly(
                 fixture.project,
                 List.of(fixture.specification),
                 List.of(invalid),
@@ -96,7 +175,7 @@ class NormalizedProjectContentTest {
                 fixture.requirement.statement(),
                 invalidProvenance);
 
-        assertRefused(UNKNOWN_EVIDENCE + invalidProvenance.evidenceId(), () -> new NormalizedProjectContent(
+        assertRefused(UNKNOWN_EVIDENCE + invalidProvenance.evidenceId(), () -> NormalizedProjectContent.currentSpecificationsOnly(
                 fixture.project,
                 List.of(fixture.specification),
                 List.of(invalid),
@@ -109,18 +188,19 @@ class NormalizedProjectContentTest {
     void acceptsConstraintReferencingKnownChange() {
         Fixture fixture = fixture();
         ChangeProposal change = change(fixture);
-        Constraint constraint = new Constraint(
+        Constraint constraint = Constraint.withUnknownSemantics(
                 ConstraintId.generate(),
                 change.id(),
                 "No persistence without explicit opt-in.",
                 fixture.provenance);
 
-        assertDoesNotThrow(() -> new NormalizedProjectContent(
+        assertDoesNotThrow(() -> NormalizedProjectContent.withoutAcceptanceCriteria(
                 fixture.project,
                 List.of(fixture.specification),
                 List.of(fixture.requirement),
                 List.of(),
                 List.of(change),
+                List.of(),
                 List.of(constraint),
                 List.of(),
                 List.of(),
@@ -132,18 +212,19 @@ class NormalizedProjectContentTest {
     void rejectsConstraintReferencingUnknownChange() {
         Fixture fixture = fixture();
         ChangeProposal change = change(fixture);
-        Constraint invalid = new Constraint(
+        Constraint invalid = Constraint.withUnknownSemantics(
                 ConstraintId.generate(),
                 ChangeId.generate(),
                 "No persistence without explicit opt-in.",
                 fixture.provenance);
 
-        assertRefused("constraint references unknown change: " + invalid.id(), () -> new NormalizedProjectContent(
+        assertRefused("constraint references unknown change: " + invalid.id(), () -> NormalizedProjectContent.withoutAcceptanceCriteria(
                 fixture.project,
                 List.of(fixture.specification),
                 List.of(fixture.requirement),
                 List.of(),
                 List.of(change),
+                List.of(),
                 List.of(invalid),
                 List.of(),
                 List.of(),
@@ -157,7 +238,7 @@ class NormalizedProjectContentTest {
         ChangeProposal change = change(fixture);
         RequirementDelta delta = delta(fixture, change.id(), fixture.requirement.id());
 
-        assertDoesNotThrow(() -> new NormalizedProjectContent(
+        assertDoesNotThrow(() -> NormalizedProjectContent.withoutAcceptanceCriteria(
                 fixture.project,
                 List.of(fixture.specification),
                 List.of(fixture.requirement),
@@ -177,7 +258,7 @@ class NormalizedProjectContentTest {
         ChangeProposal change = change(fixture);
         RequirementDelta delta = delta(fixture, ChangeId.generate(), fixture.requirement.id());
 
-        assertRefused("requirement delta references unknown change: " + delta.id(), () -> new NormalizedProjectContent(
+        assertRefused("requirement delta references unknown change: " + delta.id(), () -> NormalizedProjectContent.withoutAcceptanceCriteria(
                 fixture.project,
                 List.of(fixture.specification),
                 List.of(fixture.requirement),
@@ -360,7 +441,7 @@ class NormalizedProjectContentTest {
         Fixture fixture = fixture();
         Provenance invalid = unknownEvidence(fixture);
         ChangeProposal change = change(fixture);
-        Constraint constraint = new Constraint(ConstraintId.generate(), change.id(), "Constraint", invalid);
+        Constraint constraint = Constraint.withUnknownSemantics(ConstraintId.generate(), change.id(), "Constraint", invalid);
 
         assertRefused(UNKNOWN_EVIDENCE + invalid.evidenceId(),
                 () -> new Graph(fixture).changes(change).constraints(constraint).build());

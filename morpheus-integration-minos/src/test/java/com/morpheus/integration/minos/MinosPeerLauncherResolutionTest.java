@@ -158,7 +158,7 @@ class MinosPeerLauncherResolutionTest {
     void theSettingsCannotBeBuiltAroundACommandTheSearchPathWouldResolve() {
         IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
                 () -> new MinosIntegrationSettings(Optional.empty(), "java", Optional.empty(),
-                        Duration.ofSeconds(20), Optional.empty()));
+                        Duration.ofSeconds(20), Optional.empty(), Optional.empty()));
 
         assertEquals("javaCommand must be an absolute path", refused.getMessage());
     }

@@ -86,10 +86,11 @@ class MorpheusMcpServerOversizedResponseTest {
         Provenance provenance = new Provenance(
                 new ProviderId("oversized-test"), Optional.of("1.0"), source,
                 Optional.of("fixture"), Optional.empty(), evidence.id());
-        NormalizedProjectContent content = new NormalizedProjectContent(
+        NormalizedProjectContent content = NormalizedProjectContent.withoutAcceptanceCriteria(
                 new ProjectSpecification(projectId, "Oversized fixture", SourceLocator.file("workspace")),
                 List.of(new Specification(
                         SpecificationId.generate(), projectId, "large", "Large", Optional.of(description), provenance)),
+                List.of(),
                 List.of(),
                 List.of(),
                 List.of(),

@@ -111,7 +111,7 @@ class RemoteIdentityCredentialServiceTest {
     void aPresentedTokenAtTheLengthBoundaryIsStillEvaluated() {
         String boundary = "x".repeat(1024);
         Identity identity = new Identity(
-                "ops", MorpheusRemoteRole.READ, RemoteIdentityCredentialService.sha256Bytes(boundary));
+                "ops", MorpheusRemoteRole.READ, RemoteIdentityCredentialService.sha256Bytes(boundary), Optional.empty());
 
         assertEquals(Optional.of(identity),
                 RemoteIdentityCredentialService.authenticate(List.of(identity), boundary, Instant.now()));

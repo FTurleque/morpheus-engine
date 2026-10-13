@@ -62,7 +62,7 @@ public final class OpenSpecProjectContentReader {
         changes.diagnostics().stream().filter(item -> !diagnostics.contains(item)).forEach(diagnostics::add);
         deltas.diagnostics().stream().filter(item -> !diagnostics.contains(item)).forEach(diagnostics::add);
 
-        return new NormalizedProjectContent(
+        return NormalizedProjectContent.withoutAcceptanceCriteria(
                 current.project(),
                 current.specifications(),
                 current.requirements(),

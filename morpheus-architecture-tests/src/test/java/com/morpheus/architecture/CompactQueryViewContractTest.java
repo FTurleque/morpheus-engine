@@ -202,7 +202,7 @@ class CompactQueryViewContractTest {
                 List.of("ranking"),
                 List.of("schema drift"),
                 provenance);
-        Constraint constraint = new Constraint(ConstraintId.generate(), changeId, "Must be deterministic", provenance);
+        Constraint constraint = Constraint.withUnknownSemantics(ConstraintId.generate(), changeId, "Must be deterministic", provenance);
         DesignDecision decision = new DesignDecision(
                 DesignDecisionId.generate(), changeId, "Canonical JSON", "Use typed DTOs", provenance);
         ImplementationTask task = new ImplementationTask(
@@ -245,6 +245,7 @@ class CompactQueryViewContractTest {
                 List.of(constraint),
                 List.of(decision),
                 List.of(task),
+                List.of(),
                 List.of(evidence));
 
         CompactChangeContextView view = new CompactQueryViewService(new FixedContentStore(content)).changeContext(result);
@@ -439,6 +440,7 @@ class CompactQueryViewContractTest {
         return new SnapshotBusinessContent(
                 snapshotId,
                 versionId,
+                List.of(),
                 List.of(),
                 List.of(),
                 List.of(),
