@@ -8,6 +8,7 @@ public final class LocalOperationalRuntime {
     public static final String LOG_MODE_ENV = OperationalLogMode.ENVIRONMENT_VARIABLE;
 
     private static final OperationalMetrics METRICS = new OperationalMetrics();
+    private static final OperationalLogMode MODE = OperationalLogMode.parse(System.getenv(LOG_MODE_ENV));
     private static final OperationalEventSink SINK = createSink();
     private static final OperationalRecorder RECORDER = new OperationalRecorder(SINK, METRICS);
 
@@ -22,6 +23,11 @@ public final class LocalOperationalRuntime {
         return SINK;
     }
 
+    /** Whether the sink writes anything: a caller that would format a record for nothing asks before it does. */
+    public static boolean writesEvents() {
+        return MODE != OperationalLogMode.OFF;
+    }
+
     public static OperationalRecorder recorder() {
         return RECORDER;
     }
@@ -31,7 +37,7 @@ public final class LocalOperationalRuntime {
      * and the launcher reads it first so that the refusal is its own message rather than an initialization error here.
      */
     private static OperationalEventSink createSink() {
-        return switch (OperationalLogMode.parse(System.getenv(LOG_MODE_ENV))) {
+        return switch (MODE) {
             case OFF -> OperationalEventSink.noop();
             case JSON_LINES -> new StructuredOperationalEventSink(System.err);
         };
