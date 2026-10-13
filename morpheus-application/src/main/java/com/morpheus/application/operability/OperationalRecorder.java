@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 /** Couples local structured events with in-process counters/timings. */
 public final class OperationalRecorder {
@@ -22,6 +23,25 @@ public final class OperationalRecorder {
 
     public OperationalMetrics metrics() {
         return metrics;
+    }
+
+    /**
+     * Records a failure that is deliberately not propagated. The counter of its family moves whatever the sink is; an
+     * event is emitted with the family and the type of the failure, and never its message, which may name a server
+     * location.
+     */
+    public void suppressed(SuppressedFailureFamily family, Throwable failure) {
+        Objects.requireNonNull(family, "family");
+        Objects.requireNonNull(failure, "failure");
+        metrics.increment(family.counter());
+        sink.emit(new OperationalEvent(Instant.now(), family.level(), OperationalEventCode.FAILURE_SUPPRESSED,
+                Map.of("family", family.key(), "failureType", failure.getClass().getSimpleName())));
+    }
+
+    /** {@link #suppressed} as an observer, for a component that reports what it set aside without knowing who listens. */
+    public Consumer<Throwable> suppressing(SuppressedFailureFamily family) {
+        Objects.requireNonNull(family, "family");
+        return failure -> suppressed(family, failure);
     }
 
     public Operation begin(String operation, OperationalEventCode startCode, Map<String, String> attributes) {

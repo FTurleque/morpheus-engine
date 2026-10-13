@@ -212,6 +212,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         } catch (KnowledgeStoreException | PublishedHistoryException | IllegalStateException failure) {
             send(exchange, 409, error("STATE_CONFLICT", BoundaryFailureMessage.safe(failure), Map.of()));
         } catch (RuntimeException failure) {
+            UnforeseenFailureTrace.record(failure);
             send(exchange, 500, error("INTERNAL_ERROR", "internal MORPHEUS API error", Map.of()));
         } finally {
             exchange.close();

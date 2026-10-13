@@ -346,6 +346,20 @@ démarrage, avec une ligne sur la sortie d'erreur qui nomme la variable et les v
 **Migration.** Vérifier la valeur de la variable là où elle est posée, y compris dans la configuration d'un client MCP :
 un serveur qui tournait muet à cause d'une valeur inconnue ne démarre plus tant qu'elle n'est pas corrigée ou retirée.
 
+### Métriques : les échecs que le produit écarte sont comptés
+
+Deux situations ne laissaient aucune trace. Un adaptateur de raisonnement installé mais défectueux disparaissait de la
+liste comme s'il n'avait jamais été installé. Une requête HTTP qui mourait d'un échec imprévu recevait
+`500 INTERNAL_ERROR`, et le serveur n'en gardait rien.
+
+Les deux réponses ne changent pas. Les métriques (`GET /api/v1/metrics`) gagnent un compteur par situation :
+`failure.suppressed.adapter-discovery` et `failure.suppressed.http-internal-error`. Avec le journal opérationnel
+actif, chaque occurrence écrit aussi un événement `FAILURE_SUPPRESSED` qui porte le type de l'échec, jamais son
+message.
+
+**Migration.** Aucune. Un compteur `failure.suppressed.http-internal-error` qui monte désigne un défaut de MORPHEUS à
+signaler ; `failure.suppressed.adapter-discovery`, un adaptateur installé à réparer ou à retirer.
+
 ### MINOS et NEXUS : un avertissement du pair ne coupe plus la liaison
 
 Ce qu'un pair écrit sur sa sortie d'erreur était lu comme de l'UTF-8 strict. Un pair qui y écrivait un caractère

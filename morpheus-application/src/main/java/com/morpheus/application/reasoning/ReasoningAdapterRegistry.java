@@ -9,13 +9,26 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
+import java.util.function.Consumer;
 
 /** Immutable registry. Discovery never implies execution: adapters must still be selected in each request. */
 public final class ReasoningAdapterRegistry {
     private final Map<String, ReasoningAdapter> adapters;
+    private final Consumer<Throwable> setAside;
 
+    /** A registry of adapters the caller chose itself; nobody is told of one it sets aside. */
     public ReasoningAdapterRegistry(Collection<? extends ReasoningAdapter> adapters) {
+        this(adapters, failure -> { });
+    }
+
+    /**
+     * @param setAside told of every optional adapter this registry leaves out because it failed, with the failure. The
+     *        registry stays usable either way; the observer is what keeps a broken adapter from looking like an absent
+     *        one.
+     */
+    public ReasoningAdapterRegistry(Collection<? extends ReasoningAdapter> adapters, Consumer<Throwable> setAside) {
         Objects.requireNonNull(adapters, "adapters");
+        this.setAside = Objects.requireNonNull(setAside, "setAside");
         Map<String, ReasoningAdapter> result = new LinkedHashMap<>();
         for (ReasoningAdapter adapter : adapters) {
             ReasoningAdapter value = Objects.requireNonNull(adapter, "adapter");
@@ -34,27 +47,33 @@ public final class ReasoningAdapterRegistry {
     /**
      * Returns the built-in deterministic adapter plus any valid classpath adapters.
      *
-     * <p>Malformed, unavailable or duplicate optional providers are ignored so adapter discovery can never make
+     * <p>Malformed, unavailable or duplicate optional providers are left out so adapter discovery can never make
      * MORPHEUS facts-only operation unavailable. Discovery remains passive; execution still requires an explicit
      * adapter id in the request.</p>
+     *
+     * @param setAside told of every provider that was left out because it failed. A provider that is present and
+     *        broken used to disappear exactly as if it had never been installed.
      */
-    public static ReasoningAdapterRegistry standard() {
+    public static ReasoningAdapterRegistry standard(Consumer<Throwable> setAside) {
+        Objects.requireNonNull(setAside, "setAside");
         Map<String, ReasoningAdapter> discovered = new LinkedHashMap<>();
         addOptional(discovered, new EvidenceSynthesisReasoningAdapter());
         List<ServiceLoader.Provider<ReasoningAdapter>> providers;
         try {
             providers = ServiceLoader.load(ReasoningAdapter.class).stream().toList();
         } catch (ServiceConfigurationError failure) {
-            return new ReasoningAdapterRegistry(discovered.values());
+            setAside.accept(failure);
+            return new ReasoningAdapterRegistry(discovered.values(), setAside);
         }
         for (ServiceLoader.Provider<ReasoningAdapter> provider : providers) {
             try {
                 addOptional(discovered, provider.get());
             } catch (ServiceConfigurationError | RuntimeException failure) {
                 // Optional providers are fault-isolated from MORPHEUS facts-only operation.
+                setAside.accept(failure);
             }
         }
-        return new ReasoningAdapterRegistry(discovered.values());
+        return new ReasoningAdapterRegistry(discovered.values(), setAside);
     }
 
     public List<Descriptor> descriptors() {
@@ -64,6 +83,7 @@ public final class ReasoningAdapterRegistry {
                 result.add(new Descriptor(adapter.id(), adapter.description()));
             } catch (ServiceConfigurationError | RuntimeException failure) {
                 // A broken optional descriptor cannot make the adapter catalog unavailable.
+                setAside.accept(failure);
             }
         }
         return result.stream().sorted(Comparator.comparing(Descriptor::id)).toList();
