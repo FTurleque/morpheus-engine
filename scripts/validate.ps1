@@ -14,10 +14,12 @@ if ($args.Count -eq 0) {
 
 $target = [string]$args[0]
 $normalizedTarget = $target.Trim().ToLowerInvariant()
-$forwardedArguments = if ($args.Count -gt 1) {
-    @($args[1..($args.Count - 1)])
-} else {
-    @()
+# An empty array, never the result of an if expression: PowerShell unrolls @() returned by a statement into $null,
+# and splatting $null hands the validator one null positional argument. validate-m19.ps1 takes none and refused it,
+# and a validator with a -Version default received '' in its place.
+$forwardedArguments = @()
+if ($args.Count -gt 1) {
+    $forwardedArguments = @($args[1..($args.Count - 1)])
 }
 
 if ($normalizedTarget -in @('list', '--list', '-list')) {
