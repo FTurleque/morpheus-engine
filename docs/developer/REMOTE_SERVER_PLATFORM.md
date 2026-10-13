@@ -235,7 +235,7 @@ Une coupure réseau côté client reste un résultat distribué potentiellement 
 
 Chaque opération locale ou remote qui construit `ApiRuntime` possède un `SqliteConnectionScope` thread-confined. Les neuf stores du runtime empruntent neuf connexions logiques, mais partagent exactement une connexion physique. La vérification/migration du schéma est exécutée une seule fois dans ce scope ; la fermeture des stores ne ferme que leurs handles logiques, puis `ApiRuntime.close()` ferme la connexion physique propriétaire.
 
-Le runtime Query HTTP utilise désormais le même principe : ses cinq stores (`snapshots`, `requirements`, `content`, `portfolios`, `saved`) partagent une seule connexion physique et le constructeur nettoie tous les handles déjà ouverts si une initialisation ultérieure échoue.
+Les runtimes Query et Policy suivent le même principe, et ce n'est plus l'affaire de chaque transport : `SqliteQueryStores` (cinq stores) et `SqlitePolicyStores` (huit) ouvrent la portée avant leur premier store, dans `morpheus-store-sqlite`. HTTP, CLI et MCP ouvrent tous `SqliteQueryRuntime` ou `SqlitePolicyRuntime` : une connexion physique par opération, quel que soit le transport, et la libération de tout ce qui était ouvert si une initialisation ultérieure échoue. Jusqu'au 13/10/2026 seul le runtime Query de l'adaptateur HTTP, une copie propre, ouvrait une portée ; les deux ensembles partagés ouvraient cinq et huit connexions.
 
 Une invocation CLI ouvre elle aussi un seul `SqliteConnectionScope` partagé par ses stores. La récupération des snapshots, les lectures et les mutations d'une commande restent donc dans une pression d'une seule connexion physique, avec fermeture du scope en dernier.
 
@@ -414,6 +414,7 @@ disparition brutale en cours de réponse.
 - `RemoteApiLaunchOptionsTest` : local loopback et startup remote fail-closed ;
 - `MorpheusServerCliTest` : provisioning/lifecycle/expiry + backup/verify/restore ;
 - `ApiRuntimeSqliteSessionTest` / `CliRuntimeSqliteSessionTest` : une connexion physique par runtime ;
+- `HttpRequestConnectionCountTest` / `McpToolCallConnectionCountTest` / `CliCommandConnectionCountTest` : une connexion physique pour la même opération sur chaque transport, comptée au pilote JDBC ;
 - `SqliteConnectionScopeTest` / `SqliteTransactionRunnerTest` : confinement thread, transaction ownership, `Error`, cleanup et résultat post-commit explicite ;
 - `SyncReliabilityFallbackTest` : commit visible, retry borné, `BASELINE_INCONSISTENT`, `SCAN_INCOMPLETE` ;
 - `SqliteFutureSchemaCompatibilityTest` / `SqliteServerMaintenanceTest` : integrity/schema/lease/future-schema ;

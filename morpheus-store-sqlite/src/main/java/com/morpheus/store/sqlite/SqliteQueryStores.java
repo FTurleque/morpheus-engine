@@ -7,7 +7,11 @@ import java.nio.file.Path;
 import java.util.Objects;
 
 /**
- * The SQLite stores a query runtime reads from, opened together and released together.
+ * The SQLite stores a query runtime reads from, opened together on one connection and released together.
+ *
+ * <p>The set opens a {@link SqliteConnectionScope} before its first store, so the five stores share one physical
+ * connection and one schema check. It did not: an operation that read through this set opened five connections on
+ * the CLI and the MCP server, where the HTTP adapter, which kept a copy of its own under a scope, opened one.</p>
  *
  * <p>The same reasoning as {@link SqlitePolicyStores}: three adapters expose query, each opened the same five
  * stores in the same order, and opening several stores is where a partial assembly leaks. Each store is
@@ -15,6 +19,7 @@ import java.util.Objects;
  * runtime it is building is complete.</p>
  */
 public record SqliteQueryStores(
+        SqliteConnectionScope scope,
         SqliteSpecificationKnowledgeStore snapshots,
         SqliteVersionedRequirementStore requirements,
         SqliteSnapshotBusinessContentStore content,
@@ -26,6 +31,7 @@ public record SqliteQueryStores(
         Objects.requireNonNull(databasePath, "databasePath");
         Objects.requireNonNull(owned, "owned");
         return new SqliteQueryStores(
+                owned.keep(SqliteStoreConnection.openScope(databasePath), SqliteConnectionScope::close),
                 owned.keep(new SqliteSpecificationKnowledgeStore(databasePath),
                         SqliteSpecificationKnowledgeStore::close),
                 owned.keep(new SqliteVersionedRequirementStore(databasePath),
@@ -36,7 +42,7 @@ public record SqliteQueryStores(
                 owned.keep(new SqliteSavedViewStore(databasePath), SqliteSavedViewStore::close));
     }
 
-    /** Releases every store, in the reverse of the order they were opened, even when one release fails. */
+    /** Releases every store, then the connection they shared, even when one release fails. */
     @Override
     public void close() {
         ExhaustiveShutdown.releaseAll(
@@ -45,6 +51,7 @@ public record SqliteQueryStores(
                 portfolios,
                 content,
                 requirements,
-                snapshots);
+                snapshots,
+                scope);
     }
 }
