@@ -76,6 +76,21 @@ class SqliteRuntimeConnectionTest {
         assertEquals(before.active(), SqliteConnectionScope.diagnostics().active(), "and no connection is left open");
     }
 
+    @Test
+    void aDatabasePathThatIsADirectoryIsTheKnowledgeStoreFailureToo() throws Exception {
+        Path directory = Files.createDirectory(temp.resolve("a-directory.db"));
+        SqliteConnectionScope.Diagnostics before = SqliteConnectionScope.diagnostics();
+
+        for (Function<Path, AutoCloseable> open : List.<Function<Path, AutoCloseable>>of(
+                SqliteQueryRuntime::open, SqlitePolicyRuntime::open)) {
+            KnowledgeStoreException refused = assertThrows(KnowledgeStoreException.class, () -> open.apply(directory));
+
+            assertEquals(SqliteSpecificationKnowledgeStore.INITIALIZATION_FAILURE, refused.getMessage());
+            assertInstanceOf(IllegalArgumentException.class, refused.getCause());
+        }
+        assertEquals(before.active(), SqliteConnectionScope.diagnostics().active(), "and no connection is left open");
+    }
+
     private void assertOneScopedConnection(Function<Path, AutoCloseable> open, int stores) {
         Path database = temp.resolve("runtime.db");
         SqliteConnectionScope.Diagnostics before = SqliteConnectionScope.diagnostics();
