@@ -3,6 +3,8 @@ package com.morpheus.cli;
 import com.morpheus.api.AllowedWorkspaceRoots;
 import com.morpheus.api.MorpheusHttpServer;
 import com.morpheus.api.MorpheusRemoteHttpServer;
+import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.operability.OperationalLogFileException;
 import com.morpheus.application.operability.OperationalLogMode;
 import com.morpheus.application.query.dsl.QueryBudgets;
 import com.morpheus.integration.minos.MinosIntegrationRuntime;
@@ -13,10 +15,13 @@ import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.function.Consumer;
 
 /** Official native MORPHEUS launcher for CLI, MCP STDIO and local/remote HTTP API modes. */
 public final class MorpheusMain {
@@ -31,6 +36,11 @@ public final class MorpheusMain {
             System.err.println("MORPHEUS usage error: " + refusal);
             System.exit(CliExitCode.USAGE.code());
         });
+        refusedOperationalLogFile(args, System.getenv(), System.getProperties(), LocalOperationalRuntime::writeLogFileIn)
+                .ifPresent(refusal -> {
+                    System.err.println("MORPHEUS error: " + refusal);
+                    System.exit(CliExitCode.IO_ERROR.code());
+                });
         int exitCode;
         if (RemoteApiLaunchOptions.isRemoteApiCommand(args)) {
             exitCode = runRemoteApi(args, System.err, System.getenv(), System.getProperties());
@@ -60,6 +70,42 @@ public final class MorpheusMain {
         } catch (IllegalArgumentException refused) {
             return Optional.of(refused.getMessage());
         }
+    }
+
+    /**
+     * Names the directory of the operational log file when the mode writes one, and returns the refusal if the file
+     * cannot be written there. The directory is the one the {@code paths} command prints for the same arguments: the
+     * environment, or the {@code logs} directory beside a data directory given on the command line.
+     */
+    static Optional<String> refusedOperationalLogFile(
+            String[] args, Map<String, String> environment, Properties properties, Consumer<Path> logFileIn) {
+        if (OperationalLogMode.parse(environment.get(OperationalLogMode.ENVIRONMENT_VARIABLE))
+                != OperationalLogMode.FILE) {
+            return Optional.empty();
+        }
+        Path logsDirectory = CliLayout.resolve(
+                        dataDirectoryOption(args), Optional.empty(), Optional.empty(), environment, properties)
+                .logsDirectory();
+        try {
+            logFileIn.accept(logsDirectory);
+            return Optional.empty();
+        } catch (OperationalLogFileException refused) {
+            return Optional.of(refused.getMessage());
+        }
+    }
+
+    /** The value of the first {@code --data-dir}; a value no command would accept is left for that command to refuse. */
+    private static Optional<Path> dataDirectoryOption(String[] args) {
+        for (int index = 0; index + 1 < args.length; index++) {
+            if ("--data-dir".equals(args[index])) {
+                try {
+                    return Optional.of(Path.of(args[index + 1]));
+                } catch (InvalidPathException notAPath) {
+                    return Optional.empty();
+                }
+            }
+        }
+        return Optional.empty();
     }
 
     static int run(

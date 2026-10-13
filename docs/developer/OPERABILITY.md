@@ -67,8 +67,23 @@ MORPHEUS_OPERATIONAL_LOGS=json
 
 Les événements sont alors écrits en JSON-lines sur `stderr` uniquement.
 
+```text
+MORPHEUS_OPERATIONAL_LOGS=file
+```
+
+Les mêmes lignes vont dans `morpheus-operational.jsonl` sous le répertoire de logs, et plus sur `stderr`
+(`RotatingOperationalLogFile`, ADR-0112). Le fichier courant est borné à 4 Mio ; quatre générations sont gardées, de
+`.1` à `.4`. Répertoire et fichiers sont privés au compte (`LocalWritePermissionHardener`). Rien n'est tenu ouvert
+entre deux événements : plusieurs processus du même compte écrivent dans le même journal.
+
+`morpheus-application` ne connaît pas la disposition du processus. `MorpheusMain` résout le répertoire - celui que
+`paths` imprime pour les mêmes arguments - et le nomme une fois (`LocalOperationalRuntime.writeLogFileIn`), avant
+toute autre action ; un événement émis plus tôt n'a pas de destination. Un répertoire inutilisable arrête le
+processus : `OPERATIONAL_LOG_FILE_UNUSABLE`, code d'erreur d'entrée-sortie, jamais un repli sur `stderr`. Une écriture
+qui échoue ensuite est perdue et comptée par `operational.log.write.failed`.
+
 Le mode est une liste fermée, `OperationalLogMode` : `off`, `none` (aucun journal), `json`, `jsonl`, `structured`
-(JSON-lines), comparés sans casse ni espaces. Une valeur hors liste est un refus nommé,
+(JSON-lines), `file`, comparés sans casse ni espaces. Une valeur hors liste est un refus nommé,
 `OPERATIONAL_LOG_MODE_UNKNOWN`, jamais un repli : jusqu'au 13/10/2026 toute valeur inconnue sélectionnait le sink
 no-op, et un opérateur qui avait écrit `jsno` exploitait un serveur muet sans le savoir.
 
@@ -99,7 +114,8 @@ refuse en énumérant les fournisseurs, `ProductReleaseContractTest` en lisant l
 Trois classes du produit journalisent par `System.Logger` (`BoundedStdioClientTransport`,
 `BoundedStdioServerTransportProvider`, `SqliteTransactionRunner`). Elles ne passent pas par ce binding : leurs
 enregistrements `INFO` et au-dessus sortent en texte sur la sortie d'erreur, dans tous les modes. Avec le journal
-actif, la sortie d'erreur mêle donc des lignes JSON et ce texte.
+sur `stderr`, la sortie d'erreur mêle donc des lignes JSON et ce texte ; avec le journal en fichier, ce texte reste sur
+la sortie d'erreur et n'est pas dans le fichier (ADR-0112, décision 8).
 
 ## Redaction
 

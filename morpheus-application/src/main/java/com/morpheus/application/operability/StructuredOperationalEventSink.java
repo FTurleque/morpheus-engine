@@ -20,6 +20,11 @@ public final class StructuredOperationalEventSink implements OperationalEventSin
 
     @Override
     public synchronized void emit(OperationalEvent event) {
+        output.println(line(event));
+    }
+
+    /** The redacted JSON object of an event, without a line terminator. */
+    public String line(OperationalEvent event) {
         Objects.requireNonNull(event, "event");
         Map<String, String> attributes = redactor.redact(event.attributes());
         StringBuilder json = new StringBuilder(256);
@@ -38,7 +43,7 @@ public final class StructuredOperationalEventSink implements OperationalEventSin
                     .append(escape(attribute.getValue())).append('\"');
         }
         json.append("}}");
-        output.println(json);
+        return json.toString();
     }
 
     private String escape(String value) {
