@@ -134,12 +134,20 @@ sans quelque chose :
 |---|---|---|
 | `adapter-discovery` | `failure.suppressed.adapter-discovery` | un adaptateur de raisonnement présent sur le class path n'a pas pu être chargé ou décrit ; il est absent de la liste alors qu'il est installé |
 | `http-internal-error` | `failure.suppressed.http-internal-error` | une requête HTTP est morte d'un échec que rien n'avait prévu et a reçu `500 INTERNAL_ERROR` ; c'est un défaut du produit à signaler, pas une erreur de l'appelant |
+| `sync-recovery-read` | `failure.suppressed.sync-recovery-read` | pendant la reprise d'une synchronisation en échec, l'état qui dirait si le commit ou son marqueur est déjà visible n'a pas pu être lu ; il a été pris pour « non visible », ce qui est la lecture sûre, mais le stockage a un problème |
+| `sqlite-conflict-read` | `failure.suppressed.sqlite-conflict-read` | en répondant à un conflit de cycle de vie, l'enregistrement d'audit ou l'état courant n'a pas pu être lu ; le conflit est rendu sans distinguer une mutation déjà appliquée d'une vraie collision |
+| `source-watch` | `failure.suppressed.source-watch` | un changement sous une racine surveillée n'a pas pu devenir un signal - un répertoire impossible à enregistrer, un chemin hors du workspace - et a été rendu comme un débordement ; un nouveau répertoire peut rester non surveillé |
 
 Ces compteurs sont servis avec les autres par `GET /api/v1/metrics`, en local comme à travers la façade remote.
 
 Le cœur de raisonnement reste pur : `ReasoningAdapterRegistry` ne connaît aucun enregistreur. Il **signale** ce qu'il
 écarte à un observateur (`Consumer<Throwable>`) que lui passent les trois adaptateurs qui le construisent - CLI, MCP,
 HTTP -, et ce sont eux qui comptent.
+
+`SilentCatchArchitectureTest` empêche le suivant d'arriver sans être vu : un `catch` dont le corps ne contient aucune
+instruction, ou dont la variable s'appelle `ignored`, doit enregistrer l'échec ou figurer dans une liste fermée avec sa
+raison - une sonde dont l'exception est la réponse, un nettoyage sur un chemin dont l'issue est déjà décidée. Une
+seconde liste, qui ne fait que rétrécir, nomme ceux qui perdent encore un échec sans le compter.
 
 Avant le 13/10/2026 aucun de ces échecs ne laissait quoi que ce soit : le `catch` portait un commentaire, et après la
 fin du processus rien ne disait qu'un adaptateur avait été présent et cassé, ni que des requêtes mouraient.

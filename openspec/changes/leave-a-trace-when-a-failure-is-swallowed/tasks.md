@@ -22,7 +22,8 @@ that introduces this change.
 
 - [ ] 2.1 A test per family of 1.3: provoke the swallowed failure, assert the counter. Proof: red on `HEAD`.
       *2026-10-13, first lot: `adapter-discovery` (`ReasoningAdapterRegistryTest`, a broken provider declared in the test resources) and `http-internal-error` (`UnforeseenFailureTraceTest`, through a real server and the metrics it serves). The other families follow in their lots.*
-- [ ] 2.2 The textual rule on silent catches with its closed list. Proof: red on `HEAD`, naming the sites of 1.3.
+- [x] 2.2 The textual rule on silent catches with its closed list. Proof: red on `HEAD`, naming the sites of 1.3.
+      *2026-10-13, second lot: `SilentCatchArchitectureTest`. It reads a shape - a catch that holds no statement, or whose variable is named `ignored` - and requires each to be named by file and caught types in one of two closed lists: explained (nine entries: probes, and clean-ups on a path whose outcome is decided) or not yet recorded (eleven entries, the third lot, a list that only shrinks). It cannot see a catch that returns a default under a better-named variable; the reading of 1.3 did that.*
 - [ ] 2.3 A test that a record logged through SLF4J at warning level reaches the sink when the mode is active and
       nowhere when it is off; a test that MCP STDIO standard output stays frames only. Proof: red on `HEAD`.
 - [ ] 2.4 If the file mode is chosen: write, rotation at the bound, generations kept, permissions, unwritable directory
@@ -33,6 +34,7 @@ that introduces this change.
 - [ ] 3.1 `FAILURE_SUPPRESSED`, the families, the recording at each site of 1.3. Proof: 2.1 and 2.2 pass; the textual
       rules on `application.reasoning` and `application.policy` green unmodified.
       *2026-10-13, first lot: `FAILURE_SUPPRESSED`, `SuppressedFailureFamily`, `OperationalRecorder.suppressed`; the three sites of adapter discovery and the six internal-error handlers. The reasoning core imports nothing from operability: the registry reports what it sets aside to an observer its three callers provide. Remaining: the other eight sites of `application` and `store-sqlite`, the twelve of the integrations, the closed-list rule of 2.2.*
+      *2026-10-13, second lot: `sync-recovery-read` (two reads of `IncrementalSyncService`), `sqlite-conflict-read` (two reads of `SqliteChangeLifecycleMutationStore`), `source-watch` (`LocalSourceWatcher`). The sync service and the watcher take their recorder by constructor, as `SnapshotRecoveryService` already did. The broad catch of `MorpheusHttpAllowedMethods` is gone: the parser says whether a path is routable. **Departures from the classification of 1.3**: the permission probes of `LocalWritePermissionHardener` are explained rather than recorded - they are fail-closed and the refusal that follows is named; and the two SQLite conflict reads are recorded but not exercised by a test, their failure needing a database that breaks between two statements.*
 - [ ] 3.2 The provider, the removal of `slf4j-nop`, the three `System.Logger` users (decision 5, stated). Proof: 2.3
       passes; `./mvnw dependency:analyze` reports no warning.
 - [ ] 3.3 The file mode or the removal of the directory, with the user pages. Proof: 2.4, or the documentation gates.

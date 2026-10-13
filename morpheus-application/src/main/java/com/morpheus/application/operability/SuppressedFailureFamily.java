@@ -14,7 +14,22 @@ public enum SuppressedFailureFamily {
     /** An optional reasoning adapter present on the class path could not be loaded or described. */
     ADAPTER_DISCOVERY("adapter-discovery", OperationalEventLevel.WARNING),
     /** An HTTP request ended in a failure nothing had foreseen and was answered with a generic internal error. */
-    HTTP_INTERNAL_ERROR("http-internal-error", OperationalEventLevel.ERROR);
+    HTTP_INTERNAL_ERROR("http-internal-error", OperationalEventLevel.ERROR),
+    /**
+     * While recovering from a failed sync, the state that would say whether the commit or its marker is already
+     * visible could not be read, and was taken as "not visible".
+     */
+    SYNC_RECOVERY_READ("sync-recovery-read", OperationalEventLevel.WARNING),
+    /**
+     * While answering a lifecycle conflict, the audit record or the current state could not be read: the conflict is
+     * reported without telling an already applied mutation from a real collision, or without its current state.
+     */
+    SQLITE_CONFLICT_READ("sqlite-conflict-read", OperationalEventLevel.WARNING),
+    /**
+     * A change under a watched root could not be turned into a signal - a directory that could not be registered, a
+     * path outside the workspace - and was reported as an overflow, which only asks for a rescan.
+     */
+    SOURCE_WATCH("source-watch", OperationalEventLevel.WARNING);
 
     private final String key;
     private final OperationalEventLevel level;
