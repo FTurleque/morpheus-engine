@@ -101,8 +101,7 @@ final class SqliteStoreConnection {
             throw nested;
         } catch (IllegalStateException unavailable) {
             throw new KnowledgeStoreException(
-                    SqliteSpecificationKnowledgeStore.INITIALIZATION_FAILURE,
-                    unavailable.getCause() == null ? unavailable : unavailable.getCause());
+                    SqliteSpecificationKnowledgeStore.INITIALIZATION_FAILURE, unavailable.getCause());
         } catch (RuntimeException unsafe) {
             throw new KnowledgeStoreException(SqliteSpecificationKnowledgeStore.INITIALIZATION_FAILURE, unsafe);
         }
