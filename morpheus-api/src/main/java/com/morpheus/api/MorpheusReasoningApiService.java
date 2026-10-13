@@ -1,5 +1,7 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.operability.SuppressedFailureFamily;
 import com.morpheus.application.reasoning.ReasoningContracts;
 import com.morpheus.application.reasoning.ReasoningContracts.Evidence;
 import com.morpheus.application.reasoning.ReasoningContracts.EvidenceKind;
@@ -17,7 +19,8 @@ final class MorpheusReasoningApiService {
     private final ReasoningService service;
 
     MorpheusReasoningApiService() {
-        this(ReasoningService.standard());
+        this(ReasoningService.standard(LocalOperationalRuntime.recorder()
+                .suppressing(SuppressedFailureFamily.ADAPTER_DISCOVERY)));
     }
 
     MorpheusReasoningApiService(ReasoningService service) {

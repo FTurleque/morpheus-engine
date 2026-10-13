@@ -120,6 +120,30 @@ maxNanos
 
 Les benchmarks M19 utilisent en plus un protocole p95 reproductible séparé ; les métriques runtime ne prétendent pas remplacer les gates de performance.
 
+## Échecs écartés
+
+Un échec que le produit choisit de ne pas propager laisse une trace. `OperationalRecorder.suppressed(famille, échec)`
+incrémente le compteur `failure.suppressed.<famille>` - quel que soit le mode de journal - et émet un événement
+`FAILURE_SUPPRESSED` portant la famille et le **type** de l'échec. Le message de l'échec n'y figure jamais : il peut
+nommer un emplacement du serveur.
+
+Les familles sont une liste fermée, `SuppressedFailureFamily`. Un compteur non nul veut dire que le produit a continué
+sans quelque chose :
+
+| Famille | Compteur | Ce qu'une valeur non nulle veut dire |
+|---|---|---|
+| `adapter-discovery` | `failure.suppressed.adapter-discovery` | un adaptateur de raisonnement présent sur le class path n'a pas pu être chargé ou décrit ; il est absent de la liste alors qu'il est installé |
+| `http-internal-error` | `failure.suppressed.http-internal-error` | une requête HTTP est morte d'un échec que rien n'avait prévu et a reçu `500 INTERNAL_ERROR` ; c'est un défaut du produit à signaler, pas une erreur de l'appelant |
+
+Ces compteurs sont servis avec les autres par `GET /api/v1/metrics`, en local comme à travers la façade remote.
+
+Le cœur de raisonnement reste pur : `ReasoningAdapterRegistry` ne connaît aucun enregistreur. Il **signale** ce qu'il
+écarte à un observateur (`Consumer<Throwable>`) que lui passent les trois adaptateurs qui le construisent - CLI, MCP,
+HTTP -, et ce sont eux qui comptent.
+
+Avant le 13/10/2026 aucun de ces échecs ne laissait quoi que ce soit : le `catch` portait un commentaire, et après la
+fin du processus rien ne disait qu'un adaptateur avait été présent et cassé, ni que des requêtes mouraient.
+
 ## Recovery
 
 `RuntimeSnapshotRecovery` est le hook explicite de composition root, exécuté au démarrage des runtimes CLI, API et MCP.
