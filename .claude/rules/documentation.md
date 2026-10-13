@@ -79,6 +79,8 @@ page mixte.
 - Jamais de second registre d'ADR, ni de second dossier d'audits
 - Jamais dans `docs/user/` : un SHA, un compteur de tests ou de couverture, un numéro d'issue ou de PR,
   un nom de gate, une commande `./mvnw`, un chemin `src/` — c'est du contenu `developer/` ou `project/`
+  (`UserDocumentationSpeaksOfTheInstalledProductTest` le refuse dans toute page active ; seules les notes de
+  version déjà publiées, relevés datés, en sont exemptées par leur nom)
 - Jamais de seuil de qualité dans `docs/README.md` : c'est un aiguillage ; les seuils vivent dans
   `docs/developer/README.md` et `docs/developer/BUILD_AND_TEST.md`, que
   `RepositoryDocumentationCoherenceTest` compare à `config/m21-quality-ratchets.properties`
