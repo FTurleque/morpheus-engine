@@ -101,5 +101,12 @@ class MinosSuppressedFailureTraceTest {
 
         assertEquals(ExternalReferenceResolverResult.Status.UNAVAILABLE, failing.resolve(target).status());
         assertEquals(Map.of("failure.suppressed.mcp-peer", 1L), metrics.snapshot().counters());
+
+        MinosMcpExternalReferenceResolver broken = new MinosMcpExternalReferenceResolver(() -> {
+            throw new IllegalStateException("a failure the integration did not name");
+        }, recorder);
+
+        assertEquals(ExternalReferenceResolverResult.Status.UNAVAILABLE, broken.resolve(target).status());
+        assertEquals(Map.of("failure.suppressed.mcp-peer", 2L), metrics.snapshot().counters());
     }
 }
