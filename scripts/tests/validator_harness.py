@@ -240,9 +240,10 @@ class FabricatedCheckout:
         # The real scripts, byte for byte: these are the files under test.
         shutil.copytree(SCRIPTS, root / "scripts", ignore=shutil.ignore_patterns("tests", "__pycache__"))
         # The real POMs: validate-d2 and validate-r2 compare the reactor with what is on disk and read the version.
-        tracked = subprocess.run(["git", "ls-files", "--", "pom.xml", "*/pom.xml"], cwd=REPOSITORY,
-                                 capture_output=True, text=True, check=True).stdout.split()
-        for pom in tracked:
+        namespace = "{http://maven.apache.org/POM/4.0.0}"
+        declared = ET.parse(REPOSITORY / "pom.xml").getroot().findall(f"{namespace}modules/{namespace}module")
+        modules = [module.text.strip() for module in declared]
+        for pom in ["pom.xml", *(f"{module}/pom.xml" for module in modules)]:
             (root / pom).parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(REPOSITORY / pom, root / pom)
         # The real contract files validate-m27 compares.
