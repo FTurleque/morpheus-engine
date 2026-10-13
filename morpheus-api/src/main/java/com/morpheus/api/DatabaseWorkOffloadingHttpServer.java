@@ -118,7 +118,6 @@ final class DatabaseWorkOffloadingHttpServer extends RequestProtectedHttpServer 
         private final Semaphore admission;
         private final CompletableFuture<Void> outcome = new CompletableFuture<>();
         private Thread worker;
-        private boolean abandoned;
 
         private OffloadedRequest(HttpHandler handler, HttpExchange exchange, Semaphore admission) {
             this.handler = handler;
@@ -129,9 +128,8 @@ final class DatabaseWorkOffloadingHttpServer extends RequestProtectedHttpServer 
         @Override
         public void run() {
             try {
-                if (taken()) {
-                    handler.handle(exchange);
-                }
+                taken();
+                handler.handle(exchange);
                 outcome.complete(null);
             } catch (IOException | RuntimeException | Error raised) {
                 outcome.completeExceptionally(raised);
@@ -141,10 +139,8 @@ final class DatabaseWorkOffloadingHttpServer extends RequestProtectedHttpServer 
             }
         }
 
-        /** Whether the caller is still waiting; a request abandoned before a worker took it is not handled. */
-        private synchronized boolean taken() {
+        private synchronized void taken() {
             worker = Thread.currentThread();
-            return !abandoned;
         }
 
         /** Under the same lock as the interruption, so that it cannot land on this worker's next request. */
@@ -153,8 +149,11 @@ final class DatabaseWorkOffloadingHttpServer extends RequestProtectedHttpServer 
             Thread.interrupted();
         }
 
+        /**
+         * Interrupts the worker that holds this request. A request no worker has taken yet is left to be handled: it
+         * holds a place, and only its worker can give the place back.
+         */
         private synchronized void abandon() {
-            abandoned = true;
             if (worker != null) {
                 worker.interrupt();
             }

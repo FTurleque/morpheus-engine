@@ -87,7 +87,7 @@ principal|role|sha256(token)[|expiresAt]
 Exemples :
 
 ```text
-admin|ADMIN|7c4a8d09ca3762af61e59520943dc26494f8941b...
+admin|ADMIN|7c4a8d09ca3762af...
 ci-reader|READ|0123456789abcdef...|2030-01-01T00:00:00Z
 ```
 
@@ -331,23 +331,17 @@ Un client doit traiter toute rupture réseau pendant une mutation comme un résu
 
 MORPHEUS utilise le serveur HTTP du JDK (ADR-0065). C'est un choix assumé, pas un provisoire : il n'a aucune dépendance, aucun cycle de vie à gérer et aucune surface de configuration à sécuriser. Le remplacer par Jetty/Netty/Undertow doit donc être une **décision prise sur mesure**, jamais sur intuition.
 
-`MorpheusRemoteLoadProfileTest` (module `morpheus-api`) est le harnais reproductible qui produit cette mesure. Il pilote la vraie façade HTTPS et écrit ce qu'il a observé dans `morpheus-api/target/remote-load-profile.txt` :
-
-```bash
-./mvnw -pl morpheus-api test -Dtest=MorpheusRemoteLoadProfileTest
-```
-
-Ce que le harnais **affirme** n'est délibérément pas une latence. Un chiffre absolu sur un runner partagé n'est pas une propriété de MORPHEUS, et un build qui casse quand la machine est occupée apprend surtout à ignorer l'échec. Les assertions portent sur les propriétés qui doivent tenir à n'importe quelle vitesse :
+Ce que le serveur **garantit** sous charge n'est délibérément pas une latence : un chiffre absolu dépend de la machine qui héberge le serveur, pas de MORPHEUS. Les garanties portent sur les propriétés qui tiennent à n'importe quelle vitesse, et qu'un exploitant constate depuis un client et sur `GET /api/v1/server/status` :
 
 - toute requête reçoit une réponse ;
 - cette réponse n'est **jamais** un 5xx : la saturation s'exprime en `429` explicite, jamais en drop ni en attente ;
 - `server/status` reste répondable pendant toute une charge mixte lecture + mutation ;
-- un corps surdimensionné (`413`) ne laisse **aucun** slot derrière lui ;
-- fermer la façade libère réellement sa socket et son executor.
+- un corps surdimensionné (`413`) ne laisse **aucun** slot derrière lui : `activeRequests` revient à sa valeur d'avant ;
+- arrêter le serveur libère réellement son port d'écoute.
 
-Les latences (`p50`, `p95`, `max`, `wall`) sont **enregistrées comme preuve**, pas asserties. Elles alimentent la décision suivante.
+Les latences (`p50`, `p95`, `max`) ne font l'objet d'aucun engagement : elles se mesurent sur le déploiement, depuis ses clients, et alimentent la décision suivante.
 
-**Critères objectifs de remplacement.** Tant qu'aucun de ces seuils n'est franchi sur une charge représentative mesurée par le harnais, la solution simple est conservée :
+**Critères objectifs de remplacement.** Tant qu'aucun de ces seuils n'est franchi sur une charge représentative mesurée sur le déploiement, la solution simple est conservée :
 
 | Critère | Seuil déclencheur |
 |---|---|
@@ -359,7 +353,7 @@ Les latences (`p50`, `p95`, `max`, `wall`) sont **enregistrées comme preuve**, 
 
 Le dernier critère est le plus important : il distingue « le serveur HTTP est trop lent » de « la base est le goulot ». Remplacer `jdk.httpserver` alors que la contention est en réalité SQLite ne changerait rien et ajouterait une dépendance. Le franchissement d'un seuil appelle un ADR dédié, pas un changement direct.
 
-Le harnais montre aussi le comportement de refus : la façade préfère refuser vite plutôt que mettre en file. Sur un tir à 240 lectures concurrentes contre `--max-concurrent 8`, l'essentiel des requêtes reçoit un `429` en quelques millisecondes. Un client remote doit donc implémenter un retry avec backoff ; c'est un choix de conception, pas une limite du serveur HTTP.
+Le comportement de refus s'observe de la même façon : la façade préfère refuser vite plutôt que mettre en file. Face à 240 lectures concurrentes sur un serveur lancé avec `--max-concurrent 8`, l'essentiel des requêtes reçoit un `429` en quelques millisecondes. Un client remote doit donc implémenter un retry avec backoff ; c'est un choix de conception, pas une limite du serveur HTTP.
 
 ### Clients lents et clients qui cessent de lire
 
@@ -392,9 +386,8 @@ transporterait est précisément la ressource récupérée. L'événement est co
 client qui a cessé de **recevoir**, le second un client qui a cessé d'**envoyer**, et seul le premier retient un
 slot tant que le client reste connecté.
 
-`MorpheusRemoteAdversarialClientTest` pilote ces trois comportements depuis une socket TLS brute contre la vraie
-façade : lecture des seuls en-têtes puis arrêt, lecture lente avec pauses, et disparition brutale en cours de
-réponse.
+Ces règles valent pour les trois façons dont un client TLS peut cesser de coopérer : lire les seuls en-têtes
+puis s'arrêter, lire lentement avec des pauses, et disparaître brutalement en cours de réponse.
 
 ### Détecter la contention SQLite
 
