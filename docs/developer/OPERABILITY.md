@@ -59,6 +59,9 @@ Le serveur local remet donc tout gestionnaire qui peut toucher la base à un poo
 virtuel de la requête se gare en attendant. La taille du pool est la concurrence de la base ; au-delà, les requêtes
 font la queue.
 
+La queue est bornée dans le temps : une requête attend un travailleur dix secondes au plus (`ADMISSION_WAIT`), dans
+l'ordre d'arrivée, puis reçoit `429 LOCAL_SERVER_BUSY` avec `Retry-After: 1`. Les refus ne sont pas comptés.
+
 `health`, `metrics` et `version` répondent sans la base et sont enregistrées hors du pool
 (`MorpheusRootHttpRoutes.ANSWERED_WITHOUT_THE_DATABASE`) : elles restent servies quand tous les travailleurs
 attendent. `readiness` interroge la base et passe par le pool.

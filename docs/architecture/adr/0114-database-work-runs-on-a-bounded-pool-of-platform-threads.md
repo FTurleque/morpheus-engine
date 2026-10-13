@@ -61,6 +61,29 @@ n'a été mesuré que sur la machine à 16 processeurs.
 5. **Les moniteurs ne sont pas touchés.** Le remède n'en dépend pas. Dire ce que chacun protège, les stores étant
    construits par requête, reste à faire ; ce n'est plus une question de disponibilité.
 
+## Amendement du 13 octobre 2026 — l'attente d'un travailleur est bornée
+
+Le constat AUD-PRF-03 portait sur l'absence de contrôle d'admission du serveur local. Le pool ci-dessus en fournit le
+plafond ; il restait une file sans fin devant lui. Décidé, sans ADR séparé comme la spécification
+(`openspec/changes/admit-local-requests-before-they-meet-the-database`) le prévoyait :
+
+6. **Une place par travailleur, attendue dans l'ordre d'arrivée.** Un sémaphore équitable de `DATABASE_WORKERS`
+   permis. Une requête tient une place exactement pendant qu'un travailleur la traite : la file interne du pool reste
+   vide, et la seule file est celle-ci.
+
+7. **L'attente est bornée, puis refusée par son nom.** `ADMISSION_WAIT`, dix secondes — deux fois le délai
+   d'occupation d'une connexion. Passé ce délai : `429`, code `LOCAL_SERVER_BUSY`, `Retry-After: 1`, avec les en-têtes
+   de toute réponse locale. Le refus est écrit par le thread de la requête : rien n'a été remis à un travailleur.
+
+8. **Le plafond suit la base, y compris en mode distant.** La spécification demandait que le plafond local ne soit
+   pas inférieur à celui de la façade distante, pour qu'une requête déjà admise n'attende pas deux fois. Ce n'est pas
+   appliqué : le plafond de la façade est un réglage de l'opérateur, et l'égaler ramènerait dans la base la contention
+   que la mesure a montrée. Une requête que la façade a admise peut donc attendre un travailleur, dans la même borne,
+   et recevoir ce `429` relayé.
+
+Non fait : aucun compteur des refus d'admission. Le décorateur n'a pas de métriques, et lui en donner par le runtime
+statique ajouterait un utilisateur à une liste qui ne fait que rétrécir.
+
 ## Alternatives écartées
 
 - **Remplacer les moniteurs par des verrous.** Ne libère pas un thread qui attend dans du code natif ; la mesure sur
