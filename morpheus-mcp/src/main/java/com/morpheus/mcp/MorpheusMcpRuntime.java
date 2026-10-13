@@ -78,7 +78,7 @@ final class MorpheusMcpRuntime implements AutoCloseable {
      * answers: opened without a scope, the first store raised it. A second scope on the same thread is a defect of
      * the caller and is left as it is.
      */
-    private static SqliteConnectionScope openScope(Path databasePath) {
+    static SqliteConnectionScope openScope(Path databasePath) {
         try {
             return SqliteConnectionScope.open(databasePath);
         } catch (SqliteConnectionScope.NestedScopeException nested) {

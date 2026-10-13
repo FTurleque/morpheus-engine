@@ -64,6 +64,26 @@ scénarios, un scénario nomme son exigence). Toute autre dépendance entre ces 
 La même règle sur `com.morpheus.application` est **reportée** : 167 cycles sur 16 tranches demanderaient une refonte
 des paquets, hors de portée d'une décision d'architecture. La mesure est consignée ici pour la prochaine décision.
 
+## Amendement du 13 octobre 2026 — une racine qui construit des stores partage une connexion
+
+Être nommée racine de composition donne le droit d'atteindre un store concret ; cela ne disait rien de la manière. Le
+constat AUD-TRV-05 de l'audit du 9 octobre 2026 l'a montré : le runtime MCP construisait sept stores sans portée de
+connexion, soit sept connexions physiques et sept vérifications de schéma par appel d'outil, là où les runtimes HTTP et
+CLI en partagent une entre neuf stores.
+
+- **Une classe de `api`, `mcp` ou `cli` qui construit des stores SQLite ouvre d'abord une `SqliteConnectionScope`.**
+  `MorpheusMcpRuntime` et `MorpheusCompositionMcpTools` le font désormais, comme `ApiRuntime`, `CliRuntime` et le
+  runtime interne de `MorpheusQueryApiService`.
+- **Une classe dont chaque opération ne construit qu'un store en est dispensée, et elle est nommée.** Un store, c'est
+  une connexion ; une portée n'y ajouterait rien. Neuf classes sont dans ce cas, listées avec l'opération concernée
+  dans `SqliteConnectionScopeUseArchitectureTest`. Une classe nommée qui ouvrirait deux stores ensemble est refusée.
+- **La liste des racines ne rétrécit pas par ce changement.** La spécification
+  (`openspec/changes/own-the-sqlite-connection-policy-in-one-place`) prévoyait un type de runtime par adaptateur,
+  paramétré par les stores d'une opération. Mesuré : après le runtime MCP, un seul site ouvrait encore deux connexions
+  pour une opération. Le refaire en un type commun aurait déplacé toutes les racines nommées pour corriger un site ; la règle
+  tient l'invariant sans ce déplacement.
+- **Une portée ne s'imbrique pas**, et le refus a un type : `SqliteConnectionScope.NestedScopeException`.
+
 ## Alternatives écartées
 
 - **Ramener tout le câblage dans `morpheus-cli`** (les adaptateurs ne dépendant plus que des ports de l'application,

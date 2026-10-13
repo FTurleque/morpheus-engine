@@ -9,6 +9,7 @@ import com.morpheus.application.composition.CompositionSnapshotState;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.provider.ProviderId;
 import com.morpheus.store.sqlite.SqliteCompositionStateStore;
+import com.morpheus.store.sqlite.SqliteConnectionScope;
 import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -84,6 +85,21 @@ class MorpheusCompositionMcpToolsTest {
         assertEquals(3, beyond.get("totalMatches"));
         assertEquals(false, beyond.get("hasMore"));
         assertEquals(10, beyond.get("offset"));
+    }
+
+    /** The two stores of a composition tool call borrow one physical connection, as every other tool call does. */
+    @Test
+    void aCompositionToolCallOpensOnePhysicalConnection() throws Exception {
+        Path database = tempDirectory.resolve("composition.db").toAbsolutePath().normalize();
+        String projectId = storeCompositionOfThreeConflicts(database);
+        var specifications = new MorpheusCompositionMcpTools(database).specifications();
+        SqliteConnectionScope.Diagnostics before = SqliteConnectionScope.diagnostics();
+
+        conflicts(specifications, Map.of("projectId", projectId));
+
+        SqliteConnectionScope.Diagnostics after = SqliteConnectionScope.diagnostics();
+        assertEquals(1, after.opened() - before.opened());
+        assertEquals(1, after.closed() - before.closed());
     }
 
     private Map<?, ?> conflicts(
