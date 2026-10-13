@@ -74,5 +74,25 @@ sont exécutés. Précision :
    `GateReachabilityArchitectureTest` (ADR-0103 : le test dit quoi), qui refuse une classe de test hors sélection Surefire
    qu'aucun validateur lancé par un workflow ne nomme.
 
-Limite : un déclencheur `schedule` exécute le fichier de workflow de la branche par défaut. La lane ne tourne donc seule
+## Amendement du 13 octobre 2026 — ajouter un budget après le gel
+
+Le document des budgets gelé dit comment un seuil existant peut bouger ; il ne dit rien de l'ajout d'une ligne. Le
+sprint 6 de l'audit du 9 octobre 2026 borne trois coûts qui n'ont aucun budget : la lecture du contenu d'un snapshot,
+l'analyse d'un change, la lecture d'une page de journal. Si chaque correction écrivait son budget après elle-même, le
+budget mesurerait la correction et non le besoin — l'inverse de la décision de cet ADR.
+
+1. Un budget peut être ajouté après le gel quand un coût est trouvé sans budget.
+2. Il est **daté**, et **déclaré avant que le code qu'il jugera ne soit modifié** : la ligne précède son gate et sa
+   correction dans l'historique.
+3. Sa valeur vient de ce à quoi sert l'opération, pas d'une exécution. La première mesure se fait sur le code non
+   corrigé ; un échec est la reproduction dont la correction part, un succès est consigné comme tel et la correction se
+   justifie alors par sa preuve de comptage.
+4. Il ne modifie aucune ligne existante : ni seuil, ni fixture, ni protocole, ni tas. Une mesure qui a besoin de
+   lignes que la fixture du gel ne contient pas les publie dans une base à elle.
+5. Un budget de la lane nocturne est une preuve tardive par construction. Une correction qu'il juge porte aussi, dans
+   la suite ordinaire, une preuve déterministe — un compte qui ne croît pas avec les données.
+
+Les lignes ajoutées vivent dans `docs/project/roadmap/M19_PERFORMANCE_BUDGETS.md`, section 4 bis.
+
+Limite de l'amendement du 10 octobre : un déclencheur `schedule` exécute le fichier de workflow de la branche par défaut. La lane ne tourne donc seule
 qu'une fois `nightly.yml` sur `main` ; avant cela, elle se lance par `workflow_dispatch`.

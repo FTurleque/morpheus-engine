@@ -38,7 +38,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -145,6 +147,8 @@ final class SqliteSnapshotBusinessContentReader {
     }
 
     private List<Scenario> readScenarios(KnowledgeSnapshotId snapshotId) throws SQLException {
+        Map<String, List<String>> preconditions =
+                readValuesByOwner("snapshot_scenario_preconditions", "scenario_id", "value", snapshotId);
         try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT * FROM snapshot_scenarios WHERE snapshot_id = ? ORDER BY scenario_id")) {
             statement.setString(1, snapshotId.toString());
@@ -159,11 +163,7 @@ final class SqliteSnapshotBusinessContentReader {
                                     ? Optional.empty()
                                     : Optional.of(RequirementId.parse(requirementId)),
                             result.getString("title"),
-                            readOrderedValues(
-                                    "snapshot_scenario_preconditions",
-                                    "scenario_id",
-                                    snapshotId,
-                                    scenarioId.toString()),
+                            preconditions.getOrDefault(scenarioId.toString(), List.of()),
                             result.getString("action"),
                             result.getString("expected_outcome"),
                             mapProvenance(result)));
@@ -174,6 +174,12 @@ final class SqliteSnapshotBusinessContentReader {
     }
 
     private List<ChangeProposal> readChanges(KnowledgeSnapshotId snapshotId) throws SQLException {
+        Map<String, List<String>> scope =
+                readValuesByOwner("snapshot_change_scope", "change_id", "value", snapshotId);
+        Map<String, List<String>> outOfScope =
+                readValuesByOwner("snapshot_change_out_of_scope", "change_id", "value", snapshotId);
+        Map<String, List<String>> risks =
+                readValuesByOwner("snapshot_change_risks", "change_id", "value", snapshotId);
         try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT * FROM snapshot_changes WHERE snapshot_id = ? ORDER BY change_id")) {
             statement.setString(1, snapshotId.toString());
@@ -187,12 +193,9 @@ final class SqliteSnapshotBusinessContentReader {
                             Optional.ofNullable(result.getString("change_key")),
                             result.getString("title"),
                             result.getString("intent"),
-                            readOrderedValues(
-                                    "snapshot_change_scope", "change_id", snapshotId, changeId.toString()),
-                            readOrderedValues(
-                                    "snapshot_change_out_of_scope", "change_id", snapshotId, changeId.toString()),
-                            readOrderedValues(
-                                    "snapshot_change_risks", "change_id", snapshotId, changeId.toString()),
+                            scope.getOrDefault(changeId.toString(), List.of()),
+                            outOfScope.getOrDefault(changeId.toString(), List.of()),
+                            risks.getOrDefault(changeId.toString(), List.of()),
                             mapProvenance(result)));
                 }
                 return List.copyOf(items);
@@ -201,6 +204,10 @@ final class SqliteSnapshotBusinessContentReader {
     }
 
     private List<Constraint> readConstraints(KnowledgeSnapshotId snapshotId) throws SQLException {
+        Map<String, List<String>> blockingTargets =
+                readValuesByOwner("snapshot_constraint_blocking_targets", "constraint_id", "value", snapshotId);
+        Map<String, List<String>> supportingEvidenceIds =
+                readValuesByOwner("snapshot_constraint_supporting_evidence", "constraint_id", "value", snapshotId);
         try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT * FROM snapshot_constraints WHERE snapshot_id = ? ORDER BY constraint_id")) {
             statement.setString(1, snapshotId.toString());
@@ -208,20 +215,14 @@ final class SqliteSnapshotBusinessContentReader {
                 List<Constraint> items = new ArrayList<>();
                 while (result.next()) {
                     ConstraintId constraintId = ConstraintId.parse(result.getString("constraint_id"));
-                    List<ChangeLifecycleState> targets = readOrderedValues(
-                                    "snapshot_constraint_blocking_targets",
-                                    "constraint_id",
-                                    snapshotId,
-                                    constraintId.toString()).stream()
-                            .map(ChangeLifecycleState::valueOf)
-                            .toList();
-                    List<EvidenceId> supportingEvidence = readOrderedValues(
-                                    "snapshot_constraint_supporting_evidence",
-                                    "constraint_id",
-                                    snapshotId,
-                                    constraintId.toString()).stream()
-                            .map(EvidenceId::parse)
-                            .toList();
+                    List<ChangeLifecycleState> targets =
+                            blockingTargets.getOrDefault(constraintId.toString(), List.of()).stream()
+                                    .map(ChangeLifecycleState::valueOf)
+                                    .toList();
+                    List<EvidenceId> supportingEvidence =
+                            supportingEvidenceIds.getOrDefault(constraintId.toString(), List.of()).stream()
+                                    .map(EvidenceId::parse)
+                                    .toList();
                     items.add(new Constraint(
                             constraintId,
                             ChangeId.parse(result.getString("change_id")),
@@ -280,6 +281,8 @@ final class SqliteSnapshotBusinessContentReader {
     }
 
     private List<AcceptanceCriterion> readAcceptanceCriteria(KnowledgeSnapshotId snapshotId) throws SQLException {
+        Map<String, List<String>> verificationEvidenceIds = readValuesByOwner(
+                "snapshot_acceptance_verification_evidence", "acceptance_criterion_id", "evidence_id", snapshotId);
         try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT * FROM snapshot_acceptance_criteria WHERE snapshot_id = ? ORDER BY acceptance_criterion_id")) {
             statement.setString(1, snapshotId.toString());
@@ -301,7 +304,9 @@ final class SqliteSnapshotBusinessContentReader {
                             result.getString("title"),
                             result.getString("condition_text"),
                             VerificationStatus.valueOf(result.getString("verification_status")),
-                            readAcceptanceVerificationEvidence(snapshotId, criterionId),
+                            verificationEvidenceIds.getOrDefault(criterionId.toString(), List.of()).stream()
+                                    .map(EvidenceId::parse)
+                                    .toList(),
                             mapProvenance(result)));
                 }
                 return List.copyOf(items);
@@ -309,44 +314,33 @@ final class SqliteSnapshotBusinessContentReader {
         }
     }
 
-    private List<EvidenceId> readAcceptanceVerificationEvidence(
-            KnowledgeSnapshotId snapshotId,
-            AcceptanceCriterionId criterionId) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement("""
-                SELECT evidence_id
-                FROM snapshot_acceptance_verification_evidence
-                WHERE snapshot_id = ? AND acceptance_criterion_id = ?
-                ORDER BY ordinal
-                """)) {
-            statement.setString(1, snapshotId.toString());
-            statement.setString(2, criterionId.toString());
-            try (ResultSet result = statement.executeQuery()) {
-                List<EvidenceId> evidenceIds = new ArrayList<>();
-                while (result.next()) {
-                    evidenceIds.add(EvidenceId.parse(result.getString("evidence_id")));
-                }
-                return List.copyOf(evidenceIds);
-            }
-        }
-    }
-
-    private List<String> readOrderedValues(
+    /**
+     * The values of one child table for a whole snapshot, by owner, each owner's values in their stored order.
+     *
+     * <p>One statement, whatever the snapshot holds: it is read before the parents are, and an owner that has no
+     * value is simply absent from the map. A value whose owner is not a parent of the snapshot is read and never
+     * used, as the query per owner never asked for it.</p>
+     */
+    private Map<String, List<String>> readValuesByOwner(
             String table,
             String ownerColumn,
-            KnowledgeSnapshotId snapshotId,
-            String ownerId) throws SQLException {
-        String sql = "SELECT value FROM " + SqliteSnapshotBusinessContentStore.requireSqlIdentifier(table, "table")
-                + " WHERE snapshot_id = ? AND " + SqliteSnapshotBusinessContentStore.requireSqlIdentifier(ownerColumn, "ownerColumn")
-                + " = ? ORDER BY ordinal";
+            String valueColumn,
+            KnowledgeSnapshotId snapshotId) throws SQLException {
+        String owner = SqliteSnapshotBusinessContentStore.requireSqlIdentifier(ownerColumn, "ownerColumn");
+        String value = SqliteSnapshotBusinessContentStore.requireSqlIdentifier(valueColumn, "valueColumn");
+        String sql = "SELECT " + owner + ", " + value
+                + " FROM " + SqliteSnapshotBusinessContentStore.requireSqlIdentifier(table, "table")
+                + " WHERE snapshot_id = ? ORDER BY " + owner + ", ordinal";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, snapshotId.toString());
-            statement.setString(2, ownerId);
             try (ResultSet result = statement.executeQuery()) {
-                List<String> values = new ArrayList<>();
+                Map<String, List<String>> valuesByOwner = new HashMap<>();
                 while (result.next()) {
-                    values.add(result.getString("value"));
+                    valuesByOwner.computeIfAbsent(result.getString(1), absent -> new ArrayList<>())
+                            .add(result.getString(2));
                 }
-                return List.copyOf(values);
+                valuesByOwner.replaceAll((ownerId, values) -> List.copyOf(values));
+                return valuesByOwner;
             }
         }
     }
