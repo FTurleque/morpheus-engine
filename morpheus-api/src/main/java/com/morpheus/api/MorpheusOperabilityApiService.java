@@ -3,6 +3,7 @@ package com.morpheus.api;
 import com.morpheus.application.operability.LocalOperabilityService;
 import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.operability.OperationalMetrics;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
 
 import java.nio.file.Path;
@@ -28,6 +29,11 @@ public final class MorpheusOperabilityApiService {
                 },
                 LocalOperationalRuntime.metrics(),
                 LocalOperationalRuntime.sink());
+    }
+
+    /** The recorder of the process whose counters {@link #metrics()} serves: what it counts is read on that route. */
+    OperationalRecorder recorder() {
+        return operability.recorder();
     }
 
     public HealthView health() {

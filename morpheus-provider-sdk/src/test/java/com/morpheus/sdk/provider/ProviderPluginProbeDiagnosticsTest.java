@@ -1,5 +1,6 @@
 package com.morpheus.sdk.provider;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -42,7 +43,7 @@ class ProviderPluginProbeDiagnosticsTest {
         writeMetadataOnlyJar(directory.resolve("a-target.jar"), metadata("target-plugin", 999));
         fillBeyondScanLimit();
 
-        ProviderPluginProbeOutcome outcome = new ProviderPluginService()
+        ProviderPluginProbeOutcome outcome = new ProviderPluginService(OperationalRecorder.noop())
                 .probe(directory, "target-plugin", directory, WRONG_PIN);
 
         assertFalse(outcome.success());
@@ -55,7 +56,7 @@ class ProviderPluginProbeDiagnosticsTest {
         writeMetadataOnlyJar(directory.resolve("b-duplicate.jar"), metadata("duplicate-plugin", 999));
         fillBeyondScanLimit();
 
-        ProviderPluginProbeOutcome outcome = new ProviderPluginService()
+        ProviderPluginProbeOutcome outcome = new ProviderPluginService(OperationalRecorder.noop())
                 .probe(directory, "duplicate-plugin", directory, WRONG_PIN);
 
         assertFalse(outcome.success());
@@ -73,7 +74,7 @@ class ProviderPluginProbeDiagnosticsTest {
         writeMetadataOnlyJar(directory.resolve("a-compatible.jar"), metadata("compatible-plugin", 1));
         writeMetadataOnlyJar(directory.resolve("a-incompatible.jar"), metadata("incompatible-plugin", 999));
         fillBeyondScanLimit();
-        ProviderPluginService service = new ProviderPluginService();
+        ProviderPluginService service = new ProviderPluginService(OperationalRecorder.noop());
 
         assertEquals(
                 List.of("PLUGIN_SCAN_LIMIT_REACHED", "PLUGIN_INTEGRITY_VERIFICATION_FAILED"),

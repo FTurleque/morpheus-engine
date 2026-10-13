@@ -1,5 +1,6 @@
 package com.morpheus.sdk.provider;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.security.ExternalJarIntegrity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -26,7 +27,7 @@ class ProviderPluginProcessRoundTripTest {
         ProviderPluginService service = new ProviderPluginService(
                 new ProviderPluginDiscovery(),
                 new ProviderPluginActivator(),
-                new ProviderPluginProbeProcess(Duration.ofSeconds(10)));
+                new ProviderPluginProbeProcess(Duration.ofSeconds(10), OperationalRecorder.noop()));
 
         ProviderPluginProbeOutcome outcome = service.probe(
                 directory,

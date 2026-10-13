@@ -78,12 +78,13 @@ public final class MorpheusHttpServer implements AutoCloseable {
         this.portfolioService = Objects.requireNonNull(portfolioService, "portfolioService");
         this.requestDecoder = new MorpheusHttpRequestDecoder(
                 MAX_REQUEST_BODY_BYTES, REQUEST_BODY_READ_TIMEOUT, this.executor);
-        this.rootRoutes = new MorpheusRootHttpRoutes(
-                this.service, Objects.requireNonNull(operabilityService, "operabilityService"));
+        Objects.requireNonNull(operabilityService, "operabilityService");
+        this.rootRoutes = new MorpheusRootHttpRoutes(this.service, operabilityService);
         this.projectRootRoutes = new MorpheusProjectRootHttpRoutes(this.service, this.requestDecoder);
         this.projectSyncRoutes = new MorpheusProjectSyncHttpRoutes(this.service, this.requestDecoder);
         this.portfolioRoutes = new MorpheusPortfolioHttpRoutes(this.portfolioService, this.requestDecoder);
-        this.providerPluginRoutes = new MorpheusProviderPluginHttpRoutes(providerPluginProbeEnabled);
+        this.providerPluginRoutes = new MorpheusProviderPluginHttpRoutes(
+                providerPluginProbeEnabled, operabilityService.recorder());
         this.integrationStatusRoutes = new MorpheusIntegrationStatusHttpRoutes(
                 this.externalReferenceService, this.augmentedContextService);
         this.compositionRoutes = new MorpheusCompositionHttpRoutes(this.compositionService);

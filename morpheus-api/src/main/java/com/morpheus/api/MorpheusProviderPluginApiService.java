@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.sdk.provider.ProviderPluginProbeOutcome;
 import com.morpheus.sdk.provider.ProviderPluginService;
 import com.morpheus.sdk.provider.ProviderPluginViews;
@@ -8,7 +9,11 @@ import java.nio.file.Path;
 
 /** Provider-plugin API adapter. Executable probing always requires a trusted SHA-256 pin. */
 final class MorpheusProviderPluginApiService {
-    private final ProviderPluginService service = new ProviderPluginService();
+    private final ProviderPluginService service;
+
+    MorpheusProviderPluginApiService(OperationalRecorder recorder) {
+        this.service = new ProviderPluginService(recorder);
+    }
 
     ProviderPluginViews.RemoteDiscoveryView discover(String directory) {
         // The HTTP surface is relayed to remote callers verbatim, so it must not carry server filesystem paths.
