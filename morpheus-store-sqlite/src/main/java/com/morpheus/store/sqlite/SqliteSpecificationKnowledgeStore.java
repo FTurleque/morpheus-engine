@@ -25,6 +25,7 @@ import java.util.Optional;
 /** SQLite adapter for the MORPHEUS knowledge-store foundation. */
 public final class SqliteSpecificationKnowledgeStore implements SpecificationKnowledgeStore, AutoCloseable {
     static final int DEFAULT_BUSY_TIMEOUT_MILLIS = 5_000;
+    static final String INITIALIZATION_FAILURE = "Cannot initialize SQLite knowledge store";
 
     private final Connection connection;
     private boolean closed;
@@ -36,7 +37,7 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
     SqliteSpecificationKnowledgeStore(Path databasePath, int busyTimeoutMillis) {
         Objects.requireNonNull(databasePath, "databasePath");
         this.connection = SqliteStoreConnection.openAndMigrate(
-                databasePath, busyTimeoutMillis, "Cannot initialize SQLite knowledge store");
+                databasePath, busyTimeoutMillis, INITIALIZATION_FAILURE);
     }
 
     @Override

@@ -14,6 +14,10 @@ import java.util.Objects;
  * <p>The same reasoning as {@link SqlitePolicyRuntime}: the CLI and MCP adapters each kept an identical copy of
  * open-five-stores-under-ownership, wire three services, close. Choosing SQLite implementations is this
  * adapter's business and was the only part repeated.</p>
+ *
+ * <p>The HTTP adapter kept a third copy, which differed in the one thing that matters to the database: it opened a
+ * connection scope and this one did not. The scope now belongs to {@link SqliteQueryStores}, and the three
+ * transports open the same runtime: one physical connection for one operation, whichever carries it.</p>
  */
 public final class SqliteQueryRuntime implements AutoCloseable {
 
