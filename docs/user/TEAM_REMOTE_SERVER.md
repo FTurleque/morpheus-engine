@@ -178,7 +178,8 @@ Ce qu'il faut savoir pour s'en servir :
 
 - **Écritures et administration : deux lignes.** Une ligne `accepted` avant le traitement, une ligne `completed` avec
   le statut. Une requête dont on ne trouve que la première n'a pas reçu de réponse. Une lecture ne laisse que la
-  ligne `completed`.
+  ligne `completed`. Consulter une route d'administration avec `GET`, par exemple les métriques, compte comme une
+  lecture : c'est par elle qu'on lit le nombre d'enregistrements perdus quand le journal ne s'écrit plus.
 - **Un refus de rôle est consigné**, avec le statut 403 et le principal qui a essayé.
 - **Un jeton invalide ne l'est pas.** Une requête sans jeton valide n'a pas de principal : elle est comptée dans
   `server/status`, pas journalisée.

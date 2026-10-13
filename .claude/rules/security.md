@@ -67,7 +67,8 @@ Supprimer une de ces chaînes casse le build.
 - Un 403 est consigné, un 401 ne l'est pas : un appelant non authentifié ne doit pas pouvoir remplir le journal.
 - L'issue s'écrit **une fois**, dans le `finally` de `serve`. Ne pas l'écrire branche par branche : la prochaine
   branche ajoutée serait celle qui n'en a pas.
-- Une écriture ou une administration dont la ligne `accepted` ne s'écrit pas est refusée
+- Une requête qui modifie quelque chose (route WRITE, ou route ADMIN hors `GET`/`HEAD` — le critère de
+  `usesPrivilegedConcurrency`) et dont la ligne `accepted` ne s'écrit pas est refusée
   (`503 ACCESS_JOURNAL_UNAVAILABLE`) ; une lecture est servie ; la perte est comptée. Ne pas transformer ce refus en
   repli silencieux.
 

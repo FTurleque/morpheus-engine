@@ -41,7 +41,10 @@ l'autorisation unique (`MorpheusRemoteRoutePolicy.authorize`), le gabarit de rou
 
 5. **Une écriture ou une administration laisse deux lignes.** `accepted` avant d'être servie, `completed` avec son
    statut. Une ligne écrite seulement après la réponse manquerait pour la requête qui a fait tomber le serveur. Une
-   lecture laisse une ligne, à la fin.
+   lecture laisse une ligne, à la fin. La consultation d'une route d'administration (`GET`, comme les métriques)
+   compte comme une lecture, par le même critère que la concurrence privilégiée
+   (`usesPrivilegedConcurrency`) : refuser cette route faute de journal retirerait à l'opérateur le compteur
+   `remote.access.journal.lost` au moment où il en a besoin.
 
 6. **L'issue est écrite à un seul endroit.** Le `finally` de `serve`, par lequel passent toutes les sorties - servie
    par la façade, relayée, refusée, en échec. Le statut y est lu sur l'échange ; une réponse jamais envoyée est
