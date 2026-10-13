@@ -3,6 +3,7 @@ package com.morpheus.cli;
 import com.morpheus.api.AllowedWorkspaceRoots;
 import com.morpheus.api.MorpheusHttpServer;
 import com.morpheus.api.MorpheusRemoteHttpServer;
+import com.morpheus.application.operability.OperationalLogMode;
 import com.morpheus.application.query.dsl.QueryBudgets;
 import com.morpheus.integration.minos.MinosIntegrationRuntime;
 import com.morpheus.integration.nexus.NexusIntegrationRuntime;
@@ -14,6 +15,7 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 
 /** Official native MORPHEUS launcher for CLI, MCP STDIO and local/remote HTTP API modes. */
@@ -25,6 +27,10 @@ public final class MorpheusMain {
     // PrintStream-taking methods; a logging framework has no place in the OS entry point.
     @SuppressWarnings("java:S106")
     public static void main(String[] args) {
+        refusedOperationalLogMode(System.getenv()).ifPresent(refusal -> {
+            System.err.println("MORPHEUS usage error: " + refusal);
+            System.exit(CliExitCode.USAGE.code());
+        });
         int exitCode;
         if (RemoteApiLaunchOptions.isRemoteApiCommand(args)) {
             exitCode = runRemoteApi(args, System.err, System.getenv(), System.getProperties());
@@ -39,6 +45,20 @@ public final class MorpheusMain {
         }
         if (exitCode != 0) {
             System.exit(exitCode);
+        }
+    }
+
+    /**
+     * The refusal of an operational log mode that is none of the accepted ones, if the environment carries one. Read
+     * here, before any other class of the product: the operational runtime chooses its sink in a static initializer,
+     * where a refusal would surface as an initialization error of whichever class used it first.
+     */
+    static Optional<String> refusedOperationalLogMode(Map<String, String> environment) {
+        try {
+            OperationalLogMode.parse(environment.get(OperationalLogMode.ENVIRONMENT_VARIABLE));
+            return Optional.empty();
+        } catch (IllegalArgumentException refused) {
+            return Optional.of(refused.getMessage());
         }
     }
 
