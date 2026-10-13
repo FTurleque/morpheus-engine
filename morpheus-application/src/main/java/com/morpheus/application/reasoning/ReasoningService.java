@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /** Read-only orchestration of optional reasoning adapters with fail-isolated assisted output. */
 public final class ReasoningService {
@@ -27,8 +28,9 @@ public final class ReasoningService {
         this.registry = Objects.requireNonNull(registry, "registry");
     }
 
-    public static ReasoningService standard() {
-        return new ReasoningService(ReasoningAdapterRegistry.standard());
+    /** @param setAside see {@link ReasoningAdapterRegistry#standard(Consumer)} */
+    public static ReasoningService standard(Consumer<Throwable> setAside) {
+        return new ReasoningService(ReasoningAdapterRegistry.standard(setAside));
     }
 
     public List<ReasoningAdapterRegistry.Descriptor> adapters() {
