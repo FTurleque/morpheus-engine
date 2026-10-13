@@ -58,19 +58,18 @@ class SilentCatchArchitectureTest {
             Map.entry("SqliteServerMaintenance.java#IOException", new Explained(1,
                     "closing the lease channel when acquiring the server lease failed; that failure propagates")),
             Map.entry("BoundedStdioServerTransportProvider.java#IOException", new Explained(1,
-                    "closing standard input to unblock a read while the transport shuts down; nothing is lost")));
+                    "closing standard input to unblock a read while the transport shuts down; nothing is lost")),
+            Map.entry("PeerOperationDeadline.java#RuntimeException", new Explained(1,
+                    "the abort of an expired operation failed: the transport may depend on no other MORPHEUS package "
+                            + "and cannot count, so the gateway that hands it the abort counts the failure first "
+                            + "(countingAbort) and the operation reports the deadline itself")));
 
     /**
      * Silent catches that do lose a failure and do not record it yet, with the family they will be counted under.
      * This list only shrinks: an entry leaves it when its catch records, and nothing is added to it.
      */
     private static final Map<String, Explained> NOT_YET_RECORDED = Map.ofEntries(
-            Map.entry("MinosMcpCodeGateway.java#RuntimeException", new Explained(1, "mcp-peer-shutdown")),
-            Map.entry("NexusMcpContextGateway.java#RuntimeException", new Explained(1, "mcp-peer-shutdown")),
-            Map.entry("PeerOperationDeadline.java#RuntimeException", new Explained(1, "mcp-peer-shutdown")),
             Map.entry("BoundedStdioClientTransport.java#RuntimeException", new Explained(1, "mcp-peer-process-tree")),
-            Map.entry("MinosMcpCodeGateway.java#IOException", new Explained(1, "staged-artifact-cleanup")),
-            Map.entry("NexusMcpContextGateway.java#IOException", new Explained(1, "staged-artifact-cleanup")),
             Map.entry("ExternalJarIntegrity.java#IOException", new Explained(1, "staged-artifact-cleanup")),
             Map.entry("ProviderPluginProbeProcess.java#IOException", new Explained(1, "staged-artifact-cleanup")),
             Map.entry("ProviderPluginProbeProcess.java#RuntimeException", new Explained(2,

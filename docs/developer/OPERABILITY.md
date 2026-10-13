@@ -136,9 +136,17 @@ sans quelque chose :
 | `http-internal-error` | `failure.suppressed.http-internal-error` | une requête HTTP est morte d'un échec que rien n'avait prévu et a reçu `500 INTERNAL_ERROR` ; c'est un défaut du produit à signaler, pas une erreur de l'appelant |
 | `sync-recovery-read` | `failure.suppressed.sync-recovery-read` | pendant la reprise d'une synchronisation en échec, l'état qui dirait si le commit ou son marqueur est déjà visible n'a pas pu être lu ; il a été pris pour « non visible », ce qui est la lecture sûre, mais le stockage a un problème |
 | `sqlite-conflict-read` | `failure.suppressed.sqlite-conflict-read` | en répondant à un conflit de cycle de vie, l'enregistrement d'audit ou l'état courant n'a pas pu être lu ; le conflit est rendu sans distinguer une mutation déjà appliquée d'une vraie collision |
+| `mcp-peer` | `failure.suppressed.mcp-peer` | un pair MCP a échoué - il n'a pas démarré, a dépassé son délai, a répondu quelque chose d'inutilisable - et l'appelant a reçu un « indisponible » nu, la même réponse que pour un projet sans snapshot actif |
+| `mcp-peer-shutdown` | `failure.suppressed.mcp-peer-shutdown` | un pair MCP n'a pas pu être fermé ou interrompu proprement ; son processus peut survivre à l'opération qui l'a lancé |
+| `staged-artifact-cleanup` | `failure.suppressed.staged-artifact-cleanup` | la copie vérifiée d'un JAR épinglé n'a pas pu être supprimée après usage ; elle reste dans le répertoire temporaire |
 | `source-watch` | `failure.suppressed.source-watch` | un changement sous une racine surveillée n'a pas pu devenir un signal - un répertoire impossible à enregistrer, un chemin hors du workspace - et a été rendu comme un débordement ; un nouveau répertoire peut rester non surveillé |
 
 Ces compteurs sont servis avec les autres par `GET /api/v1/metrics`, en local comme à travers la façade remote.
+
+Le module `morpheus-mcp-transport` ne peut dépendre d'aucun autre paquet MORPHEUS, donc il ne compte rien lui-même.
+L'interruption d'une opération qui a dépassé son délai lui est remise par la passerelle (`MinosMcpCodeGateway`,
+`NexusMcpContextGateway`) : c'est elle qui l'enveloppe (`countingAbort`) et compte son échec avant de le laisser
+remonter.
 
 Le cœur de raisonnement reste pur : `ReasoningAdapterRegistry` ne connaît aucun enregistreur. Il **signale** ce qu'il
 écarte à un observateur (`Consumer<Throwable>`) que lui passent les trois adaptateurs qui le construisent - CLI, MCP,
