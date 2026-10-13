@@ -52,6 +52,84 @@ class D2RepositoryHardeningArchitectureTest {
         assertTrue(pom.contains("<failBuildOnCVSS>7.0</failBuildOnCVSS>"));
     }
 
+    /**
+     * A version written in a module POM wins over the root {@code <dependencyManagement>} and
+     * {@code <pluginManagement>} without a word. The only versions a module states are its parent's, which is the
+     * product version, and {@code ${project.version}} for a sibling module of the reactor.
+     */
+    @Test
+    void noModulePomStatesAVersionTheRootPomShouldDecide() throws IOException {
+        List<String> modules = new ArrayList<>();
+        Matcher module = Pattern.compile("<module>([^<]+)</module>")
+                .matcher(Files.readString(repoRoot().resolve("pom.xml")));
+        while (module.find()) {
+            modules.add(module.group(1).trim());
+        }
+        assertFalse(modules.isEmpty(), "the root POM declares no module: the rule would pass on nothing");
+
+        List<String> offenders = new ArrayList<>();
+        for (String name : modules) {
+            offenders.addAll(versionsStatedBy(name + "/pom.xml",
+                    Files.readString(repoRoot().resolve(name).resolve("pom.xml"))));
+        }
+        assertTrue(offenders.isEmpty(),
+                () -> "a module POM must leave every dependency and plugin version to the root POM "
+                        + "(the <parent> version and ${project.version} are the two accepted forms): " + offenders);
+    }
+
+    @Test
+    void theModuleVersionRuleSeesALiteralAndAPropertyButNeitherACommentNorTheParent() {
+        String pom = """
+                <project>
+                    <parent>
+                        <artifactId>morpheus-engine</artifactId>
+                        <version>1.0.0</version>
+                    </parent>
+                    <dependencies>
+                        <dependency><artifactId>sibling</artifactId><version>${project.version}</version></dependency>
+                        <!-- <version>9.9.9</version> -->
+                        <dependency>
+                            <artifactId>literal</artifactId>
+                            <version>1.0.4</version>
+                        </dependency>
+                        <dependency><artifactId>property</artifactId><version>${some.version}</version></dependency>
+                    </dependencies>
+                </project>
+                """;
+        assertEquals(
+                List.of("module/pom.xml:11 <version>1.0.4</version>",
+                        "module/pom.xml:13 <version>${some.version}</version>"),
+                versionsStatedBy("module/pom.xml", pom));
+    }
+
+    private static List<String> versionsStatedBy(String file, String pom) {
+        StringBuilder blanked = new StringBuilder(pom);
+        for (Pattern ignored : List.of(
+                Pattern.compile("<!--.*?-->", Pattern.DOTALL),
+                Pattern.compile("<parent>.*?</parent>", Pattern.DOTALL))) {
+            Matcher matcher = ignored.matcher(blanked);
+            while (matcher.find()) {
+                for (int index = matcher.start(); index < matcher.end(); index++) {
+                    if (blanked.charAt(index) != '\n' && blanked.charAt(index) != '\r') {
+                        blanked.setCharAt(index, ' ');
+                    }
+                }
+            }
+        }
+        List<String> stated = new ArrayList<>();
+        String[] lines = blanked.toString().split("\\R", -1);
+        Pattern version = Pattern.compile("<version>\\s*([^<]*?)\\s*</version>");
+        for (int index = 0; index < lines.length; index++) {
+            Matcher matcher = version.matcher(lines[index]);
+            while (matcher.find()) {
+                if (!matcher.group(1).equals("${project.version}")) {
+                    stated.add(file + ":" + (index + 1) + " " + matcher.group());
+                }
+            }
+        }
+        return stated;
+    }
+
     @Test
     void activeMcpDocumentationMatchesPinnedSdkVersion() throws IOException {
         String mcp = Files.readString(repoRoot().resolve("docs/developer/MCP.md"));
