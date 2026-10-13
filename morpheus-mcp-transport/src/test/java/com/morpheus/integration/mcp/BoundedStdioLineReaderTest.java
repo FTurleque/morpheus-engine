@@ -93,6 +93,17 @@ class BoundedStdioLineReaderTest {
     }
 
     @Test
+    void aDiagnosticsReaderReplacesWhatIsNotUtf8AndKeepsTheSameBound() throws Exception {
+        byte[] malformed = {'a', (byte) 0xEA, 'b', (byte) '\n', 'n', 'e', 'x', 't', (byte) '\n'};
+        BoundedStdioLineReader reader = BoundedStdioLineReader.diagnostics(new ByteArrayInputStream(malformed));
+
+        assertEquals("a�b", reader.readLine(64));
+        assertEquals("next", reader.readLine(64));
+        assertThrows(MessageTooLargeException.class, () -> BoundedStdioLineReader.diagnostics(
+                new ByteArrayInputStream(malformed)).readLine(2));
+    }
+
+    @Test
     void aFinalFrameWithoutANewlineIsStillDelivered() throws Exception {
         BoundedStdioLineReader reader = reader("first\nsecond");
 

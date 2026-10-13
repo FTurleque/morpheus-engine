@@ -22,11 +22,12 @@ if [[ -z "$(git status --porcelain --untracked-files=no)" ]]; then WORKSPACE_CLE
 JAVA_VERSION="$(java -version 2>&1 | head -n 1 | tr '\r\n=' '   ' | xargs)"
 MAVEN_VERSION="$(./mvnw -v | head -n 1 | tr '\r\n=' '   ' | xargs)"
 SBOM="target/m21-supply-chain/morpheus-sbom.json"
-if [[ -f "$SBOM" ]]; then
-  SBOM_SHA256="$(sha256sum "$SBOM" | awk '{print $1}')"
-else
-  SBOM_SHA256=missing
+if [[ ! -f "$SBOM" ]]; then
+  echo "BUILD_PROVENANCE_SBOM_MISSING: $SBOM does not exist; run ./mvnw clean verify first." >&2
+  echo "A provenance file is not written without the SBOM it vouches for." >&2
+  exit 1
 fi
+SBOM_SHA256="$(sha256sum "$SBOM" | awk '{print $1}')"
 GENERATED_AT="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
 OS_VALUE="$(uname -a | tr '\r\n=' '   ' | xargs)"
 

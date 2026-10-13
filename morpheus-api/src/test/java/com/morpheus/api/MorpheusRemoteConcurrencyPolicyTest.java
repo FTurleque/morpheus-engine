@@ -11,14 +11,19 @@ class MorpheusRemoteConcurrencyPolicyTest {
 
     @Test
     void privilegedBudgetTargetsMutationsWithoutPenalizingAdminReads() {
-        assertTrue(MorpheusRemoteHttpServer.usesPrivilegedConcurrency("POST", "/api/v1/projects"));
-        assertTrue(MorpheusRemoteHttpServer.usesPrivilegedConcurrency("POST", "/api/v1/projects/p1/sync"));
-        assertTrue(MorpheusRemoteHttpServer.usesPrivilegedConcurrency("POST", "/api/v1/server/backups"));
-        assertTrue(MorpheusRemoteHttpServer.usesPrivilegedConcurrency("POST", "/api/v1/provider-plugins/probe"));
+        assertTrue(takesAPrivilegedSlot("POST", "/api/v1/projects"));
+        assertTrue(takesAPrivilegedSlot("POST", "/api/v1/projects/p1/sync"));
+        assertTrue(takesAPrivilegedSlot("POST", "/api/v1/server/backups"));
+        assertTrue(takesAPrivilegedSlot("POST", "/api/v1/provider-plugins/probe"));
 
-        assertFalse(MorpheusRemoteHttpServer.usesPrivilegedConcurrency("GET", "/api/v1/health"));
-        assertFalse(MorpheusRemoteHttpServer.usesPrivilegedConcurrency("GET", "/api/v1/metrics"));
-        assertFalse(MorpheusRemoteHttpServer.usesPrivilegedConcurrency("POST", "/api/v1/reasoning/analyze"));
+        assertFalse(takesAPrivilegedSlot("GET", "/api/v1/health"));
+        assertFalse(takesAPrivilegedSlot("GET", "/api/v1/metrics"));
+        assertFalse(takesAPrivilegedSlot("POST", "/api/v1/reasoning/analyze"));
+    }
+
+    private static boolean takesAPrivilegedSlot(String method, String path) {
+        return MorpheusRemoteHttpServer.usesPrivilegedConcurrency(
+                method, MorpheusRemoteRoutePolicy.authorize(method, path).role());
     }
 
     @Test

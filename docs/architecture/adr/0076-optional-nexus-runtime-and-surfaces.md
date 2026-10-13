@@ -91,3 +91,27 @@ Le ZIP Windows validé fait `33,654,379` octets. Sans MINOS/NEXUS configurés, l
 7. packaging portable vert sans NEXUS installé/configuré.
 
 Tous les critères sont satisfaits par la validation M13.
+
+## Amendement du 13 octobre 2026 — le lanceur Java du pair n'est plus cherché dans le `PATH`
+
+Le défaut `java = java` ci-dessus n'est plus vrai. La commande nue était résolue par le système dans le `PATH` du
+processus MORPHEUS : un autre `java` placé en tête de ce chemin aurait été lancé comme pair (constat AUD-SEC-05 de
+l'audit du 9 octobre 2026).
+
+- **Défaut** : le lanceur du runtime sur lequel MORPHEUS tourne, `<java.home>/bin/java`, comme le fait déjà la sonde
+  de plugin. Si ce runtime ne porte aucun lanceur et qu'un pair est configuré, l'intégration est invalide et le dit.
+- **Valeur configurée** : le chemin absolu d'un fichier exécutable. Un nom nu ou un chemin relatif rend l'intégration
+  invalide ; rien n'est lancé. Sous Windows, le suffixe `.exe` peut être omis.
+- **Lien symbolique : résolu, pas refusé.** L'audit demandait le refus. Le lanceur usuel d'un système Linux est une
+  chaîne de liens (`/usr/bin/java`), et le dépôt a déjà choisi « résoudre et déclarer » pour le répertoire de plugins.
+  Le fichier réel est celui qui est lancé et celui que le statut local affiche.
+- **L'invariant est dans le constructeur** du record de réglages : il ne peut pas être construit autour d'une commande
+  que le `PATH` résoudrait. Les deux intégrations le portent séparément, puisqu'elles ne peuvent pas dépendre l'une de
+  l'autre ; `PeerLauncherArchitectureTest` vérifie qu'aucune des deux ne s'en écarte.
+
+**Conséquence mesurée le 13 octobre 2026** sur l'image Windows packagée, avec les pairs réels : le runtime embarqué est
+un Java 21 réduit. Un pair compilé pour Java 21 y démarre ; un pair compilé pour une version plus récente n'y démarre
+pas et demande que la variable nomme un JDK de cette version. Avant, ce cas se réglait par le `java` du `PATH`, sans
+être dit. Le guide des intégrations et la note de version 1.2.1 le disent.
+
+`PATH` reste dans l'environnement transmis au pair : le pair est du code de confiance et peut en avoir besoin.

@@ -24,11 +24,12 @@ Specified by pull request 437; implemented on `feat/state-the-schema-upgrade-and
 - [x] 2.2 Prove the selection is not vacuous: assert the set of `UPGRADE_*.md` is non-empty and that the version ordering
       is numeric (`1_2_1` after `1_2`, `1_10` after `1_9`). Proof: a unit test of the ordering inside the test class.
   - 2026-10-11: `guideVersionsAreOrderedNumericallyNotAlphabetically`; `latest` throws on an empty set.
-- [ ] 2.3 Reproduce the trap the guide warns about, once, by hand or in a store test: open a frozen V012 fixture
+- [x] 2.3 Reproduce the trap the guide warns about, once, by hand or in a store test: open a frozen V012 fixture
       (`R2UpgradeCompatibilityTest` holds one) through `createBackup`, and read the backup's
       `MAX(version)`. Proof: it equals `SUPPORTED_SCHEMA_VERSION`, not 12. Keep the test if it is cheap; it documents
       the behaviour `back-up-before-a-schema-migration` builds on.
   - 2026-10-11: not done here. The behaviour is read in `SqliteServerMaintenance.createBackup` and is the subject of `back-up-before-a-schema-migration`, whose store tests are the right place for it.
+  - 2026-10-13: `SqlitePreMigrationCopyTest#aServerBackupOfAnOutdatedDatabaseIsAlreadyMigratedAndOnlyTheKeptCopyIsNot` - `createBackup` on a schema-12 database returns a backup at `SUPPORTED_SCHEMA_VERSION`, and the copy kept before the migration is the only file still at 12. Kept: it is cheap and it is what the guide says.
 
 ## 3. The change
 

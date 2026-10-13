@@ -1,6 +1,7 @@
 package com.morpheus.architecture;
 
 import com.tngtech.archunit.base.DescribedPredicate;
+import com.tngtech.archunit.core.domain.JavaCall;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
@@ -88,6 +89,10 @@ class HttpRoutesTransportBoundaryArchitectureTest {
             "MorpheusReasoningHttpRoutes");
 
     private static final String REQUEST_DECODER = API_PACKAGE + ".MorpheusHttpRequestDecoder";
+    private static final DescribedPredicate<JavaCall<?>> ASKS_THE_DECODER_FOR_THE_PATH = DescribedPredicate.describe(
+            "asks MorpheusHttpRequestDecoder for the segments of the path",
+            call -> call.getTargetOwner().getName().equals(API_PACKAGE + ".MorpheusHttpRequestDecoder")
+                    && call.getName().startsWith("pathSegments"));
     private static final String REQUEST_BODY_READER = API_PACKAGE + ".HttpRequestBodyReader";
     private static final String RESPONSE_WRITER = API_PACKAGE + ".MorpheusHttpResponseWriter";
     private static final String CANONICAL_JSON_SERIALIZER =
@@ -321,6 +326,32 @@ class HttpRoutesTransportBoundaryArchitectureTest {
                         "com/example/Shared.java:1: mapper built outside JsonMapper.builder()"),
                 lenientMappers(sources),
                 "each lenient mapper must be named by file, line and missing feature; Strict.java passes");
+    }
+
+    /**
+     * The family ban on the path parser holds a router away from the parser, not away from the path: the decoder
+     * offers the segments of the request, for the four routers that register their own context and are handed no
+     * segments by the server. A router of the two other groups receives its segments from the server and holds the
+     * same decoder; asking it for the path would be the second reading the ban exists to prevent, under another name.
+     *
+     * <p>Broken before acceptance, 13/10/2026: {@code requestDecoder.pathSegments(exchange)} written into
+     * {@code MorpheusProjectSyncHttpRoutes} failed this method and this method alone.</p>
+     */
+    @Test
+    void onlyARouterThatRegistersItsOwnContextAsksTheDecoderForThePath() {
+        noClasses()
+                .that().haveSimpleNameEndingWith("HttpRoutes")
+                .and(DescribedPredicate.not(routersNamed(ROUTERS_REGISTERING_THEIR_OWN_CONTEXT)))
+                .should().callMethodWhere(ASKS_THE_DECODER_FOR_THE_PATH)
+                .because("the server already parsed the path of a router it holds; a second reading through the "
+                        + "decoder is what the family ban on MorpheusHttpPathParser forbids")
+                .check(classes);
+        classes()
+                .that(routersNamed(ROUTERS_REGISTERING_THEIR_OWN_CONTEXT))
+                .should().callMethodWhere(ASKS_THE_DECODER_FOR_THE_PATH)
+                .because("a router that registers its own context is handed no segments; it obtains them from the "
+                        + "decoder, never from a reading of its own")
+                .check(classes);
     }
 
     private static Map<String, List<String>> transportGroups() {

@@ -118,7 +118,12 @@ famille entière :
   > supprimé depuis, et une règle de configuration là où c'est une règle de dépendance. **Relire la classe avant
   > de modifier ce paragraphe** — les noms de constantes ci-dessus sont la seule prise fiable.
 - les assertions visant des cibles sans famille (services, plomberie `LocalHttp*`, serveur remote) **ne
-  migrent pas**.
+  migrent pas** ;
+- depuis le 13/10/2026 (amendement d'ADR-0103) le troisième groupe a une seconde règle de groupe : ses quatre
+  routeurs, à qui le serveur ne remet aucun segment, les demandent à `MorpheusHttpRequestDecoder.pathSegments*` —
+  et **eux seuls** (`onlyARouterThatRegistersItsOwnContextAsksTheDecoderForThePath`). L'interdit de famille sur
+  `MorpheusHttpPathParser` tient le parseur ; cette règle tient le chemin. Un routeur porté par le serveur qui
+  demanderait le chemin au décodeur passerait l'interdit de famille et referait la seconde lecture qu'il interdit.
 
 ## JAMAIS — interdits enforced par ArchUnit
 

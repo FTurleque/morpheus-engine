@@ -65,8 +65,7 @@ final class MorpheusInternalCapability {
 
     private static void reject(HttpExchange exchange) throws IOException {
         exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
-        exchange.getResponseHeaders().set("Cache-Control", "no-store");
-        exchange.getResponseHeaders().set("X-Content-Type-Options", "nosniff");
+        MorpheusHttpResponseWriter.applySecurityHeaders(exchange.getResponseHeaders());
         try {
             exchange.sendResponseHeaders(401, UNAUTHENTICATED_BODY.length);
             exchange.getResponseBody().write(UNAUTHENTICATED_BODY);

@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -34,12 +35,12 @@ class RepositoryCredentialHygieneTest {
     }
 
     private static final List<Credential> CREDENTIALS = List.of(
-            new Credential("remote-auth*.txt", Pattern.compile("(?:^|/)remote-auth[^/]*\\.txt$")),
-            new Credential("*.p12", Pattern.compile("\\.p12$")),
-            new Credential("*.jks", Pattern.compile("\\.jks$")),
-            new Credential("*.pfx", Pattern.compile("\\.pfx$")),
-            new Credential("*.pem", Pattern.compile("\\.pem$")),
-            new Credential("*.key", Pattern.compile("\\.key$")));
+            new Credential("remote-auth*.txt", ignoringCase("(?:^|/)remote-auth[^/]*\\.txt$")),
+            new Credential("*.p12", ignoringCase("\\.p12$")),
+            new Credential("*.jks", ignoringCase("\\.jks$")),
+            new Credential("*.pfx", ignoringCase("\\.pfx$")),
+            new Credential("*.pem", ignoringCase("\\.pem$")),
+            new Credential("*.key", ignoringCase("\\.key$")));
 
     @Test
     void theRepositoryIgnoresIdentityFilesAndKeyMaterial() throws IOException {
@@ -83,6 +84,8 @@ class RepositoryCredentialHygieneTest {
         assertFalse(matchesAny("docs/user/TEAM_REMOTE_SERVER.md"));
         assertFalse(matchesAny("src/main/java/com/morpheus/KeyStoreLoader.java"));
         assertFalse(matchesAny("notes/not-remote-auth.txt.md"));
+        assertTrue(matchesAny("SERVER.P12"), "a file system that ignores case reads SERVER.P12 as server.p12");
+        assertTrue(matchesAny("certs/Team.PEM"));
     }
 
     @Test
@@ -101,26 +104,36 @@ class RepositoryCredentialHygieneTest {
         assertEquals(Optional.empty(), gitExecutable(null));
     }
 
+    private static Pattern ignoringCase(String expression) {
+        return Pattern.compile(expression, Pattern.CASE_INSENSITIVE);
+    }
+
     private static boolean matchesAny(String path) {
         return CREDENTIALS.stream().anyMatch(credential -> credential.trackedPath().matcher(path).find());
     }
 
     /**
-     * The files Git tracks. Outside a checkout, or without Git, the check cannot conclude: it is skipped with that
-     * reason rather than passed.
+     * The files Git tracks, by the names Git stores ({@code -z}: a name that is not ASCII is not quoted). Outside a
+     * checkout, or without Git, the check cannot conclude: on a developer's machine it is skipped with that reason
+     * rather than passed, and in a build that is judged it fails.
      */
     private static List<String> trackedFiles(Path root) throws IOException, InterruptedException {
-        assumeTrue(Files.exists(root.resolve(".git")), "not a Git checkout: tracked files cannot be listed");
+        boolean checkout = Files.exists(root.resolve(".git"));
         Optional<Path> executable = gitExecutable(System.getenv("PATH"));
+        if (System.getenv("CI") != null) {
+            assertTrue(checkout && executable.isPresent(), "a build that is judged must list the tracked files: "
+                    + "checkout=" + checkout + ", git=" + executable.isPresent());
+        }
+        assumeTrue(checkout, "not a Git checkout: tracked files cannot be listed");
         assumeTrue(executable.isPresent(), "git is not available: tracked files cannot be listed");
-        Process git = new ProcessBuilder(executable.orElseThrow().toString(), "ls-files")
+        Process git = new ProcessBuilder(executable.orElseThrow().toString(), "ls-files", "-z")
                 .directory(root.toFile())
                 .redirectErrorStream(true)
                 .start();
         String output = new String(git.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertTrue(git.waitFor(60, TimeUnit.SECONDS) && git.exitValue() == 0,
                 () -> "git ls-files failed: " + output);
-        return output.lines().map(String::strip).filter(line -> !line.isEmpty()).toList();
+        return Stream.of(output.split("\0")).filter(path -> !path.isEmpty()).toList();
     }
 
     /**

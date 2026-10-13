@@ -34,15 +34,17 @@ Specified by pull request 437; implemented on `feat/back-up-before-a-schema-migr
 - [x] 2.5 History mismatch: an outdated database with one altered recorded checksum. Proof: the existing mismatch
       message naming the version, not `PRE_MIGRATION_BACKUP_FAILED`.
   - 2026-10-11: `aDivergentHistoryIsStillRefusedAsAHistoryMismatch`: `SQLite migration history mismatch for version 3`.
-- [ ] 2.6 Retry and staleness: make one migration fail after the copy (an existing store-test seam, not a production
+- [x] 2.6 Retry and staleness: make one migration fail after the copy (an existing store-test seam, not a production
       flag), reopen — two copies, first one's digest unchanged. Then the stale case: upgrade from 12, replace the
       database by another schema-12 file, reopen — a new copy whose content is the second database's. Measure how many
       copies a failing migration produces under repeated opens. Proof: the tests, and the number.
   - 2026-10-11: partly. `aRetryAfterAFailedMigrationWritesANewCopyAndLeavesTheFirstAlone` proves one copy per attempt and that the first is not rewritten. The stale case after an offline restore is covered by construction (no copy is ever reused) and has no test of its own. The number of copies a failing migration produces under load was not measured: it is one per opening that reaches the migration, unbounded, and ADR-0110 says so.
-- [ ] 2.7 Concurrency, with **two processes** (two JVMs through `ProcessBuilder` in a store test, as the process-tree
+  - 2026-10-13: completed. `aDatabaseReplacedByAnotherOfTheSameOldVersionIsCopiedAsItIs` is the stale case: after a first upgrade, the database is replaced by another schema-12 file and reopened; a second copy is kept and holds the second database's content, the first copy still holds the first's. `aMigrationThatKeepsFailingKeepsOneCopyPerAttempt` is the measurement: three failing opens leave three copies, each at the original version, none reused and none removed. A database that cannot be migrated costs one copy of itself per attempt.
+- [x] 2.7 Concurrency, with **two processes** (two JVMs through `ProcessBuilder` in a store test, as the process-tree
       tests already do), not two threads. Proof: every remaining copy records the original version; run it enough times
       to see the discarded-copy branch at least once, or force it with a seam.
   - 2026-10-11: done with two threads and two physical connections, **not two processes**: `twoConcurrentOpeningsLeaveOnlyTrueCopies`, passed on three consecutive runs. It showed something that predates this change: the loser of two concurrent migrations can fail with `SQLite schema migration failed`. The discarded-copy branch is forced separately by `aCopyTakenAfterSomeoneElseMigratedIsDiscarded`.
+  - 2026-10-13: done with two processes. `twoProcessesOpeningOneOutdatedDatabaseLeaveOnlyTrueCopies` starts two JVMs (`FixtureOpenStoreProcess`) on one outdated database, three rounds: at least one opens the store, the other opens it or is refused by it, the database ends at the supported version, and every copy left holds the database as it was. The discarded-copy branch stays forced by `aCopyTakenAfterSomeoneElseMigratedIsDiscarded`; the two processes are started back to back, not released by a common latch.
 
 ## 3. The change
 
@@ -63,6 +65,7 @@ Specified by pull request 437; implemented on `feat/back-up-before-a-schema-migr
 - [ ] 3.5 Disclosure: a test through the remote projection and one through the local HTTP surface, opening an outdated
       database whose copy cannot be written. Proof: no server path in either response.
   - 2026-10-11: asserted on the message (no directory name in it). No test through the remote or the local HTTP surface was written.
+  - 2026-10-13: still open. The refusal can only be produced by a copy that cannot be written; the store test forces it by a seam on the copy's name, which an HTTP request cannot reach, and making a directory unwritable is not portable to the Windows runners. The message is asserted to name no location at its source.
 - [x] 3.6 Break the rule once, then revert: skip the copy when the directory is not writable ("migrate anyway"). Proof:
       2.3 fails by name.
   - 2026-10-11: with the refusal turned into a silent return, `aCopyThatCannotBeWritten...` fails: `Expected KnowledgeStoreException to be thrown, but nothing was thrown`. Reverted.

@@ -265,14 +265,16 @@ Décision : [ADR-0102, amendement du 29 septembre 2026 (MCP-3)](../../architectu
 Les routes de requêtes, d'exports, de vues sauvegardées, de policies, de gestion des policies et de raisonnement
 relayaient tel quel le message de l'échec qu'elles rencontraient. Un message qui nomme un emplacement du serveur — un
 chemin de fichier, par exemple — parvenait donc à l'appelant, y compris à travers la façade remote. Le reste de l'API
-le remplaçait déjà ; ces routes le font maintenant aussi.
+le remplaçait déjà, à deux exceptions près, corrigées du même coup : le refus d'un corps de requête illisible, sur
+toutes les routes, et le conflit d'une synchronisation.
 
 Quand le message d'un échec nomme un emplacement, le champ `message` de la réponse porte le nom du type d'échec
 (`IllegalArgumentException`, `QueryValidationException`…) à la place du texte. Le statut HTTP et le champ `code` ne
 changent pas, et un message qui ne nomme aucun emplacement est inchangé.
 
-Cela vaut aussi pour un refus qui cite une valeur de la requête : si cette valeur a la forme d'un chemin
-(`/srv/data`, `C:\data`), le message qui la citait est remplacé de la même façon.
+Cela vaut aussi pour un refus de validation qui cite une valeur de la requête : si cette valeur a la forme d'un chemin
+(`/srv/data`, `C:\data`), le message qui la citait est remplacé de la même façon. Un refus de route (404) qui cite le
+segment inconnu que l'appelant a lui-même écrit dans le chemin le cite toujours.
 
 **Migration.** Un client qui lisait `error.message` pour décider doit lire `error.code` et le statut HTTP. Aucun
 changement pour un client qui affiche seulement le message.
@@ -280,8 +282,8 @@ changement pour un client qui affiche seulement le message.
 ### HTTP : les mêmes en-têtes de sécurité sur toute réponse
 
 Une réponse du serveur local ne portait `X-Frame-Options` et `Referrer-Policy` que lorsqu'elle refusait une origine,
-et jamais `Content-Security-Policy`. Toute réponse locale — succès, erreur, route inconnue, origine refusée — porte
-maintenant `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+et jamais `Content-Security-Policy`. Toute réponse locale sous `/api/v1` — succès, erreur, route inconnue, origine
+refusée — porte maintenant `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
 `Referrer-Policy: no-referrer` et `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`.
 
 Le serveur remote ajoute `Strict-Transport-Security: max-age=31536000`.
@@ -303,8 +305,9 @@ pour l'autorisation distante et pour le routage :
 - `%2F` reste à l'intérieur de son segment et ne crée plus de niveau de chemin ;
 - un seul `/` final est ignoré ; `/api/v1/health//` et `/api/v1//` répondent 404 ;
 - le préfixe se compare segment par segment : `/api/v1health` répond 404 ;
-- un chemin qui commence seulement par le nom d'une route (`/api/v1/saved-viewsx`, `/api/v1/policy-packsx`) répond 404
-  au lieu d'être lu comme un identifiant ;
+- `/api/v1/saved-viewsx` et `/api/v1/policy-packsx` répondent 404 au lieu d'être lus comme l'identifiant `x` ;
+- un seul `/` final est aussi ignoré sur les routes à chemin fixe (`/api/v1/queries/execute/`, `/api/v1/exports/`),
+  qui répondaient 404 en local alors que le serveur remote les autorisait ;
 - sur le serveur remote, tout chemin refusé porte le message `unknown remote API path`.
 
 **Migration.** Aucune pour un client qui écrit les chemins de la documentation avec des identifiants UUID. Un client
@@ -323,8 +326,35 @@ peut être omis, comme avant.
 Quand plusieurs réglages d'une intégration sont refusés, le motif les cite tous, séparés par un point-virgule ; il
 ne citait que le dernier.
 
-**Migration.** Retirer la variable si elle valait `java` : le comportement par défaut la remplace. Sinon, lui donner un
-chemin absolu. Une intégration qui a besoin d'un autre Java que celui de MORPHEUS doit le nommer en entier.
+**Migration.** Une variable qui valait `java` doit être retirée ou recevoir un chemin absolu : même sans JAR
+configuré, elle fait passer l'intégration de désactivée à invalide.
+
+Sur une installation, le runtime de MORPHEUS est celui qu'il embarque : un Java 21 réduit à ses propres besoins. Un
+pair compilé pour une version de Java plus récente, ou qui a besoin d'un module que ce runtime ne porte pas, ne démarre
+pas dessus ; le statut indique alors que le pair est injoignable. Dans ce cas, donner à la variable le chemin absolu
+d'un JDK complet de la version que le pair demande. Avant cette version, ce cas se réglait sans le dire, par le `java`
+trouvé dans le `PATH`.
+
+### Journal opérationnel : une valeur inconnue de `MORPHEUS_OPERATIONAL_LOGS` est refusée
+
+Toute valeur que MORPHEUS ne reconnaissait pas pour cette variable — `true`, `1`, une faute de frappe comme `jsno` —
+désactivait le journal sans rien dire : l'opérateur croyait l'avoir activé. Une telle valeur fait maintenant refuser le
+démarrage, avec une ligne sur la sortie d'erreur qui nomme la variable et les valeurs acceptées (`off`, `none`, `json`,
+`jsonl`, `structured`), et le code de sortie 2. Une variable absente ou vide signifie toujours « aucun journal ».
+
+**Migration.** Vérifier la valeur de la variable là où elle est posée, y compris dans la configuration d'un client MCP :
+un serveur qui tournait muet à cause d'une valeur inconnue ne démarre plus tant qu'elle n'est pas corrigée ou retirée.
+
+### MINOS et NEXUS : un avertissement du pair ne coupe plus la liaison
+
+Ce qu'un pair écrit sur sa sortie d'erreur était lu comme de l'UTF-8 strict. Un pair qui y écrivait un caractère
+accentué dans l'encodage de son système — un avertissement en français sous Windows, par exemple — faisait fermer la
+liaison : le pair répondait correctement et le statut l'annonçait injoignable, après le délai entier.
+
+La sortie d'erreur d'un pair est maintenant lue comme un diagnostic : un octet qui n'est pas de l'UTF-8 y devient un
+caractère de remplacement. Les messages du protocole, eux, restent lus en UTF-8 strict.
+
+**Migration.** Aucune.
 
 ### Synchronisation : l'état de sync s'écrit avec une révision attendue
 

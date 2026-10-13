@@ -20,10 +20,9 @@ Supprimer une de ces chaînes casse le build.
 
 - **Aucun** fichier sous `src/main/java/` ne doit contenir `activateDefaultTyping(` ou `enableDefaultTyping(`
   → scanné sur **tout le repo** par `D2RepositoryHardeningArchitectureTest`
-- `MorpheusHttpServer` doit conserver :
-  - `MAX_REQUEST_BODY_BYTES = 65_536`
-  - `FAIL_ON_UNKNOWN_PROPERTIES`
-  - `FAIL_ON_TRAILING_TOKENS`
+- `MorpheusHttpServer` doit conserver `MAX_REQUEST_BODY_BYTES = 65_536`
+- `MorpheusHttpRequestDecoder`, seul site de `JsonMapper.builder()` de `morpheus-api` depuis DT-16, doit conserver
+  `FAIL_ON_UNKNOWN_PROPERTIES` et `FAIL_ON_TRAILING_TOKENS`
 - `morpheus-api/src/test/java/com/morpheus/api/JacksonSecurityRegressionTest.java` doit exister
 
 ## Serveur local — loopback obligatoire
@@ -31,6 +30,20 @@ Supprimer une de ces chaînes casse le build.
 - `MorpheusHttpServer` → `LoopbackHostPolicy.requireLoopbackAddress`
 - `ApiLaunchOptions` → `LoopbackHostPolicy.requireLoopback`
 - Toute exposition non-loopback **exige le mode remote explicite**
+- Toute réponse locale pose le même jeu d'en-têtes, déclaré une fois dans
+  `MorpheusHttpResponseWriter.applySecurityHeaders` : le writer partagé, le refus d'origine et le refus de capacité
+  interne l'appellent. Une réponse qui écrit ses en-têtes elle-même en oublie ; ne pas en ajouter une quatrième
+
+## Chemin d'une requête HTTP — une seule lecture
+
+- `MorpheusHttpPathParser.api()` est le **seul** lecteur d'un chemin de requête : il découpe le chemin **tel qu'envoyé**
+  (`getRawPath()`), puis décode chaque segment une fois, sans transformer `+`. Le serveur local, les routeurs à contexte
+  propre (par `MorpheusHttpRequestDecoder`), la politique de rôles distante et le resolver du proxy passent par lui
+- **Jamais** `getRequestURI().getPath()`, `URLDecoder` sur un chemin, ni comparaison du chemin comme texte
+  (`equals`, `startsWith`, `endsWith`) : c'est par là que l'autorisation distante et le routage local ont lu un même
+  chemin de deux façons (`HttpPathReadingArchitectureTest`)
+- Le serveur remote autorise une requête **une fois** (`MorpheusRemoteRoutePolicy.authorize`) et lit la route et le
+  rôle dans ce résultat ; il ne relit pas le chemin pour décider
 
 ## Serveur remote (M26) — surface durcie
 
@@ -57,6 +70,8 @@ Supprimer une de ces chaînes casse le build.
 - L'environnement hérité est réduit à une allowlist de lancement (`PATH`, variables Windows d'exécution, temp et locale), puis complété par les variables **que MORPHEUS a explicitement configurées** pour ce pair (`McpPeerLaunch.explicitEnvironment`, construit par la passerelle) — **jamais** par ce qu'un objet de paramètres tiers aurait rempli par défaut.
 - Le `ServerParameters` du SDK n'entre dans aucun chemin de lancement et `getEnv()` n'y est jamais lu : son builder injecte sa propre allowlist, et un pair recevait ainsi sur Windows huit variables hors de celle de MORPHEUS (MCP-5). `ExternalCodeTrustBoundaryArchitectureTest#noMcpLaunchPathTakesThePeerEnvironmentFromTheSdkParameters` tient le texte, `BoundedStdioClientTransportTest#aPeerLaunchedWithoutExplicitEnvironmentReceivesOnlyTheLaunchAllowlist` mesure l'environnement d'un **vrai** processus pair.
 - Les variables sensibles comme `MORPHEUS_SERVER_TLS_PASSWORD` et les variables d'injection JVM ne sont jamais héritées implicitement.
+- Le lanceur Java d'un pair est un **chemin absolu** : par défaut celui du runtime de MORPHEUS (`java.home`), sinon la valeur configurée, résolue par `toRealPath()`. **Jamais** `java` nu, que le système chercherait dans le `PATH`. L'invariant est dans le constructeur compact de `MinosIntegrationSettings` et de `NexusIntegrationSettings` (`PeerLauncherArchitectureTest`).
+- La sortie d'erreur d'un pair est un **diagnostic** : `BoundedStdioLineReader.diagnostics` la borne comme le reste mais y remplace un octet hors UTF-8 au lieu d'échouer. Les trames du protocole restent en UTF-8 strict (`StrictUtf8`). Ne pas réaligner les deux : un avertissement accentué écrit dans la page de codes de Windows fermait la liaison d'un pair qui répondait correctement.
 - Les descendants observés d'un peer MCP sont retenus par PID/`ProcessHandle` **tant que leur processus est vivant**, afin de pouvoir les terminer même si le parent sort avant `closeGracefully()`. Une poignée n'est libérée qu'une fois son processus mort — un processus mort ne peut plus être terminé — et la racine n'est jamais libérée (ADR-0106).
 - `ProviderPluginProbeWorker` (code MORPHEUS) termine **son propre sous-arbre avant de sortir** : c'est le seul endroit où ce sous-arbre est encore énumérable. Ne jamais revenir à un nettoyage assuré uniquement par le parent — l'observation périodique ne garantit rien pour un descendant créé puis orphelin dans le même intervalle.
 - Côté MCP le pair n'est pas du code MORPHEUS : la terminaison des descendants reste **best-effort** et ce trou est documenté dans `SECURITY.md`. Ne pas le présenter comme une garantie.

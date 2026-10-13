@@ -3,6 +3,7 @@ package com.morpheus.integration.mcp;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 
 /**
@@ -25,9 +26,25 @@ final class BoundedStdioLineReader {
     private int position;
     private int limit;
     private boolean endOfStream;
+    private final boolean diagnostics;
 
     BoundedStdioLineReader(InputStream input) {
+        this(input, false);
+    }
+
+    private BoundedStdioLineReader(InputStream input, boolean diagnostics) {
         this.input = Objects.requireNonNull(input, "input");
+        this.diagnostics = diagnostics;
+    }
+
+    /**
+     * A reader for what a peer writes for a human, not for the protocol: its standard error. The bound is the same,
+     * the decoding is not. A peer logs in the code page of its platform, so a byte that is not UTF-8 becomes a
+     * replacement character instead of a failure -- refusing it would let the wording of a warning decide whether a
+     * peer that answers correctly on standard output is reachable.
+     */
+    static BoundedStdioLineReader diagnostics(InputStream input) {
+        return new BoundedStdioLineReader(input, true);
     }
 
     /**
@@ -57,7 +74,7 @@ final class BoundedStdioLineReader {
         byte[] bytes = frame.toByteArray();
         int length = bytes.length;
         if (length > 0 && bytes[length - 1] == '\r') length--;
-        return StrictUtf8.decode(bytes, length);
+        return diagnostics ? new String(bytes, 0, length, StandardCharsets.UTF_8) : StrictUtf8.decode(bytes, length);
     }
 
     private int indexOfNewline() {
