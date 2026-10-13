@@ -2,8 +2,6 @@
 
 M23 ajoute une frontière explicite de **portfolio** pour raisonner sur plusieurs projets MORPHEUS sans dériver l'identité métier d'un chemin, d'une URL de repository ou d'un provider.
 
-Baseline exécutable qualifiée : `04a906e9d5858292ed0f0f1bec65246fef91ed63` — Windows + Linux PASS.
-
 ## Principes
 
 ```text
