@@ -3,6 +3,9 @@ package com.morpheus.integration.nexus;
 import com.morpheus.application.context.TechnicalContextBundle;
 import com.morpheus.application.context.TechnicalContextItem;
 import com.morpheus.application.context.TechnicalContextRequest;
+import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.operability.SuppressedFailureFamily;
 import com.morpheus.application.security.ExternalJarIntegrity;
 import com.morpheus.integration.mcp.BoundedStdioClientTransport;
 import com.morpheus.integration.mcp.McpPeerLaunch;
@@ -76,7 +79,8 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
         this.stagedJar = launch.stagedJar();
         McpSyncClient started = buildClient(launch, stagedJar);
         // Closing the client fails the pending request at once, so the operation ends at its deadline.
-        PeerOperationDeadline armed = PeerOperationDeadline.arm(launch.operationDeadline(), started::close);
+        PeerOperationDeadline armed = PeerOperationDeadline.arm(
+                launch.operationDeadline(), countingAbort(started::close, LocalOperationalRuntime.recorder()));
         try {
             started.initialize();
             Set<String> available = started.listTools().tools().stream()
@@ -166,10 +170,11 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
         deadline.close();
         try {
             client.closeGracefully();
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException shutdownFailure) {
             // Optional external process cleanup must not mask the primary result.
+            LocalOperationalRuntime.recorder().suppressed(SuppressedFailureFamily.MCP_PEER_SHUTDOWN, shutdownFailure);
         } finally {
-            deleteStagedQuietly(stagedJar);
+            deleteStagedCounting(stagedJar, LocalOperationalRuntime.recorder());
         }
     }
 
@@ -238,11 +243,11 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
             return new Launch(settings.javaCommand(), arguments, Map.of(), settings.timeout(),
                     PeerOperationDeadline.of(settings.timeout(), REQUESTS_PER_OPERATION), staged);
         } catch (IllegalArgumentException integrityFailure) {
-            deleteStagedQuietly(staged);
+            deleteStagedCounting(staged, LocalOperationalRuntime.recorder());
             throw new NexusIntegrationException(
                     "NEXUS JAR integrity verification failed immediately before launch", integrityFailure);
         } catch (RuntimeException failure) {
-            deleteStagedQuietly(staged);
+            deleteStagedCounting(staged, LocalOperationalRuntime.recorder());
             throw failure;
         }
     }
@@ -282,13 +287,33 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
         }
     }
 
-    private static void deleteStagedQuietly(Optional<Path> staged) {
+    /**
+     * Deletes the verified copy once the peer has released it. A copy that cannot be deleted stays on disk; nothing
+     * can be done about it here, and it is counted so that the residue is not discovered by its size.
+     */
+    static void deleteStagedCounting(Optional<Path> staged, OperationalRecorder recorder) {
         if (staged.isEmpty()) return;
         try {
             Files.deleteIfExists(staged.orElseThrow());
-        } catch (IOException ignored) {
-            // Best effort after the external process/classpath has been released.
+        } catch (IOException residue) {
+            recorder.suppressed(SuppressedFailureFamily.STAGED_ARTIFACT_CLEANUP, residue);
         }
+    }
+
+    /**
+     * The abort of an operation that passed its deadline, counting its own failure before letting it go on. The
+     * deadline lives in the transport module, which may depend on no other MORPHEUS package and so cannot count; the
+     * gateway that hands it the abort can.
+     */
+    static Runnable countingAbort(Runnable abort, OperationalRecorder recorder) {
+        return () -> {
+            try {
+                abort.run();
+            } catch (RuntimeException abortFailure) {
+                recorder.suppressed(SuppressedFailureFamily.MCP_PEER_SHUTDOWN, abortFailure);
+                throw abortFailure;
+            }
+        };
     }
 
     private static String requireText(String value, String name) {

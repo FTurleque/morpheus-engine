@@ -29,7 +29,16 @@ public enum SuppressedFailureFamily {
      * A change under a watched root could not be turned into a signal - a directory that could not be registered, a
      * path outside the workspace - and was reported as an overflow, which only asks for a rescan.
      */
-    SOURCE_WATCH("source-watch", OperationalEventLevel.WARNING);
+    SOURCE_WATCH("source-watch", OperationalEventLevel.WARNING),
+    /**
+     * An MCP peer failed - it did not start, missed its deadline, answered something unusable - and the caller was
+     * given a bare "unavailable", the same answer as a peer that has no active snapshot.
+     */
+    MCP_PEER("mcp-peer", OperationalEventLevel.WARNING),
+    /** An MCP peer could not be closed or aborted cleanly; its process may outlive the operation that started it. */
+    MCP_PEER_SHUTDOWN("mcp-peer-shutdown", OperationalEventLevel.WARNING),
+    /** The verified copy of a pinned JAR could not be deleted after use and remains on disk. */
+    STAGED_ARTIFACT_CLEANUP("staged-artifact-cleanup", OperationalEventLevel.WARNING);
 
     private final String key;
     private final OperationalEventLevel level;

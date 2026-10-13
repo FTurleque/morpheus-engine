@@ -135,7 +135,10 @@ class ProductReleaseContractTest {
         assertTrue(bootstrap.contains("/PORTABLE=1"));
         assertTrue(bootstrap.contains("/CURRENTUSER"));
 
-        assertTrue(cliPom.contains("<artifactId>slf4j-nop</artifactId>"));
+        assertTrue(cliPom.contains("<artifactId>slf4j-api</artifactId>"));
+        assertFalse(cliPom.contains("slf4j-nop"),
+                "the product ships one logging binding, its own: a second provider on the class path makes "
+                        + "SLF4J pick one of the two, and what the embedded libraries log is lost again");
         assertTrue(windowsPortable.contains("--enable-native-access=ALL-UNNAMED"));
         assertTrue(linuxPortable.contains("--enable-native-access=ALL-UNNAMED"));
     }
