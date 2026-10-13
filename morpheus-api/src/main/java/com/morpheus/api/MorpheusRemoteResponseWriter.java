@@ -45,8 +45,25 @@ final class MorpheusRemoteResponseWriter {
         sendJson(exchange, status, success(data));
     }
 
+    /**
+     * Renders a refusal, and gives up the connection when the request carried a body.
+     *
+     * <p>Most refusals are decided before the body is read: an unknown token, a role that is not enough, a ceiling
+     * reached. Once such a response is sent the server finds the body unread and may drop the connection, while the
+     * client, which has its answer, sends its next request on it and waits for a reply that never comes. Saying
+     * {@code Connection: close} makes both sides agree: the server closes after this exchange and the client opens
+     * another connection. A refusal of a request without a body keeps its connection.</p>
+     */
     void sendError(HttpExchange exchange, int status, String code, String message) throws IOException {
+        if (declaresABody(exchange.getRequestHeaders())) {
+            exchange.getResponseHeaders().set("Connection", "close");
+        }
         sendJson(exchange, status, error(code, message));
+    }
+
+    static boolean declaresABody(Headers requestHeaders) {
+        String length = requestHeaders.getFirst("Content-Length");
+        return requestHeaders.containsKey("Transfer-Encoding") || (length != null && !length.trim().equals("0"));
     }
 
     Map<String, Object> success(Object data) {

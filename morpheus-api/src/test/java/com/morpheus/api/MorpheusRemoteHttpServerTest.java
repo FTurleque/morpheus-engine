@@ -123,6 +123,12 @@ class MorpheusRemoteHttpServerTest {
             assertRoleEnforcementOnWriteAndAdminRoutes(
                     readCannotWrite, writerReachedWriteRoute, writerCannotReadAdminMetrics, readCannotRegisterWorkspace);
             assertFacadeSecurityHeaders("forbidden (403)", readCannotWrite);
+            // The refusal was decided before the body of the request was read: the facade gives the connection up
+            // rather than leave the client to send its next request on one the server is about to drop.
+            assertEquals("close", readCannotWrite.headers().firstValue("Connection").orElse(""),
+                    "a refusal of a request that carried a body closes its connection");
+            assertEquals("", unknownRoute.headers().firstValue("Connection").orElse(""),
+                    "a refusal of a request without a body keeps its connection");
             assertFacadeSecurityHeaders("proxied refusal (400)", writerReachedWriteRoute);
 
             HttpResponse<String> exactRootRegistration = send(
