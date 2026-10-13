@@ -84,6 +84,44 @@ CLI en partagent une entre neuf stores.
   tient l'invariant sans ce déplacement.
 - **Une portée ne s'imbrique pas**, et le refus a un type : `SqliteConnectionScope.NestedScopeException`.
 
+## Second amendement du 13 octobre 2026 — la portée appartient à l'ensemble de stores, pas au transport
+
+L'amendement précédent affirmait qu'après le runtime MCP « un seul site ouvrait encore deux connexions pour une
+opération ». C'était faux, et la mesure que la tâche 1.2 du changement demandait l'a montré dès qu'elle a été faite au
+pilote JDBC, sur une opération entière et non sur un runtime. Pour la même opération, sur une base déjà initialisée :
+
+| Opération | HTTP | MCP | CLI |
+|---|---|---|---|
+| lister les vues sauvegardées d'un périmètre (avant) | 1 | 5 | 5 |
+| lister les packs de policy (avant) | 8 | 8 | 8 |
+| les deux (après) | 1 | 1 | 1 |
+
+La règle textuelle ne lisait que `morpheus-api`, `morpheus-mcp` et `morpheus-cli`. Les deux ensembles de stores que
+ces trois transports partagent — `SqliteQueryStores` (cinq stores) et `SqlitePolicyStores` (huit) — vivent dans
+`morpheus-store-sqlite` et n'ouvraient aucune portée : elle ne pouvait pas les voir. Le runtime interne de
+`MorpheusQueryApiService`, que le constat AUD-TRV-05 nommait, n'était pas une copie d'`ApiRuntime` : c'était une
+troisième copie de `SqliteQueryRuntime`, la seule des trois à ouvrir une portée.
+
+- **La portée est ouverte par l'ensemble de stores.** `SqliteQueryStores.open` et `SqlitePolicyStores.open` ouvrent
+  la `SqliteConnectionScope` avant leur premier store et la ferment après le dernier. Une base qui ne s'ouvre pas y est
+  rapportée comme elle l'était par le premier store : `KnowledgeStoreException`, message du store de connaissance.
+- **Le runtime interne de `MorpheusQueryApiService` est supprimé.** L'adaptateur HTTP ouvre `SqliteQueryRuntime`,
+  comme la CLI et le serveur MCP : un seul câblage des services de requête pour les trois transports. L'absorber dans
+  `ApiRuntime` aurait laissé deux câblages et n'aurait rien changé aux cinq connexions de la CLI et du MCP.
+- **La liste des racines ne rétrécit toujours pas.** `MorpheusQueryApiService` dépend encore de `store-sqlite`, par
+  `SqliteQueryRuntime`, comme `MorpheusPolicyApiService` par `SqlitePolicyRuntime`.
+- **La règle a deux mécanismes** (ADR-0103), dans `SqliteConnectionScopeUseArchitectureTest`. Le texte lit désormais
+  aussi `morpheus-store-sqlite` ; dix classes sont nommées pour leur store unique, `SqliteServerMaintenance` s'y ajoute
+  (la sauvegarde amène la base au schéma courant par le seul store de connaissance). Une règle sur le bytecode se tient
+  à côté : toute classe de production qui construit deux stores SQLite différents dépend de la portée. Elle ne connaît
+  aucune liste de modules — c'est ce qui manquait — et voit un store construit par référence de constructeur, que le
+  texte n'épelle pas. Elle ne dit pas que la portée entoure les constructions, ni ne voit un même store construit deux
+  fois dans un bloc : le texte tient ces deux points. Chacune a été cassée une fois.
+
+Reste hors de cet amendement : les dix classes nommées ouvrent un store, donc une connexion, hors de toute portée. Une
+opération qui passerait par deux d'entre elles en ouvrirait deux ; aucune des deux opérations mesurées ne le fait, et
+la mesure n'a porté que sur ces deux-là.
+
 ## Alternatives écartées
 
 - **Ramener tout le câblage dans `morpheus-cli`** (les adaptateurs ne dépendant plus que des ports de l'application,
