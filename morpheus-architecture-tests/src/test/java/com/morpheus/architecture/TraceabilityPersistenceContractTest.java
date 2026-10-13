@@ -73,6 +73,21 @@ class TraceabilityPersistenceContractTest {
     }
 
     @Test
+    void memoryStoreWritesABatchAllOrNothing() {
+        MemorySpecificationKnowledgeStore snapshots = new MemorySpecificationKnowledgeStore();
+        verifyBatchRules(snapshots, new MemoryTraceabilityStore(snapshots));
+    }
+
+    @Test
+    void sqliteStoreWritesABatchAllOrNothing() {
+        Path database = tempDir.resolve("traceability-batch.db");
+        try (SqliteSpecificationKnowledgeStore snapshots = new SqliteSpecificationKnowledgeStore(database);
+             SqliteTraceabilityStore traceability = new SqliteTraceabilityStore(database)) {
+            verifyBatchRules(snapshots, traceability);
+        }
+    }
+
+    @Test
     void sqliteReopenPreservesDefinitionsEvidenceAndSnapshotMembership() {
         Path database = tempDir.resolve("traceability-reopen.db");
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
@@ -142,6 +157,84 @@ class TraceabilityPersistenceContractTest {
                 firstSnapshot, change, Set.of(TraceabilityRelationType.AFFECTS)));
         assertEquals(List.of(affects), traceability.incoming(firstSnapshot, requirement, Set.of()));
         assertEquals(List.of(), traceability.incoming(secondSnapshot, decision, Set.of()));
+    }
+
+    /**
+     * What storing a batch guarantees, on both stores: it is all or nothing; a link already defined identically joins
+     * the snapshot without being rewritten; a link listed twice identically is stored once; a different definition
+     * under an identity already used refuses the whole batch and names the identity.
+     */
+    private void verifyBatchRules(
+            SpecificationKnowledgeStore snapshots,
+            TraceabilityStore traceability) {
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+        KnowledgeSnapshotId firstSnapshot = KnowledgeSnapshotId.generate();
+        KnowledgeSnapshotId secondSnapshot = KnowledgeSnapshotId.generate();
+        createProjectAndSnapshots(snapshots, projectId, firstSnapshot, secondSnapshot);
+        TraceabilityEntityRef source = new TraceabilityEntityRef(
+                TraceabilityEntityKind.CHANGE, DomainIdentity.generate());
+        TraceabilityEntityRef target = new TraceabilityEntityRef(
+                TraceabilityEntityKind.REQUIREMENT, DomainIdentity.generate());
+        TraceabilityLink alreadyDefined = link(
+                TraceabilityLinkId.generate(), source, TraceabilityRelationType.AFFECTS,
+                target, Set.of(EvidenceId.generate(), EvidenceId.generate()), T0);
+        TraceabilityLink first = link(
+                TraceabilityLinkId.generate(), source, TraceabilityRelationType.REFINES,
+                target, Set.of(EvidenceId.generate()), T0.plusSeconds(1));
+        TraceabilityLink second = link(
+                TraceabilityLinkId.generate(), source, TraceabilityRelationType.RELATED_TO,
+                target, Set.of(EvidenceId.generate()), T0.plusSeconds(2));
+        traceability.putLink(firstSnapshot, alreadyDefined);
+
+        traceability.putLinks(secondSnapshot, List.of(first, alreadyDefined, first, second));
+
+        for (TraceabilityLink stored : List.of(first, alreadyDefined, second)) {
+            assertEquals(stored, traceability.findLink(secondSnapshot, stored.id()).orElseThrow());
+        }
+        assertEquals(alreadyDefined, traceability.findLink(firstSnapshot, alreadyDefined.id()).orElseThrow());
+        assertEquals(3, traceability.outgoing(secondSnapshot, source, Set.of()).size(),
+                "a link listed twice in one batch is stored once");
+
+        TraceabilityLink before = link(
+                TraceabilityLinkId.generate(), source, TraceabilityRelationType.AFFECTS,
+                target, Set.of(EvidenceId.generate()), T0.plusSeconds(3));
+        TraceabilityLink after = link(
+                TraceabilityLinkId.generate(), source, TraceabilityRelationType.AFFECTS,
+                target, Set.of(EvidenceId.generate()), T0.plusSeconds(4));
+        TraceabilityLink redefined = link(
+                alreadyDefined.id(), source, TraceabilityRelationType.AFFECTS,
+                target, Set.of(EvidenceId.generate()), T0);
+        KnowledgeStoreException collision = assertThrows(KnowledgeStoreException.class,
+                () -> traceability.putLinks(secondSnapshot, List.of(before, redefined, after)));
+        assertTrue(messages(collision).contains("traceability link identity collision: " + alreadyDefined.id()),
+                () -> messages(collision));
+        assertTrue(traceability.findLink(secondSnapshot, before.id()).isEmpty(),
+                "a refused batch stores nothing, not even the links before the one that refused it");
+        assertTrue(traceability.findLink(secondSnapshot, after.id()).isEmpty());
+        assertEquals(alreadyDefined, traceability.findLink(secondSnapshot, alreadyDefined.id()).orElseThrow());
+
+        TraceabilityLink once = link(
+                TraceabilityLinkId.generate(), source, TraceabilityRelationType.AFFECTS,
+                target, Set.of(EvidenceId.generate()), T0.plusSeconds(5));
+        TraceabilityLink sameIdentityOtherDefinition = link(
+                once.id(), source, TraceabilityRelationType.REFINES, target, once.evidenceIds(), T0.plusSeconds(5));
+        KnowledgeStoreException withinTheBatch = assertThrows(KnowledgeStoreException.class,
+                () -> traceability.putLinks(secondSnapshot, List.of(once, sameIdentityOtherDefinition)));
+        assertTrue(messages(withinTheBatch).contains("traceability link identity collision: " + once.id()),
+                () -> messages(withinTheBatch));
+        assertTrue(traceability.findLink(secondSnapshot, once.id()).isEmpty());
+
+        KnowledgeSnapshotId unknownSnapshot = KnowledgeSnapshotId.generate();
+        assertThrows(KnowledgeStoreException.class, () -> traceability.putLinks(unknownSnapshot, List.of(first)));
+    }
+
+    /** The message of a failure and of its causes: a store may wrap the refusal it raises inside a transaction. */
+    private static String messages(Throwable failure) {
+        StringBuilder all = new StringBuilder();
+        for (Throwable current = failure; current != null; current = current.getCause()) {
+            all.append(current.getMessage()).append(" <- ");
+        }
+        return all.toString();
     }
 
     private void verifyOwnershipAndCollisionRules(

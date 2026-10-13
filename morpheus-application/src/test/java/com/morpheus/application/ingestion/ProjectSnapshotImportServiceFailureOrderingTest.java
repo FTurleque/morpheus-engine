@@ -430,6 +430,11 @@ class ProjectSnapshotImportServiceFailureOrderingTest {
 
     private static final class EmptyTraceabilityStore implements TraceabilityStore {
         @Override
+        public void putLinks(KnowledgeSnapshotId snapshotId, List<TraceabilityLink> links) {
+            links.forEach(link -> putLink(snapshotId, link));
+        }
+
+        @Override
         public void putLink(KnowledgeSnapshotId snapshotId, TraceabilityLink link) {
             throw new AssertionError("traceability must not be persisted after injected registration failure");
         }
