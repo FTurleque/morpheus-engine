@@ -30,9 +30,9 @@ function Assert-NativeSuccess([string]$Label) {
 }
 
 function Resolve-BaseRef([string]$Requested) {
-    & git rev-parse --verify "$Requested^{commit}" *> $null
+    & git rev-parse --verify --quiet "$Requested^{commit}" *> $null
     if ($LASTEXITCODE -eq 0) { return $Requested }
-    & git rev-parse --verify 'develop^{commit}' *> $null
+    & git rev-parse --verify --quiet 'develop^{commit}' *> $null
     if ($LASTEXITCODE -eq 0) { return 'develop' }
     throw "D2 base ref not found: $Requested (fallback develop also missing)"
 }

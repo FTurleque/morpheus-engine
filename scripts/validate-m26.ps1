@@ -121,9 +121,9 @@ Write-Host "M26 expected SQLite schema: $expectedSchema"
 $initialTracked = @(git status --porcelain --untracked-files=no)
 if ($initialTracked.Count -ne 0) { throw "M26 exact-head gate requires no tracked workspace delta before validation:`n$($initialTracked -join "`n")" }
 
-git rev-parse --verify "$BaseRef`^{commit}" *> $null
+git rev-parse --verify --quiet "$BaseRef`^{commit}" *> $null
 if ($LASTEXITCODE -ne 0) {
-    $BaseRef = 'develop'; git rev-parse --verify "$BaseRef`^{commit}" *> $null
+    $BaseRef = 'develop'; git rev-parse --verify --quiet "$BaseRef`^{commit}" *> $null
     if ($LASTEXITCODE -ne 0) { throw 'M26 base ref not found: origin/develop (fallback develop also missing)' }
 }
 Write-Host "M26 diff base: $BaseRef"

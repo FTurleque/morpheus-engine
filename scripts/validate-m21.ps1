@@ -139,10 +139,10 @@ if ($initialTracked.Count -ne 0) {
     throw "M21 exact-head gate requires no tracked workspace delta before validation:`n$($initialTracked -join "`n")"
 }
 
-git rev-parse --verify "$BaseRef`^{commit}" *> $null
+git rev-parse --verify --quiet "$BaseRef`^{commit}" *> $null
 if ($LASTEXITCODE -ne 0) {
     $BaseRef = 'main'
-    git rev-parse --verify "$BaseRef`^{commit}" *> $null
+    git rev-parse --verify --quiet "$BaseRef`^{commit}" *> $null
     if ($LASTEXITCODE -ne 0) {
         throw 'M21 base ref not found: origin/main (fallback main also missing)'
     }
