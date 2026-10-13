@@ -81,10 +81,9 @@ final class MorpheusMcpRuntime implements AutoCloseable {
     private static SqliteConnectionScope openScope(Path databasePath) {
         try {
             return SqliteConnectionScope.open(databasePath);
+        } catch (SqliteConnectionScope.NestedScopeException nested) {
+            throw nested;
         } catch (IllegalStateException unavailable) {
-            if (String.valueOf(unavailable.getMessage()).startsWith(SqliteConnectionScope.NESTED_REFUSAL)) {
-                throw unavailable;
-            }
             throw new KnowledgeStoreException("Cannot initialize SQLite connection of the tool call", unavailable);
         }
     }

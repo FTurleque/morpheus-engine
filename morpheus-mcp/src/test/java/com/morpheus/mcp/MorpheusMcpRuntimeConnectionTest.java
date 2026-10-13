@@ -47,8 +47,8 @@ class MorpheusMcpRuntimeConnectionTest {
         Path database = temporaryDirectory.resolve("morpheus.db");
 
         try (MorpheusMcpRuntime first = new MorpheusMcpRuntime(database)) {
-            IllegalStateException refused =
-                    assertThrows(IllegalStateException.class, () -> new MorpheusMcpRuntime(database));
+            SqliteConnectionScope.NestedScopeException refused = assertThrows(
+                    SqliteConnectionScope.NestedScopeException.class, () -> new MorpheusMcpRuntime(database));
 
             assertTrue(refused.getMessage().startsWith(SqliteConnectionScope.NESTED_REFUSAL + ": "),
                     refused::getMessage);

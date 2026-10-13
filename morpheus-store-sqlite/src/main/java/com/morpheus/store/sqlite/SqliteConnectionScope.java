@@ -16,12 +16,27 @@ import java.util.concurrent.atomic.AtomicLong;
  * Logical connections retain normal close semantics without owning the physical connection.
  */
 public final class SqliteConnectionScope implements AutoCloseable {
-    /**
-     * What a second scope opened on a thread that already holds one is refused with. It is a defect of the caller -
-     * two runtimes alive at once on one thread - and never a state of the database, so a caller that translates a
-     * failure to open the database must let this one through.
-     */
+    /** The code a second scope opened on a thread that already holds one is refused with. */
     public static final String NESTED_REFUSAL = "SQLITE_CONNECTION_SCOPE_NESTED";
+
+    /**
+     * A second scope was opened on a thread that already holds one. It is a defect of the caller - two runtimes alive
+     * at once on one thread - and never a state of the database: it has a type of its own so that a caller that
+     * translates a failure to open the database can let this one through without reading a message.
+     */
+    public static final class NestedScopeException extends IllegalStateException {
+        private static final long serialVersionUID = 1L;
+
+        private NestedScopeException() {
+            super(NESTED_REFUSAL + ": a SQLite connection scope is already open on this thread, and scopes do not nest");
+        }
+    }
+
+    private static void requireNoScopeOnThisThread() {
+        if (ACTIVE.get() != null) {
+            throw new NestedScopeException();
+        }
+    }
 
     private static final ThreadLocal<State> ACTIVE = new ThreadLocal<>();
     private static final AtomicLong PHYSICAL_OPENED = new AtomicLong();
@@ -43,10 +58,7 @@ public final class SqliteConnectionScope implements AutoCloseable {
     public static SqliteConnectionScope open(Path databasePath, int busyTimeoutMillis) {
         Objects.requireNonNull(databasePath, "databasePath");
         // Rejected before the connection is opened: refusing afterwards would leak the connection it opened.
-        if (ACTIVE.get() != null) {
-            throw new IllegalStateException(NESTED_REFUSAL
-                    + ": a SQLite connection scope is already open on this thread, and scopes do not nest");
-        }
+        requireNoScopeOnThisThread();
         Path normalized = databasePath.toAbsolutePath().normalize();
         try {
             return adopt(normalized, busyTimeoutMillis,
@@ -66,10 +78,7 @@ public final class SqliteConnectionScope implements AutoCloseable {
     static SqliteConnectionScope adopt(Path databasePath, int busyTimeoutMillis, Connection physical) {
         Objects.requireNonNull(databasePath, "databasePath");
         Objects.requireNonNull(physical, "physical");
-        if (ACTIVE.get() != null) {
-            throw new IllegalStateException(NESTED_REFUSAL
-                    + ": a SQLite connection scope is already open on this thread, and scopes do not nest");
-        }
+        requireNoScopeOnThisThread();
         State state = new State(databasePath.toAbsolutePath().normalize(), busyTimeoutMillis, physical);
         recordPhysicalOpen();
         ACTIVE.set(state);
