@@ -5,7 +5,7 @@ import com.morpheus.application.ingestion.BoundedDiagnostics;
 import com.morpheus.application.ingestion.ObservedProjectSnapshotPublisher;
 import com.morpheus.application.ingestion.ProjectSnapshotImportResult;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
-import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.application.sync.IncrementalSyncService;
 import com.morpheus.application.sync.LocalSourceInventoryScanner;
@@ -32,10 +32,12 @@ final class MorpheusProjectSyncApiService {
     private static final String UNKNOWN_VALUE = "unknown";
 
     private final Path databasePath;
+    private final OperationalRecorder recorder;
     private final Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots;
 
-    MorpheusProjectSyncApiService(Path databasePath, Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots) {
+    MorpheusProjectSyncApiService(Path databasePath, OperationalRecorder recorder, Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
         this.allowedWorkspaceRoots = Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots");
     }
 
@@ -44,16 +46,16 @@ final class MorpheusProjectSyncApiService {
         Optional<String> normalizedRevision = Objects.requireNonNull(revision, "revision")
                 .map(String::trim)
                 .filter(value -> !value.isEmpty());
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             Path workspace = projectWorkspace(runtime, projectId);
             Instant attemptedAt = Instant.now();
-            var scan = new LocalSourceInventoryScanner().scan(
+            var scan = new LocalSourceInventoryScanner(recorder).scan(
                     workspace,
                     projectId,
                     normalizedRevision,
                     attemptedAt,
                     List.of(Path.of("openspec")));
-            IncrementalSyncService syncService = new IncrementalSyncService(runtime.syncState);
+            IncrementalSyncService syncService = new IncrementalSyncService(runtime.syncState(), recorder);
             SyncPlan plan = syncService.prepare(scan, SyncPlan.Trigger.manual().forced(), attemptedAt);
             if (!scan.complete()) {
                 syncService.fail(plan, Instant.now());
@@ -67,14 +69,14 @@ final class MorpheusProjectSyncApiService {
                 var normalized = new OpenSpecProjectContentReader().read(
                         workspace,
                         projectId,
-                        new PersistentEntityIdentityResolver(runtime.identities));
+                        new PersistentEntityIdentityResolver(runtime.identities()));
                 ProjectSnapshotImportResult imported = new ObservedProjectSnapshotPublisher(
                         new ProjectSnapshotImportService(
-                                runtime.snapshots,
-                                runtime.requirements,
-                                runtime.content,
-                                runtime.traceability),
-                        LocalOperationalRuntime.recorder())
+                                runtime.snapshots(),
+                                runtime.requirements(),
+                                runtime.content(),
+                                runtime.traceability()),
+                        recorder)
                         .publishFull(normalized, normalizedRevision, Instant.now());
                 syncService.complete(plan, Instant.now());
                 return map(
@@ -101,9 +103,9 @@ final class MorpheusProjectSyncApiService {
     Object syncStatus(String projectIdValue, long maxAgeMinutes) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         requireRange("maxAgeMinutes", maxAgeMinutes, 1L, MorpheusApiService.MAX_MAX_AGE_MINUTES);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             requireProject(runtime, projectId);
-            SyncFreshness freshness = new SyncFreshnessService(runtime.syncState)
+            SyncFreshness freshness = new SyncFreshnessService(runtime.syncState())
                     .assess(projectId, Instant.now(), Duration.ofMinutes(maxAgeMinutes));
             return map(
                     "projectId", projectId.toString(),
@@ -119,7 +121,7 @@ final class MorpheusProjectSyncApiService {
     }
 
     private ProjectStoreEntry requireProject(ApiRuntime runtime, ProjectSpecificationId projectId) {
-        return runtime.snapshots.findProject(projectId)
+        return runtime.snapshots().findProject(projectId)
                 .orElseThrow(() -> ApiFailure.notFound("project not found: " + projectId));
     }
 

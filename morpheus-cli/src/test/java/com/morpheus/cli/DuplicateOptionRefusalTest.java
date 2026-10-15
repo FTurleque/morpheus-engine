@@ -205,10 +205,13 @@ class DuplicateOptionRefusalTest {
     @Test
     void aLauncherRefusalIsAUsageError() {
         Result api = launch(err -> MorpheusMain.runApi(
+                OperationalRuntime.of(OperationalLogMode.OFF),
                 new String[]{"api", "--port", "8765", "--port=8766", "--unknown"}, err, Map.of(), properties()));
         Result mcp = launch(err -> MorpheusMain.runMcp(
+                OperationalRuntime.of(OperationalLogMode.OFF),
                 new String[]{"mcp", "--db", "a.db", "--db=b.db"}, err, Map.of(), properties()));
         Result remote = launch(err -> MorpheusMain.runRemoteApi(
+                OperationalRuntime.of(OperationalLogMode.OFF),
                 new String[]{"api", "--remote", "--auth-file=a", "--auth-file", "b"}, err, Map.of(), properties()));
 
         for (Result result : List.of(api, mcp, remote)) {

@@ -85,28 +85,6 @@ final class SqliteStoreConnection {
         }
     }
 
-    /**
-     * Opens the connection scope a set of stores shares for one operation.
-     *
-     * <p>A set opened store by store reported a database that cannot be opened through its first store, the
-     * knowledge store, as a {@link KnowledgeStoreException}: that is the failure every adapter answers. Opened
-     * through a scope, the same database fails before any store exists, so the failure is reported here in the same
-     * terms. A scope already open on the thread is a defect of the caller, never a state of the database, and is
-     * left as it is.</p>
-     */
-    static SqliteConnectionScope openScope(Path databasePath) {
-        try {
-            return SqliteConnectionScope.open(databasePath);
-        } catch (SqliteConnectionScope.NestedScopeException nested) {
-            throw nested;
-        } catch (IllegalStateException unavailable) {
-            throw new KnowledgeStoreException(
-                    SqliteSpecificationKnowledgeStore.INITIALIZATION_FAILURE, unavailable.getCause());
-        } catch (RuntimeException unsafe) {
-            throw new KnowledgeStoreException(SqliteSpecificationKnowledgeStore.INITIALIZATION_FAILURE, unsafe);
-        }
-    }
-
     @FunctionalInterface
     private interface Opening {
         Connection open() throws SQLException;

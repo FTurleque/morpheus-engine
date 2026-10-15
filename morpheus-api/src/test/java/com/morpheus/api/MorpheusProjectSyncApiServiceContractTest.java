@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -25,11 +26,11 @@ class MorpheusProjectSyncApiServiceContractTest {
     void preservesSyncStatusValidationAndWorkspaceConfinement() throws Exception {
         Path database = tempDirectory.resolve("sync-service.db");
         Path fixture = http.fixture("openspec-basic");
-        MorpheusProjectRegistryApiService registry = new MorpheusProjectRegistryApiService(database, Optional.empty());
+        MorpheusProjectRegistryApiService registry = new MorpheusProjectRegistryApiService(database, OperationalRecorder.noop(), Optional.empty());
         MorpheusProjectRegistryApiService.RegistrationResult registration = registry.registerProject(fixture.toString());
         String projectId = ((Map<?, ?>) registration.project()).get("projectId").toString();
 
-        MorpheusProjectSyncApiService service = new MorpheusProjectSyncApiService(database, Optional.empty());
+        MorpheusProjectSyncApiService service = new MorpheusProjectSyncApiService(database, OperationalRecorder.noop(), Optional.empty());
         Map<?, ?> sync = (Map<?, ?>) service.sync(projectId, Optional.of("  sync-service-r1  "));
         assertEquals(projectId, sync.get("projectId"));
         assertEquals("FULL_REBUILD", sync.get("mode"));
@@ -59,6 +60,7 @@ class MorpheusProjectSyncApiServiceContractTest {
         Path allowed = Files.createDirectory(tempDirectory.resolve("allowed"));
         MorpheusProjectSyncApiService confined = new MorpheusProjectSyncApiService(
                 database,
+                OperationalRecorder.noop(),
                 Optional.of(AllowedWorkspaceRoots.of(List.of(allowed))));
         IllegalArgumentException denied = assertThrows(
                 IllegalArgumentException.class,
@@ -75,12 +77,12 @@ class MorpheusProjectSyncApiServiceContractTest {
     void aVanishedWorkspaceIsReportedByProjectIdRatherThanByPathname() throws Exception {
         Path database = tempDirectory.resolve("vanished.db");
         Path workspace = Files.createDirectory(tempDirectory.resolve("vanishing-workspace"));
-        MorpheusProjectRegistryApiService registry = new MorpheusProjectRegistryApiService(database, Optional.empty());
+        MorpheusProjectRegistryApiService registry = new MorpheusProjectRegistryApiService(database, OperationalRecorder.noop(), Optional.empty());
         String projectId = ((Map<?, ?>) registry.registerProject(workspace.toString()).project())
                 .get("projectId").toString();
         Files.delete(workspace);
 
-        MorpheusProjectSyncApiService service = new MorpheusProjectSyncApiService(database, Optional.empty());
+        MorpheusProjectSyncApiService service = new MorpheusProjectSyncApiService(database, OperationalRecorder.noop(), Optional.empty());
         ApiFailure conflict = assertThrows(ApiFailure.class, () -> service.sync(projectId, Optional.empty()));
 
         assertEquals(409, conflict.status());

@@ -1,5 +1,7 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.store.sqlite.SqliteConnectionScope;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -9,6 +11,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Path;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -40,19 +43,27 @@ class HttpRequestConnectionCountTest {
     }
 
     private void assertOneConnection(String route) throws Exception {
+        OperationalRuntime observed = OperationalRuntime.of(OperationalLogMode.OFF);
         try (MorpheusHttpServer server = MorpheusHttpServer.start(
-                temporaryDirectory.resolve("morpheus.db"), "127.0.0.1", 0);
+                temporaryDirectory.resolve("morpheus.db"), "127.0.0.1", 0, observed);
              HttpClient client = HttpClient.newHttpClient()) {
             URI uri = URI.create(server.baseUri() + route);
             assertEquals(200, get(client, uri));
-            SqliteConnectionScope.Diagnostics before = SqliteConnectionScope.diagnostics();
+            Map<String, Long> before = observed.metrics().snapshot().counters();
 
             int opened = PhysicalSqliteConnections.openedDuring(() -> assertEquals(200, get(client, uri)));
 
             assertEquals(1, opened, "GET " + route + " opens one physical SQLite connection");
-            assertEquals(1, SqliteConnectionScope.diagnostics().opened() - before.opened(),
-                    "and that connection is the one of a scope, whose schema check runs once");
+            Map<String, Long> after = observed.metrics().snapshot().counters();
+            assertEquals(1L, delta(before, after, SqliteConnectionScope.CONNECTIONS_OPENED),
+                    "and that connection is the one of a scope, counted on the runtime the server was handed");
+            assertEquals(1L, delta(before, after, SqliteConnectionScope.SCHEMA_CHECKS),
+                    "whose schema check runs once");
         }
+    }
+
+    private static long delta(Map<String, Long> before, Map<String, Long> after, String counter) {
+        return after.getOrDefault(counter, 0L) - before.getOrDefault(counter, 0L);
     }
 
     private static int get(HttpClient client, URI uri) throws Exception {

@@ -2,6 +2,8 @@ package com.morpheus.api;
 
 import com.morpheus.application.context.DisabledTechnicalContextProvider;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityObservation;
+import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.store.sqlite.SqliteServerMaintenance;
@@ -60,7 +62,7 @@ class MorpheusRemoteHttpServerShutdownOwnershipTest {
                 new DisabledTechnicalContextProvider("NEXUS", "test"),
                 project -> ChangeWriteCapabilityObservation.denied("test"),
                 AllowedWorkspaceRoots.of(List.of(Files.createDirectory(temp.resolve("workspace")))),
-                capability);
+                capability, OperationalRuntime.of(OperationalLogMode.OFF));
         URI localProbe = local.baseUri();
 
         IllegalStateException injected = new IllegalStateException("injected executor shutdown failure");
@@ -77,7 +79,7 @@ class MorpheusRemoteHttpServerShutdownOwnershipTest {
                 temp.resolve("provider-plugins"),
                 AllowedWorkspaceRoots.of(List.of(temp)),
                 auth,
-                1);
+                1, OperationalRuntime.of(OperationalLogMode.OFF));
 
         IllegalStateException thrown = assertThrows(IllegalStateException.class, server::close);
         assertSame(injected, thrown, "the caller must see the release that failed, not a later one");

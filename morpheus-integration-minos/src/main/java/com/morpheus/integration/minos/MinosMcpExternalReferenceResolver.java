@@ -1,6 +1,5 @@
 package com.morpheus.integration.minos;
 
-import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.operability.SuppressedFailureFamily;
 import com.morpheus.application.reference.ExternalReferenceResolver;
@@ -21,10 +20,6 @@ public final class MinosMcpExternalReferenceResolver implements ExternalReferenc
 
     private final MinosCodeGatewayFactory gatewayFactory;
     private final OperationalRecorder recorder;
-
-    public MinosMcpExternalReferenceResolver(MinosCodeGatewayFactory gatewayFactory) {
-        this(gatewayFactory, LocalOperationalRuntime.recorder());
-    }
 
     public MinosMcpExternalReferenceResolver(MinosCodeGatewayFactory gatewayFactory, OperationalRecorder recorder) {
         this.gatewayFactory = Objects.requireNonNull(gatewayFactory, "gatewayFactory");

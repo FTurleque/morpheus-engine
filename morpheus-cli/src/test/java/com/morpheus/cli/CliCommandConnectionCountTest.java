@@ -30,6 +30,8 @@ class CliCommandConnectionCountTest {
     @TempDir
     Path temporaryDirectory;
 
+    private final OperationalRuntime observed = OperationalRuntime.of(OperationalLogMode.OFF);
+
     @Test
     void listingSavedViewsOpensOnePhysicalConnection() throws Exception {
         assertOneConnection("views", "list", "--project", "01920000-0000-7000-8000-0000000000ff");
@@ -43,13 +45,19 @@ class CliCommandConnectionCountTest {
     private void assertOneConnection(String... command) throws Exception {
         String label = String.join(" ", command);
         assertEquals(0, run(command), label);
-        SqliteConnectionScope.Diagnostics before = SqliteConnectionScope.diagnostics();
+        Map<String, Long> before = observed.metrics().snapshot().counters();
 
         int opened = PhysicalSqliteConnections.openedDuring(() -> assertEquals(0, run(command), label));
 
         assertEquals(1, opened, label + " opens one physical SQLite connection");
-        assertEquals(1, SqliteConnectionScope.diagnostics().opened() - before.opened(),
-                "and that connection is the one of a scope, whose schema check runs once");
+        Map<String, Long> after = observed.metrics().snapshot().counters();
+        assertEquals(1L, delta(before, after, SqliteConnectionScope.CONNECTIONS_OPENED),
+                "and that connection is the one of a scope, counted on the runtime the launcher was handed");
+        assertEquals(1L, delta(before, after, SqliteConnectionScope.SCHEMA_CHECKS), "whose schema check runs once");
+    }
+
+    private static long delta(Map<String, Long> before, Map<String, Long> after, String counter) {
+        return after.getOrDefault(counter, 0L) - before.getOrDefault(counter, 0L);
     }
 
     private int run(String... command) {
@@ -63,7 +71,7 @@ class CliCommandConnectionCountTest {
             Properties properties = new Properties();
             properties.setProperty("user.home", temporaryDirectory.resolve("home").toString());
             properties.setProperty("os.name", "Linux");
-            return MorpheusMain.run(OperationalRuntime.of(OperationalLogMode.OFF), args.toArray(String[]::new), out, err, Map.of(), properties);
+            return MorpheusMain.run(observed, args.toArray(String[]::new), out, err, Map.of(), properties);
         }
     }
 }

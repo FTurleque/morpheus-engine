@@ -1,5 +1,6 @@
 package com.morpheus.application.sync;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -44,7 +45,7 @@ class LocalSourceInventorySecurityTest {
         Files.writeString(workspace.resolve("target/generated.md"), "generated");
         Files.writeString(workspace.resolve("node_modules/pkg/index.md"), "dependency");
 
-        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner();
+        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(OperationalRecorder.noop());
         var result = scan(scanner, workspace);
 
         assertTrue(result.complete(), () -> "scan failures: " + result.failures());
@@ -70,7 +71,7 @@ class LocalSourceInventorySecurityTest {
 
         assumeTrue(tryCreateSymbolicLink(workspace.resolve("external-link"), external),
                 "symbolic links cannot be created in this environment");
-        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner();
+        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(OperationalRecorder.noop());
         var result = scan(scanner, workspace);
 
         assertTrue(result.complete(), () -> "scan failures: " + result.failures());
@@ -89,7 +90,7 @@ class LocalSourceInventorySecurityTest {
         Path link = workspace.resolve("linked-root");
         assumeTrue(tryCreateSymbolicLink(link, target), "symbolic links cannot be created in this environment");
 
-        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner();
+        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(OperationalRecorder.noop());
         SourceInventoryScanResult result = scan(scanner, workspace, List.of(Path.of("linked-root")));
 
         assertFalse(result.complete(), () -> "scan should be incomplete: " + result);
@@ -196,7 +197,7 @@ class LocalSourceInventorySecurityTest {
         byte[] content = "stable-source".getBytes(StandardCharsets.UTF_8);
         Files.write(workspace.resolve("source.md"), content);
 
-        SourceInventoryScanResult result = scan(new LocalSourceInventoryScanner(), workspace);
+        SourceInventoryScanResult result = scan(new LocalSourceInventoryScanner(OperationalRecorder.noop()), workspace);
 
         assertTrue(result.complete(), () -> "scan failures: " + result.failures());
         assertTrue(result.failures().isEmpty());
@@ -213,7 +214,7 @@ class LocalSourceInventorySecurityTest {
         Files.createDirectory(workspace.resolve("one"));
         Files.createDirectory(workspace.resolve("two"));
         LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(
-                new SourceScanPolicy(Set.of(), 8, 2, 10, 16, 64));
+                new SourceScanPolicy(Set.of(), 8, 2, 10, 16, 64), OperationalRecorder.noop());
 
         var result = scan(scanner, workspace);
 
@@ -227,7 +228,7 @@ class LocalSourceInventorySecurityTest {
         Files.writeString(workspace.resolve("one.md"), "1");
         Files.writeString(workspace.resolve("two.md"), "2");
         LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(
-                new SourceScanPolicy(Set.of(), 8, SourceScanPolicy.DEFAULT_MAX_DIRECTORIES, 1, 16, 16));
+                new SourceScanPolicy(Set.of(), 8, SourceScanPolicy.DEFAULT_MAX_DIRECTORIES, 1, 16, 16), OperationalRecorder.noop());
 
         var result = scan(scanner, workspace);
 
@@ -240,7 +241,7 @@ class LocalSourceInventorySecurityTest {
         Path workspace = Files.createDirectories(tempDir.resolve("file-size"));
         Files.writeString(workspace.resolve("large.md"), "12345");
         LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(
-                new SourceScanPolicy(Set.of(), 8, SourceScanPolicy.DEFAULT_MAX_DIRECTORIES, 10, 4, 16));
+                new SourceScanPolicy(Set.of(), 8, SourceScanPolicy.DEFAULT_MAX_DIRECTORIES, 10, 4, 16), OperationalRecorder.noop());
 
         var result = scan(scanner, workspace);
 
@@ -254,7 +255,7 @@ class LocalSourceInventorySecurityTest {
         Files.writeString(workspace.resolve("one.md"), "1234");
         Files.writeString(workspace.resolve("two.md"), "5678");
         LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(
-                new SourceScanPolicy(Set.of(), 8, SourceScanPolicy.DEFAULT_MAX_DIRECTORIES, 10, 4, 6));
+                new SourceScanPolicy(Set.of(), 8, SourceScanPolicy.DEFAULT_MAX_DIRECTORIES, 10, 4, 6), OperationalRecorder.noop());
 
         var result = scan(scanner, workspace);
 
@@ -268,7 +269,7 @@ class LocalSourceInventorySecurityTest {
         Path nested = Files.createDirectories(workspace.resolve("one/two"));
         Files.writeString(nested.resolve("deep.md"), "deep");
         LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(
-                new SourceScanPolicy(Set.of(), 1, SourceScanPolicy.DEFAULT_MAX_DIRECTORIES, 10, 16, 64));
+                new SourceScanPolicy(Set.of(), 1, SourceScanPolicy.DEFAULT_MAX_DIRECTORIES, 10, 16, 64), OperationalRecorder.noop());
 
         var result = scan(scanner, workspace);
 
@@ -282,7 +283,7 @@ class LocalSourceInventorySecurityTest {
         Path nested = Files.createDirectories(workspace.resolve("one"));
         Files.writeString(nested.resolve("leaf.md"), "leaf");
         LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(
-                new SourceScanPolicy(Set.of(), 1, 10, 10, 1024, 1024));
+                new SourceScanPolicy(Set.of(), 1, 10, 10, 1024, 1024), OperationalRecorder.noop());
 
         var result = scan(scanner, workspace);
 
@@ -301,7 +302,7 @@ class LocalSourceInventorySecurityTest {
         Files.createDirectories(first.resolve("nested"));
         Files.createDirectories(workspace.resolve("second"));
         LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(
-                new SourceScanPolicy(Set.of(), 8, 1, 10, 1024, 1024));
+                new SourceScanPolicy(Set.of(), 8, 1, 10, 1024, 1024), OperationalRecorder.noop());
 
         var result = scan(scanner, workspace, List.of(Path.of("first"), Path.of("second")));
 
@@ -314,7 +315,7 @@ class LocalSourceInventorySecurityTest {
     @Test
     void sourceRootThatEscapesTheWorkspaceViaRelativeTraversalIsRejectedBeforeAnyFilesystemWalk() {
         Path workspace = tempDir.resolve("escape-workspace");
-        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner();
+        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(OperationalRecorder.noop());
 
         IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
                 () -> scan(scanner, workspace, List.of(Path.of("../escape-target"))));
@@ -323,7 +324,7 @@ class LocalSourceInventorySecurityTest {
     }
 
     private LocalSourceInventoryScanner mutationScanner(LocalSourceInventoryScanner.FingerprintComputer computer) {
-        return new LocalSourceInventoryScanner(SourceScanPolicy.safeDefaults(), computer);
+        return new LocalSourceInventoryScanner(SourceScanPolicy.safeDefaults(), computer, OperationalRecorder.noop());
     }
 
     private SourceInventoryScanResult scan(LocalSourceInventoryScanner scanner, Path workspace) {

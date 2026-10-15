@@ -3,6 +3,7 @@ package com.morpheus.api;
 import com.morpheus.api.MorpheusHttpServer.ApiError;
 import com.morpheus.api.MorpheusHttpServer.ApiErrorEnvelope;
 import com.morpheus.api.MorpheusHttpServer.ApiSuccess;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.policy.PolicyConflictException;
 import com.morpheus.application.policy.PolicyIds;
 import com.morpheus.application.policy.PolicyPackService;
@@ -11,7 +12,6 @@ import com.morpheus.application.policy.PolicyScope;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.domain.portfolio.PortfolioId;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.store.sqlite.SqlitePolicyPackStore;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
@@ -32,21 +32,24 @@ final class MorpheusPolicyManagementHttpRoutes {
     private static final String REMOVE_OVERRIDE_CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + OVERRIDES + "/" + REMOVE;
 
     private final Path databasePath;
+    private final OperationalRecorder recorder;
     private final MorpheusHttpRequestDecoder requestDecoder;
     private final MorpheusHttpAllowedMethods allowedMethods;
     private final MorpheusHttpResponseWriter responseWriter;
 
-    private MorpheusPolicyManagementHttpRoutes(Path databasePath, MorpheusHttpRequestDecoder requestDecoder,
+    private MorpheusPolicyManagementHttpRoutes(Path databasePath, OperationalRecorder recorder, MorpheusHttpRequestDecoder requestDecoder,
             MorpheusHttpAllowedMethods allowedMethods, MorpheusHttpResponseWriter responseWriter) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
         this.requestDecoder = Objects.requireNonNull(requestDecoder, "requestDecoder");
         this.allowedMethods = Objects.requireNonNull(allowedMethods, "allowedMethods");
         this.responseWriter = Objects.requireNonNull(responseWriter, "responseWriter");
     }
 
-    static void register(HttpServer server, Path databasePath, MorpheusHttpRequestDecoder requestDecoder,
-            MorpheusHttpAllowedMethods allowedMethods, MorpheusHttpResponseWriter responseWriter) {
-        MorpheusPolicyManagementHttpRoutes routes = new MorpheusPolicyManagementHttpRoutes(databasePath,
+    static void register(HttpServer server, Path databasePath, OperationalRecorder recorder,
+            MorpheusHttpRequestDecoder requestDecoder, MorpheusHttpAllowedMethods allowedMethods,
+            MorpheusHttpResponseWriter responseWriter) {
+        MorpheusPolicyManagementHttpRoutes routes = new MorpheusPolicyManagementHttpRoutes(databasePath, recorder,
                 requestDecoder, allowedMethods, responseWriter);
         server.createContext(ACTIVATION_CONTEXT, routes::handleActivations);
         server.createContext(REMOVE_OVERRIDE_CONTEXT, routes::handleRemoveOverride);
@@ -60,8 +63,8 @@ final class MorpheusPolicyManagementHttpRoutes {
             MorpheusHttpQuery query = MorpheusHttpQuery.parse(exchange.getRequestURI().getRawQuery());
             query.rejectUnknown(Set.of("scopeKind", "scopeId"));
             PolicyScope scope = scope(query.required("scopeKind"), query.required("scopeId"));
-            try (SqlitePolicyPackStore store = new SqlitePolicyPackStore(databasePath)) {
-                return PolicyPublicViews.activations(new PolicyPackService(store).activations(scope));
+            try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
+                return PolicyPublicViews.activations(new PolicyPackService(runtime.policyPacks()).activations(scope));
             }
         });
     }
@@ -72,8 +75,8 @@ final class MorpheusPolicyManagementHttpRoutes {
             requireExactPath(exchange, OVERRIDES, REMOVE);
             rejectQueryParameters(exchange);
             RemoveOverrideRequest request = requestDecoder.readRequiredJson(exchange, RemoveOverrideRequest.class);
-            try (SqlitePolicyPackStore store = new SqlitePolicyPackStore(databasePath)) {
-                new PolicyPackService(store).removeOverride(
+            try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
+                new PolicyPackService(runtime.policyPacks()).removeOverride(
                         scope(request.scopeKind(), request.scopeId()),
                         PolicyIds.PackId.parse(requiredText(request.id(), "id")),
                         PolicyIds.RuleId.parse(requiredText(request.ruleId(), "ruleId")),
@@ -110,7 +113,7 @@ final class MorpheusPolicyManagementHttpRoutes {
         } catch (KnowledgeStoreException | IllegalStateException failure) {
             responseWriter.send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("STATE_CONFLICT", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (RuntimeException failure) {
-            UnforeseenFailureTrace.record(failure);
+            UnforeseenFailureTrace.record(recorder, failure);
             responseWriter.send(exchange, 500, new ApiErrorEnvelope("v1", new ApiError("INTERNAL_ERROR", "internal MORPHEUS API error", Map.of())));
         } finally {
             exchange.close();

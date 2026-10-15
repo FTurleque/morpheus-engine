@@ -29,7 +29,7 @@ class IntermediateSymlinkBoundaryTest {
         Path link = workspace.resolve("link");
         assumeTrue(createSymlink(link, outside.getParent()), "symbolic links cannot be created in this environment");
 
-        SourceInventoryScanResult result = new LocalSourceInventoryScanner().scan(
+        SourceInventoryScanResult result = new LocalSourceInventoryScanner(OperationalRecorder.noop()).scan(
                 workspace,
                 ProjectSpecificationId.generate(),
                 Optional.empty(),

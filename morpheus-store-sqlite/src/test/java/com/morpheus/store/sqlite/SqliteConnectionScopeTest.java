@@ -1,10 +1,15 @@
 package com.morpheus.store.sqlite;
 
+import com.morpheus.application.operability.OperationalEventSink;
+import com.morpheus.application.operability.OperationalMetrics;
+import com.morpheus.application.operability.OperationalRecorder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -13,14 +18,48 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Each test opens its scopes with a recorder of its own and reads absolute values there: nothing else in the JVM
+ * writes to it. The counters used to be static fields of the process, read as differences.
+ */
 class SqliteConnectionScopeTest {
     @TempDir
     Path temp;
 
+    private final OperationalMetrics metrics = new OperationalMetrics();
+    private final OperationalRecorder recorder = new OperationalRecorder(OperationalEventSink.noop(), metrics);
+
+    @Test
+    void aScopeCountsItsConnectionAndItsSchemaCheckOnTheRecorderItsOpenerNamed() {
+        Path database = temp.resolve("counted.db");
+        OperationalMetrics elsewhere = new OperationalMetrics();
+
+        try (SqliteConnectionScope scope = SqliteConnectionScope.open(database, recorder);
+             SqliteSpecificationKnowledgeStore snapshots = new SqliteSpecificationKnowledgeStore(database);
+             SqliteCompositionStateStore compositions = new SqliteCompositionStateStore(database)) {
+            assertEquals(2, scope.logicalConnectionsBorrowed());
+            assertEquals(1L, counter(SqliteConnectionScope.CONNECTIONS_OPENED));
+            assertEquals(0L, counter(SqliteConnectionScope.CONNECTIONS_CLOSED), "the connection is still held");
+        }
+        try (SqliteConnectionScope other = SqliteConnectionScope.open(
+                database, new OperationalRecorder(OperationalEventSink.noop(), elsewhere))) {
+            new SqliteSpecificationKnowledgeStore(database).close();
+        }
+
+        assertEquals(1L, counter(SqliteConnectionScope.CONNECTIONS_OPENED));
+        assertEquals(1L, counter(SqliteConnectionScope.CONNECTIONS_CLOSED));
+        assertEquals(1L, counter(SqliteConnectionScope.SCHEMA_CHECKS), "two stores, one schema check");
+        assertEquals(Map.of(
+                        SqliteConnectionScope.CONNECTIONS_OPENED, 1L,
+                        SqliteConnectionScope.CONNECTIONS_CLOSED, 1L,
+                        SqliteConnectionScope.SCHEMA_CHECKS, 1L),
+                scopeCounters(elsewhere), "a scope opened with another recorder counts there, and only there");
+    }
+
     @Test
     void logicalConnectionsShareOnePhysicalSessionAndCloseIndependently() throws Exception {
         Path database = temp.resolve("morpheus.db");
-        try (SqliteConnectionScope scope = SqliteConnectionScope.open(database)) {
+        try (SqliteConnectionScope scope = SqliteConnectionScope.open(database, recorder)) {
             Connection first = SqliteDatabaseSecurity.open(database);
             Connection second = SqliteDatabaseSecurity.open(database);
             try (var statement = first.createStatement()) {
@@ -45,8 +84,7 @@ class SqliteConnectionScopeTest {
     @Test
     void replacesPhysicalConnectionAfterCommittedCleanupFailureWithoutInvalidatingLogicalProxies() throws Exception {
         Path database = temp.resolve("recovery.db");
-        SqliteConnectionScope.Diagnostics before = SqliteConnectionScope.diagnostics();
-        try (SqliteConnectionScope scope = SqliteConnectionScope.open(database);
+        try (SqliteConnectionScope scope = SqliteConnectionScope.open(database, recorder);
              Connection first = SqliteDatabaseSecurity.open(database);
              Connection second = SqliteDatabaseSecurity.open(database)) {
             try (var statement = first.createStatement()) {
@@ -66,18 +104,16 @@ class SqliteConnectionScopeTest {
             }
             assertEquals(2, scope.logicalConnectionsBorrowed());
         }
-        SqliteConnectionScope.Diagnostics after = SqliteConnectionScope.diagnostics();
-        assertEquals(before.active(), after.active());
-        assertTrue(after.opened() >= before.opened() + 2);
-        assertTrue(after.closed() >= before.closed() + 2);
+        assertEquals(2L, counter(SqliteConnectionScope.CONNECTIONS_OPENED), "the first connection and its replacement");
+        assertEquals(2L, counter(SqliteConnectionScope.CONNECTIONS_CLOSED), "and both are released");
     }
 
     @Test
     void rejectsNestedOrDifferentDatabaseScopeBorrow() throws Exception {
         Path firstDatabase = temp.resolve("one.db");
         Path secondDatabase = temp.resolve("two.db");
-        try (SqliteConnectionScope ignored = SqliteConnectionScope.open(firstDatabase)) {
-            assertThrows(IllegalStateException.class, () -> SqliteConnectionScope.open(firstDatabase));
+        try (SqliteConnectionScope ignored = SqliteConnectionScope.open(firstDatabase, recorder)) {
+            assertThrows(IllegalStateException.class, () -> SqliteConnectionScope.open(firstDatabase, recorder));
             assertThrows(java.sql.SQLException.class, () -> SqliteDatabaseSecurity.open(secondDatabase));
         }
     }
@@ -85,7 +121,7 @@ class SqliteConnectionScopeTest {
     @Test
     void wrongThreadCloseDoesNotPoisonOwnerCleanup() throws Exception {
         Path database = temp.resolve("owner-thread.db");
-        try (SqliteConnectionScope scope = SqliteConnectionScope.open(database)) {
+        try (SqliteConnectionScope scope = SqliteConnectionScope.open(database, recorder)) {
             AtomicReference<Throwable> failure = new AtomicReference<>();
             Thread wrongThread = new Thread(() -> {
                 try {
@@ -105,13 +141,14 @@ class SqliteConnectionScopeTest {
 
             scope.close();
         }
-        assertEquals(0, SqliteConnectionScope.diagnostics().active());
+        assertEquals(1L, counter(SqliteConnectionScope.CONNECTIONS_OPENED));
+        assertEquals(1L, counter(SqliteConnectionScope.CONNECTIONS_CLOSED), "the owner released what it opened");
     }
 
     @Test
     void schemaRunsOnceAndRollbackRemainsVisibleAcrossLogicalConnections() throws Exception {
         Path database = temp.resolve("transaction.db");
-        try (SqliteConnectionScope scope = SqliteConnectionScope.open(database);
+        try (SqliteConnectionScope scope = SqliteConnectionScope.open(database, recorder);
              Connection first = SqliteDatabaseSecurity.open(database);
              Connection second = SqliteDatabaseSecurity.open(database)) {
             SqliteSchemaManager migrations = new SqliteSchemaManager();
@@ -134,8 +171,18 @@ class SqliteConnectionScopeTest {
                 assertEquals(0, result.getInt(1));
             }
         }
-        SqliteConnectionScope.Diagnostics diagnostics = SqliteConnectionScope.diagnostics();
-        assertEquals(0, diagnostics.active());
-        assertTrue(diagnostics.opened() >= diagnostics.closed());
+        assertEquals(1L, counter(SqliteConnectionScope.SCHEMA_CHECKS));
+        assertEquals(1L, counter(SqliteConnectionScope.CONNECTIONS_OPENED));
+        assertEquals(1L, counter(SqliteConnectionScope.CONNECTIONS_CLOSED));
+    }
+
+    private long counter(String name) {
+        return metrics.snapshot().counters().getOrDefault(name, 0L);
+    }
+
+    private static Map<String, Long> scopeCounters(OperationalMetrics observed) {
+        Map<String, Long> scope = new TreeMap<>(observed.snapshot().counters());
+        scope.keySet().removeIf(name -> !name.startsWith("sqlite.scope."));
+        return scope;
     }
 }

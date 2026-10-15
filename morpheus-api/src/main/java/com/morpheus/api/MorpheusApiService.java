@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.product.ProductMetadata;
 import com.morpheus.application.query.PageRequest;
 
@@ -33,24 +34,27 @@ public final class MorpheusApiService {
     private final MorpheusSpecificationQueryApiService specificationQueryService;
     private final MorpheusChangeQueryApiService changeQueryService;
 
-    public MorpheusApiService(Path databasePath) {
-        this(databasePath, Optional.empty());
+    public MorpheusApiService(Path databasePath, OperationalRecorder recorder) {
+        this(databasePath, recorder, Optional.empty());
     }
 
-    MorpheusApiService(Path databasePath, AllowedWorkspaceRoots allowedWorkspaceRoots) {
-        this(databasePath, Optional.of(Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots")));
+    MorpheusApiService(Path databasePath, OperationalRecorder recorder, AllowedWorkspaceRoots allowedWorkspaceRoots) {
+        this(databasePath, recorder,
+                Optional.of(Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots")));
     }
 
-    private MorpheusApiService(Path databasePath, Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots) {
+    private MorpheusApiService(
+            Path databasePath, OperationalRecorder recorder, Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        Objects.requireNonNull(recorder, "recorder");
         Optional<AllowedWorkspaceRoots> workspaceRoots = Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots");
-        this.projectRegistryService = new MorpheusProjectRegistryApiService(this.databasePath, workspaceRoots);
-        this.projectSyncService = new MorpheusProjectSyncApiService(this.databasePath, workspaceRoots);
-        this.diagnosticsService = new MorpheusDiagnosticsApiService(this.databasePath);
-        this.historyService = new MorpheusHistoryApiService(this.databasePath);
-        this.requirementQueryService = new MorpheusRequirementQueryApiService(this.databasePath);
-        this.specificationQueryService = new MorpheusSpecificationQueryApiService(this.databasePath);
-        this.changeQueryService = new MorpheusChangeQueryApiService(this.databasePath);
+        this.projectRegistryService = new MorpheusProjectRegistryApiService(this.databasePath, recorder, workspaceRoots);
+        this.projectSyncService = new MorpheusProjectSyncApiService(this.databasePath, recorder, workspaceRoots);
+        this.diagnosticsService = new MorpheusDiagnosticsApiService(this.databasePath, recorder);
+        this.historyService = new MorpheusHistoryApiService(this.databasePath, recorder);
+        this.requirementQueryService = new MorpheusRequirementQueryApiService(this.databasePath, recorder);
+        this.specificationQueryService = new MorpheusSpecificationQueryApiService(this.databasePath, recorder);
+        this.changeQueryService = new MorpheusChangeQueryApiService(this.databasePath, recorder);
     }
 
     public Object health() {

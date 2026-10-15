@@ -1,5 +1,8 @@
 package com.morpheus.store.sqlite;
 
+import com.morpheus.application.operability.OperationalEventSink;
+import com.morpheus.application.operability.OperationalMetrics;
+import com.morpheus.application.operability.OperationalRecorder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -36,24 +39,22 @@ class SqliteConnectionScopeCloseFailureTest {
         Connection physical = SqliteDatabaseSecurity.openPhysical(
                 database, SqliteDatabaseSecurity.DEFAULT_BUSY_TIMEOUT_MILLIS);
 
-        SqliteConnectionScope.Diagnostics before = SqliteConnectionScope.diagnostics();
+        OperationalMetrics metrics = new OperationalMetrics();
         SqliteConnectionScope scope = SqliteConnectionScope.adopt(
                 database,
                 SqliteDatabaseSecurity.DEFAULT_BUSY_TIMEOUT_MILLIS,
-                failingFirstClose(physical, closeAttempts, injected));
+                failingFirstClose(physical, closeAttempts, injected),
+                new SqliteContentionMetrics(new OperationalRecorder(OperationalEventSink.noop(), metrics)));
 
-        SqliteConnectionScope.Diagnostics opened = SqliteConnectionScope.diagnostics();
-        assertEquals(before.active() + 1, opened.active(), "adopting the connection must count it as active");
+        assertEquals(1L, counter(metrics, SqliteConnectionScope.CONNECTIONS_OPENED),
+                "adopting the connection must count it as opened");
 
         IllegalStateException failure = assertThrows(IllegalStateException.class, scope::close);
         assertEquals("cannot close SQLite operation scope", failure.getMessage());
         assertSame(injected, failure.getCause(), "the driver failure must survive as the cause");
         assertEquals(1, closeAttempts.get());
 
-        SqliteConnectionScope.Diagnostics afterFailure = SqliteConnectionScope.diagnostics();
-        assertEquals(opened.active(), afterFailure.active(),
-                "a connection the driver refused to release is still held, so the gauge must not drop");
-        assertEquals(before.closed(), afterFailure.closed(),
+        assertEquals(0L, counter(metrics, SqliteConnectionScope.CONNECTIONS_CLOSED),
                 "a release that failed must not be counted as a release that happened");
 
         SQLException refused = assertThrows(SQLException.class, () -> SqliteDatabaseSecurity.open(database));
@@ -79,14 +80,17 @@ class SqliteConnectionScopeCloseFailureTest {
         scope.close();
         assertEquals(2, closeAttempts.get(), "the owning thread must be able to retry the release");
 
-        SqliteConnectionScope.Diagnostics afterRetry = SqliteConnectionScope.diagnostics();
-        assertEquals(before.active(), afterRetry.active());
-        assertEquals(before.closed() + 1, afterRetry.closed());
+        assertEquals(1L, counter(metrics, SqliteConnectionScope.CONNECTIONS_CLOSED));
 
         scope.close();
         assertEquals(2, closeAttempts.get(), "a close after a successful one must do nothing");
-        assertEquals(afterRetry.active(), SqliteConnectionScope.diagnostics().active(),
+        assertEquals(1L, counter(metrics, SqliteConnectionScope.CONNECTIONS_CLOSED),
                 "the released connection must be counted once, not once per close call");
+        assertEquals(1L, counter(metrics, SqliteConnectionScope.CONNECTIONS_OPENED));
+    }
+
+    private static long counter(OperationalMetrics metrics, String name) {
+        return metrics.snapshot().counters().getOrDefault(name, 0L);
     }
 
     /** Refuses the first release the way a driver would, then behaves, so the retry contract is observable. */

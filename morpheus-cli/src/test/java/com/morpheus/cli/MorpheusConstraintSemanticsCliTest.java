@@ -3,6 +3,7 @@ package com.morpheus.cli;
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.domain.project.ProjectSpecificationId;
@@ -89,18 +90,18 @@ class MorpheusConstraintSemanticsCliTest {
                 Optional.of(data), Optional.empty(), Optional.empty(), Map.of(), properties);
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         Path fixture = fixture("synthetic-basic");
-        try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath(), OperationalRecorder.noop())) {
             var normalized = new SyntheticSpecificationContentReader()
                     .read(
                             ProviderReadRequest.all(fixture, projectId),
-                            new PersistentEntityIdentityResolver(runtime.identities))
+                            new PersistentEntityIdentityResolver(runtime.identities()))
                     .content()
                     .orElseThrow();
             new ProjectSnapshotImportService(
-                    runtime.snapshots,
-                    runtime.requirements,
-                    runtime.content,
-                    runtime.traceability)
+                    runtime.snapshots(),
+                    runtime.requirements(),
+                    runtime.content(),
+                    runtime.traceability())
                     .publishFull(normalized, Optional.of("m16-cli-test"), Instant.parse("2026-07-26T03:00:00Z"));
             return new Seed(data, projectId.toString(), normalized.changes().getFirst().id().toString());
         }

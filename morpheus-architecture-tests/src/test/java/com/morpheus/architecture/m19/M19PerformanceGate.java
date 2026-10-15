@@ -1,5 +1,6 @@
 package com.morpheus.architecture.m19;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.application.sync.IncrementalSyncService;
 import com.morpheus.application.sync.LocalSourceInventoryScanner;
@@ -50,8 +51,8 @@ class M19PerformanceGate {
         var projectStore = new MemorySpecificationKnowledgeStore();
         projectStore.putProject(new ProjectStoreEntry(projectId, SourceLocator.file(workspace.toString())));
         var syncStore = new MemorySyncStateStore(projectStore);
-        var syncService = new IncrementalSyncService(syncStore);
-        var scanner = new LocalSourceInventoryScanner();
+        var syncService = new IncrementalSyncService(syncStore, OperationalRecorder.noop());
+        var scanner = new LocalSourceInventoryScanner(OperationalRecorder.noop());
 
         var baselineScan = scanner.scan(workspace, projectId, Optional.of("m19-baseline"), T0, List.of());
         assertTrue(baselineScan.complete(), () -> "baseline scan failures: " + baselineScan.failures());

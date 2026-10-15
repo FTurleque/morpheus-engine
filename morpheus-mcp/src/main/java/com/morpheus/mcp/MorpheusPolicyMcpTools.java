@@ -1,6 +1,7 @@
 package com.morpheus.mcp;
 
 import com.morpheus.application.operability.ExhaustiveShutdown;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.policy.PolicyBudgets;
 import com.morpheus.application.policy.PolicyConfiguration;
 import com.morpheus.application.policy.PolicyConflictException;
@@ -15,7 +16,6 @@ import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.portfolio.PortfolioId;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.store.sqlite.SqlitePolicyRuntime;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
 
@@ -44,11 +44,13 @@ final class MorpheusPolicyMcpTools {
     static final String AUDIT = "get_policy_audit";
 
     private final Path databasePath;
+    private final OperationalRecorder recorder;
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
     private final QueryDefinitionCodec queryCodec = new QueryDefinitionCodec();
 
-    MorpheusPolicyMcpTools(Path databasePath) {
+    MorpheusPolicyMcpTools(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
     List<McpServerFeatures.SyncToolSpecification> specifications() {
@@ -78,7 +80,7 @@ final class MorpheusPolicyMcpTools {
     private McpSchema.CallToolResult call(String toolName, Map<String, Object> rawArguments) {
         try {
             Map<String, Object> arguments = McpArguments.orEmpty(rawArguments);
-            try (SqlitePolicyRuntime runtime = SqlitePolicyRuntime.open(databasePath)) {
+            try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath, recorder)) {
                 Object result = switch (toolName) {
                     case CREATE -> PolicyPublicViews.definition(runtime.registry().create(
                             McpArguments.requiredString(arguments, "name"), rules(arguments),

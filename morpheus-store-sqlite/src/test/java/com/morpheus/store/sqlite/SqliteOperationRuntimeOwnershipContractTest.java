@@ -1,5 +1,6 @@
 package com.morpheus.store.sqlite;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.store.KnowledgeStoreException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -12,73 +13,77 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * The SQLite-backed policy and query runtimes open several stores before they are finished being built.
+ * The runtime of one operation opens a connection, then the stores the operation asks for.
  *
- * <p>A store failing partway leaves every one opened before it holding a connection and a shared database
- * lease with nothing able to release them: the factory never returns, so the runtime that would have closed
- * them is never built. The exclusive server lease is refused while any MORPHEUS connection is open, so taking
- * it afterwards is what proves nothing was left holding the database.</p>
+ * <p>A store failing to open leaves the connection and every store opened before it holding a shared database lease:
+ * they are released only if the runtime registered them as they opened. The exclusive server lease is refused while
+ * any MORPHEUS connection is open, so taking it afterwards is what proves nothing was left holding the database.</p>
  */
-class SqliteRuntimeOwnershipContractTest {
+class SqliteOperationRuntimeOwnershipContractTest {
 
     @TempDir
     Path temp;
 
     @Test
-    void thePolicyRuntimeOpensItsServicesAndGivesTheDatabaseBackOnClose() {
+    void thePolicyServicesAreWiredAndTheDatabaseIsGivenBackOnClose() {
         Path database = temp.resolve("policy.db").toAbsolutePath().normalize();
 
-        try (SqlitePolicyRuntime runtime = SqlitePolicyRuntime.open(database)) {
+        try (SqliteOperationRuntime runtime = SqliteOperationRuntime.open(database, OperationalRecorder.noop())) {
             assertNotNull(runtime.registry(), "the pack registry must be wired");
             assertNotNull(runtime.evaluation(), "the evaluation service must be wired");
         }
 
         assertDoesNotThrow(() -> new SqliteServerMaintenance().acquireServerLease(database).close(),
-                "closing the policy runtime must release every store it opened");
+                "closing the runtime must release every store it opened");
     }
 
     @Test
-    void theQueryRuntimeOpensItsServicesAndGivesTheDatabaseBackOnClose() {
+    void theQueryServicesAreWiredAndTheDatabaseIsGivenBackOnClose() {
         Path database = temp.resolve("query.db").toAbsolutePath().normalize();
 
-        try (SqliteQueryRuntime runtime = SqliteQueryRuntime.open(database)) {
+        try (SqliteOperationRuntime runtime = SqliteOperationRuntime.open(database, OperationalRecorder.noop())) {
             assertNotNull(runtime.queries(), "the query execution service must be wired");
             assertNotNull(runtime.views(), "the saved view service must be wired");
             assertNotNull(runtime.exports(), "the export service must be wired");
         }
 
         assertDoesNotThrow(() -> new SqliteServerMaintenance().acquireServerLease(database).close(),
-                "closing the query runtime must release every store it opened");
+                "closing the runtime must release every store it opened");
     }
 
     @Test
-    void aPolicyStoreThatFailsPartwayReleasesTheStoresOpenedBeforeIt() throws Exception {
+    void aPolicyStoreThatFailsToOpenLeavesNothingHoldingTheDatabase() throws Exception {
         Path database = temp.resolve("policy-future.db").toAbsolutePath().normalize();
         writeFutureSchema(database);
 
-        assertThrows(KnowledgeStoreException.class, () -> SqlitePolicyRuntime.open(database));
+        try (SqliteOperationRuntime runtime = SqliteOperationRuntime.open(database, OperationalRecorder.noop())) {
+            assertThrows(KnowledgeStoreException.class, runtime::registry);
+        }
 
         assertDoesNotThrow(() -> new SqliteServerMaintenance().acquireServerLease(database).close(),
-                "a partially assembled policy runtime must release what it had already opened");
+                "a runtime whose store failed to open must release what it had already opened");
     }
 
     @Test
-    void aQueryStoreThatFailsPartwayReleasesTheStoresOpenedBeforeIt() throws Exception {
+    void aQueryStoreThatFailsToOpenLeavesNothingHoldingTheDatabase() throws Exception {
         Path database = temp.resolve("query-future.db").toAbsolutePath().normalize();
         writeFutureSchema(database);
 
-        assertThrows(KnowledgeStoreException.class, () -> SqliteQueryRuntime.open(database));
+        try (SqliteOperationRuntime runtime = SqliteOperationRuntime.open(database, OperationalRecorder.noop())) {
+            assertThrows(KnowledgeStoreException.class, runtime::views);
+        }
 
         assertDoesNotThrow(() -> new SqliteServerMaintenance().acquireServerLease(database).close(),
-                "a partially assembled query runtime must release what it had already opened");
+                "a runtime whose store failed to open must release what it had already opened");
     }
 
-    /** Closing the store set twice must not release a reference the runtime no longer holds. */
+    /** Closing the runtime twice must not release a reference it no longer holds. */
     @Test
     void closingARuntimeTwiceReleasesItsStoresOnlyOnce() {
         Path database = temp.resolve("idempotent.db").toAbsolutePath().normalize();
 
-        SqlitePolicyRuntime runtime = SqlitePolicyRuntime.open(database);
+        SqliteOperationRuntime runtime = SqliteOperationRuntime.open(database, OperationalRecorder.noop());
+        runtime.registry();
         runtime.close();
         assertDoesNotThrow(runtime::close, "a second close must be a no-op, not a second release");
 

@@ -1,5 +1,7 @@
 package com.morpheus.application.reference;
 
+import com.morpheus.application.operability.OperationalExecution;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.reference.ExternalReference;
 import com.morpheus.domain.reference.ExternalReferenceId;
@@ -134,7 +136,7 @@ class ExternalReferenceResolutionServiceTest {
     }
 
     private ExternalReferenceResolutionService service(List<? extends ExternalReferenceResolver> resolvers) {
-        return new ExternalReferenceResolutionService(new ExternalReferenceResolverRegistry(resolvers), CLOCK);
+        return new ExternalReferenceResolutionService(new ExternalReferenceResolverRegistry(resolvers), CLOCK, new OperationalExecution(OperationalRecorder.noop()));
     }
 
     private ExternalReference reference() {

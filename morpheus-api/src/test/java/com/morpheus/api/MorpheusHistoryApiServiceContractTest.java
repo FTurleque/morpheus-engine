@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import org.junit.jupiter.api.Test;
@@ -27,14 +28,14 @@ class MorpheusHistoryApiServiceContractTest {
     void preservesPublishedLineagePaginationComparisonAndProjectIsolation() throws Exception {
         Path database = tempDirectory.resolve("history-service.db");
         Path fixture = http.fixture("openspec-basic");
-        MorpheusProjectRegistryApiService registry = new MorpheusProjectRegistryApiService(database, Optional.empty());
+        MorpheusProjectRegistryApiService registry = new MorpheusProjectRegistryApiService(database, OperationalRecorder.noop(), Optional.empty());
         String projectId = ((Map<?, ?>) registry.registerProject(fixture.toString()).project()).get("projectId").toString();
 
-        MorpheusProjectSyncApiService sync = new MorpheusProjectSyncApiService(database, Optional.empty());
+        MorpheusProjectSyncApiService sync = new MorpheusProjectSyncApiService(database, OperationalRecorder.noop(), Optional.empty());
         sync.sync(projectId, Optional.of("history-r1"));
         sync.sync(projectId, Optional.of("history-r2"));
 
-        MorpheusHistoryApiService service = new MorpheusHistoryApiService(database);
+        MorpheusHistoryApiService service = new MorpheusHistoryApiService(database, OperationalRecorder.noop());
         Map<?, ?> versions = (Map<?, ?>) service.versions(projectId, PageRequest.first(50));
         List<?> versionItems = (List<?>) versions.get("items");
         Map<?, ?> sourceVersion = (Map<?, ?>) versionItems.getFirst();

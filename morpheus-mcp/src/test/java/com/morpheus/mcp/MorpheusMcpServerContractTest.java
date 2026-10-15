@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import io.modelcontextprotocol.server.McpSyncServer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -20,7 +21,7 @@ class MorpheusMcpServerContractTest {
     @Test
     void buildsSdkSpecificationsForEveryM10Tool() {
         MorpheusMcpToolCatalog catalog = new MorpheusMcpToolCatalog();
-        MorpheusMcpToolService service = new MorpheusMcpToolService(tempDirectory.resolve("morpheus.db"));
+        MorpheusMcpToolService service = new MorpheusMcpToolService(tempDirectory.resolve("morpheus.db"), OperationalRecorder.noop());
 
         var specifications = catalog.tools().stream()
                 .map(tool -> MorpheusMcpServer.tool(tool, service))

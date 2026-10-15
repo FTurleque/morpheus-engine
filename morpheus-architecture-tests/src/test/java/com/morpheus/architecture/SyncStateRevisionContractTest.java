@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.application.store.SyncStateStore;
 import com.morpheus.application.sync.IncrementalSyncService;
@@ -124,7 +125,7 @@ class SyncStateRevisionContractTest {
         onBothAdapters(store -> {
             ProjectSpecificationId project = ProjectSpecificationId.generate();
             register(store, project);
-            IncrementalSyncService service = new IncrementalSyncService(store.store());
+            IncrementalSyncService service = new IncrementalSyncService(store.store(), OperationalRecorder.noop());
             SyncPlan baseline = service.prepare(
                     SourceInventoryScanResult.complete(inventory(project, "r1")), SyncPlan.Trigger.startup(), T0);
             service.complete(baseline, T0.plusSeconds(1));
@@ -156,7 +157,7 @@ class SyncStateRevisionContractTest {
         onBothAdapters(store -> {
             ProjectSpecificationId project = ProjectSpecificationId.generate();
             register(store, project);
-            IncrementalSyncService service = new IncrementalSyncService(store.store());
+            IncrementalSyncService service = new IncrementalSyncService(store.store(), OperationalRecorder.noop());
             SyncPlan older = service.prepare(
                     SourceInventoryScanResult.complete(inventory(project, "r1")), SyncPlan.Trigger.startup(), T0);
             SyncPlan newer = service.prepare(

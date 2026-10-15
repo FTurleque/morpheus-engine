@@ -31,50 +31,40 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * connection between nine stores: transports the manifest declares equivalent put different pressure on the database
  * and read it through different connections.</p>
  *
- * <p>The first rule is textual, because it is about how a class is wired: no rule on bytecode says whether two
- * constructions happen under one scope. A class of {@code api}, {@code mcp}, {@code cli} or of the SQLite adapter itself
- * that builds a SQLite store either opens a scope, or is named below as a class whose every operation builds a single
- * store - one store is one connection, and a scope would add nothing. A named class is refused the moment one
- * try-with-resources opens two stores together.</p>
+ * <p>Since 15 October 2026 one class builds stores for an operation, {@code SqliteOperationRuntime}, and every transport
+ * reads through it. The rules say so as closed lists: a class that builds a store either opens the scope itself - it is
+ * then named in {@link #SCOPE_OWNERS} - or is named in {@link #ONE_STORE_PER_OPERATION} with the one operation it
+ * serves. A new class that builds a store is refused until somebody names it, which is how sixteen classes building
+ * stores for seven scope openings went unseen.</p>
  *
- * <p>The textual rule read the three transport adapters only, and that is where it was blind: the query and policy
- * store sets live in the SQLite adapter, opened five and eight stores without a scope, and served the CLI, the MCP
- * server and, for policy, HTTP. It now reads that module too, and a rule on bytecode stands beside it, because the two
- * do not see the same thing (ADR-0103). The bytecode rule knows no list of modules - every production class on the
- * classpath that builds two different stores must depend on the scope - and it sees a store built through a
- * constructor reference, which the text does not spell {@code new Sqlite...Store(}. It cannot say that the scope is
- * open around the constructions, nor see one store type built twice in one block: the text holds those.</p>
+ * <p>The first rule is textual, because it is about how a class is wired: no rule on bytecode says whether two
+ * constructions happen under one scope. It reads code, not comments - a scope opening that only a comment spelled used
+ * to satisfy it - and requires the opening to come before the first construction. The second reads bytecode, over every
+ * production class and not a list of modules: a class that builds a store calls {@code SqliteConnectionScope.open}
+ * itself. It used to ask only for a dependency on the scope class, which a field of that type, or a catch of its
+ * nested exception, satisfied. It sees a store built through a constructor reference, which the text does not spell
+ * {@code new Sqlite...Store(}; it cannot see that the scope is open around the constructions, which the text holds
+ * (ADR-0103).</p>
  */
 class SqliteConnectionScopeUseArchitectureTest {
     private static final Pattern CONSTRUCTION = Pattern.compile("new Sqlite[A-Za-z]*Store\\(");
     private static final Pattern RESOURCES = Pattern.compile("try \\(([^{]*)\\{");
-    private static final List<String> SCOPE_OPENINGS = List.of(
-            "SqliteConnectionScope.open(", "MorpheusMcpRuntime.openScope(", "SqliteStoreConnection.openScope(");
+    private static final Pattern COMMENT = Pattern.compile("/\\*.*?\\*/|//[^\\n]*", Pattern.DOTALL);
+    private static final String SCOPE_OPENING = "SqliteConnectionScope.open(";
     private static final List<String> MODULES_THAT_BUILD_STORES =
             List.of("morpheus-api", "morpheus-mcp", "morpheus-cli", "morpheus-store-sqlite");
     private static final String SQLITE_ADAPTER = "com.morpheus.store.sqlite";
 
+    /** The classes that build the stores of an operation under a scope they open themselves. */
+    private static final Set<String> SCOPE_OWNERS = Set.of("SqliteOperationRuntime");
+
     /** Classes that build stores outside a scope, one store per operation, with how many and for which operation. */
     private static final Map<String, SingleStore> ONE_STORE_PER_OPERATION = Map.ofEntries(
-            Map.entry("MorpheusLocalHttpServerBootstrap.java", new SingleStore(1,
-                    "the snapshot recovery run once when the local server starts")),
-            Map.entry("MorpheusOperabilityApiService.java", new SingleStore(1,
-                    "the readiness and operability reads, one store each time")),
-            Map.entry("MorpheusPolicyManagementHttpRoutes.java", new SingleStore(2,
-                    "listing activations and removing an override, two routes that each open the policy-pack store")),
-            Map.entry("MorpheusPortfolioApiService.java", new SingleStore(1,
-                    "every portfolio operation opens the portfolio store alone")),
-            Map.entry("MorpheusMcpServer.java", new SingleStore(1,
-                    "the snapshot recovery run once when the MCP server starts")),
-            Map.entry("MorpheusPolicyMcpManagementTools.java", new SingleStore(1,
-                    "every policy management tool opens the policy-pack store alone")),
-            Map.entry("MorpheusPortfolioMcpTools.java", new SingleStore(1,
-                    "every portfolio tool opens the portfolio store alone")),
-            Map.entry("CliProjectWriteCapabilityResolver.java", new SingleStore(1,
-                    "resolving the write capability of one project reads the knowledge store alone")),
-            Map.entry("MorpheusPortfolioCli.java", new SingleStore(1,
-                    "every portfolio command opens the portfolio store alone")),
-            Map.entry("SqliteServerMaintenance.java", new SingleStore(1,
+            Map.entry("CliProjectWriteCapabilityResolver", new SingleStore(1,
+                    "resolving the write capability of one project reads the knowledge store alone, from inside the "
+                            + "operation of its caller: a store built while a scope is open on the thread borrows its "
+                            + "connection, where a runtime opened there would be refused as a nested scope")),
+            Map.entry("SqliteServerMaintenance", new SingleStore(1,
                     "a backup brings the live database to the current schema through the knowledge store alone")));
 
     private record SingleStore(int constructions, String operation) {
@@ -83,18 +73,23 @@ class SqliteConnectionScopeUseArchitectureTest {
     @Test
     void anAdapterClassThatBuildsStoresOpensAScopeOrIsNamedForItsSingleStore() throws IOException {
         Map<String, Integer> outsideAScope = new TreeMap<>();
-        int underAScope = 0;
+        Set<String> underAScope = new TreeSet<>();
         for (Path source : adapterSources()) {
-            String text = Files.readString(source);
-            int constructions = occurrences(text);
+            String code = withoutComments(Files.readString(source));
+            int constructions = occurrences(code);
             if (constructions == 0) {
                 continue;
             }
-            if (SCOPE_OPENINGS.stream().anyMatch(text::contains)) {
-                underAScope++;
-            } else {
-                outsideAScope.put(source.getFileName().toString(), constructions);
+            String name = className(source);
+            int opening = code.indexOf(SCOPE_OPENING);
+            if (opening < 0) {
+                outsideAScope.put(name, constructions);
+                continue;
             }
+            Matcher first = CONSTRUCTION.matcher(code);
+            assertTrue(first.find() && opening < first.start(), () -> name + " builds a SQLite store before it opens "
+                    + "the connection scope: a store built first opens a physical connection of its own");
+            underAScope.add(name);
         }
 
         Map<String, Integer> named = new TreeMap<>();
@@ -103,14 +98,15 @@ class SqliteConnectionScopeUseArchitectureTest {
                 + "SqliteConnectionScope first, so that they share one physical connection and one schema check. A class "
                 + "whose every operation builds a single store is named in ONE_STORE_PER_OPERATION with that operation; "
                 + "a class that now opens a scope, or builds no store, is removed from it");
-        assertTrue(underAScope >= 6, "too few classes open a scope for the rule to have read the three transport "
-                + "adapters and the store sets of the SQLite adapter: " + underAScope);
+        assertEquals(new TreeSet<>(SCOPE_OWNERS), underAScope, "the classes that build stores under a scope they open "
+                + "are named in SCOPE_OWNERS: an operation reads through SqliteOperationRuntime rather than assembling "
+                + "a set of its own");
     }
 
     @Test
     void aClassNamedForItsSingleStoreNeverOpensTwoTogether() throws IOException {
         for (Path source : adapterSources()) {
-            String file = source.getFileName().toString();
+            String file = className(source);
             if (!ONE_STORE_PER_OPERATION.containsKey(file)) {
                 continue;
             }
@@ -140,45 +136,67 @@ class SqliteConnectionScopeUseArchitectureTest {
                 }
                 """;
 
-        assertEquals(List.of(2), resourceHeaders(shared).stream().map(this::occurrences).toList());
-        assertEquals(List.of(1, 1), resourceHeaders(apart).stream().map(this::occurrences).toList());
+        assertEquals(List.of(2), resourceHeaders(shared).stream().map(SqliteConnectionScopeUseArchitectureTest::occurrences).toList());
+        assertEquals(List.of(1, 1), resourceHeaders(apart).stream().map(SqliteConnectionScopeUseArchitectureTest::occurrences).toList());
     }
 
     /**
-     * The same invariant read on bytecode, over every production class and not a list of modules: a class that builds
-     * two different SQLite stores serves an operation that needs both, and reaches them through one scope.
+     * The same invariant read on bytecode, over every production class and not a list of modules: a class that builds a
+     * SQLite store calls the opening of the scope, or is named for its single store.
      */
     @Test
-    void aClassThatBuildsTwoDifferentStoresDependsOnTheConnectionScope() {
-        Map<String, Set<String>> withoutAScope = new TreeMap<>();
+    void aClassThatBuildsAStoreCallsTheScopeOpeningOrIsNamedForItsSingleStore() {
+        Set<String> opening = new TreeSet<>();
         for (JavaClass javaClass : productionClasses()) {
-            Set<String> stores = storesBuiltBy(javaClass);
-            boolean reachesTheScope = javaClass.getDirectDependenciesFromSelf().stream()
-                    .anyMatch(dependency -> dependency.getTargetClass().isEquivalentTo(SqliteConnectionScope.class));
-            if (stores.size() >= 2 && !reachesTheScope) {
-                withoutAScope.put(javaClass.getName(), stores);
+            boolean opens = javaClass.getMethodCallsFromSelf().stream()
+                    .anyMatch(call -> call.getTargetOwner().isEquivalentTo(SqliteConnectionScope.class)
+                            && call.getName().equals("open"));
+            if (opens) {
+                opening.add(topLevelSimpleName(javaClass));
             }
         }
+        Map<String, Set<String>> withoutAnOpening = new TreeMap<>();
+        storesBuiltByTopLevelClass().forEach((builder, built) -> {
+            if (!opening.contains(builder) && !ONE_STORE_PER_OPERATION.containsKey(builder)) {
+                withoutAnOpening.put(builder, built);
+            }
+        });
 
-        assertEquals(Map.of(), withoutAScope, "stores built outside a SqliteConnectionScope each open a physical "
-                + "connection and check the schema again: a class that builds several for one operation opens the "
-                + "scope first. These classes build the stores listed and never reach the scope");
+        assertEquals(Map.of(), withoutAnOpening, "stores built outside a SqliteConnectionScope each open a physical "
+                + "connection and check the schema again: a class that builds one for an operation calls "
+                + "SqliteConnectionScope.open itself, or is named in ONE_STORE_PER_OPERATION. These classes build the "
+                + "stores listed and never open the scope");
     }
 
-    /** The bytecode rule must reach the runtimes and the store sets, or it holds nothing that matters. */
+    /** The bytecode rule must reach the operation runtime and every store it builds, or it holds nothing that matters. */
     @Test
-    void theBytecodeRuleReachesTheRuntimesAndTheStoreSets() {
-        Set<String> builders = new TreeSet<>();
+    void theBytecodeRuleReachesTheOperationRuntimeAndEveryStoreItBuilds() {
+        Map<String, Set<String>> stores = storesBuiltByTopLevelClass();
+        Set<String> named = new TreeSet<>(SCOPE_OWNERS);
+        named.addAll(ONE_STORE_PER_OPERATION.keySet());
+
+        assertEquals(named, stores.keySet(), "the classes that build SQLite stores, read on bytecode, are the scope "
+                + "owners and the classes named for their single store");
+        assertTrue(stores.get("SqliteOperationRuntime").size() >= 12, () -> "the operation runtime builds every store "
+                + "an operation reads through: " + stores.get("SqliteOperationRuntime"));
+    }
+
+    /** The store types each top-level class builds, its nested classes and lambdas included. */
+    private static Map<String, Set<String>> storesBuiltByTopLevelClass() {
+        Map<String, Set<String>> stores = new TreeMap<>();
         for (JavaClass javaClass : productionClasses()) {
-            if (storesBuiltBy(javaClass).size() >= 2) {
-                builders.add(javaClass.getSimpleName());
+            Set<String> built = storesBuiltBy(javaClass);
+            if (!built.isEmpty()) {
+                stores.computeIfAbsent(topLevelSimpleName(javaClass), ignored -> new TreeSet<>()).addAll(built);
             }
         }
+        return stores;
+    }
 
-        assertTrue(builders.containsAll(Set.of(
-                        "ApiRuntime", "CliRuntime", "MorpheusMcpRuntime", "SqliteQueryStores", "SqlitePolicyStores")),
-                () -> "the classes that build several SQLite stores must include the three runtimes and the two store "
-                        + "sets: " + builders);
+    private static String topLevelSimpleName(JavaClass javaClass) {
+        String name = javaClass.getName().substring(javaClass.getPackageName().length() + 1);
+        int nested = name.indexOf('$');
+        return nested < 0 ? name : name.substring(0, nested);
     }
 
     private static JavaClasses productionClasses() {
@@ -210,7 +228,16 @@ class SqliteConnectionScopeUseArchitectureTest {
         return headers;
     }
 
-    private int occurrences(String text) {
+    private static String withoutComments(String text) {
+        return COMMENT.matcher(text).replaceAll(" ");
+    }
+
+    private static String className(Path source) {
+        String file = source.getFileName().toString();
+        return file.substring(0, file.length() - ".java".length());
+    }
+
+    private static int occurrences(String text) {
         Matcher construction = CONSTRUCTION.matcher(text);
         int count = 0;
         while (construction.find()) {

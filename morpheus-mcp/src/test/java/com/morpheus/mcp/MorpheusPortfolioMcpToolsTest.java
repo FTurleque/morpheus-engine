@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import io.modelcontextprotocol.spec.McpSchema;
 import org.junit.jupiter.api.Test;
@@ -23,7 +24,7 @@ class MorpheusPortfolioMcpToolsTest {
 
     @Test
     void exposesCompleteM23PortfolioToolSet() {
-        var specifications = new MorpheusPortfolioMcpTools(temporaryDirectory.resolve("morpheus.db")).specifications();
+        var specifications = new MorpheusPortfolioMcpTools(temporaryDirectory.resolve("morpheus.db"), OperationalRecorder.noop()).specifications();
 
         assertEquals(8, specifications.size());
         String catalog = specifications.stream().map(item -> item.tool().name()).sorted().toList().toString();
@@ -50,7 +51,7 @@ class MorpheusPortfolioMcpToolsTest {
     /** A line break inside one identifier must not reach the store, where it would split into two providers. */
     @Test
     void aProviderIdentifierCarryingALineBreakIsAToolErrorAndPersistsNothing() {
-        MorpheusPortfolioMcpTools tools = new MorpheusPortfolioMcpTools(temporaryDirectory.resolve("control.db"));
+        MorpheusPortfolioMcpTools tools = new MorpheusPortfolioMcpTools(temporaryDirectory.resolve("control.db"), OperationalRecorder.noop());
         String portfolioId = firstUuid(text(call(tools, MorpheusPortfolioMcpTools.CREATE, Map.of("name", "Platform"))));
         String projectId = ProjectSpecificationId.generate().toString();
 

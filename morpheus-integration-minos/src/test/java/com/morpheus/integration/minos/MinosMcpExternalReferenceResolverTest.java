@@ -1,5 +1,6 @@
 package com.morpheus.integration.minos;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.reference.ExternalReferenceResolverResult;
 import com.morpheus.domain.reference.ExternalReferenceTarget;
 import org.junit.jupiter.api.Test;
@@ -20,7 +21,7 @@ class MinosMcpExternalReferenceResolverTest {
         FakeGateway gateway = new FakeGateway(status(), List.of(
                 symbol("symbol:RequirementServiceHelper", "helper-id"),
                 symbol(KEY, "symbol-id")));
-        MinosMcpExternalReferenceResolver resolver = new MinosMcpExternalReferenceResolver(() -> gateway);
+        MinosMcpExternalReferenceResolver resolver = new MinosMcpExternalReferenceResolver(() -> gateway, OperationalRecorder.noop());
         ExternalReferenceTarget requested = target(Optional.empty());
 
         ExternalReferenceResolverResult result = resolver.resolve(requested);
@@ -40,12 +41,12 @@ class MinosMcpExternalReferenceResolverTest {
     @Test
     void lexicalButNonExactResultIsNotPromotedAndDuplicateExactKeysAreAmbiguous() {
         MinosMcpExternalReferenceResolver nonExact = new MinosMcpExternalReferenceResolver(
-                () -> new FakeGateway(status(), List.of(symbol(KEY + "Helper", "helper"))));
+                () -> new FakeGateway(status(), List.of(symbol(KEY + "Helper", "helper"))), OperationalRecorder.noop());
         assertEquals(ExternalReferenceResolverResult.Status.NOT_FOUND,
                 nonExact.resolve(target(Optional.empty())).status());
 
         MinosMcpExternalReferenceResolver ambiguous = new MinosMcpExternalReferenceResolver(
-                () -> new FakeGateway(status(), List.of(symbol(KEY, "one"), symbol(KEY, "two"))));
+                () -> new FakeGateway(status(), List.of(symbol(KEY, "one"), symbol(KEY, "two"))), OperationalRecorder.noop());
         assertEquals(ExternalReferenceResolverResult.Status.AMBIGUOUS,
                 ambiguous.resolve(target(Optional.empty())).status());
     }
@@ -53,7 +54,7 @@ class MinosMcpExternalReferenceResolverTest {
     @Test
     void aFullPageWithoutTheExactSymbolIsUnavailableNeverNotFound() {
         MinosMcpExternalReferenceResolver resolver = new MinosMcpExternalReferenceResolver(
-                () -> new FakeGateway(status(), List.of(symbol(KEY + "Helper", "helper")), true));
+                () -> new FakeGateway(status(), List.of(symbol(KEY + "Helper", "helper")), true), OperationalRecorder.noop());
 
         ExternalReferenceResolverResult result = resolver.resolve(target(Optional.empty()));
 
@@ -63,9 +64,9 @@ class MinosMcpExternalReferenceResolverTest {
     @Test
     void anExhaustiveSearchWithoutTheExactSymbolStaysNotFoundAndATruncatedOneStillFindsItsMatch() {
         MinosMcpExternalReferenceResolver exhaustive = new MinosMcpExternalReferenceResolver(
-                () -> new FakeGateway(status(), List.of(symbol(KEY + "Helper", "helper")), false));
+                () -> new FakeGateway(status(), List.of(symbol(KEY + "Helper", "helper")), false), OperationalRecorder.noop());
         MinosMcpExternalReferenceResolver truncatedButPresent = new MinosMcpExternalReferenceResolver(
-                () -> new FakeGateway(status(), List.of(symbol(KEY, "id")), true));
+                () -> new FakeGateway(status(), List.of(symbol(KEY, "id")), true), OperationalRecorder.noop());
 
         assertEquals(ExternalReferenceResolverResult.Status.NOT_FOUND,
                 exhaustive.resolve(target(Optional.empty())).status());
@@ -76,7 +77,7 @@ class MinosMcpExternalReferenceResolverTest {
     @Test
     void matchingRevisionIsPreservedAndMismatchOrUnsupportedTypeAreExplicit() {
         MinosMcpExternalReferenceResolver resolver = new MinosMcpExternalReferenceResolver(
-                () -> new FakeGateway(status(), List.of(symbol(KEY, "id"))));
+                () -> new FakeGateway(status(), List.of(symbol(KEY, "id"))), OperationalRecorder.noop());
 
         ExternalReferenceTarget matching = target(Optional.of(SNAPSHOT));
         ExternalReferenceResolverResult found = resolver.resolve(matching);
@@ -94,7 +95,7 @@ class MinosMcpExternalReferenceResolverTest {
     @Test
     void unavailableGatewayNeverEscapesAsMorpheusFailure() {
         MinosMcpExternalReferenceResolver resolver = new MinosMcpExternalReferenceResolver(
-                () -> { throw new MinosIntegrationException("offline"); });
+                () -> { throw new MinosIntegrationException("offline"); }, OperationalRecorder.noop());
 
         ExternalReferenceResolverResult result = resolver.resolve(target(Optional.empty()));
 

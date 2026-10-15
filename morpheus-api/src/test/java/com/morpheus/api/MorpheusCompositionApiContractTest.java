@@ -8,6 +8,7 @@ import com.morpheus.application.composition.CompositionResolution;
 import com.morpheus.application.composition.CompositionSnapshotState;
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.provider.ProviderId;
@@ -55,18 +56,18 @@ class MorpheusCompositionApiContractTest {
     private String seed(Path database) {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         Path fixture = http.fixture("synthetic-basic");
-        try (ApiRuntime runtime = new ApiRuntime(database)) {
+        try (ApiRuntime runtime = new ApiRuntime(database, OperationalRecorder.noop())) {
             var normalized = new SyntheticSpecificationContentReader()
                     .read(
                             ProviderReadRequest.all(fixture, projectId),
-                            new PersistentEntityIdentityResolver(runtime.identities))
+                            new PersistentEntityIdentityResolver(runtime.identities()))
                     .content()
                     .orElseThrow();
             var imported = new ProjectSnapshotImportService(
-                    runtime.snapshots,
-                    runtime.requirements,
-                    runtime.content,
-                    runtime.traceability)
+                    runtime.snapshots(),
+                    runtime.requirements(),
+                    runtime.content(),
+                    runtime.traceability())
                     .publishFull(
                             normalized,
                             Optional.of("m18-api-test"),
@@ -84,7 +85,7 @@ class MorpheusCompositionApiContractTest {
                     CompositionResolution.PRECEDENCE_RECORDED,
                     Optional.of(openspec),
                     "OpenSpec has higher configured precedence");
-            runtime.compositions.save(new CompositionSnapshotState(
+            runtime.compositions().save(new CompositionSnapshotState(
                     imported.snapshot().id(),
                     openspec,
                     List.of(

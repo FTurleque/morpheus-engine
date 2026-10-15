@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.PageRequest;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import org.junit.jupiter.api.Test;
@@ -85,9 +86,9 @@ class PageBoundsAgreementTest {
     @Test
     void theToolDescriptionsThatSpellTheBoundsByHandSpellTheConstants() {
         Path unused = Path.of("bounds-agreement-never-opened.db");
-        assertDescription(new MorpheusPolicyMcpTools(unused).specifications(), MorpheusPolicyMcpTools.VERSIONS);
-        assertDescription(new MorpheusPolicyMcpTools(unused).specifications(), MorpheusPolicyMcpTools.AUDIT);
-        assertDescription(new MorpheusQueryMcpTools(unused).specifications(), MorpheusQueryMcpTools.LIST_SAVED_VIEW_VERSIONS);
+        assertDescription(new MorpheusPolicyMcpTools(unused, OperationalRecorder.noop()).specifications(), MorpheusPolicyMcpTools.VERSIONS);
+        assertDescription(new MorpheusPolicyMcpTools(unused, OperationalRecorder.noop()).specifications(), MorpheusPolicyMcpTools.AUDIT);
+        assertDescription(new MorpheusQueryMcpTools(unused, OperationalRecorder.noop()).specifications(), MorpheusQueryMcpTools.LIST_SAVED_VIEW_VERSIONS);
     }
 
     private static void assertDescription(List<McpServerFeatures.SyncToolSpecification> specifications, String tool) {

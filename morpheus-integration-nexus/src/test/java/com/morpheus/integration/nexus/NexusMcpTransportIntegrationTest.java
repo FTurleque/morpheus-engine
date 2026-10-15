@@ -2,6 +2,7 @@ package com.morpheus.integration.nexus;
 
 import com.morpheus.application.context.TechnicalContextOptions;
 import com.morpheus.application.context.TechnicalContextRequest;
+import com.morpheus.application.operability.OperationalRecorder;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
@@ -20,7 +21,7 @@ class NexusMcpTransportIntegrationTest {
     @Test
     void initializesListsRequiredToolsAndBuildsBudgetedContextOverRealStdioProcess() {
         try (NexusMcpContextGateway gateway = new NexusMcpContextGateway(
-                javaExecutable(), serverArguments(), Map.of(), Duration.ofSeconds(10))) {
+                javaExecutable(), serverArguments(), Map.of(), Duration.ofSeconds(10), OperationalRecorder.noop())) {
             var projects = gateway.listProjects();
             assertEquals(1, projects.size());
             assertEquals("morpheus-engine", projects.getFirst().name());

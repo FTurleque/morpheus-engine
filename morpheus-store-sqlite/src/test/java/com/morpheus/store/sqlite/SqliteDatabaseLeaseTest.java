@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -24,6 +25,11 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Runs alone: {@link #hardeningFailureAfterTheChannelIsOpenReleasesTheDescriptor} counts the descriptors of the whole
+ * JVM, which the other tests of this module open and close concurrently.
+ */
+@Isolated
 class SqliteDatabaseLeaseTest {
     @TempDir
     Path temp;

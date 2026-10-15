@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.quality.ChangeCompletenessAssessment;
 import com.morpheus.application.quality.ChangeCompletenessService;
 import com.morpheus.application.quality.QualityFinding;
@@ -41,16 +42,18 @@ import java.util.Objects;
 /** Executes the M10 read-only tool contract over the same persisted SQLite state used by the CLI. */
 public final class MorpheusMcpToolService {
     private final Path databasePath;
+    private final OperationalRecorder recorder;
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
-    public MorpheusMcpToolService(Path databasePath) {
+    public MorpheusMcpToolService(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
     public String execute(String toolName, Map<String, Object> arguments) {
         Objects.requireNonNull(toolName, "toolName");
         Objects.requireNonNull(arguments, "arguments");
-        try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath)) {
+        try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath, recorder)) {
             Object result = switch (toolName) {
                 case "get_current_specification" -> currentSpecification(runtime, arguments);
                 case "find_requirements" -> findRequirements(runtime, arguments);
@@ -74,15 +77,15 @@ public final class MorpheusMcpToolService {
 
     private Object currentSpecification(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
         ProjectSpecificationId projectId = projectId(arguments);
-        var snapshot = runtime.snapshots.activeSnapshot(projectId)
+        var snapshot = runtime.snapshots().activeSnapshot(projectId)
                 .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
-        var content = runtime.content.findSnapshotContent(snapshot.id())
+        var content = runtime.content().findSnapshotContent(snapshot.id())
                 .orElseThrow(() -> new KnowledgeStoreException(
                         "published snapshot has no business-content projection: " + snapshot.id()));
-        String specificationVersionId = runtime.requirements.findSnapshotVersion(snapshot.id())
+        String specificationVersionId = runtime.requirements().findSnapshotVersion(snapshot.id())
                 .map(binding -> binding.specificationVersionId().toString())
                 .orElse("unknown");
-        long currentRequirementCount = runtime.requirements.listCurrentRequirementVersions(snapshot.id()).size();
+        long currentRequirementCount = runtime.requirements().listCurrentRequirementVersions(snapshot.id()).size();
         PageRequest pageRequest = page(arguments);
         List<Specification> specifications = content.specifications().stream()
                 .sorted(Comparator.comparing(Specification::id))
@@ -104,7 +107,7 @@ public final class MorpheusMcpToolService {
         ProjectSpecificationId projectId = projectId(arguments);
         String queryText = McpArguments.optionalText(arguments, "query").orElse("");
         PageRequest pageRequest = page(arguments);
-        var result = new RequirementQueryService(runtime.snapshots, runtime.requirements)
+        var result = new RequirementQueryService(runtime.snapshots(), runtime.requirements())
                 .findActive(projectId, new RequirementSearchQuery(queryText), pageRequest)
                 .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
         return PagedEnvelope.following(
@@ -171,10 +174,10 @@ public final class MorpheusMcpToolService {
         RequirementId requirementId = RequirementId.parse(McpArguments.requiredString(arguments, "requirementId"));
         int depth = McpArguments.optionalInt(arguments, "depth", MorpheusMcpToolCatalog.DEFAULT_DEPTH, 1, MorpheusMcpToolCatalog.MAX_DEPTH);
         var result = new TraceRequirementQueryService(
-                runtime.snapshots, runtime.requirements, runtime.traceability, runtime.externalReferences)
+                runtime.snapshots(), runtime.requirements(), runtime.traceability(), runtime.externalReferences())
                 .active(projectId, requirementId, depth, java.util.Set.of())
                 .orElseThrow(() -> notFound("requirement or ACTIVE snapshot not found: " + requirementId));
-        return json.toJson(new CompactQueryViewService(runtime.content).traceRequirement(result));
+        return json.toJson(new CompactQueryViewService(runtime.content()).traceRequirement(result));
     }
 
     private Object changeContext(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
@@ -182,20 +185,20 @@ public final class MorpheusMcpToolService {
         ChangeId changeId = ChangeId.parse(McpArguments.requiredString(arguments, "changeId"));
         int depth = McpArguments.optionalInt(arguments, "depth", MorpheusMcpToolCatalog.DEFAULT_DEPTH, 1, MorpheusMcpToolCatalog.MAX_DEPTH);
         var result = new ChangeContextQueryService(
-                runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability, runtime.externalReferences)
+                runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability(), runtime.externalReferences())
                 .active(projectId, changeId, depth, java.util.Set.of())
                 .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
         if (result.change().isEmpty()) {
             throw notFound("change not found: " + changeId);
         }
-        return json.toJson(new CompactQueryViewService(runtime.content).changeContext(result));
+        return json.toJson(new CompactQueryViewService(runtime.content()).changeContext(result));
     }
 
     private Object specificationContext(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
         ProjectSpecificationId projectId = projectId(arguments);
         SpecificationId specificationId = SpecificationId.parse(McpArguments.requiredString(arguments, "specificationId"));
         var result = new SpecificationContextQueryService(
-                runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability)
+                runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability())
                 .active(projectId, specificationId, page(arguments))
                 .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
         return map(
@@ -239,7 +242,7 @@ public final class MorpheusMcpToolService {
         ProjectSpecificationId projectId = projectId(arguments);
         long maxAgeMinutes = McpArguments.optionalInteger(arguments, "maxAgeMinutes", MorpheusMcpToolCatalog.DEFAULT_MAX_AGE_MINUTES,
                 1L, MorpheusMcpToolCatalog.MAX_MAX_AGE_MINUTES);
-        SyncFreshness freshness = new SyncFreshnessService(runtime.syncState)
+        SyncFreshness freshness = new SyncFreshnessService(runtime.syncState())
                 .assess(projectId, Instant.now(), Duration.ofMinutes(maxAgeMinutes));
         return map(
                 "projectId", projectId.toString(),
@@ -254,7 +257,7 @@ public final class MorpheusMcpToolService {
     }
 
     private BusinessContentQueryService business(MorpheusMcpRuntime runtime) {
-        return new BusinessContentQueryService(runtime.snapshots, runtime.content);
+        return new BusinessContentQueryService(runtime.snapshots(), runtime.content());
     }
 
     private com.morpheus.application.query.SnapshotItemResult<ChangeProposal> requireChange(
@@ -270,7 +273,7 @@ public final class MorpheusMcpToolService {
     private ChangeCompletenessAssessment completeness(
             MorpheusMcpRuntime runtime, ProjectSpecificationId projectId, ChangeId changeId) {
         var report = new ChangeCompletenessService(
-                runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability)
+                runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability())
                 .assessActive(projectId)
                 .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
         return report.changes().stream()
@@ -280,7 +283,7 @@ public final class MorpheusMcpToolService {
     }
 
     private String activeSnapshotId(MorpheusMcpRuntime runtime, ProjectSpecificationId projectId) {
-        return runtime.snapshots.activeSnapshot(projectId)
+        return runtime.snapshots().activeSnapshot(projectId)
                 .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId))
                 .id().toString();
     }

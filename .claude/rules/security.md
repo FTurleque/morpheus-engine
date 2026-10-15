@@ -135,8 +135,8 @@ Supprimer une de ces chaînes casse le build.
 - Backup : `VACUUM INTO` + `PRAGMA integrity_check` + `tryLock` + `ATOMIC_MOVE`
 - Restore : exige une **`explicit confirmation`**, et reste `EXPLICITLY_OFFLINE_ONLY`
 - `SqliteTransactionRunner` doit gérer `catch (Error failure)` + `rollbackSuppressing(connection, failure)`
-- Ouvrir les connexions via `SqliteConnectionScope.open(databasePath)` : les runtimes HTTP, CLI et, depuis le
-  13/10/2026, MCP (`MorpheusMcpRuntime`) ouvrent la portée avant leurs stores — une connexion et une vérification de
+- Ouvrir les connexions via `SqliteConnectionScope.open(databasePath, recorder)` — il n'y a pas d'ouverture sans recorder, et la portée y compte sa connexion et sa vérification de schéma (plus aucun compteur statique, ADR-0115) : depuis le 15/10/2026 une seule classe,
+  `SqliteOperationRuntime`, construit les stores d'une opération et ouvre la portée avant eux, pour les trois transports — une connexion et une vérification de
   schéma par opération. Une portée ne s'imbrique pas : le refus est nommé (`SqliteConnectionScope.NESTED_REFUSAL`) et
   désigne un défaut de l'appelant, jamais un état de la base — un appelant qui traduit un échec d'ouverture doit le
   laisser passer

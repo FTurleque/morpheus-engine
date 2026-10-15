@@ -1,7 +1,7 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
-import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.operability.SuppressedFailureFamily;
 import com.morpheus.application.reasoning.ReasoningContracts;
 import com.morpheus.application.reasoning.ReasoningContracts.Evidence;
@@ -26,8 +26,9 @@ final class MorpheusReasoningMcpTools {
     private final ReasoningService service;
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
-    MorpheusReasoningMcpTools() {
-        this(ReasoningService.standard(LocalOperationalRuntime.recorder()
+    /** Adapter discovery failures it skips are counted on {@code recorder}, the one its server was handed. */
+    MorpheusReasoningMcpTools(OperationalRecorder recorder) {
+        this(ReasoningService.standard(recorder
                 .suppressing(SuppressedFailureFamily.ADAPTER_DISCOVERY)));
     }
 

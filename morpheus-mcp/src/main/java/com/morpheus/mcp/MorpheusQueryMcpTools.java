@@ -1,6 +1,7 @@
 package com.morpheus.mcp;
 
 import com.morpheus.application.operability.ExhaustiveShutdown;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.query.dsl.PortfolioQueryScope;
 import com.morpheus.application.query.dsl.ProjectQueryScope;
@@ -15,7 +16,6 @@ import com.morpheus.application.query.saved.SavedViewStatus;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.domain.portfolio.PortfolioId;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.store.sqlite.SqliteQueryRuntime;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
 
@@ -42,11 +42,13 @@ final class MorpheusQueryMcpTools {
     static final int QUERY_DEFAULT_LIMIT = 100;
 
     private final Path databasePath;
+    private final OperationalRecorder recorder;
     private final QueryDslParser parser = new QueryDslParser();
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
-    MorpheusQueryMcpTools(Path databasePath) {
+    MorpheusQueryMcpTools(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
     List<McpServerFeatures.SyncToolSpecification> specifications() {
@@ -82,7 +84,7 @@ final class MorpheusQueryMcpTools {
     private McpSchema.CallToolResult call(String toolName, Map<String, Object> rawArguments) {
         try {
             Map<String, Object> arguments = McpArguments.orEmpty(rawArguments);
-            try (SqliteQueryRuntime runtime = SqliteQueryRuntime.open(databasePath)) {
+            try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath, recorder)) {
                 Object result = switch (toolName) {
                     case EXECUTE_QUERY -> QueryPublicViews.result(runtime.queries().execute(query(arguments, scope(arguments))));
                     case CREATE_SAVED_VIEW -> QueryPublicViews.savedView(runtime.views().create(

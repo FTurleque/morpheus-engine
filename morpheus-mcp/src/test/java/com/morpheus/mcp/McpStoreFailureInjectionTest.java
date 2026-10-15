@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
 import io.modelcontextprotocol.json.McpJsonDefaults;
@@ -84,7 +85,7 @@ class McpStoreFailureInjectionTest {
                         database,
                         new ExternalReferenceResolverRegistry(List.of()),
                         MorpheusMcpServer.unconfiguredTechnicalContext(),
-                        MorpheusMcpServer.deniedWriteCapability())
+                        MorpheusMcpServer.deniedWriteCapability(), OperationalRecorder.noop())
                 .stream()
                 .map(specification -> specification.tool().name())
                 .sorted()
@@ -129,7 +130,7 @@ class McpStoreFailureInjectionTest {
 
     private static Map<String, List<McpServerFeatures.SyncToolSpecification>> toolClasses(Path database) {
         Map<String, List<McpServerFeatures.SyncToolSpecification>> classes = new LinkedHashMap<>();
-        MorpheusMcpToolService service = new MorpheusMcpToolService(database);
+        MorpheusMcpToolService service = new MorpheusMcpToolService(database, OperationalRecorder.noop());
         List<McpServerFeatures.SyncToolSpecification> catalog = new ArrayList<>();
         for (MorpheusMcpToolCatalog.ToolDefinition definition : new MorpheusMcpToolCatalog().tools()) {
             catalog.add(MorpheusMcpServer.tool(definition, service));
@@ -137,19 +138,19 @@ class McpStoreFailureInjectionTest {
         classes.put("McpServer", catalog);
         classes.put("Product", new MorpheusProductMcpTools().specifications());
         classes.put("ProviderPlugin", new MorpheusProviderPluginMcpTools().specifications());
-        classes.put("Portfolio", new MorpheusPortfolioMcpTools(database).specifications());
-        classes.put("Query", new MorpheusQueryMcpTools(database).specifications());
-        classes.put("Policy", new MorpheusPolicyMcpTools(database).specifications());
-        classes.put("PolicyManagement", new MorpheusPolicyMcpManagementTools(database).specifications());
-        classes.put("Reasoning", new MorpheusReasoningMcpTools().specifications());
+        classes.put("Portfolio", new MorpheusPortfolioMcpTools(database, OperationalRecorder.noop()).specifications());
+        classes.put("Query", new MorpheusQueryMcpTools(database, OperationalRecorder.noop()).specifications());
+        classes.put("Policy", new MorpheusPolicyMcpTools(database, OperationalRecorder.noop()).specifications());
+        classes.put("PolicyManagement", new MorpheusPolicyMcpManagementTools(database, OperationalRecorder.noop()).specifications());
+        classes.put("Reasoning", new MorpheusReasoningMcpTools(OperationalRecorder.noop()).specifications());
         classes.put("ExternalReference", new MorpheusExternalReferenceMcpTools(
-                database, new ExternalReferenceResolverRegistry(List.of())).specifications());
+                database, OperationalRecorder.noop(), new ExternalReferenceResolverRegistry(List.of())).specifications());
         classes.put("AugmentedContext", new MorpheusAugmentedContextMcpTools(
-                database, MorpheusMcpServer.unconfiguredTechnicalContext()).specifications());
-        classes.put("Jarvis", new MorpheusJarvisOrchestrationMcpTools(database).specifications());
-        classes.put("Composition", new MorpheusCompositionMcpTools(database).specifications());
+                database, OperationalRecorder.noop(), MorpheusMcpServer.unconfiguredTechnicalContext()).specifications());
+        classes.put("Jarvis", new MorpheusJarvisOrchestrationMcpTools(database, OperationalRecorder.noop()).specifications());
+        classes.put("Composition", new MorpheusCompositionMcpTools(database, OperationalRecorder.noop()).specifications());
         classes.put("ControlledLifecycle", new MorpheusControlledLifecycleMcpTools(
-                database, MorpheusMcpServer.deniedWriteCapability()).specifications());
+                database, OperationalRecorder.noop(), MorpheusMcpServer.deniedWriteCapability()).specifications());
         return classes;
     }
 

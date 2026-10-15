@@ -1,5 +1,7 @@
 package com.morpheus.application.traceability;
 
+import com.morpheus.application.operability.OperationalExecution;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.reference.ExternalReferenceResolutionService;
 import com.morpheus.application.reference.ExternalReferenceResolver;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
@@ -140,7 +142,7 @@ class ExternalTraceabilityLinkFactoryTest {
         };
         var resolutionService = new ExternalReferenceResolutionService(
                 new ExternalReferenceResolverRegistry(List.of(unavailable)),
-                Clock.fixed(T0.plusSeconds(60), ZoneOffset.UTC));
+                Clock.fixed(T0.plusSeconds(60), ZoneOffset.UTC), new OperationalExecution(OperationalRecorder.noop()));
 
         ExternalReference stale = resolutionService.resolve(resolved);
 
@@ -166,7 +168,7 @@ class ExternalTraceabilityLinkFactoryTest {
                 T0);
         var resolutionService = new ExternalReferenceResolutionService(
                 new ExternalReferenceResolverRegistry(List.of()),
-                Clock.fixed(T0.plusSeconds(30), ZoneOffset.UTC));
+                Clock.fixed(T0.plusSeconds(30), ZoneOffset.UTC), new OperationalExecution(OperationalRecorder.noop()));
 
         ExternalReference unresolved = resolutionService.resolve(unvalidated);
 

@@ -1,6 +1,5 @@
 package com.morpheus.integration.minos;
 
-import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.operability.SuppressedFailureFamily;
 import com.morpheus.application.security.ExternalJarIntegrity;
@@ -46,21 +45,14 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
     private final McpSyncClient client;
     private final PeerOperationDeadline deadline;
     private final Optional<Path> stagedJar;
+    private final OperationalRecorder recorder;
     private final JsonMapper mapper = JsonMapper.builder()
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
             .build();
 
-    public MinosMcpCodeGateway(MinosIntegrationSettings settings) {
-        this(launch(Objects.requireNonNull(settings, "settings")));
-    }
-
-    MinosMcpCodeGateway(
-            String command,
-            List<String> arguments,
-            Map<String, String> environment,
-            Duration timeout) {
-        this(command, arguments, environment, timeout,
-                PeerOperationDeadline.of(timeout, REQUESTS_PER_OPERATION));
+    /** A gateway to the configured peer; what fails without failing the operation is counted on {@code recorder}. */
+    public MinosMcpCodeGateway(MinosIntegrationSettings settings, OperationalRecorder recorder) {
+        this(launch(Objects.requireNonNull(settings, "settings"), Objects.requireNonNull(recorder, "recorder")));
     }
 
     MinosMcpCodeGateway(
@@ -68,16 +60,28 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
             List<String> arguments,
             Map<String, String> environment,
             Duration timeout,
-            Duration operationDeadline) {
-        this(new Launch(command, arguments, environment, timeout, operationDeadline, Optional.empty()));
+            OperationalRecorder recorder) {
+        this(command, arguments, environment, timeout,
+                PeerOperationDeadline.of(timeout, REQUESTS_PER_OPERATION), recorder);
+    }
+
+    MinosMcpCodeGateway(
+            String command,
+            List<String> arguments,
+            Map<String, String> environment,
+            Duration timeout,
+            Duration operationDeadline,
+            OperationalRecorder recorder) {
+        this(new Launch(command, arguments, environment, timeout, operationDeadline, Optional.empty(), recorder));
     }
 
     private MinosMcpCodeGateway(Launch launch) {
         this.stagedJar = launch.stagedJar();
+        this.recorder = launch.recorder();
         McpSyncClient started = buildClient(launch, stagedJar);
         // Closing the client fails the pending request at once, so the operation ends at its deadline.
         PeerOperationDeadline armed = PeerOperationDeadline.arm(
-                launch.operationDeadline(), countingAbort(started::close, LocalOperationalRuntime.recorder()));
+                launch.operationDeadline(), countingAbort(started::close, recorder));
         try {
             started.initialize();
             Set<String> available = started.listTools().tools().stream()
@@ -146,9 +150,9 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
             client.closeGracefully();
         } catch (RuntimeException shutdownFailure) {
             // Closing an optional external process must not mask the primary resolution result.
-            LocalOperationalRuntime.recorder().suppressed(SuppressedFailureFamily.MCP_PEER_SHUTDOWN, shutdownFailure);
+            recorder.suppressed(SuppressedFailureFamily.MCP_PEER_SHUTDOWN, shutdownFailure);
         } finally {
-            deleteStagedCounting(stagedJar, LocalOperationalRuntime.recorder());
+            deleteStagedCounting(stagedJar, recorder);
         }
     }
 
@@ -200,7 +204,7 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
         return textContent.text() == null ? "" : textContent.text();
     }
 
-    private static Launch launch(MinosIntegrationSettings settings) {
+    private static Launch launch(MinosIntegrationSettings settings, OperationalRecorder recorder) {
         if (!settings.enabled()) {
             throw new MinosIntegrationException("MINOS integration is not configured: "
                     + settings.configurationError().orElse(settings.state().name()));
@@ -214,13 +218,13 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
             settings.homeDirectory().ifPresent(home -> arguments.add("-Dminos.home=" + home));
             arguments.addAll(List.of("-cp", launchJar.toString(), MINOS_SERVER_CLASS));
             return new Launch(settings.javaCommand(), arguments, Map.of(), settings.timeout(),
-                    PeerOperationDeadline.of(settings.timeout(), REQUESTS_PER_OPERATION), staged);
+                    PeerOperationDeadline.of(settings.timeout(), REQUESTS_PER_OPERATION), staged, recorder);
         } catch (IllegalArgumentException integrityFailure) {
-            deleteStagedCounting(staged, LocalOperationalRuntime.recorder());
+            deleteStagedCounting(staged, recorder);
             throw new MinosIntegrationException(
                     "MINOS JAR integrity verification failed immediately before launch", integrityFailure);
         } catch (RuntimeException failure) {
-            deleteStagedCounting(staged, LocalOperationalRuntime.recorder());
+            deleteStagedCounting(staged, recorder);
             throw failure;
         }
     }
@@ -230,7 +234,7 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
             BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
                     new McpPeerLaunch(launch.command(), launch.arguments(), launch.environment()),
                     McpJsonDefaults.getMapper(), MAX_MCP_RESPONSE_BYTES,
-                    processTreeFailures(LocalOperationalRuntime.recorder()));
+                    processTreeFailures(launch.recorder()));
             return McpClient.sync(transport).requestTimeout(launch.timeout()).build();
         } catch (RuntimeException failure) {
             deleteStagedSuppressing(stagedJar, failure);
@@ -312,8 +316,10 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
             Map<String, String> environment,
             Duration timeout,
             Duration operationDeadline,
-            Optional<Path> stagedJar) {
+            Optional<Path> stagedJar,
+            OperationalRecorder recorder) {
         private Launch {
+            Objects.requireNonNull(recorder, "recorder");
             command = requireText(command, "command");
             arguments = List.copyOf(Objects.requireNonNull(arguments, "arguments"));
             environment = Map.copyOf(Objects.requireNonNull(environment, "environment"));

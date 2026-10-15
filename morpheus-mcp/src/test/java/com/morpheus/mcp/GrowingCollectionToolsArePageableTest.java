@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import org.junit.jupiter.api.Test;
@@ -180,7 +181,7 @@ class GrowingCollectionToolsArePageableTest {
                 temporaryDirectory.resolve("guard.db").toAbsolutePath().normalize(),
                 new ExternalReferenceResolverRegistry(List.of()),
                 MorpheusMcpServer.unconfiguredTechnicalContext(),
-                MorpheusMcpServer.deniedWriteCapability());
+                MorpheusMcpServer.deniedWriteCapability(), OperationalRecorder.noop());
         Map<String, Set<String>> served = new LinkedHashMap<>();
         for (McpServerFeatures.SyncToolSpecification specification : specifications) {
             Object properties = specification.tool().inputSchema().get("properties");

@@ -1,6 +1,5 @@
 package com.morpheus.application.sync;
 
-import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.operability.OperationalEventCode;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.domain.project.ProjectSpecificationId;
@@ -29,20 +28,17 @@ public final class LocalSourceInventoryScanner {
     private final OperationalRecorder recorder;
     private final Optional<FingerprintComputer> verificationComputer;
 
-    public LocalSourceInventoryScanner() {
-        this(SourceScanPolicy.safeDefaults(), LocalOperationalRuntime.recorder(), Optional.empty());
-    }
-
-    public LocalSourceInventoryScanner(SourceScanPolicy policy) {
-        this(policy, LocalOperationalRuntime.recorder(), Optional.empty());
+    public LocalSourceInventoryScanner(OperationalRecorder recorder) {
+        this(SourceScanPolicy.safeDefaults(), recorder, Optional.empty());
     }
 
     public LocalSourceInventoryScanner(SourceScanPolicy policy, OperationalRecorder recorder) {
         this(policy, recorder, Optional.empty());
     }
 
-    LocalSourceInventoryScanner(SourceScanPolicy policy, FingerprintComputer fingerprintComputer) {
-        this(policy, LocalOperationalRuntime.recorder(), Optional.of(Objects.requireNonNull(fingerprintComputer, "fingerprintComputer")));
+    LocalSourceInventoryScanner(
+            SourceScanPolicy policy, FingerprintComputer fingerprintComputer, OperationalRecorder recorder) {
+        this(policy, recorder, Optional.of(Objects.requireNonNull(fingerprintComputer, "fingerprintComputer")));
     }
 
     private LocalSourceInventoryScanner(

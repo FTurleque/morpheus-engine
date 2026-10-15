@@ -3,6 +3,7 @@ package com.morpheus.integration.nexus;
 import com.morpheus.application.context.TechnicalContextObservation;
 import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.context.TechnicalContextRequest;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 
@@ -14,12 +15,14 @@ import java.util.Properties;
 public final class NexusIntegrationRuntime implements TechnicalContextProvider, ExternalIntegrationStatusProvider {
     private final NexusMcpTechnicalContextProvider provider;
 
-    public NexusIntegrationRuntime(NexusIntegrationSettings settings) {
-        this.provider = new NexusMcpTechnicalContextProvider(Objects.requireNonNull(settings, "settings"));
+    /** The NEXUS integration of {@code settings}; its peer failures are counted on {@code recorder}. */
+    public NexusIntegrationRuntime(NexusIntegrationSettings settings, OperationalRecorder recorder) {
+        this.provider = new NexusMcpTechnicalContextProvider(Objects.requireNonNull(settings, "settings"), recorder);
     }
 
-    public static NexusIntegrationRuntime resolve(Map<String, String> environment, Properties properties) {
-        return new NexusIntegrationRuntime(NexusIntegrationSettings.resolve(environment, properties));
+    public static NexusIntegrationRuntime resolve(
+            Map<String, String> environment, Properties properties, OperationalRecorder recorder) {
+        return new NexusIntegrationRuntime(NexusIntegrationSettings.resolve(environment, properties), recorder);
     }
 
     @Override

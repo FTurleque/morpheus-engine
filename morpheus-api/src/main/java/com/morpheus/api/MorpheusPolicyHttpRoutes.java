@@ -3,6 +3,7 @@ package com.morpheus.api;
 import com.morpheus.api.MorpheusHttpServer.ApiError;
 import com.morpheus.api.MorpheusHttpServer.ApiErrorEnvelope;
 import com.morpheus.api.MorpheusHttpServer.ApiSuccess;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.policy.PolicyConflictException;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.sun.net.httpserver.HttpExchange;
@@ -26,27 +27,31 @@ final class MorpheusPolicyHttpRoutes {
     private static final String OVERRIDE_CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + OVERRIDES;
 
     private final MorpheusPolicyApiService service;
+    private final OperationalRecorder recorder;
     private final MorpheusHttpRequestDecoder requestDecoder;
     private final MorpheusHttpAllowedMethods allowedMethods;
     private final MorpheusHttpResponseWriter responseWriter;
 
-    private MorpheusPolicyHttpRoutes(Path databasePath, MorpheusHttpRequestDecoder requestDecoder,
-            MorpheusHttpAllowedMethods allowedMethods, MorpheusHttpResponseWriter responseWriter) {
-        service = new MorpheusPolicyApiService(databasePath);
+    private MorpheusPolicyHttpRoutes(Path databasePath, OperationalRecorder recorder,
+            MorpheusHttpRequestDecoder requestDecoder, MorpheusHttpAllowedMethods allowedMethods,
+            MorpheusHttpResponseWriter responseWriter) {
+        service = new MorpheusPolicyApiService(databasePath, recorder);
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
         this.requestDecoder = Objects.requireNonNull(requestDecoder, "requestDecoder");
         this.allowedMethods = Objects.requireNonNull(allowedMethods, "allowedMethods");
         this.responseWriter = Objects.requireNonNull(responseWriter, "responseWriter");
     }
 
-    static void register(HttpServer server, Path databasePath, MorpheusHttpRequestDecoder requestDecoder,
-            MorpheusHttpAllowedMethods allowedMethods, MorpheusHttpResponseWriter responseWriter) {
+    static void register(HttpServer server, Path databasePath, OperationalRecorder recorder,
+            MorpheusHttpRequestDecoder requestDecoder, MorpheusHttpAllowedMethods allowedMethods,
+            MorpheusHttpResponseWriter responseWriter) {
         Objects.requireNonNull(server, "server");
-        MorpheusPolicyHttpRoutes routes = new MorpheusPolicyHttpRoutes(databasePath, requestDecoder, allowedMethods,
-                responseWriter);
+        MorpheusPolicyHttpRoutes routes = new MorpheusPolicyHttpRoutes(databasePath, recorder, requestDecoder,
+                allowedMethods, responseWriter);
         server.createContext(PACK_CONTEXT, routes::handlePacks);
         server.createContext(POLICY_CONTEXT, routes::handlePolicies);
         server.createContext(OVERRIDE_CONTEXT, routes::handleOverrides);
-        MorpheusPolicyManagementHttpRoutes.register(server, databasePath, requestDecoder, allowedMethods,
+        MorpheusPolicyManagementHttpRoutes.register(server, databasePath, recorder, requestDecoder, allowedMethods,
                 responseWriter);
     }
 
@@ -163,7 +168,7 @@ final class MorpheusPolicyHttpRoutes {
         } catch (KnowledgeStoreException | IllegalStateException failure) {
             responseWriter.send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("STATE_CONFLICT", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (RuntimeException failure) {
-            UnforeseenFailureTrace.record(failure);
+            UnforeseenFailureTrace.record(recorder, failure);
             responseWriter.send(exchange, 500, new ApiErrorEnvelope("v1", new ApiError("INTERNAL_ERROR", "internal MORPHEUS API error", Map.of())));
         } finally {
             exchange.close();
