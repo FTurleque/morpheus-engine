@@ -267,6 +267,10 @@ class FabricatedCheckout:
         _write(home / "tools/bin/java.cmd", STUB_JAVA_CMD, newline="\r\n")
 
         _git(root, "init", "--quiet", "--initial-branch=develop")
+        # The template is copied by several threads at once; an automatic maintenance that git starts in the
+        # background after a commit writes and removes objects/maintenance.lock under those copies.
+        _git(root, "config", "maintenance.auto", "false")
+        _git(root, "config", "gc.auto", "0")
         _git(root, "add", "--all")
         if not WINDOWS:
             _git(root, "update-index", "--chmod=+x", "mvnw", "distribution/build-portable.sh")
