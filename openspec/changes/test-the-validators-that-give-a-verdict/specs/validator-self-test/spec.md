@@ -115,32 +115,50 @@ in a CI run a case whose interpreter or tool is missing MUST fail instead of bei
 
 ### Requirement: Every script of `scripts/` SHALL be launched by something, and tested or excused by name
 
-For every script file under `scripts/` outside `scripts/tests/`, the architecture suite MUST find, in executable text,
-a workflow step, another launched script, the dispatcher or a current documentation page that launches it, and MUST
-find either a test that runs it or an entry that excuses it with a written reason; a script with no launcher, a script
-neither tested nor excused, and an excuse for a script that is tested or no longer exists MUST each fail the build.
+The inventory of the script tests MUST find, for every script under `scripts/` outside `scripts/tests/`, a workflow
+step or a launched script that launches it, or an entry naming it as launched by hand with a reason; and a test
+that runs it, or an entry excusing it with a reason. A documentation page MUST NOT count as a launch. A script
+with no launcher, a script neither tested nor excused, and a stale entry MUST each fail the build.
 
 #### Scenario: A new script without a test is refused
 
 - **WHEN** a script is added under `scripts/` and no test runs it and no entry excuses it
-- **THEN** the architecture suite fails and names the script
+- **THEN** the script tests fail and name the script
 
 #### Scenario: A script that nothing launches is refused
 
-- **WHEN** the last workflow step, script or current page that launched a script stops naming it
-- **THEN** the architecture suite fails and names the script
+- **WHEN** the last workflow step or launched script that launched a script stops naming it
+- **THEN** the script tests fail and name the script
+
+#### Scenario: A page is not a launch
+
+- **WHEN** the only remaining mention of a script is in a current documentation page, and no entry names it as
+  launched by hand
+- **THEN** the script tests still fail and name the script
 
 #### Scenario: A mention in a comment is not a launch
 
 - **WHEN** the only remaining mention of a script is in a comment
-- **THEN** the architecture suite still fails
+- **THEN** the script tests still fail
+
+#### Scenario: An entry point launched by hand is named and documented
+
+- **WHEN** an entry names a script as launched by hand while a workflow launches it, without a reason, or without a
+  current page that names it
+- **THEN** the script tests fail and name the entry
 
 #### Scenario: Reading a script is not testing it
 
 - **WHEN** the only test that names a script reads its text without running it
 - **THEN** the script counts as untested
 
+#### Scenario: A declaration the test code does not back is refused
+
+- **WHEN** a test file declares a validator that none of its generated classes hands to the harness, a library that no
+  validator it runs names, or any other script that appears in no string of its code outside the declaration
+- **THEN** the script tests fail and name the test file and the script
+
 #### Scenario: A stale excuse is refused
 
 - **WHEN** an excused script gains a test that runs it, or is removed
-- **THEN** the architecture suite fails and names the excuse to delete
+- **THEN** the script tests fail and name the excuse to delete

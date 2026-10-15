@@ -40,16 +40,21 @@ class Target:
         return self.name.upper()
 
 
+# The milestone validators compare with the presence ratchets and with the aggregate scale, the one their evidence
+# declares; until AUD-TRV-07 they compared with the literal floors of their date.
+MILESTONE_MINIMUMS = ("testsMinimum", "architectureTestsMinimum", "aggregateLineCoverageMinimum",
+                      "aggregateBranchCoverageMinimum")
+
 TARGETS = (
     Target("m21", living_minimums=tuple(FABRICATED_RATCHETS)),
     Target("d2", tests_pass="D2 tests: PASS", coverage_pass="D2 coverage: PASS",
            living_minimums=("testsMinimum", "architectureTestsMinimum"), fallback_base="develop"),
-    Target("m22"),
-    Target("m23"),
-    Target("m24"),
-    Target("m25", fallback_base="develop"),
-    Target("m26", fallback_base="develop"),
-    Target("m27", fallback_base="develop"),
+    Target("m22", living_minimums=MILESTONE_MINIMUMS),
+    Target("m23", living_minimums=MILESTONE_MINIMUMS),
+    Target("m24", living_minimums=MILESTONE_MINIMUMS),
+    Target("m25", living_minimums=MILESTONE_MINIMUMS, fallback_base="develop"),
+    Target("m26", living_minimums=MILESTONE_MINIMUMS, fallback_base="develop"),
+    Target("m27", living_minimums=MILESTONE_MINIMUMS, fallback_base="develop"),
 )
 
 
@@ -212,34 +217,19 @@ class VerdictContract(PlayedScenarios):
     def given_too_few_tests(checkout, validate):
         checkout.total_tests(FABRICATED_TESTS - 1)
 
-    @staticmethod
-    def given_two_tests(checkout, validate):
-        checkout.total_tests(2, architecture=1)
-
     def test_a_test_count_below_the_minimum_is_refused_with_both_counts(self) -> None:
-        if self.target.living_minimums:
-            run = self.refused("too_few_tests", f"{self.target.label} test baseline regression: "
-                                                f"{FABRICATED_TESTS - 1} < {FABRICATED_TESTS}")
-        else:
-            # A milestone validator still compares with the literal floor of its date; any reactor is far above it.
-            run = self.refused("two_tests", "regression: 2 <")
+        run = self.refused("too_few_tests", f"{self.target.label} test baseline regression: "
+                                            f"{FABRICATED_TESTS - 1} < {FABRICATED_TESTS}")
         self.assertNoPassLine(run, self.target.tests_pass)
 
     @staticmethod
     def given_too_few_architecture_tests(checkout, validate):
         checkout.total_tests(FABRICATED_TESTS, architecture=FABRICATED_ARCHITECTURE_TESTS - 1)
 
-    @staticmethod
-    def given_one_architecture_test(checkout, validate):
-        checkout.total_tests(FABRICATED_TESTS, architecture=1)
-
     def test_an_architecture_count_below_the_minimum_is_refused_with_both_counts(self) -> None:
         prefix = f"{self.target.label} architecture baseline regression: "
-        if self.target.living_minimums:
-            run = self.refused("too_few_architecture_tests",
-                               f"{prefix}{FABRICATED_ARCHITECTURE_TESTS - 1} < {FABRICATED_ARCHITECTURE_TESTS}")
-        else:
-            run = self.refused("one_architecture_test", f"{prefix}1 <")
+        run = self.refused("too_few_architecture_tests",
+                           f"{prefix}{FABRICATED_ARCHITECTURE_TESTS - 1} < {FABRICATED_ARCHITECTURE_TESTS}")
         self.assertNoPassLine(run, self.target.tests_pass, "Architecture: PASS")
 
     given_no_coverage_evidence = _without(COVERAGE_EVIDENCE)
@@ -307,7 +297,7 @@ def first_summary_directory(run: Run) -> str:
 
 
 class LivingMinimumsContract:
-    """validate-m21 and validate-d2 claim to read their minimums in config/m21-quality-ratchets.properties."""
+    """validate-m21, validate-d2 and m22 to m27 claim to read their minimums in config/m21-quality-ratchets.properties."""
 
     given_a_raised_tests_minimum = _ratchets(testsMinimum=str(FABRICATED_TESTS + 1))
 
@@ -365,16 +355,20 @@ class LivingMinimumsContract:
                      before_the_build=True)
 
 
-class M21Cases:
+class AggregateCoverageMinimumsContract:
+    """The validators whose coverage minimums are the aggregate keys of the ratchet file, not a literal of their date."""
+
     given_a_raised_line_minimum = _ratchets(aggregateLineCoverageMinimum="0.990")
     given_a_raised_branch_minimum = _ratchets(aggregateBranchCoverageMinimum="0.990")
 
     def test_raising_an_aggregate_coverage_minimum_in_the_file_turns_the_passing_build_into_a_refusal(self) -> None:
         for scenario, measure in (("a_raised_line_minimum", "line"), ("a_raised_branch_minimum", "branch")):
             with self.subTest(measure=measure):
-                run = self.refused(scenario, f"M21 {measure} coverage below 0.990 ratchet")
+                run = self.refused(scenario, f"{self.target.label} {measure} coverage below 0.990 ratchet")
                 self.assertNoPassLine(run, self.target.coverage_pass)
 
+
+class M21Cases:
     given_other_minimums = _ratchets(testsMinimum="4000", architectureTestsMinimum="900",
                                      aggregateLineCoverageMinimum="0.500", aggregateBranchCoverageMinimum="0.400")
 
@@ -467,8 +461,11 @@ class M27Cases:
         self.assertNoPassLine(run, "CLI/MCP/HTTP convergence + OpenAPI mutation boundary: PASS")
 
 
-EXTRA_CASES = {"m21": (LivingMinimumsContract, M21Cases), "d2": (LivingMinimumsContract, D2Cases),
-               "m22": (M22Cases,), "m26": (M26Cases,), "m27": (M27Cases,)}
+MILESTONE_CONTRACTS = (LivingMinimumsContract, AggregateCoverageMinimumsContract)
+EXTRA_CASES = {"m21": (*MILESTONE_CONTRACTS, M21Cases), "d2": (LivingMinimumsContract, D2Cases),
+               "m22": (*MILESTONE_CONTRACTS, M22Cases), "m23": MILESTONE_CONTRACTS, "m24": MILESTONE_CONTRACTS,
+               "m25": MILESTONE_CONTRACTS, "m26": (*MILESTONE_CONTRACTS, M26Cases),
+               "m27": (*MILESTONE_CONTRACTS, M27Cases)}
 
 SCRIPTS_UNDER_TEST = tuple(f"validate-{target.name}.{interpreter.extension}"
                            for target in TARGETS for interpreter in (Shell, PowerShell)) + (
