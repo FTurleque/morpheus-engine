@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.quality.AcceptanceQualityService;
 import com.morpheus.application.quality.ChangeCompletenessAssessment;
 import com.morpheus.application.quality.ChangeCompletenessService;
@@ -25,15 +26,17 @@ import java.util.Objects;
 /** Owns project quality diagnostics and change completeness API views. */
 final class MorpheusDiagnosticsApiService {
     private final Path databasePath;
+    private final OperationalRecorder recorder;
 
-    MorpheusDiagnosticsApiService(Path databasePath) {
+    MorpheusDiagnosticsApiService(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
     Object changeStatus(String projectIdValue, String changeIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ChangeId changeId = ChangeId.parse(changeIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             ChangeCompletenessAssessment assessment = completeness(runtime, projectId, changeId);
             return map(
                     "snapshotId", activeSnapshot(runtime, projectId).id().toString(),
@@ -48,7 +51,7 @@ final class MorpheusDiagnosticsApiService {
     Object blockingConditions(String projectIdValue, String changeIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ChangeId changeId = ChangeId.parse(changeIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             ChangeCompletenessAssessment assessment = completeness(runtime, projectId, changeId);
             return map(
                     "snapshotId", activeSnapshot(runtime, projectId).id().toString(),
@@ -65,7 +68,7 @@ final class MorpheusDiagnosticsApiService {
 
     Object diagnostics(String projectIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             activeSnapshot(runtime, projectId);
             QualityReportService service = new QualityReportService(
                     runtime.snapshots(),

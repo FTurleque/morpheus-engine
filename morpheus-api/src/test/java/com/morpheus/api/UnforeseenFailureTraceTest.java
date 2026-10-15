@@ -24,6 +24,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>The caller is told nothing, on purpose. The server kept nothing either: no counter, no event. An operator could
  * not learn that requests were ending in a 500, let alone of what kind. The counter is read here where an operator
  * reads it - in the metrics the same server serves - so the test observes the product and not its internals.</p>
+ *
+ * <p>A server started here has a runtime of its own, which its metrics route serves: the values are absolute. They
+ * used to be a difference on the counters of the process, which any other test of the module could move.</p>
  */
 class UnforeseenFailureTraceTest {
     private static final String COUNTER = "failure.suppressed.http-internal-error";
@@ -41,7 +44,7 @@ class UnforeseenFailureTraceTest {
                     throw new UnsupportedOperationException("status source at /srv/morpheus/minos is gone");
                 });
              HttpClient client = HttpClient.newHttpClient()) {
-            long before = counter(client, server);
+            assertEquals(0L, counter(client, server), "a new server has counted nothing");
 
             HttpResponse<String> first = get(client, server, "/integrations/minos/status");
             HttpResponse<String> second = get(client, server, "/integrations/minos/status");
@@ -51,7 +54,7 @@ class UnforeseenFailureTraceTest {
                     + "\"internal MORPHEUS API error\",\"details\":{}}}", first.body());
             assertFalse(first.body().contains("/srv/"), first::body);
             assertEquals(500, second.statusCode(), second::body);
-            assertEquals(before + 2, counter(client, server),
+            assertEquals(2L, counter(client, server),
                     "each request answered with a generic internal error must move the counter by one");
         }
     }
@@ -61,14 +64,12 @@ class UnforeseenFailureTraceTest {
         try (MorpheusHttpServer server = MorpheusHttpServer.start(
                 temporaryDirectory.resolve("foreseen.db"), "127.0.0.1", 0);
              HttpClient client = HttpClient.newHttpClient()) {
-            long before = counter(client, server);
-
             assertEquals(404, get(client, server, "/nowhere").statusCode());
             assertEquals(405, client.send(HttpRequest.newBuilder(URI.create(server.baseUri() + "/version"))
                     .method("DELETE", HttpRequest.BodyPublishers.noBody()).build(),
                     HttpResponse.BodyHandlers.ofString()).statusCode());
 
-            assertEquals(before, counter(client, server), "a refusal the server names is not an unforeseen failure");
+            assertEquals(0L, counter(client, server), "a refusal the server names is not an unforeseen failure");
         }
     }
 

@@ -2,6 +2,8 @@ package com.morpheus.api;
 
 import com.morpheus.application.context.DisabledTechnicalContextProvider;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityObservation;
+import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
@@ -234,6 +236,6 @@ class MorpheusRemoteMutationAvailabilityTest {
                 new ExternalReferenceResolverRegistry(List.of()),
                 minos,
                 new DisabledTechnicalContextProvider("NEXUS", "test"),
-                project -> ChangeWriteCapabilityObservation.denied("test"));
+                project -> ChangeWriteCapabilityObservation.denied("test"), OperationalRuntime.of(OperationalLogMode.OFF));
     }
 }

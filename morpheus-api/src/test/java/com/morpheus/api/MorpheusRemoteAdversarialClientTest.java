@@ -2,6 +2,9 @@ package com.morpheus.api;
 
 import com.morpheus.application.context.DisabledTechnicalContextProvider;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityObservation;
+import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
@@ -105,7 +108,7 @@ class MorpheusRemoteAdversarialClientTest {
                 new ExternalReferenceResolverRegistry(List.of()),
                 minos,
                 new DisabledTechnicalContextProvider("NEXUS", "adversarial"),
-                project -> ChangeWriteCapabilityObservation.denied("adversarial"));
+                project -> ChangeWriteCapabilityObservation.denied("adversarial"), OperationalRuntime.of(OperationalLogMode.OFF));
         base = URI.create("https://127.0.0.1:" + server.port() + "/api/v1");
     }
 
@@ -235,7 +238,7 @@ class MorpheusRemoteAdversarialClientTest {
      */
     private static void seedLargeProjectListing(Path database) {
         String longWorkspaceName = "adversarial-workspace-fixture-".repeat(6);
-        try (ApiRuntime runtime = new ApiRuntime(database)) {
+        try (ApiRuntime runtime = new ApiRuntime(database, OperationalRecorder.noop())) {
             for (int index = 0; index < SEEDED_PROJECTS; index++) {
                 runtime.snapshots().putProject(new ProjectStoreEntry(
                         ProjectSpecificationId.generate(),

@@ -1,5 +1,8 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.operability.OperationalEventSink;
+import com.morpheus.application.operability.OperationalMetrics;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.store.sqlite.SqliteConnectionScope;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -26,10 +29,13 @@ class McpToolCallConnectionCountTest {
     @TempDir
     Path temporaryDirectory;
 
+    private final OperationalMetrics metrics = new OperationalMetrics();
+    private final OperationalRecorder recorder = new OperationalRecorder(OperationalEventSink.noop(), metrics);
+
     @Test
     void listingSavedViewsOpensOnePhysicalConnection() throws Exception {
         assertOneConnection(
-                new MorpheusQueryMcpTools(database()).specifications(),
+                new MorpheusQueryMcpTools(database(), recorder).specifications(),
                 MorpheusQueryMcpTools.LIST_SAVED_VIEWS,
                 Map.of("scopeKind", "PROJECT", "scopeId", McpToolCall.ABSENT_PROJECT_ID));
     }
@@ -37,24 +43,30 @@ class McpToolCallConnectionCountTest {
     @Test
     void listingPolicyPacksOpensOnePhysicalConnection() throws Exception {
         assertOneConnection(
-                new MorpheusPolicyMcpTools(database()).specifications(), MorpheusPolicyMcpTools.LIST, Map.of());
+                new MorpheusPolicyMcpTools(database(), recorder).specifications(), MorpheusPolicyMcpTools.LIST, Map.of());
     }
 
     private Path database() {
         return temporaryDirectory.resolve("morpheus.db");
     }
 
-    private static void assertOneConnection(
+    private void assertOneConnection(
             List<McpServerFeatures.SyncToolSpecification> tools, String tool, Map<String, Object> arguments)
             throws Exception {
         answered(McpToolCall.call(tools, tool, arguments));
-        SqliteConnectionScope.Diagnostics before = SqliteConnectionScope.diagnostics();
+        Map<String, Long> before = metrics.snapshot().counters();
 
         int opened = PhysicalSqliteConnections.openedDuring(() -> answered(McpToolCall.call(tools, tool, arguments)));
 
         assertEquals(1, opened, tool + " opens one physical SQLite connection");
-        assertEquals(1, SqliteConnectionScope.diagnostics().opened() - before.opened(),
-                "and that connection is the one of a scope, whose schema check runs once");
+        Map<String, Long> after = metrics.snapshot().counters();
+        assertEquals(1L, delta(before, after, SqliteConnectionScope.CONNECTIONS_OPENED),
+                "and that connection is the one of a scope, counted on the recorder the tools were handed");
+        assertEquals(1L, delta(before, after, SqliteConnectionScope.SCHEMA_CHECKS), "whose schema check runs once");
+    }
+
+    private static long delta(Map<String, Long> before, Map<String, Long> after, String counter) {
+        return after.getOrDefault(counter, 0L) - before.getOrDefault(counter, 0L);
     }
 
     private static void answered(McpSchema.CallToolResult result) {

@@ -1,5 +1,12 @@
 package com.morpheus.architecture;
 
+import com.morpheus.store.sqlite.SqliteConnectionScope;
+import com.tngtech.archunit.core.domain.JavaClass;
+import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.domain.JavaField;
+import com.tngtech.archunit.core.domain.JavaModifier;
+import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.core.importer.ImportOption;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -44,17 +51,12 @@ class StaticOperationalRuntimeUsersArchitectureTest {
             "MinosMcpExternalReferenceResolver.java",
             "MorpheusCli.java",
             "MorpheusMain.java",
-            "MorpheusOperabilityApiService.java",
             "MorpheusProjectSyncApiService.java",
-            "MorpheusReasoningApiService.java",
-            "MorpheusReasoningMcpTools.java",
-            "MorpheusRemoteHttpServer.java",
             "NexusMcpContextGateway.java",
             "OperationalSlf4jServiceProvider.java",
             "SnapshotRecoveryService.java",
             "SqliteContentionMetrics.java",
-            "SqliteDatabaseLease.java",
-            "UnforeseenFailureTrace.java");
+            "SqliteDatabaseLease.java");
 
     /** The classes that take the runtime of the process as a value: the launcher, and the second entry point. */
     private static final Set<String> PROCESS_RUNTIME_TAKERS = Set.of("MorpheusCli.java", "MorpheusMain.java");
@@ -83,6 +85,50 @@ class StaticOperationalRuntimeUsersArchitectureTest {
         assertEquals(new TreeSet<>(PROCESS_RUNTIME_TAKERS), found, "the runtime of the process is taken once, by "
                 + "the entry point that then hands it on by constructor. A class that takes it elsewhere has a "
                 + "runtime nobody gave it, and a test cannot give it another");
+    }
+
+    /**
+     * The connection scope counted the connections it opened and the schema checks it ran in static fields of the
+     * process, and ten test classes on four modules read them as differences: two tests running at once read each
+     * other's, which is what made JUnit parallel execution fail on the store module (ADR-0115). They now count on the
+     * recorder the opener of the scope names. A test that reads them names that recorder; this holds that none goes
+     * back to the process.
+     */
+    @Test
+    void noTestReadsProcessWideCountersOfTheConnectionScope() throws IOException {
+        Set<String> found = new TreeSet<>(sourcesMentioning("src/test/java", "SqliteConnectionScope.diagnostics("));
+        found.addAll(sourcesMentioning("src/test/java", "SqliteConnectionScope.Diagnostics"));
+
+        assertEquals(Set.of(), found, "a test that reads the counters of the connection scope reads the recorder it "
+                + "opened the scope with, never counters of the process");
+    }
+
+    /** The scope keeps no state of the process beside the thread-confined scope itself and its constant names. */
+    @Test
+    void theConnectionScopeKeepsNoCounterOfTheProcess() {
+        JavaClasses classes = new ClassFileImporter()
+                .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+                .importPackages("com.morpheus.store.sqlite");
+        Set<String> processState = new TreeSet<>();
+        for (JavaClass javaClass : classes) {
+            if (!javaClass.getName().startsWith(SqliteConnectionScope.class.getName())) {
+                continue;
+            }
+            for (JavaField field : javaClass.getFields()) {
+                boolean isStatic = field.getModifiers().contains(JavaModifier.STATIC);
+                boolean constant = field.getModifiers().contains(JavaModifier.FINAL)
+                        && (field.getRawType().isEquivalentTo(String.class)
+                        || field.getRawType().isEquivalentTo(ThreadLocal.class)
+                        || field.getName().equals("serialVersionUID"));
+                if (isStatic && !constant) {
+                    processState.add(javaClass.getSimpleName() + "." + field.getName());
+                }
+            }
+        }
+
+        assertTrue(classes.contain(SqliteConnectionScope.class), "the scope class was not imported");
+        assertEquals(Set.of(), processState, "a static field of the connection scope is state of the process: a "
+                + "counter there is read by every test of the JVM at once. Count on the recorder of the scope");
     }
 
     private static Set<String> sourcesMentioning(String sourceRoot) throws IOException {

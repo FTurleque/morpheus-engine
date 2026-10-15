@@ -1,6 +1,7 @@
 package com.morpheus.api;
 
 import com.morpheus.application.lifecycle.ChangeLifecyclePolicy;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.orchestration.ChangeLifecycleObservation;
 import com.morpheus.application.orchestration.ChangeOrchestrationStateService;
 import com.morpheus.application.orchestration.ChangeTransitionEvaluationService;
@@ -19,9 +20,11 @@ import java.util.Optional;
 /** M14 HTTP facade for the read-only MORPHEUS/JARVIS orchestration contract. */
 final class MorpheusJarvisOrchestrationApiService {
     private final Path databasePath;
+    private final OperationalRecorder recorder;
 
-    MorpheusJarvisOrchestrationApiService(Path databasePath) {
+    MorpheusJarvisOrchestrationApiService(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
     Object state(
@@ -32,7 +35,7 @@ final class MorpheusJarvisOrchestrationApiService {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ChangeId changeId = ChangeId.parse(changeIdValue);
         ChangeLifecycleObservation lifecycle = lifecycle(lifecycleState, abandonmentReason);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             return new ChangeOrchestrationStateService(
                             runtime.snapshots(),
                             runtime.content(),
@@ -64,7 +67,7 @@ final class MorpheusJarvisOrchestrationApiService {
                 Boolean.TRUE.equals(request.allowBackwardTransitions()),
                 Boolean.TRUE.equals(request.allowCompletedReopen()));
 
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             if (runtime.snapshots().findProject(projectId).isEmpty()) {
                 throw new KnowledgeStoreException("project not found: " + projectId);
             }

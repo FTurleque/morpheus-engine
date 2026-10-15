@@ -130,3 +130,30 @@ exécutions ne prouvent pas l'absence d'un autre défaut.
   runtime du processus.
 - `StaticOperationalRuntimeUsersArchitectureTest` : la liste nommée, aucun test, seul un point d'entrée prend le
   runtime du processus. Chaque règle a été cassée une fois, l'échec constaté, puis rétablie.
+
+## Amendement du 15 octobre 2026 — la portée compte sur le recorder de son ouvreur (AUD-QUA-17)
+
+La conséquence « les compteurs statiques de `SqliteConnectionScope` sont le prochain obstacle » est traitée.
+
+- **Les quatre compteurs statiques et `diagnostics()` sont supprimés.** Une portée compte la connexion physique
+  qu'elle ouvre (`sqlite.scope.connection.opened`), celle qu'elle libère (`sqlite.scope.connection.closed`) et la
+  vérification de schéma qu'elle exécute (`sqlite.scope.schema.checked`) sur le recorder que son ouvreur nomme, par
+  le même porteur que les compteurs de contention (`SqliteContentionMetrics`). Le pic (`peak`) n'a pas d'équivalent :
+  un compteur n'exprime pas un maximum, et aucun code de production ne le lisait.
+- **Il n'y a plus d'ouverture de portée sans recorder.** `SqliteConnectionScope.open(chemin, recorder)` est la seule ;
+  `SqliteOperationRuntime.open(chemin, recorder)` aussi. Le défaut du processus reste celui d'une connexion ouverte
+  hors portée (décision 4).
+- **Les racines de composition remettent le recorder qu'elles ont reçu** (ce que la conséquence « les racines
+  d'ADR-0109 ouvrent encore leur portée sans recorder » laissait ouvert) : `ApiRuntime`, `CliRuntime` et
+  `MorpheusMcpRuntime` le prennent par constructeur, de leurs services, outils et commandes, qui le prennent de leur
+  point d'entrée. Le lanceur remet le runtime du processus au serveur local, au serveur remote, au serveur MCP et à
+  chaque commande. Un serveur HTTP démarré sans runtime (les surcharges courtes de `MorpheusHttpServer.start`) en
+  construit un à lui, que sa route `metrics` sert ; un serveur MCP construit sans recorder ne compte nulle part — il
+  ne sert aucun compteur.
+- **Les tests de comptage lisent des valeurs absolues sur leur propre recorder**, et les trois tests de compte de
+  connexions (HTTP, MCP, CLI) assertent désormais aussi **une** vérification de schéma par opération, qui n'était
+  qu'inférée.
+- **Deux règles**, dans `StaticOperationalRuntimeUsersArchitectureTest` : aucun test ne mentionne
+  `SqliteConnectionScope.diagnostics(` ni `SqliteConnectionScope.Diagnostics` ; `SqliteConnectionScope` et ses classes
+  imbriquées ne déclarent aucun champ statique hors constantes `String`, le `ThreadLocal` de la portée et
+  `serialVersionUID`. Cassées le 15/10/2026 (une mention dans un test, un `AtomicLong` statique planté), puis rétablies.

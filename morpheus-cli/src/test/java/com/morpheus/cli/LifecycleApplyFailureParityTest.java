@@ -178,7 +178,7 @@ class LifecycleApplyFailureParityTest {
         CliLayout layout = CliLayout.resolve(
                 Optional.empty(), Optional.empty(), Optional.of(database), Map.of(), properties());
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
-        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath(), OperationalRecorder.noop())) {
             var normalized = new SyntheticSpecificationContentReader()
                     .read(
                             ProviderReadRequest.all(fixture("synthetic-basic"), projectId),

@@ -3,6 +3,8 @@ package com.morpheus.api;
 import com.morpheus.application.context.DisabledTechnicalContextProvider;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityObservation;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;
+import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
@@ -73,7 +75,7 @@ class MorpheusRemoteHttpServerBootstrapOwnershipTest {
                     resolvers,
                     minos,
                     nexus,
-                    writes));
+                    writes, OperationalRuntime.of(OperationalLogMode.OFF)));
 
             assertTrue(
                     failure.getMessage().contains("cannot start MORPHEUS remote HTTPS server"),

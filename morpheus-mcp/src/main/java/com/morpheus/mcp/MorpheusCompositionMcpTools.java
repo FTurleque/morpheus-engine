@@ -2,6 +2,7 @@ package com.morpheus.mcp;
 
 import com.morpheus.application.composition.CompositionQueryService;
 import com.morpheus.application.composition.CompositionStateView;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.domain.project.ProjectSpecificationId;
@@ -21,10 +22,12 @@ final class MorpheusCompositionMcpTools {
     static final String CONFLICTS_TOOL = "list_composition_conflicts";
 
     private final Path databasePath;
+    private final OperationalRecorder recorder;
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
-    MorpheusCompositionMcpTools(Path databasePath) {
+    MorpheusCompositionMcpTools(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
     List<McpServerFeatures.SyncToolSpecification> specifications() {
@@ -51,7 +54,7 @@ final class MorpheusCompositionMcpTools {
         try {
             Map<String, Object> arguments = McpArguments.orEmpty(rawArguments);
             ProjectSpecificationId projectId = ProjectSpecificationId.parse(McpArguments.requiredString(arguments, "projectId"));
-            try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath)) {
+            try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath, recorder)) {
                 CompositionStateView state = new CompositionQueryService(runtime.snapshots(), runtime.compositions())
                         .findActive(projectId)
                         .orElseThrow(() -> new KnowledgeStoreException(

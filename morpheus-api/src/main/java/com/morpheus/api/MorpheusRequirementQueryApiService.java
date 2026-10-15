@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.query.RequirementQueryService;
 import com.morpheus.application.query.RequirementSearchQuery;
@@ -21,16 +22,18 @@ import java.util.Set;
 /** Owns active requirement search, detail and trace API views. */
 final class MorpheusRequirementQueryApiService {
     private final Path databasePath;
+    private final OperationalRecorder recorder;
 
-    MorpheusRequirementQueryApiService(Path databasePath) {
+    MorpheusRequirementQueryApiService(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
     Object requirements(String projectIdValue, String query, PageRequest pageRequest) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         String queryText = query == null ? "" : query.trim();
         Objects.requireNonNull(pageRequest, "pageRequest");
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             requireProject(runtime, projectId);
             var result = new RequirementQueryService(runtime.snapshots(), runtime.requirements())
                     .findActive(projectId, new RequirementSearchQuery(queryText), pageRequest)
@@ -45,7 +48,7 @@ final class MorpheusRequirementQueryApiService {
     Object requirement(String projectIdValue, String requirementIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         RequirementId requirementId = RequirementId.parse(requirementIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             KnowledgeSnapshotMetadata snapshot = activeSnapshot(runtime, projectId);
             RequirementVersionRecord record = runtime.requirements().currentRequirement(snapshot.id(), requirementId.value())
                     .orElseThrow(() -> ApiFailure.notFound("requirement not found: " + requirementId));
@@ -57,7 +60,7 @@ final class MorpheusRequirementQueryApiService {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         RequirementId requirementId = RequirementId.parse(requirementIdValue);
         requireRange("depth", depth, 1, MorpheusApiService.MAX_DEPTH);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             activeSnapshot(runtime, projectId);
             var result = new TraceRequirementQueryService(
                     runtime.snapshots(), runtime.requirements(), runtime.traceability(), runtime.externalReferences())

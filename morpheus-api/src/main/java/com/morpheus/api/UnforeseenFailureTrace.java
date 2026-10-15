@@ -1,6 +1,6 @@
 package com.morpheus.api;
 
-import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.operability.SuppressedFailureFamily;
 
 /**
@@ -10,12 +10,15 @@ import com.morpheus.application.operability.SuppressedFailureFamily;
  * server location. The server used to keep nothing either - no counter, no event - so an operator could not tell that
  * requests were dying, let alone of what. The response does not change; the failure is counted and, when a sink
  * listens, reported with its type.</p>
+ *
+ * <p>It is counted on the recorder of the server that answered, whose {@code metrics} route serves it: the launcher
+ * hands that server the runtime of the process, a test hands it its own.</p>
  */
 final class UnforeseenFailureTrace {
     private UnforeseenFailureTrace() {
     }
 
-    static void record(RuntimeException failure) {
-        LocalOperationalRuntime.recorder().suppressed(SuppressedFailureFamily.HTTP_INTERNAL_ERROR, failure);
+    static void record(OperationalRecorder recorder, RuntimeException failure) {
+        recorder.suppressed(SuppressedFailureFamily.HTTP_INTERNAL_ERROR, failure);
     }
 }

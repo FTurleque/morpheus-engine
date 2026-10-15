@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.application.reference.LiveExternalReferenceResolutionService;
@@ -18,14 +19,16 @@ import java.util.Objects;
 /** M12 HTTP DTO mapper over the generic application reference-resolution use case. */
 final class MorpheusExternalReferenceApiService {
     private final Path databasePath;
+    private final OperationalRecorder recorder;
     private final ExternalReferenceResolverRegistry resolverRegistry;
     private final ExternalIntegrationStatusProvider minosStatus;
 
     MorpheusExternalReferenceApiService(
-            Path databasePath,
+            Path databasePath, OperationalRecorder recorder,
             ExternalReferenceResolverRegistry resolverRegistry,
             ExternalIntegrationStatusProvider minosStatus) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
         this.resolverRegistry = Objects.requireNonNull(resolverRegistry, "resolverRegistry");
         this.minosStatus = Objects.requireNonNull(minosStatus, "minosStatus");
     }
@@ -37,7 +40,7 @@ final class MorpheusExternalReferenceApiService {
     Object list(String projectIdValue, String ownerIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         DomainIdentity ownerId = DomainIdentity.parse(ownerIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             if (runtime.snapshots().findProject(projectId).isEmpty()) {
                 throw ApiFailure.notFound("project not found: " + projectId);
             }
@@ -55,7 +58,7 @@ final class MorpheusExternalReferenceApiService {
     Object resolve(String projectIdValue, String referenceIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ExternalReferenceId referenceId = ExternalReferenceId.parse(referenceIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             if (runtime.snapshots().findProject(projectId).isEmpty()) {
                 throw ApiFailure.notFound("project not found: " + projectId);
             }

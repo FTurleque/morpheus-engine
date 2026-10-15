@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.quality.ChangeCompletenessAssessment;
 import com.morpheus.application.quality.ChangeCompletenessService;
 import com.morpheus.application.quality.QualityFinding;
@@ -41,16 +42,18 @@ import java.util.Objects;
 /** Executes the M10 read-only tool contract over the same persisted SQLite state used by the CLI. */
 public final class MorpheusMcpToolService {
     private final Path databasePath;
+    private final OperationalRecorder recorder;
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
-    public MorpheusMcpToolService(Path databasePath) {
+    public MorpheusMcpToolService(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
     public String execute(String toolName, Map<String, Object> arguments) {
         Objects.requireNonNull(toolName, "toolName");
         Objects.requireNonNull(arguments, "arguments");
-        try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath)) {
+        try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath, recorder)) {
             Object result = switch (toolName) {
                 case "get_current_specification" -> currentSpecification(runtime, arguments);
                 case "find_requirements" -> findRequirements(runtime, arguments);

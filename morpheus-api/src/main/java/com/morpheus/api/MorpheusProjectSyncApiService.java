@@ -6,6 +6,7 @@ import com.morpheus.application.ingestion.ObservedProjectSnapshotPublisher;
 import com.morpheus.application.ingestion.ProjectSnapshotImportResult;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.application.sync.IncrementalSyncService;
 import com.morpheus.application.sync.LocalSourceInventoryScanner;
@@ -32,10 +33,12 @@ final class MorpheusProjectSyncApiService {
     private static final String UNKNOWN_VALUE = "unknown";
 
     private final Path databasePath;
+    private final OperationalRecorder recorder;
     private final Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots;
 
-    MorpheusProjectSyncApiService(Path databasePath, Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots) {
+    MorpheusProjectSyncApiService(Path databasePath, OperationalRecorder recorder, Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
         this.allowedWorkspaceRoots = Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots");
     }
 
@@ -44,7 +47,7 @@ final class MorpheusProjectSyncApiService {
         Optional<String> normalizedRevision = Objects.requireNonNull(revision, "revision")
                 .map(String::trim)
                 .filter(value -> !value.isEmpty());
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             Path workspace = projectWorkspace(runtime, projectId);
             Instant attemptedAt = Instant.now();
             var scan = new LocalSourceInventoryScanner().scan(
@@ -101,7 +104,7 @@ final class MorpheusProjectSyncApiService {
     Object syncStatus(String projectIdValue, long maxAgeMinutes) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         requireRange("maxAgeMinutes", maxAgeMinutes, 1L, MorpheusApiService.MAX_MAX_AGE_MINUTES);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             requireProject(runtime, projectId);
             SyncFreshness freshness = new SyncFreshnessService(runtime.syncState())
                     .assess(projectId, Instant.now(), Duration.ofMinutes(maxAgeMinutes));

@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.architecture.m21.PublicSurfaceManifest;
 import org.junit.jupiter.api.Test;
@@ -236,7 +237,7 @@ class PublicSurfaceManifestCoversEveryServedToolTest {
                         temporaryDirectory.resolve("manifest-guard.db").toAbsolutePath().normalize(),
                         new ExternalReferenceResolverRegistry(List.of()),
                         MorpheusMcpServer.unconfiguredTechnicalContext(),
-                        MorpheusMcpServer.deniedWriteCapability())
+                        MorpheusMcpServer.deniedWriteCapability(), OperationalRecorder.noop())
                 .stream()
                 .map(specification -> specification.tool().name())
                 .collect(Collectors.toUnmodifiableSet());

@@ -4,6 +4,7 @@ import com.morpheus.application.context.DisabledTechnicalContextProvider;
 import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityObservation;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.product.ProductMetadata;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.application.snapshot.RuntimeSnapshotRecovery;
@@ -62,6 +63,11 @@ public final class MorpheusMcpServer {
         return build(databasePath, resolverRegistry, technicalContextProvider, deniedWrites());
     }
 
+    /**
+     * A server built without a recorder counts nowhere: the MCP server serves no counters, and only the launcher, which
+     * hands the recorder of the process to {@link #run(Path, ExternalReferenceResolverRegistry, TechnicalContextProvider,
+     * ChangeWriteCapabilityResolver, OperationalRecorder)}, has somewhere to put them.
+     */
     @SuppressWarnings("java:S106") // System.out is the actual MCP wire-protocol stream, not a log write.
     public static McpSyncServer build(
             Path databasePath,
@@ -73,6 +79,7 @@ public final class MorpheusMcpServer {
                 resolverRegistry,
                 technicalContextProvider,
                 writeCapabilityResolver,
+                OperationalRecorder.noop(),
                 transport(System.in, System.out));
     }
 
@@ -84,6 +91,7 @@ public final class MorpheusMcpServer {
                 new ExternalReferenceResolverRegistry(List.of()),
                 disabledNexus(),
                 deniedWrites(),
+                OperationalRecorder.noop(),
                 transport(inputStream, outputStream));
     }
 
@@ -102,17 +110,19 @@ public final class MorpheusMcpServer {
             ExternalReferenceResolverRegistry resolverRegistry,
             TechnicalContextProvider technicalContextProvider,
             ChangeWriteCapabilityResolver writeCapabilityResolver,
+            OperationalRecorder recorder,
             BoundedStdioServerTransportProvider transport) {
         Objects.requireNonNull(databasePath, "databasePath");
+        Objects.requireNonNull(recorder, "recorder");
         Objects.requireNonNull(resolverRegistry, "resolverRegistry");
         Objects.requireNonNull(technicalContextProvider, "technicalContextProvider");
         Objects.requireNonNull(writeCapabilityResolver, "writeCapabilityResolver");
         Objects.requireNonNull(transport, "transport");
-        try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath)) {
+        try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath, recorder)) {
             new RuntimeSnapshotRecovery(runtime.snapshots()).recoverAll(Instant.now());
         }
         List<McpServerFeatures.SyncToolSpecification> tools = toolSpecifications(
-                databasePath, resolverRegistry, technicalContextProvider, writeCapabilityResolver);
+                databasePath, resolverRegistry, technicalContextProvider, writeCapabilityResolver, recorder);
 
         return McpServer.sync(transport)
                 .serverInfo(SERVER_NAME, SERVER_VERSION)
@@ -131,9 +141,10 @@ public final class MorpheusMcpServer {
             Path databasePath,
             ExternalReferenceResolverRegistry resolverRegistry,
             TechnicalContextProvider technicalContextProvider,
-            ChangeWriteCapabilityResolver writeCapabilityResolver) {
+            ChangeWriteCapabilityResolver writeCapabilityResolver,
+            OperationalRecorder recorder) {
         MorpheusMcpToolCatalog catalog = new MorpheusMcpToolCatalog();
-        MorpheusMcpToolService service = new MorpheusMcpToolService(databasePath);
+        MorpheusMcpToolService service = new MorpheusMcpToolService(databasePath, recorder);
         List<McpServerFeatures.SyncToolSpecification> tools = new ArrayList<>();
 
         for (MorpheusMcpToolCatalog.ToolDefinition definition : catalog.tools()) {
@@ -141,16 +152,18 @@ public final class MorpheusMcpServer {
         }
         tools.addAll(new MorpheusProductMcpTools().specifications());
         tools.addAll(new MorpheusProviderPluginMcpTools().specifications());
-        tools.addAll(new MorpheusPortfolioMcpTools(databasePath).specifications());
-        tools.addAll(new MorpheusQueryMcpTools(databasePath).specifications());
-        tools.addAll(new MorpheusPolicyMcpTools(databasePath).specifications());
-        tools.addAll(new MorpheusPolicyMcpManagementTools(databasePath).specifications());
-        tools.addAll(new MorpheusReasoningMcpTools().specifications());
-        tools.addAll(new MorpheusExternalReferenceMcpTools(databasePath, resolverRegistry).specifications());
-        tools.addAll(new MorpheusAugmentedContextMcpTools(databasePath, technicalContextProvider).specifications());
-        tools.addAll(new MorpheusJarvisOrchestrationMcpTools(databasePath).specifications());
-        tools.addAll(new MorpheusCompositionMcpTools(databasePath).specifications());
-        tools.addAll(new MorpheusControlledLifecycleMcpTools(databasePath, writeCapabilityResolver).specifications());
+        tools.addAll(new MorpheusPortfolioMcpTools(databasePath, recorder).specifications());
+        tools.addAll(new MorpheusQueryMcpTools(databasePath, recorder).specifications());
+        tools.addAll(new MorpheusPolicyMcpTools(databasePath, recorder).specifications());
+        tools.addAll(new MorpheusPolicyMcpManagementTools(databasePath, recorder).specifications());
+        tools.addAll(new MorpheusReasoningMcpTools(recorder).specifications());
+        tools.addAll(new MorpheusExternalReferenceMcpTools(databasePath, recorder, resolverRegistry).specifications());
+        tools.addAll(new MorpheusAugmentedContextMcpTools(databasePath, recorder, technicalContextProvider)
+                .specifications());
+        tools.addAll(new MorpheusJarvisOrchestrationMcpTools(databasePath, recorder).specifications());
+        tools.addAll(new MorpheusCompositionMcpTools(databasePath, recorder).specifications());
+        tools.addAll(new MorpheusControlledLifecycleMcpTools(databasePath, recorder, writeCapabilityResolver)
+                .specifications());
         return List.copyOf(tools);
     }
 
@@ -177,17 +190,29 @@ public final class MorpheusMcpServer {
         return run(databasePath, resolverRegistry, technicalContextProvider, deniedWrites());
     }
 
-    @SuppressWarnings("java:S106") // System.out is the actual MCP wire-protocol stream, not a log write.
     public static int run(
             Path databasePath,
             ExternalReferenceResolverRegistry resolverRegistry,
             TechnicalContextProvider technicalContextProvider,
             ChangeWriteCapabilityResolver writeCapabilityResolver) {
+        return run(databasePath, resolverRegistry, technicalContextProvider, writeCapabilityResolver,
+                OperationalRecorder.noop());
+    }
+
+    /** Serves STDIO until end of input; every tool call counts what it puts on the database on {@code recorder}. */
+    @SuppressWarnings("java:S106") // System.out is the actual MCP wire-protocol stream, not a log write.
+    public static int run(
+            Path databasePath,
+            ExternalReferenceResolverRegistry resolverRegistry,
+            TechnicalContextProvider technicalContextProvider,
+            ChangeWriteCapabilityResolver writeCapabilityResolver,
+            OperationalRecorder recorder) {
         return serve(
                 databasePath,
                 resolverRegistry,
                 technicalContextProvider,
                 writeCapabilityResolver,
+                recorder,
                 transport(System.in, System.out));
     }
 
@@ -199,6 +224,7 @@ public final class MorpheusMcpServer {
                 new ExternalReferenceResolverRegistry(List.of()),
                 disabledNexus(),
                 deniedWrites(),
+                OperationalRecorder.noop(),
                 transport(inputStream, outputStream));
     }
 
@@ -207,12 +233,14 @@ public final class MorpheusMcpServer {
             ExternalReferenceResolverRegistry resolverRegistry,
             TechnicalContextProvider technicalContextProvider,
             ChangeWriteCapabilityResolver writeCapabilityResolver,
+            OperationalRecorder recorder,
             BoundedStdioServerTransportProvider transport) {
         McpSyncServer server = build(
                 databasePath,
                 resolverRegistry,
                 technicalContextProvider,
                 writeCapabilityResolver,
+                recorder,
                 transport);
         try {
             transport.awaitTermination();

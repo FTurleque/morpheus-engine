@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.dsl.PortfolioQueryScope;
 import com.morpheus.application.query.dsl.ProjectQueryScope;
 import com.morpheus.application.query.dsl.QueryBudgets;
@@ -23,10 +24,12 @@ public final class MorpheusQueryApiService {
     public static final int DEFAULT_LIMIT = 100;
 
     private final Path databasePath;
+    private final OperationalRecorder recorder;
     private final QueryDslParser parser = new QueryDslParser();
 
-    public MorpheusQueryApiService(Path databasePath) {
+    public MorpheusQueryApiService(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
     public Object executeProject(String projectId, QueryRequest request) {
@@ -151,7 +154,7 @@ public final class MorpheusQueryApiService {
     }
 
     private ApiRuntime runtime() {
-        return new ApiRuntime(databasePath);
+        return new ApiRuntime(databasePath, recorder);
     }
 
     private static long requirePositive(Long value, String name) {

@@ -8,6 +8,7 @@ import com.morpheus.application.composition.CompositionResolution;
 import com.morpheus.application.composition.CompositionSnapshotState;
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.provider.ProviderId;
@@ -55,7 +56,7 @@ class MorpheusCompositionApiContractTest {
     private String seed(Path database) {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         Path fixture = http.fixture("synthetic-basic");
-        try (ApiRuntime runtime = new ApiRuntime(database)) {
+        try (ApiRuntime runtime = new ApiRuntime(database, OperationalRecorder.noop())) {
             var normalized = new SyntheticSpecificationContentReader()
                     .read(
                             ProviderReadRequest.all(fixture, projectId),

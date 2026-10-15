@@ -1,6 +1,7 @@
 package com.morpheus.cli;
 
 import com.morpheus.application.operability.ExhaustiveShutdown;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.policy.PolicyConfiguration;
 import com.morpheus.application.policy.PolicyEvaluation;
 import com.morpheus.application.policy.PolicyIds;
@@ -23,6 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
@@ -65,6 +67,12 @@ final class MorpheusPolicyCli {
 
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
     private final QueryDefinitionCodec queryCodec = new QueryDefinitionCodec();
+    private final OperationalRecorder recorder;
+
+    /** Every command counts what it puts on the database on {@code recorder}, the one the launcher handed. */
+    MorpheusPolicyCli(OperationalRecorder recorder) {
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
+    }
 
     static boolean handles(String[] args) {
         return command(args).equals("policy");
@@ -79,7 +87,7 @@ final class MorpheusPolicyCli {
                 throw new IllegalArgumentException("unknown policy action: " + parsed.action());
             }
             options.rejectUnknown(allowed);
-            try (CliRuntime runtime = CliRuntime.open(parsed.layout().databasePath())) {
+            try (CliRuntime runtime = CliRuntime.open(parsed.layout().databasePath(), recorder)) {
                 Object result = execute(parsed.action(), options, runtime);
                 CliExitCode exitCode = CliExitCode.SUCCESS;
                 if (result instanceof Decided decided) {

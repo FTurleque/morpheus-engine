@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.dsl.ProjectQueryScope;
 import com.morpheus.application.query.dsl.QueryDefinitionCodec;
 import com.morpheus.application.query.dsl.QueryDslParser;
@@ -56,7 +57,7 @@ class McpEnumVocabularyLocaleTest {
     @Test
     void aLifecycleStateIsAcceptedInLowerCase() {
         String message = call(
-                new MorpheusPolicyMcpTools(database("policy-lifecycle.db")).specifications(),
+                new MorpheusPolicyMcpTools(database("policy-lifecycle.db"), OperationalRecorder.noop()).specifications(),
                 MorpheusPolicyMcpTools.CREATE,
                 Map.of(
                         "scopeKind", "project",
@@ -78,7 +79,7 @@ class McpEnumVocabularyLocaleTest {
     @Test
     void aQualityRuleVocabularyIsAcceptedInLowerCase() {
         String message = call(
-                new MorpheusPolicyMcpTools(database("policy-quality.db")).specifications(),
+                new MorpheusPolicyMcpTools(database("policy-quality.db"), OperationalRecorder.noop()).specifications(),
                 MorpheusPolicyMcpTools.CREATE,
                 Map.of(
                         "scopeKind", "portfolio",
@@ -100,7 +101,7 @@ class McpEnumVocabularyLocaleTest {
     @Test
     void aConstraintGuardVocabularyIsAcceptedInLowerCase() {
         String message = call(
-                new MorpheusPolicyMcpTools(database("policy-constraint.db")).specifications(),
+                new MorpheusPolicyMcpTools(database("policy-constraint.db"), OperationalRecorder.noop()).specifications(),
                 MorpheusPolicyMcpTools.CREATE,
                 Map.of(
                         "scopeKind", "project",
@@ -121,7 +122,7 @@ class McpEnumVocabularyLocaleTest {
     @Test
     void aQueryAssertionVocabularyIsAcceptedInLowerCase() {
         String message = call(
-                new MorpheusPolicyMcpTools(database("policy-assertion.db")).specifications(),
+                new MorpheusPolicyMcpTools(database("policy-assertion.db"), OperationalRecorder.noop()).specifications(),
                 MorpheusPolicyMcpTools.CREATE,
                 Map.of(
                         "scopeKind", "project",
@@ -143,7 +144,7 @@ class McpEnumVocabularyLocaleTest {
     @Test
     void anOverrideModeIsAcceptedInLowerCase() {
         String message = call(
-                new MorpheusPolicyMcpTools(database("policy-override.db")).specifications(),
+                new MorpheusPolicyMcpTools(database("policy-override.db"), OperationalRecorder.noop()).specifications(),
                 MorpheusPolicyMcpTools.PUT_OVERRIDE,
                 Map.of(
                         "scopeKind", "project",
@@ -161,7 +162,7 @@ class McpEnumVocabularyLocaleTest {
     @Test
     void aPolicyManagementScopeKindIsAcceptedInLowerCase() {
         String message = call(
-                new MorpheusPolicyMcpManagementTools(database("policy-management.db")).specifications(),
+                new MorpheusPolicyMcpManagementTools(database("policy-management.db"), OperationalRecorder.noop()).specifications(),
                 MorpheusPolicyMcpManagementTools.LIST_ACTIVATIONS,
                 Map.of(
                         "scopeKind", "portfolio",
@@ -174,7 +175,7 @@ class McpEnumVocabularyLocaleTest {
     @Test
     void aFreshnessStateAndTraversalDirectionAreAcceptedInLowerCase() {
         List<McpServerFeatures.SyncToolSpecification> tools =
-                new MorpheusPortfolioMcpTools(database("portfolio.db")).specifications();
+                new MorpheusPortfolioMcpTools(database("portfolio.db"), OperationalRecorder.noop()).specifications();
 
         String freshness = call(tools, MorpheusPortfolioMcpTools.OBSERVE_FRESHNESS, Map.of(
                 "portfolioId", "01920000-0000-7000-8000-000000000001",
@@ -194,7 +195,7 @@ class McpEnumVocabularyLocaleTest {
     @Test
     void anExportFormatAndQueryScopeKindAreAcceptedInLowerCase() {
         List<McpServerFeatures.SyncToolSpecification> tools =
-                new MorpheusQueryMcpTools(database("query.db")).specifications();
+                new MorpheusQueryMcpTools(database("query.db"), OperationalRecorder.noop()).specifications();
 
         String export = call(tools, MorpheusQueryMcpTools.EXPORT_QUERY, Map.of(
                 "scopeKind", "project",

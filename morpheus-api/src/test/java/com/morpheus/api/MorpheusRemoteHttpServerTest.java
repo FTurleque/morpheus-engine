@@ -2,6 +2,8 @@ package com.morpheus.api;
 
 import com.morpheus.application.context.DisabledTechnicalContextProvider;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityObservation;
+import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.application.store.ProjectStoreEntry;
@@ -83,7 +85,7 @@ class MorpheusRemoteHttpServerTest {
                 new ExternalReferenceResolverRegistry(List.of()),
                 minos,
                 nexus,
-                project -> ChangeWriteCapabilityObservation.denied("test"))) {
+                project -> ChangeWriteCapabilityObservation.denied("test"), OperationalRuntime.of(OperationalLogMode.OFF))) {
 
             URI base = URI.create("https://127.0.0.1:" + server.port() + "/api/v1");
 
@@ -259,7 +261,7 @@ class MorpheusRemoteHttpServerTest {
                 new ExternalReferenceResolverRegistry(List.of()),
                 () -> new ExternalIntegrationStatus("MINOS", "DISABLED", false, "test", Map.of()),
                 new DisabledTechnicalContextProvider("NEXUS", "test"),
-                project -> ChangeWriteCapabilityObservation.denied("test")));
+                project -> ChangeWriteCapabilityObservation.denied("test"), OperationalRuntime.of(OperationalLogMode.OFF)));
     }
 
     @Test

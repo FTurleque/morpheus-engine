@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.policy.PolicyPack;
 import com.morpheus.application.policy.PolicyPackService;
 import com.morpheus.application.policy.PolicyRule;
@@ -214,7 +215,7 @@ class GrowingCollectionToolsPagingTest {
     /** Widening these three must not widen their neighbour: a single-entity read has nothing to page. */
     @Test
     void aSingleEntityReadStillRefusesAPage() throws Exception {
-        McpSchema.Tool get = new MorpheusPolicyMcpTools(database("neighbour.db")).specifications().stream()
+        McpSchema.Tool get = new MorpheusPolicyMcpTools(database("neighbour.db"), OperationalRecorder.noop()).specifications().stream()
                 .map(McpServerFeatures.SyncToolSpecification::tool)
                 .filter(tool -> tool.name().equals(MorpheusPolicyMcpTools.GET))
                 .findFirst().orElseThrow();
@@ -227,11 +228,11 @@ class GrowingCollectionToolsPagingTest {
     private List<Subject> subjects() throws Exception {
         Path policyDatabase = database("policy.db");
         String packId = writePolicyPack(policyDatabase);
-        List<McpServerFeatures.SyncToolSpecification> policy = new MorpheusPolicyMcpTools(policyDatabase).specifications();
+        List<McpServerFeatures.SyncToolSpecification> policy = new MorpheusPolicyMcpTools(policyDatabase, OperationalRecorder.noop()).specifications();
 
         Path queryDatabase = database("query.db");
         McpToolCall.PublishedProject project = McpToolCall.publish(queryDatabase);
-        List<McpServerFeatures.SyncToolSpecification> query = new MorpheusQueryMcpTools(queryDatabase).specifications();
+        List<McpServerFeatures.SyncToolSpecification> query = new MorpheusQueryMcpTools(queryDatabase, OperationalRecorder.noop()).specifications();
         String viewId = writeSavedView(query, project);
 
         return List.of(

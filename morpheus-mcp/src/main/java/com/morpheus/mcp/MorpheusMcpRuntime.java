@@ -2,6 +2,7 @@ package com.morpheus.mcp;
 
 import com.morpheus.application.composition.CompositionStateStore;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationStore;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.policy.PolicyEvaluationService;
 import com.morpheus.application.policy.PolicyPackService;
 import com.morpheus.application.query.dsl.QueryExecutionService;
@@ -30,8 +31,10 @@ import java.util.Objects;
 final class MorpheusMcpRuntime implements AutoCloseable {
     private final SqliteOperationRuntime operation;
 
-    MorpheusMcpRuntime(Path databasePath) {
-        this.operation = SqliteOperationRuntime.open(Objects.requireNonNull(databasePath, "databasePath"));
+    /** Opens the runtime of one tool call, whose pressure on the database is counted on {@code recorder}. */
+    MorpheusMcpRuntime(Path databasePath, OperationalRecorder recorder) {
+        this.operation = SqliteOperationRuntime.open(
+                Objects.requireNonNull(databasePath, "databasePath"), Objects.requireNonNull(recorder, "recorder"));
     }
 
     SpecificationKnowledgeStore snapshots() {

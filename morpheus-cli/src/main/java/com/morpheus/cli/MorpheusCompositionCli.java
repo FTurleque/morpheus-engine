@@ -83,7 +83,7 @@ final class MorpheusCompositionCli {
             Parsed parsed,
             Options options,
             PrintStream out) {
-        try (CliRuntime runtime = CliRuntime.recovering(parsed.layout().databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(parsed.layout().databasePath(), recorder)) {
             var project = runtime.snapshots().findProject(projectId)
                     .orElseThrow(() -> new IllegalStateException("project not found: " + projectId));
             Path workspace = Path.of(project.rootLocator().value()).toAbsolutePath().normalize();
@@ -130,7 +130,7 @@ final class MorpheusCompositionCli {
             Parsed parsed,
             PrintStream out,
             boolean conflictsOnly) {
-        try (CliRuntime runtime = CliRuntime.recovering(parsed.layout().databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(parsed.layout().databasePath(), recorder)) {
             CompositionStateView view = new CompositionQueryService(runtime.snapshots(), runtime.compositions())
                     .findActive(projectId)
                     .orElseThrow(() -> new IllegalStateException(

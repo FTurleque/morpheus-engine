@@ -3,6 +3,7 @@ package com.morpheus.cli;
 import com.morpheus.application.composition.CompositionStateStore;
 import com.morpheus.application.identity.EntityIdentityStore;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationStore;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.operability.StartupOwnership;
 import com.morpheus.application.policy.PolicyEvaluationService;
 import com.morpheus.application.policy.PolicyPackService;
@@ -36,9 +37,13 @@ final class CliRuntime implements AutoCloseable {
         this.operation = operation;
     }
 
-    /** The runtime of a command that reads or writes through the stores, with nothing else to do first. */
-    static CliRuntime open(Path databasePath) {
-        return new CliRuntime(SqliteOperationRuntime.open(Objects.requireNonNull(databasePath, "databasePath")));
+    /**
+     * The runtime of a command that reads or writes through the stores, with nothing else to do first. What it puts on
+     * the database is counted on {@code recorder}.
+     */
+    static CliRuntime open(Path databasePath, OperationalRecorder recorder) {
+        return new CliRuntime(SqliteOperationRuntime.open(
+                Objects.requireNonNull(databasePath, "databasePath"), Objects.requireNonNull(recorder, "recorder")));
     }
 
     /**
@@ -46,9 +51,9 @@ final class CliRuntime implements AutoCloseable {
      * recovered first, as the HTTP and MCP servers do once when they start. A recovery that fails releases the
      * connection before the failure propagates.
      */
-    static CliRuntime recovering(Path databasePath) {
+    static CliRuntime recovering(Path databasePath, OperationalRecorder recorder) {
         try (StartupOwnership owned = new StartupOwnership()) {
-            CliRuntime runtime = owned.keep(open(databasePath), CliRuntime::close);
+            CliRuntime runtime = owned.keep(open(databasePath, recorder), CliRuntime::close);
             new RuntimeSnapshotRecovery(runtime.snapshots()).recoverAll(Instant.now());
             owned.transferred();
             return runtime;

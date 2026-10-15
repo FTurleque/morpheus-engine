@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import org.junit.jupiter.api.Test;
@@ -27,11 +28,11 @@ class MorpheusRequirementQueryApiServiceContractTest {
     void preservesSearchDetailTraceValidationAndActiveSnapshotContracts() throws Exception {
         Path database = tempDirectory.resolve("requirement-query-service.db");
         Path fixture = http.fixture("openspec-basic");
-        MorpheusProjectRegistryApiService registry = new MorpheusProjectRegistryApiService(database, Optional.empty());
+        MorpheusProjectRegistryApiService registry = new MorpheusProjectRegistryApiService(database, OperationalRecorder.noop(), Optional.empty());
         String projectId = ((Map<?, ?>) registry.registerProject(fixture.toString()).project()).get("projectId").toString();
-        new MorpheusProjectSyncApiService(database, Optional.empty()).sync(projectId, Optional.of("requirements-r1"));
+        new MorpheusProjectSyncApiService(database, OperationalRecorder.noop(), Optional.empty()).sync(projectId, Optional.of("requirements-r1"));
 
-        MorpheusRequirementQueryApiService service = new MorpheusRequirementQueryApiService(database);
+        MorpheusRequirementQueryApiService service = new MorpheusRequirementQueryApiService(database, OperationalRecorder.noop());
         Map<?, ?> firstPage = (Map<?, ?>) service.requirements(projectId, null, PageRequest.first(1));
         List<?> items = (List<?>) firstPage.get("items");
         Map<?, ?> firstRecord = (Map<?, ?>) items.getFirst();

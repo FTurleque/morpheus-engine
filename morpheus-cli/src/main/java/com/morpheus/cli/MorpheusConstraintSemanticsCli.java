@@ -1,5 +1,6 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.ConstraintEvaluationQueryService;
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.query.SnapshotPage;
@@ -15,12 +16,19 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 
 /** Additive M16 CLI surface for read-only constraint-policy evaluation. */
 final class MorpheusConstraintSemanticsCli {
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
+    private final OperationalRecorder recorder;
+
+    /** Every command counts what it puts on the database on {@code recorder}, the one the launcher handed. */
+    MorpheusConstraintSemanticsCli(OperationalRecorder recorder) {
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
+    }
 
     static boolean handles(String[] args) {
         List<String> tokens = commandTokens(args);
@@ -48,7 +56,7 @@ final class MorpheusConstraintSemanticsCli {
                     options.intValue("offset", 0, 0, Integer.MAX_VALUE),
                     options.intValue("limit", 20, 1, PageRequest.MAX_LIMIT));
 
-            try (CliRuntime runtime = CliRuntime.recovering(parsed.layout().databasePath())) {
+            try (CliRuntime runtime = CliRuntime.recovering(parsed.layout().databasePath(), recorder)) {
                 if (runtime.snapshots().findProject(projectId).isEmpty()) {
                     throw new IllegalStateException("project not found: " + projectId);
                 }

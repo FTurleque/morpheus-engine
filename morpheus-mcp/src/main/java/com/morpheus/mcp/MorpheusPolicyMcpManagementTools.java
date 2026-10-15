@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.policy.PolicyPackService;
 import com.morpheus.application.policy.PolicyPublicViews;
 import com.morpheus.application.policy.PolicyScope;
@@ -22,10 +23,12 @@ final class MorpheusPolicyMcpManagementTools {
     static final String LIST_ACTIVATIONS = "list_policy_activations";
 
     private final Path databasePath;
+    private final OperationalRecorder recorder;
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
-    MorpheusPolicyMcpManagementTools(Path databasePath) {
+    MorpheusPolicyMcpManagementTools(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
     List<McpServerFeatures.SyncToolSpecification> specifications() {
@@ -46,7 +49,7 @@ final class MorpheusPolicyMcpManagementTools {
     private McpSchema.CallToolResult call(String name, Map<String, Object> rawArguments) {
         try {
             Map<String, Object> arguments = McpArguments.orEmpty(rawArguments);
-            try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath)) {
+            try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath, recorder)) {
                 PolicyPackService registry = new PolicyPackService(runtime.policyPacks());
                 Object result = switch (name) {
                     case LIST_ACTIVATIONS -> PolicyPublicViews.activations(registry.activations(scope(arguments)));

@@ -3,6 +3,7 @@ package com.morpheus.api;
 import com.morpheus.api.MorpheusHttpServer.ApiError;
 import com.morpheus.api.MorpheusHttpServer.ApiErrorEnvelope;
 import com.morpheus.api.MorpheusHttpServer.ApiSuccess;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
@@ -19,23 +20,26 @@ final class MorpheusReasoningHttpRoutes {
     private static final List<String> ADAPTERS = List.of(REASONING, "adapters");
     private static final List<String> ANALYZE = List.of(REASONING, "analyze");
 
-    private final MorpheusReasoningApiService service = new MorpheusReasoningApiService();
+    private final MorpheusReasoningApiService service;
+    private final OperationalRecorder recorder;
     private final MorpheusHttpRequestDecoder requestDecoder;
     private final MorpheusHttpAllowedMethods allowedMethods;
     private final MorpheusHttpResponseWriter responseWriter;
 
-    private MorpheusReasoningHttpRoutes(MorpheusHttpRequestDecoder requestDecoder,
+    private MorpheusReasoningHttpRoutes(OperationalRecorder recorder, MorpheusHttpRequestDecoder requestDecoder,
             MorpheusHttpAllowedMethods allowedMethods, MorpheusHttpResponseWriter responseWriter) {
+        this.service = new MorpheusReasoningApiService(recorder);
+        this.recorder = recorder;
         this.requestDecoder = Objects.requireNonNull(requestDecoder, "requestDecoder");
         this.allowedMethods = Objects.requireNonNull(allowedMethods, "allowedMethods");
         this.responseWriter = Objects.requireNonNull(responseWriter, "responseWriter");
     }
 
-    static void register(HttpServer server, MorpheusHttpRequestDecoder requestDecoder,
+    static void register(HttpServer server, OperationalRecorder recorder, MorpheusHttpRequestDecoder requestDecoder,
             MorpheusHttpAllowedMethods allowedMethods, MorpheusHttpResponseWriter responseWriter) {
         Objects.requireNonNull(server, "server");
         MorpheusReasoningHttpRoutes routes =
-                new MorpheusReasoningHttpRoutes(requestDecoder, allowedMethods, responseWriter);
+                new MorpheusReasoningHttpRoutes(recorder, requestDecoder, allowedMethods, responseWriter);
         server.createContext(CONTEXT, routes::handle);
     }
 
@@ -67,7 +71,7 @@ final class MorpheusReasoningHttpRoutes {
             responseWriter.send(exchange, 400, new ApiErrorEnvelope(
                     "v1", new ApiError("REASONING_VALIDATION", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (RuntimeException failure) {
-            UnforeseenFailureTrace.record(failure);
+            UnforeseenFailureTrace.record(recorder, failure);
             responseWriter.send(exchange, 500, new ApiErrorEnvelope(
                     "v1", new ApiError("INTERNAL_ERROR", "internal MORPHEUS reasoning error", Map.of())));
         } finally {

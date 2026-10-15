@@ -4,6 +4,7 @@ import com.morpheus.application.composition.CompositionStateStore;
 import com.morpheus.application.identity.EntityIdentityStore;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationStore;
 import com.morpheus.application.operability.ExhaustiveShutdown;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.policy.PolicyEvaluationService;
 import com.morpheus.application.policy.PolicyPackService;
 import com.morpheus.application.policy.PolicyRuntimeServices;
@@ -78,11 +79,16 @@ public final class SqliteOperationRuntime implements AutoCloseable {
      * Opens the connection of one operation. A database that cannot be opened is reported as the failure every
      * adapter answers, the one its first store used to raise; a scope already open on the thread is a defect of the
      * caller, never a state of the database, and is left as it is.
+     *
+     * <p>Everything the operation puts on the database is counted on {@code recorder}: its transactions, its contention,
+     * its connection and its schema check. The transport that opens the runtime names it, from what its entry point
+     * was handed.</p>
      */
-    public static SqliteOperationRuntime open(Path databasePath) {
+    public static SqliteOperationRuntime open(Path databasePath, OperationalRecorder recorder) {
         Objects.requireNonNull(databasePath, "databasePath");
+        Objects.requireNonNull(recorder, "recorder");
         try {
-            return new SqliteOperationRuntime(databasePath, SqliteConnectionScope.open(databasePath));
+            return new SqliteOperationRuntime(databasePath, SqliteConnectionScope.open(databasePath, recorder));
         } catch (SqliteConnectionScope.NestedScopeException nested) {
             throw nested;
         } catch (IllegalStateException unavailable) {

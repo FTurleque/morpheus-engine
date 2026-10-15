@@ -1,6 +1,7 @@
 package com.morpheus.cli;
 
 import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.domain.identity.DomainIdentity;
@@ -69,6 +70,7 @@ class MorpheusMinosCliTest {
     @Test
     void minosStatusPrintsItsDetailsInKeyOrderWhateverTheOrderOfTheStatusMap() {
         MorpheusExternalIntegrationCli cli = new MorpheusExternalIntegrationCli(
+                OperationalRecorder.noop(),
                 new com.morpheus.application.reference.ExternalReferenceResolverRegistry(java.util.List.of()),
                 () -> new com.morpheus.application.reference.ExternalIntegrationStatus(
                         "MINOS", "DISABLED", false, "m", java.util.Map.of("zeta", "6", "alpha", "1", "mu", "4", "beta", "2", "omega", "5", "kappa", "3")));

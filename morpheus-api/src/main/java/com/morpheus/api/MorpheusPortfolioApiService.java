@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.portfolio.PortfolioPublicViews;
 import com.morpheus.application.portfolio.PortfolioQueryService;
 import com.morpheus.application.portfolio.PortfolioRegistryService;
@@ -26,14 +27,16 @@ import java.util.stream.Collectors;
 /** HTTP-facing M23 service; transport parsing stays separate from portfolio business semantics. */
 public final class MorpheusPortfolioApiService {
     private final Path databasePath;
+    private final OperationalRecorder recorder;
 
-    public MorpheusPortfolioApiService(Path databasePath) {
+    public MorpheusPortfolioApiService(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
     public Object create(CreatePortfolioRequest request) {
         Objects.requireNonNull(request, "request");
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             PortfolioStore store = runtime.portfolios();
             return PortfolioPublicViews.project(new PortfolioRegistryService(store).create(requireText(request.name(), "name")));
         }
@@ -41,7 +44,7 @@ public final class MorpheusPortfolioApiService {
 
     public Object registerProject(String portfolioId, RegisterProjectRequest request) {
         Objects.requireNonNull(request, "request");
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             PortfolioStore store = runtime.portfolios();
             return PortfolioPublicViews.project(new PortfolioRegistryService(store).registerProject(
                     PortfolioId.parse(portfolioId),
@@ -54,7 +57,7 @@ public final class MorpheusPortfolioApiService {
     }
 
     public Object markMissing(String portfolioId, String projectId) {
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             PortfolioStore store = runtime.portfolios();
             return PortfolioPublicViews.project(new PortfolioRegistryService(store).markMissing(
                     PortfolioId.parse(portfolioId), ProjectSpecificationId.parse(projectId)));
@@ -63,7 +66,7 @@ public final class MorpheusPortfolioApiService {
 
     public Object observeFreshness(String portfolioId, String projectId, FreshnessRequest request) {
         Objects.requireNonNull(request, "request");
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             PortfolioStore store = runtime.portfolios();
             return PortfolioPublicViews.project(new PortfolioRegistryService(store).observeFreshness(
                     PortfolioId.parse(portfolioId),
@@ -76,7 +79,7 @@ public final class MorpheusPortfolioApiService {
 
     public Object addReference(String portfolioId, CrossProjectReferenceRequest request) {
         Objects.requireNonNull(request, "request");
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             PortfolioStore store = runtime.portfolios();
             return PortfolioPublicViews.project(new PortfolioRegistryService(store).addReference(
                     PortfolioId.parse(portfolioId),
@@ -90,21 +93,21 @@ public final class MorpheusPortfolioApiService {
     }
 
     public Object list(int offset, int limit) {
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             PortfolioStore store = runtime.portfolios();
             return PortfolioPublicViews.project(new PortfolioQueryService(store).listPortfolios(offset, limit));
         }
     }
 
     public Object overview(String portfolioId) {
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             PortfolioStore store = runtime.portfolios();
             return PortfolioPublicViews.project(new PortfolioQueryService(store).overview(PortfolioId.parse(portfolioId)));
         }
     }
 
     public Object members(String portfolioId, int offset, int limit) {
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             PortfolioStore store = runtime.portfolios();
             return PortfolioPublicViews.project(
                     new PortfolioQueryService(store).memberships(PortfolioId.parse(portfolioId), offset, limit));
@@ -112,7 +115,7 @@ public final class MorpheusPortfolioApiService {
     }
 
     public Object references(String portfolioId, Optional<String> projectId, int offset, int limit) {
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             PortfolioStore store = runtime.portfolios();
             PortfolioQueryService query = new PortfolioQueryService(store);
             PortfolioId id = PortfolioId.parse(portfolioId);
@@ -125,7 +128,7 @@ public final class MorpheusPortfolioApiService {
     }
 
     public Object conflicts(String portfolioId) {
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             PortfolioStore store = runtime.portfolios();
             return PortfolioPublicViews.project(new PortfolioQueryService(store).conflicts(PortfolioId.parse(portfolioId)));
         }
@@ -133,7 +136,7 @@ public final class MorpheusPortfolioApiService {
 
     public Object traverse(String portfolioId, TraversalRequest request) {
         Objects.requireNonNull(request, "request");
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             PortfolioStore store = runtime.portfolios();
             return PortfolioPublicViews.project(new PortfolioTraversalService(store).traverse(
                     PortfolioId.parse(portfolioId),

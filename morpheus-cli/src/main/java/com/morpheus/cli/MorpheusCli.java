@@ -192,7 +192,7 @@ public final class MorpheusCli {
         }
         String subcommand = tokens.getFirst();
         CommandOptions options = CommandOptions.parse(tokens.subList(1, tokens.size()), Set.of());
-        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath(), recorder)) {
             return switch (subcommand) {
                 case "list" -> {
                     options.rejectUnknown(Set.of());
@@ -235,7 +235,7 @@ public final class MorpheusCli {
         Optional<String> revision = options.optional("revision");
         boolean force = options.flag(OPT_FORCE);
 
-        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath(), recorder)) {
             Path workspace = projectWorkspace(runtime, projectId);
             Instant attemptedAt = Instant.now();
             var scan = new LocalSourceInventoryScanner().scan(
@@ -341,7 +341,7 @@ public final class MorpheusCli {
         options.rejectUnknown(Set.of(OPT_PROJECT, "max-age-minutes"));
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         long maxAgeMinutes = options.longValue("max-age-minutes", 60L, 1L, 525600L);
-        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath(), recorder)) {
             SyncFreshness freshness = new SyncFreshnessService(runtime.syncState())
                     .assess(projectId, Instant.now(), Duration.ofMinutes(maxAgeMinutes));
             SyncStatusView view = new SyncStatusView(
@@ -375,7 +375,7 @@ public final class MorpheusCli {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         PageRequest pageRequest = page(options);
         RequirementSearchQuery query = new RequirementSearchQuery(options.optional("query").orElse(""));
-        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath(), recorder)) {
             RequirementSearchPage result = new RequirementQueryService(runtime.snapshots(), runtime.requirements())
                     .findActive(projectId, query, pageRequest)
                     .orElseThrow(() -> notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
@@ -403,7 +403,7 @@ public final class MorpheusCli {
         String subcommand = tokens.getFirst();
         CommandOptions options = CommandOptions.parse(tokens.subList(1, tokens.size()), Set.of());
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
-        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath(), recorder)) {
             BusinessContentQueryService service = new BusinessContentQueryService(runtime.snapshots(), runtime.content());
             if (subcommand.equals("list")) {
                 options.rejectUnknown(Set.of(OPT_PROJECT, OPT_OFFSET, OPT_LIMIT));
@@ -438,7 +438,7 @@ public final class MorpheusCli {
         options.rejectUnknown(Set.of(OPT_PROJECT, OPT_CHANGE, OPT_OFFSET, OPT_LIMIT));
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         ChangeId changeId = ChangeId.parse(options.required(OPT_CHANGE));
-        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath(), recorder)) {
             SnapshotPage<Constraint> page = new BusinessContentQueryService(runtime.snapshots(), runtime.content())
                     .activeConstraints(projectId, changeId, page(options))
                     .orElseThrow(() -> notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
@@ -457,7 +457,7 @@ public final class MorpheusCli {
         options.rejectUnknown(Set.of(OPT_PROJECT, OPT_CHANGE, OPT_OFFSET, OPT_LIMIT));
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         ChangeId changeId = ChangeId.parse(options.required(OPT_CHANGE));
-        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath(), recorder)) {
             SnapshotPage<DesignDecision> page = new BusinessContentQueryService(runtime.snapshots(), runtime.content())
                     .activeDesignDecisions(projectId, changeId, page(options))
                     .orElseThrow(() -> notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
@@ -476,7 +476,7 @@ public final class MorpheusCli {
         options.rejectUnknown(Set.of(OPT_PROJECT, OPT_CHANGE, OPT_OFFSET, OPT_LIMIT));
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         ChangeId changeId = ChangeId.parse(options.required(OPT_CHANGE));
-        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath(), recorder)) {
             SnapshotPage<ImplementationTask> page = new BusinessContentQueryService(runtime.snapshots(), runtime.content())
                     .activeImplementationTasks(projectId, changeId, page(options))
                     .orElseThrow(() -> notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
@@ -494,7 +494,7 @@ public final class MorpheusCli {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         RequirementId requirementId = RequirementId.parse(options.required("requirement"));
         int depth = options.intValue(OPT_DEPTH, 2, 1, 20);
-        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath(), recorder)) {
             var result = new TraceRequirementQueryService(
                     runtime.snapshots(), runtime.requirements(), runtime.traceability(), runtime.externalReferences())
                     .active(projectId, requirementId, depth, Set.of())
@@ -519,7 +519,7 @@ public final class MorpheusCli {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         ChangeId changeId = ChangeId.parse(options.required(OPT_CHANGE));
         int depth = options.intValue(OPT_DEPTH, 2, 1, 20);
-        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath(), recorder)) {
             var result = new ChangeContextQueryService(
                     runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability(), runtime.externalReferences())
                     .active(projectId, changeId, depth, Set.of())
@@ -550,7 +550,7 @@ public final class MorpheusCli {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         ChangeId changeId = ChangeId.parse(options.required(OPT_CHANGE));
         int depth = options.intValue(OPT_DEPTH, 2, 1, 20);
-        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath(), recorder)) {
             Path workspace = projectWorkspace(runtime, projectId);
             var normalized = new OpenSpecProjectContentReader().read(
                     workspace, projectId, new PersistentEntityIdentityResolver(runtime.identities()));
@@ -598,7 +598,7 @@ public final class MorpheusCli {
         CommandOptions options = CommandOptions.parse(tokens, Set.of());
         options.rejectUnknown(Set.of(OPT_PROJECT));
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
-        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath(), recorder)) {
             QualityReportService service = new QualityReportService(
                     runtime.snapshots(),
                     new RequirementQualityService(runtime.snapshots(), runtime.requirements(), runtime.traceability()),

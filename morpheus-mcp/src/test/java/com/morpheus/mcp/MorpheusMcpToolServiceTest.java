@@ -2,6 +2,7 @@ package com.morpheus.mcp;
 
 import com.morpheus.application.ingestion.NormalizedProjectContent;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.constraint.Constraint;
@@ -50,7 +51,7 @@ class MorpheusMcpToolServiceTest {
     void executesEntireReadOnlyCatalogWithoutInventingUnavailableSemantics() {
         Path database = tempDirectory.resolve("morpheus.db");
         Fixture fixture = publish(database);
-        MorpheusMcpToolService service = new MorpheusMcpToolService(database);
+        MorpheusMcpToolService service = new MorpheusMcpToolService(database, OperationalRecorder.noop());
         String projectId = fixture.project.id().toString();
         String changeId = fixture.change.id().toString();
 
@@ -100,7 +101,7 @@ class MorpheusMcpToolServiceTest {
     void aBoundedSliceOfSpecificationsIsReturnedForAnOffsetAndALimit() {
         Path database = tempDirectory.resolve("morpheus.db");
         Fixture fixture = publish(database, 3);
-        MorpheusMcpToolService service = new MorpheusMcpToolService(database);
+        MorpheusMcpToolService service = new MorpheusMcpToolService(database, OperationalRecorder.noop());
         String projectId = fixture.project.id().toString();
         List<Specification> ordered = fixture.specifications.stream()
                 .sorted(Comparator.comparing(Specification::id))

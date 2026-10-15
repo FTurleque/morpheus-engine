@@ -1,6 +1,7 @@
 package com.morpheus.api;
 
 import com.morpheus.application.operability.ExhaustiveShutdown;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.policy.PolicyBudgets;
 import com.morpheus.application.policy.PolicyConfiguration;
 import com.morpheus.application.policy.PolicyIds;
@@ -22,10 +23,12 @@ import java.util.Objects;
 /** HTTP-facing M25 adapter: strict transport parsing and persistence wiring only. */
 public final class MorpheusPolicyApiService {
     private final Path databasePath;
+    private final OperationalRecorder recorder;
     private final QueryDefinitionCodec queryCodec = new QueryDefinitionCodec();
 
-    public MorpheusPolicyApiService(Path databasePath) {
+    public MorpheusPolicyApiService(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
     public Object create(CreateRequest request) {
@@ -176,7 +179,7 @@ public final class MorpheusPolicyApiService {
     }
 
     private ApiRuntime runtime() {
-        return new ApiRuntime(databasePath);
+        return new ApiRuntime(databasePath, recorder);
     }
 
     private static String requireText(String value, String name) {

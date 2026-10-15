@@ -8,6 +8,7 @@ import com.morpheus.application.context.TechnicalContextRequest;
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
@@ -109,6 +110,7 @@ class MorpheusAugmentedContextCliTest {
     @Test
     void aDirectInvocationWithoutACommandOrWithAForeignOneIsAUsageError() {
         MorpheusAugmentedContextCli cli = new MorpheusAugmentedContextCli(
+                OperationalRecorder.noop(),
                 RecordingProvider.failing(new IllegalStateException("never built")),
                 RecordingProvider.failing(new IllegalStateException("never built")));
 
@@ -124,7 +126,7 @@ class MorpheusAugmentedContextCliTest {
     @Test
     void nexusStatusPrintsOneKeyPerLineIncludingDetailsWhenJsonIsNotRequested() {
         RecordingProvider provider = RecordingProvider.available();
-        Invocation invocation = invoke(new MorpheusAugmentedContextCli(provider, provider),
+        Invocation invocation = invoke(new MorpheusAugmentedContextCli(OperationalRecorder.noop(), provider, provider),
                 "--data-dir", tempDirectory.resolve("status").toString(), "nexus-status");
 
         assertEquals(0, invocation.exitCode(), invocation.stderr());
@@ -141,7 +143,7 @@ class MorpheusAugmentedContextCliTest {
     @Test
     void nexusStatusPrintsItsDetailsInKeyOrderWhateverTheOrderOfTheStatusMap() {
         RecordingProvider provider = RecordingProvider.available();
-        Invocation invocation = invoke(new MorpheusAugmentedContextCli(provider,
+        Invocation invocation = invoke(new MorpheusAugmentedContextCli(OperationalRecorder.noop(), provider,
                         () -> new com.morpheus.application.reference.ExternalIntegrationStatus(
                                 "NEXUS", "AVAILABLE", true, "m", java.util.Map.of("zeta", "6", "alpha", "1", "mu", "4", "beta", "2", "omega", "5", "kappa", "3"))),
                 "--data-dir", tempDirectory.resolve("status").toString(), "nexus-status");
@@ -203,7 +205,7 @@ class MorpheusAugmentedContextCliTest {
     void everyParsedOptionReachesTheEngineNormalizedAndTheBundleIsReported() {
         Seed seed = seed(tempDirectory.resolve("change"));
         RecordingProvider provider = RecordingProvider.available();
-        MorpheusAugmentedContextCli cli = new MorpheusAugmentedContextCli(provider, provider);
+        MorpheusAugmentedContextCli cli = new MorpheusAugmentedContextCli(OperationalRecorder.noop(), provider, provider);
         String[] command = {
                 "--data-dir", seed.data().toString(), "augmented-context", "change",
                 "--project", seed.projectId(), "--change", seed.changeId(),
@@ -236,7 +238,7 @@ class MorpheusAugmentedContextCliTest {
     void anEngineFailureWithoutAMessageIsReportedByItsTypeAsAStateError() {
         Seed seed = seed(tempDirectory.resolve("engine-failure"));
         RecordingProvider provider = RecordingProvider.failing(new UnsupportedOperationException());
-        Invocation invocation = invoke(new MorpheusAugmentedContextCli(provider, provider),
+        Invocation invocation = invoke(new MorpheusAugmentedContextCli(OperationalRecorder.noop(), provider, provider),
                 "--data-dir", seed.data().toString(), "augmented-context", "requirement",
                 "--project", seed.projectId(), "--requirement", seed.requirementId(), "--nexus-project", "nexus");
 
@@ -253,7 +255,7 @@ class MorpheusAugmentedContextCliTest {
 
     private Seed seed(Path data) {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
-        try (CliRuntime runtime = CliRuntime.recovering(databasePath(data))) {
+        try (CliRuntime runtime = CliRuntime.recovering(databasePath(data), OperationalRecorder.noop())) {
             var normalized = new SyntheticSpecificationContentReader()
                     .read(
                             ProviderReadRequest.all(fixture("synthetic-basic"), projectId),

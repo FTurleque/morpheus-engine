@@ -3,6 +3,7 @@ package com.morpheus.cli;
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.domain.project.ProjectSpecificationId;
@@ -97,7 +98,7 @@ class MorpheusAcceptanceCriteriaCliTest {
                 Optional.of(data), Optional.empty(), Optional.empty(), Map.of(), properties);
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         Path fixture = fixture("synthetic-basic");
-        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath(), OperationalRecorder.noop())) {
             var normalized = new SyntheticSpecificationContentReader()
                     .read(
                             ProviderReadRequest.all(fixture, projectId),

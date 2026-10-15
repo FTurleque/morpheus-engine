@@ -3,6 +3,9 @@ package com.morpheus.api;
 import com.morpheus.application.context.DisabledTechnicalContextProvider;
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
+import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
@@ -50,7 +53,8 @@ class MorpheusControlledLifecycleApiContractTest {
                 minos,
                 nexus,
                 projectId -> com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityObservation.allowed(
-                        SyntheticSpecificationProvider.ID, "explicit test WRITE_CHANGE"))) {
+                        SyntheticSpecificationProvider.ID, "explicit test WRITE_CHANGE"),
+                OperationalRuntime.of(OperationalLogMode.OFF))) {
             ApiTestSupport.Response applied = http.postJson(server, route, body);
             assertEquals(200, applied.status(), applied.body());
             assertTrue(applied.body().contains("\"state\":\"APPLIED\""), applied.body());
@@ -130,7 +134,7 @@ class MorpheusControlledLifecycleApiContractTest {
     private Seed seed(Path database) {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         Path fixture = http.fixture("synthetic-basic");
-        try (ApiRuntime runtime = new ApiRuntime(database)) {
+        try (ApiRuntime runtime = new ApiRuntime(database, OperationalRecorder.noop())) {
             var normalized = new SyntheticSpecificationContentReader()
                     .read(
                             ProviderReadRequest.all(fixture, projectId),

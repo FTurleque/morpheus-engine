@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.BusinessContentQueryService;
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.query.SnapshotPage;
@@ -26,15 +27,17 @@ final class MorpheusSpecificationQueryApiService {
     private static final String FIELD_TITLE = "title";
 
     private final Path databasePath;
+    private final OperationalRecorder recorder;
 
-    MorpheusSpecificationQueryApiService(Path databasePath) {
+    MorpheusSpecificationQueryApiService(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
     Object listSpecifications(String projectIdValue, PageRequest pageRequest) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         Objects.requireNonNull(pageRequest, "pageRequest");
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             KnowledgeSnapshotMetadata snapshot = activeSnapshot(runtime, projectId);
             var content = runtime.content().findSnapshotContent(snapshot.id())
                     .orElseThrow(() -> state("published snapshot has no business-content projection: " + snapshot.id()));
@@ -50,7 +53,7 @@ final class MorpheusSpecificationQueryApiService {
     Object specification(String projectIdValue, String specificationIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         SpecificationId specificationId = SpecificationId.parse(specificationIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             requireProject(runtime, projectId);
             var result = business(runtime).activeSpecification(projectId, specificationId)
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
@@ -67,7 +70,7 @@ final class MorpheusSpecificationQueryApiService {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         SpecificationId specificationId = SpecificationId.parse(specificationIdValue);
         Objects.requireNonNull(pageRequest, "pageRequest");
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             requireProject(runtime, projectId);
             var specificationResult = business(runtime).activeSpecification(projectId, specificationId)
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));

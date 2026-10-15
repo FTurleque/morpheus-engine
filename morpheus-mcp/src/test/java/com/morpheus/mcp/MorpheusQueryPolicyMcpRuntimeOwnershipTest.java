@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.store.sqlite.SqliteServerMaintenance;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.server.McpServerFeatures;
@@ -37,7 +38,7 @@ class MorpheusQueryPolicyMcpRuntimeOwnershipTest {
         Path database = temporaryDirectory.resolve("query.db").toAbsolutePath().normalize();
 
         McpSchema.CallToolResult result = call(
-                new MorpheusQueryMcpTools(database).specifications(),
+                new MorpheusQueryMcpTools(database, OperationalRecorder.noop()).specifications(),
                 MorpheusQueryMcpTools.LIST_SAVED_VIEWS,
                 Map.of());
 
@@ -51,7 +52,7 @@ class MorpheusQueryPolicyMcpRuntimeOwnershipTest {
         Path database = temporaryDirectory.resolve("policy.db").toAbsolutePath().normalize();
 
         McpSchema.CallToolResult result = call(
-                new MorpheusPolicyMcpTools(database).specifications(),
+                new MorpheusPolicyMcpTools(database, OperationalRecorder.noop()).specifications(),
                 MorpheusPolicyMcpTools.LIST,
                 Map.of());
 
@@ -66,9 +67,9 @@ class MorpheusQueryPolicyMcpRuntimeOwnershipTest {
         writeFutureSchema(database);
 
         List<McpServerFeatures.SyncToolSpecification> query =
-                new MorpheusQueryMcpTools(database).specifications();
+                new MorpheusQueryMcpTools(database, OperationalRecorder.noop()).specifications();
         List<McpServerFeatures.SyncToolSpecification> policy =
-                new MorpheusPolicyMcpTools(database).specifications();
+                new MorpheusPolicyMcpTools(database, OperationalRecorder.noop()).specifications();
 
         // The tool answers with an error result rather than propagating, so the assertion that matters is the
         // one below: whatever the runtime managed to open before the refusal must not still be holding it.
@@ -93,13 +94,13 @@ class MorpheusQueryPolicyMcpRuntimeOwnershipTest {
     void everyPublishedToolReachesItsRuntimeAndGivesTheDatabaseBack() {
         Path database = temporaryDirectory.resolve("every-tool.db").toAbsolutePath().normalize();
 
-        List<McpServerFeatures.SyncToolSpecification> policy = new MorpheusPolicyMcpTools(database).specifications();
+        List<McpServerFeatures.SyncToolSpecification> policy = new MorpheusPolicyMcpTools(database, OperationalRecorder.noop()).specifications();
         for (McpServerFeatures.SyncToolSpecification specification : policy) {
             assertNotNull(call(policy, specification.tool().name(), Map.of()),
                     "policy tool answered nothing: " + specification.tool().name());
         }
 
-        List<McpServerFeatures.SyncToolSpecification> query = new MorpheusQueryMcpTools(database).specifications();
+        List<McpServerFeatures.SyncToolSpecification> query = new MorpheusQueryMcpTools(database, OperationalRecorder.noop()).specifications();
         for (McpServerFeatures.SyncToolSpecification specification : query) {
             assertNotNull(call(query, specification.tool().name(), Map.of()),
                     "query tool answered nothing: " + specification.tool().name());
@@ -144,7 +145,7 @@ class MorpheusQueryPolicyMcpRuntimeOwnershipTest {
     @Test
     void theHelperFailsWhenTheToolIsNotPublished() {
         List<McpServerFeatures.SyncToolSpecification> specifications =
-                new MorpheusQueryMcpTools(temporaryDirectory.resolve("absent.db")).specifications();
+                new MorpheusQueryMcpTools(temporaryDirectory.resolve("absent.db"), OperationalRecorder.noop()).specifications();
 
         assertThrows(AssertionError.class, () -> call(specifications, "no_such_tool", Map.of()));
     }

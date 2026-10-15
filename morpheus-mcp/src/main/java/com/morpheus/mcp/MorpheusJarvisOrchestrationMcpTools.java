@@ -1,6 +1,7 @@
 package com.morpheus.mcp;
 
 import com.morpheus.application.lifecycle.ChangeLifecyclePolicy;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.orchestration.ChangeLifecycleObservation;
 import com.morpheus.application.orchestration.ChangeOrchestrationStateService;
 import com.morpheus.application.orchestration.ChangeTransitionEvaluationService;
@@ -28,10 +29,12 @@ final class MorpheusJarvisOrchestrationMcpTools {
     static final String TRANSITION_TOOL = "evaluate_change_transition";
 
     private final Path databasePath;
+    private final OperationalRecorder recorder;
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
-    MorpheusJarvisOrchestrationMcpTools(Path databasePath) {
+    MorpheusJarvisOrchestrationMcpTools(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
     List<McpServerFeatures.SyncToolSpecification> specifications() {
@@ -59,7 +62,7 @@ final class MorpheusJarvisOrchestrationMcpTools {
             Map<String, Object> arguments = McpArguments.orEmpty(rawArguments);
             ProjectSpecificationId projectId = ProjectSpecificationId.parse(McpArguments.requiredString(arguments, "projectId"));
             ChangeId changeId = ChangeId.parse(McpArguments.requiredString(arguments, "changeId"));
-            try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath)) {
+            try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath, recorder)) {
                 if (runtime.snapshots().findProject(projectId).isEmpty()) {
                     throw new KnowledgeStoreException("project not found: " + projectId);
                 }

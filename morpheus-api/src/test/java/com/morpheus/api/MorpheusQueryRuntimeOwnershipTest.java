@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.store.sqlite.SqliteServerMaintenance;
 import org.junit.jupiter.api.Test;
@@ -32,7 +33,7 @@ class MorpheusQueryRuntimeOwnershipTest {
         Path database = tempDirectory.resolve("future-schema.db").toAbsolutePath().normalize();
         writeFutureSchema(database);
 
-        MorpheusQueryApiService service = new MorpheusQueryApiService(database);
+        MorpheusQueryApiService service = new MorpheusQueryApiService(database, OperationalRecorder.noop());
 
         assertThrows(KnowledgeStoreException.class,
                 () -> service.executeProject(

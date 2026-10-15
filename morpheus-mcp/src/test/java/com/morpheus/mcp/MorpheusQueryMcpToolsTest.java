@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.dsl.QueryBudgets;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.json.schema.JsonSchemaValidator;
@@ -30,7 +31,7 @@ class MorpheusQueryMcpToolsTest {
 
     @Test
     void exposesCompleteM24IntentSetWithStrictSchemas() {
-        var specifications = new MorpheusQueryMcpTools(temporaryDirectory.resolve("morpheus.db")).specifications();
+        var specifications = new MorpheusQueryMcpTools(temporaryDirectory.resolve("morpheus.db"), OperationalRecorder.noop()).specifications();
 
         assertEquals(10, specifications.size());
         Set<String> names = specifications.stream().map(item -> item.tool().name()).collect(Collectors.toSet());
@@ -56,7 +57,7 @@ class MorpheusQueryMcpToolsTest {
 
     @Test
     void executeSchemaPublishesThePageBudgetAndExportSchemaPublishesTheFormats() {
-        var specifications = new MorpheusQueryMcpTools(temporaryDirectory.resolve("morpheus.db")).specifications();
+        var specifications = new MorpheusQueryMcpTools(temporaryDirectory.resolve("morpheus.db"), OperationalRecorder.noop()).specifications();
         var execute = specifications.stream()
                 .filter(item -> item.tool().name().equals(MorpheusQueryMcpTools.EXECUTE_QUERY))
                 .findFirst().orElseThrow().tool().inputSchema();
@@ -214,7 +215,7 @@ class MorpheusQueryMcpToolsTest {
     }
 
     private McpSchema.Tool tool(String name) {
-        return new MorpheusQueryMcpTools(temporaryDirectory.resolve("morpheus.db")).specifications().stream()
+        return new MorpheusQueryMcpTools(temporaryDirectory.resolve("morpheus.db"), OperationalRecorder.noop()).specifications().stream()
                 .map(item -> item.tool())
                 .filter(item -> item.name().equals(name))
                 .findFirst().orElseThrow();

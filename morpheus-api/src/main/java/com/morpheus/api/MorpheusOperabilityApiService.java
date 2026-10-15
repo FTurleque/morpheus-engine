@@ -1,9 +1,9 @@
 package com.morpheus.api;
 
 import com.morpheus.application.operability.LocalOperabilityService;
-import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.operability.OperationalMetrics;
 import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.operability.OperationalRuntime;
 
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -18,16 +18,18 @@ public final class MorpheusOperabilityApiService {
         this.operability = Objects.requireNonNull(operability, "operability");
     }
 
-    public MorpheusOperabilityApiService(Path databasePath) {
+    /** Serves the counters and the sink of {@code runtime}, the one its server was handed, and probes its database. */
+    public MorpheusOperabilityApiService(Path databasePath, OperationalRuntime runtime) {
         Path database = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        Objects.requireNonNull(runtime, "runtime");
         this.operability = new LocalOperabilityService(
                 () -> {
-                    try (ApiRuntime runtime = new ApiRuntime(database)) {
-                        return runtime.snapshots().listProjects().size();
+                    try (ApiRuntime probe = new ApiRuntime(database, runtime.recorder())) {
+                        return probe.snapshots().listProjects().size();
                     }
                 },
-                LocalOperationalRuntime.metrics(),
-                LocalOperationalRuntime.sink());
+                runtime.metrics(),
+                runtime.sink());
     }
 
     /** The recorder of the process whose counters {@link #metrics()} serves: what it counts is read on that route. */

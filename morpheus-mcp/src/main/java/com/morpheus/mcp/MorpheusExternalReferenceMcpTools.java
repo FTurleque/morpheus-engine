@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.application.reference.LiveExternalReferenceResolutionService;
@@ -24,11 +25,13 @@ final class MorpheusExternalReferenceMcpTools {
     static final String RESOLVE_TOOL = "resolve_external_reference";
 
     private final Path databasePath;
+    private final OperationalRecorder recorder;
     private final ExternalReferenceResolverRegistry resolverRegistry;
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
-    MorpheusExternalReferenceMcpTools(Path databasePath, ExternalReferenceResolverRegistry resolverRegistry) {
+    MorpheusExternalReferenceMcpTools(Path databasePath, OperationalRecorder recorder, ExternalReferenceResolverRegistry resolverRegistry) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
         this.resolverRegistry = Objects.requireNonNull(resolverRegistry, "resolverRegistry");
     }
 
@@ -76,7 +79,7 @@ final class MorpheusExternalReferenceMcpTools {
     private String list(Map<String, Object> arguments) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(McpArguments.requiredString(arguments, "projectId"));
         DomainIdentity ownerId = DomainIdentity.parse(McpArguments.requiredString(arguments, "ownerId"));
-        try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath)) {
+        try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath, recorder)) {
             if (runtime.snapshots().findProject(projectId).isEmpty()) {
                 throw new KnowledgeStoreException("project not found: " + projectId);
             }
@@ -94,7 +97,7 @@ final class MorpheusExternalReferenceMcpTools {
     private String resolve(Map<String, Object> arguments) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(McpArguments.requiredString(arguments, "projectId"));
         ExternalReferenceId referenceId = ExternalReferenceId.parse(McpArguments.requiredString(arguments, "referenceId"));
-        try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath)) {
+        try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath, recorder)) {
             if (runtime.snapshots().findProject(projectId).isEmpty()) {
                 throw new KnowledgeStoreException("project not found: " + projectId);
             }

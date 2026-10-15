@@ -1,5 +1,6 @@
 package com.morpheus.store.sqlite;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -35,7 +36,7 @@ class SqliteConnectionScopeThreadConfinementTest {
     @Test
     void aLogicalConnectionRefusesDatabaseAccessFromAnotherThread() throws Exception {
         Path database = tempDir.resolve("confinement.db");
-        try (SqliteConnectionScope scope = SqliteConnectionScope.open(database)) {
+        try (SqliteConnectionScope scope = SqliteConnectionScope.open(database, OperationalRecorder.noop())) {
             Connection borrowed = SqliteConnectionScope.borrowIfActive(database, busyTimeout());
             assertNotNull(borrowed, "an active scope must hand out a logical connection");
 
@@ -59,7 +60,7 @@ class SqliteConnectionScopeThreadConfinementTest {
     @Test
     void closingALogicalConnectionFromAnotherThreadIsRefusedAndLeavesItUsable() throws Exception {
         Path database = tempDir.resolve("foreign-close.db");
-        try (SqliteConnectionScope scope = SqliteConnectionScope.open(database)) {
+        try (SqliteConnectionScope scope = SqliteConnectionScope.open(database, OperationalRecorder.noop())) {
             Connection borrowed = SqliteConnectionScope.borrowIfActive(database, busyTimeout());
             assertNotNull(borrowed);
 
@@ -80,7 +81,7 @@ class SqliteConnectionScopeThreadConfinementTest {
     @Test
     void identityOperationsRemainAvailableFromAnyThread() throws Exception {
         Path database = tempDir.resolve("identity.db");
-        try (SqliteConnectionScope ignored = SqliteConnectionScope.open(database)) {
+        try (SqliteConnectionScope ignored = SqliteConnectionScope.open(database, OperationalRecorder.noop())) {
             Connection borrowed = SqliteConnectionScope.borrowIfActive(database, busyTimeout());
             Connection sibling = SqliteConnectionScope.borrowIfActive(database, busyTimeout());
             assertNotNull(borrowed);
@@ -101,7 +102,7 @@ class SqliteConnectionScopeThreadConfinementTest {
     @Test
     void theScopeStillClosesNormallyOnItsOwningThreadAfterAForeignAttempt() throws Exception {
         Path database = tempDir.resolve("still-closeable.db");
-        SqliteConnectionScope scope = SqliteConnectionScope.open(database);
+        SqliteConnectionScope scope = SqliteConnectionScope.open(database, OperationalRecorder.noop());
         Connection borrowed = SqliteConnectionScope.borrowIfActive(database, busyTimeout());
         assertNotNull(borrowed);
 

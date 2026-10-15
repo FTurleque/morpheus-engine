@@ -11,15 +11,25 @@ import java.sql.SQLException;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Explicit thread-confined scope that lets multiple SQLite store adapters share one physical connection.
  * Logical connections retain normal close semantics without owning the physical connection.
+ *
+ * <p>The pressure a scope puts on the database - the physical connections it opens and releases, and the schema
+ * checks it runs - is counted on the recorder its opener names, under the three names below, and nowhere else. These
+ * were static counters of the process: a test could only read them as a difference, and two tests running at once
+ * read each other's.</p>
  */
 public final class SqliteConnectionScope implements AutoCloseable {
     /** The code a second scope opened on a thread that already holds one is refused with. */
     public static final String NESTED_REFUSAL = "SQLITE_CONNECTION_SCOPE_NESTED";
+    /** Physical connections scopes opened, the replacement after a failed cleanup included. */
+    public static final String CONNECTIONS_OPENED = "sqlite.scope.connection.opened";
+    /** Physical connections scopes released; one the driver failed to release is not counted until it is. */
+    public static final String CONNECTIONS_CLOSED = "sqlite.scope.connection.closed";
+    /** Schema checks run on the connection of a scope: one per scope, whatever the number of stores it serves. */
+    public static final String SCHEMA_CHECKS = "sqlite.scope.schema.checked";
 
     /**
      * A second scope was opened on a thread that already holds one. It is a defect of the caller - two runtimes alive
@@ -41,10 +51,6 @@ public final class SqliteConnectionScope implements AutoCloseable {
     }
 
     private static final ThreadLocal<State> ACTIVE = new ThreadLocal<>();
-    private static final AtomicLong PHYSICAL_OPENED = new AtomicLong();
-    private static final AtomicLong PHYSICAL_CLOSED = new AtomicLong();
-    private static final AtomicInteger PHYSICAL_ACTIVE = new AtomicInteger();
-    private static final AtomicInteger PHYSICAL_PEAK = new AtomicInteger();
 
     private final State state;
     private boolean closed;
@@ -53,24 +59,14 @@ public final class SqliteConnectionScope implements AutoCloseable {
         this.state = state;
     }
 
-    public static SqliteConnectionScope open(Path databasePath) {
-        return open(databasePath, SqliteDatabaseSecurity.DEFAULT_BUSY_TIMEOUT_MILLIS);
-    }
-
-    public static SqliteConnectionScope open(Path databasePath, int busyTimeoutMillis) {
-        return open(databasePath, busyTimeoutMillis, SqliteContentionMetrics.processDefault());
-    }
-
     /**
      * Opens a scope whose stores are observed by {@code recorder}: every transaction a store runs on the connection
-     * of this scope is counted there, and nowhere else.
+     * of this scope, the connection itself and its schema check are counted there, and nowhere else. There is no
+     * opening without a recorder: a scope whose opener named none counted where nobody could tell its operations apart.
      */
     public static SqliteConnectionScope open(Path databasePath, OperationalRecorder recorder) {
-        return open(databasePath, SqliteDatabaseSecurity.DEFAULT_BUSY_TIMEOUT_MILLIS, recorder);
-    }
-
-    public static SqliteConnectionScope open(Path databasePath, int busyTimeoutMillis, OperationalRecorder recorder) {
-        return open(databasePath, busyTimeoutMillis, new SqliteContentionMetrics(recorder));
+        return open(databasePath, SqliteDatabaseSecurity.DEFAULT_BUSY_TIMEOUT_MILLIS,
+                new SqliteContentionMetrics(recorder));
     }
 
     private static SqliteConnectionScope open(
@@ -81,7 +77,7 @@ public final class SqliteConnectionScope implements AutoCloseable {
         Path normalized = databasePath.toAbsolutePath().normalize();
         try {
             return adopt(normalized, busyTimeoutMillis,
-                    SqliteDatabaseSecurity.openPhysical(normalized, busyTimeoutMillis, contention));
+                    SqliteDatabaseSecurity.openPhysical(normalized, busyTimeoutMillis, contention), contention);
         } catch (SQLException failure) {
             throw new IllegalStateException("cannot open SQLite operation scope", failure);
         }
@@ -92,15 +88,17 @@ public final class SqliteConnectionScope implements AutoCloseable {
      *
      * <p>{@link #close()} has to behave when the driver fails to release the connection, and a healthy SQLite
      * file never produces that failure. Taking the connection as a parameter is how that branch is reached, the
-     * same way {@link SqliteTransactionRunner} takes the connection whose cleanup failures it must survive.</p>
+     * same way {@link SqliteTransactionRunner} takes the connection whose cleanup failures it must survive. The
+     * counters the scope writes to are named with it.</p>
      */
-    static SqliteConnectionScope adopt(Path databasePath, int busyTimeoutMillis, Connection physical) {
+    static SqliteConnectionScope adopt(
+            Path databasePath, int busyTimeoutMillis, Connection physical, SqliteContentionMetrics contention) {
         Objects.requireNonNull(databasePath, "databasePath");
         Objects.requireNonNull(physical, "physical");
+        Objects.requireNonNull(contention, "contention");
         requireNoScopeOnThisThread();
-        State state = new State(databasePath.toAbsolutePath().normalize(), busyTimeoutMillis, physical,
-                SqliteContentionMetrics.of(physical));
-        recordPhysicalOpen();
+        State state = new State(databasePath.toAbsolutePath().normalize(), busyTimeoutMillis, physical, contention);
+        contention.scopedConnectionOpened();
         ACTIVE.set(state);
         return new SqliteConnectionScope(state);
     }
@@ -113,15 +111,6 @@ public final class SqliteConnectionScope implements AutoCloseable {
         return state.schemaInitializations;
     }
 
-    /** Process-level pressure diagnostics for scoped API sessions. */
-    public static Diagnostics diagnostics() {
-        return new Diagnostics(
-                PHYSICAL_OPENED.get(),
-                PHYSICAL_CLOSED.get(),
-                PHYSICAL_ACTIVE.get(),
-                PHYSICAL_PEAK.get());
-    }
-
     static boolean schemaReadyIfActive() {
         State state = ACTIVE.get();
         return state != null && state.schemaReady;
@@ -132,6 +121,7 @@ public final class SqliteConnectionScope implements AutoCloseable {
         if (state != null && !state.schemaReady) {
             state.schemaReady = true;
             state.schemaInitializations++;
+            state.contention.scopedSchemaChecked();
         }
     }
 
@@ -181,7 +171,7 @@ public final class SqliteConnectionScope implements AutoCloseable {
             active.physical = SqliteDatabaseSecurity.openPhysical(
                     active.databasePath, active.busyTimeoutMillis, active.contention);
             active.physicalCountedActive = true;
-            recordPhysicalOpen();
+            active.contention.scopedConnectionOpened();
             // Schema is durable in the database and was already initialized for this scope.
             return true;
         } catch (SQLException | RuntimeException | Error reopenFailure) {
@@ -246,29 +236,14 @@ public final class SqliteConnectionScope implements AutoCloseable {
         state.quarantineCause = cause;
     }
 
-    private static void recordPhysicalOpen() {
-        PHYSICAL_OPENED.incrementAndGet();
-        int active = PHYSICAL_ACTIVE.incrementAndGet();
-        PHYSICAL_PEAK.accumulateAndGet(active, Math::max);
-    }
-
     private static void recordPhysicalClose(State state) {
         if (!state.physicalCountedActive) return;
         state.physicalCountedActive = false;
-        PHYSICAL_CLOSED.incrementAndGet();
-        PHYSICAL_ACTIVE.decrementAndGet();
+        state.contention.scopedConnectionClosed();
     }
 
     private static void suppress(Throwable primary, Throwable secondary) {
         if (primary != secondary) primary.addSuppressed(secondary);
-    }
-
-    public record Diagnostics(long opened, long closed, int active, int peak) {
-        public Diagnostics {
-            if (opened < 0 || closed < 0 || active < 0 || peak < 0) {
-                throw new IllegalArgumentException("SQLite connection diagnostics must not be negative");
-            }
-        }
     }
 
     private static final class ScopedConnectionHandler

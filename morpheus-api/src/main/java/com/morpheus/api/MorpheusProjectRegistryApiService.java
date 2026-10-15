@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.security.ServerLocationDisclosure;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.domain.project.ProjectSpecificationId;
@@ -19,15 +20,17 @@ final class MorpheusProjectRegistryApiService {
     static final String FILESYSTEM_ROOT_WORKSPACE_NAME = "filesystem-root";
 
     private final Path databasePath;
+    private final OperationalRecorder recorder;
     private final Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots;
 
-    MorpheusProjectRegistryApiService(Path databasePath, Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots) {
+    MorpheusProjectRegistryApiService(Path databasePath, OperationalRecorder recorder, Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
         this.allowedWorkspaceRoots = Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots");
     }
 
     Object listProjects() {
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             return runtime.snapshots().listProjects().stream()
                     .map(project -> project(runtime, project))
                     .toList();
@@ -39,7 +42,7 @@ final class MorpheusProjectRegistryApiService {
                 .map(policy -> policy.requireAllowedDirectory(workspace))
                 .orElseGet(() -> existingDirectory(workspace));
         SourceLocator root = SourceLocator.file(path.toString());
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             Optional<ProjectStoreEntry> existing = runtime.snapshots().findProjectByRoot(root);
             ProjectStoreEntry entry = existing.orElseGet(() -> {
                 ProjectStoreEntry created = new ProjectStoreEntry(ProjectSpecificationId.generate(), root);
@@ -52,7 +55,7 @@ final class MorpheusProjectRegistryApiService {
 
     Object project(String projectIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             ProjectStoreEntry entry = runtime.snapshots().findProject(projectId)
                     .orElseThrow(() -> ApiFailure.notFound("project not found: " + projectId));
             return project(runtime, entry);

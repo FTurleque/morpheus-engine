@@ -1,5 +1,6 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.BusinessContentQueryService;
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.query.SnapshotPage;
@@ -13,12 +14,19 @@ import java.io.PrintStream;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 
 /** M15 CLI surface for explicit, snapshot-scoped acceptance criteria. */
 final class MorpheusAcceptanceCriteriaCli {
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
+    private final OperationalRecorder recorder;
+
+    /** Every command counts what it puts on the database on {@code recorder}, the one the launcher handed. */
+    MorpheusAcceptanceCriteriaCli(OperationalRecorder recorder) {
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
+    }
 
     static boolean handles(String[] args) {
         return "acceptance-criteria".equals(command(args));
@@ -46,7 +54,7 @@ final class MorpheusAcceptanceCriteriaCli {
                     options.intValue("offset", 0, 0, Integer.MAX_VALUE),
                     options.intValue("limit", 20, 1, PageRequest.MAX_LIMIT));
 
-            try (CliRuntime runtime = CliRuntime.recovering(parsed.layout().databasePath())) {
+            try (CliRuntime runtime = CliRuntime.recovering(parsed.layout().databasePath(), recorder)) {
                 if (runtime.snapshots().findProject(projectId).isEmpty()) {
                     throw new IllegalStateException("project not found: " + projectId);
                 }

@@ -3,6 +3,7 @@ package com.morpheus.mcp;
 import com.morpheus.application.context.AugmentedContextService;
 import com.morpheus.application.context.TechnicalContextOptions;
 import com.morpheus.application.context.TechnicalContextProvider;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.security.IntegrationStatusDisclosure;
 import com.morpheus.application.store.KnowledgeStoreException;
@@ -26,11 +27,13 @@ final class MorpheusAugmentedContextMcpTools {
     static final String CHANGE_TOOL = "get_augmented_change_context";
 
     private final Path databasePath;
+    private final OperationalRecorder recorder;
     private final TechnicalContextProvider provider;
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
-    MorpheusAugmentedContextMcpTools(Path databasePath, TechnicalContextProvider provider) {
+    MorpheusAugmentedContextMcpTools(Path databasePath, OperationalRecorder recorder, TechnicalContextProvider provider) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
         this.provider = Objects.requireNonNull(provider, "provider");
     }
 
@@ -59,7 +62,7 @@ final class MorpheusAugmentedContextMcpTools {
             Map<String, Object> arguments = McpArguments.orEmpty(rawArguments);
             ProjectSpecificationId projectId = ProjectSpecificationId.parse(McpArguments.requiredString(arguments, "projectId"));
             TechnicalContextOptions options = options(arguments);
-            try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath)) {
+            try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath, recorder)) {
                 if (runtime.snapshots().findProject(projectId).isEmpty()) {
                     throw new KnowledgeStoreException("project not found: " + projectId);
                 }

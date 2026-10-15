@@ -46,11 +46,11 @@ public final class MorpheusMain {
                 });
         int exitCode;
         if (RemoteApiLaunchOptions.isRemoteApiCommand(args)) {
-            exitCode = runRemoteApi(args, System.err, System.getenv(), System.getProperties());
+            exitCode = runRemoteApi(runtime, args, System.err, System.getenv(), System.getProperties());
         } else if (ApiLaunchOptions.isApiCommand(args)) {
-            exitCode = runApi(args, System.err, System.getenv(), System.getProperties());
+            exitCode = runApi(runtime, args, System.err, System.getenv(), System.getProperties());
         } else if (McpLaunchOptions.isMcpCommand(args)) {
-            exitCode = runMcp(args, System.err, System.getenv(), System.getProperties());
+            exitCode = runMcp(runtime, args, System.err, System.getenv(), System.getProperties());
         } else {
             PrintStream out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, StandardCharsets.UTF_8);
             PrintStream err = new PrintStream(new FileOutputStream(FileDescriptor.err), true, StandardCharsets.UTF_8);
@@ -140,26 +140,26 @@ public final class MorpheusMain {
         NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties);
         int exitCode;
         if (MorpheusPolicyCli.handles(args)) {
-            exitCode = new MorpheusPolicyCli().run(args, out, err, environment, properties);
+            exitCode = new MorpheusPolicyCli(runtime.recorder()).run(args, out, err, environment, properties);
         } else if (MorpheusQueryCli.handles(args)) {
-            exitCode = new MorpheusQueryCli().run(args, out, err, environment, properties);
+            exitCode = new MorpheusQueryCli(runtime.recorder()).run(args, out, err, environment, properties);
         } else if (MorpheusPortfolioCli.handles(args)) {
-            exitCode = new MorpheusPortfolioCli().run(args, out, err, environment, properties);
+            exitCode = new MorpheusPortfolioCli(runtime.recorder()).run(args, out, err, environment, properties);
         } else if (MorpheusCompositionCli.handles(args)) {
             exitCode = new MorpheusCompositionCli(runtime.recorder()).run(args, out, err, environment, properties);
         } else if (MorpheusControlledLifecycleCli.handles(args)) {
-            exitCode = new MorpheusControlledLifecycleCli().run(args, out, err, environment, properties);
+            exitCode = new MorpheusControlledLifecycleCli(runtime.recorder()).run(args, out, err, environment, properties);
         } else if (MorpheusConstraintSemanticsCli.handles(args)) {
-            exitCode = new MorpheusConstraintSemanticsCli().run(args, out, err, environment, properties);
+            exitCode = new MorpheusConstraintSemanticsCli(runtime.recorder()).run(args, out, err, environment, properties);
         } else if (MorpheusAcceptanceCriteriaCli.handles(args)) {
-            exitCode = new MorpheusAcceptanceCriteriaCli().run(args, out, err, environment, properties);
+            exitCode = new MorpheusAcceptanceCriteriaCli(runtime.recorder()).run(args, out, err, environment, properties);
         } else if (MorpheusJarvisOrchestrationCli.handles(args)) {
-            exitCode = new MorpheusJarvisOrchestrationCli().run(args, out, err, environment, properties);
+            exitCode = new MorpheusJarvisOrchestrationCli(runtime.recorder()).run(args, out, err, environment, properties);
         } else if (MorpheusAugmentedContextCli.handles(args)) {
-            exitCode = new MorpheusAugmentedContextCli(nexus, nexus)
+            exitCode = new MorpheusAugmentedContextCli(runtime.recorder(), nexus, nexus)
                     .run(args, out, err, environment, properties);
         } else if (MorpheusExternalIntegrationCli.handles(args)) {
-            exitCode = new MorpheusExternalIntegrationCli(minos.resolverRegistry(), minos)
+            exitCode = new MorpheusExternalIntegrationCli(runtime.recorder(), minos.resolverRegistry(), minos)
                     .run(args, out, err, environment, properties);
         } else {
             exitCode = new MorpheusCli(runtime.recorder()).run(args, out, err, environment, properties);
@@ -273,6 +273,7 @@ public final class MorpheusMain {
     }
 
     static int runMcp(
+            OperationalRuntime runtime,
             String[] args,
             PrintStream err,
             Map<String, String> environment,
@@ -285,7 +286,8 @@ public final class MorpheusMain {
                     options.layout().databasePath(),
                     minos.resolverRegistry(),
                     nexus,
-                    new CliProjectWriteCapabilityResolver(options.layout().databasePath()));
+                    new CliProjectWriteCapabilityResolver(options.layout().databasePath()),
+                    runtime.recorder());
         } catch (IllegalArgumentException failure) {
             err.println("MORPHEUS MCP usage error: " + safeMessage(failure));
             return CliExitCode.USAGE.code();
@@ -296,6 +298,7 @@ public final class MorpheusMain {
     }
 
     static int runApi(
+            OperationalRuntime runtime,
             String[] args,
             PrintStream err,
             Map<String, String> environment,
@@ -311,7 +314,8 @@ public final class MorpheusMain {
                     minos.resolverRegistry(),
                     minos,
                     nexus,
-                    new CliProjectWriteCapabilityResolver(options.layout().databasePath()))) {
+                    new CliProjectWriteCapabilityResolver(options.layout().databasePath()),
+                    runtime)) {
                 err.println("MORPHEUS API listening on " + server.baseUri());
                 return waitUntilInterrupted();
             }
@@ -325,6 +329,7 @@ public final class MorpheusMain {
     }
 
     static int runRemoteApi(
+            OperationalRuntime runtime,
             String[] args,
             PrintStream err,
             Map<String, String> environment,
@@ -333,7 +338,7 @@ public final class MorpheusMain {
             RemoteApiLaunchOptions options = RemoteApiLaunchOptions.parse(args, environment, properties);
             MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
             NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties);
-            try (MorpheusRemoteHttpServer server = startRemoteServer(options, minos, nexus)) {
+            try (MorpheusRemoteHttpServer server = startRemoteServer(options, minos, nexus, runtime)) {
                 err.println("MORPHEUS remote HTTPS API listening on " + server.baseUri());
                 return waitUntilInterrupted();
             }
@@ -356,7 +361,8 @@ public final class MorpheusMain {
     private static MorpheusRemoteHttpServer startRemoteServer(
             RemoteApiLaunchOptions options,
             MinosIntegrationRuntime minos,
-            NexusIntegrationRuntime nexus) {
+            NexusIntegrationRuntime nexus,
+            OperationalRuntime runtime) {
         char[] keyStorePassword = options.tlsPassword().resolve();
         try {
             return MorpheusRemoteHttpServer.start(
@@ -373,7 +379,8 @@ public final class MorpheusMain {
                     minos.resolverRegistry(),
                     minos,
                     nexus,
-                    new CliProjectWriteCapabilityResolver(options.layout().databasePath()));
+                    new CliProjectWriteCapabilityResolver(options.layout().databasePath()),
+                    runtime);
         } finally {
             Arrays.fill(keyStorePassword, '\0');
         }

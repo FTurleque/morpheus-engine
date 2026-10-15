@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.source.SourceLocator;
 import org.junit.jupiter.api.Test;
@@ -26,7 +27,7 @@ class MorpheusProjectRegistryApiServiceContractTest {
     void preservesRegistryViewsIdempotenceFailuresAndWorkspaceConfinement() throws Exception {
         Path database = tempDirectory.resolve("registry.db");
         Path workspace = Files.createDirectory(tempDirectory.resolve("workspace"));
-        MorpheusProjectRegistryApiService service = new MorpheusProjectRegistryApiService(database, Optional.empty());
+        MorpheusProjectRegistryApiService service = new MorpheusProjectRegistryApiService(database, OperationalRecorder.noop(), Optional.empty());
 
         assertEquals(List.of(), service.listProjects());
 
@@ -76,7 +77,7 @@ class MorpheusProjectRegistryApiServiceContractTest {
         Path allowed = Files.createDirectory(tempDirectory.resolve("allowed"));
         Path outside = Files.createDirectory(tempDirectory.resolve("outside"));
         MorpheusProjectRegistryApiService confined = new MorpheusProjectRegistryApiService(
-                tempDirectory.resolve("confined.db"), Optional.of(AllowedWorkspaceRoots.of(List.of(allowed))));
+                tempDirectory.resolve("confined.db"), OperationalRecorder.noop(), Optional.of(AllowedWorkspaceRoots.of(List.of(allowed))));
         IllegalArgumentException denied = assertThrows(
                 IllegalArgumentException.class,
                 () -> confined.registerProject(outside.toString()));
@@ -93,7 +94,7 @@ class MorpheusProjectRegistryApiServiceContractTest {
     @Test
     void aWorkspaceAtAFilesystemRootIsNamedWithoutBeingLocated() throws Exception {
         Path database = tempDirectory.resolve("roots.db");
-        MorpheusProjectRegistryApiService service = new MorpheusProjectRegistryApiService(database, Optional.empty());
+        MorpheusProjectRegistryApiService service = new MorpheusProjectRegistryApiService(database, OperationalRecorder.noop(), Optional.empty());
 
         Map<String, String> expected = new LinkedHashMap<>();
         expected.put("/", MorpheusProjectRegistryApiService.FILESYSTEM_ROOT_WORKSPACE_NAME);
@@ -132,7 +133,7 @@ class MorpheusProjectRegistryApiServiceContractTest {
     @Test
     void aRelativeWorkspaceRejectionDoesNotReportTheServersWorkingDirectory() {
         MorpheusProjectRegistryApiService service = new MorpheusProjectRegistryApiService(
-                tempDirectory.resolve("relative.db"), Optional.empty());
+                tempDirectory.resolve("relative.db"), OperationalRecorder.noop(), Optional.empty());
 
         ApiFailure rejection = assertThrows(
                 ApiFailure.class,

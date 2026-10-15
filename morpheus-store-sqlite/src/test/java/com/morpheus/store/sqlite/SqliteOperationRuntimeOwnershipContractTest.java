@@ -1,5 +1,6 @@
 package com.morpheus.store.sqlite;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.store.KnowledgeStoreException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -27,7 +28,7 @@ class SqliteOperationRuntimeOwnershipContractTest {
     void thePolicyServicesAreWiredAndTheDatabaseIsGivenBackOnClose() {
         Path database = temp.resolve("policy.db").toAbsolutePath().normalize();
 
-        try (SqliteOperationRuntime runtime = SqliteOperationRuntime.open(database)) {
+        try (SqliteOperationRuntime runtime = SqliteOperationRuntime.open(database, OperationalRecorder.noop())) {
             assertNotNull(runtime.registry(), "the pack registry must be wired");
             assertNotNull(runtime.evaluation(), "the evaluation service must be wired");
         }
@@ -40,7 +41,7 @@ class SqliteOperationRuntimeOwnershipContractTest {
     void theQueryServicesAreWiredAndTheDatabaseIsGivenBackOnClose() {
         Path database = temp.resolve("query.db").toAbsolutePath().normalize();
 
-        try (SqliteOperationRuntime runtime = SqliteOperationRuntime.open(database)) {
+        try (SqliteOperationRuntime runtime = SqliteOperationRuntime.open(database, OperationalRecorder.noop())) {
             assertNotNull(runtime.queries(), "the query execution service must be wired");
             assertNotNull(runtime.views(), "the saved view service must be wired");
             assertNotNull(runtime.exports(), "the export service must be wired");
@@ -55,7 +56,7 @@ class SqliteOperationRuntimeOwnershipContractTest {
         Path database = temp.resolve("policy-future.db").toAbsolutePath().normalize();
         writeFutureSchema(database);
 
-        try (SqliteOperationRuntime runtime = SqliteOperationRuntime.open(database)) {
+        try (SqliteOperationRuntime runtime = SqliteOperationRuntime.open(database, OperationalRecorder.noop())) {
             assertThrows(KnowledgeStoreException.class, runtime::registry);
         }
 
@@ -68,7 +69,7 @@ class SqliteOperationRuntimeOwnershipContractTest {
         Path database = temp.resolve("query-future.db").toAbsolutePath().normalize();
         writeFutureSchema(database);
 
-        try (SqliteOperationRuntime runtime = SqliteOperationRuntime.open(database)) {
+        try (SqliteOperationRuntime runtime = SqliteOperationRuntime.open(database, OperationalRecorder.noop())) {
             assertThrows(KnowledgeStoreException.class, runtime::views);
         }
 
@@ -81,7 +82,7 @@ class SqliteOperationRuntimeOwnershipContractTest {
     void closingARuntimeTwiceReleasesItsStoresOnlyOnce() {
         Path database = temp.resolve("idempotent.db").toAbsolutePath().normalize();
 
-        SqliteOperationRuntime runtime = SqliteOperationRuntime.open(database);
+        SqliteOperationRuntime runtime = SqliteOperationRuntime.open(database, OperationalRecorder.noop());
         runtime.registry();
         runtime.close();
         assertDoesNotThrow(runtime::close, "a second close must be a no-op, not a second release");
