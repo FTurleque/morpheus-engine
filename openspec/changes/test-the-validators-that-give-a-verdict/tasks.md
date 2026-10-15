@@ -3,6 +3,9 @@
 Notes dated 2026-10-13 were written on the branch `test/audit-trv07-validators-under-test`, from `develop` at
 `d5be889b`, on a Windows machine with Git Bash, Windows PowerShell 5.1 and WSL (Ubuntu). No validator was run for real:
 every result below comes from the fabricated checkout of `scripts/tests/validator_harness.py`, unless it says otherwise.
+Notes dated 2026-10-15 were written on the branch `fix/audit-tst18-trv07-validators`, from `develop` at `984bb270`, on
+the same machine, under Git Bash and Windows PowerShell 5.1 only; again no validator was run for real. On that
+branch `python -m unittest discover -s scripts/tests` ran 521 cases, 1 class skipped (`jq` is not installed).
 
 ## 1. Measure before changing
 
@@ -33,6 +36,10 @@ every result below comes from the fabricated checkout of `scripts/tests/validato
     Windows and under bash on Linux (WSL): `d2`, `m22` to `m27` and `r2` run to `VALIDATION PASS` in both variants;
     `validate-r3`, both variants, stops on `Unexpected Maven reactor POM count: 19, expected 17` and cannot pass on
     today's reactor. Whether the packaging half of `d2`, `m22` to `m26` still runs is still not known.
+  - 2026-10-15: **still not done.** The `r3` reactor count is fixed (3.9). The lane `validators-without-a-lane` of
+    `nightly.yml` (3.7) will give the Linux run of `d2`, `m22` to `m26` and `r3` (and through it `m28`, `r2`, `m27`) once
+    it runs: on a schedule only after `nightly.yml` reaches `main`, before that by `workflow_dispatch`. No Windows run
+    of the `.ps1` variants is planned by it.
 - [x] 1.5 Find whether any test runs the four scripts of the Dependency-Check lane, or only reads them. Proof: the test
       and the line that launches the process, or the statement that none does.
   - 2026-10-13: none did (`DependencyCheckWorkflowContractTest` reads them). `test_dependency_check_scripts.py` now
@@ -80,6 +87,12 @@ every result below comes from the fabricated checkout of `scripts/tests/validato
     which Python can import and Java could only parse. The rule that each leg runs the script tests is in
     `GateReachabilityArchitectureTest`, so the architecture suite holds the step that runs the inventory. To be
     confirmed by the maintainer, and the spec amended if it stands.
+  - 2026-10-15: spec delta amended (`specs/validator-self-test/spec.md`, the inventory requirement and its scenarios
+    now speak of the script tests, not the architecture suite), and decision 5 of the design with it. Two changes of
+    substance, both in `test_script_inventory.py`: a documentation page is no longer a launch (the entry points a
+    person runs are named in `LAUNCHED_BY_HAND`, with a reason and a current page that names them); and
+    `SCRIPTS_UNDER_TEST` is checked against the test code (generated harness classes, validators that name the
+    declared libraries, strings of the code). `openspec validate test-the-validators-that-give-a-verdict`: valid.
 - [x] 3.6 Correct each validator in which 2.2 or 3.1 showed a refusal that does not happen; one commit per correction,
       with its case.
   - 2026-10-13: six corrections, one commit each: the stale passing summary (22 validator files and
@@ -91,6 +104,12 @@ every result below comes from the fabricated checkout of `scripts/tests/validato
       follows `milestone-quadruplet` and the precedent of `docs/project/validation/README.md`.
   - 2026-10-13: put, not decided, and without the real runs of 1.4. The three `.sh` nothing launches are named in
     `NOT_LAUNCHED`, each entry a finding; `validate-r3` cannot pass in either variant.
+  - 2026-10-15: still not decided by the maintainer. **Default taken**, recorded under open question 1 of the
+    design: the recommendation sets none for `m22` to `m26` and `r3`, so every `.sh` validator no workflow launched
+    gets a nightly lane (`validators-without-a-lane`: `d2`, `m22` to `m26`, `r3`, Linux, D2 without its
+    Dependency-Check scan). Once a page stopped counting as a launch (3.5) the orphans were ten, not three:
+    `validate-d2.sh`, `m22` to `m28.sh`, `r2.sh`, `r3.sh`; the lane launches all ten, `NOT_LAUNCHED` is empty. Left
+    unchecked: the decision itself, with the results of 1.4, is still the maintainer's.
 - [x] 3.8 Break each rule once, then revert: remove a comparison from a validator; remove the step from one leg; add an
       untested script; move a launch into a comment; leave an excuse for a tested script. Proof: the named failures.
   - 2026-10-13: each done and reverted. The comparison of the test count removed from `validate-m21.sh` and from
@@ -99,6 +118,21 @@ every result below comes from the fabricated checkout of `scripts/tests/validato
     fails and names the Windows leg. A script added: both inventory rules name it. The launches of
     `check-release-rehearsal-assets.py` commented out in `nightly.yml`: named. An entry left for `validate-m21.sh`
     in each list: named as the entry to delete.
+  - 2026-10-15, each done and reverted: the reactor fix of `validate-r3` reverted, the `ReactorCount` cases of `r3`
+    fail on "expected 17"; the test count of `validate-m24.sh` back to `473` and the line minimum of `validate-m25.ps1`
+    back to `0.25`, three named cases fail; `validate-m23.sh` left only in a comment of the nightly matrix, and the `r3`
+    leg removed, the inventory names `validate-m23.sh`, then `m27`, `m28`, `r2`, `r3`; a validator and a library
+    declared by `test_validator_entry_refusals.py` that it does not run, and a script declared by
+    `test_check_diff_coverage.py` only in its declaration, each named; `validate-m21.sh` added to
+    `LAUNCHED_BY_HAND`, named as launched by `ci.yml`.
+- [x] 3.9 AUD-TST-18: `validate-r3` derives the reactor count from the `<module>` entries of the root POM, as
+      `validate-r2` does, and the entry contract holds `r2` and `r3` to it. Proof: commit `c360a79e`; the
+      `ReactorCountCases` of `test_validator_entry_refusals.py` (the declared reactor accepted with its count, an
+      undeclared POM refused with both counts before the build), 30 cases green on `r2` and `r3`, both interpreters.
+- [x] 3.10 The literal floors of `m22` to `m27` (open question 3): both variants read the presence ratchets and the
+      aggregate coverage keys before the build. Proof: commit `0099bd4c`; `LivingMinimumsContract` and
+      `AggregateCoverageMinimumsContract` now run on the twelve files, `test_validator_verdicts.py` 384 cases green.
+      Kept and justified in the design: D2's absolute coverage floors, M19's frozen budgets.
 
 ## 4. Verification and destinations
 
@@ -114,10 +148,14 @@ every result below comes from the fabricated checkout of `scripts/tests/validato
     seconds" as the design expected: a validator run is a process, and there are several hundred.
 - [x] 4.3 Every `.ps1` added or edited is ASCII (`rules/tooling.md`); the hook's check is run.
   - 2026-10-13: 14 `.ps1` edited, none holds a non-ASCII byte; no `.ps1` added. `pre-bash.ps1` still parses.
+  - 2026-10-15: 7 `.ps1` edited (`validate-r3`, `validate-m22` to `validate-m27`), none holds a non-ASCII byte, CRLF
+    kept; no `.ps1` added, no hook edited.
 - [x] 4.4 `scripts/README.md`: how the validators are tested, how to add a case, how to excuse a script. `.claude/rules`
       is touched only if a sentence there describes the old state.
   - 2026-10-13: done. One sentence of `rules/tooling.md` corrected: it said every validator writes a
     `failure-summary.txt`.
+  - 2026-10-15: `scripts/README.md` says what a launch is now, what `LAUNCHED_BY_HAND` holds, how a declaration is
+    checked, and which validators the nightly lane runs. No sentence of `.claude/rules` described the old state.
 - [ ] 4.5 Pull request description: the finding, the tables of 1.1 and 1.2, the validators corrected, the excuses and
       their reasons, the justification of the test added under `morpheus-architecture-tests/` and of the workflow edit.
   - 2026-10-13: no pull request opened.
