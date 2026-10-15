@@ -28,22 +28,6 @@ public record ProjectDiscoveryResult(
         diagnostics = List.copyOf(Objects.requireNonNull(diagnostics, "diagnostics"));
     }
 
-    /** Compatibility constructor for callers that only know one workspace root. */
-    public ProjectDiscoveryResult(
-            Path workspaceRoot,
-            Optional<ProviderProbeResult> selectedProvider,
-            List<ProviderProbeResult> probes,
-            List<Diagnostic> diagnostics) {
-        this(
-                workspaceRoot,
-                workspaceRoot,
-                WorkspaceRootKind.EXPLICIT,
-                List.of(),
-                selectedProvider,
-                probes,
-                diagnostics);
-    }
-
     public boolean resolvedFromGitAncestor() {
         return workspaceRootKind == WorkspaceRootKind.GIT_ANCESTOR;
     }

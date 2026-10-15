@@ -66,6 +66,7 @@ class BusinessContentQueryBackendParityTest {
                 List.of(),
                 List.of(),
                 List.of(),
+                List.of(),
                 List.of(evidence));
 
         MemorySpecificationKnowledgeStore memoryCore = new MemorySpecificationKnowledgeStore();

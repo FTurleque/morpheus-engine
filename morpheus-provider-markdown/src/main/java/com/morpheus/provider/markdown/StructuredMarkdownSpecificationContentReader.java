@@ -271,7 +271,7 @@ public final class StructuredMarkdownSpecificationContentReader implements Speci
     private void addConstraint(EntityIdentityResolver identities, ParsedBlock parsed, Normalization result) {
         ChangeId changeId = required(result.changeIdsByKey, parsed.block.required("change"), "change");
         ConstraintId id = new ConstraintId(identities.resolve(providerId(), "constraint", parsed.externalId));
-        result.constraints.add(new Constraint(
+        result.constraints.add(Constraint.withUnknownSemantics(
                 id,
                 changeId,
                 parsed.block.required("statement"),

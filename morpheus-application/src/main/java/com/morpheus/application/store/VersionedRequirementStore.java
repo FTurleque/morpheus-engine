@@ -51,8 +51,8 @@ public interface VersionedRequirementStore {
      * <p>Unlike {@link #listCurrentRequirementVersions(KnowledgeSnapshotId, int)} this applies no row limit: it is
      * for readers that need the whole CURRENT population, for instance to compute a total before paging.</p>
      *
-     * <p>The default implementation preserves source compatibility for third-party/test adapters while keeping the
-     * public semantic contract correct.</p>
+     * <p>The default implementation is the port's fallback: it answers the same question from
+     * {@link #listRequirementVersions(KnowledgeSnapshotId)}, correctly and without pushing the predicate down.</p>
      */
     default List<RequirementVersionRecord> listCurrentRequirementVersions(KnowledgeSnapshotId snapshotId) {
         Objects.requireNonNull(snapshotId, "snapshotId");
@@ -66,8 +66,8 @@ public interface VersionedRequirementStore {
      * order. Production adapters should override this method so the temporal predicate and row limit are applied by
      * the persistence backend rather than after loading historical/proposed versions into memory.
      *
-     * <p>The default implementation preserves source compatibility for third-party/test adapters while keeping the
-     * public semantic contract correct.</p>
+     * <p>The default implementation is the port's fallback: it answers the same question from
+     * {@link #listRequirementVersions(KnowledgeSnapshotId)}, correctly and without pushing the predicate down.</p>
      */
     default List<RequirementVersionRecord> listCurrentRequirementVersions(
             KnowledgeSnapshotId snapshotId,

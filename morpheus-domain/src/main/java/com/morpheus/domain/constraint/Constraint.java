@@ -21,24 +21,6 @@ public record Constraint(
         List<EvidenceId> supportingEvidenceIds,
         Provenance provenance) {
 
-    /** Compatibility constructor for pre-M16 providers and callers. No semantics are inferred from text. */
-    public Constraint(
-            ConstraintId id,
-            ChangeId changeId,
-            String statement,
-            Provenance provenance) {
-        this(
-                id,
-                changeId,
-                statement,
-                ConstraintApplicability.UNKNOWN,
-                ConstraintSeverity.UNKNOWN,
-                ConstraintSatisfaction.UNKNOWN,
-                ConstraintBlockingPolicy.unknown(),
-                List.of(),
-                provenance);
-    }
-
     public Constraint {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(changeId, "changeId");
@@ -58,6 +40,27 @@ public record Constraint(
                 && blockingPolicy.mode() == ConstraintBlockingMode.BLOCK_WHEN_VIOLATED) {
             throw new IllegalArgumentException("NOT_APPLICABLE constraint cannot declare a blocking policy");
         }
+    }
+
+    /**
+     * A constraint of which the source states only the text: applicability, severity, satisfaction and blocking
+     * policy are unknown and no evidence supports it. Nothing is inferred from the statement.
+     */
+    public static Constraint withUnknownSemantics(
+            ConstraintId id,
+            ChangeId changeId,
+            String statement,
+            Provenance provenance) {
+        return new Constraint(
+                id,
+                changeId,
+                statement,
+                ConstraintApplicability.UNKNOWN,
+                ConstraintSeverity.UNKNOWN,
+                ConstraintSatisfaction.UNKNOWN,
+                ConstraintBlockingPolicy.unknown(),
+                List.of(),
+                provenance);
     }
 
     public boolean hasExplicitSemantics() {

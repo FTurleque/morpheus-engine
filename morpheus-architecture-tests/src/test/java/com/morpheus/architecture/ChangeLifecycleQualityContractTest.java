@@ -542,7 +542,7 @@ class ChangeLifecycleQualityContractTest {
                     projectId, "Observable change", List.of("known migration risk"), activeProvenance);
             ChangeProposal partialChange = change(
                     projectId, "Partial change", List.of(), activeProvenance);
-            Constraint constraint = new Constraint(
+            Constraint constraint = Constraint.withUnknownSemantics(
                     ConstraintId.generate(), observableChange.id(), "Preserve auditability", activeProvenance);
             DesignDecision decision = new DesignDecision(
                     DesignDecisionId.generate(), observableChange.id(),
@@ -641,6 +641,7 @@ class ChangeLifecycleQualityContractTest {
                     constraints,
                     decisions,
                     tasks,
+                    List.of(),
                     List.of(evidence));
         }
     }

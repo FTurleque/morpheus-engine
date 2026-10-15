@@ -10,7 +10,12 @@ Aucun linter n'est configuré. La cohérence vient du code existant et des tests
 - Valider aux **frontières système** (entrée CLI, endpoint HTTP, outil MCP) et faire confiance au code interne
 - Rendre les échecs **explicites** : exception nommée (`SyncBaselineInconsistentException`) plutôt que retour silencieux
 - Nommer les états de rejet explicitement (`SCAN_INCOMPLETE`, `PLUGIN_SHA256_REQUIRED`, `existing-unmanaged-morpheus-entry`)
-- Préférer des **fabriques nommées** (`generate()`, `parse()`) à plusieurs constructeurs publics surchargés
+- Préférer des **fabriques nommées** (`generate()`, `parse()`) à plusieurs constructeurs publics surchargés.
+  Pour un **record** ce n'est pas une préférence : il n'a qu'un constructeur public, le canonique
+  (`RecordSingleConstructorArchitectureTest`). Une valeur par défaut s'obtient par une fabrique statique dont le
+  nom dit ce qu'elle suppose — `Constraint.withUnknownSemantics(...)`,
+  `NormalizedProjectContent.withoutAcceptanceCriteria(...)` — et une fabrique qu'aucune classe de production
+  n'appelle n'existe pas : un test passe par le constructeur canonique
 
 ## Anatomie d'un type domaine (exemple réel)
 
@@ -58,7 +63,12 @@ public record DomainIdentity(UUID value) implements Comparable<DomainIdentity> {
 - Jamais de commentaire référençant la tâche courante, un ticket, ou un appelant ("ajouté pour X", "utilisé par Y")
 - Jamais d'abstraction prématurée — trois lignes similaires ne justifient pas un helper
 - Jamais de gestion d'erreur pour un cas impossible
-- Jamais de feature flag ni de shim de compatibilité rétroactive — modifier le code directement
+- Jamais de feature flag ni de shim de compatibilité rétroactive — modifier le code directement. Un second
+  constructeur public sur un record en est un, et le build le refuse (`RecordSingleConstructorArchitectureTest`,
+  dont la liste d'exceptions ne fait que rétrécir). Deux choses n'en sont pas : une méthode `default` qui donne
+  à un port un repli correct (`VersionedRequirementStore.listCurrentRequirementVersions`), et un nom public
+  conservé par une décision inscrite dans `contracts/public-surfaces.tsv` (l'outil MCP `check_product_update`,
+  ligne `product.update-discovery`) — c'est un contrat
 - Jamais de code mort (variables inutilisées, re-exports vides, blocs commentés)
 - Jamais de `last-write-wins` silencieux — un conflit se signale
 - Jamais de dégradation silencieuse — préférer l'échec explicite au fallback implicite

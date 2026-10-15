@@ -40,7 +40,8 @@ rtk trust -y                              # accorde la confiance, machine par ma
 La réécriture ne s'applique qu'aux formes que `rtk` sait reconnaître : `powershell -File
 scripts/validate-*.ps1` l'est, `bash scripts/validate-*.sh` ne l'est pas. Pour ces formes, ne
 pas chercher à filtrer la sortie : les validateurs écrivent déjà leur relevé dans
-`validation-output/<cible>/validation-summary.txt` et leurs échecs dans `failure-summary.txt`.
+`validation-output/<cible>/validation-summary.txt` ; un run refusé n'en laisse aucun (il retire celui du run
+précédent), et seuls `m19` et `m20` écrivent en plus leur échec dans `failure-summary.txt` et un relevé `Result: FAIL`.
 **Lire le relevé plutôt que la sortie.**
 
 ### Ne pas contourner

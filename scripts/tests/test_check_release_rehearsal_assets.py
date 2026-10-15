@@ -16,6 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "check-release-rehearsal-assets.py"
+SCRIPTS_UNDER_TEST = ("check-release-rehearsal-assets.py",)
 WORKFLOW = ROOT / ".github" / "workflows" / "release.yml"
 POM = ROOT / "pom.xml"
 

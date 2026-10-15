@@ -205,6 +205,25 @@ probe != read
 
 Le reader doit respecter les catégories explicitement demandées, retourner des `ReadCategoryReport` complets et produire du `NormalizedProjectContent` provider-neutral.
 
+### Construire le contenu normalisé
+
+Un record du produit n'a qu'un constructeur public, le canonique : il reçoit chaque composant, et c'est lui qui
+valide le graphe. Un plugin qui n'a rien à dire d'une partie du contenu le dit par une fabrique nommée, pas par un
+constructeur plus court :
+
+| Le plugin lit… | Il construit |
+|---|---|
+| des spécifications courantes seulement (spécifications, exigences, scénarios) | `NormalizedProjectContent.currentSpecificationsOnly(project, specifications, requirements, scenarios, evidence, diagnostics)` |
+| tout sauf des critères d'acceptation | `NormalizedProjectContent.withoutAcceptanceCriteria(project, specifications, requirements, scenarios, changes, requirementDeltas, constraints, designDecisions, tasks, evidence, diagnostics)` |
+| tout | `new NormalizedProjectContent(...)`, les douze composants |
+| une contrainte dont la source ne donne que l'énoncé | `Constraint.withUnknownSemantics(id, changeId, statement, provenance)` |
+| une contrainte dont la source donne la sémantique | `new Constraint(...)`, les neuf composants |
+
+`withUnknownSemantics` produit une contrainte `UNKNOWN` sur l'applicabilité, la sévérité et la satisfaction, une
+politique de blocage inconnue et aucune preuve à l'appui : rien n'est déduit du texte. Un `ProviderProbeResult` se
+construit avec son `sourceLocator`, `Optional.empty()` quand le probe ne reconnaît aucune source.
+`ReferenceSpecificationContentReader`, dans `morpheus-provider-reference`, est l'exemple suivi.
+
 Toute lecture d'un fichier relatif au workspace passe par
 `SafeWorkspaceFileResolver`. Cette frontière partagée refuse les chemins absolus,
 les composants `..`, les symlinks et junctions, vérifie le confinement du real

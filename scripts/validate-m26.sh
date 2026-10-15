@@ -10,6 +10,9 @@ REPO="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO"
 OUTPUT="$REPO/validation-output/m26"
 mkdir -p "$OUTPUT"
+# A run that is refused must not leave the summary of an earlier run that passed: the summary is the record a
+# reader is told to read instead of the output.
+rm -f "$OUTPUT/validation-summary.txt"
 VALIDATION_SHA="$(git rev-parse HEAD)"
 EXPECTED_SCHEMA="$(morpheus_python - "$REPO/morpheus-store-sqlite/src/main/resources/db/migration" <<'PY'
 import pathlib, re, sys

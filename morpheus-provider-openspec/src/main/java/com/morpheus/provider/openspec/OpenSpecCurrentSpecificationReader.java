@@ -124,7 +124,7 @@ public final class OpenSpecCurrentSpecificationReader {
                 displayName,
                 ProviderProjectRoot.locator(root));
 
-        return new NormalizedProjectContent(
+        return NormalizedProjectContent.currentSpecificationsOnly(
                 project,
                 specifications,
                 requirements,

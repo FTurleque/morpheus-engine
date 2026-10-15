@@ -42,82 +42,6 @@ public record NormalizedProjectContent(
         List<Evidence> evidence,
         List<Diagnostic> diagnostics) {
 
-    public NormalizedProjectContent(
-            ProjectSpecification project,
-            List<Specification> specifications,
-            List<Requirement> requirements,
-            List<Scenario> scenarios,
-            List<Evidence> evidence,
-            List<Diagnostic> diagnostics) {
-        this(
-                project,
-                specifications,
-                requirements,
-                scenarios,
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                List.of(),
-                evidence,
-                diagnostics);
-    }
-
-    public NormalizedProjectContent(
-            ProjectSpecification project,
-            List<Specification> specifications,
-            List<Requirement> requirements,
-            List<Scenario> scenarios,
-            List<ChangeProposal> changes,
-            List<Constraint> constraints,
-            List<DesignDecision> designDecisions,
-            List<ImplementationTask> tasks,
-            List<Evidence> evidence,
-            List<Diagnostic> diagnostics) {
-        this(
-                project,
-                specifications,
-                requirements,
-                scenarios,
-                changes,
-                List.of(),
-                constraints,
-                designDecisions,
-                tasks,
-                List.of(),
-                evidence,
-                diagnostics);
-    }
-
-    /** Compatibility constructor for pre-M15 callers that already supplied requirement deltas explicitly. */
-    public NormalizedProjectContent(
-            ProjectSpecification project,
-            List<Specification> specifications,
-            List<Requirement> requirements,
-            List<Scenario> scenarios,
-            List<ChangeProposal> changes,
-            List<RequirementDelta> requirementDeltas,
-            List<Constraint> constraints,
-            List<DesignDecision> designDecisions,
-            List<ImplementationTask> tasks,
-            List<Evidence> evidence,
-            List<Diagnostic> diagnostics) {
-        this(
-                project,
-                specifications,
-                requirements,
-                scenarios,
-                changes,
-                requirementDeltas,
-                constraints,
-                designDecisions,
-                tasks,
-                List.of(),
-                evidence,
-                diagnostics);
-    }
-
     public NormalizedProjectContent {
         Objects.requireNonNull(project, "project");
         specifications = List.copyOf(Objects.requireNonNull(specifications, "specifications"));
@@ -236,6 +160,60 @@ public record NormalizedProjectContent(
             requireEvidence(item.provenance().evidenceId(), evidenceIds);
             item.verificationEvidenceIds().forEach(evidenceId -> requireEvidence(evidenceId, evidenceIds));
         });
+    }
+
+    /**
+     * Content that carries current specifications alone: no change, requirement delta, constraint, design decision,
+     * task or acceptance criterion.
+     */
+    public static NormalizedProjectContent currentSpecificationsOnly(
+            ProjectSpecification project,
+            List<Specification> specifications,
+            List<Requirement> requirements,
+            List<Scenario> scenarios,
+            List<Evidence> evidence,
+            List<Diagnostic> diagnostics) {
+        return new NormalizedProjectContent(
+                project,
+                specifications,
+                requirements,
+                scenarios,
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                evidence,
+                diagnostics);
+    }
+
+    /** Content of a source that states no acceptance criterion. */
+    public static NormalizedProjectContent withoutAcceptanceCriteria(
+            ProjectSpecification project,
+            List<Specification> specifications,
+            List<Requirement> requirements,
+            List<Scenario> scenarios,
+            List<ChangeProposal> changes,
+            List<RequirementDelta> requirementDeltas,
+            List<Constraint> constraints,
+            List<DesignDecision> designDecisions,
+            List<ImplementationTask> tasks,
+            List<Evidence> evidence,
+            List<Diagnostic> diagnostics) {
+        return new NormalizedProjectContent(
+                project,
+                specifications,
+                requirements,
+                scenarios,
+                changes,
+                requirementDeltas,
+                constraints,
+                designDecisions,
+                tasks,
+                List.of(),
+                evidence,
+                diagnostics);
     }
 
     private static void requireKnownChange(ChangeId changeId, Set<ChangeId> changeIds, String type, Object id) {

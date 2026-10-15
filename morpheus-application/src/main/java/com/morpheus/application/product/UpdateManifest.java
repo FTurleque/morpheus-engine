@@ -13,10 +13,6 @@ public record UpdateManifest(
         String sha256,
         Optional<URI> attestationUri) {
 
-    public UpdateManifest(String version, String channel, URI artifactUri, String sha256) {
-        this(version, channel, artifactUri, sha256, Optional.empty());
-    }
-
     public UpdateManifest {
         version = requireText(version, "version");
         channel = requireText(channel, "channel").toLowerCase(Locale.ROOT);

@@ -14,6 +14,9 @@ $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 Set-Location $repo
 $outputRoot = Join-Path $repo 'validation-output\d2'
 New-Item -ItemType Directory -Force -Path $outputRoot | Out-Null
+# A run that is refused must not leave the summary of an earlier run that passed: the summary is the record a
+# reader is told to read instead of the output.
+Remove-Item -LiteralPath (Join-Path $outputRoot 'validation-summary.txt') -Force -ErrorAction SilentlyContinue
 $validationSha = (git rev-parse HEAD).Trim()
 
 # The presence minimums are the living ratchets, never a copy: D2 once compared against its own literals and passed a
@@ -27,9 +30,9 @@ function Assert-NativeSuccess([string]$Label) {
 }
 
 function Resolve-BaseRef([string]$Requested) {
-    & git rev-parse --verify "$Requested^{commit}" *> $null
+    & git rev-parse --verify --quiet "$Requested^{commit}" *> $null
     if ($LASTEXITCODE -eq 0) { return $Requested }
-    & git rev-parse --verify 'develop^{commit}' *> $null
+    & git rev-parse --verify --quiet 'develop^{commit}' *> $null
     if ($LASTEXITCODE -eq 0) { return 'develop' }
     throw "D2 base ref not found: $Requested (fallback develop also missing)"
 }

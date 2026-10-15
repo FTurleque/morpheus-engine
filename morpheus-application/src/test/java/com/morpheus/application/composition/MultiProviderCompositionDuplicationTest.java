@@ -260,7 +260,7 @@ class MultiProviderCompositionDuplicationTest {
                 ChangeId.generate(), project, Optional.of("C-1"), "Change", "Intent", List.of(), List.of(), List.of(),
                 provenance(provider, evidence, "C-1"));
         ChangeId changeId = change.id();
-        Constraint constraint = new Constraint(
+        Constraint constraint = Constraint.withUnknownSemantics(
                 ConstraintId.generate(), changeId, "Constraint", provenance(provider, evidence, "CON-1"));
         DesignDecision decision = new DesignDecision(
                 DesignDecisionId.generate(), changeId, "Decision", "Because", provenance(provider, evidence, "DEC-1"));

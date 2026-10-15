@@ -12,6 +12,9 @@ $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 Set-Location $repo
 $outputRoot = Join-Path $repo 'validation-output\m25'
 New-Item -ItemType Directory -Force -Path $outputRoot | Out-Null
+# A run that is refused must not leave the summary of an earlier run that passed: the summary is the record a
+# reader is told to read instead of the output.
+Remove-Item -LiteralPath (Join-Path $outputRoot 'validation-summary.txt') -Force -ErrorAction SilentlyContinue
 $validationSha = (git rev-parse HEAD).Trim()
 
 function Invoke-Native([string]$Label, [scriptblock]$Command) {
@@ -146,9 +149,9 @@ Write-Host "M25 exact-head validation SHA: $validationSha"
 $initialTracked = @(git status --porcelain --untracked-files=no)
 if ($initialTracked.Count -ne 0) { throw "M25 exact-head gate requires no tracked workspace delta before validation:`n$($initialTracked -join "`n")" }
 
-git rev-parse --verify "$BaseRef`^{commit}" *> $null
+git rev-parse --verify --quiet "$BaseRef`^{commit}" *> $null
 if ($LASTEXITCODE -ne 0) {
-    $BaseRef = 'develop'; git rev-parse --verify "$BaseRef`^{commit}" *> $null
+    $BaseRef = 'develop'; git rev-parse --verify --quiet "$BaseRef`^{commit}" *> $null
     if ($LASTEXITCODE -ne 0) { throw 'M25 base ref not found: origin/develop (fallback develop also missing)' }
 }
 Write-Host "M25 diff base: $BaseRef"

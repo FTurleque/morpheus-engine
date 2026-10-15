@@ -57,10 +57,6 @@ public final class MorpheusRemoteIdentityFile {
             }
         }
 
-        public Identity(String principal, MorpheusRemoteRole role, byte[] tokenHash) {
-            this(principal, role, tokenHash, Optional.empty());
-        }
-
         @Override
         public byte[] tokenHash() {
             return tokenHash.clone();
@@ -116,10 +112,6 @@ public final class MorpheusRemoteIdentityFile {
                 throw new IllegalArgumentException("generated token must not be blank");
             }
             Objects.requireNonNull(expiresAt, "expiresAt");
-        }
-
-        public GeneratedCredential(String principal, MorpheusRemoteRole role, String token) {
-            this(principal, role, token, Optional.empty());
         }
 
         /**

@@ -38,15 +38,6 @@ public record NexusIntegrationSettings(
     public static final int DEFAULT_TIMEOUT_SECONDS = 20;
     public static final int MAX_TIMEOUT_SECONDS = 120;
 
-    public NexusIntegrationSettings(
-            Optional<Path> jarPath,
-            String javaCommand,
-            Optional<Path> homeDirectory,
-            Duration timeout,
-            Optional<String> configurationError) {
-        this(jarPath, javaCommand, homeDirectory, timeout, Optional.empty(), configurationError);
-    }
-
     public NexusIntegrationSettings {
         jarPath = Objects.requireNonNull(jarPath, "jarPath").map(NexusIntegrationSettings::normalize);
         javaCommand = requireAbsoluteLauncher(requireText(javaCommand, "javaCommand"));

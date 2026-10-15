@@ -73,7 +73,7 @@ class ControlledLifecycleMutationRejectionContractTest {
         core.bindSnapshotVersion(new SnapshotSpecificationVersionBinding(snapshotId, versionId));
         content.putSnapshotContent(new SnapshotBusinessContent(
                 snapshotId, versionId, List.of(), List.of(), List.of(change), List.of(),
-                List.of(), List.of(), List.of(evidence)));
+                List.of(), List.of(), List.of(), List.of(evidence)));
         core.activateSnapshot(snapshotId, Optional.empty());
 
         MemoryChangeLifecycleMutationStore mutations = new MemoryChangeLifecycleMutationStore(core);

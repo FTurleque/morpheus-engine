@@ -227,7 +227,7 @@ class LocalSourceInventorySecurityTest {
         Files.writeString(workspace.resolve("one.md"), "1");
         Files.writeString(workspace.resolve("two.md"), "2");
         LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(
-                new SourceScanPolicy(Set.of(), 8, 1, 16, 16));
+                new SourceScanPolicy(Set.of(), 8, SourceScanPolicy.DEFAULT_MAX_DIRECTORIES, 1, 16, 16));
 
         var result = scan(scanner, workspace);
 
@@ -240,7 +240,7 @@ class LocalSourceInventorySecurityTest {
         Path workspace = Files.createDirectories(tempDir.resolve("file-size"));
         Files.writeString(workspace.resolve("large.md"), "12345");
         LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(
-                new SourceScanPolicy(Set.of(), 8, 10, 4, 16));
+                new SourceScanPolicy(Set.of(), 8, SourceScanPolicy.DEFAULT_MAX_DIRECTORIES, 10, 4, 16));
 
         var result = scan(scanner, workspace);
 
@@ -254,7 +254,7 @@ class LocalSourceInventorySecurityTest {
         Files.writeString(workspace.resolve("one.md"), "1234");
         Files.writeString(workspace.resolve("two.md"), "5678");
         LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(
-                new SourceScanPolicy(Set.of(), 8, 10, 4, 6));
+                new SourceScanPolicy(Set.of(), 8, SourceScanPolicy.DEFAULT_MAX_DIRECTORIES, 10, 4, 6));
 
         var result = scan(scanner, workspace);
 
@@ -268,7 +268,7 @@ class LocalSourceInventorySecurityTest {
         Path nested = Files.createDirectories(workspace.resolve("one/two"));
         Files.writeString(nested.resolve("deep.md"), "deep");
         LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(
-                new SourceScanPolicy(Set.of(), 1, 10, 16, 64));
+                new SourceScanPolicy(Set.of(), 1, SourceScanPolicy.DEFAULT_MAX_DIRECTORIES, 10, 16, 64));
 
         var result = scan(scanner, workspace);
 

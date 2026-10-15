@@ -16,31 +16,6 @@ public record UpdateCheckResult(
         UpdateTrustLevel trustLevel,
         boolean updateAvailable) {
 
-    /**
-     * Source-compatible constructor for callers that only need the historical discovery fields.
-     *
-     * <p>Such a result has no propagated provenance reference and is explicitly discovery-only.</p>
-     */
-    public UpdateCheckResult(
-            String currentVersion,
-            String availableVersion,
-            String channel,
-            URI artifactUri,
-            String sha256,
-            URI manifestUri,
-            boolean updateAvailable) {
-        this(
-                currentVersion,
-                availableVersion,
-                channel,
-                artifactUri,
-                sha256,
-                manifestUri,
-                Optional.empty(),
-                UpdateTrustLevel.DISCOVERY_ONLY,
-                updateAvailable);
-    }
-
     public UpdateCheckResult {
         currentVersion = requireText(currentVersion, "currentVersion");
         availableVersion = requireText(availableVersion, "availableVersion");

@@ -42,10 +42,21 @@ jobs:
         shell: bash
         run: bash ./scripts/validate-m21.sh 1.2.1
 
-      - name: Test the changed-coverage gate script on Linux
+      # The scripts of scripts/ are what the gates are held by, and half of them are .ps1: their tests run on both
+      # legs. Each leg runs the cases of its own interpreter -- the .ps1 cases need Windows PowerShell 5.1, the one
+      # this workflow runs the validators with -- and in a CI run a case whose tool is missing fails instead of being
+      # skipped. GateReachabilityArchitectureTest refuses a leg that stops running them.
+      - name: Test the scripts of scripts/ on Linux
         if: runner.os == 'Linux'
         shell: bash
         run: python3 -m unittest discover -s scripts/tests -v
+
+      # Before the long gate, so that a validator that stopped refusing is reported in minutes. -B: the validators
+      # that follow qualify the checkout, and a bytecode cache is a file nobody committed.
+      - name: Test the scripts of scripts/ on Windows
+        if: runner.os == 'Windows'
+        shell: bash
+        run: python -B -m unittest discover -s scripts/tests -v
 
       - name: Enforce changed line and branch coverage on Linux PRs
         if: runner.os == 'Linux' && github.event_name == 'pull_request'

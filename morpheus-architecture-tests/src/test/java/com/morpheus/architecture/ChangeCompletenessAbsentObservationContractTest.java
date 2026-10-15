@@ -198,7 +198,7 @@ class ChangeCompletenessAbsentObservationContractTest {
 
             List<Constraint> constraints = List.of(
                     known(knownConstraints.id(), provenance),
-                    new Constraint(ConstraintId.generate(), unknownConstraint.id(), "Unknown", provenance),
+                    Constraint.withUnknownSemantics(ConstraintId.generate(), unknownConstraint.id(), "Unknown", provenance),
                     known(changeCriterionOnly.id(), provenance));
             List<AcceptanceCriterion> criteria = new ArrayList<>();
             for (int index = 0; index < 3; index++) {

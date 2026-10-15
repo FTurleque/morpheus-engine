@@ -53,15 +53,6 @@ public record SourceScanPolicy(
         ignoredDirectoryNames = Set.copyOf(normalized);
     }
 
-    public SourceScanPolicy(
-            Set<String> ignoredDirectoryNames,
-            int maxDepth,
-            int maxFiles,
-            long maxFileBytes,
-            long maxAggregateBytes) {
-        this(ignoredDirectoryNames, maxDepth, DEFAULT_MAX_DIRECTORIES, maxFiles, maxFileBytes, maxAggregateBytes);
-    }
-
     public static SourceScanPolicy safeDefaults() {
         return new SourceScanPolicy(DEFAULT_IGNORED_DIRECTORIES, DEFAULT_MAX_DEPTH,
                 DEFAULT_MAX_DIRECTORIES, DEFAULT_MAX_FILES, DEFAULT_MAX_FILE_BYTES, DEFAULT_MAX_AGGREGATE_BYTES);
