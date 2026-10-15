@@ -2,6 +2,8 @@ package com.morpheus.api;
 
 import com.morpheus.application.context.DisabledTechnicalContextProvider;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityObservation;
+import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import org.junit.jupiter.api.Test;
@@ -63,7 +65,8 @@ class RemoteSuppressedFailureCountersServedTest {
                 new ExternalReferenceResolverRegistry(List.of()),
                 brokenMinosStatus,
                 new DisabledTechnicalContextProvider("NEXUS", "test"),
-                project -> ChangeWriteCapabilityObservation.denied("test"));
+                project -> ChangeWriteCapabilityObservation.denied("test"),
+                OperationalRuntime.of(OperationalLogMode.OFF));
              HttpClient client = RemoteHttpTestSupport.trustedClient(keyStore)) {
             URI base = URI.create("https://127.0.0.1:" + server.port());
             long before = counter(client, base, admin.token());
@@ -82,7 +85,7 @@ class RemoteSuppressedFailureCountersServedTest {
         }
     }
 
-    /** The counter as the facade serves it to an administrator; absent means it never moved in this process. */
+    /** The counter as the facade serves it to an administrator; absent means it never moved on the runtime the server was handed. */
     private static long counter(HttpClient client, URI base, String token) throws Exception {
         HttpResponse<String> metrics = send(client, base.resolve("/api/v1/metrics"), "GET", token, null);
         assertEquals(200, metrics.statusCode(), metrics::body);
