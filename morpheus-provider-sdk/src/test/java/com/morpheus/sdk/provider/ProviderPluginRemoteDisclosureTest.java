@@ -1,5 +1,6 @@
 package com.morpheus.sdk.provider;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.security.ExternalJarIntegrity;
 import com.morpheus.domain.diagnostic.Diagnostic;
 import com.morpheus.domain.diagnostic.DiagnosticCode;
@@ -253,7 +254,7 @@ class ProviderPluginRemoteDisclosureTest {
         Path jar = pluginDirectory.resolve("metadata-only.jar");
         writeMetadataOnlyJar(jar);
 
-        ProviderPluginProbeOutcome outcome = new ProviderPluginService()
+        ProviderPluginProbeOutcome outcome = new ProviderPluginService(OperationalRecorder.noop())
                 .probe(pluginDirectory, "metadata-only", pluginDirectory, ExternalJarIntegrity.sha256(jar));
 
         assertFalse(outcome.success());
@@ -283,7 +284,7 @@ class ProviderPluginRemoteDisclosureTest {
         Path jar = pluginDirectory.resolve("metadata-only.jar");
         writeMetadataOnlyJar(jar);
 
-        ProviderPluginProbeOutcome outcome = new ProviderPluginService()
+        ProviderPluginProbeOutcome outcome = new ProviderPluginService(OperationalRecorder.noop())
                 .probe(pluginDirectory, "metadata-only", pluginDirectory, "0".repeat(64));
 
         assertFalse(outcome.success());

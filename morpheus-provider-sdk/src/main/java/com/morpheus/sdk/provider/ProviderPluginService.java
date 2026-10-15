@@ -1,5 +1,6 @@
 package com.morpheus.sdk.provider;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.security.ExternalJarIntegrity;
 import com.morpheus.domain.provider.ProviderProbeResult;
 
@@ -16,12 +17,12 @@ public final class ProviderPluginService {
     private final ProviderPluginActivator activator;
     private final ProviderPluginProbeProcess probeProcess;
 
-    public ProviderPluginService() {
-        this(new ProviderPluginDiscovery(), new ProviderPluginActivator(), new ProviderPluginProbeProcess());
-    }
-
-    ProviderPluginService(ProviderPluginDiscovery discovery, ProviderPluginActivator activator) {
-        this(discovery, activator, new ProviderPluginProbeProcess());
+    /**
+     * @param recorder counts what the clean-up of a probe sets aside - a process that could not be listed or
+     *        signalled, a staging directory that could not be deleted. The adapter passes the recorder of its process.
+     */
+    public ProviderPluginService(OperationalRecorder recorder) {
+        this(new ProviderPluginDiscovery(), new ProviderPluginActivator(), new ProviderPluginProbeProcess(recorder));
     }
 
     ProviderPluginService(

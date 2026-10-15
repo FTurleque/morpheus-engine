@@ -37,8 +37,26 @@ public enum SuppressedFailureFamily {
     MCP_PEER("mcp-peer", OperationalEventLevel.WARNING),
     /** An MCP peer could not be closed or aborted cleanly; its process may outlive the operation that started it. */
     MCP_PEER_SHUTDOWN("mcp-peer-shutdown", OperationalEventLevel.WARNING),
-    /** The verified copy of a pinned JAR could not be deleted after use and remains on disk. */
+    /**
+     * The descendants of a live MCP peer process could not be listed on one observation. A process the peer started
+     * meanwhile may never be retained, and so may not be terminated with the peer.
+     */
+    MCP_PEER_PROCESS_TREE("mcp-peer-process-tree", OperationalEventLevel.WARNING),
+    /**
+     * Something MORPHEUS staged in the temporary directory could not be deleted after use and remains on disk: the
+     * verified copy of a pinned JAR, or the private directory a plugin probe returns its result through.
+     */
     STAGED_ARTIFACT_CLEANUP("staged-artifact-cleanup", OperationalEventLevel.WARNING),
+    /**
+     * The descendants of a process of a plugin probe could not be listed on one observation. A process the plugin
+     * started meanwhile may never be retained, and so may not be terminated when the probe ends.
+     */
+    PLUGIN_PROBE_PROCESS_TREE("plugin-probe-process-tree", OperationalEventLevel.WARNING),
+    /**
+     * A live process of a plugin probe - the worker or a descendant observed under it - could not be signalled to
+     * terminate. It may outlive the probe that started it.
+     */
+    PLUGIN_PROBE_SHUTDOWN("plugin-probe-shutdown", OperationalEventLevel.WARNING),
 
     /**
      * The lock or the channel of a database lease could not be released or closed. The lease is reported as returned
