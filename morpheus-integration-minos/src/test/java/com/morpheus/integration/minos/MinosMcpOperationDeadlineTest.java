@@ -1,5 +1,6 @@
 package com.morpheus.integration.minos;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
@@ -23,7 +24,7 @@ class MinosMcpOperationDeadlineTest {
     void aPeerAnsweringEachCallJustUnderItsTimeoutCompletesTheOperation() {
         Duration timeout = Duration.ofSeconds(3);
         try (MinosMcpCodeGateway gateway = new MinosMcpCodeGateway(
-                javaExecutable(), serverArguments("-Dfixture.toolDelayMillis=2500"), Map.of(), timeout)) {
+                javaExecutable(), serverArguments("-Dfixture.toolDelayMillis=2500"), Map.of(), timeout, OperationalRecorder.noop())) {
             assertEquals("project-123", gateway.indexStatus("morpheus-engine").projectId());
             assertEquals(1, gateway.findSymbols("morpheus-engine", "symbol:RequirementService", 20).symbols().size());
         }
@@ -35,7 +36,7 @@ class MinosMcpOperationDeadlineTest {
         Duration operationDeadline = Duration.ofSeconds(8);
         try (MinosMcpCodeGateway gateway = new MinosMcpCodeGateway(
                 javaExecutable(), serverArguments("-Dfixture.toolDelayMillis=20000"), Map.of(), timeout,
-                operationDeadline)) {
+                operationDeadline, OperationalRecorder.noop())) {
             long started = System.nanoTime();
 
             MinosIntegrationException failure = assertThrows(
@@ -55,7 +56,7 @@ class MinosMcpOperationDeadlineTest {
         MinosIntegrationException failure = assertThrows(MinosIntegrationException.class,
                 () -> new MinosMcpCodeGateway(
                         javaExecutable(), serverArguments("-Dfixture.silent=true"), Map.of(), Duration.ofSeconds(30),
-                        Duration.ofSeconds(4)));
+                        Duration.ofSeconds(4), OperationalRecorder.noop()));
 
         Duration waited = Duration.ofNanos(System.nanoTime() - started);
         assertEquals("MINOS MCP operation exceeded its 4000 ms deadline", failure.getMessage());
@@ -68,7 +69,7 @@ class MinosMcpOperationDeadlineTest {
         MinosIntegrationException failure = assertThrows(MinosIntegrationException.class,
                 () -> new MinosMcpCodeGateway(
                         javaExecutable(), serverArguments("-Dfixture.exitAtStart=true"), Map.of(),
-                        Duration.ofSeconds(3)));
+                        Duration.ofSeconds(3), OperationalRecorder.noop()));
 
         assertEquals("cannot start or initialize MINOS MCP server", failure.getMessage());
     }
@@ -76,7 +77,7 @@ class MinosMcpOperationDeadlineTest {
     @Test
     void aPeerThatDiesDuringACallIsACallFailureNotADeadline() {
         try (MinosMcpCodeGateway gateway = new MinosMcpCodeGateway(
-                javaExecutable(), serverArguments("-Dfixture.exitOnCall=true"), Map.of(), Duration.ofSeconds(5))) {
+                javaExecutable(), serverArguments("-Dfixture.exitOnCall=true"), Map.of(), Duration.ofSeconds(5), OperationalRecorder.noop())) {
             MinosIntegrationException failure = assertThrows(
                     MinosIntegrationException.class, () -> gateway.indexStatus("morpheus-engine"));
 

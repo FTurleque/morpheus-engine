@@ -238,13 +238,13 @@ public final class MorpheusCli {
         try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath(), recorder)) {
             Path workspace = projectWorkspace(runtime, projectId);
             Instant attemptedAt = Instant.now();
-            var scan = new LocalSourceInventoryScanner().scan(
+            var scan = new LocalSourceInventoryScanner(recorder).scan(
                     workspace,
                     projectId,
                     revision,
                     attemptedAt,
                     List.of(Path.of("openspec")));
-            IncrementalSyncService syncService = new IncrementalSyncService(runtime.syncState());
+            IncrementalSyncService syncService = new IncrementalSyncService(runtime.syncState(), recorder);
             SyncPlan.Trigger trigger = SyncPlan.Trigger.manual();
             if (force || runtime.snapshots().activeSnapshot(projectId).isEmpty()) {
                 trigger = trigger.forced();

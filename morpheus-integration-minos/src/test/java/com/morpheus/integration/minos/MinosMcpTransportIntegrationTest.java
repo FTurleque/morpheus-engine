@@ -1,5 +1,6 @@
 package com.morpheus.integration.minos;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
@@ -20,7 +21,7 @@ class MinosMcpTransportIntegrationTest {
         List<String> arguments = serverArguments();
 
         try (MinosMcpCodeGateway gateway = new MinosMcpCodeGateway(
-                javaExecutable, arguments, Map.of(), Duration.ofSeconds(10))) {
+                javaExecutable, arguments, Map.of(), Duration.ofSeconds(10), OperationalRecorder.noop())) {
             MinosCodeGateway.IndexStatus status = gateway.indexStatus("morpheus-engine");
             assertEquals("project-123", status.projectId());
             assertEquals("snapshot-abc", status.activeSnapshotId());
@@ -41,7 +42,7 @@ class MinosMcpTransportIntegrationTest {
     @Test
     void rejectsSymbolPayloadThatExceedsRequestedLimit() {
         try (MinosMcpCodeGateway gateway = new MinosMcpCodeGateway(
-                javaExecutable(), serverArguments(), Map.of(), Duration.ofSeconds(10))) {
+                javaExecutable(), serverArguments(), Map.of(), Duration.ofSeconds(10), OperationalRecorder.noop())) {
             assertThrows(MinosIntegrationException.class,
                     () -> gateway.findSymbols("morpheus-engine", "fixture:too-many", 1));
         }

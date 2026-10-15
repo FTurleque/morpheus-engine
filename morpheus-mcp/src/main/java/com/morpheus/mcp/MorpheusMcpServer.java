@@ -119,7 +119,7 @@ public final class MorpheusMcpServer {
         Objects.requireNonNull(writeCapabilityResolver, "writeCapabilityResolver");
         Objects.requireNonNull(transport, "transport");
         try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath, recorder)) {
-            new RuntimeSnapshotRecovery(runtime.snapshots()).recoverAll(Instant.now());
+            new RuntimeSnapshotRecovery(runtime.snapshots(), recorder).recoverAll(Instant.now());
         }
         List<McpServerFeatures.SyncToolSpecification> tools = toolSpecifications(
                 databasePath, resolverRegistry, technicalContextProvider, writeCapabilityResolver, recorder);

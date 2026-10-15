@@ -54,7 +54,7 @@ final class CliRuntime implements AutoCloseable {
     static CliRuntime recovering(Path databasePath, OperationalRecorder recorder) {
         try (StartupOwnership owned = new StartupOwnership()) {
             CliRuntime runtime = owned.keep(open(databasePath, recorder), CliRuntime::close);
-            new RuntimeSnapshotRecovery(runtime.snapshots()).recoverAll(Instant.now());
+            new RuntimeSnapshotRecovery(runtime.snapshots(), recorder).recoverAll(Instant.now());
             owned.transferred();
             return runtime;
         }

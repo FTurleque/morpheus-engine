@@ -5,7 +5,6 @@ import com.morpheus.application.ingestion.BoundedDiagnostics;
 import com.morpheus.application.ingestion.ObservedProjectSnapshotPublisher;
 import com.morpheus.application.ingestion.ProjectSnapshotImportResult;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
-import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.application.sync.IncrementalSyncService;
@@ -50,13 +49,13 @@ final class MorpheusProjectSyncApiService {
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             Path workspace = projectWorkspace(runtime, projectId);
             Instant attemptedAt = Instant.now();
-            var scan = new LocalSourceInventoryScanner().scan(
+            var scan = new LocalSourceInventoryScanner(recorder).scan(
                     workspace,
                     projectId,
                     normalizedRevision,
                     attemptedAt,
                     List.of(Path.of("openspec")));
-            IncrementalSyncService syncService = new IncrementalSyncService(runtime.syncState());
+            IncrementalSyncService syncService = new IncrementalSyncService(runtime.syncState(), recorder);
             SyncPlan plan = syncService.prepare(scan, SyncPlan.Trigger.manual().forced(), attemptedAt);
             if (!scan.complete()) {
                 syncService.fail(plan, Instant.now());
@@ -77,7 +76,7 @@ final class MorpheusProjectSyncApiService {
                                 runtime.requirements(),
                                 runtime.content(),
                                 runtime.traceability()),
-                        LocalOperationalRuntime.recorder())
+                        recorder)
                         .publishFull(normalized, normalizedRevision, Instant.now());
                 syncService.complete(plan, Instant.now());
                 return map(

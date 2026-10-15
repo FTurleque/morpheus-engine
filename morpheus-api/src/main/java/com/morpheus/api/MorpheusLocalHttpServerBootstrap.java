@@ -172,7 +172,7 @@ final class MorpheusLocalHttpServerBootstrap {
         var bindAddress = LoopbackHostPolicy.requireLoopbackAddress(host);
         String normalizedHost = bindAddress.getHostAddress();
         try (ApiRuntime recovery = new ApiRuntime(databasePath, recorder)) {
-            new RuntimeSnapshotRecovery(recovery.snapshots()).recoverAll(Instant.now());
+            new RuntimeSnapshotRecovery(recovery.snapshots(), recorder).recoverAll(Instant.now());
         }
 
         // HttpServer.create binds the socket, and everything after it can fail -- notably the API services, which

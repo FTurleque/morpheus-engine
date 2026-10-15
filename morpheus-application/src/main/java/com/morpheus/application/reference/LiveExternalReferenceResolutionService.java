@@ -1,5 +1,7 @@
 package com.morpheus.application.reference;
 
+import com.morpheus.application.operability.OperationalExecution;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.store.ExternalReferenceStore;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.SpecificationKnowledgeStore;
@@ -26,12 +28,14 @@ public final class LiveExternalReferenceResolutionService {
             SpecificationKnowledgeStore snapshotStore,
             ExternalReferenceStore referenceStore,
             ExternalReferenceResolverRegistry resolverRegistry,
-            Clock clock) {
+            Clock clock,
+            OperationalRecorder recorder) {
         this.snapshotStore = Objects.requireNonNull(snapshotStore, "snapshotStore");
         this.referenceStore = Objects.requireNonNull(referenceStore, "referenceStore");
         this.resolutionService = new ExternalReferenceResolutionService(
                 Objects.requireNonNull(resolverRegistry, "resolverRegistry"),
-                Objects.requireNonNull(clock, "clock"));
+                Objects.requireNonNull(clock, "clock"),
+                new OperationalExecution(Objects.requireNonNull(recorder, "recorder")));
     }
 
     public Optional<List<ExternalReference>> listActive(

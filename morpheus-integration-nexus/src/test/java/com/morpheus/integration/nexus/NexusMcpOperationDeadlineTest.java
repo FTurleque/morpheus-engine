@@ -1,5 +1,6 @@
 package com.morpheus.integration.nexus;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
@@ -23,7 +24,7 @@ class NexusMcpOperationDeadlineTest {
     void aPeerAnsweringEachCallJustUnderItsTimeoutCompletesTheOperation() {
         Duration timeout = Duration.ofSeconds(3);
         try (NexusMcpContextGateway gateway = new NexusMcpContextGateway(
-                javaExecutable(), serverArguments("-Dfixture.toolDelayMillis=2500"), Map.of(), timeout)) {
+                javaExecutable(), serverArguments("-Dfixture.toolDelayMillis=2500"), Map.of(), timeout, OperationalRecorder.noop())) {
             assertEquals("morpheus-engine", gateway.listProjects().getFirst().name());
         }
     }
@@ -34,7 +35,7 @@ class NexusMcpOperationDeadlineTest {
         Duration operationDeadline = Duration.ofSeconds(8);
         try (NexusMcpContextGateway gateway = new NexusMcpContextGateway(
                 javaExecutable(), serverArguments("-Dfixture.toolDelayMillis=20000"), Map.of(), timeout,
-                operationDeadline)) {
+                operationDeadline, OperationalRecorder.noop())) {
             long started = System.nanoTime();
 
             NexusIntegrationException failure = assertThrows(
@@ -54,7 +55,7 @@ class NexusMcpOperationDeadlineTest {
         NexusIntegrationException failure = assertThrows(NexusIntegrationException.class,
                 () -> new NexusMcpContextGateway(
                         javaExecutable(), serverArguments("-Dfixture.silent=true"), Map.of(), Duration.ofSeconds(30),
-                        Duration.ofSeconds(4)));
+                        Duration.ofSeconds(4), OperationalRecorder.noop()));
 
         Duration waited = Duration.ofNanos(System.nanoTime() - started);
         assertEquals("NEXUS MCP operation exceeded its 4000 ms deadline", failure.getMessage());
@@ -67,7 +68,7 @@ class NexusMcpOperationDeadlineTest {
         NexusIntegrationException failure = assertThrows(NexusIntegrationException.class,
                 () -> new NexusMcpContextGateway(
                         javaExecutable(), serverArguments("-Dfixture.exitAtStart=true"), Map.of(),
-                        Duration.ofSeconds(3)));
+                        Duration.ofSeconds(3), OperationalRecorder.noop()));
 
         assertEquals("cannot start or initialize NEXUS MCP server", failure.getMessage());
     }
@@ -75,7 +76,7 @@ class NexusMcpOperationDeadlineTest {
     @Test
     void aPeerThatDiesDuringACallIsACallFailureNotADeadline() {
         try (NexusMcpContextGateway gateway = new NexusMcpContextGateway(
-                javaExecutable(), serverArguments("-Dfixture.exitOnCall=true"), Map.of(), Duration.ofSeconds(5))) {
+                javaExecutable(), serverArguments("-Dfixture.exitOnCall=true"), Map.of(), Duration.ofSeconds(5), OperationalRecorder.noop())) {
             NexusIntegrationException failure = assertThrows(NexusIntegrationException.class, gateway::listProjects);
 
             assertTrue(failure.getMessage().startsWith("NEXUS MCP call failed: "), failure.getMessage());

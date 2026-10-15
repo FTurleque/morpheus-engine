@@ -4,6 +4,7 @@ import com.morpheus.application.context.AugmentedContextResult;
 import com.morpheus.application.context.AugmentedContextService;
 import com.morpheus.application.context.TechnicalContextOptions;
 import com.morpheus.application.context.TechnicalContextProvider;
+import com.morpheus.application.operability.OperationalExecution;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
@@ -101,7 +102,7 @@ final class MorpheusAugmentedContextCli {
                     runtime.requirements(),
                     runtime.traceability(),
                     runtime.externalReferences(),
-                    provider);
+                    provider, new OperationalExecution(recorder));
             AugmentedContextResult result = switch (subject) {
                 case "requirement" -> service.requirement(
                                 projectId,

@@ -24,7 +24,7 @@ class SyncReliabilityFallbackTest {
         SourceInventory baseline = inventory(projectId, "revision-9", T0, "same");
         StubStore store = StubStore.consistent(baseline);
 
-        SyncPlan plan = new IncrementalSyncService(store).prepare(
+        SyncPlan plan = new IncrementalSyncService(store, OperationalRecorder.noop()).prepare(
                 SourceInventoryScanResult.complete(inventory(projectId, "revision-1", T0.plusSeconds(1), "same")),
                 SyncPlan.Trigger.manual(),
                 T0.plusSeconds(2));
@@ -50,7 +50,7 @@ class SyncReliabilityFallbackTest {
                         1L)),
                 Optional.of(baseline));
 
-        SyncPlan plan = new IncrementalSyncService(store).prepare(
+        SyncPlan plan = new IncrementalSyncService(store, OperationalRecorder.noop()).prepare(
                 SourceInventoryScanResult.complete(inventory(projectId, "r2", T0.plusSeconds(1), "same")),
                 SyncPlan.Trigger.manual(),
                 T0.plusSeconds(2));
@@ -63,7 +63,7 @@ class SyncReliabilityFallbackTest {
     void committedStateThatThrowsAfterCommitIsReconciledAsSuccess() {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         StubStore store = new StubStore(Optional.empty(), Optional.empty());
-        IncrementalSyncService service = new IncrementalSyncService(store);
+        IncrementalSyncService service = new IncrementalSyncService(store, OperationalRecorder.noop());
         SourceInventory current = inventory(projectId, "r1", T0, "content");
         SyncPlan plan = service.prepare(
                 SourceInventoryScanResult.complete(current),
@@ -82,7 +82,7 @@ class SyncReliabilityFallbackTest {
     void transientPostPublicationStateFailureIsRetriedOnce() {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         StubStore store = new StubStore(Optional.empty(), Optional.empty());
-        IncrementalSyncService service = new IncrementalSyncService(store);
+        IncrementalSyncService service = new IncrementalSyncService(store, OperationalRecorder.noop());
         SourceInventory current = inventory(projectId, "r1", T0, "content");
         SyncPlan plan = service.prepare(
                 SourceInventoryScanResult.complete(current),
@@ -101,7 +101,7 @@ class SyncReliabilityFallbackTest {
     void repeatedPostPublicationStateFailureSignalsBaselineInconsistentInsteadOfExecutionFailed() {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         StubStore store = new StubStore(Optional.empty(), Optional.empty());
-        IncrementalSyncService service = new IncrementalSyncService(store);
+        IncrementalSyncService service = new IncrementalSyncService(store, OperationalRecorder.noop());
         SourceInventory current = inventory(projectId, "r1", T0, "content");
         SyncPlan plan = service.prepare(
                 SourceInventoryScanResult.complete(current),
@@ -130,7 +130,7 @@ class SyncReliabilityFallbackTest {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         SourceInventory baseline = inventory(projectId, "r1", T0, "same");
         StubStore store = StubStore.consistent(baseline);
-        IncrementalSyncService service = new IncrementalSyncService(store);
+        IncrementalSyncService service = new IncrementalSyncService(store, OperationalRecorder.noop());
         SourceInventory current = inventory(projectId, "r1", T0.plusSeconds(1), "same");
         SyncPlan plan = service.prepare(
                 SourceInventoryScanResult.complete(current),
@@ -146,7 +146,7 @@ class SyncReliabilityFallbackTest {
     void failPreservesScanIncompleteReason() {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         StubStore store = new StubStore(Optional.empty(), Optional.empty());
-        IncrementalSyncService service = new IncrementalSyncService(store);
+        IncrementalSyncService service = new IncrementalSyncService(store, OperationalRecorder.noop());
         SyncPlan plan = service.prepare(
                 SourceInventoryScanResult.incomplete(
                         projectId,

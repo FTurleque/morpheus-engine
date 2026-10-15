@@ -3,6 +3,7 @@ package com.morpheus.integration.nexus;
 import com.morpheus.application.context.TechnicalContextObservation;
 import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.context.TechnicalContextRequest;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
 
 import java.util.LinkedHashMap;
@@ -16,8 +17,8 @@ public final class NexusMcpTechnicalContextProvider implements TechnicalContextP
     private final NexusIntegrationSettings settings;
     private final NexusContextGatewayFactory gateways;
 
-    public NexusMcpTechnicalContextProvider(NexusIntegrationSettings settings) {
-        this(settings, () -> new NexusMcpContextGateway(settings));
+    public NexusMcpTechnicalContextProvider(NexusIntegrationSettings settings, OperationalRecorder recorder) {
+        this(settings, () -> new NexusMcpContextGateway(settings, Objects.requireNonNull(recorder, "recorder")));
     }
 
     NexusMcpTechnicalContextProvider(NexusIntegrationSettings settings, NexusContextGatewayFactory gateways) {

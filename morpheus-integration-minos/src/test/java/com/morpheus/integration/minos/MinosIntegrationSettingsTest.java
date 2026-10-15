@@ -1,5 +1,6 @@
 package com.morpheus.integration.minos;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -77,7 +78,7 @@ class MinosIntegrationSettingsTest {
 
         MinosIntegrationException failure = assertThrows(
                 MinosIntegrationException.class,
-                () -> new MinosMcpCodeGateway(settings));
+                () -> new MinosMcpCodeGateway(settings, OperationalRecorder.noop()));
 
         assertFalse(failure.getMessage().contains("integrity verification"), failure.getMessage());
         assertTrue(failure.getMessage().startsWith("cannot start or initialize MINOS MCP server")
@@ -102,7 +103,7 @@ class MinosIntegrationSettingsTest {
         Files.writeString(jar, "substituted-content");
         MinosIntegrationException failure = assertThrows(
                 MinosIntegrationException.class,
-                () -> new MinosMcpCodeGateway(settings));
+                () -> new MinosMcpCodeGateway(settings, OperationalRecorder.noop()));
         assertTrue(failure.getMessage().contains("immediately before launch"));
     }
 

@@ -136,8 +136,8 @@ public final class MorpheusMain {
         if (MorpheusServerCli.handles(args)) {
             return new MorpheusServerCli().run(args, out, err, environment, properties);
         }
-        MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
-        NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties);
+        MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties, runtime.recorder());
+        NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties, runtime.recorder());
         int exitCode;
         if (MorpheusPolicyCli.handles(args)) {
             exitCode = new MorpheusPolicyCli(runtime.recorder()).run(args, out, err, environment, properties);
@@ -280,8 +280,8 @@ public final class MorpheusMain {
             Properties properties) {
         try {
             McpLaunchOptions options = McpLaunchOptions.parse(args, environment, properties);
-            MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
-            NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties);
+            MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties, runtime.recorder());
+            NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties, runtime.recorder());
             return MorpheusMcpServer.run(
                     options.layout().databasePath(),
                     minos.resolverRegistry(),
@@ -305,8 +305,8 @@ public final class MorpheusMain {
             Properties properties) {
         try {
             ApiLaunchOptions options = ApiLaunchOptions.parse(args, environment, properties);
-            MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
-            NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties);
+            MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties, runtime.recorder());
+            NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties, runtime.recorder());
             try (MorpheusHttpServer server = MorpheusHttpServer.start(
                     options.layout().databasePath(),
                     options.host(),
@@ -336,8 +336,8 @@ public final class MorpheusMain {
             Properties properties) {
         try {
             RemoteApiLaunchOptions options = RemoteApiLaunchOptions.parse(args, environment, properties);
-            MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
-            NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties);
+            MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties, runtime.recorder());
+            NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties, runtime.recorder());
             try (MorpheusRemoteHttpServer server = startRemoteServer(options, minos, nexus, runtime)) {
                 err.println("MORPHEUS remote HTTPS API listening on " + server.baseUri());
                 return waitUntilInterrupted();

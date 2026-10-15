@@ -1,7 +1,6 @@
 package com.morpheus.application.context;
 
 import com.morpheus.application.query.ChangeContextQueryService;
-import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.operability.OperationalExecution;
 import com.morpheus.application.store.ExternalReferenceStore;
 import com.morpheus.application.store.KnowledgeStoreException;
@@ -34,17 +33,6 @@ public final class AugmentedContextService {
     private final ChangeContextQueryService changeContextService;
     private final TechnicalContextProvider provider;
     private final OperationalExecution execution;
-
-    public AugmentedContextService(
-            SpecificationKnowledgeStore snapshotStore,
-            SnapshotBusinessContentStore contentStore,
-            VersionedRequirementStore requirementStore,
-            TraceabilityStore traceabilityStore,
-            ExternalReferenceStore externalReferenceStore,
-            TechnicalContextProvider provider) {
-        this(snapshotStore, contentStore, requirementStore, traceabilityStore, externalReferenceStore,
-                provider, new OperationalExecution(LocalOperationalRuntime.recorder()));
-    }
 
     public AugmentedContextService(
             SpecificationKnowledgeStore snapshotStore,

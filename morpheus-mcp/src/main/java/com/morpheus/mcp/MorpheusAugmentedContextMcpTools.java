@@ -3,6 +3,7 @@ package com.morpheus.mcp;
 import com.morpheus.application.context.AugmentedContextService;
 import com.morpheus.application.context.TechnicalContextOptions;
 import com.morpheus.application.context.TechnicalContextProvider;
+import com.morpheus.application.operability.OperationalExecution;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.security.IntegrationStatusDisclosure;
@@ -72,7 +73,7 @@ final class MorpheusAugmentedContextMcpTools {
                         runtime.requirements(),
                         runtime.traceability(),
                         runtime.externalReferences(),
-                        provider);
+                        provider, new OperationalExecution(recorder));
                 Object result = switch (toolName) {
                     case REQUIREMENT_TOOL -> service.requirement(
                                     projectId,

@@ -84,7 +84,7 @@ final class MorpheusExternalReferenceMcpTools {
                 throw new KnowledgeStoreException("project not found: " + projectId);
             }
             List<ExternalReference> references = new LiveExternalReferenceResolutionService(
-                    runtime.snapshots(), runtime.externalReferences(), resolverRegistry, Clock.systemUTC())
+                    runtime.snapshots(), runtime.externalReferences(), resolverRegistry, Clock.systemUTC(), recorder)
                     .listActive(projectId, ownerId)
                     .orElseThrow(() -> new KnowledgeStoreException("project has no ACTIVE snapshot: " + projectId));
             return json.toJson(Map.of(
@@ -102,7 +102,7 @@ final class MorpheusExternalReferenceMcpTools {
                 throw new KnowledgeStoreException("project not found: " + projectId);
             }
             var result = new LiveExternalReferenceResolutionService(
-                    runtime.snapshots(), runtime.externalReferences(), resolverRegistry, Clock.systemUTC())
+                    runtime.snapshots(), runtime.externalReferences(), resolverRegistry, Clock.systemUTC(), recorder)
                     .resolveActive(projectId, referenceId)
                     .orElseThrow(() -> new KnowledgeStoreException("project has no ACTIVE snapshot: " + projectId));
             Map<String, Object> view = new LinkedHashMap<>();

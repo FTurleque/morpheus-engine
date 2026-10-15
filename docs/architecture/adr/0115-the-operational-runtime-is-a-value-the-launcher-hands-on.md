@@ -157,3 +157,31 @@ La conséquence « les compteurs statiques de `SqliteConnectionScope` sont le pr
   `SqliteConnectionScope.diagnostics(` ni `SqliteConnectionScope.Diagnostics` ; `SqliteConnectionScope` et ses classes
   imbriquées ne déclarent aucun champ statique hors constantes `String`, le `ThreadLocal` de la portée et
   `serialVersionUID`. Cassées le 15/10/2026 (une mention dans un test, un `AtomicLong` statique planté), puis rétablies.
+
+## Second amendement du 15 octobre 2026 — les troncs reçoivent le runtime ; le store passe en parallèle (AUD-QUA-13)
+
+- **Les troncs API, MCP et d'intégration prennent le recorder de leur point d'entrée.** Le lanceur remet le runtime du
+  processus aux serveurs et aux commandes ; ceux-ci le remettent à leurs services, outils, routeurs
+  (`UnforeseenFailureTrace.record(recorder, échec)` n'a plus d'état), au journal d'accès remote, à la readiness, au
+  raisonnement, à la synchronisation (`IncrementalSyncService`, `LocalSourceInventoryScanner`, publication observée), à
+  la récupération des instantanés (`RuntimeSnapshotRecovery`), au contexte augmenté et à la résolution des références
+  externes, et aux intégrations MINOS et NEXUS (`MinosIntegrationRuntime.resolve`, `NexusIntegrationRuntime`, leurs
+  passerelles, dont le lancement porte le recorder). Les constructeurs de commodité qui lisaient le défaut sont
+  supprimés, sans surcharge de compatibilité : les tests passent le leur, ou `OperationalRecorder.noop()` quand ils
+  n'observent rien.
+- **`MAIN_USERS` passe de 20 à 6**, chacun motivé dans `StaticOperationalRuntimeUsersArchitectureTest` : les deux
+  points d'entrée (`MorpheusMain`, `MorpheusCli`), le binding SLF4J (décision 6), le défaut d'une connexion ouverte
+  hors portée (`SqliteContentionMetrics`), le bail par base (`SqliteDatabaseLease`), et `ExternalJarIntegrity`, dont
+  la mise en quarantaine d'un JAR épinglé sert aussi l'activateur de plugins, exécuté dans la JVM du worker de sonde
+  et dans le service de plugins, qui n'ont pas de runtime à lui remettre.
+- **La décision 4 n'est plus vraie qu'à moitié.** Le lanceur ne construit toujours pas de second runtime : il prend
+  celui du processus. Mais un serveur HTTP démarré sans runtime en construit un à lui, servi par sa route `metrics` ;
+  c'est ce qui rend `UnforeseenFailureTraceTest` indépendant de l'état du processus — il lit désormais des valeurs
+  absolues (0, puis 2) au lieu d'une différence (`before + 2`).
+- **Le parallélisme JUnit est activé pour `morpheus-store-sqlite` seul**, par un `junit-platform.properties` versionné
+  dans ses ressources de test (méthodes et classes concurrentes). Mesuré avant : quatre exécutions de ses 210 tests
+  (209 exécutés, 1 ignoré) en parallèle, **zéro échec** sur les quatre, là où le 13/10/2026 deux exécutions en
+  donnaient deux puis quatre, tous sur `diagnostics()`. Les autres modules restent séquentiels : le pilote compteur
+  (`PhysicalSqliteConnections`) de `morpheus-api`, `morpheus-cli` et `morpheus-mcp`, `java.home` et
+  `Locale.setDefault` (tableau ci-dessus) y partagent encore un état de la JVM ; quatre exécutions propres ne prouvent
+  pas l'absence d'un autre défaut, et un test qui lit un statique du processus casse ce module.

@@ -1,5 +1,6 @@
 package com.morpheus.architecture;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.reference.ExternalReferenceResolver;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.application.reference.ExternalReferenceResolverResult;
@@ -110,7 +111,7 @@ class LiveExternalReferenceResolutionContractTest {
             }
         };
         return new LiveExternalReferenceResolutionService(
-                snapshots, references, new ExternalReferenceResolverRegistry(List.of(resolver)), CLOCK);
+                snapshots, references, new ExternalReferenceResolverRegistry(List.of(resolver)), CLOCK, OperationalRecorder.noop());
     }
 
     private ExternalReference reference(DomainIdentity ownerId) {

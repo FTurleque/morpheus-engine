@@ -1,5 +1,6 @@
 package com.morpheus.integration.nexus;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -76,7 +77,7 @@ class NexusIntegrationSettingsTest {
 
         NexusIntegrationException failure = assertThrows(
                 NexusIntegrationException.class,
-                () -> new NexusMcpContextGateway(settings));
+                () -> new NexusMcpContextGateway(settings, OperationalRecorder.noop()));
 
         assertFalse(failure.getMessage().contains("integrity verification"), failure.getMessage());
         assertTrue(failure.getMessage().startsWith("cannot start or initialize NEXUS MCP server")
@@ -101,7 +102,7 @@ class NexusIntegrationSettingsTest {
         Files.writeString(jar, "substituted-content");
         NexusIntegrationException failure = assertThrows(
                 NexusIntegrationException.class,
-                () -> new NexusMcpContextGateway(settings));
+                () -> new NexusMcpContextGateway(settings, OperationalRecorder.noop()));
         assertTrue(failure.getMessage().contains("immediately before launch"));
     }
 

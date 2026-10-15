@@ -43,7 +43,7 @@ class SourceSynchronizationCoreTest {
         Files.writeString(specs.resolve("a.md"), "alpha");
         Files.writeString(tempDir.resolve("other/b.md"), "ignored");
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
-        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner();
+        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(OperationalRecorder.noop());
 
         SourceInventory first = scanner.scan(
                         tempDir, projectId, Optional.of("rev-1"), T0, List.of(Path.of("specs")))
@@ -62,7 +62,7 @@ class SourceSynchronizationCoreTest {
     @Test
     void missingSourceRootProducesIncompleteScanInsteadOfPartialBaseline() {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
-        SourceInventoryScanResult result = new LocalSourceInventoryScanner().scan(
+        SourceInventoryScanResult result = new LocalSourceInventoryScanner(OperationalRecorder.noop()).scan(
                 tempDir, projectId, Optional.empty(), T0, List.of(Path.of("missing")));
         assertFalse(result.complete());
         assertTrue(result.inventory().isEmpty());
@@ -109,7 +109,7 @@ class SourceSynchronizationCoreTest {
     void firstSynchronizationRequiresFullRebuildThenEstablishesBaseline() {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         FakeSyncStateStore store = new FakeSyncStateStore();
-        IncrementalSyncService service = new IncrementalSyncService(store);
+        IncrementalSyncService service = new IncrementalSyncService(store, OperationalRecorder.noop());
         SourceInventory current = inventory(projectId, "r1", T0, entry("a.md", "a"));
 
         SyncPlan plan = service.prepare(SourceInventoryScanResult.complete(current), SyncPlan.Trigger.startup(), T0.plusSeconds(1));
@@ -129,7 +129,7 @@ class SourceSynchronizationCoreTest {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         FakeSyncStateStore store = seededStore(inventory(projectId, "r1", T0,
                 entry("move-old.md", "m"), entry("edit.md", "old"), entry("delete.md", "d")));
-        IncrementalSyncService service = new IncrementalSyncService(store);
+        IncrementalSyncService service = new IncrementalSyncService(store, OperationalRecorder.noop());
         SourceInventory current = inventory(projectId, "r2", T0.plusSeconds(10),
                 entry("move-new.md", "m"), entry("edit.md", "new"), entry("add.md", "a"));
 
@@ -150,7 +150,7 @@ class SourceSynchronizationCoreTest {
     void sameRevisionWithChangedInventoryForcesFullRebuild() {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         FakeSyncStateStore store = seededStore(inventory(projectId, "same-revision", T0, entry("a.md", "old")));
-        SyncPlan plan = new IncrementalSyncService(store).prepare(
+        SyncPlan plan = new IncrementalSyncService(store, OperationalRecorder.noop()).prepare(
                 SourceInventoryScanResult.complete(inventory(projectId, "same-revision", T0.plusSeconds(1), entry("a.md", "new"))),
                 SyncPlan.Trigger.manual(), T0.plusSeconds(2));
         assertEquals(SyncPlan.SyncMode.FULL_REBUILD, plan.mode());
@@ -161,7 +161,7 @@ class SourceSynchronizationCoreTest {
     void losingPreviouslyAvailableRevisionForcesFullRebuild() {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         FakeSyncStateStore store = seededStore(inventory(projectId, "r1", T0, entry("a.md", "same")));
-        SyncPlan plan = new IncrementalSyncService(store).prepare(
+        SyncPlan plan = new IncrementalSyncService(store, OperationalRecorder.noop()).prepare(
                 SourceInventoryScanResult.complete(new SourceInventory(
                         projectId, Optional.empty(), T0.plusSeconds(1), List.of(entry("a.md", "same")))),
                 SyncPlan.Trigger.manual(), T0.plusSeconds(2));
@@ -175,13 +175,13 @@ class SourceSynchronizationCoreTest {
                 entry("a.md", "dup"), entry("b.md", "dup"));
 
         FakeSyncStateStore overflowStore = seededStore(baseline);
-        SyncPlan overflow = new IncrementalSyncService(overflowStore).prepare(
+        SyncPlan overflow = new IncrementalSyncService(overflowStore, OperationalRecorder.noop()).prepare(
                 SourceInventoryScanResult.complete(inventory(projectId, "r2", T0.plusSeconds(1), entry("a.md", "dup"), entry("b.md", "dup"))),
                 SyncPlan.Trigger.watcher(List.of(SourceWatchSignal.overflow())), T0.plusSeconds(2));
         assertEquals(SyncPlan.FullRebuildReason.WATCH_OVERFLOW, overflow.fullRebuildReason().orElseThrow());
 
         FakeSyncStateStore incompleteStore = seededStore(baseline);
-        SyncPlan incomplete = new IncrementalSyncService(incompleteStore).prepare(
+        SyncPlan incomplete = new IncrementalSyncService(incompleteStore, OperationalRecorder.noop()).prepare(
                 SourceInventoryScanResult.incomplete(projectId, List.of(new SourceInventoryScanResult.Failure(
                         Optional.empty(),
                         SourceInventoryScanResult.Failure.Code.SOURCE_UNREADABLE,
@@ -190,7 +190,7 @@ class SourceSynchronizationCoreTest {
         assertEquals(SyncPlan.FullRebuildReason.SCAN_INCOMPLETE, incomplete.fullRebuildReason().orElseThrow());
 
         FakeSyncStateStore ambiguousStore = seededStore(baseline);
-        SyncPlan ambiguous = new IncrementalSyncService(ambiguousStore).prepare(
+        SyncPlan ambiguous = new IncrementalSyncService(ambiguousStore, OperationalRecorder.noop()).prepare(
                 SourceInventoryScanResult.complete(inventory(projectId, "r2", T0.plusSeconds(1),
                         entry("c.md", "dup"), entry("d.md", "dup"))),
                 SyncPlan.Trigger.manual(), T0.plusSeconds(2));
@@ -201,7 +201,7 @@ class SourceSynchronizationCoreTest {
     void failedExecutionLeavesPendingRebuildAndNextAttemptCannotResumeIncrementally() {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         FakeSyncStateStore store = seededStore(inventory(projectId, "r1", T0, entry("a.md", "old")));
-        IncrementalSyncService service = new IncrementalSyncService(store);
+        IncrementalSyncService service = new IncrementalSyncService(store, OperationalRecorder.noop());
         SourceInventory changed = inventory(projectId, "r2", T0.plusSeconds(1), entry("a.md", "new"));
         SyncPlan first = service.prepare(SourceInventoryScanResult.complete(changed), SyncPlan.Trigger.manual(), T0.plusSeconds(2));
         assertEquals(SyncPlan.SyncMode.INCREMENTAL, first.mode());

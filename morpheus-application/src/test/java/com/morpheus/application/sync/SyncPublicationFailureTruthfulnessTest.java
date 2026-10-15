@@ -1,5 +1,6 @@
 package com.morpheus.application.sync;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.store.SyncStateStore;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import org.junit.jupiter.api.Test;
@@ -18,7 +19,7 @@ class SyncPublicationFailureTruthfulnessTest {
     void outerFailureHandlingNeverDowngradesPossiblePublicationToExecutionFailed() {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         FaultInjectingStore store = new FaultInjectingStore();
-        IncrementalSyncService service = new IncrementalSyncService(store);
+        IncrementalSyncService service = new IncrementalSyncService(store, OperationalRecorder.noop());
         SourceInventory current = inventory(projectId, "r1", T0, "content");
         SyncPlan plan = service.prepare(
                 SourceInventoryScanResult.complete(current),

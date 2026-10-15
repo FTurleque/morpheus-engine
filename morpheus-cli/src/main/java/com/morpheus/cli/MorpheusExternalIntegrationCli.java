@@ -98,7 +98,7 @@ final class MorpheusExternalIntegrationCli {
                 throw new IllegalStateException("project not found: " + projectId);
             }
             LiveExternalReferenceResolutionService service = new LiveExternalReferenceResolutionService(
-                    runtime.snapshots(), runtime.externalReferences(), resolverRegistry, Clock.systemUTC());
+                    runtime.snapshots(), runtime.externalReferences(), resolverRegistry, Clock.systemUTC(), recorder);
             return switch (subcommand) {
                 case "list" -> list(service, projectId, options, parsed.json(), out);
                 case "resolve" -> resolve(service, projectId, options, parsed.json(), out);
