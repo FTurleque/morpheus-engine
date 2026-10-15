@@ -2,6 +2,8 @@
 
 Issu des 96 constats de `findings.md`. Trois temps : *Immédiat* (Élevées rapides et bloqueurs de release), *Court terme* (un mois), *Fond* (chantiers structurels). Les efforts sont ceux des constats : **S** < 1 j, **M** 1-3 j, **L** > 3 j.
 
+> ⚠️ **État au 13 octobre 2026 : ce plan décrit la situation du 9 octobre.** 24 constats ont été corrigés depuis, le sprint 3 est terminé et les sprints 1, 2, 4, 5 et 6 sont partiellement soldés. L'avancement réel, constat par constat, est dans `reverification-2026-10-13.md` et `sprints.md`.
+
 > **Ce document classe par urgence. `sprints.md` classe les mêmes constats par ordre d'exécution**, en 14 sprints contraints par 33 dépendances vérifiées. Les deux ne se contredisent pas, mais quand ils divergent c'est l'ordre des sprints qui s'applique : une action urgente dont le prérequis n'est pas livré ne peut pas être vérifiée. Les colonnes « Dépend de » ci-dessous sont les mêmes arêtes, exprimées entre actions de ce plan.
 
 **Les 11 Élevée ne sont pas de même nature**, et c'est la chose la plus utile à retenir de ce plan. Un seul bloque une release (`AUD-DEP-01`, aggravé par `AUD-DEP-16` et `AUD-TST-10`). Un seul est une régression de dispositif qu'une session corrige en une heure (`AUD-TST-01`). Les neuf autres sont de la dette de conception, qui ne se résorbe pas en sprint.
