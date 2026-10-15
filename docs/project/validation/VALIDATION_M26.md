@@ -1,5 +1,7 @@
 # VALIDATION M26 — Optional Team / Remote Server Mode
 
+> Note du 13/10/2026 — ce relevé cite un wrapper `.cmd` de la racine du dépôt, qui n'existe plus : `validate-m26.cmd` est remplacé par `scripts\validate.cmd m26 -Version <version>` sous Windows et `bash ./scripts/validate-m26.sh <version>` sous Linux. Le relevé n'est pas réécrit : il garde les commandes et les chemins de sa date.
+
 Statut : **PASS — qualification Windows + Linux/WSL exact-head acquise sur le même SHA**
 
 Date : 29 juillet 2026

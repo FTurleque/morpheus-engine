@@ -1,5 +1,7 @@
 # R3 — Validation MORPHEUS 1.2.0
 
+> Note du 13/10/2026 — ce relevé cite un wrapper `.cmd` de la racine du dépôt, qui n'existe plus : `validate-r3.cmd` est remplacé par `scripts\validate.cmd r3 -Version <version>` sous Windows et `bash ./scripts/validate-r3.sh <version>` sous Linux. Le relevé n'est pas réécrit : il garde les commandes et les chemins de sa date.
+
 Statut : **COMPLETE / VALIDATED / PUBLISHED**
 
 Date : 30 juillet 2026
