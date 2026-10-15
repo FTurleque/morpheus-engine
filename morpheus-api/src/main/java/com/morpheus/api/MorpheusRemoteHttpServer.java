@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 /**
  * M26 opt-in HTTPS facade for team/remote use.
@@ -39,6 +40,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     static final int MAX_PROXY_IN_FLIGHT_BYTES = 128 * 1024 * 1024;
     static final int MAX_KEYSTORE_BYTES = 4 * 1024 * 1024;
     static final Duration REQUEST_BODY_READ_TIMEOUT = Duration.ofSeconds(15);
+    static final Duration IN_FLIGHT_GRACE = Duration.ofSeconds(5);
     private static final int MAX_PROXY_RESPONSE_SLOTS = MAX_PROXY_IN_FLIGHT_BYTES / MAX_PROXY_RESPONSE_BYTES;
     private static final int MAX_REQUEST_BYTES = MorpheusHttpServer.MAX_REQUEST_BODY_BYTES;
     private static final int MAX_PRESENTED_BEARER_CHARS = 1024;
@@ -179,10 +181,25 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         ExhaustiveShutdown.releaseAll(
                 "cannot shut down the MORPHEUS remote HTTPS server",
                 () -> server.stop(0),
-                executor::shutdownNow,
+                this::finishInFlightRequests,
                 boundedResponses::close,
                 localServer::close,
                 lease::close);
+    }
+
+    /**
+     * Lets the requests already being served write their access record before the facade reports itself shut down.
+     *
+     * <p>{@code server.stop(0)} closes the connections but returns while handlers still run, and a handler journals
+     * its outcome after its exchange is closed. Interrupting them at once lost that record, and the journal could
+     * recreate its file after the caller had moved on. A handler whose connection is gone finishes quickly; one that
+     * does not within {@link #IN_FLIGHT_GRACE} is interrupted as before.</p>
+     */
+    private void finishInFlightRequests() throws InterruptedException {
+        executor.shutdown();
+        if (!executor.awaitTermination(IN_FLIGHT_GRACE.toMillis(), TimeUnit.MILLISECONDS)) {
+            executor.shutdownNow();
+        }
     }
 
     /**
