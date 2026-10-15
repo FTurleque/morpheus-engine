@@ -59,6 +59,12 @@ class GateReachabilityArchitectureTest {
     private static final Map<String, String> RELEASE_REHEARSAL_VALIDATORS =
             Map.of("validate-m20.sh", "Linux", "validate-m20.ps1", "Windows");
 
+    /** The job of the continuous-integration workflow that every pull request must pass, and its two legs. */
+    private static final String CI_VERIFY_JOB = "verify";
+    private static final List<String> CI_LEGS = List.of("Linux", "Windows");
+    private static final Pattern SCRIPT_TESTS_COMMAND = Pattern.compile(
+            "python3?\\s+(?:-\\S+\\s+)*-m\\s+unittest\\s+discover\\s+-s\\s+scripts/tests(?![A-Za-z0-9_/-])");
+
     /** What only a real release may do or say. */
     private static final List<String> REHEARSAL_MUST_NOT = List.of(
             "git push", "gh release", "actions/attest", "id-token: write", "attestations: write", "contents: write",
@@ -200,6 +206,36 @@ class GateReachabilityArchitectureTest {
                             + "' and on nothing else: any other condition can switch the rehearsal off on that "
                             + "platform");
         });
+    }
+
+    /**
+     * The scripts of {@code scripts/} are what the gates are held by, and half of them are {@code .ps1}. Their tests
+     * ran on the Linux leg only, so no machine ever ran a case against a PowerShell script. The tests of
+     * {@code scripts/tests} hold the validators and the inventory of the scripts; this holds the two steps that run
+     * them, by leg: a workflow that kept one step would still name the command.
+     */
+    @Test
+    void theScriptTestsRunOnEachLegOfTheContinuousIntegrationWorkflow() throws IOException {
+        String job = jobText(executableText(repositoryRoot().resolve(".github/workflows/ci.yml")), CI_VERIFY_JOB);
+        assertTrue(job.contains("ubuntu-latest") && job.contains("windows-latest"),
+                "the verify job of ci.yml must run on both platforms");
+
+        for (String leg : CI_LEGS) {
+            List<String> running = new ArrayList<>();
+            for (String step : job.split("\n      - ")) {
+                int run = step.indexOf("\n        run:");
+                if (run >= 0 && SCRIPT_TESTS_COMMAND.matcher(step.substring(run)).find()
+                        && step.contains("\n        if: runner.os == '" + leg + "'\n")) {
+                    running.add(step);
+                }
+            }
+            assertEquals(1, running.size(),
+                    () -> "exactly one step of the verify job of ci.yml must run the tests of scripts/tests on the "
+                            + leg + " leg, conditioned on runner.os == '" + leg + "' and on nothing else: without it "
+                            + "no machine runs the cases of that leg's interpreter");
+            assertFalse(running.get(0).contains("continue-on-error"),
+                    () -> "the step that runs the script tests on the " + leg + " leg must fail the job when they fail");
+        }
     }
 
     /** A rehearsal that could publish would be a release nobody decided, and evidence nobody should trust. */
@@ -438,7 +474,7 @@ class GateReachabilityArchitectureTest {
      */
     private static String jobText(String workflow, String job) {
         Matcher start = Pattern.compile("(?m)^  " + Pattern.quote(job) + ":\\s*$").matcher(workflow);
-        assertTrue(start.find(), () -> "the nightly workflow must declare the job " + job);
+        assertTrue(start.find(), () -> "the workflow must declare the job " + job);
         Matcher next = Pattern.compile("(?m)^  [A-Za-z0-9_-]+:\\s*$").matcher(workflow);
         int end = next.find(start.end()) ? next.start() : workflow.length();
         return workflow.substring(start.start(), end);

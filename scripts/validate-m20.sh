@@ -16,22 +16,48 @@ XDG_DATA="$XDG_ROOT/data"
 XDG_CONFIG="$XDG_ROOT/config"
 XDG_STATE="$XDG_ROOT/state"
 mkdir -p "$LOGS"
+# A run that is refused must not leave the summary of an earlier run that passed: the summary is the record a
+# reader is told to read instead of the output.
+rm -f "$OUTPUT/validation-summary.txt" "$OUTPUT/failure-summary.txt"
 cd "$REPO"
 
 VALIDATION_TAG=""
+SHA=""
+CURRENT_STAGE=""
+FAILURE=""
+
+# The record of a refused run, as validate-m20.ps1 leaves one: without it a failed rehearsal on Linux left nothing
+# under validation-output but logs, and its cause was only in the output of the job.
+failure_summary() {
+  {
+    echo 'M20 LINUX VALIDATION FAILURE'
+    echo "Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [[ -n "$SHA" ]]; then echo "SHA:       $SHA"; fi
+    if [[ -n "$CURRENT_STAGE" ]]; then echo "Stage:     $CURRENT_STAGE"; fi
+    echo "Error:     $1"
+  } > "$OUTPUT/failure-summary.txt"
+  echo "Failure summary: $OUTPUT/failure-summary.txt" >&2
+}
+
 cleanup() {
+  local code=$?
   rm -rf "$XDG_ROOT"
   if [[ -n "$VALIDATION_TAG" ]]; then
     git tag -d "$VALIDATION_TAG" >/dev/null 2>&1 || true
+  fi
+  if (( code != 0 )); then
+    failure_summary "${FAILURE:-stage failed with exit code $code}"
   fi
 }
 trap cleanup EXIT
 
 section() {
+  CURRENT_STAGE="$1"
   printf '\n%s\n%s\n%s\n' '==============================================================================' "$1" '=============================================================================='
 }
 
 fail() {
+  FAILURE="$*"
   printf '%s\n' "M20 LINUX VALIDATION FAILURE: $*" >&2
   exit 1
 }
