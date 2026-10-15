@@ -6,6 +6,7 @@ import com.morpheus.application.context.TechnicalContextItem;
 import com.morpheus.application.context.TechnicalContextObservation;
 import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.context.TechnicalContextRequest;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
 import com.morpheus.application.security.ServerLocationDisclosure;
 import io.modelcontextprotocol.server.McpServerFeatures;
@@ -163,7 +164,7 @@ class MorpheusAugmentedContextMcpToolsTest {
             McpToolCall.PublishedProject project = McpToolCall.publish(database);
             TechnicalContextProvider provider = launchedNexus(available);
             List<McpServerFeatures.SyncToolSpecification> tools =
-                    new MorpheusAugmentedContextMcpTools(database, provider).specifications();
+                    new MorpheusAugmentedContextMcpTools(database, OperationalRecorder.noop(), provider).specifications();
 
             for (McpSchema.CallToolResult result : List.of(
                     McpToolCall.call(tools, MorpheusAugmentedContextMcpTools.REQUIREMENT_TOOL,
@@ -274,7 +275,7 @@ class MorpheusAugmentedContextMcpToolsTest {
 
     private McpSchema.CallToolResult call(Path database, String tool, Map<String, Object> arguments) {
         return McpToolCall.call(
-                new MorpheusAugmentedContextMcpTools(database, disabledProvider()).specifications(),
+                new MorpheusAugmentedContextMcpTools(database, OperationalRecorder.noop(), disabledProvider()).specifications(),
                 tool, arguments);
     }
 

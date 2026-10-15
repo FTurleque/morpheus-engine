@@ -1,10 +1,12 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.portfolio.PortfolioPublicViews;
 import com.morpheus.application.portfolio.PortfolioQueryService;
 import com.morpheus.application.portfolio.PortfolioRegistryService;
 import com.morpheus.application.portfolio.PortfolioTraversalDirection;
 import com.morpheus.application.portfolio.PortfolioTraversalService;
+import com.morpheus.application.store.PortfolioStore;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.store.EntityNotFoundException;
 import com.morpheus.application.store.EntityStateException;
@@ -16,13 +18,13 @@ import com.morpheus.domain.portfolio.PortfolioId;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.provider.ProviderId;
 import com.morpheus.domain.source.SourceLocator;
-import com.morpheus.store.sqlite.SqlitePortfolioStore;
 
 import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
@@ -55,6 +57,12 @@ final class MorpheusPortfolioCli {
                     "depth", "nodes", "links", "direction")));
 
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
+    private final OperationalRecorder recorder;
+
+    /** Every command counts what it puts on the database on {@code recorder}, the one the launcher handed. */
+    MorpheusPortfolioCli(OperationalRecorder recorder) {
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
+    }
 
     static boolean handles(String[] args) {
         return OPT_PORTFOLIO.equals(command(args));
@@ -78,7 +86,8 @@ final class MorpheusPortfolioCli {
                 throw new IllegalArgumentException("unknown portfolio action: " + action);
             }
             options.rejectUnknown(allowed);
-            try (SqlitePortfolioStore store = new SqlitePortfolioStore(parsed.layout().databasePath())) {
+            try (CliRuntime runtime = CliRuntime.open(parsed.layout().databasePath(), recorder)) {
+                PortfolioStore store = runtime.portfolios();
                 PortfolioRegistryService registry = new PortfolioRegistryService(store);
                 PortfolioQueryService query = new PortfolioQueryService(store);
                 PortfolioTraversalService traversal = new PortfolioTraversalService(store);

@@ -1,5 +1,6 @@
 package com.morpheus.application.sync;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -24,7 +25,7 @@ class PartialSourceInventoryContractTest {
         Files.createDirectories(workspace.resolve("present"));
         Files.writeString(workspace.resolve("present/spec.md"), "present source");
 
-        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner();
+        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(OperationalRecorder.noop());
         SourceInventoryScanResult result = scanner.scan(
                 workspace,
                 ProjectSpecificationId.generate(),

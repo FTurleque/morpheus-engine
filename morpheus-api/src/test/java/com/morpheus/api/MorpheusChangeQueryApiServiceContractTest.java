@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import org.junit.jupiter.api.Test;
@@ -27,9 +28,9 @@ class MorpheusChangeQueryApiServiceContractTest {
     void preservesChangeReadsSubresourcesContextValidationAndCompatibilityPagination() throws Exception {
         Path database = tempDirectory.resolve("change-query-service.db");
         Path fixture = http.fixture("openspec-basic");
-        MorpheusProjectRegistryApiService registry = new MorpheusProjectRegistryApiService(database, Optional.empty());
+        MorpheusProjectRegistryApiService registry = new MorpheusProjectRegistryApiService(database, OperationalRecorder.noop(), Optional.empty());
         String projectId = ((Map<?, ?>) registry.registerProject(fixture.toString()).project()).get("projectId").toString();
-        MorpheusChangeQueryApiService service = new MorpheusChangeQueryApiService(database);
+        MorpheusChangeQueryApiService service = new MorpheusChangeQueryApiService(database, OperationalRecorder.noop());
 
         ApiFailure noActiveSnapshot = assertThrows(
                 ApiFailure.class,
@@ -42,7 +43,7 @@ class MorpheusChangeQueryApiServiceContractTest {
                 () -> service.listChanges(missingProjectId, PageRequest.first(1)));
         assertEquals(404, missingProject.status());
 
-        new MorpheusProjectSyncApiService(database, Optional.empty()).sync(projectId, Optional.of("changes-r1"));
+        new MorpheusProjectSyncApiService(database, OperationalRecorder.noop(), Optional.empty()).sync(projectId, Optional.of("changes-r1"));
 
         Map<?, ?> changes = (Map<?, ?>) service.listChanges(projectId, PageRequest.first(1));
         assertEquals(1, changes.get("totalMatches"));

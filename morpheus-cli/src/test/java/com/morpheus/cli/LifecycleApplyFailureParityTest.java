@@ -178,15 +178,15 @@ class LifecycleApplyFailureParityTest {
         CliLayout layout = CliLayout.resolve(
                 Optional.empty(), Optional.empty(), Optional.of(database), Map.of(), properties());
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
-        try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath(), OperationalRecorder.noop())) {
             var normalized = new SyntheticSpecificationContentReader()
                     .read(
                             ProviderReadRequest.all(fixture("synthetic-basic"), projectId),
-                            new PersistentEntityIdentityResolver(runtime.identities))
+                            new PersistentEntityIdentityResolver(runtime.identities()))
                     .content()
                     .orElseThrow();
             new ProjectSnapshotImportService(
-                    runtime.snapshots, runtime.requirements, runtime.content, runtime.traceability)
+                    runtime.snapshots(), runtime.requirements(), runtime.content(), runtime.traceability())
                     .publishFull(normalized, Optional.of("parity-test"), Instant.parse("2026-09-09T15:00:00Z"));
             return new Seed(projectId.toString(), normalized.changes().getFirst().id().toString());
         }

@@ -3,6 +3,7 @@ package com.morpheus.api;
 import com.morpheus.api.MorpheusHttpServer.ApiError;
 import com.morpheus.api.MorpheusHttpServer.ApiErrorEnvelope;
 import com.morpheus.api.MorpheusHttpServer.ApiSuccess;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.export.QueryExport;
 import com.morpheus.application.query.export.QueryExportBudgetException;
 import com.morpheus.application.query.saved.SavedViewConflictException;
@@ -30,28 +31,33 @@ final class MorpheusQueryHttpRoutes {
     private static final String EXPORT_CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + EXPORTS;
 
     private final MorpheusQueryApiService service;
+    private final OperationalRecorder recorder;
     private final MorpheusHttpRequestDecoder requestDecoder;
     private final MorpheusHttpAllowedMethods allowedMethods;
     private final MorpheusHttpResponseWriter responseWriter;
 
-    private MorpheusQueryHttpRoutes(Path databasePath, MorpheusHttpRequestDecoder requestDecoder,
-            MorpheusHttpAllowedMethods allowedMethods, MorpheusHttpResponseWriter responseWriter) {
-        service = new MorpheusQueryApiService(databasePath);
+    private MorpheusQueryHttpRoutes(Path databasePath, OperationalRecorder recorder,
+            MorpheusHttpRequestDecoder requestDecoder, MorpheusHttpAllowedMethods allowedMethods,
+            MorpheusHttpResponseWriter responseWriter) {
+        service = new MorpheusQueryApiService(databasePath, recorder);
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
         this.requestDecoder = Objects.requireNonNull(requestDecoder, "requestDecoder");
         this.allowedMethods = Objects.requireNonNull(allowedMethods, "allowedMethods");
         this.responseWriter = Objects.requireNonNull(responseWriter, "responseWriter");
     }
 
-    static void register(HttpServer server, Path databasePath, MorpheusHttpRequestDecoder requestDecoder,
-            MorpheusHttpAllowedMethods allowedMethods, MorpheusHttpResponseWriter responseWriter) {
+    static void register(HttpServer server, Path databasePath, OperationalRecorder recorder,
+            MorpheusHttpRequestDecoder requestDecoder, MorpheusHttpAllowedMethods allowedMethods,
+            MorpheusHttpResponseWriter responseWriter) {
         Objects.requireNonNull(server, "server");
-        MorpheusQueryHttpRoutes routes = new MorpheusQueryHttpRoutes(databasePath, requestDecoder, allowedMethods,
-                responseWriter);
+        MorpheusQueryHttpRoutes routes = new MorpheusQueryHttpRoutes(databasePath, recorder, requestDecoder,
+                allowedMethods, responseWriter);
         server.createContext(QUERY_CONTEXT, routes::handleQueries);
         server.createContext(VIEW_CONTEXT, routes::handleSavedViews);
         server.createContext(EXPORT_CONTEXT, routes::handleExports);
-        MorpheusPolicyHttpRoutes.register(server, databasePath, requestDecoder, allowedMethods, responseWriter);
-        MorpheusReasoningHttpRoutes.register(server, requestDecoder, allowedMethods, responseWriter);
+        MorpheusPolicyHttpRoutes.register(server, databasePath, recorder, requestDecoder, allowedMethods,
+                responseWriter);
+        MorpheusReasoningHttpRoutes.register(server, recorder, requestDecoder, allowedMethods, responseWriter);
     }
 
     private void handleQueries(HttpExchange exchange) throws IOException {
@@ -166,7 +172,7 @@ final class MorpheusQueryHttpRoutes {
             responseWriter.send(exchange, 409, new ApiErrorEnvelope(
                     "v1", new ApiError("STATE_CONFLICT", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (RuntimeException failure) {
-            UnforeseenFailureTrace.record(failure);
+            UnforeseenFailureTrace.record(recorder, failure);
             responseWriter.send(exchange, 500, new ApiErrorEnvelope(
                     "v1", new ApiError("INTERNAL_ERROR", "internal MORPHEUS API error", Map.of())));
         } finally {

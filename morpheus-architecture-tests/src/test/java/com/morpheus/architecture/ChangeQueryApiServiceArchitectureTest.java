@@ -40,7 +40,7 @@ class ChangeQueryApiServiceArchitectureTest {
         assertFalse(facade.contains("private Object task(ImplementationTask item)"));
 
         assertTrue(changes.contains("final class MorpheusChangeQueryApiService"));
-        assertTrue(changes.contains("new BusinessContentQueryService(runtime.snapshots, runtime.content)"));
+        assertTrue(changes.contains("new BusinessContentQueryService(runtime.snapshots(), runtime.content())"));
         assertTrue(changes.contains("new ChangeContextQueryService("));
         assertTrue(changes.contains("activeAcceptanceCriteriaForChange(projectId, changeId, pageRequest)"));
         assertTrue(changes.contains("activeDesignDecisions(projectId, changeId, pageRequest)"));

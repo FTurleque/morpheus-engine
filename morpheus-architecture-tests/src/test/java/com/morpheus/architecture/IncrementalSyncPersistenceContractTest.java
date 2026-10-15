@@ -1,5 +1,6 @@
 package com.morpheus.architecture;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.application.sync.IncrementalSyncService;
@@ -48,14 +49,14 @@ class IncrementalSyncPersistenceContractTest {
         var memoryCore = new MemorySpecificationKnowledgeStore();
         memoryCore.putProject(project(projectId));
         var memoryStore = new MemorySyncStateStore(memoryCore);
-        RunResult memory = runTwoSuccessfulSyncs(new IncrementalSyncService(memoryStore), memoryStore, baseline, next);
+        RunResult memory = runTwoSuccessfulSyncs(new IncrementalSyncService(memoryStore, OperationalRecorder.noop()), memoryStore, baseline, next);
 
         Path database = tempDir.resolve("sync-parity.db");
         RunResult sqlite;
         try (var sqliteCore = new SqliteSpecificationKnowledgeStore(database);
              var sqliteStore = new SqliteSyncStateStore(database)) {
             sqliteCore.putProject(project(projectId));
-            sqlite = runTwoSuccessfulSyncs(new IncrementalSyncService(sqliteStore), sqliteStore, baseline, next);
+            sqlite = runTwoSuccessfulSyncs(new IncrementalSyncService(sqliteStore, OperationalRecorder.noop()), sqliteStore, baseline, next);
         }
 
         assertEquals(memory, sqlite);
@@ -75,7 +76,7 @@ class IncrementalSyncPersistenceContractTest {
         try (var core = new SqliteSpecificationKnowledgeStore(database);
              var store = new SqliteSyncStateStore(database)) {
             core.putProject(project(projectId));
-            before = runTwoSuccessfulSyncs(new IncrementalSyncService(store), store, baseline, next);
+            before = runTwoSuccessfulSyncs(new IncrementalSyncService(store, OperationalRecorder.noop()), store, baseline, next);
         }
 
         try (var reopened = new SqliteSyncStateStore(database)) {
@@ -96,7 +97,7 @@ class IncrementalSyncPersistenceContractTest {
         try (var core = new SqliteSpecificationKnowledgeStore(database);
              var store = new SqliteSyncStateStore(database)) {
             core.putProject(project(projectId));
-            IncrementalSyncService service = new IncrementalSyncService(store);
+            IncrementalSyncService service = new IncrementalSyncService(store, OperationalRecorder.noop());
             SyncPlan initial = service.prepare(SourceInventoryScanResult.complete(baseline), SyncPlan.Trigger.startup(), T0.plusSeconds(1));
             service.complete(initial, T0.plusSeconds(2));
             SyncPlan overflow = service.prepare(
@@ -109,7 +110,7 @@ class IncrementalSyncPersistenceContractTest {
         try (var reopened = new SqliteSyncStateStore(database)) {
             assertEquals(SyncFreshness.State.REBUILD_REQUIRED,
                     new SyncFreshnessService(reopened).assess(projectId, T0.plusSeconds(5), Duration.ofMinutes(5)).state());
-            SyncPlan retry = new IncrementalSyncService(reopened).prepare(
+            SyncPlan retry = new IncrementalSyncService(reopened, OperationalRecorder.noop()).prepare(
                     SourceInventoryScanResult.complete(inventory(projectId, "r2", T0.plusSeconds(3), entry("a.md", "a"))),
                     SyncPlan.Trigger.manual(),
                     T0.plusSeconds(6));
@@ -123,7 +124,7 @@ class IncrementalSyncPersistenceContractTest {
         var core = new MemorySpecificationKnowledgeStore();
         core.putProject(project(projectId));
         var store = new MemorySyncStateStore(core);
-        IncrementalSyncService service = new IncrementalSyncService(store);
+        IncrementalSyncService service = new IncrementalSyncService(store, OperationalRecorder.noop());
         SourceInventory baseline = inventory(projectId, "r1", T0, entry("a.md", "a"));
         SyncPlan initial = service.prepare(SourceInventoryScanResult.complete(baseline), SyncPlan.Trigger.startup(), T0.plusSeconds(1));
         service.complete(initial, T0.plusSeconds(2));

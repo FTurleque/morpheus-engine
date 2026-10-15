@@ -5,6 +5,7 @@ import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationPolicy
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationResultView;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;
 import com.morpheus.application.lifecycle.mutation.ControlledChangeLifecycleMutationService;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.orchestration.ChangeTransitionEvaluationService;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.domain.change.ChangeId;
@@ -24,10 +25,12 @@ import java.util.Optional;
 /** HTTP application adapter for M17 explicit lifecycle mutation; routing remains in MorpheusHttpServer. */
 final class MorpheusControlledLifecycleApiService {
     private final Path databasePath;
+    private final OperationalRecorder recorder;
     private final ChangeWriteCapabilityResolver writeCapability;
 
-    MorpheusControlledLifecycleApiService(Path databasePath, ChangeWriteCapabilityResolver writeCapability) {
+    MorpheusControlledLifecycleApiService(Path databasePath, OperationalRecorder recorder, ChangeWriteCapabilityResolver writeCapability) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
         this.writeCapability = Objects.requireNonNull(writeCapability, "writeCapability");
     }
 
@@ -52,17 +55,17 @@ final class MorpheusControlledLifecycleApiService {
                 .map(ChangeLifecycleMutationId::parse)
                 .orElseGet(ChangeLifecycleMutationId::generate);
 
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            if (runtime.snapshots.findProject(projectId).isEmpty()) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
+            if (runtime.snapshots().findProject(projectId).isEmpty()) {
                 throw new KnowledgeStoreException("project not found: " + projectId);
             }
             ControlledChangeLifecycleMutationService service = new ControlledChangeLifecycleMutationService(
                     new ChangeTransitionEvaluationService(
-                            runtime.snapshots,
-                            runtime.content,
-                            runtime.requirements,
-                            runtime.traceability),
-                    runtime.lifecycleMutations,
+                            runtime.snapshots(),
+                            runtime.content(),
+                            runtime.requirements(),
+                            runtime.traceability()),
+                    runtime.lifecycleMutations(),
                     writeCapability);
             return ChangeLifecycleMutationResultView.from(service.apply(
                     new ChangeLifecycleMutationCommand(

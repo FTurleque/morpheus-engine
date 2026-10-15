@@ -1,5 +1,6 @@
 package com.morpheus.application.snapshot;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.store.SpecificationKnowledgeStore;
 import com.morpheus.domain.project.ProjectSpecificationId;
 
@@ -14,8 +15,9 @@ public final class RuntimeSnapshotRecovery {
     private final SnapshotRecoveryService recovery;
     private final SnapshotRecoveryPolicy policy;
 
-    public RuntimeSnapshotRecovery(SpecificationKnowledgeStore store) {
-        this(store, new SnapshotRecoveryService(store), SnapshotRecoveryPolicy.safeDefaults());
+    /** Recovers on the stores of the caller; what it releases or skips is counted on {@code recorder}. */
+    public RuntimeSnapshotRecovery(SpecificationKnowledgeStore store, OperationalRecorder recorder) {
+        this(store, new SnapshotRecoveryService(store, recorder), SnapshotRecoveryPolicy.safeDefaults());
     }
 
     public RuntimeSnapshotRecovery(

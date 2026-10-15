@@ -3,7 +3,7 @@ package com.morpheus.api;
 import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;
 import com.morpheus.application.operability.ExhaustiveShutdown;
-import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.store.sqlite.SqliteServerMaintenance;
@@ -57,6 +57,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     private final Semaphore privilegedConcurrency;
     private final Semaphore observabilityConcurrency;
     private final MorpheusRemoteRuntimeState runtime;
+    private final OperationalRuntime operational;
     private final TimedBoundedResponseWriter boundedResponses = new TimedBoundedResponseWriter();
     private final MorpheusRemoteResponseWriter responses = new MorpheusRemoteResponseWriter(boundedResponses);
     private final MorpheusRemoteProxyTargetResolver proxyTargets;
@@ -80,8 +81,10 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             Path providerPluginDirectory,
             AllowedWorkspaceRoots allowedWorkspaceRoots,
             Path authFile,
-            int maxConcurrentRequests) {
+            int maxConcurrentRequests,
+            OperationalRuntime operational) {
         this.server = server;
+        this.operational = Objects.requireNonNull(operational, "operational");
         this.executor = executor;
         this.localServer = localServer;
         this.lease = lease;
@@ -90,7 +93,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         this.backupDirectory = backupDirectory.toAbsolutePath().normalize();
         this.authFile = Objects.requireNonNull(authFile, "authFile").toAbsolutePath().normalize();
         this.identityCache = new MorpheusRemoteIdentitySnapshotCache(this.authFile);
-        this.accessJournal = RemoteAccessJournal.beside(this.authFile, LocalOperationalRuntime.metrics());
+        this.accessJournal = RemoteAccessJournal.beside(this.authFile, operational.metrics());
         this.authenticationConcurrency = new Semaphore(authenticationConcurrencyLimit(maxConcurrentRequests), true);
         this.concurrency = new Semaphore(maxConcurrentRequests, true);
         this.privilegedConcurrency = new Semaphore(privilegedConcurrencyLimit(maxConcurrentRequests), true);
@@ -122,7 +125,8 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             ExternalReferenceResolverRegistry resolverRegistry,
             ExternalIntegrationStatusProvider minosStatus,
             TechnicalContextProvider technicalContextProvider,
-            ChangeWriteCapabilityResolver writeCapabilityResolver) {
+            ChangeWriteCapabilityResolver writeCapabilityResolver,
+            OperationalRuntime operational) {
         return MorpheusRemoteHttpServerBootstrap.start(
                 databasePath,
                 backupDirectory,
@@ -137,7 +141,8 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                 resolverRegistry,
                 minosStatus,
                 technicalContextProvider,
-                writeCapabilityResolver);
+                writeCapabilityResolver,
+                operational);
     }
 
     static void validateStartupIdentities(
@@ -276,7 +281,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         } catch (IllegalArgumentException failure) {
             responses.sendError(exchange, 400, "BAD_REQUEST", BoundaryFailureMessage.safe(failure));
         } catch (RuntimeException failure) {
-            UnforeseenFailureTrace.record(failure);
+            UnforeseenFailureTrace.record(operational.recorder(), failure);
             responses.sendError(exchange, 500, "INTERNAL_ERROR", "internal MORPHEUS remote server error");
         } finally {
             if (requestSlot) {

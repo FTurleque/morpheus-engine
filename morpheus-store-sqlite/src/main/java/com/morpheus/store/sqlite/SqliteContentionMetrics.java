@@ -25,6 +25,11 @@ import java.util.Objects;
  * the process. A connection whose opener named none writes to {@link #processDefault()}, which is what the process
  * serves. A connection MORPHEUS did not open carries none, and its transactions are counted where nobody reads.</p>
  *
+ * <p>The same recorder counts the pressure a {@link SqliteConnectionScope} puts on the database: the physical
+ * connections it opened and released, and the schema checks it ran. They were static counters of the process, read as
+ * differences by tests that could therefore not run beside one another; they now go where the opener of the scope
+ * said, like every other counter here.</p>
+ *
  * <p>These are diagnostics, never control flow: nothing here decides whether an operation retries or fails.</p>
  *
  * <p>Scope is deliberately stated rather than implied. What is counted is every explicit transaction and every
@@ -93,6 +98,18 @@ final class SqliteContentionMetrics {
         metrics.increment(TRANSACTIONS_ROLLED_BACK);
         metrics.recordDurationNanos(TRANSACTION_DURATION, Math.max(0L, durationNanos));
         recordIfContended(failure, CONTENDED_TRANSACTIONS);
+    }
+
+    void scopedConnectionOpened() {
+        metrics.increment(SqliteConnectionScope.CONNECTIONS_OPENED);
+    }
+
+    void scopedConnectionClosed() {
+        metrics.increment(SqliteConnectionScope.CONNECTIONS_CLOSED);
+    }
+
+    void scopedSchemaChecked() {
+        metrics.increment(SqliteConnectionScope.SCHEMA_CHECKS);
     }
 
     void connectionOpenFailed(Throwable failure) {

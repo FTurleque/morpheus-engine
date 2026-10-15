@@ -32,10 +32,10 @@ class RequirementQueryApiServiceArchitectureTest {
         assertFalse(facade.contains("private Object requirementRecord(RequirementVersionRecord record)"));
 
         assertTrue(requirements.contains("final class MorpheusRequirementQueryApiService"));
-        assertTrue(requirements.contains("new RequirementQueryService(runtime.snapshots, runtime.requirements)"));
+        assertTrue(requirements.contains("new RequirementQueryService(runtime.snapshots(), runtime.requirements())"));
         assertTrue(requirements.contains("new RequirementSearchQuery(queryText)"));
         assertTrue(requirements.contains("new TraceRequirementQueryService("));
-        assertTrue(requirements.contains("new CompactQueryViewService(runtime.content).traceRequirement(result)"));
+        assertTrue(requirements.contains("new CompactQueryViewService(runtime.content()).traceRequirement(result)"));
         assertTrue(requirements.contains("currentRequirement(snapshot.id(), requirementId.value())"));
         assertFalse(requirements.contains("SpecificationContextQueryService"));
         assertFalse(requirements.contains("ChangeContextQueryService"));

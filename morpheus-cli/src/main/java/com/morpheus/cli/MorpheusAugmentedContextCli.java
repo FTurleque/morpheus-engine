@@ -4,6 +4,8 @@ import com.morpheus.application.context.AugmentedContextResult;
 import com.morpheus.application.context.AugmentedContextService;
 import com.morpheus.application.context.TechnicalContextOptions;
 import com.morpheus.application.context.TechnicalContextProvider;
+import com.morpheus.application.operability.OperationalExecution;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.domain.change.ChangeId;
@@ -22,12 +24,15 @@ import java.util.TreeMap;
 /** Additive M13 CLI surface; NEXUS selection/ranking stays behind TechnicalContextProvider. */
 final class MorpheusAugmentedContextCli {
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
+    private final OperationalRecorder recorder;
     private final TechnicalContextProvider provider;
     private final ExternalIntegrationStatusProvider nexusStatus;
 
     MorpheusAugmentedContextCli(
+            OperationalRecorder recorder,
             TechnicalContextProvider provider,
             ExternalIntegrationStatusProvider nexusStatus) {
+        this.recorder = java.util.Objects.requireNonNull(recorder, "recorder");
         this.provider = java.util.Objects.requireNonNull(provider, "provider");
         this.nexusStatus = java.util.Objects.requireNonNull(nexusStatus, "nexusStatus");
     }
@@ -87,17 +92,17 @@ final class MorpheusAugmentedContextCli {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required("project"));
         TechnicalContextOptions technical = options.technical();
 
-        try (CliRuntime runtime = new CliRuntime(parsed.layout().databasePath())) {
-            if (runtime.snapshots.findProject(projectId).isEmpty()) {
+        try (CliRuntime runtime = CliRuntime.recovering(parsed.layout().databasePath(), recorder)) {
+            if (runtime.snapshots().findProject(projectId).isEmpty()) {
                 throw new IllegalStateException("project not found: " + projectId);
             }
             AugmentedContextService service = new AugmentedContextService(
-                    runtime.snapshots,
-                    runtime.content,
-                    runtime.requirements,
-                    runtime.traceability,
-                    runtime.externalReferences,
-                    provider);
+                    runtime.snapshots(),
+                    runtime.content(),
+                    runtime.requirements(),
+                    runtime.traceability(),
+                    runtime.externalReferences(),
+                    provider, new OperationalExecution(recorder));
             AugmentedContextResult result = switch (subject) {
                 case "requirement" -> service.requirement(
                                 projectId,

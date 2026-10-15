@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -16,7 +17,7 @@ class MorpheusPolicyMcpManagementToolsTest {
     @Test
     void exposesOnlyReadOnlyActivationDiscoveryWithStrictSchema() {
         var specifications = new MorpheusPolicyMcpManagementTools(
-                temporaryDirectory.resolve("morpheus.db")).specifications();
+                temporaryDirectory.resolve("morpheus.db"), OperationalRecorder.noop()).specifications();
 
         assertEquals(1, specifications.size());
         assertEquals(MorpheusPolicyMcpManagementTools.LIST_ACTIVATIONS, specifications.getFirst().tool().name());

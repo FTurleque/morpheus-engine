@@ -31,8 +31,8 @@ class LocalHttpServerBootstrapArchitectureTest {
         assertFalse(server.contains("CapabilityProtectedHttpServer"));
         assertFalse(server.contains("startConfigured("));
 
-        assertTrue(bootstrap.contains("new RuntimeSnapshotRecovery(store).recoverAll(Instant.now())"));
-        assertTrue(bootstrap.contains("new SqliteSpecificationKnowledgeStore(databasePath)"));
+        assertTrue(bootstrap.contains("new RuntimeSnapshotRecovery(recovery.snapshots(), recorder).recoverAll(Instant.now())"));
+        assertTrue(bootstrap.contains("try (ApiRuntime recovery = new ApiRuntime(databasePath, recorder))"));
         assertTrue(bootstrap.contains("LoopbackHostPolicy.requireLoopbackAddress(host)"));
         assertTrue(bootstrap.contains("HttpServer.create(new InetSocketAddress(bindAddress, port), 0)"));
         assertTrue(bootstrap.contains("new LoopbackRequestProtectedHttpServer(delegate)"));
@@ -41,7 +41,7 @@ class LocalHttpServerBootstrapArchitectureTest {
         assertTrue(bootstrap.contains("DatabaseWorkOffloadingHttpServer.over(httpServer)"));
         assertTrue(bootstrap.contains("databaseWork.createContext(MorpheusHttpServer.API_PREFIX, result::handle)"));
         assertTrue(bootstrap.contains(
-                "MorpheusQueryHttpRoutes.register(databaseWork, databasePath, result.requestDecoder(),"));
+                "MorpheusQueryHttpRoutes.register(databaseWork, databasePath, recorder, result.requestDecoder(),"));
         assertFalse(bootstrap.contains("MorpheusQueryHttpRoutes.register(httpServer,"),
                 "a router that reaches the database is registered through the database workers: on the request's "
                         + "own virtual thread, a wait inside the SQLite driver holds a carrier of the scheduler");

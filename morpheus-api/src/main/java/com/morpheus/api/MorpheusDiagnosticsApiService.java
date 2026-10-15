@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.quality.AcceptanceQualityService;
 import com.morpheus.application.quality.ChangeCompletenessAssessment;
 import com.morpheus.application.quality.ChangeCompletenessService;
@@ -25,15 +26,17 @@ import java.util.Objects;
 /** Owns project quality diagnostics and change completeness API views. */
 final class MorpheusDiagnosticsApiService {
     private final Path databasePath;
+    private final OperationalRecorder recorder;
 
-    MorpheusDiagnosticsApiService(Path databasePath) {
+    MorpheusDiagnosticsApiService(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
     Object changeStatus(String projectIdValue, String changeIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ChangeId changeId = ChangeId.parse(changeIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             ChangeCompletenessAssessment assessment = completeness(runtime, projectId, changeId);
             return map(
                     "snapshotId", activeSnapshot(runtime, projectId).id().toString(),
@@ -48,7 +51,7 @@ final class MorpheusDiagnosticsApiService {
     Object blockingConditions(String projectIdValue, String changeIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ChangeId changeId = ChangeId.parse(changeIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             ChangeCompletenessAssessment assessment = completeness(runtime, projectId, changeId);
             return map(
                     "snapshotId", activeSnapshot(runtime, projectId).id().toString(),
@@ -65,16 +68,16 @@ final class MorpheusDiagnosticsApiService {
 
     Object diagnostics(String projectIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             activeSnapshot(runtime, projectId);
             QualityReportService service = new QualityReportService(
-                    runtime.snapshots,
-                    new RequirementQualityService(runtime.snapshots, runtime.requirements, runtime.traceability),
-                    new TaskQualityService(runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability),
-                    new AcceptanceQualityService(runtime.snapshots, runtime.content),
-                    new ChangeCompletenessService(runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability),
+                    runtime.snapshots(),
+                    new RequirementQualityService(runtime.snapshots(), runtime.requirements(), runtime.traceability()),
+                    new TaskQualityService(runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability()),
+                    new AcceptanceQualityService(runtime.snapshots(), runtime.content()),
+                    new ChangeCompletenessService(runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability()),
                     new DecisionReferenceQualityService(
-                            runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability, runtime.externalReferences));
+                            runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability(), runtime.externalReferences()));
             QualityReport report = service.assessActive(projectId)
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
             return new CompactQualityReportService().view(report);
@@ -82,13 +85,13 @@ final class MorpheusDiagnosticsApiService {
     }
 
     private ProjectStoreEntry requireProject(ApiRuntime runtime, ProjectSpecificationId projectId) {
-        return runtime.snapshots.findProject(projectId)
+        return runtime.snapshots().findProject(projectId)
                 .orElseThrow(() -> ApiFailure.notFound("project not found: " + projectId));
     }
 
     private KnowledgeSnapshotMetadata activeSnapshot(ApiRuntime runtime, ProjectSpecificationId projectId) {
         requireProject(runtime, projectId);
-        return runtime.snapshots.activeSnapshot(projectId)
+        return runtime.snapshots().activeSnapshot(projectId)
                 .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
     }
 
@@ -98,7 +101,7 @@ final class MorpheusDiagnosticsApiService {
             ChangeId changeId) {
         activeSnapshot(runtime, projectId);
         var report = new ChangeCompletenessService(
-                runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability)
+                runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability())
                 .assessActive(projectId)
                 .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
         return report.changes().stream()

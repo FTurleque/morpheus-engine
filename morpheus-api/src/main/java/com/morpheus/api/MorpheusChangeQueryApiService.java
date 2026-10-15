@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.BusinessContentQueryService;
 import com.morpheus.application.query.ChangeContextQueryService;
 import com.morpheus.application.query.PageRequest;
@@ -27,15 +28,17 @@ final class MorpheusChangeQueryApiService {
     private static final String FIELD_TITLE = "title";
 
     private final Path databasePath;
+    private final OperationalRecorder recorder;
 
-    MorpheusChangeQueryApiService(Path databasePath) {
+    MorpheusChangeQueryApiService(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
     Object listChanges(String projectIdValue, PageRequest pageRequest) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         Objects.requireNonNull(pageRequest, "pageRequest");
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             requireProject(runtime, projectId);
             SnapshotPage<ChangeProposal> result = business(runtime).listActiveChanges(projectId, pageRequest)
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
@@ -46,7 +49,7 @@ final class MorpheusChangeQueryApiService {
     Object change(String projectIdValue, String changeIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ChangeId changeId = ChangeId.parse(changeIdValue);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             var result = requireChange(runtime, projectId, changeId);
             return map("snapshotId", result.snapshot().id().toString(), "change", change(result.item().orElseThrow()));
         }
@@ -56,7 +59,7 @@ final class MorpheusChangeQueryApiService {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ChangeId changeId = ChangeId.parse(changeIdValue);
         Objects.requireNonNull(pageRequest, "pageRequest");
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             requireChange(runtime, projectId, changeId);
             SnapshotPage<Constraint> result = business(runtime).activeConstraints(projectId, changeId, pageRequest)
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
@@ -72,7 +75,7 @@ final class MorpheusChangeQueryApiService {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ChangeId changeId = ChangeId.parse(changeIdValue);
         Objects.requireNonNull(pageRequest, "pageRequest");
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             requireChange(runtime, projectId, changeId);
             SnapshotPage<AcceptanceCriterion> result = business(runtime)
                     .activeAcceptanceCriteriaForChange(projectId, changeId, pageRequest)
@@ -85,7 +88,7 @@ final class MorpheusChangeQueryApiService {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ChangeId changeId = ChangeId.parse(changeIdValue);
         Objects.requireNonNull(pageRequest, "pageRequest");
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             requireChange(runtime, projectId, changeId);
             SnapshotPage<DesignDecision> result = business(runtime).activeDesignDecisions(projectId, changeId, pageRequest)
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
@@ -97,7 +100,7 @@ final class MorpheusChangeQueryApiService {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ChangeId changeId = ChangeId.parse(changeIdValue);
         Objects.requireNonNull(pageRequest, "pageRequest");
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             requireChange(runtime, projectId, changeId);
             SnapshotPage<ImplementationTask> result = business(runtime).activeImplementationTasks(projectId, changeId, pageRequest)
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
@@ -109,33 +112,33 @@ final class MorpheusChangeQueryApiService {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ChangeId changeId = ChangeId.parse(changeIdValue);
         requireRange("depth", depth, 1, MorpheusApiService.MAX_DEPTH);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             activeSnapshot(runtime, projectId);
             var result = new ChangeContextQueryService(
-                    runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability, runtime.externalReferences)
+                    runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability(), runtime.externalReferences())
                     .active(projectId, changeId, depth, Set.of())
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
             if (result.change().isEmpty()) {
                 throw ApiFailure.notFound("change not found: " + changeId);
             }
-            return new CompactQueryViewService(runtime.content).changeContext(result);
+            return new CompactQueryViewService(runtime.content()).changeContext(result);
         }
     }
 
     private void requireProject(ApiRuntime runtime, ProjectSpecificationId projectId) {
-        if (runtime.snapshots.findProject(projectId).isEmpty()) {
+        if (runtime.snapshots().findProject(projectId).isEmpty()) {
             throw ApiFailure.notFound("project not found: " + projectId);
         }
     }
 
     private KnowledgeSnapshotMetadata activeSnapshot(ApiRuntime runtime, ProjectSpecificationId projectId) {
         requireProject(runtime, projectId);
-        return runtime.snapshots.activeSnapshot(projectId)
+        return runtime.snapshots().activeSnapshot(projectId)
                 .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
     }
 
     private BusinessContentQueryService business(ApiRuntime runtime) {
-        return new BusinessContentQueryService(runtime.snapshots, runtime.content);
+        return new BusinessContentQueryService(runtime.snapshots(), runtime.content());
     }
 
     private com.morpheus.application.query.SnapshotItemResult<ChangeProposal> requireChange(

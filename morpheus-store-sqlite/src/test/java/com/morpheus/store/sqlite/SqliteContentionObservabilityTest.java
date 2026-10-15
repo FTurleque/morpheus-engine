@@ -56,9 +56,11 @@ class SqliteContentionObservabilityTest {
         assertTrue(started > 0L, "opening and migrating a store must be counted as a started transaction");
         assertEquals(started, counter(SqliteContentionMetrics.TRANSACTIONS_COMMITTED),
                 "every transaction of an uncontended store commits, and each is counted once");
-        assertEquals(Set.of(SqliteContentionMetrics.TRANSACTIONS_STARTED, SqliteContentionMetrics.TRANSACTIONS_COMMITTED),
+        assertEquals(Set.of(SqliteContentionMetrics.TRANSACTIONS_STARTED, SqliteContentionMetrics.TRANSACTIONS_COMMITTED,
+                        SqliteConnectionScope.CONNECTIONS_OPENED, SqliteConnectionScope.CONNECTIONS_CLOSED,
+                        SqliteConnectionScope.SCHEMA_CHECKS),
                 metrics.snapshot().counters().keySet(),
-                "an uncontended write is reported neither as a rollback nor as contention");
+                "an uncontended write is reported neither as a rollback nor as contention; its scope is counted");
         assertEquals(started, metrics.snapshot().timings().get(SqliteContentionMetrics.TRANSACTION_DURATION).count(),
                 "transaction duration must be recorded so a slowing database is visible before it fails");
     }

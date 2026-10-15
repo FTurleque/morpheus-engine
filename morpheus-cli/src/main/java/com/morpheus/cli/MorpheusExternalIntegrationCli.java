@@ -1,5 +1,6 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
@@ -22,12 +23,15 @@ import java.util.TreeMap;
 /** Additive M12 CLI surface. Business resolution remains in application services. */
 final class MorpheusExternalIntegrationCli {
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
+    private final OperationalRecorder recorder;
     private final ExternalReferenceResolverRegistry resolverRegistry;
     private final ExternalIntegrationStatusProvider minosStatus;
 
     MorpheusExternalIntegrationCli(
+            OperationalRecorder recorder,
             ExternalReferenceResolverRegistry resolverRegistry,
             ExternalIntegrationStatusProvider minosStatus) {
+        this.recorder = java.util.Objects.requireNonNull(recorder, "recorder");
         this.resolverRegistry = Objects.requireNonNull(resolverRegistry, "resolverRegistry");
         this.minosStatus = Objects.requireNonNull(minosStatus, "minosStatus");
     }
@@ -88,13 +92,13 @@ final class MorpheusExternalIntegrationCli {
             case "resolve" -> Set.of("project", "reference");
             default -> throw new IllegalArgumentException("unknown external-references subcommand: " + subcommand);
         });
-        try (CliRuntime runtime = new CliRuntime(parsed.layout().databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(parsed.layout().databasePath(), recorder)) {
             ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required("project"));
-            if (runtime.snapshots.findProject(projectId).isEmpty()) {
+            if (runtime.snapshots().findProject(projectId).isEmpty()) {
                 throw new IllegalStateException("project not found: " + projectId);
             }
             LiveExternalReferenceResolutionService service = new LiveExternalReferenceResolutionService(
-                    runtime.snapshots, runtime.externalReferences, resolverRegistry, Clock.systemUTC());
+                    runtime.snapshots(), runtime.externalReferences(), resolverRegistry, Clock.systemUTC(), recorder);
             return switch (subcommand) {
                 case "list" -> list(service, projectId, options, parsed.json(), out);
                 case "resolve" -> resolve(service, projectId, options, parsed.json(), out);

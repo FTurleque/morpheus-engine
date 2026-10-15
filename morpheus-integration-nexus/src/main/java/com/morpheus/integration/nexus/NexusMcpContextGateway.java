@@ -3,7 +3,6 @@ package com.morpheus.integration.nexus;
 import com.morpheus.application.context.TechnicalContextBundle;
 import com.morpheus.application.context.TechnicalContextItem;
 import com.morpheus.application.context.TechnicalContextRequest;
-import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.operability.SuppressedFailureFamily;
 import com.morpheus.application.security.ExternalJarIntegrity;
@@ -53,17 +52,14 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
     private final McpSyncClient client;
     private final PeerOperationDeadline deadline;
     private final Optional<Path> stagedJar;
+    private final OperationalRecorder recorder;
     private final JsonMapper mapper = JsonMapper.builder()
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
             .build();
 
-    public NexusMcpContextGateway(NexusIntegrationSettings settings) {
-        this(launch(Objects.requireNonNull(settings, "settings")));
-    }
-
-    NexusMcpContextGateway(String command, List<String> arguments, Map<String, String> environment, Duration timeout) {
-        this(command, arguments, environment, timeout,
-                PeerOperationDeadline.of(timeout, REQUESTS_PER_OPERATION));
+    /** A gateway to the configured peer; what fails without failing the operation is counted on {@code recorder}. */
+    public NexusMcpContextGateway(NexusIntegrationSettings settings, OperationalRecorder recorder) {
+        this(launch(Objects.requireNonNull(settings, "settings"), Objects.requireNonNull(recorder, "recorder")));
     }
 
     NexusMcpContextGateway(
@@ -71,16 +67,28 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
             List<String> arguments,
             Map<String, String> environment,
             Duration timeout,
-            Duration operationDeadline) {
-        this(new Launch(command, arguments, environment, timeout, operationDeadline, Optional.empty()));
+            OperationalRecorder recorder) {
+        this(command, arguments, environment, timeout,
+                PeerOperationDeadline.of(timeout, REQUESTS_PER_OPERATION), recorder);
+    }
+
+    NexusMcpContextGateway(
+            String command,
+            List<String> arguments,
+            Map<String, String> environment,
+            Duration timeout,
+            Duration operationDeadline,
+            OperationalRecorder recorder) {
+        this(new Launch(command, arguments, environment, timeout, operationDeadline, Optional.empty(), recorder));
     }
 
     private NexusMcpContextGateway(Launch launch) {
         this.stagedJar = launch.stagedJar();
+        this.recorder = launch.recorder();
         McpSyncClient started = buildClient(launch, stagedJar);
         // Closing the client fails the pending request at once, so the operation ends at its deadline.
         PeerOperationDeadline armed = PeerOperationDeadline.arm(
-                launch.operationDeadline(), countingAbort(started::close, LocalOperationalRuntime.recorder()));
+                launch.operationDeadline(), countingAbort(started::close, recorder));
         try {
             started.initialize();
             Set<String> available = started.listTools().tools().stream()
@@ -172,9 +180,9 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
             client.closeGracefully();
         } catch (RuntimeException shutdownFailure) {
             // Optional external process cleanup must not mask the primary result.
-            LocalOperationalRuntime.recorder().suppressed(SuppressedFailureFamily.MCP_PEER_SHUTDOWN, shutdownFailure);
+            recorder.suppressed(SuppressedFailureFamily.MCP_PEER_SHUTDOWN, shutdownFailure);
         } finally {
-            deleteStagedCounting(stagedJar, LocalOperationalRuntime.recorder());
+            deleteStagedCounting(stagedJar, recorder);
         }
     }
 
@@ -227,7 +235,7 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
         return textContent.text() == null ? "" : textContent.text();
     }
 
-    private static Launch launch(NexusIntegrationSettings settings) {
+    private static Launch launch(NexusIntegrationSettings settings, OperationalRecorder recorder) {
         if (!settings.enabled()) {
             throw new NexusIntegrationException("NEXUS integration is not configured: "
                     + settings.configurationError().orElse(settings.state().name()));
@@ -241,13 +249,13 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
             settings.homeDirectory().ifPresent(home -> arguments.add("-Dnexus.home=" + home));
             arguments.addAll(List.of("-jar", launchJar.toString()));
             return new Launch(settings.javaCommand(), arguments, Map.of(), settings.timeout(),
-                    PeerOperationDeadline.of(settings.timeout(), REQUESTS_PER_OPERATION), staged);
+                    PeerOperationDeadline.of(settings.timeout(), REQUESTS_PER_OPERATION), staged, recorder);
         } catch (IllegalArgumentException integrityFailure) {
-            deleteStagedCounting(staged, LocalOperationalRuntime.recorder());
+            deleteStagedCounting(staged, recorder);
             throw new NexusIntegrationException(
                     "NEXUS JAR integrity verification failed immediately before launch", integrityFailure);
         } catch (RuntimeException failure) {
-            deleteStagedCounting(staged, LocalOperationalRuntime.recorder());
+            deleteStagedCounting(staged, recorder);
             throw failure;
         }
     }
@@ -257,7 +265,7 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
             BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
                     new McpPeerLaunch(launch.command(), launch.arguments(), launch.environment()),
                     McpJsonDefaults.getMapper(), MAX_MCP_RESPONSE_BYTES,
-                    LocalOperationalRuntime.recorder().suppressing(SuppressedFailureFamily.MCP_PEER_PROCESS_TREE));
+                    launch.recorder().suppressing(SuppressedFailureFamily.MCP_PEER_PROCESS_TREE));
             return McpClient.sync(transport).requestTimeout(launch.timeout()).build();
         } catch (RuntimeException failure) {
             deleteStagedSuppressing(stagedJar, failure);
@@ -330,8 +338,10 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
             Map<String, String> environment,
             Duration timeout,
             Duration operationDeadline,
-            Optional<Path> stagedJar) {
+            Optional<Path> stagedJar,
+            OperationalRecorder recorder) {
         private Launch {
+            Objects.requireNonNull(recorder, "recorder");
             command = requireText(command, "command");
             arguments = List.copyOf(Objects.requireNonNull(arguments, "arguments"));
             environment = Map.copyOf(Objects.requireNonNull(environment, "environment"));

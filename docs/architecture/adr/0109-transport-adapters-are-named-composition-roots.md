@@ -122,6 +122,61 @@ Reste hors de cet amendement : les dix classes nommées ouvrent un store, donc u
 opération qui passerait par deux d'entre elles en ouvrirait deux ; aucune des deux opérations mesurées ne le fait, et
 la mesure n'a porté que sur ces deux-là.
 
+## Amendement du 15 octobre 2026 — un runtime par transport, une seule classe construit les stores
+
+Les deux amendements précédents laissaient trois restes, que le constat AUD-TRV-05 nommait encore : chaque transport
+avait trois types de runtime (HTTP : `ApiRuntime`, neuf stores, plus `SqliteQueryRuntime`, cinq, et
+`SqlitePolicyRuntime`, huit ; la CLI les mêmes avec `CliRuntime` ; le MCP les mêmes avec `MorpheusMcpRuntime`, sept, et
+un assemblage sans type dans `MorpheusCompositionMcpTools`) ; neuf classes construisaient un store hors de toute
+portée ; la liste des racines n'avait pas bougé.
+
+- **Une seule classe construit les stores d'une opération : `SqliteOperationRuntime`** (`morpheus-store-sqlite`). Elle
+  ouvre toujours la portée, avant tout store, puis construit chaque store la première fois qu'une opération le demande
+  et l'inscrit aussitôt pour libération. Une opération paie les stores qu'elle lit, une connexion physique et une
+  vérification de schéma. Elle câble aussi les services de requête et de policy, qui n'ont donc plus qu'un câblage.
+  `SqliteQueryRuntime`, `SqlitePolicyRuntime`, `SqliteQueryStores`, `SqlitePolicyStores` et `SqliteStoreConnection.openScope`
+  sont supprimés.
+- **Un type de runtime par transport** : `ApiRuntime`, `CliRuntime`, `MorpheusMcpRuntime`. Chacun enveloppe
+  `SqliteOperationRuntime` et ne rend que des **ports de l'application** : une classe qui lit par lui ne dépend
+  d'aucun type SQLite. C'est ce qui fait rétrécir la liste — la plupart des racines n'atteignaient `store-sqlite` que
+  parce que leur runtime exposait des champs typés `Sqlite…Store`. La CLI a deux fabriques nommées : `recovering`, pour
+  les commandes qui récupéraient déjà les publications interrompues, et `open`, pour la requête, la policy et le
+  portefeuille, qui ne le faisaient pas.
+- **Une base qui ne s'ouvre pas est la même erreur partout** : `KnowledgeStoreException`, message du store de
+  connaissance. HTTP et CLI levaient jusqu'ici l'`IllegalStateException` de la portée, le MCP un message propre.
+- **Un store se construit après l'ouverture**, plus pendant : une base au schéma trop récent échoue au premier store
+  demandé, plus à l'ouverture du runtime. Le `try` qui ouvre le runtime l'entoure dans tous les sites.
+
+| Mesure | Avant (`984bb270`) | Après |
+|---|---|---|
+| `COMPOSITION_ROOTS` | 32 | **5** — `ApiRuntime`, `MorpheusMcpRuntime`, `MorpheusProjectSyncApiService` (provider OpenSpec), `MorpheusRemoteHttpServer` et son bootstrap (`SqliteServerMaintenance`) |
+| types de runtime, par transport | 3 (+ un assemblage sans type en MCP) | **1** |
+| classes de `api`, `mcp`, `cli`, `store-sqlite` qui construisent un store | 16 | **3** |
+| … dont sous une portée qu'elles ouvrent | 6 (7 ouvertures) | **1** (1 ouverture) |
+| … dont hors portée, nommées | 10 | **2** |
+
+Les deux survivants hors portée sont nommés avec leur motif dans `SqliteConnectionScopeUseArchitectureTest` :
+`SqliteServerMaintenance` (la sauvegarde agit sur le fichier et amène la base au schéma courant par le seul store de
+connaissance) et `CliProjectWriteCapabilityResolver`, appelé **depuis** l'opération d'un autre runtime : un store
+construit pendant qu'une portée est ouverte sur le thread emprunte sa connexion, là où un runtime ouvert à cet endroit
+serait refusé comme portée imbriquée.
+
+**Les deux règles sont renforcées**, chacune cassée puis restaurée le 15/10/2026 :
+
+- *texte* : il lit le code sans les commentaires — une ouverture que seul un commentaire épelait suffisait —, exige
+  que l'ouverture précède la première construction, et tient deux listes fermées (`SCOPE_OWNERS`,
+  `ONE_STORE_PER_OPERATION`) au lieu d'un seuil « au moins six ». Cassé par trois classes de brouillon : ouverture en
+  commentaire, ouverture après le store, portée reçue en paramètre sans ouverture.
+- *bytecode* : une classe qui construit **un** store (et non plus deux) **appelle** `SqliteConnectionScope.open`
+  elle-même, ou est nommée ; la règle demandait seulement une dépendance vers la classe de portée, qu'un paramètre ou
+  la capture de son exception satisfaisaient. Cassé par les mêmes classes : elle refuse l'ouverture en commentaire et
+  la portée reçue en paramètre ; elle ne voit pas l'ordre — c'est l'asymétrie pour laquelle le texte est gardé
+  (ADR-0103).
+
+`MultiResourceOwnershipContractTest` ne trouve plus aucun corps qui ouvre deux stores : sa règle reste, et
+`theOperationRuntimeRegistersEveryStoreItOpensForRelease` tient la nouvelle forme — chaque store que construit le
+runtime d'opération passe par la méthode qui l'inscrit pour libération.
+
 ## Alternatives écartées
 
 - **Ramener tout le câblage dans `morpheus-cli`** (les adaptateurs ne dépendant plus que des ports de l'application,

@@ -24,7 +24,7 @@ class ProjectSyncApiServiceArchitectureTest {
         assertTrue(facade.contains("private final MorpheusProjectSyncApiService projectSyncService;"));
         assertTrue(facade.contains("return projectSyncService.sync(projectIdValue, revision);"));
         assertTrue(facade.contains("return projectSyncService.syncStatus(projectIdValue, maxAgeMinutes);"));
-        assertFalse(facade.contains("new LocalSourceInventoryScanner()"));
+        assertFalse(facade.contains("new LocalSourceInventoryScanner("));
         assertFalse(facade.contains("new IncrementalSyncService("));
         assertFalse(facade.contains("new OpenSpecProjectContentReader()"));
         assertFalse(facade.contains("new ProjectSnapshotImportService("));
@@ -32,11 +32,11 @@ class ProjectSyncApiServiceArchitectureTest {
         assertFalse(facade.contains("policy.requireAllowedDirectory(workspace)"));
 
         assertTrue(sync.contains("final class MorpheusProjectSyncApiService"));
-        assertTrue(sync.contains("new LocalSourceInventoryScanner().scan("));
-        assertTrue(sync.contains("new IncrementalSyncService(runtime.syncState)"));
+        assertTrue(sync.contains("new LocalSourceInventoryScanner(recorder).scan("));
+        assertTrue(sync.contains("new IncrementalSyncService(runtime.syncState(), recorder)"));
         assertTrue(sync.contains("new OpenSpecProjectContentReader().read("));
         assertTrue(sync.contains("new ProjectSnapshotImportService("));
-        assertTrue(sync.contains("new SyncFreshnessService(runtime.syncState)"));
+        assertTrue(sync.contains("new SyncFreshnessService(runtime.syncState())"));
         assertTrue(sync.contains("AllowedWorkspaceRoots"));
         assertTrue(sync.contains("policy.requireAllowedDirectory(workspace)"));
         assertFalse(sync.contains("RequirementQueryService"));

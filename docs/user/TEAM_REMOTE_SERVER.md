@@ -400,6 +400,13 @@ SQLite sérialise les écrivains. Une base contendue est d'abord une base **plus
 | `sqlite.contention.busy_or_locked` | transactions perdues sur `SQLITE_BUSY`/`SQLITE_LOCKED` |
 | `sqlite.contention.connection_open` | ouvertures de connexion physique perdues sur la même cause |
 
+Trois compteurs disent la pression que les opérations mettent sur la base, une opération ouvrant une seule connexion physique et une seule vérification de schéma :
+
+| Compteur | Lecture |
+|---|---|
+| `sqlite.scope.connection.opened` / `sqlite.scope.connection.closed` | connexions physiques ouvertes et libérées par les opérations ; un écart qui grandit est une connexion retenue |
+| `sqlite.scope.schema.checked` | vérifications de schéma, une par opération |
+
 La durée est également agrégée sous `sqlite.transaction.duration` (`count`, `totalNanos`, `maxNanos`). C'est ce `maxNanos` qui bouge en premier : il monte bien avant que `sqlite.contention.busy_or_locked` ne commence à s'incrémenter.
 
 **Portée exacte du compteur** : sont comptées les transactions explicites — c'est-à-dire toute mutation multi-instructions de MORPHEUS, celles qui tiennent réellement un verrou d'écriture — et les ouvertures de connexion physique. Une écriture mono-instruction en autocommit n'est pas comptée : l'observer imposerait de proxifier chaque `Statement` JDBC à travers le garde de lease, et ce garde est ce qui libère le lease de la base. Un compteur ne justifie pas d'y toucher.

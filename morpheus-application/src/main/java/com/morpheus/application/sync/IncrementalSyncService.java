@@ -1,6 +1,5 @@
 package com.morpheus.application.sync;
 
-import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.operability.SuppressedFailureFamily;
 import com.morpheus.application.store.SyncStateStore;
@@ -19,15 +18,8 @@ public final class IncrementalSyncService {
     private final WatchSignalPolicy watchPolicy;
     private final OperationalRecorder recorder;
 
-    public IncrementalSyncService(SyncStateStore store) {
-        this(store, new SourceInventoryDiffer(), new WatchSignalPolicy());
-    }
-
-    public IncrementalSyncService(
-            SyncStateStore store,
-            SourceInventoryDiffer differ,
-            WatchSignalPolicy watchPolicy) {
-        this(store, differ, watchPolicy, LocalOperationalRuntime.recorder());
+    public IncrementalSyncService(SyncStateStore store, OperationalRecorder recorder) {
+        this(store, new SourceInventoryDiffer(), new WatchSignalPolicy(), recorder);
     }
 
     public IncrementalSyncService(

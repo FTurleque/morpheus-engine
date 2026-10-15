@@ -1,5 +1,6 @@
 package com.morpheus.integration.minos;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
@@ -14,17 +15,21 @@ import java.util.Properties;
 public final class MinosIntegrationRuntime implements ExternalIntegrationStatusProvider {
     private final MinosIntegrationSettings settings;
     private final ExternalReferenceResolverRegistry resolverRegistry;
+    private final OperationalRecorder recorder;
 
-    private MinosIntegrationRuntime(MinosIntegrationSettings settings) {
+    private MinosIntegrationRuntime(MinosIntegrationSettings settings, OperationalRecorder recorder) {
         this.settings = Objects.requireNonNull(settings, "settings");
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
         this.resolverRegistry = settings.enabled()
                 ? new ExternalReferenceResolverRegistry(List.of(
-                        new MinosMcpExternalReferenceResolver(() -> new MinosMcpCodeGateway(settings))))
+                        new MinosMcpExternalReferenceResolver(() -> new MinosMcpCodeGateway(settings, recorder), recorder)))
                 : new ExternalReferenceResolverRegistry(List.of());
     }
 
-    public static MinosIntegrationRuntime resolve(Map<String, String> environment, Properties properties) {
-        return new MinosIntegrationRuntime(MinosIntegrationSettings.resolve(environment, properties));
+    /** The MINOS integration the environment configures; its peer failures are counted on {@code recorder}. */
+    public static MinosIntegrationRuntime resolve(
+            Map<String, String> environment, Properties properties, OperationalRecorder recorder) {
+        return new MinosIntegrationRuntime(MinosIntegrationSettings.resolve(environment, properties), recorder);
     }
 
     public ExternalReferenceResolverRegistry resolverRegistry() {
@@ -39,7 +44,7 @@ public final class MinosIntegrationRuntime implements ExternalIntegrationStatusP
         if (settings.state() == MinosIntegrationSettings.State.INVALID) {
             return status("INVALID", false, settings.configurationError().orElse("invalid MINOS configuration"));
         }
-        try (MinosCodeGateway ignored = new MinosMcpCodeGateway(settings)) {
+        try (MinosCodeGateway ignored = new MinosMcpCodeGateway(settings, recorder)) {
             return status("AVAILABLE", true, "MINOS MCP server is reachable and compatible");
         } catch (RuntimeException failure) {
             return status("UNAVAILABLE", true, safeMessage(failure));

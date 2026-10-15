@@ -3,6 +3,7 @@ package com.morpheus.api;
 import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.files.SafeWorkspaceFileResolver;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.operability.StartupOwnership;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
@@ -48,8 +49,10 @@ final class MorpheusRemoteHttpServerBootstrap {
             ExternalReferenceResolverRegistry resolverRegistry,
             ExternalIntegrationStatusProvider minosStatus,
             TechnicalContextProvider technicalContextProvider,
-            ChangeWriteCapabilityResolver writeCapabilityResolver) {
+            ChangeWriteCapabilityResolver writeCapabilityResolver,
+            OperationalRuntime operational) {
         Objects.requireNonNull(databasePath, "databasePath");
+        Objects.requireNonNull(operational, "operational");
         Objects.requireNonNull(backupDirectory, "backupDirectory");
         Objects.requireNonNull(providerPluginDirectory, "providerPluginDirectory");
         Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots");
@@ -92,7 +95,8 @@ final class MorpheusRemoteHttpServerBootstrap {
                     technicalContextProvider,
                     writeCapabilityResolver,
                     allowedWorkspaceRoots,
-                    internalCapability), MorpheusHttpServer::close);
+                    internalCapability,
+                    operational), MorpheusHttpServer::close);
             int listenBacklog = Math.max(MorpheusRemoteHttpServer.DEFAULT_MAX_CONCURRENT_REQUESTS, maxConcurrentRequests);
             HttpsServer https = owned.keep(
                     HttpsServer.create(new InetSocketAddress(normalizedHost, port), listenBacklog),
@@ -119,7 +123,8 @@ final class MorpheusRemoteHttpServerBootstrap {
                     providerPluginDirectory,
                     allowedWorkspaceRoots,
                     normalizedAuthFile,
-                    maxConcurrentRequests);
+                    maxConcurrentRequests,
+                    operational);
             https.setExecutor(executor);
             https.createContext(MorpheusHttpServer.API_PREFIX, result::handle);
             https.start();

@@ -2,12 +2,10 @@ package com.morpheus.mcp;
 
 import com.morpheus.application.composition.CompositionQueryService;
 import com.morpheus.application.composition.CompositionStateView;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.store.sqlite.SqliteCompositionStateStore;
-import com.morpheus.store.sqlite.SqliteConnectionScope;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
 
@@ -24,10 +22,12 @@ final class MorpheusCompositionMcpTools {
     static final String CONFLICTS_TOOL = "list_composition_conflicts";
 
     private final Path databasePath;
+    private final OperationalRecorder recorder;
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
-    MorpheusCompositionMcpTools(Path databasePath) {
+    MorpheusCompositionMcpTools(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
     List<McpServerFeatures.SyncToolSpecification> specifications() {
@@ -54,10 +54,8 @@ final class MorpheusCompositionMcpTools {
         try {
             Map<String, Object> arguments = McpArguments.orEmpty(rawArguments);
             ProjectSpecificationId projectId = ProjectSpecificationId.parse(McpArguments.requiredString(arguments, "projectId"));
-            try (SqliteConnectionScope oneConnection = MorpheusMcpRuntime.openScope(databasePath);
-                 SqliteSpecificationKnowledgeStore snapshots = new SqliteSpecificationKnowledgeStore(databasePath);
-                 SqliteCompositionStateStore compositions = new SqliteCompositionStateStore(databasePath)) {
-                CompositionStateView state = new CompositionQueryService(snapshots, compositions)
+            try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath, recorder)) {
+                CompositionStateView state = new CompositionQueryService(runtime.snapshots(), runtime.compositions())
                         .findActive(projectId)
                         .orElseThrow(() -> new KnowledgeStoreException(
                                 "project has no ACTIVE snapshot composition state: " + projectId));

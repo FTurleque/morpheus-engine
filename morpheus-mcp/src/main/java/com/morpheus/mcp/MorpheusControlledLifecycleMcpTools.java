@@ -5,6 +5,7 @@ import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationPolicy
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationResultView;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;
 import com.morpheus.application.lifecycle.mutation.ControlledChangeLifecycleMutationService;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.orchestration.ChangeTransitionEvaluationService;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.store.KnowledgeStoreException;
@@ -38,11 +39,13 @@ final class MorpheusControlledLifecycleMcpTools {
     static final String APPLY_TOOL = "apply_change_lifecycle_transition";
 
     private final Path databasePath;
+    private final OperationalRecorder recorder;
     private final ChangeWriteCapabilityResolver writeCapability;
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
-    MorpheusControlledLifecycleMcpTools(Path databasePath, ChangeWriteCapabilityResolver writeCapability) {
+    MorpheusControlledLifecycleMcpTools(Path databasePath, OperationalRecorder recorder, ChangeWriteCapabilityResolver writeCapability) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
         this.writeCapability = Objects.requireNonNull(writeCapability, "writeCapability");
     }
 
@@ -76,17 +79,17 @@ final class MorpheusControlledLifecycleMcpTools {
             Optional<ChangeAbandonmentReason> abandonmentReason = abandonmentReason(
                     McpArguments.optionalString(arguments, "abandonmentReason"));
 
-            try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath)) {
-                if (runtime.snapshots.findProject(projectId).isEmpty()) {
+            try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath, recorder)) {
+                if (runtime.snapshots().findProject(projectId).isEmpty()) {
                     throw new KnowledgeStoreException("project not found: " + projectId);
                 }
                 var service = new ControlledChangeLifecycleMutationService(
                         new ChangeTransitionEvaluationService(
-                                runtime.snapshots,
-                                runtime.content,
-                                runtime.requirements,
-                                runtime.traceability),
-                        runtime.lifecycleMutations,
+                                runtime.snapshots(),
+                                runtime.content(),
+                                runtime.requirements(),
+                                runtime.traceability()),
+                        runtime.lifecycleMutations(),
                         writeCapability);
                 var result = service.apply(
                         new ChangeLifecycleMutationCommand(

@@ -1,6 +1,5 @@
 package com.morpheus.application.reference;
 
-import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.operability.OperationalExecution;
 import com.morpheus.domain.reference.ExternalReference;
 import com.morpheus.domain.reference.ExternalReferenceResolutionReason;
@@ -15,10 +14,6 @@ public final class ExternalReferenceResolutionService {
     private final ExternalReferenceResolverRegistry registry;
     private final Clock clock;
     private final OperationalExecution execution;
-
-    public ExternalReferenceResolutionService(ExternalReferenceResolverRegistry registry, Clock clock) {
-        this(registry, clock, new OperationalExecution(LocalOperationalRuntime.recorder()));
-    }
 
     public ExternalReferenceResolutionService(
             ExternalReferenceResolverRegistry registry,

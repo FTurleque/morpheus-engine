@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -87,7 +88,7 @@ class MorpheusChangesHttpRoutesContractTest {
             assertTrue(page.body().contains("\"offset\":1"), page.body());
             assertTrue(page.body().contains("\"limit\":1"), page.body());
 
-            Map<?, ?> compatibility = (Map<?, ?>) new MorpheusApiService(database)
+            Map<?, ?> compatibility = (Map<?, ?>) new MorpheusApiService(database, OperationalRecorder.noop())
                     .acceptanceCriteria(projectId, changeId);
             assertEquals(MorpheusApiService.MAX_LIMIT, compatibility.get("limit"));
 

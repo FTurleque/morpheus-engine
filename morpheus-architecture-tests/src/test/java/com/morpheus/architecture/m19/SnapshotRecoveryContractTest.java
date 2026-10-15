@@ -1,5 +1,6 @@
 package com.morpheus.architecture.m19;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.snapshot.SnapshotLifecycleService;
 import com.morpheus.application.snapshot.SnapshotRecoveryService;
 import com.morpheus.application.store.ProjectStoreEntry;
@@ -81,7 +82,7 @@ class SnapshotRecoveryContractTest {
         KnowledgeSnapshotMetadata fresh = building(projectId, Optional.of(active.id()), cutoff.plusSeconds(1), "fresh");
         lifecycle.registerBuilding(fresh);
 
-        SnapshotRecoveryService.RecoveryReport report = new SnapshotRecoveryService(store)
+        SnapshotRecoveryService.RecoveryReport report = new SnapshotRecoveryService(store, OperationalRecorder.noop())
                 .recoverStaleCandidates(projectId, cutoff);
 
         assertEquals(java.util.List.of(stale.id()), report.recoveredCandidates());

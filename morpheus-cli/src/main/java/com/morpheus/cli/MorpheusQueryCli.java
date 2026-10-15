@@ -1,6 +1,7 @@
 package com.morpheus.cli;
 
 import com.morpheus.application.operability.ExhaustiveShutdown;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.query.dsl.PortfolioQueryScope;
 import com.morpheus.application.query.dsl.ProjectQueryScope;
@@ -16,7 +17,6 @@ import com.morpheus.application.store.EntityNotFoundException;
 import com.morpheus.application.store.EntityStateException;
 import com.morpheus.domain.portfolio.PortfolioId;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.store.sqlite.SqliteQueryRuntime;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
@@ -25,6 +25,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
@@ -75,6 +76,12 @@ final class MorpheusQueryCli {
             EXPORT_VIEW, Set.of(OPT_FORMAT, OPT_ID));
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
     private final QueryDslParser parser = new QueryDslParser();
+    private final OperationalRecorder recorder;
+
+    /** Every command counts what it puts on the database on {@code recorder}, the one the launcher handed. */
+    MorpheusQueryCli(OperationalRecorder recorder) {
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
+    }
 
     static boolean handles(String[] args) {
         String command = command(args);
@@ -90,7 +97,7 @@ final class MorpheusQueryCli {
         try {
             Parsed parsed = Parsed.parse(args, environment, properties);
             SimpleOptions options = accepted(parsed);
-            try (SqliteQueryRuntime runtime = SqliteQueryRuntime.open(parsed.layout().databasePath())) {
+            try (CliRuntime runtime = CliRuntime.open(parsed.layout().databasePath(), recorder)) {
                 return switch (parsed.command()) {
                     case CMD_QUERY -> query(options, runtime, parsed.json(), out);
                     case CMD_VIEWS -> views(parsed, options, runtime, out);
@@ -160,13 +167,13 @@ final class MorpheusQueryCli {
         return allowed;
     }
 
-    private int query(SimpleOptions options, SqliteQueryRuntime runtime, boolean jsonOutput, PrintStream out) {
+    private int query(SimpleOptions options, CliRuntime runtime, boolean jsonOutput, PrintStream out) {
         QueryDefinition query = query(options, scope(options));
         write(QueryPublicViews.result(runtime.queries().execute(query)), jsonOutput, out);
         return CliExitCode.SUCCESS.code();
     }
 
-    private int views(Parsed parsed, SimpleOptions options, SqliteQueryRuntime runtime, PrintStream out) {
+    private int views(Parsed parsed, SimpleOptions options, CliRuntime runtime, PrintStream out) {
         String action = parsed.action().orElseThrow();
         Object result = switch (action) {
             case "create" -> {
@@ -192,7 +199,7 @@ final class MorpheusQueryCli {
         return CliExitCode.SUCCESS.code();
     }
 
-    private int export(Parsed parsed, SimpleOptions options, SqliteQueryRuntime runtime, PrintStream out) {
+    private int export(Parsed parsed, SimpleOptions options, CliRuntime runtime, PrintStream out) {
         String action = parsed.action().orElseThrow();
         QueryExportFormat format = format(options);
         QueryDefinition definition = switch (action) {

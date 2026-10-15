@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.json.schema.JsonSchemaValidator;
@@ -147,7 +148,7 @@ class McpFailureContractTest {
                 database(),
                 new ExternalReferenceResolverRegistry(List.of()),
                 MorpheusMcpServer.unconfiguredTechnicalContext(),
-                MorpheusMcpServer.deniedWriteCapability());
+                MorpheusMcpServer.deniedWriteCapability(), OperationalRecorder.noop());
     }
 
     private Path database() {

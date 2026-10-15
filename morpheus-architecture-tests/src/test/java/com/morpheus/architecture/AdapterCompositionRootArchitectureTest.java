@@ -29,6 +29,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * depend directly on {@code com.morpheus.store..} or {@code com.morpheus.provider..}. They are the named roots below.
  * A new class reaching a concrete store or provider is refused until somebody names it, and a named class that no
  * longer reaches one is refused until somebody removes it, so the list can shrink and cannot silently grow.</p>
+ *
+ * <p>On 15 October 2026 it went from 32 classes to 5. Most roots reached {@code store-sqlite} only because the
+ * runtime they read through exposed SQLite types: since each transport has one runtime type whose accessors answer
+ * application ports, a service that reads through it depends on no store. What remains: the two transport runtimes,
+ * the synchronisation service that builds the OpenSpec content reader, and the remote server and its bootstrap, which
+ * take the database file itself through {@code SqliteServerMaintenance} (backup, restore, exclusive lease).</p>
  */
 class AdapterCompositionRootArchitectureTest {
     private static final String[] TRANSPORT_ADAPTERS = {"com.morpheus.api..", "com.morpheus.mcp.."};
@@ -37,37 +43,10 @@ class AdapterCompositionRootArchitectureTest {
     /** The classes allowed to build a runtime from concrete stores and providers (ADR-0109, decision 1). */
     static final Set<String> COMPOSITION_ROOTS = Set.of(
             "com.morpheus.api.ApiRuntime",
-            "com.morpheus.api.MorpheusAugmentedContextApiService",
-            "com.morpheus.api.MorpheusChangeQueryApiService",
-            "com.morpheus.api.MorpheusControlledLifecycleApiService",
-            "com.morpheus.api.MorpheusDiagnosticsApiService",
-            "com.morpheus.api.MorpheusExternalReferenceApiService",
-            "com.morpheus.api.MorpheusHistoryApiService",
-            "com.morpheus.api.MorpheusJarvisOrchestrationApiService",
-            "com.morpheus.api.MorpheusLocalHttpServerBootstrap",
-            "com.morpheus.api.MorpheusOperabilityApiService",
-            "com.morpheus.api.MorpheusPolicyApiService",
-            "com.morpheus.api.MorpheusPolicyManagementHttpRoutes",
-            "com.morpheus.api.MorpheusPortfolioApiService",
-            "com.morpheus.api.MorpheusProjectRegistryApiService",
             "com.morpheus.api.MorpheusProjectSyncApiService",
-            "com.morpheus.api.MorpheusQueryApiService",
             "com.morpheus.api.MorpheusRemoteHttpServer",
             "com.morpheus.api.MorpheusRemoteHttpServerBootstrap",
-            "com.morpheus.api.MorpheusRequirementQueryApiService",
-            "com.morpheus.api.MorpheusSpecificationQueryApiService",
-            "com.morpheus.mcp.MorpheusAugmentedContextMcpTools",
-            "com.morpheus.mcp.MorpheusCompositionMcpTools",
-            "com.morpheus.mcp.MorpheusControlledLifecycleMcpTools",
-            "com.morpheus.mcp.MorpheusExternalReferenceMcpTools",
-            "com.morpheus.mcp.MorpheusJarvisOrchestrationMcpTools",
-            "com.morpheus.mcp.MorpheusMcpRuntime",
-            "com.morpheus.mcp.MorpheusMcpServer",
-            "com.morpheus.mcp.MorpheusMcpToolService",
-            "com.morpheus.mcp.MorpheusPolicyMcpManagementTools",
-            "com.morpheus.mcp.MorpheusPolicyMcpTools",
-            "com.morpheus.mcp.MorpheusPortfolioMcpTools",
-            "com.morpheus.mcp.MorpheusQueryMcpTools");
+            "com.morpheus.mcp.MorpheusMcpRuntime");
 
     private final JavaClasses classes = new ClassFileImporter()
             .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)

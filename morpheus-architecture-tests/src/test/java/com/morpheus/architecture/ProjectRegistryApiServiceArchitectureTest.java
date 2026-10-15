@@ -25,14 +25,14 @@ class ProjectRegistryApiServiceArchitectureTest {
         assertTrue(facade.contains("return projectRegistryService.listProjects();"));
         assertTrue(facade.contains("projectRegistryService.registerProject(workspace)"));
         assertTrue(facade.contains("return projectRegistryService.project(projectIdValue);"));
-        assertFalse(facade.contains("runtime.snapshots.listProjects()"));
+        assertFalse(facade.contains("runtime.snapshots().listProjects()"));
         assertFalse(facade.contains("findProjectByRoot(root)"));
         assertFalse(facade.contains("new ProjectStoreEntry(ProjectSpecificationId.generate(), root)"));
         assertFalse(facade.contains("private Path existingDirectory(String workspace)"));
         assertFalse(facade.contains("private Object project(ApiRuntime runtime, ProjectStoreEntry entry)"));
 
         assertTrue(registry.contains("final class MorpheusProjectRegistryApiService"));
-        assertTrue(registry.contains("runtime.snapshots.listProjects()"));
+        assertTrue(registry.contains("runtime.snapshots().listProjects()"));
         assertTrue(registry.contains("findProjectByRoot(root)"));
         assertTrue(registry.contains("new ProjectStoreEntry(ProjectSpecificationId.generate(), root)"));
         assertTrue(registry.contains("AllowedWorkspaceRoots"));
