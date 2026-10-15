@@ -1,7 +1,6 @@
 package com.morpheus.application.composition;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
-import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.operability.OperationalExecution;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.read.ProviderReadResult;
@@ -24,12 +23,6 @@ public final class MultiProviderReadService {
     private final Map<ProviderId, SpecificationContentReader> readers;
     private final MultiProviderCompositionService compositionService;
     private final ObservedProviderContributionLoader observedLoader;
-
-    public MultiProviderReadService(
-            Collection<? extends SpecificationContentReader> readers,
-            MultiProviderCompositionService compositionService) {
-        this(readers, compositionService, new OperationalExecution(LocalOperationalRuntime.recorder()));
-    }
 
     public MultiProviderReadService(
             Collection<? extends SpecificationContentReader> readers,

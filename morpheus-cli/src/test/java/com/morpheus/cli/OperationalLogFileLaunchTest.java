@@ -2,6 +2,7 @@ package com.morpheus.cli;
 
 import com.morpheus.application.operability.OperationalLogFileException;
 import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.operability.RotatingOperationalLogFile;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -129,6 +130,7 @@ class OperationalLogFileLaunchTest {
     private static Path printedLogsDirectory(String[] arguments, Map<String, String> environment, Properties properties) {
         ByteArrayOutputStream printed = new ByteArrayOutputStream();
         int exitCode = MorpheusMain.run(
+                    OperationalRuntime.of(OperationalLogMode.OFF),
                 arguments,
                 new PrintStream(printed, true, StandardCharsets.UTF_8),
                 new PrintStream(new ByteArrayOutputStream(), true, StandardCharsets.UTF_8),

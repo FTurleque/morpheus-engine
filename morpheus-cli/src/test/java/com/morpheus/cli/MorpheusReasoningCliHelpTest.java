@@ -1,5 +1,6 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -16,7 +17,7 @@ class MorpheusReasoningCliHelpTest {
         ByteArrayOutputStream stdout = new ByteArrayOutputStream();
         ByteArrayOutputStream stderr = new ByteArrayOutputStream();
 
-        int exit = new MorpheusReasoningCli().run(
+        int exit = new MorpheusReasoningCli(OperationalRecorder.noop()).run(
                 new String[]{"reason", "--help"},
                 new PrintStream(stdout, true, StandardCharsets.UTF_8),
                 new PrintStream(stderr, true, StandardCharsets.UTF_8));

@@ -23,7 +23,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>This rule holds the direction while that is done. It is textual: it is about which source mentions the name. A
  * class that starts to mention it is refused; a class that stops is removed from the list, which is the only edit the
- * list accepts. The same rule covers the tests, where the list is what has to reach zero.</p>
+ * list accepts. No test mentions it at all: a test that asserts on counters builds the metrics it reads.</p>
+ *
+ * <p>What remains is of three kinds. The launcher, and the logging binding the service loader instantiates, are where
+ * the process-wide runtime belongs. The SQLite store keeps one default, for a connection whose opener named no
+ * recorder, and one lease per database for the whole process. Every other class is a convenience constructor or a
+ * static helper waiting for its caller to be handed a recorder.</p>
  */
 class StaticOperationalRuntimeUsersArchitectureTest {
     private static final String RUNTIME = "LocalOperationalRuntime";
@@ -35,35 +40,24 @@ class StaticOperationalRuntimeUsersArchitectureTest {
             "ExternalReferenceResolutionService.java",
             "IncrementalSyncService.java",
             "LocalSourceInventoryScanner.java",
-            "LocalSourceWatcher.java",
             "MinosMcpCodeGateway.java",
             "MinosMcpExternalReferenceResolver.java",
             "MorpheusCli.java",
-            "MorpheusCompositionCli.java",
             "MorpheusMain.java",
             "MorpheusOperabilityApiService.java",
             "MorpheusProjectSyncApiService.java",
             "MorpheusReasoningApiService.java",
-            "MorpheusReasoningCli.java",
             "MorpheusReasoningMcpTools.java",
             "MorpheusRemoteHttpServer.java",
-            "MultiProviderReadService.java",
             "NexusMcpContextGateway.java",
             "OperationalSlf4jServiceProvider.java",
             "SnapshotRecoveryService.java",
-            "SqliteChangeLifecycleMutationStore.java",
             "SqliteContentionMetrics.java",
             "SqliteDatabaseLease.java",
             "UnforeseenFailureTrace.java");
 
-    /**
-     * Tests that read the static runtime. {@code SqliteContentionObservabilityTest} reads its counters as deltas
-     * because the store path writes to the process-wide ones; {@code FixtureThirdPartyLogProcess} is a launched
-     * process that names the log directory as the launcher does. No test is added.
-     */
-    private static final Set<String> TEST_USERS = Set.of(
-            "FixtureThirdPartyLogProcess.java",
-            "SqliteContentionObservabilityTest.java");
+    /** The classes that take the runtime of the process as a value: the launcher, and the second entry point. */
+    private static final Set<String> PROCESS_RUNTIME_TAKERS = Set.of("MorpheusCli.java", "MorpheusMain.java");
 
     @Test
     void noMainClassStartsToReadTheStaticRuntime() throws IOException {
@@ -76,13 +70,26 @@ class StaticOperationalRuntimeUsersArchitectureTest {
     }
 
     @Test
-    void noTestStartsToReadTheStaticRuntime() throws IOException {
-        assertEquals(new TreeSet<>(TEST_USERS), sourcesMentioning("src/test/java"), "a test that reads " + RUNTIME
-                + " observes what every other test of the JVM wrote. Build an OperationalMetrics of its own and hand "
-                + "it to the code under test; a test that no longer mentions it is removed from TEST_USERS");
+    void noTestReadsTheStaticRuntime() throws IOException {
+        assertEquals(Set.of(), sourcesMentioning("src/test/java"), "a test that reads " + RUNTIME
+                + " observes what every other test of the JVM wrote. Build an OperationalMetrics or an "
+                + "OperationalRuntime of its own and hand it to the code under test");
+    }
+
+    @Test
+    void onlyAnEntryPointTakesTheRuntimeOfTheProcessAsAValue() throws IOException {
+        Set<String> found = sourcesMentioning("src/main/java", RUNTIME + ".process()");
+
+        assertEquals(new TreeSet<>(PROCESS_RUNTIME_TAKERS), found, "the runtime of the process is taken once, by "
+                + "the entry point that then hands it on by constructor. A class that takes it elsewhere has a "
+                + "runtime nobody gave it, and a test cannot give it another");
     }
 
     private static Set<String> sourcesMentioning(String sourceRoot) throws IOException {
+        return sourcesMentioning(sourceRoot, RUNTIME);
+    }
+
+    private static Set<String> sourcesMentioning(String sourceRoot, String mention) throws IOException {
         Path root = repositoryRoot();
         Set<String> found = new TreeSet<>();
         try (Stream<Path> modules = Files.list(root)) {
@@ -94,7 +101,7 @@ class StaticOperationalRuntimeUsersArchitectureTest {
                 }
                 try (Stream<Path> files = Files.walk(sources)) {
                     for (Path file : files.filter(path -> path.toString().endsWith(".java")).toList()) {
-                        if (Files.readString(file).contains(RUNTIME)) {
+                        if (Files.readString(file).contains(mention)) {
                             assertTrue(found.add(file.getFileName().toString()),
                                     () -> "two sources share the name " + file.getFileName());
                         }

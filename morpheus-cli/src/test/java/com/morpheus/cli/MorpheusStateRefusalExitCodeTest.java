@@ -1,5 +1,7 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.domain.identity.DomainIdentity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -202,7 +204,7 @@ class MorpheusStateRefusalExitCodeTest {
             Properties properties = new Properties();
             properties.setProperty("user.home", temp.resolve("home").toString());
             properties.setProperty("os.name", "Linux");
-            exit = MorpheusMain.run(args.toArray(String[]::new), out, err, Map.of(), properties);
+            exit = MorpheusMain.run(OperationalRuntime.of(OperationalLogMode.OFF), args.toArray(String[]::new), out, err, Map.of(), properties);
         }
         return new Result(exit, output.toString(StandardCharsets.UTF_8), errors.toString(StandardCharsets.UTF_8));
     }

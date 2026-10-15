@@ -7,6 +7,8 @@ import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.context.TechnicalContextRequest;
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
+import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
@@ -283,7 +285,7 @@ class MorpheusAugmentedContextCliTest {
         args[0] = "--data-dir";
         args[1] = data.toString();
         System.arraycopy(command, 0, args, 2, command.length);
-        return capture((out, err) -> MorpheusMain.run(args, out, err, Map.of(), properties()));
+        return capture((out, err) -> MorpheusMain.run(OperationalRuntime.of(OperationalLogMode.OFF), args, out, err, Map.of(), properties()));
     }
 
     private Invocation invoke(MorpheusAugmentedContextCli cli, String... args) {

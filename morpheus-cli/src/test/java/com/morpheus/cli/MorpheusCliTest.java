@@ -3,6 +3,8 @@ package com.morpheus.cli;
 import com.morpheus.application.analysis.ChangeAnalysisWarning;
 import com.morpheus.application.analysis.ChangeAnalysisWarningCode;
 import com.morpheus.application.ingestion.BoundedDiagnostics;
+import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.domain.diagnostic.Diagnostic;
 import com.morpheus.domain.diagnostic.DiagnosticCode;
 import com.morpheus.domain.diagnostic.DiagnosticSeverity;
@@ -569,6 +571,7 @@ class MorpheusCliTest {
         try (PrintStream out = new PrintStream(outBytes, true, StandardCharsets.UTF_8);
              PrintStream err = new PrintStream(errBytes, true, StandardCharsets.UTF_8)) {
             int exitCode = MorpheusMain.run(
+                    OperationalRuntime.of(OperationalLogMode.OFF),
                     args,
                     out,
                     err,

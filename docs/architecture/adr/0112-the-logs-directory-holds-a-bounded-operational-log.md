@@ -5,7 +5,7 @@
 - Dépend de : ADR-0087 (opérabilité local-first), ADR-0088 (séparation programme / données persistantes), ADR-0111
   (un seul binding de journalisation)
 - Portée : `morpheus-application` (`OperationalLogMode.FILE`, `RotatingOperationalLogFile`,
-  `DeferredOperationalEventSink`, `LocalOperationalRuntime.writeLogFileIn`), `morpheus-cli` (`MorpheusMain`)
+  `DeferredOperationalEventSink`, `OperationalRuntime.writeLogFileIn` depuis ADR-0115), `morpheus-cli` (`MorpheusMain`)
 
 ## Contexte
 

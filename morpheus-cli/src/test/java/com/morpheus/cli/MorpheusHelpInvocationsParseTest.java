@@ -1,5 +1,7 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.domain.identity.DomainIdentity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -133,7 +135,7 @@ class MorpheusHelpInvocationsParseTest {
         int exitCode;
         try (PrintStream out = new PrintStream(new ByteArrayOutputStream(), true, StandardCharsets.UTF_8);
              PrintStream err = new PrintStream(errBytes, true, StandardCharsets.UTF_8)) {
-            exitCode = MorpheusMain.run(invocation.toArray(String[]::new), out, err, Map.of(), properties());
+            exitCode = MorpheusMain.run(OperationalRuntime.of(OperationalLogMode.OFF), invocation.toArray(String[]::new), out, err, Map.of(), properties());
         }
         String message = errBytes.toString(StandardCharsets.UTF_8).trim();
         return exitCode == CliExitCode.USAGE.code()
@@ -287,7 +289,7 @@ class MorpheusHelpInvocationsParseTest {
         ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
         try (PrintStream out = new PrintStream(outBytes, true, StandardCharsets.UTF_8);
              PrintStream err = new PrintStream(new ByteArrayOutputStream(), true, StandardCharsets.UTF_8)) {
-            assertEquals(CliExitCode.SUCCESS.code(), MorpheusMain.run(args, out, err, Map.of(), properties()));
+            assertEquals(CliExitCode.SUCCESS.code(), MorpheusMain.run(OperationalRuntime.of(OperationalLogMode.OFF), args, out, err, Map.of(), properties()));
         }
         return outBytes.toString(StandardCharsets.UTF_8);
     }

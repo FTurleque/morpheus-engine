@@ -1,6 +1,5 @@
 package com.morpheus.cli;
 
-import com.morpheus.application.operability.LocalOperationalRuntime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,7 +15,7 @@ final class FixtureThirdPartyLogProcess {
 
     public static void main(String[] arguments) {
         if (arguments.length == 1) {
-            LocalOperationalRuntime.writeLogFileIn(Path.of(arguments[0]));
+            MorpheusMain.processRuntime().writeLogFileIn(Path.of(arguments[0]));
         }
         Logger logger = LoggerFactory.getLogger("io.example.Fixture");
         logger.info("connected");

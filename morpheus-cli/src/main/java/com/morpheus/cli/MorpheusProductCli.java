@@ -1,5 +1,6 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.product.ProductMetadata;
 import com.morpheus.application.product.UpdateCheckResult;
 import com.morpheus.application.product.UpdateDiscoveryService;
@@ -16,6 +17,11 @@ import java.util.Objects;
 /** Product-integrity commands that never require opening the MORPHEUS knowledge store. */
 final class MorpheusProductCli {
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
+    private final OperationalRecorder recorder;
+
+    MorpheusProductCli(OperationalRecorder recorder) {
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
+    }
 
     static boolean handles(String[] args) {
         String command = command(args);
@@ -31,7 +37,7 @@ final class MorpheusProductCli {
         Objects.requireNonNull(out, "out");
         Objects.requireNonNull(err, "err");
         if (command(args).equals("reason")) {
-            return new MorpheusReasoningCli().run(args, out, err);
+            return new MorpheusReasoningCli(recorder).run(args, out, err);
         }
         try {
             Parsed parsed = parse(args);

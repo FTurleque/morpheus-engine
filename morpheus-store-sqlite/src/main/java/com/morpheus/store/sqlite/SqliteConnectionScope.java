@@ -1,5 +1,7 @@
 package com.morpheus.store.sqlite;
 
+import com.morpheus.application.operability.OperationalRecorder;
+
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
@@ -56,13 +58,30 @@ public final class SqliteConnectionScope implements AutoCloseable {
     }
 
     public static SqliteConnectionScope open(Path databasePath, int busyTimeoutMillis) {
+        return open(databasePath, busyTimeoutMillis, SqliteContentionMetrics.processDefault());
+    }
+
+    /**
+     * Opens a scope whose stores are observed by {@code recorder}: every transaction a store runs on the connection
+     * of this scope is counted there, and nowhere else.
+     */
+    public static SqliteConnectionScope open(Path databasePath, OperationalRecorder recorder) {
+        return open(databasePath, SqliteDatabaseSecurity.DEFAULT_BUSY_TIMEOUT_MILLIS, recorder);
+    }
+
+    public static SqliteConnectionScope open(Path databasePath, int busyTimeoutMillis, OperationalRecorder recorder) {
+        return open(databasePath, busyTimeoutMillis, new SqliteContentionMetrics(recorder));
+    }
+
+    private static SqliteConnectionScope open(
+            Path databasePath, int busyTimeoutMillis, SqliteContentionMetrics contention) {
         Objects.requireNonNull(databasePath, "databasePath");
         // Rejected before the connection is opened: refusing afterwards would leak the connection it opened.
         requireNoScopeOnThisThread();
         Path normalized = databasePath.toAbsolutePath().normalize();
         try {
             return adopt(normalized, busyTimeoutMillis,
-                    SqliteDatabaseSecurity.openPhysical(normalized, busyTimeoutMillis));
+                    SqliteDatabaseSecurity.openPhysical(normalized, busyTimeoutMillis, contention));
         } catch (SQLException failure) {
             throw new IllegalStateException("cannot open SQLite operation scope", failure);
         }
@@ -79,7 +98,8 @@ public final class SqliteConnectionScope implements AutoCloseable {
         Objects.requireNonNull(databasePath, "databasePath");
         Objects.requireNonNull(physical, "physical");
         requireNoScopeOnThisThread();
-        State state = new State(databasePath.toAbsolutePath().normalize(), busyTimeoutMillis, physical);
+        State state = new State(databasePath.toAbsolutePath().normalize(), busyTimeoutMillis, physical,
+                SqliteContentionMetrics.of(physical));
         recordPhysicalOpen();
         ACTIVE.set(state);
         return new SqliteConnectionScope(state);
@@ -158,7 +178,8 @@ public final class SqliteConnectionScope implements AutoCloseable {
         }
 
         try {
-            active.physical = SqliteDatabaseSecurity.openPhysical(active.databasePath, active.busyTimeoutMillis);
+            active.physical = SqliteDatabaseSecurity.openPhysical(
+                    active.databasePath, active.busyTimeoutMillis, active.contention);
             active.physicalCountedActive = true;
             recordPhysicalOpen();
             // Schema is durable in the database and was already initialized for this scope.
@@ -250,12 +271,18 @@ public final class SqliteConnectionScope implements AutoCloseable {
         }
     }
 
-    private static final class ScopedConnectionHandler implements InvocationHandler {
+    private static final class ScopedConnectionHandler
+            implements InvocationHandler, SqliteContentionMetrics.Carrier {
         private final State state;
         private final AtomicBoolean logicalClosed = new AtomicBoolean();
 
         private ScopedConnectionHandler(State state) {
             this.state = state;
+        }
+
+        @Override
+        public SqliteContentionMetrics contention() {
+            return state.contention;
         }
 
         @Override
@@ -307,6 +334,8 @@ public final class SqliteConnectionScope implements AutoCloseable {
     private static final class State {
         private final Path databasePath;
         private final int busyTimeoutMillis;
+        /** What the opener of the scope observes its transactions with; a replaced connection keeps it. */
+        private final SqliteContentionMetrics contention;
         /** The thread that opened the scope; the only one allowed to reach the physical connection. */
         private final Thread owner = Thread.currentThread();
         private Connection physical;
@@ -317,7 +346,9 @@ public final class SqliteConnectionScope implements AutoCloseable {
         private boolean quarantined;
         private Throwable quarantineCause;
 
-        private State(Path databasePath, int busyTimeoutMillis, Connection physical) {
+        private State(
+                Path databasePath, int busyTimeoutMillis, Connection physical, SqliteContentionMetrics contention) {
+            this.contention = contention;
             this.databasePath = databasePath;
             this.busyTimeoutMillis = busyTimeoutMillis;
             this.physical = physical;

@@ -4,6 +4,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -42,5 +44,31 @@ class MorpheusRootHttpRoutesContractTest {
             assertEquals(404, unknown.status(), unknown.body());
             assertTrue(unknown.body().contains("unknown API route"), unknown.body());
         }
+    }
+
+    /**
+     * The counters a started server serves are the ones its stores write to. Both sides are read through the server:
+     * a store that counted somewhere the metrics route does not look would leave the served value where it was.
+     */
+    @Test
+    void theServedMetricsCarryTheTransactionsOfTheStoresTheServerOpens() {
+        Path database = tempDirectory.resolve("served-metrics.db");
+        try (MorpheusHttpServer server = MorpheusHttpServer.start(database, "127.0.0.1", 0)) {
+            long before = servedCounter(server, "sqlite.transaction.committed");
+
+            assertEquals(200, http.get(server, "/readiness").status());
+
+            long after = servedCounter(server, "sqlite.transaction.committed");
+            assertTrue(after > before, "the readiness probe opened a store and committed its transactions, and the "
+                    + "served counter stayed at " + before);
+        }
+    }
+
+    private long servedCounter(MorpheusHttpServer server, String name) {
+        ApiTestSupport.Response metrics = http.get(server, "/metrics");
+        assertEquals(200, metrics.status(), metrics.body());
+        Matcher served = Pattern.compile("\"" + Pattern.quote(name) + "\"\\s*:\\s*(\\d+)").matcher(metrics.body());
+        assertTrue(served.find(), () -> "the metrics route does not serve " + name + ": " + metrics.body());
+        return Long.parseLong(served.group(1));
     }
 }

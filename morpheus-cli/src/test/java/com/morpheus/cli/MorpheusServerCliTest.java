@@ -1,5 +1,7 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.store.sqlite.SqliteServerMaintenance;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -272,7 +274,7 @@ class MorpheusServerCliTest {
             Properties properties = new Properties();
             properties.setProperty("user.home", temp.resolve("home").toString());
             properties.setProperty("os.name", System.getProperty("os.name", "Linux"));
-            exit = MorpheusMain.run(new String[]{
+            exit = MorpheusMain.run(OperationalRuntime.of(OperationalLogMode.OFF), new String[]{
                     "--data-dir=" + dataDir,
                     "--config-dir=" + configDir,
                     "--db=" + db,
@@ -313,7 +315,7 @@ class MorpheusServerCliTest {
             Properties properties = new Properties();
             properties.setProperty("user.home", temp.resolve("home").toString());
             properties.setProperty("os.name", System.getProperty("os.name", "Linux"));
-            exit = MorpheusMain.run(args.toArray(String[]::new), out, err, Map.of(), properties);
+            exit = MorpheusMain.run(OperationalRuntime.of(OperationalLogMode.OFF), args.toArray(String[]::new), out, err, Map.of(), properties);
         }
         return new Result(exit, output.toString(StandardCharsets.UTF_8), errors.toString(StandardCharsets.UTF_8));
     }

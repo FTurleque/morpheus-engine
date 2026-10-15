@@ -34,7 +34,7 @@ class LocalSourceWatcherBudgetTest {
                 1024 * 100L);
 
         assertThrows(IOException.class,
-                () -> new LocalSourceWatcher(tempDir, List.of(Path.of("specs")), policy));
+                () -> new LocalSourceWatcher(tempDir, List.of(Path.of("specs")), policy, OperationalRecorder.noop()));
     }
 
     /**
@@ -73,6 +73,7 @@ class LocalSourceWatcherBudgetTest {
                 1024 * 100L);
 
         assertThrows(IOException.class,
-                () -> new LocalSourceWatcher(tempDir, List.of(Path.of("one/two/three")), policy));
+                () -> new LocalSourceWatcher(
+                        tempDir, List.of(Path.of("one/two/three")), policy, OperationalRecorder.noop()));
     }
 }

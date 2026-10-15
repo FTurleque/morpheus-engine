@@ -1,5 +1,7 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRuntime;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -33,7 +35,7 @@ class MorpheusNexusCliTest {
         properties.setProperty("os.name", System.getProperty("os.name", "Windows"));
         try (PrintStream out = new PrintStream(outBytes, true, StandardCharsets.UTF_8);
              PrintStream err = new PrintStream(errBytes, true, StandardCharsets.UTF_8)) {
-            int exit = MorpheusMain.run(args, out, err, Map.of(), properties);
+            int exit = MorpheusMain.run(OperationalRuntime.of(OperationalLogMode.OFF), args, out, err, Map.of(), properties);
             return new Invocation(
                     exit,
                     outBytes.toString(StandardCharsets.UTF_8).replace("\r\n", "\n"),

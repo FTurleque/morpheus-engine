@@ -1,6 +1,8 @@
 package com.morpheus.store.sqlite;
 
-import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.operability.OperationalEventSink;
+import com.morpheus.application.operability.OperationalMetrics;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.domain.project.ProjectSpecificationId;
@@ -12,8 +14,10 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -24,8 +28,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>SQLite serializes writers, so a contended database is a slower one right up to the moment the busy timeout
  * is exhausted and an operation fails outright. Nothing in between produced any signal, which is precisely the
- * range in which an operator could still act. Counters are read as deltas here, because the operational runtime
- * is process-local and shared with everything else running in this JVM.</p>
+ * range in which an operator could still act.</p>
+ *
+ * <p>Each test opens its connection or its scope with metrics of its own and asserts the values it finds there:
+ * nothing else in the JVM writes to them.</p>
  */
 class SqliteContentionObservabilityTest {
     private static final int CONTENDED_BUSY_TIMEOUT_MILLIS = 150;
@@ -33,26 +39,70 @@ class SqliteContentionObservabilityTest {
     @TempDir
     Path tempDir;
 
+    private final OperationalMetrics metrics = new OperationalMetrics();
+    private final OperationalRecorder recorder = new OperationalRecorder(OperationalEventSink.noop(), metrics);
+
     @Test
     void aCommittedTransactionIsCountedAndTimed() {
         Path database = tempDir.resolve("committed.db");
-        Map<String, Long> before = counters();
 
-        try (SqliteSpecificationKnowledgeStore store = new SqliteSpecificationKnowledgeStore(database)) {
+        try (SqliteConnectionScope observed = SqliteConnectionScope.open(database, recorder);
+             SqliteSpecificationKnowledgeStore store = new SqliteSpecificationKnowledgeStore(database)) {
             store.putProject(new ProjectStoreEntry(
                     ProjectSpecificationId.generate(), SourceLocator.file("contention/committed")));
         }
 
-        Map<String, Long> after = counters();
-        assertTrue(delta(before, after, SqliteContentionMetrics.TRANSACTIONS_STARTED) > 0L,
-                "opening and migrating a store must be counted as a started transaction");
-        assertTrue(delta(before, after, SqliteContentionMetrics.TRANSACTIONS_COMMITTED) > 0L,
-                "a durable transaction must be counted as committed");
-        assertEquals(0L, delta(before, after, SqliteContentionMetrics.CONTENDED_TRANSACTIONS),
-                "an uncontended write must not be reported as contention");
-        assertTrue(LocalOperationalRuntime.metrics().snapshot().timings()
-                        .containsKey(SqliteContentionMetrics.TRANSACTION_DURATION),
+        long started = counter(SqliteContentionMetrics.TRANSACTIONS_STARTED);
+        assertTrue(started > 0L, "opening and migrating a store must be counted as a started transaction");
+        assertEquals(started, counter(SqliteContentionMetrics.TRANSACTIONS_COMMITTED),
+                "every transaction of an uncontended store commits, and each is counted once");
+        assertEquals(Set.of(SqliteContentionMetrics.TRANSACTIONS_STARTED, SqliteContentionMetrics.TRANSACTIONS_COMMITTED),
+                metrics.snapshot().counters().keySet(),
+                "an uncontended write is reported neither as a rollback nor as contention");
+        assertEquals(started, metrics.snapshot().timings().get(SqliteContentionMetrics.TRANSACTION_DURATION).count(),
                 "transaction duration must be recorded so a slowing database is visible before it fails");
+    }
+
+    /** The counters belong to whoever opened the connection: a second store, opened by someone else, moves none. */
+    @Test
+    void twoStoresOpenedWithTwoRecordersMoveTwoSetsOfCounters() {
+        OperationalMetrics otherMetrics = new OperationalMetrics();
+        Path otherDatabase = tempDir.resolve("other.db");
+        try (SqliteConnectionScope other = SqliteConnectionScope.open(
+                     otherDatabase, new OperationalRecorder(OperationalEventSink.noop(), otherMetrics));
+             SqliteSpecificationKnowledgeStore store = new SqliteSpecificationKnowledgeStore(otherDatabase)) {
+            // Built and migrated: what it cost is on the other metrics, and stays there.
+        }
+        Map<String, Long> otherAfterItsOwnWork = otherMetrics.snapshot().counters();
+        assertTrue(otherAfterItsOwnWork.get(SqliteContentionMetrics.TRANSACTIONS_COMMITTED) > 0L);
+        assertEquals(Map.of(), metrics.snapshot().counters(), "a store opened by someone else was counted here");
+
+        Path database = tempDir.resolve("mine.db");
+        try (SqliteConnectionScope mine = SqliteConnectionScope.open(database, recorder);
+             SqliteSpecificationKnowledgeStore store = new SqliteSpecificationKnowledgeStore(database)) {
+            store.putProject(new ProjectStoreEntry(
+                    ProjectSpecificationId.generate(), SourceLocator.file("contention/mine")));
+        }
+
+        assertTrue(counter(SqliteContentionMetrics.TRANSACTIONS_COMMITTED) > 0L,
+                "the transactions of a store are counted on the recorder its scope was opened with");
+        assertEquals(otherAfterItsOwnWork, otherMetrics.snapshot().counters(),
+                "a transaction of one store moved the counters of another");
+    }
+
+    /** A store opened outside any scope, by an opener that named a recorder, is observed by that recorder too. */
+    @Test
+    void aConnectionOpenedWithARecorderOutsideAnyScopeCountsThere() throws Exception {
+        Path database = bootstrappedDatabase("direct.db");
+
+        try (Connection connection = openObserved(database, SqliteDatabaseSecurity.DEFAULT_BUSY_TIMEOUT_MILLIS)) {
+            insertProbeRow(connection);
+        }
+
+        assertEquals(
+                Map.of(SqliteContentionMetrics.TRANSACTIONS_STARTED, 1L,
+                        SqliteContentionMetrics.TRANSACTIONS_COMMITTED, 1L),
+                metrics.snapshot().counters());
     }
 
     /**
@@ -65,34 +115,35 @@ class SqliteContentionObservabilityTest {
 
         try (Connection locker = DriverManager.getConnection(
                 "jdbc:sqlite:" + database.toAbsolutePath().normalize());
-             Connection contender = SqliteDatabaseSecurity.openPhysical(
-                     database, CONTENDED_BUSY_TIMEOUT_MILLIS)) {
+             Connection contender = openObserved(database, CONTENDED_BUSY_TIMEOUT_MILLIS)) {
             try (Statement statement = locker.createStatement()) {
                 statement.execute("PRAGMA busy_timeout = " + CONTENDED_BUSY_TIMEOUT_MILLIS);
                 statement.execute("BEGIN EXCLUSIVE");
             }
 
-            Map<String, Long> before = counters();
             assertThrows(KnowledgeStoreException.class, () -> insertProbeRow(contender));
-            Map<String, Long> after = counters();
 
-            assertEquals(1L, delta(before, after, SqliteContentionMetrics.CONTENDED_TRANSACTIONS),
-                    "a transaction that lost to an exclusive writer must be attributed to SQLite contention");
-            assertEquals(1L, delta(before, after, SqliteContentionMetrics.TRANSACTIONS_ROLLED_BACK),
-                    "a contended transaction must also be counted as rolled back");
-            assertEquals(0L, delta(before, after, SqliteContentionMetrics.TRANSACTIONS_COMMITTED),
-                    "a refused transaction must never be counted as committed");
+            assertEquals(
+                    Map.of(SqliteContentionMetrics.TRANSACTIONS_STARTED, 1L,
+                            SqliteContentionMetrics.TRANSACTIONS_ROLLED_BACK, 1L,
+                            SqliteContentionMetrics.CONTENDED_TRANSACTIONS, 1L),
+                    metrics.snapshot().counters(),
+                    "a transaction that lost to an exclusive writer is rolled back, attributed to SQLite "
+                            + "contention, and never counted as committed");
 
             try (Statement statement = locker.createStatement()) {
                 statement.execute("ROLLBACK");
             }
 
-            Map<String, Long> beforeRecovery = counters();
             insertProbeRow(contender);
-            Map<String, Long> afterRecovery = counters();
-            assertEquals(0L, delta(beforeRecovery, afterRecovery, SqliteContentionMetrics.CONTENDED_TRANSACTIONS),
-                    "the transaction that succeeds once the lock is released is not contention");
-            assertEquals(1L, delta(beforeRecovery, afterRecovery, SqliteContentionMetrics.TRANSACTIONS_COMMITTED));
+
+            assertEquals(
+                    Map.of(SqliteContentionMetrics.TRANSACTIONS_STARTED, 2L,
+                            SqliteContentionMetrics.TRANSACTIONS_ROLLED_BACK, 1L,
+                            SqliteContentionMetrics.CONTENDED_TRANSACTIONS, 1L,
+                            SqliteContentionMetrics.TRANSACTIONS_COMMITTED, 1L),
+                    metrics.snapshot().counters(),
+                    "the transaction that succeeds once the lock is released is committed, and is not contention");
         }
     }
 
@@ -101,9 +152,7 @@ class SqliteContentionObservabilityTest {
     void anOrdinaryTransactionFailureIsNotReportedAsContention() throws Exception {
         Path database = bootstrappedDatabase("business-failure.db");
 
-        Map<String, Long> before = counters();
-        try (Connection connection = SqliteDatabaseSecurity.openPhysical(
-                database, SqliteDatabaseSecurity.DEFAULT_BUSY_TIMEOUT_MILLIS)) {
+        try (Connection connection = openObserved(database, SqliteDatabaseSecurity.DEFAULT_BUSY_TIMEOUT_MILLIS)) {
             assertThrows(IllegalStateException.class, () -> SqliteTransactionRunner.runVoid(
                     connection,
                     "deliberate failure",
@@ -111,10 +160,15 @@ class SqliteContentionObservabilityTest {
                         throw new IllegalStateException("business rule violated");
                     }));
         }
-        Map<String, Long> after = counters();
 
-        assertEquals(1L, delta(before, after, SqliteContentionMetrics.TRANSACTIONS_ROLLED_BACK));
-        assertEquals(0L, delta(before, after, SqliteContentionMetrics.CONTENDED_TRANSACTIONS));
+        assertEquals(
+                Map.of(SqliteContentionMetrics.TRANSACTIONS_STARTED, 1L,
+                        SqliteContentionMetrics.TRANSACTIONS_ROLLED_BACK, 1L),
+                metrics.snapshot().counters());
+    }
+
+    private Connection openObserved(Path database, int busyTimeoutMillis) throws SQLException {
+        return SqliteDatabaseSecurity.openPhysical(database, busyTimeoutMillis, new SqliteContentionMetrics(recorder));
     }
 
     private Path bootstrappedDatabase(String name) {
@@ -136,11 +190,7 @@ class SqliteContentionObservabilityTest {
         });
     }
 
-    private static Map<String, Long> counters() {
-        return LocalOperationalRuntime.metrics().snapshot().counters();
-    }
-
-    private static long delta(Map<String, Long> before, Map<String, Long> after, String counter) {
-        return after.getOrDefault(counter, 0L) - before.getOrDefault(counter, 0L);
+    private long counter(String name) {
+        return metrics.snapshot().counters().getOrDefault(name, 0L);
     }
 }

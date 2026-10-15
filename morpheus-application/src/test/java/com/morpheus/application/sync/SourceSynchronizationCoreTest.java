@@ -1,5 +1,6 @@
 package com.morpheus.application.sync;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.store.SyncStateStore;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import org.junit.jupiter.api.Test;
@@ -250,7 +251,8 @@ class SourceSynchronizationCoreTest {
     @Test
     void localWatcherEmitsRescanSignalForExistingNestedDirectory() throws Exception {
         Path watched = Files.createDirectories(tempDir.resolve("specs/nested"));
-        try (LocalSourceWatcher watcher = new LocalSourceWatcher(tempDir, List.of(Path.of("specs")))) {
+        try (LocalSourceWatcher watcher = new LocalSourceWatcher(
+                tempDir, List.of(Path.of("specs")), SourceScanPolicy.safeDefaults(), OperationalRecorder.noop())) {
             Files.writeString(watched.resolve("created.md"), "content");
             List<SourceWatchSignal> signals = watcher.poll(Duration.ofSeconds(5));
             assertTrue(signals.stream().anyMatch(signal ->
