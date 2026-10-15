@@ -45,6 +45,8 @@ class GateReachabilityArchitectureTest {
     private static final Pattern REMOVED_WRAPPER = Pattern.compile("validate-[a-z0-9]+\\.cmd");
     private static final Pattern CITED_WRAPPER = Pattern.compile("validate-([a-z0-9]+)[.]cmd");
     private static final Pattern DISPATCHER_TARGET = Pattern.compile("validate\\.cmd\\s+([a-z]\\d+)\\b");
+    private static final Pattern FIRST_SECTION = Pattern.compile("(?m)^## ");
+    private static final Pattern DATED_NOTE = Pattern.compile("^> Note du \\d{2}/\\d{2}/\\d{4} ");
 
     /**
      * Profiles that no workflow runs on purpose, each with the reason. Empty: both audit profiles are run by the
@@ -358,7 +360,9 @@ class GateReachabilityArchitectureTest {
     /**
      * A dated record keeps the command of its date, so it may go on citing a root wrapper that was removed. What it may
      * not do is leave the reader with nothing else: the record itself says which command replaced the wrapper, or, when
-     * the validator is gone too, where its code can still be read.
+     * the validator is gone too, where its code can still be read. That answer sits in a note dated the day it was
+     * written, before the first section of the record, so that the reader meets it before the obsolete command and knows
+     * when it was true; a note further down, or one without a date, does not count. The ADRs are dated records too.
      */
     @Test
     void everyDatedRecordCitingARemovedWrapperSaysWhatReplacedIt() throws IOException {
@@ -373,7 +377,7 @@ class GateReachabilityArchitectureTest {
 
         List<String> offenders = new ArrayList<>();
         int citingRecords = 0;
-        for (String folder : List.of("docs/project/roadmap", "docs/project/validation")) {
+        for (String folder : List.of("docs/project/roadmap", "docs/project/validation", "docs/architecture/adr")) {
             for (Path record : list(root.resolve(folder))) {
                 if (!record.getFileName().toString().endsWith(".md")) {
                     continue;
@@ -389,14 +393,20 @@ class GateReachabilityArchitectureTest {
                 }
                 citingRecords++;
                 String where = root.relativize(record).toString().replace('\\', '/');
+                String note = datedHeadNote(text);
+                if (note.isEmpty()) {
+                    offenders.add(where + " cites a removed wrapper without a dated note (> Note du JJ/MM/AAAA) before its"
+                            + " first section");
+                    continue;
+                }
                 for (String target : cited) {
                     if (targets.contains(target)) {
-                        if (!text.contains("scripts\\validate.cmd " + target)) {
+                        if (!note.contains("scripts\\validate.cmd " + target)) {
                             offenders.add(where + " cites validate-" + target
                                     + ".cmd without naming scripts\\validate.cmd " + target);
                         }
                     } else if (!Pattern.compile("git show [0-9a-f]{7,40}:scripts/validate-" + target + "[.]ps1")
-                            .matcher(text).find()) {
+                            .matcher(note).find()) {
                         offenders.add(where + " cites validate-" + target
                                 + ".cmd, whose validator was removed, without the git show command that recovers it");
                     }
@@ -406,6 +416,28 @@ class GateReachabilityArchitectureTest {
         assertTrue(citingRecords > 0, "no dated record cites a removed wrapper: the rule would pass on nothing");
         assertTrue(offenders.isEmpty(),
                 () -> "a dated record that cites a removed wrapper must say what replaced it: " + offenders);
+    }
+
+    /**
+     * The dated notes that open a record: every blockquote paragraph that starts with {@code > Note du JJ/MM/AAAA} and
+     * stands before the first {@code ## } section, joined. Empty when there is none.
+     */
+    private static String datedHeadNote(String text) {
+        Matcher section = FIRST_SECTION.matcher(text);
+        String head = section.find() ? text.substring(0, section.start()) : text;
+        StringBuilder note = new StringBuilder();
+        boolean inNote = false;
+        for (String line : head.split("\\R")) {
+            if (DATED_NOTE.matcher(line).find()) {
+                inNote = true;
+            } else if (!line.startsWith(">")) {
+                inNote = false;
+            }
+            if (inNote) {
+                note.append(line).append('\n');
+            }
+        }
+        return note.toString();
     }
 
     private static boolean isSelected(String simpleName, List<Pattern> moduleIncludes) {

@@ -1,5 +1,7 @@
 # ADR-0084 — Composition multi-provider provider-neutral, déterministe et explicable
 
+> Note du 15/10/2026 — cette décision cite un wrapper `.cmd` de la racine du dépôt, qui n'existe plus : `validate-m18.cmd` n'a pas de remplaçant : le validateur `validate-m18` a été retiré de `scripts/` et aucune commande ne rejoue plus cette preuve ; son code se relit par `git show 3d58bb9d4:scripts/validate-m18.ps1`. La décision n'est pas réécrite : elle garde les commandes et les chemins de sa date.
+
 Statut : **Acceptée — M18**
 
 Date : 26 juillet 2026
