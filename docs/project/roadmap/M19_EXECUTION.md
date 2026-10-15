@@ -2,6 +2,8 @@
 
 > Note du 13/10/2026 — ce relevé cite un wrapper `.cmd` de la racine du dépôt, qui n'existe plus : `validate-m19.cmd` est remplacé par `scripts\validate.cmd m19` sous Windows et `bash ./scripts/validate-m19.sh` sous Linux, sans version. Le relevé n'est pas réécrit : il garde les commandes et les chemins de sa date.
 
+> Note du 15/10/2026 — les chemins de `docs/` cités ici sont ceux d'avant la réorganisation du 11/10/2026 : `docs/validation/VALIDATION_M19.md` est aujourd'hui `docs/project/validation/VALIDATION_M19.md`. Tout ancien chemin se lit par la table de correspondance de [docs/project/README.md](../README.md).
+
 Statut : **✅ VALIDÉ TECHNIQUEMENT — Issue #88 / PR #89 — NON MERGÉ**
 
 Dernière mise à jour : 27 juillet 2026
