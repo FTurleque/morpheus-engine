@@ -161,18 +161,19 @@ class MorpheusMcpToolServiceTest {
         ChangeProposal change = new ChangeProposal(
                 changeId, projectId, Optional.of("tighten-session"), "Tighten session expiration",
                 "Reduce exposure from idle sessions.", List.of("Session timeout"), List.of(), List.of(), provenance);
-        Constraint constraint = new Constraint(
+        Constraint constraint = Constraint.withUnknownSemantics(
                 ConstraintId.generate(), changeId, "Timeout configuration must remain explicit.", provenance);
         DesignDecision decision = new DesignDecision(
                 DesignDecisionId.generate(), changeId, "Use explicit timeout", "Store timeout as configuration.", provenance);
         ImplementationTask task = new ImplementationTask(
                 TaskId.generate(), changeId, Optional.of("TASK-1"), "Implement timeout handling", false, provenance);
-        NormalizedProjectContent content = new NormalizedProjectContent(
+        NormalizedProjectContent content = NormalizedProjectContent.withoutAcceptanceCriteria(
                 project,
                 specifications,
                 List.of(requirement),
                 List.of(scenario),
                 List.of(change),
+                List.of(),
                 List.of(constraint),
                 List.of(decision),
                 List.of(task),

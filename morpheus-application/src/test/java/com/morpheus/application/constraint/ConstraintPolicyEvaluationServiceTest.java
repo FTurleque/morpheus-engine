@@ -96,7 +96,7 @@ class ConstraintPolicyEvaluationServiceTest {
     }
 
     private Constraint legacyConstraint() {
-        return new Constraint(ConstraintId.generate(), ChangeId.generate(), "Constraint", provenance());
+        return Constraint.withUnknownSemantics(ConstraintId.generate(), ChangeId.generate(), "Constraint", provenance());
     }
 
     private Constraint explicit(

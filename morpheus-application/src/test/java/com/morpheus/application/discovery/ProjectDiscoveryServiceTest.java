@@ -194,6 +194,7 @@ class ProjectDiscoveryServiceTest {
                     ProviderProbeStatus.UNSUPPORTED,
                     Optional.empty(),
                     Optional.empty(),
+                    Optional.empty(),
                     ProviderCapabilitySet.of(),
                     false,
                     List.of());

@@ -30,28 +30,6 @@ public record ProviderProbeResult(
         diagnostics = List.copyOf(Objects.requireNonNull(diagnostics, "diagnostics"));
     }
 
-    /** Compatibility constructor for probes that do not yet expose a source locator. */
-    public ProviderProbeResult(
-            ProviderId providerId,
-            String providerVersion,
-            ProviderProbeStatus status,
-            Optional<String> schema,
-            Optional<String> formatVersion,
-            ProviderCapabilitySet capabilities,
-            boolean remote,
-            List<Diagnostic> diagnostics) {
-        this(
-                providerId,
-                providerVersion,
-                status,
-                schema,
-                formatVersion,
-                Optional.empty(),
-                capabilities,
-                remote,
-                diagnostics);
-    }
-
     public boolean supported() {
         return status == ProviderProbeStatus.SUPPORTED;
     }

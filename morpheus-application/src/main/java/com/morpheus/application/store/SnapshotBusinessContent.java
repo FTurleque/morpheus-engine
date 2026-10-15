@@ -32,30 +32,6 @@ public record SnapshotBusinessContent(
         List<AcceptanceCriterion> acceptanceCriteria,
         List<Evidence> evidence) {
 
-    /** Compatibility constructor for pre-M15 callers. */
-    public SnapshotBusinessContent(
-            KnowledgeSnapshotId snapshotId,
-            SpecificationVersionId specificationVersionId,
-            List<Specification> specifications,
-            List<Scenario> scenarios,
-            List<ChangeProposal> changes,
-            List<Constraint> constraints,
-            List<DesignDecision> designDecisions,
-            List<ImplementationTask> tasks,
-            List<Evidence> evidence) {
-        this(
-                snapshotId,
-                specificationVersionId,
-                specifications,
-                scenarios,
-                changes,
-                constraints,
-                designDecisions,
-                tasks,
-                List.of(),
-                evidence);
-    }
-
     public SnapshotBusinessContent {
         Objects.requireNonNull(snapshotId, "snapshotId");
         Objects.requireNonNull(specificationVersionId, "specificationVersionId");

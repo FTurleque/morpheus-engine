@@ -28,7 +28,7 @@ class MorpheusRemoteIdentityFileTest {
             tokenHash[index] = (byte) (index + 1);
         }
         MorpheusRemoteIdentityFile.Identity identity = new MorpheusRemoteIdentityFile.Identity(
-                "ci-runner", MorpheusRemoteRole.READ, tokenHash);
+                "ci-runner", MorpheusRemoteRole.READ, tokenHash, Optional.empty());
 
         String rendered = identity.toString();
 
@@ -47,7 +47,7 @@ class MorpheusRemoteIdentityFileTest {
     void generatedCredentialDiagnosticsNeverRenderTheBearerToken() {
         String rawToken = "sekret-bearer-token-value";
         MorpheusRemoteIdentityFile.GeneratedCredential credential =
-                new MorpheusRemoteIdentityFile.GeneratedCredential("ci-runner", MorpheusRemoteRole.ADMIN, rawToken);
+                new MorpheusRemoteIdentityFile.GeneratedCredential("ci-runner", MorpheusRemoteRole.ADMIN, rawToken, Optional.empty());
 
         String rendered = credential.toString();
 

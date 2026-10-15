@@ -19,28 +19,6 @@ public record ChangeTransitionEvaluation(
         String reason,
         List<ConstraintEvaluationView> constraintEvaluations) {
 
-    /** Compatibility constructor for pre-M16 callers. */
-    public ChangeTransitionEvaluation(
-            ChangeLifecycleState fromState,
-            ChangeLifecycleState targetState,
-            ChangeTransitionEvaluationState state,
-            List<ChangeLifecycleBlocker> blockers,
-            List<String> requiredFacts,
-            List<String> unavailableRequiredFacts,
-            String factSource,
-            String reason) {
-        this(
-                fromState,
-                targetState,
-                state,
-                blockers,
-                requiredFacts,
-                unavailableRequiredFacts,
-                factSource,
-                reason,
-                List.of());
-    }
-
     public ChangeTransitionEvaluation {
         Objects.requireNonNull(fromState, "fromState");
         Objects.requireNonNull(targetState, "targetState");

@@ -75,7 +75,7 @@ public final class ReferenceSpecificationContentReader implements SpecificationC
                 request.projectId(),
                 "MORPHEUS Reference Project",
                 ProviderProjectRoot.locator(workspace));
-        NormalizedProjectContent content = new NormalizedProjectContent(
+        NormalizedProjectContent content = NormalizedProjectContent.currentSpecificationsOnly(
                 project,
                 specifications,
                 List.of(),

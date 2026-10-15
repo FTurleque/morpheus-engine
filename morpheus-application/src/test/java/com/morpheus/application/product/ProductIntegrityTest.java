@@ -74,21 +74,6 @@ class ProductIntegrityTest {
     }
 
     @Test
-    void historicalResultConstructorRemainsExplicitlyDiscoveryOnly() {
-        UpdateCheckResult result = new UpdateCheckResult(
-                ProductMetadata.version(),
-                ProductMetadata.version(),
-                "stable",
-                URI.create("https://example.invalid/morpheus.zip"),
-                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                URI.create("file:///tmp/update.properties"),
-                false);
-
-        assertTrue(result.attestationUri().isEmpty());
-        assertEquals(UpdateTrustLevel.DISCOVERY_ONLY, result.trustLevel());
-    }
-
-    @Test
     void discoveryNeverTreatsSameVersionAsAnUpdate() throws IOException {
         Path manifest = tempDir.resolve("same.properties");
         Files.writeString(manifest, String.join("\n",
@@ -135,7 +120,7 @@ class ProductIntegrityTest {
     @Test
     void sha256IsValidated() {
         assertThrows(IllegalArgumentException.class, () -> new UpdateManifest(
-                "1.0.1", "stable", URI.create("https://example.invalid/morpheus.zip"), "not-a-sha"));
+                "1.0.1", "stable", URI.create("https://example.invalid/morpheus.zip"), "not-a-sha", Optional.empty()));
     }
 
     @Test
@@ -145,7 +130,8 @@ class ProductIntegrityTest {
                 "1.0.1",
                 "stable",
                 insecureArtifactUri,
-                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                Optional.empty()));
         assertTrue(failure.getMessage().contains("artifactUri must use file or https"));
     }
 
@@ -156,7 +142,8 @@ class ProductIntegrityTest {
                 "1.0.1",
                 "stable",
                 URI.create("https://downloads.example.invalid/morpheus.zip"),
-                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                Optional.empty());
 
         IllegalArgumentException missing = assertThrows(
                 IllegalArgumentException.class,
@@ -195,7 +182,8 @@ class ProductIntegrityTest {
                 "1.0.1",
                 "stable",
                 URI.create("https://downloads.example.invalid/morpheus.zip"),
-                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+                "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                Optional.empty());
         manifest.requireRemoteDiscoveryContract(tempDir.resolve("local.properties").toUri());
         assertTrue(manifest.attestationUri().isEmpty());
     }

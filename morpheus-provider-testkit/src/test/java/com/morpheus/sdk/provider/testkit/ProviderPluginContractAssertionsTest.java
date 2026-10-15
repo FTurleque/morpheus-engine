@@ -165,7 +165,7 @@ class ProviderPluginContractAssertionsTest {
 
     private static Optional<NormalizedProjectContent> content(
             ProviderReadRequest request, SourceLocator root, List<Evidence> evidence) {
-        return Optional.of(new NormalizedProjectContent(
+        return Optional.of(NormalizedProjectContent.currentSpecificationsOnly(
                 new ProjectSpecification(request.projectId(), "fixture", root),
                 List.of(),
                 List.of(),
@@ -243,6 +243,7 @@ class ProviderPluginContractAssertionsTest {
             public ProviderProbeResult probe(Path workspaceRoot) {
                 return new ProviderProbeResult(
                         providerId, version(), ProviderProbeStatus.SUPPORTED, Optional.empty(), Optional.empty(),
+                        Optional.empty(),
                         ProviderCapabilitySet.of(), false, List.of());
             }
         }

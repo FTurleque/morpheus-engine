@@ -572,6 +572,7 @@ class TaskAcceptanceQualityContractTest {
                     List.of(),
                     List.of(),
                     tasks,
+                    List.of(),
                     List.of(evidence));
         }
     }

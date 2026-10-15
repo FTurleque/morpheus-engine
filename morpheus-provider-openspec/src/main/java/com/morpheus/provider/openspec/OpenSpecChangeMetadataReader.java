@@ -154,12 +154,13 @@ public final class OpenSpecChangeMetadataReader {
 
         String displayName = root.getFileName() == null ? root.toString() : root.getFileName().toString();
         ProjectSpecification project = new ProjectSpecification(projectId, displayName, ProviderProjectRoot.locator(root));
-        return new NormalizedProjectContent(
+        return NormalizedProjectContent.withoutAcceptanceCriteria(
                 project,
                 List.of(),
                 List.of(),
                 List.of(),
                 changes,
+                List.of(),
                 constraints,
                 decisions,
                 tasks,
@@ -236,7 +237,7 @@ public final class OpenSpecChangeMetadataReader {
             Evidence itemEvidence = evidence(
                     identities, externalId, source, lines, item.lineNumber(), item.lineNumber(), budget);
             evidence.add(itemEvidence);
-            constraints.add(new Constraint(
+            constraints.add(Constraint.withUnknownSemantics(
                     new ConstraintId(identities.resolve(OpenSpecSpecificationProvider.ID, "constraint", externalId)),
                     changeId,
                     item.text(),

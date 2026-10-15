@@ -31,14 +31,4 @@ public record RequirementSearchPage(
             throw new IllegalArgumentException("hasMore is inconsistent with page bounds and totalMatches");
         }
     }
-
-    /** Compatibility constructor for callers that predate query metadata retention. */
-    public RequirementSearchPage(
-            KnowledgeSnapshotMetadata snapshot,
-            List<RequirementVersionRecord> items,
-            PageRequest pageRequest,
-            int totalMatches,
-            boolean hasMore) {
-        this(snapshot, RequirementSearchQuery.all(), items, pageRequest, totalMatches, hasMore);
-    }
 }

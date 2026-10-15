@@ -123,7 +123,7 @@ class ProjectSnapshotImportServiceFailureOrderingTest {
                 ProjectSpecificationId.generate(),
                 "failure-ordering",
                 SourceLocator.file("workspace"));
-        return new NormalizedProjectContent(
+        return NormalizedProjectContent.currentSpecificationsOnly(
                 project,
                 List.of(),
                 List.of(),

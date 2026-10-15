@@ -100,7 +100,7 @@ class DeterministicTraceabilityDerivationServiceTest {
                 false,
                 fixture.task.provenance());
 
-        NormalizedProjectContent content = new NormalizedProjectContent(
+        NormalizedProjectContent content = NormalizedProjectContent.withoutAcceptanceCriteria(
                 fixture.project,
                 List.of(fixture.specification),
                 List.of(fixture.requirement),
@@ -151,7 +151,7 @@ class DeterministicTraceabilityDerivationServiceTest {
                 RequirementDeltaId.generate(),
                 fixture.delta.provenance(),
                 List.of());
-        Constraint constraintTwo = new Constraint(
+        Constraint constraintTwo = Constraint.withUnknownSemantics(
                 ConstraintId.generate(),
                 fixture.change.id(),
                 "Second structural constraint.",
@@ -189,7 +189,7 @@ class DeterministicTraceabilityDerivationServiceTest {
         List<Evidence> evidence = new ArrayList<>(fixture.evidence);
         evidence.add(secondEvidence);
 
-        NormalizedProjectContent content = new NormalizedProjectContent(
+        NormalizedProjectContent content = NormalizedProjectContent.withoutAcceptanceCriteria(
                 fixture.project,
                 List.of(fixture.specification),
                 List.of(fixture.requirement),
@@ -231,7 +231,7 @@ class DeterministicTraceabilityDerivationServiceTest {
         List<Evidence> evidence = new ArrayList<>(fixture.evidence);
         evidence.add(secondEvidence);
 
-        NormalizedProjectContent content = new NormalizedProjectContent(
+        NormalizedProjectContent content = NormalizedProjectContent.withoutAcceptanceCriteria(
                 fixture.project,
                 List.of(fixture.specification),
                 List.of(fixture.requirement),
@@ -308,7 +308,7 @@ class DeterministicTraceabilityDerivationServiceTest {
                 List.of(),
                 List.of(),
                 provenance(changeEvidence, "CHANGE-RETENTION"));
-        Constraint constraint = new Constraint(
+        Constraint constraint = Constraint.withUnknownSemantics(
                 ConstraintId.generate(),
                 change.id(),
                 "Retention remains configurable.",
@@ -351,7 +351,7 @@ class DeterministicTraceabilityDerivationServiceTest {
                 deltaEvidence,
                 taskEvidence);
 
-        NormalizedProjectContent content = new NormalizedProjectContent(
+        NormalizedProjectContent content = NormalizedProjectContent.withoutAcceptanceCriteria(
                 project,
                 List.of(specification),
                 List.of(requirement),
@@ -410,7 +410,7 @@ class DeterministicTraceabilityDerivationServiceTest {
             List<RequirementDelta> deltas,
             List<Constraint> constraints,
             List<DesignDecision> decisions) {
-        return new NormalizedProjectContent(
+        return NormalizedProjectContent.withoutAcceptanceCriteria(
                 fixture.project,
                 List.of(fixture.specification),
                 List.of(fixture.requirement),

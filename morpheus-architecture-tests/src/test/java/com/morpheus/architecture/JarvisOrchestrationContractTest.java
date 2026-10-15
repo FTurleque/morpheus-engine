@@ -294,6 +294,7 @@ class JarvisOrchestrationContractTest {
                 List.of(constraint),
                 List.of(),
                 List.of(completedTask),
+                List.of(),
                 evidenceList));
         traceability.putLink(snapshotId, new TraceabilityLink(
                 TraceabilityLinkId.generate(),
@@ -341,7 +342,7 @@ class JarvisOrchestrationContractTest {
             Provenance provenance,
             EvidenceId supportingEvidenceId) {
         return switch (mode) {
-            case UNKNOWN -> new Constraint(
+            case UNKNOWN -> Constraint.withUnknownSemantics(
                     ConstraintId.generate(), changeId, "Preserve auditability", provenance);
             case NON_BLOCKING -> new Constraint(
                     ConstraintId.generate(),

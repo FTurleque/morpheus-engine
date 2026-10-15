@@ -160,12 +160,13 @@ final class McpToolCall {
         ChangeProposal change = new ChangeProposal(
                 changeId, projectId, Optional.of("tighten-session"), "Tighten session expiration",
                 "Reduce exposure from idle sessions.", List.of("Session timeout"), List.of(), List.of(), provenance);
-        NormalizedProjectContent content = new NormalizedProjectContent(
+        NormalizedProjectContent content = NormalizedProjectContent.withoutAcceptanceCriteria(
                 project,
                 List.of(specification),
                 List.copyOf(published),
                 List.of(),
                 List.of(change),
+                List.of(),
                 List.of(),
                 List.of(),
                 List.of(),

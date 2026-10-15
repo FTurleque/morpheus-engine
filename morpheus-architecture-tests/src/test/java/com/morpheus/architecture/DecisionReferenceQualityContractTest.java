@@ -397,7 +397,7 @@ class DecisionReferenceQualityContractTest {
                 Evidence evidence) {
             return new SnapshotBusinessContent(
                     snapshotId, versionId, List.of(specification), List.of(), changes,
-                    List.of(), decisions, List.of(), List.of(evidence));
+                    List.of(), decisions, List.of(), List.of(), List.of(evidence));
         }
 
         private static Specification specification(
