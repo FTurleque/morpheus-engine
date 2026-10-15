@@ -34,7 +34,7 @@ REPOSITORY = Path(__file__).resolve().parents[2]
 SCRIPTS = REPOSITORY / "scripts"
 WINDOWS = os.name == "nt"
 
-# Larger than every literal floor a milestone validator still carries, so one fabricated build passes all of them.
+# The fabricated build and the fabricated ratchet file agree: every validator compares the one with the other.
 FABRICATED_TESTS = 5000
 FABRICATED_ARCHITECTURE_TESTS = 1000
 FABRICATED_LINE_RATIO = "0.950000"
