@@ -115,7 +115,7 @@ public final class MorpheusMain {
             Map<String, String> environment,
             Properties properties) {
         if (MorpheusProviderPluginCli.handles(args)) {
-            return new MorpheusProviderPluginCli().run(args, out, err);
+            return new MorpheusProviderPluginCli(LocalOperationalRuntime.recorder()).run(args, out, err);
         }
         if (MorpheusProductCli.handles(args)) {
             return new MorpheusProductCli().run(args, out, err);

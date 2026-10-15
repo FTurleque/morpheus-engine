@@ -10,6 +10,9 @@ REPO="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO"
 OUTPUT="$REPO/validation-output/m28"
 mkdir -p "$OUTPUT"
+# A run that is refused must not leave the summary of an earlier run that passed: the summary is the record a
+# reader is told to read instead of the output.
+rm -f "$OUTPUT/validation-summary.txt"
 VALIDATION_SHA="$(git rev-parse HEAD)"
 
 printf '%s\n' "M28 exact-head validation SHA: $VALIDATION_SHA"

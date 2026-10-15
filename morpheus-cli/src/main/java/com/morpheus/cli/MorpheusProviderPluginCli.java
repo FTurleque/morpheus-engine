@@ -1,5 +1,6 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.sdk.provider.ProviderPluginCandidate;
 import com.morpheus.sdk.provider.ProviderPluginDiscoveryResult;
@@ -20,8 +21,12 @@ import java.util.Set;
 
 /** Explicit M22 provider-plugin discovery/probe commands. No plugin directory is scanned at startup. */
 final class MorpheusProviderPluginCli {
-    private final ProviderPluginService service = new ProviderPluginService();
+    private final ProviderPluginService service;
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
+
+    MorpheusProviderPluginCli(OperationalRecorder recorder) {
+        this.service = new ProviderPluginService(recorder);
+    }
 
     static boolean handles(String[] args) {
         return command(args).equals("provider-plugins");

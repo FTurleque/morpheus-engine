@@ -10,8 +10,8 @@
 # count, a ratio in (0, 1] for a coverage) throws, and the message names the key. The value is returned as the text
 # the file holds, so the caller decides how to render it.
 #
-# This is the PowerShell twin of lib/read-quality-ratchet.sh. It has no CI lane (the Windows lane runs validate-m28 and
-# the Python tests of the shell reader run on Linux), so it is verified by hand on Windows.
+# This is the PowerShell twin of lib/read-quality-ratchet.sh. scripts/tests/test_read_quality_ratchet.py runs one list
+# of cases against both: a value one reader accepts and the other refuses gives the same commit two verdicts.
 
 function Get-QualityRatchet {
     [CmdletBinding()]
@@ -50,7 +50,9 @@ function Get-QualityRatchet {
         $ratio = [double]0
         $parsed = [double]::TryParse($raw, [Globalization.NumberStyles]::Float,
             [Globalization.CultureInfo]::InvariantCulture, [ref]$ratio)
-        if (-not $parsed -or $ratio -le 0 -or $ratio -gt 1) {
+        # The digits-and-one-dot form the shell reader accepts, and nothing else: TryParse alone also takes '9e-1'
+        # and '+0.9', which the shell reader refuses.
+        if ($raw -notmatch '^[0-9]*\.?[0-9]+$' -or -not $parsed -or $ratio -le 0 -or $ratio -gt 1) {
             throw "M21 quality ratchet $Key must be a ratio in (0, 1]: '$raw'"
         }
     }

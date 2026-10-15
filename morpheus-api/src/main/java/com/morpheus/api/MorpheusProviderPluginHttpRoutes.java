@@ -1,5 +1,7 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.OperationalRecorder;
+
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -7,9 +9,11 @@ import java.util.Set;
 /** Local provider-plugin route group. Executable probing remains remote-only and SHA-256 pinned. */
 final class MorpheusProviderPluginHttpRoutes {
     private final boolean probeEnabled;
+    private final OperationalRecorder recorder;
 
-    MorpheusProviderPluginHttpRoutes(boolean probeEnabled) {
+    MorpheusProviderPluginHttpRoutes(boolean probeEnabled, OperationalRecorder recorder) {
         this.probeEnabled = probeEnabled;
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
     MorpheusHttpRouteResponse route(String method, List<String> segments, MorpheusHttpQuery query) {
@@ -17,7 +21,7 @@ final class MorpheusProviderPluginHttpRoutes {
         Objects.requireNonNull(segments, "segments");
         Objects.requireNonNull(query, "query");
 
-        MorpheusProviderPluginApiService plugins = new MorpheusProviderPluginApiService();
+        MorpheusProviderPluginApiService plugins = new MorpheusProviderPluginApiService(recorder);
         return switch (segments.get(1)) {
             case "discover" -> {
                 MorpheusHttpRouteGuards.requireMethod(method, "GET");

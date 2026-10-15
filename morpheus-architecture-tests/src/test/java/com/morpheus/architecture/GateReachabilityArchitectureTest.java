@@ -43,6 +43,7 @@ class GateReachabilityArchitectureTest {
             "<artifactId>maven-surefire-plugin</artifactId>(.*?)</plugin>", Pattern.DOTALL);
     private static final Pattern SUREFIRE_INCLUDE = Pattern.compile("<include>([^<]+)</include>");
     private static final Pattern REMOVED_WRAPPER = Pattern.compile("validate-[a-z0-9]+\\.cmd");
+    private static final Pattern CITED_WRAPPER = Pattern.compile("validate-([a-z0-9]+)[.]cmd");
     private static final Pattern DISPATCHER_TARGET = Pattern.compile("validate\\.cmd\\s+([a-z]\\d+)\\b");
 
     /**
@@ -57,6 +58,12 @@ class GateReachabilityArchitectureTest {
     /** Each variant of the release rehearsal validator, and the {@code runner.os} whose step must run it. */
     private static final Map<String, String> RELEASE_REHEARSAL_VALIDATORS =
             Map.of("validate-m20.sh", "Linux", "validate-m20.ps1", "Windows");
+
+    /** The job of the continuous-integration workflow that every pull request must pass, and its two legs. */
+    private static final String CI_VERIFY_JOB = "verify";
+    private static final List<String> CI_LEGS = List.of("Linux", "Windows");
+    private static final Pattern SCRIPT_TESTS_COMMAND = Pattern.compile(
+            "python3?\\s+(?:-\\S+\\s+)*-m\\s+unittest\\s+discover\\s+-s\\s+scripts/tests(?![A-Za-z0-9_/-])");
 
     /** What only a real release may do or say. */
     private static final List<String> REHEARSAL_MUST_NOT = List.of(
@@ -201,6 +208,36 @@ class GateReachabilityArchitectureTest {
         });
     }
 
+    /**
+     * The scripts of {@code scripts/} are what the gates are held by, and half of them are {@code .ps1}. Their tests
+     * ran on the Linux leg only, so no machine ever ran a case against a PowerShell script. The tests of
+     * {@code scripts/tests} hold the validators and the inventory of the scripts; this holds the two steps that run
+     * them, by leg: a workflow that kept one step would still name the command.
+     */
+    @Test
+    void theScriptTestsRunOnEachLegOfTheContinuousIntegrationWorkflow() throws IOException {
+        String job = jobText(executableText(repositoryRoot().resolve(".github/workflows/ci.yml")), CI_VERIFY_JOB);
+        assertTrue(job.contains("ubuntu-latest") && job.contains("windows-latest"),
+                "the verify job of ci.yml must run on both platforms");
+
+        for (String leg : CI_LEGS) {
+            List<String> running = new ArrayList<>();
+            for (String step : job.split("\n      - ")) {
+                int run = step.indexOf("\n        run:");
+                if (run >= 0 && SCRIPT_TESTS_COMMAND.matcher(step.substring(run)).find()
+                        && step.contains("\n        if: runner.os == '" + leg + "'\n")) {
+                    running.add(step);
+                }
+            }
+            assertEquals(1, running.size(),
+                    () -> "exactly one step of the verify job of ci.yml must run the tests of scripts/tests on the "
+                            + leg + " leg, conditioned on runner.os == '" + leg + "' and on nothing else: without it "
+                            + "no machine runs the cases of that leg's interpreter");
+            assertFalse(running.get(0).contains("continue-on-error"),
+                    () -> "the step that runs the script tests on the " + leg + " leg must fail the job when they fail");
+        }
+    }
+
     /** A rehearsal that could publish would be a release nobody decided, and evidence nobody should trust. */
     @Test
     void aReleaseRehearsalCannotPublishAttestOrPassForAQualification() throws IOException {
@@ -318,6 +355,59 @@ class GateReachabilityArchitectureTest {
                 () -> "current documentation must name a command that resolves: " + offenders);
     }
 
+    /**
+     * A dated record keeps the command of its date, so it may go on citing a root wrapper that was removed. What it may
+     * not do is leave the reader with nothing else: the record itself says which command replaced the wrapper, or, when
+     * the validator is gone too, where its code can still be read.
+     */
+    @Test
+    void everyDatedRecordCitingARemovedWrapperSaysWhatReplacedIt() throws IOException {
+        Path root = repositoryRoot();
+        Set<String> targets = new TreeSet<>();
+        for (Path file : list(root.resolve("scripts"))) {
+            Matcher matcher = VALIDATOR_FILE.matcher(file.getFileName().toString());
+            if (matcher.matches()) {
+                targets.add(matcher.group(1));
+            }
+        }
+
+        List<String> offenders = new ArrayList<>();
+        int citingRecords = 0;
+        for (String folder : List.of("docs/project/roadmap", "docs/project/validation")) {
+            for (Path record : list(root.resolve(folder))) {
+                if (!record.getFileName().toString().endsWith(".md")) {
+                    continue;
+                }
+                String text = Files.readString(record);
+                Set<String> cited = new TreeSet<>();
+                Matcher wrapper = CITED_WRAPPER.matcher(text);
+                while (wrapper.find()) {
+                    cited.add(wrapper.group(1));
+                }
+                if (cited.isEmpty()) {
+                    continue;
+                }
+                citingRecords++;
+                String where = root.relativize(record).toString().replace('\\', '/');
+                for (String target : cited) {
+                    if (targets.contains(target)) {
+                        if (!text.contains("scripts\\validate.cmd " + target)) {
+                            offenders.add(where + " cites validate-" + target
+                                    + ".cmd without naming scripts\\validate.cmd " + target);
+                        }
+                    } else if (!Pattern.compile("git show [0-9a-f]{7,40}:scripts/validate-" + target + "[.]ps1")
+                            .matcher(text).find()) {
+                        offenders.add(where + " cites validate-" + target
+                                + ".cmd, whose validator was removed, without the git show command that recovers it");
+                    }
+                }
+            }
+        }
+        assertTrue(citingRecords > 0, "no dated record cites a removed wrapper: the rule would pass on nothing");
+        assertTrue(offenders.isEmpty(),
+                () -> "a dated record that cites a removed wrapper must say what replaced it: " + offenders);
+    }
+
     private static boolean isSelected(String simpleName, List<Pattern> moduleIncludes) {
         if (!moduleIncludes.isEmpty()) {
             return moduleIncludes.stream().anyMatch(include -> include.matcher(simpleName).matches());
@@ -384,7 +474,7 @@ class GateReachabilityArchitectureTest {
      */
     private static String jobText(String workflow, String job) {
         Matcher start = Pattern.compile("(?m)^  " + Pattern.quote(job) + ":\\s*$").matcher(workflow);
-        assertTrue(start.find(), () -> "the nightly workflow must declare the job " + job);
+        assertTrue(start.find(), () -> "the workflow must declare the job " + job);
         Matcher next = Pattern.compile("(?m)^  [A-Za-z0-9_-]+:\\s*$").matcher(workflow);
         int end = next.find(start.end()) ? next.start() : workflow.length();
         return workflow.substring(start.start(), end);

@@ -1,6 +1,7 @@
 package com.morpheus.store.sqlite;
 
 import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.operability.SuppressedFailureFamily;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationAttempt;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationAuditRecord;
@@ -34,10 +35,16 @@ import java.util.Optional;
 /** SQLite implementation of M17 operational lifecycle CAS, idempotency and append-only audit. */
 public final class SqliteChangeLifecycleMutationStore implements ChangeLifecycleMutationStore, AutoCloseable {
     private final Connection connection;
+    private final OperationalRecorder recorder;
     private boolean closed;
 
     public SqliteChangeLifecycleMutationStore(Path databasePath) {
+        this(databasePath, LocalOperationalRuntime.recorder());
+    }
+
+    SqliteChangeLifecycleMutationStore(Path databasePath, OperationalRecorder recorder) {
         Objects.requireNonNull(databasePath, "databasePath");
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
         connection = SqliteStoreConnection.openAndMigrate(
                 databasePath, "Cannot initialize SQLite lifecycle mutation store", SqliteChangeLifecycleMutationStore::configure);
     }
@@ -382,7 +389,7 @@ public final class SqliteChangeLifecycleMutationStore implements ChangeLifecycle
         } catch (SQLException auditUnreadable) {
             // Preserve the original collision/concurrency signal. The caller is then told of a conflict where the
             // mutation may already have been applied; the read that would have said so is counted.
-            LocalOperationalRuntime.recorder().suppressed(SuppressedFailureFamily.SQLITE_CONFLICT_READ, auditUnreadable);
+            recorder.suppressed(SuppressedFailureFamily.SQLITE_CONFLICT_READ, auditUnreadable);
         }
         return conflict(readCurrentQuietly(attempt), reason == null || reason.isBlank()
                 ? "Lifecycle mutation conflict"
@@ -393,8 +400,7 @@ public final class SqliteChangeLifecycleMutationStore implements ChangeLifecycle
         try {
             return Optional.of(currentState(attempt));
         } catch (SQLException currentStateUnreadable) {
-            LocalOperationalRuntime.recorder()
-                    .suppressed(SuppressedFailureFamily.SQLITE_CONFLICT_READ, currentStateUnreadable);
+            recorder.suppressed(SuppressedFailureFamily.SQLITE_CONFLICT_READ, currentStateUnreadable);
             return Optional.empty();
         }
     }

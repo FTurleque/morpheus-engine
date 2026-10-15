@@ -10,13 +10,15 @@ from __future__ import annotations
 
 import os
 import re
-import shutil
 import subprocess
 import unittest
 from pathlib import Path
 
+from validator_harness import require_bash
+
 WORKFLOW = Path(__file__).resolve().parents[2] / ".github" / "workflows" / "security.yml"
-BASH = shutil.which("bash")
+# A step of a workflow is run here, not a file of scripts/.
+SCRIPTS_UNDER_TEST = ()
 HOUR = 3600
 
 
@@ -37,7 +39,6 @@ def alert_script() -> str:
     return "\n".join(body) + "\n"
 
 
-@unittest.skipIf(BASH is None, "bash is not available on this platform")
 class RefreshAlertStepTest(unittest.TestCase):
     def run_step(self, age_hours: float | str | None, refreshed: str = "false", cause: str = "") -> subprocess.CompletedProcess[str]:
         published = "" if age_hours is None else (age_hours if isinstance(age_hours, str) else str(int(age_hours * HOUR)))
@@ -48,7 +49,7 @@ class RefreshAlertStepTest(unittest.TestCase):
             "REFRESHED": refreshed,
             "REFRESH_CAUSE": cause,
         })
-        return subprocess.run([BASH, "-eo", "pipefail", "-c", alert_script()], capture_output=True, text=True,
+        return subprocess.run([require_bash(), "-eo", "pipefail", "-c", alert_script()], capture_output=True, text=True,
                               env=environment, check=False)
 
     def test_a_single_missed_daily_refresh_stays_green(self) -> None:
