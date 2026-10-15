@@ -1,5 +1,7 @@
 # M19 — Production Hardening, Scale & Operability
 
+> Note du 13/10/2026 — ce relevé cite un wrapper `.cmd` de la racine du dépôt, qui n'existe plus : `validate-m19.cmd` est remplacé par `scripts\validate.cmd m19` sous Windows et `bash ./scripts/validate-m19.sh` sous Linux, sans version. Le relevé n'est pas réécrit : il garde les commandes et les chemins de sa date.
+
 Statut : **✅ VALIDÉ TECHNIQUEMENT — Issue #88 / PR #89 — NON MERGÉ**
 
 Dernière mise à jour : 27 juillet 2026

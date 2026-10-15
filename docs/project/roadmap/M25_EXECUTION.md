@@ -1,5 +1,7 @@
 # M25 — Policy Packs & Governance Automation
 
+> Note du 13/10/2026 — ce relevé cite un wrapper `.cmd` de la racine du dépôt, qui n'existe plus : `validate-m25.cmd` est remplacé par `scripts\validate.cmd m25 -Version <version>` sous Windows et `bash ./scripts/validate-m25.sh <version>` sous Linux. Le relevé n'est pas réécrit : il garde les commandes et les chemins de sa date.
+
 Statut : **TERMINÉ / VALIDÉ / INTÉGRÉ — M25-S0→S9 DONE**
 
 Issue : #107 — **CLOSED / completed**  

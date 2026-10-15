@@ -1,5 +1,7 @@
 # VALIDATION M21 — Production Integrity & Surface Convergence
 
+> Note du 13/10/2026 — ce relevé cite un wrapper `.cmd` de la racine du dépôt, qui n'existe plus : `validate-m21.cmd` est remplacé par `scripts\validate.cmd m21 -Version <version>` sous Windows et `bash ./scripts/validate-m21.sh <version>` sous Linux. Le relevé n'est pas réécrit : il garde les commandes et les chemins de sa date.
+
 Statut : **VALIDÉE — Windows + Linux exact-head PASS**
 
 Date : 27 juillet 2026

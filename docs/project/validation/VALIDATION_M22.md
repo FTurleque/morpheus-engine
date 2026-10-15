@@ -1,5 +1,7 @@
 # VALIDATION M22 — Provider SDK & Plugin Discovery Platform
 
+> Note du 13/10/2026 — ce relevé cite un wrapper `.cmd` de la racine du dépôt, qui n'existe plus : `validate-m22.cmd` est remplacé par `scripts\validate.cmd m22 -Version <version>` sous Windows et `bash ./scripts/validate-m22.sh <version>` sous Linux. Le relevé n'est pas réécrit : il garde les commandes et les chemins de sa date.
+
 Statut : **PASS — qualification Windows + Linux exact-head acquise sur le même SHA exécutable**
 
 Date : 28 juillet 2026

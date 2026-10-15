@@ -43,6 +43,7 @@ class GateReachabilityArchitectureTest {
             "<artifactId>maven-surefire-plugin</artifactId>(.*?)</plugin>", Pattern.DOTALL);
     private static final Pattern SUREFIRE_INCLUDE = Pattern.compile("<include>([^<]+)</include>");
     private static final Pattern REMOVED_WRAPPER = Pattern.compile("validate-[a-z0-9]+\\.cmd");
+    private static final Pattern CITED_WRAPPER = Pattern.compile("validate-([a-z0-9]+)[.]cmd");
     private static final Pattern DISPATCHER_TARGET = Pattern.compile("validate\\.cmd\\s+([a-z]\\d+)\\b");
 
     /**
@@ -316,6 +317,59 @@ class GateReachabilityArchitectureTest {
         }
         assertTrue(offenders.isEmpty(),
                 () -> "current documentation must name a command that resolves: " + offenders);
+    }
+
+    /**
+     * A dated record keeps the command of its date, so it may go on citing a root wrapper that was removed. What it may
+     * not do is leave the reader with nothing else: the record itself says which command replaced the wrapper, or, when
+     * the validator is gone too, where its code can still be read.
+     */
+    @Test
+    void everyDatedRecordCitingARemovedWrapperSaysWhatReplacedIt() throws IOException {
+        Path root = repositoryRoot();
+        Set<String> targets = new TreeSet<>();
+        for (Path file : list(root.resolve("scripts"))) {
+            Matcher matcher = VALIDATOR_FILE.matcher(file.getFileName().toString());
+            if (matcher.matches()) {
+                targets.add(matcher.group(1));
+            }
+        }
+
+        List<String> offenders = new ArrayList<>();
+        int citingRecords = 0;
+        for (String folder : List.of("docs/project/roadmap", "docs/project/validation")) {
+            for (Path record : list(root.resolve(folder))) {
+                if (!record.getFileName().toString().endsWith(".md")) {
+                    continue;
+                }
+                String text = Files.readString(record);
+                Set<String> cited = new TreeSet<>();
+                Matcher wrapper = CITED_WRAPPER.matcher(text);
+                while (wrapper.find()) {
+                    cited.add(wrapper.group(1));
+                }
+                if (cited.isEmpty()) {
+                    continue;
+                }
+                citingRecords++;
+                String where = root.relativize(record).toString().replace('\\', '/');
+                for (String target : cited) {
+                    if (targets.contains(target)) {
+                        if (!text.contains("scripts\\validate.cmd " + target)) {
+                            offenders.add(where + " cites validate-" + target
+                                    + ".cmd without naming scripts\\validate.cmd " + target);
+                        }
+                    } else if (!Pattern.compile("git show [0-9a-f]{7,40}:scripts/validate-" + target + "[.]ps1")
+                            .matcher(text).find()) {
+                        offenders.add(where + " cites validate-" + target
+                                + ".cmd, whose validator was removed, without the git show command that recovers it");
+                    }
+                }
+            }
+        }
+        assertTrue(citingRecords > 0, "no dated record cites a removed wrapper: the rule would pass on nothing");
+        assertTrue(offenders.isEmpty(),
+                () -> "a dated record that cites a removed wrapper must say what replaced it: " + offenders);
     }
 
     private static boolean isSelected(String simpleName, List<Pattern> moduleIncludes) {
