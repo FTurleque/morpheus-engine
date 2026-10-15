@@ -59,14 +59,14 @@ class MorpheusCompositionApiContractTest {
             var normalized = new SyntheticSpecificationContentReader()
                     .read(
                             ProviderReadRequest.all(fixture, projectId),
-                            new PersistentEntityIdentityResolver(runtime.identities))
+                            new PersistentEntityIdentityResolver(runtime.identities()))
                     .content()
                     .orElseThrow();
             var imported = new ProjectSnapshotImportService(
-                    runtime.snapshots,
-                    runtime.requirements,
-                    runtime.content,
-                    runtime.traceability)
+                    runtime.snapshots(),
+                    runtime.requirements(),
+                    runtime.content(),
+                    runtime.traceability())
                     .publishFull(
                             normalized,
                             Optional.of("m18-api-test"),
@@ -84,7 +84,7 @@ class MorpheusCompositionApiContractTest {
                     CompositionResolution.PRECEDENCE_RECORDED,
                     Optional.of(openspec),
                     "OpenSpec has higher configured precedence");
-            runtime.compositions.save(new CompositionSnapshotState(
+            runtime.compositions().save(new CompositionSnapshotState(
                     imported.snapshot().id(),
                     openspec,
                     List.of(

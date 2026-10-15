@@ -33,10 +33,10 @@ class ProjectSyncApiServiceArchitectureTest {
 
         assertTrue(sync.contains("final class MorpheusProjectSyncApiService"));
         assertTrue(sync.contains("new LocalSourceInventoryScanner().scan("));
-        assertTrue(sync.contains("new IncrementalSyncService(runtime.syncState)"));
+        assertTrue(sync.contains("new IncrementalSyncService(runtime.syncState())"));
         assertTrue(sync.contains("new OpenSpecProjectContentReader().read("));
         assertTrue(sync.contains("new ProjectSnapshotImportService("));
-        assertTrue(sync.contains("new SyncFreshnessService(runtime.syncState)"));
+        assertTrue(sync.contains("new SyncFreshnessService(runtime.syncState())"));
         assertTrue(sync.contains("AllowedWorkspaceRoots"));
         assertTrue(sync.contains("policy.requireAllowedDirectory(workspace)"));
         assertFalse(sync.contains("RequirementQueryService"));

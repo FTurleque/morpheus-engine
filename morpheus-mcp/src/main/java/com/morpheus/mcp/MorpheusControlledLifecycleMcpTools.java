@@ -77,16 +77,16 @@ final class MorpheusControlledLifecycleMcpTools {
                     McpArguments.optionalString(arguments, "abandonmentReason"));
 
             try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath)) {
-                if (runtime.snapshots.findProject(projectId).isEmpty()) {
+                if (runtime.snapshots().findProject(projectId).isEmpty()) {
                     throw new KnowledgeStoreException("project not found: " + projectId);
                 }
                 var service = new ControlledChangeLifecycleMutationService(
                         new ChangeTransitionEvaluationService(
-                                runtime.snapshots,
-                                runtime.content,
-                                runtime.requirements,
-                                runtime.traceability),
-                        runtime.lifecycleMutations,
+                                runtime.snapshots(),
+                                runtime.content(),
+                                runtime.requirements(),
+                                runtime.traceability()),
+                        runtime.lifecycleMutations(),
                         writeCapability);
                 var result = service.apply(
                         new ChangeLifecycleMutationCommand(

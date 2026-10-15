@@ -237,7 +237,7 @@ class MorpheusRemoteAdversarialClientTest {
         String longWorkspaceName = "adversarial-workspace-fixture-".repeat(6);
         try (ApiRuntime runtime = new ApiRuntime(database)) {
             for (int index = 0; index < SEEDED_PROJECTS; index++) {
-                runtime.snapshots.putProject(new ProjectStoreEntry(
+                runtime.snapshots().putProject(new ProjectStoreEntry(
                         ProjectSpecificationId.generate(),
                         SourceLocator.file("seeded/" + index + "-" + longWorkspaceName)));
             }

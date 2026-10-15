@@ -28,7 +28,7 @@ final class MorpheusProjectRegistryApiService {
 
     Object listProjects() {
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            return runtime.snapshots.listProjects().stream()
+            return runtime.snapshots().listProjects().stream()
                     .map(project -> project(runtime, project))
                     .toList();
         }
@@ -40,10 +40,10 @@ final class MorpheusProjectRegistryApiService {
                 .orElseGet(() -> existingDirectory(workspace));
         SourceLocator root = SourceLocator.file(path.toString());
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            Optional<ProjectStoreEntry> existing = runtime.snapshots.findProjectByRoot(root);
+            Optional<ProjectStoreEntry> existing = runtime.snapshots().findProjectByRoot(root);
             ProjectStoreEntry entry = existing.orElseGet(() -> {
                 ProjectStoreEntry created = new ProjectStoreEntry(ProjectSpecificationId.generate(), root);
-                runtime.snapshots.putProject(created);
+                runtime.snapshots().putProject(created);
                 return created;
             });
             return new RegistrationResult(project(runtime, entry), existing.isEmpty());
@@ -53,7 +53,7 @@ final class MorpheusProjectRegistryApiService {
     Object project(String projectIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            ProjectStoreEntry entry = runtime.snapshots.findProject(projectId)
+            ProjectStoreEntry entry = runtime.snapshots().findProject(projectId)
                     .orElseThrow(() -> ApiFailure.notFound("project not found: " + projectId));
             return project(runtime, entry);
         }
@@ -74,7 +74,7 @@ final class MorpheusProjectRegistryApiService {
         result.put("workspaceName", workspaceName(entry.rootLocator()));
         result.put(
                 "activeSnapshotId",
-                runtime.snapshots.activeSnapshot(entry.id()).map(snapshot -> snapshot.id().toString()).orElse("none"));
+                runtime.snapshots().activeSnapshot(entry.id()).map(snapshot -> snapshot.id().toString()).orElse("none"));
         return Collections.unmodifiableMap(result);
     }
 

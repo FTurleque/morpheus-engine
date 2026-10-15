@@ -7,7 +7,6 @@ import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.domain.portfolio.PortfolioId;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.store.sqlite.SqlitePolicyPackStore;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
 
@@ -47,8 +46,8 @@ final class MorpheusPolicyMcpManagementTools {
     private McpSchema.CallToolResult call(String name, Map<String, Object> rawArguments) {
         try {
             Map<String, Object> arguments = McpArguments.orEmpty(rawArguments);
-            try (SqlitePolicyPackStore store = new SqlitePolicyPackStore(databasePath)) {
-                PolicyPackService registry = new PolicyPackService(store);
+            try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath)) {
+                PolicyPackService registry = new PolicyPackService(runtime.policyPacks());
                 Object result = switch (name) {
                     case LIST_ACTIVATIONS -> PolicyPublicViews.activations(registry.activations(scope(arguments)));
                     default -> throw new IllegalArgumentException("unknown M25 policy management tool: " + name);

@@ -9,7 +9,6 @@ import com.morpheus.application.reference.ExternalIntegrationStatus;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.application.snapshot.RuntimeSnapshotRecovery;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
 import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
@@ -147,8 +146,8 @@ final class MorpheusLocalHttpServerBootstrap {
 
         var bindAddress = LoopbackHostPolicy.requireLoopbackAddress(host);
         String normalizedHost = bindAddress.getHostAddress();
-        try (SqliteSpecificationKnowledgeStore store = new SqliteSpecificationKnowledgeStore(databasePath)) {
-            new RuntimeSnapshotRecovery(store).recoverAll(Instant.now());
+        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+            new RuntimeSnapshotRecovery(runtime.snapshots()).recoverAll(Instant.now());
         }
 
         // HttpServer.create binds the socket, and everything after it can fail -- notably the API services, which

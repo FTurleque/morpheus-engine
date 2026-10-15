@@ -15,7 +15,6 @@ import com.morpheus.application.query.saved.SavedViewStatus;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.domain.portfolio.PortfolioId;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.store.sqlite.SqliteQueryRuntime;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
 
@@ -82,7 +81,7 @@ final class MorpheusQueryMcpTools {
     private McpSchema.CallToolResult call(String toolName, Map<String, Object> rawArguments) {
         try {
             Map<String, Object> arguments = McpArguments.orEmpty(rawArguments);
-            try (SqliteQueryRuntime runtime = SqliteQueryRuntime.open(databasePath)) {
+            try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath)) {
                 Object result = switch (toolName) {
                     case EXECUTE_QUERY -> QueryPublicViews.result(runtime.queries().execute(query(arguments, scope(arguments))));
                     case CREATE_SAVED_VIEW -> QueryPublicViews.savedView(runtime.views().create(

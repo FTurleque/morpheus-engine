@@ -53,16 +53,16 @@ final class MorpheusControlledLifecycleApiService {
                 .orElseGet(ChangeLifecycleMutationId::generate);
 
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            if (runtime.snapshots.findProject(projectId).isEmpty()) {
+            if (runtime.snapshots().findProject(projectId).isEmpty()) {
                 throw new KnowledgeStoreException("project not found: " + projectId);
             }
             ControlledChangeLifecycleMutationService service = new ControlledChangeLifecycleMutationService(
                     new ChangeTransitionEvaluationService(
-                            runtime.snapshots,
-                            runtime.content,
-                            runtime.requirements,
-                            runtime.traceability),
-                    runtime.lifecycleMutations,
+                            runtime.snapshots(),
+                            runtime.content(),
+                            runtime.requirements(),
+                            runtime.traceability()),
+                    runtime.lifecycleMutations(),
                     writeCapability);
             return ChangeLifecycleMutationResultView.from(service.apply(
                     new ChangeLifecycleMutationCommand(

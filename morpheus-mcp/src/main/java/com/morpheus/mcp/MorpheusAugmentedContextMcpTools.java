@@ -60,15 +60,15 @@ final class MorpheusAugmentedContextMcpTools {
             ProjectSpecificationId projectId = ProjectSpecificationId.parse(McpArguments.requiredString(arguments, "projectId"));
             TechnicalContextOptions options = options(arguments);
             try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath)) {
-                if (runtime.snapshots.findProject(projectId).isEmpty()) {
+                if (runtime.snapshots().findProject(projectId).isEmpty()) {
                     throw new KnowledgeStoreException("project not found: " + projectId);
                 }
                 AugmentedContextService service = new AugmentedContextService(
-                        runtime.snapshots,
-                        runtime.content,
-                        runtime.requirements,
-                        runtime.traceability,
-                        runtime.externalReferences,
+                        runtime.snapshots(),
+                        runtime.content(),
+                        runtime.requirements(),
+                        runtime.traceability(),
+                        runtime.externalReferences(),
                         provider);
                 Object result = switch (toolName) {
                     case REQUIREMENT_TOOL -> service.requirement(

@@ -119,8 +119,8 @@ class MorpheusCompositionCliTest {
     private void register(Path data, ProjectSpecificationId projectId, Path workspace) {
         CliLayout layout = CliLayout.resolve(
                 Optional.of(data), Optional.empty(), Optional.empty(), Map.of(), properties());
-        try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
-            runtime.snapshots.putProject(new ProjectStoreEntry(
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
+            runtime.snapshots().putProject(new ProjectStoreEntry(
                     projectId,
                     SourceLocator.file(workspace.toAbsolutePath().normalize().toString())));
         }

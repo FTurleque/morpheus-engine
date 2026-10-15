@@ -53,7 +53,7 @@ final class MorpheusProjectSyncApiService {
                     normalizedRevision,
                     attemptedAt,
                     List.of(Path.of("openspec")));
-            IncrementalSyncService syncService = new IncrementalSyncService(runtime.syncState);
+            IncrementalSyncService syncService = new IncrementalSyncService(runtime.syncState());
             SyncPlan plan = syncService.prepare(scan, SyncPlan.Trigger.manual().forced(), attemptedAt);
             if (!scan.complete()) {
                 syncService.fail(plan, Instant.now());
@@ -67,13 +67,13 @@ final class MorpheusProjectSyncApiService {
                 var normalized = new OpenSpecProjectContentReader().read(
                         workspace,
                         projectId,
-                        new PersistentEntityIdentityResolver(runtime.identities));
+                        new PersistentEntityIdentityResolver(runtime.identities()));
                 ProjectSnapshotImportResult imported = new ObservedProjectSnapshotPublisher(
                         new ProjectSnapshotImportService(
-                                runtime.snapshots,
-                                runtime.requirements,
-                                runtime.content,
-                                runtime.traceability),
+                                runtime.snapshots(),
+                                runtime.requirements(),
+                                runtime.content(),
+                                runtime.traceability()),
                         LocalOperationalRuntime.recorder())
                         .publishFull(normalized, normalizedRevision, Instant.now());
                 syncService.complete(plan, Instant.now());
@@ -103,7 +103,7 @@ final class MorpheusProjectSyncApiService {
         requireRange("maxAgeMinutes", maxAgeMinutes, 1L, MorpheusApiService.MAX_MAX_AGE_MINUTES);
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
             requireProject(runtime, projectId);
-            SyncFreshness freshness = new SyncFreshnessService(runtime.syncState)
+            SyncFreshness freshness = new SyncFreshnessService(runtime.syncState())
                     .assess(projectId, Instant.now(), Duration.ofMinutes(maxAgeMinutes));
             return map(
                     "projectId", projectId.toString(),
@@ -119,7 +119,7 @@ final class MorpheusProjectSyncApiService {
     }
 
     private ProjectStoreEntry requireProject(ApiRuntime runtime, ProjectSpecificationId projectId) {
-        return runtime.snapshots.findProject(projectId)
+        return runtime.snapshots().findProject(projectId)
                 .orElseThrow(() -> ApiFailure.notFound("project not found: " + projectId));
     }
 

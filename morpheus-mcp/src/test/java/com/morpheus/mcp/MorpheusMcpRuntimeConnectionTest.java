@@ -34,7 +34,7 @@ class MorpheusMcpRuntimeConnectionTest {
         try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(database)) {
             assertEquals(1, SqliteConnectionScope.diagnostics().opened() - before.opened(),
                     "the seven stores of an MCP tool call share one physical connection");
-            assertEquals(0, runtime.snapshots.listProjects().size());
+            assertEquals(0, runtime.snapshots().listProjects().size());
         }
 
         SqliteConnectionScope.Diagnostics after = SqliteConnectionScope.diagnostics();
@@ -52,7 +52,7 @@ class MorpheusMcpRuntimeConnectionTest {
 
             assertTrue(refused.getMessage().startsWith(SqliteConnectionScope.NESTED_REFUSAL + ": "),
                     refused::getMessage);
-            assertEquals(0, first.snapshots.listProjects().size());
+            assertEquals(0, first.snapshots().listProjects().size());
         }
     }
 
@@ -72,10 +72,10 @@ class MorpheusMcpRuntimeConnectionTest {
         Path database = temporaryDirectory.resolve("morpheus.db");
 
         try (MorpheusMcpRuntime first = new MorpheusMcpRuntime(database)) {
-            assertEquals(0, first.snapshots.listProjects().size());
+            assertEquals(0, first.snapshots().listProjects().size());
         }
         try (MorpheusMcpRuntime second = new MorpheusMcpRuntime(database)) {
-            assertEquals(0, second.snapshots.listProjects().size());
+            assertEquals(0, second.snapshots().listProjects().size());
         }
     }
 }

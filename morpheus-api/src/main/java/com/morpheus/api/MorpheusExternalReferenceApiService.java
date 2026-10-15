@@ -38,11 +38,11 @@ final class MorpheusExternalReferenceApiService {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         DomainIdentity ownerId = DomainIdentity.parse(ownerIdValue);
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            if (runtime.snapshots.findProject(projectId).isEmpty()) {
+            if (runtime.snapshots().findProject(projectId).isEmpty()) {
                 throw ApiFailure.notFound("project not found: " + projectId);
             }
             List<ExternalReference> references = new LiveExternalReferenceResolutionService(
-                    runtime.snapshots, runtime.externalReferences, resolverRegistry, Clock.systemUTC())
+                    runtime.snapshots(), runtime.externalReferences(), resolverRegistry, Clock.systemUTC())
                     .listActive(projectId, ownerId)
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
             return Map.of(
@@ -56,11 +56,11 @@ final class MorpheusExternalReferenceApiService {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ExternalReferenceId referenceId = ExternalReferenceId.parse(referenceIdValue);
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            if (runtime.snapshots.findProject(projectId).isEmpty()) {
+            if (runtime.snapshots().findProject(projectId).isEmpty()) {
                 throw ApiFailure.notFound("project not found: " + projectId);
             }
             var service = new LiveExternalReferenceResolutionService(
-                    runtime.snapshots, runtime.externalReferences, resolverRegistry, Clock.systemUTC());
+                    runtime.snapshots(), runtime.externalReferences(), resolverRegistry, Clock.systemUTC());
             var result = service.resolveActive(projectId, referenceId)
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
             Map<String, Object> view = new LinkedHashMap<>();

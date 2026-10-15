@@ -48,12 +48,12 @@ final class MorpheusConstraintSemanticsCli {
                     options.intValue("offset", 0, 0, Integer.MAX_VALUE),
                     options.intValue("limit", 20, 1, PageRequest.MAX_LIMIT));
 
-            try (CliRuntime runtime = new CliRuntime(parsed.layout().databasePath())) {
-                if (runtime.snapshots.findProject(projectId).isEmpty()) {
+            try (CliRuntime runtime = CliRuntime.recovering(parsed.layout().databasePath())) {
+                if (runtime.snapshots().findProject(projectId).isEmpty()) {
                     throw new IllegalStateException("project not found: " + projectId);
                 }
                 SnapshotPage<ConstraintEvaluation> page = new ConstraintEvaluationQueryService(
-                                runtime.snapshots, runtime.content)
+                                runtime.snapshots(), runtime.content())
                         .activeEvaluations(projectId, changeId, target, pageRequest)
                         .orElseThrow(() -> new IllegalStateException("project has no ACTIVE snapshot: " + projectId));
                 write(page, parsed.json(), out);

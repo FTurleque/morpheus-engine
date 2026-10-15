@@ -4,7 +4,6 @@ import com.morpheus.application.operability.LocalOperabilityService;
 import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.operability.OperationalMetrics;
 import com.morpheus.application.operability.OperationalRecorder;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
 
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
@@ -23,8 +22,8 @@ public final class MorpheusOperabilityApiService {
         Path database = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
         this.operability = new LocalOperabilityService(
                 () -> {
-                    try (SqliteSpecificationKnowledgeStore store = new SqliteSpecificationKnowledgeStore(database)) {
-                        return store.listProjects().size();
+                    try (ApiRuntime runtime = new ApiRuntime(database)) {
+                        return runtime.snapshots().listProjects().size();
                     }
                 },
                 LocalOperationalRuntime.metrics(),

@@ -60,16 +60,16 @@ final class MorpheusJarvisOrchestrationMcpTools {
             ProjectSpecificationId projectId = ProjectSpecificationId.parse(McpArguments.requiredString(arguments, "projectId"));
             ChangeId changeId = ChangeId.parse(McpArguments.requiredString(arguments, "changeId"));
             try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath)) {
-                if (runtime.snapshots.findProject(projectId).isEmpty()) {
+                if (runtime.snapshots().findProject(projectId).isEmpty()) {
                     throw new KnowledgeStoreException("project not found: " + projectId);
                 }
                 Object result = switch (toolName) {
                     case STATE_TOOL -> new ChangeOrchestrationStateService(
-                                    runtime.snapshots,
-                                    runtime.content,
-                                    runtime.requirements,
-                                    runtime.traceability,
-                                    runtime.externalReferences)
+                                    runtime.snapshots(),
+                                    runtime.content(),
+                                    runtime.requirements(),
+                                    runtime.traceability(),
+                                    runtime.externalReferences())
                             .active(projectId, changeId, observation(arguments))
                             .orElseThrow(() -> new KnowledgeStoreException(
                                     "project has no ACTIVE snapshot: " + projectId));
@@ -106,10 +106,10 @@ final class MorpheusJarvisOrchestrationMcpTools {
                 McpArguments.optionalBoolean(arguments, "allowBackwardTransitions", false),
                 McpArguments.optionalBoolean(arguments, "allowCompletedReopen", false));
         return new ChangeTransitionEvaluationService(
-                        runtime.snapshots,
-                        runtime.content,
-                        runtime.requirements,
-                        runtime.traceability)
+                        runtime.snapshots(),
+                        runtime.content(),
+                        runtime.requirements(),
+                        runtime.traceability())
                 .evaluateActive(projectId, source, target, policy, targetReason)
                 .orElseThrow(() -> new KnowledgeStoreException(
                         "project has no ACTIVE snapshot: " + projectId));

@@ -15,7 +15,6 @@ import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.portfolio.PortfolioId;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.store.sqlite.SqlitePolicyRuntime;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
 
@@ -78,7 +77,7 @@ final class MorpheusPolicyMcpTools {
     private McpSchema.CallToolResult call(String toolName, Map<String, Object> rawArguments) {
         try {
             Map<String, Object> arguments = McpArguments.orEmpty(rawArguments);
-            try (SqlitePolicyRuntime runtime = SqlitePolicyRuntime.open(databasePath)) {
+            try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath)) {
                 Object result = switch (toolName) {
                     case CREATE -> PolicyPublicViews.definition(runtime.registry().create(
                             McpArguments.requiredString(arguments, "name"), rules(arguments),

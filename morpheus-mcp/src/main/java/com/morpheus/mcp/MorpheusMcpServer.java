@@ -9,7 +9,6 @@ import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.application.snapshot.RuntimeSnapshotRecovery;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.integration.mcp.BoundedStdioServerTransportProvider;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpServerFeatures;
@@ -109,8 +108,8 @@ public final class MorpheusMcpServer {
         Objects.requireNonNull(technicalContextProvider, "technicalContextProvider");
         Objects.requireNonNull(writeCapabilityResolver, "writeCapabilityResolver");
         Objects.requireNonNull(transport, "transport");
-        try (SqliteSpecificationKnowledgeStore store = new SqliteSpecificationKnowledgeStore(databasePath)) {
-            new RuntimeSnapshotRecovery(store).recoverAll(Instant.now());
+        try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath)) {
+            new RuntimeSnapshotRecovery(runtime.snapshots()).recoverAll(Instant.now());
         }
         List<McpServerFeatures.SyncToolSpecification> tools = toolSpecifications(
                 databasePath, resolverRegistry, technicalContextProvider, writeCapabilityResolver);

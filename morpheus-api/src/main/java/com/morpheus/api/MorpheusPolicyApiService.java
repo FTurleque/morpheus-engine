@@ -12,7 +12,6 @@ import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.portfolio.PortfolioId;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.store.sqlite.SqlitePolicyRuntime;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -31,7 +30,7 @@ public final class MorpheusPolicyApiService {
 
     public Object create(CreateRequest request) {
         Objects.requireNonNull(request, "request");
-        try (SqlitePolicyRuntime runtime = runtime()) {
+        try (ApiRuntime runtime = runtime()) {
             return PolicyPublicViews.definition(runtime.registry().create(
                     requireText(request.name(), "name"), rules(request.rules()),
                     requireText(request.actor(), "actor"), requireText(request.reason(), "reason")));
@@ -39,26 +38,26 @@ public final class MorpheusPolicyApiService {
     }
 
     public Object list() {
-        try (SqlitePolicyRuntime runtime = runtime()) {
+        try (ApiRuntime runtime = runtime()) {
             return PolicyPublicViews.definitions(runtime.registry().list());
         }
     }
 
     public Object get(String id) {
-        try (SqlitePolicyRuntime runtime = runtime()) {
+        try (ApiRuntime runtime = runtime()) {
             return PolicyPublicViews.definition(runtime.registry().get(PolicyIds.PackId.parse(id)));
         }
     }
 
     public Object versions(String id) {
-        try (SqlitePolicyRuntime runtime = runtime()) {
+        try (ApiRuntime runtime = runtime()) {
             return PolicyPublicViews.versions(runtime.registry().versions(PolicyIds.PackId.parse(id)));
         }
     }
 
     public Object update(String id, UpdateRequest request) {
         Objects.requireNonNull(request, "request");
-        try (SqlitePolicyRuntime runtime = runtime()) {
+        try (ApiRuntime runtime = runtime()) {
             return PolicyPublicViews.definition(runtime.registry().update(
                     PolicyIds.PackId.parse(id), positive(request.expectedRevision(), "expectedRevision"),
                     requireText(request.name(), "name"), rules(request.rules()),
@@ -68,7 +67,7 @@ public final class MorpheusPolicyApiService {
 
     public Object activate(String id, ActivationRequest request) {
         Objects.requireNonNull(request, "request");
-        try (SqlitePolicyRuntime runtime = runtime()) {
+        try (ApiRuntime runtime = runtime()) {
             return PolicyPublicViews.activation(runtime.registry().activate(
                     scope(request.scopeKind(), request.scopeId()), PolicyIds.PackId.parse(id),
                     PolicyIds.VersionId.parse(requireText(request.versionId(), "versionId")),
@@ -79,7 +78,7 @@ public final class MorpheusPolicyApiService {
 
     public Object deactivate(String id, DeactivationRequest request) {
         Objects.requireNonNull(request, "request");
-        try (SqlitePolicyRuntime runtime = runtime()) {
+        try (ApiRuntime runtime = runtime()) {
             runtime.registry().deactivate(
                     scope(request.scopeKind(), request.scopeId()), PolicyIds.PackId.parse(id),
                     positive(request.expectedRevision(), "expectedRevision"),
@@ -90,7 +89,7 @@ public final class MorpheusPolicyApiService {
 
     public Object putOverride(String id, String ruleId, OverrideRequest request) {
         Objects.requireNonNull(request, "request");
-        try (SqlitePolicyRuntime runtime = runtime()) {
+        try (ApiRuntime runtime = runtime()) {
             return PolicyPublicViews.override(runtime.registry().putOverride(
                     scope(request.scopeKind(), request.scopeId()), PolicyIds.PackId.parse(id), PolicyIds.RuleId.parse(ruleId),
                     PolicyConfiguration.OverrideMode.valueOf(requireText(request.mode(), "mode").toUpperCase(Locale.ROOT)),
@@ -100,14 +99,14 @@ public final class MorpheusPolicyApiService {
     }
 
     public Object listOverrides(String scopeKind, String scopeId) {
-        try (SqlitePolicyRuntime runtime = runtime()) {
+        try (ApiRuntime runtime = runtime()) {
             return PolicyPublicViews.overrides(runtime.registry().overrides(scope(scopeKind, scopeId)));
         }
     }
 
     public Object evaluate(EvaluateRequest request) {
         Objects.requireNonNull(request, "request");
-        try (SqlitePolicyRuntime runtime = runtime()) {
+        try (ApiRuntime runtime = runtime()) {
             PolicyScope scope = scope(request.scopeKind(), request.scopeId());
             if (request.id() == null || request.id().isBlank()) {
                 return PolicyPublicViews.governance(runtime.evaluation().evaluate(scope));
@@ -118,7 +117,7 @@ public final class MorpheusPolicyApiService {
 
     public Object dryRun(DryRunRequest request) {
         Objects.requireNonNull(request, "request");
-        try (SqlitePolicyRuntime runtime = runtime()) {
+        try (ApiRuntime runtime = runtime()) {
             return PolicyPublicViews.report(runtime.evaluation().dryRun(
                     scope(request.scopeKind(), request.scopeId()), PolicyIds.PackId.parse(requireText(request.id(), "id")),
                     PolicyIds.VersionId.parse(requireText(request.versionId(), "versionId"))));
@@ -126,7 +125,7 @@ public final class MorpheusPolicyApiService {
     }
 
     public Object audit(String id) {
-        try (SqlitePolicyRuntime runtime = runtime()) {
+        try (ApiRuntime runtime = runtime()) {
             return PolicyPublicViews.audit(runtime.registry().audit(PolicyIds.PackId.parse(id)));
         }
     }
@@ -176,8 +175,8 @@ public final class MorpheusPolicyApiService {
         };
     }
 
-    private SqlitePolicyRuntime runtime() {
-        return SqlitePolicyRuntime.open(databasePath);
+    private ApiRuntime runtime() {
+        return new ApiRuntime(databasePath);
     }
 
     private static String requireText(String value, String name) {

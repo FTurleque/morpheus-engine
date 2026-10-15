@@ -32,9 +32,9 @@ class HistoryApiServiceArchitectureTest {
         assertFalse(facade.contains("private Object version(ApiRuntime runtime, KnowledgeSnapshotMetadata snapshot)"));
 
         assertTrue(history.contains("final class MorpheusHistoryApiService"));
-        assertTrue(history.contains("new PublishedSnapshotHistoryService(runtime.snapshots)"));
-        assertTrue(history.contains("new HistoricalRequirementQueryService(runtime.snapshots, runtime.requirements)"));
-        assertTrue(history.contains("new RequirementSnapshotComparisonService(runtime.snapshots, runtime.requirements)"));
+        assertTrue(history.contains("new PublishedSnapshotHistoryService(runtime.snapshots())"));
+        assertTrue(history.contains("new HistoricalRequirementQueryService(runtime.snapshots(), runtime.requirements())"));
+        assertTrue(history.contains("new RequirementSnapshotComparisonService(runtime.snapshots(), runtime.requirements())"));
         assertTrue(history.contains("private void requireSnapshotProject("));
         assertTrue(history.contains("private Object version(ApiRuntime runtime, KnowledgeSnapshotMetadata snapshot)"));
         assertFalse(history.contains("new RequirementQueryService("));

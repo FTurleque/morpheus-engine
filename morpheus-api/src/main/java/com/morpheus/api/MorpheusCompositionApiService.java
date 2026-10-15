@@ -44,7 +44,7 @@ final class MorpheusCompositionApiService {
     private CompositionStateView state(String rawProjectId) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(rawProjectId);
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            return new CompositionQueryService(runtime.snapshots, runtime.compositions)
+            return new CompositionQueryService(runtime.snapshots(), runtime.compositions())
                     .findActive(projectId)
                     .orElseThrow(() -> new KnowledgeStoreException(
                             "project has no ACTIVE snapshot composition state: " + projectId));

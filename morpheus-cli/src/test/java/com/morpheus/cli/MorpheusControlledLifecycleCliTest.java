@@ -76,18 +76,18 @@ class MorpheusControlledLifecycleCliTest {
                 Optional.of(data), Optional.empty(), Optional.empty(), Map.of(), properties);
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         Path fixture = fixture("synthetic-basic");
-        try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
             var normalized = new SyntheticSpecificationContentReader()
                     .read(
                             ProviderReadRequest.all(fixture, projectId),
-                            new PersistentEntityIdentityResolver(runtime.identities))
+                            new PersistentEntityIdentityResolver(runtime.identities()))
                     .content()
                     .orElseThrow();
             new ProjectSnapshotImportService(
-                    runtime.snapshots,
-                    runtime.requirements,
-                    runtime.content,
-                    runtime.traceability)
+                    runtime.snapshots(),
+                    runtime.requirements(),
+                    runtime.content(),
+                    runtime.traceability())
                     .publishFull(normalized, Optional.of("m17-cli-test"), Instant.parse("2026-07-26T15:30:00Z"));
             return new Seed(data, layout.databasePath(), projectId.toString(), normalized.changes().getFirst().id().toString());
         }

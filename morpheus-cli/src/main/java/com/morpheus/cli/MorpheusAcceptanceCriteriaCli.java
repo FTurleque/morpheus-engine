@@ -46,11 +46,11 @@ final class MorpheusAcceptanceCriteriaCli {
                     options.intValue("offset", 0, 0, Integer.MAX_VALUE),
                     options.intValue("limit", 20, 1, PageRequest.MAX_LIMIT));
 
-            try (CliRuntime runtime = new CliRuntime(parsed.layout().databasePath())) {
-                if (runtime.snapshots.findProject(projectId).isEmpty()) {
+            try (CliRuntime runtime = CliRuntime.recovering(parsed.layout().databasePath())) {
+                if (runtime.snapshots().findProject(projectId).isEmpty()) {
                     throw new IllegalStateException("project not found: " + projectId);
                 }
-                BusinessContentQueryService query = new BusinessContentQueryService(runtime.snapshots, runtime.content);
+                BusinessContentQueryService query = new BusinessContentQueryService(runtime.snapshots(), runtime.content());
                 SnapshotPage<AcceptanceCriterion> page = changeId.isPresent()
                         ? query.activeAcceptanceCriteriaForChange(projectId, changeId.orElseThrow(), pageRequest)
                                 .orElseThrow(() -> new IllegalStateException("project has no ACTIVE snapshot: " + projectId))

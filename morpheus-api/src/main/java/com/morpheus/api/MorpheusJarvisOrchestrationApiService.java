@@ -34,11 +34,11 @@ final class MorpheusJarvisOrchestrationApiService {
         ChangeLifecycleObservation lifecycle = lifecycle(lifecycleState, abandonmentReason);
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
             return new ChangeOrchestrationStateService(
-                            runtime.snapshots,
-                            runtime.content,
-                            runtime.requirements,
-                            runtime.traceability,
-                            runtime.externalReferences)
+                            runtime.snapshots(),
+                            runtime.content(),
+                            runtime.requirements(),
+                            runtime.traceability(),
+                            runtime.externalReferences())
                     .active(projectId, changeId, lifecycle)
                     .orElseThrow(() -> new KnowledgeStoreException(
                             "project has no ACTIVE snapshot: " + projectId));
@@ -65,14 +65,14 @@ final class MorpheusJarvisOrchestrationApiService {
                 Boolean.TRUE.equals(request.allowCompletedReopen()));
 
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            if (runtime.snapshots.findProject(projectId).isEmpty()) {
+            if (runtime.snapshots().findProject(projectId).isEmpty()) {
                 throw new KnowledgeStoreException("project not found: " + projectId);
             }
             return new ChangeTransitionEvaluationService(
-                            runtime.snapshots,
-                            runtime.content,
-                            runtime.requirements,
-                            runtime.traceability)
+                            runtime.snapshots(),
+                            runtime.content(),
+                            runtime.requirements(),
+                            runtime.traceability())
                     .evaluateActive(projectId, source, target, policy, targetReason)
                     .orElseThrow(() -> new KnowledgeStoreException(
                             "project has no ACTIVE snapshot: " + projectId));

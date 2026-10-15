@@ -11,7 +11,6 @@ import com.morpheus.application.policy.PolicyScope;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.domain.portfolio.PortfolioId;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.store.sqlite.SqlitePolicyPackStore;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
@@ -60,8 +59,8 @@ final class MorpheusPolicyManagementHttpRoutes {
             MorpheusHttpQuery query = MorpheusHttpQuery.parse(exchange.getRequestURI().getRawQuery());
             query.rejectUnknown(Set.of("scopeKind", "scopeId"));
             PolicyScope scope = scope(query.required("scopeKind"), query.required("scopeId"));
-            try (SqlitePolicyPackStore store = new SqlitePolicyPackStore(databasePath)) {
-                return PolicyPublicViews.activations(new PolicyPackService(store).activations(scope));
+            try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+                return PolicyPublicViews.activations(new PolicyPackService(runtime.policyPacks()).activations(scope));
             }
         });
     }
@@ -72,8 +71,8 @@ final class MorpheusPolicyManagementHttpRoutes {
             requireExactPath(exchange, OVERRIDES, REMOVE);
             rejectQueryParameters(exchange);
             RemoveOverrideRequest request = requestDecoder.readRequiredJson(exchange, RemoveOverrideRequest.class);
-            try (SqlitePolicyPackStore store = new SqlitePolicyPackStore(databasePath)) {
-                new PolicyPackService(store).removeOverride(
+            try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
+                new PolicyPackService(runtime.policyPacks()).removeOverride(
                         scope(request.scopeKind(), request.scopeId()),
                         PolicyIds.PackId.parse(requiredText(request.id(), "id")),
                         PolicyIds.RuleId.parse(requiredText(request.ruleId(), "ruleId")),

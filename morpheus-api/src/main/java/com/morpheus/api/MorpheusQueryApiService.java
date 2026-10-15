@@ -13,7 +13,6 @@ import com.morpheus.application.query.saved.SavedViewId;
 import com.morpheus.application.query.saved.SavedViewStatus;
 import com.morpheus.domain.portfolio.PortfolioId;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.store.sqlite.SqliteQueryRuntime;
 
 import java.nio.file.Path;
 import java.util.Locale;
@@ -41,33 +40,33 @@ public final class MorpheusQueryApiService {
 
     public Object createSavedView(CreateSavedViewRequest request) {
         Objects.requireNonNull(request, "request");
-        try (SqliteQueryRuntime runtime = runtime()) {
+        try (ApiRuntime runtime = runtime()) {
             QueryDefinition definition = query(scope(request.scopeKind(), request.scopeId()), request.query());
             return QueryPublicViews.savedView(runtime.views().create(request.name(), definition));
         }
     }
 
     public Object listSavedViews(String scopeKind, String scopeId) {
-        try (SqliteQueryRuntime runtime = runtime()) {
+        try (ApiRuntime runtime = runtime()) {
             return QueryPublicViews.savedViews(runtime.views().list(scope(scopeKind, scopeId)));
         }
     }
 
     public Object getSavedView(String id) {
-        try (SqliteQueryRuntime runtime = runtime()) {
+        try (ApiRuntime runtime = runtime()) {
             return QueryPublicViews.savedView(runtime.views().get(SavedViewId.parse(id)));
         }
     }
 
     public Object savedViewVersions(String id) {
-        try (SqliteQueryRuntime runtime = runtime()) {
+        try (ApiRuntime runtime = runtime()) {
             return QueryPublicViews.savedVersions(runtime.views().versions(SavedViewId.parse(id)));
         }
     }
 
     public Object updateSavedView(String id, UpdateSavedViewRequest request) {
         Objects.requireNonNull(request, "request");
-        try (SqliteQueryRuntime runtime = runtime()) {
+        try (ApiRuntime runtime = runtime()) {
             SavedViewId savedViewId = SavedViewId.parse(id);
             var current = runtime.views().get(savedViewId);
             QueryDefinition definition = query(current.query().scope(), request.query());
@@ -81,21 +80,21 @@ public final class MorpheusQueryApiService {
 
     public Object archiveSavedView(String id, RevisionRequest request) {
         Objects.requireNonNull(request, "request");
-        try (SqliteQueryRuntime runtime = runtime()) {
+        try (ApiRuntime runtime = runtime()) {
             return QueryPublicViews.savedView(runtime.views().archive(
                     SavedViewId.parse(id), requirePositive(request.expectedRevision(), "expectedRevision")));
         }
     }
 
     public Object executeSavedView(String id) {
-        try (SqliteQueryRuntime runtime = runtime()) {
+        try (ApiRuntime runtime = runtime()) {
             return QueryPublicViews.result(runtime.views().execute(SavedViewId.parse(id)));
         }
     }
 
     public QueryExport export(ExportRequest request) {
         Objects.requireNonNull(request, "request");
-        try (SqliteQueryRuntime runtime = runtime()) {
+        try (ApiRuntime runtime = runtime()) {
             ExportQueryRequest selection = request.query();
             QueryDefinition definition = query(
                     scope(request.scopeKind(), request.scopeId()),
@@ -106,7 +105,7 @@ public final class MorpheusQueryApiService {
 
     public QueryExport exportSavedView(String id, ExportSavedViewRequest request) {
         Objects.requireNonNull(request, "request");
-        try (SqliteQueryRuntime runtime = runtime()) {
+        try (ApiRuntime runtime = runtime()) {
             var view = runtime.views().get(SavedViewId.parse(id));
             if (view.status() != SavedViewStatus.ACTIVE) {
                 throw new IllegalStateException("saved view is archived: " + view.id());
@@ -117,7 +116,7 @@ public final class MorpheusQueryApiService {
 
     private Object execute(QueryScope scope, QueryRequest request) {
         Objects.requireNonNull(request, "request");
-        try (SqliteQueryRuntime runtime = runtime()) {
+        try (ApiRuntime runtime = runtime()) {
             return QueryPublicViews.result(runtime.queries().execute(query(scope, request)));
         }
     }
@@ -151,8 +150,8 @@ public final class MorpheusQueryApiService {
         }
     }
 
-    private SqliteQueryRuntime runtime() {
-        return SqliteQueryRuntime.open(databasePath);
+    private ApiRuntime runtime() {
+        return new ApiRuntime(databasePath);
     }
 
     private static long requirePositive(Long value, String name) {

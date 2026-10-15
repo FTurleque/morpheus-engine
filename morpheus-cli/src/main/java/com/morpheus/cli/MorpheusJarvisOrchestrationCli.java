@@ -44,8 +44,8 @@ final class MorpheusJarvisOrchestrationCli {
             Options options = Options.parse(parsed.tokens().subList(1, parsed.tokens().size()));
             ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required("project"));
             ChangeId changeId = ChangeId.parse(options.required("change"));
-            try (CliRuntime runtime = new CliRuntime(parsed.layout().databasePath())) {
-                if (runtime.snapshots.findProject(projectId).isEmpty()) {
+            try (CliRuntime runtime = CliRuntime.recovering(parsed.layout().databasePath())) {
+                if (runtime.snapshots().findProject(projectId).isEmpty()) {
                     throw new IllegalStateException("project not found: " + projectId);
                 }
                 return switch (action) {
@@ -74,11 +74,11 @@ final class MorpheusJarvisOrchestrationCli {
         options.rejectKeys("from", "to", "from-abandonment-reason");
         ChangeLifecycleObservation observation = observation(options);
         ChangeOrchestrationState result = new ChangeOrchestrationStateService(
-                        runtime.snapshots,
-                        runtime.content,
-                        runtime.requirements,
-                        runtime.traceability,
-                        runtime.externalReferences)
+                        runtime.snapshots(),
+                        runtime.content(),
+                        runtime.requirements(),
+                        runtime.traceability(),
+                        runtime.externalReferences())
                 .active(projectId, changeId, observation)
                 .orElseThrow(() -> new IllegalStateException("project has no ACTIVE snapshot: " + projectId));
         writeState(result, parsed.json(), out);
@@ -110,10 +110,10 @@ final class MorpheusJarvisOrchestrationCli {
                 options.flag("allow-backward"),
                 options.flag("allow-completed-reopen"));
         ChangeTransitionEvaluation result = new ChangeTransitionEvaluationService(
-                        runtime.snapshots,
-                        runtime.content,
-                        runtime.requirements,
-                        runtime.traceability)
+                        runtime.snapshots(),
+                        runtime.content(),
+                        runtime.requirements(),
+                        runtime.traceability())
                 .evaluateActive(projectId, source, target, policy, targetReason)
                 .orElseThrow(() -> new IllegalStateException("project has no ACTIVE snapshot: " + projectId));
         writeTransition(result, parsed.json(), out);

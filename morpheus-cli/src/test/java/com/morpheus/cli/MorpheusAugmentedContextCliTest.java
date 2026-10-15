@@ -253,18 +253,18 @@ class MorpheusAugmentedContextCliTest {
 
     private Seed seed(Path data) {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
-        try (CliRuntime runtime = new CliRuntime(databasePath(data))) {
+        try (CliRuntime runtime = CliRuntime.recovering(databasePath(data))) {
             var normalized = new SyntheticSpecificationContentReader()
                     .read(
                             ProviderReadRequest.all(fixture("synthetic-basic"), projectId),
-                            new PersistentEntityIdentityResolver(runtime.identities))
+                            new PersistentEntityIdentityResolver(runtime.identities()))
                     .content()
                     .orElseThrow();
             new ProjectSnapshotImportService(
-                    runtime.snapshots,
-                    runtime.requirements,
-                    runtime.content,
-                    runtime.traceability)
+                    runtime.snapshots(),
+                    runtime.requirements(),
+                    runtime.content(),
+                    runtime.traceability())
                     .publishFull(normalized, Optional.of("augmented-context-cli-test"),
                             Instant.parse("2026-09-11T00:00:00Z"));
             return new Seed(

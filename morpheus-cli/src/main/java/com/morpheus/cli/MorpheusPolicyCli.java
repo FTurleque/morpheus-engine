@@ -15,7 +15,6 @@ import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.portfolio.PortfolioId;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.store.sqlite.SqlitePolicyRuntime;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
@@ -80,7 +79,7 @@ final class MorpheusPolicyCli {
                 throw new IllegalArgumentException("unknown policy action: " + parsed.action());
             }
             options.rejectUnknown(allowed);
-            try (SqlitePolicyRuntime runtime = SqlitePolicyRuntime.open(parsed.layout().databasePath())) {
+            try (CliRuntime runtime = CliRuntime.open(parsed.layout().databasePath())) {
                 Object result = execute(parsed.action(), options, runtime);
                 CliExitCode exitCode = CliExitCode.SUCCESS;
                 if (result instanceof Decided decided) {
@@ -107,7 +106,7 @@ final class MorpheusPolicyCli {
         }
     }
 
-    private Object execute(String action, SimpleOptions options, SqlitePolicyRuntime runtime) {
+    private Object execute(String action, SimpleOptions options, CliRuntime runtime) {
         return switch (action) {
             case "pack-create" -> PolicyPublicViews.definition(runtime.registry().create(
                     options.required("name"), rules(options.required(OPT_RULES)),

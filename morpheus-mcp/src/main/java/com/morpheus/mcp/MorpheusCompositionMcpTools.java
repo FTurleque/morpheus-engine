@@ -5,9 +5,6 @@ import com.morpheus.application.composition.CompositionStateView;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.store.sqlite.SqliteCompositionStateStore;
-import com.morpheus.store.sqlite.SqliteConnectionScope;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
 
@@ -54,10 +51,8 @@ final class MorpheusCompositionMcpTools {
         try {
             Map<String, Object> arguments = McpArguments.orEmpty(rawArguments);
             ProjectSpecificationId projectId = ProjectSpecificationId.parse(McpArguments.requiredString(arguments, "projectId"));
-            try (SqliteConnectionScope oneConnection = MorpheusMcpRuntime.openScope(databasePath);
-                 SqliteSpecificationKnowledgeStore snapshots = new SqliteSpecificationKnowledgeStore(databasePath);
-                 SqliteCompositionStateStore compositions = new SqliteCompositionStateStore(databasePath)) {
-                CompositionStateView state = new CompositionQueryService(snapshots, compositions)
+            try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath)) {
+                CompositionStateView state = new CompositionQueryService(runtime.snapshots(), runtime.compositions())
                         .findActive(projectId)
                         .orElseThrow(() -> new KnowledgeStoreException(
                                 "project has no ACTIVE snapshot composition state: " + projectId));

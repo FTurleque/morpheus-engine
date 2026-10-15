@@ -192,11 +192,11 @@ public final class MorpheusCli {
         }
         String subcommand = tokens.getFirst();
         CommandOptions options = CommandOptions.parse(tokens.subList(1, tokens.size()), Set.of());
-        try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
             return switch (subcommand) {
                 case "list" -> {
                     options.rejectUnknown(Set.of());
-                    List<ProjectView> projects = runtime.snapshots.listProjects().stream()
+                    List<ProjectView> projects = runtime.snapshots().listProjects().stream()
                             .map(item -> new ProjectView(item.id().toString(), item.rootLocator().value()))
                             .toList();
                     if (jsonOutput) {
@@ -212,10 +212,10 @@ public final class MorpheusCli {
                     options.rejectUnknown(Set.of("workspace"));
                     Path workspace = existingDirectory(options.requiredPath("workspace"));
                     SourceLocator root = SourceLocator.file(workspace.toString());
-                    Optional<ProjectStoreEntry> existing = runtime.snapshots.findProjectByRoot(root);
+                    Optional<ProjectStoreEntry> existing = runtime.snapshots().findProjectByRoot(root);
                     ProjectStoreEntry project = existing.orElseGet(() -> {
                         ProjectStoreEntry created = new ProjectStoreEntry(ProjectSpecificationId.generate(), root);
-                        runtime.snapshots.putProject(created);
+                        runtime.snapshots().putProject(created);
                         return created;
                     });
                     ProjectView view = new ProjectView(project.id().toString(), project.rootLocator().value());
@@ -235,7 +235,7 @@ public final class MorpheusCli {
         Optional<String> revision = options.optional("revision");
         boolean force = options.flag(OPT_FORCE);
 
-        try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
             Path workspace = projectWorkspace(runtime, projectId);
             Instant attemptedAt = Instant.now();
             var scan = new LocalSourceInventoryScanner().scan(
@@ -244,9 +244,9 @@ public final class MorpheusCli {
                     revision,
                     attemptedAt,
                     List.of(Path.of("openspec")));
-            IncrementalSyncService syncService = new IncrementalSyncService(runtime.syncState);
+            IncrementalSyncService syncService = new IncrementalSyncService(runtime.syncState());
             SyncPlan.Trigger trigger = SyncPlan.Trigger.manual();
-            if (force || runtime.snapshots.activeSnapshot(projectId).isEmpty()) {
+            if (force || runtime.snapshots().activeSnapshot(projectId).isEmpty()) {
                 trigger = trigger.forced();
             }
             SyncPlan plan = syncService.prepare(scan, trigger, attemptedAt);
@@ -255,10 +255,10 @@ public final class MorpheusCli {
             }
 
             if (!force && plan.mode() == SyncPlan.SyncMode.INCREMENTAL && !plan.hasSourceChanges()
-                    && runtime.snapshots.activeSnapshot(projectId).isPresent()) {
+                    && runtime.snapshots().activeSnapshot(projectId).isPresent()) {
                 Instant completedAt = Instant.now();
                 syncService.complete(plan, completedAt);
-                var active = runtime.snapshots.activeSnapshot(projectId).orElseThrow();
+                var active = runtime.snapshots().activeSnapshot(projectId).orElseThrow();
                 SyncView view = new SyncView(
                         projectId.toString(),
                         active.id().toString(),
@@ -275,14 +275,14 @@ public final class MorpheusCli {
             }
 
             try {
-                var identityResolver = new PersistentEntityIdentityResolver(runtime.identities);
+                var identityResolver = new PersistentEntityIdentityResolver(runtime.identities());
                 var normalized = new OpenSpecProjectContentReader().read(workspace, projectId, identityResolver);
                 ProjectSnapshotImportResult imported = new ObservedProjectSnapshotPublisher(
                         new ProjectSnapshotImportService(
-                                runtime.snapshots,
-                                runtime.requirements,
-                                runtime.content,
-                                runtime.traceability),
+                                runtime.snapshots(),
+                                runtime.requirements(),
+                                runtime.content(),
+                                runtime.traceability()),
                         recorder)
                         .publishFull(normalized, revision, Instant.now());
                 syncService.complete(plan, Instant.now());
@@ -341,8 +341,8 @@ public final class MorpheusCli {
         options.rejectUnknown(Set.of(OPT_PROJECT, "max-age-minutes"));
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         long maxAgeMinutes = options.longValue("max-age-minutes", 60L, 1L, 525600L);
-        try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
-            SyncFreshness freshness = new SyncFreshnessService(runtime.syncState)
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
+            SyncFreshness freshness = new SyncFreshnessService(runtime.syncState())
                     .assess(projectId, Instant.now(), Duration.ofMinutes(maxAgeMinutes));
             SyncStatusView view = new SyncStatusView(
                     projectId.toString(),
@@ -375,8 +375,8 @@ public final class MorpheusCli {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         PageRequest pageRequest = page(options);
         RequirementSearchQuery query = new RequirementSearchQuery(options.optional("query").orElse(""));
-        try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
-            RequirementSearchPage result = new RequirementQueryService(runtime.snapshots, runtime.requirements)
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
+            RequirementSearchPage result = new RequirementQueryService(runtime.snapshots(), runtime.requirements())
                     .findActive(projectId, query, pageRequest)
                     .orElseThrow(() -> notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
             List<RequirementView> items = result.items().stream().map(this::requirementView).toList();
@@ -403,8 +403,8 @@ public final class MorpheusCli {
         String subcommand = tokens.getFirst();
         CommandOptions options = CommandOptions.parse(tokens.subList(1, tokens.size()), Set.of());
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
-        try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
-            BusinessContentQueryService service = new BusinessContentQueryService(runtime.snapshots, runtime.content);
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
+            BusinessContentQueryService service = new BusinessContentQueryService(runtime.snapshots(), runtime.content());
             if (subcommand.equals("list")) {
                 options.rejectUnknown(Set.of(OPT_PROJECT, OPT_OFFSET, OPT_LIMIT));
                 SnapshotPage<ChangeProposal> page = service.listActiveChanges(projectId, page(options))
@@ -438,8 +438,8 @@ public final class MorpheusCli {
         options.rejectUnknown(Set.of(OPT_PROJECT, OPT_CHANGE, OPT_OFFSET, OPT_LIMIT));
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         ChangeId changeId = ChangeId.parse(options.required(OPT_CHANGE));
-        try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
-            SnapshotPage<Constraint> page = new BusinessContentQueryService(runtime.snapshots, runtime.content)
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
+            SnapshotPage<Constraint> page = new BusinessContentQueryService(runtime.snapshots(), runtime.content())
                     .activeConstraints(projectId, changeId, page(options))
                     .orElseThrow(() -> notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
             PageView<ConstraintView> view = new PageView<>(page.snapshot().id().toString(), page.totalMatches(), page.hasMore(),
@@ -457,8 +457,8 @@ public final class MorpheusCli {
         options.rejectUnknown(Set.of(OPT_PROJECT, OPT_CHANGE, OPT_OFFSET, OPT_LIMIT));
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         ChangeId changeId = ChangeId.parse(options.required(OPT_CHANGE));
-        try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
-            SnapshotPage<DesignDecision> page = new BusinessContentQueryService(runtime.snapshots, runtime.content)
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
+            SnapshotPage<DesignDecision> page = new BusinessContentQueryService(runtime.snapshots(), runtime.content())
                     .activeDesignDecisions(projectId, changeId, page(options))
                     .orElseThrow(() -> notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
             PageView<DecisionView> view = new PageView<>(page.snapshot().id().toString(), page.totalMatches(), page.hasMore(),
@@ -476,8 +476,8 @@ public final class MorpheusCli {
         options.rejectUnknown(Set.of(OPT_PROJECT, OPT_CHANGE, OPT_OFFSET, OPT_LIMIT));
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         ChangeId changeId = ChangeId.parse(options.required(OPT_CHANGE));
-        try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
-            SnapshotPage<ImplementationTask> page = new BusinessContentQueryService(runtime.snapshots, runtime.content)
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
+            SnapshotPage<ImplementationTask> page = new BusinessContentQueryService(runtime.snapshots(), runtime.content())
                     .activeImplementationTasks(projectId, changeId, page(options))
                     .orElseThrow(() -> notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
             PageView<TaskView> view = new PageView<>(page.snapshot().id().toString(), page.totalMatches(), page.hasMore(),
@@ -494,12 +494,12 @@ public final class MorpheusCli {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         RequirementId requirementId = RequirementId.parse(options.required("requirement"));
         int depth = options.intValue(OPT_DEPTH, 2, 1, 20);
-        try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
             var result = new TraceRequirementQueryService(
-                    runtime.snapshots, runtime.requirements, runtime.traceability, runtime.externalReferences)
+                    runtime.snapshots(), runtime.requirements(), runtime.traceability(), runtime.externalReferences())
                     .active(projectId, requirementId, depth, Set.of())
                     .orElseThrow(() -> notFound("requirement or ACTIVE snapshot not found: " + requirementId));
-            var compact = new CompactQueryViewService(runtime.content).traceRequirement(result);
+            var compact = new CompactQueryViewService(runtime.content()).traceRequirement(result);
             if (jsonOutput) {
                 out.println(json.toJson(compact));
             } else {
@@ -519,15 +519,15 @@ public final class MorpheusCli {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         ChangeId changeId = ChangeId.parse(options.required(OPT_CHANGE));
         int depth = options.intValue(OPT_DEPTH, 2, 1, 20);
-        try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
             var result = new ChangeContextQueryService(
-                    runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability, runtime.externalReferences)
+                    runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability(), runtime.externalReferences())
                     .active(projectId, changeId, depth, Set.of())
                     .orElseThrow(() -> notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
             if (result.change().isEmpty()) {
                 throw notFound("change not found: " + changeId);
             }
-            var compact = new CompactQueryViewService(runtime.content).changeContext(result);
+            var compact = new CompactQueryViewService(runtime.content()).changeContext(result);
             if (jsonOutput) {
                 out.println(json.toJson(compact));
             } else {
@@ -550,13 +550,13 @@ public final class MorpheusCli {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         ChangeId changeId = ChangeId.parse(options.required(OPT_CHANGE));
         int depth = options.intValue(OPT_DEPTH, 2, 1, 20);
-        try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
             Path workspace = projectWorkspace(runtime, projectId);
             var normalized = new OpenSpecProjectContentReader().read(
-                    workspace, projectId, new PersistentEntityIdentityResolver(runtime.identities));
+                    workspace, projectId, new PersistentEntityIdentityResolver(runtime.identities()));
             ProposedChangeSet proposal = ProposedChangeSet.from(normalized, changeId);
             var result = new ChangeAnalysisService(
-                    runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability)
+                    runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability())
                     .analyzeActive(proposal, depth)
                     .orElseThrow(() -> notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
             if (jsonOutput) {
@@ -598,15 +598,15 @@ public final class MorpheusCli {
         CommandOptions options = CommandOptions.parse(tokens, Set.of());
         options.rejectUnknown(Set.of(OPT_PROJECT));
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
-        try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath())) {
             QualityReportService service = new QualityReportService(
-                    runtime.snapshots,
-                    new RequirementQualityService(runtime.snapshots, runtime.requirements, runtime.traceability),
-                    new TaskQualityService(runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability),
-                    new AcceptanceQualityService(runtime.snapshots, runtime.content),
-                    new ChangeCompletenessService(runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability),
+                    runtime.snapshots(),
+                    new RequirementQualityService(runtime.snapshots(), runtime.requirements(), runtime.traceability()),
+                    new TaskQualityService(runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability()),
+                    new AcceptanceQualityService(runtime.snapshots(), runtime.content()),
+                    new ChangeCompletenessService(runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability()),
                     new DecisionReferenceQualityService(
-                            runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability, runtime.externalReferences));
+                            runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability(), runtime.externalReferences()));
             QualityReport report = service.assessActive(projectId)
                     .orElseThrow(() -> notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
             if (jsonOutput) {
@@ -650,7 +650,7 @@ public final class MorpheusCli {
     }
 
     private Path projectWorkspace(CliRuntime runtime, ProjectSpecificationId projectId) {
-        ProjectStoreEntry project = runtime.snapshots.findProject(projectId)
+        ProjectStoreEntry project = runtime.snapshots().findProject(projectId)
                 .orElseThrow(() -> notFound("project not found: " + projectId));
         if (!project.rootLocator().scheme().equals("file")) {
             throw state("CLI local workspace requires a file: project root");

@@ -112,30 +112,30 @@ final class MorpheusChangeQueryApiService {
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
             activeSnapshot(runtime, projectId);
             var result = new ChangeContextQueryService(
-                    runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability, runtime.externalReferences)
+                    runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability(), runtime.externalReferences())
                     .active(projectId, changeId, depth, Set.of())
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
             if (result.change().isEmpty()) {
                 throw ApiFailure.notFound("change not found: " + changeId);
             }
-            return new CompactQueryViewService(runtime.content).changeContext(result);
+            return new CompactQueryViewService(runtime.content()).changeContext(result);
         }
     }
 
     private void requireProject(ApiRuntime runtime, ProjectSpecificationId projectId) {
-        if (runtime.snapshots.findProject(projectId).isEmpty()) {
+        if (runtime.snapshots().findProject(projectId).isEmpty()) {
             throw ApiFailure.notFound("project not found: " + projectId);
         }
     }
 
     private KnowledgeSnapshotMetadata activeSnapshot(ApiRuntime runtime, ProjectSpecificationId projectId) {
         requireProject(runtime, projectId);
-        return runtime.snapshots.activeSnapshot(projectId)
+        return runtime.snapshots().activeSnapshot(projectId)
                 .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
     }
 
     private BusinessContentQueryService business(ApiRuntime runtime) {
-        return new BusinessContentQueryService(runtime.snapshots, runtime.content);
+        return new BusinessContentQueryService(runtime.snapshots(), runtime.content());
     }
 
     private com.morpheus.application.query.SnapshotItemResult<ChangeProposal> requireChange(

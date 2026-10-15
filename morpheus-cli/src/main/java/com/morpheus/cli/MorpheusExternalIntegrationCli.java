@@ -88,13 +88,13 @@ final class MorpheusExternalIntegrationCli {
             case "resolve" -> Set.of("project", "reference");
             default -> throw new IllegalArgumentException("unknown external-references subcommand: " + subcommand);
         });
-        try (CliRuntime runtime = new CliRuntime(parsed.layout().databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(parsed.layout().databasePath())) {
             ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required("project"));
-            if (runtime.snapshots.findProject(projectId).isEmpty()) {
+            if (runtime.snapshots().findProject(projectId).isEmpty()) {
                 throw new IllegalStateException("project not found: " + projectId);
             }
             LiveExternalReferenceResolutionService service = new LiveExternalReferenceResolutionService(
-                    runtime.snapshots, runtime.externalReferences, resolverRegistry, Clock.systemUTC());
+                    runtime.snapshots(), runtime.externalReferences(), resolverRegistry, Clock.systemUTC());
             return switch (subcommand) {
                 case "list" -> list(service, projectId, options, parsed.json(), out);
                 case "resolve" -> resolve(service, projectId, options, parsed.json(), out);

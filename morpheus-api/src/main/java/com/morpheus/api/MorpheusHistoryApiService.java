@@ -36,7 +36,7 @@ final class MorpheusHistoryApiService {
         Objects.requireNonNull(pageRequest, "pageRequest");
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
             requireProject(runtime, projectId);
-            PublishedSnapshotHistoryService history = new PublishedSnapshotHistoryService(runtime.snapshots);
+            PublishedSnapshotHistoryService history = new PublishedSnapshotHistoryService(runtime.snapshots());
             List<KnowledgeSnapshotMetadata> lineage = history.lineage(projectId);
             return PagedEnvelope.following(
                     map("projectId", projectId.toString(), "retentionPolicy", history.retentionPolicy().name()),
@@ -54,7 +54,7 @@ final class MorpheusHistoryApiService {
         Objects.requireNonNull(pageRequest, "pageRequest");
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
             requireSnapshotProject(runtime, projectId, snapshotId);
-            List<RequirementVersionRecord> records = new HistoricalRequirementQueryService(runtime.snapshots, runtime.requirements)
+            List<RequirementVersionRecord> records = new HistoricalRequirementQueryService(runtime.snapshots(), runtime.requirements())
                     .requirements(snapshotId);
             return PagedEnvelope.following(
                     map("snapshotId", snapshotId.toString()),
@@ -69,7 +69,7 @@ final class MorpheusHistoryApiService {
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
             requireSnapshotProject(runtime, projectId, sourceId);
             requireSnapshotProject(runtime, projectId, targetId);
-            var comparison = new RequirementSnapshotComparisonService(runtime.snapshots, runtime.requirements)
+            var comparison = new RequirementSnapshotComparisonService(runtime.snapshots(), runtime.requirements())
                     .compare(sourceId, targetId);
             return map(
                     "projectId", projectId.toString(),
@@ -84,7 +84,7 @@ final class MorpheusHistoryApiService {
     }
 
     private ProjectStoreEntry requireProject(ApiRuntime runtime, ProjectSpecificationId projectId) {
-        return runtime.snapshots.findProject(projectId)
+        return runtime.snapshots().findProject(projectId)
                 .orElseThrow(() -> ApiFailure.notFound("project not found: " + projectId));
     }
 
@@ -93,7 +93,7 @@ final class MorpheusHistoryApiService {
             ProjectSpecificationId projectId,
             KnowledgeSnapshotId snapshotId) {
         requireProject(runtime, projectId);
-        KnowledgeSnapshotMetadata snapshot = runtime.snapshots.findSnapshot(snapshotId)
+        KnowledgeSnapshotMetadata snapshot = runtime.snapshots().findSnapshot(snapshotId)
                 .orElseThrow(() -> ApiFailure.notFound("snapshot not found: " + snapshotId));
         if (!snapshot.projectId().equals(projectId)) {
             throw ApiFailure.notFound("snapshot not found in project: " + snapshotId);
@@ -101,9 +101,9 @@ final class MorpheusHistoryApiService {
     }
 
     private Object version(ApiRuntime runtime, KnowledgeSnapshotMetadata snapshot) {
-        var binding = runtime.requirements.findSnapshotVersion(snapshot.id())
+        var binding = runtime.requirements().findSnapshotVersion(snapshot.id())
                 .orElseThrow(() -> state("published snapshot has no specification version binding: " + snapshot.id()));
-        var specificationVersion = runtime.requirements.findSpecificationVersion(binding.specificationVersionId())
+        var specificationVersion = runtime.requirements().findSpecificationVersion(binding.specificationVersionId())
                 .orElseThrow(() -> state("specification version not found: " + binding.specificationVersionId()));
         return map(
                 "snapshotId", snapshot.id().toString(),

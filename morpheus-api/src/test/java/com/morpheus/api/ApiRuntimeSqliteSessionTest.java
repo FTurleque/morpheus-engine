@@ -21,6 +21,10 @@ class ApiRuntimeSqliteSessionTest {
     @Test
     void nineApiStoresBorrowOnePhysicalConnectionAndRunSchemaOnce() {
         try (ApiRuntime runtime = new ApiRuntime(temp.resolve("single.db"))) {
+            assertEquals(0, runtime.logicalSqliteConnectionsBorrowed(), "a store is built when an operation asks for it");
+            List.of(runtime.snapshots(), runtime.requirements(), runtime.content(), runtime.traceability(),
+                    runtime.externalReferences(), runtime.identities(), runtime.syncState(),
+                    runtime.lifecycleMutations(), runtime.compositions());
             assertEquals(9, runtime.logicalSqliteConnectionsBorrowed());
             assertEquals(1, runtime.sqliteSchemaInitializations());
         }

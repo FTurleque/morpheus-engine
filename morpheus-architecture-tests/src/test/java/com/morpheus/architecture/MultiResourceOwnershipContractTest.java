@@ -11,6 +11,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -29,6 +30,9 @@ class MultiResourceOwnershipContractTest {
     private static final Pattern ASSEMBLER = Pattern.compile(
             "\\n(\\s*)(?:@Override\\s+)?(?:private |public |protected )?(?:static )?(?:[\\w<>,\\[\\]]+\\s+)*(\\w+)\\(([^)]*)\\)[^{]*\\{(.*?)\\n\\1\\}", Pattern.DOTALL);
     private static final Pattern SQLITE_STORE_ACQUISITION = Pattern.compile("new (Sqlite\\w+)\\(databasePath");
+    private static final Pattern STORE_ACQUISITION = Pattern.compile("new (Sqlite\\w+Store)\\(databasePath");
+    private static final Pattern REGISTERED_STORE_ACQUISITION =
+            Pattern.compile("registered\\(\\(\\) -> new (Sqlite\\w+)\\(databasePath");
     private static final Pattern CLOSE_BODY = Pattern.compile(
             "\\n(\\s*)public void close\\(\\)[^{]*\\{(.*?)\\n\\1\\}", Pattern.DOTALL);
     private static final Pattern BARE_RELEASE = Pattern.compile(
@@ -69,23 +73,26 @@ class MultiResourceOwnershipContractTest {
                         + " so a failure partway leaks every store opened before it: " + offenders);
     }
 
-    /** The scan must actually reach the store sets, or it protects nothing that matters. */
+    /**
+     * The one class that opens several stores for an operation opens them one at a time, and owns each from the moment
+     * it exists.
+     *
+     * <p>The rule above inspects a body that opens several stores. Since the stores of an operation are built lazily by
+     * {@code SqliteOperationRuntime}, no body opens two, and the rule would hold over nothing: this is what holds the
+     * runtime instead. Every store it builds goes through the one method that registers it for release, and no store is
+     * built anywhere else in that class.</p>
+     */
     @Test
-    void theScanReachesTheSharedStoreSets() throws IOException {
-        List<String> assemblers = new ArrayList<>();
-        for (Path source : mainSources()) {
-            String content = Files.readString(source);
-            Matcher assembler = ASSEMBLER.matcher(content);
-            while (assembler.find()) {
-                if (countMatches(SQLITE_STORE_ACQUISITION, assembler.group(4)) >= 2) {
-                    assemblers.add(relative(source) + " :: " + assembler.group(2));
-                }
-            }
-        }
-        assertTrue(assemblers.stream().anyMatch(name -> name.contains("SqlitePolicyStores")),
-                () -> "the policy store set must be among the assemblers the rule inspects: " + assemblers);
-        assertTrue(assemblers.stream().anyMatch(name -> name.contains("SqliteQueryStores")),
-                () -> "the query store set must be among the assemblers the rule inspects: " + assemblers);
+    void theOperationRuntimeRegistersEveryStoreItOpensForRelease() throws IOException {
+        String runtime = Files.readString(repositoryRoot().resolve(
+                "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteOperationRuntime.java"));
+
+        int acquisitions = countMatches(STORE_ACQUISITION, runtime);
+        int registered = countMatches(REGISTERED_STORE_ACQUISITION, runtime);
+        assertTrue(acquisitions >= 12, () -> "the operation runtime must be the class that opens the stores of an "
+                + "operation: " + acquisitions);
+        assertEquals(acquisitions, registered, "every store the operation runtime opens is registered for release as "
+                + "it opens; a store built beside that path is released by nothing when the operation fails");
     }
 
     /**

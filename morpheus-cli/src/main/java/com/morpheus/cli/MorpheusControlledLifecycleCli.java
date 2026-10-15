@@ -57,8 +57,8 @@ final class MorpheusControlledLifecycleCli {
             ChangeLifecycleIdempotencyKey idempotencyKey =
                     new ChangeLifecycleIdempotencyKey(options.required("idempotency-key"));
 
-            try (CliRuntime runtime = new CliRuntime(parsed.layout().databasePath())) {
-                if (runtime.snapshots.findProject(projectId).isEmpty()) {
+            try (CliRuntime runtime = CliRuntime.recovering(parsed.layout().databasePath())) {
+                if (runtime.snapshots().findProject(projectId).isEmpty()) {
                     throw new IllegalStateException("project not found: " + projectId);
                 }
                 var providers = new SpecificationProviderRegistry(
@@ -66,12 +66,12 @@ final class MorpheusControlledLifecycleCli {
                         new ProviderSelectionPolicy());
                 var service = new ControlledChangeLifecycleMutationService(
                         new ChangeTransitionEvaluationService(
-                                runtime.snapshots,
-                                runtime.content,
-                                runtime.requirements,
-                                runtime.traceability),
-                        runtime.lifecycleMutations,
-                        new RegisteredProjectWriteCapabilityResolver(runtime.snapshots, providers));
+                                runtime.snapshots(),
+                                runtime.content(),
+                                runtime.requirements(),
+                                runtime.traceability()),
+                        runtime.lifecycleMutations(),
+                        new RegisteredProjectWriteCapabilityResolver(runtime.snapshots(), providers));
                 ChangeLifecycleMutationResult result = service.apply(
                         new ChangeLifecycleMutationCommand(
                                 ChangeLifecycleMutationId.generate(),

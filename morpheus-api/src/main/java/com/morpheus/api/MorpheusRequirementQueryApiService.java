@@ -32,7 +32,7 @@ final class MorpheusRequirementQueryApiService {
         Objects.requireNonNull(pageRequest, "pageRequest");
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
             requireProject(runtime, projectId);
-            var result = new RequirementQueryService(runtime.snapshots, runtime.requirements)
+            var result = new RequirementQueryService(runtime.snapshots(), runtime.requirements())
                     .findActive(projectId, new RequirementSearchQuery(queryText), pageRequest)
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
             return PagedEnvelope.following(
@@ -47,7 +47,7 @@ final class MorpheusRequirementQueryApiService {
         RequirementId requirementId = RequirementId.parse(requirementIdValue);
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
             KnowledgeSnapshotMetadata snapshot = activeSnapshot(runtime, projectId);
-            RequirementVersionRecord record = runtime.requirements.currentRequirement(snapshot.id(), requirementId.value())
+            RequirementVersionRecord record = runtime.requirements().currentRequirement(snapshot.id(), requirementId.value())
                     .orElseThrow(() -> ApiFailure.notFound("requirement not found: " + requirementId));
             return map("snapshotId", snapshot.id().toString(), "requirement", requirementRecord(record));
         }
@@ -60,22 +60,22 @@ final class MorpheusRequirementQueryApiService {
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
             activeSnapshot(runtime, projectId);
             var result = new TraceRequirementQueryService(
-                    runtime.snapshots, runtime.requirements, runtime.traceability, runtime.externalReferences)
+                    runtime.snapshots(), runtime.requirements(), runtime.traceability(), runtime.externalReferences())
                     .active(projectId, requirementId, depth, Set.of())
                     .orElseThrow(() -> ApiFailure.notFound("requirement not found: " + requirementId));
-            return new CompactQueryViewService(runtime.content).traceRequirement(result);
+            return new CompactQueryViewService(runtime.content()).traceRequirement(result);
         }
     }
 
     private void requireProject(ApiRuntime runtime, ProjectSpecificationId projectId) {
-        if (runtime.snapshots.findProject(projectId).isEmpty()) {
+        if (runtime.snapshots().findProject(projectId).isEmpty()) {
             throw ApiFailure.notFound("project not found: " + projectId);
         }
     }
 
     private KnowledgeSnapshotMetadata activeSnapshot(ApiRuntime runtime, ProjectSpecificationId projectId) {
         requireProject(runtime, projectId);
-        return runtime.snapshots.activeSnapshot(projectId)
+        return runtime.snapshots().activeSnapshot(projectId)
                 .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
     }
 

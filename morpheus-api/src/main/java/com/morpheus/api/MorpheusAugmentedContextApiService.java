@@ -34,15 +34,15 @@ final class MorpheusAugmentedContextApiService {
         RequirementId requirementId = RequirementId.parse(requirementIdValue);
         TechnicalContextOptions options = options(request);
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            if (runtime.snapshots.findProject(projectId).isEmpty()) {
+            if (runtime.snapshots().findProject(projectId).isEmpty()) {
                 throw ApiFailure.notFound("project not found: " + projectId);
             }
             return new AugmentedContextService(
-                    runtime.snapshots,
-                    runtime.content,
-                    runtime.requirements,
-                    runtime.traceability,
-                    runtime.externalReferences,
+                    runtime.snapshots(),
+                    runtime.content(),
+                    runtime.requirements(),
+                    runtime.traceability(),
+                    runtime.externalReferences(),
                     provider)
                     .requirement(projectId, requirementId, options)
                     .map(IntegrationStatusDisclosure::project)
@@ -55,15 +55,15 @@ final class MorpheusAugmentedContextApiService {
         ChangeId changeId = ChangeId.parse(changeIdValue);
         TechnicalContextOptions options = options(request);
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            if (runtime.snapshots.findProject(projectId).isEmpty()) {
+            if (runtime.snapshots().findProject(projectId).isEmpty()) {
                 throw ApiFailure.notFound("project not found: " + projectId);
             }
             return new AugmentedContextService(
-                    runtime.snapshots,
-                    runtime.content,
-                    runtime.requirements,
-                    runtime.traceability,
-                    runtime.externalReferences,
+                    runtime.snapshots(),
+                    runtime.content(),
+                    runtime.requirements(),
+                    runtime.traceability(),
+                    runtime.externalReferences(),
                     provider)
                     .change(projectId, changeId, options)
                     .map(IntegrationStatusDisclosure::project)

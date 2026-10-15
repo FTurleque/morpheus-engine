@@ -5,6 +5,7 @@ import com.morpheus.application.portfolio.PortfolioQueryService;
 import com.morpheus.application.portfolio.PortfolioRegistryService;
 import com.morpheus.application.portfolio.PortfolioTraversalDirection;
 import com.morpheus.application.portfolio.PortfolioTraversalService;
+import com.morpheus.application.store.PortfolioStore;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.domain.evidence.EvidenceId;
@@ -15,7 +16,6 @@ import com.morpheus.domain.portfolio.PortfolioId;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.provider.ProviderId;
 import com.morpheus.domain.source.SourceLocator;
-import com.morpheus.store.sqlite.SqlitePortfolioStore;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
 
@@ -89,7 +89,8 @@ final class MorpheusPortfolioMcpTools {
     private McpSchema.CallToolResult call(String toolName, Map<String, Object> rawArguments) {
         try {
             Map<String, Object> arguments = McpArguments.orEmpty(rawArguments);
-            try (SqlitePortfolioStore store = new SqlitePortfolioStore(databasePath)) {
+            try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath)) {
+                PortfolioStore store = runtime.portfolios();
                 PortfolioRegistryService registry = new PortfolioRegistryService(store);
                 PortfolioQueryService query = new PortfolioQueryService(store);
                 PortfolioTraversalService traversal = new PortfolioTraversalService(store);

@@ -36,7 +36,7 @@ final class MorpheusSpecificationQueryApiService {
         Objects.requireNonNull(pageRequest, "pageRequest");
         try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
             KnowledgeSnapshotMetadata snapshot = activeSnapshot(runtime, projectId);
-            var content = runtime.content.findSnapshotContent(snapshot.id())
+            var content = runtime.content().findSnapshotContent(snapshot.id())
                     .orElseThrow(() -> state("published snapshot has no business-content projection: " + snapshot.id()));
             List<Specification> specifications = content.specifications().stream()
                     .sorted(Comparator.comparing(Specification::id))
@@ -75,7 +75,7 @@ final class MorpheusSpecificationQueryApiService {
                 throw ApiFailure.notFound("specification not found: " + specificationId);
             }
             var result = new SpecificationContextQueryService(
-                    runtime.snapshots, runtime.content, runtime.requirements, runtime.traceability)
+                    runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability())
                     .active(projectId, specificationId, pageRequest)
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
             return map(
@@ -89,19 +89,19 @@ final class MorpheusSpecificationQueryApiService {
     }
 
     private void requireProject(ApiRuntime runtime, ProjectSpecificationId projectId) {
-        if (runtime.snapshots.findProject(projectId).isEmpty()) {
+        if (runtime.snapshots().findProject(projectId).isEmpty()) {
             throw ApiFailure.notFound("project not found: " + projectId);
         }
     }
 
     private KnowledgeSnapshotMetadata activeSnapshot(ApiRuntime runtime, ProjectSpecificationId projectId) {
         requireProject(runtime, projectId);
-        return runtime.snapshots.activeSnapshot(projectId)
+        return runtime.snapshots().activeSnapshot(projectId)
                 .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
     }
 
     private BusinessContentQueryService business(ApiRuntime runtime) {
-        return new BusinessContentQueryService(runtime.snapshots, runtime.content);
+        return new BusinessContentQueryService(runtime.snapshots(), runtime.content());
     }
 
     private Object requirement(Requirement item) {

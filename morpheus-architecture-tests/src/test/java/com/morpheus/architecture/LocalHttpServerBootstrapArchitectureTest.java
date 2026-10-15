@@ -31,8 +31,8 @@ class LocalHttpServerBootstrapArchitectureTest {
         assertFalse(server.contains("CapabilityProtectedHttpServer"));
         assertFalse(server.contains("startConfigured("));
 
-        assertTrue(bootstrap.contains("new RuntimeSnapshotRecovery(store).recoverAll(Instant.now())"));
-        assertTrue(bootstrap.contains("new SqliteSpecificationKnowledgeStore(databasePath)"));
+        assertTrue(bootstrap.contains("new RuntimeSnapshotRecovery(runtime.snapshots()).recoverAll(Instant.now())"));
+        assertTrue(bootstrap.contains("try (ApiRuntime runtime = new ApiRuntime(databasePath))"));
         assertTrue(bootstrap.contains("LoopbackHostPolicy.requireLoopbackAddress(host)"));
         assertTrue(bootstrap.contains("HttpServer.create(new InetSocketAddress(bindAddress, port), 0)"));
         assertTrue(bootstrap.contains("new LoopbackRequestProtectedHttpServer(delegate)"));

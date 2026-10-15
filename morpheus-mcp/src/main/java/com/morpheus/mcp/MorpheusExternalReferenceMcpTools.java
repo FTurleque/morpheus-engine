@@ -77,11 +77,11 @@ final class MorpheusExternalReferenceMcpTools {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(McpArguments.requiredString(arguments, "projectId"));
         DomainIdentity ownerId = DomainIdentity.parse(McpArguments.requiredString(arguments, "ownerId"));
         try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath)) {
-            if (runtime.snapshots.findProject(projectId).isEmpty()) {
+            if (runtime.snapshots().findProject(projectId).isEmpty()) {
                 throw new KnowledgeStoreException("project not found: " + projectId);
             }
             List<ExternalReference> references = new LiveExternalReferenceResolutionService(
-                    runtime.snapshots, runtime.externalReferences, resolverRegistry, Clock.systemUTC())
+                    runtime.snapshots(), runtime.externalReferences(), resolverRegistry, Clock.systemUTC())
                     .listActive(projectId, ownerId)
                     .orElseThrow(() -> new KnowledgeStoreException("project has no ACTIVE snapshot: " + projectId));
             return json.toJson(Map.of(
@@ -95,11 +95,11 @@ final class MorpheusExternalReferenceMcpTools {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(McpArguments.requiredString(arguments, "projectId"));
         ExternalReferenceId referenceId = ExternalReferenceId.parse(McpArguments.requiredString(arguments, "referenceId"));
         try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath)) {
-            if (runtime.snapshots.findProject(projectId).isEmpty()) {
+            if (runtime.snapshots().findProject(projectId).isEmpty()) {
                 throw new KnowledgeStoreException("project not found: " + projectId);
             }
             var result = new LiveExternalReferenceResolutionService(
-                    runtime.snapshots, runtime.externalReferences, resolverRegistry, Clock.systemUTC())
+                    runtime.snapshots(), runtime.externalReferences(), resolverRegistry, Clock.systemUTC())
                     .resolveActive(projectId, referenceId)
                     .orElseThrow(() -> new KnowledgeStoreException("project has no ACTIVE snapshot: " + projectId));
             Map<String, Object> view = new LinkedHashMap<>();

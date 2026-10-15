@@ -16,7 +16,7 @@ class CliRuntimeSqliteSessionTest {
     void oneCliInvocationUsesOnePhysicalSqliteConnectionAndLeaksNone() {
         SqliteConnectionScope.Diagnostics before = SqliteConnectionScope.diagnostics();
 
-        try (CliRuntime ignored = new CliRuntime(temp.resolve("cli.db"))) {
+        try (CliRuntime ignored = CliRuntime.recovering(temp.resolve("cli.db"))) {
             SqliteConnectionScope.Diagnostics during = SqliteConnectionScope.diagnostics();
             assertEquals(1, during.opened() - before.opened());
             assertEquals(1, during.active() - before.active());
