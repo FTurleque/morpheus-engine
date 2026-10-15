@@ -56,7 +56,8 @@
         "AUD-TRV-04",
         "AUD-SEC-04",
         "AUD-QUA-13",
-        "AUD-QUA-12"
+        "AUD-QUA-12",
+        "AUD-QUA-17"
       ]
     },
     {
@@ -68,7 +69,8 @@
         "AUD-PRF-18",
         "AUD-TRV-05",
         "AUD-PRF-03",
-        "AUD-PRF-09"
+        "AUD-PRF-09",
+        "AUD-PRF-19"
       ]
     },
     {
@@ -110,7 +112,8 @@
         "AUD-TST-06",
         "AUD-TST-08",
         "AUD-TST-09",
-        "AUD-QUA-04"
+        "AUD-QUA-04",
+        "AUD-TST-18"
       ]
     },
     {
@@ -139,7 +142,8 @@
         "AUD-QUA-11",
         "AUD-DEP-13",
         "AUD-DEP-14",
-        "AUD-ARC-07"
+        "AUD-ARC-07",
+        "AUD-ARC-15"
       ]
     },
     {
