@@ -27,9 +27,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * the next one from arriving unseen.</p>
  *
  * <p>It is textual, and it reads a shape rather than an intention: a catch whose body holds no statement, or whose
- * variable is named {@code ignored}, is silent. Each silent catch is named in one of two closed lists - explained, or
- * not yet recorded - by its file and the types it catches. The rule cannot see a catch that returns a default under a
- * better-named variable; the classification of 13/10/2026 did that by reading, and a review still has to.</p>
+ * variable is named {@code ignored}, is silent. Each silent catch is named in one closed list, by its file and the
+ * types it catches, with the reason it loses nothing or cannot say what it loses. The rule cannot see a catch that
+ * returns a default under a better-named variable; the classification of 13/10/2026 did that by reading, and a review
+ * still has to.</p>
+ *
+ * <p>A second list named the catches that lost a failure and did not record it yet. It only shrank, and it is gone:
+ * a silent catch is now recorded or explained, and there is no third state to park one in.</p>
+ *
+ * <p>Two modules cannot count by themselves. The MCP transport may depend on no other MORPHEUS package, and the
+ * plugin SDK must not read the process-wide runtime; each is handed what counts by the code that builds it, and that
+ * wiring is an expression only the text shows.</p>
  */
 class SilentCatchArchitectureTest {
     private static final Pattern CATCH = Pattern.compile("catch \\(([^)]*)\\)\\s*\\{");
@@ -62,19 +70,14 @@ class SilentCatchArchitectureTest {
             Map.entry("PeerOperationDeadline.java#RuntimeException", new Explained(1,
                     "the abort of an expired operation failed: the transport may depend on no other MORPHEUS package "
                             + "and cannot count, so the gateway that hands it the abort counts the failure first "
-                            + "(countingAbort) and the operation reports the deadline itself")));
-
-    /**
-     * Silent catches that do lose a failure and do not record it yet, with the family they will be counted under.
-     * This list only shrinks: an entry leaves it when its catch records, and nothing is added to it.
-     */
-    private static final Map<String, Explained> NOT_YET_RECORDED = Map.ofEntries(
-            Map.entry("BoundedStdioClientTransport.java#RuntimeException", new Explained(1, "mcp-peer-process-tree")),
-            Map.entry("ProviderPluginProbeProcess.java#IOException", new Explained(1, "staged-artifact-cleanup")),
-            Map.entry("ProviderPluginProbeProcess.java#RuntimeException", new Explained(2,
-                    "plugin-probe-process-tree and plugin-probe-shutdown")),
+                            + "(countingAbort) and the operation reports the deadline itself")),
             Map.entry("ProviderPluginDescendantTermination.java#RuntimeException", new Explained(1,
-                    "plugin-probe-shutdown; runs in the probe worker, not in the MORPHEUS process")));
+                    "a descendant could not be signalled from the probe worker: another process, with no recorder, "
+                            + "whose output the parent discards and whose result file is already written. What the "
+                            + "worker can say is said - terminate() answers whether a handle is left alive - and the "
+                            + "parent then signals every process it observed and counts its own failures "
+                            + "(plugin-probe-shutdown). A descendant only the worker saw leaves no trace: stated in "
+                            + "docs/developer/OPERABILITY.md, not hidden here")));
 
     private record Explained(int count, String reason) {
     }
@@ -86,8 +89,7 @@ class SilentCatchArchitectureTest {
                 "too few silent catches found: the rule would pass on nothing - " + found);
 
         Map<String, Integer> named = new TreeMap<>();
-        EXPLAINED.forEach((key, explained) -> named.merge(key, explained.count(), Integer::sum));
-        NOT_YET_RECORDED.forEach((key, explained) -> named.merge(key, explained.count(), Integer::sum));
+        EXPLAINED.forEach((key, explained) -> named.put(key, explained.count()));
 
         assertEquals(named, found, "a catch that holds no statement, or whose variable is named 'ignored', loses a "
                 + "failure unless it says why. Record the failure (OperationalRecorder.suppressed), or name the catch "
@@ -95,12 +97,42 @@ class SilentCatchArchitectureTest {
     }
 
     @Test
-    void everyNamedCatchCarriesAReasonAndNoneIsNamedTwice() {
+    void everyNamedCatchCarriesAReasonAndCountsAtLeastOne() {
         EXPLAINED.forEach((key, explained) -> {
             assertFalse(explained.reason().isBlank(), key);
-            assertFalse(NOT_YET_RECORDED.containsKey(key), () -> key + " is both explained and not yet recorded");
+            assertTrue(explained.count() > 0, key);
         });
-        NOT_YET_RECORDED.forEach((key, explained) -> assertFalse(explained.reason().isBlank(), key));
+    }
+
+    @Test
+    void theModulesThatCannotCountAreHandedWhatDoes() throws IOException {
+        Path root = repositoryRoot();
+        for (String gateway : List.of(
+                "morpheus-integration-minos/src/main/java/com/morpheus/integration/minos/MinosMcpCodeGateway.java",
+                "morpheus-integration-nexus/src/main/java/com/morpheus/integration/nexus/NexusMcpContextGateway.java")) {
+            assertTrue(Files.readString(root.resolve(gateway)).contains(
+                            "LocalOperationalRuntime.recorder().suppressing(SuppressedFailureFamily.MCP_PEER_PROCESS_TREE)"),
+                    () -> gateway + " must hand the transport an observer that counts a failed tree observation");
+        }
+        assertTrue(Files.readString(root.resolve("morpheus-cli/src/main/java/com/morpheus/cli/MorpheusMain.java"))
+                        .contains("new MorpheusProviderPluginCli(LocalOperationalRuntime.recorder())"),
+                "the CLI probe must count on the recorder of the process");
+        assertTrue(Files.readString(root.resolve("morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"))
+                        .contains("providerPluginProbeEnabled, operabilityService.recorder());"),
+                "the HTTP probe must count where the same server serves its metrics");
+
+        String sdk = "morpheus-provider-sdk/src/main/java/com/morpheus/sdk/provider/";
+        String service = Files.readString(root.resolve(sdk + "ProviderPluginService.java"));
+        assertTrue(service.contains("public ProviderPluginService(OperationalRecorder recorder)"));
+        assertFalse(service.contains("public ProviderPluginService()"),
+                "a service built without a recorder would probe and count nowhere");
+        assertFalse(service.contains("OperationalRecorder.noop()"), "the SDK must not choose a recorder that counts nowhere");
+        assertFalse(Files.readString(root.resolve(sdk + "ProviderPluginProbeProcess.java"))
+                .contains("OperationalRecorder.noop()"), "the probe process must not choose a recorder that counts nowhere");
+        assertFalse(Files.readString(root.resolve(
+                        "morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusProviderPluginMcpTools.java"))
+                .contains("ProviderPluginService"),
+                "the MCP adapter only discovers: it holds no service that could probe, so it needs no recorder");
     }
 
     @Test

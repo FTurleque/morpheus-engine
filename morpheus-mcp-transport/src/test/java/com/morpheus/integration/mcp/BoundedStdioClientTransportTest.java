@@ -103,7 +103,7 @@ class BoundedStdioClientTransportTest {
         BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
                 peerLaunch(FixtureEnvironmentRecordingMcpPeer.class, record.toString()),
                 McpJsonDefaults.getMapper(),
-                4096);
+                4096, failure -> { });
         try {
             Set<String> received = recordedEnvironment(transport, record);
             Set<String> beyondTheAllowlist = new TreeSet<>(received);
@@ -124,7 +124,7 @@ class BoundedStdioClientTransportTest {
         BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
                 new McpPeerLaunch(javaExecutable(), arguments, Map.of("MCP_EXPLICIT_SETTING", "kept")),
                 McpJsonDefaults.getMapper(),
-                4096);
+                4096, failure -> { });
         try {
             Set<String> received = recordedEnvironment(transport, record);
             Set<String> beyondTheAllowlist = new TreeSet<>(received);
@@ -169,7 +169,7 @@ class BoundedStdioClientTransportTest {
                         childPidFile.toString(),
                         parentExitMarker.toString()),
                 McpJsonDefaults.getMapper(),
-                4096);
+                4096, failure -> { });
         long childPid = -1L;
         try {
             transport.connect(message -> message).block();
@@ -217,7 +217,7 @@ class BoundedStdioClientTransportTest {
                         childPidFile.toString(),
                         peerPidFile.toString()),
                 McpJsonDefaults.getMapper(),
-                4096);
+                4096, failure -> { });
         long childPid = -1L;
         try {
             transport.connect(message -> message).block();
@@ -243,7 +243,7 @@ class BoundedStdioClientTransportTest {
                 peerLaunch(FixtureFloodingMcpPeer.class),
                 McpJsonDefaults.getMapper(),
                 4096,
-                1);
+                1, failure -> { });
         CountDownLatch firstHandlerStarted = new CountDownLatch(1);
         try {
             transport.connect(message -> {
@@ -374,7 +374,7 @@ class BoundedStdioClientTransportTest {
     void cleansUpSchedulersWhenPeerProcessCannotStart() {
         McpPeerLaunch launch = new McpPeerLaunch("morpheus-command-that-does-not-exist-20260822", List.of(), Map.of());
         BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
-                launch, McpJsonDefaults.getMapper(), 1024);
+                launch, McpJsonDefaults.getMapper(), 1024, failure -> { });
 
         assertThrows(RuntimeException.class, () -> transport.connect(message -> message).block());
     }
@@ -394,7 +394,7 @@ class BoundedStdioClientTransportTest {
         BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
                 peerLaunch(FixtureStderrChattyMcpServer.class),
                 McpJsonDefaults.getMapper(),
-                4096);
+                4096, failure -> { });
         CountDownLatch handlerInvoked = new CountDownLatch(1);
         transport.setStdErrorHandler(line -> {
             handlerInvoked.countDown();
@@ -425,7 +425,7 @@ class BoundedStdioClientTransportTest {
         BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
                 peerLaunch(FixtureStderrChattyMcpServer.class),
                 McpJsonDefaults.getMapper(),
-                4096);
+                4096, failure -> { });
         List<String> diagnostics = new CopyOnWriteArrayList<>();
         CountDownLatch bothLinesRead = new CountDownLatch(2);
         transport.setStdErrorHandler(line -> {
@@ -453,16 +453,16 @@ class BoundedStdioClientTransportTest {
         McpPeerLaunch launch = serverLaunch();
 
         assertThrows(IllegalArgumentException.class, () -> new BoundedStdioClientTransport(
-                launch, McpJsonDefaults.getMapper(), 0, 1));
+                launch, McpJsonDefaults.getMapper(), 0, 1, failure -> { }));
         assertThrows(IllegalArgumentException.class, () -> new BoundedStdioClientTransport(
-                launch, McpJsonDefaults.getMapper(), 1024, 0));
+                launch, McpJsonDefaults.getMapper(), 1024, 0, failure -> { }));
     }
 
     private BoundedStdioClientTransport transport(int maxBytes) {
         return new BoundedStdioClientTransport(
                 serverLaunch(),
                 McpJsonDefaults.getMapper(),
-                maxBytes);
+                maxBytes, failure -> { });
     }
 
     private BoundedStdioClientTransport transport(int maxBytes, int maxPendingMessages) {
@@ -470,7 +470,7 @@ class BoundedStdioClientTransportTest {
                 serverLaunch(),
                 McpJsonDefaults.getMapper(),
                 maxBytes,
-                maxPendingMessages);
+                maxPendingMessages, failure -> { });
     }
 
     private McpPeerLaunch serverLaunch() {

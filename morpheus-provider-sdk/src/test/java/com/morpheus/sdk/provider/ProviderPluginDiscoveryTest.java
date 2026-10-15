@@ -1,5 +1,6 @@
 package com.morpheus.sdk.provider;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.security.ExternalJarIntegrity;
 import com.morpheus.application.security.ServerLocationDisclosure;
 import org.junit.jupiter.api.Test;
@@ -170,7 +171,7 @@ class ProviderPluginDiscoveryTest {
         Path jar = directory.resolve("metadata-only.jar");
         writeMetadataOnlyJar(jar, metadata("metadata-only", 1, "1.0.0"));
 
-        ProviderPluginProbeOutcome outcome = new ProviderPluginService()
+        ProviderPluginProbeOutcome outcome = new ProviderPluginService(OperationalRecorder.noop())
                 .probe(directory, "metadata-only", directory, ExternalJarIntegrity.sha256(jar));
 
         assertFalse(outcome.success());
@@ -183,7 +184,7 @@ class ProviderPluginDiscoveryTest {
         writeMetadataOnlyJar(directory.resolve("a-duplicate.jar"), metadata("duplicate-plugin", 1, "1.0.0"));
         writeMetadataOnlyJar(directory.resolve("b-duplicate.jar"), metadata("duplicate-plugin", 1, "1.0.0"));
 
-        ProviderPluginProbeOutcome outcome = new ProviderPluginService()
+        ProviderPluginProbeOutcome outcome = new ProviderPluginService(OperationalRecorder.noop())
                 .probe(directory, "duplicate-plugin", directory, "0".repeat(64));
 
         assertFalse(outcome.success());

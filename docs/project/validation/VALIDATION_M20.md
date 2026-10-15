@@ -1,5 +1,7 @@
 # Validation M20 — Release Engineering, Installation PROD & MORPHEUS 1.0
 
+> Note du 13/10/2026 — ce relevé cite un wrapper `.cmd` de la racine du dépôt, qui n'existe plus : `validate-m20.cmd` est remplacé par `scripts\validate.cmd m20 -Version <version>` sous Windows et `bash ./scripts/validate-m20.sh <version>` sous Linux. Le relevé n'est pas réécrit : il garde les commandes et les chemins de sa date.
+
 Statut : **PASS — preuves Windows et Linux réelles acquises**
 
 Issue : #92  
