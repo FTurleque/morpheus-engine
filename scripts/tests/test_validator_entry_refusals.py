@@ -10,8 +10,9 @@ not reached is said in test_script_inventory, target by target.
 from __future__ import annotations
 
 import unittest
+import xml.etree.ElementTree as ET
 
-from validator_harness import (FABRICATED_TESTS, FabricatedCheckout, PlayedScenarios, Run, require_bash,
+from validator_harness import (FABRICATED_TESTS, REPOSITORY, FabricatedCheckout, PlayedScenarios, Run, require_bash,
                                require_powershell)
 
 UPGRADE_MODULE = "morpheus-store-sqlite"
@@ -265,6 +266,44 @@ class M28Cases:
             self.assertIsNone(checkout.summary(directory), directory)
 
 
+def declared_reactor_poms() -> int:
+    """The root POM plus one per module it declares, read here independently of the validators."""
+    namespace = "{http://maven.apache.org/POM/4.0.0}"
+    modules = ET.parse(REPOSITORY / "pom.xml").getroot().findall(f"{namespace}modules/{namespace}module")
+    return 1 + len(modules)
+
+
+class ReactorCountCases:
+    """validate-r2 and validate-r3 compare the POMs on disk with the reactor the root POM declares.
+
+    validate-r3 compared them with the 17 POMs of its date and could not pass once the reactor grew (AUD-TST-18): the
+    expected count is the root POM's, never a literal, and these cases hold both validators to it.
+    """
+
+    @staticmethod
+    def given_the_declared_reactor(checkout, validate):
+        pass
+
+    def test_the_reactor_the_root_pom_declares_is_accepted_with_its_count(self) -> None:
+        checkout, run = self.played("the_declared_reactor")
+
+        self.assertTrue(run.says(f"Maven reactor version: PASS ({checkout.version} across {declared_reactor_poms()} "
+                                 "POMs)"), run.output)
+        self.assertFalse(run.says("Unexpected Maven reactor POM count"), run.output)
+
+    @staticmethod
+    def given_a_pom_the_root_does_not_declare(checkout, validate):
+        checkout.write("morpheus-undeclared/pom.xml", f"<project><version>{checkout.version}</version></project>\n")
+        checkout.commit("undeclared module")
+
+    def test_a_pom_the_root_does_not_declare_is_refused_with_both_counts_before_the_build(self) -> None:
+        expected = declared_reactor_poms()
+        run = self.refused("a_pom_the_root_does_not_declare",
+                           f"Unexpected Maven reactor POM count: {expected + 1}, expected {expected}",
+                           before_the_build=True)
+        self.assertFalse(run.says("Maven reactor version: PASS"), run.output)
+
+
 class R3Cases:
     @staticmethod
     def given_a_workflow_change(checkout, validate):
@@ -285,8 +324,8 @@ class R3Cases:
         self.refused("a_new_migration", "R3 must not introduce a SQLite migration", before_the_build=True)
 
 
-CASES = {"m19": (WholeTreeContract,), "m20": (M20Cases, WholeTreeContract), "r2": (R2Cases,),
-         "m28": (M28Cases,), "r3": (R3Cases,)}
+CASES = {"m19": (WholeTreeContract,), "m20": (M20Cases, WholeTreeContract), "r2": (R2Cases, ReactorCountCases),
+         "m28": (M28Cases,), "r3": (R3Cases, ReactorCountCases)}
 
 SCRIPTS_UNDER_TEST = tuple(f"validate-{target}.{interpreter.extension}"
                            for target in CASES for interpreter in (Shell, PowerShell))

@@ -25,7 +25,13 @@ function Assert-NativeSuccess([string]$Label) {
 function Assert-ReactorVersion([string]$ExpectedVersion) {
     $poms = @(Get-ChildItem -Path $repo -Recurse -File -Filter 'pom.xml' |
         Where-Object { $_.FullName -notmatch '[\\/]target[\\/]' })
-    if ($poms.Count -ne 17) { throw "Unexpected Maven reactor POM count: $($poms.Count), expected 17" }
+    # The root POM plus one per declared module, as validate-r2 counts it. A literal here counted the reactor of
+    # the release that wrote this check, so every module added afterwards made the gate refuse a correct repository.
+    $rootPom = Get-Content -LiteralPath (Join-Path $repo 'pom.xml') -Raw
+    $expectedPoms = 1 + ([regex]::Matches($rootPom, '<module>')).Count
+    if ($poms.Count -ne $expectedPoms) {
+        throw "Unexpected Maven reactor POM count: $($poms.Count), expected $expectedPoms"
+    }
     foreach ($pom in $poms) {
         $content = Get-Content -LiteralPath $pom.FullName -Raw
         if (-not $content.Contains("<version>$ExpectedVersion</version>")) {
@@ -37,7 +43,7 @@ function Assert-ReactorVersion([string]$ExpectedVersion) {
             }
         }
     }
-    Write-Host "Maven reactor version: PASS ($ExpectedVersion across 17 POMs)"
+    Write-Host "Maven reactor version: PASS ($ExpectedVersion across $expectedPoms POMs)"
 }
 
 Write-Host "R3 exact-head validation SHA: $validationSha"

@@ -52,8 +52,7 @@ NOT_LAUNCHED = {
     "validate-m24.sh": "frozen milestone validator whose .ps1 is reachable through the dispatcher and whose .sh is "
                        "named nowhere; " + OPEN_QUESTION,
     "validate-r3.sh": "frozen release validator whose .ps1 is reachable through the dispatcher and whose .sh is named "
-                      "nowhere; it also refuses any reactor that does not count the 17 POMs of its date; "
-                      + OPEN_QUESTION,
+                      "nowhere; " + OPEN_QUESTION,
 }
 
 RUN_FOR_REAL_ON_WINDOWS = ("is itself a verification, run for real on every pull request by the Windows leg of ci.yml "
@@ -94,8 +93,8 @@ NOT_REACHED_BY_A_TEST = {
            "nightly.yml runs it for real on both platforms",
     "m28": "everything after the inherited r2 gate: the client manager, the installer, the setup lifecycle. The "
            "Windows leg of ci.yml runs the .ps1 for real; nothing runs the .sh to its end",
-    "r3": "everything after its scope policy: the reactor count, the inherited m28 gate, the release documentation. "
-          "Nothing runs it to its end, on either platform",
+    "r3": "everything after its scope policy and its reactor count: the inherited m28 gate, the release "
+          "documentation. Nothing runs it to its end, on either platform",
 }
 
 
