@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -46,6 +47,22 @@ class NexusSuppressedFailureTraceTest {
 
         assertTrue(Files.exists(undeletable));
         assertEquals(Map.of("failure.suppressed.staged-artifact-cleanup", 1L), metrics.snapshot().counters());
+    }
+
+    /**
+     * The transport may depend on no other MORPHEUS package: it reports a process of the peer it could not list or
+     * signal to the observer the gateway builds it with, and that observer is what counts. A process left out of the
+     * tree, or one that refused its signal, may outlive the peer.
+     */
+    @Test
+    void aProcessOfThePeerThatCannotBeListedOrSignalledIsCountedOncePerFailure() {
+        Consumer<Throwable> processTreeFailures = NexusMcpContextGateway.processTreeFailures(recorder);
+        assertEquals(Map.of(), metrics.snapshot().counters());
+
+        processTreeFailures.accept(new IllegalStateException("the process table cannot be read"));
+        processTreeFailures.accept(new UnsupportedOperationException("the process cannot be signalled"));
+
+        assertEquals(Map.of("failure.suppressed.mcp-peer-process-tree", 2L), metrics.snapshot().counters());
     }
 
     @Test

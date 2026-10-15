@@ -207,7 +207,7 @@ sans quelque chose :
 | `sqlite-conflict-read` | `failure.suppressed.sqlite-conflict-read` | en répondant à un conflit de cycle de vie, l'enregistrement d'audit ou l'état courant n'a pas pu être lu ; le conflit est rendu sans distinguer une mutation déjà appliquée d'une vraie collision |
 | `mcp-peer` | `failure.suppressed.mcp-peer` | un pair MCP a échoué - il n'a pas démarré, a dépassé son délai, a répondu quelque chose d'inutilisable - et l'appelant a reçu un « indisponible » nu, la même réponse que pour un projet sans snapshot actif |
 | `mcp-peer-shutdown` | `failure.suppressed.mcp-peer-shutdown` | un pair MCP n'a pas pu être fermé ou interrompu proprement ; son processus peut survivre à l'opération qui l'a lancé |
-| `mcp-peer-process-tree` | `failure.suppressed.mcp-peer-process-tree` | les descendants d'un processus vivant d'un pair MCP n'ont pas pu être énumérés lors d'une observation ; un processus que le pair a lancé entre-temps peut n'être jamais retenu, donc pas terminé avec lui. Compté une fois par énumération en échec, pas une fois par pair |
+| `mcp-peer-process-tree` | `failure.suppressed.mcp-peer-process-tree` | les descendants d'un processus vivant d'un pair MCP n'ont pas pu être énumérés lors d'une observation - un processus que le pair a lancé entre-temps peut n'être jamais retenu, donc pas terminé avec lui -, ou un processus vivant du pair, sa racine ou un descendant retenu, a refusé son signal de terminaison et peut lui survivre. Compté une fois par énumération ou par signal en échec, pas une fois par pair ; la passe forcée compte à son tour |
 | `staged-artifact-cleanup` | `failure.suppressed.staged-artifact-cleanup` | quelque chose que MORPHEUS a déposé dans le répertoire temporaire n'a pas pu être supprimé après usage et y reste : la copie vérifiée d'un JAR épinglé, ou le répertoire privé par lequel une sonde de plugin rend son résultat |
 | `plugin-probe-process-tree` | `failure.suppressed.plugin-probe-process-tree` | les descendants d'un processus d'une sonde de plugin n'ont pas pu être énumérés lors d'une observation ; un processus que le plugin a lancé entre-temps peut n'être jamais retenu par le parent. Compté une fois par énumération en échec |
 | `plugin-probe-shutdown` | `failure.suppressed.plugin-probe-shutdown` | un processus vivant d'une sonde de plugin - le worker ou un descendant observé - n'a pas pu recevoir son signal de terminaison ; il peut survivre à la sonde. Compté à chaque passe, la passe forcée comprise |
@@ -216,8 +216,9 @@ sans quelque chose :
 
 Ces compteurs sont servis avec les autres par `GET /api/v1/metrics`, en local comme à travers la façade remote
 (rôle `ADMIN`). La projection ne porte aucune liste de noms : une famille est servie dès qu'elle a compté une fois, et
-absente tant qu'elle n'a jamais bougé (`SuppressedFailureCountersServedTest`, et `UnforeseenFailureTraceTest` à travers
-un vrai serveur).
+absente tant qu'elle n'a jamais bougé (`SuppressedFailureCountersServedTest`, `UnforeseenFailureTraceTest` à travers
+un vrai serveur local, `RemoteSuppressedFailureCountersServedTest` à travers la façade remote, qui refuse la route au
+rôle `READ`).
 
 **Les noms de compteurs ne font pas partie du contrat OpenAPI.** `docs/developer/reference/openapi/morpheus-v1.yaml`
 décrit la réponse de `/metrics` comme l'enveloppe générique `Success`, sans schéma de ses compteurs ; le manifeste de
@@ -231,8 +232,11 @@ Deux modules ne comptent pas par eux-mêmes, et reçoivent ce qui compte de celu
 - `morpheus-mcp-transport` ne peut dépendre d'aucun autre paquet MORPHEUS. L'interruption d'une opération qui a
   dépassé son délai lui est remise par la passerelle (`MinosMcpCodeGateway`, `NexusMcpContextGateway`) : c'est elle qui
   l'enveloppe (`countingAbort`) et compte son échec avant de le laisser remonter. De même, le transport **signale** une
-  énumération de descendants en échec à un observateur (`Consumer<? super RuntimeException>`) que la passerelle lui
-  passe à la construction, et c'est elle qui compte (`mcp-peer-process-tree`).
+  énumération de descendants en échec, et un processus du pair - racine ou descendant retenu - qui refuse son signal
+  de terminaison, à un observateur (`Consumer<? super RuntimeException>`) que la passerelle lui passe à la
+  construction (`processTreeFailures`), et c'est elle qui compte (`mcp-peer-process-tree`). Le transport n'a pas
+  d'observateur par défaut : un signal refusé y était journalisé au niveau `DEBUG`, que le gestionnaire par défaut du
+  JDK jette, et ne laissait donc aucune trace.
 - `morpheus-provider-sdk` ne lit pas le runtime du processus. `ProviderPluginService` prend son enregistreur par
   constructeur : la CLI lui passe celui du processus, le serveur HTTP celui dont il sert les métriques. L'adaptateur
   MCP ne sonde pas ; il ne tient qu'une `ProviderPluginDiscovery` et n'a besoin d'aucun enregistreur.
