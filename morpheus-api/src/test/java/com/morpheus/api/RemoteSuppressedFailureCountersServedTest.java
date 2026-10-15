@@ -9,11 +9,13 @@ import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -82,6 +84,20 @@ class RemoteSuppressedFailureCountersServedTest {
             HttpResponse<String> readerMetrics = send(client, base.resolve("/api/v1/metrics"), "GET", reader.token(), null);
             assertEquals(403, readerMetrics.statusCode(), readerMetrics::body);
             assertFalse(readerMetrics.body().contains(COUNTER), readerMetrics::body);
+
+            // The outcome of a request is journalled after its exchange is closed; leaving before the four records
+            // are written lets the journal recreate its file under the temporary directory being deleted.
+            Path journal = temporaryDirectory.resolve(RemoteAccessJournal.FILE_NAME);
+            BoundedWait.until("the four requests journalled", Duration.ofSeconds(10), BoundedWait.LOCAL_COUNTER_POLL,
+                    () -> completedRecords(journal) == 4, () -> completedRecords(journal) + " completed records");
+        }
+    }
+
+    private static long completedRecords(Path journal) {
+        try {
+            return Files.readAllLines(journal).stream().filter(line -> line.contains("\"completed\"")).count();
+        } catch (IOException missing) {
+            return 0L;
         }
     }
 
