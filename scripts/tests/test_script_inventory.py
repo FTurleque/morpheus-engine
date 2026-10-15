@@ -6,11 +6,18 @@ script escape notice without anything failing -- nothing launched it any more, o
 Both rules read text, the only hold on ``.yml``, ``.sh``, ``.ps1``, ``.cmd`` and ``.md`` (ADR-0103), and both read
 *executable* text: a mention in a comment launches nothing.
 
-* **Launched** means named in the executable text of a workflow, in a current documentation page, or in a script that
-  is itself launched; ``validate.ps1`` launches every ``validate-<target>.ps1`` by construction. The pages are the ones
-  GateReachabilityArchitectureTest holds to commands that resolve.
+* **Launched** means named in the executable text of a workflow, or of a script that is itself launched; a few entry
+  points a person runs by hand are named in LAUNCHED_BY_HAND with the reason, and launch what they name in turn
+  (``validate.cmd`` hands its target to ``validate.ps1``, which launches every ``validate-<target>.ps1`` by
+  construction). A documentation page is not a launch: until 2026-10-15 it counted as one, and six ``.sh`` validators
+  that only a guide named looked launched while nothing ran them.
 * **Run by a test** means declared in the ``SCRIPTS_UNDER_TEST`` of a test file of this directory, which is where a
   test that launches a script says so. A Java test that reads a script as text does not count: reading is not running.
+  The declaration is checked against the test code, not taken on trust: a validator a harness module declares must be
+  the target of one of its generated classes, and nothing else; a library it declares must be named by a validator it
+  runs; a script any other module declares must be named in a string of its code, outside the declaration and the
+  docstrings. What this still cannot prove is that the string reaches a process in every case -- that is what the
+  cases themselves assert.
 
 There is no silent exception. A script nothing launches is named in NOT_LAUNCHED with the reason it is kept; a script
 no test runs is named in NOT_RUN_BY_A_TEST with the reason; an entry for a script that is launched, tested or gone
@@ -21,6 +28,7 @@ Run this file directly to print the table: ``python scripts/tests/test_script_in
 
 from __future__ import annotations
 
+import ast
 import importlib
 import re
 import sys
@@ -36,24 +44,27 @@ if str(TESTS) not in sys.path:
 SCRIPT_SUFFIXES = (".sh", ".ps1", ".py", ".cmd")
 NOT_A_SCRIPT = ("README.md",)
 
-# The pages that state what to run now, as GateReachabilityArchitectureTest lists them, plus docs/developer/*.md.
+# The pages that state what to run now, as GateReachabilityArchitectureTest lists them, plus docs/developer/*.md. They
+# launch nothing; an entry point launched by hand must be named by one of them, which is how a person learns to run it.
 CURRENT_PAGES = ("README.md", "CONTRIBUTING.md", "scripts/README.md", "docs/README.md", "distribution/README.md")
 # Scripts outside scripts/ that launch scripts of scripts/; they count only once something launches them too.
 OTHER_LAUNCHER_DIRECTORIES = ("distribution", "distribution/windows", "integration")
 
-OPEN_QUESTION = ("keeping it, giving it a lane or retiring it is the maintainer's decision (open question 1 of the "
-                 "change test-the-validators-that-give-a-verdict); the milestone suites assert that both variants "
-                 "of a validator exist, so it cannot simply be removed")
+AFTER_A_RELEASE = ("reads a release GitHub has published, through gh and the attestation API, and is run by hand "
+                   "after the tag (docs/project/validation/RELEASE_QUALIFICATION.md): before a release exists there "
+                   "is nothing for a workflow to verify")
 
-# A script that no workflow, no launched script and no current page names. Each entry is a finding, not a licence.
-NOT_LAUNCHED = {
-    "validate-m23.sh": "frozen milestone validator whose .ps1 is reachable through the dispatcher and whose .sh is "
-                       "named nowhere; " + OPEN_QUESTION,
-    "validate-m24.sh": "frozen milestone validator whose .ps1 is reachable through the dispatcher and whose .sh is "
-                       "named nowhere; " + OPEN_QUESTION,
-    "validate-r3.sh": "frozen release validator whose .ps1 is reachable through the dispatcher and whose .sh is named "
-                      "nowhere; " + OPEN_QUESTION,
+# The entry points a person runs, named with the reason no workflow does. Each must be named by a current page.
+LAUNCHED_BY_HAND = {
+    "validate.cmd": "the dispatcher every guide gives a Windows user, scripts\\validate.cmd <target>; a workflow runs "
+                    "a validator directly, never through it",
+    "verify-release-provenance.sh": AFTER_A_RELEASE,
+    "verify-release-provenance.ps1": AFTER_A_RELEASE,
 }
+
+# A script that no workflow, no launched script and no entry point launched by hand names. Each entry is a finding, not
+# a licence. Empty since 2026-10-15: the .sh validators no workflow launched have a lane in nightly.yml.
+NOT_LAUNCHED: dict[str, str] = {}
 
 RUN_FOR_REAL_ON_WINDOWS = ("is itself a verification, run for real on every pull request by the Windows leg of ci.yml "
                            "through validate-m28.ps1")
@@ -133,15 +144,16 @@ def population() -> dict[str, Path]:
     return found
 
 
-def launchers(scripts: dict[str, Path]) -> dict[str, list[str]]:
-    """For every script that something launches, what launches it."""
+def current_pages() -> dict[str, str]:
+    pages = [REPOSITORY / page for page in CURRENT_PAGES] + sorted((REPOSITORY / "docs" / "developer").glob("*.md"))
+    return {page.relative_to(REPOSITORY).as_posix(): executable_text(page) for page in pages if page.is_file()}
+
+
+def launchers(scripts: dict[str, Path], by_hand: bool = True) -> dict[str, list[str]]:
+    """For every script that something launches, what launches it; ``by_hand=False`` counts the workflows alone."""
     roots: dict[str, str] = {}
     for workflow in sorted((REPOSITORY / ".github" / "workflows").glob("*.yml")):
         roots[f"workflow {workflow.name}"] = executable_text(workflow)
-    pages = [REPOSITORY / page for page in CURRENT_PAGES] + sorted((REPOSITORY / "docs" / "developer").glob("*.md"))
-    for page in pages:
-        if page.is_file():
-            roots[f"page {page.relative_to(REPOSITORY).as_posix()}"] = executable_text(page)
 
     candidates = {name: path for name, path in scripts.items() if path.suffix in SCRIPT_SUFFIXES}
     others: dict[str, Path] = {}
@@ -153,6 +165,10 @@ def launchers(scripts: dict[str, Path]) -> dict[str, list[str]]:
     texts = {name: executable_text(path) for name, path in everything.items()}
 
     launched: dict[str, list[str]] = {}
+    if by_hand:
+        for name in LAUNCHED_BY_HAND:
+            if name in candidates:
+                launched[name] = ["by hand (LAUNCHED_BY_HAND)"]
     for root, text in roots.items():
         for name in everything:
             if names(name, text):
@@ -176,6 +192,51 @@ def launchers(scripts: dict[str, Path]) -> dict[str, list[str]]:
 
 def test_modules() -> dict[str, object]:
     return {path.stem: importlib.import_module(path.stem) for path in sorted(TESTS.glob("test_*.py"))}
+
+
+def named_by(scripts: dict[str, Path]) -> dict[str, set[str]]:
+    """For every script of scripts/, the scripts of scripts/ its executable text names."""
+    texts = {name: executable_text(path) for name, path in scripts.items() if path.suffix in SCRIPT_SUFFIXES}
+    return {launcher: {name for name in texts if name != launcher and names(name, text)}
+            for launcher, text in texts.items()}
+
+
+def reached_from(starts: set[str], graph: dict[str, set[str]]) -> set[str]:
+    reached, pending = set(), list(starts)
+    while pending:
+        for name in graph.get(pending.pop(), ()):
+            if name not in reached:
+                reached.add(name)
+                pending.append(name)
+    return reached
+
+
+def harness_validators(module) -> set[str]:
+    """The validators the generated classes of a module hand to the harness: such a class carries a target and the
+    interpreter whose ``run`` launches ``validate-<target>.<extension>``."""
+    found = set()
+    for value in vars(module).values():
+        if (isinstance(value, type) and issubclass(value, unittest.TestCase) and hasattr(value, "interpreter")
+                and hasattr(value, "target")):
+            target = getattr(value.target, "name", value.target)
+            found.add(f"validate-{target}.{value.interpreter.extension}")
+    return found
+
+
+def strings_of_the_code(source: str) -> list[str]:
+    """The string constants of a test file, without its docstrings and without its SCRIPTS_UNDER_TEST declaration."""
+    tree = ast.parse(source)
+    skipped: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)) and node.body:
+            first = node.body[0]
+            if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant):
+                skipped.add(id(first.value))
+        if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "SCRIPTS_UNDER_TEST"
+                                                for target in node.targets):
+            skipped.update(id(inner) for inner in ast.walk(node))
+    return [node.value for node in ast.walk(tree)
+            if isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in skipped]
 
 
 def tested() -> dict[str, list[str]]:
@@ -209,8 +270,9 @@ class ScriptInventoryTest(unittest.TestCase):
 
         orphans = sorted(set(self.scripts) - set(launched) - set(NOT_LAUNCHED))
         self.assertEqual([], orphans,
-                         "no workflow, launched script or current page names these scripts in executable text; "
-                         "launch them, remove them, or name them in NOT_LAUNCHED with the reason they are kept")
+                         "no workflow, launched script or entry point launched by hand names these scripts in "
+                         "executable text (a documentation page is not a launch); launch them, remove them, or name "
+                         "them in NOT_LAUNCHED with the reason they are kept")
         for script, reason in NOT_LAUNCHED.items():
             self.assertTrue(script in self.scripts,
                             f"NOT_LAUNCHED names a script that no longer exists: delete the entry {script}")
@@ -218,6 +280,48 @@ class ScriptInventoryTest(unittest.TestCase):
                              f"NOT_LAUNCHED names a script that {launched.get(script)} launches: delete the entry "
                              f"{script}")
             self.assertGreater(len(reason.strip()), 40, f"{script} needs the reason it is kept")
+
+    def test_every_script_launched_by_hand_is_named_with_its_reason_and_by_a_current_page(self) -> None:
+        automatic = launchers(self.scripts, by_hand=False)
+        pages = current_pages()
+        self.assertGreater(len(pages), 5, "too few current pages found: the rule would pass on nothing")
+        for script, reason in LAUNCHED_BY_HAND.items():
+            self.assertTrue(script in self.scripts,
+                            f"LAUNCHED_BY_HAND names a script that no longer exists: delete the entry {script}")
+            self.assertFalse(script in automatic,
+                             f"LAUNCHED_BY_HAND names a script that {automatic.get(script)} launches: delete the "
+                             f"entry {script}")
+            self.assertGreater(len(reason.strip()), 40, f"{script} needs the reason no workflow launches it")
+            self.assertTrue(any(names(script, text) for text in pages.values()),
+                            f"{script} is launched by hand, and no current page tells a person to run it")
+
+    def test_what_a_test_file_declares_is_what_its_code_runs(self) -> None:
+        graph = named_by(self.scripts)
+        checked = 0
+        for name, module in test_modules().items():
+            declared = set(getattr(module, "SCRIPTS_UNDER_TEST", ()))
+            validators = {script for script in declared if validator_target(script)}
+            generated = harness_validators(module)
+            if generated:
+                # The generated classes are what hands a validator to the harness: the declaration must equal them.
+                self.assertEqual(sorted(generated), sorted(validators),
+                                 f"{name}.py declares validators its generated classes do not run, or runs some it "
+                                 "does not declare")
+                reachable = reached_from(generated, graph)
+                for script in sorted(declared - validators):
+                    self.assertTrue(script in reachable,
+                                    f"{name}.py declares {script}, which no validator it runs names: nothing in that "
+                                    "module launches it")
+                checked += len(declared)
+                continue
+            strings = strings_of_the_code((TESTS / f"{name}.py").read_text(encoding="utf-8"))
+            for script in sorted(declared):
+                basename = script.rsplit("/", 1)[-1]
+                self.assertTrue(any(names(basename, text) for text in strings),
+                                f"{name}.py declares {script} and names it in no string of its code: the declaration "
+                                "is the only place it appears")
+                checked += 1
+        self.assertGreater(checked, 20, "too few declarations checked: the rule would pass on nothing")
 
     def test_every_test_file_says_which_scripts_it_runs(self) -> None:
         modules = test_modules()

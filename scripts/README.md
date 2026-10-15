@@ -185,12 +185,24 @@ contre les deux implémentations.
 Tout fichier de test déclare ce qu'il exécute dans `SCRIPTS_UNDER_TEST`. Un script ajouté sans test, ou que plus
 rien ne lance, fait échouer `test_script_inventory.py`, qui le nomme. Il n'y a pas d'exception silencieuse :
 
-- un script qu'aucun workflow, script lancé ou page courante ne nomme est inscrit dans `NOT_LAUNCHED`, avec la
-  raison pour laquelle il est conservé ;
+- est lancé ce que nomme un workflow, ou un script lui-même lancé ; une page de documentation ne lance rien ;
+- un point d'entrée qu'une personne lance à la main (le dispatcher `validate.cmd`, la vérification de provenance
+  d'une release publiée) est inscrit dans `LAUNCHED_BY_HAND`, avec la raison, et doit être nommé par une page
+  courante ; ce qu'il nomme est lancé à son tour ;
+- un script qu'aucun workflow, script lancé ou point d'entrée manuel ne nomme est inscrit dans `NOT_LAUNCHED`, avec
+  la raison pour laquelle il est conservé ;
 - un script qu'aucun test n'exécute est inscrit dans `NOT_RUN_BY_A_TEST`, avec la raison ;
 - une entrée qui vise un script désormais lancé, testé ou supprimé fait échouer le test : elle se retire.
 
-Une mention dans un commentaire ne lance rien, et un test qui lit un script sans l'exécuter ne le teste pas.
+Une mention dans un commentaire ne lance rien, et un test qui lit un script sans l'exécuter ne le teste pas. La
+déclaration `SCRIPTS_UNDER_TEST` est confrontée au code du test : un validateur doit être la cible d'une classe que le
+harnais génère, une bibliothèque doit être nommée par un validateur que le module exécute, et tout autre script doit
+apparaître dans une chaîne du code, hors de la déclaration et des docstrings. Que cette chaîne atteigne un processus
+dans chaque cas, ce sont les cas eux-mêmes qui l'assertent.
+
+Les validateurs `.sh` qu'aucun autre workflow ne lançait (`d2`, `m22` à `m26`, `r3`, et par la chaîne de `r3`,
+`m28`, `r2`, `m27`) tournent chaque nuit dans la lane `validators-without-a-lane` de `nightly.yml`, en attendant que
+le mainteneur décide pour chacun de le garder, de le tester ou de le retirer.
 
 ```bash
 python scripts/tests/test_script_inventory.py     # imprime la table : lancé par, exécuté par, non atteint
