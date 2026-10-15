@@ -41,8 +41,11 @@ import sys
 root = pathlib.Path(sys.argv[1])
 version = sys.argv[2]
 poms = sorted(path for path in root.rglob('pom.xml') if 'target' not in path.parts)
-if len(poms) != 17:
-    raise SystemExit(f'Unexpected Maven reactor POM count: {len(poms)}, expected 17')
+# The root POM plus one per declared module, as validate-r2 counts it. A literal here counted the reactor of the
+# release that wrote this check, so every module added afterwards made the gate refuse a correct repository.
+expected = 1 + (root / 'pom.xml').read_text(encoding='utf-8').count('<module>')
+if len(poms) != expected:
+    raise SystemExit(f'Unexpected Maven reactor POM count: {len(poms)}, expected {expected}')
 for pom in poms:
     content = pom.read_text(encoding='utf-8')
     if f'<version>{version}</version>' not in content:
@@ -50,7 +53,7 @@ for pom in poms:
     for stale in ('1.1.0', '1.0.0', '0.1.0-SNAPSHOT'):
         if f'<version>{stale}</version>' in content:
             raise SystemExit(f'Stale MORPHEUS {stale} version remains in {pom.relative_to(root)}')
-print(f'Maven reactor version: PASS ({version} across 17 POMs)')
+print(f'Maven reactor version: PASS ({version} across {expected} POMs)')
 PY
 
 MORPHEUS_M28_BASE_REF="$BASE_REF" MORPHEUS_M28_SKIP_PORTABLE="$SKIP_PORTABLE" \

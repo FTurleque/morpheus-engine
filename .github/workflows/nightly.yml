@@ -13,8 +13,8 @@ name: MORPHEUS Nightly
 # an observation that does not change does not need to be reproduced per pull request. No lane gates a
 # merge, and none is reachable from a `pull_request` event -- this workflow deliberately has no such trigger.
 #
-# Four further lanes (M19 budgets, release rehearsal, SpotBugs, PIT) run what the repository declares and no other
-# pipeline reached; see the comment above them.
+# Five further lanes (M19 budgets, release rehearsal, the validators no other workflow launched, SpotBugs, PIT) run
+# what the repository declares and no other pipeline reached; see the comment above them.
 
 on:
   schedule:
@@ -374,6 +374,69 @@ jobs:
         shell: bash
         run: |
           python3 scripts/check-release-rehearsal-assets.py compare .github/workflows/release.yml pom.xml rehearsed-assets/*.tsv
+
+  validators-without-a-lane:
+    # These Linux validators were launched by no workflow: m23, m24 and r3 by nothing at all, d2, m22, m25, m26 and,
+    # through r3 -> m28 -> r2 -> m27, four more only by a guide that tells a person to run them. A validator nobody runs
+    # cannot be known to still run, and the script tests prove its refusals on a fabricated checkout, never its end
+    # (scripts/tests/test_script_inventory.py, NOT_REACHED_BY_A_TEST). This lane runs each one for real, on the tree
+    # the other lanes check, with the version the POM declares. It was the default of open question 1 of the change
+    # test-the-validators-that-give-a-verdict, taken on 2026-10-15 while the maintainer's decision is pending: a lane
+    # until each is kept, tested or retired. A red leg is a finding about that validator, not a merge gate -- this
+    # workflow has no pull_request trigger.
+    #
+    # D2 skips its Dependency-Check scan here: the scan needs the NVD data that security.yml restores and refreshes
+    # under its own budget, and running it a second time without that cache would measure the cache, not D2. r3 refuses
+    # a tree that changes a workflow since develop, so a manual dispatch from such a branch fails that leg by design.
+    name: Validator ${{ matrix.validator }} (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        validator:
+          - validate-d2.sh
+          - validate-m22.sh
+          - validate-m23.sh
+          - validate-m24.sh
+          - validate-m25.sh
+          - validate-m26.sh
+          - validate-r3.sh
+
+    steps:
+      - name: Checkout the dispatched ref, or develop on a schedule
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'schedule' && 'develop' || github.ref }}
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          check-latest: false
+
+      - name: Run the validator with the version the POM declares
+        shell: bash
+        env:
+          MORPHEUS_D2_SKIP_SECURITY_SCAN: 'true'
+          VALIDATOR: ${{ matrix.validator }}
+        run: |
+          version="$(python3 scripts/check-release-rehearsal-assets.py version pom.xml)"
+          bash "./scripts/${VALIDATOR}" "${version}"
+
+      - name: Upload the validator evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: validator-evidence-${{ matrix.validator }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            validation-output/*/validation-summary.txt
+            validation-output/*/failure-summary.txt
 
   spotbugs-report:
     # Report-only: alerts never fail the lane, because the audit-spotbugs check is red on the current code and its alerts are
