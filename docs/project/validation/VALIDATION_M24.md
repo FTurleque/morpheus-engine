@@ -1,5 +1,7 @@
 # VALIDATION M24 — Query DSL, Saved Views & Export/Reporting
 
+> Note du 13/10/2026 — ce relevé cite un wrapper `.cmd` de la racine du dépôt, qui n'existe plus : `validate-m24.cmd` est remplacé par `scripts\validate.cmd m24 -Version <version>` sous Windows et `bash ./scripts/validate-m24.sh <version>` sous Linux. Le relevé n'est pas réécrit : il garde les commandes et les chemins de sa date.
+
 Statut : **PASS — qualification Windows + Linux exact-head acquise sur le même SHA exécutable**
 
 Date : 28 juillet 2026
