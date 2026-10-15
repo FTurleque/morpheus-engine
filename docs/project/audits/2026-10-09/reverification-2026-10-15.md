@@ -240,3 +240,39 @@ qui restait ouvert sur chaque constat, et l'instruction de ne pas laisser vide l
 C'est cette discipline qui a fait apparaître, cette fois, que la fusion n'avait rien perdu — mais aussi
 qu'elle avait **aggravé** `AUD-QUA-17` en quadruplant le nombre de tests qui lisent l'état statique partagé,
 ce qu'aucune lecture des `tasks.md` n'aurait montré.
+
+---
+
+## Correctifs du 15 octobre au soir — sur branches, pas encore sur `develop`
+
+Les restes listés plus haut ont été traités le même jour, en quatre branches parties de `984bb270`. **Rien
+de ce qui suit n'est encore fusionné** : les statuts de `findings.json` décrivent toujours `develop` et ne
+changeront qu'après la fusion, sur relecture du code fusionné.
+
+| Constat | Branche | Ce qui est fait | Statut attendu après fusion |
+|---|---|---|---|
+| `AUD-TRV-05` | `refactor/audit-trv05-qua13-qua17-one-runtime` | un seul runtime par transport (`ApiRuntime`, `CliRuntime`, `MorpheusMcpRuntime`) sur `SqliteOperationRuntime`, qui ouvre la portée puis construit chaque store à la demande ; racines de composition 32 → 5, ouvertures de portée 7 → 1, sites hors portée 10 → 2 nommés ; la règle bytecode exige l'appel à `SqliteConnectionScope.open`, la règle textuelle l'ordre ouverture → construction ; troisième amendement d'ADR-0109 | corrigé |
+| `AUD-QUA-17` | même branche | les quatre compteurs statiques et `diagnostics()` supprimés ; la portée compte sur le recorder de l'ouvreur (`sqlite.scope.connection.opened/closed`, `sqlite.scope.schema.checked`) ; deux règles interdisent le retour d'un champ statique | corrigé |
+| `AUD-QUA-13` | même branche | recorder injecté depuis les points d'entrée dans les troncs API, MCP et intégrations ; `MAIN_USERS` 20 → 6, chacun motivé ; parallélisme JUnit activé sur `morpheus-store-sqlite` (le test qui compte les descripteurs de la JVM est `@Isolated`) | corrigé |
+| `AUD-TRV-04` | `fix/audit-trv04-count-transport-cleanup-failures` (empilée sur la précédente) | les deux `catch` DEBUG du transport remettent l'échec à l'observateur, compté sous `mcp-peer-process-tree` sur le recorder injecté ; un test lit ce compteur à travers les passerelles, un autre lit un `failure.suppressed.*` à travers la façade remote | corrigé ; `ProviderPluginDescendantTermination` reste muet par conception (décision du mainteneur : protocole de sonde) |
+| `AUD-TST-12` | `docs/audit-tst12-dated-record-notes` | la règle balaie aussi les ADR, exige une note datée **avant la première section** portant la commande de remplacement ; ADR-0084 et `VALIDATION_M19` reçoivent leur note ; `M19_EXECUTION` clos par décision (chemin juste à sa date, table de correspondance) | corrigé |
+| `AUD-TST-18` | `fix/audit-tst18-trv07-validators` | `validate-r3` lit le compte du réacteur dans le POM racine, dans les deux variantes, avec un cas de contrat r2/r3 | corrigé |
+| `AUD-TRV-07` | même branche | planchers littéraux de m22 à m27 remplacés par la lecture des ratchets ; l'inventaire ne compte plus une page comme un lancement ; la vérification « exécuté par un test » est confrontée au code (`ast`) ; spec delta amendé ; les validateurs sans voie lancés par une lane nocturne Linux (défaut de la question ouverte 1) | partiel : la tâche 1.4 (exécution réelle Linux et Windows) attend le premier run nocturne, et la question 1 attend le mainteneur |
+| `AUD-DEP-07` | — | revérifié le 15/10 au soir : 13.0.0 reste la dernière version, le correctif amont #8716 est fusionné depuis le 5 août mais non publié ; la `NVD_API_KEY` est déjà posée | bloqué amont |
+
+**Ce qui a été exécuté**, cette fois sur une machine qui a accès au dépôt Maven, sur l'arbre qui fusionne les
+quatre branches :
+
+- `./mvnw clean verify` complet : **BUILD SUCCESS**, gates de couverture des deux échelles compris ;
+- gate de couverture des lignes modifiées contre `984bb270` : **659/691 lignes (95,4 %), 68/82 branches
+  (82,9 %)**, pour des seuils de 80 % et 70 % ;
+- `validate-m19.ps1` (Windows) : **PASS** — réacteur 4 108 tests, 0 échec ; architecture 684 tests,
+  0 échec ; budgets de performance tenus ; empaquetage portable et smokes. La preuve Linux n'est pas produite
+  par ce validateur ;
+- suite Python de `scripts/tests` : 521 tests, OK, 1 sauté (`jq` absent).
+
+**Ce que la relecture du refactoring SQLite a trouvé**, et ce qui en a été fait : un test qui comparait le
+nombre de descripteurs de toute la JVM serait devenu instable sous Linux avec le parallélisme — il est isolé.
+Deux remarques restent ouvertes, sans effet observable : la borne du pic de connexions simultanées a disparu
+avec `diagnostics()` (les égalités ouvertes = fermées = opérations détectent toujours une fuite, pas un pic),
+et une opération qui ne demande aucun store ne vérifie plus le schéma.
