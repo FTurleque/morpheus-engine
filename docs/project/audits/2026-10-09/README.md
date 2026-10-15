@@ -8,6 +8,12 @@
 
 ---
 
+## État au 16 octobre 2026 — après les PR #493 à #497
+
+Les cinq PR du lot ont été fusionnées dans `develop` le 16 octobre (HEAD `557fed02`), et les statuts revérifiés sur le code fusionné. **Six constats passent à corrigé** : `AUD-TST-12`, `AUD-TST-18`, `AUD-TRV-04`, `AUD-TRV-05`, `AUD-QUA-13`, `AUD-QUA-17`. **Deux restent partiels** : `AUD-TRV-07` (aucun validateur encore exécuté pour de vrai — le job nocturne `validators-without-a-lane` le fournira pour Linux — et la décision de garder, tester ou retirer chaque validateur revient au mainteneur) et `AUD-DEP-07` (bloqué en amont : Dependency-Check 13.0.1 n'est pas publié).
+
+**100 constats : 33 corrigés · 2 partiels · 40 toujours valides · 2 caducs · 22 Info qui tiennent · 1 non vérifiable.** Le détail du lot et ce qui a été exécuté sur lui (`clean verify`, gate différentiel, `validate-m19`) sont dans la dernière section de `reverification-2026-10-15.md`. Les notes par axe n'ont pas été recalculées.
+
 ## État au 15 octobre 2026 — après fusion
 
 Les 9 constats laissés `partiel` le 13 octobre ont été revérifiés sur le code. Les **six branches dédiées
