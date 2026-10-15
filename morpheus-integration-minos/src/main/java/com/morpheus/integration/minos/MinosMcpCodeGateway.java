@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /** Real inter-process MINOS gateway using its validated MCP STDIO server. */
 public final class MinosMcpCodeGateway implements MinosCodeGateway {
@@ -229,7 +230,7 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
             BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
                     new McpPeerLaunch(launch.command(), launch.arguments(), launch.environment()),
                     McpJsonDefaults.getMapper(), MAX_MCP_RESPONSE_BYTES,
-                    LocalOperationalRuntime.recorder().suppressing(SuppressedFailureFamily.MCP_PEER_PROCESS_TREE));
+                    processTreeFailures(LocalOperationalRuntime.recorder()));
             return McpClient.sync(transport).requestTimeout(launch.timeout()).build();
         } catch (RuntimeException failure) {
             deleteStagedSuppressing(stagedJar, failure);
@@ -271,6 +272,15 @@ public final class MinosMcpCodeGateway implements MinosCodeGateway {
         } catch (IOException residue) {
             recorder.suppressed(SuppressedFailureFamily.STAGED_ARTIFACT_CLEANUP, residue);
         }
+    }
+
+    /**
+     * What the transport is told when a process of the peer could not be listed or signalled. The transport may
+     * depend on no other MORPHEUS package and so cannot count; the gateway that builds it can, under the family whose
+     * non-zero value says that a process of the peer may have outlived it.
+     */
+    static Consumer<Throwable> processTreeFailures(OperationalRecorder recorder) {
+        return recorder.suppressing(SuppressedFailureFamily.MCP_PEER_PROCESS_TREE);
     }
 
     /**

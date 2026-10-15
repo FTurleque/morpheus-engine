@@ -110,10 +110,17 @@ class SilentCatchArchitectureTest {
         for (String gateway : List.of(
                 "morpheus-integration-minos/src/main/java/com/morpheus/integration/minos/MinosMcpCodeGateway.java",
                 "morpheus-integration-nexus/src/main/java/com/morpheus/integration/nexus/NexusMcpContextGateway.java")) {
-            assertTrue(Files.readString(root.resolve(gateway)).contains(
-                            "LocalOperationalRuntime.recorder().suppressing(SuppressedFailureFamily.MCP_PEER_PROCESS_TREE)"),
-                    () -> gateway + " must hand the transport an observer that counts a failed tree observation");
+            String source = Files.readString(root.resolve(gateway));
+            assertTrue(source.contains("processTreeFailures(LocalOperationalRuntime.recorder()));"),
+                    () -> gateway + " must hand the transport the observer built on the recorder of the process");
+            assertTrue(source.contains("return recorder.suppressing(SuppressedFailureFamily.MCP_PEER_PROCESS_TREE);"),
+                    () -> gateway + " must count a process of the peer that could not be listed or signalled");
         }
+        assertFalse(Files.readString(root.resolve(
+                        "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioClientTransport.java"))
+                        .contains("System.Logger.Level.DEBUG"),
+                "a failed signal logged at DEBUG is dropped by the default handler of the JDK: the transport reports "
+                        + "it to the observer its gateway hands it");
         assertTrue(Files.readString(root.resolve("morpheus-cli/src/main/java/com/morpheus/cli/MorpheusMain.java"))
                         .contains("new MorpheusProviderPluginCli(runtime.recorder())"),
                 "the CLI probe must count on the recorder of the process");

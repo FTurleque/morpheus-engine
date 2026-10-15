@@ -39,7 +39,8 @@ public enum SuppressedFailureFamily {
     MCP_PEER_SHUTDOWN("mcp-peer-shutdown", OperationalEventLevel.WARNING),
     /**
      * The descendants of a live MCP peer process could not be listed on one observation. A process the peer started
-     * meanwhile may never be retained, and so may not be terminated with the peer.
+     * meanwhile may never be retained, and so may not be terminated with the peer. Or a live process of the peer, its
+     * root or a retained descendant, refused its termination signal and may outlive it.
      */
     MCP_PEER_PROCESS_TREE("mcp-peer-process-tree", OperationalEventLevel.WARNING),
     /**
