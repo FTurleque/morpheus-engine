@@ -1,5 +1,6 @@
 package com.morpheus.sdk.provider;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.security.ExternalJarIntegrity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -205,7 +206,7 @@ class ProviderPluginProcessIsolationTest {
         return new ProviderPluginService(
                 new ProviderPluginDiscovery(),
                 new ProviderPluginActivator(),
-                new ProviderPluginProbeProcess(timeout));
+                new ProviderPluginProbeProcess(timeout, OperationalRecorder.noop()));
     }
 
     private void assertDescendantTerminated(Path childPidFile) throws Exception {

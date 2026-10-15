@@ -1,5 +1,7 @@
 # Validation M17 — Controlled Lifecycle & Write Operations
 
+> Note du 13/10/2026 — ce relevé cite un wrapper `.cmd` de la racine du dépôt, qui n'existe plus : `validate-m17.cmd` n'a pas de remplaçant : le validateur `validate-m17` a été retiré de `scripts/` et aucune commande ne rejoue plus cette preuve ; son code se relit par `git show 1a6fb8b38:scripts/validate-m17.ps1`. Le relevé n'est pas réécrit : il garde les commandes et les chemins de sa date.
+
 Statut : **✅ VALIDÉ TECHNIQUEMENT — PR #81 prête à intégrer**
 
 Date : 26 juillet 2026

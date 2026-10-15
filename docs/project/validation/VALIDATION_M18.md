@@ -1,5 +1,7 @@
 # Validation M18 — Real Providers & Multi-Provider Composition
 
+> Note du 13/10/2026 — ce relevé cite un wrapper `.cmd` de la racine du dépôt, qui n'existe plus : `validate-m18.cmd` n'a pas de remplaçant : le validateur `validate-m18` a été retiré de `scripts/` et aucune commande ne rejoue plus cette preuve ; son code se relit par `git show 3d58bb9d4:scripts/validate-m18.ps1`. Le relevé n'est pas réécrit : il garde les commandes et les chemins de sa date.
+
 Statut du gate : **✅ VALIDÉ TECHNIQUEMENT sur le SHA testé**  
 Statut GitHub actuel : **✅ INTÉGRÉ — PR #86 MERGED**
 

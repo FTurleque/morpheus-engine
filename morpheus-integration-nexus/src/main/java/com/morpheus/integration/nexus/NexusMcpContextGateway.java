@@ -256,7 +256,8 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
         try {
             BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
                     new McpPeerLaunch(launch.command(), launch.arguments(), launch.environment()),
-                    McpJsonDefaults.getMapper(), MAX_MCP_RESPONSE_BYTES);
+                    McpJsonDefaults.getMapper(), MAX_MCP_RESPONSE_BYTES,
+                    LocalOperationalRuntime.recorder().suppressing(SuppressedFailureFamily.MCP_PEER_PROCESS_TREE));
             return McpClient.sync(transport).requestTimeout(launch.timeout()).build();
         } catch (RuntimeException failure) {
             deleteStagedSuppressing(stagedJar, failure);

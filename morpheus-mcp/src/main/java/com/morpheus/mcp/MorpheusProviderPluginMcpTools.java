@@ -1,7 +1,7 @@
 package com.morpheus.mcp;
 
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
-import com.morpheus.sdk.provider.ProviderPluginService;
+import com.morpheus.sdk.provider.ProviderPluginDiscovery;
 import com.morpheus.sdk.provider.ProviderPluginViews;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -23,7 +23,7 @@ final class MorpheusProviderPluginMcpTools {
     static final String RETIRED_PROBE_TOOL = "probe_provider_plugin";
     static final String REMOTE_DISCOVERY_FAILURE = "PROVIDER_PLUGIN_DISCOVERY_FAILED";
 
-    private final ProviderPluginService service = new ProviderPluginService();
+    private final ProviderPluginDiscovery discovery = new ProviderPluginDiscovery();
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
     private final Optional<Path> pluginDirectory;
 
@@ -59,7 +59,7 @@ final class MorpheusProviderPluginMcpTools {
             Path configuredDirectory = pluginDirectory.orElseThrow(() ->
                     new IllegalStateException("provider-plugin discovery is not configured for this MCP server"));
             Object result = switch (toolName) {
-                case DISCOVER_TOOL -> ProviderPluginViews.remoteDiscovery(service.discover(configuredDirectory));
+                case DISCOVER_TOOL -> ProviderPluginViews.remoteDiscovery(discovery.discover(configuredDirectory));
                 default -> throw new IllegalArgumentException("unknown M22 MCP tool: " + toolName);
             };
             return McpSchema.CallToolResult.builder()

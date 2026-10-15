@@ -198,16 +198,48 @@ sans quelque chose :
 | `sqlite-conflict-read` | `failure.suppressed.sqlite-conflict-read` | en répondant à un conflit de cycle de vie, l'enregistrement d'audit ou l'état courant n'a pas pu être lu ; le conflit est rendu sans distinguer une mutation déjà appliquée d'une vraie collision |
 | `mcp-peer` | `failure.suppressed.mcp-peer` | un pair MCP a échoué - il n'a pas démarré, a dépassé son délai, a répondu quelque chose d'inutilisable - et l'appelant a reçu un « indisponible » nu, la même réponse que pour un projet sans snapshot actif |
 | `mcp-peer-shutdown` | `failure.suppressed.mcp-peer-shutdown` | un pair MCP n'a pas pu être fermé ou interrompu proprement ; son processus peut survivre à l'opération qui l'a lancé |
-| `staged-artifact-cleanup` | `failure.suppressed.staged-artifact-cleanup` | la copie vérifiée d'un JAR épinglé n'a pas pu être supprimée après usage ; elle reste dans le répertoire temporaire |
+| `mcp-peer-process-tree` | `failure.suppressed.mcp-peer-process-tree` | les descendants d'un processus vivant d'un pair MCP n'ont pas pu être énumérés lors d'une observation ; un processus que le pair a lancé entre-temps peut n'être jamais retenu, donc pas terminé avec lui. Compté une fois par énumération en échec, pas une fois par pair |
+| `staged-artifact-cleanup` | `failure.suppressed.staged-artifact-cleanup` | quelque chose que MORPHEUS a déposé dans le répertoire temporaire n'a pas pu être supprimé après usage et y reste : la copie vérifiée d'un JAR épinglé, ou le répertoire privé par lequel une sonde de plugin rend son résultat |
+| `plugin-probe-process-tree` | `failure.suppressed.plugin-probe-process-tree` | les descendants d'un processus d'une sonde de plugin n'ont pas pu être énumérés lors d'une observation ; un processus que le plugin a lancé entre-temps peut n'être jamais retenu par le parent. Compté une fois par énumération en échec |
+| `plugin-probe-shutdown` | `failure.suppressed.plugin-probe-shutdown` | un processus vivant d'une sonde de plugin - le worker ou un descendant observé - n'a pas pu recevoir son signal de terminaison ; il peut survivre à la sonde. Compté à chaque passe, la passe forcée comprise |
 | `sqlite-lease-release` | `failure.suppressed.sqlite-lease-release` | le verrou ou le canal d'un bail de base n'a pas pu être relâché ou fermé ; le bail est rendu alors que le système peut encore tenir le verrou, et la prochaine ouverture de cette base peut être refusée comme occupée |
 | `source-watch` | `failure.suppressed.source-watch` | un changement sous une racine surveillée n'a pas pu devenir un signal - un répertoire impossible à enregistrer, un chemin hors du workspace - et a été rendu comme un débordement ; un nouveau répertoire peut rester non surveillé |
 
-Ces compteurs sont servis avec les autres par `GET /api/v1/metrics`, en local comme à travers la façade remote.
+Ces compteurs sont servis avec les autres par `GET /api/v1/metrics`, en local comme à travers la façade remote
+(rôle `ADMIN`). La projection ne porte aucune liste de noms : une famille est servie dès qu'elle a compté une fois, et
+absente tant qu'elle n'a jamais bougé (`SuppressedFailureCountersServedTest`, et `UnforeseenFailureTraceTest` à travers
+un vrai serveur).
 
-Le module `morpheus-mcp-transport` ne peut dépendre d'aucun autre paquet MORPHEUS, donc il ne compte rien lui-même.
-L'interruption d'une opération qui a dépassé son délai lui est remise par la passerelle (`MinosMcpCodeGateway`,
-`NexusMcpContextGateway`) : c'est elle qui l'enveloppe (`countingAbort`) et compte son échec avant de le laisser
-remonter.
+**Les noms de compteurs ne font pas partie du contrat OpenAPI.** `docs/developer/reference/openapi/morpheus-v1.yaml`
+décrit la réponse de `/metrics` comme l'enveloppe générique `Success`, sans schéma de ses compteurs ; le manifeste de
+convergence n'a pas de ligne pour cette sonde d'exploitation. Ajouter une famille ne touche donc ni l'OpenAPI ni le
+manifeste, et un client ne peut s'appuyer que sur cette page et sur `SuppressedFailureFamily`. C'est l'état constaté le
+13/10/2026 et l'option retenue par défaut ; figer l'ensemble des noms dans l'OpenAPI serait une décision de contrat,
+qui revient au mainteneur.
+
+Deux modules ne comptent pas par eux-mêmes, et reçoivent ce qui compte de celui qui les construit :
+
+- `morpheus-mcp-transport` ne peut dépendre d'aucun autre paquet MORPHEUS. L'interruption d'une opération qui a
+  dépassé son délai lui est remise par la passerelle (`MinosMcpCodeGateway`, `NexusMcpContextGateway`) : c'est elle qui
+  l'enveloppe (`countingAbort`) et compte son échec avant de le laisser remonter. De même, le transport **signale** une
+  énumération de descendants en échec à un observateur (`Consumer<? super RuntimeException>`) que la passerelle lui
+  passe à la construction, et c'est elle qui compte (`mcp-peer-process-tree`).
+- `morpheus-provider-sdk` ne lit pas le runtime du processus. `ProviderPluginService` prend son enregistreur par
+  constructeur : la CLI lui passe celui du processus, le serveur HTTP celui dont il sert les métriques. L'adaptateur
+  MCP ne sonde pas ; il ne tient qu'une `ProviderPluginDiscovery` et n'a besoin d'aucun enregistreur.
+
+Compter ne change rien à la terminaison : les mêmes signaux partent dans le même ordre, et la terminaison des
+descendants d'un pair MCP reste best-effort (`SECURITY.md`). Un compteur à zéro ne prouve pas qu'aucun processus n'a
+survécu ; il dit seulement qu'aucune énumération ni aucun signal n'a échoué.
+
+**Ce qui reste sans trace.** `ProviderPluginProbeWorker` termine son propre sous-arbre dans un autre processus que
+MORPHEUS : il n'a pas d'enregistreur, sa sortie est jetée par le parent, et son fichier de résultat est déjà écrit
+quand il nettoie. Un descendant qu'il ne parvient pas à signaler n'est donc compté nulle part. Le parent signale
+ensuite chaque processus qu'il a lui-même observé et compte ses propres échecs (`plugin-probe-shutdown`) ; un
+descendant que seul le worker a vu échappe aux deux. Ce catch est nommé avec cette raison dans
+`SilentCatchArchitectureTest`. Le remonter demanderait un canal de plus entre le worker et le parent - un second
+fichier dans le répertoire de résultat, ou un code de sortie - donc un changement du protocole de sonde, qui n'a pas
+été pris ici.
 
 Le cœur de raisonnement reste pur : `ReasoningAdapterRegistry` ne connaît aucun enregistreur. Il **signale** ce qu'il
 écarte à un observateur (`Consumer<Throwable>`) que lui passent les trois adaptateurs qui le construisent - CLI, MCP,

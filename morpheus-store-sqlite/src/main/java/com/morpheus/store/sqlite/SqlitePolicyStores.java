@@ -7,7 +7,10 @@ import java.nio.file.Path;
 import java.util.Objects;
 
 /**
- * The SQLite stores a policy runtime reads from, opened together and released together.
+ * The SQLite stores a policy runtime reads from, opened together on one connection and released together.
+ *
+ * <p>The set opens a {@link SqliteConnectionScope} before its first store, so the eight stores share one physical
+ * connection and one schema check. It did not: a policy operation opened eight connections on every transport.</p>
  *
  * <p>Three adapters expose policy, and each opened the same eight stores in the same order. Opening several
  * stores is where a partial assembly leaks, so the set is opened in one place that gets that right once: each
@@ -15,6 +18,7 @@ import java.util.Objects;
  * when the whole runtime it is building is complete.</p>
  */
 public record SqlitePolicyStores(
+        SqliteConnectionScope scope,
         SqliteSpecificationKnowledgeStore snapshots,
         SqliteVersionedRequirementStore requirements,
         SqliteSnapshotBusinessContentStore content,
@@ -34,6 +38,7 @@ public record SqlitePolicyStores(
         Objects.requireNonNull(databasePath, "databasePath");
         Objects.requireNonNull(owned, "owned");
         return new SqlitePolicyStores(
+                owned.keep(SqliteStoreConnection.openScope(databasePath), SqliteConnectionScope::close),
                 owned.keep(new SqliteSpecificationKnowledgeStore(databasePath),
                         SqliteSpecificationKnowledgeStore::close),
                 owned.keep(new SqliteVersionedRequirementStore(databasePath),
@@ -47,7 +52,7 @@ public record SqlitePolicyStores(
                 owned.keep(new SqliteCompositionStateStore(databasePath), SqliteCompositionStateStore::close));
     }
 
-    /** Releases every store, in the reverse of the order they were opened, even when one release fails. */
+    /** Releases every store, then the connection they shared, even when one release fails. */
     @Override
     public void close() {
         ExhaustiveShutdown.releaseAll(
@@ -59,6 +64,7 @@ public record SqlitePolicyStores(
                 traceability,
                 content,
                 requirements,
-                snapshots);
+                snapshots,
+                scope);
     }
 }

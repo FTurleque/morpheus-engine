@@ -185,7 +185,7 @@ class BoundedStdioClientTransportLifecycleTest {
         McpPeerLaunch missingCommand =
                 new McpPeerLaunch("morpheus-command-that-does-not-exist-20260904", List.of(), Map.of());
         BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
-                missingCommand, McpJsonDefaults.getMapper(), 1024);
+                missingCommand, McpJsonDefaults.getMapper(), 1024, failure -> { });
 
         Mono<Void> firstConnect = transport.connect(message -> message);
         IllegalStateException unstarted = assertThrows(IllegalStateException.class, firstConnect::block);
@@ -206,7 +206,7 @@ class BoundedStdioClientTransportLifecycleTest {
         return new BoundedStdioClientTransport(
                 peerLaunch(FixtureLaunchRecordingMcpPeer.class, launches.toString()),
                 McpJsonDefaults.getMapper(),
-                4096);
+                4096, failure -> { });
     }
 
     private void awaitLaunches(Path launches, int expected) throws InterruptedException {

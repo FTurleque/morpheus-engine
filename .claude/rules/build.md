@@ -18,14 +18,14 @@ Bumper une de ces versions **casse le gate** tant que le test n'est pas mis à j
 ## TOUJOURS
 
 - Utiliser `./mvnw` (Maven Wrapper 3.10.0) — jamais `mvn` nu
-- Déclarer toute dépendance dans le `<dependencyManagement>` du POM racine, puis la référencer **sans version** dans le module
+- Déclarer toute dépendance dans le `<dependencyManagement>` du POM racine (ou la laisser à un BOM importé), et tout plugin dans son `<pluginManagement>`, puis les référencer **sans version** dans le module
 - Vérifier l'hygiène après ajout : `./mvnw dependency:analyze` — `<failOnWarning>true</failOnWarning>` est actif, **0 warning** ou le build casse
 - Construire `morpheus-provider-reference` avant les tests d'architecture (M22 lit son JAR depuis `target/`)
 - Justifier toute suppression CVE dans `config/dependency-check-suppressions.xml` avec un commentaire
 
 ## JAMAIS
 
-- Jamais de version de dépendance en dur dans un POM de module
+- Jamais de `<version>` de dépendance ou de plugin dans un POM de module, littérale **ou** par propriété : les deux seules formes admises sont la version du `<parent>` et `${project.version}` pour un module frère (`D2RepositoryHardeningArchitectureTest#noModulePomStatesAVersionTheRootPomShouldDecide`)
 - Jamais de dépendance `unused declared` ni `used undeclared` — le CI échoue
 - Jamais ajouter `morpheus-provider-sdk` ou `morpheus-provider-reference` aux POMs de `domain` / `application`
 - Jamais embarquer `morpheus-provider-reference` dans `morpheus-cli/pom.xml`
@@ -35,7 +35,8 @@ Bumper une de ces versions **casse le gate** tant que le test n'est pas mis à j
 ## `dependencyManagement` — le mécanisme concret
 
 Le POM racine importe des BOM (`junit-bom`, `mcp-bom`, `reactor-bom`, `jackson-bom`) et
-gère `slf4j-api` en version fixe :
+gère lui-même, par propriété, les dépendances qu'aucun BOM ne couvre — relire son `<dependencyManagement>` plutôt que
+cette phrase pour en avoir la liste :
 
 ```xml
 <!-- pom.xml racine -->
