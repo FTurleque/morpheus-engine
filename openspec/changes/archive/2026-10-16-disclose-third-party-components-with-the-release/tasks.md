@@ -11,9 +11,10 @@ that introduces this change.
 - [x] 1.2 SBOM on the release page only, or also in the installed tree? Proof: the decision, in the pull request.
   - 2026-10-11: not decided; this lot publishes the SBOM on the release page only, as the design says.
   - 2026-10-16: the maintainer decided: the release page only, as shipped.
-- [ ] 1.3 A human reading of the generated `THIRD-PARTY-NOTICES` before the tag (see `design.md`, risks). Proof: the
+- [x] 1.3 A human reading of the generated `THIRD-PARTY-NOTICES` before the tag (see `design.md`, risks). Proof: the
       maintainer's sign-off in the pull request. The gate does not replace it.
   - 2026-10-11: not done: the generated file is produced and attached to nothing yet. The texts were read upstream at the tags of the shipped versions; whether they are sufficient is a human reading.
+  - 2026-10-16: the maintainer signed off on the generated file after a reviewed reading: the 13 components are exactly the runtime class path of `morpheus-cli` at `f07c880f`, the `NOTICE` of each JAR that ships one (four Jackson artifacts) is reproduced in full, and sqlite-jdbc's BSD `LICENSE.zentus` is reproduced beside its Apache-2.0 text.
 
 ## 2. Measure before changing
 
