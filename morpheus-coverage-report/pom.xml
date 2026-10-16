@@ -93,6 +93,8 @@
                       skipped for this module. It follows ${skipTests} rather than a literal false: pinning it
                       made this the one execution `-DskipTests` could not skip, and the resulting failure blamed
                       a missing JaCoCo report instead of the skip that removed it.
+                      SkippedTestReasonGateTest shares this execution for the same reason it is placed
+                      here: it reads what every other module of the reactor wrote, so it runs after all of them.
                     -->
                     <execution>
                         <id>aggregate-coverage-gate</id>
@@ -104,6 +106,7 @@
                             <skipTests>${skipTests}</skipTests>
                             <includes>
                                 <include>**/AggregateCoverageGateTest.java</include>
+                                <include>**/SkippedTestReasonGateTest.java</include>
                             </includes>
                         </configuration>
                     </execution>
