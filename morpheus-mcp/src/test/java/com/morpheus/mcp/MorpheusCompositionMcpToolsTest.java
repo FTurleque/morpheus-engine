@@ -6,9 +6,13 @@ import com.morpheus.application.composition.CompositionEntityType;
 import com.morpheus.application.composition.CompositionProviderState;
 import com.morpheus.application.composition.CompositionResolution;
 import com.morpheus.application.composition.CompositionSnapshotState;
+import com.morpheus.application.operability.OperationalEventSink;
+import com.morpheus.application.operability.OperationalMetrics;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.provider.ProviderId;
 import com.morpheus.store.sqlite.SqliteCompositionStateStore;
+import com.morpheus.store.sqlite.SqliteConnectionScope;
 import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -31,7 +35,7 @@ class MorpheusCompositionMcpToolsTest {
 
     @Test
     void exposesTwoReadOnlyCompositionToolSpecifications() {
-        var specifications = new MorpheusCompositionMcpTools(tempDirectory.resolve("morpheus.db")).specifications();
+        var specifications = new MorpheusCompositionMcpTools(tempDirectory.resolve("morpheus.db"), OperationalRecorder.noop()).specifications();
 
         assertEquals(2, specifications.size());
         specifications.forEach(specification -> assertNotNull(specification.tool()));
@@ -43,7 +47,7 @@ class MorpheusCompositionMcpToolsTest {
      */
     @Test
     void theConflictsToolPublishesThePageBoundsTheHandlerEnforcesAndTheStatusToolPublishesNone() {
-        var specifications = new MorpheusCompositionMcpTools(tempDirectory.resolve("morpheus.db")).specifications();
+        var specifications = new MorpheusCompositionMcpTools(tempDirectory.resolve("morpheus.db"), OperationalRecorder.noop()).specifications();
         Map<String, Object> conflicts = properties(specifications, MorpheusCompositionMcpTools.CONFLICTS_TOOL);
         Map<String, Object> status = properties(specifications, MorpheusCompositionMcpTools.STATUS_TOOL);
 
@@ -60,7 +64,7 @@ class MorpheusCompositionMcpToolsTest {
     void theConflictsToolPagesTheStoredConflictsInTheOrderTheStateKeeps() throws Exception {
         Path database = tempDirectory.resolve("composition.db").toAbsolutePath().normalize();
         String projectId = storeCompositionOfThreeConflicts(database);
-        var specifications = new MorpheusCompositionMcpTools(database).specifications();
+        var specifications = new MorpheusCompositionMcpTools(database, OperationalRecorder.noop()).specifications();
 
         Map<?, ?> whole = conflicts(specifications, Map.of("projectId", projectId));
         assertEquals(List.of("a/first", "b/second", "c/third"), logicalKeys(whole), "conflicts must come back in the order of the state");
@@ -84,6 +88,23 @@ class MorpheusCompositionMcpToolsTest {
         assertEquals(3, beyond.get("totalMatches"));
         assertEquals(false, beyond.get("hasMore"));
         assertEquals(10, beyond.get("offset"));
+    }
+
+    /** The two stores of a composition tool call borrow one physical connection, as every other tool call does. */
+    @Test
+    void aCompositionToolCallOpensOnePhysicalConnection() throws Exception {
+        Path database = tempDirectory.resolve("composition.db").toAbsolutePath().normalize();
+        String projectId = storeCompositionOfThreeConflicts(database);
+        OperationalMetrics metrics = new OperationalMetrics();
+        var specifications = new MorpheusCompositionMcpTools(
+                database, new OperationalRecorder(OperationalEventSink.noop(), metrics)).specifications();
+
+        conflicts(specifications, Map.of("projectId", projectId));
+
+        Map<String, Long> counters = metrics.snapshot().counters();
+        assertEquals(1L, counters.get(SqliteConnectionScope.CONNECTIONS_OPENED));
+        assertEquals(1L, counters.get(SqliteConnectionScope.CONNECTIONS_CLOSED));
+        assertEquals(1L, counters.get(SqliteConnectionScope.SCHEMA_CHECKS));
     }
 
     private Map<?, ?> conflicts(

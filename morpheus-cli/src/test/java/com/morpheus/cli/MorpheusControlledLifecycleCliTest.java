@@ -2,6 +2,9 @@ package com.morpheus.cli;
 
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
+import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.project.ProjectSpecificationId;
@@ -74,18 +77,18 @@ class MorpheusControlledLifecycleCliTest {
                 Optional.of(data), Optional.empty(), Optional.empty(), Map.of(), properties);
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         Path fixture = fixture("synthetic-basic");
-        try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath(), OperationalRecorder.noop())) {
             var normalized = new SyntheticSpecificationContentReader()
                     .read(
                             ProviderReadRequest.all(fixture, projectId),
-                            new PersistentEntityIdentityResolver(runtime.identities))
+                            new PersistentEntityIdentityResolver(runtime.identities()))
                     .content()
                     .orElseThrow();
             new ProjectSnapshotImportService(
-                    runtime.snapshots,
-                    runtime.requirements,
-                    runtime.content,
-                    runtime.traceability)
+                    runtime.snapshots(),
+                    runtime.requirements(),
+                    runtime.content(),
+                    runtime.traceability())
                     .publishFull(normalized, Optional.of("m17-cli-test"), Instant.parse("2026-07-26T15:30:00Z"));
             return new Seed(data, layout.databasePath(), projectId.toString(), normalized.changes().getFirst().id().toString());
         }
@@ -104,7 +107,7 @@ class MorpheusControlledLifecycleCliTest {
         ByteArrayOutputStream errBytes = new ByteArrayOutputStream();
         try (PrintStream out = new PrintStream(outBytes, true, StandardCharsets.UTF_8);
              PrintStream err = new PrintStream(errBytes, true, StandardCharsets.UTF_8)) {
-            int exitCode = MorpheusMain.run(args, out, err, Map.of(), properties());
+            int exitCode = MorpheusMain.run(OperationalRuntime.of(OperationalLogMode.OFF), args, out, err, Map.of(), properties());
             return new Invocation(
                     exitCode,
                     outBytes.toString(StandardCharsets.UTF_8).replace("\r\n", "\n"),

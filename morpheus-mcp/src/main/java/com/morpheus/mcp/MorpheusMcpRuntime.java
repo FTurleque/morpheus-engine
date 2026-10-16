@@ -1,81 +1,104 @@
 package com.morpheus.mcp;
 
-import com.morpheus.application.operability.ExhaustiveShutdown;
-import com.morpheus.application.operability.StartupOwnership;
-import com.morpheus.store.sqlite.SqliteChangeLifecycleMutationStore;
-import com.morpheus.store.sqlite.SqliteExternalReferenceStore;
-import com.morpheus.store.sqlite.SqliteSnapshotBusinessContentStore;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
-import com.morpheus.store.sqlite.SqliteSyncStateStore;
-import com.morpheus.store.sqlite.SqliteTraceabilityStore;
-import com.morpheus.store.sqlite.SqliteVersionedRequirementStore;
+import com.morpheus.application.composition.CompositionStateStore;
+import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationStore;
+import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.policy.PolicyEvaluationService;
+import com.morpheus.application.policy.PolicyPackService;
+import com.morpheus.application.query.dsl.QueryExecutionService;
+import com.morpheus.application.query.export.QueryExportService;
+import com.morpheus.application.query.saved.SavedViewService;
+import com.morpheus.application.store.ExternalReferenceStore;
+import com.morpheus.application.store.PolicyPackStore;
+import com.morpheus.application.store.PortfolioStore;
+import com.morpheus.application.store.SnapshotBusinessContentStore;
+import com.morpheus.application.store.SpecificationKnowledgeStore;
+import com.morpheus.application.store.SyncStateStore;
+import com.morpheus.application.store.TraceabilityStore;
+import com.morpheus.application.store.VersionedRequirementStore;
+import com.morpheus.store.sqlite.SqliteOperationRuntime;
 
 import java.nio.file.Path;
 import java.util.Objects;
 
-/** Owns the SQLite adapters used by one MCP tool invocation. */
+/**
+ * The runtime of one MCP tool call, and the only type through which a tool reaches the database.
+ *
+ * <p>Every store a tool asks for shares one physical SQLite connection and one schema check, and is built the first
+ * time it is asked for. The connection is thread-confined, so a runtime is built, used and closed by the thread that
+ * handles the tool call. A database that cannot be opened is the store failure every tool handler answers.</p>
+ */
 final class MorpheusMcpRuntime implements AutoCloseable {
-    final SqliteSpecificationKnowledgeStore snapshots;
-    final SqliteVersionedRequirementStore requirements;
-    final SqliteSnapshotBusinessContentStore content;
-    final SqliteTraceabilityStore traceability;
-    final SqliteExternalReferenceStore externalReferences;
-    final SqliteSyncStateStore syncState;
-    final SqliteChangeLifecycleMutationStore lifecycleMutations;
+    private final SqliteOperationRuntime operation;
 
-    /**
-     * Each store opens its own SQLite connection, and the constructor opens seven of them. Assigning straight to
-     * the fields meant a failure on the fourth left the first three open with no way to reach them: the
-     * constructor never returns, so nothing can call {@link #close()} on a half-built runtime. The stores stay
-     * owned here until all seven exist.
-     */
-    MorpheusMcpRuntime(Path databasePath) {
-        Objects.requireNonNull(databasePath, "databasePath");
-        try (StartupOwnership owned = new StartupOwnership()) {
-            SqliteSpecificationKnowledgeStore openedSnapshots = owned.keep(
-                    new SqliteSpecificationKnowledgeStore(databasePath),
-                    SqliteSpecificationKnowledgeStore::close);
-            SqliteVersionedRequirementStore openedRequirements = owned.keep(
-                    new SqliteVersionedRequirementStore(databasePath),
-                    SqliteVersionedRequirementStore::close);
-            SqliteSnapshotBusinessContentStore openedContent = owned.keep(
-                    new SqliteSnapshotBusinessContentStore(databasePath),
-                    SqliteSnapshotBusinessContentStore::close);
-            SqliteTraceabilityStore openedTraceability = owned.keep(
-                    new SqliteTraceabilityStore(databasePath),
-                    SqliteTraceabilityStore::close);
-            SqliteExternalReferenceStore openedExternalReferences = owned.keep(
-                    new SqliteExternalReferenceStore(databasePath),
-                    SqliteExternalReferenceStore::close);
-            SqliteSyncStateStore openedSyncState = owned.keep(
-                    new SqliteSyncStateStore(databasePath),
-                    SqliteSyncStateStore::close);
-            SqliteChangeLifecycleMutationStore openedLifecycleMutations = owned.keep(
-                    new SqliteChangeLifecycleMutationStore(databasePath),
-                    SqliteChangeLifecycleMutationStore::close);
+    /** Opens the runtime of one tool call, whose pressure on the database is counted on {@code recorder}. */
+    MorpheusMcpRuntime(Path databasePath, OperationalRecorder recorder) {
+        this.operation = SqliteOperationRuntime.open(
+                Objects.requireNonNull(databasePath, "databasePath"), Objects.requireNonNull(recorder, "recorder"));
+    }
 
-            owned.transferred();
-            snapshots = openedSnapshots;
-            requirements = openedRequirements;
-            content = openedContent;
-            traceability = openedTraceability;
-            externalReferences = openedExternalReferences;
-            syncState = openedSyncState;
-            lifecycleMutations = openedLifecycleMutations;
-        }
+    SpecificationKnowledgeStore snapshots() {
+        return operation.snapshots();
+    }
+
+    VersionedRequirementStore requirements() {
+        return operation.requirements();
+    }
+
+    SnapshotBusinessContentStore content() {
+        return operation.content();
+    }
+
+    TraceabilityStore traceability() {
+        return operation.traceability();
+    }
+
+    ExternalReferenceStore externalReferences() {
+        return operation.externalReferences();
+    }
+
+    SyncStateStore syncState() {
+        return operation.syncState();
+    }
+
+    ChangeLifecycleMutationStore lifecycleMutations() {
+        return operation.lifecycleMutations();
+    }
+
+    CompositionStateStore compositions() {
+        return operation.compositions();
+    }
+
+    PortfolioStore portfolios() {
+        return operation.portfolios();
+    }
+
+    PolicyPackStore policyPacks() {
+        return operation.policyPacks();
+    }
+
+    QueryExecutionService queries() {
+        return operation.queries();
+    }
+
+    SavedViewService views() {
+        return operation.views();
+    }
+
+    QueryExportService exports() {
+        return operation.exports();
+    }
+
+    PolicyPackService registry() {
+        return operation.registry();
+    }
+
+    PolicyEvaluationService evaluation() {
+        return operation.evaluation();
     }
 
     @Override
     public void close() {
-        ExhaustiveShutdown.releaseAll(
-                "cannot close MCP runtime resource",
-                lifecycleMutations,
-                syncState,
-                externalReferences,
-                traceability,
-                content,
-                requirements,
-                snapshots);
+        operation.close();
     }
-
 }

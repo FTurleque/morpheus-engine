@@ -118,7 +118,7 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
                 displayName,
                 ProviderProjectRoot.locator(root));
 
-        NormalizedProjectContent content = new NormalizedProjectContent(
+        NormalizedProjectContent content = NormalizedProjectContent.withoutAcceptanceCriteria(
                 project,
                 state.specifications,
                 state.requirements,

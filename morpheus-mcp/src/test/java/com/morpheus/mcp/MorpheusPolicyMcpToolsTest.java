@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.policy.PolicyBudgets;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -21,7 +22,7 @@ class MorpheusPolicyMcpToolsTest {
 
     @Test
     void exposesCompleteM25IntentSetWithStrictSchemas() {
-        var specifications = new MorpheusPolicyMcpTools(temporaryDirectory.resolve("morpheus.db")).specifications();
+        var specifications = new MorpheusPolicyMcpTools(temporaryDirectory.resolve("morpheus.db"), OperationalRecorder.noop()).specifications();
         assertEquals(12, specifications.size());
         Set<String> names = specifications.stream().map(item -> item.tool().name()).collect(Collectors.toSet());
         assertEquals(Set.of(
@@ -48,7 +49,7 @@ class MorpheusPolicyMcpToolsTest {
 
     @Test
     void createSchemaPublishesRuleBudgetAndNoExecutablePolicyFields() {
-        var create = new MorpheusPolicyMcpTools(temporaryDirectory.resolve("morpheus.db")).specifications().stream()
+        var create = new MorpheusPolicyMcpTools(temporaryDirectory.resolve("morpheus.db"), OperationalRecorder.noop()).specifications().stream()
                 .filter(item -> item.tool().name().equals(MorpheusPolicyMcpTools.CREATE))
                 .findFirst().orElseThrow().tool().inputSchema();
         @SuppressWarnings("unchecked")

@@ -1,5 +1,6 @@
 package com.morpheus.store.sqlite;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.store.KnowledgeStoreException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -72,7 +73,7 @@ class SqlitePreMigrationCopyTest {
     void anOutdatedDatabaseOpenedInsideARequestScopeIsCopiedOnTheScopedConnection() throws Exception {
         Path database = outdatedDatabase("scoped.db");
 
-        try (SqliteConnectionScope scope = SqliteConnectionScope.open(database);
+        try (SqliteConnectionScope scope = SqliteConnectionScope.open(database, OperationalRecorder.noop());
              var first = new SqliteSpecificationKnowledgeStore(database);
              var second = new SqliteSpecificationKnowledgeStore(database)) {
             // Per-request runtimes open several stores on one shared connection: the first migrates, the others

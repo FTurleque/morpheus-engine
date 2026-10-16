@@ -1,5 +1,7 @@
 package com.morpheus.store.sqlite;
 
+import com.morpheus.application.operability.OperationalRecorder;
+
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
@@ -9,18 +11,46 @@ import java.sql.SQLException;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Explicit thread-confined scope that lets multiple SQLite store adapters share one physical connection.
  * Logical connections retain normal close semantics without owning the physical connection.
+ *
+ * <p>The pressure a scope puts on the database - the physical connections it opens and releases, and the schema
+ * checks it runs - is counted on the recorder its opener names, under the three names below, and nowhere else. These
+ * were static counters of the process: a test could only read them as a difference, and two tests running at once
+ * read each other's.</p>
  */
 public final class SqliteConnectionScope implements AutoCloseable {
+    /** The code a second scope opened on a thread that already holds one is refused with. */
+    public static final String NESTED_REFUSAL = "SQLITE_CONNECTION_SCOPE_NESTED";
+    /** Physical connections scopes opened, the replacement after a failed cleanup included. */
+    public static final String CONNECTIONS_OPENED = "sqlite.scope.connection.opened";
+    /** Physical connections scopes released; one the driver failed to release is not counted until it is. */
+    public static final String CONNECTIONS_CLOSED = "sqlite.scope.connection.closed";
+    /** Schema checks run on the connection of a scope: one per scope, whatever the number of stores it serves. */
+    public static final String SCHEMA_CHECKS = "sqlite.scope.schema.checked";
+
+    /**
+     * A second scope was opened on a thread that already holds one. It is a defect of the caller - two runtimes alive
+     * at once on one thread - and never a state of the database: it has a type of its own so that a caller that
+     * translates a failure to open the database can let this one through without reading a message.
+     */
+    public static final class NestedScopeException extends IllegalStateException {
+        private static final long serialVersionUID = 1L;
+
+        private NestedScopeException() {
+            super(NESTED_REFUSAL + ": a SQLite connection scope is already open on this thread, and scopes do not nest");
+        }
+    }
+
+    private static void requireNoScopeOnThisThread() {
+        if (ACTIVE.get() != null) {
+            throw new NestedScopeException();
+        }
+    }
+
     private static final ThreadLocal<State> ACTIVE = new ThreadLocal<>();
-    private static final AtomicLong PHYSICAL_OPENED = new AtomicLong();
-    private static final AtomicLong PHYSICAL_CLOSED = new AtomicLong();
-    private static final AtomicInteger PHYSICAL_ACTIVE = new AtomicInteger();
-    private static final AtomicInteger PHYSICAL_PEAK = new AtomicInteger();
 
     private final State state;
     private boolean closed;
@@ -29,20 +59,25 @@ public final class SqliteConnectionScope implements AutoCloseable {
         this.state = state;
     }
 
-    public static SqliteConnectionScope open(Path databasePath) {
-        return open(databasePath, SqliteDatabaseSecurity.DEFAULT_BUSY_TIMEOUT_MILLIS);
+    /**
+     * Opens a scope whose stores are observed by {@code recorder}: every transaction a store runs on the connection
+     * of this scope, the connection itself and its schema check are counted there, and nowhere else. There is no
+     * opening without a recorder: a scope whose opener named none counted where nobody could tell its operations apart.
+     */
+    public static SqliteConnectionScope open(Path databasePath, OperationalRecorder recorder) {
+        return open(databasePath, SqliteDatabaseSecurity.DEFAULT_BUSY_TIMEOUT_MILLIS,
+                new SqliteContentionMetrics(recorder));
     }
 
-    public static SqliteConnectionScope open(Path databasePath, int busyTimeoutMillis) {
+    private static SqliteConnectionScope open(
+            Path databasePath, int busyTimeoutMillis, SqliteContentionMetrics contention) {
         Objects.requireNonNull(databasePath, "databasePath");
         // Rejected before the connection is opened: refusing afterwards would leak the connection it opened.
-        if (ACTIVE.get() != null) {
-            throw new IllegalStateException("nested SQLite connection scopes are not supported");
-        }
+        requireNoScopeOnThisThread();
         Path normalized = databasePath.toAbsolutePath().normalize();
         try {
             return adopt(normalized, busyTimeoutMillis,
-                    SqliteDatabaseSecurity.openPhysical(normalized, busyTimeoutMillis));
+                    SqliteDatabaseSecurity.openPhysical(normalized, busyTimeoutMillis, contention), contention);
         } catch (SQLException failure) {
             throw new IllegalStateException("cannot open SQLite operation scope", failure);
         }
@@ -53,16 +88,17 @@ public final class SqliteConnectionScope implements AutoCloseable {
      *
      * <p>{@link #close()} has to behave when the driver fails to release the connection, and a healthy SQLite
      * file never produces that failure. Taking the connection as a parameter is how that branch is reached, the
-     * same way {@link SqliteTransactionRunner} takes the connection whose cleanup failures it must survive.</p>
+     * same way {@link SqliteTransactionRunner} takes the connection whose cleanup failures it must survive. The
+     * counters the scope writes to are named with it.</p>
      */
-    static SqliteConnectionScope adopt(Path databasePath, int busyTimeoutMillis, Connection physical) {
+    static SqliteConnectionScope adopt(
+            Path databasePath, int busyTimeoutMillis, Connection physical, SqliteContentionMetrics contention) {
         Objects.requireNonNull(databasePath, "databasePath");
         Objects.requireNonNull(physical, "physical");
-        if (ACTIVE.get() != null) {
-            throw new IllegalStateException("nested SQLite connection scopes are not supported");
-        }
-        State state = new State(databasePath.toAbsolutePath().normalize(), busyTimeoutMillis, physical);
-        recordPhysicalOpen();
+        Objects.requireNonNull(contention, "contention");
+        requireNoScopeOnThisThread();
+        State state = new State(databasePath.toAbsolutePath().normalize(), busyTimeoutMillis, physical, contention);
+        contention.scopedConnectionOpened();
         ACTIVE.set(state);
         return new SqliteConnectionScope(state);
     }
@@ -75,15 +111,6 @@ public final class SqliteConnectionScope implements AutoCloseable {
         return state.schemaInitializations;
     }
 
-    /** Process-level pressure diagnostics for scoped API sessions. */
-    public static Diagnostics diagnostics() {
-        return new Diagnostics(
-                PHYSICAL_OPENED.get(),
-                PHYSICAL_CLOSED.get(),
-                PHYSICAL_ACTIVE.get(),
-                PHYSICAL_PEAK.get());
-    }
-
     static boolean schemaReadyIfActive() {
         State state = ACTIVE.get();
         return state != null && state.schemaReady;
@@ -94,6 +121,7 @@ public final class SqliteConnectionScope implements AutoCloseable {
         if (state != null && !state.schemaReady) {
             state.schemaReady = true;
             state.schemaInitializations++;
+            state.contention.scopedSchemaChecked();
         }
     }
 
@@ -140,9 +168,10 @@ public final class SqliteConnectionScope implements AutoCloseable {
         }
 
         try {
-            active.physical = SqliteDatabaseSecurity.openPhysical(active.databasePath, active.busyTimeoutMillis);
+            active.physical = SqliteDatabaseSecurity.openPhysical(
+                    active.databasePath, active.busyTimeoutMillis, active.contention);
             active.physicalCountedActive = true;
-            recordPhysicalOpen();
+            active.contention.scopedConnectionOpened();
             // Schema is durable in the database and was already initialized for this scope.
             return true;
         } catch (SQLException | RuntimeException | Error reopenFailure) {
@@ -207,37 +236,28 @@ public final class SqliteConnectionScope implements AutoCloseable {
         state.quarantineCause = cause;
     }
 
-    private static void recordPhysicalOpen() {
-        PHYSICAL_OPENED.incrementAndGet();
-        int active = PHYSICAL_ACTIVE.incrementAndGet();
-        PHYSICAL_PEAK.accumulateAndGet(active, Math::max);
-    }
-
     private static void recordPhysicalClose(State state) {
         if (!state.physicalCountedActive) return;
         state.physicalCountedActive = false;
-        PHYSICAL_CLOSED.incrementAndGet();
-        PHYSICAL_ACTIVE.decrementAndGet();
+        state.contention.scopedConnectionClosed();
     }
 
     private static void suppress(Throwable primary, Throwable secondary) {
         if (primary != secondary) primary.addSuppressed(secondary);
     }
 
-    public record Diagnostics(long opened, long closed, int active, int peak) {
-        public Diagnostics {
-            if (opened < 0 || closed < 0 || active < 0 || peak < 0) {
-                throw new IllegalArgumentException("SQLite connection diagnostics must not be negative");
-            }
-        }
-    }
-
-    private static final class ScopedConnectionHandler implements InvocationHandler {
+    private static final class ScopedConnectionHandler
+            implements InvocationHandler, SqliteContentionMetrics.Carrier {
         private final State state;
         private final AtomicBoolean logicalClosed = new AtomicBoolean();
 
         private ScopedConnectionHandler(State state) {
             this.state = state;
+        }
+
+        @Override
+        public SqliteContentionMetrics contention() {
+            return state.contention;
         }
 
         @Override
@@ -289,6 +309,8 @@ public final class SqliteConnectionScope implements AutoCloseable {
     private static final class State {
         private final Path databasePath;
         private final int busyTimeoutMillis;
+        /** What the opener of the scope observes its transactions with; a replaced connection keeps it. */
+        private final SqliteContentionMetrics contention;
         /** The thread that opened the scope; the only one allowed to reach the physical connection. */
         private final Thread owner = Thread.currentThread();
         private Connection physical;
@@ -299,7 +321,9 @@ public final class SqliteConnectionScope implements AutoCloseable {
         private boolean quarantined;
         private Throwable quarantineCause;
 
-        private State(Path databasePath, int busyTimeoutMillis, Connection physical) {
+        private State(
+                Path databasePath, int busyTimeoutMillis, Connection physical, SqliteContentionMetrics contention) {
+            this.contention = contention;
             this.databasePath = databasePath;
             this.busyTimeoutMillis = busyTimeoutMillis;
             this.physical = physical;

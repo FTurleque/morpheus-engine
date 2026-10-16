@@ -3,6 +3,7 @@ package com.morpheus.api;
 import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;
 import com.morpheus.application.operability.ExhaustiveShutdown;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.store.sqlite.SqliteServerMaintenance;
@@ -23,6 +24,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 /**
  * M26 opt-in HTTPS facade for team/remote use.
@@ -38,6 +40,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     static final int MAX_PROXY_IN_FLIGHT_BYTES = 128 * 1024 * 1024;
     static final int MAX_KEYSTORE_BYTES = 4 * 1024 * 1024;
     static final Duration REQUEST_BODY_READ_TIMEOUT = Duration.ofSeconds(15);
+    static final Duration IN_FLIGHT_GRACE = Duration.ofSeconds(5);
     private static final int MAX_PROXY_RESPONSE_SLOTS = MAX_PROXY_IN_FLIGHT_BYTES / MAX_PROXY_RESPONSE_BYTES;
     private static final int MAX_REQUEST_BYTES = MorpheusHttpServer.MAX_REQUEST_BODY_BYTES;
     private static final int MAX_PRESENTED_BEARER_CHARS = 1024;
@@ -56,10 +59,12 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     private final Semaphore privilegedConcurrency;
     private final Semaphore observabilityConcurrency;
     private final MorpheusRemoteRuntimeState runtime;
+    private final OperationalRuntime operational;
     private final TimedBoundedResponseWriter boundedResponses = new TimedBoundedResponseWriter();
     private final MorpheusRemoteResponseWriter responses = new MorpheusRemoteResponseWriter(boundedResponses);
     private final MorpheusRemoteProxyTargetResolver proxyTargets;
     private final MorpheusRemoteProxyTransport proxyTransport;
+    private final RemoteAccessJournal accessJournal;
 
     // Wires together every transport, persistence, and access-control collaborator of the remote HTTPS facade
     // explicitly, per MorpheusMain's explicit-wiring convention (see .claude/rules/architecture.md, "Pas de
@@ -78,8 +83,10 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             Path providerPluginDirectory,
             AllowedWorkspaceRoots allowedWorkspaceRoots,
             Path authFile,
-            int maxConcurrentRequests) {
+            int maxConcurrentRequests,
+            OperationalRuntime operational) {
         this.server = server;
+        this.operational = Objects.requireNonNull(operational, "operational");
         this.executor = executor;
         this.localServer = localServer;
         this.lease = lease;
@@ -88,6 +95,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         this.backupDirectory = backupDirectory.toAbsolutePath().normalize();
         this.authFile = Objects.requireNonNull(authFile, "authFile").toAbsolutePath().normalize();
         this.identityCache = new MorpheusRemoteIdentitySnapshotCache(this.authFile);
+        this.accessJournal = RemoteAccessJournal.beside(this.authFile, operational.metrics());
         this.authenticationConcurrency = new Semaphore(authenticationConcurrencyLimit(maxConcurrentRequests), true);
         this.concurrency = new Semaphore(maxConcurrentRequests, true);
         this.privilegedConcurrency = new Semaphore(privilegedConcurrencyLimit(maxConcurrentRequests), true);
@@ -119,7 +127,8 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             ExternalReferenceResolverRegistry resolverRegistry,
             ExternalIntegrationStatusProvider minosStatus,
             TechnicalContextProvider technicalContextProvider,
-            ChangeWriteCapabilityResolver writeCapabilityResolver) {
+            ChangeWriteCapabilityResolver writeCapabilityResolver,
+            OperationalRuntime operational) {
         return MorpheusRemoteHttpServerBootstrap.start(
                 databasePath,
                 backupDirectory,
@@ -134,7 +143,8 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                 resolverRegistry,
                 minosStatus,
                 technicalContextProvider,
-                writeCapabilityResolver);
+                writeCapabilityResolver,
+                operational);
     }
 
     static void validateStartupIdentities(
@@ -171,10 +181,25 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         ExhaustiveShutdown.releaseAll(
                 "cannot shut down the MORPHEUS remote HTTPS server",
                 () -> server.stop(0),
-                executor::shutdownNow,
+                this::finishInFlightRequests,
                 boundedResponses::close,
                 localServer::close,
                 lease::close);
+    }
+
+    /**
+     * Lets the requests already being served write their access record before the facade reports itself shut down.
+     *
+     * <p>{@code server.stop(0)} closes the connections but returns while handlers still run, and a handler journals
+     * its outcome after its exchange is closed. Interrupting them at once lost that record, and the journal could
+     * recreate its file after the caller had moved on. A handler whose connection is gone finishes quickly; one that
+     * does not within {@link #IN_FLIGHT_GRACE} is interrupted as before.</p>
+     */
+    private void finishInFlightRequests() throws InterruptedException {
+        executor.shutdown();
+        if (!executor.awaitTermination(IN_FLIGHT_GRACE.toMillis(), TimeUnit.MILLISECONDS)) {
+            executor.shutdownNow();
+        }
     }
 
     /**
@@ -201,6 +226,8 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         // Zero means no privileged slot is held: privilegedRequestStarted() never issues that ticket. One piece
         // of state instead of a flag beside it, because a flag and a ticket can disagree and a ticket cannot.
         long privilegedTicket = 0L;
+        // Null until the request is attributed: a principal and a route it asked for. Nothing before that is recorded.
+        RemoteAccessJournal.Request attributed = null;
         try {
             if (!authenticationConcurrency.tryAcquire()) {
                 runtime.recordThrottledRequest();
@@ -218,6 +245,9 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
 
             MorpheusRemoteRoutePolicy.Authorization route =
                     authorize(exchange.getRequestMethod(), exchange.getRequestURI().getRawPath());
+            attributed = new RemoteAccessJournal.Request(
+                    requestId, identity.principal(), identity.role(), route.role(),
+                    exchange.getRequestMethod(), route.template());
             if (!identity.role().allows(route.role())) {
                 runtime.recordAuthorizationFailure();
                 responses.sendError(
@@ -226,6 +256,14 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                         "FORBIDDEN",
                         "authenticated principal is not authorized for this operation");
                 return;
+            }
+
+            if (!accessJournal.accepted(attributed)) {
+                throw new RemoteFailure(
+                        503,
+                        RemoteAccessJournal.REFUSAL,
+                        "the access journal cannot be written; a write or an administration request is not served "
+                                + "without its record");
             }
 
             if (route.names("server/status")) {
@@ -260,6 +298,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         } catch (IllegalArgumentException failure) {
             responses.sendError(exchange, 400, "BAD_REQUEST", BoundaryFailureMessage.safe(failure));
         } catch (RuntimeException failure) {
+            UnforeseenFailureTrace.record(operational.recorder(), failure);
             responses.sendError(exchange, 500, "INTERNAL_ERROR", "internal MORPHEUS remote server error");
         } finally {
             if (requestSlot) {
@@ -270,7 +309,15 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                 runtime.privilegedRequestFinished(privilegedTicket);
                 privilegedConcurrency.release();
             }
+            // The exchange is closed before the record is written, never after: once a response is sent, the server
+            // drops a connection whose request body it finds unread, and close is what reads it. A file write between
+            // the two let it win that race after a refusal sent without reading the body, and the client's next
+            // request went to a connection being closed.
+            int status = exchange.getResponseCode();
             exchange.close();
+            if (attributed != null) {
+                accessJournal.completed(attributed, status);
+            }
         }
     }
 

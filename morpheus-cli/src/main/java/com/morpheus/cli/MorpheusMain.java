@@ -3,6 +3,10 @@ package com.morpheus.cli;
 import com.morpheus.api.AllowedWorkspaceRoots;
 import com.morpheus.api.MorpheusHttpServer;
 import com.morpheus.api.MorpheusRemoteHttpServer;
+import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.operability.OperationalLogFileException;
+import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.query.dsl.QueryBudgets;
 import com.morpheus.integration.minos.MinosIntegrationRuntime;
 import com.morpheus.integration.nexus.NexusIntegrationRuntime;
@@ -12,9 +16,14 @@ import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Properties;
+import java.util.function.Consumer;
 
 /** Official native MORPHEUS launcher for CLI, MCP STDIO and local/remote HTTP API modes. */
 public final class MorpheusMain {
@@ -25,65 +34,135 @@ public final class MorpheusMain {
     // PrintStream-taking methods; a logging framework has no place in the OS entry point.
     @SuppressWarnings("java:S106")
     public static void main(String[] args) {
+        refusedOperationalLogMode(System.getenv()).ifPresent(refusal -> {
+            System.err.println("MORPHEUS usage error: " + refusal);
+            System.exit(CliExitCode.USAGE.code());
+        });
+        OperationalRuntime runtime = processRuntime();
+        refusedOperationalLogFile(args, System.getenv(), System.getProperties(), runtime::writeLogFileIn)
+                .ifPresent(refusal -> {
+                    System.err.println("MORPHEUS error: " + refusal);
+                    System.exit(CliExitCode.IO_ERROR.code());
+                });
         int exitCode;
         if (RemoteApiLaunchOptions.isRemoteApiCommand(args)) {
-            exitCode = runRemoteApi(args, System.err, System.getenv(), System.getProperties());
+            exitCode = runRemoteApi(runtime, args, System.err, System.getenv(), System.getProperties());
         } else if (ApiLaunchOptions.isApiCommand(args)) {
-            exitCode = runApi(args, System.err, System.getenv(), System.getProperties());
+            exitCode = runApi(runtime, args, System.err, System.getenv(), System.getProperties());
         } else if (McpLaunchOptions.isMcpCommand(args)) {
-            exitCode = runMcp(args, System.err, System.getenv(), System.getProperties());
+            exitCode = runMcp(runtime, args, System.err, System.getenv(), System.getProperties());
         } else {
             PrintStream out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, StandardCharsets.UTF_8);
             PrintStream err = new PrintStream(new FileOutputStream(FileDescriptor.err), true, StandardCharsets.UTF_8);
-            exitCode = run(args, out, err, System.getenv(), System.getProperties());
+            exitCode = run(runtime, args, out, err, System.getenv(), System.getProperties());
         }
         if (exitCode != 0) {
             System.exit(exitCode);
         }
     }
 
+    /**
+     * The operational runtime of this process, taken once and handed on by constructor. It is the one the logging
+     * binding and every class that is not yet handed a recorder write to, so what the process serves is complete.
+     */
+    static OperationalRuntime processRuntime() {
+        return LocalOperationalRuntime.process();
+    }
+
+    /**
+     * The refusal of an operational log mode that is none of the accepted ones, if the environment carries one. Read
+     * here, before any other class of the product: the operational runtime chooses its sink in a static initializer,
+     * where a refusal would surface as an initialization error of whichever class used it first.
+     */
+    static Optional<String> refusedOperationalLogMode(Map<String, String> environment) {
+        try {
+            OperationalLogMode.parse(environment.get(OperationalLogMode.ENVIRONMENT_VARIABLE));
+            return Optional.empty();
+        } catch (IllegalArgumentException refused) {
+            return Optional.of(refused.getMessage());
+        }
+    }
+
+    /**
+     * Names the directory of the operational log file when the mode writes one, and returns the refusal if the file
+     * cannot be written there. The directory is the one the {@code paths} command prints for the same arguments: the
+     * environment, or the {@code logs} directory beside a data directory given on the command line.
+     */
+    static Optional<String> refusedOperationalLogFile(
+            String[] args, Map<String, String> environment, Properties properties, Consumer<Path> logFileIn) {
+        if (OperationalLogMode.parse(environment.get(OperationalLogMode.ENVIRONMENT_VARIABLE))
+                != OperationalLogMode.FILE) {
+            return Optional.empty();
+        }
+        Path logsDirectory = CliLayout.resolve(
+                        dataDirectoryOption(args), Optional.empty(), Optional.empty(), environment, properties)
+                .logsDirectory();
+        try {
+            logFileIn.accept(logsDirectory);
+            return Optional.empty();
+        } catch (OperationalLogFileException refused) {
+            return Optional.of(refused.getMessage());
+        }
+    }
+
+    /** The value of the first {@code --data-dir}; a value no command would accept is left for that command to refuse. */
+    private static Optional<Path> dataDirectoryOption(String[] args) {
+        for (int index = 0; index + 1 < args.length; index++) {
+            if ("--data-dir".equals(args[index])) {
+                try {
+                    return Optional.of(Path.of(args[index + 1]));
+                } catch (InvalidPathException notAPath) {
+                    return Optional.empty();
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
     static int run(
+            OperationalRuntime runtime,
             String[] args,
             PrintStream out,
             PrintStream err,
             Map<String, String> environment,
             Properties properties) {
+        Objects.requireNonNull(runtime, "runtime");
         if (MorpheusProviderPluginCli.handles(args)) {
-            return new MorpheusProviderPluginCli().run(args, out, err);
+            return new MorpheusProviderPluginCli(runtime.recorder()).run(args, out, err);
         }
         if (MorpheusProductCli.handles(args)) {
-            return new MorpheusProductCli().run(args, out, err);
+            return new MorpheusProductCli(runtime.recorder()).run(args, out, err);
         }
         if (MorpheusServerCli.handles(args)) {
             return new MorpheusServerCli().run(args, out, err, environment, properties);
         }
-        MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
-        NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties);
+        MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties, runtime.recorder());
+        NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties, runtime.recorder());
         int exitCode;
         if (MorpheusPolicyCli.handles(args)) {
-            exitCode = new MorpheusPolicyCli().run(args, out, err, environment, properties);
+            exitCode = new MorpheusPolicyCli(runtime.recorder()).run(args, out, err, environment, properties);
         } else if (MorpheusQueryCli.handles(args)) {
-            exitCode = new MorpheusQueryCli().run(args, out, err, environment, properties);
+            exitCode = new MorpheusQueryCli(runtime.recorder()).run(args, out, err, environment, properties);
         } else if (MorpheusPortfolioCli.handles(args)) {
-            exitCode = new MorpheusPortfolioCli().run(args, out, err, environment, properties);
+            exitCode = new MorpheusPortfolioCli(runtime.recorder()).run(args, out, err, environment, properties);
         } else if (MorpheusCompositionCli.handles(args)) {
-            exitCode = new MorpheusCompositionCli().run(args, out, err, environment, properties);
+            exitCode = new MorpheusCompositionCli(runtime.recorder()).run(args, out, err, environment, properties);
         } else if (MorpheusControlledLifecycleCli.handles(args)) {
-            exitCode = new MorpheusControlledLifecycleCli().run(args, out, err, environment, properties);
+            exitCode = new MorpheusControlledLifecycleCli(runtime.recorder()).run(args, out, err, environment, properties);
         } else if (MorpheusConstraintSemanticsCli.handles(args)) {
-            exitCode = new MorpheusConstraintSemanticsCli().run(args, out, err, environment, properties);
+            exitCode = new MorpheusConstraintSemanticsCli(runtime.recorder()).run(args, out, err, environment, properties);
         } else if (MorpheusAcceptanceCriteriaCli.handles(args)) {
-            exitCode = new MorpheusAcceptanceCriteriaCli().run(args, out, err, environment, properties);
+            exitCode = new MorpheusAcceptanceCriteriaCli(runtime.recorder()).run(args, out, err, environment, properties);
         } else if (MorpheusJarvisOrchestrationCli.handles(args)) {
-            exitCode = new MorpheusJarvisOrchestrationCli().run(args, out, err, environment, properties);
+            exitCode = new MorpheusJarvisOrchestrationCli(runtime.recorder()).run(args, out, err, environment, properties);
         } else if (MorpheusAugmentedContextCli.handles(args)) {
-            exitCode = new MorpheusAugmentedContextCli(nexus, nexus)
+            exitCode = new MorpheusAugmentedContextCli(runtime.recorder(), nexus, nexus)
                     .run(args, out, err, environment, properties);
         } else if (MorpheusExternalIntegrationCli.handles(args)) {
-            exitCode = new MorpheusExternalIntegrationCli(minos.resolverRegistry(), minos)
+            exitCode = new MorpheusExternalIntegrationCli(runtime.recorder(), minos.resolverRegistry(), minos)
                     .run(args, out, err, environment, properties);
         } else {
-            exitCode = new MorpheusCli().run(args, out, err, environment, properties);
+            exitCode = new MorpheusCli(runtime.recorder()).run(args, out, err, environment, properties);
         }
         if (exitCode == CliExitCode.SUCCESS.code() && isHelpRequest(args)) {
             out.println();
@@ -194,19 +273,21 @@ public final class MorpheusMain {
     }
 
     static int runMcp(
+            OperationalRuntime runtime,
             String[] args,
             PrintStream err,
             Map<String, String> environment,
             Properties properties) {
         try {
             McpLaunchOptions options = McpLaunchOptions.parse(args, environment, properties);
-            MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
-            NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties);
+            MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties, runtime.recorder());
+            NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties, runtime.recorder());
             return MorpheusMcpServer.run(
                     options.layout().databasePath(),
                     minos.resolverRegistry(),
                     nexus,
-                    new CliProjectWriteCapabilityResolver(options.layout().databasePath()));
+                    new CliProjectWriteCapabilityResolver(options.layout().databasePath()),
+                    runtime.recorder());
         } catch (IllegalArgumentException failure) {
             err.println("MORPHEUS MCP usage error: " + safeMessage(failure));
             return CliExitCode.USAGE.code();
@@ -217,14 +298,15 @@ public final class MorpheusMain {
     }
 
     static int runApi(
+            OperationalRuntime runtime,
             String[] args,
             PrintStream err,
             Map<String, String> environment,
             Properties properties) {
         try {
             ApiLaunchOptions options = ApiLaunchOptions.parse(args, environment, properties);
-            MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
-            NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties);
+            MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties, runtime.recorder());
+            NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties, runtime.recorder());
             try (MorpheusHttpServer server = MorpheusHttpServer.start(
                     options.layout().databasePath(),
                     options.host(),
@@ -232,7 +314,8 @@ public final class MorpheusMain {
                     minos.resolverRegistry(),
                     minos,
                     nexus,
-                    new CliProjectWriteCapabilityResolver(options.layout().databasePath()))) {
+                    new CliProjectWriteCapabilityResolver(options.layout().databasePath()),
+                    runtime)) {
                 err.println("MORPHEUS API listening on " + server.baseUri());
                 return waitUntilInterrupted();
             }
@@ -246,15 +329,16 @@ public final class MorpheusMain {
     }
 
     static int runRemoteApi(
+            OperationalRuntime runtime,
             String[] args,
             PrintStream err,
             Map<String, String> environment,
             Properties properties) {
         try {
             RemoteApiLaunchOptions options = RemoteApiLaunchOptions.parse(args, environment, properties);
-            MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties);
-            NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties);
-            try (MorpheusRemoteHttpServer server = startRemoteServer(options, minos, nexus)) {
+            MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties, runtime.recorder());
+            NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties, runtime.recorder());
+            try (MorpheusRemoteHttpServer server = startRemoteServer(options, minos, nexus, runtime)) {
                 err.println("MORPHEUS remote HTTPS API listening on " + server.baseUri());
                 return waitUntilInterrupted();
             }
@@ -277,7 +361,8 @@ public final class MorpheusMain {
     private static MorpheusRemoteHttpServer startRemoteServer(
             RemoteApiLaunchOptions options,
             MinosIntegrationRuntime minos,
-            NexusIntegrationRuntime nexus) {
+            NexusIntegrationRuntime nexus,
+            OperationalRuntime runtime) {
         char[] keyStorePassword = options.tlsPassword().resolve();
         try {
             return MorpheusRemoteHttpServer.start(
@@ -294,7 +379,8 @@ public final class MorpheusMain {
                     minos.resolverRegistry(),
                     minos,
                     nexus,
-                    new CliProjectWriteCapabilityResolver(options.layout().databasePath()));
+                    new CliProjectWriteCapabilityResolver(options.layout().databasePath()),
+                    runtime);
         } finally {
             Arrays.fill(keyStorePassword, '\0');
         }

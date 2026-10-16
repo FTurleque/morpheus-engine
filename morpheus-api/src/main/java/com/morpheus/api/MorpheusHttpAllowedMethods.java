@@ -1,6 +1,5 @@
 package com.morpheus.api;
 
-import java.util.List;
 import java.util.Objects;
 
 /**
@@ -16,12 +15,8 @@ final class MorpheusHttpAllowedMethods {
     }
 
     String forPath(String path) {
-        List<String> segments;
-        try {
-            segments = pathParser.segments(path);
-        } catch (RuntimeException ignored) {
-            return "";
-        }
-        return MorpheusHttpRouteTable.allowHeader(segments);
+        return pathParser.segmentsIfRoutable(path)
+                .map(segments -> MorpheusHttpRouteTable.allowHeader(segments))
+                .orElse("");
     }
 }

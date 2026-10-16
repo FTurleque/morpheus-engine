@@ -6,6 +6,7 @@ import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationResult
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationResultView;
 import com.morpheus.application.lifecycle.mutation.ControlledChangeLifecycleMutationService;
 import com.morpheus.application.lifecycle.mutation.RegisteredProjectWriteCapabilityResolver;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.orchestration.ChangeTransitionEvaluationService;
 import com.morpheus.application.provider.ProviderSelectionPolicy;
 import com.morpheus.application.provider.SpecificationProviderRegistry;
@@ -25,12 +26,19 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 
 /** M17 side-effect surface kept separate from read-only change-orchestration commands. */
 final class MorpheusControlledLifecycleCli {
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
+    private final OperationalRecorder recorder;
+
+    /** Every command counts what it puts on the database on {@code recorder}, the one the launcher handed. */
+    MorpheusControlledLifecycleCli(OperationalRecorder recorder) {
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
+    }
 
     static boolean handles(String[] args) {
         return "lifecycle".equals(command(args));
@@ -57,8 +65,8 @@ final class MorpheusControlledLifecycleCli {
             ChangeLifecycleIdempotencyKey idempotencyKey =
                     new ChangeLifecycleIdempotencyKey(options.required("idempotency-key"));
 
-            try (CliRuntime runtime = new CliRuntime(parsed.layout().databasePath())) {
-                if (runtime.snapshots.findProject(projectId).isEmpty()) {
+            try (CliRuntime runtime = CliRuntime.recovering(parsed.layout().databasePath(), recorder)) {
+                if (runtime.snapshots().findProject(projectId).isEmpty()) {
                     throw new IllegalStateException("project not found: " + projectId);
                 }
                 var providers = new SpecificationProviderRegistry(
@@ -66,12 +74,12 @@ final class MorpheusControlledLifecycleCli {
                         new ProviderSelectionPolicy());
                 var service = new ControlledChangeLifecycleMutationService(
                         new ChangeTransitionEvaluationService(
-                                runtime.snapshots,
-                                runtime.content,
-                                runtime.requirements,
-                                runtime.traceability),
-                        runtime.lifecycleMutations,
-                        new RegisteredProjectWriteCapabilityResolver(runtime.snapshots, providers));
+                                runtime.snapshots(),
+                                runtime.content(),
+                                runtime.requirements(),
+                                runtime.traceability()),
+                        runtime.lifecycleMutations(),
+                        new RegisteredProjectWriteCapabilityResolver(runtime.snapshots(), providers));
                 ChangeLifecycleMutationResult result = service.apply(
                         new ChangeLifecycleMutationCommand(
                                 ChangeLifecycleMutationId.generate(),

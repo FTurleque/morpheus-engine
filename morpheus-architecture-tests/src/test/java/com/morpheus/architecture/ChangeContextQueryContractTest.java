@@ -490,6 +490,7 @@ class ChangeContextQueryContractTest {
                 source.constraints(),
                 source.designDecisions(),
                 source.tasks(),
+                List.of(),
                 source.evidence());
     }
 
@@ -661,7 +662,7 @@ class ChangeContextQueryContractTest {
                     List.of("ranking"),
                     List.of("broken references"),
                     provenance);
-            Constraint constraint = new Constraint(
+            Constraint constraint = Constraint.withUnknownSemantics(
                     ConstraintId.generate(), changeId, "must remain snapshot coherent", provenance);
             DesignDecision decision = new DesignDecision(
                     DesignDecisionId.generate(), changeId, "Use published trace facts", "Avoid inferred impact", provenance);
@@ -676,6 +677,7 @@ class ChangeContextQueryContractTest {
                     List.of(constraint),
                     List.of(decision),
                     List.of(task),
+                    List.of(),
                     List.of(evidence));
 
             return new Fixture(

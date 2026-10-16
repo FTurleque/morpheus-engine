@@ -1,5 +1,6 @@
 package com.morpheus.architecture.m19;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.snapshot.RuntimeSnapshotRecovery;
 import com.morpheus.application.snapshot.SnapshotRecoveryPolicy;
 import com.morpheus.application.snapshot.SnapshotRecoveryService;
@@ -42,7 +43,7 @@ class RuntimeSnapshotRecoveryContractTest {
         SnapshotRecoveryPolicy policy = new SnapshotRecoveryPolicy(Duration.ofMinutes(10));
         RuntimeSnapshotRecovery runtime = new RuntimeSnapshotRecovery(
                 store,
-                new SnapshotRecoveryService(store),
+                new SnapshotRecoveryService(store, OperationalRecorder.noop()),
                 policy);
 
         var reports = runtime.recoverAll(now);

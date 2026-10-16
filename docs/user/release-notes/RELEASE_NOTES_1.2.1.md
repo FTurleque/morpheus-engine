@@ -3,7 +3,7 @@
 Statut : **EN PRÉPARATION — NON PUBLIÉE**
 
 `1.2.1` est la baseline corrective de développement. Elle ne devient une release publiée qu'après création du tag et
-qualification de ses artefacts (suivi #185, critère de clôture dans
+qualification de ses artefacts (suivi et critère de clôture dans
 [`../../project/validation/RELEASE_QUALIFICATION.md`](../../project/validation/RELEASE_QUALIFICATION.md) ; version courante dans
 [`../../developer/PRODUCT_VERSION.md`](../../developer/PRODUCT_VERSION.md)).
 Cette page recense, au fil des corrections, les changements qu'un utilisateur de 1.2.0 doit connaître avant de migrer.
@@ -106,9 +106,9 @@ MORPHEUS error [2]: unknown option: --projet
 ```
 
 **Migration.** Un script qui passait une option ignorée reçoit maintenant le code `2` : corriger ou retirer l'option.
-Les options reconnues par action sont exactement celles que l'action lit (`ACTION_OPTIONS` dans `MorpheusPortfolioCli`).
+Les options reconnues par action sont exactement celles que l'action lit.
 
-Décision : garde `CliOptionParsingRefusesUnknownOptionsTest` (chaque méthode qui appelle `SimpleOptions.parse` appelle aussi `rejectUnknown`) ; un `case` sans entrée dans `ACTION_OPTIONS` est refusé comme action inconnue.
+Décision : [ADR-0103](../../architecture/adr/0103-textual-assertions-and-archunit-rules-enforce-different-things.md), qui décrit le contrôle automatisé tenant cette règle.
 
 ### CLI `policy evaluate` et `policy dry-run` : un refus atteint le code de sortie
 
@@ -127,8 +127,7 @@ Le JSON est toujours imprimé, y compris avec le code `4`. Les autres actions de
 changent pas : elles rendent `0` quand elles réussissent.
 
 **Migration.** Une CI qui appelait `policy evaluate` ou `policy dry-run` sans regarder le JSON échoue maintenant sur `BLOCK` et
-`UNKNOWN` : c'est le but. Pour ne pas échouer, lire `decision` dans le JSON plutôt que le code de sortie. Les validateurs
-`scripts/validate-m25.*` attendent désormais explicitement le code `4` sur leurs deux appels.
+`UNKNOWN` : c'est le but. Pour ne pas échouer, lire `decision` dans le JSON plutôt que le code de sortie.
 
 Décision : [ADR-0108](../../architecture/adr/0108-a-response-says-what-it-could-not-observe.md).
 
@@ -221,7 +220,7 @@ Décision : [ADR-0107, amendement du 29 septembre 2026 (MCP-2)](../../architectu
 Aucun comportement ne change. Le Javadoc de `PageArguments` (MCP-2) affirmait trois choses que le code ne tenait pas : qu'un `limit = 0` est refusé « sans que le store
 ait été ouvert » (le refus de `slice` précède la **lecture de la collection**, mais un appel direct du handler a déjà ouvert le store ; sous le serveur, le SDK refuse `limit = 0`
 contre le schéma publié avant tout handler, donc aucun store n'est ouvert : établi par lecture du code et du SDK, non mesuré de bout en bout) ;
-que les bornes de `limit` sont celles du catalogue « que `PageRequest` applique aussi » (vrai du seul **maximum**, 100, et rien ne le tenait : `PageBoundsAgreementTest` le tient
+que les bornes de `limit` sont celles du catalogue « que `PageRequest` applique aussi » (vrai du seul **maximum**, 100, et rien ne le tenait : un contrôle automatisé, décrit dans l'ADR-0107, le tient
 désormais, ainsi que trois descriptions d'outils qui écrivaient « default 50, maximum 100 » à la main) ; et que tout outil sur une collection qui ne fait que croître prend une page
 (trois outils le font ; `list_policy_packs` et d'autres restent rendus entiers, avec leur raison dans l'ADR-0107).
 
@@ -336,6 +335,117 @@ pas dessus ; le statut indique alors que le pair est injoignable. Dans ce cas, d
 d'un JDK complet de la version que le pair demande. Avant cette version, ce cas se réglait sans le dire, par le `java`
 trouvé dans le `PATH`.
 
+### Plugins de provider : un contenu normalisé se construit d'une seule façon
+
+Cette rupture ne concerne que les auteurs de plugins de provider : elle se voit à la compilation du plugin, pas à
+l'usage de MORPHEUS.
+
+Les types que le plugin construit pour rendre son contenu n'ont plus qu'un constructeur, celui qui reçoit tous
+leurs composants. Les constructeurs plus courts, qui remplissaient à la place du plugin ce qu'il ne donnait pas,
+sont retirés ; ceux dont un plugin avait l'usage sont remplacés par des fabriques dont le nom dit ce qu'elles
+supposent.
+
+| Avant | Maintenant |
+|---|---|
+| `new NormalizedProjectContent(...)` à 6 arguments | `NormalizedProjectContent.currentSpecificationsOnly(...)`, mêmes arguments |
+| `new NormalizedProjectContent(...)` à 11 arguments | `NormalizedProjectContent.withoutAcceptanceCriteria(...)`, mêmes arguments |
+| `new NormalizedProjectContent(...)` à 10 arguments | `NormalizedProjectContent.withoutAcceptanceCriteria(...)`, avec la liste des deltas d'exigences, vide s'il n'y en a pas, après celle des changes |
+| `new Constraint(id, changeId, statement, provenance)` | `Constraint.withUnknownSemantics(id, changeId, statement, provenance)` |
+| `new ProviderProbeResult(...)` à 8 arguments | le même avec la source reconnue en sixième argument, `Optional.empty()` s'il n'y en a pas |
+
+Le contenu produit est le même qu'avant : une contrainte construite ainsi reste de sémantique inconnue, un contenu
+sans critères d'acceptation en porte une liste vide.
+
+**Migration.** Recompiler le plugin contre cette version et remplacer les appels du tableau. Un plugin déjà compilé
+qui appelle un constructeur retiré est encore découvert et jugé compatible ; il échoue quand il s'exécute, au
+probe ou à la lecture.
+
+### Journal opérationnel : une valeur inconnue de `MORPHEUS_OPERATIONAL_LOGS` est refusée
+
+Toute valeur que MORPHEUS ne reconnaissait pas pour cette variable — `true`, `1`, une faute de frappe comme `jsno` —
+désactivait le journal sans rien dire : l'opérateur croyait l'avoir activé. Une telle valeur fait maintenant refuser le
+démarrage, avec une ligne sur la sortie d'erreur qui nomme la variable et les valeurs acceptées (`off`, `none`, `json`,
+`jsonl`, `structured`), et le code de sortie 2. Une variable absente ou vide signifie toujours « aucun journal ».
+
+**Migration.** Vérifier la valeur de la variable là où elle est posée, y compris dans la configuration d'un client MCP :
+un serveur qui tournait muet à cause d'une valeur inconnue ne démarre plus tant qu'elle n'est pas corrigée ou retirée.
+
+### Métriques : les échecs que le produit écarte sont comptés
+
+Deux situations ne laissaient aucune trace. Un adaptateur de raisonnement installé mais défectueux disparaissait de la
+liste comme s'il n'avait jamais été installé. Une requête HTTP qui mourait d'un échec imprévu recevait
+`500 INTERNAL_ERROR`, et le serveur n'en gardait rien.
+
+Les deux réponses ne changent pas. Les métriques (`GET /api/v1/metrics`) gagnent un compteur par situation :
+`failure.suppressed.adapter-discovery` et `failure.suppressed.http-internal-error`. Avec le journal opérationnel
+actif, chaque occurrence écrit aussi un événement `FAILURE_SUPPRESSED` qui porte le type de l'échec, jamais son
+message.
+
+Trois autres compteurs de la même famille signalent un stockage ou un système de fichiers qui ne répond pas comme
+attendu : `failure.suppressed.sync-recovery-read`, `failure.suppressed.sqlite-conflict-read` et
+`failure.suppressed.source-watch`. Dans chaque cas MORPHEUS continue comme avant, par la lecture la plus prudente ; le
+compteur dit qu'il a dû le faire.
+
+Côté MINOS et NEXUS : `failure.suppressed.mcp-peer` compte les pannes d'un pair que la résolution d'une référence
+rendait comme un simple « indisponible », `failure.suppressed.mcp-peer-shutdown` un pair qui n'a pas pu être fermé
+proprement, et `failure.suppressed.staged-artifact-cleanup` une copie de JAR restée dans le répertoire temporaire.
+
+Côté base : `failure.suppressed.sqlite-lease-release` compte un verrou de base qui n'a pas pu être relâché proprement.
+S'il monte et qu'une ouverture de la base est ensuite refusée comme occupée, c'est la cause à regarder en premier.
+
+Les bibliothèques embarquées sont entendues. Avec le journal opérationnel actif, leurs avertissements et leurs erreurs
+y figurent sous le code `THIRD_PARTY_LOG`, avec le nom de leur logger ; jusqu'ici ils étaient jetés, journal actif ou
+non. Sans journal, rien ne change : elles n'écrivent toujours rien.
+
+Le répertoire de logs sert enfin à quelque chose. `MORPHEUS_OPERATIONAL_LOGS=file` écrit le journal dans
+`morpheus-operational.jsonl`, sous le répertoire qu'affiche `morpheus paths`, au lieu de la sortie d'erreur. Le fichier
+est borné à 4 Mio et quatre anciens fichiers sont gardés. Si le répertoire n'est pas utilisable, MORPHEUS refuse de
+démarrer avec `OPERATIONAL_LOG_FILE_UNUSABLE` plutôt que d'écrire ailleurs.
+
+**Migration.** Aucune. Un compteur `failure.suppressed.http-internal-error` qui monte désigne un défaut de MORPHEUS à
+signaler ; `failure.suppressed.adapter-discovery`, un adaptateur installé à réparer ou à retirer.
+
+### Serveur : une base occupée ne bloque plus les sondes ni les autres requêtes
+
+Quand la base était occupée par une écriture, les requêtes qui l'attendaient pouvaient immobiliser le serveur entier :
+même `health`, qui ne lit pas la base, cessait de répondre pendant plusieurs secondes, et une rafale de lectures
+recevait des refus `409`.
+
+Le serveur traite maintenant les requêtes qui touchent la base sur un nombre fixe de travailleurs, égal au nombre de
+processeurs. Au-delà, les requêtes attendent leur tour au lieu d'échouer. `health`, `metrics` et `version` sont
+servies à part et répondent toujours.
+
+Une requête qui attend son tour plus de dix secondes est refusée : statut `429`, code `LOCAL_SERVER_BUSY`, en-tête
+`Retry-After`. Le serveur distant relaie ce refus tel quel.
+
+**Migration.** Un client doit traiter `429 LOCAL_SERVER_BUSY` comme une invitation à réessayer, pas comme un échec
+définitif : là où il voyait une réponse lente ou un `409`, il peut maintenant voir ce refus. Un outil de supervision
+qui redémarrait le serveur sur une sonde `health` muette ne devrait plus le faire pour cette raison ; `readiness`,
+elle, interroge la base et peut encore attendre.
+
+### MCP : un appel d'outil ouvre une seule connexion à la base
+
+Un appel d'outil MCP ouvrait sept connexions à la base et vérifiait sept fois son schéma, là où la même opération par
+HTTP ou par la ligne de commande en ouvrait une. Il en ouvre une. Les réponses des outils ne changent pas ; les lectures
+d'un même appel voient désormais la base à travers la même connexion.
+
+**Migration.** Aucune.
+
+### Serveur distant : un journal dit qui a fait quoi
+
+Le serveur distant authentifiait chaque requête sans rien garder du principal : après l'usage abusif d'un jeton, rien
+ne disait qui avait enregistré un projet, lancé une synchronisation ou pris une sauvegarde.
+
+Il écrit désormais `morpheus-remote-access.jsonl`, à côté du fichier d'identités : pour chaque requête autorisée, le
+principal, ses rôles, la méthode, la route sous sa forme générique, le statut et l'identifiant renvoyé dans
+`X-Request-Id`. Un refus de rôle y figure ; une requête sans jeton valide n'y figure pas. Le journal ne contient ni
+jeton ni identifiant, et il est borné à 4 Mio avec quatre anciens fichiers.
+
+**Migration.** Le fichier est créé au démarrage ; le répertoire du fichier d'identités doit rester accessible en
+écriture au compte du serveur. Si le journal ne peut plus être écrit, les écritures et l'administration reçoivent
+`503 ACCESS_JOURNAL_UNAVAILABLE` et les lectures restent servies : un client qui écrit doit traiter ce statut comme
+une indisponibilité, pas comme un refus définitif.
+
 ### MINOS et NEXUS : un avertissement du pair ne coupe plus la liaison
 
 Ce qu'un pair écrit sur sa sortie d'erreur était lu comme de l'UTF-8 strict. Un pair qui y écrivait un caractère
@@ -430,8 +540,8 @@ sous-commande inconnue aussi (`unknown external-references subcommand`). Le code
 **Migration.** Retirer `--revision` des appels à `composition status` et `composition conflicts` ; il n'a jamais eu
 d'effet.
 
-Décision : [ADR-0103, amendement du 26 septembre 2026 (CLI-8)](../../architecture/adr/0103-textual-assertions-and-archunit-rules-enforce-different-things.md) ;
-garde `CliOptionParsingRefusesUnknownOptionsTest`, qui découvre désormais toutes les familles de parseurs du CLI.
+Décision : [ADR-0103, amendement du 26 septembre 2026 (CLI-8)](../../architecture/adr/0103-textual-assertions-and-archunit-rules-enforce-different-things.md) :
+le contrôle automatisé qu'il décrit couvre désormais toutes les familles de commandes du CLI.
 
 ### Qualité (`quality`, diagnostics HTTP) : un ratio sur population vide n'est plus publié comme une mesure
 

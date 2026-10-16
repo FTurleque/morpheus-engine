@@ -1,5 +1,7 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.policy.PolicyEvaluation;
 import com.morpheus.application.query.dsl.ProjectQueryScope;
 import com.morpheus.application.query.dsl.QueryDefinition;
@@ -167,7 +169,7 @@ class MorpheusPolicyCliTest {
             Properties properties = new Properties();
             properties.setProperty("user.home", tempDirectory.resolve("home").toString());
             properties.setProperty("os.name", "Linux");
-            exit = MorpheusMain.run(new String[]{
+            exit = MorpheusMain.run(OperationalRuntime.of(OperationalLogMode.OFF), new String[]{
                     "--data-dir", tempDirectory.resolve("data").toString(),
                     "--config-dir", tempDirectory.resolve("config").toString(),
                     "--db", tempDirectory.resolve("morpheus.db").toString(),
@@ -314,7 +316,7 @@ class MorpheusPolicyCliTest {
             Properties properties = new Properties();
             properties.setProperty("user.home", tempDirectory.resolve("home").toString());
             properties.setProperty("os.name", "Linux");
-            exit = MorpheusMain.run(args.toArray(String[]::new), out, err, Map.of(), properties);
+            exit = MorpheusMain.run(OperationalRuntime.of(OperationalLogMode.OFF), args.toArray(String[]::new), out, err, Map.of(), properties);
         }
         return new Result(exit, output.toString(StandardCharsets.UTF_8), errors.toString(StandardCharsets.UTF_8));
     }

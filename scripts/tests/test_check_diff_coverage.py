@@ -13,6 +13,7 @@ import unittest
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[1] / "check-diff-coverage.py"
+SCRIPTS_UNDER_TEST = ("check-diff-coverage.py",)
 SOURCE = "demo-module/src/main/java/com/example/Demo.java"
 
 

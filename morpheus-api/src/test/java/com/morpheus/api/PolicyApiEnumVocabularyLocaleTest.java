@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.dsl.ProjectQueryScope;
 import com.morpheus.application.query.dsl.QueryDefinitionCodec;
 import com.morpheus.application.query.dsl.QueryDslParser;
@@ -93,7 +94,7 @@ class PolicyApiEnumVocabularyLocaleTest {
 
     private Object create(String databaseName, MorpheusPolicyApiService.RuleRequest rule) {
         Path database = temporaryDirectory.resolve(databaseName).toAbsolutePath().normalize();
-        return new MorpheusPolicyApiService(database).create(new MorpheusPolicyApiService.CreateRequest(
+        return new MorpheusPolicyApiService(database, OperationalRecorder.noop()).create(new MorpheusPolicyApiService.CreateRequest(
                 "Governance", List.of(rule), "auditor", "baseline"));
     }
 }

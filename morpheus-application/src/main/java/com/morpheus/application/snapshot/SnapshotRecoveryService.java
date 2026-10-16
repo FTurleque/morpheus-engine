@@ -1,7 +1,6 @@
 package com.morpheus.application.snapshot;
 
 import com.morpheus.application.operability.OperationalEventCode;
-import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.store.SnapshotConflictException;
 import com.morpheus.application.store.SpecificationKnowledgeStore;
@@ -23,10 +22,6 @@ import java.util.Objects;
 public final class SnapshotRecoveryService {
     private final SpecificationKnowledgeStore store;
     private final OperationalRecorder recorder;
-
-    public SnapshotRecoveryService(SpecificationKnowledgeStore store) {
-        this(store, LocalOperationalRuntime.recorder());
-    }
 
     public SnapshotRecoveryService(SpecificationKnowledgeStore store, OperationalRecorder recorder) {
         this.store = Objects.requireNonNull(store, "store");

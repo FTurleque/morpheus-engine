@@ -26,7 +26,7 @@ class NexusMcpTechnicalContextProviderTest {
     @Test
     void disabledProviderReturnsExplicitAbsenceWithoutOpeningGateway() {
         NexusIntegrationSettings settings = new NexusIntegrationSettings(
-                Optional.empty(), LAUNCHER, Optional.empty(), Duration.ofSeconds(20), Optional.empty());
+                Optional.empty(), LAUNCHER, Optional.empty(), Duration.ofSeconds(20), Optional.empty(), Optional.empty());
         NexusMcpTechnicalContextProvider provider = new NexusMcpTechnicalContextProvider(
                 settings, () -> { throw new AssertionError("gateway must not be opened"); });
 

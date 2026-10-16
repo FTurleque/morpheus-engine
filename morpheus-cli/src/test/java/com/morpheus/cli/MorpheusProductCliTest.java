@@ -3,6 +3,8 @@ package com.morpheus.cli;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.product.ProductMetadata;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -72,7 +74,7 @@ class MorpheusProductCliTest {
             Properties properties = new Properties();
             properties.setProperty("user.home", tempDir.resolve("home").toString());
             properties.setProperty("os.name", "Linux");
-            exit = MorpheusMain.run(args, out, err, Map.of(), properties);
+            exit = MorpheusMain.run(OperationalRuntime.of(OperationalLogMode.OFF), args, out, err, Map.of(), properties);
         }
         return new Result(
                 exit,

@@ -68,6 +68,10 @@ components remain subject to their respective licenses, copyright notices and
 other applicable terms. Nothing in this license restricts rights granted by, or
 replaces obligations imposed by, those third-party licenses.
 
+The third-party components shipped in a distribution of the Software, their
+versions, licenses and attribution notices are listed in the THIRD-PARTY-NOTICES
+file placed next to this license in that distribution.
+
 6. TRADEMARKS AND BRANDING
 
 No trademark, trade name, logo or branding rights relating to MORPHEUS or the

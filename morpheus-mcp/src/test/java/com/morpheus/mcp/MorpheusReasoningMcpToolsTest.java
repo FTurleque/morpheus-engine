@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.reasoning.ReasoningContracts;
 import io.modelcontextprotocol.spec.McpSchema;
 import org.junit.jupiter.api.Test;
@@ -22,7 +23,7 @@ class MorpheusReasoningMcpToolsTest {
 
     @Test
     void exposesReadOnlyReasoningIntentSetWithStrictSchemas() {
-        var specifications = new MorpheusReasoningMcpTools().specifications();
+        var specifications = new MorpheusReasoningMcpTools(OperationalRecorder.noop()).specifications();
         assertEquals(2, specifications.size());
         assertEquals(Set.of(
                 MorpheusReasoningMcpTools.LIST_TOOL,
@@ -33,7 +34,7 @@ class MorpheusReasoningMcpToolsTest {
 
     @Test
     void reasoningSchemaPublishesEvidenceAdapterAndClaimBudgets() {
-        Map<String, Object> schema = new MorpheusReasoningMcpTools().specifications().stream()
+        Map<String, Object> schema = new MorpheusReasoningMcpTools(OperationalRecorder.noop()).specifications().stream()
                 .filter(item -> item.tool().name().equals(MorpheusReasoningMcpTools.REASON_TOOL))
                 .findFirst().orElseThrow().tool().inputSchema();
         @SuppressWarnings("unchecked")
@@ -160,7 +161,7 @@ class MorpheusReasoningMcpToolsTest {
     @Test
     void listingAdaptersNeverActivatesOneAndAnswersWithoutArguments() {
         McpSchema.CallToolResult result = McpToolCall.call(
-                new MorpheusReasoningMcpTools().specifications(),
+                new MorpheusReasoningMcpTools(OperationalRecorder.noop()).specifications(),
                 MorpheusReasoningMcpTools.LIST_TOOL,
                 Map.of());
 
@@ -169,7 +170,7 @@ class MorpheusReasoningMcpToolsTest {
 
     private static McpSchema.CallToolResult reason(Map<String, Object> arguments) {
         return McpToolCall.call(
-                new MorpheusReasoningMcpTools().specifications(),
+                new MorpheusReasoningMcpTools(OperationalRecorder.noop()).specifications(),
                 MorpheusReasoningMcpTools.REASON_TOOL,
                 arguments);
     }

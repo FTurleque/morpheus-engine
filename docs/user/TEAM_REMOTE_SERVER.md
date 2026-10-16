@@ -87,7 +87,7 @@ principal|role|sha256(token)[|expiresAt]
 Exemples :
 
 ```text
-admin|ADMIN|7c4a8d09ca3762af61e59520943dc26494f8941b...
+admin|ADMIN|7c4a8d09ca3762af...
 ci-reader|READ|0123456789abcdef...|2030-01-01T00:00:00Z
 ```
 
@@ -160,6 +160,42 @@ Le refus anti-lockout est la contrainte structurante : un fichier dont **toutes*
 **Le format à trois champs reste supporté en 1.2.1.** Le retirer est une évolution explicitement incompatible, pas un patch : cette commande existe pour qu'un parc soit déjà migré le jour où cette décision sera prise. Suivi : DT-12.
 
 Le fichier conserve également un audit **sans secret** des mutations. Cet historique est une fenêtre roulante bornée aux **512 événements les plus récents**. Cette compaction fait partie de l'écriture atomique du snapshot : la croissance de l'audit ne peut donc pas remplir indéfiniment le fichier de 256 KiB et empêcher une rotation ou une révocation urgente.
+
+### Journal d'accès : qui a fait quoi
+
+L'audit ci-dessus dit ce qui est arrivé aux identités. Un second fichier dit ce qu'elles ont fait :
+`morpheus-remote-access.jsonl`, créé à côté du fichier d'identités au démarrage du serveur.
+
+Chaque requête autorisée y laisse une ligne JSON : l'instant, l'identifiant de requête (celui que la réponse renvoie
+dans l'en-tête `X-Request-Id`), le principal, le rôle qu'il détient, le rôle que la route exige, la méthode, la route
+et le statut de la réponse.
+
+```json
+{"timestamp":"2026-10-13T09:12:44.512Z","level":"INFO","code":"REMOTE_ACCESS","attributes":{"method":"POST","phase":"completed","principal":"ci-writer","requestId":"0b6c…","roleHeld":"WRITE","roleRequired":"WRITE","route":"projects/{projectId}/sync","status":"200"}}
+```
+
+Ce qu'il faut savoir pour s'en servir :
+
+- **Écritures et administration : deux lignes.** Une ligne `accepted` avant le traitement, une ligne `completed` avec
+  le statut. Une requête dont on ne trouve que la première n'a pas reçu de réponse. Une lecture ne laisse que la
+  ligne `completed`. Consulter une route d'administration avec `GET`, par exemple les métriques, compte comme une
+  lecture : c'est par elle qu'on lit le nombre d'enregistrements perdus quand le journal ne s'écrit plus.
+- **Un refus de rôle est consigné**, avec le statut 403 et le principal qui a essayé.
+- **Un jeton invalide ne l'est pas.** Une requête sans jeton valide n'a pas de principal : elle est comptée dans
+  `server/status`, pas journalisée.
+- **Aucun secret, aucun identifiant.** La route est écrite sous sa forme générique (`projects/{projectId}/sync`) ; le
+  journal ne contient ni jeton, ni empreinte de jeton, ni corps de requête.
+- **Borné.** 4 Mio par fichier, quatre anciens fichiers gardés (`.1` à `.4`), le plus vieux supprimé. Un journal à
+  conserver doit être collecté avant d'être chassé par la rotation.
+- **Sensible.** Il nomme des principaux et ce qu'ils ont fait ; le fichier n'est lisible que par le compte du serveur.
+
+Si le journal ne peut pas être écrit — disque plein, fichier rendu inaccessible — le serveur refuse les écritures et
+l'administration avec `503 ACCESS_JOURNAL_UNAVAILABLE` plutôt que de laisser passer une mutation sans trace. Les
+lectures restent servies. Un serveur dont le journal ne peut pas être créé ne démarre pas.
+
+Pour retrouver ce qu'un client a fait, lui demander l'`X-Request-Id` de sa réponse et le chercher dans le journal.
+La ligne `completed` est écrite juste après l'envoi de la réponse : elle peut apparaître un instant après que le
+client a reçu la sienne.
 
 ### Rôles et autorisation distante
 
@@ -295,23 +331,17 @@ Un client doit traiter toute rupture réseau pendant une mutation comme un résu
 
 MORPHEUS utilise le serveur HTTP du JDK (ADR-0065). C'est un choix assumé, pas un provisoire : il n'a aucune dépendance, aucun cycle de vie à gérer et aucune surface de configuration à sécuriser. Le remplacer par Jetty/Netty/Undertow doit donc être une **décision prise sur mesure**, jamais sur intuition.
 
-`MorpheusRemoteLoadProfileTest` (module `morpheus-api`) est le harnais reproductible qui produit cette mesure. Il pilote la vraie façade HTTPS et écrit ce qu'il a observé dans `morpheus-api/target/remote-load-profile.txt` :
-
-```bash
-./mvnw -pl morpheus-api test -Dtest=MorpheusRemoteLoadProfileTest
-```
-
-Ce que le harnais **affirme** n'est délibérément pas une latence. Un chiffre absolu sur un runner partagé n'est pas une propriété de MORPHEUS, et un build qui casse quand la machine est occupée apprend surtout à ignorer l'échec. Les assertions portent sur les propriétés qui doivent tenir à n'importe quelle vitesse :
+Ce que le serveur **garantit** sous charge n'est délibérément pas une latence : un chiffre absolu dépend de la machine qui héberge le serveur, pas de MORPHEUS. Les garanties portent sur les propriétés qui tiennent à n'importe quelle vitesse, et qu'un exploitant constate depuis un client et sur `GET /api/v1/server/status` :
 
 - toute requête reçoit une réponse ;
 - cette réponse n'est **jamais** un 5xx : la saturation s'exprime en `429` explicite, jamais en drop ni en attente ;
 - `server/status` reste répondable pendant toute une charge mixte lecture + mutation ;
-- un corps surdimensionné (`413`) ne laisse **aucun** slot derrière lui ;
-- fermer la façade libère réellement sa socket et son executor.
+- un corps surdimensionné (`413`) ne laisse **aucun** slot derrière lui : `activeRequests` revient à sa valeur d'avant ;
+- arrêter le serveur libère réellement son port d'écoute.
 
-Les latences (`p50`, `p95`, `max`, `wall`) sont **enregistrées comme preuve**, pas asserties. Elles alimentent la décision suivante.
+Les latences (`p50`, `p95`, `max`) ne font l'objet d'aucun engagement : elles se mesurent sur le déploiement, depuis ses clients, et alimentent la décision suivante.
 
-**Critères objectifs de remplacement.** Tant qu'aucun de ces seuils n'est franchi sur une charge représentative mesurée par le harnais, la solution simple est conservée :
+**Critères objectifs de remplacement.** Tant qu'aucun de ces seuils n'est franchi sur une charge représentative mesurée sur le déploiement, la solution simple est conservée :
 
 | Critère | Seuil déclencheur |
 |---|---|
@@ -323,7 +353,7 @@ Les latences (`p50`, `p95`, `max`, `wall`) sont **enregistrées comme preuve**, 
 
 Le dernier critère est le plus important : il distingue « le serveur HTTP est trop lent » de « la base est le goulot ». Remplacer `jdk.httpserver` alors que la contention est en réalité SQLite ne changerait rien et ajouterait une dépendance. Le franchissement d'un seuil appelle un ADR dédié, pas un changement direct.
 
-Le harnais montre aussi le comportement de refus : la façade préfère refuser vite plutôt que mettre en file. Sur un tir à 240 lectures concurrentes contre `--max-concurrent 8`, l'essentiel des requêtes reçoit un `429` en quelques millisecondes. Un client remote doit donc implémenter un retry avec backoff ; c'est un choix de conception, pas une limite du serveur HTTP.
+Le comportement de refus s'observe de la même façon : la façade préfère refuser vite plutôt que mettre en file. Face à 240 lectures concurrentes sur un serveur lancé avec `--max-concurrent 8`, l'essentiel des requêtes reçoit un `429` en quelques millisecondes. Un client remote doit donc implémenter un retry avec backoff ; c'est un choix de conception, pas une limite du serveur HTTP.
 
 ### Clients lents et clients qui cessent de lire
 
@@ -356,9 +386,8 @@ transporterait est précisément la ressource récupérée. L'événement est co
 client qui a cessé de **recevoir**, le second un client qui a cessé d'**envoyer**, et seul le premier retient un
 slot tant que le client reste connecté.
 
-`MorpheusRemoteAdversarialClientTest` pilote ces trois comportements depuis une socket TLS brute contre la vraie
-façade : lecture des seuls en-têtes puis arrêt, lecture lente avec pauses, et disparition brutale en cours de
-réponse.
+Ces règles valent pour les trois façons dont un client TLS peut cesser de coopérer : lire les seuls en-têtes
+puis s'arrêter, lire lentement avec des pauses, et disparaître brutalement en cours de réponse.
 
 ### Détecter la contention SQLite
 
@@ -370,6 +399,13 @@ SQLite sérialise les écrivains. Une base contendue est d'abord une base **plus
 | `sqlite.transaction.rolled_back` | transactions annulées, toutes causes confondues |
 | `sqlite.contention.busy_or_locked` | transactions perdues sur `SQLITE_BUSY`/`SQLITE_LOCKED` |
 | `sqlite.contention.connection_open` | ouvertures de connexion physique perdues sur la même cause |
+
+Trois compteurs disent la pression que les opérations mettent sur la base, une opération ouvrant une seule connexion physique et une seule vérification de schéma :
+
+| Compteur | Lecture |
+|---|---|
+| `sqlite.scope.connection.opened` / `sqlite.scope.connection.closed` | connexions physiques ouvertes et libérées par les opérations ; un écart qui grandit est une connexion retenue |
+| `sqlite.scope.schema.checked` | vérifications de schéma, une par opération |
 
 La durée est également agrégée sous `sqlite.transaction.duration` (`count`, `totalNanos`, `maxNanos`). C'est ce `maxNanos` qui bouge en premier : il monte bien avant que `sqlite.contention.busy_or_locked` ne commence à s'incrémenter.
 

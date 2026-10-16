@@ -3,6 +3,8 @@ package com.morpheus.integration.minos;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
+import com.morpheus.application.operability.OperationalExecution;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.reference.ExternalReferenceResolutionService;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.domain.identity.DomainIdentity;
@@ -96,7 +98,7 @@ class MinosBoundedSearchResolutionTest {
             }
         };
         return new ExternalReferenceResolutionService(new ExternalReferenceResolverRegistry(
-                List.of(new MinosMcpExternalReferenceResolver(() -> gateway))), CLOCK);
+                List.of(new MinosMcpExternalReferenceResolver(() -> gateway, OperationalRecorder.noop()))), CLOCK, new OperationalExecution(OperationalRecorder.noop()));
     }
 
     private static List<MinosCodeGateway.Symbol> fullPageWithoutTheKey(int limit) {

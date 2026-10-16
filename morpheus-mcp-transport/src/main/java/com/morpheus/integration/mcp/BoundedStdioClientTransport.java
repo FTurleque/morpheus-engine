@@ -109,23 +109,34 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
     private final AtomicReference<Process> process = new AtomicReference<>();
     private final AtomicReference<State> state = new AtomicReference<>(State.NEW);
     private final Object lifecycleLock = new Object();
+    private final Consumer<? super RuntimeException> processTreeFailures;
     private Consumer<String> stdErrorHandler = error -> LOGGER.log(
             System.Logger.Level.INFO, "MCP STDERR: {0}", McpDiagnosticRedactor.redact(error));
 
     public BoundedStdioClientTransport(
             McpPeerLaunch launch,
             McpJsonMapper jsonMapper,
-            int maxInboundMessageBytes) {
-        this(launch, jsonMapper, maxInboundMessageBytes, DEFAULT_MAX_PENDING_MESSAGES);
+            int maxInboundMessageBytes,
+            Consumer<? super RuntimeException> processTreeFailures) {
+        this(launch, jsonMapper, maxInboundMessageBytes, DEFAULT_MAX_PENDING_MESSAGES, processTreeFailures);
     }
 
+    /**
+     * @param processTreeFailures told each time the descendants of a live process of the peer could not be
+     *        listed, and each time a live process of the peer - its root or a retained descendant - refused its
+     *        termination signal. There is no default: a transport that reported to nobody would bring back the
+     *        failures this observer exists for. This module may depend on no other MORPHEUS package and counts
+     *        nothing itself: the caller that launches the peer decides what such a failure leaves behind.
+     */
     public BoundedStdioClientTransport(
             McpPeerLaunch launch,
             McpJsonMapper jsonMapper,
             int maxMessageBytes,
-            int maxPendingMessages) {
+            int maxPendingMessages,
+            Consumer<? super RuntimeException> processTreeFailures) {
         this.launch = Objects.requireNonNull(launch, "launch");
         this.jsonMapper = Objects.requireNonNull(jsonMapper, "jsonMapper");
+        this.processTreeFailures = Objects.requireNonNull(processTreeFailures, "processTreeFailures");
         if (maxMessageBytes < 1) throw new IllegalArgumentException("maxMessageBytes must be positive");
         if (maxPendingMessages < 1) throw new IllegalArgumentException("maxPendingMessages must be positive");
         this.maxMessageBytes = maxMessageBytes;
@@ -489,7 +500,7 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
     private void shutdownProcess() {
         Process current = process.get();
         if (current == null) {
-            destroyHandles(List.copyOf(observedProcesses.values()), true);
+            terminate(List.copyOf(observedProcesses.values()), true, processTreeFailures);
             return;
         }
         ProcessHandle root = current.toHandle();
@@ -524,32 +535,39 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
 
     private void destroyObservedProcessTree(Process current) {
         if (current == null) {
-            destroyHandles(List.copyOf(observedProcesses.values()), true);
+            terminate(List.copyOf(observedProcesses.values()), true, processTreeFailures);
             return;
         }
         ProcessHandle root = current.toHandle();
         observeTree(root);
         destroyObservedDescendants(root, true);
-        if (root.isAlive()) {
-            try {
-                root.destroyForcibly();
-            } catch (RuntimeException failure) {
-                LOGGER.log(
-                        System.Logger.Level.DEBUG,
-                        "Unable to terminate MCP root process: {0}",
-                        McpDiagnosticRedactor.describe(failure));
-            }
-        }
+        terminate(List.of(root), true, processTreeFailures);
         destroyObservedDescendants(root, true);
     }
 
     private void observeTree(ProcessHandle root) {
         observedProcesses.putIfAbsent(root.pid(), root);
-        for (ProcessHandle seed : pruneDeadHandles(observedProcesses, root.pid(), ProcessHandle::isAlive)) {
+        retainDescendants(
+                pruneDeadHandles(observedProcesses, root.pid(), ProcessHandle::isAlive),
+                observedProcesses,
+                processTreeFailures);
+    }
+
+    /**
+     * Retains every descendant of the live handles. A handle whose descendants cannot be listed is reported and the
+     * others are still read; the handles already retained stay available to the shutdown. What is lost is whatever
+     * that process started since the last observation, which no later pass can attribute to the peer once it is
+     * re-parented.
+     */
+    static void retainDescendants(
+            List<ProcessHandle> live,
+            Map<Long, ProcessHandle> observed,
+            Consumer<? super RuntimeException> failures) {
+        for (ProcessHandle seed : live) {
             try {
-                seed.descendants().forEach(handle -> observedProcesses.putIfAbsent(handle.pid(), handle));
-            } catch (RuntimeException ignored) {
-                // A process can disappear between isAlive() and descendants(); retained handles remain available.
+                seed.descendants().forEach(handle -> observed.putIfAbsent(handle.pid(), handle));
+            } catch (RuntimeException unlisted) {
+                failures.accept(unlisted);
             }
         }
     }
@@ -580,20 +598,22 @@ public final class BoundedStdioClientTransport implements McpClientTransport {
         List<ProcessHandle> descendants = observedProcesses.values().stream()
                 .filter(handle -> handle.pid() != root.pid())
                 .toList();
-        destroyHandles(descendants, force);
+        terminate(descendants, force, processTreeFailures);
     }
 
-    private void destroyHandles(List<ProcessHandle> handles, boolean force) {
+    /**
+     * Signals every live handle, gracefully or forcibly. A handle that refuses its signal is reported and the next
+     * one is still signalled; the refused process may outlive the peer, and only the caller that launched the peer
+     * can say so where an operator reads it.
+     */
+    static void terminate(List<ProcessHandle> handles, boolean force, Consumer<? super RuntimeException> failures) {
         for (ProcessHandle handle : handles) {
             if (!handle.isAlive()) continue;
             try {
                 if (force) handle.destroyForcibly();
                 else handle.destroy();
-            } catch (RuntimeException failure) {
-                LOGGER.log(
-                        System.Logger.Level.DEBUG,
-                        "Unable to terminate MCP descendant process: {0}",
-                        McpDiagnosticRedactor.describe(failure));
+            } catch (RuntimeException refused) {
+                failures.accept(refused);
             }
         }
     }

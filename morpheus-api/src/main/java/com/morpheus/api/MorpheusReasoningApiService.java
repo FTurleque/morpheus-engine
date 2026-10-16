@@ -1,5 +1,7 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.operability.SuppressedFailureFamily;
 import com.morpheus.application.reasoning.ReasoningContracts;
 import com.morpheus.application.reasoning.ReasoningContracts.Evidence;
 import com.morpheus.application.reasoning.ReasoningContracts.EvidenceKind;
@@ -16,8 +18,10 @@ import java.util.Objects;
 final class MorpheusReasoningApiService {
     private final ReasoningService service;
 
-    MorpheusReasoningApiService() {
-        this(ReasoningService.standard());
+    /** Adapter discovery failures it skips are counted on {@code recorder}, the one its server was handed. */
+    MorpheusReasoningApiService(OperationalRecorder recorder) {
+        this(ReasoningService.standard(recorder
+                .suppressing(SuppressedFailureFamily.ADAPTER_DISCOVERY)));
     }
 
     MorpheusReasoningApiService(ReasoningService service) {

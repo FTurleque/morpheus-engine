@@ -71,7 +71,7 @@ class QueryRowMapperTest {
         ChangeProposal change = new ChangeProposal(
                 ChangeId.generate(), projectId, Optional.of("CHG-1"), "Harden billing", "Make billing deterministic",
                 List.of("billing"), List.of("mobile"), List.of("migration"), provenance);
-        Constraint constraint = new Constraint(
+        Constraint constraint = Constraint.withUnknownSemantics(
                 ConstraintId.generate(), change.id(), "audit history must be preserved", provenance);
         DesignDecision decision = new DesignDecision(
                 DesignDecisionId.generate(), change.id(), "Explicit state", "Persist state transitions", provenance);

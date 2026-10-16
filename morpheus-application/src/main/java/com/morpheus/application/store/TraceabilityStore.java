@@ -14,10 +14,16 @@ import java.util.Set;
 public interface TraceabilityStore {
     void putLink(KnowledgeSnapshotId snapshotId, TraceabilityLink link);
 
-    /** Persists one snapshot-scoped batch; adapters may override without changing link semantics. */
-    default void putLinks(KnowledgeSnapshotId snapshotId, List<TraceabilityLink> links) {
-        List.copyOf(links).forEach(link -> putLink(snapshotId, link));
-    }
+    /**
+     * Persists one snapshot-scoped batch, all of it or none of it.
+     *
+     * <p>A link already defined identically joins the snapshot without being rewritten, and a link listed twice
+     * identically is stored once. A different definition under an identity already used - in the store or earlier in
+     * the batch - refuses the whole batch with a {@link KnowledgeStoreException} that names the identity, and nothing
+     * of the batch is stored. There is no default: storing the links one by one is not this contract, since it keeps
+     * the links that precede the one that refuses.</p>
+     */
+    void putLinks(KnowledgeSnapshotId snapshotId, List<TraceabilityLink> links);
 
     Optional<TraceabilityLink> findLink(KnowledgeSnapshotId snapshotId, TraceabilityLinkId linkId);
 

@@ -1,29 +1,19 @@
 package com.morpheus.api;
 
-import com.morpheus.application.operability.ExhaustiveShutdown;
-import com.morpheus.application.operability.StartupOwnership;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.dsl.PortfolioQueryScope;
 import com.morpheus.application.query.dsl.ProjectQueryScope;
 import com.morpheus.application.query.dsl.QueryBudgets;
 import com.morpheus.application.query.dsl.QueryDefinition;
 import com.morpheus.application.query.dsl.QueryDslParser;
-import com.morpheus.application.query.dsl.QueryExecutionService;
 import com.morpheus.application.query.dsl.QueryPublicViews;
 import com.morpheus.application.query.dsl.QueryScope;
 import com.morpheus.application.query.export.QueryExport;
 import com.morpheus.application.query.export.QueryExportFormat;
-import com.morpheus.application.query.export.QueryExportService;
 import com.morpheus.application.query.saved.SavedViewId;
-import com.morpheus.application.query.saved.SavedViewService;
 import com.morpheus.application.query.saved.SavedViewStatus;
 import com.morpheus.domain.portfolio.PortfolioId;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.store.sqlite.SqliteConnectionScope;
-import com.morpheus.store.sqlite.SqlitePortfolioStore;
-import com.morpheus.store.sqlite.SqliteSavedViewStore;
-import com.morpheus.store.sqlite.SqliteSnapshotBusinessContentStore;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
-import com.morpheus.store.sqlite.SqliteVersionedRequirementStore;
 
 import java.nio.file.Path;
 import java.util.Locale;
@@ -34,10 +24,12 @@ public final class MorpheusQueryApiService {
     public static final int DEFAULT_LIMIT = 100;
 
     private final Path databasePath;
+    private final OperationalRecorder recorder;
     private final QueryDslParser parser = new QueryDslParser();
 
-    public MorpheusQueryApiService(Path databasePath) {
+    public MorpheusQueryApiService(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
     public Object executeProject(String projectId, QueryRequest request) {
@@ -51,37 +43,37 @@ public final class MorpheusQueryApiService {
 
     public Object createSavedView(CreateSavedViewRequest request) {
         Objects.requireNonNull(request, "request");
-        try (Runtime runtime = runtime()) {
+        try (ApiRuntime runtime = runtime()) {
             QueryDefinition definition = query(scope(request.scopeKind(), request.scopeId()), request.query());
-            return QueryPublicViews.savedView(runtime.views.create(request.name(), definition));
+            return QueryPublicViews.savedView(runtime.views().create(request.name(), definition));
         }
     }
 
     public Object listSavedViews(String scopeKind, String scopeId) {
-        try (Runtime runtime = runtime()) {
-            return QueryPublicViews.savedViews(runtime.views.list(scope(scopeKind, scopeId)));
+        try (ApiRuntime runtime = runtime()) {
+            return QueryPublicViews.savedViews(runtime.views().list(scope(scopeKind, scopeId)));
         }
     }
 
     public Object getSavedView(String id) {
-        try (Runtime runtime = runtime()) {
-            return QueryPublicViews.savedView(runtime.views.get(SavedViewId.parse(id)));
+        try (ApiRuntime runtime = runtime()) {
+            return QueryPublicViews.savedView(runtime.views().get(SavedViewId.parse(id)));
         }
     }
 
     public Object savedViewVersions(String id) {
-        try (Runtime runtime = runtime()) {
-            return QueryPublicViews.savedVersions(runtime.views.versions(SavedViewId.parse(id)));
+        try (ApiRuntime runtime = runtime()) {
+            return QueryPublicViews.savedVersions(runtime.views().versions(SavedViewId.parse(id)));
         }
     }
 
     public Object updateSavedView(String id, UpdateSavedViewRequest request) {
         Objects.requireNonNull(request, "request");
-        try (Runtime runtime = runtime()) {
+        try (ApiRuntime runtime = runtime()) {
             SavedViewId savedViewId = SavedViewId.parse(id);
-            var current = runtime.views.get(savedViewId);
+            var current = runtime.views().get(savedViewId);
             QueryDefinition definition = query(current.query().scope(), request.query());
-            return QueryPublicViews.savedView(runtime.views.update(
+            return QueryPublicViews.savedView(runtime.views().update(
                     savedViewId,
                     requirePositive(request.expectedRevision(), "expectedRevision"),
                     request.name(),
@@ -91,44 +83,44 @@ public final class MorpheusQueryApiService {
 
     public Object archiveSavedView(String id, RevisionRequest request) {
         Objects.requireNonNull(request, "request");
-        try (Runtime runtime = runtime()) {
-            return QueryPublicViews.savedView(runtime.views.archive(
+        try (ApiRuntime runtime = runtime()) {
+            return QueryPublicViews.savedView(runtime.views().archive(
                     SavedViewId.parse(id), requirePositive(request.expectedRevision(), "expectedRevision")));
         }
     }
 
     public Object executeSavedView(String id) {
-        try (Runtime runtime = runtime()) {
-            return QueryPublicViews.result(runtime.views.execute(SavedViewId.parse(id)));
+        try (ApiRuntime runtime = runtime()) {
+            return QueryPublicViews.result(runtime.views().execute(SavedViewId.parse(id)));
         }
     }
 
     public QueryExport export(ExportRequest request) {
         Objects.requireNonNull(request, "request");
-        try (Runtime runtime = runtime()) {
+        try (ApiRuntime runtime = runtime()) {
             ExportQueryRequest selection = request.query();
             QueryDefinition definition = query(
                     scope(request.scopeKind(), request.scopeId()),
                     new QueryRequest(selection.entity(), selection.filter(), selection.sort(), selection.fields(), null, null));
-            return runtime.exports.export(definition, format(request.format()));
+            return runtime.exports().export(definition, format(request.format()));
         }
     }
 
     public QueryExport exportSavedView(String id, ExportSavedViewRequest request) {
         Objects.requireNonNull(request, "request");
-        try (Runtime runtime = runtime()) {
-            var view = runtime.views.get(SavedViewId.parse(id));
+        try (ApiRuntime runtime = runtime()) {
+            var view = runtime.views().get(SavedViewId.parse(id));
             if (view.status() != SavedViewStatus.ACTIVE) {
                 throw new IllegalStateException("saved view is archived: " + view.id());
             }
-            return runtime.exports.export(view.query(), format(request.format()));
+            return runtime.exports().export(view.query(), format(request.format()));
         }
     }
 
     private Object execute(QueryScope scope, QueryRequest request) {
         Objects.requireNonNull(request, "request");
-        try (Runtime runtime = runtime()) {
-            return QueryPublicViews.result(runtime.queries.execute(query(scope, request)));
+        try (ApiRuntime runtime = runtime()) {
+            return QueryPublicViews.result(runtime.queries().execute(query(scope, request)));
         }
     }
 
@@ -161,8 +153,8 @@ public final class MorpheusQueryApiService {
         }
     }
 
-    private Runtime runtime() {
-        return new Runtime(databasePath);
+    private ApiRuntime runtime() {
+        return new ApiRuntime(databasePath, recorder);
     }
 
     private static long requirePositive(Long value, String name) {
@@ -242,55 +234,5 @@ public final class MorpheusQueryApiService {
     }
 
     public record ExportSavedViewRequest(String format) {
-    }
-
-    private static final class Runtime implements AutoCloseable {
-        private final SqliteConnectionScope sqliteScope;
-        private final SqliteSpecificationKnowledgeStore snapshots;
-        private final SqliteVersionedRequirementStore requirements;
-        private final SqliteSnapshotBusinessContentStore content;
-        private final SqlitePortfolioStore portfolios;
-        private final SqliteSavedViewStore saved;
-        private final QueryExecutionService queries;
-        private final SavedViewService views;
-        private final QueryExportService exports;
-
-        private Runtime(Path databasePath) {
-            try (StartupOwnership owned = new StartupOwnership()) {
-                sqliteScope = owned.keep(
-                        SqliteConnectionScope.open(databasePath), SqliteConnectionScope::close);
-                snapshots = owned.keep(
-                        new SqliteSpecificationKnowledgeStore(databasePath), SqliteSpecificationKnowledgeStore::close);
-                requirements = owned.keep(
-                        new SqliteVersionedRequirementStore(databasePath), SqliteVersionedRequirementStore::close);
-                content = owned.keep(
-                        new SqliteSnapshotBusinessContentStore(databasePath), SqliteSnapshotBusinessContentStore::close);
-                portfolios = owned.keep(
-                        new SqlitePortfolioStore(databasePath), SqlitePortfolioStore::close);
-                saved = owned.keep(
-                        new SqliteSavedViewStore(databasePath), SqliteSavedViewStore::close);
-
-                // The services are built inside the block too: a failure here used to leave every store and the
-                // scope's connection behind, because the rollback ended before this point.
-                queries = new QueryExecutionService(snapshots, requirements, content, portfolios);
-                views = new SavedViewService(saved, queries);
-                exports = new QueryExportService(queries);
-
-                owned.transferred();
-            }
-        }
-
-        @Override
-        public void close() {
-            ExhaustiveShutdown.releaseAll(
-                    "cannot close query runtime resource",
-                    saved,
-                    portfolios,
-                    content,
-                    requirements,
-                    snapshots,
-                    sqliteScope);
-        }
-
     }
 }

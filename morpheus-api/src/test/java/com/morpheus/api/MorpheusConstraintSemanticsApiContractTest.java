@@ -2,6 +2,7 @@ package com.morpheus.api;
 
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.provider.synthetic.SyntheticSpecificationContentReader;
@@ -59,18 +60,18 @@ class MorpheusConstraintSemanticsApiContractTest {
     private Seed seed(Path database) {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         Path fixture = http.fixture("synthetic-basic");
-        try (ApiRuntime runtime = new ApiRuntime(database)) {
+        try (ApiRuntime runtime = new ApiRuntime(database, OperationalRecorder.noop())) {
             var normalized = new SyntheticSpecificationContentReader()
                     .read(
                             ProviderReadRequest.all(fixture, projectId),
-                            new PersistentEntityIdentityResolver(runtime.identities))
+                            new PersistentEntityIdentityResolver(runtime.identities()))
                     .content()
                     .orElseThrow();
             new ProjectSnapshotImportService(
-                    runtime.snapshots,
-                    runtime.requirements,
-                    runtime.content,
-                    runtime.traceability)
+                    runtime.snapshots(),
+                    runtime.requirements(),
+                    runtime.content(),
+                    runtime.traceability())
                     .publishFull(
                             normalized,
                             Optional.of("m16-api-test"),

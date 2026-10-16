@@ -8,6 +8,74 @@
 
 ---
 
+## État au 16 octobre 2026 — après les PR #493 à #497
+
+Les cinq PR du lot ont été fusionnées dans `develop` le 16 octobre (HEAD `557fed02`), et les statuts revérifiés sur le code fusionné. **Six constats passent à corrigé** : `AUD-TST-12`, `AUD-TST-18`, `AUD-TRV-04`, `AUD-TRV-05`, `AUD-QUA-13`, `AUD-QUA-17`. **Deux restent partiels** : `AUD-TRV-07` (aucun validateur encore exécuté pour de vrai — le job nocturne `validators-without-a-lane` le fournira pour Linux — et la décision de garder, tester ou retirer chaque validateur revient au mainteneur) et `AUD-DEP-07` (bloqué en amont : Dependency-Check 13.0.1 n'est pas publié).
+
+**100 constats : 33 corrigés · 2 partiels · 40 toujours valides · 2 caducs · 22 Info qui tiennent · 1 non vérifiable.** Le détail du lot et ce qui a été exécuté sur lui (`clean verify`, gate différentiel, `validate-m19`) sont dans la dernière section de `reverification-2026-10-15.md`. Les notes par axe n'ont pas été recalculées.
+
+## État au 15 octobre 2026 — après fusion
+
+Les 9 constats laissés `partiel` le 13 octobre ont été revérifiés sur le code. Les **six branches dédiées
+ont été fusionnées** dans `develop` le 15 octobre (PR #487 à #492, 47 commits) et supprimées. Tous les
+statuts ci-dessous sont ceux de `origin/develop` à `984bb270`, revérifiés **après** la fusion. Le détail est
+dans **`reverification-2026-10-15.md`**.
+
+**Trois des neuf constats sont soldés** : `AUD-DEP-14` (PR #486), `AUD-TRV-01` et `AUD-ARC-14`.
+Un quatrième, `AUD-DEP-07`, reste ouvert mais **bloqué sur une publication amont** — Dependency-Check
+13.0.1 n'existe pas, la dernière version publiée est 13.0.0 du 3 août, donc aucune action du dépôt ne le
+ferme. Les cinq autres ont beaucoup avancé mais restent partiels, et la section 4 de leurs changes OpenSpec
+(vérification : `clean verify`, gate de couverture, validateur M19) est ouverte dans les cinq cas.
+
+**100 constats : 27 corrigés · 6 partiels · 42 toujours valides · 2 caducs · 22 Info qui tiennent · 1 non
+vérifiable.** Deux constats neufs sont nés de cette passe : `AUD-QUA-17` et `AUD-TST-18`.
+
+| Axe | 9 oct. | 13 oct. | 15 oct. avant fusion | **15 oct. après fusion** |
+|---|---|---|---|---|
+| Sécurité | 75 | 100 | 100 | **100** |
+| Dépendances / exploitation | 36 | 68 | 69 | **73** |
+| Tests | 54 | 69 | 61 | **65** |
+| Qualité | 46 | 56 | 48 | **52** |
+| Performance | 28 | 52 | 52 | **52** |
+| Architecture | 26 | 35 | 35 | **36** |
+| **Moyenne** | **44** | **63** | **61** | **63** |
+
+Sprint 3 terminé ; sprints 1, 2, 4, 5, 6 et 10 partiellement soldés ; 7, 8, 9, 11 à 14 non commencés.
+Charge restante : 48 à 141 jours sur 48 constats ouverts.
+
+**Les deux constats neufs, à lire ensemble.** `AUD-QUA-17` : le verrou du parallélisme JUnit ne s'est pas
+levé, il s'est **déplacé** — `SqliteConnectionScope` porte quatre compteurs statiques de processus lus en
+différence par les tests, et leur nombre est **passé de 6 à 10 classes par la fusion même du 15 octobre**,
+parce que le correctif d'`AUD-TRV-05` a payé sa mesure en ajoutant trois tests de comptage. Le travail est
+bon ; son effet de bord mérite son propre constat. `AUD-TST-18` : `validate-r3` exige 17 fichiers `pom.xml`,
+le dépôt en a 19 — le validateur de release **ne peut plus passer**, dans aucune des deux variantes, et
+personne ne s'en est aperçu parce qu'aucun workflow ne le lance. Attention au faux ami : le commit
+*« the fabricated checkout reads the reactor from the root POM »* corrige le harnais de test d'`AUD-TRV-07`,
+pas le validateur.
+
+**Trois réserves avant de citer ces chiffres.** *Sécurité 100* signifie qu'aucun constat de sécurité ne
+reste ouvert, pas que le produit est sûr. *`AUD-DEP-12` reste aggravé* : `main` est loin derrière `develop`,
+ce qui rend la question « sur quelle branche taguer » bloquante et prive l'alerte CVE de son déclencheur
+quotidien. Et *aucun build n'a pu être exécuté* dans aucune des passes : Maven Central est refusé par le
+proxy. Tout est établi par lecture de code — à une exception, la suite Python de `scripts/tests`, réexécutée
+après fusion : **244 tests, 0 échec, 17 classes sautées** (le miroir PowerShell).
+
+<details><summary>État au 13 octobre 2026 (passe précédente)</summary>
+
+Les 96 constats ont été revérifiés un par un sur le code à `d5be889b`, après 263 commits et 113 PR
+fusionnées. Détail dans `reverification-2026-10-13.md`. **24 corrigés · 9 partiels · 40 toujours valides ·
+1 caduc**, et 22 des 24 constats *Info* tenaient toujours. Deux constats neufs (`AUD-PRF-19`, `AUD-ARC-15`)
+sont nés de la scission de `AUD-PRF-18`, devenu caduc après que le dépôt a mesuré que ma cause était fausse.
+Moyenne 44 → 63. Trois comptages ont monté sans traitement parce que les correctifs eux-mêmes les
+alimentent : le localisateur de racine recopié (73 → 91), les `assertThrows` nus (300 → 332), la part
+textuelle de l'enforcement (1/35 → 1/39).
+
+</details>
+
+Les notes ci-dessous et tout ce qui suit décrivent l'**état du 9 octobre**, conservé comme référence.
+
+---
+
 ## Notes par axe
 
 | Axe | Note | Calcul | Ce que la note dit |

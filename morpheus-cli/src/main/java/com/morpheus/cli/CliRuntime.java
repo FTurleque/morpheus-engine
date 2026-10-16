@@ -1,79 +1,127 @@
 package com.morpheus.cli;
 
-import com.morpheus.application.operability.ExhaustiveShutdown;
+import com.morpheus.application.composition.CompositionStateStore;
+import com.morpheus.application.identity.EntityIdentityStore;
+import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationStore;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.operability.StartupOwnership;
+import com.morpheus.application.policy.PolicyEvaluationService;
+import com.morpheus.application.policy.PolicyPackService;
+import com.morpheus.application.query.dsl.QueryExecutionService;
+import com.morpheus.application.query.export.QueryExportService;
+import com.morpheus.application.query.saved.SavedViewService;
 import com.morpheus.application.snapshot.RuntimeSnapshotRecovery;
-import com.morpheus.store.sqlite.SqliteChangeLifecycleMutationStore;
-import com.morpheus.store.sqlite.SqliteCompositionStateStore;
-import com.morpheus.store.sqlite.SqliteConnectionScope;
-import com.morpheus.store.sqlite.SqliteEntityIdentityStore;
-import com.morpheus.store.sqlite.SqliteExternalReferenceStore;
-import com.morpheus.store.sqlite.SqliteSnapshotBusinessContentStore;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
-import com.morpheus.store.sqlite.SqliteSyncStateStore;
-import com.morpheus.store.sqlite.SqliteTraceabilityStore;
-import com.morpheus.store.sqlite.SqliteVersionedRequirementStore;
+import com.morpheus.application.store.ExternalReferenceStore;
+import com.morpheus.application.store.PortfolioStore;
+import com.morpheus.application.store.SnapshotBusinessContentStore;
+import com.morpheus.application.store.SpecificationKnowledgeStore;
+import com.morpheus.application.store.SyncStateStore;
+import com.morpheus.application.store.TraceabilityStore;
+import com.morpheus.application.store.VersionedRequirementStore;
+import com.morpheus.store.sqlite.SqliteOperationRuntime;
 
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Objects;
 
-/** Owns the SQLite adapter set used by one CLI invocation. */
+/**
+ * The runtime of one CLI command, and the only type through which a command reaches the database.
+ *
+ * <p>Every store a command asks for shares one physical SQLite connection and one schema check, and is built the first
+ * time it is asked for. The accessors answer application ports.</p>
+ */
 final class CliRuntime implements AutoCloseable {
-    final SqliteSpecificationKnowledgeStore snapshots;
-    final SqliteVersionedRequirementStore requirements;
-    final SqliteSnapshotBusinessContentStore content;
-    final SqliteTraceabilityStore traceability;
-    final SqliteExternalReferenceStore externalReferences;
-    final SqliteEntityIdentityStore identities;
-    final SqliteSyncStateStore syncState;
-    final SqliteChangeLifecycleMutationStore lifecycleMutations;
-    final SqliteCompositionStateStore compositions;
-    private final SqliteConnectionScope sqliteScope;
+    private final SqliteOperationRuntime operation;
 
-    CliRuntime(Path databasePath) {
-        Objects.requireNonNull(databasePath, "databasePath");
+    private CliRuntime(SqliteOperationRuntime operation) {
+        this.operation = operation;
+    }
+
+    /**
+     * The runtime of a command that reads or writes through the stores, with nothing else to do first. What it puts on
+     * the database is counted on {@code recorder}.
+     */
+    static CliRuntime open(Path databasePath, OperationalRecorder recorder) {
+        return new CliRuntime(SqliteOperationRuntime.open(
+                Objects.requireNonNull(databasePath, "databasePath"), Objects.requireNonNull(recorder, "recorder")));
+    }
+
+    /**
+     * The runtime of a command that works on published snapshots: a publication a previous process left interrupted is
+     * recovered first, as the HTTP and MCP servers do once when they start. A recovery that fails releases the
+     * connection before the failure propagates.
+     */
+    static CliRuntime recovering(Path databasePath, OperationalRecorder recorder) {
         try (StartupOwnership owned = new StartupOwnership()) {
-            sqliteScope = owned.keep(
-                    SqliteConnectionScope.open(databasePath), SqliteConnectionScope::close);
-            snapshots = owned.keep(
-                    new SqliteSpecificationKnowledgeStore(databasePath), SqliteSpecificationKnowledgeStore::close);
-            new RuntimeSnapshotRecovery(snapshots).recoverAll(Instant.now());
-            requirements = owned.keep(
-                    new SqliteVersionedRequirementStore(databasePath), SqliteVersionedRequirementStore::close);
-            content = owned.keep(
-                    new SqliteSnapshotBusinessContentStore(databasePath), SqliteSnapshotBusinessContentStore::close);
-            traceability = owned.keep(
-                    new SqliteTraceabilityStore(databasePath), SqliteTraceabilityStore::close);
-            externalReferences = owned.keep(
-                    new SqliteExternalReferenceStore(databasePath), SqliteExternalReferenceStore::close);
-            identities = owned.keep(
-                    new SqliteEntityIdentityStore(databasePath), SqliteEntityIdentityStore::close);
-            syncState = owned.keep(
-                    new SqliteSyncStateStore(databasePath), SqliteSyncStateStore::close);
-            lifecycleMutations = owned.keep(
-                    new SqliteChangeLifecycleMutationStore(databasePath), SqliteChangeLifecycleMutationStore::close);
-            compositions = owned.keep(
-                    new SqliteCompositionStateStore(databasePath), SqliteCompositionStateStore::close);
-
+            CliRuntime runtime = owned.keep(open(databasePath, recorder), CliRuntime::close);
+            new RuntimeSnapshotRecovery(runtime.snapshots(), recorder).recoverAll(Instant.now());
             owned.transferred();
+            return runtime;
         }
+    }
+
+    SpecificationKnowledgeStore snapshots() {
+        return operation.snapshots();
+    }
+
+    VersionedRequirementStore requirements() {
+        return operation.requirements();
+    }
+
+    SnapshotBusinessContentStore content() {
+        return operation.content();
+    }
+
+    TraceabilityStore traceability() {
+        return operation.traceability();
+    }
+
+    ExternalReferenceStore externalReferences() {
+        return operation.externalReferences();
+    }
+
+    EntityIdentityStore identities() {
+        return operation.identities();
+    }
+
+    SyncStateStore syncState() {
+        return operation.syncState();
+    }
+
+    ChangeLifecycleMutationStore lifecycleMutations() {
+        return operation.lifecycleMutations();
+    }
+
+    CompositionStateStore compositions() {
+        return operation.compositions();
+    }
+
+    PortfolioStore portfolios() {
+        return operation.portfolios();
+    }
+
+    QueryExecutionService queries() {
+        return operation.queries();
+    }
+
+    SavedViewService views() {
+        return operation.views();
+    }
+
+    QueryExportService exports() {
+        return operation.exports();
+    }
+
+    PolicyPackService registry() {
+        return operation.registry();
+    }
+
+    PolicyEvaluationService evaluation() {
+        return operation.evaluation();
     }
 
     @Override
     public void close() {
-        ExhaustiveShutdown.releaseAll(
-                "cannot close CLI runtime resource",
-                compositions,
-                lifecycleMutations,
-                syncState,
-                identities,
-                externalReferences,
-                traceability,
-                content,
-                requirements,
-                snapshots,
-                sqliteScope);
+        operation.close();
     }
-
 }

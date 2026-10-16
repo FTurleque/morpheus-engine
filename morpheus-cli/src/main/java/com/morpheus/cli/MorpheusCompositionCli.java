@@ -9,7 +9,8 @@ import com.morpheus.application.composition.ProviderCompositionSource;
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.application.ingestion.ObservedProjectSnapshotPublisher;
-import com.morpheus.application.operability.LocalOperationalRuntime;
+import com.morpheus.application.operability.OperationalExecution;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.domain.project.ProjectSpecificationId;
@@ -26,12 +27,18 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 
 /** M18 CLI surface for explicit multi-provider synchronization and composition diagnostics. */
 final class MorpheusCompositionCli {
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
+    private final OperationalRecorder recorder;
+
+    MorpheusCompositionCli(OperationalRecorder recorder) {
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
+    }
 
     static boolean handles(String[] args) {
         return "composition".equals(command(args));
@@ -76,8 +83,8 @@ final class MorpheusCompositionCli {
             Parsed parsed,
             Options options,
             PrintStream out) {
-        try (CliRuntime runtime = new CliRuntime(parsed.layout().databasePath())) {
-            var project = runtime.snapshots.findProject(projectId)
+        try (CliRuntime runtime = CliRuntime.recovering(parsed.layout().databasePath(), recorder)) {
+            var project = runtime.snapshots().findProject(projectId)
                     .orElseThrow(() -> new IllegalStateException("project not found: " + projectId));
             Path workspace = Path.of(project.rootLocator().value()).toAbsolutePath().normalize();
             var openspecProvider = new OpenSpecSpecificationProvider();
@@ -93,24 +100,25 @@ final class MorpheusCompositionCli {
                 throw new IllegalStateException("no supported real provider detected in workspace: " + workspace);
             }
 
-            var identityResolver = new PersistentEntityIdentityResolver(runtime.identities);
+            var identityResolver = new PersistentEntityIdentityResolver(runtime.identities());
             var result = new MultiProviderReadService(
                     List.of(
                             new OpenSpecSpecificationContentReader(),
                             new StructuredMarkdownSpecificationContentReader()),
-                    new MultiProviderCompositionService())
+                    new MultiProviderCompositionService(),
+                    new OperationalExecution(recorder))
                     .read(ProviderReadRequest.all(workspace, projectId), identityResolver, sources);
 
             var imported = new ObservedProjectSnapshotPublisher(
                     new ProjectSnapshotImportService(
-                            runtime.snapshots,
-                            runtime.requirements,
-                            runtime.content,
-                            runtime.traceability),
-                    LocalOperationalRuntime.recorder())
+                            runtime.snapshots(),
+                            runtime.requirements(),
+                            runtime.content(),
+                            runtime.traceability()),
+                    recorder)
                     .publishFull(result.content(), options.optional("revision"), Instant.now());
             CompositionSnapshotState state = CompositionSnapshotState.from(imported.snapshot().id(), result);
-            runtime.compositions.save(state);
+            runtime.compositions().save(state);
             CompositionStateView view = CompositionStateView.from(state);
             write(view, parsed.json(), out, false);
             return CliExitCode.SUCCESS.code();
@@ -122,8 +130,8 @@ final class MorpheusCompositionCli {
             Parsed parsed,
             PrintStream out,
             boolean conflictsOnly) {
-        try (CliRuntime runtime = new CliRuntime(parsed.layout().databasePath())) {
-            CompositionStateView view = new CompositionQueryService(runtime.snapshots, runtime.compositions)
+        try (CliRuntime runtime = CliRuntime.recovering(parsed.layout().databasePath(), recorder)) {
+            CompositionStateView view = new CompositionQueryService(runtime.snapshots(), runtime.compositions())
                     .findActive(projectId)
                     .orElseThrow(() -> new IllegalStateException(
                             "project has no ACTIVE snapshot with composition state: " + projectId));

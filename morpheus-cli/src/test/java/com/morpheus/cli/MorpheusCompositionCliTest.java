@@ -1,5 +1,8 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.source.SourceLocator;
@@ -117,8 +120,8 @@ class MorpheusCompositionCliTest {
     private void register(Path data, ProjectSpecificationId projectId, Path workspace) {
         CliLayout layout = CliLayout.resolve(
                 Optional.of(data), Optional.empty(), Optional.empty(), Map.of(), properties());
-        try (CliRuntime runtime = new CliRuntime(layout.databasePath())) {
-            runtime.snapshots.putProject(new ProjectStoreEntry(
+        try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath(), OperationalRecorder.noop())) {
+            runtime.snapshots().putProject(new ProjectStoreEntry(
                     projectId,
                     SourceLocator.file(workspace.toAbsolutePath().normalize().toString())));
         }
@@ -137,7 +140,7 @@ class MorpheusCompositionCliTest {
         ByteArrayOutputStream errBytes = new ByteArrayOutputStream();
         try (PrintStream out = new PrintStream(outBytes, true, StandardCharsets.UTF_8);
              PrintStream err = new PrintStream(errBytes, true, StandardCharsets.UTF_8)) {
-            int exitCode = MorpheusMain.run(args, out, err, Map.of(), properties());
+            int exitCode = MorpheusMain.run(OperationalRuntime.of(OperationalLogMode.OFF), args, out, err, Map.of(), properties());
             return new Invocation(
                     exitCode,
                     outBytes.toString(StandardCharsets.UTF_8).replace("\r\n", "\n"),

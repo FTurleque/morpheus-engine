@@ -11,6 +11,7 @@ import com.morpheus.domain.traceability.TraceabilityRelationType;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -38,6 +39,26 @@ public final class MemoryTraceabilityStore implements TraceabilityStore {
         }
         definitions.putIfAbsent(link.id(), link);
         memberships.computeIfAbsent(snapshotId, ignored -> new HashSet<>()).add(link.id());
+    }
+
+    /** Validates the whole batch before storing any of it, so that a refused batch leaves nothing behind. */
+    @Override
+    public synchronized void putLinks(KnowledgeSnapshotId snapshotId, List<TraceabilityLink> links) {
+        List<TraceabilityLink> batch = List.copyOf(Objects.requireNonNull(links, "links"));
+        if (batch.isEmpty()) {
+            return;
+        }
+        requireSnapshot(snapshotId);
+        Map<TraceabilityLinkId, TraceabilityLink> accepted = new LinkedHashMap<>();
+        for (TraceabilityLink link : batch) {
+            TraceabilityLink known = accepted.getOrDefault(link.id(), definitions.get(link.id()));
+            if (known != null && !known.equals(link)) {
+                throw new KnowledgeStoreException("traceability link identity collision: " + link.id());
+            }
+            accepted.put(link.id(), link);
+        }
+        accepted.forEach(definitions::putIfAbsent);
+        memberships.computeIfAbsent(snapshotId, ignored -> new HashSet<>()).addAll(accepted.keySet());
     }
 
     @Override

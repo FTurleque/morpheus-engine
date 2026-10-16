@@ -2,6 +2,8 @@ package com.morpheus.api;
 
 import com.morpheus.application.context.DisabledTechnicalContextProvider;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityObservation;
+import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.application.store.ProjectStoreEntry;
@@ -83,7 +85,7 @@ class MorpheusRemoteHttpServerTest {
                 new ExternalReferenceResolverRegistry(List.of()),
                 minos,
                 nexus,
-                project -> ChangeWriteCapabilityObservation.denied("test"))) {
+                project -> ChangeWriteCapabilityObservation.denied("test"), OperationalRuntime.of(OperationalLogMode.OFF))) {
 
             URI base = URI.create("https://127.0.0.1:" + server.port() + "/api/v1");
 
@@ -123,6 +125,12 @@ class MorpheusRemoteHttpServerTest {
             assertRoleEnforcementOnWriteAndAdminRoutes(
                     readCannotWrite, writerReachedWriteRoute, writerCannotReadAdminMetrics, readCannotRegisterWorkspace);
             assertFacadeSecurityHeaders("forbidden (403)", readCannotWrite);
+            // The refusal was decided before the body of the request was read: the facade gives the connection up
+            // rather than leave the client to send its next request on one the server is about to drop.
+            assertEquals("close", readCannotWrite.headers().firstValue("Connection").orElse(""),
+                    "a refusal of a request that carried a body closes its connection");
+            assertEquals("", unknownRoute.headers().firstValue("Connection").orElse(""),
+                    "a refusal of a request without a body keeps its connection");
             assertFacadeSecurityHeaders("proxied refusal (400)", writerReachedWriteRoute);
 
             HttpResponse<String> exactRootRegistration = send(
@@ -253,7 +261,7 @@ class MorpheusRemoteHttpServerTest {
                 new ExternalReferenceResolverRegistry(List.of()),
                 () -> new ExternalIntegrationStatus("MINOS", "DISABLED", false, "test", Map.of()),
                 new DisabledTechnicalContextProvider("NEXUS", "test"),
-                project -> ChangeWriteCapabilityObservation.denied("test")));
+                project -> ChangeWriteCapabilityObservation.denied("test"), OperationalRuntime.of(OperationalLogMode.OFF)));
     }
 
     @Test

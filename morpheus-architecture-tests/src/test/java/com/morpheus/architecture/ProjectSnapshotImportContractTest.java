@@ -81,7 +81,7 @@ class ProjectSnapshotImportContractTest {
         var service = new ProjectSnapshotImportService(snapshots, snapshots, contentStore, traceability);
         ProjectSnapshotImportResult baseline = service.publishFull(valid, Optional.of("rev-1"), T0);
 
-        NormalizedProjectContent invalid = new NormalizedProjectContent(
+        NormalizedProjectContent invalid = NormalizedProjectContent.withoutAcceptanceCriteria(
                 valid.project(), valid.specifications(), valid.requirements(), valid.scenarios(), valid.changes(),
                 valid.requirementDeltas(), valid.constraints(), valid.designDecisions(), valid.tasks(), valid.evidence(),
                 List.of(Diagnostic.error(
@@ -138,7 +138,7 @@ class ProjectSnapshotImportContractTest {
         NormalizedProjectContent valid = new OpenSpecProjectContentReader().read(
                 fixture("openspec-basic"), projectId, new PersistentEntityIdentityResolver(snapshots));
         String absolute = tempDir.resolve("secret/spec.md").toAbsolutePath().toString();
-        NormalizedProjectContent invalid = new NormalizedProjectContent(
+        NormalizedProjectContent invalid = NormalizedProjectContent.withoutAcceptanceCriteria(
                 valid.project(), valid.specifications(), valid.requirements(), valid.scenarios(), valid.changes(),
                 valid.requirementDeltas(), valid.constraints(), valid.designDecisions(), valid.tasks(), valid.evidence(),
                 List.of(
@@ -171,7 +171,7 @@ class ProjectSnapshotImportContractTest {
                         "openspec/specs/file-" + index + "/spec.md: OpenSpec specification has no title",
                         Map.of()))
                 .toList();
-        NormalizedProjectContent invalid = new NormalizedProjectContent(
+        NormalizedProjectContent invalid = NormalizedProjectContent.withoutAcceptanceCriteria(
                 valid.project(), valid.specifications(), valid.requirements(), valid.scenarios(), valid.changes(),
                 valid.requirementDeltas(), valid.constraints(), valid.designDecisions(), valid.tasks(), valid.evidence(),
                 blocking);

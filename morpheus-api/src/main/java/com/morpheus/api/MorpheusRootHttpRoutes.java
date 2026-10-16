@@ -15,6 +15,13 @@ final class MorpheusRootHttpRoutes {
         this.operabilityService = Objects.requireNonNull(operabilityService, "operabilityService");
     }
 
+    /**
+     * The root routes that answer from the process alone. They are served without a database worker, so that a
+     * database every worker is waiting on does not silence them; {@code readiness} is not one of them, it asks the
+     * database.
+     */
+    static final List<String> ANSWERED_WITHOUT_THE_DATABASE = List.of("health", "metrics", "version");
+
     boolean handles(List<String> segments) {
         return segments.isEmpty()
                 || (segments.size() == 1

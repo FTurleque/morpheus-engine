@@ -70,11 +70,10 @@
             <artifactId>morpheus-api</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- The logging binding is MORPHEUS's own (OperationalSlf4jServiceProvider): no second provider is shipped. -->
         <dependency>
             <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-nop</artifactId>
-            <version>${slf4j.version}</version>
-            <scope>runtime</scope>
+            <artifactId>slf4j-api</artifactId>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -87,18 +86,7 @@
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <configuration>
-                    <!-- Runtime logging provider discovered by SLF4J's service loader. -->
-                    <usedDependencies>
-                        <usedDependency>org.slf4j:slf4j-nop</usedDependency>
-                    </usedDependencies>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
-                <version>${maven.jar.plugin.version}</version>
                 <configuration>
                     <archive>
                         <manifest>
@@ -112,7 +100,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>${maven.shade.plugin.version}</version>
                 <executions>
                     <execution>
                         <phase>package</phase>

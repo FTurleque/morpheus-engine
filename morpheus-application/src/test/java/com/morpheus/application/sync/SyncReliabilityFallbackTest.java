@@ -1,5 +1,8 @@
 package com.morpheus.application.sync;
 
+import com.morpheus.application.operability.OperationalEventSink;
+import com.morpheus.application.operability.OperationalMetrics;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.store.SyncStateStore;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import org.junit.jupiter.api.Test;
@@ -21,7 +24,7 @@ class SyncReliabilityFallbackTest {
         SourceInventory baseline = inventory(projectId, "revision-9", T0, "same");
         StubStore store = StubStore.consistent(baseline);
 
-        SyncPlan plan = new IncrementalSyncService(store).prepare(
+        SyncPlan plan = new IncrementalSyncService(store, OperationalRecorder.noop()).prepare(
                 SourceInventoryScanResult.complete(inventory(projectId, "revision-1", T0.plusSeconds(1), "same")),
                 SyncPlan.Trigger.manual(),
                 T0.plusSeconds(2));
@@ -47,7 +50,7 @@ class SyncReliabilityFallbackTest {
                         1L)),
                 Optional.of(baseline));
 
-        SyncPlan plan = new IncrementalSyncService(store).prepare(
+        SyncPlan plan = new IncrementalSyncService(store, OperationalRecorder.noop()).prepare(
                 SourceInventoryScanResult.complete(inventory(projectId, "r2", T0.plusSeconds(1), "same")),
                 SyncPlan.Trigger.manual(),
                 T0.plusSeconds(2));
@@ -60,7 +63,7 @@ class SyncReliabilityFallbackTest {
     void committedStateThatThrowsAfterCommitIsReconciledAsSuccess() {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         StubStore store = new StubStore(Optional.empty(), Optional.empty());
-        IncrementalSyncService service = new IncrementalSyncService(store);
+        IncrementalSyncService service = new IncrementalSyncService(store, OperationalRecorder.noop());
         SourceInventory current = inventory(projectId, "r1", T0, "content");
         SyncPlan plan = service.prepare(
                 SourceInventoryScanResult.complete(current),
@@ -79,7 +82,7 @@ class SyncReliabilityFallbackTest {
     void transientPostPublicationStateFailureIsRetriedOnce() {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         StubStore store = new StubStore(Optional.empty(), Optional.empty());
-        IncrementalSyncService service = new IncrementalSyncService(store);
+        IncrementalSyncService service = new IncrementalSyncService(store, OperationalRecorder.noop());
         SourceInventory current = inventory(projectId, "r1", T0, "content");
         SyncPlan plan = service.prepare(
                 SourceInventoryScanResult.complete(current),
@@ -98,7 +101,7 @@ class SyncReliabilityFallbackTest {
     void repeatedPostPublicationStateFailureSignalsBaselineInconsistentInsteadOfExecutionFailed() {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         StubStore store = new StubStore(Optional.empty(), Optional.empty());
-        IncrementalSyncService service = new IncrementalSyncService(store);
+        IncrementalSyncService service = new IncrementalSyncService(store, OperationalRecorder.noop());
         SourceInventory current = inventory(projectId, "r1", T0, "content");
         SyncPlan plan = service.prepare(
                 SourceInventoryScanResult.complete(current),
@@ -127,7 +130,7 @@ class SyncReliabilityFallbackTest {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         SourceInventory baseline = inventory(projectId, "r1", T0, "same");
         StubStore store = StubStore.consistent(baseline);
-        IncrementalSyncService service = new IncrementalSyncService(store);
+        IncrementalSyncService service = new IncrementalSyncService(store, OperationalRecorder.noop());
         SourceInventory current = inventory(projectId, "r1", T0.plusSeconds(1), "same");
         SyncPlan plan = service.prepare(
                 SourceInventoryScanResult.complete(current),
@@ -143,7 +146,7 @@ class SyncReliabilityFallbackTest {
     void failPreservesScanIncompleteReason() {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         StubStore store = new StubStore(Optional.empty(), Optional.empty());
-        IncrementalSyncService service = new IncrementalSyncService(store);
+        IncrementalSyncService service = new IncrementalSyncService(store, OperationalRecorder.noop());
         SyncPlan plan = service.prepare(
                 SourceInventoryScanResult.incomplete(
                         projectId,
@@ -159,6 +162,50 @@ class SyncReliabilityFallbackTest {
         assertEquals(
                 Optional.of(SyncPlan.FullRebuildReason.SCAN_INCOMPLETE),
                 store.state.orElseThrow().pendingFullRebuildReason());
+    }
+
+    /**
+     * While it recovers from a failure, the service reads the state to learn whether the commit, or the marker of an
+     * inconsistent baseline, is already visible. A read that fails is taken as "not visible", which is the safe
+     * reading - and used to be indistinguishable from a state that is simply absent.
+     */
+    @Test
+    void aRecoveryReadThatFailsIsTakenAsNotVisibleAndCounted() {
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+        StubStore store = new StubStore(Optional.empty(), Optional.empty());
+        OperationalMetrics metrics = new OperationalMetrics();
+        IncrementalSyncService service = new IncrementalSyncService(store, new SourceInventoryDiffer(),
+                new WatchSignalPolicy(), new OperationalRecorder(OperationalEventSink.noop(), metrics));
+        SourceInventory current = inventory(projectId, "r1", T0, "content");
+        SyncPlan plan = service.prepare(
+                SourceInventoryScanResult.complete(current),
+                SyncPlan.Trigger.manual().forced(),
+                T0.plusSeconds(1));
+        store.failReads = true;
+
+        service.fail(plan, T0.plusSeconds(2));
+
+        assertEquals(2L, metrics.snapshot().counters().get("failure.suppressed.sync-recovery-read"),
+                "the commit read and the marker read both failed, and each is counted");
+        assertTrue(store.state.orElseThrow().pendingFullRebuildReason().isPresent(),
+                "the failure is still recorded: an unreadable state is treated as not visible");
+    }
+
+    @Test
+    void aRecoveryReadThatSucceedsMovesNoCounter() {
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+        StubStore store = new StubStore(Optional.empty(), Optional.empty());
+        OperationalMetrics metrics = new OperationalMetrics();
+        IncrementalSyncService service = new IncrementalSyncService(store, new SourceInventoryDiffer(),
+                new WatchSignalPolicy(), new OperationalRecorder(OperationalEventSink.noop(), metrics));
+        SyncPlan plan = service.prepare(
+                SourceInventoryScanResult.complete(inventory(projectId, "r1", T0, "content")),
+                SyncPlan.Trigger.manual().forced(),
+                T0.plusSeconds(1));
+
+        service.fail(plan, T0.plusSeconds(2));
+
+        assertEquals(null, metrics.snapshot().counters().get("failure.suppressed.sync-recovery-read"));
     }
 
     private static SourceInventory inventory(
@@ -183,6 +230,7 @@ class SyncReliabilityFallbackTest {
         private int failBeforeCommit;
         private boolean throwAfterCommit;
         private int commitAttempts;
+        private boolean failReads;
 
         private StubStore(Optional<ProjectSyncState> state, Optional<SourceInventory> inventory) {
             this.state = state;
@@ -206,6 +254,7 @@ class SyncReliabilityFallbackTest {
 
         @Override
         public Optional<ProjectSyncState> findSyncState(ProjectSpecificationId projectId) {
+            if (failReads) throw new IllegalStateException("synthetic state read failure");
             return state;
         }
 

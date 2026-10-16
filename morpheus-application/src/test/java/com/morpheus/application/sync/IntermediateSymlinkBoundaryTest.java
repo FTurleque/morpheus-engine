@@ -1,5 +1,6 @@
 package com.morpheus.application.sync;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -28,7 +29,7 @@ class IntermediateSymlinkBoundaryTest {
         Path link = workspace.resolve("link");
         assumeTrue(createSymlink(link, outside.getParent()), "symbolic links cannot be created in this environment");
 
-        SourceInventoryScanResult result = new LocalSourceInventoryScanner().scan(
+        SourceInventoryScanResult result = new LocalSourceInventoryScanner(OperationalRecorder.noop()).scan(
                 workspace,
                 ProjectSpecificationId.generate(),
                 Optional.empty(),
@@ -49,7 +50,8 @@ class IntermediateSymlinkBoundaryTest {
         assumeTrue(createSymlink(link, outside.getParent()), "symbolic links cannot be created in this environment");
 
         assertThrows(IOException.class,
-                () -> new LocalSourceWatcher(workspace, List.of(Path.of("link/nested"))));
+                () -> new LocalSourceWatcher(workspace, List.of(Path.of("link/nested")),
+                        SourceScanPolicy.safeDefaults(), OperationalRecorder.noop()));
     }
 
     private boolean createSymlink(Path link, Path target) {

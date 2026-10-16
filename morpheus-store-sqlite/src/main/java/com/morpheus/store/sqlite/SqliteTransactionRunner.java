@@ -34,28 +34,29 @@ final class SqliteTransactionRunner {
                     "SQLite transaction runner requires auto-commit mode; nested or caller-owned transactions are not supported");
         }
 
-        SqliteContentionMetrics.transactionStarted();
+        SqliteContentionMetrics contention = SqliteContentionMetrics.of(connection);
+        contention.transactionStarted();
         long startedNanos = System.nanoTime();
         try {
             connection.setAutoCommit(false);
             T result = work.run(connection);
             connection.commit();
-            SqliteContentionMetrics.transactionCommitted(System.nanoTime() - startedNanos);
+            contention.transactionCommitted(System.nanoTime() - startedNanos);
             restoreAfterSuccessfulCommit(connection, previousAutoCommit);
             return result;
         } catch (SQLException failure) {
             KnowledgeStoreException wrapped = new KnowledgeStoreException(failureMessage, failure);
-            SqliteContentionMetrics.transactionRolledBack(System.nanoTime() - startedNanos, wrapped);
+            contention.transactionRolledBack(System.nanoTime() - startedNanos, wrapped);
             rollbackSuppressing(connection, wrapped);
             restoreAfterFailure(connection, previousAutoCommit, wrapped);
             throw wrapped;
         } catch (RuntimeException failure) {
-            SqliteContentionMetrics.transactionRolledBack(System.nanoTime() - startedNanos, failure);
+            contention.transactionRolledBack(System.nanoTime() - startedNanos, failure);
             rollbackSuppressing(connection, failure);
             restoreAfterFailure(connection, previousAutoCommit, failure);
             throw failure;
         } catch (Error failure) {
-            SqliteContentionMetrics.transactionRolledBack(System.nanoTime() - startedNanos, failure);
+            contention.transactionRolledBack(System.nanoTime() - startedNanos, failure);
             rollbackSuppressing(connection, failure);
             restoreAfterFailure(connection, previousAutoCommit, failure);
             throw failure;

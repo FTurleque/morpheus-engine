@@ -1,5 +1,7 @@
 package com.morpheus.sdk.provider;
 
+import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.operability.SuppressedFailureFamily;
 import com.morpheus.domain.provider.ProviderProbeResult;
 
 import java.io.IOException;
@@ -52,13 +54,15 @@ final class ProviderPluginProbeProcess {
             "LC_CTYPE");
 
     private final Duration timeout;
+    private final OperationalRecorder recorder;
 
-    ProviderPluginProbeProcess() {
-        this(DEFAULT_TIMEOUT);
+    ProviderPluginProbeProcess(OperationalRecorder recorder) {
+        this(DEFAULT_TIMEOUT, recorder);
     }
 
-    ProviderPluginProbeProcess(Duration timeout) {
+    ProviderPluginProbeProcess(Duration timeout, OperationalRecorder recorder) {
         this.timeout = Objects.requireNonNull(timeout, "timeout");
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
         if (timeout.isZero() || timeout.isNegative()) {
             throw new IllegalArgumentException("provider plugin probe timeout must be positive");
         }
@@ -190,15 +194,19 @@ final class ProviderPluginProbeProcess {
         };
     }
 
-    private void deleteStagingDirectory(Path directory) {
+    /**
+     * Deletes the staging directory once the probe has an outcome. That outcome stands whatever happens here; a
+     * directory that cannot be deleted holds no secret material, stays in the temporary directory and is counted.
+     */
+    void deleteStagingDirectory(Path directory) {
         if (directory == null) {
             return;
         }
         try {
             Files.deleteIfExists(directory.resolve(RESULT_FILE_NAME));
             Files.deleteIfExists(directory);
-        } catch (IOException ignored) {
-            // The staging directory holds no secret material; preserve the primary outcome.
+        } catch (IOException residue) {
+            recorder.suppressed(SuppressedFailureFamily.STAGED_ARTIFACT_CLEANUP, residue);
         }
     }
 
@@ -335,14 +343,19 @@ final class ProviderPluginProbeProcess {
         }
     }
 
-    private void collectTree(ProcessHandle root, Map<Long, ProcessHandle> observed) {
+    /**
+     * Retains every descendant of the live handles observed so far. A handle whose descendants cannot be listed is
+     * counted and the others are still read; the handles already retained are still signalled. What is lost is
+     * whatever that process started since the last observation.
+     */
+    void collectTree(ProcessHandle root, Map<Long, ProcessHandle> observed) {
         observed.putIfAbsent(root.pid(), root);
         for (ProcessHandle seed : List.copyOf(observed.values())) {
             if (!seed.isAlive()) continue;
             try {
                 seed.descendants().forEach(handle -> observed.putIfAbsent(handle.pid(), handle));
-            } catch (RuntimeException ignored) {
-                // A process can disappear between isAlive() and descendants(); retained handles are still signalled.
+            } catch (RuntimeException unlisted) {
+                recorder.suppressed(SuppressedFailureFamily.PLUGIN_PROBE_PROCESS_TREE, unlisted);
             }
         }
     }
@@ -357,7 +370,11 @@ final class ProviderPluginProbeProcess {
         }
     }
 
-    private void signal(ProcessHandle handle, boolean forcibly) {
+    /**
+     * Signals one live process. A signal that cannot be sent is counted and the rest of the observed tree is still
+     * terminated; a later forced pass gets another opportunity, and counts again if it fails too.
+     */
+    void signal(ProcessHandle handle, boolean forcibly) {
         if (!handle.isAlive()) return;
         try {
             if (forcibly) {
@@ -365,8 +382,8 @@ final class ProviderPluginProbeProcess {
             } else {
                 handle.destroy();
             }
-        } catch (RuntimeException ignored) {
-            // Continue terminating the rest of the observed tree; a later forced pass gets another opportunity.
+        } catch (RuntimeException unsignalled) {
+            recorder.suppressed(SuppressedFailureFamily.PLUGIN_PROBE_SHUTDOWN, unsignalled);
         }
     }
 }

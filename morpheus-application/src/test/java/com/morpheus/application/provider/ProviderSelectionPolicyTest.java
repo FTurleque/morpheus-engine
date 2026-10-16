@@ -129,6 +129,7 @@ class ProviderSelectionPolicyTest {
                 ProviderProbeStatus.SUPPORTED,
                 Optional.of("test-schema"),
                 Optional.empty(),
+                Optional.empty(),
                 ProviderCapabilitySet.of(capabilities),
                 remote,
                 List.of());

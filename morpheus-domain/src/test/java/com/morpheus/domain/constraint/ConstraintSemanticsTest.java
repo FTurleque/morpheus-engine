@@ -19,9 +19,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ConstraintSemanticsTest {
 
     @Test
-    void legacyConstraintKeepsSemanticsUnknown() {
-        Constraint constraint = new Constraint(
-                ConstraintId.generate(), ChangeId.generate(), "Security review required", provenance());
+    void aConstraintWithUnknownSemanticsIsUnknownOnEveryAxisAndCarriesWhatItWasGiven() {
+        ConstraintId id = ConstraintId.generate();
+        ChangeId changeId = ChangeId.generate();
+        Provenance provenance = provenance();
+
+        Constraint constraint = Constraint.withUnknownSemantics(id, changeId, "Security review required", provenance);
 
         assertEquals(ConstraintApplicability.UNKNOWN, constraint.applicability());
         assertEquals(ConstraintSeverity.UNKNOWN, constraint.severity());
@@ -29,6 +32,18 @@ class ConstraintSemanticsTest {
         assertEquals(ConstraintBlockingMode.UNKNOWN, constraint.blockingPolicy().mode());
         assertTrue(constraint.supportingEvidenceIds().isEmpty());
         assertFalse(constraint.hasExplicitSemantics());
+        assertEquals(
+                new Constraint(
+                        id,
+                        changeId,
+                        "Security review required",
+                        ConstraintApplicability.UNKNOWN,
+                        ConstraintSeverity.UNKNOWN,
+                        ConstraintSatisfaction.UNKNOWN,
+                        ConstraintBlockingPolicy.unknown(),
+                        List.of(),
+                        provenance),
+                constraint);
     }
 
     @Test

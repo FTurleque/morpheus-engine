@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -135,7 +136,7 @@ class MorpheusExternalReferenceMcpToolsTest {
 
     private McpSchema.CallToolResult call(Path database, String tool, Map<String, Object> arguments) {
         List<McpServerFeatures.SyncToolSpecification> specifications =
-                new MorpheusExternalReferenceMcpTools(database, new ExternalReferenceResolverRegistry(List.of()))
+                new MorpheusExternalReferenceMcpTools(database, OperationalRecorder.noop(), new ExternalReferenceResolverRegistry(List.of()))
                         .specifications();
         return McpToolCall.call(specifications, tool, arguments);
     }

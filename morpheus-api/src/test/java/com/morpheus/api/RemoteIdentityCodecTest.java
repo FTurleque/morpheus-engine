@@ -128,7 +128,7 @@ class RemoteIdentityCodecTest {
 
         List<Identity> tooMany = new ArrayList<>();
         for (int index = 0; index <= RemoteIdentityCodec.MAX_IDENTITIES; index++) {
-            tooMany.add(new Identity("p" + index, MorpheusRemoteRole.READ, bytes(index)));
+            tooMany.add(new Identity("p" + index, MorpheusRemoteRole.READ, bytes(index), Optional.empty()));
         }
         assertTrue(assertThrows(IllegalArgumentException.class, () -> RemoteIdentityCodec.format(tooMany))
                 .getMessage().contains("exceeds " + RemoteIdentityCodec.MAX_IDENTITIES + " identities"));
@@ -155,7 +155,7 @@ class RemoteIdentityCodecTest {
         Instant expiry = Instant.parse("2031-06-01T12:00:00Z");
         List<Identity> identities = List.of(
                 new Identity("zulu", MorpheusRemoteRole.READ, bytes(2), Optional.of(expiry)),
-                new Identity("alpha", MorpheusRemoteRole.ADMIN, bytes(1)));
+                new Identity("alpha", MorpheusRemoteRole.ADMIN, bytes(1), Optional.empty()));
 
         List<String> lines = RemoteIdentityCodec.format(identities);
 
@@ -171,11 +171,11 @@ class RemoteIdentityCodecTest {
     @Test
     void formattingRefusesADuplicateItWasHandedRatherThanWritingIt() {
         List<Identity> duplicatePrincipal = List.of(
-                new Identity("ops", MorpheusRemoteRole.READ, bytes(1)),
-                new Identity("ops", MorpheusRemoteRole.ADMIN, bytes(2)));
+                new Identity("ops", MorpheusRemoteRole.READ, bytes(1), Optional.empty()),
+                new Identity("ops", MorpheusRemoteRole.ADMIN, bytes(2), Optional.empty()));
         List<Identity> duplicateVerifier = List.of(
-                new Identity("first", MorpheusRemoteRole.READ, bytes(3)),
-                new Identity("second", MorpheusRemoteRole.ADMIN, bytes(3)));
+                new Identity("first", MorpheusRemoteRole.READ, bytes(3), Optional.empty()),
+                new Identity("second", MorpheusRemoteRole.ADMIN, bytes(3), Optional.empty()));
 
         assertTrue(assertThrows(IllegalArgumentException.class, () -> RemoteIdentityCodec.format(duplicatePrincipal))
                 .getMessage().contains("duplicate remote principal: ops"));
@@ -195,7 +195,7 @@ class RemoteIdentityCodecTest {
     @Test
     void aTokenHashOfTheWrongLengthCannotBecomeAnIdentity() {
         assertTrue(assertThrows(IllegalArgumentException.class,
-                () -> new Identity("ops", MorpheusRemoteRole.READ, new byte[31]))
+                () -> new Identity("ops", MorpheusRemoteRole.READ, new byte[31], Optional.empty()))
                 .getMessage().contains("exactly 32 bytes"));
     }
 

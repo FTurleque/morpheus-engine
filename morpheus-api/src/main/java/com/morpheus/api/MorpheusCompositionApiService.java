@@ -2,6 +2,7 @@ package com.morpheus.api;
 
 import com.morpheus.application.composition.CompositionQueryService;
 import com.morpheus.application.composition.CompositionStateView;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.domain.project.ProjectSpecificationId;
 
@@ -17,9 +18,11 @@ final class MorpheusCompositionApiService {
     static final int MAX_LIMIT = 100;
 
     private final Path databasePath;
+    private final OperationalRecorder recorder;
 
-    MorpheusCompositionApiService(Path databasePath) {
+    MorpheusCompositionApiService(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
     CompositionStateView status(String projectId) {
@@ -43,8 +46,8 @@ final class MorpheusCompositionApiService {
 
     private CompositionStateView state(String rawProjectId) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(rawProjectId);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath)) {
-            return new CompositionQueryService(runtime.snapshots, runtime.compositions)
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
+            return new CompositionQueryService(runtime.snapshots(), runtime.compositions())
                     .findActive(projectId)
                     .orElseThrow(() -> new KnowledgeStoreException(
                             "project has no ACTIVE snapshot composition state: " + projectId));

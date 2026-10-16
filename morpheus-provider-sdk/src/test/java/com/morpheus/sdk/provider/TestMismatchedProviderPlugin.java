@@ -49,7 +49,7 @@ public final class TestMismatchedProviderPlugin implements MorpheusProviderPlugi
             public ProviderProbeResult probe(Path workspaceRoot) {
                 return new ProviderProbeResult(
                         id(), version(), ProviderProbeStatus.UNSUPPORTED,
-                        Optional.empty(), Optional.empty(), ProviderCapabilitySet.of(), false, List.of());
+                        Optional.empty(), Optional.empty(), Optional.empty(), ProviderCapabilitySet.of(), false, List.of());
             }
         };
     }

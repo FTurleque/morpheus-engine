@@ -16,6 +16,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "write-third-party-notices.py"
+SCRIPTS_UNDER_TEST = ("write-third-party-notices.py",)
 OWN = "io.github.fturleque"
 
 

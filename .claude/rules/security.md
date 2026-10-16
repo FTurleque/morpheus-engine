@@ -31,8 +31,9 @@ Supprimer une de ces chaînes casse le build.
 - `ApiLaunchOptions` → `LoopbackHostPolicy.requireLoopback`
 - Toute exposition non-loopback **exige le mode remote explicite**
 - Toute réponse locale pose le même jeu d'en-têtes, déclaré une fois dans
-  `MorpheusHttpResponseWriter.applySecurityHeaders` : le writer partagé, le refus d'origine et le refus de capacité
-  interne l'appellent. Une réponse qui écrit ses en-têtes elle-même en oublie ; ne pas en ajouter une quatrième
+  `MorpheusHttpResponseWriter.applySecurityHeaders` : le writer partagé, le refus d'origine, le refus de capacité
+  interne et le refus d'admission (`LOCAL_SERVER_BUSY`) l'appellent. Une réponse qui écrit ses en-têtes elle-même en
+  oublie ; toute nouvelle réponse écrite hors du writer appelle cette méthode
 
 ## Chemin d'une requête HTTP — une seule lecture
 
@@ -53,9 +54,29 @@ Supprimer une de ces chaînes casse le build.
 | Mot de passe TLS | **variable d'env `MORPHEUS_SERVER_TLS_PASSWORD`** — jamais un flag `--tls-password` |
 | Tokens | `SecureRandom`, `TOKEN_BYTES = 32`, stockés en `sha256`, comparés par `MessageDigest.isEqual` |
 | Audit | `MAX_AUDIT_RECORDS = 512`, écriture via `FileChannel` + `FileLock` |
+| Journal d'accès | fichier à part (`RemoteAccessJournal`), écrit dans le `finally` de `serve` ; ni jeton, ni empreinte, ni chemin (ADR-0113) |
 | RBAC | `MorpheusRemoteRole.ADMIN` pour les opérations sensibles |
 | Rate limit | `TOO_MANY_REQUESTS` (429) |
 | Headers | `X-Frame-Options`, `Content-Security-Policy`, `Strict-Transport-Security: max-age=31536000` (façade remote seulement — le serveur local parle HTTP sur loopback et ne le pose pas) |
+
+- Un refus rendu par la façade pour une requête **qui portait un corps** annonce `Connection: close`
+  (`MorpheusRemoteResponseWriter.sendError`). La plupart des refus sont décidés avant la lecture du corps ; sans cet
+  en-tête le serveur HTTP du JDK peut fermer la connexion pendant que le client y envoie sa requête suivante, qui
+  expire. Ne pas le retirer, et ne rien écrire entre la réponse et `exchange.close()` dans `serve`
+
+### Journal d'accès — qui a été autorisé à faire quoi
+
+- L'audit du fichier d'identités dit ce qui arrive aux identifiants ; le journal d'accès dit ce à quoi ils servent.
+  Ne pas fusionner les deux, ni écrire l'un dans l'autre.
+- Un enregistrement porte le **gabarit** de route, jamais le chemin, et aucune forme de jeton :
+  `RemoteAccessJournal` ne lit ni l'échange HTTP ni `tokenHash` (`RemoteAccessJournalArchitectureTest`).
+- Un 403 est consigné, un 401 ne l'est pas : un appelant non authentifié ne doit pas pouvoir remplir le journal.
+- L'issue s'écrit **une fois**, dans le `finally` de `serve`. Ne pas l'écrire branche par branche : la prochaine
+  branche ajoutée serait celle qui n'en a pas.
+- Une requête qui modifie quelque chose (route WRITE, ou route ADMIN hors `GET`/`HEAD` — le critère de
+  `usesPrivilegedConcurrency`) et dont la ligne `accepted` ne s'écrit pas est refusée
+  (`503 ACCESS_JOURNAL_UNAVAILABLE`) ; une lecture est servie ; la perte est comptée. Ne pas transformer ce refus en
+  repli silencieux.
 
 ### Interdits stricts sur le proxy remote
 - **Jamais** de `Access-Control-Allow-Origin` (pas de CORS)
@@ -114,7 +135,11 @@ Supprimer une de ces chaînes casse le build.
 - Backup : `VACUUM INTO` + `PRAGMA integrity_check` + `tryLock` + `ATOMIC_MOVE`
 - Restore : exige une **`explicit confirmation`**, et reste `EXPLICITLY_OFFLINE_ONLY`
 - `SqliteTransactionRunner` doit gérer `catch (Error failure)` + `rollbackSuppressing(connection, failure)`
-- Ouvrir les connexions via `SqliteConnectionScope.open(databasePath)`
+- Ouvrir les connexions via `SqliteConnectionScope.open(databasePath, recorder)` — il n'y a pas d'ouverture sans recorder, et la portée y compte sa connexion et sa vérification de schéma (plus aucun compteur statique, ADR-0115) : depuis le 15/10/2026 une seule classe,
+  `SqliteOperationRuntime`, construit les stores d'une opération et ouvre la portée avant eux, pour les trois transports — une connexion et une vérification de
+  schéma par opération. Une portée ne s'imbrique pas : le refus est nommé (`SqliteConnectionScope.NESTED_REFUSAL`) et
+  désigne un défaut de l'appelant, jamais un état de la base — un appelant qui traduit un échec d'ouverture doit le
+  laisser passer
 
 ## Chaîne d'approvisionnement CI
 

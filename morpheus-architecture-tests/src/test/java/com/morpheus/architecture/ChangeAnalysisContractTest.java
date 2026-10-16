@@ -260,7 +260,7 @@ class ChangeAnalysisContractTest {
                 successorVersionId,
                 fixture.baselineContent().specifications(),
                 fixture.baselineContent().scenarios(),
-                List.of(), List.of(), List.of(), List.of(), fixture.baselineContent().evidence()));
+                List.of(), List.of(), List.of(), List.of(), List.of(), fixture.baselineContent().evidence()));
         putCurrentRequirement(snapshots, successorId, successorVersionId, EntityVersionId.generate(),
                 fixture.modifiedRequirementId(), fixture.specificationId(), "REQ-A", "Current A", "Current statement A", fixture.provenance());
         snapshots.activateSnapshot(successorId, Optional.of(fixture.snapshotId()));
@@ -512,7 +512,7 @@ class ChangeAnalysisContractTest {
                     List.of("baseline"), "act", "current outcome", provenance);
             SnapshotBusinessContent baselineContent = new SnapshotBusinessContent(
                     snapshotId, versionId, List.of(specification), List.of(currentScenario),
-                    List.of(), List.of(), List.of(), List.of(), List.of(evidence));
+                    List.of(), List.of(), List.of(), List.of(), List.of(), List.of(evidence));
 
             ChangeProposal change = new ChangeProposal(
                     changeId, projectId, Optional.of("CHG-M8"), "Analyze change", "Explain documentary impact",
@@ -534,7 +534,7 @@ class ChangeAnalysisContractTest {
                     changeId, RequirementDeltaKind.ADDED, addedRequirementId,
                     Optional.of("REQ-E"), "Added E", Optional.of("Added statement E"),
                     List.of(proposedAddedScenario), provenance);
-            Constraint constraint = new Constraint(
+            Constraint constraint = Constraint.withUnknownSemantics(
                     ConstraintId.generate(), changeId, "Must preserve deterministic analysis", provenance);
             DesignDecision decision = new DesignDecision(
                     DesignDecisionId.generate(), changeId, "Use explicit dependency paths", "Traverse DEPENDS_ON only", provenance);

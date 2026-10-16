@@ -82,7 +82,10 @@ class ProviderPluginPlatformContractTest {
                 "an MCP caller must never choose a local provider-plugin directory");
         assertTrue(mcp.contains("RETIRED_PROBE_TOOL"));
         assertFalse(mcp.contains("case RETIRED_PROBE_TOOL"));
-        assertTrue(http.contains("new MorpheusProviderPluginHttpRoutes(providerPluginProbeEnabled)"));
+        assertTrue(http.contains("new MorpheusProviderPluginHttpRoutes("));
+        assertTrue(http.contains("providerPluginProbeEnabled, operabilityService.recorder());"),
+                "the probe stays enabled by the server alone, and what its clean-up sets aside is counted where "
+                        + "this server serves its metrics");
         assertTrue(httpRoutes.contains("if (!probeEnabled)"));
         assertTrue(httpRoutes.contains("provider-plugin probe is remote-only"));
         assertTrue(activator.contains("provider plugin activation requires a trusted SHA-256 pin"));

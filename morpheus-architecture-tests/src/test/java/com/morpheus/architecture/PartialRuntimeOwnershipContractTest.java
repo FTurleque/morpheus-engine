@@ -30,7 +30,7 @@ class PartialRuntimeOwnershipContractTest {
         List<String> assemblers = List.of(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusLocalHttpServerBootstrap.java",
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServerBootstrap.java",
-                "morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusMcpRuntime.java");
+                "morpheus-cli/src/main/java/com/morpheus/cli/CliRuntime.java");
 
         for (String assembler : assemblers) {
             String content = Files.readString(root.resolve(assembler));
@@ -90,9 +90,7 @@ class PartialRuntimeOwnershipContractTest {
         List<String> owners = List.of(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java",
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java",
-                "morpheus-api/src/main/java/com/morpheus/api/ApiRuntime.java",
-                "morpheus-cli/src/main/java/com/morpheus/cli/CliRuntime.java",
-                "morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusMcpRuntime.java");
+                "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteOperationRuntime.java");
 
         for (String owner : owners) {
             String content = Files.readString(root.resolve(owner));

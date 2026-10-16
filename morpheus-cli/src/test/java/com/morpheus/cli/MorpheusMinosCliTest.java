@@ -1,5 +1,8 @@
 package com.morpheus.cli;
 
+import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.project.ProjectSpecificationId;
@@ -67,6 +70,7 @@ class MorpheusMinosCliTest {
     @Test
     void minosStatusPrintsItsDetailsInKeyOrderWhateverTheOrderOfTheStatusMap() {
         MorpheusExternalIntegrationCli cli = new MorpheusExternalIntegrationCli(
+                OperationalRecorder.noop(),
                 new com.morpheus.application.reference.ExternalReferenceResolverRegistry(java.util.List.of()),
                 () -> new com.morpheus.application.reference.ExternalIntegrationStatus(
                         "MINOS", "DISABLED", false, "m", java.util.Map.of("zeta", "6", "alpha", "1", "mu", "4", "beta", "2", "omega", "5", "kappa", "3")));
@@ -130,7 +134,7 @@ class MorpheusMinosCliTest {
         properties.setProperty("os.name", System.getProperty("os.name", "Windows"));
         try (PrintStream out = new PrintStream(outBytes, true, StandardCharsets.UTF_8);
              PrintStream err = new PrintStream(errBytes, true, StandardCharsets.UTF_8)) {
-            int exit = MorpheusMain.run(args, out, err, Map.of(), properties);
+            int exit = MorpheusMain.run(OperationalRuntime.of(OperationalLogMode.OFF), args, out, err, Map.of(), properties);
             return new Invocation(exit,
                     outBytes.toString(StandardCharsets.UTF_8).replace("\r\n", "\n"),
                     errBytes.toString(StandardCharsets.UTF_8).replace("\r\n", "\n"));

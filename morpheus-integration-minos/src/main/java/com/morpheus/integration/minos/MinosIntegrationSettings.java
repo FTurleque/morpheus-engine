@@ -38,15 +38,6 @@ public record MinosIntegrationSettings(
     public static final int DEFAULT_TIMEOUT_SECONDS = 20;
     public static final int MAX_TIMEOUT_SECONDS = 120;
 
-    public MinosIntegrationSettings(
-            Optional<Path> jarPath,
-            String javaCommand,
-            Optional<Path> homeDirectory,
-            Duration timeout,
-            Optional<String> configurationError) {
-        this(jarPath, javaCommand, homeDirectory, timeout, Optional.empty(), configurationError);
-    }
-
     public MinosIntegrationSettings {
         jarPath = Objects.requireNonNull(jarPath, "jarPath").map(MinosIntegrationSettings::normalize);
         javaCommand = requireAbsoluteLauncher(requireNonBlank(javaCommand, "javaCommand"));

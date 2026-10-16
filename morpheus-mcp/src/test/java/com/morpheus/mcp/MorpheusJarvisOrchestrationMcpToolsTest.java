@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import io.modelcontextprotocol.spec.McpSchema;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -145,7 +146,7 @@ class MorpheusJarvisOrchestrationMcpToolsTest {
 
     private McpSchema.CallToolResult call(Path database, String tool, Map<String, Object> arguments) {
         return McpToolCall.call(
-                new MorpheusJarvisOrchestrationMcpTools(database).specifications(), tool, arguments);
+                new MorpheusJarvisOrchestrationMcpTools(database, OperationalRecorder.noop()).specifications(), tool, arguments);
     }
 
     private static Map<String, Object> arguments(McpToolCall.PublishedProject project, Map<String, Object> extra) {

@@ -66,6 +66,11 @@ public final class LocalOperabilityService {
         return metrics.snapshot();
     }
 
+    /** A recorder over the counters this service reports and the sink it emits to. */
+    public OperationalRecorder recorder() {
+        return new OperationalRecorder(eventSink, metrics);
+    }
+
     @FunctionalInterface
     public interface ReadinessProbe {
         int projectCount();

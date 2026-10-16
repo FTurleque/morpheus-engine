@@ -4,6 +4,8 @@ import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.history.PublishedHistoryException;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;
 import com.morpheus.application.operability.ExhaustiveShutdown;
+import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.application.store.KnowledgeStoreException;
@@ -38,6 +40,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     private final MorpheusCompositionApiService compositionService;
     private final MorpheusPortfolioApiService portfolioService;
     private final MorpheusHttpRequestDecoder requestDecoder;
+    private final OperationalRecorder recorder;
     private final MorpheusRootHttpRoutes rootRoutes;
     private final MorpheusProjectRootHttpRoutes projectRootRoutes;
     private final MorpheusProjectSyncHttpRoutes projectSyncRoutes;
@@ -78,12 +81,14 @@ public final class MorpheusHttpServer implements AutoCloseable {
         this.portfolioService = Objects.requireNonNull(portfolioService, "portfolioService");
         this.requestDecoder = new MorpheusHttpRequestDecoder(
                 MAX_REQUEST_BODY_BYTES, REQUEST_BODY_READ_TIMEOUT, this.executor);
-        this.rootRoutes = new MorpheusRootHttpRoutes(
-                this.service, Objects.requireNonNull(operabilityService, "operabilityService"));
+        Objects.requireNonNull(operabilityService, "operabilityService");
+        this.recorder = operabilityService.recorder();
+        this.rootRoutes = new MorpheusRootHttpRoutes(this.service, operabilityService);
         this.projectRootRoutes = new MorpheusProjectRootHttpRoutes(this.service, this.requestDecoder);
         this.projectSyncRoutes = new MorpheusProjectSyncHttpRoutes(this.service, this.requestDecoder);
         this.portfolioRoutes = new MorpheusPortfolioHttpRoutes(this.portfolioService, this.requestDecoder);
-        this.providerPluginRoutes = new MorpheusProviderPluginHttpRoutes(providerPluginProbeEnabled);
+        this.providerPluginRoutes = new MorpheusProviderPluginHttpRoutes(
+                providerPluginProbeEnabled, operabilityService.recorder());
         this.integrationStatusRoutes = new MorpheusIntegrationStatusHttpRoutes(
                 this.externalReferenceService, this.augmentedContextService);
         this.compositionRoutes = new MorpheusCompositionHttpRoutes(this.compositionService);
@@ -103,6 +108,11 @@ public final class MorpheusHttpServer implements AutoCloseable {
 
     public static MorpheusHttpServer start(Path databasePath, String host, int port) {
         return MorpheusLocalHttpServerBootstrap.start(databasePath, host, port);
+    }
+
+    /** A local server whose operations are counted on {@code runtime}, which its {@code metrics} route serves. */
+    public static MorpheusHttpServer start(Path databasePath, String host, int port, OperationalRuntime runtime) {
+        return MorpheusLocalHttpServerBootstrap.start(databasePath, host, port, runtime);
     }
 
     public static MorpheusHttpServer start(
@@ -132,7 +142,8 @@ public final class MorpheusHttpServer implements AutoCloseable {
             ExternalReferenceResolverRegistry resolverRegistry,
             ExternalIntegrationStatusProvider minosStatus,
             TechnicalContextProvider technicalContextProvider,
-            ChangeWriteCapabilityResolver writeCapabilityResolver) {
+            ChangeWriteCapabilityResolver writeCapabilityResolver,
+            OperationalRuntime runtime) {
         return MorpheusLocalHttpServerBootstrap.start(
                 databasePath,
                 host,
@@ -140,7 +151,8 @@ public final class MorpheusHttpServer implements AutoCloseable {
                 resolverRegistry,
                 minosStatus,
                 technicalContextProvider,
-                writeCapabilityResolver);
+                writeCapabilityResolver,
+                runtime);
     }
 
     static MorpheusHttpServer startRemote(
@@ -152,7 +164,8 @@ public final class MorpheusHttpServer implements AutoCloseable {
             TechnicalContextProvider technicalContextProvider,
             ChangeWriteCapabilityResolver writeCapabilityResolver,
             AllowedWorkspaceRoots allowedWorkspaceRoots,
-            MorpheusInternalCapability internalCapability) {
+            MorpheusInternalCapability internalCapability,
+            OperationalRuntime runtime) {
         return MorpheusLocalHttpServerBootstrap.startRemote(
                 databasePath,
                 host,
@@ -162,7 +175,8 @@ public final class MorpheusHttpServer implements AutoCloseable {
                 technicalContextProvider,
                 writeCapabilityResolver,
                 allowedWorkspaceRoots,
-                internalCapability);
+                internalCapability,
+                runtime);
     }
 
     public String host() {
@@ -212,6 +226,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
         } catch (KnowledgeStoreException | PublishedHistoryException | IllegalStateException failure) {
             send(exchange, 409, error("STATE_CONFLICT", BoundaryFailureMessage.safe(failure), Map.of()));
         } catch (RuntimeException failure) {
+            UnforeseenFailureTrace.record(recorder, failure);
             send(exchange, 500, error("INTERNAL_ERROR", "internal MORPHEUS API error", Map.of()));
         } finally {
             exchange.close();

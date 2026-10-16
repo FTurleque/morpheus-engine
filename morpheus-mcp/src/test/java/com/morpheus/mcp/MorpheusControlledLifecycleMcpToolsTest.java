@@ -3,6 +3,7 @@ package com.morpheus.mcp;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationResultState;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityObservation;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.domain.provider.ProviderId;
 import io.modelcontextprotocol.json.McpJsonDefaults;
@@ -376,7 +377,7 @@ class MorpheusControlledLifecycleMcpToolsTest {
 
     private List<McpServerFeatures.SyncToolSpecification> specifications(
             Path database, ChangeWriteCapabilityResolver writeCapability) {
-        return new MorpheusControlledLifecycleMcpTools(database, writeCapability).specifications();
+        return new MorpheusControlledLifecycleMcpTools(database, OperationalRecorder.noop(), writeCapability).specifications();
     }
 
     private static ChangeWriteCapabilityResolver allowedWrites() {

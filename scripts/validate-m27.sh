@@ -10,6 +10,17 @@ REPO="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO"
 OUTPUT="$REPO/validation-output/m27"
 mkdir -p "$OUTPUT"
+# A run that is refused must not leave the summary of an earlier run that passed: the summary is the record a
+# reader is told to read instead of the output.
+rm -f "$OUTPUT/validation-summary.txt"
+RATCHETS="$REPO/config/m21-quality-ratchets.properties"
+# The minimums are the living ratchets, never the floor of this milestone's date: a literal floor is dominated by
+# the living one many times over, and a validator that compares with it passes a build every other gate refuses.
+. "$SCRIPT_DIR/lib/read-quality-ratchet.sh"
+TESTS_MINIMUM="$(read_quality_ratchet "$RATCHETS" testsMinimum integer)"
+ARCH_TESTS_MINIMUM="$(read_quality_ratchet "$RATCHETS" architectureTestsMinimum integer)"
+LINE_COVERAGE_MINIMUM="$(read_quality_ratchet "$RATCHETS" aggregateLineCoverageMinimum ratio)"
+BRANCH_COVERAGE_MINIMUM="$(read_quality_ratchet "$RATCHETS" aggregateBranchCoverageMinimum ratio)"
 VALIDATION_SHA="$(git rev-parse HEAD)"
 
 if [[ -z "${JAVA_HOME:-}" ]]; then
@@ -50,20 +61,28 @@ print(all_tests[0], all_tests[1], all_tests[2], arch[0])
 PY
 )
 if (( FAILURES != 0 || ERRORS != 0 )); then echo "Surefire failures=$FAILURES errors=$ERRORS" >&2; exit 1; fi
-if (( TESTS < 602 )); then echo "M27 complete test floor regression: $TESTS < 602" >&2; exit 1; fi
-if (( ARCH_TESTS < 238 )); then echo "M27 architecture baseline regression: $ARCH_TESTS < 238" >&2; exit 1; fi
-printf '%s\n' "Tests: PASS ($TESTS, M27 minimum >= 602)"
-printf '%s\n' "Architecture: PASS ($ARCH_TESTS, M27 minimum >= 238)"
+if (( TESTS < TESTS_MINIMUM )); then
+  echo "M27 test baseline regression: $TESTS < $TESTS_MINIMUM (testsMinimum in $RATCHETS)" >&2
+  exit 1
+fi
+if (( ARCH_TESTS < ARCH_TESTS_MINIMUM )); then
+  echo "M27 architecture baseline regression: $ARCH_TESTS < $ARCH_TESTS_MINIMUM (architectureTestsMinimum in $RATCHETS)" >&2
+  exit 1
+fi
+printf '%s\n' "Tests: PASS ($TESTS, baseline >= $TESTS_MINIMUM)"
+printf '%s\n' "Architecture: PASS ($ARCH_TESTS, baseline >= $ARCH_TESTS_MINIMUM)"
 
 COVERAGE="$REPO/morpheus-architecture-tests/target/m21-aggregate-coverage-summary.txt"
 bash "$SCRIPT_DIR/lib/require-aggregate-coverage-evidence.sh" "$COVERAGE"
 LINE_RATIO="$(sed -n 's/^lineRatio=//p' "$COVERAGE")"
 BRANCH_RATIO="$(sed -n 's/^branchRatio=//p' "$COVERAGE")"
-morpheus_python - "$LINE_RATIO" "$BRANCH_RATIO" <<'PY'
+morpheus_python - "$LINE_RATIO" "$BRANCH_RATIO" "$LINE_COVERAGE_MINIMUM" "$BRANCH_COVERAGE_MINIMUM" <<'PY'
 import sys
-line, branch = map(float, sys.argv[1:])
-if line < .42: raise SystemExit(f'M27 line coverage below 42%: {line}')
-if branch < .35: raise SystemExit(f'M27 branch coverage below 35%: {branch}')
+line, branch, minimum_line, minimum_branch = map(float, sys.argv[1:])
+if line < minimum_line:
+    raise SystemExit(f'M27 line coverage below {minimum_line:.3f} ratchet: {line}')
+if branch < minimum_branch:
+    raise SystemExit(f'M27 branch coverage below {minimum_branch:.3f} ratchet: {branch}')
 PY
 printf '%s\n' "JaCoCo: PASS (line=$LINE_RATIO, branch=$BRANCH_RATIO)"
 

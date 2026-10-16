@@ -1,6 +1,7 @@
 package com.morpheus.cli;
 
 import com.morpheus.application.operability.ExhaustiveShutdown;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.policy.PolicyConfiguration;
 import com.morpheus.application.policy.PolicyEvaluation;
 import com.morpheus.application.policy.PolicyIds;
@@ -15,7 +16,6 @@ import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.portfolio.PortfolioId;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.store.sqlite.SqlitePolicyRuntime;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
@@ -24,6 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
@@ -66,6 +67,12 @@ final class MorpheusPolicyCli {
 
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
     private final QueryDefinitionCodec queryCodec = new QueryDefinitionCodec();
+    private final OperationalRecorder recorder;
+
+    /** Every command counts what it puts on the database on {@code recorder}, the one the launcher handed. */
+    MorpheusPolicyCli(OperationalRecorder recorder) {
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
+    }
 
     static boolean handles(String[] args) {
         return command(args).equals("policy");
@@ -80,7 +87,7 @@ final class MorpheusPolicyCli {
                 throw new IllegalArgumentException("unknown policy action: " + parsed.action());
             }
             options.rejectUnknown(allowed);
-            try (SqlitePolicyRuntime runtime = SqlitePolicyRuntime.open(parsed.layout().databasePath())) {
+            try (CliRuntime runtime = CliRuntime.open(parsed.layout().databasePath(), recorder)) {
                 Object result = execute(parsed.action(), options, runtime);
                 CliExitCode exitCode = CliExitCode.SUCCESS;
                 if (result instanceof Decided decided) {
@@ -107,7 +114,7 @@ final class MorpheusPolicyCli {
         }
     }
 
-    private Object execute(String action, SimpleOptions options, SqlitePolicyRuntime runtime) {
+    private Object execute(String action, SimpleOptions options, CliRuntime runtime) {
         return switch (action) {
             case "pack-create" -> PolicyPublicViews.definition(runtime.registry().create(
                     options.required("name"), rules(options.required(OPT_RULES)),

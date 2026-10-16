@@ -1,5 +1,7 @@
 # Validation M16 — Constraint Semantics & Policy Enforcement
 
+> Note du 13/10/2026 — ce relevé cite un wrapper `.cmd` de la racine du dépôt, qui n'existe plus : `validate-m16.cmd` n'a pas de remplaçant : le validateur `validate-m16` a été retiré de `scripts/` et aucune commande ne rejoue plus cette preuve ; son code se relit par `git show 3861ccf07:scripts/validate-m16.ps1`. Le relevé n'est pas réécrit : il garde les commandes et les chemins de sa date.
+
 Statut : **✅ VALIDÉ TECHNIQUEMENT — PR #79 prête à intégrer**
 
 Date : 26 juillet 2026

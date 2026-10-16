@@ -12,6 +12,17 @@ $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 Set-Location $repo
 $outputRoot = Join-Path $repo 'validation-output\m27'
 New-Item -ItemType Directory -Force -Path $outputRoot | Out-Null
+# A run that is refused must not leave the summary of an earlier run that passed: the summary is the record a
+# reader is told to read instead of the output.
+Remove-Item -LiteralPath (Join-Path $outputRoot 'validation-summary.txt') -Force -ErrorAction SilentlyContinue
+$ratchetsPath = Join-Path $repo 'config\m21-quality-ratchets.properties'
+# The minimums are the living ratchets, never the floor of this milestone's date: a literal floor is dominated by
+# the living one many times over, and a validator that compares with it passes a build every other gate refuses.
+. (Join-Path $PSScriptRoot 'lib\Read-QualityRatchets.ps1')
+$testsMinimum = [int](Get-QualityRatchet -Path $ratchetsPath -Key 'testsMinimum' -Kind integer)
+$architectureTestsMinimum = [int](Get-QualityRatchet -Path $ratchetsPath -Key 'architectureTestsMinimum' -Kind integer)
+$lineCoverageMinimum = Get-QualityRatchet -Path $ratchetsPath -Key 'aggregateLineCoverageMinimum' -Kind ratio
+$branchCoverageMinimum = Get-QualityRatchet -Path $ratchetsPath -Key 'aggregateBranchCoverageMinimum' -Kind ratio
 $validationSha = (git rev-parse HEAD).Trim()
 
 function Invoke-Native([string]$Label, [scriptblock]$Command) {
@@ -44,9 +55,9 @@ Write-Host "M27 exact-head validation SHA: $validationSha"
 $initialTracked = @(git status --porcelain --untracked-files=no)
 if ($initialTracked.Count -ne 0) { throw "M27 exact-head gate requires no tracked workspace delta before validation:`n$($initialTracked -join "`n")" }
 
-git rev-parse --verify "$BaseRef`^{commit}" *> $null
+git rev-parse --verify --quiet "$BaseRef`^{commit}" *> $null
 if ($LASTEXITCODE -ne 0) {
-    $BaseRef = 'develop'; git rev-parse --verify "$BaseRef`^{commit}" *> $null
+    $BaseRef = 'develop'; git rev-parse --verify --quiet "$BaseRef`^{commit}" *> $null
     if ($LASTEXITCODE -ne 0) { throw 'M27 base ref not found: origin/develop (fallback develop also missing)' }
 }
 Write-Host "M27 diff base: $BaseRef"
@@ -55,19 +66,27 @@ Invoke-Native 'Maven clean verify' { & .\mvnw.cmd 'clean' 'verify' }
 
 $totals = Get-SurefireTotals $repo
 if ($totals.Failures -ne 0 -or $totals.Errors -ne 0) { throw "Surefire failures=$($totals.Failures) errors=$($totals.Errors)" }
-if ($totals.Tests -lt 602) { throw "M27 complete test floor regression: $($totals.Tests) < 602" }
+if ($totals.Tests -lt $testsMinimum) {
+    throw "M27 test baseline regression: $($totals.Tests) < $testsMinimum (testsMinimum in $ratchetsPath)"
+}
 $architecture = Get-SurefireTotals (Join-Path $repo 'morpheus-architecture-tests')
-if ($architecture.Tests -lt 238) { throw "M27 architecture baseline regression: $($architecture.Tests) < 238" }
-Write-Host "Tests: PASS ($($totals.Tests), M27 minimum >= 602)"
-Write-Host "Architecture: PASS ($($architecture.Tests), M27 minimum >= 238)"
+if ($architecture.Tests -lt $architectureTestsMinimum) {
+    throw "M27 architecture baseline regression: $($architecture.Tests) < $architectureTestsMinimum (architectureTestsMinimum in $ratchetsPath)"
+}
+Write-Host "Tests: PASS ($($totals.Tests), baseline >= $testsMinimum)"
+Write-Host "Architecture: PASS ($($architecture.Tests), baseline >= $architectureTestsMinimum)"
 
 $coverageSummary = Join-Path $repo 'morpheus-architecture-tests\target\m21-aggregate-coverage-summary.txt'
 & (Join-Path $PSScriptRoot 'lib\Require-AggregateCoverageEvidence.ps1') -EvidencePath $coverageSummary
 $coverage = @{}; Get-Content $coverageSummary | ForEach-Object { if ($_ -match '^([^=]+)=(.*)$') { $coverage[$matches[1]] = $matches[2] } }
 $lineRatio = [double]::Parse($coverage.lineRatio, [Globalization.CultureInfo]::InvariantCulture)
 $branchRatio = [double]::Parse($coverage.branchRatio, [Globalization.CultureInfo]::InvariantCulture)
-if ($lineRatio -lt 0.42) { throw "M27 line coverage below 42%: $($coverage.lineRatio)" }
-if ($branchRatio -lt 0.35) { throw "M27 branch coverage below 35%: $($coverage.branchRatio)" }
+if ($lineRatio -lt [double]::Parse($lineCoverageMinimum, [Globalization.CultureInfo]::InvariantCulture)) {
+    throw "M27 line coverage below $lineCoverageMinimum ratchet: $($coverage.lineRatio)"
+}
+if ($branchRatio -lt [double]::Parse($branchCoverageMinimum, [Globalization.CultureInfo]::InvariantCulture)) {
+    throw "M27 branch coverage below $branchCoverageMinimum ratchet: $($coverage.branchRatio)"
+}
 Write-Host "JaCoCo: PASS (line=$($coverage.lineRatio), branch=$($coverage.branchRatio))"
 
 $manifest = Get-Content -LiteralPath (Join-Path $repo 'contracts\public-surfaces.tsv') -Raw

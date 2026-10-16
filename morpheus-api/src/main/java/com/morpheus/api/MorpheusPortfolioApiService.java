@@ -1,10 +1,12 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.portfolio.PortfolioPublicViews;
 import com.morpheus.application.portfolio.PortfolioQueryService;
 import com.morpheus.application.portfolio.PortfolioRegistryService;
 import com.morpheus.application.portfolio.PortfolioTraversalDirection;
 import com.morpheus.application.portfolio.PortfolioTraversalService;
+import com.morpheus.application.store.PortfolioStore;
 import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.portfolio.PortfolioEntityRef;
@@ -13,7 +15,6 @@ import com.morpheus.domain.portfolio.PortfolioId;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.provider.ProviderId;
 import com.morpheus.domain.source.SourceLocator;
-import com.morpheus.store.sqlite.SqlitePortfolioStore;
 
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -26,25 +27,29 @@ import java.util.stream.Collectors;
 /** HTTP-facing M23 service; transport parsing stays separate from portfolio business semantics. */
 public final class MorpheusPortfolioApiService {
     private final Path databasePath;
+    private final OperationalRecorder recorder;
 
-    public MorpheusPortfolioApiService(Path databasePath) {
+    public MorpheusPortfolioApiService(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
     public Object create(CreatePortfolioRequest request) {
         Objects.requireNonNull(request, "request");
-        try (SqlitePortfolioStore store = store()) {
-            return PortfolioPublicViews.project(new PortfolioRegistryService(store).create(request.name()));
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
+            PortfolioStore store = runtime.portfolios();
+            return PortfolioPublicViews.project(new PortfolioRegistryService(store).create(requireText(request.name(), "name")));
         }
     }
 
     public Object registerProject(String portfolioId, RegisterProjectRequest request) {
         Objects.requireNonNull(request, "request");
-        try (SqlitePortfolioStore store = store()) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
+            PortfolioStore store = runtime.portfolios();
             return PortfolioPublicViews.project(new PortfolioRegistryService(store).registerProject(
                     PortfolioId.parse(portfolioId),
-                    ProjectSpecificationId.parse(request.projectId()),
-                    request.name(),
+                    ProjectSpecificationId.parse(requireText(request.projectId(), "projectId")),
+                    requireText(request.name(), "name"),
                     optional(request.workspace()).map(SourceLocator::file),
                     optional(request.repository()).map(MorpheusPortfolioApiService::locator),
                     providers(request.providers())));
@@ -52,7 +57,8 @@ public final class MorpheusPortfolioApiService {
     }
 
     public Object markMissing(String portfolioId, String projectId) {
-        try (SqlitePortfolioStore store = store()) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
+            PortfolioStore store = runtime.portfolios();
             return PortfolioPublicViews.project(new PortfolioRegistryService(store).markMissing(
                     PortfolioId.parse(portfolioId), ProjectSpecificationId.parse(projectId)));
         }
@@ -60,11 +66,12 @@ public final class MorpheusPortfolioApiService {
 
     public Object observeFreshness(String portfolioId, String projectId, FreshnessRequest request) {
         Objects.requireNonNull(request, "request");
-        try (SqlitePortfolioStore store = store()) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
+            PortfolioStore store = runtime.portfolios();
             return PortfolioPublicViews.project(new PortfolioRegistryService(store).observeFreshness(
                     PortfolioId.parse(portfolioId),
                     ProjectSpecificationId.parse(projectId),
-                    PortfolioFreshnessState.valueOf(request.state().trim().toUpperCase(Locale.ROOT)),
+                    PortfolioFreshnessState.valueOf(requireText(request.state(), "state").toUpperCase(Locale.ROOT)),
                     optional(request.revision()),
                     optional(request.explanation())));
         }
@@ -72,39 +79,44 @@ public final class MorpheusPortfolioApiService {
 
     public Object addReference(String portfolioId, CrossProjectReferenceRequest request) {
         Objects.requireNonNull(request, "request");
-        try (SqlitePortfolioStore store = store()) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
+            PortfolioStore store = runtime.portfolios();
             return PortfolioPublicViews.project(new PortfolioRegistryService(store).addReference(
                     PortfolioId.parse(portfolioId),
-                    entity(request.sourceProjectId(), request.sourceType(), request.sourceId()),
-                    entity(request.targetProjectId(), request.targetType(), request.targetId()),
-                    request.relation(),
-                    new ProviderId(request.providerId()),
+                    entity(request.sourceProjectId(), request.sourceType(), request.sourceId(), "source"),
+                    entity(request.targetProjectId(), request.targetType(), request.targetId(), "target"),
+                    requireText(request.relation(), "relation"),
+                    new ProviderId(requireText(request.providerId(), "providerId")),
                     optional(request.sourceLocator()).map(MorpheusPortfolioApiService::locator),
                     optional(request.evidenceId()).map(EvidenceId::parse)));
         }
     }
 
     public Object list(int offset, int limit) {
-        try (SqlitePortfolioStore store = store()) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
+            PortfolioStore store = runtime.portfolios();
             return PortfolioPublicViews.project(new PortfolioQueryService(store).listPortfolios(offset, limit));
         }
     }
 
     public Object overview(String portfolioId) {
-        try (SqlitePortfolioStore store = store()) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
+            PortfolioStore store = runtime.portfolios();
             return PortfolioPublicViews.project(new PortfolioQueryService(store).overview(PortfolioId.parse(portfolioId)));
         }
     }
 
     public Object members(String portfolioId, int offset, int limit) {
-        try (SqlitePortfolioStore store = store()) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
+            PortfolioStore store = runtime.portfolios();
             return PortfolioPublicViews.project(
                     new PortfolioQueryService(store).memberships(PortfolioId.parse(portfolioId), offset, limit));
         }
     }
 
     public Object references(String portfolioId, Optional<String> projectId, int offset, int limit) {
-        try (SqlitePortfolioStore store = store()) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
+            PortfolioStore store = runtime.portfolios();
             PortfolioQueryService query = new PortfolioQueryService(store);
             PortfolioId id = PortfolioId.parse(portfolioId);
             Object references = projectId
@@ -116,17 +128,19 @@ public final class MorpheusPortfolioApiService {
     }
 
     public Object conflicts(String portfolioId) {
-        try (SqlitePortfolioStore store = store()) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
+            PortfolioStore store = runtime.portfolios();
             return PortfolioPublicViews.project(new PortfolioQueryService(store).conflicts(PortfolioId.parse(portfolioId)));
         }
     }
 
     public Object traverse(String portfolioId, TraversalRequest request) {
         Objects.requireNonNull(request, "request");
-        try (SqlitePortfolioStore store = store()) {
+        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
+            PortfolioStore store = runtime.portfolios();
             return PortfolioPublicViews.project(new PortfolioTraversalService(store).traverse(
                     PortfolioId.parse(portfolioId),
-                    entity(request.startProjectId(), request.startType(), request.startId()),
+                    entity(request.startProjectId(), request.startType(), request.startId(), "start"),
                     request.maxDepth() == null ? 4 : request.maxDepth(),
                     request.maxNodes() == null ? 250 : request.maxNodes(),
                     request.maxLinks() == null ? 1000 : request.maxLinks(),
@@ -134,13 +148,11 @@ public final class MorpheusPortfolioApiService {
         }
     }
 
-    private SqlitePortfolioStore store() {
-        return new SqlitePortfolioStore(databasePath);
-    }
-
-    private static PortfolioEntityRef entity(String projectId, String type, String entityId) {
+    private static PortfolioEntityRef entity(String projectId, String type, String entityId, String prefix) {
         return new PortfolioEntityRef(
-                ProjectSpecificationId.parse(projectId), type, DomainIdentity.parse(entityId));
+                ProjectSpecificationId.parse(requireText(projectId, prefix + "ProjectId")),
+                requireText(type, prefix + "Type"),
+                DomainIdentity.parse(requireText(entityId, prefix + "Id")));
     }
 
     private static SourceLocator locator(String encoded) {
@@ -160,6 +172,11 @@ public final class MorpheusPortfolioApiService {
                 .filter(value -> !value.isEmpty())
                 .map(ProviderId::new)
                 .collect(Collectors.toUnmodifiableSet());
+    }
+
+    private static String requireText(String value, String name) {
+        if (value == null || value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
+        return value.trim();
     }
 
     private static Optional<String> optional(String value) {

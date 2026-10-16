@@ -233,13 +233,13 @@ Une coupure réseau côté client reste un résultat distribué potentiellement 
 
 ### Sessions SQLite par opération
 
-Chaque opération locale ou remote qui construit `ApiRuntime` possède un `SqliteConnectionScope` thread-confined. Les neuf stores du runtime empruntent neuf connexions logiques, mais partagent exactement une connexion physique. La vérification/migration du schéma est exécutée une seule fois dans ce scope ; la fermeture des stores ne ferme que leurs handles logiques, puis `ApiRuntime.close()` ferme la connexion physique propriétaire.
+Chaque opération locale ou remote passe par un seul type, `ApiRuntime`, qui enveloppe `SqliteOperationRuntime` (`morpheus-store-sqlite`). Celui-ci ouvre un `SqliteConnectionScope` thread-confined avant tout store, puis construit chaque store la première fois que l'opération le demande : les stores lus empruntent autant de connexions logiques, mais partagent exactement une connexion physique, et la vérification/migration du schéma est exécutée une seule fois dans ce scope. La fermeture libère les stores ouverts, du dernier au premier, puis la connexion physique propriétaire. Les accesseurs rendent des ports de l'application, jamais un type SQLite.
 
-Le runtime Query HTTP utilise désormais le même principe : ses cinq stores (`snapshots`, `requirements`, `content`, `portfolios`, `saved`) partagent une seule connexion physique et le constructeur nettoie tous les handles déjà ouverts si une initialisation ultérieure échoue.
+Les services de requête et de policy sont câblés par le même runtime : il n'y a plus d'ensemble de stores propre à la requête ou à la policy. HTTP, CLI (`CliRuntime`) et MCP (`MorpheusMcpRuntime`) ont chacun un seul type de runtime, qui enveloppe le même : une connexion physique par opération, quel que soit le transport. Jusqu'au 13/10/2026 seul le runtime Query de l'adaptateur HTTP ouvrait une portée ; jusqu'au 15/10/2026 le portefeuille, la gestion de policy, la readiness et la récupération au démarrage ouvraient un store seul, hors portée.
 
-Une invocation CLI ouvre elle aussi un seul `SqliteConnectionScope` partagé par ses stores. La récupération des snapshots, les lectures et les mutations d'une commande restent donc dans une pression d'une seule connexion physique, avec fermeture du scope en dernier.
+Une invocation CLI ouvre elle aussi une seule portée partagée par ses stores. La récupération des snapshots (`CliRuntime.recovering`), les lectures et les mutations d'une commande restent donc dans une pression d'une seule connexion physique, avec fermeture du scope en dernier.
 
-`SqliteConnectionScope.diagnostics()` expose les compteurs process `opened`, `closed`, `active` et `peak` sans chemin de base ni donnée métier. Un scope ne peut pas être imbriqué, changer de base/timeout, traverser un thread ou survivre à l’opération qui le possède. Un appel `close()` depuis le mauvais thread est rejeté **avant** de modifier l'état du scope afin que le thread propriétaire puisse encore effectuer le cleanup réel.
+Un scope compte la connexion physique qu'il ouvre et libère et la vérification de schéma qu'il exécute (`SqliteConnectionScope.CONNECTIONS_OPENED`, `CONNECTIONS_CLOSED`, `SCHEMA_CHECKS`) sur le recorder que son ouvreur nomme, sans chemin de base ni donnée métier — le runtime du processus pour un serveur lancé par le launcher, le sien pour un test. Ce furent des compteurs statiques du processus (`diagnostics()`, avec un `peak`), lus en différence par les tests, qui ne pouvaient donc pas tourner ensemble ; ils ont été retirés le 15/10/2026 (ADR-0115). Un scope ne peut pas être imbriqué, changer de base/timeout, traverser un thread ou survivre à l’opération qui le possède. Un appel `close()` depuis le mauvais thread est rejeté **avant** de modifier l'état du scope afin que le thread propriétaire puisse encore effectuer le cleanup réel.
 
 Les blocs transactionnels des stores et du gestionnaire de schéma délèguent à `SqliteTransactionRunner`. Le runner emprunte la connexion sans jamais la fermer, possède la transition d’auto-commit, le commit/rollback et la restauration du mode précédent. Il exige `autoCommit=true` à l'entrée : une transaction déjà ouverte appartient au caller et est refusée sans `commit()` ni `rollback()` afin d'interdire les transactions imbriquées implicites.
 
@@ -376,6 +376,34 @@ MCP                       aucune surface control-plane M26
 
 Voir `contracts/public-surfaces.tsv` et `docs/developer/reference/openapi/morpheus-v1-remote-m26.yaml`.
 
+## Profil de charge et clients adverses
+
+`MorpheusRemoteLoadProfileTest` (module `morpheus-api`) est le harnais reproductible qui mesure la façade sous charge.
+Il pilote la vraie façade HTTPS et écrit ce qu'il a observé dans `morpheus-api/target/remote-load-profile.txt` :
+
+```bash
+./mvnw -pl morpheus-api test -Dtest=MorpheusRemoteLoadProfileTest
+```
+
+Ce que le harnais **affirme** n'est délibérément pas une latence. Un chiffre absolu sur un runner partagé n'est pas une
+propriété de MORPHEUS, et un build qui casse quand la machine est occupée apprend surtout à ignorer l'échec. Les
+assertions portent sur les propriétés qui doivent tenir à n'importe quelle vitesse :
+
+- toute requête reçoit une réponse ;
+- cette réponse n'est **jamais** un 5xx : la saturation s'exprime en `429` explicite, jamais en drop ni en attente ;
+- `server/status` reste répondable pendant toute une charge mixte lecture + mutation ;
+- un corps surdimensionné (`413`) ne laisse **aucun** slot derrière lui ;
+- fermer la façade libère réellement sa socket et son executor.
+
+Les latences (`p50`, `p95`, `max`, `wall`) sont **enregistrées comme preuve**, pas asserties : elles alimentent les
+critères de remplacement de `jdk.httpserver`, que le guide d'exploitation énonce pour l'opérateur
+([`../user/TEAM_REMOTE_SERVER.md`](../user/TEAM_REMOTE_SERVER.md)). Le tir à 240 lectures concurrentes contre
+`--max-concurrent 8` que ce guide cite est celui du harnais.
+
+`MorpheusRemoteAdversarialClientTest` pilote, depuis une socket TLS brute contre la vraie façade, les trois
+comportements de client que borne ADR-0099 : lecture des seuls en-têtes puis arrêt, lecture lente avec pauses, et
+disparition brutale en cours de réponse.
+
 ## Tests
 
 - `MorpheusRemoteIdentityFileTest` / lifecycle tests : hash-only, auth, expiry rétrocompatible, malformed/duplicates, mutations, concurrence et compaction de l'audit ;
@@ -386,6 +414,7 @@ Voir `contracts/public-surfaces.tsv` et `docs/developer/reference/openapi/morphe
 - `RemoteApiLaunchOptionsTest` : local loopback et startup remote fail-closed ;
 - `MorpheusServerCliTest` : provisioning/lifecycle/expiry + backup/verify/restore ;
 - `ApiRuntimeSqliteSessionTest` / `CliRuntimeSqliteSessionTest` : une connexion physique par runtime ;
+- `HttpRequestConnectionCountTest` / `McpToolCallConnectionCountTest` / `CliCommandConnectionCountTest` : une connexion physique pour la même opération sur chaque transport, comptée au pilote JDBC ;
 - `SqliteConnectionScopeTest` / `SqliteTransactionRunnerTest` : confinement thread, transaction ownership, `Error`, cleanup et résultat post-commit explicite ;
 - `SyncReliabilityFallbackTest` : commit visible, retry borné, `BASELINE_INCONSISTENT`, `SCAN_INCOMPLETE` ;
 - `SqliteFutureSchemaCompatibilityTest` / `SqliteServerMaintenanceTest` : integrity/schema/lease/future-schema ;

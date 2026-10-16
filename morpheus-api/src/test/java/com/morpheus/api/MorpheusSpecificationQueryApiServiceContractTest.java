@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import org.junit.jupiter.api.Test;
@@ -27,9 +28,9 @@ class MorpheusSpecificationQueryApiServiceContractTest {
     void preservesListDetailContextPaginationAndActiveSnapshotContracts() throws Exception {
         Path database = tempDirectory.resolve("specification-query-service.db");
         Path fixture = http.fixture("openspec-basic");
-        MorpheusProjectRegistryApiService registry = new MorpheusProjectRegistryApiService(database, Optional.empty());
+        MorpheusProjectRegistryApiService registry = new MorpheusProjectRegistryApiService(database, OperationalRecorder.noop(), Optional.empty());
         String projectId = ((Map<?, ?>) registry.registerProject(fixture.toString()).project()).get("projectId").toString();
-        MorpheusSpecificationQueryApiService service = new MorpheusSpecificationQueryApiService(database);
+        MorpheusSpecificationQueryApiService service = new MorpheusSpecificationQueryApiService(database, OperationalRecorder.noop());
 
         ApiFailure noActiveSnapshot = assertThrows(
                 ApiFailure.class,
@@ -41,7 +42,7 @@ class MorpheusSpecificationQueryApiServiceContractTest {
                 () -> service.listSpecifications(ProjectSpecificationId.generate().toString(), PageRequest.first(1)));
         assertEquals(404, missingProject.status());
 
-        new MorpheusProjectSyncApiService(database, Optional.empty()).sync(projectId, Optional.of("specifications-r1"));
+        new MorpheusProjectSyncApiService(database, OperationalRecorder.noop(), Optional.empty()).sync(projectId, Optional.of("specifications-r1"));
 
         Map<?, ?> firstPage = (Map<?, ?>) service.listSpecifications(projectId, PageRequest.first(1));
         assertEquals(0, firstPage.get("offset"));

@@ -1,5 +1,7 @@
 package com.morpheus.application.sync;
 
+import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.operability.SuppressedFailureFamily;
 import com.morpheus.application.store.SyncStateStore;
 import com.morpheus.domain.project.ProjectSpecificationId;
 
@@ -14,18 +16,21 @@ public final class IncrementalSyncService {
     private final SyncStateStore store;
     private final SourceInventoryDiffer differ;
     private final WatchSignalPolicy watchPolicy;
+    private final OperationalRecorder recorder;
 
-    public IncrementalSyncService(SyncStateStore store) {
-        this(store, new SourceInventoryDiffer(), new WatchSignalPolicy());
+    public IncrementalSyncService(SyncStateStore store, OperationalRecorder recorder) {
+        this(store, new SourceInventoryDiffer(), new WatchSignalPolicy(), recorder);
     }
 
     public IncrementalSyncService(
             SyncStateStore store,
             SourceInventoryDiffer differ,
-            WatchSignalPolicy watchPolicy) {
+            WatchSignalPolicy watchPolicy,
+            OperationalRecorder recorder) {
         this.store = Objects.requireNonNull(store, "store");
         this.differ = Objects.requireNonNull(differ, "differ");
         this.watchPolicy = Objects.requireNonNull(watchPolicy, "watchPolicy");
+        this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
     public SyncPlan prepare(
@@ -207,6 +212,9 @@ public final class IncrementalSyncService {
                     && persisted.currentSourceCount() == expectedInventory.entries().size()
                     && inventory.orElseThrow().equals(expectedInventory);
         } catch (RuntimeException recoveryReadFailure) {
+            // Not visible is the safe reading: the caller then retries or marks the baseline inconsistent. But a state
+            // that cannot be read is not a state that is absent, and the difference is what an operator needs.
+            recorder.suppressed(SuppressedFailureFamily.SYNC_RECOVERY_READ, recoveryReadFailure);
             return false;
         }
     }
@@ -221,6 +229,7 @@ public final class IncrementalSyncService {
                     .filter(reason -> reason == SyncPlan.FullRebuildReason.BASELINE_INCONSISTENT)
                     .isPresent();
         } catch (RuntimeException recoveryReadFailure) {
+            recorder.suppressed(SuppressedFailureFamily.SYNC_RECOVERY_READ, recoveryReadFailure);
             return false;
         }
     }
