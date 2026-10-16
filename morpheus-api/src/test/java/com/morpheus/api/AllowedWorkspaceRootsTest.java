@@ -6,9 +6,13 @@ import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileTime;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -87,7 +91,7 @@ class AllowedWorkspaceRootsTest {
                 .redirectErrorStream(true)
                 .start();
         int exitCode = process.waitFor();
-        String output = new String(process.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, exitCode, output);
 
         AllowedWorkspaceRoots roots = AllowedWorkspaceRoots.of(List.of(allowed));
@@ -118,12 +122,12 @@ class AllowedWorkspaceRootsTest {
      * without a fixed sleep.
      */
     private void awaitFileSystemClockTickAfterCreationOf(Path root) throws IOException {
-        java.nio.file.attribute.FileTime rootCreated = Files.readAttributes(
-                root, java.nio.file.attribute.BasicFileAttributes.class).creationTime();
-        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
+        FileTime rootCreated = Files.readAttributes(
+                root, BasicFileAttributes.class).creationTime();
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
         for (int attempt = 0; System.nanoTime() < deadline; attempt++) {
             Path probe = Files.createDirectory(temp.resolve("clock-probe-" + attempt));
-            if (Files.readAttributes(probe, java.nio.file.attribute.BasicFileAttributes.class)
+            if (Files.readAttributes(probe, BasicFileAttributes.class)
                     .creationTime().compareTo(rootCreated) > 0) {
                 return;
             }

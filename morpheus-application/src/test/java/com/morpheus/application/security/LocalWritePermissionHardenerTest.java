@@ -106,12 +106,10 @@ class LocalWritePermissionHardenerTest {
     }
 
     @Test
+    @EnabledOnOs(value = {OS.LINUX, OS.MAC}, disabledReason = "the JDK exposes no POSIX permission view on Windows")
     void refusesPreexistingPosixDirectoryWritableByOtherUsers() throws Exception {
         Path existing = tempDir.resolve("shared-parent");
         Files.createDirectory(existing);
-        PosixFileAttributeView posix = Files.getFileAttributeView(
-                existing, PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
-        if (posix == null) return;
 
         Files.setPosixFilePermissions(existing, EnumSet.of(
                 PosixFilePermission.OWNER_READ,
@@ -127,12 +125,10 @@ class LocalWritePermissionHardenerTest {
     }
 
     @Test
+    @EnabledOnOs(value = {OS.LINUX, OS.MAC}, disabledReason = "the JDK exposes no POSIX permission view on Windows")
     void refusesWritablePosixAncestorEvenWhenSensitiveChildIsOwnerOnly() throws Exception {
         Path shared = tempDir.resolve("shared-ancestor");
         Files.createDirectory(shared);
-        PosixFileAttributeView posix = Files.getFileAttributeView(
-                shared, PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
-        if (posix == null) return;
 
         Files.setPosixFilePermissions(shared, EnumSet.of(
                 PosixFilePermission.OWNER_READ,
