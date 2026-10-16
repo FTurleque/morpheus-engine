@@ -3,31 +3,37 @@
 Deux états doivent rester distincts :
 
 ```text
-release publiée     1.2.0 / tag v1.2.0 / commit 3ad9ebf030b58df97482e21e272c24feae6b9d86
-baseline active     1.2.1 corrective / non publiée tant que v1.2.1 n'existe pas
+release publiée     1.2.1 / tag v1.2.1 / commit 2a8b1ede9cdeb107244b04969726305afc672189
+release précédente  1.2.0 / tag v1.2.0 / commit 3ad9ebf030b58df97482e21e272c24feae6b9d86
 ```
 
-Le tag `v1.2.0` et ses artefacts sont historiques et immuables. Le code de développement postérieur utilise `1.2.1` afin qu'un arbre différent ne soit jamais distribué sous l'identité déjà publiée `1.2.0`.
+Les tags `v1.2.0` et `v1.2.1` et leurs artefacts sont historiques et immuables. Le code qui avance après `v1.2.1` ne doit pas être distribué sous cette identité : la version suivante se déclare par un bump explicite.
 
-## Artefacts publiés 1.2.0
+## Artefacts publiés 1.2.1
 
 ```text
 Windows setup
-  MORPHEUS-1.2.0-windows-x64-setup.exe
-  MORPHEUS-1.2.0-windows-x64-setup.exe.sha256
+  MORPHEUS-1.2.1-windows-x64-setup.exe
+  MORPHEUS-1.2.1-windows-x64-setup.exe.sha256
 
 Windows portable
-  morpheus-1.2.0-windows-x64.zip
-  morpheus-1.2.0-windows-x64.zip.sha256
-  morpheus-1.2.0-windows-x64-release-manifest.json
+  morpheus-1.2.1-windows-x64.zip
+  morpheus-1.2.1-windows-x64.zip.sha256
+  morpheus-1.2.1-windows-x64-release-manifest.json
+  morpheus-1.2.1-windows-x64.attestation.jsonl
 
 Linux portable
-  morpheus-1.2.0-linux-x64.tar.gz
-  morpheus-1.2.0-linux-x64.tar.gz.sha256
-  morpheus-1.2.0-linux-x64-release-manifest.json
+  morpheus-1.2.1-linux-x64.tar.gz
+  morpheus-1.2.1-linux-x64.tar.gz.sha256
+  morpheus-1.2.1-linux-x64-release-manifest.json
+  morpheus-1.2.1-linux-x64.attestation.jsonl
+
+Inventaire
+  morpheus-1.2.1-sbom.cdx.json
+  morpheus-1.2.1-sbom.cdx.json.sha256
 ```
 
-La preuve R3 confirme la parité publiée **8/8 PASS**.
+La qualification publique de `v1.2.1` rend **PASS** sur les douze assets ([`../docs/project/validation/VALIDATION_RELEASE_1.2.1.md`](../docs/project/validation/VALIDATION_RELEASE_1.2.1.md)). Pour 1.2.0, la preuve R3 confirme la parité publiée **8/8 PASS**.
 
 ## Contenu packagé
 
@@ -195,10 +201,12 @@ Linux respecte aussi `XDG_DATA_HOME`, `XDG_CONFIG_HOME` et `XDG_STATE_HOME`.
 
 ## Documentation
 
-- [Installation de la release publiée 1.2.0](../docs/user/INSTALLATION.md)
+- [Installation de la release publiée 1.2.1](../docs/user/INSTALLATION.md)
+- [Upgrade 1.2.1](../docs/user/UPGRADE_1_2_1.md)
 - [Upgrade 1.2](../docs/user/UPGRADE_1_2.md)
 - [Clients MCP](../docs/user/MCP_CLIENTS.md)
 - [Version produit active](../docs/developer/PRODUCT_VERSION.md)
 - [Build et tests](../docs/developer/BUILD_AND_TEST.md)
+- [Validation de la release 1.2.1](../docs/project/validation/VALIDATION_RELEASE_1.2.1.md)
 - [Validation R3 / 1.2.0 publiée](../docs/project/validation/VALIDATION_R3.md)
 - [Registre des risques](../docs/architecture/risks/register.md)

@@ -1,9 +1,8 @@
 # Mise à niveau vers MORPHEUS 1.2.1
 
-Statut : **EN PRÉPARATION — MORPHEUS 1.2.1 NON PUBLIÉ**
+Statut : **ACTIVE — MORPHEUS 1.2.1 PUBLIÉ**
 
-Ce guide couvre la mise à niveau depuis MORPHEUS 1.2.0 vers MORPHEUS 1.2.1. La dernière release publiée reste
-`v1.2.0`, et rien ici ne doit être lu comme l'annonce d'une publication.
+Ce guide couvre la mise à niveau depuis MORPHEUS 1.2.0 vers MORPHEUS 1.2.1, publiée le 16 octobre 2026.
 
 **Depuis 1.1.0.** La mise à niveau directe de 1.1.0 vers 1.2.1 est supportée : il n'est pas nécessaire d'installer
 1.2.0 entre les deux. Une base 1.1.0 est au même schéma V015 qu'une base 1.2.0 : les migrations appliquées, la

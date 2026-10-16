@@ -1,14 +1,14 @@
-# Installer MORPHEUS 1.2.0
+# Installer MORPHEUS 1.2.1
 
-MORPHEUS 1.2.0 est distribué avec son propre runtime Java. **L’utilisateur final n’a besoin ni de Git, ni de Maven, ni d’un JDK.**
+MORPHEUS 1.2.1 est distribué avec son propre runtime Java. **L’utilisateur final n’a besoin ni de Git, ni de Maven, ni d’un JDK.**
 
 ## Windows — installation recommandée
 
 Artefacts publiés :
 
 ```text
-MORPHEUS-1.2.0-windows-x64-setup.exe
-MORPHEUS-1.2.0-windows-x64-setup.exe.sha256
+MORPHEUS-1.2.1-windows-x64-setup.exe
+MORPHEUS-1.2.1-windows-x64-setup.exe.sha256
 ```
 
 Le setup est **per-user** et ne demande pas d’élévation administrative.
@@ -39,7 +39,7 @@ Après installation :
 & "$env:LOCALAPPDATA\Programs\MORPHEUS\morpheus.exe" paths
 ```
 
-Version attendue : `1.2.0`.
+Version attendue : `1.2.1`.
 
 ## Données persistantes Windows
 
@@ -64,9 +64,9 @@ Mettre à jour ou désinstaller MORPHEUS ne supprime pas le knowledge store par 
 
 ## Mise à jour Windows
 
-Lancer le setup 1.2.0 avec le même utilisateur Windows. Le setup conserve le même AppId et remplace les fichiers programme sans supprimer `data`, `config`, `logs` ou `backups`.
+**Avant de mettre à jour depuis 1.2.0 ou 1.1.0, lire [UPGRADE_1_2_1.md](UPGRADE_1_2_1.md)** : 1.2.1 fait avancer le schéma SQLite à sa première ouverture de la base, et le seul retour possible passe par une sauvegarde prise avant.
 
-Depuis 1.1.0, le schéma SQLite reste V015 ; 1.2.0 n’introduit pas de migration de données. Voir [UPGRADE_1_2.md](UPGRADE_1_2.md). La version suivante fait avancer le schéma : lire [UPGRADE_1_2_1.md](UPGRADE_1_2_1.md) avant de l'installer.
+Lancer ensuite le setup 1.2.1 avec le même utilisateur Windows. Le setup conserve le même AppId et remplace les fichiers programme sans supprimer `data`, `config`, `logs` ou `backups`.
 
 ## Désinstallation Windows
 
@@ -85,9 +85,9 @@ L’état persistant sous `%LOCALAPPDATA%\MORPHEUS` est conservé par défaut.
 Artefacts :
 
 ```text
-morpheus-1.2.0-windows-x64.zip
-morpheus-1.2.0-windows-x64.zip.sha256
-morpheus-1.2.0-windows-x64-release-manifest.json
+morpheus-1.2.1-windows-x64.zip
+morpheus-1.2.1-windows-x64.zip.sha256
+morpheus-1.2.1-windows-x64-release-manifest.json
 ```
 
 Extraire puis lancer :
@@ -103,16 +103,16 @@ Le gestionnaire MCP est inclus sous `integration\configure-mcp-clients.ps1`.
 Artefacts :
 
 ```text
-morpheus-1.2.0-linux-x64.tar.gz
-morpheus-1.2.0-linux-x64.tar.gz.sha256
-morpheus-1.2.0-linux-x64-release-manifest.json
+morpheus-1.2.1-linux-x64.tar.gz
+morpheus-1.2.1-linux-x64.tar.gz.sha256
+morpheus-1.2.1-linux-x64-release-manifest.json
 ```
 
 Vérifier puis extraire :
 
 ```bash
-sha256sum -c morpheus-1.2.0-linux-x64.tar.gz.sha256
-tar -xzf morpheus-1.2.0-linux-x64.tar.gz
+sha256sum -c morpheus-1.2.1-linux-x64.tar.gz.sha256
+tar -xzf morpheus-1.2.1-linux-x64.tar.gz
 ./morpheus/bin/morpheus --version
 ```
 
@@ -201,14 +201,14 @@ Voir [INTEGRATIONS.md](INTEGRATIONS.md).
 Windows :
 
 ```powershell
-Get-FileHash .\MORPHEUS-1.2.0-windows-x64-setup.exe -Algorithm SHA256
-Get-Content .\MORPHEUS-1.2.0-windows-x64-setup.exe.sha256
+Get-FileHash .\MORPHEUS-1.2.1-windows-x64-setup.exe -Algorithm SHA256
+Get-Content .\MORPHEUS-1.2.1-windows-x64-setup.exe.sha256
 ```
 
 Linux :
 
 ```bash
-sha256sum -c morpheus-1.2.0-linux-x64.tar.gz.sha256
+sha256sum -c morpheus-1.2.1-linux-x64.tar.gz.sha256
 ```
 
-La preuve exacte de publication et de parité des huit assets est conservée dans [`../project/validation/VALIDATION_R3.md`](../project/validation/VALIDATION_R3.md).
+La preuve de publication des douze assets de 1.2.1 (provenance, sommes de contrôle, inventaire) est conservée dans [`../project/validation/VALIDATION_RELEASE_1.2.1.md`](../project/validation/VALIDATION_RELEASE_1.2.1.md).

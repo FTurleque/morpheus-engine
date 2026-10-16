@@ -1,13 +1,12 @@
 # MORPHEUS 1.2.1 — Notes de version
 
-Statut : **EN PRÉPARATION — NON PUBLIÉE**
+Statut : **PUBLISHED / STABLE / LATEST**
 
-`1.2.1` est la baseline corrective de développement. Elle ne devient une release publiée qu'après création du tag et
-qualification de ses artefacts (suivi et critère de clôture dans
-[`../../project/validation/RELEASE_QUALIFICATION.md`](../../project/validation/RELEASE_QUALIFICATION.md) ; version courante dans
-[`../../developer/PRODUCT_VERSION.md`](../../developer/PRODUCT_VERSION.md)).
-Cette page recense, au fil des corrections, les changements qu'un utilisateur de 1.2.0 doit connaître avant de migrer.
-Elle ne revendique aucune publication.
+Publication : 16 octobre 2026
+
+`1.2.1` est une release corrective de 1.2.0, publiée sous le tag `v1.2.1`. Cette page recense les changements
+qu'un utilisateur de 1.2.0 doit connaître avant de migrer ; la mise à niveau elle-même est décrite dans
+[`../UPGRADE_1_2_1.md`](../UPGRADE_1_2_1.md).
 
 ## Avant de migrer
 
