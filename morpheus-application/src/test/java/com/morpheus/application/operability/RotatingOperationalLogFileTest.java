@@ -1,10 +1,11 @@
 package com.morpheus.application.operability;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
@@ -17,7 +18,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * The logs directory holds the operational log when the operator asks for a file.
@@ -94,8 +94,8 @@ class RotatingOperationalLogFileTest {
     }
 
     @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
     void theDirectoryAndTheFilesArePrivateToTheAccount() throws IOException {
-        assumeTrue(FileSystems.getDefault().supportedFileAttributeViews().contains("posix"));
         Path logs = temporaryDirectory.resolve("logs");
         RotatingOperationalLogFile log = RotatingOperationalLogFile.open(logs, 16, 1, metrics);
 
