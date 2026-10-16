@@ -26,6 +26,7 @@ Implementation is a separate lot, started after this specification is reviewed, 
       Linux (WSL), on a clean checkout of `develop`. Proof: both verdicts and durations, in the pull request. If either
       fails today, that failure is the first finding of this change and is fixed before the lane is added.
   - 2026-10-11: not run on the maintainer's machine: the Linux packaging cannot finish under Git Bash, and the dispatched run of the lane on this branch is the measurement (see 5.2).
+  - 2026-10-16: first green measurement of both validators, on `develop` plus PR 499 (dispatched run 38951941460): Linux 6 min, Windows 20 min, expected asset names green. Before PR 499 the Windows half failed every night from 14/10 on a test skipped by an assumption.
 - [x] 2.2 Confirm `validate-m20.ps1` deletes its validation tag on every exit path, including a failed stage. Proof: the
       lines, and `git tag --list 'm20-validation-*'` empty after a forced failure.
   - 2026-10-11: not re-read line by line; the validator already ran this way before this change and its tag handling is untouched.
@@ -89,6 +90,7 @@ Implementation is a separate lot, started after this specification is reviewed, 
 - [ ] 5.2 Two consecutive dispatched runs of the lane on the branch, both platforms. Proof: the run links; durations
       recorded against the timeout.
   - 2026-10-11: one dispatched run requested on the branch; its result is reported in the pull request, not here.
+  - 2026-10-16: run 1 = https://github.com/FTurleque/morpheus-engine/actions/runs/38951941460, green on both platforms (Linux 6 min, Windows 20 min). Run 2 = https://github.com/FTurleque/morpheus-engine/actions/runs/38955046885, dispatched right after; tick on its result.
 - [x] 5.3 Pull request description: finding covered, the corrected numbers (commits since `v1.2.0` re-counted that day),
       the decisions of `design.md`, the four unexercised steps, and the justification for the workflow and gate edits.
   - 2026-10-11: in the description of the pull request that carries this lot.
