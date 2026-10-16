@@ -1,7 +1,9 @@
 # MORPHEUS — constats d'audit
 Audit du **9 octobre 2026** sur `20cf2e0`, revérifié le **13 octobre** sur `d5be889b`, puis le **15 octobre 2026** sur `b08b30fb` (`origin/develop`). Chaque constat porte son statut **sur `origin/develop`** et la preuve qui l'établit.
 
-**100 constats** — 27 corrigé, 6 partiel, 42 toujours valide, 2 caduc, 22 tient, 1 non vérifiable ici.
+**100 constats** — 33 corrigé, 2 partiel, 40 toujours valide, 2 caduc, 22 tient, 1 non vérifiable ici.
+
+> **Mise à jour du 16 octobre 2026** sur `557fed02`, après fusion des PR #493 à #497 : `AUD-TST-12`, `AUD-TST-18`, `AUD-TRV-04`, `AUD-TRV-05`, `AUD-QUA-13` et `AUD-QUA-17` passent à *corrigé*, vérifiés sur le code fusionné. Restent partiels `AUD-TRV-07` (exécution réelle des validateurs et décision du mainteneur) et `AUD-DEP-07` (bloqué en amont).
 
 > **Les six branches dédiées ont été fusionnées** le 15 octobre (PR #487 à #492, 47 commits) et supprimées. Tous les statuts ci-dessous sont ceux de `origin/develop` après fusion, revérifiés sur le code.
 
@@ -80,22 +82,22 @@ morpheus-provider-openspec/src/main/java/com/morpheus/provider/openspec/OpenSpec
 ### AUD-TRV-05 — La politique de connexion SQLite est une propriété de chaque site de composition, pas du module : 12 sites, 3 ouvertures de scope
 | | |
 |---|---|
-| **Statut sur `develop`** | **PARTIEL** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Élevée |
 | **Axe** | Architecture |
 | **Effort** | M |
 | **Sprint** | 5 — Écarter le risque d'indisponibilité |
 | **Débloque** | AUD-PRF-03 |
 | **Fusionne / issu de** | AUD-ARC-05, AUD-ARC-04 |
-| **Vérifié le** | 2026-10-15 sur `984bb270` |
+| **Vérifié le** | 2026-10-16 sur `557fed02` |
 
-**Constat de vérification** — Le fond technique est corrige - une connexion physique par operation, sur les trois transports, mesuree au pilote - mais la propriete que le constat nommait, « un seul type runtime par transport », reste fausse : chaque transport en expose trois. Le constat sous-estimait d'ailleurs le defaut : les deux vrais coupables, SqliteQueryStores et SqlitePolicyStores, vivent dans morpheus-store-sqlite et servaient les trois transports, hors du perimetre de la regle textuelle qui ne lisait que les trois modules de transport. Une operation de policy ouvrait huit connexions sur *tous* les transports, HTTP compris. La branche n'est pas fusionnee : sur origin/develop le constat reste integralement valide.
+**Constat de vérification** — Solde par la PR #496 (fusionnee le 16/10). Un seul runtime par transport (ApiRuntime, CliRuntime, MorpheusMcpRuntime) sur SqliteOperationRuntime, qui ouvre la portee puis construit chaque store a la demande ; SqliteQueryRuntime, SqlitePolicyRuntime et leurs Stores supprimes. COMPOSITION_ROOTS 32 -> 5, classes qui construisent un store 16 -> 3, ouvertures de portee 7 -> 1, sites hors portee 10 -> 2 nommes (SqliteServerMaintenance, CliProjectWriteCapabilityResolver). La regle bytecode exige l'appel a SqliteConnectionScope.open, la regle textuelle ignore les commentaires et exige l'ouverture avant la premiere construction ; les tests de comptage assertent une verification de schema par operation. ADR-0109, troisieme amendement. Verifie localement sur l'arbre fusionne : clean verify vert, gate differentiel 95,4 % / 82,9 %, validate-m19 PASS.
 
 ```
 Sur la branche, la classe interne Runtime de MorpheusQueryApiService n'existe plus : le fichier fait 236 lignes et ses douze methodes publiques ouvrent toutes le meme runtime partage (:154-156). Sur origin/develop elle est intacte (:247, portee ouverte :261). La portee a ete descendue dans les ensembles de stores : SqliteQueryStores.java:34 et SqlitePolicyStores.java:41. Comptage : 6 ouvertures de portee pour 16 sites de composition sur la branche, contre 5 pour 17 sur develop. Mesure au pilote JDBC, pour les trois transports et deux operations : HttpRequestConnectionCountTest:33 et :38, McpToolCallConnectionCountTest:30 et :38, CliCommandConnectionCountTest:32 et :37, chacun assenant assertEquals(1, opened). Chiffres avant/apres consignes dans ADR-0109:87-121 : 1/5/5 pour les vues et 8/8/8 pour les packs, 1 partout apres. Enforcement : SqliteConnectionScopeUseArchitectureTest ajoute une regle bytecode ArchUnit (aClassThatBuildsTwoDifferentStoresDependsOnTheConnectionScope, :152-166) a cote de la regle textuelle, avec un garde-fou de non-vacuite (:170-182).
 ```
 
-**Ce qui reste** — Les six branches dediees ont ete fusionnees dans develop le 15 octobre (PR #487 a #492, HEAD 984bb270, 47 commits) et supprimees. Verification faite sur develop apres fusion : le contenu est preserve. (1) Il n'y a toujours pas un seul type runtime par transport : HTTP expose ApiRuntime (9 stores), SqliteQueryRuntime (5) et SqlitePolicyRuntime (8) ; la CLI expose CliRuntime (9) plus les deux memes ; le MCP expose MorpheusMcpRuntime (7), les deux memes, plus un assemblage ad hoc sans type dans MorpheusCompositionMcpTools. Six des neuf stores d'ApiRuntime sont aussi dans l'ensemble policy : deux cablages concurrents du meme jeu de stores subsistent par transport. La tache 3.2 reste ouverte et sa preuve annoncee - AdapterCompositionRootArchitectureTest vert avec une liste plus courte - n'est pas atteinte. (2) Neuf sites construisent encore un store hors de toute portee (16 sites de composition pour 7 ouvertures de portee sur develop apres fusion), donc une connexion et un controle de schema chacun ; la regle les tolere en les nommant un par un. (3) Les deux regles laissent passer trois choses : la regle bytecode exige une *dependance* vers la classe de portee, pas son ouverture, et ne compte que les types de stores distincts ; la regle textuelle declare un fichier « sous portee » des que son texte contient la chaine d'ouverture n'importe ou. Aucune des deux n'etablit que la portee entoure reellement les constructions - seuls les trois tests de comptage le font. (4) La mesure ne porte que sur deux operations, et les controles de schema ne sont jamais comptes. (5) Section 4 : ni clean verify, ni validateur M19, ni description de PR.
+**Ce qui reste** — Deux pertes assumees : la borne du pic de connexions simultanees a disparu avec diagnostics(), et une operation qui ne demande aucun store ne verifie plus le schema.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -114,7 +116,7 @@ grep -rln 'new Sqlite' morpheus-api/src/main/java morpheus-mcp/src/main/java -> 
 ### AUD-TRV-04 — Le produit est muet : aucun journal applicatif, slf4j-nop comme seul binding, et un répertoire de logs publié sans aucun écrivain
 | | |
 |---|---|
-| **Statut sur `develop`** | **PARTIEL** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Élevée |
 | **Axe** | Qualité · Dépendances |
 | **Effort** | M |
@@ -122,15 +124,15 @@ grep -rln 'new Sqlite' morpheus-api/src/main/java morpheus-mcp/src/main/java -> 
 | **Après** | AUD-DEP-10 |
 | **Débloque** | AUD-QUA-13, AUD-SEC-04 |
 | **Fusionne / issu de** | AUD-QUA-01, AUD-DEP-08, AUD-DEP-09 |
-| **Vérifié le** | 2026-10-15 sur `984bb270` |
+| **Vérifié le** | 2026-10-16 sur `557fed02` |
 
-**Constat de vérification** — Progres reel et verifiable, mais le constat n'est pas solde, meme sur sa branche. Le volet « repertoire de logs sans ecrivain » est clos. Le volet « compteur par famille sur /metrics » est tranche, et la reponse est non : morpheus-v1.yaml:36-40 ne declare qu'une enveloppe generique, contracts/public-surfaces.tsv ne nomme pas la route, et ce qui epingle la liste est un test Java (SuppressedFailureCountersServedTest), pas un contrat. La branche n'est pas fusionnee : sur origin/develop, les cinq sites sont tous muets.
+**Constat de vérification** — Solde par la PR #497 (fusionnee le 16/10). Les deux catch DEBUG de BoundedStdioClientTransport remettent l'echec a l'observateur du transport (plus aucun Level.DEBUG dans le fichier, interdit par SilentCatchArchitectureTest) ; les passerelles MINOS et NEXUS le comptent sous failure.suppressed.mcp-peer-process-tree sur le recorder injecte (processTreeFailures(launch.recorder())). Des tests lisent ce compteur a travers les passerelles et lisent failure.suppressed.http-internal-error a travers la facade remote. Correctif induit pendant la CI : MorpheusRemoteHttpServer.close() laisse jusqu'a 5 s aux requetes en cours pour journaliser leur issue avant d'interrompre (deux tests remote perdaient leur repertoire temporaire sous Windows).
 
 ```
 Sur la branche, quatre des cinq sites nommes comptent desormais : BoundedStdioClientTransport.java:279-281 appelle un `Consumer<RuntimeException>` injecte et obligatoire (champ :112, requireNonNull :137), fourni par MinosMcpCodeGateway.java:232 et NexusMcpContextGateway.java:260 sous la famille MCP_PEER_PROCESS_TREE ; ProviderPluginProbeProcess.java:208-209, :357-358 et :385-386 comptent STAGED_ARTIFACT_CLEANUP, PLUGIN_PROBE_PROCESS_TREE et PLUGIN_PROBE_SHUTDOWN. Le cinquieme, ProviderPluginDescendantTermination.java:86-88, reste muet - et l'explication tient : son unique appelant hors tests est ProviderPluginProbeWorker.java:26, donc un autre processus, sans enregistreur, dont la sortie est jetee par le parent. Scan reproduisant la forme exacte de SilentCatchArchitectureTest : 13 occurrences sur la branche contre 17 sur develop, et les 13 correspondent exactement aux 11 entrees de la table EXPLAINED (:50-80). Scan large (tout catch sans throw, sans enregistreur, sans journal) : 206 contre 210, diff cle par cle = 4 retraits, zero ajout. Familles : 12 declarees, 11 exercees par un test. Les deux lectures de conflit SQLite le sont desormais (SqliteConflictReadTraceTest, deux tests sur une vraie base). Le repertoire de logs a un ecrivain : MorpheusMain.java:80-95 resout CliLayout...logsDirectory() et refuse au lancement si le fichier n'est pas ecrivable ; RotatingOperationalLogFile et DeferredOperationalEventSink existent.
 ```
 
-**Ce qui reste** — Les six branches dediees ont ete fusionnees dans develop le 15 octobre (PR #487 a #492, HEAD 984bb270, 47 commits) et supprimees. Verification faite sur develop apres fusion : le contenu est preserve. (1) Deux catch du transport restent muets en pratique et aucune regle ne les voit : BoundedStdioClientTransport.java:545-552 (echec de destroyForcibly sur le processus racine du pair) et :617-624 (echec du signal a un descendant) journalisent au niveau System.Logger DEBUG, que le gestionnaire JDK par defaut jette dans tous les modes de lancement. La regle textuelle ne peut pas les signaler : elle lit une forme - un corps sans instruction - et ces blocs en contiennent une. C'est aujourd'hui le seul endroit du produit ou un echec reel disparait sans compteur *et* sans journal effectif. (2) La famille mcp-peer-process-tree n'est exercee par aucun test qui lise son compteur : le dernier maillon tient a une assertion textuelle cherchant une chaine litterale dans les deux passerelles. (3) Un catch reste muet par conception (ProviderPluginDescendantTermination.java:86) : son unique appelant hors tests tourne dans un autre processus, sans enregistreur. Le remonter demande un canal de plus entre worker et parent, donc un changement du protocole de sonde - laisse au mainteneur. (4) Les deux decisions de mainteneur 1.1 et 1.2 ne sont pas repondues ; le code a applique un defaut dans les deux cas et l'a trace (ADR-0111, ADR-0112). (5) Toute la section 4 de verification reste ouverte : clean verify et gate de couverture des lignes changees, budgets M19 alors que des compteurs ont ete ajoutes sur des chemins store, image empaquetee, note de version. (6) Aucun test ne lit un compteur failure.suppressed.* a travers la facade remote, alors que docs/developer/OPERABILITY.md:208 promet qu'ils y sont servis.
+**Ce qui reste** — ProviderPluginDescendantTermination.java:86 reste muet par conception (autre processus, protocole de sonde) : decision du mainteneur, nommee dans EXPLAINED. Les decisions 1.1 et 1.2 du change restent appliquees par defaut (ADR-0111, ADR-0112).
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -829,16 +831,16 @@ diff apres normalisation du nom (s/Minos/XXX/ contre s/Nexus/XXX/) entre morpheu
 ### AUD-QUA-17 — Le verrou du parallelisme JUnit se deplace : SqliteConnectionScope porte quatre compteurs statiques de processus lus en difference par les tests  *(constat neuf, 15/10)*
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Qualité · Tests |
 | **Effort** | M |
 | **Sprint** | 4 — Rendre le produit observable |
 | **Après** | AUD-QUA-13 |
 | **Fusionne / issu de** | AUD-QUA-13 |
-| **Vérifié le** | 2026-10-15 sur `984bb270` |
+| **Vérifié le** | 2026-10-16 sur `557fed02` |
 
-**Constat de vérification** — Constat neuf du 15 octobre, **aggrave par la fusion du jour**. C'est la forme de defaut qu'AUD-QUA-13 decrit - un etat partage par la JVM, lu en difference par des tests - deplacee sur une autre classe et desormais quatre fois plus large qu'avant la fusion. Le correctif d'AUD-TRV-05, par ailleurs bon, a paye sa mesure en etendant le verrou du parallelisme. ADR-0115 nomme ce point dans sa table de l'etat partage et le mesure : deux executions du module store avec un junit-platform.properties temporaire ont donne 2 puis 4 echecs sur 205, tous sur diagnostics().
+**Constat de vérification** — Solde par la PR #496 (fusionnee le 16/10). SqliteConnectionScope ne declare plus aucun compteur statique et diagnostics() n'existe plus ; la portee compte sur le recorder de son ouvreur (sqlite.scope.connection.opened/closed, sqlite.scope.schema.checked). StaticOperationalRuntimeUsersArchitectureTest interdit une mention de diagnostics( dans un test et tout champ statique non constant dans la classe ; les deux regles ont ete cassees puis retablies.
 
 ```
 Sur origin/develop apres fusion des six branches (984bb270) : morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteConnectionScope.java:44-47 declare PHYSICAL_OPENED, PHYSICAL_CLOSED, PHYSICAL_ACTIVE et PHYSICAL_PEAK en static final Atomic*, exposes par diagnostics(), plus un ThreadLocal<State> ACTIVE (:43). `grep -rl 'SqliteConnectionScope.diagnostics()' --include=*.java morpheus-*/src/test/java` -> **10 classes** sur quatre modules : ApiRuntimeSqliteSessionTest, CliCommandConnectionCountTest, CliRuntimeSqliteSessionTest, HttpRequestConnectionCountTest, McpToolCallConnectionCountTest, MorpheusCompositionMcpToolsTest, MorpheusMcpRuntimeConnectionTest, SqliteConnectionScopeCloseFailureTest, SqliteConnectionScopeTest, SqliteRuntimeConnectionTest. **Le compte est passe de 6 a 10 par la fusion d'AUD-TRV-05**, qui a ajoute les trois tests de comptage de connexions au pilote JDBC.
@@ -1057,15 +1059,15 @@ Retire en relecture : l'absence d'un archunit.properties n'est pas une lacune - 
 | **Sprint** | 8 — Fiabiliser les tests |
 | **Après** | AUD-TRV-01, AUD-DEP-06 |
 | **Fusionne / issu de** | AUD-TST-17 |
-| **Vérifié le** | 2026-10-15 sur `984bb270` |
+| **Vérifié le** | 2026-10-16 sur `557fed02` |
 
-**Constat de vérification** — Le volet (a) est substantiellement traite, et le dispositif a deja paye : six defauts reels de validateurs ont ete decouverts par les tests neufs, pas par une relecture (resume passant survivant a un refus sur 22 fichiers, repli de base-ref inoperant sous Windows PowerShell 5.1 sur 8 fichiers, validate-m20.sh sans resume d'echec, dispatcher passant un argument nul, lecteur de cliquets PowerShell trop permissif, garde de preuve insensible a la casse). Le volet (b) s'arrete a un constat : la regle d'inventaire nomme les orphelins, elle ne les retire ni ne les repare. La branche n'est pas fusionnee.
+**Constat de vérification** — PR #495 (fusionnee le 16/10) : les planchers litteraux de validate-m22 a m27 lisent desormais config/m21-quality-ratchets.properties ; l'inventaire ne compte plus une page de documentation comme un lancement (LAUNCHED_BY_HAND nomme et motive) ; 'execute par un test' est confronte au code par ast ; le spec delta est amende ; les validateurs que rien ne lancait (d2, m22 a m26, r3) ont un job nocturne Linux. Course du harnais corrigee pendant la CI (maintenance git automatique dans le checkout modele).
 
 ```
 Sur la branche (19 commits, 45 fichiers, +2472 lignes), les 26 fichiers de validateur sont lances pour de vrai par des tests. Le harnais scripts/tests/validator_harness.py:200-230 copie scripts/ octet pour octet dans un depot Git fabrique, y pose les vrais POM, les vrais contrats, un mvnw bouchon qui enregistre ses arguments, les rapports Surefire et le SBOM, puis lance le vrai fichier. Parite : _declare (test_validator_verdicts.py:479-485) fabrique 8 cibles x 2 interpretes = 16 classes sur le meme contrat ; test_validator_entry_refusals.py:295-305 en fabrique 10 de plus ; les bibliotheques partagent 22 et 11 cas litteraux. Execution reelle ici : `python3 -m unittest discover -s scripts/tests` -> **244 tests, 0 echec, 0 erreur, 17 classes sautees** (contre 56 au 13 octobre, et 7 fichiers sans aucun validateur sur develop). 179 des 244 portent sur les validateurs, le dispatcher ou leurs bibliotheques. Les 17 sauts sont le miroir PowerShell, absent de ce conteneur. Tache 3.4 faite : .github/workflows/ci.yml:56-59 ajoute l'etape Windows, et GateReachabilityArchitectureTest.java:216-237 exige exactement une etape par jambe, sans continue-on-error. Les skipIf silencieux ont disparu : validator_harness.py:117-125 leve quand CI ou GITHUB_ACTIONS est pose.
 ```
 
-**Ce qui reste** — Les six branches dediees ont ete fusionnees dans develop le 15 octobre (PR #487 a #492, HEAD 984bb270, 47 commits) et supprimees. Verification faite sur develop apres fusion : le contenu est preserve. J'ai rejoue la suite sur develop apres fusion : **244 tests, 0 echec, 0 erreur, 17 classes sautees** (le miroir PowerShell, absent de ce conteneur) ; 50 fichiers sous scripts/ hors tests ; l'etape Windows est bien en place (.github/workflows/ci.yml:56-57). (1) Aucun validateur n'a jamais ete execute pour de vrai (tache 1.4) : tout est etabli sur un checkout fabrique dont le mvnw est un bouchon. Pour les treize cibles, la moitie qui suit le commutateur de packaging n'est atteinte par aucun test, ce que le depot reconnait cible par cible. (2) Les orphelins sont nommes, pas retires ni repares : validate-m23.sh, validate-m24.sh et validate-r3.sh ne sont lances par rien, six autres .sh ne le sont que par une page de documentation. Question 3.7 non tranchee. (3) La regle d'inventaire compte une page de documentation comme un lancement : mesure depuis les workflows seuls, 27 scripts sur 50 sont atteints par une invocation automatique. (4) « Execute par un test » est une auto-declaration : la regle lit le tuple SCRIPTS_UNDER_TEST que chaque fichier publie et verifie seulement que le fichier contient le mot subprocess ou validator_harness. (5) Le spec delta exige trois fois que « la suite d'architecture » trouve le lanceur ; l'inventaire est en realite un test Python. La tache 3.5 l'admet et demande l'amendement du spec ; il n'est pas fait. (6) La parite PowerShell reste demontree comme construction, pas comme resultat : les 17 classes sautees n'ont tourne sur aucune machine observable ici. (7) Les planchers litteraux subsistent : scripts/validate-m24.sh:53 compare encore le compte de tests a 507. Le depot compte 50 scripts, pas 44 : l'audit sous-comptait de six.
+**Ce qui reste** — (1) Tache 1.4 : aucun validateur n'a encore ete execute pour de vrai ; le premier run du job nocturne validators-without-a-lane le fournira pour Linux, rien n'est prevu pour les .ps1 sous Windows. (2) Question ouverte 1 / tache 3.7 : garder, tester ou retirer chaque validateur reste au mainteneur ; le job nocturne est le defaut applique en attendant.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -1225,14 +1227,14 @@ morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSchemaManage
 ### AUD-TST-18 — Le validateur de release R3 ne peut pas passer : il exige 17 POM dans le reacteur, le depot en compte 19  *(constat neuf, 15/10)*
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Tests · Qualité |
 | **Effort** | S |
 | **Sprint** | 8 — Fiabiliser les tests |
-| **Vérifié le** | 2026-10-15 sur `984bb270` |
+| **Vérifié le** | 2026-10-16 sur `557fed02` |
 
-**Constat de vérification** — Inchange par la fusion. Attention a un faux ami : le commit 9ba1a7f5 « the fabricated checkout reads the reactor from the root POM, not from git » corrige le **harnais de test** d'AUD-TRV-07, pas le validateur - le litteral 17 de validate-r3 est toujours la, dans les deux variantes.
+**Constat de vérification** — Solde par la PR #495 (fusionnee le 16/10). validate-r3.sh et validate-r3.ps1 ne contiennent plus le litteral 17 : le compte attendu est lu dans les <module> du POM racine, comme validate-r2. Le contrat ReactorCountCases (r2 et r3, deux interpreteurs) echoue sur 'expected 17' si l'on revient en arriere. r3 a desormais une voie : le job nocturne validators-without-a-lane.
 
 ```
 Reverifie sur origin/develop apres fusion (984bb270) : scripts/validate-r3.sh:44-45 `if len(poms) != 17: raise SystemExit(...)` et scripts/validate-r3.ps1:28 `if ($poms.Count -ne 17) { throw ... }` sont inchanges. Le POM racine declare toujours 18 modules (`grep -c '<module>' pom.xml`), soit 19 fichiers pom.xml dans l'arbre. Aucun workflow ne lance r3.
@@ -1662,7 +1664,7 @@ Aggravation relevee en relecture : D2RepositoryHardeningArchitectureTest.java:11
 | **Axe** | Dépendances |
 | **Effort** | M |
 | **Sprint** | 1 — Remettre le dispositif en marche |
-| **Vérifié le** | 2026-10-15 sur `984bb270` |
+| **Vérifié le** | 2026-10-16 sur `557fed02` |
 
 **Constat de vérification** — L'indetermination du 13 octobre est levee, et la reponse change la nature du constat : le correctif attendu ne depend pas du depot. Dependency-Check 13.0.1 n'est pas sorti, donc il n'y a rien a adopter. Le constat reste ouvert et le point de defaillance unique demeure - sans NVD_API_KEY, le gate CVE ne peut pas rafraichir sa base - mais aucune action du depot ne le ferme aujourd'hui. Inchange par la fusion du 15 octobre : le constat ne depend pas du depot.
 
@@ -1670,7 +1672,7 @@ Aggravation relevee en relecture : D2RepositoryHardeningArchitectureTest.java:11
 pom.xml:65 `<dependency-check.maven.plugin.version>13.0.0</...>` et .github/workflows/security.yml:21 `DEPENDENCY_CHECK_PLUGIN_VERSION: '13.0.0'`, toujours tenus ensemble par DependencyCheckWorkflowContractTest. Verification amont du 15/10/2026 sur la page des releases du projet dependency-check/DependencyCheck : la derniere version publiee est **13.0.0, du 3 aout**, portant le badge « Latest ». **13.0.1 n'existe pas.** Les precedentes sont 12.2.2 (3 mai), 12.2.1 (11 avril), 12.2.0.
 ```
 
-**Ce qui reste** — Rien que le depot puisse faire. Le constat est **bloque sur une publication amont** : il se ferme le jour ou Dependency-Check publie la version qui retablit le repli anonyme, et pas avant. A surveiller sur https://github.com/dependency-check/DependencyCheck/releases. Deux contournements possibles entre-temps, si le risque est juge trop haut : poser une NVD_API_KEY en secret de depot, ce qui supprime la dependance au repli anonyme ; ou epingler un miroir de la base NVD. Les deux sont des decisions d'exploitation, pas des correctifs.
+**Ce qui reste** — Bloque en amont. Reverifie le 15/10 au soir : 13.0.0 reste la derniere version publiee de Dependency-Check ; le correctif #8716 est fusionne depuis le 5 aout mais non publie. La NVD_API_KEY est deja posee (contournement en place). Se ferme a la publication de la version corrective.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -1922,21 +1924,21 @@ grep -rn '@SuppressWarnings' --include=*.java . -> 47 sites ; par motif : 26 "un
 ### AUD-QUA-13 — L'observabilité repose sur un singleton statique mutable qui interdit d'activer le parallélisme JUnit
 | | |
 |---|---|
-| **Statut sur `develop`** | **PARTIEL** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Qualité |
 | **Effort** | M |
 | **Sprint** | 4 — Rendre le produit observable |
 | **Après** | AUD-TRV-04 |
-| **Vérifié le** | 2026-10-15 sur `984bb270` |
+| **Vérifié le** | 2026-10-16 sur `557fed02` |
 
-**Constat de vérification** — Deux des trois demandes du constat sont satisfaites : l'injection existe, et la liste des tests est tombee a zero avec un ADR accepte qui conditionne explicitement le parallelisme. La troisieme ne l'est pas : MAIN_USERS n'est descendue que de 25 a 20, et le parallelisme JUnit n'est toujours pas active - aucun junit-platform.properties dans le depot, aucune propriete junit.jupiter.execution.parallel.*, et le bloc surefire du POM racine (pom.xml:144-154) ne declare ni parallel, ni threadCount, ni forkCount. La branche n'est pas fusionnee.
+**Constat de vérification** — Solde par la PR #496 (fusionnee le 16/10). Le recorder descend par constructeur depuis les points d'entree dans les troncs API, MCP et integrations ; six classes de src/main nomment encore LocalOperationalRuntime, chacune motivee dans la regle (MorpheusMain, MorpheusCli, OperationalSlf4jServiceProvider, SqliteContentionMetrics, SqliteDatabaseLease, ExternalJarIntegrity). Le parallelisme JUnit est active sur morpheus-store-sqlite (junit-platform.properties versionne, SqliteDatabaseLeaseTest @Isolated car il compte les descripteurs de la JVM) ; ADR-0115 amendee.
 
 ```
 Sur la branche, l'injection par constructeur est faite et verifiable : SqliteContentionMetrics est passe d'une classe 100 % statique (develop : constructeur prive :36, quatre methodes static) a une instance construite avec un OperationalRecorder (:49-52), avec un porteur sur les deux enveloppes de connexion (SqliteConnectionScope.java:275 et :284, SqliteDatabaseLease.java:120-141, tous Carrier) et un executeur de transactions qui demande les compteurs a la connexion (SqliteTransactionRunner.java:37). Le test observateur construit ses propres compteurs (SqliteContentionObservabilityTest.java:41-42) et asserte des valeurs absolues. Recomptage : `grep -rl LocalOperationalRuntime --include=*.java morpheus-*/src/{main,test}/java` -> 21 fichiers en main (dont la classe elle-meme) soit **20 utilisateurs, contre 25 sur develop**, et 2 en test, tous deux dans morpheus-architecture-tests qui est exclu du balayage : **zero test hors module de regles, contre 2**. La liste TEST_USERS a disparu ; la regle asserte Set.of() en dur (:73-77). Une troisieme regle limite a deux classes l'appel LocalOperationalRuntime.process() (:79-86). ADR-0115 « Le runtime operationnel est une valeur que le lanceur remet ; le parallelisme JUnit en depend » existe et est **Acceptee - post-audit 1.2.1** (absente de develop), avec la table complete de l'etat partage entre tests (:62-71).
 ```
 
-**Ce qui reste** — Les six branches dediees ont ete fusionnees dans develop le 15 octobre (PR #487 a #492, HEAD 984bb270, 47 commits) et supprimees. Verification faite sur develop apres fusion : le contenu est preserve. Recomptage sur develop apres fusion : 21 fichiers de src/main nomment LocalOperationalRuntime, soit **20 utilisateurs** (contre 25 avant), et 2 fichiers de src/test, tous deux dans morpheus-architecture-tests qui est exclu du balayage. (1) Vingt classes de src/main lisent encore le runtime statique de processus : trois sont irreductibles ou quasi (OperationalSlf4jServiceProvider, instancie par le ServiceLoader ; MorpheusMain et MorpheusCli, les deux points d'entree), deux sont le defaut du store, cinq le tronc API, une le tronc MCP, et neuf sont des runtimes d'integration et des constructeurs de commodite. (2) Les racines de composition ouvrent encore leur portee sans recorder : l'injection existe mais n'est pas cablee sur le chemin de production. En production, les compteurs du store vont toujours au singleton. (3) Le parallelisme JUnit n'est pas active : aucun junit-platform.properties dans le depot, aucune propriete junit.jupiter.execution.parallel.*, et le bloc surefire du POM racine ne declare ni parallel, ni threadCount, ni forkCount. Le verrou specifique a ce constat est leve ; un autre le remplace, plus large - voir AUD-QUA-17, dont le compte est passe de 6 a 10 classes de test par l'effet de la fusion d'AUD-TRV-05. (4) Un test lit un compteur de processus a travers la route /metrics sans jamais nommer LocalOperationalRuntime : la regle textuelle le laisse passer, donc « zero test lit le runtime statique » est vrai textuellement et faux semantiquement pour au moins un test. (5) Taches ouvertes : 3.3, 4.1, 4.2, 4.4 ; le change n'est pas archive.
+**Ce qui reste** — Les autres modules restent sequentiels (pilote compteur PhysicalSqliteConnections, java.home, locale par defaut). ExternalJarIntegrity reste sur le runtime statique tant que l'activateur de plugins et le worker de sonde ne recoivent pas de recorder.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -2169,20 +2171,20 @@ morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/SqliteSchemaMigrat
 ### AUD-TST-12 — La documentation M19 renvoie à un point d'entrée validate-m19.cmd qui n'existe pas
 | | |
 |---|---|
-| **Statut sur `develop`** | **PARTIEL** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Tests |
 | **Effort** | S |
 | **Sprint** | 1 — Remettre le dispositif en marche |
-| **Vérifié le** | 2026-10-15 sur `984bb270` |
+| **Vérifié le** | 2026-10-16 sur `557fed02` |
 
-**Constat de vérification** — Le volet principal est solde sur la branche, mais deux points du constat restent ouverts, et un troisieme apparait. La branche n'est pas fusionnee.
+**Constat de vérification** — Solde par la PR #494 (fusionnee le 16/10). La regle everyDatedRecordCitingARemovedWrapperSaysWhatReplacedIt balaie aussi docs/architecture/adr/ et n'accepte qu'une note '> Note du JJ/MM/AAAA' placee avant la premiere section '##' et portant la commande de remplacement ; elle a echoue sur l'ADR-0084 puis sur VALIDATION_M19 avant correction, et a ete cassee puis retablie (note deplacee, note sans date). L'ADR-0084 porte sa note (git show 3d58bb9d4:scripts/validate-m18.ps1, objet verifie). M19_EXECUTION.md est clos par decision : docs/validation/VALIDATION_M19.md etait le bon chemin a sa date (0209a473 -> 9b210704), la table de correspondance de docs/project/README.md le couvre, une note de tete y renvoie.
 
 ```
 Sur la branche, la note datee existe : docs/project/roadmap/M19_EXECUTION.md:3 nomme le wrapper disparu et donne le remplacement reel - `scripts\validate.cmd m19` sous Windows, `bash ./scripts/validate-m19.sh` sous Linux, sans version. Une regle neuve la tient : GateReachabilityArchitectureTest.java:327-373, everyDatedRecordCitingARemovedWrapperSaysWhatReplacedIt, 54 lignes, qui balaie les *.md de docs/project/roadmap et docs/project/validation et exige, pour chaque cible citee sous la forme `validate-<cible>.cmd`, soit le litteral `scripts\validate.cmd <cible>` si la cible existe, soit `git show <sha>:scripts/validate-<cible>.ps1` sinon, avec un garde-fou anti-vide (:370). Rejouee a la main sur l'arbre : 0 contrevenant. CURRENT_DOCUMENT_FILES (:68-70) est inchange - la seconde branche de l'action, etendre le balayage a docs/project/**, n'a pas ete retenue.
 ```
 
-**Ce qui reste** — Les six branches dediees ont ete fusionnees dans develop le 15 octobre (PR #487 a #492, HEAD 984bb270, 47 commits) et supprimees. Verification faite sur develop apres fusion : le contenu est preserve. (1) Le chemin perime n'est pas corrige, et il apparait **deux fois** : docs/project/roadmap/M19_EXECUTION.md:213 dans le bloc « Expected files », et :253 en prose (« enregistres dans `docs/validation/VALIDATION_M19.md` »). Ce chemin n'existe pas - il n'y a aucun repertoire docs/validation/ dans le depot et la preuve est en docs/project/validation/VALIDATION_M19.md. Deux issues : corriger les deux entrees, ou acter explicitement que la doctrine d'immuabilite couvre aussi les chemins, la note de :3 disant deja « il garde les commandes et les chemins de sa date » - dans ce second cas, fermer le constat par decision plutot que le laisser ouvert. (2) Un enregistrement date cite encore un wrapper retire sans aucun avertissement, hors de portee de la regle : docs/architecture/adr/0084-provider-neutral-multi-provider-composition.md:131 ecrit « Le gate reproductible `validate-m18.cmd` a prouve ». Ce wrapper n'existe plus et le validateur lui-meme a ete retire. Or openspec/specs/gate-reachability/spec.md:162-163 range explicitement les ADR parmi les enregistrements dates soumis a cette obligation. Soit ajouter l'encart, soit ajouter docs/architecture/adr au balayage de everyDatedRecordCitingARemovedWrapperSaysWhatReplacedIt - ce qui ferait echouer la suite tant que l'encart manque, et c'est l'effet recherche. (3) La regle ne controle ni la date ni la position de la mention : elle cherche la chaine n'importe ou dans le fichier. docs/project/validation/README.md:39-42 annonce pourtant une note « en tete » et « datee », avec refus automatique. Les 23 releves respectent la forme, rien ne l'impose a un releve futur.
+**Ce qui reste** — Rien pour ce constat.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
