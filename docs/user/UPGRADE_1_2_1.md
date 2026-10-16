@@ -5,10 +5,10 @@ Statut : **EN PRÉPARATION — MORPHEUS 1.2.1 NON PUBLIÉ**
 Ce guide couvre la mise à niveau depuis MORPHEUS 1.2.0 vers MORPHEUS 1.2.1. La dernière release publiée reste
 `v1.2.0`, et rien ici ne doit être lu comme l'annonce d'une publication.
 
-**Depuis 1.1.0.** Une base 1.1.0 est au même schéma V015 qu'une base 1.2.0 : les migrations appliquées, la sauvegarde
-à prendre et le retour sont les mêmes, en lisant « 1.1.0 » là où ce guide écrit « 1.2.0 ». Ce chemin n'a pas été
-qualifié séparément, et les changements propres à 1.2.0 (câblage des clients MCP) restent décrits dans
-[`UPGRADE_1_2.md`](UPGRADE_1_2.md).
+**Depuis 1.1.0.** La mise à niveau directe de 1.1.0 vers 1.2.1 est supportée : il n'est pas nécessaire d'installer
+1.2.0 entre les deux. Une base 1.1.0 est au même schéma V015 qu'une base 1.2.0 : les migrations appliquées, la
+sauvegarde à prendre et le retour sont les mêmes, en lisant « 1.1.0 » là où ce guide écrit « 1.2.0 ». Les changements
+propres à 1.2.0 (câblage des clients MCP) restent décrits dans [`UPGRADE_1_2.md`](UPGRADE_1_2.md).
 
 **À lire avant d'installer.** Contrairement à 1.2.0, cette version fait avancer le schéma SQLite. La première
 ouverture de la base par 1.2.1 la migre, et **1.2.0 ne s'en aperçoit pas** : il ouvrirait la base migrée sans la
@@ -62,8 +62,9 @@ La sauvegarde n'est pas une précaution : c'est la seule façon de revenir à 1.
    ```
 
    La sortie donne la version de schéma de la sauvegarde : elle doit être celle de 1.2.0, soit 15.
-4. Conserver ce fichier hors du répertoire du programme. Mettre à jour ou désinstaller MORPHEUS ne supprime pas
-   `backups`, mais une copie ailleurs ne coûte rien.
+4. Garder ce fichier dans le répertoire `backups`, qui est l'emplacement attendu : mettre à jour ou désinstaller
+   MORPHEUS ne le supprime pas. En garder une seconde copie hors du répertoire d'installation, sur un autre support
+   si possible.
 
 **Pourquoi il ne faut pas attendre.** `server backup create` ouvre la base avant de la copier, et l'ouvrir la migre :
 une sauvegarde est toujours amenée au schéma du programme qui l'exécute. Créée avec 1.2.1, elle est déjà en V020, et

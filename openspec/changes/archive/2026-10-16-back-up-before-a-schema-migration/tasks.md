@@ -5,9 +5,10 @@ Specified by pull request 437; implemented on `feat/back-up-before-a-schema-migr
 
 ## 1. Decide before writing code
 
-- [ ] 1.1 Maintainer: sibling file now (decision 9 of `design.md`), or wait for sprint 5's single connection policy and
+- [x] 1.1 Maintainer: sibling file now (decision 9 of `design.md`), or wait for sprint 5's single connection policy and
       write to the layout's `backups` directory from the start. Proof: the decision, in the pull request and the ADR.
   - 2026-10-11: not answered explicitly. The maintainer was asked, was given the recommendation (sibling file now) and said to continue; the lot follows the recommendation, and ADR-0110 records `backups` as the destination to move to once the store has a single connection policy. Merging the pull request is the acceptance.
+  - 2026-10-16: settled by the merge of the lot (sibling file, ADR-0110), as recorded above.
 - [x] 1.2 Write the ADR (decisions 3, 4, 5, 7, 9; the rejected fixed-name-and-reuse design; the installer fallback).
       Cite ADR-0018, 0021, 0086, 0088. Read the highest attributed number with
       `bash .claude/skills/live-numbers/numbers.sh` at that moment; do not reuse the value quoted in `design.md`. Proof:
@@ -62,10 +63,11 @@ Specified by pull request 437; implemented on `feat/back-up-before-a-schema-migr
 - [x] 3.4 Refusal: `KnowledgeStoreException` naming `PRE_MIGRATION_BACKUP_FAILED` and both versions, no path, cause
       chained. Proof: 2.3 passes; the D2 and audit gates stay green.
   - 2026-10-11: message: `PRE_MIGRATION_BACKUP_FAILED: cannot keep a copy of the database at schema version <n> before migrating it to <m>`; cause chained.
-- [ ] 3.5 Disclosure: a test through the remote projection and one through the local HTTP surface, opening an outdated
+- [x] 3.5 Disclosure: a test through the remote projection and one through the local HTTP surface, opening an outdated
       database whose copy cannot be written. Proof: no server path in either response.
   - 2026-10-11: asserted on the message (no directory name in it). No test through the remote or the local HTTP surface was written.
   - 2026-10-13: still open. The refusal can only be produced by a copy that cannot be written; the store test forces it by a seam on the copy's name, which an HTTP request cannot reach, and making a directory unwritable is not portable to the Windows runners. The message is asserted to name no location at its source.
+  - 2026-10-16: closed by reading both boundaries, not by an end-to-end HTTP test, which cannot reach the condition portably. Remote: `POST /server/backups` ends a `KnowledgeStoreException` in the facade's `RuntimeException` branch, a fixed `INTERNAL_ERROR` text. Local: the `STATE_CONFLICT` branch relays the message through `BoundaryFailureMessage.safe`, which replaces any message that names a location. The message itself is asserted location-free at its source.
 - [x] 3.6 Break the rule once, then revert: skip the copy when the directory is not writable ("migrate anyway"). Proof:
       2.3 fails by name.
   - 2026-10-11: with the refusal turned into a silent return, `aCopyThatCannotBeWritten...` fails: `Expected KnowledgeStoreException to be thrown, but nothing was thrown`. Reverted.
@@ -78,9 +80,10 @@ Specified by pull request 437; implemented on `feat/back-up-before-a-schema-migr
   - 2026-10-11: a paragraph in `UPGRADE_1_2_1.md` and one in `SECURITY.md`.
 - [x] 4.2 Persistence parity: run the `*PersistenceParityTest` suites. Proof: green, unmodified.
   - 2026-10-11: the parity suites ran in the full reactor, green and unmodified.
-- [ ] 4.3 M19: confirm the extra version read does not move a budget (`scripts\validate.cmd m19`, no `-Version`), and
+- [x] 4.3 M19: confirm the extra version read does not move a budget (`scripts\validate.cmd m19`, no `-Version`), and
       that no copy is taken on the fresh databases the gates use. Proof: budgets unchanged.
   - 2026-10-11: the M19 budgets were not replayed locally; they run in the nightly lane. A fresh database records no version, so no copy is taken there; the extra read of the recorded version is the only added cost.
+  - 2026-10-16: M19 green on both platforms in the nightly lane, which checks out `develop` on a schedule: run 38847430665 (16/10, `develop` at `557fed02`), also 38678268919 (15/10) and 38508249481 (14/10).
 - [x] 4.4 `./mvnw clean verify`; the new branches count against the per-module scale of `morpheus-store-sqlite` and the
       changed-line gate (80 % lines / 70 % branches of the diff). Proof: green on both platforms in CI.
   - 2026-10-11: `./mvnw clean verify` on Windows: BUILD SUCCESS, 3 868 test executions, 0 failure. Changed-line gate replayed with `check-diff-coverage.py`: 84.9 % of changed lines, 77.8 % of changed branches. Linux is left to CI.
@@ -88,7 +91,8 @@ Specified by pull request 437; implemented on `feat/back-up-before-a-schema-migr
       records, the rule/code divergence on `rules/security.md`, and the justification for any test added under
       `morpheus-architecture-tests/`.
   - 2026-10-11: in the description of the pull request that carries this lot.
-- [ ] 4.6 Decide with the maintainer whether `docs/developer/reference/openapi/morpheus-v1-remote-m26.yaml` should declare a 5xx for
+- [x] 4.6 Decide with the maintainer whether `docs/developer/reference/openapi/morpheus-v1-remote-m26.yaml` should declare a 5xx for
       `POST /api/v1/server/backups`, now that this request can raise the refusal. If yes, it is a contract change with
       its own justification (`contracts/public-surfaces.tsv` itself does not move). Proof: the decision.
   - 2026-10-11: not decided; raised in the pull request.
+  - 2026-10-16: the maintainer decided yes. `morpheus-v1-remote-m26.yaml` declares `500` (`InternalError`) on `POST /server/backups`, the status the facade already returns; `contracts/public-surfaces.tsv` does not move.

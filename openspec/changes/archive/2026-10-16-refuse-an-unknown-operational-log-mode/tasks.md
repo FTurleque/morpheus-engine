@@ -44,8 +44,9 @@ Implemented on 2026-10-13.
 
 ## 4. Verification
 
-- [ ] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green.
+- [x] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green.
       *`morpheus-application` and `morpheus-cli` in full and `dependency:analyze` locally; the reactor and the
       changed-line gate are the required checks of the pull request.*
+  - 2026-10-16: the pull request's required checks ran `clean verify` on Linux and Windows and the changed-line gate, green before merge; `develop` at `557fed02`, which carries every lot, is green on push (run 38825491416). (PR 465).
 - [x] 4.2 Release note in the terms of an operator. Pull request description: the finding and what a mute deployment
       will now see.

@@ -6,27 +6,33 @@ Implementation is a separate lot, started after this specification is reviewed, 
 
 ## 1. Actions only the maintainer can take
 
-- [ ] 1.1 Reopen issue #185, with a comment stating it was closed on 2026-10-09 by a closing keyword in the message of
+- [x] 1.1 Reopen issue #185, with a comment stating it was closed on 2026-10-09 by a closing keyword in the message of
       commit `7123238f` when `develop` was promoted to `main`, and that its closing criterion is unmet. Proof: the issue
       is open. An agent does not do this unasked.
   - 2026-10-11: the maintainer's action; not done by this lot. The issue is still shown as shut.
-- [ ] 1.2 Decide whether the rehearsal lane is carried to `main` ahead of the promotion of 1.2.1 (a `schedule` runs
+  - 2026-10-16: issue #185 is open (checked with `gh issue view 185`).
+- [x] 1.2 Decide whether the rehearsal lane is carried to `main` ahead of the promotion of 1.2.1 (a `schedule` runs
       `main`'s workflow file). Proof: the decision, in the pull request.
   - 2026-10-11: not decided. Until the promotion the lane runs only when dispatched.
-- [ ] 1.3 Cut `v1.2.1` when the sprint's exit criterion is met — outside this change. Recorded here so that it is not
+  - 2026-10-16: settled: the lane reached `main` with the promotion of PR 459 and runs there on schedule every night.
+- [x] 1.3 Cut `v1.2.1` when the sprint's exit criterion is met — outside this change. Recorded here so that it is not
       mistaken for something the rehearsal replaces.
   - 2026-10-11: outside this change.
+  - 2026-10-16: out of this change; tracked by issue #185, which stays open until the tag.
 
 ## 2. Measure before changing
 
-- [ ] 2.1 Run `scripts\validate.cmd m20 -Version <current>` on Windows and `bash scripts/validate-m20.sh <current>` on
+- [x] 2.1 Run `scripts\validate.cmd m20 -Version <current>` on Windows and `bash scripts/validate-m20.sh <current>` on
       Linux (WSL), on a clean checkout of `develop`. Proof: both verdicts and durations, in the pull request. If either
       fails today, that failure is the first finding of this change and is fixed before the lane is added.
   - 2026-10-11: not run on the maintainer's machine: the Linux packaging cannot finish under Git Bash, and the dispatched run of the lane on this branch is the measurement (see 5.2).
-- [ ] 2.2 Confirm `validate-m20.ps1` deletes its validation tag on every exit path, including a failed stage. Proof: the
+  - 2026-10-16: first green measurement of both validators, on `develop` plus PR 499 (dispatched run 38951941460): Linux 6 min, Windows 20 min, expected asset names green. Before PR 499 the Windows half failed every night from 14/10 on a test skipped by an assumption.
+  - 2026-10-16: done on `develop` itself once PR 499 was merged (`a998f186`, dispatched run 38958417464): Linux 7 min, Windows 21 min, both green, expected asset names green.
+- [x] 2.2 Confirm `validate-m20.ps1` deletes its validation tag on every exit path, including a failed stage. Proof: the
       lines, and `git tag --list 'm20-validation-*'` empty after a forced failure.
   - 2026-10-11: not re-read line by line; the validator already ran this way before this change and its tag handling is untouched.
   - 2026-10-13: the lines were read. `validate-m20.sh` installs `trap cleanup EXIT` before it creates the tag, and `cleanup` deletes it: every exit path. `validate-m20.ps1` creates the tag inside its main `try`, records `$script:TagCreated`, and deletes the tag in the `finally` of that `try`; its `catch` ends with `exit 1`, and Windows PowerShell 5.1 was checked to run a `finally` on `exit`. Not done: a forced failure of the validator itself followed by `git tag --list 'm20-validation-*'`.
+  - 2026-10-16: forced failure run locally on Windows, in a throwaway worktree of `fix/m20-rehearsal-posix-skip-reason` whose `build-release.ps1` threw on its first statement: `Validation tag preparation PASS`, then `Tagged Windows release build FAIL (1)`, exit 1; `git tag --list 'm20-validation-*'` afterwards: empty. The same run's full reactor (4,110 tests, 10 skipped, all for an operating-system reason) passed the skip check that failed every night since 14/10.
 - [x] 2.3 List every `scripts/validate-*` and which workflow step launches it, per platform. Proof: the table; on
       2026-10-11 the workflows named `validate-m19.{sh,ps1}`, `validate-m21.sh` and `validate-m28.ps1` only. The table
       goes in the pull request as input to AUD-TRV-07 (sprint 8); this change adds no excuse list.
@@ -82,9 +88,11 @@ Implementation is a separate lot, started after this specification is reviewed, 
 
 - [x] 5.1 `./mvnw test -pl morpheus-architecture-tests` after building `morpheus-provider-reference`. Proof: green.
   - 2026-10-11: 616 of 617 locally; the one failure is `CoverageQualityGateTest` refusing a partial JaCoCo population on this machine, unrelated.
-- [ ] 5.2 Two consecutive dispatched runs of the lane on the branch, both platforms. Proof: the run links; durations
+- [x] 5.2 Two consecutive dispatched runs of the lane on the branch, both platforms. Proof: the run links; durations
       recorded against the timeout.
   - 2026-10-11: one dispatched run requested on the branch; its result is reported in the pull request, not here.
+  - 2026-10-16: run 1 = https://github.com/FTurleque/morpheus-engine/actions/runs/38951941460, green on both platforms (Linux 6 min, Windows 20 min). Run 2 = https://github.com/FTurleque/morpheus-engine/actions/runs/38955046885, dispatched right after; tick on its result.
+  - 2026-10-16: the second dispatch on the branch (38955046885) never ran: the branch was deleted when PR 499 merged and the checkout failed in 10 s. It was dispatched again on `develop` at `a998f186`, which holds the same fix: https://github.com/FTurleque/morpheus-engine/actions/runs/38958417464, green on both platforms (Linux 7 min, Windows 21 min). Two consecutive green runs: 38951941460 and 38958417464.
 - [x] 5.3 Pull request description: finding covered, the corrected numbers (commits since `v1.2.0` re-counted that day),
       the decisions of `design.md`, the four unexercised steps, and the justification for the workflow and gate edits.
   - 2026-10-11: in the description of the pull request that carries this lot.

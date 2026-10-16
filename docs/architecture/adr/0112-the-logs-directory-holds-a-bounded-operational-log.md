@@ -56,8 +56,8 @@ disposition du processus : elle est résolue dans `morpheus-cli`, à partir de l
    par les compteurs `failure.suppressed.*`, pas par leur texte.
 
 Cette décision a été prise sur la recommandation de la spécification
-(`openspec/changes/leave-a-trace-when-a-failure-is-swallowed`, décision 6), le mainteneur ayant lancé le lot sans
-choisir entre le mode fichier et le retrait du répertoire.
+(`openspec/changes/archive/2026-10-16-leave-a-trace-when-a-failure-is-swallowed`, décision 6), le mainteneur ayant lancé le lot sans
+choisir entre le mode fichier et le retrait du répertoire. Le mainteneur a confirmé le mode fichier le 16 octobre 2026.
 
 ## Alternatives écartées
 

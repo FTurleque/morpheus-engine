@@ -24,8 +24,9 @@ Implemented on 2026-10-13.
 
 - [x] 2.1 The textual test. Proof: red on `HEAD`, naming the sites of 1.1 without a justification.
       *`WarningSuppressionJustificationTest`, red on the commit that adds it, naming exactly the four.*
-- [ ] 2.2 A test per boundary cast: a value of the wrong shape. Proof: a class cast failure on `HEAD`.
+- [x] 2.2 A test per boundary cast: a value of the wrong shape. Proof: a class cast failure on `HEAD`.
       *Not applicable as written: 1.2 found no cast at a boundary, so there is no class cast failure to reproduce.*
+  - 2026-10-16: closed as not applicable, for the reason above: there is no boundary cast to reproduce.
 
 ## 3. The change
 
@@ -42,8 +43,9 @@ Implemented on 2026-10-13.
 
 ## 4. Verification
 
-- [ ] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green.
+- [x] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green.
       *`morpheus-mcp` and `morpheus-provider-synthetic` in full and `dependency:analyze` locally; the reactor is the
       required checks of the pull request.*
+  - 2026-10-16: the pull request's required checks ran `clean verify` on Linux and Windows and the changed-line gate, green before merge; `develop` at `557fed02`, which carries every lot, is green on push (run 38825491416). (PR 466).
 - [x] 4.2 Pull request description: the finding, the table of 1.1, what a malformed call now answers.
       *A malformed call answers what it answered before: nothing at a boundary changed.*

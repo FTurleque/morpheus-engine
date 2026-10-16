@@ -59,8 +59,8 @@ l'autorisation unique (`MorpheusRemoteRoutePolicy.authorize`), le gabarit de rou
    `remote.access.journal.lost` monte. Un serveur dont le journal ne peut pas être ouvert ne démarre pas.
 
 Le point 7 était laissé au mainteneur par la spécification
-(`openspec/changes/record-who-acted-on-the-remote-server`, décision 4). Il a lancé le lot sans l'amender ; c'est
-l'option recommandée qui est appliquée.
+(`openspec/changes/archive/2026-10-16-record-who-acted-on-the-remote-server`, décision 4). Il a lancé le lot sans l'amender ; c'est
+l'option recommandée qui est appliquée, et le mainteneur l'a confirmée explicitement le 16 octobre 2026.
 
 ## Alternatives écartées
 
@@ -80,6 +80,12 @@ l'option recommandée qui est appliquée.
 - Un disque plein ou un journal rendu inécrivable refuse les écritures distantes. C'est voulu, et c'est dit dans le
   guide de l'opérateur avec le nom du refus.
 - Un ajout sous verrou par requête, deux pour une mutation. Le fichier n'est pas tenu ouvert.
+  Mesuré le 16 octobre 2026 sur Windows (16 cœurs, disque local), sonde jetable sur `completed` : 0,20 ms par ajout
+  au médian seul (p99 0,38 ms) ; les ajouts se sérialisent sur le verrou, d'où 1,7 ms au médian à 8 appelants
+  simultanés (p99 4,3 ms) et 6,4 ms à 32 (p99 19,7 ms). À la limite par défaut de 64 requêtes simultanées
+  (`DEFAULT_MAX_CONCURRENT_REQUESTS`), le journal peut donc ajouter, par extrapolation, de l'ordre de 10 à 40 ms à une requête : un coût
+  accepté devant celui d'une écriture SQLite, à réévaluer si le profil distant devient une contrainte. La mesure n'a
+  pas été rejouée sous Linux.
 - La rotation perd les enregistrements les plus anciens : un journal à conserver doit être collecté.
 - L'emplacement du journal n'apparaît dans aucune réponse distante ; le message du refus de démarrage ne le nomme pas.
 - `503` s'ajoute aux statuts que la façade peut rendre sur une route d'écriture ou d'administration.

@@ -5,10 +5,12 @@ that introduces this change.
 
 ## 1. Questions only the maintainer can answer
 
-- [ ] 1.1 Should `LICENSE` section 5 point to `THIRD-PARTY-NOTICES`? Proof: the decision; if yes, the edited sentence.
+- [x] 1.1 Should `LICENSE` section 5 point to `THIRD-PARTY-NOTICES`? Proof: the decision; if yes, the edited sentence.
   - 2026-10-11: not decided; `LICENSE` is not edited by this lot.
-- [ ] 1.2 SBOM on the release page only, or also in the installed tree? Proof: the decision, in the pull request.
+  - 2026-10-16: the maintainer decided yes; `LICENSE` section 5 now names the `THIRD-PARTY-NOTICES` file shipped next to it.
+- [x] 1.2 SBOM on the release page only, or also in the installed tree? Proof: the decision, in the pull request.
   - 2026-10-11: not decided; this lot publishes the SBOM on the release page only, as the design says.
+  - 2026-10-16: the maintainer decided: the release page only, as shipped.
 - [ ] 1.3 A human reading of the generated `THIRD-PARTY-NOTICES` before the tag (see `design.md`, risks). Proof: the
       maintainer's sign-off in the pull request. The gate does not replace it.
   - 2026-10-11: not done: the generated file is produced and attached to nothing yet. The texts were read upstream at the tags of the shipped versions; whether they are sufficient is a human reading.
@@ -23,9 +25,10 @@ that introduces this change.
       `json-schema-validator`, `itu`, `snakeyaml-engine`), `mcp-json-jackson3`, `jackson-annotations` and
       `jackson-dataformat-yaml` were not inspected.
   - 2026-10-11: eight components carry no licence file in their JAR: `sqlite-jdbc`, `reactor-core`, `reactive-streams`, `mcp-core`, `mcp-json-jackson3`, `json-schema-validator`, `itu`, `snakeyaml-engine`. The three not inspected at specification time were inspected: `jackson-annotations` and `jackson-dataformat-yaml` carry `LICENSE` and `NOTICE`, `mcp-json-jackson3` carries nothing.
-- [ ] 2.3 Resolve the same classpath on Linux and on Windows and compare. Proof: identical sets, or the difference —
+- [x] 2.3 Resolve the same classpath on Linux and on Windows and compare. Proof: identical sets, or the difference —
       which reopens decision 5.
   - 2026-10-11: not measured on Linux from this machine. The release rehearsal builds both platforms; the seventh qualification check compares what each archive attributes with the single SBOM and would refuse a difference.
+  - 2026-10-16: the release rehearsal builds both archives from one checkout; Linux green every night (runs 38508249481, 38678268919, 38847430665) and Windows green through packaging on 13/10 (run 38344328505). `morpheus-cli`'s runtime class path names no platform-specific artifact; the qualification check that compares each archive with the single SBOM remains the guard at the tag.
 - [x] 2.4 Trace `write-build-provenance.{sh,ps1}`: can `sbomSha256=missing` be written during a release build after this
       change? Proof: the call sites; if reachable, a refusal replaces the fallback (with its own failing test first).
   - 2026-10-11: not traced. `write-build-provenance` belongs to the M21 lane and is not called by `build-release`; the release build refuses a missing SBOM by itself (`Release SBOM was not produced`).
@@ -96,12 +99,14 @@ that introduces this change.
 
 ## 6. Verification
 
-- [ ] 6.1 `./mvnw clean verify`, then `./mvnw dependency:analyze` (no dependency was added; zero warnings).
+- [x] 6.1 `./mvnw clean verify`, then `./mvnw dependency:analyze` (no dependency was added; zero warnings).
   - 2026-10-11: architecture module: 621 of 622 locally, the one failure being `CoverageQualityGateTest` on a partial JaCoCo population of this machine. `dependency:analyze` not run: no dependency was added.
-- [ ] 6.2 `scripts\validate-m28.ps1 -Version <current>` on Windows; the Linux packaging through the rehearsal of
+  - 2026-10-16: the pull request's required checks ran `clean verify` on Linux and Windows and the changed-line gate, green before merge; `develop` at `557fed02`, which carries every lot, is green on push (run 38825491416). `dependency:analyze` runs inside `verify` (`d2-dependency-hygiene`, `failOnWarning`).
+- [x] 6.2 `scripts\validate-m28.ps1 -Version <current>` on Windows; the Linux packaging through the rehearsal of
       `rehearse-the-release-chain-before-the-tag`, or `bash distribution/build-portable.sh` locally until it exists.
       Proof: both packaging proofs print the new `PASS` lines.
   - 2026-10-11: Windows packaging run locally through `build-portable.ps1`: PASS. The Linux packaging is left to the dispatched rehearsal.
+  - 2026-10-16: Linux packaging proof = the nightly release rehearsal, green on 14, 15 and 16/10; Windows packaging = `build-portable.ps1` PASS locally on 11/10 and the Windows rehearsal through installation on 13/10.
 - [x] 6.3 `distribution/README.md` and `docs/user/PRODUCT_INTEGRITY.md`: what the archive contains, where the SBOM is.
   - 2026-10-11: `distribution/README.md`, `docs/user/PRODUCT_INTEGRITY.md`.
 - [x] 6.4 Pull request description: findings covered, the measured component set, the decisions of `design.md`, and the
