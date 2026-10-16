@@ -1,6 +1,8 @@
 package com.morpheus.api;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
@@ -75,9 +77,8 @@ class AllowedWorkspaceRootsTest {
     }
 
     @Test
+    @EnabledOnOs(value = OS.WINDOWS, disabledReason = "NTFS junctions exist only on Windows")
     void rejectsWindowsJunctionInsideRoot() throws Exception {
-        assumeTrue(System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("win"),
-                "NTFS junctions exist only on Windows");
         Path allowed = Files.createDirectory(temp.resolve("allowed"));
         Path target = Files.createDirectory(temp.resolve("junction-target"));
         Path junction = allowed.resolve("junction");

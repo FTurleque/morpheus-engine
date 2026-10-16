@@ -1,6 +1,8 @@
 package com.morpheus.application.security;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
@@ -175,11 +177,12 @@ class LocalWritePermissionHardenerTest {
     }
 
     @Test
+    @EnabledOnOs(value = OS.WINDOWS, disabledReason = "the JDK exposes no ACL view on Linux or macOS")
     void refusesAclDirectoryGrantingMutationToBroadPrincipalWhenAclIsAvailable() throws Exception {
         Path existing = tempDir.resolve("acl-shared-parent");
         Files.createDirectory(existing);
         AclFileAttributeView view = Files.getFileAttributeView(existing, AclFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
-        assumeTrue(view != null, "this file system has no ACL view");
+        assertTrue(view != null, "an NTFS directory exposes an ACL view");
         GroupPrincipal broad = broadGroupPrincipal();
         assumeTrue(broad != null, "no broad group could be resolved from its well-known SID");
 
