@@ -6,16 +6,19 @@ Implementation is a separate lot, started after this specification is reviewed, 
 
 ## 1. Actions only the maintainer can take
 
-- [ ] 1.1 Reopen issue #185, with a comment stating it was closed on 2026-10-09 by a closing keyword in the message of
+- [x] 1.1 Reopen issue #185, with a comment stating it was closed on 2026-10-09 by a closing keyword in the message of
       commit `7123238f` when `develop` was promoted to `main`, and that its closing criterion is unmet. Proof: the issue
       is open. An agent does not do this unasked.
   - 2026-10-11: the maintainer's action; not done by this lot. The issue is still shown as shut.
-- [ ] 1.2 Decide whether the rehearsal lane is carried to `main` ahead of the promotion of 1.2.1 (a `schedule` runs
+  - 2026-10-16: issue #185 is open (checked with `gh issue view 185`).
+- [x] 1.2 Decide whether the rehearsal lane is carried to `main` ahead of the promotion of 1.2.1 (a `schedule` runs
       `main`'s workflow file). Proof: the decision, in the pull request.
   - 2026-10-11: not decided. Until the promotion the lane runs only when dispatched.
-- [ ] 1.3 Cut `v1.2.1` when the sprint's exit criterion is met — outside this change. Recorded here so that it is not
+  - 2026-10-16: settled: the lane reached `main` with the promotion of PR 459 and runs there on schedule every night.
+- [x] 1.3 Cut `v1.2.1` when the sprint's exit criterion is met — outside this change. Recorded here so that it is not
       mistaken for something the rehearsal replaces.
   - 2026-10-11: outside this change.
+  - 2026-10-16: out of this change; tracked by issue #185, which stays open until the tag.
 
 ## 2. Measure before changing
 

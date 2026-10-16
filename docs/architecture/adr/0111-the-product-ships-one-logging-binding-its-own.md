@@ -44,8 +44,8 @@ ils ne sont simplement pas des événements.
    (tranché par ADR-0112 : ils restent sur la sortie d'erreur).
 
 Cette décision a été prise sur la recommandation de la spécification
-(`openspec/changes/leave-a-trace-when-a-failure-is-swallowed`, décision 4), le mainteneur ayant lancé le lot sans
-l'amender.
+(`openspec/changes/archive/2026-10-16-leave-a-trace-when-a-failure-is-swallowed`, décision 4), le mainteneur ayant lancé le lot sans
+l'amender. Le mainteneur l'a confirmée explicitement le 16 octobre 2026.
 
 ## Alternatives écartées
 

@@ -4,14 +4,16 @@ Implemented on 2026-10-13; each task carries what was done and what was not.
 
 ## 1. Decide and measure
 
-- [ ] 1.1 Maintainer: the failure policy of decision 4. Default: refuse WRITE and ADMIN, serve READ, count. Proof: the
+- [x] 1.1 Maintainer: the failure policy of decision 4. Default: refuse WRITE and ADMIN, serve READ, count. Proof: the
       answer, in the ADR.
       *2026-10-13: not answered. The maintainer launched the lot without amending the default; it is applied and ADR-0113 says on whose word.*
+  - 2026-10-16: the maintainer confirmed the default explicitly; ADR-0113 says so.
 - [x] 1.2 Read every path of `serve` that ends a request (served by the facade, proxied, refused, failed, timed out)
       and say where its status is known. Proof: the list; it is where the record is written.
       *2026-10-13: every exit of `serve` goes through its `finally` - the 403, the status served by the facade, the backup, the proxied call, a `RemoteFailure`, a bad request, an unforeseen failure. The status is read there from the exchange (`getResponseCode()`, -1 when nothing was sent). Two exits are deliberately not recorded: a failed authentication, and an authenticated request for no route or a refused method, which was never authorized.*
-- [ ] 1.3 Measure one append under a lock against the remote load profile. Proof: the two profiles.
+- [x] 1.3 Measure one append under a lock against the remote load profile. Proof: the two profiles.
       *2026-10-13: **not measured.** The load profile was not run against the journal. One append under a lock per request, two for a mutation, with the file reopened each time; the cost is stated in the ADR, not measured.*
+  - 2026-10-16: measured with a throwaway probe on Windows, 16 cores: 0.20 ms per append alone (p99 0.38 ms); serialized on the lock, 1.7 ms median at 8 concurrent callers and 6.4 ms at 32. In ADR-0113, with the extrapolation to the default limit of 64. Not replayed on Linux.
 
 ## 2. Reproduce before fixing
 
@@ -34,6 +36,9 @@ Implemented on 2026-10-13; each task carries what was done and what was not.
 
 ## 4. Verification
 
-- [ ] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green.
-- [ ] 4.2 The remote disclosure tests: the journal's location appears in no remote response. Proof: green unmodified.
-- [ ] 4.3 Release note; pull request description: the finding, the record's fields, the policy.
+- [x] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green.
+  - 2026-10-16: the pull request's required checks ran `clean verify` on Linux and Windows and the changed-line gate, green before merge; `develop` at `557fed02`, which carries every lot, is green on push (run 38825491416). (PRs 474, 478, 480, 485).
+- [x] 4.2 The remote disclosure tests: the journal's location appears in no remote response. Proof: green unmodified.
+  - 2026-10-16: the remote disclosure tests run unmodified in those checks, green.
+- [x] 4.3 Release note; pull request description: the finding, the record's fields, the policy.
+  - 2026-10-16: `RELEASE_NOTES_1.2.1.md` describes `morpheus-remote-access.jsonl`, its fields and the refusal; PR 474 carries the finding.

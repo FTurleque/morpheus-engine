@@ -46,6 +46,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
   /provider-plugins/discover:
     get:
       operationId: discoverRemoteProviderPlugins
@@ -155,6 +157,16 @@ components:
             $ref: '#/components/schemas/ErrorEnvelope'
     TooManyRequests:
       description: Explicit M26 concurrent request or aggregate proxy-response budget reached
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    InternalError:
+      description: >-
+        INTERNAL_ERROR with a fixed message that names no server location. A backup request opens the database, and
+        opening a database recorded at an older schema version first keeps a copy of it; when that copy cannot be
+        written the store refuses to migrate (PRE_MIGRATION_BACKUP_FAILED, recorded in the server's operational trace) and the request ends
+        here rather than on a migrated database without its copy.
       content:
         application/json:
           schema:

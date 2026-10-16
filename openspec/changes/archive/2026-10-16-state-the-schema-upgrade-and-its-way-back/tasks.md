@@ -4,15 +4,17 @@ Specified by pull request 437; implemented on `feat/state-the-schema-upgrade-and
 
 ## 1. Questions only the maintainer can answer
 
-- [ ] 1.1 Is a direct upgrade from 1.1.0 to 1.2.1 supported, or must 1.2.0 be installed in between? Proof: the answer,
+- [x] 1.1 Is a direct upgrade from 1.1.0 to 1.2.1 supported, or must 1.2.0 be installed in between? Proof: the answer,
       recorded in the guide's "from which version" paragraph.
   - 2026-10-11: not answered - the maintainer's call. The guide says it was written for a start from 1.2.0 and claims nothing about a direct upgrade from 1.1.0.
   - 2026-10-11 (follow-up): the guide now states the fact rather than a support promise - a 1.1.0 database is at the
     same schema V015 as a 1.2.0 one (`git show v1.1.0` lists fifteen migrations), so the migrations, the backup and the
     way back are the same; the path was not qualified separately. Whether it is *supported* remains the maintainer's word.
-- [ ] 1.2 Confirm the location operators should keep the pre-upgrade backup in (the `backups` root of the layout, or
+  - 2026-10-16: the maintainer decided: a direct upgrade from 1.1.0 is supported, without installing 1.2.0 in between. The guide says so.
+- [x] 1.2 Confirm the location operators should keep the pre-upgrade backup in (the `backups` root of the layout, or
       anywhere outside the installation directory). Proof: the answer, in the guide.
   - 2026-10-11: not answered. The guide names the layout's `backups` directory, where `server backup create` writes by default, and advises a second copy elsewhere.
+  - 2026-10-16: the maintainer decided: the layout's `backups` directory, plus a second copy outside the installation directory. The guide says so.
 
 ## 2. Reproduce before fixing
 

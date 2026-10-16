@@ -37,8 +37,9 @@ Specified by pull request 437; implemented on `feat/document-every-environment-s
 
 ## 4. Verification
 
-- [ ] 4.1 `./mvnw test -pl morpheus-architecture-tests` after building `morpheus-provider-reference`. Proof: green.
+- [x] 4.1 `./mvnw test -pl morpheus-architecture-tests` after building `morpheus-provider-reference`. Proof: green.
   - 2026-10-11: 611 of 612 pass locally. The one failure is `CoverageQualityGateTest`, which refuses a partial population (15 of 16 JaCoCo reports) after a `test` run of `morpheus-cli` alone on this machine; it does not concern this change and CI runs the full reactor.
+  - 2026-10-16: the pull request's required checks ran `clean verify` on Linux and Windows and the changed-line gate, green before merge; `develop` at `557fed02`, which carries every lot, is green on push (run 38825491416).
 - [x] 4.2 Confirm the remote projection is untouched: no key was added to `REMOTE_SAFE_DETAIL_KEYS`, no path reaches a
       remote response. Proof: `git diff --stat` shows documentation and tests only.
   - 2026-10-11: documentation and tests only; no file under `src/main/java`.

@@ -5,12 +5,14 @@ that introduces this change.
 
 ## 1. Decide and measure
 
-- [ ] 1.1 Maintainer: confirm decision 4 (a provider of MORPHEUS's own replacing `slf4j-nop`, `slf4j-api` at compile
+- [x] 1.1 Maintainer: confirm decision 4 (a provider of MORPHEUS's own replacing `slf4j-nop`, `slf4j-api` at compile
       scope in `morpheus-cli`). Proof: the answer, in the pull request and the ADR.
       *2026-10-13: not answered. The maintainer launched the lot without amending the recommendation; it is applied and ADR-0111 says on whose word.*
-- [ ] 1.2 Maintainer: choose between the file mode and removing the logs directory (decision 6). Default: the file
+  - 2026-10-16: the maintainer confirmed decision 4 explicitly; ADR-0111 says so.
+- [x] 1.2 Maintainer: choose between the file mode and removing the logs directory (decision 6). Default: the file
       mode. Proof: the answer.
       *2026-10-13: not answered. The maintainer launched the lot without choosing; the default - the file mode - is applied and ADR-0112 says on whose word.*
+  - 2026-10-16: the maintainer confirmed the file mode explicitly; ADR-0112 says so.
 - [x] 1.3 Read every `catch` of `src/main` that does not rethrow and classify it: records, or listed with its reason.
       Proof: the table. On 2026-10-13 a name scan found 38 candidates in eight modules; the audit counted 21 by another
       criterion; the table settles the number.
@@ -63,13 +65,17 @@ that introduces this change.
 
 ## 4. Verification
 
-- [ ] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green.
+- [x] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green.
       *2026-10-13, fifth lot: not run locally; the lot ran the tests it adds or touches, module by module, and the architecture suite. The full reactor and the changed-line gate are left to the CI of its pull request.*
       *2026-10-15, sixth lot: not run locally either; the full test suites of `morpheus-mcp-transport`, `morpheus-integration-minos` and `morpheus-integration-nexus`, the tests it adds in `morpheus-api` and the architecture tests that read the files it touches.*
-- [ ] 4.2 M19, since counters are added on store paths: `scripts\validate.cmd m19`. Proof: budgets unchanged.
-- [ ] 4.3 The packaged image: one SLF4J provider on the class path; `THIRD-PARTY-NOTICES` follows the dependency
+  - 2026-10-16: the pull request's required checks ran `clean verify` on Linux and Windows and the changed-line gate, green before merge; `develop` at `557fed02`, which carries every lot, is green on push (run 38825491416). (PRs 467, 468, 470, 471, 472, 475, 488, 497).
+- [x] 4.2 M19, since counters are added on store paths: `scripts\validate.cmd m19`. Proof: budgets unchanged.
+  - 2026-10-16: M19 green on both platforms in the nightly lane, which checks out `develop` on a schedule: run 38847430665 (16/10, `develop` at `557fed02`), also 38678268919 (15/10) and 38508249481 (14/10).
+- [x] 4.3 The packaged image: one SLF4J provider on the class path; `THIRD-PARTY-NOTICES` follows the dependency
       change. Proof: the listing.
-- [ ] 4.4 Release note; pull request description: the finding, the table of 1.3, the two decisions.
+  - 2026-10-16: `dependency:list -pl morpheus-cli -DincludeScope=runtime` lists `slf4j-api` alone and no provider artifact; the one provider is MORPHEUS's own (`META-INF/services/org.slf4j.spi.SLF4JServiceProvider`). `THIRD-PARTY-NOTICES` is generated from that class path at packaging, and the rehearsal builds it every night.
+- [x] 4.4 Release note; pull request description: the finding, the table of 1.3, the two decisions.
+  - 2026-10-16: `RELEASE_NOTES_1.2.1.md` has the log mode, the third-party logs and the file mode; the pull requests carry the finding and the decisions.
 
 ## How this change is delivered
 

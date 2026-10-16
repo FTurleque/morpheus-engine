@@ -53,11 +53,14 @@ it stands.
 
 ## 4. Verification
 
-- [ ] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green.
+- [x] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green.
       *2026-10-13: not run locally; left to the pull request. Run instead: the tests of `morpheus-application` (sync, operability), `morpheus-store-sqlite` and `morpheus-cli`, and the architecture tests the change touches.*
-- [ ] 4.2 M19: the store constructors are on its paths. `scripts\validate.cmd m19`. Proof: budgets unchanged.
+  - 2026-10-16: the pull request's required checks ran `clean verify` on Linux and Windows and the changed-line gate, green before merge; `develop` at `557fed02`, which carries every lot, is green on push (run 38825491416).
+- [x] 4.2 M19: the store constructors are on its paths. `scripts\validate.cmd m19`. Proof: budgets unchanged.
+  - 2026-10-16: M19 green on both platforms in the nightly lane, which checks out `develop` on a schedule: run 38847430665 (16/10, `develop` at `557fed02`), also 38678268919 (15/10) and 38508249481 (14/10).
 - [x] 4.3 Run the store module's tests with JUnit parallel execution enabled locally, as an observation only. Proof:
       what fails, recorded in the ADR - not a gate.
       *2026-10-13: two runs of 205 executions, two then four failures, all on `SqliteConnectionScope.diagnostics()`; the contention test passes in both. In ADR-0115.*
       *2026-10-15, after the scope counts on its opener's recorder (AUD-QUA-17): four runs of 210 tests (209 executed), **no failure** in any. Parallel execution is switched on for `morpheus-store-sqlite` alone, by a versioned `junit-platform.properties` in its test resources; the other modules stay sequential (driver swap of `PhysicalSqliteConnections`, `java.home`, default locale). In ADR-0115, second amendment of 15/10/2026.*
-- [ ] 4.4 Pull request description: the finding, the lists of 1.1 and 1.3.
+- [x] 4.4 Pull request description: the finding, the lists of 1.1 and 1.3.
+  - 2026-10-16: in the descriptions of PRs 476, 492 and 496, all merged.
