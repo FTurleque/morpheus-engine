@@ -79,7 +79,8 @@ for every segment between the workspace root and the file, and MUST NOT be answe
 
 - **WHEN** a directory above a file is replaced by a symbolic link, pointing inside or outside the workspace, after the
   file has been validated and before its fingerprint is accepted
-- **THEN** the scan reports `WORKSPACE_BOUNDARY_ESCAPED`, stops, and the file is not in the inventory
+- **THEN** the scan reports the file as crossing a symbolic link, and neither the file nor a complete inventory is
+  produced
 
 #### Scenario: The file itself is replaced by a link
 

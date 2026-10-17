@@ -7,6 +7,10 @@
   directory budgets. `visitFile` skips links, validates the file, applies the budgets, fingerprints the file, validates
   it again, re-reads its attributes and compares identities.
 - A boundary failure adds a `WORKSPACE_BOUNDARY_ESCAPED` failure, exhausts the shared budget and terminates the walk.
+- The re-validation after fingerprinting runs inside the `try` that turns an `IOException` into `SOURCE_UNREADABLE`
+  and lets the walk continue: a segment replaced mid-read is refused and reported with the message of the boundary,
+  under that code and without terminating the scan (observed on 2026-10-17 by the replacement tests, which the
+  specification had expected to find `WORKSPACE_BOUNDARY_ESCAPED`). Changing the code is outside this change.
 - `WorkspacePathBoundary` is a static utility with one method. It returns silently when the workspace or a segment does
   not exist: a path that is not there cannot escape.
 - The scanner already has a test seam that runs code between the fingerprint and the re-validation: the optional
