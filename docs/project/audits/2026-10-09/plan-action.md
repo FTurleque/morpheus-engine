@@ -2,7 +2,7 @@
 
 Issu des 96 constats de `findings.md`. Trois temps : *Immédiat* (Élevées rapides et bloqueurs de release), *Court terme* (un mois), *Fond* (chantiers structurels). Les efforts sont ceux des constats : **S** < 1 j, **M** 1-3 j, **L** > 3 j.
 
-> ⚠️ **État au 13 octobre 2026 : ce plan décrit la situation du 9 octobre.** 24 constats ont été corrigés depuis, le sprint 3 est terminé et les sprints 1, 2, 4, 5 et 6 sont partiellement soldés. L'avancement réel, constat par constat, est dans `reverification-2026-10-13.md` et `sprints.md`.
+> ⚠️ **État au 17 octobre 2026 : ce plan décrit la situation du 9 octobre et n'a pas été réécrit.** Il y a maintenant **101 constats, dont 33 corrigés et 3 partiels** ; les sprints 2 et 3 sont terminés et les sprints 1, 4, 5, 6, 8 et 10 sont partiellement soldés. Il ne reste que quatre constats Élevée, tous dans Architecture et Performance. L'avancement réel, constat par constat, est dans `sprints.md` et `findings.md` ; les quatre passes de revérification sont datées dans `reverification-2026-10-{13,15,17}.md`.
 
 > **Ce document classe par urgence. `sprints.md` classe les mêmes constats par ordre d'exécution**, en 14 sprints contraints par 33 dépendances vérifiées. Les deux ne se contredisent pas, mais quand ils divergent c'est l'ordre des sprints qui s'applique : une action urgente dont le prérequis n'est pas livré ne peut pas être vérifiée. Les colonnes « Dépend de » ci-dessous sont les mêmes arêtes, exprimées entre actions de ce plan.
 
