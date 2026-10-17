@@ -6,7 +6,9 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
+import org.xml.sax.SAXParseException;
 
+import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.IOException;
 import java.io.StringReader;
@@ -41,6 +43,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SkippedTestReasonGateTest {
     private static final String OPERATING_SYSTEM_REASON = "Disabled on operating system";
     private static final String THIS_MODULE = "morpheus-coverage-report";
+    private static final String ABORTED_ASSUMPTION =
+            "org.opentest4j.TestAbortedException: Assumption failed: assumption is not true";
 
     @Test
     void everyTestThisReactorSkippedWasDisabledByAnOperatingSystemCondition() throws Exception {
@@ -62,19 +66,19 @@ class SkippedTestReasonGateTest {
                   <skipped message="Disabled on operating system: Linux ==&gt; NTFS junctions exist only on Windows"/>
                 </testcase>
                 <testcase name="posixOnly" classname="com.example.AlphaTest">
-                  <skipped type="org.opentest4j.TestAbortedException"><![CDATA[org.opentest4j.TestAbortedException: Assumption failed: assumption is not true
+                  <skipped type="org.opentest4j.TestAbortedException"><![CDATA[%s
                 ]]></skipped>
                 </testcase>
                 <testcase name="switchedOff" classname="com.example.AlphaTest">
                   <skipped message="not ready"/>
                 </testcase>
                 <testcase name="ran" classname="com.example.AlphaTest"/>
-                """);
+                """.formatted(ABORTED_ASSUMPTION));
 
         List<String> unexplained = unexplainedSkips(reactor, testedPopulation(reactor));
 
         assertEquals(List.of(
-                "com.example.AlphaTest.posixOnly (org.opentest4j.TestAbortedException: Assumption failed: assumption is not true)",
+                "com.example.AlphaTest.posixOnly (" + ABORTED_ASSUMPTION + ")",
                 "com.example.AlphaTest.switchedOff (not ready)"), unexplained);
     }
 
@@ -100,6 +104,24 @@ class SkippedTestReasonGateTest {
         assertEquals(List.of("alpha"), testedPopulation(reactor));
     }
 
+    @Test
+    void aReportDeclaringADoctypeIsRefusedRatherThanResolved(@TempDir Path reactor) throws Exception {
+        declareModules(reactor, "alpha");
+        Path reports = Files.createDirectories(reactor.resolve("alpha/target/surefire-reports"));
+        Files.writeString(reports.resolve("TEST-com.example.AlphaTest.xml"), """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <!DOCTYPE testsuite [<!ENTITY outside SYSTEM "file:///etc/hostname">]>
+                <testsuite name="com.example.AlphaTest">
+                  <testcase name="ran" classname="com.example.AlphaTest"><system-out>&outside;</system-out></testcase>
+                </testsuite>
+                """);
+
+        SAXParseException refused = assertThrows(SAXParseException.class,
+                () -> unexplainedSkips(reactor, testedPopulation(reactor)));
+
+        assertTrue(refused.getMessage().contains("DOCTYPE"), refused.getMessage());
+    }
+
     private static List<String> unexplainedSkips(Path root, List<String> population) throws Exception {
         List<String> unexplained = new ArrayList<>();
         List<String> withoutReports = new ArrayList<>();
@@ -109,25 +131,31 @@ class SkippedTestReasonGateTest {
                 withoutReports.add(module);
             }
             for (Path report : reports) {
-                NodeList cases = parse(report).getElementsByTagName("testcase");
-                for (int index = 0; index < cases.getLength(); index++) {
-                    Element testCase = (Element) cases.item(index);
-                    NodeList skipped = testCase.getElementsByTagName("skipped");
-                    if (skipped.getLength() == 0) {
-                        continue;
-                    }
-                    String reason = reason((Element) skipped.item(0));
-                    if (!reason.startsWith(OPERATING_SYSTEM_REASON)) {
-                        unexplained.add(testCase.getAttribute("classname") + "." + testCase.getAttribute("name")
-                                + " (" + reason + ")");
-                    }
-                }
+                unexplained.addAll(unexplainedSkipsOf(report));
             }
         }
         if (!withoutReports.isEmpty()) {
             throw new AssertionError("no Surefire report was written by these tested modules, so what they skipped "
                     + "cannot be read -- run ./mvnw clean verify over the whole reactor: "
                     + String.join(", ", withoutReports));
+        }
+        return unexplained;
+    }
+
+    private static List<String> unexplainedSkipsOf(Path report) throws Exception {
+        List<String> unexplained = new ArrayList<>();
+        NodeList cases = parse(report).getElementsByTagName("testcase");
+        for (int index = 0; index < cases.getLength(); index++) {
+            Element testCase = (Element) cases.item(index);
+            NodeList skipped = testCase.getElementsByTagName("skipped");
+            if (skipped.getLength() == 0) {
+                continue;
+            }
+            String reason = reason((Element) skipped.item(0));
+            if (!reason.startsWith(OPERATING_SYSTEM_REASON)) {
+                unexplained.add(testCase.getAttribute("classname") + "." + testCase.getAttribute("name")
+                        + " (" + reason + ")");
+            }
         }
         return unexplained;
     }
@@ -155,24 +183,34 @@ class SkippedTestReasonGateTest {
 
     private static List<String> testedPopulation(Path root) throws Exception {
         List<String> population = new ArrayList<>();
-        Node child = parse(root.resolve("pom.xml")).getDocumentElement().getFirstChild();
-        while (child != null) {
-            if (child instanceof Element element && element.getTagName().equals("modules")) {
-                Node declared = element.getFirstChild();
-                while (declared != null) {
-                    if (declared instanceof Element module && module.getTagName().equals("module")) {
-                        String name = module.getTextContent().trim();
-                        if (!name.equals(THIS_MODULE) && hasTestSources(root.resolve(name))) {
-                            population.add(name);
-                        }
-                    }
-                    declared = declared.getNextSibling();
-                }
+        for (String name : childTexts(parse(root.resolve("pom.xml")).getDocumentElement(), "modules", "module")) {
+            if (!name.equals(THIS_MODULE) && hasTestSources(root.resolve(name))) {
+                population.add(name);
             }
-            child = child.getNextSibling();
         }
         assertFalse(population.isEmpty(), () -> "no reactor module with test sources is declared under " + root);
         return List.copyOf(population);
+    }
+
+    /** The trimmed text of every {@code item} child of every {@code container} child of {@code parent}. */
+    private static List<String> childTexts(Element parent, String container, String item) {
+        List<String> texts = new ArrayList<>();
+        for (Element section : childElements(parent, container)) {
+            for (Element element : childElements(section, item)) {
+                texts.add(element.getTextContent().trim());
+            }
+        }
+        return texts;
+    }
+
+    private static List<Element> childElements(Element parent, String tagName) {
+        List<Element> elements = new ArrayList<>();
+        for (Node child = parent.getFirstChild(); child != null; child = child.getNextSibling()) {
+            if (child instanceof Element element && element.getTagName().equals(tagName)) {
+                elements.add(element);
+            }
+        }
+        return elements;
     }
 
     private static boolean hasTestSources(Path module) throws IOException {
@@ -202,11 +240,15 @@ class SkippedTestReasonGateTest {
                         + "</testsuite>\n");
     }
 
+    /** Surefire reports and the root POM carry no DTD, so one is refused rather than resolved. */
     private static org.w3c.dom.Document parse(Path file) throws Exception {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
         factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
         factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        factory.setXIncludeAware(false);
         factory.setExpandEntityReferences(false);
         var builder = factory.newDocumentBuilder();
         builder.setEntityResolver((publicId, systemId) -> new InputSource(new StringReader("")));
