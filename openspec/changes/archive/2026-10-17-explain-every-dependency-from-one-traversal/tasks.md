@@ -40,14 +40,14 @@ that introduces this change.
       *2026-10-17: done in the other direction: the count test was run against the uncorrected service (stash) and failed before the correction.*
 ## 4. Verification
 
-- [ ] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green; 2.2 and 2.3 pass unmodified.
-      *2026-10-17: see the pull request for the full verify.*
+- [x] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green; 2.2 and 2.3 pass unmodified.
+      *2026-10-17: `./mvnw clean verify` green locally and on both CI lanes of PR 508; changed-line coverage 89.1% lines / 77.8% branches (local replay).*
 - [x] 4.2 `ChangeAnalysisContractTest`, `TraceabilityTraversalContractTest` and `TraceabilityTruncationContractTest`.
       Proof: green, and any case removed with `findPath` is named.
       *2026-10-17: `ChangeAnalysisContractTest`, `TraceabilityTraversalContractTest`, `TraceabilityTruncationContractTest` green.*
 - [x] 4.3 M19 on both platforms: `scripts\validate.cmd m19` and `bash ./scripts/validate-m19.sh`. Proof: the
       change-analysis budget is met; the two traversal budgets are unchanged.
       *2026-10-17: `change_analysis_p95_ms=414` for 3 deltas (budget 2,000), `trace_traversal_p95_ms=153` and `trace_frontier_check_p95_ms=302` unchanged. Windows, one run of the class; `validate-m19` itself not run.*
-- [ ] 4.4 Pull request description: the finding, its two corrections, the counts of 1.2 before and after, the metric of
+- [x] 4.4 Pull request description: the finding, its two corrections, the counts of 1.2 before and after, the metric of
       1.3 before and after.
-      *2026-10-17: in the pull request.*
+      *2026-10-17: PR 508 carries the finding, the two corrections, the counts (92 / 326 reads) and the metric (63 s for one delta before; 0.4 s for three after).*

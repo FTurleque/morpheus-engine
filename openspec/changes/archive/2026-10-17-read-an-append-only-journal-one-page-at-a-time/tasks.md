@@ -60,13 +60,13 @@ that introduces this change.
       *2026-10-17: neither list is removed from its port nor excused: the name scan counts the tests that call them, so `UnreferencedPublicMethodArchitectureTest` does not ask for an excuse; the call rule keeps production away.*
 ## 5. Verification
 
-- [ ] 5.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green.
-      *2026-10-17: see the pull request.*
+- [x] 5.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green.
+      *2026-10-17: `./mvnw clean verify` green locally and on both CI lanes of PR 508.*
 - [ ] 5.2 A page read through a real remote server on a journal above the size of 1.2. Proof: answered.
       *2026-10-17: not done: no real remote server was driven over a journal above the size of 1.2, because 1.2 was not measured.*
 - [x] 5.3 M19 on both platforms, if the journal-page budget was kept: `scripts\validate.cmd m19` and
       `bash ./scripts/validate-m19.sh`. Proof: the budget is met; the others are unchanged.
       *2026-10-17: `policy_audit_page_p95_ms=29` against 1,000 ms; Windows, the class alone, not `validate-m19`.*
-- [ ] 5.4 Pull request description: the finding and what it got wrong about the index, the figures of 1.2, the break of
+- [x] 5.4 Pull request description: the finding and what it got wrong about the index, the figures of 1.2, the break of
       form for HTTP and CLI clients, the choice of 2.1 and its residual if it is (c).
-      *2026-10-17: in the pull request.*
+      *2026-10-17: PR 508 states the finding, what it got wrong about the index, the break of form, the maintainer choice (b); no figure for 1.2 (not measured).*
