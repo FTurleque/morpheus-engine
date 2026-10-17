@@ -20,11 +20,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * One CLI command opens one physical SQLite connection, as the same operation does through HTTP and MCP.
  *
- * <p>Counted at the JDBC driver on a whole command, from its arguments to its exit code: the query and policy commands
+ * <p>Counted on a whole command, from its arguments to its exit code: the query and policy commands
  * read through store sets that live in the SQLite adapter, which opened five and eight connections for one command
  * while every rule looked at the transport adapters. The two operations are the ones
  * {@code HttpRequestConnectionCountTest} and {@code McpToolCallConnectionCountTest} measure on their transport. The
- * database is initialised by a first command, so that the count is the one of an ordinary command.</p>
+ * database is initialised by a first command, so that the count is the one of an ordinary command.
+ * The count is the scope's own, read on the recorder this test hands in, so it shares nothing with another
+ * test of the JVM. A store built outside a scope opens a connection that no scope counts; that is refused
+ * where it is written, by {@code SqliteConnectionScopeUseArchitectureTest}, and no longer observed at the JDBC
+ * driver, which meant swapping the driver of the whole JVM (AUD-QUA-17).</p>
  */
 class CliCommandConnectionCountTest {
     @TempDir
@@ -47,12 +51,12 @@ class CliCommandConnectionCountTest {
         assertEquals(0, run(command), label);
         Map<String, Long> before = observed.metrics().snapshot().counters();
 
-        int opened = PhysicalSqliteConnections.openedDuring(() -> assertEquals(0, run(command), label));
+        assertEquals(0, run(command), label);
 
-        assertEquals(1, opened, label + " opens one physical SQLite connection");
         Map<String, Long> after = observed.metrics().snapshot().counters();
         assertEquals(1L, delta(before, after, SqliteConnectionScope.CONNECTIONS_OPENED),
-                "and that connection is the one of a scope, counted on the runtime the launcher was handed");
+                label + " opens one physical SQLite connection, the one of a scope, counted on the runtime the "
+                        + "launcher was handed");
         assertEquals(1L, delta(before, after, SqliteConnectionScope.SCHEMA_CHECKS), "whose schema check runs once");
     }
 
