@@ -2,7 +2,7 @@
 
 MORPHEUS est un **Specification & Intent Intelligence Engine** local-first : il normalise des spécifications, compose des providers sans effacer provenance ni conflits, publie des snapshots versionnés et les expose par CLI, MCP STDIO et API HTTP.
 
-Version stable publiée : **MORPHEUS 1.2.0** (tag `v1.2.0`). Baseline de développement : **1.2.1**, corrective, non publiée.
+Version stable publiée : **MORPHEUS 1.2.1** (tag `v1.2.1`, 16 octobre 2026). La précédente, 1.2.0, reste disponible sous son tag.
 
 La documentation est rangée en trois espaces, un par lecteur, plus le dossier d'architecture, qui porte le registre des ADR. Chaque page n'appartient qu'à un seul endroit.
 

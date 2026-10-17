@@ -30,22 +30,22 @@ Cette partie dit où en est MORPHEUS et sur quoi il est construit. Elle s’adre
 
 ## État produit
 
-**MORPHEUS 1.2.0 est la release stable publiée.** La baseline de développement courante est **1.2.1**.
+**MORPHEUS 1.2.1 est la release stable publiée** (16 octobre 2026). Le reactor porte encore **1.2.1** ; la version suivante n'est pas ouverte.
 
 ```text
-Stable version          1.2.0
-Stable tag              v1.2.0
-Release commit          3ad9ebf030b58df97482e21e272c24feae6b9d86
-R3                      COMPLETE / VALIDATED / PUBLISHED
-Published assets        8/8 parity PASS
-Development baseline    1.2.1
+Stable version          1.2.1
+Stable tag              v1.2.1
+Release commit          2a8b1ede9cdeb107244b04969726305afc672189
+Release qualification   PASS (verify-release-provenance, .sh and .ps1)
+Published assets        12, all expected
+Previous release        1.2.0 / v1.2.0 / 3ad9ebf030b58df97482e21e272c24feae6b9d86
 D2                      COMPLETE / QUALIFIED / MERGED
 D2 issue                #120 CLOSED / completed
 D2 qualified exact head fa54b3d6a316357b2ef79afd2243619a64a05f3b
 D2 merge commit         c12882d6e43daab600f6580f22f8eff2fbc6f4de
 ```
 
-Preuve de release : [`docs/project/validation/VALIDATION_R3.md`](docs/project/validation/VALIDATION_R3.md).
+Preuve de release : [`docs/project/validation/VALIDATION_RELEASE_1.2.1.md`](docs/project/validation/VALIDATION_RELEASE_1.2.1.md) (1.2.0 : [`VALIDATION_R3.md`](docs/project/validation/VALIDATION_R3.md)).
 Preuve historique D2 : [`docs/project/validation/VALIDATION_D2.md`](docs/project/validation/VALIDATION_D2.md), complétée par les preuves exact-head de la PR #121.
 
 ## Fondation technique
@@ -53,7 +53,7 @@ Preuve historique D2 : [`docs/project/validation/VALIDATION_D2.md`](docs/project
 ```text
 Java                   21
 Build                  Maven Wrapper 3.10.0
-Release stable         1.2.0
+Release stable         1.2.1
 Baseline développement 1.2.1
 Persistent store       SQLite
 SQLite JDBC            3.53.4.0

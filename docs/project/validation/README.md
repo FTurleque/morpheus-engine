@@ -15,6 +15,7 @@ VALIDATION_M21.md → VALIDATION_M28.md
 VALIDATION_R2.md
 VALIDATION_R3.md
 VALIDATION_D2.md   ← preuve historique D2
+VALIDATION_RELEASE_1.2.1.md   ← qualification publique de la release v1.2.1
 ```
 
 Chaque preuve historique conserve les décisions, SHA, commandes et résultats réellement observés. Une preuve historique n’est jamais réécrite pour fabriquer un PASS ni pour adopter rétroactivement une commande moderne.

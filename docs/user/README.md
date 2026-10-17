@@ -2,9 +2,9 @@
 
 MORPHEUS est un **Specification & Intent Intelligence Engine** local-first. Il normalise, versionne, compose et expose les faits de spécification et d’intention via CLI, MCP STDIO et API HTTP.
 
-Baseline stable publiée : **MORPHEUS 1.2.0**. Baseline de développement courante : **1.2.1**.
+Version stable publiée : **MORPHEUS 1.2.1**.
 
-Les commandes d’installation ci-dessous et les assets publiés restent ceux de la release stable `1.2.0` tant qu’une nouvelle release n’a pas été réellement publiée.
+Les commandes d’installation ci-dessous et les assets publiés sont ceux de la release `1.2.1`. Avant de mettre à jour une installation 1.2.0 ou 1.1.0, lire [UPGRADE_1_2_1.md](UPGRADE_1_2_1.md) : cette version fait avancer le schéma de la base.
 
 ## Capacités principales
 
@@ -126,6 +126,7 @@ MORPHEUS préfère `UNAVAILABLE` ou `UNKNOWN` à un fait inventé.
 - [Team / Remote Server](TEAM_REMOTE_SERVER.md)
 - [Assisted Reasoning](ASSISTED_REASONING.md)
 - [Plugins provider](PROVIDER_PLUGINS.md)
+- [Upgrade 1.2.2](UPGRADE_1_2_2.md) — version en préparation : fait avancer le schéma SQLite (V021), sauvegarde obligatoire avant d'installer
 - [Upgrade 1.2.1](UPGRADE_1_2_1.md) — fait avancer le schéma SQLite : sauvegarde obligatoire avant d'installer
 - [Upgrade 1.2](UPGRADE_1_2.md)
 - [Intégrité produit](PRODUCT_INTEGRITY.md)

@@ -8,6 +8,7 @@ import com.morpheus.application.store.SnapshotBusinessContentStore;
 import com.morpheus.application.store.SpecificationKnowledgeStore;
 import com.morpheus.application.store.TraceabilityStore;
 import com.morpheus.application.store.VersionedRequirementStore;
+import com.morpheus.application.traceability.ExplainedTraversal;
 import com.morpheus.application.traceability.TraceabilityPath;
 import com.morpheus.application.traceability.TraceabilitySubgraph;
 import com.morpheus.application.traceability.TraceabilityTraversalDirection;
@@ -303,12 +304,13 @@ public final class ChangeAnalysisService {
             DependencyImpactDirection impactDirection,
             List<ChangeDependencyImpact> impacts,
             List<ChangeAnalysisWarning> warnings) {
-        TraceabilitySubgraph subgraph = traversalService.traverse(
+        ExplainedTraversal traversal = traversalService.traverseExplained(
                 snapshotId,
                 root,
                 maxDepth,
                 traversalDirection,
                 DEPENDS_ON_ONLY);
+        TraceabilitySubgraph subgraph = traversal.subgraph();
         subgraph.truncationReason().ifPresent(reason -> warnings.add(new ChangeAnalysisWarning(
                 ChangeAnalysisWarningCode.TRACEABILITY_TRAVERSAL_TRUNCATED,
                 DiagnosticSeverity.WARNING,
@@ -318,19 +320,9 @@ public final class ChangeAnalysisService {
                         "direction", impactDirection.name(),
                         ChangeAnalysisWarning.TRUNCATION_REASON, reason,
                         "snapshotId", snapshotId.toString()))));
-        for (TraceabilityEntityRef target : subgraph.nodes()) {
-            if (target.equals(root)) {
-                continue;
-            }
-            TraceabilityPath path = traversalService.findPath(
-                            snapshotId,
-                            root,
-                            target,
-                            maxDepth,
-                            traversalDirection,
-                            DEPENDS_ON_ONLY)
-                    .orElseThrow(() -> new IllegalStateException(
-                            "traceability traversal exposed a node without a path: " + target));
+        for (Map.Entry<TraceabilityEntityRef, TraceabilityPath> explained : traversal.paths().entrySet()) {
+            TraceabilityEntityRef target = explained.getKey();
+            TraceabilityPath path = explained.getValue();
             impacts.add(new ChangeDependencyImpact(requirementId, impactDirection, target, path));
             if (path.steps().stream().anyMatch(step ->
                     step.link().resolution() != TraceabilityResolutionState.RESOLVED)) {

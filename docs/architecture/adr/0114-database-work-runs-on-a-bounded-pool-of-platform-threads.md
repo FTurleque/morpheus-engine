@@ -84,6 +84,36 @@ plafond ; il restait une file sans fin devant lui. Décidé, sans ADR séparé c
 Non fait : aucun compteur des refus d'admission. Le décorateur n'a pas de métriques, et lui en donner par le runtime
 statique ajouterait un utilisateur à une liste qui ne fait que rétrécir.
 
+## Amendement du 17 octobre 2026 — la sauvegarde du serveur distant tourne sur un travailleur (AUD-PRF-19)
+
+La réserve ci-dessus est levée par une mesure. `RemoteSchedulerAvailabilityUnderSqliteWaitTest` démarre un vrai serveur
+distant, tient la base avec un écrivain exclusif trois secondes, met en vol autant de sauvegardes que la voie
+privilégiée en admet (processeurs + 4) et demande `server/status`, route de la façade qui ne touche aucune base :
+
+```text
+avant   processors=16, backups in flight=20, backup statuses={201=4, 500=16}
+        status latencies (ms)=[5002, 41, 3, 3, 2, 2, 8, 2], probes that failed=[HttpConnectTimeoutException]
+après   processors=16, backups in flight=20, backup statuses={201=20}
+        status latencies (ms)=[13, 3, 3, 4, 2, 2, 2, 2], probes that failed=[]
+```
+
+Avant : la première sonde n'a pas pu se connecter en cinq secondes. La voie privilégiée par défaut (64 requêtes,
+donc 16 sauvegardes) atteint le nombre de porteurs d'une machine de seize processeurs et le dépasse sur toute machine
+plus petite.
+
+- **La façade ne relaie pas tout à un pool.** Décorer le serveur distant comme le local aurait fait occuper un
+  travailleur par chaque requête relayée, y compris celles qui n'attendent que le réseau, et ramené la capacité de la
+  façade au nombre de processeurs. La sauvegarde est la seule route que la façade sert avec SQLite en main : elle seule
+  passe par `DatabaseCallWorkers`, un pool de threads plateforme de même taille que celui du serveur local
+  (`DATABASE_WORKERS`), pendant que le thread virtuel de la requête attend un futur et libère son porteur.
+- **Pas d'admission propre.** Les requêtes qui y arrivent sont déjà bornées par la voie privilégiée ; une sauvegarde
+  au-delà des travailleurs attend dans la file du pool. Le pool est arrêté avec le serveur.
+- **La règle** : `RemoteServerArchitectureTest#theRemoteFacadeCallsTheDatabaseOnlyThroughItsDatabaseWorkers` refuse tout
+  appel à `maintenance.` de `MorpheusRemoteHttpServer` qui ne soit pas dans `databaseWorkers.call(`. Cassée le
+  17/10/2026 en retirant l'appel au travailleur, puis rétablie.
+- Les seize `500` d'avant ne sont pas expliqués par cette mesure et ne sont pas traités ici : après la correction, les
+  vingt sauvegardes réussissent. La cause n'est pas établie : famine des porteurs ou course sur le verrou de la base.
+
 ## Alternatives écartées
 
 - **Remplacer les moniteurs par des verrous.** Ne libère pas un thread qui attend dans du code natif ; la mesure sur
@@ -105,7 +135,7 @@ statique ajouterait un utilisateur à une liste qui ne fait que rétrécir.
 - Le serveur distant relaie ses requêtes au serveur local par HTTP : ses threads virtuels attendent le réseau et se
   garent. Il en bénéficie sans changement. Sa route de sauvegarde, elle, appelle SQLite directement sur un thread
   virtuel : elle peut tenir un porteur pendant une sauvegarde, dans la limite de la concurrence privilégiée. Non
-  mesuré, et laissé en l'état.
+  mesuré, et laissé en l'état. *(Mesuré et corrigé le 17 octobre 2026 : voir l'amendement du même jour.)*
 - Le serveur MCP STDIO n'est pas concerné : il ne sert pas ses appels sur des threads virtuels.
 - Le décorateur possède son pool et l'arrête quand le serveur qu'il décore s'arrête
   (`RequestProtectedHttpServer.stopped`).

@@ -8,11 +8,69 @@
 
 ---
 
-## État au 16 octobre 2026 — après les PR #493 à #497
+## État au 17 octobre 2026 — vérification des sept constats portés à « corrigé »
 
-Les cinq PR du lot ont été fusionnées dans `develop` le 16 octobre (HEAD `557fed02`), et les statuts revérifiés sur le code fusionné. **Six constats passent à corrigé** : `AUD-TST-12`, `AUD-TST-18`, `AUD-TRV-04`, `AUD-TRV-05`, `AUD-QUA-13`, `AUD-QUA-17`. **Deux restent partiels** : `AUD-TRV-07` (aucun validateur encore exécuté pour de vrai — le job nocturne `validators-without-a-lane` le fournira pour Linux — et la décision de garder, tester ou retirer chaque validateur revient au mainteneur) et `AUD-DEP-07` (bloqué en amont : Dependency-Check 13.0.1 n'est pas publié).
+54 commits depuis la passe du 15 octobre (PR #493 à #506), dont la promotion de **v1.2.1** sur `main` le
+16 octobre à `2a8b1ede`. Le mainteneur a porté **sept constats à `corrigé`** dans ce fichier ; chacun a été
+revérifié sur le code à `ae368aa3`. Détail dans **`reverification-2026-10-17.md`**. Ce qui a été fait ensuite pour les
+sprints 4, 5 et 6, sans toucher aux statuts : **`closures-2026-10-17.md`**.
 
-**100 constats : 33 corrigés · 2 partiels · 40 toujours valides · 2 caducs · 22 Info qui tiennent · 1 non vérifiable.** Le détail du lot et ce qui a été exécuté sur lui (`clean verify`, gate différentiel, `validate-m19`) sont dans la dernière section de `reverification-2026-10-15.md`. Les notes par axe n'ont pas été recalculées.
+**Cinq sur sept sont confirmés** — `AUD-TRV-04`, `AUD-TRV-05`, `AUD-TST-12`, `AUD-TST-18`, `AUD-QUA-13`.
+**Un ne l'est pas** : `AUD-QUA-17` repasse à *partiel*. Et **un contenait une affirmation fausse, de moi** :
+voir l'erratum ci-dessous.
+
+**101 constats : 33 corrigés · 3 partiels · 40 toujours valides · 2 caducs · 22 Info qui tiennent · 1 non
+vérifiable.** Un constat neuf, `AUD-QUA-18`, est né de cette passe.
+
+| Axe | 9 oct. | 13 oct. | 15 oct. | **17 oct.** | |
+|---|---|---|---|---|---|
+| Sécurité | 75 | 100 | 100 | **100** | — |
+| Dépendances / exploitation | 36 | 68 | 73 | **87** | +14 |
+| Tests | 54 | 69 | 65 | **69** | +4 |
+| Qualité | 46 | 56 | 52 | **66** | +14 |
+| Performance | 28 | 52 | 52 | **52** | — |
+| Architecture | 26 | 35 | 36 | **46** | +10 |
+| **Moyenne** | **44** | **63** | **63** | **70** | **+7** |
+
+Sprints 2 et 3 terminés ; 1, 4, 5, 6, 8 et 10 entamés. Charge restante : 44 à 128 jours sur 43 constats
+ouverts. **Il ne reste que quatre constats Élevée** — `AUD-ARC-01`, `AUD-ARC-02`, `AUD-PRF-02`,
+`AUD-PRF-04` — tous dans les deux axes où rien n'a jamais pu être exécuté.
+
+**Erratum sur `AUD-DEP-12`.** Le constat disait deux choses. La première était vraie et elle est corrigée :
+`main` n'était jamais promue, la question « sur quelle branche taguer » était bloquante ; v1.2.1 est
+désormais coupée et le tag est à la pointe de `main`. La seconde était **fausse** : j'affirmais que le retard
+de `main` privait l'alerte CVE de son déclencheur quotidien. Un `schedule` GitHub s'arme depuis la branche
+par défaut, et `security.yml` était déjà sur `main` **avant** la promotion, avec son `cron '17 4 * * *'`
+— vérifié sur `origin/main^1`. L'alerte n'a jamais été interrompue, et le dépôt n'avait rien à réparer de ce
+côté. Le constat passe à corrigé sur ce qui était vrai.
+
+**`AUD-QUA-17` repasse à partiel.** `SqliteConnectionScope` est bien nettoyé — plus aucun compteur statique,
+`diagnostics()` supprimé, les dix classes de test qui le lisaient tombées à zéro. Mais le constat portait sur
+une *classe de défaut*, pas sur une classe : un état de processus lu en différence par des tests. Elle s'est
+déplacée dans `PhysicalSqliteConnections`, recopié à l'identique dans trois modules, qui déregistre le driver
+SQLite du `DriverManager` global — et c'est précisément pour lui que trois modules restent séquentiels. Le
+dépôt est plus honnête que la revendication : ce résidu est déclaré dans l'ADR-0115.
+
+**Le constat neuf, `AUD-QUA-18`.** Le parallélisme JUnit vient d'être activé sur `morpheus-store-sqlite`,
+ce qui est le résultat voulu d'`AUD-QUA-13`, mais il rend atteignable un risque qui dormait : une portée de
+connexion mal fermée reste attachée à un thread du pool et fait échouer le test suivant qui y atterrit, sans
+rapport avec sa cause. Un cas concret existe dans le module, et aucun filet ne le couvre.
+
+**Trois réserves avant de citer ces chiffres.** *Sécurité 100* signifie qu'aucun constat de sécurité ne reste
+ouvert, pas que le produit est sûr. *Aucun build n'a pu être exécuté* dans aucune des quatre passes : Maven
+Central est refusé par le proxy, PowerShell est absent, et cette fois l'API GitHub l'est aussi — la release
+v1.2.1 et ses assets sont consignés dans le dépôt mais n'ont pas pu être lus. Tout est établi par lecture de
+code, sauf la suite Python de `scripts/tests`, réexécutée : **292 tests, 0 échec, 17 sautés**. Enfin, *« le
+parallélisme est configuré » est établi ; « la suite passe en parallèle » ne l'est pas.*
+
+<details><summary>État au 16 octobre 2026, tel que le mainteneur l'avait consigné (passe précédente)</summary>
+
+Les cinq PR du lot ont été fusionnées dans `develop` le 16 octobre (HEAD `557fed02`), et les statuts
+revérifiés sur le code fusionné. Six constats passés à corrigé : `AUD-TST-12`, `AUD-TST-18`, `AUD-TRV-04`,
+`AUD-TRV-05`, `AUD-QUA-13`, `AUD-QUA-17`. Deux restés partiels : `AUD-TRV-07` et `AUD-DEP-07`. La
+vérification du 17 octobre confirme quatre de ces six et renvoie `AUD-QUA-17` à partiel.
+
+</details>
 
 ## État au 15 octobre 2026 — après fusion
 

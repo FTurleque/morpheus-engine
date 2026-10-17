@@ -109,8 +109,8 @@ exécution du seul gate) :
 
 ```text
 lecture du contenu d'un snapshot   snapshot_content_read_p95_ms=516   budget 1,000 ms   passe
-analyse d'un change                pas encore de gate
-lecture d'une page de journal      pas encore de gate
+analyse d'un change                change_analysis_first_ms=63007 (un delta)   budget 2,000 ms   manque
+lecture d'une page de journal      pas mesurée avant correction (voir ci-dessous)
 ```
 
 La lecture du contenu **passe son budget avant correction**. Sa correction (une requête par table fille au lieu d'une
@@ -119,6 +119,27 @@ les données et qu'un test de la suite ordinaire compte. La fixture mesurée tie
 4,000 scénarios et 4,000 critères, chacun avec ses listes filles non vides. Linux n'est pas mesuré.
 
 Après correction, même machine, même jour : `snapshot_content_read_p95_ms=335`.
+
+**Analyse d'un change, 17 octobre 2026** (Windows, 16 processeurs, JDK 21.0.12, tas de 768 MiB). Le gate est la méthode
+`changeAnalysisOverDependencyMeshesAtTheNodeBudgetStaysWithinBudget` de `M19TraceabilityPerformanceGate` : 5,000
+requirements, 25,000 liens `DEPENDS_ON`, trois deltas dont chacun atteint le budget de nœuds dans les deux sens (six
+traversées tronquées, 5,994 impacts). Sur le code non corrigé, **une seule analyse d'un seul delta a pris 63 s**, soit
+trente fois le budget : le gate ne conclut pas en un temps raisonnable avec trois deltas et six itérations, ce qui est
+la mesure. Après correction (une traversée par requirement et par sens, chemins reconstruits en mémoire) :
+`change_analysis_p95_ms=399`, trois deltas, budget tenu. La correction se justifie ici par le temps, et elle est aussi
+tenue par un test de comptage de la suite ordinaire (`ChangeAnalysisTraversalCostTest` : 92 lectures du store pour 12
+requirements, 326 pour 24, avant ; proportionnel après). Linux n'est pas mesuré.
+
+**Lecture d'une page de journal, 17 octobre 2026** (Windows, 16 processeurs, JDK 21.0.12, tas de 768 MiB). Ce budget est
+**conservé** : la correction ajoute une migration (21) et un index, donc le plan de la requête est ce qu'on croit sur
+parole (ligne du 13 octobre). Le gate est la méthode
+`aPageOfThePolicyAuditInAJournalOfOneHundredThousandStaysWithinBudget` de `M19QueryPerformanceGate` : un journal de
+100,001 enregistrements, écrit par une seule instruction avec la clé d'ordre calculée par la même expression que la
+migration, sur les trois écritures d'un instant dont le texte se trie mal ; la page mesurée est la dernière, la plus
+profonde (`OFFSET` 99,950). `policy_audit_page_p95_ms=29`, budget 1,000 ms. **La lecture avant correction n'a pas été
+mesurée** : le gate appelle le port paginé, qui n'existait pas, et l'ancienne lecture construisait les 100,001
+enregistrements puis les triait ; la correction se justifie par le nombre d'enregistrements construits (la requête
+porte `LIMIT`, `SqlitePolicyAuditPageTest`), non par un temps mesuré. Linux n'est pas mesuré.
 
 Les valeurs suivent la recommandation de la spécification
 (`openspec/changes/declare-a-budget-before-bounding-a-cost`), qui les laissait au mainteneur ; il a lancé le sprint sans

@@ -1,27 +1,27 @@
 # Sprints de correction
-État au **15 octobre 2026** sur `984bb270` (`origin/develop`), après la fusion des six branches dédiées. L'ordre et le découpage sont ceux du 9 octobre ; seuls les statuts ont été réétablis, constat par constat, sur le code.
+État au **17 octobre 2026** sur `ae368aa3` (`origin/develop`). L'ordre et le découpage sont ceux du 9 octobre ; seuls les statuts ont été réétablis, constat par constat, sur le code.
 
-**76 constats affectés à un sprint, 28 soldés, 48 restants.** Les six branches dédiées ont été fusionnées le 15 octobre.
+**77 constats affectés à un sprint, 34 soldés, 43 restants.**
 
 ## Avancement
 
 | Sprint | Objet | Constats | Soldés | Restants | Charge restante |
 |---|---|---|---|---|---|
-| **1** | Remettre le dispositif en marche | 8 | 6 | 2 | 1.25 à 4 j |
-| **2** | Débloquer la release 1.2.1 | 6 | 5 | 1 | 1 à 3 j |
+| **1** | Remettre le dispositif en marche | 8 | 7 | 1 | 1 à 3 j |
+| **2** ✓ | Débloquer la release 1.2.1 | 6 | 6 | 0 | — |
 | **3** ✓ | Fermer les écarts de sécurité | 8 | 8 | 0 | — |
-| **4** | Rendre le produit observable | 6 | 3 | 3 | 3 à 9 j |
-| **5** | Écarter le risque d'indisponibilité | 5 | 2 | 3 | 2.25 à 7 j |
+| **4** | Rendre le produit observable | 7 | 5 | 2 | 1.25 à 4 j |
+| **5** | Écarter le risque d'indisponibilité | 5 | 3 | 2 | 1.25 à 4 j |
 | **6** | Borner les coûts qui croissent avec les données | 4 | 2 | 2 | 2 à 6 j |
 | **7** | Le SQL de détail | 7 | 0 | 7 | 2.5 à 9 j |
-| **8** | Fiabiliser les tests | 8 | 0 | 8 | 5 à 16 j |
+| **8** | Fiabiliser les tests | 8 | 1 | 7 | 4.75 à 15 j |
 | **9** | Supprimer la duplication du socle | 6 | 0 | 6 | 4.5 à 14 j |
 | **10** | Dire la vérité dans les règles | 8 | 2 | 6 | 2.25 à 8 j |
 | **11** | Trancher l'architecture | 4 | 0 | 4 | 10 à 27 j |
 | **12** | Restructurer les adaptateurs | 3 | 0 | 3 | 7 à 19 j |
 | **13** | Couverture et pagination | 2 | 0 | 2 | 6 à 16 j |
 | **14** | Signer la distribution | 1 | 0 | 1 | 1 à 3 j |
-| | **Total** | **76** | **28** | **48** | **47.75 à 141 j** |
+| | **Total** | **77** | **34** | **43** | **43.5 à 128 j** |
 
 Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j · L 3 à 8 j). Un constat `partiel` compte pour son effort entier : ce qui reste d'un constat partiellement traité n'est pas proportionnel à ce qui en a été fait.
 
@@ -29,7 +29,7 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 
 ## Sprint 1 — Remettre le dispositif en marche
 
-8 constats · 6 corrigé · 2 partiel
+8 constats · 7 corrigé · 1 partiel
 
 *Pourquoi ici* — Rien ne se corrige de façon mesurable tant que les gates ne tournent pas. Ce sprint ne touche aucun code applicatif.
 
@@ -44,11 +44,11 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 | `AUD-TST-02` | corrigé | Moyenne | S | Le gate de couverture par module accepte un rapport JaCoCo périmé : aucun contrôle de fraîcheur |
 | `AUD-QUA-14` | corrigé | Faible | S | SpotBugs et PIT sont épinglés, configurés et documentés mais lancés par aucun workflow |
 | `AUD-TST-11` | corrigé | Faible | S | Nom de test périmé et version de schéma recopiée en dur trois fois dans le test de rejeu des migrations |
-| `AUD-TST-12` | partiel | Faible | S | La documentation M19 renvoie à un point d'entrée validate-m19.cmd qui n'existe pas |
+| `AUD-TST-12` | corrigé | Faible | S | La documentation M19 renvoie à un point d'entrée validate-m19.cmd qui n'existe pas |
 
-## Sprint 2 — Débloquer la release 1.2.1
+## Sprint 2 — Débloquer la release 1.2.1  ·  **terminé**
 
-6 constats · 5 corrigé · 1 toujours valide
+6 constats · 6 corrigé
 
 *Pourquoi ici* — Le seul cluster de l'audit dont la matérialisation est irréversible pour un utilisateur. À faire avant de taguer.
 
@@ -59,7 +59,7 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 | `AUD-DEP-01` | corrigé | Élevée | M | La 1.2.1 non publiée ajoute 5 migrations SQLite (V016 à V020) et aucun document d'upgrade ou de retour arrière ne les couvre |
 | `AUD-DEP-03` | corrigé | Moyenne | S | La distribution d'un produit sous licence propriétaire n'embarque aucune attribution de licence tierce |
 | `AUD-DEP-04` | corrigé | Moyenne | S | La SBOM est produite à chaque verify et exigée par les validateurs, mais n'est jamais publiée avec la release |
-| `AUD-DEP-12` | toujours valide | Moyenne | M | pom.xml à 1.2.1 sans tag v1.2.1 : la chaîne de release signée n'a pas tourné depuis 1 588 commits et 2,3 mois |
+| `AUD-DEP-12` | corrigé | Moyenne | M | pom.xml à 1.2.1 sans tag v1.2.1 : la chaîne de release signée n'a pas tourné depuis 1 588 commits et 2,3 mois |
 | `AUD-DEP-15` | corrigé | Faible | S | MORPHEUS_SERVER_PROVIDER_PLUGIN_DIR, qui désigne le répertoire de plugins exécutables du serveur remote, n'est documentée nulle part |
 | `AUD-DEP-16` | corrigé | Faible | M | Aucune sauvegarde automatique avant migration de schéma : la procédure repose sur la discipline de l'opérateur |
 
@@ -84,7 +84,7 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 
 ## Sprint 4 — Rendre le produit observable
 
-6 constats · 3 corrigé · 2 partiel · 1 toujours valide
+7 constats · 5 corrigé · 1 partiel · 1 toujours valide
 
 *Pourquoi ici* — Sans trace, les sprints suivants corrigent à l'aveugle et aucun incident n'est reconstituable.
 
@@ -92,16 +92,17 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 
 | Constat | Statut | Sév. | Eff. | Objet |
 |---|---|---|---|---|
-| `AUD-TRV-04` | partiel | Élevée | M | Le produit est muet : aucun journal applicatif, slf4j-nop comme seul binding, et un répertoire de logs publié sans aucun écrivain |
+| `AUD-TRV-04` | corrigé | Élevée | M | Le produit est muet : aucun journal applicatif, slf4j-nop comme seul binding, et un répertoire de logs publié sans aucun écrivain |
 | `AUD-DEP-10` | corrigé | Moyenne | S | MORPHEUS_OPERATIONAL_LOGS retombe silencieusement sur noop pour toute valeur non reconnue |
-| `AUD-QUA-17` | toujours valide | Moyenne | M | Le verrou du parallelisme JUnit se deplace : SqliteConnectionScope porte quatre compteurs statiques de processus lus en difference par les tests |
+| `AUD-QUA-17` | partiel | Moyenne | M | Le verrou du parallelisme JUnit se deplace : SqliteConnectionScope porte quatre compteurs statiques de processus lus en difference par les tests |
 | `AUD-SEC-04` | corrigé | Moyenne | M | Aucune trace d'attribution : le principal authentifié d'une requête remote n'est enregistré nulle part |
 | `AUD-QUA-12` | corrigé | Faible | S | 47 @SuppressWarnings dont environ cinq portent une justification écrite, alors que les exclusions SpotBugs en exigent une |
-| `AUD-QUA-13` | partiel | Faible | M | L'observabilité repose sur un singleton statique mutable qui interdit d'activer le parallélisme JUnit |
+| `AUD-QUA-13` | corrigé | Faible | M | L'observabilité repose sur un singleton statique mutable qui interdit d'activer le parallélisme JUnit |
+| `AUD-QUA-18` | toujours valide | Faible | S | Le parallelisme JUnit est active sur le module ou une portee mal fermee empoisonne un thread du pool, sans aucun filet |
 
 ## Sprint 5 — Écarter le risque d'indisponibilité
 
-5 constats · 1 corrigé · 1 partiel · 2 toujours valide · 1 caduc
+5 constats · 2 corrigé · 2 toujours valide · 1 caduc
 
 *Pourquoi ici* — Le chemin vers l'indisponibilité du serveur entier, et la politique de connexion qui le sous-tend.
 
@@ -110,7 +111,7 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 | Constat | Statut | Sév. | Eff. | Objet |
 |---|---|---|---|---|
 | `AUD-PRF-18` | caduc | Élevée | M | Épinglage des threads virtuels : 94 méthodes public synchronized faisant du JDBC bloquant, atteintes depuis les serveurs HTTP, sur une baseline Java 21 |
-| `AUD-TRV-05` | partiel | Élevée | M | La politique de connexion SQLite est une propriété de chaque site de composition, pas du module : 12 sites, 3 ouvertures de scope |
+| `AUD-TRV-05` | corrigé | Élevée | M | La politique de connexion SQLite est une propriété de chaque site de composition, pas du module : 12 sites, 3 ouvertures de scope |
 | `AUD-PRF-03` | corrigé | Moyenne | M | Serveur HTTP local sans contrôle d'admission : threads virtuels illimités, une connexion SQLite physique par requête, journal PERSIST |
 | `AUD-PRF-09` | toujours valide | Moyenne | S | Le proxy remote n'impose ni timeout de lecture ni budget mémoire sur les routes WRITE et ADMIN |
 | `AUD-PRF-19` | toujours valide | Moyenne | M | Le serveur remote sert toujours sur threads virtuels nus, et sa route de sauvegarde appelle SQLite directement |
@@ -150,7 +151,7 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 
 ## Sprint 8 — Fiabiliser les tests
 
-8 constats · 1 partiel · 7 toujours valide
+8 constats · 1 corrigé · 1 partiel · 6 toujours valide
 
 *Pourquoi ici* — Ce qui empêche la suite de détecter une régression, une fois le dispositif remis en marche.
 
@@ -163,7 +164,7 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 | `AUD-TST-03` | toujours valide | Moyenne | M | 300 des 831 assertThrows n'assertent qu'un type d'exception JDK générique, sans message ni code de rejet |
 | `AUD-TST-06` | toujours valide | Moyenne | M | La colonne cli du manifeste de convergence n'est vérifiée que pour sa non-vacuité, sans gate bidirectionnel, contrairement à http et mcp |
 | `AUD-TST-10` | toujours valide | Moyenne | M | Aucun test d'upgrade depuis une base réelle aux paliers de schéma 13 à 19 ; le seul vrai test d'upgrade part du palier 12 |
-| `AUD-TST-18` | toujours valide | Moyenne | S | Le validateur de release R3 ne peut pas passer : il exige 17 POM dans le reacteur, le depot en compte 19 |
+| `AUD-TST-18` | corrigé | Moyenne | S | Le validateur de release R3 ne peut pas passer : il exige 17 POM dans le reacteur, le depot en compte 19 |
 | `AUD-TST-08` | toujours valide | Faible | S | Le ratchet testsMinimum est dominé par la combinatoire : au moins 40 % des exécutions comptées viennent de 13 méthodes dans 3 fichiers |
 | `AUD-TST-09` | toujours valide | Faible | S | Les quatre ratchets de couverture sont à moins de 0,41 point de leur plafond qualifié : plus de marge sans requalification CI |
 

@@ -2,6 +2,8 @@
 
 Découpage **réellement observé** à la révision `20cf2e0`, reconstruit à la main depuis les `import` en tête de fichier, module par module. Ce document décrit ce que le code fait, pas ce que la documentation annonce ; les écarts entre les deux sont des constats (`AUD-ARC-*`, `AUD-TRV-05`).
 
+> ⚠️ **Ce document décrit le code du 9 octobre 2026 (`20cf2e0`) et n'a pas été réécrit.** Il reste la référence de l'état d'origine, mais deux choses y ont changé depuis, au 17 octobre (`ae368aa3`) : la composition SQLite a été refaite — `SqliteOperationRuntime` est désormais la seule classe qui ouvre la portée et construit les stores, pour les trois transports, et les **12 sites pour 3 ouvertures** décrits plus bas sont devenus **16 sites pour 1 ouverture** (`AUD-TRV-05`, soldé) ; et `slf4j-nop` a quitté le produit au profit du binding SLF4J de MORPHEUS (ADR-0111, `AUD-TRV-04`). Le dépôt compte aujourd'hui 115 ADR. Pour l'état courant, lire `findings.md` et `reverification-2026-10-17.md`.
+
 **Méthode et limite** — pas de graphe d'appels, pas de bytecode : aucun build n'a pu tourner (voir « Angles morts » dans `README.md`). Les arêtes ci-dessous viennent de `grep -rhoP '(?<=^import )com\.morpheus\.[a-z0-9_.]+'` par module, confronté aux `<dependency>` de chaque `pom.xml`. Contrôle effectué : aucune référence pleinement qualifiée inter-module n'est inlinée hors ligne d'`import` (0 résultat). Reste aveugle aux constantes inlinées par `javac`, aux dépendances par génériques et annotations, et aux dépendances transitives.
 
 ## Vue d'ensemble

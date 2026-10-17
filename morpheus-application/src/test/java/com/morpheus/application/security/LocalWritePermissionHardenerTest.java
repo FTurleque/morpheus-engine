@@ -1,6 +1,8 @@
 package com.morpheus.application.security;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
@@ -104,12 +106,10 @@ class LocalWritePermissionHardenerTest {
     }
 
     @Test
+    @EnabledOnOs(value = {OS.LINUX, OS.MAC}, disabledReason = "the JDK exposes no POSIX permission view on Windows")
     void refusesPreexistingPosixDirectoryWritableByOtherUsers() throws Exception {
         Path existing = tempDir.resolve("shared-parent");
         Files.createDirectory(existing);
-        PosixFileAttributeView posix = Files.getFileAttributeView(
-                existing, PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
-        if (posix == null) return;
 
         Files.setPosixFilePermissions(existing, EnumSet.of(
                 PosixFilePermission.OWNER_READ,
@@ -125,12 +125,10 @@ class LocalWritePermissionHardenerTest {
     }
 
     @Test
+    @EnabledOnOs(value = {OS.LINUX, OS.MAC}, disabledReason = "the JDK exposes no POSIX permission view on Windows")
     void refusesWritablePosixAncestorEvenWhenSensitiveChildIsOwnerOnly() throws Exception {
         Path shared = tempDir.resolve("shared-ancestor");
         Files.createDirectory(shared);
-        PosixFileAttributeView posix = Files.getFileAttributeView(
-                shared, PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
-        if (posix == null) return;
 
         Files.setPosixFilePermissions(shared, EnumSet.of(
                 PosixFilePermission.OWNER_READ,
@@ -175,11 +173,12 @@ class LocalWritePermissionHardenerTest {
     }
 
     @Test
+    @EnabledOnOs(value = OS.WINDOWS, disabledReason = "the JDK exposes no ACL view on Linux or macOS")
     void refusesAclDirectoryGrantingMutationToBroadPrincipalWhenAclIsAvailable() throws Exception {
         Path existing = tempDir.resolve("acl-shared-parent");
         Files.createDirectory(existing);
         AclFileAttributeView view = Files.getFileAttributeView(existing, AclFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
-        assumeTrue(view != null, "this file system has no ACL view");
+        assertTrue(view != null, "an NTFS directory exposes an ACL view");
         GroupPrincipal broad = broadGroupPrincipal();
         assumeTrue(broad != null, "no broad group could be resolved from its well-known SID");
 

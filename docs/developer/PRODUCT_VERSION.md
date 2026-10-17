@@ -6,12 +6,12 @@ La version runtime de MORPHEUS possède une source de vérité unique : `com.mor
 
 ```text
 v1.2.0 / 3ad9ebf030b58df97482e21e272c24feae6b9d86  release publiée le 30 juillet 2026
-1.2.1                                                  baseline corrective active en développement
+v1.2.1 / 2a8b1ede9cdeb107244b04969726305afc672189  release publiée le 16 octobre 2026
 ```
 
 Le tag publié `v1.2.0` et ses preuves de release restent historiques et ne sont ni déplacés ni réécrits. Le code actif postérieur à cette release utilise `1.2.1` afin qu'un arbre logiciel différent ne soit jamais reconstruit ou promu sous l'identité déjà publiée `1.2.0`.
 
-`1.2.1` devient une release publiée uniquement après création du tag/release correspondant et qualification de ses artefacts ; le simple fait que le reactor Maven porte cette version ne constitue pas une publication.
+`1.2.1` est devenue une release publiée par la création du tag `v1.2.1` et la qualification de ses artefacts ([`../project/validation/VALIDATION_RELEASE_1.2.1.md`](../project/validation/VALIDATION_RELEASE_1.2.1.md)). Le reactor porte encore `1.2.1` : la prochaine version se déclare par un bump explicite de `ProductMetadata` et des POMs, jamais par un nouveau tag sur la même version.
 
 ## Résolution
 

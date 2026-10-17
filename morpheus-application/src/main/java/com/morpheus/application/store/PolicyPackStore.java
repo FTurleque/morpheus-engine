@@ -1,9 +1,11 @@
 package com.morpheus.application.store;
 
+import com.morpheus.application.policy.PolicyAuditPage;
 import com.morpheus.application.policy.PolicyConfiguration;
 import com.morpheus.application.policy.PolicyIds;
 import com.morpheus.application.policy.PolicyPack;
 import com.morpheus.application.policy.PolicyScope;
+import com.morpheus.application.query.PageRequest;
 
 import java.util.List;
 import java.util.Optional;
@@ -69,6 +71,9 @@ public interface PolicyPackStore {
             long expectedRevision,
             PolicyConfiguration.AuditRecord audit);
 
-    /** The pack's audit in {@link PolicyConfiguration.AuditRecord}'s natural order: by instant, ties by identity. */
-    List<PolicyConfiguration.AuditRecord> listAudit(PolicyIds.PackId packId);
+    /**
+     * One page of the pack's audit in {@link PolicyConfiguration.AuditRecord}'s natural order: by instant, ties by
+     * identity. There is no method that returns the whole journal: it only grows, and the store bounds the read.
+     */
+    PolicyAuditPage listAudit(PolicyIds.PackId packId, PageRequest pageRequest);
 }

@@ -174,8 +174,8 @@ class ReleaseQualificationContractTest {
         assertTrue(procedure.contains("scripts\\verify-release-provenance.ps1"));
         assertTrue(procedure.contains("Ne jamais créer un tag ou une release artificielle"),
                 "the procedure must forbid fabricating the evidence that would close #185");
-        assertTrue(procedure.contains("v1.2.0"),
-                "the procedure must keep naming the last release that actually happened");
+        assertTrue(procedure.contains("v1.2.1") && procedure.contains("VALIDATION_RELEASE_1.2.1.md"),
+                "the procedure must name the last release that actually happened and the record that qualified it");
         assertFalse(procedure.contains("RELEASE QUALIFICATION PASS: v"),
                 "a recorded pass belongs in a dated validation record, never in the procedure that produces it");
     }

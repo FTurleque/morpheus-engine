@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -51,6 +52,16 @@ public final class SqliteConnectionScope implements AutoCloseable {
     }
 
     private static final ThreadLocal<State> ACTIVE = new ThreadLocal<>();
+
+    /**
+     * The scope still attached to the calling thread, if any. A scope left open on a thread that a pool reuses makes
+     * the next operation on that thread fail with {@link #NESTED_REFUSAL}, far from the code that left it; the test
+     * module reads this after each test to name the test at fault.
+     */
+    static Optional<SqliteConnectionScope> attachedToThisThread() {
+        State active = ACTIVE.get();
+        return active == null ? Optional.empty() : Optional.of(new SqliteConnectionScope(active));
+    }
 
     private final State state;
     private boolean closed;

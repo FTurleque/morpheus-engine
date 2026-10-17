@@ -41,8 +41,9 @@ final class SqliteSchemaManager {
                     "/db/migration/V018__policy_version_sequence_integrity.sql"),
             new Migration(19, "sync-state-revision", "/db/migration/V019__sync_state_revision.sql"),
             new Migration(20, "composition-precedence-recorded",
-                    "/db/migration/V020__composition_precedence_recorded.sql"));
-    static final int SUPPORTED_SCHEMA_VERSION = 20;
+                    "/db/migration/V020__composition_precedence_recorded.sql"),
+            new Migration(21, "policy-audit-order-key", "/db/migration/V021__policy_audit_order_key.sql"));
+    static final int SUPPORTED_SCHEMA_VERSION = 21;
 
     void migrate(Connection connection) {
         if (SqliteConnectionScope.schemaReadyIfActive()) return;

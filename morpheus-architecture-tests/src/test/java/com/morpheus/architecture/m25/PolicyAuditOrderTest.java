@@ -1,9 +1,11 @@
 package com.morpheus.architecture.m25;
 
+import com.morpheus.application.policy.PolicyAuditPage;
 import com.morpheus.application.policy.PolicyConfiguration;
 import com.morpheus.application.policy.PolicyIds;
 import com.morpheus.application.policy.PolicyPackService;
 import com.morpheus.application.policy.PolicyRule;
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.store.PolicyPackStore;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
@@ -21,7 +23,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -37,6 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  */
 class PolicyAuditOrderTest {
     private static final int WRITES_WITHIN_ONE_INSTANT = 8;
+    private static final int PAGE_SIZE = 4;
     private static final Instant SECOND = Instant.parse("2026-10-09T14:30:00Z");
     private static final List<Instant> STAMPS = stamps();
 
@@ -45,16 +47,17 @@ class PolicyAuditOrderTest {
 
     @Test
     void bothStoresListTheAuditByInstantThenIdentity() {
-        assertAuditOrder("store port", (store, packId) -> store.listAudit(packId));
+        assertAuditOrder("store port", PolicyPackStore::listAudit);
     }
 
     @Test
     void thePublicAuditIsListedByInstantThenIdentity() {
-        assertAuditOrder("public audit", (store, packId) -> new PolicyPackService(store, Clock.systemUTC()).audit(packId));
+        assertAuditOrder("public audit", (store, packId, page) ->
+                new PolicyPackService(store, Clock.systemUTC()).audit(packId, page));
     }
 
     private void assertAuditOrder(
-            String level, BiFunction<PolicyPackStore, PolicyIds.PackId, List<PolicyConfiguration.AuditRecord>> read) {
+            String level, PageReader read) {
         assertOrdered(level + " of the memory store", new MemoryPolicyPackStore(), read);
         try (SqlitePolicyPackStore store = new SqlitePolicyPackStore(tempDir.resolve(level.replace(' ', '-') + ".db"))) {
             assertOrdered(level + " of the SQLite store", store, read);
@@ -64,9 +67,9 @@ class PolicyAuditOrderTest {
     private static void assertOrdered(
             String label,
             PolicyPackStore store,
-            BiFunction<PolicyPackStore, PolicyIds.PackId, List<PolicyConfiguration.AuditRecord>> read) {
+            PageReader read) {
         PolicyIds.PackId packId = write(store);
-        List<PolicyConfiguration.AuditRecord> audit = read.apply(store, packId);
+        List<PolicyConfiguration.AuditRecord> audit = readByPages(read, store, packId);
         List<String> reasons = audit.stream().map(PolicyConfiguration.AuditRecord::reason).toList();
 
         assertEquals(List.of("write-0", "write-1", "write-2"), reasons.subList(0, 3), label + ": " + reasons);
@@ -75,7 +78,29 @@ class PolicyAuditOrderTest {
                 Set.copyOf(reasons.subList(3, reasons.size())),
                 label + ": " + reasons);
         assertEquals(audit.stream().sorted().toList(), audit, label + " must order ties by identity: " + reasons);
-        assertEquals(audit, read.apply(store, packId), label + " must answer the same order on every read");
+        assertEquals(audit, readByPages(read, store, packId), label + " must answer the same order on every read");
+        assertEquals(audit, read.page(store, packId, PageRequest.first(PageRequest.MAX_LIMIT)).items(),
+                label + ": pages of " + PAGE_SIZE + " must concatenate to the page that holds everything");
+    }
+
+    /** Pages of {@value #PAGE_SIZE}: the journal is longer, so the boundary falls inside the three odd timestamps. */
+    private static List<PolicyConfiguration.AuditRecord> readByPages(
+            PageReader read, PolicyPackStore store, PolicyIds.PackId packId) {
+        List<PolicyConfiguration.AuditRecord> all = new ArrayList<>();
+        PolicyAuditPage page;
+        int offset = 0;
+        do {
+            page = read.page(store, packId, new PageRequest(offset, PAGE_SIZE));
+            assertEquals(STAMPS.size(), page.totalMatches(), "every page reports the whole journal's size");
+            all.addAll(page.items());
+            offset += PAGE_SIZE;
+        } while (page.hasMore());
+        return all;
+    }
+
+    @FunctionalInterface
+    private interface PageReader {
+        PolicyAuditPage page(PolicyPackStore store, PolicyIds.PackId packId, PageRequest page);
     }
 
     private static PolicyIds.PackId write(PolicyPackStore store) {

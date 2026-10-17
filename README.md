@@ -69,14 +69,14 @@ Les distributions embarquent leur runtime Java : aucun JDK n’est à installer.
 Windows :
 
 ```powershell
-MORPHEUS-1.2.0-windows-x64-setup.exe
+MORPHEUS-1.2.1-windows-x64-setup.exe
 morpheus --version
 ```
 
 Linux :
 
 ```bash
-tar -xzf morpheus-1.2.0-linux-x64.tar.gz
+tar -xzf morpheus-1.2.1-linux-x64.tar.gz
 ./morpheus/bin/morpheus --version
 ```
 
@@ -150,7 +150,7 @@ Point d’entrée : [`docs/README.md`](docs/README.md).
 
 ## État du projet
 
-Version stable publiée : **1.2.0**. Version en développement : **1.2.1**.
+Version stable publiée : **1.2.1** (16 octobre 2026). Mise à niveau depuis 1.2.0 ou 1.1.0 : lire d'abord [`docs/user/UPGRADE_1_2_1.md`](docs/user/UPGRADE_1_2_1.md).
 
 L’état détaillé — release, baseline technique, modules, gates de qualité et chaîne d’approvisionnement — est dans [`CONTRIBUTING.md`](CONTRIBUTING.md) ; la politique de sécurité dans [`SECURITY.md`](SECURITY.md).
 

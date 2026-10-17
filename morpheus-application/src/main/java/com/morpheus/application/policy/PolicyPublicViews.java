@@ -64,6 +64,13 @@ public final class PolicyPublicViews {
         return List.copyOf(values).stream().map(PolicyPublicViews::audit).toList();
     }
 
+    /** The page the command line prints; HTTP and MCP spell the same five keys through their own envelope. */
+    public static AuditPageView auditPage(PolicyAuditPage page) {
+        return new AuditPageView(
+                page.pageRequest().offset(), page.pageRequest().limit(), page.totalMatches(), page.hasMore(),
+                audit(page.items()));
+    }
+
     public static ReportView report(PolicyEvaluation.Report value) {
         return new ReportView(
                 scope(value.scope()), value.packId().toString(), value.versionId().toString(), value.versionNumber(),
@@ -128,6 +135,7 @@ public final class PolicyPublicViews {
     public record AuditView(
             String id, String action, String packId, Optional<String> versionId, Optional<String> ruleId,
             Optional<ScopeView> scope, String actor, String reason, String at) {}
+    public record AuditPageView(int offset, int limit, int totalMatches, boolean hasMore, List<AuditView> items) {}
     public record RuleResultView(
             String ruleId, String kind, String severity, String applicability, String originalDecision,
             String effectiveDecision, String reason, Optional<OverrideView> appliedOverride,

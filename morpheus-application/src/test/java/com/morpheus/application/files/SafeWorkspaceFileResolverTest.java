@@ -2,6 +2,8 @@ package com.morpheus.application.files;
 
 import com.morpheus.application.security.ServerLocationDisclosure;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
@@ -186,9 +188,8 @@ class SafeWorkspaceFileResolverTest {
     }
 
     @Test
+    @EnabledOnOs(value = OS.WINDOWS, disabledReason = "NTFS junctions exist only on Windows")
     void rejectsWindowsJunctionAncestor() throws Exception {
-        assumeTrue(System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("win"),
-                "NTFS junctions exist only on Windows");
         Path workspace = Files.createDirectory(temp.resolve("workspace"));
         Path target = Files.createDirectory(temp.resolve("junction-target"));
         Files.writeString(target.resolve("spec.md"), "secret");

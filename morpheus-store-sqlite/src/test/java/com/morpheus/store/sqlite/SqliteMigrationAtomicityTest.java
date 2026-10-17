@@ -60,13 +60,13 @@ class SqliteMigrationAtomicityTest {
         assertTrue(String.valueOf(refused.getCause()).contains("saved_views"), () -> String.valueOf(refused.getCause()));
         try (Connection connection = connect(database)) {
             assertEquals(12, ledgerVersion(connection));
-            assertEquals(objectsBefore, schemaObjects(connection), "no object of V013 to V020 may survive the failure");
+            assertEquals(objectsBefore, schemaObjects(connection), "no object of V013 to V021 may survive the failure");
             assertEquals(1, count(connection, "SELECT COUNT(*) FROM projects WHERE id = 'project-12'"));
             execute(connection, "DROP TABLE saved_views");
         }
 
         try (var ignored = new SqliteSpecificationKnowledgeStore(database)) {
-            // With the conflict removed, the same opening applies V013 to V020.
+            // With the conflict removed, the same opening applies V013 to V021.
         }
         try (Connection connection = connect(database)) {
             assertEquals(SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION, ledgerVersion(connection));

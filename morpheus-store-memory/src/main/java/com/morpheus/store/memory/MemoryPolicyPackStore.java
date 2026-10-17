@@ -1,11 +1,13 @@
 package com.morpheus.store.memory;
 
+import com.morpheus.application.policy.PolicyAuditPage;
 import com.morpheus.application.policy.PolicyBudgets;
 import com.morpheus.application.policy.PolicyConfiguration;
 import com.morpheus.application.policy.PolicyConflictException;
 import com.morpheus.application.policy.PolicyIds;
 import com.morpheus.application.policy.PolicyPack;
 import com.morpheus.application.policy.PolicyScope;
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.store.EntityNotFoundException;
 import com.morpheus.application.store.EntityStateException;
 import com.morpheus.application.store.PolicyPackStore;
@@ -265,8 +267,8 @@ public final class MemoryPolicyPackStore implements PolicyPackStore {
     }
 
     @Override
-    public synchronized List<PolicyConfiguration.AuditRecord> listAudit(PolicyIds.PackId packId) {
-        return audits.getOrDefault(packId, List.of()).stream().sorted().toList();
+    public synchronized PolicyAuditPage listAudit(PolicyIds.PackId packId, PageRequest pageRequest) {
+        return PolicyAuditPage.of(audits.getOrDefault(packId, List.of()).stream().sorted().toList(), pageRequest);
     }
 
     private PolicyPack.Definition requireDefinition(PolicyIds.PackId packId) {

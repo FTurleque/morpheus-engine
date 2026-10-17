@@ -23,8 +23,7 @@ import java.util.TreeMap;
  *
  * <p>Depth is the caller's; nodes and links are bounded here, with the budgets and the truncation vocabulary of
  * {@code PortfolioTraversalService}. A traversal that stops before observing everything within its depth says so in
- * {@link TraceabilitySubgraph#truncationReason()}; a path search that exhausts its node budget fails with
- * {@link TraceabilityTraversalBudgetException} instead of answering that no path exists.</p>
+ * {@link TraceabilitySubgraph#truncationReason()}, and explains only the nodes it reported.</p>
  */
 public final class TraceabilityTraversalService {
     public static final int MAX_NODES = 1_000;
@@ -70,6 +69,36 @@ public final class TraceabilityTraversalService {
             int maxDepth,
             TraceabilityTraversalDirection direction,
             Set<TraceabilityRelationType> relationTypes) {
+        return explore(snapshotId, start, maxDepth, direction, relationTypes).subgraph();
+    }
+
+    /**
+     * The traversal of {@link #traverse}, with the shortest path from {@code start} to every other node it reached.
+     * Each path is rebuilt in memory from the step that first discovered its target, so explaining every node costs
+     * no store read beyond the traversal itself.
+     */
+    public ExplainedTraversal traverseExplained(
+            KnowledgeSnapshotId snapshotId,
+            TraceabilityEntityRef start,
+            int maxDepth,
+            TraceabilityTraversalDirection direction,
+            Set<TraceabilityRelationType> relationTypes) {
+        Exploration exploration = explore(snapshotId, start, maxDepth, direction, relationTypes);
+        Map<TraceabilityEntityRef, TraceabilityPath> paths = new TreeMap<>();
+        for (TraceabilityEntityRef node : exploration.subgraph().nodes()) {
+            if (!node.equals(start)) {
+                paths.put(node, reconstruct(start, node, exploration.discoveredBy()));
+            }
+        }
+        return new ExplainedTraversal(exploration.subgraph(), paths);
+    }
+
+    private Exploration explore(
+            KnowledgeSnapshotId snapshotId,
+            TraceabilityEntityRef start,
+            int maxDepth,
+            TraceabilityTraversalDirection direction,
+            Set<TraceabilityRelationType> relationTypes) {
         Objects.requireNonNull(snapshotId, "snapshotId");
         Objects.requireNonNull(start, "start");
         Objects.requireNonNull(direction, "direction");
@@ -77,6 +106,7 @@ public final class TraceabilityTraversalService {
         Set<TraceabilityRelationType> filter = immutableFilter(relationTypes);
 
         Map<TraceabilityEntityRef, Integer> depthByNode = new HashMap<>();
+        Map<TraceabilityEntityRef, TraceabilityPathStep> discoveredBy = new HashMap<>();
         Map<TraceabilityLinkId, TraceabilityLink> discoveredLinks = new TreeMap<>();
         ArrayDeque<TraceabilityEntityRef> queue = new ArrayDeque<>();
         depthByNode.put(start, 0);
@@ -102,6 +132,9 @@ public final class TraceabilityTraversalService {
                         break outer;
                     }
                     depthByNode.put(neighbor.next(), currentDepth + 1);
+                    discoveredBy.put(
+                            neighbor.next(),
+                            new TraceabilityPathStep(neighbor.link(), current, neighbor.next()));
                     queue.addLast(neighbor.next());
                 }
                 discoveredLinks.put(neighbor.link().id(), neighbor.link());
@@ -113,61 +146,9 @@ public final class TraceabilityTraversalService {
         }
 
         List<TraceabilityEntityRef> nodes = depthByNode.keySet().stream().sorted().toList();
-        return new TraceabilitySubgraph(start, nodes, List.copyOf(discoveredLinks.values()), truncation);
-    }
-
-    public Optional<TraceabilityPath> findPath(
-            KnowledgeSnapshotId snapshotId,
-            TraceabilityEntityRef start,
-            TraceabilityEntityRef target,
-            int maxDepth,
-            TraceabilityTraversalDirection direction,
-            Set<TraceabilityRelationType> relationTypes) {
-        Objects.requireNonNull(snapshotId, "snapshotId");
-        Objects.requireNonNull(start, "start");
-        Objects.requireNonNull(target, "target");
-        Objects.requireNonNull(direction, "direction");
-        requirePositiveDepth(maxDepth);
-        Set<TraceabilityRelationType> filter = immutableFilter(relationTypes);
-
-        if (start.equals(target)) {
-            direct(snapshotId, start, direction, filter); // validate snapshot ownership through the store
-            return Optional.of(new TraceabilityPath(start, target, List.of()));
-        }
-
-        Map<TraceabilityEntityRef, Integer> depthByNode = new HashMap<>();
-        Map<TraceabilityEntityRef, TraceabilityPathStep> predecessor = new HashMap<>();
-        ArrayDeque<TraceabilityEntityRef> queue = new ArrayDeque<>();
-        depthByNode.put(start, 0);
-        queue.add(start);
-
-        while (!queue.isEmpty()) {
-            TraceabilityEntityRef current = queue.removeFirst();
-            int currentDepth = depthByNode.get(current);
-            if (currentDepth >= maxDepth) {
-                continue;
-            }
-
-            for (Neighbor neighbor : neighbors(snapshotId, current, direction, filter)) {
-                if (depthByNode.containsKey(neighbor.next())) {
-                    continue;
-                }
-                if (depthByNode.size() >= MAX_NODES) {
-                    throw new TraceabilityTraversalBudgetException("NODE_BUDGET_REACHED:" + MAX_NODES);
-                }
-                depthByNode.put(neighbor.next(), currentDepth + 1);
-                predecessor.put(
-                        neighbor.next(),
-                        new TraceabilityPathStep(neighbor.link(), current, neighbor.next()));
-
-                if (neighbor.next().equals(target)) {
-                    return Optional.of(reconstruct(start, target, predecessor));
-                }
-                queue.addLast(neighbor.next());
-            }
-        }
-
-        return Optional.empty();
+        return new Exploration(
+                new TraceabilitySubgraph(start, nodes, List.copyOf(discoveredLinks.values()), truncation),
+                discoveredBy);
     }
 
     /**
@@ -239,6 +220,11 @@ public final class TraceabilityTraversalService {
         if (maxDepth <= 0) {
             throw new IllegalArgumentException("maxDepth must be greater than zero");
         }
+    }
+
+    private record Exploration(
+            TraceabilitySubgraph subgraph,
+            Map<TraceabilityEntityRef, TraceabilityPathStep> discoveredBy) {
     }
 
     private record Neighbor(TraceabilityEntityRef next, TraceabilityLink link) {
