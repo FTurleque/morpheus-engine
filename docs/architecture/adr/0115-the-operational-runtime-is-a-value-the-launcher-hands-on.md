@@ -185,3 +185,23 @@ La conséquence « les compteurs statiques de `SqliteConnectionScope` sont le pr
   (`PhysicalSqliteConnections`) de `morpheus-api`, `morpheus-cli` et `morpheus-mcp`, `java.home` et
   `Locale.setDefault` (tableau ci-dessus) y partagent encore un état de la JVM ; quatre exécutions propres ne prouvent
   pas l'absence d'un autre défaut, et un test qui lit un statique du processus casse ce module.
+
+## Troisième amendement du 17 octobre 2026 — un filet pour la portée laissée sur un thread (AUD-QUA-18)
+
+Le parallélisme de `morpheus-store-sqlite` rend atteignable ce que la table de l'état partagé nommait depuis le
+13/10/2026 : `SqliteConnectionScope` garde un `ThreadLocal`, une seconde portée sur le même thread est refusée
+(`SQLITE_CONNECTION_SCOPE_NESTED`), et les tests tournent désormais sur les threads réutilisés d'un pool. Un test qui
+laisse une portée ouverte ferait échouer le test suivant du même thread, loin de sa cause.
+
+- **La portée qui ne se fermait qu'après des assertions se ferme dans un `finally`**
+  (`SqliteConnectionScopeThreadConfinementTest`).
+- **`NoSqliteScopeLeftBehindExtension`**, enregistrée pour tout le module par `META-INF/services` et
+  `junit.jupiter.extensions.autodetection.enabled`, lit après chaque test la portée encore attachée au thread
+  (`SqliteConnectionScope.attachedToThisThread()`, visible du paquet seulement), la ferme, et fait échouer **le test
+  fautif** par son nom. Éprouvée le 17/10/2026 par un test qui ouvre une portée sans la fermer : « leaksAScope() of
+  ScratchLeakTest left a SQLite connection scope open on its thread (detached) », puis supprimé.
+- **Le parallélisme est fixe** (`config.strategy=fixed`, quatre fils) : sans cela il suit `availableProcessors()`, et
+  une course invisible sur un portable à deux cœurs peut se révéler sur un runner à seize.
+
+Ce que cet amendement ne ferme pas : le pilote compteur de `morpheus-api`, `morpheus-cli` et `morpheus-mcp` reste un
+état de processus (il déregistre le pilote SQLite du `DriverManager`), et ces trois modules restent séquentiels.
