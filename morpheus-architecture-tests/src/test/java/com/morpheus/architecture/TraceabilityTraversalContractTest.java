@@ -64,7 +64,7 @@ class TraceabilityTraversalContractTest {
             assertEquals(List.of(link), service.direct(
                     snapshotId, target, TraceabilityTraversalDirection.BIDIRECTIONAL, Set.of()));
 
-            TraceabilityPath inversePath = service.findPath(
+            TraceabilityPath inversePath = path(service, 
                     snapshotId,
                     target,
                     source,
@@ -101,14 +101,14 @@ class TraceabilityTraversalContractTest {
             assertEquals(sortedLinks(ab, bc, ca, cd), graph.links());
             assertFalse(graph.links().stream().anyMatch(link -> link.source().equals(a) && link.target().equals(c)));
 
-            TraceabilityPath path = service.findPath(
+            TraceabilityPath path = path(service, 
                     snapshotId, a, c, 2, TraceabilityTraversalDirection.OUTGOING, Set.of()).orElseThrow();
             assertEquals(List.of(ab, bc), path.steps().stream().map(step -> step.link()).toList());
         });
     }
 
     @Test
-    void findPathChoosesADeterministicShortestPath() {
+    void anExplainedTraversalChoosesADeterministicShortestPath() {
         withBothBackends("deterministic-path.db", (snapshots, traceability) -> {
             KnowledgeSnapshotId snapshotId = prepareSnapshot(snapshots);
             TraceabilityEntityRef start = ref(TraceabilityEntityKind.REQUIREMENT);
@@ -123,14 +123,14 @@ class TraceabilityTraversalContractTest {
             putAll(traceability, snapshotId, startRight, rightTarget, startLeft, leftTarget);
 
             TraceabilityTraversalService service = new TraceabilityTraversalService(traceability);
-            TraceabilityPath path = service.findPath(
+            TraceabilityPath path = path(service, 
                     snapshotId, start, target, 2, TraceabilityTraversalDirection.OUTGOING, Set.of()).orElseThrow();
 
             TraceabilityEntityRef expectedIntermediate = left.compareTo(right) <= 0 ? left : right;
             TraceabilityLink expectedFirst = expectedIntermediate.equals(left) ? startLeft : startRight;
             TraceabilityLink expectedSecond = expectedIntermediate.equals(left) ? leftTarget : rightTarget;
             assertEquals(List.of(expectedFirst, expectedSecond), path.steps().stream().map(step -> step.link()).toList());
-            assertTrue(service.findPath(
+            assertTrue(path(service, 
                     snapshotId, start, target, 1, TraceabilityTraversalDirection.OUTGOING, Set.of()).isEmpty());
         });
     }
@@ -155,14 +155,14 @@ class TraceabilityTraversalContractTest {
                     Set.of(TraceabilityRelationType.REFINES));
             assertEquals(sortedNodes(start, refined), filtered.nodes());
             assertEquals(List.of(refines), filtered.links());
-            assertTrue(service.findPath(
+            assertTrue(path(service, 
                     snapshotId,
                     start,
                     affected,
                     1,
                     TraceabilityTraversalDirection.OUTGOING,
                     Set.of(TraceabilityRelationType.REFINES)).isEmpty());
-            assertTrue(service.findPath(
+            assertTrue(path(service, 
                     snapshotId,
                     start,
                     affected,
@@ -181,7 +181,7 @@ class TraceabilityTraversalContractTest {
 
         assertThrows(IllegalArgumentException.class, () -> service.traverse(
                 snapshotId, start, 0, TraceabilityTraversalDirection.OUTGOING, Set.of()));
-        assertThrows(IllegalArgumentException.class, () -> service.findPath(
+        assertThrows(IllegalArgumentException.class, () -> path(service, 
                 snapshotId, start, start, -1, TraceabilityTraversalDirection.BIDIRECTIONAL, Set.of()));
     }
 
@@ -245,9 +245,9 @@ class TraceabilityTraversalContractTest {
                     snapshotId, requirement, 2, TraceabilityTraversalDirection.BIDIRECTIONAL, Set.of());
             assertEquals(memoryGraph, sqliteGraph);
 
-            Optional<TraceabilityPath> memoryPath = memoryService.findPath(
+            Optional<TraceabilityPath> memoryPath = path(memoryService, 
                     snapshotId, requirement, decision, 2, TraceabilityTraversalDirection.BIDIRECTIONAL, Set.of());
-            Optional<TraceabilityPath> sqlitePath = sqliteService.findPath(
+            Optional<TraceabilityPath> sqlitePath = path(sqliteService, 
                     snapshotId, requirement, decision, 2, TraceabilityTraversalDirection.BIDIRECTIONAL, Set.of());
             assertEquals(memoryPath, sqlitePath);
             assertEquals(List.of(affects, decidedBy), memoryPath.orElseThrow().steps().stream()
@@ -255,6 +255,18 @@ class TraceabilityTraversalContractTest {
             assertTrue(memoryPath.orElseThrow().steps().getFirst().reversed());
             assertFalse(memoryPath.orElseThrow().steps().getLast().reversed());
         }
+    }
+
+    private Optional<TraceabilityPath> path(
+            TraceabilityTraversalService service,
+            KnowledgeSnapshotId snapshotId,
+            TraceabilityEntityRef start,
+            TraceabilityEntityRef target,
+            int maxDepth,
+            TraceabilityTraversalDirection direction,
+            Set<TraceabilityRelationType> relationTypes) {
+        return Optional.ofNullable(
+                service.traverseExplained(snapshotId, start, maxDepth, direction, relationTypes).paths().get(target));
     }
 
     private void withBothBackends(

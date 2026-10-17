@@ -28,8 +28,9 @@ says where it stands.
 - [ ] 3.1 The content-read measurement, on a snapshot of its own (decisions 2 and 4). Proof: the guard of the empty
       child table fails when one list of the fixture is emptied, then is restored.
       *2026-10-13: `readingTheContentOfALargeSnapshotStaysWithinItsDeclaredBudget`, in the publication gate, on a snapshot published into its own file. Four guards refuse a fixture that leaves a child list empty. **Not done**: no guard was broken by emptying a list.*
-- [ ] 3.2 The change-analysis measurement. Proof: the guard of the node budget fails when the fixture graph is
+- [x] 3.2 The change-analysis measurement. Proof: the guard of the node budget fails when the fixture graph is
       shortened, then is restored.
+      *2026-10-17: method added to `M19TraceabilityPerformanceGate`; the guard asserts six truncated traversals and 5,994 impacts. First measurement on the uncorrected code: 63 s for one delta (budget 2 s).*
 - [ ] 3.3 The journal-page measurement, or the written reason for not having one (second open question).
 - [ ] 3.4 Run the three on the uncorrected code, on Windows and on Linux. Proof: per platform, the metric and the
       verdict. A miss is expected for the content read and the analysis if the audit's reasoning holds; a pass is

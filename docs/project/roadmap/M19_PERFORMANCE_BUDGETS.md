@@ -109,7 +109,7 @@ exécution du seul gate) :
 
 ```text
 lecture du contenu d'un snapshot   snapshot_content_read_p95_ms=516   budget 1,000 ms   passe
-analyse d'un change                pas encore de gate
+analyse d'un change                change_analysis_first_ms=63007 (un delta)   budget 2,000 ms   manque
 lecture d'une page de journal      pas encore de gate
 ```
 
@@ -119,6 +119,16 @@ les données et qu'un test de la suite ordinaire compte. La fixture mesurée tie
 4,000 scénarios et 4,000 critères, chacun avec ses listes filles non vides. Linux n'est pas mesuré.
 
 Après correction, même machine, même jour : `snapshot_content_read_p95_ms=335`.
+
+**Analyse d'un change, 17 octobre 2026** (Windows, 16 processeurs, JDK 21.0.12, tas de 768 MiB). Le gate est la méthode
+`changeAnalysisOverDependencyMeshesAtTheNodeBudgetStaysWithinBudget` de `M19TraceabilityPerformanceGate` : 5,000
+requirements, 25,000 liens `DEPENDS_ON`, trois deltas dont chacun atteint le budget de nœuds dans les deux sens (six
+traversées tronquées, 5,994 impacts). Sur le code non corrigé, **une seule analyse d'un seul delta a pris 63 s**, soit
+trente fois le budget : le gate ne conclut pas en un temps raisonnable avec trois deltas et six itérations, ce qui est
+la mesure. Après correction (une traversée par requirement et par sens, chemins reconstruits en mémoire) :
+`change_analysis_p95_ms=399`, trois deltas, budget tenu. La correction se justifie ici par le temps, et elle est aussi
+tenue par un test de comptage de la suite ordinaire (`ChangeAnalysisTraversalCostTest` : 92 lectures du store pour 12
+requirements, 326 pour 24, avant ; proportionnel après). Linux n'est pas mesuré.
 
 Les valeurs suivent la recommandation de la spécification
 (`openspec/changes/declare-a-budget-before-bounding-a-cost`), qui les laissait au mainteneur ; il a lancé le sprint sans
