@@ -1,0 +1,15 @@
+{
+  "llm": {
+    "convention_files": [
+      ".claude/rules/code-review.md",
+      ".claude/CLAUDE.md",
+      ".claude/rules/code-style.md"
+    ]
+  },
+  "quiet_paths": [
+    "docs/project/audits/*",
+    "docs/project/validation/*",
+    "docs/project/roadmap/*",
+    "Claude outputs/*"
+  ]
+}

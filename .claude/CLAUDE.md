@@ -11,6 +11,7 @@
 @.claude/rules/code-style.md
 @.claude/rules/tooling.md
 @.claude/rules/documentation.md
+@.claude/rules/code-review.md
 
 ---
 
