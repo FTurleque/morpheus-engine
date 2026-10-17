@@ -141,6 +141,12 @@ mesurée** : le gate appelle le port paginé, qui n'existait pas, et l'ancienne 
 enregistrements puis les triait ; la correction se justifie par le nombre d'enregistrements construits (la requête
 porte `LIMIT`, `SqlitePolicyAuditPageTest`), non par un temps mesuré. Linux n'est pas mesuré.
 
+**`validate-m19` complet, Windows, 17 octobre 2026** (`PASS`, sur le commit d'archivage des deux changements) : les cinq
+classes de gate passent dans le tas de 768 MiB, avec `change_analysis_p95_ms=404`, `policy_audit_page_p95_ms=28`,
+`snapshot_content_read_p95_ms=166`, `trace_traversal_p95_ms=142`, `trace_frontier_check_p95_ms=279`,
+`requirement_query_p95_ms=85`, `full_publish_p95_ms=2306`. Les budgets du gel n'ont pas bougé. La preuve Linux reste à
+produire par la lane nocturne (`workflow_dispatch` sur `develop` tant que ce workflow n'est pas sur `main`).
+
 Les valeurs suivent la recommandation de la spécification
 (`openspec/changes/declare-a-budget-before-bounding-a-cost`), qui les laissait au mainteneur ; il a lancé le sprint sans
 les fixer. Elles sont choisies d'après ce à quoi sert l'opération, pas d'après une exécution.
