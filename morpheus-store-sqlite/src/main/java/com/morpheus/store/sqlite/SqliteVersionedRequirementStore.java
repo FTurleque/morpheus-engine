@@ -34,6 +34,17 @@ import java.util.Optional;
 
 /** SQLite adapter for versioned Requirement persistence introduced by M3-S4. */
 public final class SqliteVersionedRequirementStore implements VersionedRequirementStore, AutoCloseable {
+    static final String LIST_CURRENT_SQL = """
+            SELECT * FROM requirement_versions
+            WHERE snapshot_id = ? AND temporal_state = 'CURRENT'
+            ORDER BY entity_version_id
+            """;
+    static final String LIST_CURRENT_BOUNDED_SQL = """
+            SELECT * FROM requirement_versions
+            WHERE snapshot_id = ? AND temporal_state = 'CURRENT'
+            ORDER BY entity_version_id
+            LIMIT ?
+            """;
     private static final int SEQUENCE_ALLOCATION_MAX_ATTEMPTS = 24;
     private static final long SEQUENCE_ALLOCATION_INITIAL_BACKOFF_MILLIS = 10L;
     private static final long SEQUENCE_ALLOCATION_MAX_BACKOFF_MILLIS = 250L;
@@ -278,11 +289,7 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
     public synchronized List<RequirementVersionRecord> listCurrentRequirementVersions(KnowledgeSnapshotId snapshotId) {
         ensureOpen();
         Objects.requireNonNull(snapshotId, "snapshotId");
-        try (PreparedStatement statement = connection.prepareStatement("""
-                SELECT * FROM requirement_versions
-                WHERE snapshot_id = ? AND temporal_state = 'CURRENT'
-                ORDER BY entity_version_id
-                """)) {
+        try (PreparedStatement statement = connection.prepareStatement(LIST_CURRENT_SQL)) {
             statement.setString(1, snapshotId.toString());
             try (ResultSet result = statement.executeQuery()) {
                 List<RequirementVersionRecord> records = new ArrayList<>();
@@ -306,12 +313,7 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
         if (limit < 1) {
             throw new IllegalArgumentException("limit must be positive");
         }
-        try (PreparedStatement statement = connection.prepareStatement("""
-                SELECT * FROM requirement_versions
-                WHERE snapshot_id = ? AND temporal_state = 'CURRENT'
-                ORDER BY entity_version_id
-                LIMIT ?
-                """)) {
+        try (PreparedStatement statement = connection.prepareStatement(LIST_CURRENT_BOUNDED_SQL)) {
             statement.setString(1, snapshotId.toString());
             statement.setInt(2, limit);
             try (ResultSet result = statement.executeQuery()) {

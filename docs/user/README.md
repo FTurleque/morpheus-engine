@@ -126,7 +126,7 @@ MORPHEUS préfère `UNAVAILABLE` ou `UNKNOWN` à un fait inventé.
 - [Team / Remote Server](TEAM_REMOTE_SERVER.md)
 - [Assisted Reasoning](ASSISTED_REASONING.md)
 - [Plugins provider](PROVIDER_PLUGINS.md)
-- [Upgrade 1.2.2](UPGRADE_1_2_2.md) — version en préparation : fait avancer le schéma SQLite (V021), sauvegarde obligatoire avant d'installer
+- [Upgrade 1.2.2](UPGRADE_1_2_2.md) — version en préparation : fait avancer le schéma SQLite (V022), sauvegarde obligatoire avant d'installer
 - [Upgrade 1.2.1](UPGRADE_1_2_1.md) — fait avancer le schéma SQLite : sauvegarde obligatoire avant d'installer
 - [Upgrade 1.2](UPGRADE_1_2.md)
 - [Intégrité produit](PRODUCT_INTEGRITY.md)
