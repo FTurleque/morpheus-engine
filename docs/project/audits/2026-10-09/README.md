@@ -8,6 +8,12 @@
 
 ---
 
+## État au 17 octobre 2026 — release v1.2.1
+
+`v1.2.1` a été coupée le 16 octobre sur `main` à `2a8b1ede`, après la promotion de `develop` (PR #503), et qualifiée par les deux scripts de relecture publique (`docs/project/validation/VALIDATION_RELEASE_1.2.1.md`). **`AUD-DEP-12` passe à corrigé.** Les sprints 1, 2 et 4 sont clos côté OpenSpec (PR #499, #500, #501) ; restent `AUD-DEP-07`, bloqué en amont (Dependency-Check 13.0.1 toujours non publié au 17 octobre), et `AUD-TRV-07`, partiel.
+
+**100 constats : 34 corrigés · 2 partiels · 39 toujours valides · 2 caducs · 22 Info qui tiennent · 1 non vérifiable.** Les notes par axe n'ont pas été recalculées.
+
 ## État au 16 octobre 2026 — après les PR #493 à #497
 
 Les cinq PR du lot ont été fusionnées dans `develop` le 16 octobre (HEAD `557fed02`), et les statuts revérifiés sur le code fusionné. **Six constats passent à corrigé** : `AUD-TST-12`, `AUD-TST-18`, `AUD-TRV-04`, `AUD-TRV-05`, `AUD-QUA-13`, `AUD-QUA-17`. **Deux restent partiels** : `AUD-TRV-07` (aucun validateur encore exécuté pour de vrai — le job nocturne `validators-without-a-lane` le fournira pour Linux — et la décision de garder, tester ou retirer chaque validateur revient au mainteneur) et `AUD-DEP-07` (bloqué en amont : Dependency-Check 13.0.1 n'est pas publié).

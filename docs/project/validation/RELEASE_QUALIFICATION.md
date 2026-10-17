@@ -5,9 +5,10 @@ elle-même, et aucune de ses étapes ne doit être exécutée sur une release fa
 
 > **Issue [#185](https://github.com/FTurleque/morpheus-engine/issues/185) — critère de clôture.**
 > #185 ne se ferme qu'après une exécution tag → release réellement verte, sur une vraie release.
-> Ne jamais créer un tag ou une release artificielle pour la fermer. La dernière release réellement
-> publiée reste `v1.2.0` (30/07/2026), antérieure au workflow durci : le dépôt ne doit donc pas
-> prétendre qu'une qualification end-to-end a déjà eu lieu.
+> Ne jamais créer un tag ou une release artificielle pour la fermer. Ce critère est rempli par `v1.2.1`
+> (16/10/2026), la première release publiée par le workflow durci, dont la qualification est consignée dans
+> [`VALIDATION_RELEASE_1.2.1.md`](VALIDATION_RELEASE_1.2.1.md). `v1.2.0` (30/07/2026) lui est antérieure
+> et n'a jamais été qualifiée par ces scripts.
 
 ## Ce que le pipeline garantit déjà
 

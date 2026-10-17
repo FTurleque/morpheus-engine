@@ -324,12 +324,12 @@
     "bloque": [
       "AUD-DEP-05"
     ],
-    "statut": "TOUJOURS_VALIDE",
-    "verif_preuve": "pom.xml:9 `<version>1.2.1</version>` inchange ; `git tag -l` -> v1.0.0, v1.1.0, v1.2.0 — aucun v1.2.1 ; `git rev-list --count v1.2.0..origin/develop` -> 1865 (contre 1588 le 09/10) ; `git rev-list --count origin/main..origin/develop` -> 95 ; .github/workflows/release.yml:3-6 se declenche toujours sur `push: tags: ['v*']` uniquement ; openspec/changes/rehearse-the-release-chain-before-the-tag/tasks.md:9,13,16,22,26,85 : 6 taches ouvertes dont « Cut v1.2.1 » et les deux executions consecutives de la lane",
-    "verif_constat": "Aucun tag n'est apparu, la version du POM n'a pas bouge, et l'ecart au dernier tag est passe de 1 588 a 1 865 commits en quatre jours. Le constat s'est aggrave. Une lane de repetition existe maintenant (.github/workflows/nightly.yml:274 `release-rehearsal`, scripts/check-release-rehearsal-assets.py), ce qui couvre l'option de repli de l'action, mais elle ne publie rien et ne remplace pas un tag.",
-    "reste": "Deux choses distinctes. (1) Couper v1.2.1, ou a defaut exercer la chaine complete sur un tag de pre-release — le declencheur `v*` accepte deja une forme `v1.2.1-rc1`, aucune modification de release.yml n'est necessaire pour cela. (2) L'ecart origin/main..origin/develop de 95 commits est le point neuf : release.yml ne tourne que sur un tag, et un tag pose sur develop publierait un etat que main n'a jamais vu, tandis qu'un tag pose sur main publierait une 1.2.1 amputee de 95 commits. Le job `refresh-alert` de security.yml ne tourne quotidiennement qu'une fois le workflow sur main (docs/developer/COLD_START_RECOVERY.md:119), ce qui est une seconde consequence de cet ecart. Promouvoir develop vers main avant de taguer, et nommer explicitement la branche cible de la release.",
-    "verifie_le": "2026-10-13",
-    "revision_verif": "d5be889b"
+    "statut": "CORRIGE",
+    "verif_preuve": "git tag -l -> v1.0.0, v1.1.0, v1.2.0, v1.2.1 ; v1.2.1 -> 2a8b1ede9cdeb107244b04969726305afc672189, atteignable depuis main ; gh release view v1.2.1 -> 12 assets, publie 2026-10-16T23:37:21Z ; RELEASE QUALIFICATION PASS (sh et ps1), docs/project/validation/VALIDATION_RELEASE_1.2.1.md",
+    "verif_constat": "v1.2.1 a ete coupee le 16/10/2026 sur main a 2a8b1ede (promotion PR #503, apres le retour de main dans develop par PR #504) : le workflow de release (run 38980110816) a construit, atteste et publie les douze assets, et les deux scripts verify-release-provenance rendent PASS sur la release publiee. L'ecart main..develop est nul au moment du tag.",
+    "reste": "Rien pour ce constat.",
+    "verifie_le": "2026-10-17",
+    "revision_verif": "2a8b1ede"
   },
   {
     "id": "AUD-DEP-15",

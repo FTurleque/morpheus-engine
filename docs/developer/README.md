@@ -3,13 +3,14 @@
 Cette documentation distingue deux états :
 
 ```text
-release publiée         MORPHEUS 1.2.0 / tag v1.2.0
-release commit           3ad9ebf030b58df97482e21e272c24feae6b9d86
-baseline active          MORPHEUS 1.2.1 corrective
+release publiée         MORPHEUS 1.2.1 / tag v1.2.1
+release commit           2a8b1ede9cdeb107244b04969726305afc672189
+release précédente       MORPHEUS 1.2.0 / tag v1.2.0 / 3ad9ebf030b58df97482e21e272c24feae6b9d86
+version du reactor       1.2.1
 branche d'intégration    develop
 ```
 
-`1.2.1` est la version du code actif post-audit ; elle n'est pas considérée publiée tant qu'un tag/release `v1.2.1` n'a pas été créé et qualifié. Le tag `v1.2.0` reste immuable.
+`v1.2.1` a été publiée le 16 octobre 2026 et qualifiée par les deux scripts de relecture publique ([`../project/validation/VALIDATION_RELEASE_1.2.1.md`](../project/validation/VALIDATION_RELEASE_1.2.1.md)). Les tags `v1.2.0` et `v1.2.1` sont immuables : le code qui avance sur `develop` ne doit pas être republié sous `1.2.1`, la prochaine version se déclare par un bump explicite.
 
 ## Prérequis
 

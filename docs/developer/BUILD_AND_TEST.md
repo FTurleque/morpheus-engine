@@ -1,6 +1,6 @@
 # Build, tests et validation
 
-Ce guide décrit l’environnement de développement et les gates actifs sur la baseline corrective **MORPHEUS 1.2.1**. La dernière release effectivement publiée reste `v1.2.0` tant qu'une release `v1.2.1` n'a pas été créée et qualifiée.
+Ce guide décrit l’environnement de développement et les gates actifs sur la baseline corrective **MORPHEUS 1.2.1**. La dernière release publiée est `v1.2.1` (16 octobre 2026), qualifiée par les scripts de relecture publique.
 
 ## Toolchain
 
@@ -225,7 +225,7 @@ Le workflow **MORPHEUS Release** complète désormais ce contrôle pour les tags
 
 Le `.sha256` reste utile pour l'intégrité locale, tandis que l'attestation fournit la preuve d'origine liée au workflow et au commit GitHub.
 
-La release stable publiée reste `v1.2.0` jusqu'à publication explicite d'une version suivante ; les corrections de développement ne déplacent jamais le tag existant.
+La release stable publiée est `v1.2.1` jusqu'à publication explicite d'une version suivante ; les corrections de développement ne déplacent jamais un tag existant.
 
 ## Tests ciblés
 
