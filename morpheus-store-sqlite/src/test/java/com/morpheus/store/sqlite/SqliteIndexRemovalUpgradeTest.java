@@ -179,12 +179,14 @@ class SqliteIndexRemovalUpgradeTest {
     private static void insertOneRow(Connection connection, String table) throws SQLException {
         List<String> columns = new ArrayList<>();
         List<String> values = new ArrayList<>();
-        try (Statement statement = connection.createStatement();
-             ResultSet info = statement.executeQuery("PRAGMA table_info('" + table + "')")) {
-            while (info.next()) {
-                String column = info.getString("name");
-                columns.add(column);
-                values.add(valueFor(column, info.getString("type")));
+        try (var statement = connection.prepareStatement("SELECT * FROM pragma_table_info(?)")) {
+            statement.setString(1, table);
+            try (ResultSet columnsOfTable = statement.executeQuery()) {
+                while (columnsOfTable.next()) {
+                    String column = columnsOfTable.getString("name");
+                    columns.add(column);
+                    values.add(valueFor(column, columnsOfTable.getString("type")));
+                }
             }
         }
         try (Statement statement = connection.createStatement()) {
