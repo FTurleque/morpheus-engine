@@ -1,5 +1,6 @@
 package com.morpheus.architecture.m25;
 
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.policy.PolicyBudgets;
 import com.morpheus.application.policy.PolicyConfiguration;
 import com.morpheus.application.policy.PolicyIds;
@@ -89,8 +90,8 @@ class PolicyStoreAtomicityContractTest {
         PolicyScope scope = new PolicyScope.Project(ProjectSpecificationId.generate());
         PolicyScope otherScope = new PolicyScope.Project(ProjectSpecificationId.generate());
         PolicyConfiguration.Activation replacement = activation(scope, target);
-        int targetAuditCount = store.listAudit(target.packId()).size();
-        int otherAuditCount = store.listAudit(other.packId()).size();
+        int targetAuditCount = store.listAudit(target.packId(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches();
+        int otherAuditCount = store.listAudit(other.packId(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches();
 
         assertThrows(IllegalArgumentException.class, () -> store.compareAndSetActivation(
                 scope,
@@ -145,8 +146,8 @@ class PolicyStoreAtomicityContractTest {
                         "wrong version")));
 
         assertFalse(store.findActivation(scope, target.packId()).isPresent());
-        assertEquals(targetAuditCount, store.listAudit(target.packId()).size());
-        assertEquals(otherAuditCount, store.listAudit(other.packId()).size());
+        assertEquals(targetAuditCount, store.listAudit(target.packId(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches());
+        assertEquals(otherAuditCount, store.listAudit(other.packId(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches());
     }
 
     private void assertActivationBudgetAtomic(PolicyPackStore first, PolicyPackStore second) throws Exception {

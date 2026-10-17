@@ -1,5 +1,7 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.query.PageRequest;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,9 +23,10 @@ import java.util.function.Supplier;
  * {@code PageBoundsAgreementTest} fails if the two part; {@code PageRequest} has no default, so the default is
  * compared with nothing.</p>
  *
- * <p>The page itself is {@link PagedEnvelope#slice}; this class adds no second way to spell one. The slice is taken
- * from a collection the application has already read and ordered, so the bound limits the response and not the
- * cost of reading: reading the collection stays unbounded.</p>
+ * <p>The page itself is {@link PagedEnvelope#slice} or {@link PagedEnvelope#page}; this class adds no second way to
+ * spell one. A slice is taken from a collection the application has already read and ordered, so the bound limits the
+ * response and not the cost of reading: reading such a collection stays unbounded. The policy audit journal is not one
+ * of them any more: its store takes the page ({@link #request}), and no read of it loads more than the page.</p>
  *
  * <p>Four tools read it: the audit journal, the policy pack versions and the saved-view versions, and
  * {@code list_composition_conflicts}, whose bounds it already applied and which now takes them from here. Other
@@ -40,6 +43,16 @@ final class PageArguments {
     static final int MAX_LIMIT = MorpheusMcpToolCatalog.MAX_LIMIT;
 
     private PageArguments() {
+    }
+
+    /**
+     * The page a caller asked for, read and refused under the same bounds as {@link #slice}, for a collection whose
+     * store takes the page instead of being sliced after it was read.
+     */
+    static PageRequest request(Map<String, Object> arguments) {
+        return new PageRequest(
+                McpArguments.optionalInt(arguments, "offset", 0, 0, Integer.MAX_VALUE),
+                McpArguments.optionalInt(arguments, "limit", DEFAULT_LIMIT, 1, MAX_LIMIT));
     }
 
     /** The two schema properties, with the same bounds {@link #slice} enforces. */

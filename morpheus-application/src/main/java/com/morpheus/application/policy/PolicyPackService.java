@@ -1,5 +1,6 @@
 package com.morpheus.application.policy;
 
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.store.EntityNotFoundException;
 import com.morpheus.application.store.EntityStateException;
 import com.morpheus.application.store.PolicyPackStore;
@@ -229,9 +230,9 @@ public final class PolicyPackService {
                 now));
     }
 
-    public List<PolicyConfiguration.AuditRecord> audit(PolicyIds.PackId packId) {
+    public PolicyAuditPage audit(PolicyIds.PackId packId, PageRequest pageRequest) {
         get(packId);
-        return store.listAudit(packId).stream().sorted().toList();
+        return store.listAudit(packId, pageRequest);
     }
 
     /**

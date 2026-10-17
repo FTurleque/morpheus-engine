@@ -1,5 +1,6 @@
 package com.morpheus.store.memory;
 
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.policy.PolicyBudgets;
 import com.morpheus.application.policy.PolicyConfiguration;
 import com.morpheus.application.policy.PolicyIds;
@@ -36,7 +37,7 @@ class MemoryPolicyPackStoreAtomicityTest {
         PolicyScope scope = new PolicyScope.Project(ProjectSpecificationId.generate());
         PolicyScope otherScope = new PolicyScope.Project(ProjectSpecificationId.generate());
         PolicyConfiguration.Activation replacement = activation(scope, target);
-        int auditBefore = store.listAudit(target.packId()).size();
+        int auditBefore = store.listAudit(target.packId(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches();
 
         assertThrows(IllegalArgumentException.class, () -> store.compareAndSetActivation(
                 scope, target.packId(), 0L, replacement,
@@ -60,7 +61,7 @@ class MemoryPolicyPackStoreAtomicityTest {
                         Optional.of(target.versionId()), Optional.empty(), Optional.of(otherScope), "wrong scope")));
 
         assertFalse(store.findActivation(scope, target.packId()).isPresent());
-        assertEquals(auditBefore, store.listAudit(target.packId()).size());
+        assertEquals(auditBefore, store.listAudit(target.packId(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches());
 
         var updated = service.update(target.packId(), 1L, "target-v2", List.of(rule("updated")), ACTOR, "update");
         var updatedVersion = service.versions(updated.id()).getLast();
@@ -75,7 +76,7 @@ class MemoryPolicyPackStoreAtomicityTest {
 
         assertFalse(store.findActivation(scope, updated.id()).isPresent());
         assertFalse(store.findOverride(scope, updated.id(), updatedRule).isPresent());
-        assertEquals(7, store.listAudit(updated.id()).size());
+        assertEquals(7, store.listAudit(updated.id(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches());
     }
 
     @Test

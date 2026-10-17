@@ -192,7 +192,14 @@ Audit :
 
 ```bash
 morpheus --json policy audit --id <policyPackId>
+morpheus --json policy audit --id <policyPackId> --offset 50 --limit 50
 ```
+
+Le journal d'audit d'un pack ne fait que croître : la commande rend une **page**, pas le journal entier. La réponse
+porte `offset`, `limit` (de 1 à 100, 50 par défaut), `totalMatches`, `hasMore` et `items`, dans l'ordre par instant
+puis par identité. Tant que `hasMore` vaut `true`, relancez avec `--offset` augmenté de `--limit`. La route HTTP
+`GET /api/v1/policy-packs/{id}/audit` et l'outil MCP `get_policy_audit` rendent la même page avec les paramètres
+`offset` et `limit`.
 
 ## Grammaire CLI des règles
 

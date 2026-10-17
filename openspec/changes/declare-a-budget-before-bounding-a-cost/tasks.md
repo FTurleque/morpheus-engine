@@ -31,7 +31,8 @@ says where it stands.
 - [x] 3.2 The change-analysis measurement. Proof: the guard of the node budget fails when the fixture graph is
       shortened, then is restored.
       *2026-10-17: method added to `M19TraceabilityPerformanceGate`; the guard asserts six truncated traversals and 5,994 impacts. First measurement on the uncorrected code: 63 s for one delta (budget 2 s).*
-- [ ] 3.3 The journal-page measurement, or the written reason for not having one (second open question).
+- [x] 3.3 The journal-page measurement, or the written reason for not having one (second open question).
+      *2026-10-17: kept: the correction adds a migration and an index, so the plan of the query is trusted. Gate added to `M19QueryPerformanceGate`; no validator edit (existing class).*
 - [ ] 3.4 Run the three on the uncorrected code, on Windows and on Linux. Proof: per platform, the metric and the
       verdict. A miss is expected for the content read and the analysis if the audit's reasoning holds; a pass is
       recorded as a pass.

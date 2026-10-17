@@ -5,6 +5,7 @@ import com.morpheus.api.MorpheusHttpServer.ApiErrorEnvelope;
 import com.morpheus.api.MorpheusHttpServer.ApiSuccess;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.policy.PolicyConflictException;
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -75,8 +76,13 @@ final class MorpheusPolicyHttpRoutes {
             throw ApiFailure.methodNotAllowed("policy-packs supports GET and POST");
         }
 
-        rejectQueryParameters(exchange);
         String id = segments.getFirst();
+        if (segments.size() == 2 && segments.get(1).equals("audit")) {
+            requireMethod(exchange, "GET");
+            requestDecoder.requireEmptyBody(exchange);
+            return new Response(200, service.audit(id, auditPage(exchange)));
+        }
+        rejectQueryParameters(exchange);
         if (segments.size() == 1) {
             if (method.equals("GET")) {
                 requestDecoder.requireEmptyBody(exchange);
@@ -105,11 +111,6 @@ final class MorpheusPolicyHttpRoutes {
                     requireMethod(exchange, "POST");
                     yield new Response(200, service.deactivate(
                             id, requestDecoder.readRequiredJson(exchange, MorpheusPolicyApiService.DeactivationRequest.class)));
-                }
-                case "audit" -> {
-                    requireMethod(exchange, "GET");
-                    requestDecoder.requireEmptyBody(exchange);
-                    yield new Response(200, service.audit(id));
                 }
                 default -> throw ApiFailure.notFound("unknown policy-pack action: " + action);
             };
@@ -178,6 +179,15 @@ final class MorpheusPolicyHttpRoutes {
     private void requireMethod(HttpExchange exchange, String expected) {
         String actual = exchange.getRequestMethod().toUpperCase(Locale.ROOT);
         if (!actual.equals(expected)) throw ApiFailure.methodNotAllowed("expected HTTP " + expected + " but received " + actual);
+    }
+
+    /** The audit is the one route of the pack tree that takes a query: the page of a journal that only grows. */
+    private PageRequest auditPage(HttpExchange exchange) {
+        MorpheusHttpQuery query = MorpheusHttpQuery.parse(exchange.getRequestURI().getRawQuery());
+        query.rejectUnknown(Set.of("offset", "limit"));
+        return new PageRequest(
+                query.intValue("offset", 0, 0, Integer.MAX_VALUE),
+                query.intValue("limit", MorpheusApiService.DEFAULT_LIMIT, 1, MorpheusApiService.MAX_LIMIT));
     }
 
     private void rejectQueryParameters(HttpExchange exchange) {

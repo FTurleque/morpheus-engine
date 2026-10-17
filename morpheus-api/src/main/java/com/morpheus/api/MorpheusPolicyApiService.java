@@ -2,12 +2,14 @@ package com.morpheus.api;
 
 import com.morpheus.application.operability.ExhaustiveShutdown;
 import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.policy.PolicyAuditPage;
 import com.morpheus.application.policy.PolicyBudgets;
 import com.morpheus.application.policy.PolicyConfiguration;
 import com.morpheus.application.policy.PolicyIds;
 import com.morpheus.application.policy.PolicyPublicViews;
 import com.morpheus.application.policy.PolicyRule;
 import com.morpheus.application.policy.PolicyScope;
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.query.dsl.QueryDefinitionCodec;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
@@ -127,9 +129,13 @@ public final class MorpheusPolicyApiService {
         }
     }
 
-    public Object audit(String id) {
+    public Object audit(String id, PageRequest pageRequest) {
+        Objects.requireNonNull(pageRequest, "pageRequest");
         try (ApiRuntime runtime = runtime()) {
-            return PolicyPublicViews.audit(runtime.registry().audit(PolicyIds.PackId.parse(id)));
+            PolicyAuditPage page = runtime.registry().audit(PolicyIds.PackId.parse(id), pageRequest);
+            return PagedEnvelope.page(
+                    page.pageRequest(), page.totalMatches(), page.hasMore(),
+                    page.items().stream().map(PolicyPublicViews::audit).toList());
         }
     }
 

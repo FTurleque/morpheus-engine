@@ -8,6 +8,7 @@ import com.morpheus.application.policy.PolicyIds;
 import com.morpheus.application.policy.PolicyPublicViews;
 import com.morpheus.application.policy.PolicyRule;
 import com.morpheus.application.policy.PolicyScope;
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.query.dsl.QueryDefinitionCodec;
 import com.morpheus.application.store.EntityNotFoundException;
@@ -45,6 +46,7 @@ final class MorpheusPolicyCli {
     private static final String OPT_PROJECT = "project";
     private static final String OPT_PORTFOLIO = "portfolio";
     private static final String OPT_VERSION = "version";
+    private static final int AUDIT_DEFAULT_LIMIT = 50;
 
     static final Map<String, Set<String>> ACTION_OPTIONS = Map.ofEntries(
             Map.entry("pack-create", Set.of("name", OPT_RULES, OPT_ACTOR, OPT_REASON)),
@@ -63,7 +65,7 @@ final class MorpheusPolicyCli {
                     "id", "rule", OPT_PROJECT, OPT_PORTFOLIO, OPT_EXPECTED_REVISION, OPT_ACTOR, OPT_REASON)),
             Map.entry("evaluate", Set.of("id", OPT_PROJECT, OPT_PORTFOLIO)),
             Map.entry("dry-run", Set.of("id", OPT_VERSION, OPT_PROJECT, OPT_PORTFOLIO)),
-            Map.entry("audit", Set.of("id")));
+            Map.entry("audit", Set.of("id", "offset", "limit")));
 
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
     private final QueryDefinitionCodec queryCodec = new QueryDefinitionCodec();
@@ -157,7 +159,9 @@ final class MorpheusPolicyCli {
             }
             case "dry-run" -> decided(runtime.evaluation().dryRun(
                     scope(options), pack(options), PolicyIds.VersionId.parse(options.required(OPT_VERSION))));
-            case "audit" -> PolicyPublicViews.audit(runtime.registry().audit(pack(options)));
+            case "audit" -> PolicyPublicViews.auditPage(runtime.registry().audit(pack(options), new PageRequest(
+                    boundedInt(options, "offset", 0, 0, Integer.MAX_VALUE),
+                    boundedInt(options, "limit", AUDIT_DEFAULT_LIMIT, 1, PageRequest.MAX_LIMIT))));
             default -> throw new IllegalStateException("policy action accepted without a handler: " + action);
         };
     }
@@ -257,6 +261,14 @@ final class MorpheusPolicyCli {
             throw new IllegalArgumentException("--expected-revision must be >= 0");
         }
         return value;
+    }
+
+    private int boundedInt(SimpleOptions options, String key, int defaultValue, int min, int max) {
+        long value = options.optional(key).map(raw -> parseLong(raw, key)).orElse((long) defaultValue);
+        if (value < min || value > max) {
+            throw new IllegalArgumentException("--" + key + " must be between " + min + " and " + max);
+        }
+        return (int) value;
     }
 
     private long parseLong(String raw, String key) {

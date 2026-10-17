@@ -12,7 +12,8 @@
 
 54 commits depuis la passe du 15 octobre (PR #493 à #506), dont la promotion de **v1.2.1** sur `main` le
 16 octobre à `2a8b1ede`. Le mainteneur a porté **sept constats à `corrigé`** dans ce fichier ; chacun a été
-revérifié sur le code à `ae368aa3`. Détail dans **`reverification-2026-10-17.md`**.
+revérifié sur le code à `ae368aa3`. Détail dans **`reverification-2026-10-17.md`**. Ce qui a été fait ensuite pour les
+sprints 4, 5 et 6, sans toucher aux statuts : **`closures-2026-10-17.md`**.
 
 **Cinq sur sept sont confirmés** — `AUD-TRV-04`, `AUD-TRV-05`, `AUD-TST-12`, `AUD-TST-18`, `AUD-QUA-13`.
 **Un ne l'est pas** : `AUD-QUA-17` repasse à *partiel*. Et **un contenait une affirmation fausse, de moi** :

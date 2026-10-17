@@ -3,7 +3,7 @@
 Statut : **ACTIVE — MORPHEUS 1.1.0 PUBLIÉ**
 
 > Ce guide décrit la mise à niveau vers **1.1.0**, une release publiée. Ce qu'il dit du schéma SQLite vaut pour cette
-> release. Pour la version en cours, voir [`UPGRADE_1_2_1.md`](UPGRADE_1_2_1.md).
+> release. Pour la version en cours, voir [`UPGRADE_1_2_2.md`](UPGRADE_1_2_2.md).
 
 Ce guide décrit la procédure contrôlée d'upgrade depuis la release stable `v1.0.0` vers la release stable `v1.1.0`. Pour passer ensuite en 1.2.0, voir [`UPGRADE_1_2.md`](UPGRADE_1_2.md).
 

@@ -1,5 +1,6 @@
 package com.morpheus.architecture.m25;
 
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.policy.PolicyConfiguration;
 import com.morpheus.application.policy.PolicyConflictException;
 import com.morpheus.application.policy.PolicyEvaluation;
@@ -86,7 +87,7 @@ class PolicyPackContractTest {
         var definition = service.create("Governance", List.of(rule()), "alice", "initial policy");
         var version = service.versions(definition.id()).getFirst();
         PolicyScope scope = new PolicyScope.Project(ProjectSpecificationId.generate());
-        int auditBefore = service.audit(definition.id()).size();
+        int auditBefore = service.audit(definition.id(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches();
 
         PolicyEvaluationService evaluation = new PolicyEvaluationService(
                 store,
@@ -97,7 +98,7 @@ class PolicyPackContractTest {
         assertEquals(PolicyEvaluation.Decision.PASS, report.decision());
         assertTrue(service.activations(scope).isEmpty());
         assertTrue(service.overrides(scope).isEmpty());
-        assertEquals(auditBefore, service.audit(definition.id()).size());
+        assertEquals(auditBefore, service.audit(definition.id(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches());
     }
 
     @Test

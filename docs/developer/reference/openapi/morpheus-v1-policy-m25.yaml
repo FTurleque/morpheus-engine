@@ -160,8 +160,25 @@ paths:
       - $ref: '#/components/parameters/PolicyPackId'
     get:
       operationId: getPolicyAudit
+      description: >-
+        One page of the append-only audit of the pack, by instant then identity. The journal only grows: the answer is
+        a page with its total and whether more follows, never the whole journal.
+      parameters:
+        - $ref: '#/components/parameters/AuditOffsetQuery'
+        - $ref: '#/components/parameters/AuditLimitQuery'
       responses:
-        '200': { $ref: '#/components/responses/Success' }
+        '200':
+          description: One page of the policy audit.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [apiVersion, data]
+                properties:
+                  apiVersion: { type: string, const: v1 }
+                  data: { $ref: '#/components/schemas/PolicyAuditPage' }
+        '400': { $ref: '#/components/responses/BadRequest' }
 components:
   parameters:
     PolicyPackId:
@@ -169,6 +186,16 @@ components:
       in: path
       required: true
       schema: { type: string, minLength: 1 }
+    AuditOffsetQuery:
+      name: offset
+      in: query
+      required: false
+      schema: { type: integer, minimum: 0, maximum: 2147483647, default: 0 }
+    AuditLimitQuery:
+      name: limit
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 100, default: 50 }
     ScopeKindQuery:
       name: scopeKind
       in: query
@@ -180,6 +207,33 @@ components:
       required: true
       schema: { $ref: '#/components/schemas/Uuid' }
   schemas:
+    PolicyAuditPage:
+      type: object
+      additionalProperties: false
+      required: [offset, limit, totalMatches, hasMore, items]
+      properties:
+        offset: { type: integer, minimum: 0 }
+        limit: { type: integer, minimum: 1, maximum: 100 }
+        totalMatches: { type: integer, minimum: 0 }
+        hasMore: { type: boolean }
+        items:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/PolicyAuditRecord' }
+    PolicyAuditRecord:
+      type: object
+      additionalProperties: false
+      required: [id, action, packId, actor, reason, at]
+      properties:
+        id: { $ref: '#/components/schemas/Uuid' }
+        action: { type: string, maxLength: 64 }
+        packId: { $ref: '#/components/schemas/Uuid' }
+        versionId: { $ref: '#/components/schemas/Uuid' }
+        ruleId: { $ref: '#/components/schemas/Uuid' }
+        scope: { type: object }
+        actor: { type: string, maxLength: 256 }
+        reason: { type: string, maxLength: 2048 }
+        at: { type: string, format: date-time, maxLength: 64 }
     Uuid:
       type: string
       format: uuid
