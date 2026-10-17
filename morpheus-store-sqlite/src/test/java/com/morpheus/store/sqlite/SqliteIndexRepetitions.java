@@ -1,6 +1,7 @@
 package com.morpheus.store.sqlite;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -52,16 +53,18 @@ final class SqliteIndexRepetitions {
 
     private static List<Index> indexes(Connection connection, String table) throws SQLException {
         List<Index> indexes = new ArrayList<>();
-        try (Statement statement = connection.createStatement();
-             ResultSet rows = statement.executeQuery("PRAGMA index_list('" + table + "')")) {
-            while (rows.next()) {
-                String name = rows.getString("name");
-                indexes.add(new Index(
-                        name,
-                        "c".equals(rows.getString("origin")),
-                        rows.getInt("unique") == 1,
-                        rows.getInt("partial") == 1,
-                        columns(connection, name)));
+        try (PreparedStatement statement = connection.prepareStatement("SELECT * FROM pragma_index_list(?)")) {
+            statement.setString(1, table);
+            try (ResultSet rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    String name = rows.getString("name");
+                    indexes.add(new Index(
+                            name,
+                            "c".equals(rows.getString("origin")),
+                            rows.getInt("unique") == 1,
+                            rows.getInt("partial") == 1,
+                            columns(connection, name)));
+                }
             }
         }
         return indexes;
@@ -69,14 +72,16 @@ final class SqliteIndexRepetitions {
 
     private static String columns(Connection connection, String index) throws SQLException {
         StringBuilder columns = new StringBuilder();
-        try (Statement statement = connection.createStatement();
-             ResultSet rows = statement.executeQuery("PRAGMA index_xinfo('" + index + "')")) {
-            while (rows.next()) {
-                if (rows.getInt("key") == 1) {
-                    columns.append(rows.getString("name"))
-                            .append(' ').append(rows.getInt("desc") == 1 ? "DESC" : "ASC")
-                            .append(' ').append(rows.getString("coll"))
-                            .append(',');
+        try (PreparedStatement statement = connection.prepareStatement("SELECT * FROM pragma_index_xinfo(?)")) {
+            statement.setString(1, index);
+            try (ResultSet rows = statement.executeQuery()) {
+                while (rows.next()) {
+                    if (rows.getInt("key") == 1) {
+                        columns.append(rows.getString("name"))
+                                .append(' ').append(rows.getInt("desc") == 1 ? "DESC" : "ASC")
+                                .append(' ').append(rows.getString("coll"))
+                                .append(',');
+                    }
                 }
             }
         }
