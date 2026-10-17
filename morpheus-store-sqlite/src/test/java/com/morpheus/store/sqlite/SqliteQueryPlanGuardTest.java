@@ -26,18 +26,33 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class SqliteQueryPlanGuardTest {
 
-    /** A guarded statement; {@code excuse} is the reason its plan may scan or sort, or null when it may not. */
-    record Guarded(String name, String sql, String excuse) {
+    /**
+     * A guarded statement. {@code excuse} is the reason its plan may scan or sort, or null when it may not;
+     * {@code searchTerm} is a fragment some line of the plan must carry, or null when none is required.
+     */
+    record Guarded(String name, String sql, String excuse, String searchTerm) {
         Guarded {
             if (excuse != null && excuse.isBlank()) {
                 throw new IllegalArgumentException("guarded statement " + name + " is excused without a reason");
             }
         }
 
+        Guarded(String name, String sql, String excuse) {
+            this(name, sql, excuse, null);
+        }
+
         static Guarded served(String name, String sql) {
-            return new Guarded(name, sql, null);
+            return new Guarded(name, sql, null, null);
+        }
+
+        static Guarded searching(String name, String sql, String searchTerm) {
+            return new Guarded(name, sql, null, searchTerm);
         }
     }
+
+    private static final String ENDPOINT_GROUPED_BY_TYPE =
+            "the endpoint index returns links grouped by relation type, so the order by link id sorts the links of one "
+                    + "endpoint kept by the filter";
 
     private static final List<Guarded> GUARDED = List.of(
             Guarded.served("requirement-versions.current", SqliteVersionedRequirementStore.LIST_CURRENT_SQL),
@@ -47,7 +62,18 @@ class SqliteQueryPlanGuardTest {
             Guarded.served("saved-view-versions.list", SqliteSavedViewStore.LIST_VERSIONS_SQL),
             Guarded.served("policy-pack-activations.list", SqlitePolicyPackStore.LIST_ACTIVATIONS_SQL),
             Guarded.served("policy-overrides.list", SqlitePolicyPackStore.LIST_OVERRIDES_SQL),
-            Guarded.served("sync-inventory-entries.read", SqliteSyncStateStore.READ_INVENTORY_ENTRIES_SQL));
+            Guarded.served("sync-inventory-entries.read", SqliteSyncStateStore.READ_INVENTORY_ENTRIES_SQL),
+            Guarded.served("sync-source-archives.list", SqliteSyncStateStore.LIST_ARCHIVES_SQL),
+            new Guarded("traceability.outgoing-unfiltered", SqliteTraceabilityStore.endpointSql(true, 0),
+                    ENDPOINT_GROUPED_BY_TYPE, "source_identity_id=?"),
+            Guarded.searching("traceability.outgoing-one-type",
+                    SqliteTraceabilityStore.endpointSql(true, 1), "relation_type=?"),
+            new Guarded("traceability.outgoing-several-types", SqliteTraceabilityStore.endpointSql(true, 3),
+                    ENDPOINT_GROUPED_BY_TYPE, "relation_type=?"),
+            Guarded.searching("traceability.incoming-one-type",
+                    SqliteTraceabilityStore.endpointSql(false, 1), "relation_type=?"),
+            new Guarded("traceability.incoming-several-types", SqliteTraceabilityStore.endpointSql(false, 3),
+                    ENDPOINT_GROUPED_BY_TYPE, "relation_type=?"));
 
     @TempDir
     Path tempDir;
@@ -139,6 +165,7 @@ class SqliteQueryPlanGuardTest {
     private static List<String> problems(Connection connection, Guarded guarded) throws SQLException {
         Set<String> tables = tables(connection);
         List<String> flagged = new ArrayList<>();
+        boolean searchTermSeen = guarded.searchTerm() == null;
         try (Statement statement = connection.createStatement();
              ResultSet plan = statement.executeQuery("EXPLAIN QUERY PLAN " + guarded.sql())) {
             while (plan.next()) {
@@ -146,7 +173,12 @@ class SqliteQueryPlanGuardTest {
                 if (scansATable(detail, tables) || detail.contains("USE TEMP B-TREE")) {
                     flagged.add(detail);
                 }
+                searchTermSeen |= guarded.searchTerm() != null
+                        && detail.startsWith("SEARCH ") && detail.contains(guarded.searchTerm());
             }
+        }
+        if (!searchTermSeen) {
+            return List.of(guarded.name() + ": no line of the plan searches on " + guarded.searchTerm());
         }
         if (guarded.excuse() == null) {
             return flagged.stream().map(detail -> guarded.name() + ": " + detail).toList();
