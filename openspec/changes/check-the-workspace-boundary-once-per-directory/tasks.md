@@ -9,7 +9,7 @@ changes of sprints 6, 7 and 13. Nothing below is done by the pull request that i
       values of `d`, by instrumenting a scratch copy of `WorkspacePathBoundary`. Proof: the four numbers and the
       formula they fit; the audit's reasoning (`2 x d` segment checks per file, four queries per segment) is confirmed
       or corrected. Nothing was measured on 2026-10-13: the cost in the proposal is read from the code.
-- [ ] 1.2 Read `M19PerformanceGate`'s inventory-scan metric on the unchanged code, on Windows and on Linux, and the
+- [x] 1.2 Read `M19PerformanceGate`'s inventory-scan metric on the unchanged code, on Windows and on Linux, and the
       depth of its fixture. Proof: the two figures and the depth; if the fixture is shallow, say that M19 cannot show
       the saving and that the count test is the proof.
 - [ ] 1.3 Decision 3, option (b): on Windows and on Linux, compare the real path of a scanned file with the physical
@@ -51,7 +51,7 @@ changes of sprints 6, 7 and 13. Nothing below is done by the pull request that i
       Proof: green on both, with the number of tests skipped by assumption on each.
 - [x] 4.2 `IntermediateSymlinkBoundaryTest`, `LocalSourceInventorySecurityTest`, `SourceInventoryScanDisclosureTest`,
       `LocalSourceWatcherBudgetTest`. Proof: green unmodified.
-- [ ] 4.3 M19: `scripts\validate.cmd m19` and its `.sh` twin. Proof: the inventory-scan figure before (1.2) and after.
+- [x] 4.3 M19: `scripts\validate.cmd m19` and its `.sh` twin. Proof: the inventory-scan figure before (1.2) and after.
 - [ ] 4.4 Run the filter of `.claude/skills/adr-author`. Proof: its answer in the pull request. No ADR if the three
       first requirements hold as written; an ADR and a paragraph of `SECURITY.md` if open question 1 was answered yes.
 - [ ] 4.5 Pull request description: the finding, the two points where this change departs from its remedy (line 39,
