@@ -65,6 +65,8 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     private final MorpheusRemoteProxyTargetResolver proxyTargets;
     private final MorpheusRemoteProxyTransport proxyTransport;
     private final RemoteAccessJournal accessJournal;
+    private final DatabaseCallWorkers databaseWorkers =
+            new DatabaseCallWorkers(DatabaseWorkOffloadingHttpServer.DATABASE_WORKERS);
 
     // Wires together every transport, persistence, and access-control collaborator of the remote HTTPS facade
     // explicitly, per MorpheusMain's explicit-wiring convention (see .claude/rules/architecture.md, "Pas de
@@ -182,6 +184,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                 "cannot shut down the MORPHEUS remote HTTPS server",
                 () -> server.stop(0),
                 this::finishInFlightRequests,
+                databaseWorkers::close,
                 boundedResponses::close,
                 localServer::close,
                 lease::close);
@@ -288,7 +291,8 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             if (route.names("server/backups")) {
                 requireMethod(exchange, "POST");
                 requireEmptyBody(exchange);
-                SqliteServerMaintenance.BackupVerification backup = maintenance.createBackup(databasePath, backupDirectory);
+                SqliteServerMaintenance.BackupVerification backup =
+                        databaseWorkers.call(() -> maintenance.createBackup(databasePath, backupDirectory));
                 responses.sendSuccess(exchange, 201, backupView(backup));
                 return;
             }

@@ -51,6 +51,30 @@ class RemoteServerArchitectureTest {
     }
 
     /**
+     * The facade's own SQLite work runs on a database worker, never on the request's virtual thread (AUD-PRF-19).
+     *
+     * <p>The driver waits for a busy database inside native code, where a virtual thread keeps its carrier, and there
+     * are as many carriers as processors. Every route the facade does not forward reaches {@code maintenance} on the
+     * request's thread unless the call is handed to {@code databaseWorkers}. The intent is a property of what the
+     * source says, not of a compiled dependency, hence the text.</p>
+     */
+    @Test
+    void theRemoteFacadeCallsTheDatabaseOnlyThroughItsDatabaseWorkers() throws IOException {
+        String source = Files.readString(repositoryRoot().resolve(
+                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
+        Matcher call = Pattern.compile("maintenance\\.\\w+\\(").matcher(source);
+        int calls = 0;
+        while (call.find()) {
+            calls++;
+            String before = source.substring(Math.max(0, call.start() - 60), call.start());
+            assertTrue(before.contains("databaseWorkers.call(() -> "),
+                    () -> "a SQLite maintenance call of the remote facade must run on a database worker: "
+                            + source.substring(call.start(), Math.min(source.length(), call.end() + 40)));
+        }
+        assertTrue(calls > 0, "the facade no longer calls the maintenance service; this rule has nothing to hold");
+    }
+
+    /**
      * Every HTTP surface that reports a server-side location must name it rather than locate it.
      *
      * <p>These three were found one after another and share a cause: an internal model carrying an absolute
