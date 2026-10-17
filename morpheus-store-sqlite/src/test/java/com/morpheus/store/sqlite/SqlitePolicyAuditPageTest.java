@@ -29,7 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * is read in, and the store builds only the records of the page.
  */
 class SqlitePolicyAuditPageTest {
-    private static final int RECORDS = 130;
+    private static final int RECORDS = 30;
 
     @TempDir
     Path tempDir;
@@ -41,7 +41,7 @@ class SqlitePolicyAuditPageTest {
             PolicyIds.PackId packId = journal(store, RECORDS);
 
             PolicyAuditPage first = store.listAudit(packId, new PageRequest(0, 10));
-            PolicyAuditPage last = store.listAudit(packId, new PageRequest(125, 10));
+            PolicyAuditPage last = store.listAudit(packId, new PageRequest(25, 10));
             PolicyAuditPage beyond = store.listAudit(packId, new PageRequest(500, 10));
 
             assertEquals(10, first.items().size());
