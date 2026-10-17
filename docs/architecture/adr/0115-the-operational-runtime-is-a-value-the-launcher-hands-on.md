@@ -62,7 +62,7 @@ Relevé par recherche dans `src/test/java` et dans les classes que ces tests obs
 | État partagé | Qui l'écrit ou le lit | Effet attendu en parallèle |
 |---|---|---|
 | Compteurs statiques de `SqliteConnectionScope` (`diagnostics()` : connexions physiques ouvertes, fermées, actives, pic) | lus en différence par `SqliteConnectionScopeTest`, `SqliteConnectionScopeCloseFailureTest`, `SqliteRuntimeConnectionTest`, `ApiRuntimeSqliteSessionTest`, `CliRuntimeSqliteSessionTest`, `MorpheusMcpRuntimeConnectionTest`, `MorpheusCompositionMcpToolsTest`, et les trois tests de compte de connexions | **échec observé** (voir plus bas) |
-| Pilote SQLite dans `DriverManager` | `PhysicalSqliteConnections` (trois copies : `morpheus-api`, `morpheus-cli`, `morpheus-mcp`) désenregistre le pilote, enregistre un pilote compteur, puis rétablit ; utilisé par `HttpRequestConnectionCountTest`, `CliCommandConnectionCountTest`, `McpToolCallConnectionCountTest` | une connexion ouverte par un autre test pendant la fenêtre est comptée ; entre le désenregistrement et l'enregistrement, elle échoue faute de pilote |
+| Pilote SQLite dans `DriverManager` — **supprimé le 17/10/2026** (quatrième amendement) | `PhysicalSqliteConnections` (trois copies : `morpheus-api`, `morpheus-cli`, `morpheus-mcp`) désenregistre le pilote, enregistre un pilote compteur, puis rétablit ; utilisé par `HttpRequestConnectionCountTest`, `CliCommandConnectionCountTest`, `McpToolCallConnectionCountTest` | une connexion ouverte par un autre test pendant la fenêtre est comptée ; entre le désenregistrement et l'enregistrement, elle échoue faute de pilote |
 | Propriété système `java.home` | posée puis rétablie par `MinosPeerLauncherResolutionTest` et `NexusPeerLauncherResolutionTest` | tout test qui résout un lanceur Java pendant la fenêtre lit un répertoire temporaire |
 | `Locale.setDefault` | `PolicyApiEnumVocabularyLocaleTest`, `McpEnumVocabularyLocaleTest` | tout formatage sensible à la locale dans un autre test |
 | Runtime opérationnel du processus, lu par la route `/metrics` | écrit par tout test qui traverse une classe de la liste. `UnforeseenFailureTraceTest` y lit une **différence exacte** (`before + 2`, puis `before`) du compteur des erreurs internes : la règle textuelle ne le voit pas, il ne nomme pas le runtime. `MorpheusApiContractTest` et `MorpheusRootHttpRoutesContractTest` n'en attendent que la présence ou la croissance | `UnforeseenFailureTraceTest` échouerait dès qu'un autre test du même module provoque une erreur interne pendant sa fenêtre ; les deux autres non |
@@ -203,5 +203,25 @@ laisse une portée ouverte ferait échouer le test suivant du même thread, loin
 - **Le parallélisme est fixe** (`config.strategy=fixed`, quatre fils) : sans cela il suit `availableProcessors()`, et
   une course invisible sur un portable à deux cœurs peut se révéler sur un runner à seize.
 
-Ce que cet amendement ne ferme pas : le pilote compteur de `morpheus-api`, `morpheus-cli` et `morpheus-mcp` reste un
-état de processus (il déregistre le pilote SQLite du `DriverManager`), et ces trois modules restent séquentiels.
+Ce que cet amendement ne fermait pas — le pilote compteur de `morpheus-api`, `morpheus-cli` et `morpheus-mcp` — est
+fermé par l'amendement suivant.
+
+## Quatrième amendement du 17 octobre 2026 — le pilote compteur disparaît (AUD-QUA-17)
+
+Les trois tests de compte de connexions (`HttpRequestConnectionCountTest`, `CliCommandConnectionCountTest`,
+`McpToolCallConnectionCountTest`) ne passent plus par un pilote JDBC compteur. `PhysicalSqliteConnections`, copié dans les
+trois modules, désenregistrait le pilote SQLite du `DriverManager` de la JVM, mettait un pilote compteur à sa place et le
+rétablissait : un état de processus lu en différence, la forme exacte du défaut que cet ADR traite pour les compteurs
+statiques de la portée. Les trois copies sont supprimées.
+
+- **Ce qui reste mesuré, exactement.** Une opération ouvre **une** connexion de portée (`sqlite.scope.connection.opened`
+  vaut 1) et exécute **une** vérification de schéma (`sqlite.scope.schema.checked` vaut 1), lues en différence sur le
+  recorder que le test a remis au serveur, à l'outil ou au lanceur : un recorder par test, rien de partagé.
+- **Ce qui n'est plus observé à l'exécution.** Une connexion ouverte *hors* portée — un store construit à côté du runtime —
+  n'est plus comptée. Elle est refusée là où elle s'écrit : `SqliteConnectionScopeUseArchitectureTest` n'admet de
+  construction de store que dans `SqliteOperationRuntime` ou dans une classe nommée, et exige l'ouverture de la portée
+  avant la première construction. C'est une garantie sur le texte et le bytecode, pas sur une exécution : un chemin qui
+  ouvrirait une connexion sans construire de store (`SqliteDatabaseSecurity.open`) ne serait vu par aucune des deux.
+- **Ce que cela ne change pas pour le parallélisme.** `morpheus-api`, `morpheus-cli` et `morpheus-mcp` restent
+  séquentiels : `java.home` et `Locale.setDefault` (tableau ci-dessus) y partagent encore un état de la JVM. Les activer
+  est un lot à part, avec quatre exécutions propres par module.
