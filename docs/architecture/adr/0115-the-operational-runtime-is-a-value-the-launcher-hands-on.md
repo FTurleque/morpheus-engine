@@ -225,3 +225,13 @@ statiques de la portée. Les trois copies sont supprimées.
 - **Ce que cela ne change pas pour le parallélisme.** `morpheus-api`, `morpheus-cli` et `morpheus-mcp` restent
   séquentiels : `java.home` et `Locale.setDefault` (tableau ci-dessus) y partagent encore un état de la JVM. Les activer
   est un lot à part, avec quatre exécutions propres par module.
+
+## Cinquième amendement du 17 octobre 2026 — un test de saturation ne court pas contre les autres
+
+`SqliteLocalSecurityContractTest#concurrentFirstOpensMaterializeTheJournalWithoutRacingOnTheProbeTable` ouvre une base
+vide depuis seize threads, vingt-cinq fois, avec le délai d'occupation de cinq secondes du produit. Sur le runner Windows de
+la CI il a rendu `SQLITE_BUSY` deux fois de suite (PR 508, puis PR 510 qui ne touche aucun code de store), pendant que le
+module exécutait ses autres tests en parallèle : un test voisin de `SqliteMigrationAtomicityTest` y a pris 63 s au lieu de
+moins de 2. La classe est désormais `@Isolated`, comme `SqliteDatabaseLeaseTest` : un test qui sature SQLite exprès ne doit
+pas rivaliser avec d'autres tests, sinon il échoue pour une raison qui n'est pas celle qu'il vérifie. La cause de la
+lenteur du runner n'est pas établie.
