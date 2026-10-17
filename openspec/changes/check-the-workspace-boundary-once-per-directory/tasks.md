@@ -47,7 +47,7 @@ changes of sprints 6, 7 and 13. Nothing below is done by the pull request that i
 
 ## 4. Verification
 
-- [ ] 4.1 `./mvnw clean verify` on Windows and on Linux - the link tests only run fully where links can be created.
+- [x] 4.1 `./mvnw clean verify` on Windows and on Linux - the link tests only run fully where links can be created.
       Proof: green on both, with the number of tests skipped by assumption on each.
 - [x] 4.2 `IntermediateSymlinkBoundaryTest`, `LocalSourceInventorySecurityTest`, `SourceInventoryScanDisclosureTest`,
       `LocalSourceWatcherBudgetTest`. Proof: green unmodified.
