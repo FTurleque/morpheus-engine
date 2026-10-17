@@ -55,7 +55,7 @@ public final class LocalSourceInventoryScanner {
         return policy;
     }
 
-    /** What the last scan asked of the file system for the workspace boundary; the count a test of its cost reads. */
+    /** The file-system queries the last scan made for the workspace boundary, before reading and when re-validating. */
     BoundaryQueries boundaryQueriesOfLastScan() {
         return boundaryQueriesOfLastScan;
     }
