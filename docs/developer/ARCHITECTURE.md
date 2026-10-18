@@ -54,20 +54,25 @@ Ces frontières sont couvertes par `morpheus-architecture-tests` : **182/182 PAS
 ```text
 morpheus-domain
 morpheus-application
+morpheus-provider-sdk
+morpheus-provider-testkit
+morpheus-provider-reference
 morpheus-provider-openspec
 morpheus-provider-markdown
 morpheus-provider-synthetic
 morpheus-store-memory
 morpheus-store-sqlite
+morpheus-mcp-transport
 morpheus-integration-minos
 morpheus-integration-nexus
 morpheus-mcp
 morpheus-api
 morpheus-cli
 morpheus-architecture-tests
+morpheus-coverage-report
 ```
 
-Le gate M20 rapporte **14/14 modules SUCCESS**, parent inclus.
+La liste suit le bloc `<modules>` du `pom.xml` racine, qui fait foi.
 
 ## 4. Identité
 

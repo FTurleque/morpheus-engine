@@ -30,7 +30,7 @@ Charger le `pom.xml` racine comme projet Maven. Ne pas créer les sous-modules m
 
 ## Modules
 
-Le reactor contient 17 modules enfants / 18 projets Maven parent inclus :
+Le reactor déclare les modules ci-dessous dans le bloc `<modules>` du `pom.xml` racine, dans son ordre. Le nombre se compte dans le POM, il ne s'écrit pas ici :
 
 ```text
 morpheus-domain
@@ -50,6 +50,7 @@ morpheus-mcp
 morpheus-api
 morpheus-cli
 morpheus-architecture-tests
+morpheus-coverage-report
 ```
 
 Architecture générale :

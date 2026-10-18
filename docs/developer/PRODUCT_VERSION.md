@@ -40,7 +40,7 @@ La distribution fournit `Implementation-Version` à partir de `${project.version
 
 `ProductVersionSourceOfTruthTest` vérifie que les sources runtime actives ne réintroduisent ni `FALLBACK_VERSION` ni l'ancien fallback `0.1.0-SNAPSHOT`, et que CLI/MCP/HTTP restent raccordés à `ProductMetadata`.
 
-`ProductReleaseContractTest` vérifie en plus que les 17 POMs du reactor actif utilisent `1.2.1` et qu'aucun POM actif ne conserve `1.2.0` comme version MORPHEUS.
+`ProductReleaseContractTest` vérifie en plus que les POMs du reactor actif utilisent `1.2.1` et qu'aucun POM actif ne conserve `1.2.0` comme version MORPHEUS.
 
 Les scripts M21, D2 et les builders portables/release actifs utilisent également `1.2.1` par défaut. Les validateurs et documents de preuve historiques conservent volontairement la version réellement qualifiée à leur époque.
 
