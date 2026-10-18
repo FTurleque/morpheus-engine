@@ -141,8 +141,10 @@ class UpdateDiscoveryServiceStalledBodyTest {
         UpdateDiscoveryService recovering = new UpdateDiscoveryService(client, RECOVERY_TIMEOUT);
         int port = server.getAddress().getPort();
 
-        assertThrows(RuntimeException.class,
-                () -> stalling.check(URI.create("https://localhost:" + port + "/stall")));
+        URI stalledUri = URI.create("https://localhost:" + port + "/stall");
+        RuntimeException stalled = assertThrows(RuntimeException.class, () -> stalling.check(stalledUri));
+        assertTrue(stalled.getMessage() != null && stalled.getMessage().contains(stalledUri.toString()),
+                "the failure must name the manifest URI it was reading: " + stalled.getMessage());
 
         UpdateCheckResult result = recovering.check(URI.create("https://localhost:" + port + "/fast"));
         assertEquals("9.9.9", result.availableVersion());

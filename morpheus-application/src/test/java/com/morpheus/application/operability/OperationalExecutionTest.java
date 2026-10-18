@@ -21,10 +21,11 @@ class OperationalExecutionTest {
 
         assertEquals("provider-result", execution.providerRead("structured-markdown", () -> "provider-result"));
         assertEquals("external-result", execution.externalCall("MINOS", "resolve-symbol", () -> "external-result"));
-        assertThrows(IllegalStateException.class,
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
                 () -> execution.externalCall("NEXUS", "build-context", () -> {
                     throw new IllegalStateException("simulated unavailable dependency");
                 }));
+        assertEquals("simulated unavailable dependency", failure.getMessage());
 
         OperationalMetrics.Snapshot snapshot = metrics.snapshot();
         assertEquals(1L, snapshot.counters().get("provider.read.success"));
