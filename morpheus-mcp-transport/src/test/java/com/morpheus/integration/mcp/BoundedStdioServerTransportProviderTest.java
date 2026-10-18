@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -94,8 +95,9 @@ class BoundedStdioServerTransportProviderTest {
             provider.notifyClients("notifications/test", Map.of("sequence", 1)).block();
             assertTrue(output.awaitWrite(Duration.ofSeconds(2)));
             provider.notifyClients("notifications/test", Map.of("sequence", 2)).block();
-            assertThrows(RuntimeException.class, () -> provider.notifyClients(
+            RuntimeException overflow = assertThrows(RuntimeException.class, () -> provider.notifyClients(
                     "notifications/test", Map.of("sequence", 3)).block());
+            assertEquals("MCP STDIO outbound queue capacity exceeded", overflow.getMessage());
             output.release();
             assertTrue(provider.awaitTermination(Duration.ofSeconds(5)));
         } finally {
@@ -112,8 +114,9 @@ class BoundedStdioServerTransportProviderTest {
 
         McpSyncServer server = server(provider);
         try {
-            assertThrows(RuntimeException.class, () -> provider.notifyClient(
+            RuntimeException unknown = assertThrows(RuntimeException.class, () -> provider.notifyClient(
                     "not-the-session", "notifications/test", Map.of()).block());
+            assertEquals("Unknown MCP STDIO session: not-the-session", unknown.getMessage());
         } finally {
             server.close();
         }
@@ -127,10 +130,14 @@ class BoundedStdioServerTransportProviderTest {
 
     @Test
     void validatesResourceBudgets() {
-        assertThrows(IllegalArgumentException.class, () -> new BoundedStdioServerTransportProvider(
-                McpJsonDefaults.getMapper(), new ByteArrayInputStream(new byte[0]), new ByteArrayOutputStream(), 0, 1));
-        assertThrows(IllegalArgumentException.class, () -> new BoundedStdioServerTransportProvider(
-                McpJsonDefaults.getMapper(), new ByteArrayInputStream(new byte[0]), new ByteArrayOutputStream(), 1, 0));
+        IllegalArgumentException noFrameBytes = assertThrows(IllegalArgumentException.class,
+                () -> new BoundedStdioServerTransportProvider(McpJsonDefaults.getMapper(),
+                        new ByteArrayInputStream(new byte[0]), new ByteArrayOutputStream(), 0, 1));
+        assertEquals("maxFrameBytes must be positive", noFrameBytes.getMessage());
+        IllegalArgumentException noPendingMessages = assertThrows(IllegalArgumentException.class,
+                () -> new BoundedStdioServerTransportProvider(McpJsonDefaults.getMapper(),
+                        new ByteArrayInputStream(new byte[0]), new ByteArrayOutputStream(), 1, 0));
+        assertEquals("maxPendingMessages must be positive", noPendingMessages.getMessage());
     }
 
     @Test

@@ -203,10 +203,13 @@ class OpenSpecCurrentSpecificationReaderTest {
             abort("symbolic links cannot be created in this environment");
         }
 
-        assertThrows(IllegalArgumentException.class, () -> new OpenSpecCurrentSpecificationReader().read(
-                workspace,
-                ProjectSpecificationId.generate(),
-                new StableTestIdentityResolver()));
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> new OpenSpecCurrentSpecificationReader().read(
+                        workspace,
+                        ProjectSpecificationId.generate(),
+                        new StableTestIdentityResolver()));
+        assertTrue(refused.getMessage().startsWith("OpenSpec traversal refuses symbolic link: "), refused.getMessage());
+        assertTrue(refused.getMessage().endsWith("spec.md"), refused.getMessage());
     }
 
     private Path fixture(String name) {
