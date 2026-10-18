@@ -27,6 +27,7 @@ public final class LocalSourceInventoryScanner {
     private final SourceScanPolicy policy;
     private final OperationalRecorder recorder;
     private final Optional<FingerprintComputer> verificationComputer;
+    private volatile BoundaryQueries boundaryQueriesOfLastScan = new BoundaryQueries(0, 0);
 
     public LocalSourceInventoryScanner(OperationalRecorder recorder) {
         this(SourceScanPolicy.safeDefaults(), recorder, Optional.empty());
@@ -52,6 +53,14 @@ public final class LocalSourceInventoryScanner {
 
     public SourceScanPolicy policy() {
         return policy;
+    }
+
+    /** The file-system queries the last scan made for the workspace boundary, before reading and when re-validating. */
+    BoundaryQueries boundaryQueriesOfLastScan() {
+        return boundaryQueriesOfLastScan;
+    }
+
+    record BoundaryQueries(long beforeReading, long revalidating) {
     }
 
     public SourceInventoryScanResult scan(
@@ -111,10 +120,15 @@ public final class LocalSourceInventoryScanner {
         Map<SourcePath, SourceInventory.Entry> entries = new LinkedHashMap<>();
         List<SourceInventoryScanResult.Failure> failures = new ArrayList<>();
         ScanBudget budget = new ScanBudget(policy);
+        ScanWorkspaceBoundary boundary = new ScanWorkspaceBoundary(workspace);
 
-        for (Path root : roots) {
-            if (budget.exhausted()) break;
-            scanRoot(workspace, root, budget, entries, failures);
+        try {
+            for (Path root : roots) {
+                if (budget.exhausted()) break;
+                scanRoot(workspace, root, budget, boundary, entries, failures);
+            }
+        } finally {
+            boundaryQueriesOfLastScan = new BoundaryQueries(boundary.queriesBeforeReading(), boundary.queriesRevalidating());
         }
 
         if (!failures.isEmpty()) {
@@ -131,8 +145,10 @@ public final class LocalSourceInventoryScanner {
             Path workspace,
             Path root,
             ScanBudget budget,
+            ScanWorkspaceBoundary boundary,
             Map<SourcePath, SourceInventory.Entry> entries,
             List<SourceInventoryScanResult.Failure> failures) {
+        boundary.enterSourceRoot();
         if (!Files.exists(root, LinkOption.NOFOLLOW_LINKS)) {
             failures.add(new SourceInventoryScanResult.Failure(
                     Optional.of(display(workspace, root)),
@@ -148,7 +164,8 @@ public final class LocalSourceInventoryScanner {
             return;
         }
         try {
-            WorkspacePathBoundary.requireContained(workspace, root);
+            boundary.requireContainedBeforeReading(root);
+            boundary.markEntered(root);
         } catch (IOException boundaryFailure) {
             failures.add(new SourceInventoryScanResult.Failure(
                     Optional.of(display(workspace, root)),
@@ -167,7 +184,8 @@ public final class LocalSourceInventoryScanner {
                         return FileVisitResult.SKIP_SUBTREE;
                     }
                     try {
-                        WorkspacePathBoundary.requireContained(workspace, directory);
+                        boundary.requireContainedBeforeReading(directory);
+                        boundary.markEntered(directory);
                     } catch (IOException boundaryFailure) {
                         failures.add(new SourceInventoryScanResult.Failure(
                                 Optional.of(display(workspace, directory)),
@@ -199,7 +217,7 @@ public final class LocalSourceInventoryScanner {
                         return FileVisitResult.CONTINUE;
                     }
                     try {
-                        WorkspacePathBoundary.requireContained(workspace, file);
+                        boundary.requireContainedBeforeReading(file);
                     } catch (IOException boundaryFailure) {
                         failures.add(new SourceInventoryScanResult.Failure(
                                 Optional.of(display(workspace, file)),
@@ -253,7 +271,7 @@ public final class LocalSourceInventoryScanner {
                             }
                         }
 
-                        WorkspacePathBoundary.requireContained(workspace, file);
+                        boundary.requireStillContained(file);
                         BasicFileAttributes after = SourceFingerprint.readAttributes(file);
                         if (!SourceFingerprint.sameFileIdentity(authoritativeBefore, after)) {
                             failures.add(new SourceInventoryScanResult.Failure(

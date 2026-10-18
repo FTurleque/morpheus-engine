@@ -41,7 +41,7 @@ Implementation is a separate lot, started after this specification is reviewed a
 - [x] 4.1 `./mvnw clean verify`; the changed-line coverage gate. Proof: green; no ratchet is touched.
 - [x] 4.2 `TraceabilityPersistenceContractTest`, `TraceabilityTraversalContractTest`,
       `TraceabilityTruncationContractTest` and `IncrementalSyncPersistenceContractTest`. Proof: green unmodified.
-- [ ] 4.3 M19: `scripts\validate.cmd m19` and its `.sh` twin. Proof: the traceability budget holds; figures before and
+- [x] 4.3 M19: `scripts\validate.cmd m19` and its `.sh` twin. Proof: the traceability budget holds; figures before and
       after in the pull request.
 - [ ] 4.4 Pull request description: the two findings, the half of `AUD-PRF-13` already held by `policy-audit-order`,
       the plans of 1.2, and the `listSnapshots` observation of the design as a separate item.
