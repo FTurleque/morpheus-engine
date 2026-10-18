@@ -1,6 +1,7 @@
 # ADR-0060 — Sync CLI conservateur par publication complète de snapshot
 
-- Statut : **Acceptée — M9, récupération durcie le 19 août 2026**
+- Statut : **Acceptée — M9, récupération durcie le 19 août 2026** ; la section « Sync M7 » est remplacée en partie par
+  [ADR-0117](0117-the-sync-receipt-says-what-was-executed.md)
 - Date : 24 juillet 2026
 - Dépend de : ADR-0033, ADR-0034, ADR-0039, ADR-0053, ADR-0054, ADR-0055
 - Portée : M9 — ingestion exécutable depuis la CLI

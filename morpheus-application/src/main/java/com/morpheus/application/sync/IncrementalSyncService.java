@@ -287,6 +287,9 @@ public final class IncrementalSyncService {
         if (inventoryDiff.ambiguousMoves()) {
             return Optional.of(SyncPlan.FullRebuildReason.AMBIGUOUS_MOVE);
         }
+        if (trigger.incrementalExecutorUnavailable() && inventoryDiff.changed()) {
+            return Optional.of(SyncPlan.FullRebuildReason.INCREMENTAL_EXECUTOR_UNAVAILABLE);
+        }
         return Optional.empty();
     }
 

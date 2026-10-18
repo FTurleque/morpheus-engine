@@ -125,6 +125,53 @@ class SourceSynchronizationCoreTest {
     }
 
     @Test
+    void aCallerWithoutAnIncrementalExecutorPlansAFullRebuildWhenASourceChanged() {
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+        FakeSyncStateStore store = seededStore(inventory(projectId, "r1", T0, entry("edit.md", "old")));
+        IncrementalSyncService service = new IncrementalSyncService(store, OperationalRecorder.noop());
+        SourceInventory changed = inventory(projectId, "r2", T0.plusSeconds(10), entry("edit.md", "new"));
+
+        SyncPlan plan = service.prepare(SourceInventoryScanResult.complete(changed),
+                SyncPlan.Trigger.manual().withoutIncrementalExecutor(), T0.plusSeconds(11));
+
+        assertEquals(SyncPlan.SyncMode.FULL_REBUILD, plan.mode());
+        assertEquals(SyncPlan.FullRebuildReason.INCREMENTAL_EXECUTOR_UNAVAILABLE, plan.fullRebuildReason().orElseThrow());
+        assertEquals(List.of(new SourcePath("edit.md")), plan.invalidation().refreshRequired());
+
+        service.complete(plan, T0.plusSeconds(12));
+        assertEquals(SyncPlan.SyncMode.FULL_REBUILD,
+                store.findSyncState(projectId).orElseThrow().lastSuccessfulMode().orElseThrow());
+    }
+
+    @Test
+    void aCallerWithoutAnIncrementalExecutorStaysIncrementalWhenNothingChanged() {
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+        SourceInventory baseline = inventory(projectId, "r1", T0, entry("same.md", "same"));
+        FakeSyncStateStore store = seededStore(baseline);
+        IncrementalSyncService service = new IncrementalSyncService(store, OperationalRecorder.noop());
+
+        SyncPlan plan = service.prepare(SourceInventoryScanResult.complete(baseline),
+                SyncPlan.Trigger.manual().withoutIncrementalExecutor(), T0.plusSeconds(11));
+
+        assertEquals(SyncPlan.SyncMode.INCREMENTAL, plan.mode());
+        assertTrue(plan.fullRebuildReason().isEmpty());
+        assertFalse(plan.hasSourceChanges());
+    }
+
+    @Test
+    void aMoreSpecificReasonKeepsPrecedenceOverTheMissingIncrementalExecutor() {
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+        FakeSyncStateStore store = seededStore(inventory(projectId, "r1", T0, entry("edit.md", "old")));
+        IncrementalSyncService service = new IncrementalSyncService(store, OperationalRecorder.noop());
+        SourceInventory changed = inventory(projectId, "r2", T0.plusSeconds(10), entry("edit.md", "new"));
+
+        SyncPlan plan = service.prepare(SourceInventoryScanResult.complete(changed),
+                SyncPlan.Trigger.manual().withoutIncrementalExecutor().forced(), T0.plusSeconds(11));
+
+        assertEquals(SyncPlan.FullRebuildReason.FORCED, plan.fullRebuildReason().orElseThrow());
+    }
+
+    @Test
     void incrementalPlanProducesPreciseInvalidationRefreshAndArchives() {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         FakeSyncStateStore store = seededStore(inventory(projectId, "r1", T0,
