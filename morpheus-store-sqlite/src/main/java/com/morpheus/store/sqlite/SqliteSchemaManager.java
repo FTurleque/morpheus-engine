@@ -42,8 +42,10 @@ final class SqliteSchemaManager {
             new Migration(19, "sync-state-revision", "/db/migration/V019__sync_state_revision.sql"),
             new Migration(20, "composition-precedence-recorded",
                     "/db/migration/V020__composition_precedence_recorded.sql"),
-            new Migration(21, "policy-audit-order-key", "/db/migration/V021__policy_audit_order_key.sql"));
-    static final int SUPPORTED_SCHEMA_VERSION = 21;
+            new Migration(21, "policy-audit-order-key", "/db/migration/V021__policy_audit_order_key.sql"),
+            new Migration(22, "serve-ordered-reads-from-an-index",
+                    "/db/migration/V022__serve_ordered_reads_from_an_index.sql"));
+    static final int SUPPORTED_SCHEMA_VERSION = 22;
 
     void migrate(Connection connection) {
         if (SqliteConnectionScope.schemaReadyIfActive()) return;

@@ -30,6 +30,18 @@ import java.util.Optional;
 
 /** SQLite V015 adapter for versioned policy packs, activations, overrides and immutable audit. */
 public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseable {
+    static final String LIST_ACTIVATIONS_SQL = """
+            SELECT scope_kind, scope_id, pack_id, version_id, revision, actor, updated_at
+            FROM policy_pack_activations
+            WHERE scope_kind = ? AND scope_id = ?
+            ORDER BY pack_id
+            """;
+    static final String LIST_OVERRIDES_SQL = """
+            SELECT scope_kind, scope_id, pack_id, rule_id, mode, reason, actor, revision, updated_at
+            FROM policy_overrides
+            WHERE scope_kind = ? AND scope_id = ?
+            ORDER BY pack_id, rule_id
+            """;
     static final String AUDIT_PAGE_SQL = """
             SELECT id, action, pack_id, version_id, rule_id, scope_kind, scope_id, actor, reason, at
             FROM policy_audit WHERE pack_id = ?
@@ -234,12 +246,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
     @Override
     public synchronized List<PolicyConfiguration.Activation> listActivations(PolicyScope scope) {
         ensureOpen();
-        try (PreparedStatement statement = connection.prepareStatement("""
-                SELECT scope_kind, scope_id, pack_id, version_id, revision, actor, updated_at
-                FROM policy_pack_activations
-                WHERE scope_kind = ? AND scope_id = ?
-                ORDER BY pack_id
-                """)) {
+        try (PreparedStatement statement = connection.prepareStatement(LIST_ACTIVATIONS_SQL)) {
             bindScope(statement, 1, scope);
             try (ResultSet result = statement.executeQuery()) {
                 List<PolicyConfiguration.Activation> values = new ArrayList<>();
@@ -397,12 +404,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
     @Override
     public synchronized List<PolicyConfiguration.Override> listOverrides(PolicyScope scope) {
         ensureOpen();
-        try (PreparedStatement statement = connection.prepareStatement("""
-                SELECT scope_kind, scope_id, pack_id, rule_id, mode, reason, actor, revision, updated_at
-                FROM policy_overrides
-                WHERE scope_kind = ? AND scope_id = ?
-                ORDER BY pack_id, rule_id
-                """)) {
+        try (PreparedStatement statement = connection.prepareStatement(LIST_OVERRIDES_SQL)) {
             bindScope(statement, 1, scope);
             try (ResultSet result = statement.executeQuery()) {
                 List<PolicyConfiguration.Override> values = new ArrayList<>();

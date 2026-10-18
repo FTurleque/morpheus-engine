@@ -266,7 +266,7 @@ La publication d'un snapshot et la persistance de la baseline de synchronisation
 
 Le gestionnaire de migrations connaît la version maximale supportée par le runtime : `SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION`, qui est la seule source normative — **ne jamais recopier sa valeur ici**, elle change à chaque migration. Après création/lecture du ledger et **avant toute migration connue**, une base dont `MAX(schema_migrations.version)` dépasse cette constante est refusée. `SqliteServerMaintenance` dérive sa propre limite de la même constante, ce qui empêche le backup/restore de diverger du gestionnaire de schéma.
 
-Les migrations historiques restent immuables ; chacune décrite ci-dessous l'est à titre de contenu, pas comme borne courante. La dernière en date, V017, réserve durablement les numéros de `SpecificationVersion.sequence` dans la transaction d'écriture, là où `MAX(sequence)+1` pouvait attribuer le même numéro à deux connexions concurrentes.
+Les migrations historiques restent immuables ; chacune décrite ci-dessous l'est à titre de contenu, pas comme borne courante. V017, par exemple, réserve durablement les numéros de `SpecificationVersion.sequence` dans la transaction d'écriture, là où `MAX(sequence)+1` pouvait attribuer le même numéro à deux connexions concurrentes.
 
 V016 répare d’éventuels doublons historiques de `SpecificationVersion.sequence` par projet, puis impose un index unique partiel `(project_id, sequence)` pour toute séquence non nulle. Une candidate de publication FAILED reste durable pour l’audit et consomme sa séquence ; un retry alloue donc la suivante au lieu de produire un doublon logique.
 
@@ -331,7 +331,7 @@ explicit --confirm
 
 Le remote server garde le même file lock pendant toute sa durée de vie. Une restauration concurrente échoue donc avant remplacement.
 
-`SUPPORTED_SCHEMA_VERSION` est dérivé de `SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION` (**16** sur cette baseline). Un backup `> 16` est rejeté. Un backup `<= 16` est accepté ; les migrations normales restent l’unique mécanisme d’upgrade lors de l’ouverture suivante.
+`SUPPORTED_SCHEMA_VERSION` est dérivé de `SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION` (la valeur courante se lit dans la constante, jamais ici). Un backup au-delà de cette valeur est rejeté. Un backup à cette valeur ou en deçà est accepté ; les migrations normales restent l’unique mécanisme d’upgrade lors de l’ouverture suivante.
 
 ### Format des migrations SQLite
 

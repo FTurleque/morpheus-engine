@@ -29,6 +29,29 @@ import java.util.Optional;
 
 /** SQLite V014 adapter for M24 saved query definitions and immutable revision history. */
 public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable {
+    static final String INSERT_WITHIN_BUDGET_SQL = """
+            INSERT INTO saved_views(
+                id, scope_kind, scope_id, name, query_definition,
+                revision, status, created_at, updated_at)
+            SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?
+            WHERE (
+                SELECT COUNT(*) FROM saved_views
+                WHERE scope_kind = ? AND scope_id = ?
+            ) < ?
+            """;
+    static final String LIST_BY_SCOPE_SQL = """
+            SELECT id, scope_kind, scope_id, name, query_definition,
+                   revision, status, created_at, updated_at
+            FROM saved_views
+            WHERE scope_kind = ? AND scope_id = ?
+            ORDER BY name COLLATE NOCASE, id
+            """;
+    static final String LIST_VERSIONS_SQL = """
+            SELECT saved_view_id, revision, name, query_definition, status, recorded_at
+            FROM saved_view_versions
+            WHERE saved_view_id = ?
+            ORDER BY revision
+            """;
     private final Connection connection;
     private final QueryDefinitionCodec codec = new QueryDefinitionCodec();
     private boolean closed;
@@ -51,16 +74,7 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
         }
         transaction(() -> {
             int inserted;
-            try (PreparedStatement statement = connection.prepareStatement("""
-                    INSERT INTO saved_views(
-                        id, scope_kind, scope_id, name, query_definition,
-                        revision, status, created_at, updated_at)
-                    SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?
-                    WHERE (
-                        SELECT COUNT(*) FROM saved_views
-                        WHERE scope_kind = ? AND scope_id = ?
-                    ) < ?
-                    """)) {
+            try (PreparedStatement statement = connection.prepareStatement(INSERT_WITHIN_BUDGET_SQL)) {
                 bindDefinition(statement, definition);
                 statement.setString(10, scopeKind(definition.query().scope()));
                 statement.setString(11, scopeId(definition.query().scope()));
@@ -107,13 +121,7 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
     public synchronized List<SavedViewEntry> list(QueryScope scope) {
         ensureOpen();
         Objects.requireNonNull(scope, "scope");
-        try (PreparedStatement statement = connection.prepareStatement("""
-                SELECT id, scope_kind, scope_id, name, query_definition,
-                       revision, status, created_at, updated_at
-                FROM saved_views
-                WHERE scope_kind = ? AND scope_id = ?
-                ORDER BY name COLLATE NOCASE, id
-                """)) {
+        try (PreparedStatement statement = connection.prepareStatement(LIST_BY_SCOPE_SQL)) {
             statement.setString(1, scopeKind(scope));
             statement.setString(2, scopeId(scope));
             try (ResultSet result = statement.executeQuery()) {
@@ -132,12 +140,7 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
     public synchronized List<SavedViewVersion> listVersions(SavedViewId id) {
         ensureOpen();
         Objects.requireNonNull(id, "id");
-        try (PreparedStatement statement = connection.prepareStatement("""
-                SELECT saved_view_id, revision, name, query_definition, status, recorded_at
-                FROM saved_view_versions
-                WHERE saved_view_id = ?
-                ORDER BY revision
-                """)) {
+        try (PreparedStatement statement = connection.prepareStatement(LIST_VERSIONS_SQL)) {
             statement.setString(1, id.toString());
             try (ResultSet result = statement.executeQuery()) {
                 List<SavedViewVersion> values = new ArrayList<>();

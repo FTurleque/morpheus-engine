@@ -25,6 +25,12 @@ import java.util.Optional;
 
 /** SQLite adapter for M7 synchronization state, current inventory and immutable source archives. */
 public final class SqliteSyncStateStore implements SyncStateStore, AutoCloseable {
+    static final String READ_INVENTORY_ENTRIES_SQL = """
+            SELECT source_path, fingerprint_sha256, size_bytes
+            FROM sync_inventory_entries
+            WHERE project_id = ?
+            ORDER BY source_path
+            """;
     private final Connection connection;
     private boolean closed;
 
@@ -347,12 +353,7 @@ public final class SqliteSyncStateStore implements SyncStateStore, AutoCloseable
     }
 
     private List<SourceInventory.Entry> readEntries(ProjectSpecificationId projectId) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement("""
-                SELECT source_path, fingerprint_sha256, size_bytes
-                FROM sync_inventory_entries
-                WHERE project_id = ?
-                ORDER BY source_path
-                """)) {
+        try (PreparedStatement statement = connection.prepareStatement(READ_INVENTORY_ENTRIES_SQL)) {
             statement.setString(1, projectId.toString());
             List<SourceInventory.Entry> entries = new ArrayList<>();
             try (ResultSet result = statement.executeQuery()) {
