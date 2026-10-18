@@ -41,7 +41,7 @@
 
 ## 4. Verification and destinations
 
-- [ ] 4.1 `./mvnw clean verify` on both platforms, then `validate-m21` on each. Proof: both summaries.
+- [x] 4.1 `./mvnw clean verify` on both platforms, then `validate-m21` on each. Proof: both summaries.
 - [x] 4.2 Run `RepositoryDocumentationCoherenceTest` and `ProductionIntegrityContractTest` and let their failures name
       the pages to update; a dated measurement is not rewritten.
 - [x] 4.3 Amend the ADR that carries the presence ratchets (expected ADR-0089; `adr-author` confirms) with the second
