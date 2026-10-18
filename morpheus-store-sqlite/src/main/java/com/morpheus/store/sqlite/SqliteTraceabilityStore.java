@@ -146,6 +146,22 @@ public final class SqliteTraceabilityStore implements TraceabilityStore, AutoClo
         }
     }
 
+    /**
+     * The statement of an endpoint read. Its text depends on the direction and on how many relation types are named,
+     * never on which: the types are bound, in the order of the enum. No type named reads every type.
+     */
+    static String endpointSql(boolean outgoing, int relationTypeCount) {
+        String kindColumn = outgoing ? "source_kind" : "target_kind";
+        String identityColumn = outgoing ? "source_identity_id" : "target_identity_id";
+        StringBuilder sql = new StringBuilder("SELECT l.* FROM traceability_links l "
+                + "JOIN snapshot_traceability_links m ON m.link_id = l.link_id "
+                + "WHERE m.snapshot_id = ? AND l." + kindColumn + " = ? AND l." + identityColumn + " = ?");
+        if (relationTypeCount > 0) {
+            sql.append(" AND l.relation_type IN (").append("?, ".repeat(relationTypeCount - 1)).append("?)");
+        }
+        return sql.append(" ORDER BY l.link_id").toString();
+    }
+
     private List<TraceabilityLink> endpointQuery(
             KnowledgeSnapshotId snapshotId,
             TraceabilityEntityRef endpoint,
@@ -154,26 +170,23 @@ public final class SqliteTraceabilityStore implements TraceabilityStore, AutoClo
         ensureOpen();
         Objects.requireNonNull(snapshotId, "snapshotId");
         Objects.requireNonNull(endpoint, "endpoint");
-        Set<TraceabilityRelationType> filter = Set.copyOf(Objects.requireNonNull(relationTypes, "relationTypes"));
-        String kindColumn = outgoing ? "source_kind" : "target_kind";
-        String identityColumn = outgoing ? "source_identity_id" : "target_identity_id";
+        List<String> filter = Objects.requireNonNull(relationTypes, "relationTypes").stream()
+                .sorted()
+                .map(Enum::name)
+                .toList();
         try {
             requireSnapshot(snapshotId);
-            String sql = "SELECT l.* FROM traceability_links l "
-                    + "JOIN snapshot_traceability_links m ON m.link_id = l.link_id "
-                    + "WHERE m.snapshot_id = ? AND l." + kindColumn + " = ? AND l." + identityColumn + " = ? "
-                    + "ORDER BY l.link_id";
-            try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            try (PreparedStatement statement = connection.prepareStatement(endpointSql(outgoing, filter.size()))) {
                 statement.setString(1, snapshotId.toString());
                 statement.setString(2, endpoint.kind().name());
                 statement.setString(3, endpoint.identity().toString());
+                for (int index = 0; index < filter.size(); index++) {
+                    statement.setString(4 + index, filter.get(index));
+                }
                 try (ResultSet result = statement.executeQuery()) {
                     List<TraceabilityLink> links = new ArrayList<>();
                     while (result.next()) {
-                        TraceabilityLink link = mapLink(result);
-                        if (filter.isEmpty() || filter.contains(link.relationType())) {
-                            links.add(link);
-                        }
+                        links.add(mapLink(result));
                     }
                     return List.copyOf(links);
                 }
