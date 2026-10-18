@@ -2,6 +2,9 @@
 
 Statut : **ACTIVE — MORPHEUS 1.2.1 PUBLIÉ**
 
+> Ce guide décrit la mise à niveau vers **1.2.1**, une release publiée. Ce qu'il dit du schéma SQLite (V020) vaut pour
+> cette release. Pour la version en cours, voir [`UPGRADE_1_2_2.md`](UPGRADE_1_2_2.md).
+
 Ce guide couvre la mise à niveau depuis MORPHEUS 1.2.0 vers MORPHEUS 1.2.1, publiée le 16 octobre 2026.
 
 **Depuis 1.1.0.** La mise à niveau directe de 1.1.0 vers 1.2.1 est supportée : il n'est pas nécessaire d'installer

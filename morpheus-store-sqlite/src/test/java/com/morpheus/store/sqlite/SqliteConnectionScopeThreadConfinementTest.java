@@ -103,14 +103,18 @@ class SqliteConnectionScopeThreadConfinementTest {
     void theScopeStillClosesNormallyOnItsOwningThreadAfterAForeignAttempt() throws Exception {
         Path database = tempDir.resolve("still-closeable.db");
         SqliteConnectionScope scope = SqliteConnectionScope.open(database, OperationalRecorder.noop());
-        Connection borrowed = SqliteConnectionScope.borrowIfActive(database, busyTimeout());
-        assertNotNull(borrowed);
+        try {
+            Connection borrowed = SqliteConnectionScope.borrowIfActive(database, busyTimeout());
+            assertNotNull(borrowed);
 
-        onAnotherThread(() -> assertThrows(SQLException.class, borrowed::createStatement));
+            onAnotherThread(() -> assertThrows(SQLException.class, borrowed::createStatement));
 
-        assertDoesNotThrow(scope::close);
-        // A second close on the owning thread stays a no-op.
-        assertDoesNotThrow(scope::close);
+            assertDoesNotThrow(scope::close);
+            // A second close on the owning thread stays a no-op.
+            assertDoesNotThrow(scope::close);
+        } finally {
+            scope.close();
+        }
     }
 
     private static int busyTimeout() {

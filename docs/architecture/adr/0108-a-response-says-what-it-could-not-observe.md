@@ -1057,3 +1057,20 @@ lit, qu'une première version de la preuve ne sondait pas et laissait passer —
 les deux sondages. Ajouter à `policy` et à `portfolio` une clé sans `case`, en changeant le message de la branche
 `default` de `policy`, fait tomber 3 cas : l'égalité des tables et les deux clés, rendues `4` et `2` sans atteindre leur
 `case`.
+
+## Amendement du 17 octobre 2026 (AUD-PRF-02) — `findPath()` n'existe plus, la traversée explique ses nœuds
+
+`findPath()` et `TraceabilityTraversalBudgetException` sont supprimés. Leur seul appelant de production, l'analyse d'un
+change, relançait un parcours en largeur complet pour chaque nœud que la traversée venait de découvrir : mesuré le
+17/10/2026, 63 s pour une seule analyse d'un delta qui atteint le budget de nœuds (budget : 2 s), contre 0,4 s pour
+trois deltas après correction. `TraceabilityTraversalService.traverseExplained()` garde, à la découverte de chaque
+nœud, le pas qui l'a découvert et reconstruit les chemins en mémoire.
+
+Ce que la décision d'origine garantissait tient toujours, autrement : une traversée qui épuise un budget le dit dans
+`truncationReason`, et `ExplainedTraversal` n'explique que les nœuds que le sous-graphe rapporte — un nœud non atteint
+n'a pas de chemin et n'est pas présenté comme « sans chemin ». Le cas « budget épuisé avant la cible » que
+l'exception nommait n'existe plus : il n'y a plus de cible à chercher.
+
+L'équivalence des chemins a été prouvée avant la suppression, sur 60 graphes aléatoires (trois directions, deux
+filtres de relation, quatre profondeurs, cycles et liens non résolus compris) et sur une étoile coupée par le budget de
+nœuds : chaque chemin reconstruit était celui que `findPath()` rendait.

@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -37,6 +38,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MorpheusCliTest {
@@ -389,6 +391,59 @@ class MorpheusCliTest {
         assertEquals(0, status.exitCode(), status.stderr());
         assertTrue(status.stdout().contains("\"state\":\"FRESH\""), status.stdout());
         assertTrue(status.stdout().contains("\"lastSuccessfulMode\":\"FULL_REBUILD\""), status.stdout());
+    }
+
+    @Test
+    void aSyncOfModifiedSourcesPublishesInFullAndSaysSo() throws Exception {
+        Path data = tempDir.resolve("data");
+        Path workspace = copyOfFixture("openspec-basic");
+
+        Invocation add = invokeWithData(data, "projects", "add", "--workspace", workspace.toString());
+        assertEquals(0, add.exitCode(), add.stderr());
+        String projectId = value(add.stdout(), "projectId");
+        Invocation first = invokeWithData(data, "sync", "--project", projectId);
+        assertEquals(0, first.exitCode(), first.stderr());
+        String firstSnapshot = value(first.stdout(), "snapshotId");
+
+        Invocation unchanged = invokeWithData(data, "sync", "--project", projectId);
+        assertEquals(0, unchanged.exitCode(), unchanged.stderr());
+        assertTrue(unchanged.stdout().contains("mode=INCREMENTAL"), unchanged.stdout());
+        assertTrue(unchanged.stdout().contains("published=false"), unchanged.stdout());
+        Invocation statusBefore = invokeWithData(data, "--json", "sync-status", "--project", projectId);
+        assertTrue(statusBefore.stdout().contains("\"lastSuccessfulMode\":\"INCREMENTAL\""), statusBefore.stdout());
+
+        Path spec;
+        try (var files = Files.walk(workspace.resolve("openspec"))) {
+            spec = files.filter(path -> path.getFileName().toString().equals("spec.md")).findFirst().orElseThrow();
+        }
+        Files.writeString(spec, Files.readString(spec) + "\nA line added after the first sync.\n");
+
+        Invocation changed = invokeWithData(data, "sync", "--project", projectId);
+        assertEquals(0, changed.exitCode(), changed.stderr());
+        assertTrue(changed.stdout().contains("mode=FULL_REBUILD"), changed.stdout());
+        assertTrue(changed.stdout().contains("fullRebuildReason=INCREMENTAL_EXECUTOR_UNAVAILABLE"), changed.stdout());
+        assertTrue(changed.stdout().contains("published=true"), changed.stdout());
+        assertNotEquals(firstSnapshot, value(changed.stdout(), "snapshotId"));
+
+        Invocation statusAfter = invokeWithData(data, "--json", "sync-status", "--project", projectId);
+        assertEquals(0, statusAfter.exitCode(), statusAfter.stderr());
+        assertTrue(statusAfter.stdout().contains("\"lastSuccessfulMode\":\"FULL_REBUILD\""), statusAfter.stdout());
+    }
+
+    private Path copyOfFixture(String name) throws IOException {
+        Path source = fixture(name);
+        Path copy = tempDir.resolve("workspace-" + name);
+        try (var files = Files.walk(source)) {
+            for (Path file : (Iterable<Path>) files::iterator) {
+                Path target = copy.resolve(source.relativize(file).toString());
+                if (Files.isDirectory(file)) {
+                    Files.createDirectories(target);
+                } else {
+                    Files.copy(file, target);
+                }
+            }
+        }
+        return copy;
     }
 
     /**

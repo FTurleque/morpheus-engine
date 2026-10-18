@@ -9,8 +9,8 @@ import com.morpheus.application.store.SnapshotBusinessContent;
 import com.morpheus.application.store.SnapshotSpecificationVersionBinding;
 import com.morpheus.application.traceability.TraceRequirementResult;
 import com.morpheus.application.traceability.TraceRequirementService;
+import com.morpheus.application.traceability.ExplainedTraversal;
 import com.morpheus.application.traceability.TraceabilitySubgraph;
-import com.morpheus.application.traceability.TraceabilityTraversalBudgetException;
 import com.morpheus.application.traceability.TraceabilityTraversalDirection;
 import com.morpheus.application.traceability.TraceabilityTraversalService;
 import com.morpheus.domain.evidence.EvidenceId;
@@ -52,7 +52,6 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -146,17 +145,18 @@ class TraceabilityTruncationContractTest {
     }
 
     @Test
-    void aPathSearchPastItsNodeBudgetFailsInsteadOfAnsweringNoPath() {
+    void anExplainedTraversalPastItsNodeBudgetSaysSoAndExplainsOnlyTheNodesItReported() {
         KnowledgeSnapshotId snapshotId = readySnapshot(ProjectSpecificationId.generate());
         TraceabilityEntityRef start = ref(TraceabilityEntityKind.REQUIREMENT);
         star(snapshotId, start, MAX_NODES + 4);
         TraceabilityEntityRef unreachable = ref(TraceabilityEntityKind.CHANGE);
 
-        TraceabilityTraversalBudgetException failure = assertThrows(TraceabilityTraversalBudgetException.class,
-                () -> service.findPath(
-                        snapshotId, start, unreachable, 1, TraceabilityTraversalDirection.OUTGOING, Set.of()));
+        ExplainedTraversal explained = service.traverseExplained(
+                snapshotId, start, 1, TraceabilityTraversalDirection.OUTGOING, Set.of());
 
-        assertEquals("NODE_BUDGET_REACHED:" + MAX_NODES, failure.getMessage());
+        assertEquals(Optional.of("NODE_BUDGET_REACHED:" + MAX_NODES), explained.subgraph().truncationReason());
+        assertEquals(MAX_NODES - 1, explained.paths().size());
+        assertFalse(explained.paths().containsKey(unreachable));
     }
 
     @Test

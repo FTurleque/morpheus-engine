@@ -245,7 +245,7 @@ public final class MorpheusCli {
                     attemptedAt,
                     List.of(Path.of("openspec")));
             IncrementalSyncService syncService = new IncrementalSyncService(runtime.syncState(), recorder);
-            SyncPlan.Trigger trigger = SyncPlan.Trigger.manual();
+            SyncPlan.Trigger trigger = SyncPlan.Trigger.manual().withoutIncrementalExecutor();
             if (force || runtime.snapshots().activeSnapshot(projectId).isEmpty()) {
                 trigger = trigger.forced();
             }

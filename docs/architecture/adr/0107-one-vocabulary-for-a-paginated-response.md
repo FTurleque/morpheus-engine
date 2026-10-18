@@ -347,3 +347,30 @@ choix), pas les maxima des outils qui gardent leurs propres bornes (500, volonta
 recopierait `100` au lieu de lire `PageArguments` ou le catalogue, ou une quatrième description, ne serait pas vu. Il n'appelle aucun outil du catalogue à son maximum. Le fait
 que l'ouverture du store précède le refus d'une page en appel direct n'est pas gardé : c'est un résidu écrit, pas une propriété testée. Le fait qu'un appel servi avec
 `limit = 0` n'ouvre aucun store est établi par lecture (`validateToolInputs(true)`, l'ordre du SDK), non par une mesure de bout en bout.
+
+## Amendement du 17 octobre 2026 (AUD-PRF-04) — l'audit des policies est borné à la source et pagine partout
+
+L'amendement MCP-2 laissait trois collections paginées pour le seul MCP, par découpage d'une liste déjà lue, et notait
+deux résidus : « la lecture reste non bornée », et HTTP et la CLI répondaient encore par un tableau, « à décider
+séparément ». Pour **l'audit d'un pack de policies**, les deux sont levés.
+
+- **Le store prend la page.** `PolicyPackStore.listAudit(packId, PageRequest)` rend une `PolicyAuditPage` (les
+  enregistrements de la page, le total, `hasMore`) ; le port n'a plus de méthode qui rende le journal entier. Le store
+  mémoire découpe sa liste triée (outillage de test) ; le store SQLite ne construit que les enregistrements de la page
+  (`LIMIT`/`OFFSET` sur un index).
+- **L'ordre que la base peut suivre.** Choix du mainteneur, option (b) de la spécification, le 17/10/2026 : la
+  migration 21 ajoute `policy_audit.at_key`, l'instant en texte de largeur fixe (13 chiffres de secondes d'époque, un
+  point, 9 chiffres de nanosecondes), calculé par SQL pour les lignes existantes et par `SqlitePolicyPackStore.orderKey`
+  pour les nouvelles, et l'index `(pack_id, at_key, id)`. Le texte de `at` n'est pas modifié, donc le scénario d'historique
+  de `policy-audit-order` tient tel qu'il est écrit. La requête de page ne trie rien (`EXPLAIN QUERY PLAN` le montre,
+  `SqlitePolicyAuditPageTest`), et le texte d'un UUIDv7 en minuscules se trie comme l'identité se compare. C'est la raison
+  pour laquelle l'index d'origine sur `(pack_id, at, id)` ne donnait pas l'ordre : `ORDER BY at, id` rend `c, b, a` pour
+  `.500100Z`, `.500Z`, `:00Z`. L'ancien index n'est pas supprimé ici : retirer des index est AUD-PRF-07.
+- **HTTP et la CLI rendent la page.** `GET /api/v1/policy-packs/{id}/audit?offset&limit` et `policy audit --offset
+  --limit` : mêmes bornes que MCP (`limit` de 1 à 100, 50 par défaut), le même vocabulaire. **C'est une rupture de forme
+  pour leurs clients** : un tableau devient un objet. Elle n'est pas dans les notes de 1.2.1, publiée et figée ; elle
+  appartient à celles de la version suivante.
+- **Les deux autres collections de MCP-2** (versions d'un pack de policies, versions d'une vue enregistrée) ne sont pas
+  traitées ici : leur ordre est un entier que la base suit déjà, c'est la moitié facile, et elles gardent le découpage
+  après lecture. La décision de les paginer partout reste à prendre ; `PageArguments` le dit.
+- **Retenue** : voir ADR-0116. Aucun purge n'est spécifiée.

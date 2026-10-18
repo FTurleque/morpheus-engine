@@ -2,6 +2,7 @@ package com.morpheus.mcp;
 
 import com.morpheus.application.operability.ExhaustiveShutdown;
 import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.policy.PolicyAuditPage;
 import com.morpheus.application.policy.PolicyBudgets;
 import com.morpheus.application.policy.PolicyConfiguration;
 import com.morpheus.application.policy.PolicyConflictException;
@@ -120,8 +121,12 @@ final class MorpheusPolicyMcpTools {
                     }
                     case DRY_RUN -> PolicyPublicViews.report(runtime.evaluation().dryRun(
                             scope(arguments), pack(arguments), PolicyIds.VersionId.parse(McpArguments.requiredString(arguments, "versionId"))));
-                    case AUDIT -> PageArguments.slice(
-                            arguments, () -> runtime.registry().audit(pack(arguments)), PolicyPublicViews::audit);
+                    case AUDIT -> {
+                        PolicyAuditPage page = runtime.registry().audit(pack(arguments), PageArguments.request(arguments));
+                        yield PagedEnvelope.page(
+                                page.pageRequest(), page.totalMatches(), page.hasMore(),
+                                page.items().stream().map(PolicyPublicViews::audit).toList());
+                    }
                     default -> throw new IllegalArgumentException("unknown M25 MCP tool: " + toolName);
                 };
                 return McpSchema.CallToolResult.builder()

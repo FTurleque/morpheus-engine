@@ -39,3 +39,14 @@ Implemented on 2026-10-13; each task carries what was done and what was not.
       launcher's configuration and a run.
       *2026-10-13: not applicable - the scheduler is not configured, no system property is added.*
 - [ ] 4.4 Pull request description: the finding, the correction about native pinning, the measurement.
+
+## 5. The remote facade (AUD-PRF-19, added 2026-10-17)
+
+- [x] 5.1 Measure the remote server with the harness of 2.1. Proof: `RemoteSchedulerAvailabilityUnderSqliteWaitTest`,
+      red on `HEAD` (first status probe: connect timeout after 5,002 ms with 20 backups in flight on 16 processors).
+- [x] 5.2 Put the facade's SQLite work on a database worker. Proof: the same test green (status in 13 ms at worst);
+      `DatabaseCallWorkers`; ADR-0114 amended. *Departure from "decorate the remote server like the local one": only the
+      backup route touches SQLite in the facade, and decorating the whole facade would have capped relayed requests at
+      the number of processors.*
+- [x] 5.3 Hold it by a rule. Proof: `RemoteServerArchitectureTest#theRemoteFacadeCallsTheDatabaseOnlyThroughItsDatabaseWorkers`,
+      broken once.

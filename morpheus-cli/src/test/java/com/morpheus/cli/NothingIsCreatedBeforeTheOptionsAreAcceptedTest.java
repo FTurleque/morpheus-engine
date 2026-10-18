@@ -80,7 +80,7 @@ class NothingIsCreatedBeforeTheOptionsAreAcceptedTest {
                     "id", "rule", "project", "portfolio", "expected-revision", "actor", "reason"),
             policy("evaluate", List.of("evaluate"), "id", "project", "portfolio"),
             policy("dry-run", List.of("dry-run"), "id", "version", "project", "portfolio"),
-            policy("audit", List.of("audit"), "id"),
+            policy("audit", List.of("audit"), "id", "offset", "limit"),
             query("query execute", List.of("query", "execute"), List.of(),
                     "project", "portfolio", "entity", "filter", "sort", "fields", "offset", "limit"),
             query("views create", List.of("views", "create"), List.of(),

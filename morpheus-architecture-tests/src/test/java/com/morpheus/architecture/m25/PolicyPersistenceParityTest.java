@@ -1,5 +1,6 @@
 package com.morpheus.architecture.m25;
 
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.policy.PolicyConfiguration;
 import com.morpheus.application.policy.PolicyIds;
 import com.morpheus.application.policy.PolicyPack;
@@ -70,7 +71,7 @@ class PolicyPersistenceParityTest {
             assertEquals(2, service.versions(packId).size());
             assertEquals(activeVersion, service.activation(scope, packId).orElseThrow().versionId());
             assertEquals(ruleId, service.overrides(scope).getFirst().ruleId());
-            assertEquals(4, service.audit(packId).size());
+            assertEquals(4, service.audit(packId, PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches());
         }
     }
 
@@ -94,7 +95,7 @@ class PolicyPersistenceParityTest {
                 service.versions(definition.id()).size(),
                 service.activations(scope).size(),
                 service.overrides(scope).size(),
-                service.audit(definition.id()).size(),
+                service.audit(definition.id(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches(),
                 service.activation(scope, definition.id()).orElseThrow().revision(),
                 service.overrides(scope).getFirst().revision());
     }
@@ -205,14 +206,14 @@ class PolicyPersistenceParityTest {
     private Refusal refusalOf(PolicyPackStore store, StoreWrite prepare, StoreWrite write, Refusal expected) {
         PackFixture pack = pack(store);
         prepare.apply(store, pack);
-        int audits = store.listAudit(pack.packId()).size();
+        int audits = store.listAudit(pack.packId(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches();
         RuntimeException failure = assertThrows(RuntimeException.class, () -> write.apply(store, pack),
                 () -> store.getClass().getSimpleName() + " accepted the write");
         Refusal actual = new Refusal(failure.getClass().getSimpleName(), failure.getMessage());
         assertEquals(expected.resolve(pack), actual, store.getClass().getSimpleName());
         assertEquals(1L, store.findDefinition(pack.packId()).orElseThrow().revision());
         assertEquals(1, store.listVersions(pack.packId()).size());
-        assertEquals(audits, store.listAudit(pack.packId()).size(), "a refused write records no audit");
+        assertEquals(audits, store.listAudit(pack.packId(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches(), "a refused write records no audit");
         return actual.withPlaceholders(pack);
     }
 

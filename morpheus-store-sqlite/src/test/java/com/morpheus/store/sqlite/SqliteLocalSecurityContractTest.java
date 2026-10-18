@@ -2,6 +2,7 @@ package com.morpheus.store.sqlite;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -26,6 +27,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Sixteen openers meet an empty database at once, twenty-five times over, each with the five-second busy timeout of the
+ * product. The test saturates SQLite on purpose, so it is {@code @Isolated}: run beside the other tests of the module on
+ * a slow disk, the contention is theirs as much as its own and the timeout is met for a reason that is not the one under
+ * test (ADR-0115, fifth amendment).
+ */
+@Isolated
 class SqliteLocalSecurityContractTest {
 
     @TempDir

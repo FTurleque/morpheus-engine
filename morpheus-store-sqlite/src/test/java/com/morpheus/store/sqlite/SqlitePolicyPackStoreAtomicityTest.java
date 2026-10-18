@@ -1,5 +1,6 @@
 package com.morpheus.store.sqlite;
 
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.policy.PolicyBudgets;
 import com.morpheus.application.policy.PolicyConfiguration;
 import com.morpheus.application.policy.PolicyConflictException;
@@ -54,7 +55,7 @@ class SqlitePolicyPackStoreAtomicityTest {
             PolicyScope scope = new PolicyScope.Project(ProjectSpecificationId.generate());
             PolicyScope otherScope = new PolicyScope.Project(ProjectSpecificationId.generate());
             PolicyConfiguration.Activation replacement = activation(scope, target);
-            int auditBefore = store.listAudit(target.packId()).size();
+            int auditBefore = store.listAudit(target.packId(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches();
 
             assertThrows(IllegalArgumentException.class, () -> store.compareAndSetActivation(
                     scope, target.packId(), 0L, replacement,
@@ -78,7 +79,7 @@ class SqlitePolicyPackStoreAtomicityTest {
                             Optional.of(target.versionId()), Optional.empty(), Optional.of(otherScope), "wrong scope")));
 
             assertFalse(store.findActivation(scope, target.packId()).isPresent());
-            assertEquals(auditBefore, store.listAudit(target.packId()).size());
+            assertEquals(auditBefore, store.listAudit(target.packId(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches());
 
             var updated = service.update(target.packId(), 1L, "target-v2", List.of(rule("updated")), ACTOR, "update");
             var updatedVersion = service.versions(updated.id()).getLast();
@@ -93,7 +94,7 @@ class SqlitePolicyPackStoreAtomicityTest {
 
             assertFalse(store.findActivation(scope, updated.id()).isPresent());
             assertFalse(store.findOverride(scope, updated.id(), ruleId).isPresent());
-            assertEquals(7, store.listAudit(updated.id()).size());
+            assertEquals(7, store.listAudit(updated.id(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches());
             assertDeactivatingAgainIsRefusedAsMissing(store, scope, updated.id(), updatedVersion.versionId());
         }
     }
@@ -187,7 +188,7 @@ class SqlitePolicyPackStoreAtomicityTest {
                 () -> store.removeOverride(scope, pack.packId(), rule, 1L,
                         audit(PolicyConfiguration.AuditAction.REMOVE_OVERRIDE, pack.packId(), Optional.empty(),
                                 Optional.of(rule), Optional.of(scope), "remove")),
-                () -> store.listAudit(pack.packId()));
+                () -> store.listAudit(pack.packId(), PageRequest.first(PageRequest.MAX_LIMIT)));
         // An IllegalStateException until the twelve SQLite stores were aligned on one closed-store refusal.
         for (Executable operation : operations) {
             KnowledgeStoreException refusal = assertThrows(KnowledgeStoreException.class, operation);
@@ -215,7 +216,7 @@ class SqlitePolicyPackStoreAtomicityTest {
 
             assertEquals(replacement, store.compareAndSetActivation(scope, pack.packId(), 1L, replacement, audit));
             assertEquals(Optional.of(replacement), store.findActivation(scope, pack.packId()));
-            assertEquals(audit, store.listAudit(pack.packId()).getLast());
+            assertEquals(audit, store.listAudit(pack.packId(), PageRequest.first(PageRequest.MAX_LIMIT)).items().getLast());
 
             PolicyConflictException stale = assertThrows(PolicyConflictException.class,
                     () -> store.compareAndSetActivation(scope, pack.packId(), 1L, replacement,
@@ -241,9 +242,9 @@ class SqlitePolicyPackStoreAtomicityTest {
                     audit(PolicyConfiguration.AuditAction.CREATE, fresh, Optional.of(PolicyIds.VersionId.generate()),
                             Optional.empty(), Optional.empty(), "wrong version")));
             assertEquals(Optional.empty(), store.findDefinition(fresh));
-            assertEquals(List.of(), store.listAudit(fresh));
+            assertEquals(List.of(), store.listAudit(fresh, PageRequest.first(PageRequest.MAX_LIMIT)).items());
 
-            int audits = store.listAudit(pack.packId()).size();
+            int audits = store.listAudit(pack.packId(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches();
             PolicyIds.VersionId v2 = PolicyIds.VersionId.generate();
             assertRefused("policy audit target mismatch for UPDATE", () -> store.compareAndSetDefinition(
                     pack.packId(), 1L, definition(pack.packId(), 2L), version(pack.packId(), v2, 2L),
@@ -255,7 +256,7 @@ class SqlitePolicyPackStoreAtomicityTest {
                             Optional.empty(), "no version")));
             assertEquals(1L, store.findDefinition(pack.packId()).orElseThrow().revision());
             assertEquals(1, store.listVersions(pack.packId()).size());
-            assertEquals(audits, store.listAudit(pack.packId()).size());
+            assertEquals(audits, store.listAudit(pack.packId(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches());
         }
     }
 
@@ -266,7 +267,7 @@ class SqlitePolicyPackStoreAtomicityTest {
             PolicyScope scope = new PolicyScope.Project(ProjectSpecificationId.generate());
             PolicyScope otherScope = new PolicyScope.Project(ProjectSpecificationId.generate());
             activateDirect(store, scope, pack, "activate");
-            int audits = store.listAudit(pack.packId()).size();
+            int audits = store.listAudit(pack.packId(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches();
 
             assertRefused("policy audit target mismatch for DEACTIVATE", () -> store.removeActivation(
                     scope, pack.packId(), 1L, audit(PolicyConfiguration.AuditAction.DEACTIVATE, pack.packId(),
@@ -276,7 +277,7 @@ class SqlitePolicyPackStoreAtomicityTest {
                             Optional.of(PolicyIds.VersionId.generate()), Optional.empty(), Optional.of(scope),
                             "wrong version")));
             assertTrue(store.findActivation(scope, pack.packId()).isPresent());
-            assertEquals(audits, store.listAudit(pack.packId()).size());
+            assertEquals(audits, store.listAudit(pack.packId(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches());
         }
     }
 
@@ -288,7 +289,7 @@ class SqlitePolicyPackStoreAtomicityTest {
             PolicyIds.RuleId ruleA = pack.ruleIds().getFirst();
             PolicyIds.RuleId ruleB = pack.ruleIds().getLast();
             activateDirect(store, scope, pack, "activate");
-            int audits = store.listAudit(pack.packId()).size();
+            int audits = store.listAudit(pack.packId(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches();
 
             assertRefused("policy audit target mismatch for PUT_OVERRIDE", () -> store.compareAndSetOverride(
                     scope, pack.packId(), ruleA, 0L, override(scope, pack.packId(), ruleA, 1L),
@@ -300,13 +301,13 @@ class SqlitePolicyPackStoreAtomicityTest {
                             Optional.of(PolicyIds.VersionId.generate()), Optional.of(ruleA), Optional.of(scope),
                             "wrong version")));
             assertEquals(Optional.empty(), store.findOverride(scope, pack.packId(), ruleA));
-            assertEquals(audits, store.listAudit(pack.packId()).size());
+            assertEquals(audits, store.listAudit(pack.packId(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches());
 
             PolicyConfiguration.AuditRecord put = audit(PolicyConfiguration.AuditAction.PUT_OVERRIDE, pack.packId(),
                     Optional.of(pack.versionId()), Optional.of(ruleA), Optional.of(scope), "put");
             PolicyConfiguration.Override written = override(scope, pack.packId(), ruleA, 1L);
             assertEquals(written, store.compareAndSetOverride(scope, pack.packId(), ruleA, 0L, written, put));
-            assertEquals(put, store.listAudit(pack.packId()).getLast());
+            assertEquals(put, store.listAudit(pack.packId(), PageRequest.first(PageRequest.MAX_LIMIT)).items().getLast());
 
             assertRefused("policy audit target mismatch for REMOVE_OVERRIDE", () -> store.removeOverride(
                     scope, pack.packId(), ruleA, 1L, audit(PolicyConfiguration.AuditAction.DEACTIVATE, pack.packId(),
@@ -316,7 +317,7 @@ class SqlitePolicyPackStoreAtomicityTest {
                             pack.packId(), Optional.of(pack.versionId()), Optional.of(ruleA), Optional.of(scope),
                             "version given")));
             assertTrue(store.findOverride(scope, pack.packId(), ruleA).isPresent());
-            assertEquals(audits + 1, store.listAudit(pack.packId()).size());
+            assertEquals(audits + 1, store.listAudit(pack.packId(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches());
         }
     }
 
@@ -326,7 +327,7 @@ class SqlitePolicyPackStoreAtomicityTest {
             PolicyPackService service = new PolicyPackService(store, CLOCK);
             PackRef pack = createPack(service, "inactive", 1);
             PolicyScope scope = new PolicyScope.Project(ProjectSpecificationId.generate());
-            int audits = store.listAudit(pack.packId()).size();
+            int audits = store.listAudit(pack.packId(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches();
 
             PolicyIds.PackId unknown = PolicyIds.PackId.generate();
             PolicyIds.VersionId unknownPackVersion = PolicyIds.VersionId.generate();
@@ -352,7 +353,7 @@ class SqlitePolicyPackStoreAtomicityTest {
                     () -> putOverrideDirect(store, scope, new OverrideRef(pack.packId(), pack.versionId(), rule), "put"));
             assertEquals("policy pack must be active before adding an override: " + pack.packId(), inactive.getMessage());
             assertEquals(Optional.empty(), store.findOverride(scope, pack.packId(), rule));
-            assertEquals(audits, store.listAudit(pack.packId()).size());
+            assertEquals(audits, store.listAudit(pack.packId(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches());
         }
     }
 

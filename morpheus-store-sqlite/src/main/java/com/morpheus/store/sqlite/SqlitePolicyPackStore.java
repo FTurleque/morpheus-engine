@@ -1,5 +1,6 @@
 package com.morpheus.store.sqlite;
 
+import com.morpheus.application.policy.PolicyAuditPage;
 import com.morpheus.application.policy.PolicyBudgets;
 import com.morpheus.application.policy.PolicyConfiguration;
 import com.morpheus.application.policy.PolicyConflictException;
@@ -7,6 +8,7 @@ import com.morpheus.application.policy.PolicyIds;
 import com.morpheus.application.policy.PolicyPack;
 import com.morpheus.application.policy.PolicyPackCodec;
 import com.morpheus.application.policy.PolicyScope;
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.store.EntityNotFoundException;
 import com.morpheus.application.store.EntityStateException;
 import com.morpheus.application.store.KnowledgeStoreException;
@@ -28,6 +30,25 @@ import java.util.Optional;
 
 /** SQLite V015 adapter for versioned policy packs, activations, overrides and immutable audit. */
 public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseable {
+    static final String LIST_ACTIVATIONS_SQL = """
+            SELECT scope_kind, scope_id, pack_id, version_id, revision, actor, updated_at
+            FROM policy_pack_activations
+            WHERE scope_kind = ? AND scope_id = ?
+            ORDER BY pack_id
+            """;
+    static final String LIST_OVERRIDES_SQL = """
+            SELECT scope_kind, scope_id, pack_id, rule_id, mode, reason, actor, revision, updated_at
+            FROM policy_overrides
+            WHERE scope_kind = ? AND scope_id = ?
+            ORDER BY pack_id, rule_id
+            """;
+    static final String AUDIT_PAGE_SQL = """
+            SELECT id, action, pack_id, version_id, rule_id, scope_kind, scope_id, actor, reason, at
+            FROM policy_audit WHERE pack_id = ?
+            ORDER BY at_key, id
+            LIMIT ? OFFSET ?
+            """;
+
     private final Connection connection;
     private final PolicyPackCodec codec = new PolicyPackCodec();
     private boolean closed;
@@ -225,12 +246,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
     @Override
     public synchronized List<PolicyConfiguration.Activation> listActivations(PolicyScope scope) {
         ensureOpen();
-        try (PreparedStatement statement = connection.prepareStatement("""
-                SELECT scope_kind, scope_id, pack_id, version_id, revision, actor, updated_at
-                FROM policy_pack_activations
-                WHERE scope_kind = ? AND scope_id = ?
-                ORDER BY pack_id
-                """)) {
+        try (PreparedStatement statement = connection.prepareStatement(LIST_ACTIVATIONS_SQL)) {
             bindScope(statement, 1, scope);
             try (ResultSet result = statement.executeQuery()) {
                 List<PolicyConfiguration.Activation> values = new ArrayList<>();
@@ -388,12 +404,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
     @Override
     public synchronized List<PolicyConfiguration.Override> listOverrides(PolicyScope scope) {
         ensureOpen();
-        try (PreparedStatement statement = connection.prepareStatement("""
-                SELECT scope_kind, scope_id, pack_id, rule_id, mode, reason, actor, revision, updated_at
-                FROM policy_overrides
-                WHERE scope_kind = ? AND scope_id = ?
-                ORDER BY pack_id, rule_id
-                """)) {
+        try (PreparedStatement statement = connection.prepareStatement(LIST_OVERRIDES_SQL)) {
             bindScope(statement, 1, scope);
             try (ResultSet result = statement.executeQuery()) {
                 List<PolicyConfiguration.Override> values = new ArrayList<>();
@@ -553,23 +564,37 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
     }
 
     /**
-     * Sorted after reading: {@code at} is stored as {@code Instant.toString()}, whose fractional part varies in length,
-     * so its text does not sort by time ({@code :00.500100Z} sorts before {@code :00.500Z}, {@code :00Z} after both).
+     * One page of the audit, in the order of {@link PolicyConfiguration.AuditRecord}: by instant, ties by identity.
+     * {@code at} is stored as {@code Instant.toString()}, whose fractional part varies in length, so its text does not
+     * sort by time ({@code :00.500100Z} sorts before {@code :00.500Z}, {@code :00Z} after both). The database follows
+     * {@code at_key} instead, a fixed-width text of the same instant (migration 21), through
+     * {@code idx_policy_audit_pack_order}; the lowercase text of a UUIDv7 sorts as the identity compares.
      */
     @Override
-    public synchronized List<PolicyConfiguration.AuditRecord> listAudit(PolicyIds.PackId packId) {
+    public synchronized PolicyAuditPage listAudit(PolicyIds.PackId packId, PageRequest pageRequest) {
         ensureOpen();
-        try (PreparedStatement statement = connection.prepareStatement("""
-                SELECT id, action, pack_id, version_id, rule_id, scope_kind, scope_id, actor, reason, at
-                FROM policy_audit WHERE pack_id = ?
-                """)) {
-            statement.setString(1, packId.toString());
-            try (ResultSet result = statement.executeQuery()) {
-                List<PolicyConfiguration.AuditRecord> values = new ArrayList<>();
-                while (result.next()) {
-                    values.add(readAudit(result));
+        try {
+            int total;
+            try (PreparedStatement count = connection.prepareStatement(
+                    "SELECT COUNT(*) FROM policy_audit WHERE pack_id = ?")) {
+                count.setString(1, packId.toString());
+                try (ResultSet result = count.executeQuery()) {
+                    result.next();
+                    total = result.getInt(1);
                 }
-                return values.stream().sorted().toList();
+            }
+            try (PreparedStatement statement = connection.prepareStatement(AUDIT_PAGE_SQL)) {
+                statement.setString(1, packId.toString());
+                statement.setInt(2, pageRequest.limit());
+                statement.setInt(3, pageRequest.offset());
+                try (ResultSet result = statement.executeQuery()) {
+                    List<PolicyConfiguration.AuditRecord> values = new ArrayList<>();
+                    while (result.next()) {
+                        values.add(readAudit(result));
+                    }
+                    return new PolicyAuditPage(
+                            values, pageRequest, total, (long) pageRequest.offset() + values.size() < total);
+                }
             }
         } catch (SQLException failure) {
             throw new KnowledgeStoreException("Cannot list policy audit", failure);
@@ -647,8 +672,8 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
     private void insertAudit(PolicyConfiguration.AuditRecord audit) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement("""
                 INSERT INTO policy_audit(
-                    id, action, pack_id, version_id, rule_id, scope_kind, scope_id, actor, reason, at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    id, action, pack_id, version_id, rule_id, scope_kind, scope_id, actor, reason, at, at_key)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """)) {
             statement.setString(1, audit.id().toString());
             statement.setString(2, audit.action().name());
@@ -660,8 +685,14 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
             statement.setString(8, audit.actor());
             statement.setString(9, audit.reason());
             statement.setString(10, audit.at().toString());
+            statement.setString(11, orderKey(audit.at()));
             statement.executeUpdate();
         }
+    }
+
+    /** The instant as the fixed-width text {@code at_key} holds: epoch seconds on 13 digits, a dot, nanoseconds on 9. */
+    static String orderKey(Instant at) {
+        return String.format("%013d.%09d", at.getEpochSecond(), at.getNano());
     }
 
     private PolicyConfiguration.AuditRecord readAudit(ResultSet result) throws SQLException {

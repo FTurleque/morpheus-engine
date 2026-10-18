@@ -1,5 +1,7 @@
 # Tasks
 
+**2026-10-17: closed without a change, by decision of the maintainer.** The absence of a deadline on proxied writes stays the accepted residual risk documented in `docs/user/TEAM_REMOTE_SERVER.md`. Nothing below is to be done unless that decision is reopened.
+
 **Stopped on 2026-10-13 before any change, on a decision that is the maintainer's.** Read again for the
 implementation, the finding is half wrong and its other half reverses a position the product documents as chosen:
 

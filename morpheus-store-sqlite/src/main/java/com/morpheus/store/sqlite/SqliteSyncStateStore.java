@@ -25,6 +25,21 @@ import java.util.Optional;
 
 /** SQLite adapter for M7 synchronization state, current inventory and immutable source archives. */
 public final class SqliteSyncStateStore implements SyncStateStore, AutoCloseable {
+    /**
+     * No ORDER BY: archived_at holds Instant.toString(), whose text does not sort by time when the fraction varies in
+     * length. The order is SourceArchiveRecord.compareTo, applied after the read, as the memory store applies it.
+     */
+    static final String LIST_ARCHIVES_SQL = """
+            SELECT source_path, fingerprint_sha256, size_bytes, archived_at, reason, moved_to_path, source_revision
+            FROM sync_source_archives
+            WHERE project_id = ?
+            """;
+    static final String READ_INVENTORY_ENTRIES_SQL = """
+            SELECT source_path, fingerprint_sha256, size_bytes
+            FROM sync_inventory_entries
+            WHERE project_id = ?
+            ORDER BY source_path
+            """;
     private final Connection connection;
     private boolean closed;
 
@@ -90,12 +105,7 @@ public final class SqliteSyncStateStore implements SyncStateStore, AutoCloseable
     public synchronized List<SourceArchiveRecord> listArchives(ProjectSpecificationId projectId) {
         ensureOpen();
         Objects.requireNonNull(projectId, "projectId");
-        try (PreparedStatement statement = connection.prepareStatement("""
-                SELECT source_path, fingerprint_sha256, size_bytes, archived_at, reason, moved_to_path, source_revision
-                FROM sync_source_archives
-                WHERE project_id = ?
-                ORDER BY archived_at, source_path, reason
-                """)) {
+        try (PreparedStatement statement = connection.prepareStatement(LIST_ARCHIVES_SQL)) {
             statement.setString(1, projectId.toString());
             List<SourceArchiveRecord> records = new ArrayList<>();
             try (ResultSet result = statement.executeQuery()) {
@@ -347,12 +357,7 @@ public final class SqliteSyncStateStore implements SyncStateStore, AutoCloseable
     }
 
     private List<SourceInventory.Entry> readEntries(ProjectSpecificationId projectId) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement("""
-                SELECT source_path, fingerprint_sha256, size_bytes
-                FROM sync_inventory_entries
-                WHERE project_id = ?
-                ORDER BY source_path
-                """)) {
+        try (PreparedStatement statement = connection.prepareStatement(READ_INVENTORY_ENTRIES_SQL)) {
             statement.setString(1, projectId.toString());
             List<SourceInventory.Entry> entries = new ArrayList<>();
             try (ResultSet result = statement.executeQuery()) {
