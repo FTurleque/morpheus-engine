@@ -60,7 +60,8 @@ Linux :
 Le workflow `MORPHEUS CI` exécute le même gate exact-head sur Windows et Ubuntu pour les pull requests ainsi que sur les pushes `main` et `develop`.
 
 ```text
-baseline Surefire totale       >= 3820
+baseline Surefire écrits       >= 2600
+baseline Surefire générés     >= 1574
 baseline architecture          >= 585
 JaCoCo aggregate line ratchet     >= 90.0%
 JaCoCo aggregate branch ratchet   >= 75.7%
@@ -103,6 +104,15 @@ Règle d’évolution :
 4. le ratchet n’est jamais abaissé automatiquement ; une baisse nécessite une décision d’audit explicite et motivée ;
 5. les compteurs de tests sont eux aussi des ratchets de présence, pas une mesure de qualité autonome ;
 6. la couverture ne justifie pas des tests artificiels : les tests doivent conserver une valeur fonctionnelle, de contrat, de sécurité ou d’architecture indépendante du chiffre.
+
+### Relever un ratchet, ou relever un plafond
+
+Ce sont deux gestes différents, et le premier ne donne aucun droit sur le second.
+
+- Un **ratchet** (`config/m21-quality-ratchets.properties`) se relève par décision, tant qu'il reste sous le plafond qualifié **de sa propre échelle** et garde la distance que la règle exige : une dispersion maximale observée entre plateformes, multipliée par trois, comptée en lignes et en branches — jamais en points de pourcentage. Une session qui ne dispose que d'une plateforme peut le faire.
+- Un **plafond** (`PER_MODULE_QUALIFIED_*_RATIO` dans `CoverageQualityGateTest`, `AGGREGATE_QUALIFIED_*_RATIO` dans `AggregateCoverageGateTest`) ne se relève que par une requalification : une mesure exact-head de l'échelle sur Windows **et** sur Linux, au moins deux runs par plateforme, qualifiée sur la plus basse. Les résumés de ces runs remplacent ceux de `config/coverage-qualification/` dans le même changement, et `CoverageQualificationEvidenceTest` exige que chaque plafond soit égal au plus bas ratio de son échelle dans ces fichiers.
+
+Où lire ce qu'il reste : la preuve de chaque gate (`m21-per-module-coverage-summary.txt`, `m21-aggregate-coverage-summary.txt`, décrites ci-dessous) affiche côte à côte la mesure (`lineRatio`, `branchRatio`), le plafond (`qualifiedLineBaseline`, `qualifiedBranchBaseline`) et le ratchet actif (`lineRatchet`, `branchRatchet`). La distance se calcule sur ces valeurs et sur les compteurs de lignes et de branches du même fichier ; elle ne s'écrit pas dans cette page.
 
 Chaque gate écrit sa propre preuve, dont la première ligne déclare l'échelle mesurée : `CoverageQualityGateTest` écrit `morpheus-architecture-tests/target/m21-per-module-coverage-summary.txt` (`coverageScope=per-module`) et `AggregateCoverageGateTest` écrit `morpheus-architecture-tests/target/m21-aggregate-coverage-summary.txt` (`coverageScope=aggregate`). Les deux fichiers portent la couverture observée, la baseline qualifiée, le ratchet actif et les minima D2 ; la preuve agrégée nomme en outre les modules qu'elle a mesurés (`population=`). Les validateurs refusent de conclure sur une preuve dont l'échelle n'est pas celle qu'ils attendent.
 

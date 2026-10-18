@@ -102,16 +102,18 @@ Toute spec `docs/developer/reference/openapi/*.yaml` doit porter :
 
 **Ne pas se fier aux nombres codés en dur ici** — source de vérité vivante :
 `config/m21-quality-ratchets.properties`. `scripts/validate-m21.*` lisent ce fichier et
-assertent le nombre de tests, le nombre de tests d'architecture, la couverture ligne/branche
-et la version courante (`1.2.1`). `scripts/validate-d2.*` lisent aussi `testsMinimum` et
-`architectureTestsMinimum` (aucun littéral : `D2RepositoryHardeningArchitectureTest` le refuse),
+assertent le nombre de tests déclarés et le nombre de tests générés (deux clés, deux
+comptes : `rules/testing.md`), le nombre de tests d'architecture, la couverture ligne/branche
+et la version courante (`1.2.1`). `scripts/validate-d2.*` lisent aussi `testsMinimum`,
+`generatedTestsMinimum` et `architectureTestsMinimum` (aucun littéral : `D2RepositoryHardeningArchitectureTest` le refuse),
 et gardent la version courante et deux planchers absolus de couverture, nommés comme tels ;
 la couverture elle-même est conclue par les gates Java que D2 exécute dans son `clean verify`.
 La couverture y est déclarée
 **deux fois**, une paire de clés par échelle de mesure (`aggregate*` et `perModule*`) — citer
-un seuil sans nommer son échelle n'a pas de sens. Valeurs constatées le 09/10/2026 :
-`3820 / 585`, couverture `90,0% / 75,7%` agrégée et `69,1% / 61,2%` par module
-(les six relevées ce jour-là, dans les deux plafonds requalifiés le même jour sur `8e3fda5a`).
+un seuil sans nommer son échelle n'a pas de sens. Valeurs constatées le 18/10/2026 :
+présence `2600 / 1574 / 585` (déclarés / générés / architecture), couverture `90,0% / 75,7%` agrégée et
+`69,1% / 61,2%` par module (les quatre de couverture relevées le 09/10/2026, dans les deux plafonds requalifiés le même
+jour sur `8e3fda5a`).
 Ces nombres sont des
 **ratchets** — ils ne descendent pas, mais ils **montent** au fil des milestones, donc
 toute valeur recopiée ici (y compris dans une version antérieure de cette page) peut être

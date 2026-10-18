@@ -74,7 +74,8 @@ JaCoCo aggregate line ratchet     >= 90.0%
 JaCoCo aggregate branch ratchet   >= 75.7%
 JaCoCo per-module line ratchet    >= 69.1%
 JaCoCo per-module branch ratchet  >= 61.2%
-Surefire floor             >= 3820
+Surefire written floor     >= 2600
+Surefire generated floor   >= 1574
 Architecture floor         >= 585
 Changed-line gate          80%
 Changed-branch gate        70%
