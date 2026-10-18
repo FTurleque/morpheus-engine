@@ -142,7 +142,7 @@ branch `python -m unittest discover -s scripts/tests` ran 521 cases, 1 class ski
     `scripts/tests/test_write_build_provenance.py` (a branch, a detached head, a tag, a missing SBOM, on the `.sh` and the
     `.ps1`; only the detached case of the `.ps1` failed). The file stays ASCII and CRLF.
 
-- [ ] 3.7 Put the decision of open question 1 to the maintainer with the results of 1.4, target by target. A retirement
+- [x] 3.7 Put the decision of open question 1 to the maintainer with the results of 1.4, target by target. A retirement
       follows `milestone-quadruplet` and the precedent of `docs/project/validation/README.md`.
   - 2026-10-13: put, not decided, and without the real runs of 1.4. The three `.sh` nothing launches are named in
     `NOT_LAUNCHED`, each entry a finding; `validate-r3` cannot pass in either variant.
@@ -158,6 +158,9 @@ branch `python -m unittest discover -s scripts/tests` ran 521 cases, 1 class ski
     correction of 3.6). So no candidate is dead weight in the sense "no longer runs". The decision left is whether a
     validator that runs and that no workflow reached is still worth its lane, its minutes and the milestone assertions
     that name it.
+  - 2026-10-18, decided by the maintainer on the results above: `d2`, `m22` to `m26` and `r3` are **kept**, with the
+    lane `validators-without-a-lane` of `nightly.yml` as it is; no validator is retired, so no milestone assertion
+    and no `docs/project/validation/README.md` entry changes. The default taken on 2026-10-15 becomes the decision.
 - [x] 3.8 Break each rule once, then revert: remove a comparison from a validator; remove the step from one leg; add an
       untested script; move a launch into a comment; leave an excuse for a tested script. Proof: the named failures.
   - 2026-10-13: each done and reverted. The comparison of the test count removed from `validate-m21.sh` and from
