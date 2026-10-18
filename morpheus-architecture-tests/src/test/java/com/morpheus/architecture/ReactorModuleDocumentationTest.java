@@ -264,7 +264,7 @@ class ReactorModuleDocumentationTest {
 
     /** Every present-tense total of modules, projects or POMs on a current page. */
     private static List<String> statedReactorTotals(Path root) throws IOException {
-        declaredModules(root);
+        requireDeclaredModules(root);
         List<Path> pages = currentPages(root);
         if (pages.isEmpty()) {
             throw new AssertionError("no current page to read under " + SCANNED_TREES + " and " + ENTRY_PAGES);
@@ -298,6 +298,11 @@ class ReactorModuleDocumentationTest {
             }
         }
         return records;
+    }
+
+    /** Fails when the root POM declares no module, so that a rule reading the POM cannot pass on nothing. */
+    private static void requireDeclaredModules(Path root) throws IOException {
+        declaredModules(root);
     }
 
     private static Set<String> declaredModules(Path root) throws IOException {
@@ -347,26 +352,30 @@ class ReactorModuleDocumentationTest {
         for (int index = 0; index <= lines.size(); index++) {
             String line = index < lines.size() ? lines.get(index) : "";
             boolean fence = line.strip().startsWith("```");
-            boolean boundary = fence || line.isBlank() && !fenced
-                    || !fenced && !block.isEmpty() && line.stripLeading().startsWith("|") != table;
-            if (boundary || index == lines.size()) {
+            if (fence || index == lines.size() || endsBlock(line, fenced, !block.isEmpty(), table)) {
                 addIfAny(lists, block, blockStart, table);
                 block = new ArrayList<>();
             }
             if (fence) {
                 fenced = !fenced;
-                continue;
+            } else if (fenced || !line.isBlank()) {
+                if (block.isEmpty()) {
+                    blockStart = index + 1;
+                    table = !fenced && isTableRow(line);
+                }
+                block.add(line);
             }
-            if (line.isBlank() && !fenced) {
-                continue;
-            }
-            if (block.isEmpty()) {
-                blockStart = index + 1;
-                table = !fenced && line.stripLeading().startsWith("|");
-            }
-            block.add(line);
         }
         return lists;
+    }
+
+    /** Outside a fence, a blank line ends a block, and so does a switch between table rows and prose. */
+    private static boolean endsBlock(String line, boolean fenced, boolean blockOpen, boolean table) {
+        return !fenced && (line.isBlank() || blockOpen && isTableRow(line) != table);
+    }
+
+    private static boolean isTableRow(String line) {
+        return line.stripLeading().startsWith("|");
     }
 
     private static void addIfAny(List<ModuleList> lists, List<String> block, int firstLine, boolean table) {
