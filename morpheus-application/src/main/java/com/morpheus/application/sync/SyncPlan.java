@@ -75,6 +75,7 @@ public record SyncPlan(
         BASELINE_INCONSISTENT,
         PREVIOUS_REBUILD_PENDING,
         EXECUTION_FAILED,
+        INCREMENTAL_EXECUTOR_UNAVAILABLE,
         FORCED
     }
 
@@ -87,7 +88,8 @@ public record SyncPlan(
     public record Trigger(
             TriggerKind kind,
             List<SourceWatchSignal> watchSignals,
-            boolean forceFullRebuild) {
+            boolean forceFullRebuild,
+            boolean incrementalExecutorUnavailable) {
         public Trigger {
             Objects.requireNonNull(kind, "kind");
             watchSignals = Objects.requireNonNull(watchSignals, "watchSignals").stream()
@@ -100,19 +102,27 @@ public record SyncPlan(
         }
 
         public static Trigger manual() {
-            return new Trigger(TriggerKind.MANUAL, List.of(), false);
+            return new Trigger(TriggerKind.MANUAL, List.of(), false, false);
         }
 
         public static Trigger startup() {
-            return new Trigger(TriggerKind.STARTUP, List.of(), false);
+            return new Trigger(TriggerKind.STARTUP, List.of(), false, false);
         }
 
         public static Trigger watcher(List<SourceWatchSignal> signals) {
-            return new Trigger(TriggerKind.WATCHER, signals, false);
+            return new Trigger(TriggerKind.WATCHER, signals, false, false);
         }
 
         public Trigger forced() {
-            return new Trigger(kind, watchSignals, true);
+            return new Trigger(kind, watchSignals, true, incrementalExecutorUnavailable);
+        }
+
+        /**
+         * For a caller that can only publish a whole snapshot: a change of source is then planned as a full rebuild
+         * instead of an incremental plan that nothing executes incrementally.
+         */
+        public Trigger withoutIncrementalExecutor() {
+            return new Trigger(kind, watchSignals, forceFullRebuild, true);
         }
     }
 
