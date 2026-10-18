@@ -6,12 +6,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -21,17 +25,19 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * A coverage cap equals the lowest measurement of its scale in evidence kept with the code.
  *
- * <p>The four {@code *_QUALIFIED_*_RATIO} constants of the two coverage gates are typed by hand from the
- * {@code m21-integrity-<OS>} workflow artifacts, which {@code ci.yml} keeps 14 days. Nothing compared a typed cap
- * with a measurement, and once the artifacts expired nobody could. {@code config/coverage-qualification/} keeps the
- * summaries the caps in force were read from, and this suite binds each constant to them: a cap that differs from
- * the lowest kept ratio of its scale, or that rests on an incomplete qualification, fails the build.</p>
+ * <p>{@code config/coverage-qualification/} holds the coverage summaries of the qualification in force and
+ * {@code evidence.tsv}, which names each one's scale, platform, run and commit. This suite binds the four
+ * {@code *_QUALIFIED_*_RATIO} constants of the two coverage gates to those files: a constant must equal the lowest
+ * kept ratio of its scale, and the kept set must be complete -- both platforms, at least two runs each, one commit,
+ * one population.</p>
  *
- * <p>Both bindings are textual because their subjects are files outside the compiled classpath: the constants are
- * private to gates that live in two different modules, and the evidence is data (ADR-0103). The rule is exercised
- * against fabricated sets below, so that a verifier that accepts anything fails here.</p>
+ * <p>Both bindings are textual because their subjects lie outside the compiled classpath: the constants are private
+ * to gates in two different modules, and the evidence is data (ADR-0103). The rule is exercised against fabricated
+ * sets, so that a verifier that accepts anything fails here.</p>
  */
 class CoverageQualificationEvidenceTest {
+    private static final String COMMIT = "1111111111111111111111111111111111111111";
+    private static final String OTHER_COMMIT = "2222222222222222222222222222222222222222";
     private static final String EVIDENCE_DIRECTORY = "config/coverage-qualification";
     private static final String MANIFEST = "evidence.tsv";
     private static final String MANIFEST_HEADER = "scale\tplatform\trun\tcommit\tfile";
@@ -90,23 +96,6 @@ class CoverageQualificationEvidenceTest {
         List<String> problems = verify(root.resolve(EVIDENCE_DIRECTORY), readCaps(root));
         assertTrue(problems.isEmpty(), () -> "the coverage caps do not rest on kept evidence:\n  "
                 + String.join("\n  ", problems));
-    }
-
-    @Test
-    void theKeptEvidenceOfTheQualificationInForceIsComplete() throws IOException {
-        Path root = repoRoot();
-        Path directory = root.resolve(EVIDENCE_DIRECTORY);
-        assertTrue(Files.isRegularFile(directory.resolve(MANIFEST)),
-                () -> "the caps rest on nothing a build can read: " + directory.resolve(MANIFEST) + " is absent");
-        List<Entry> entries = readManifest(directory);
-        for (Scale scale : Scale.values()) {
-            for (String platform : PLATFORMS) {
-                long runs = entries.stream()
-                        .filter(entry -> entry.scale() == scale && entry.platform().equals(platform)).count();
-                assertTrue(runs >= MINIMUM_RUNS_PER_PLATFORM, () -> scale.name + " holds " + runs + " run(s) on "
-                        + platform + "; a qualification needs at least " + MINIMUM_RUNS_PER_PLATFORM);
-            }
-        }
     }
 
     @Test
@@ -200,7 +189,7 @@ class CoverageQualificationEvidenceTest {
     void aSummaryOfTheOtherScaleKeptAsEvidenceIsRefusedAndNamesTheFile(@TempDir Path workspace) throws IOException {
         Path evidence = qualification(workspace, new double[] {0.60d, 0.70d, 0.65d, 0.75d});
         Files.copy(evidence.resolve("per-module/Linux-1.txt"), evidence.resolve("aggregate/Linux-1.txt"),
-                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                StandardCopyOption.REPLACE_EXISTING);
 
         List<String> problems = verify(evidence, new Caps(honestCaps()));
 
@@ -242,9 +231,6 @@ class CoverageQualificationEvidenceTest {
         assertEquals(1, problems.size(), problems::toString);
         assertTrue(problems.get(0).contains("rest on nothing a build can read"), problems.get(0));
     }
-
-    private static final String COMMIT = "1111111111111111111111111111111111111111";
-    private static final String OTHER_COMMIT = "2222222222222222222222222222222222222222";
 
     /**
      * Lowest line ratio then lowest branch ratio of each scale are 0.60 / 0.65 per module and 0.60 / 0.65
@@ -295,14 +281,14 @@ class CoverageQualificationEvidenceTest {
         long branchCovered = Math.round(branches * branchRatio);
         text.append("lineCovered=").append(lineCovered).append('\n')
                 .append("lineMissed=").append(lines - lineCovered).append('\n')
-                .append(String.format(java.util.Locale.ROOT, "lineRatio=%.6f%n", lineCovered / (double) lines))
+                .append(String.format(Locale.ROOT, "lineRatio=%.6f%n", lineCovered / (double) lines))
                 .append("branchCovered=").append(branchCovered).append('\n')
                 .append("branchMissed=").append(branches - branchCovered).append('\n')
-                .append(String.format(java.util.Locale.ROOT, "branchRatio=%.6f%n", branchCovered / (double) branches));
+                .append(String.format(Locale.ROOT, "branchRatio=%.6f%n", branchCovered / (double) branches));
         return text.toString();
     }
 
-    private static void dropEntries(Path evidence, java.util.function.Predicate<String> drop) throws IOException {
+    private static void dropEntries(Path evidence, Predicate<String> drop) throws IOException {
         Path manifest = evidence.resolve(MANIFEST);
         List<String> kept = Files.readAllLines(manifest).stream().filter(line -> !drop.test(line)).toList();
         Files.writeString(manifest, String.join("\n", kept) + "\n");
@@ -381,7 +367,7 @@ class CoverageQualificationEvidenceTest {
     }
 
     private static void compare(List<String> problems, String constant, double cap, List<Summary> kept, String key) {
-        Summary lowest = kept.stream().min(java.util.Comparator.comparingDouble(summary -> summary.ratio(key)))
+        Summary lowest = kept.stream().min(Comparator.comparingDouble(summary -> summary.ratio(key)))
                 .orElseThrow();
         double measured = lowest.ratio(key);
         if (Math.abs(cap - measured) > RATIO_PRECISION) {
