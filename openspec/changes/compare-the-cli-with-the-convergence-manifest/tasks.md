@@ -42,9 +42,9 @@
 
 ## 4. Verification and destinations
 
-- [ ] 4.1 `./mvnw clean verify` and `./mvnw dependency:analyze`. Proof: green, no warning. Build
+- [x] 4.1 `./mvnw clean verify` and `./mvnw dependency:analyze`. Proof: green, no warning. Build
       `morpheus-provider-reference` before the architecture tests.
-- [ ] 4.2 Amend ADR-0089 through the skill `adr-author`; check the highest ADR number before any new file.
+- [x] 4.2 Amend ADR-0089 through the skill `adr-author`; check the highest ADR number before any new file.
 - [x] 4.3 `.claude/rules/governance.md`: replace the sentence saying neither gate checks the `cli` column by the
       description of the gate, its exclusions and what it does not prove. `.claude/skills/public-capability/SKILL.md`:
       the step that declares a command.
