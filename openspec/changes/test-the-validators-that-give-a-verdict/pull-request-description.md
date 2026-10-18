@@ -48,6 +48,35 @@ Linux (the Windows PowerShell 5.1 cases), 4 run. `GateReachabilityArchitectureTe
 `D2RepositoryHardeningArchitectureTest`, `RepositoryDocumentationCoherenceTest` and
 `BuildProvenanceSbomContractTest` pass (49 cases).
 
+## Task 3.7 — decided by the maintainer
+
+Open question 1 (what becomes of `d2`, `m22` to `m26`, `r3`, which no workflow launched): with the results of the real
+runs below, **all are kept, with the lane `validators-without-a-lane` of `nightly.yml` as it is. Nothing is retired.**
+
+## Inventory (task 1.1, 1.2)
+
+50 script files outside `scripts/tests/`, each launched by something and run by a test or excused by name
+(`python scripts/tests/test_script_inventory.py` prints the whole table). By launcher:
+
+| launched by | files |
+|---|---|
+| `ci.yml` | `check-diff-coverage.py`, `validate-m21.sh`, `validate-m28.ps1`, `classify-sonar-quality-gate.sh` |
+| `nightly.yml` | `validate-m19`, `validate-m20` (both variants), `validate-d2.sh`, `validate-m22.sh` to `validate-m26.sh`, `validate-r3.sh`, `check-release-rehearsal-assets.py`, `check-spotbugs-reports.py`, `classify-sonar-quality-gate.sh` |
+| `security.yml` | the four Dependency-Check scripts (`classify-`, `read-`, `write-`, `report-`) |
+| `release.yml` | `validate-m28.ps1` |
+| another script | `lib/*` (by the validators), `write-build-provenance.*` (by `m21` to `m27`), `verify-*.ps1` (by `m28`), `write-third-party-notices.py` (by `build-portable.*`), `validate.ps1` (by `validate.cmd`), `m27`/`r2` (by `r2`/`m28`), `validate-m28.sh`/`validate-r2.sh`/`validate-m27.sh` (by `r3.sh`) |
+| by hand, named with a reason | `validate.cmd`, `verify-release-provenance.*` |
+
+The 13 validator targets, per platform:
+
+| target | Linux | Windows |
+|---|---|---|
+| `m19`, `m20` | `nightly.yml` | `nightly.yml` |
+| `m21` | `ci.yml` | dispatcher only (run for real here) |
+| `m28` | through `r3` (lane) | `ci.yml`, `release.yml` |
+| `r2`, `m27` | through `r3` (lane) | through `m28` |
+| `d2`, `m22` to `m26`, `r3` | lane `validators-without-a-lane` | dispatcher only (run for real here) |
+
 ## Governance files touched, and why
 
 - `scripts/write-build-provenance.ps1` — the correction above, ASCII, CRLF kept.
@@ -59,10 +88,9 @@ Linux (the Windows PowerShell 5.1 cases), 4 run. `GateReachabilityArchitectureTe
 
 ## Not done, and why
 
-- **Task 3.7 is the maintainer's.** Open question 1 (what becomes of `d2`, `m22` to `m26`, `r3`: lane, test or
-  retirement) has its data now; nothing is retired here. A retirement follows `milestone-quadruplet` and the precedent
-  of `docs/project/validation/README.md`.
 - **Tasks 4.1 and 4.2** need this pull request's required checks: the cases run on each leg and the duration of the
   Windows step. They are filled from the pull request's runs.
 - The Windows `.ps1` variants stay reachable by hand and through the dispatcher only; `nightly.yml` is Linux. The real
   runs above are the only observation of them.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
