@@ -18,8 +18,9 @@ import unittest
 from dataclasses import dataclass
 
 from validator_harness import (COVERAGE_EVIDENCE, FABRICATED_ARCHITECTURE_TESTS, FABRICATED_BRANCH_RATIO,
-                               FABRICATED_LINE_RATIO, FABRICATED_RATCHETS, FABRICATED_TESTS, RATCHETS_FILE, SBOM_JSON,
-                               SBOM_XML, FabricatedCheckout, PlayedScenarios, Run, require_bash, require_powershell)
+                               FABRICATED_GENERATED_TESTS, FABRICATED_LINE_RATIO, FABRICATED_RATCHETS, FABRICATED_TESTS,
+                               FABRICATED_TOTAL_TESTS, RATCHETS_FILE, SBOM_JSON, SBOM_XML, FabricatedCheckout,
+                               PlayedScenarios, Run, require_bash, require_powershell)
 
 REFERENCE_JAR = "morpheus-provider-reference/target/morpheus-provider-reference-{version}.jar"
 SECURITY_REPORT = "target/d2-security/dependency-check-report.json"
@@ -31,6 +32,7 @@ MANIFEST = "contracts/public-surfaces.tsv"
 class Target:
     name: str
     tests_pass: str = "Tests: PASS"
+    architecture_pass: str = "Architecture: PASS"
     coverage_pass: str = "JaCoCo: PASS"
     living_minimums: tuple[str, ...] = ()
     fallback_base: str = "main"
@@ -47,8 +49,9 @@ MILESTONE_MINIMUMS = ("testsMinimum", "architectureTestsMinimum", "aggregateLine
 
 TARGETS = (
     Target("m21", living_minimums=tuple(FABRICATED_RATCHETS)),
-    Target("d2", tests_pass="D2 tests: PASS", coverage_pass="D2 coverage: PASS",
-           living_minimums=("testsMinimum", "architectureTestsMinimum"), fallback_base="develop"),
+    Target("d2", tests_pass="D2 tests: PASS", architecture_pass="D2 tests: PASS", coverage_pass="D2 coverage: PASS",
+           living_minimums=("testsMinimum", "generatedTestsMinimum", "architectureTestsMinimum"),
+           fallback_base="develop"),
     Target("m22", living_minimums=MILESTONE_MINIMUMS),
     Target("m23", living_minimums=MILESTONE_MINIMUMS),
     Target("m24", living_minimums=MILESTONE_MINIMUMS),
@@ -158,7 +161,7 @@ class VerdictContract(PlayedScenarios):
         self.assertIn(f"version={checkout.version}", lines)
         self.assertIn(f"baseRef={self.target.fallback_base}", lines,
                       "without the remote ref the validator falls back to the local branch and says which")
-        self.assertIn(f"tests={FABRICATED_TESTS}", lines)
+        self.assertIn(f"tests={FABRICATED_TOTAL_TESTS}", lines)
         self.assertIn(f"architectureTests={FABRICATED_ARCHITECTURE_TESTS}", lines)
         self.assertIn(f"lineCoverage={FABRICATED_LINE_RATIO}", lines)
         self.assertIn(f"branchCoverage={FABRICATED_BRANCH_RATIO}", lines)
@@ -230,7 +233,7 @@ class VerdictContract(PlayedScenarios):
         prefix = f"{self.target.label} architecture baseline regression: "
         run = self.refused("too_few_architecture_tests",
                            f"{prefix}{FABRICATED_ARCHITECTURE_TESTS - 1} < {FABRICATED_ARCHITECTURE_TESTS}")
-        self.assertNoPassLine(run, self.target.tests_pass, "Architecture: PASS")
+        self.assertNoPassLine(run, self.target.architecture_pass)
 
     given_no_coverage_evidence = _without(COVERAGE_EVIDENCE)
 
@@ -325,7 +328,7 @@ class LivingMinimumsContract:
 
         self.assertEqual(0, run.returncode, run.output)
         self.assertTrue(run.says(f">= {FABRICATED_TESTS - 10}"), run.output)
-        self.assertIn(f"tests={FABRICATED_TESTS - 10}", checkout.summary(self.target.name).splitlines())
+        self.assertIn(f"tests={FABRICATED_TOTAL_TESTS - 10}", checkout.summary(self.target.name).splitlines())
 
     @classmethod
     def scenarios(cls) -> dict:
@@ -355,6 +358,116 @@ class LivingMinimumsContract:
                      before_the_build=True)
 
 
+class WrittenMinimumContract:
+    """testsMinimum bounds the executions of declared test methods, whatever the factories generate."""
+
+    @staticmethod
+    def given_generated_executions_in_excess_of_the_written_shortfall(checkout, validate):
+        checkout.total_tests(FABRICATED_TESTS - 1)
+        checkout.generated_tests(FABRICATED_GENERATED_TESTS + 2 * FABRICATED_TESTS)
+
+    def test_generated_executions_do_not_make_up_for_written_ones(self) -> None:
+        run = self.refused("generated_executions_in_excess_of_the_written_shortfall",
+                           f"{self.target.label} test baseline regression: {FABRICATED_TESTS - 1} < {FABRICATED_TESTS}",
+                           "testsMinimum")
+        self.assertNoPassLine(run, self.target.tests_pass)
+
+
+class PresenceSplitContract:
+    """The validators that conclude on the presence ratchets count declared and generated executions apart."""
+
+    written_pass: str
+    generated_pass: str
+
+    @staticmethod
+    def given_fewer_generated_executions(checkout, validate):
+        checkout.generated_tests(FABRICATED_GENERATED_TESTS - 1)
+
+    def test_a_shrunk_option_matrix_is_refused_under_the_generated_minimum_alone(self) -> None:
+        run = self.refused("fewer_generated_executions",
+                           f"{self.target.label} generated test baseline regression: "
+                           f"{FABRICATED_GENERATED_TESTS - 1} < {FABRICATED_GENERATED_TESTS}",
+                           "generatedTestsMinimum")
+        self.assertNoPassLine(run, self.generated_pass, self.target.architecture_pass)
+        self.assertTrue(run.says(self.written_pass), f"the written count passes and must be reported:\n{run.output}")
+        self.assertFalse(run.says("testsMinimum in"), run.output)
+
+    given_a_raised_generated_minimum = _ratchets(generatedTestsMinimum=str(FABRICATED_GENERATED_TESTS + 1))
+
+    def test_raising_the_generated_minimum_in_the_file_turns_the_passing_build_into_a_refusal(self) -> None:
+        run = self.refused("a_raised_generated_minimum", f"{self.target.label} generated test baseline regression: "
+                                                         f"{FABRICATED_GENERATED_TESTS} < {FABRICATED_GENERATED_TESTS + 1}")
+        self.assertNoPassLine(run, self.generated_pass, self.target.architecture_pass)
+
+    given_a_generated_minimum_of_zero = _ratchets(generatedTestsMinimum="0")
+
+    def test_a_generated_minimum_that_is_not_above_zero_is_refused_by_its_key_before_the_build(self) -> None:
+        self.refused("a_generated_minimum_of_zero", "M21 quality ratchet generatedTestsMinimum must be a positive integer",
+                     before_the_build=True)
+
+    @staticmethod
+    def given_a_summary_to_read(checkout, validate):
+        pass
+
+    def test_the_summary_states_both_counts_and_their_sum_is_the_total(self) -> None:
+        checkout, run = self.played("a_summary_to_read")
+
+        self.assertEqual(0, run.returncode, run.output)
+        lines = checkout.summary(self.target.name).splitlines()
+        self.assertIn(f"writtenTests={FABRICATED_TESTS}", lines)
+        self.assertIn(f"generatedTests={FABRICATED_GENERATED_TESTS}", lines)
+        self.assertIn(f"tests={FABRICATED_TESTS + FABRICATED_GENERATED_TESTS}", lines)
+
+    @staticmethod
+    def given_every_kind_of_generating_test(checkout, validate):
+        # A parameterised test, a repeated test and a factory, and seven declared methods in the same class.
+        kinds = (("parameterised(String)[{n}]", 100), ("repeated()[{n}]", 100), ("factory()[{n}]", 100))
+        names = [kind.format(n=n) for kind, count in kinds for n in range(1, count + 1)]
+        checkout.invocations("morpheus-cli", "fabricated.GeneratedTest", names, declared=7)
+
+    def test_a_parameterised_test_added_later_counts_as_generated_without_a_change_to_the_validators(self) -> None:
+        checkout, run = self.played("every_kind_of_generating_test")
+
+        self.assertEqual(0, run.returncode, run.output)
+        lines = checkout.summary(self.target.name).splitlines()
+        self.assertIn(f"generatedTests={FABRICATED_GENERATED_TESTS}", lines)
+        self.assertIn(f"writtenTests={FABRICATED_TESTS + 7}", lines)
+        self.assertIn(f"tests={FABRICATED_TOTAL_TESTS + 7}", lines)
+
+    @staticmethod
+    def given_a_factory_in_the_architecture_module(checkout, validate):
+        checkout.total_tests(FABRICATED_TESTS, architecture=FABRICATED_ARCHITECTURE_TESTS - 1)
+        checkout.architecture_suite(declared=FABRICATED_ARCHITECTURE_TESTS - 1, generated=50)
+
+    def test_the_architecture_minimum_counts_written_executions_and_a_factory_there_counts_as_generated(self) -> None:
+        run = self.refused("a_factory_in_the_architecture_module",
+                           f"{self.target.label} architecture baseline regression: "
+                           f"{FABRICATED_ARCHITECTURE_TESTS - 1} < {FABRICATED_ARCHITECTURE_TESTS}")
+        self.assertNoPassLine(run, self.target.architecture_pass)
+
+    @staticmethod
+    def given_a_factory_in_the_architecture_module_beside_the_written_tests(checkout, validate):
+        checkout.architecture_suite(declared=FABRICATED_ARCHITECTURE_TESTS, generated=50)
+
+    def test_a_factory_in_the_architecture_module_raises_the_generated_count_only(self) -> None:
+        checkout, run = self.played("a_factory_in_the_architecture_module_beside_the_written_tests")
+
+        self.assertEqual(0, run.returncode, run.output)
+        lines = checkout.summary(self.target.name).splitlines()
+        self.assertIn(f"architectureTests={FABRICATED_ARCHITECTURE_TESTS}", lines)
+        self.assertIn(f"generatedTests={FABRICATED_GENERATED_TESTS + 50}", lines)
+
+
+class M21PresenceSplit(PresenceSplitContract):
+    written_pass = "Tests: PASS"
+    generated_pass = "Generated tests: PASS"
+
+
+class D2PresenceSplit(PresenceSplitContract):
+    written_pass = "D2 written tests: PASS"
+    generated_pass = "D2 generated tests: PASS"
+
+
 class AggregateCoverageMinimumsContract:
     """The validators whose coverage minimums are the aggregate keys of the ratchet file, not a literal of their date."""
 
@@ -369,14 +482,14 @@ class AggregateCoverageMinimumsContract:
 
 
 class M21Cases:
-    given_other_minimums = _ratchets(testsMinimum="4000", architectureTestsMinimum="900",
+    given_other_minimums = _ratchets(testsMinimum="4000", generatedTestsMinimum="250", architectureTestsMinimum="900",
                                      aggregateLineCoverageMinimum="0.500", aggregateBranchCoverageMinimum="0.400")
 
     def test_the_summary_states_the_minimums_the_file_held(self) -> None:
         checkout, run = self.played("other_minimums")
 
         self.assertEqual(0, run.returncode, run.output)
-        self.assertIn("qualityRatchets=4000/900/0.500/0.400", checkout.summary("m21").splitlines())
+        self.assertIn("qualityRatchets=4000/250/900/0.500/0.400", checkout.summary("m21").splitlines())
 
     def test_the_provenance_it_writes_vouches_for_the_commit_and_the_sbom(self) -> None:
         checkout, run = self.played("a_complete_checkout")
@@ -461,8 +574,9 @@ class M27Cases:
         self.assertNoPassLine(run, "CLI/MCP/HTTP convergence + OpenAPI mutation boundary: PASS")
 
 
-MILESTONE_CONTRACTS = (LivingMinimumsContract, AggregateCoverageMinimumsContract)
-EXTRA_CASES = {"m21": (*MILESTONE_CONTRACTS, M21Cases), "d2": (LivingMinimumsContract, D2Cases),
+MILESTONE_CONTRACTS = (LivingMinimumsContract, WrittenMinimumContract, AggregateCoverageMinimumsContract)
+EXTRA_CASES = {"m21": (*MILESTONE_CONTRACTS, M21PresenceSplit, M21Cases),
+               "d2": (LivingMinimumsContract, WrittenMinimumContract, D2PresenceSplit, D2Cases),
                "m22": (*MILESTONE_CONTRACTS, M22Cases), "m23": MILESTONE_CONTRACTS, "m24": MILESTONE_CONTRACTS,
                "m25": MILESTONE_CONTRACTS, "m26": (*MILESTONE_CONTRACTS, M26Cases),
                "m27": (*MILESTONE_CONTRACTS, M27Cases)}

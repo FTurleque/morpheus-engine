@@ -31,7 +31,9 @@ function Show-NativeStep([string]$Label, [scriptblock]$Command) {
 }
 
 function Get-SurefireTotals([string]$Root) {
-    $result = [ordered]@{ Tests = 0; Failures = 0; Errors = 0; Skipped = 0; Suites = 0 }
+    # Surefire names each invocation of a test factory, of a parameterised or of a repeated test `method()[N]`; a declared
+    # test method keeps its bare name. Tests is the total, Generated the part of it a factory or a template yielded.
+    $result = [ordered]@{ Tests = 0; Generated = 0; Failures = 0; Errors = 0; Skipped = 0; Suites = 0 }
     $reports = @(Get-ChildItem -Path $Root -Recurse -File -Filter 'TEST-*.xml' -ErrorAction SilentlyContinue |
         Where-Object { $_.FullName -match '[\\/]target[\\/]surefire-reports[\\/]' })
     foreach ($report in $reports) {
@@ -39,6 +41,7 @@ function Get-SurefireTotals([string]$Root) {
         $suite = $document.testsuite
         if ($null -eq $suite) { continue }
         $result.Tests += [int]$suite.tests
+        $result.Generated += @($suite.SelectNodes('testcase') | Where-Object { $_.GetAttribute('name') -match '\[[0-9]+\]$' }).Count
         $result.Failures += [int]$suite.failures
         $result.Errors += [int]$suite.errors
         $result.Skipped += [int]$suite.skipped
@@ -52,6 +55,7 @@ function Get-M21QualityRatchets([string]$Path) {
     # read so that a missing key fails here rather than in whichever gate happens to run first; only the aggregate pair
     # is compared below, because this validator concludes on the canonical measurement.
     $tests = Get-QualityRatchet -Path $Path -Key 'testsMinimum' -Kind integer
+    $generatedTests = Get-QualityRatchet -Path $Path -Key 'generatedTestsMinimum' -Kind integer
     $architectureTests = Get-QualityRatchet -Path $Path -Key 'architectureTestsMinimum' -Kind integer
     $perModuleLine = Get-QualityRatchet -Path $Path -Key 'perModuleLineCoverageMinimum' -Kind ratio
     $perModuleBranch = Get-QualityRatchet -Path $Path -Key 'perModuleBranchCoverageMinimum' -Kind ratio
@@ -60,6 +64,7 @@ function Get-M21QualityRatchets([string]$Path) {
     $invariant = [Globalization.CultureInfo]::InvariantCulture
     return [pscustomobject]@{
         Tests = [int]$tests
+        GeneratedTests = [int]$generatedTests
         ArchitectureTests = [int]$architectureTests
         LineCoverage = [double]::Parse($aggregateLine, $invariant)
         BranchCoverage = [double]::Parse($aggregateBranch, $invariant)
@@ -131,7 +136,8 @@ function Assert-PackagedApiVersion([string]$Launcher) {
     }
 }
 
-$ratchets = Get-M21QualityRatchets (Join-Path $repo 'config\m21-quality-ratchets.properties')
+$ratchetsPath = Join-Path $repo 'config\m21-quality-ratchets.properties'
+$ratchets = Get-M21QualityRatchets $ratchetsPath
 
 Write-Host "M21 exact-head validation SHA: $validationSha"
 $initialTracked = @(git status --porcelain --untracked-files=no)
@@ -155,15 +161,21 @@ $totals = Get-SurefireTotals $repo
 if ($totals.Failures -ne 0 -or $totals.Errors -ne 0) {
     throw "Surefire failures=$($totals.Failures) errors=$($totals.Errors)"
 }
-if ($totals.Tests -lt $ratchets.Tests) {
-    throw "M21 test baseline regression: $($totals.Tests) < $($ratchets.Tests)"
+$writtenTests = $totals.Tests - $totals.Generated
+if ($writtenTests -lt $ratchets.Tests) {
+    throw "M21 test baseline regression: $writtenTests < $($ratchets.Tests) written executions (testsMinimum in $ratchetsPath)"
 }
+Write-Host "Tests: PASS ($writtenTests written, baseline >= $($ratchets.Tests))"
+if ($totals.Generated -lt $ratchets.GeneratedTests) {
+    throw "M21 generated test baseline regression: $($totals.Generated) < $($ratchets.GeneratedTests) generated executions (generatedTestsMinimum in $ratchetsPath)"
+}
+Write-Host "Generated tests: PASS ($($totals.Generated), baseline >= $($ratchets.GeneratedTests))"
 $architecture = Get-SurefireTotals (Join-Path $repo 'morpheus-architecture-tests')
-if ($architecture.Tests -lt $ratchets.ArchitectureTests) {
-    throw "M21 architecture baseline regression: $($architecture.Tests) < $($ratchets.ArchitectureTests)"
+$architectureWritten = $architecture.Tests - $architecture.Generated
+if ($architectureWritten -lt $ratchets.ArchitectureTests) {
+    throw "M21 architecture baseline regression: $architectureWritten < $($ratchets.ArchitectureTests) (architectureTestsMinimum in $ratchetsPath)"
 }
-Write-Host "Tests: PASS ($($totals.Tests), baseline >= $($ratchets.Tests))"
-Write-Host "Architecture: PASS ($($architecture.Tests), baseline >= $($ratchets.ArchitectureTests))"
+Write-Host "Architecture: PASS ($architectureWritten written, baseline >= $($ratchets.ArchitectureTests))"
 
 $coverageSummary = Join-Path $repo 'morpheus-architecture-tests\target\m21-aggregate-coverage-summary.txt'
 & (Join-Path $PSScriptRoot 'lib\Require-AggregateCoverageEvidence.ps1') -EvidencePath $coverageSummary
@@ -233,11 +245,13 @@ $summary = @(
     "baseRef=$BaseRef"
     "version=$Version"
     "tests=$($totals.Tests)"
-    "architectureTests=$($architecture.Tests)"
+    "writtenTests=$writtenTests"
+    "generatedTests=$($totals.Generated)"
+    "architectureTests=$architectureWritten"
     'coverageScope=aggregate'
     "lineCoverage=$($coverage.lineRatio)"
     "branchCoverage=$($coverage.branchRatio)"
-    "qualityRatchets=$($ratchets.Tests)/$($ratchets.ArchitectureTests)/$($ratchets.LineCoverageText)/$($ratchets.BranchCoverageText)"
+    "qualityRatchets=$($ratchets.Tests)/$($ratchets.GeneratedTests)/$($ratchets.ArchitectureTests)/$($ratchets.LineCoverageText)/$($ratchets.BranchCoverageText)"
     'sbom=PASS'
     'provenance=PASS'
     "portable=$(-not $SkipPortable)"

@@ -139,7 +139,10 @@ class ProductionIntegrityContractTest {
         assertTrue(publicSurfaces.contains("EXPLICITLY_NOT_EXPOSED"));
         Ratchets ratchets = Ratchets.load(root.resolve("config/m21-quality-ratchets.properties"));
         assertTrue(integrity.contains(ratchets.tests() + " PASS"),
-                "PRODUCTION_INTEGRITY.md must quote the normative Surefire ratchet " + ratchets.tests());
+                "PRODUCTION_INTEGRITY.md must quote the normative written Surefire ratchet " + ratchets.tests());
+        assertTrue(integrity.contains(ratchets.generatedTests() + " PASS"),
+                "PRODUCTION_INTEGRITY.md must quote the normative generated Surefire ratchet "
+                        + ratchets.generatedTests());
         assertTrue(integrity.contains(ratchets.architectureTests() + " PASS"),
                 "PRODUCTION_INTEGRITY.md must quote the normative architecture ratchet " + ratchets.architectureTests());
         // Both scales, each naming itself. The page used to quote one figure as "aggregate" while the number it
@@ -180,7 +183,7 @@ class ProductionIntegrityContractTest {
     }
 
     /** Reads the single normative source of the M21 ratchets so documentation gates can never pin stale numbers. */
-    private record Ratchets(String tests, String architectureTests,
+    private record Ratchets(String tests, String generatedTests, String architectureTests,
                             String aggregateLineCoverage, String aggregateBranchCoverage,
                             String perModuleLineCoverage, String perModuleBranchCoverage) {
         private static Ratchets load(Path path) throws IOException {
@@ -190,6 +193,7 @@ class ProductionIntegrityContractTest {
             }
             return new Ratchets(
                     properties.getProperty("testsMinimum"),
+                    properties.getProperty("generatedTestsMinimum"),
                     properties.getProperty("architectureTestsMinimum"),
                     percentage(properties.getProperty("aggregateLineCoverageMinimum")),
                     percentage(properties.getProperty("aggregateBranchCoverageMinimum")),
