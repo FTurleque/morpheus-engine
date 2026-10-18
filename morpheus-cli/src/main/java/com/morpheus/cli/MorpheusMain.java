@@ -127,6 +127,10 @@ public final class MorpheusMain {
             Map<String, String> environment,
             Properties properties) {
         Objects.requireNonNull(runtime, "runtime");
+        Optional<String> undeclared = CliCommandPaths.refusalOf(args);
+        if (undeclared.isPresent()) {
+            return new MorpheusCli(runtime.recorder()).refuseUndeclared(args, err, undeclared.get());
+        }
         if (MorpheusProviderPluginCli.handles(args)) {
             return new MorpheusProviderPluginCli(runtime.recorder()).run(args, out, err);
         }
@@ -179,6 +183,8 @@ public final class MorpheusMain {
             out.println("  Remote mode is HTTPS-only and requires MORPHEUS_SERVER_TLS_PASSWORD, at least one active ADMIN identity and at least one server-owned workspace root.");
             out.println("  morpheus [layout] server identity create --principal NAME --role READ|WRITE|ADMIN [--expires-at ISO-8601] [--auth-file FILE]");
             out.println("  morpheus [layout] server identity rotate --principal NAME [--expires-at ISO-8601|never] [--auth-file FILE]");
+            out.println("  morpheus [layout] server identity role --principal NAME --role READ|WRITE|ADMIN [--auth-file FILE]");
+            out.println("  morpheus [layout] server identity revoke --principal NAME [--auth-file FILE]");
             out.println("  morpheus [layout] server identity list [--auth-file FILE]");
             out.println("  Rotation preserves the current expiry when --expires-at is omitted; --expires-at never makes the credential permanent.");
             out.println("  morpheus [layout] server identity migrate-legacy --expires-at ISO-8601 [--principal NAME] [--dry-run] [--auth-file FILE]");
@@ -195,7 +201,9 @@ public final class MorpheusMain {
             out.println("  morpheus [--json] policy pack update --id ID --expected-revision N --name NAME --rules RULES --actor NAME --reason TEXT");
             out.println("  morpheus [--json] policy activate --id ID --version ID (--project ID | --portfolio ID) --expected-revision N --actor NAME --reason TEXT");
             out.println("  morpheus [--json] policy deactivate --id ID (--project ID | --portfolio ID) --expected-revision N --actor NAME --reason TEXT");
+            out.println("  morpheus [--json] policy activations (--project ID | --portfolio ID)");
             out.println("  morpheus [--json] policy override put --id ID --rule ID --mode DISABLE|FORCE_WARN|FORCE_BLOCK (--project ID | --portfolio ID) --expected-revision N --actor NAME --reason TEXT");
+            out.println("  morpheus [--json] policy override remove --id ID --rule ID (--project ID | --portfolio ID) --expected-revision N --actor NAME --reason TEXT");
             out.println("  morpheus [--json] policy override list (--project ID | --portfolio ID)");
             out.println("  morpheus [--json] policy evaluate (--project ID | --portfolio ID) [--id ID]");
             out.println("  morpheus [--json] policy dry-run --id ID --version ID (--project ID | --portfolio ID)");
@@ -218,7 +226,13 @@ public final class MorpheusMain {
             out.println("Portfolio intelligence (M23):");
             out.println("  morpheus [--json] portfolio create --name NAME");
             out.println("  morpheus [--json] portfolio add-project --portfolio ID --project ID --name NAME [--workspace PATH] [--repository SCHEME:VALUE] [--providers a,b]");
+            out.println("  morpheus [--json] portfolio missing --portfolio ID --project ID");
+            out.println("  morpheus [--json] portfolio freshness --portfolio ID --project ID --state FRESH|STALE|MISSING|UNKNOWN [--revision REV] [--explanation TEXT]");
+            out.println("  morpheus [--json] portfolio add-reference --portfolio ID --source-project ID --source-type TYPE --source-id ID --target-project ID --target-type TYPE --target-id ID --relation NAME --provider NAME [--source-locator SCHEME:VALUE] [--evidence ID]");
+            out.println("  morpheus [--json] portfolio list [--offset N] [--limit N]");
             out.println("  morpheus [--json] portfolio overview --portfolio ID");
+            out.println("  morpheus [--json] portfolio members --portfolio ID [--offset N] [--limit N]");
+            out.println("  morpheus [--json] portfolio conflicts --portfolio ID");
             out.println("  morpheus [--json] portfolio references --portfolio ID [--project ID] [--offset N] [--limit N]");
             out.println("  morpheus [--json] portfolio traverse --portfolio ID --start-project ID --start-type TYPE --start-id ID [--direction BOTH] [--depth N] [--nodes N] [--links N]");
             out.println("  Project identity remains distinct from workspace, repository and provider observations.");

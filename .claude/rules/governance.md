@@ -32,7 +32,7 @@ code tiers, donc il est délibérément absent du transport MCP (jamais model-fa
 colonne `notes` justifie pourquoi. C'est le patron à reproduire pour toute nouvelle
 capacité qui n'expose pas les trois transports.
 
-Ce que les gates comparent réellement — deux mécanismes, à ne pas confondre :
+Ce que les gates comparent réellement — des mécanismes à ne pas confondre :
 
 - **Route par route, dans les deux sens** : `PublicHttpRouteConvergenceTest` (paquet `com.morpheus.api` des tests
   d'architecture) compare méthode + chemin entre la table `MorpheusHttpRouteTable`, la colonne `http` du manifeste
@@ -43,7 +43,18 @@ Ce que les gates comparent réellement — deux mécanismes, à ne pas confondre
   `Allow` égal aux méthodes de la route. Exclusions motivées dans le
   test : les routes servies par le seul serveur remote (`REMOTE_ONLY`) et les sondes d'exploitation sans ligne au
   manifeste (`NOT_IN_MANIFEST` : racine, `health`, `readiness`, `metrics`). La colonne `mcp` a son équivalent,
-  `PublicSurfaceManifestCoversEveryServedToolTest`. Ni l'un ni l'autre ne vérifie la colonne `cli`.
+  `PublicSurfaceManifestCoversEveryServedToolTest`.
+- **Commande par commande, dans les deux sens** : la colonne `cli` est comparée à `CliCommandPaths`, la déclaration unique
+  des chemins de commande du CLI (un chemin = les mots avant la première option : `portfolio list`, `policy pack create`).
+  `PublicSurfaceManifestCoversEveryServedCliCommandTest` (paquet `com.morpheus.cli` des tests d'architecture) refuse une
+  cellule qui nomme une commande non déclarée, un chemin déclaré que ni une ligne ni une exclusion écrite ne nomme, un chemin
+  nommé par deux lignes, et une exclusion qui ne dispense de rien ; un sentinelle ne nomme rien, donc ne cache pas une commande
+  servie. `CliCommandPathsTest` (module `morpheus-cli`) lance chaque chemin déclaré sans option et exige qu'il ne soit pas
+  refusé comme inconnu, qu'un chemin non déclaré le soit avant toute sous-commande, et que l'aide embarquée documente chaque
+  chemin. Ajouter une action au `switch` d'une sous-commande sans la déclarer la rend inatteignable. Hors garde : les options
+  d'une commande (une cellule `server restore --confirm` est comparée sur `server restore`), la justesse de l'intention et des
+  notes, et le contenu d'une réponse ; ce que la table ne sait pas dire d'une commande qui échoue pour une autre raison que
+  « inconnue » reste ouvert. Exclusions actuelles : relire `EXCLUSIONS` dans le test, pas cette page.
 - **Lignes épinglées** : les tests `publicManifestAndOpenApiExposeSame*IntentFamilies` (M24, M25, M27) cherchent quelques
   lignes **exactes** du TSV et quelques clés de chemin de l'OpenAPI, choisies à la main. Ils épinglent une famille de
   capacités ; ils ne comparent pas les deux fichiers.
