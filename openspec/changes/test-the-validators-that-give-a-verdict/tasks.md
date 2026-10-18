@@ -23,12 +23,17 @@ branch `python -m unittest discover -s scripts/tests` ran 521 cases, 1 class ski
     `validate-r2.ps1`, which runs `validate-m27.ps1`. No workflow names `d2`, `m22` to `m26` or `r3`, nor
     `validate-m21.ps1`, `validate-m27.sh`, `validate-m28.sh`, `validate-r2.sh`. Not compared with the table of the
     other change.
-- [ ] 1.3 List the refusals each validator claims (its `exit 1` and `throw` sites) and the files it reads. Proof: the
+- [x] 1.3 List the refusals each validator claims (its `exit 1` and `throw` sites) and the files it reads. Proof: the
       table from which the fabricated checkout and the cases are written.
   - 2026-10-13: not produced as a table. The refusals up to the packaging switch were read validator by validator and
     are the scenarios of `test_validator_verdicts.py` and `test_validator_entry_refusals.py`; the files read are the
     ones `validator_harness.py` fabricates. The refusals after the packaging switch are not listed anywhere.
-- [ ] 1.4 Run once, on Windows and on Linux, each validator that no workflow launches on that platform. Proof: per
+  - 2026-10-18: produced, `refusals-table.md` beside this file: 545 sites in the 26 validator files of the 13 targets
+    (184 before the build, 122 between the build and the packaging switch, 239 after it), each with file, line, kind,
+    zone and message, read at `29c942ae`. The table says which zone a test reaches: the first two, on the fabricated
+    checkout; the 239 sites after the packaging switch are reached by no test and only a real run observes them (1.4).
+    The files read are listed at the head of the table; the fabricated checkout holds that set (2.1).
+- [x] 1.4 Run once, on Windows and on Linux, each validator that no workflow launches on that platform. Proof: per
       target and platform, the exit code and the `validation-summary.txt` or `failure-summary.txt`. A validator that
       does not finish is a finding, reported before anything is repaired.
   - 2026-10-13: **not done.** A real run is a full `clean verify` plus packaging, and was excluded from this session.
@@ -40,6 +45,14 @@ branch `python -m unittest discover -s scripts/tests` ran 521 cases, 1 class ski
     `nightly.yml` (3.7) will give the Linux run of `d2`, `m22` to `m26` and `r3` (and through it `m28`, `r2`, `m27`) once
     it runs: on a schedule only after `nightly.yml` reaches `main`, before that by `workflow_dispatch`. No Windows run
     of the `.ps1` variants is planned by it.
+  - 2026-10-18: **done**, on `develop` at `29c942ae`, version 1.2.1, from two fresh clones, one per platform, each
+    validator run alone with its full `clean verify`. The table, the findings and every summary the validators wrote
+    are in `real-validator-runs.md`. Result: on Linux (WSL) `d2`, `m22` to `m26` and `r3` (with `m28`, `r2`, `m27`
+    through it) end on PASS; on Windows (PowerShell 5.1) `d2`, `m21`, `m23` to `m26` and `r3` (with `m28`, `r2`,
+    `m27`) end on PASS, and `m22` **did not finish** the first time. Single finding: `write-build-provenance.ps1:35`
+    calls `.Trim()` on nothing when HEAD is detached and untagged (`git branch --show-current` is empty), after the
+    whole build and `JaCoCo: PASS`; seven `.ps1` validators call it. Corrected in 3.6 (below), `m22` passes on a branch
+    in 573 s. Durations on a loaded development machine: 503 s to 2149 s per target, none hangs.
 - [x] 1.5 Find whether any test runs the four scripts of the Dependency-Check lane, or only reads them. Proof: the test
       and the line that launches the process, or the statement that none does.
   - 2026-10-13: none did (`DependencyCheckWorkflowContractTest` reads them). `test_dependency_check_scripts.py` now
@@ -47,12 +60,35 @@ branch `python -m unittest discover -s scripts/tests` ran 521 cases, 1 class ski
 
 ## 2. Reproduce before fixing
 
-- [ ] 2.1 Build the fabricated checkout and compare the files it holds with those a real `./mvnw clean verify` leaves
+- [x] 2.1 Build the fabricated checkout and compare the files it holds with those a real `./mvnw clean verify` leaves
       (names, first lines, attributes read). Proof: the comparison.
   - 2026-10-13: the checkout is built. Compared by reading, not against a fresh build: the Surefire root element and
     the attributes the validators read (`tests`, `failures`, `errors`, `skipped`) with reports left by an earlier
     build, the evidence lines with the format string of `AggregateCoverageGateTest`, the SBOM names with
     `target/m21-supply-chain/`. The comparison against a `clean verify` of the same commit is not done.
+  - 2026-10-18: done against the files a real `./mvnw clean verify` left at `29c942ae`, from the Linux (WSL) run of
+    `validate-d2.sh` (the Windows run of `validate-d2.ps1` passed on the same reactor and wrote the same totals). The
+    fabricated checkout was built by `validator_harness.FabricatedCheckout` and compared file class by file class:
+    - Surefire reports: real 560 files, root `testsuite` in every one; the attributes the validators read (`tests`,
+      `failures`, `errors`, `skipped`) are on every real root. The fabricated root carries the same attributes
+      (`name`, `time`, `tests`, `errors`, `skipped`, `failures`, `flakes`); a real root adds `version` and an
+      `xsi:noNamespaceSchemaLocation`, read by no validator. The report `validate-r2` requires by name
+      (`com.morpheus.store.sqlite.R2UpgradeCompatibilityTest`) exists in `morpheus-store-sqlite` at that name.
+    - Aggregate coverage evidence: the first line of the real file is `coverageScope=aggregate`; every key of the
+      fabricated file exists in the real one with the same name; the real file adds ten keys (`aggregateReport`,
+      `populationRule`, `populationModules=16`, `population`, the two qualified baselines, the two ratchets, the two D2
+      floors) that the guards do not read, and `coverageSource` carries `jacoco-report-aggregate`, not `fabricated`. Real ratios: `lineRatio=0.910060`,
+      `branchRatio=0.771111` on Linux, `0.910525` / `0.771586` on Windows, tests 4194, architecture tests 693.
+    - Supply chain: `target/m21-supply-chain/` holds `morpheus-sbom.json` and `morpheus-sbom.xml`, the two names of
+      the fabricated checkout. `build-provenance.properties` is written by the validator, not by the build, and is
+      not fabricated: the real provenance writer runs against the stub.
+    - `target/d2-security/dependency-check-report.json` is **not** left by `clean verify`: only the Dependency-Check
+      scan writes it. The fabricated checkout holds it for the cases of the scanning variant of `validate-d2`; the real
+      runs of 1.4 used `MORPHEUS_D2_SKIP_SECURITY_SCAN=true` / `-SkipSecurityScan`, so that file is the one thing of the
+      fabricated checkout no real run here confirmed.
+    - Artifacts looked up by name: `morpheus-provider-reference/target/morpheus-provider-reference-1.2.1.jar` and
+      `morpheus-cli/target/morpheus-cli-1.2.1-all.jar` exist under those names.
+    No attribute or name the validators read differs; the fabricated checkout is a subset of the real files by design.
 - [x] 2.2 Write the cases of the contract for `validate-m21` on both platforms. Proof: the result on `HEAD`; a refusal
       that does not happen is a defect of the validator, listed.
   - 2026-10-13: on `d5be889b` the contract was red on two points, both corrected (3.6): the earlier passing summary
@@ -100,6 +136,12 @@ branch `python -m unittest discover -s scripts/tests` ran 521 cases, 1 class ski
     a failure summary; the dispatcher handing a null argument to a validator launched without one, which made
     `scripts\validate.cmd m19` fail; the PowerShell ratchet reader accepting ratios the shell one refuses; the
     PowerShell evidence guard comparing the scale without its case.
+  - 2026-10-18: a seventh, found by the real runs of 1.4: `write-build-provenance.ps1` called `.Trim()` on the empty
+    output of `git branch --show-current` on a detached HEAD without a tag, so the `detached` fallback two lines below
+    could never apply. The read is now `"$(git branch --show-current)".Trim()`. Case first, red on the old line:
+    `scripts/tests/test_write_build_provenance.py` (a branch, a detached head, a tag, a missing SBOM, on the `.sh` and the
+    `.ps1`; only the detached case of the `.ps1` failed). The file stays ASCII and CRLF.
+
 - [ ] 3.7 Put the decision of open question 1 to the maintainer with the results of 1.4, target by target. A retirement
       follows `milestone-quadruplet` and the precedent of `docs/project/validation/README.md`.
   - 2026-10-13: put, not decided, and without the real runs of 1.4. The three `.sh` nothing launches are named in
@@ -110,6 +152,12 @@ branch `python -m unittest discover -s scripts/tests` ran 521 cases, 1 class ski
     Dependency-Check scan). Once a page stopped counting as a launch (3.5) the orphans were ten, not three:
     `validate-d2.sh`, `m22` to `m28.sh`, `r2.sh`, `r3.sh`; the lane launches all ten, `NOT_LAUNCHED` is empty. Left
     unchecked: the decision itself, with the results of 1.4, is still the maintainer's.
+  - 2026-10-18: the results of 1.4 are in, target by target (`real-validator-runs.md`); **stopped here, waiting for the
+    maintainer**. Nothing was retired, nothing was decided. What the runs say: all ten `.sh` validators the lane launches
+    finish on PASS on Linux; the `.ps1` of `d2`, `m21`, `m22` to `m26` and `r3` finish on PASS on Windows (`m22` after the
+    correction of 3.6). So no candidate is dead weight in the sense "no longer runs". The decision left is whether a
+    validator that runs and that no workflow reached is still worth its lane, its minutes and the milestone assertions
+    that name it.
 - [x] 3.8 Break each rule once, then revert: remove a comparison from a validator; remove the step from one leg; add an
       untested script; move a launch into a comment; leave an excuse for a tested script. Proof: the named failures.
   - 2026-10-13: each done and reverted. The comparison of the test count removed from `validate-m21.sh` and from
@@ -138,11 +186,16 @@ branch `python -m unittest discover -s scripts/tests` ran 521 cases, 1 class ski
 
 - [ ] 4.1 The pull request's required checks on both platforms. Proof: the script tests executed on each leg, with the
       number of cases run and none skipped.
+  - 2026-10-18: **pending, needs a push and a pull request** (not done here by instruction). The text of the description
+    is in `pull-request-description.md`. Locally, Windows, after this session's additions: 529 cases run, 1 class skipped (`jq` is not
+    installed here; with `CI` set it fails instead); Linux (WSL), the new file alone: 4 cases run, 4 skipped by name (the
+    Windows PowerShell 5.1 cases).
   - 2026-10-13: no pull request opened. Locally: Windows, 427 cases run, 1 class skipped (`jq` is not installed on
     this machine; with `CI` set the same class fails instead); Linux (WSL), 238 cases run, 18 skipped, 17 of them the
     PowerShell classes. "None skipped" cannot hold on the Linux leg: Windows PowerShell 5.1 does not exist there, and
     those classes are skipped by name on any platform but Windows.
 - [ ] 4.2 Measure the duration of the new step on the Windows leg. Proof: the figure, in the pull request.
+  - 2026-10-18: **pending, needs a runner**: the figure comes from the Windows leg of the pull request.
   - 2026-10-13: not measured on a runner. On the development machine the whole discovery takes three to four minutes
     on Windows (measured twice: 179 s for 404 cases, 234 s for 427) and 36 s on Linux. The step is not "counted in
     seconds" as the design expected: a validator run is a process, and there are several hundred.
@@ -158,4 +211,5 @@ branch `python -m unittest discover -s scripts/tests` ran 521 cases, 1 class ski
     checked, and which validators the nightly lane runs. No sentence of `.claude/rules` described the old state.
 - [ ] 4.5 Pull request description: the finding, the tables of 1.1 and 1.2, the validators corrected, the excuses and
       their reasons, the justification of the test added under `morpheus-architecture-tests/` and of the workflow edit.
+  - 2026-10-18: drafted in `pull-request-description.md`; **pending**, a pull request has to exist first.
   - 2026-10-13: no pull request opened.
