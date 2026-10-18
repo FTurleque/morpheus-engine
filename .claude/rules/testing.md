@@ -81,8 +81,11 @@ Windows   64,5952 % / 64,5987 % lignes   56,3942 % / 56,4040 % branches
 Linux     64,5143 % / 64,5495 % lignes   56,2964 % / 56,3453 % branches   <- plafond sur la plus basse
 ```
 
-Les runners CI sont une source recevable : ce sont les mêmes que ceux des checks requis, et la preuve reste
-consultable dans les artefacts. Le plafond précédent (62,5013 % / 53,7997 %, 08/09/2026) était dépassé
+Les runners CI sont une source recevable : ce sont les mêmes que ceux des checks requis. Leurs artefacts expirent :
+la preuve de la qualification en vigueur est donc **gardée dans `config/coverage-qualification/`** (un résumé par run
+et par échelle, `evidence.tsv` pour la plateforme, le run et le commit), et `CoverageQualificationEvidenceTest`
+exige que chaque plafond soit égal au plus bas ratio de son échelle dans ces fichiers. Relever un plafond remplace
+cet ensemble dans le même changement. Le plafond précédent (62,5013 % / 53,7997 %, 08/09/2026) était dépassé
 depuis le 09/09.
 
 Le **ratchet** se place délibérément *sous* le plafond, pas dessus : les deux runs Linux de ce SHA ont
