@@ -136,14 +136,26 @@ class AggregateCoverageGateTest {
      */
     @Test
     void aggregateRatchetWindowRejectsAnUnqualifiedRaiseAndAReturnToTheD2Floor() {
-        assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
+        AssertionError lineAboveCap = assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
                 "line", AGGREGATE_QUALIFIED_LINE_RATIO + 0.000001d, D2_MIN_LINE_RATIO, AGGREGATE_QUALIFIED_LINE_RATIO));
-        assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
+        assertTrue(lineAboveCap.getMessage().contains("aggregate line ratchet")
+                        && lineAboveCap.getMessage().contains("exceeds its qualified aggregate baseline"),
+                () -> "a line ratchet above its qualified baseline must be refused as such: " + lineAboveCap.getMessage());
+        AssertionError branchAboveCap = assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
                 "branch", AGGREGATE_QUALIFIED_BRANCH_RATIO + 0.000001d, D2_MIN_BRANCH_RATIO, AGGREGATE_QUALIFIED_BRANCH_RATIO));
-        assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
+        assertTrue(branchAboveCap.getMessage().contains("aggregate branch ratchet")
+                        && branchAboveCap.getMessage().contains("exceeds its qualified aggregate baseline"),
+                () -> "a branch ratchet above its qualified baseline must be refused as such: " + branchAboveCap.getMessage());
+        AssertionError lineAtFloor = assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
                 "line", D2_MIN_LINE_RATIO, D2_MIN_LINE_RATIO, AGGREGATE_QUALIFIED_LINE_RATIO));
-        assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
+        assertTrue(lineAtFloor.getMessage().contains("aggregate line ratchet")
+                        && lineAtFloor.getMessage().contains("must stay stricter than the D2 floor"),
+                () -> "a line ratchet back at the D2 floor must be refused as such: " + lineAtFloor.getMessage());
+        AssertionError branchAtFloor = assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
                 "branch", D2_MIN_BRANCH_RATIO, D2_MIN_BRANCH_RATIO, AGGREGATE_QUALIFIED_BRANCH_RATIO));
+        assertTrue(branchAtFloor.getMessage().contains("aggregate branch ratchet")
+                        && branchAtFloor.getMessage().contains("must stay stricter than the D2 floor"),
+                () -> "a branch ratchet back at the D2 floor must be refused as such: " + branchAtFloor.getMessage());
     }
 
     /** Every key is required, and a missing one must name itself rather than surface as a parse failure. */

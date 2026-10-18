@@ -134,8 +134,9 @@ class BoundedCurrentRequirementStoreTest {
 
         assertEquals(expected, requirements.listCurrentRequirementVersions(snapshotId));
         assertEquals(expected.subList(0, 1), requirements.listCurrentRequirementVersions(snapshotId, 1));
-        assertThrows(IllegalArgumentException.class,
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
                 () -> requirements.listCurrentRequirementVersions(snapshotId, 0));
+        assertEquals("limit must be positive", failure.getMessage());
     }
 
     private KnowledgeSnapshotMetadata readySnapshot(

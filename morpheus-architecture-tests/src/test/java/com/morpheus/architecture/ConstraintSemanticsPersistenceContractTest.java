@@ -108,7 +108,7 @@ class ConstraintSemanticsPersistenceContractTest {
                 List.of(EvidenceId.generate()),
                 source.provenance());
 
-        assertThrows(IllegalArgumentException.class, () -> new SnapshotBusinessContent(
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> new SnapshotBusinessContent(
                 fixture.snapshotId(),
                 fixture.versionId(),
                 List.of(),
@@ -119,6 +119,8 @@ class ConstraintSemanticsPersistenceContractTest {
                 List.of(),
                 List.of(),
                 fixture.content().evidence()));
+        assertEquals("provenance references unknown evidence: " + broken.supportingEvidenceIds().getFirst(),
+                failure.getMessage());
     }
 
     private Fixture fixture() {
