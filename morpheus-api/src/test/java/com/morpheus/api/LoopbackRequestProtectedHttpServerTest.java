@@ -56,7 +56,8 @@ class LoopbackRequestProtectedHttpServerTest {
 
         var late = server.createContext("/late");
         late.setHandler(LoopbackRequestProtectedHttpServerTest::noContent);
-        assertThrows(NullPointerException.class, () -> late.setHandler(null));
+        NullPointerException lateFailure = assertThrows(NullPointerException.class, () -> late.setHandler(null));
+        assertEquals("handler", lateFailure.getMessage());
 
         var wrappedRemoval = server.createContext("/wrapped-removal", LoopbackRequestProtectedHttpServerTest::noContent);
         server.removeContext(wrappedRemoval);
@@ -102,12 +103,16 @@ class LoopbackRequestProtectedHttpServerTest {
 
     @Test
     void rejectsNullDelegateAndNullDirectHandler() throws Exception {
-        assertThrows(NullPointerException.class, () -> new LoopbackRequestProtectedHttpServer(null));
+        NullPointerException delegateFailure =
+                assertThrows(NullPointerException.class, () -> new LoopbackRequestProtectedHttpServer(null));
+        assertEquals("delegate", delegateFailure.getMessage());
 
         HttpServer delegate = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
         HttpServer server = new LoopbackRequestProtectedHttpServer(delegate);
         try {
-            assertThrows(NullPointerException.class, () -> server.createContext("/null", null));
+            NullPointerException handlerFailure =
+                    assertThrows(NullPointerException.class, () -> server.createContext("/null", null));
+            assertEquals("handler", handlerFailure.getMessage());
         } finally {
             server.stop(0);
         }

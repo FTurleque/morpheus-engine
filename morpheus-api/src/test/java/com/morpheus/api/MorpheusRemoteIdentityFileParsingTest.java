@@ -143,8 +143,9 @@ class MorpheusRemoteIdentityFileParsingTest {
         assertTrue(identities.getFirst().isExpiredAt(Instant.now()));
         assertTrue(MorpheusRemoteIdentityFile.authenticate(identities, "stale-token").isEmpty());
         Instant now = Instant.now();
-        assertThrows(IllegalArgumentException.class,
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
                 () -> MorpheusRemoteHttpServer.validateStartupIdentities(identities, now));
+        assertEquals("remote auth file must contain at least one active ADMIN identity", failure.getMessage());
     }
 
     private String hashOf(String token) {
