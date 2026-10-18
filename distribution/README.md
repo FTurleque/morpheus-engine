@@ -168,7 +168,8 @@ bash ./scripts/validate-m21.sh 1.2.1
 Ratchets :
 
 ```text
-Surefire total       >= 3820
+Surefire written     >= 2600
+Surefire generated   >= 1574
 architecture         >= 585
 aggregate line coverage    >= 90.0%
 aggregate branch coverage  >= 75.7%

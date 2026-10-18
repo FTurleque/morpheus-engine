@@ -21,6 +21,7 @@ RATCHETS="$REPO/config/m21-quality-ratchets.properties"
 # repository that had lost most of its tests. Read here, before the long build, so a missing key fails at once.
 . "$SCRIPT_DIR/lib/read-quality-ratchet.sh"
 TESTS_MINIMUM="$(read_quality_ratchet "$RATCHETS" testsMinimum integer)"
+GENERATED_TESTS_MINIMUM="$(read_quality_ratchet "$RATCHETS" generatedTestsMinimum integer)"
 ARCH_TESTS_MINIMUM="$(read_quality_ratchet "$RATCHETS" architectureTestsMinimum integer)"
 
 printf '%s\n' "D2 exact-head validation SHA: $VALIDATION_SHA"
@@ -95,37 +96,49 @@ printf '%s\n' 'D2 dependency baseline: PASS'
 
 ./mvnw clean verify
 
-read -r TESTS FAILURES ERRORS SKIPPED ARCH_TESTS < <(morpheus_python - "$REPO" <<'PY'
+read -r WRITTEN GENERATED FAILURES ERRORS SKIPPED ARCH_TESTS < <(morpheus_python - "$REPO" <<'PY'
 import pathlib
+import re
 import sys
 import xml.etree.ElementTree as ET
 root = pathlib.Path(sys.argv[1])
-tests = failures = errors = skipped = arch = 0
+# Surefire names each invocation of a test factory, of a parameterised or of a repeated test `method()[N]`; a declared
+# test method keeps its bare name. The two counts are of one total: every execution is one or the other.
+GENERATED = re.compile(r'\[[0-9]+\]$')
+written = generated = failures = errors = skipped = arch = 0
 for report in root.rglob('target/surefire-reports/TEST-*.xml'):
     suite = ET.parse(report).getroot()
     current = int(suite.attrib.get('tests', 0))
-    tests += current
+    invoked = sum(1 for case in suite.iter('testcase') if GENERATED.search(case.attrib.get('name', '')))
+    written += current - invoked
+    generated += invoked
     failures += int(suite.attrib.get('failures', 0))
     errors += int(suite.attrib.get('errors', 0))
     skipped += int(suite.attrib.get('skipped', 0))
     if 'morpheus-architecture-tests' in report.parts:
-        arch += current
-print(tests, failures, errors, skipped, arch)
+        arch += current - invoked
+print(written, generated, failures, errors, skipped, arch)
 PY
 )
+TESTS=$((WRITTEN + GENERATED))
 if (( FAILURES != 0 || ERRORS != 0 )); then
   echo "D2 Surefire failures=$FAILURES errors=$ERRORS" >&2
   exit 1
 fi
-if (( TESTS < TESTS_MINIMUM )); then
-  echo "D2 test baseline regression: $TESTS < $TESTS_MINIMUM (testsMinimum in $RATCHETS)" >&2
+if (( WRITTEN < TESTS_MINIMUM )); then
+  echo "D2 test baseline regression: $WRITTEN < $TESTS_MINIMUM written executions (testsMinimum in $RATCHETS)" >&2
+  exit 1
+fi
+printf '%s\n' "D2 written tests: PASS ($WRITTEN >= $TESTS_MINIMUM)"
+if (( GENERATED < GENERATED_TESTS_MINIMUM )); then
+  echo "D2 generated test baseline regression: $GENERATED < $GENERATED_TESTS_MINIMUM generated executions (generatedTestsMinimum in $RATCHETS)" >&2
   exit 1
 fi
 if (( ARCH_TESTS < ARCH_TESTS_MINIMUM )); then
   echo "D2 architecture baseline regression: $ARCH_TESTS < $ARCH_TESTS_MINIMUM (architectureTestsMinimum in $RATCHETS)" >&2
   exit 1
 fi
-printf '%s\n' "D2 tests: PASS ($TESTS tests >= $TESTS_MINIMUM, architecture=$ARCH_TESTS >= $ARCH_TESTS_MINIMUM, skipped=$SKIPPED)"
+printf '%s\n' "D2 tests: PASS ($WRITTEN written >= $TESTS_MINIMUM, $GENERATED generated >= $GENERATED_TESTS_MINIMUM, architecture=$ARCH_TESTS >= $ARCH_TESTS_MINIMUM, skipped=$SKIPPED)"
 
 COVERAGE="$REPO/morpheus-architecture-tests/target/m21-aggregate-coverage-summary.txt"
 bash "$SCRIPT_DIR/lib/require-aggregate-coverage-evidence.sh" "$COVERAGE"
@@ -200,6 +213,8 @@ sha=$VALIDATION_SHA
 baseRef=$BASE_REF
 version=$VERSION
 tests=$TESTS
+writtenTests=$WRITTEN
+generatedTests=$GENERATED
 architectureTests=$ARCH_TESTS
 lineCoverage=$LINE_RATIO
 branchCoverage=$BRANCH_RATIO
