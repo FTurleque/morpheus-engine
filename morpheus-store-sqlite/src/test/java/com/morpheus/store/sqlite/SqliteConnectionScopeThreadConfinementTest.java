@@ -42,8 +42,10 @@ class SqliteConnectionScopeThreadConfinementTest {
 
             // A single throwing call, so the refusal cannot be attributed to the wrong one: the proxy stops the
             // foreign thread at createStatement, before any statement exists to execute.
-            SQLException refused = onAnotherThread(
-                    () -> assertThrows(SQLException.class, borrowed::createStatement));
+            SQLException refused = onAnotherThread(() -> {
+                SQLException foreignRefusal = assertThrows(SQLException.class, borrowed::createStatement);
+                return foreignRefusal;
+            });
 
             assertTrue(
                     refused.getMessage().contains("confined to the thread that opened its scope"),
@@ -64,8 +66,10 @@ class SqliteConnectionScopeThreadConfinementTest {
             Connection borrowed = SqliteConnectionScope.borrowIfActive(database, busyTimeout());
             assertNotNull(borrowed);
 
-            SQLException refused = onAnotherThread(() ->
-                    assertThrows(SQLException.class, borrowed::close));
+            SQLException refused = onAnotherThread(() -> {
+                SQLException foreignRefusal = assertThrows(SQLException.class, borrowed::close);
+                return foreignRefusal;
+            });
             assertTrue(refused.getMessage().contains("confined to the thread that opened its scope"));
 
             // A foreign close must not have marked the connection closed underneath its owner.
@@ -107,7 +111,12 @@ class SqliteConnectionScopeThreadConfinementTest {
             Connection borrowed = SqliteConnectionScope.borrowIfActive(database, busyTimeout());
             assertNotNull(borrowed);
 
-            onAnotherThread(() -> assertThrows(SQLException.class, borrowed::createStatement));
+            SQLException refused = onAnotherThread(() -> {
+                SQLException foreignRefusal = assertThrows(SQLException.class, borrowed::createStatement);
+                return foreignRefusal;
+            });
+            assertTrue(refused.getMessage().contains("confined to the thread that opened its scope"),
+                    refused.getMessage());
 
             assertDoesNotThrow(scope::close);
             // A second close on the owning thread stays a no-op.

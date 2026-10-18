@@ -155,12 +155,13 @@ class SqliteContentionObservabilityTest {
         Path database = bootstrappedDatabase("business-failure.db");
 
         try (Connection connection = openObserved(database, SqliteDatabaseSecurity.DEFAULT_BUSY_TIMEOUT_MILLIS)) {
-            assertThrows(IllegalStateException.class, () -> SqliteTransactionRunner.runVoid(
+            IllegalStateException failure = assertThrows(IllegalStateException.class, () -> SqliteTransactionRunner.runVoid(
                     connection,
                     "deliberate failure",
                     current -> {
                         throw new IllegalStateException("business rule violated");
                     }));
+            assertEquals("business rule violated", failure.getMessage());
         }
 
         assertEquals(
