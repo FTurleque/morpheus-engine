@@ -111,33 +111,31 @@ class TestFactoryAssertsItsSourceTest {
 
     private static List<String> factoriesWithoutTheAssertion(String source) {
         List<String> missing = new ArrayList<>();
-        for (String method : factories(source)) {
-            if (!NOT_EMPTY_ASSERTION.matcher(body(source, method)).find()) {
-                missing.add(method);
+        for (Factory factory : factories(source)) {
+            if (!NOT_EMPTY_ASSERTION.matcher(factory.body()).find()) {
+                missing.add(factory.name());
             }
         }
         return missing;
     }
 
-    /** The names of the methods that carry {@code @TestFactory}. */
-    private static List<String> factories(String source) {
+    /** The methods that carry {@code @TestFactory}, each with the body that follows its own declaration. */
+    private static List<Factory> factories(String source) {
         String code = code(source);
-        List<String> names = new ArrayList<>();
+        List<Factory> factories = new ArrayList<>();
         Matcher annotation = FACTORY.matcher(code);
         while (annotation.find()) {
             Matcher name = METHOD_NAME.matcher(code);
             if (name.find(annotation.end()) && !code.substring(annotation.end(), name.start()).contains("{")) {
-                names.add(name.group(1));
+                factories.add(new Factory(name.group(1), body(code, name.end())));
             }
         }
-        return names;
+        return factories;
     }
 
-    private static String body(String source, String method) {
-        String code = code(source);
-        Matcher signature = Pattern.compile("\\b" + Pattern.quote(method) + "\\s*\\(").matcher(code);
-        assertTrue(signature.find(), "method not found: " + method);
-        int open = code.indexOf('{', signature.end());
+    /** The braced body that opens after {@code from}. */
+    private static String body(String code, int from) {
+        int open = code.indexOf('{', from);
         int depth = 0;
         for (int index = open; index < code.length(); index++) {
             char current = code.charAt(index);
@@ -147,7 +145,10 @@ class TestFactoryAssertsItsSourceTest {
                 return code.substring(open, index + 1);
             }
         }
-        throw new IllegalStateException("unbalanced braces in the body of " + method);
+        throw new IllegalStateException("unbalanced braces after position " + from);
+    }
+
+    private record Factory(String name, String body) {
     }
 
     /** The source with the content of comments, string literals, text blocks and character literals blanked out. */
