@@ -14,7 +14,7 @@ Maven Enforcer = dependency convergence obligatoire
 
 ## Reactor Maven
 
-Le dépôt contient **17 modules enfants**, soit **18 projets Maven parent inclus** :
+Le reactor déclare les modules ci-dessous dans le bloc `<modules>` du `pom.xml` racine, dans son ordre. Le nombre ne s'écrit pas ici : il se compte dans le POM.
 
 ```text
 morpheus-domain
@@ -34,9 +34,10 @@ morpheus-mcp
 morpheus-api
 morpheus-cli
 morpheus-architecture-tests
+morpheus-coverage-report
 ```
 
-Les 18 POMs actifs portent la même version MORPHEUS `1.2.1`. Les preuves de release historiques `1.2.0` ne sont pas réécrites.
+Les POMs actifs du reactor, parent compris, portent tous la même version MORPHEUS `1.2.1`. Les preuves de release historiques `1.2.0` ne sont pas réécrites.
 
 ## Gate Maven canonique
 
