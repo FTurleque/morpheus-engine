@@ -77,9 +77,9 @@ project.list	READ	projects list	EXPLICITLY_NOT_EXPOSED	GET /api/v1/projects	Regi
 project.register	WRITE	projects add	EXPLICITLY_NOT_EXPOSED	POST /api/v1/projects	Registers a workspace root; no MCP tool registers a project today
 project.get	READ	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_NOT_EXPOSED	GET /api/v1/projects/{projectId}	Project descriptor by identity; HTTP-only today
 project.sync	WRITE	sync	EXPLICITLY_NOT_EXPOSED	POST /api/v1/projects/{projectId}/sync	Publishes a new snapshot from the workspace; no MCP tool triggers a synchronization
-portfolio.list	READ	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_NOT_EXPOSED	GET /api/v1/portfolios	Portfolio identities; HTTP-only today
-portfolio.members	READ	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_NOT_EXPOSED	GET /api/v1/portfolios/{portfolioId}/members	Membership observations of one portfolio; HTTP-only today
-portfolio.conflicts	READ	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_NOT_EXPOSED	GET /api/v1/portfolios/{portfolioId}/conflicts	Explicit cross-project conflicts, never resolved silently; HTTP-only today
+portfolio.list	READ	portfolio list	EXPLICITLY_NOT_EXPOSED	GET /api/v1/portfolios	Portfolio identities; no MCP tool lists portfolios
+portfolio.members	READ	portfolio members	EXPLICITLY_NOT_EXPOSED	GET /api/v1/portfolios/{portfolioId}/members	Membership observations of one portfolio; no MCP tool lists them
+portfolio.conflicts	READ	portfolio conflicts	EXPLICITLY_NOT_EXPOSED	GET /api/v1/portfolios/{portfolioId}/conflicts	Explicit cross-project conflicts, never resolved silently; no MCP tool lists them
 integration.minos.status	READ	minos-status	EXPLICITLY_NOT_EXPOSED	GET /api/v1/integrations/minos/status	Launches the configured MINOS peer to report its status; no MCP tool reports it today
 integration.nexus.status	READ	nexus-status	EXPLICITLY_NOT_EXPOSED	GET /api/v1/integrations/nexus/status	Launches the configured NEXUS peer to report its status; no MCP tool reports it today
 specification.get	READ	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_NOT_EXPOSED	GET /api/v1/projects/{projectId}/specifications/{specificationId}	One specification by identity; get_current_specification serves the list
@@ -88,3 +88,7 @@ version.list	READ	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_NOT_EXPOSED	GET /api/v1/proj
 version.compare	READ	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_NOT_EXPOSED	GET /api/v1/projects/{projectId}/versions/compare	Deterministic comparison of two published snapshots; HTTP-only today
 version.requirements	READ	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_NOT_EXPOSED	GET /api/v1/projects/{projectId}/versions/{snapshotId}/requirements	Requirements as published in one snapshot; HTTP-only today
 project.diagnostics	READ	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_NOT_EXPOSED	GET /api/v1/projects/{projectId}/diagnostics	Diagnostics of the active snapshot; distinct from the CLI quality report
+change.analysis	READ	analyze-change	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_NOT_EXPOSED	Impact of a change on the active snapshot, computed from the OpenSpec content read in the workspace; CLI-only today
+quality.report	READ	quality	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_NOT_EXPOSED	Quality report of the active snapshot; CLI-only today; distinct from project.diagnostics
+composition.sync	WRITE	composition sync	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_NOT_EXPOSED	Reads the workspace through every supported provider and publishes a snapshot with its composition state; project.sync publishes from the OpenSpec content only; CLI-only today
+constraint.evaluate	READ	constraints evaluate	EXPLICITLY_NOT_EXPOSED	EXPLICITLY_NOT_EXPOSED	Evaluation of each constraint of a change against a target lifecycle state, UNKNOWN kept distinct from BLOCKED; change.constraints lists the constraints without evaluating them; CLI-only today
