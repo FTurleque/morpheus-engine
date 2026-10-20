@@ -23,7 +23,8 @@ La documentation humaine explique ces contrats ; elle ne doit pas devenir une de
 Baseline active :
 
 ```text
-Tests              >= 3820 PASS
+Tests written      >= 2600 PASS
+Tests generated    >= 1574 PASS
 Architecture       >= 585 PASS
 Reactor            18/18 SUCCESS
 Windows            PASS

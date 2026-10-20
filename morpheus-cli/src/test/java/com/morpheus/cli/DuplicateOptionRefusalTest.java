@@ -66,7 +66,8 @@ class DuplicateOptionRefusalTest {
 
     @TestFactory
     Stream<DynamicTest> aRepeatedLayoutOptionIsRefusedNamingItBeforeAnythingIsWritten() {
-        return families().entrySet().stream().flatMap(family -> LAYOUT.stream().map(option -> DynamicTest.dynamicTest(
+        return GeneratedCases.nonEmpty("aRepeatedLayoutOptionIsRefusedNamingItBeforeAnythingIsWritten",
+                families().entrySet().stream().flatMap(family -> LAYOUT.stream().map(option -> DynamicTest.dynamicTest(
                 family.getKey() + ": " + option + " a " + option + " b",
                 () -> {
                     Path root = tempDirectory.resolve("case-" + cases.incrementAndGet());
@@ -80,7 +81,7 @@ class DuplicateOptionRefusalTest {
                     assertEquals(CliExitCode.USAGE.code(), result.exitCode(), result.err());
                     assertTrue(result.err().contains("duplicate option: " + option), result.err());
                     assertFalse(Files.exists(root), "a refused invocation must write nothing: " + root);
-                })));
+                }))));
     }
 
     /** Before the fix: exit code 0, and the paths printed were those of the second value. */
@@ -102,7 +103,8 @@ class DuplicateOptionRefusalTest {
      */
     @TestFactory
     Stream<DynamicTest> theServerRefusesARepeatedLayoutOptionAcrossSpellings() {
-        return LAYOUT.stream().flatMap(option -> spellings(option).stream().map(spelling -> DynamicTest.dynamicTest(
+        return GeneratedCases.nonEmpty("theServerRefusesARepeatedLayoutOptionAcrossSpellings",
+                LAYOUT.stream().flatMap(option -> spellings(option).stream().map(spelling -> DynamicTest.dynamicTest(
                 "server: " + String.join(" ", spelling.apply("a", "b")),
                 () -> {
                     Path root = tempDirectory.resolve("case-" + cases.incrementAndGet());
@@ -115,7 +117,7 @@ class DuplicateOptionRefusalTest {
                     assertEquals(CliExitCode.USAGE.code(), result.exitCode(), result.err());
                     assertTrue(result.err().contains("duplicate option: " + option), result.err());
                     assertFalse(Files.exists(root), "a refused invocation must write nothing: " + root);
-                })));
+                }))));
     }
 
     /**
@@ -124,7 +126,8 @@ class DuplicateOptionRefusalTest {
      */
     @TestFactory
     Stream<DynamicTest> theEqualsSpellingAfterALayoutOptionIsRefusedWhereItIsNotALayoutOption() {
-        return families().entrySet().stream()
+        return GeneratedCases.nonEmpty("theEqualsSpellingAfterALayoutOptionIsRefusedWhereItIsNotALayoutOption",
+                families().entrySet().stream()
                 .filter(family -> !family.getKey().equals("MorpheusServerCli"))
                 .map(family -> DynamicTest.dynamicTest(family.getKey(), () -> {
                     Path root = tempDirectory.resolve("case-" + cases.incrementAndGet());
@@ -137,7 +140,7 @@ class DuplicateOptionRefusalTest {
 
                     assertEquals(CliExitCode.USAGE.code(), result.exitCode(), result.err());
                     assertFalse(Files.exists(root), "a refused invocation must write nothing: " + root);
-                }));
+                })));
     }
 
     @TestFactory
@@ -159,7 +162,8 @@ class DuplicateOptionRefusalTest {
         invocations.put(List.of("server", "backup", "verify", "--file", ROOT + "/a.db", "--file", ROOT + "/b.db"),
                 "--file");
         invocations.put(List.of("server", "restore", "--confirm", "--confirm", "--file", ROOT + "/a.db"), "--confirm");
-        return invocations.entrySet().stream().map(invocation -> DynamicTest.dynamicTest(
+        return GeneratedCases.nonEmpty("aRepeatedCommandOptionIsRefusedNamingIt",
+                invocations.entrySet().stream().map(invocation -> DynamicTest.dynamicTest(
                 String.join(" ", invocation.getKey()),
                 () -> {
                     Path root = tempDirectory.resolve("case-" + cases.incrementAndGet());
@@ -171,7 +175,7 @@ class DuplicateOptionRefusalTest {
                     assertEquals(CliExitCode.USAGE.code(), result.exitCode(), result.err());
                     assertTrue(result.err().contains("duplicate option: " + invocation.getValue()), result.err());
                     assertFalse(Files.exists(root), "a refused invocation must write nothing: " + root);
-                }));
+                })));
     }
 
     /** Every single-valued option of the three launchers, in the four combinations of its two spellings. */
@@ -190,7 +194,8 @@ class DuplicateOptionRefusalTest {
             launchers.add(new Launcher(option, args -> RemoteApiLaunchOptions.parse(args, Map.of(), properties()),
                     "api", "--remote"));
         }
-        return launchers.stream().flatMap(launcher -> spellings(launcher.option()).stream().map(spelling -> {
+        return GeneratedCases.nonEmpty("aLauncherRefusesARepeatedOptionAcrossSpellings",
+                launchers.stream().flatMap(launcher -> spellings(launcher.option()).stream().map(spelling -> {
             List<String> args = new ArrayList<>(List.of(launcher.command()));
             args.addAll(spelling.apply(launcherValue(launcher.option(), 1), launcherValue(launcher.option(), 2)));
             return DynamicTest.dynamicTest(String.join(" ", args), () -> {
@@ -198,7 +203,7 @@ class DuplicateOptionRefusalTest {
                         () -> launcher.parser().accept(args.toArray(String[]::new)));
                 assertEquals("duplicate option: " + launcher.option(), refused.getMessage());
             });
-        }));
+        })));
     }
 
     /** A launcher refusal reaches the exit code: each launcher reports it as a usage error, before any server. */
