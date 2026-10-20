@@ -88,6 +88,20 @@ interpréteur Python 3 (résolu par `scripts/lib/python.sh`).
 Le contrôle 2 refuse aussi les assets **inattendus** : une release correcte n'est pas seulement une
 release qui contient ce qu'il faut, c'est une release qui ne contient rien d'autre.
 
+## Déclarer le niveau de schéma de la release
+
+Une release livre un niveau de schéma SQLite : le numéro de sa dernière migration. La version qui la suit le déclare,
+avant toute autre modification, dans `morpheus-store-sqlite/src/test/resources/released-schema-levels.properties` :
+
+```bash
+git ls-tree --name-only v<version> morpheus-store-sqlite/src/main/resources/db/migration/
+```
+
+Ajouter la ligne `<version>=<numéro de la dernière migration listée>`. `ReleasedSchemaLevelsDeclarationTest` fait échouer
+le build de la version suivante tant que la ligne manque ; `ReleasedSchemaUpgradeTest` éprouve ensuite la montée de
+version depuis ce niveau. Si le niveau est nouveau, le test refuse de l'accepter tant que les lignes de sa base ne sont
+pas écrites d'après les requêtes d'insertion des stores au tag.
+
 ## Enregistrement de la preuve
 
 Après une exécution verte sur une vraie release :
