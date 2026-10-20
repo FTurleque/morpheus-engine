@@ -47,9 +47,9 @@ class MorpheusRemoteMutationAvailabilityTest {
     /**
      * Status answers while the single request slot is held by a mutation, and reports the mutation.
      *
-     * <p>Status used to be admitted through the same semaphore as the traffic it describes, so a server at its
-     * request ceiling answered 429 to the only question worth asking at that moment. It is now bounded on its
-     * own lane, which is also why the {@code activeRequests} it reports is the work in flight and not itself.</p>
+     * <p>Status is bounded on its own lane, independent of the request budget it describes, so a server at its
+     * request ceiling still answers it; the {@code activeRequests} it reports is the work in flight and not
+     * itself.</p>
      */
     @Test
     void statusStaysAnswerableAndNamesTheMutationHoldingTheRequestSlot() throws Exception {
@@ -161,8 +161,8 @@ class MorpheusRemoteMutationAvailabilityTest {
      *
      * <p>The facade releases its request slot and privileged permit in the handler's {@code finally}, after the
      * response writer can already have made the final bytes visible to the client. A single status read taken
-     * straight after {@code Future#get()} therefore races that bookkeeping, and loses it on a heavily scheduled
-     * runner -- which is what failed the Windows leg of the promotion with {@code expected: <0> but was: <1>}.</p>
+     * straight after {@code Future#get()} therefore races that bookkeeping, so the gauges are awaited rather than
+     * read once.</p>
      *
      * <p>This waits for a state rather than retrying until green: the bound is real, and a slot that is genuinely
      * leaked still fails the assertions that follow once the deadline expires.</p>
