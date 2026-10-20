@@ -173,12 +173,15 @@ class MorpheusHttpRequestDecoderTest {
     void constructorRejectsNonPositiveBounds() {
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             Duration oneSecond = Duration.ofSeconds(1);
-            assertThrows(IllegalArgumentException.class,
+            IllegalArgumentException bodyBoundFailure = assertThrows(IllegalArgumentException.class,
                     () -> new MorpheusHttpRequestDecoder(0, oneSecond, executor));
-            assertThrows(IllegalArgumentException.class,
+            assertEquals("maxRequestBodyBytes must be positive", bodyBoundFailure.getMessage());
+            IllegalArgumentException zeroTimeoutFailure = assertThrows(IllegalArgumentException.class,
                     () -> new MorpheusHttpRequestDecoder(1, Duration.ZERO, executor));
-            assertThrows(IllegalArgumentException.class,
+            assertEquals("readTimeout must be positive", zeroTimeoutFailure.getMessage());
+            IllegalArgumentException negativeTimeoutFailure = assertThrows(IllegalArgumentException.class,
                     () -> new MorpheusHttpRequestDecoder(1, Duration.ofSeconds(-1), executor));
+            assertEquals("readTimeout must be positive", negativeTimeoutFailure.getMessage());
         }
     }
 

@@ -11,6 +11,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -54,14 +55,22 @@ class TimedBoundedInputReaderTest {
     @Test
     void rejectsInvalidConfigurationBeforeSubmittingRead() {
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            assertThrows(IllegalArgumentException.class, () -> TimedBoundedInputReader.read(
-                    new ByteArrayInputStream(new byte[0]), -1, Duration.ofSeconds(1), executor));
-            assertThrows(IllegalArgumentException.class, () -> TimedBoundedInputReader.read(
-                    new ByteArrayInputStream(new byte[0]), Integer.MAX_VALUE, Duration.ofSeconds(1), executor));
-            assertThrows(IllegalArgumentException.class, () -> TimedBoundedInputReader.read(
-                    new ByteArrayInputStream(new byte[0]), 1, Duration.ZERO, executor));
-            assertThrows(IllegalArgumentException.class, () -> TimedBoundedInputReader.read(
-                    new ByteArrayInputStream(new byte[0]), 1, Duration.ofMillis(-1), executor));
+            IllegalArgumentException negativeBound = assertThrows(IllegalArgumentException.class,
+                    () -> TimedBoundedInputReader.read(
+                            new ByteArrayInputStream(new byte[0]), -1, Duration.ofSeconds(1), executor));
+            assertEquals("maxBytes must be between 0 and Integer.MAX_VALUE - 1", negativeBound.getMessage());
+            IllegalArgumentException unboundedBound = assertThrows(IllegalArgumentException.class,
+                    () -> TimedBoundedInputReader.read(
+                            new ByteArrayInputStream(new byte[0]), Integer.MAX_VALUE, Duration.ofSeconds(1), executor));
+            assertEquals("maxBytes must be between 0 and Integer.MAX_VALUE - 1", unboundedBound.getMessage());
+            IllegalArgumentException zeroTimeout = assertThrows(IllegalArgumentException.class,
+                    () -> TimedBoundedInputReader.read(
+                            new ByteArrayInputStream(new byte[0]), 1, Duration.ZERO, executor));
+            assertEquals("timeout must be positive", zeroTimeout.getMessage());
+            IllegalArgumentException negativeTimeout = assertThrows(IllegalArgumentException.class,
+                    () -> TimedBoundedInputReader.read(
+                            new ByteArrayInputStream(new byte[0]), 1, Duration.ofMillis(-1), executor));
+            assertEquals("timeout must be positive", negativeTimeout.getMessage());
         }
     }
 
@@ -74,8 +83,9 @@ class TimedBoundedInputReaderTest {
             }
         };
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            assertThrows(IOException.class, () ->
+            IOException failure = assertThrows(IOException.class, () ->
                     TimedBoundedInputReader.read(input, 64, Duration.ofSeconds(1), executor));
+            assertEquals("fixture failure", failure.getMessage());
         }
     }
 

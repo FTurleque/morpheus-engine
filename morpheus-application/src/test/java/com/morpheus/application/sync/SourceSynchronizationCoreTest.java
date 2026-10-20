@@ -31,9 +31,15 @@ class SourceSynchronizationCoreTest {
     @Test
     void sourcePathIsCanonicalAndCannotEscapeProjectRoot() {
         assertEquals("specs/a.md", new SourcePath("./specs\\a.md").toString());
-        assertThrows(IllegalArgumentException.class, () -> new SourcePath("../secret.md"));
-        assertThrows(IllegalArgumentException.class, () -> new SourcePath("C:\\secret.md"));
-        assertThrows(IllegalArgumentException.class, () -> new SourcePath("/secret.md"));
+        IllegalArgumentException traversal = assertThrows(
+                IllegalArgumentException.class, () -> new SourcePath("../secret.md"));
+        assertEquals("source path must not escape project root: ../secret.md", traversal.getMessage());
+        IllegalArgumentException driveLetter = assertThrows(
+                IllegalArgumentException.class, () -> new SourcePath("C:\\secret.md"));
+        assertEquals("source path must be relative: C:\\secret.md", driveLetter.getMessage());
+        IllegalArgumentException rooted = assertThrows(
+                IllegalArgumentException.class, () -> new SourcePath("/secret.md"));
+        assertEquals("source path must be relative: /secret.md", rooted.getMessage());
     }
 
     @Test

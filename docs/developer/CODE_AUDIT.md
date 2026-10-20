@@ -83,7 +83,7 @@ exécute aussi les tests** : on ajoute `-DskipTests` pour n'analyser que le byte
 
 ## 5. Périmètre : modules inclus et exclusions
 
-**SpotBugs** analyse les 16 modules qui portent des classes sous `src/main/java`. `morpheus-architecture-tests` et
+**SpotBugs** analyse chaque module qui porte des classes sous `src/main/java`. `morpheus-architecture-tests` et
 `morpheus-coverage-report` n'en portent aucune : le plugin n'a rien à analyser et ne produit pas de rapport. Ils ne
 sont pas exclus par leur nom, c'est le plugin qui constate l'absence de classes. Les classes de test ne sont pas
 analysées (`includeTests=false`).

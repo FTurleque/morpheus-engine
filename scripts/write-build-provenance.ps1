@@ -32,7 +32,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Cannot inspect tags pointing at git HEAD" }
     if ($gitRef) { $gitRef = $gitRef.ToString().Trim() }
     if (-not $gitRef) {
-        $gitRef = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME } else { (git branch --show-current).Trim() }
+        $gitRef = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME } else { "$(git branch --show-current)".Trim() }
         if ($LASTEXITCODE -ne 0) { throw "Cannot resolve current git branch" }
     }
     if (-not $gitRef) { $gitRef = "detached" }

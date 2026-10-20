@@ -16,6 +16,7 @@ import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CapabilityProtectedHttpServerTest {
 
@@ -29,7 +30,11 @@ class CapabilityProtectedHttpServerTest {
         server.createContext(MorpheusHttpServer.API_PREFIX, CapabilityProtectedHttpServerTest::noContent);
         var childContext = server.createContext(MorpheusHttpServer.API_PREFIX + "/reasoning");
         childContext.setHandler(CapabilityProtectedHttpServerTest::noContent);
-        assertThrows(UnsupportedOperationException.class, () -> childContext.getFilters().clear());
+        UnsupportedOperationException filterFailure =
+                assertThrows(UnsupportedOperationException.class, () -> childContext.getFilters().clear());
+        assertEquals("clear", filterFailure.getStackTrace()[0].getMethodName());
+        assertTrue(filterFailure.getStackTrace()[0].getClassName().startsWith("java.util.Collections$Unmodifiable"),
+                "the filter list of a protected context is an unmodifiable view");
         server.start();
 
         try {

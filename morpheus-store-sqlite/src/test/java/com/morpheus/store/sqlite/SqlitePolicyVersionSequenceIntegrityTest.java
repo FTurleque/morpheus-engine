@@ -8,6 +8,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SqlitePolicyVersionSequenceIntegrityTest {
 
@@ -32,16 +33,18 @@ class SqlitePolicyVersionSequenceIntegrityTest {
                     VALUES ('pack', 'version-1', 1, 'encoded', '2026-09-06T17:00:00Z')
                     """);
 
-            assertThrows(SQLException.class, () -> statement.executeUpdate("""
+            SQLException revisionJumpFailure = assertThrows(SQLException.class, () -> statement.executeUpdate("""
                     UPDATE policy_packs
                     SET revision = 3, latest_version_number = 3, updated_at = '2026-09-06T17:00:01Z'
                     WHERE id = 'pack'
                     """));
+            assertTrue(revisionJumpFailure.getMessage().contains("policy update must advance revision and version by exactly one"), revisionJumpFailure.getMessage());
 
-            assertThrows(SQLException.class, () -> statement.executeUpdate("""
+            SQLException versionJumpFailure = assertThrows(SQLException.class, () -> statement.executeUpdate("""
                     INSERT INTO policy_pack_versions(pack_id, version_id, version_number, encoded_version, created_at)
                     VALUES ('pack', 'version-2', 2, 'encoded', '2026-09-06T17:00:01Z')
                     """));
+            assertTrue(versionJumpFailure.getMessage().contains("policy version number must match pack latest version number"), versionJumpFailure.getMessage());
         }
     }
 }

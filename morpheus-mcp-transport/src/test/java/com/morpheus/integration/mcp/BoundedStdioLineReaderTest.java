@@ -5,11 +5,13 @@ import org.junit.jupiter.api.Test;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.MalformedInputException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -88,8 +90,9 @@ class BoundedStdioLineReaderTest {
     void malformedUtf8IsRefusedRatherThanReplaced() {
         byte[] malformed = {(byte) 0xC3, (byte) 0x28, (byte) '\n'};
 
-        assertThrows(IOException.class, () -> new BoundedStdioLineReader(
+        IOException refused = assertThrows(IOException.class, () -> new BoundedStdioLineReader(
                 new ByteArrayInputStream(malformed)).readLine(64));
+        assertInstanceOf(MalformedInputException.class, refused);
     }
 
     @Test
@@ -167,9 +170,15 @@ class BoundedStdioLineReaderTest {
 
     @Test
     void aNonPositiveLimitIsRefusedBeforeAnythingIsRead() {
-        assertThrows(IllegalArgumentException.class, () -> reader("frame\n").readLine(0));
-        assertThrows(IllegalArgumentException.class, () -> reader("frame\n").readLine(-1));
-        assertThrows(NullPointerException.class, () -> new BoundedStdioLineReader(null));
+        IllegalArgumentException zeroLimit =
+                assertThrows(IllegalArgumentException.class, () -> reader("frame\n").readLine(0));
+        assertEquals("maxBytes must be positive", zeroLimit.getMessage());
+        IllegalArgumentException negativeLimit =
+                assertThrows(IllegalArgumentException.class, () -> reader("frame\n").readLine(-1));
+        assertEquals("maxBytes must be positive", negativeLimit.getMessage());
+        NullPointerException nullInput =
+                assertThrows(NullPointerException.class, () -> new BoundedStdioLineReader(null));
+        assertEquals("input", nullInput.getMessage());
     }
 
     /** A refused frame stays refused: the reader must not resynchronise onto the remainder of an oversized one. */

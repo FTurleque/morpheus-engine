@@ -179,10 +179,12 @@ class TraceabilityTraversalContractTest {
         KnowledgeSnapshotId snapshotId = KnowledgeSnapshotId.generate();
         TraceabilityEntityRef start = ref(TraceabilityEntityKind.REQUIREMENT);
 
-        assertThrows(IllegalArgumentException.class, () -> service.traverse(
+        IllegalArgumentException zeroDepth = assertThrows(IllegalArgumentException.class, () -> service.traverse(
                 snapshotId, start, 0, TraceabilityTraversalDirection.OUTGOING, Set.of()));
-        assertThrows(IllegalArgumentException.class, () -> path(service,
+        assertEquals("maxDepth must be greater than zero", zeroDepth.getMessage());
+        IllegalArgumentException negativeDepth = assertThrows(IllegalArgumentException.class, () -> path(service,
                 snapshotId, start, start, -1, TraceabilityTraversalDirection.BIDIRECTIONAL, Set.of()));
+        assertEquals("maxDepth must be greater than zero", negativeDepth.getMessage());
     }
 
     @Test
