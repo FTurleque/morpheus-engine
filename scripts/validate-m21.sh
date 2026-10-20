@@ -18,7 +18,9 @@ RATCHETS="$REPO/config/m21-quality-ratchets.properties"
 
 . "$SCRIPT_DIR/lib/read-quality-ratchet.sh"
 
+# Two presence measures: executions of declared test methods, and executions a test factory generates.
 TESTS_MINIMUM="$(read_quality_ratchet "$RATCHETS" testsMinimum integer)"
+GENERATED_TESTS_MINIMUM="$(read_quality_ratchet "$RATCHETS" generatedTestsMinimum integer)"
 ARCH_TESTS_MINIMUM="$(read_quality_ratchet "$RATCHETS" architectureTestsMinimum integer)"
 # Both scales are read so that a missing key fails here rather than in whichever gate happens to run first.
 # Only the aggregate pair is compared below: this validator concludes on the canonical measurement.
@@ -44,39 +46,50 @@ printf '%s\n' "M21 diff base: $BASE_REF"
 git diff --check "$BASE_REF...HEAD"
 ./mvnw clean verify
 
-read -r TESTS FAILURES ERRORS ARCH_TESTS < <(morpheus_python - "$REPO" <<'PY'
+read -r WRITTEN GENERATED FAILURES ERRORS ARCH_TESTS < <(morpheus_python - "$REPO" <<'PY'
 import pathlib
+import re
 import sys
 import xml.etree.ElementTree as ET
 root = pathlib.Path(sys.argv[1])
+# Surefire names each invocation of a test factory, of a parameterised or of a repeated test `method()[N]`; a declared
+# test method keeps its bare name. The two counts are of one total: every execution is one or the other.
+GENERATED = re.compile(r'\[[0-9]+\]$')
 
 def totals(base):
-    tests = failures = errors = 0
+    tests = generated = failures = errors = 0
     for report in base.rglob('target/surefire-reports/TEST-*.xml'):
         suite = ET.parse(report).getroot()
         tests += int(suite.attrib.get('tests', 0))
+        generated += sum(1 for case in suite.iter('testcase') if GENERATED.search(case.attrib.get('name', '')))
         failures += int(suite.attrib.get('failures', 0))
         errors += int(suite.attrib.get('errors', 0))
-    return tests, failures, errors
+    return tests - generated, generated, failures, errors
 all_tests = totals(root)
 arch = totals(root / 'morpheus-architecture-tests')
-print(all_tests[0], all_tests[1], all_tests[2], arch[0])
+print(all_tests[0], all_tests[1], all_tests[2], all_tests[3], arch[0])
 PY
 )
+TESTS=$((WRITTEN + GENERATED))
 if (( FAILURES != 0 || ERRORS != 0 )); then
   echo "Surefire failures=$FAILURES errors=$ERRORS" >&2
   exit 1
 fi
-if (( TESTS < TESTS_MINIMUM )); then
-  echo "M21 test baseline regression: $TESTS < $TESTS_MINIMUM" >&2
+if (( WRITTEN < TESTS_MINIMUM )); then
+  echo "M21 test baseline regression: $WRITTEN < $TESTS_MINIMUM written executions (testsMinimum in $RATCHETS)" >&2
   exit 1
 fi
+printf '%s\n' "Tests: PASS ($WRITTEN written, baseline >= $TESTS_MINIMUM)"
+if (( GENERATED < GENERATED_TESTS_MINIMUM )); then
+  echo "M21 generated test baseline regression: $GENERATED < $GENERATED_TESTS_MINIMUM generated executions (generatedTestsMinimum in $RATCHETS)" >&2
+  exit 1
+fi
+printf '%s\n' "Generated tests: PASS ($GENERATED, baseline >= $GENERATED_TESTS_MINIMUM)"
 if (( ARCH_TESTS < ARCH_TESTS_MINIMUM )); then
-  echo "M21 architecture baseline regression: $ARCH_TESTS < $ARCH_TESTS_MINIMUM" >&2
+  echo "M21 architecture baseline regression: $ARCH_TESTS < $ARCH_TESTS_MINIMUM (architectureTestsMinimum in $RATCHETS)" >&2
   exit 1
 fi
-printf '%s\n' "Tests: PASS ($TESTS, baseline >= $TESTS_MINIMUM)"
-printf '%s\n' "Architecture: PASS ($ARCH_TESTS, baseline >= $ARCH_TESTS_MINIMUM)"
+printf '%s\n' "Architecture: PASS ($ARCH_TESTS written, baseline >= $ARCH_TESTS_MINIMUM)"
 
 COVERAGE="$REPO/morpheus-architecture-tests/target/m21-aggregate-coverage-summary.txt"
 bash "$SCRIPT_DIR/lib/require-aggregate-coverage-evidence.sh" "$COVERAGE"
@@ -208,11 +221,13 @@ sha=$VALIDATION_SHA
 baseRef=$BASE_REF
 version=$VERSION
 tests=$TESTS
+writtenTests=$WRITTEN
+generatedTests=$GENERATED
 architectureTests=$ARCH_TESTS
 coverageScope=aggregate
 lineCoverage=$LINE_RATIO
 branchCoverage=$BRANCH_RATIO
-qualityRatchets=$TESTS_MINIMUM/$ARCH_TESTS_MINIMUM/$LINE_COVERAGE_MINIMUM/$BRANCH_COVERAGE_MINIMUM
+qualityRatchets=$TESTS_MINIMUM/$GENERATED_TESTS_MINIMUM/$ARCH_TESTS_MINIMUM/$LINE_COVERAGE_MINIMUM/$BRANCH_COVERAGE_MINIMUM
 sbom=PASS
 provenance=PASS
 portable=$([[ "$SKIP_PORTABLE" == true ]] && echo false || echo true)

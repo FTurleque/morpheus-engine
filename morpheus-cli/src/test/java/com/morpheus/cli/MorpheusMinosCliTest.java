@@ -62,7 +62,7 @@ class MorpheusMinosCliTest {
 
         Invocation unknownSubcommand = invoke("--data-dir", data, "external-references", "purge", "--project", projectId);
         assertEquals(2, unknownSubcommand.exitCode(), unknownSubcommand.stderr());
-        assertTrue(unknownSubcommand.stderr().contains("unknown external-references subcommand: purge"),
+        assertTrue(unknownSubcommand.stderr().contains("unknown command: external-references purge"),
                 unknownSubcommand.stderr());
     }
 

@@ -124,3 +124,65 @@ Ceci est une décision de portée assumée, pas un oubli à corriger a posterior
 (`entries.size() >= 6`, pas un compte exact). Backfiller ces lignes resterait possible si un
 besoin de convergence machine-lisible apparaissait pour ces surfaces historiques, mais n'est pas
 requis par cette ADR.
+
+## Amendement du 18 octobre 2026 — la colonne `cli` est comparée aux commandes que le CLI sert
+
+La décision 4 fait du manifeste la source des capabilities publiques ; elle n'en est un contrat que si chaque colonne est comparée à ce que son transport sert. La colonne `http` l'est à `MorpheusHttpRouteTable` et aux documents OpenAPI, la colonne `mcp` aux outils que le serveur sert. La colonne `cli` l'est à la déclaration des chemins de commande du CLI.
+
+### Décision
+
+1. **Le CLI déclare ses chemins de commande une fois**, dans `CliCommandPaths`. Un chemin est la suite de mots qui sélectionne un comportement avant toute option : `version`, `portfolio list`, `policy pack create`. `MorpheusMain.run` refuse comme commande inconnue tout chemin qui n'y figure pas, avant d'interroger une sous-commande : une action ajoutée au seul `switch` d'une sous-commande n'est pas atteignable tant qu'elle n'est pas déclarée. Un chemin interrompu avant un chemin déclaré (`portfolio`, `policy pack`) est laissé à sa commande, qui dit l'action qui manque.
+2. **Le manifeste et la déclaration désignent le même ensemble de commandes.** Toute cellule `cli` qui n'est pas un sentinelle nomme, par les mots qui précèdent sa première option, un chemin déclaré ; tout chemin déclaré est nommé par exactement une ligne ou par une exclusion écrite avec sa raison. Les exclusions sont les points d'entrée du processus (`help`, `paths`, les lanceurs `api` et `mcp`) et les formes dont la capacité porte une autre ligne ; une exclusion pour un chemin non déclaré, ou déjà nommé par une ligne, est refusée. Un sentinelle ne cache donc plus une commande servie : le chemin reste alors sans ligne.
+3. **L'aide embarquée documente chaque chemin déclaré**, hors les formes par lesquelles on l'atteint (`help`, `reason help`).
+4. **Le garde tient les deux prises** (ADR-0103). Le côté manifeste est textuel, parce qu'un `.tsv` ne se lit pas autrement. Le côté CLI est une exécution : chaque chemin déclaré est lancé sans option contre un store vide et ne doit pas être refusé comme inconnu, un chemin non déclaré doit l'être.
+
+### Pourquoi pas les `case` des sous-commandes
+
+Les `case` mêlent commandes, actions et noms d'option ; les compter ou les lire ne distingue pas ce qu'un utilisateur tape de ce qu'un analyseur teste. Faire de l'aide la source ne vaut pas mieux : elle peut omettre une commande servie, c'est ce que la comparaison 3 mesure. Une liste tenue par le seul test serait une seconde liste qui peut mentir comme le manifeste l'a fait.
+
+### Ce que le garde ne prouve pas
+
+Il compare des chemins. Une option renommée dans un analyseur, une intention ou une note fausse, une commande qui échoue pour une autre raison que « inconnue » lui échappent ; les options sont tenues par l'aide et son test d'analyse. Un nom de commande n'est pas une capacité : la ligne est une décision d'écriture, que le garde ne juge pas.
+
+
+## Amendement du 18 octobre 2026 — la présence des tests a deux mesures
+
+Le ratchet de présence compte des exécutions telles que Surefire les rapporte. Un total unique répond pourtant à deux
+questions : des tests ont-ils été supprimés, et la matrice d'options de la CLI a-t-elle changé ? Treize fabriques de
+tests (`@TestFactory`), dans trois fichiers de `morpheus-cli`, produisent plus d'un tiers des exécutions : retirer une
+option d'une commande retire plus d'exécutions que la marge du ratchet n'en contient et casse le build comme si des tests
+avaient été supprimés, et en ajouter une relève le compte comme si des tests avaient été écrits (constat AUD-TST-08 de
+l'audit du 9 octobre 2026).
+
+### Décision
+
+1. **Deux comptes, définis par l'origine d'une exécution.** Une exécution *déclarée* est l'unique exécution d'une
+   méthode de test déclarée. Une exécution *générée* vient d'une fabrique ou de toute source qui produit plusieurs
+   exécutions par méthode (`@ParameterizedTest`, `@RepeatedTest`, `@TestTemplate`). Surefire nomme chaque invocation d'une
+   telle source `méthode()[N]` et une méthode déclarée par son nom nu (mesuré sur les rapports de Windows et de Linux, et
+   sur un projet minimal pour les trois autres annotations) : les validateurs lisent ce nom, si bien qu'un test
+   paramétré introduit plus tard est compté comme généré sans qu'on touche aux validateurs. Les deux comptes ont pour
+   somme le total Surefire.
+2. **Deux clés dans `config/m21-quality-ratchets.properties`.** `testsMinimum` garde son nom et borne les exécutions
+   déclarées ; `generatedTestsMinimum` borne les exécutions générées. `validate-m21.*` et `validate-d2.*` comparent
+   chaque compte à sa propre clé, nomment la clé dans le refus, n'en comparent aucun à l'autre clé ni à leur somme, et
+   écrivent les deux comptes dans `validation-summary.txt`. `validate-m22.*` à `validate-m27.*` comparent le compte des
+   exécutions déclarées à `testsMinimum`. `architectureTestsMinimum` borne les exécutions déclarées du module
+   d'architecture : une fabrique qui y serait ajoutée est comptée sous la clé des exécutions générées.
+3. **Le plancher des exécutions déclarées ne fait que monter ; celui des exécutions générées suit la matrice
+   d'options.** Le lot qui retire une option ou une commande abaisse `generatedTestsMinimum` et le dit. Aucun test ne
+   distingue une réduction justifiée d'une réduction injustifiée : la règle est de gouvernance (`rules/testing.md`) ;
+   ce que garantit le build est que la réduction est refusée sous son propre nom.
+4. **Une fabrique qui ne génère rien échoue.** Chaque `@TestFactory` passe son flux par `GeneratedCases.nonEmpty`, qui
+   échoue en nommant la fabrique ; `TestFactoryAssertsItsSourceTest` refuse une fabrique qui ne l'asserte pas (assertion
+   textuelle sur `src/test/java` : ArchUnit ne voit pas ces sources, ADR-0103). JUnit refuse déjà un test paramétré, répété
+   ou à gabarit sans invocation ; la même règle refuse `allowZeroInvocations = true`.
+5. **Le rebasage n'abaisse rien.** À la décision, `testsMinimum` est ramené du total qu'il bornait au seul compte des
+   exécutions déclarées, et la somme des deux clés n'est pas inférieure au minimum unique qu'elles remplacent : ce qui
+   était exigé l'est encore. Le nombre écrit à côté de `testsMinimum` baisse parce qu'il mesure moins.
+
+### Ce que cet amendement ne décide pas
+
+Les valeurs : elles vivent dans le fichier de ratchets et ne se recopient pas ici (`rules/meta.md`). Il ne réduit ni les
+fabriques ni leur matrice, et ne pose aucun plancher sur le nombre d'annotations des sources, qui n'est pas ce qui
+s'exécute.

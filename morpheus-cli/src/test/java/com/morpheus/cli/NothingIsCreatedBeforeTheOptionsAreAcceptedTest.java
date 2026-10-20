@@ -107,7 +107,8 @@ class NothingIsCreatedBeforeTheOptionsAreAcceptedTest {
      */
     @TestFactory
     Stream<DynamicTest> everyActionAcceptsTheOptionsItReadsAndRefusesEveryOtherBeforeTheStoreIsOpened() {
-        return ACTIONS.stream().flatMap(action -> vocabulary(action.family()).stream()
+        return GeneratedCases.nonEmpty("everyActionAcceptsTheOptionsItReadsAndRefusesEveryOtherBeforeTheStoreIsOpened",
+                ACTIONS.stream().flatMap(action -> vocabulary(action.family()).stream()
                 .filter(option -> !action.base().contains("--" + option))
                 .map(option -> DynamicTest.dynamicTest(action.label() + " --" + option, () -> {
                     Path root = caseDirectory();
@@ -123,13 +124,14 @@ class NothingIsCreatedBeforeTheOptionsAreAcceptedTest {
                         assertTrue(result.err().contains(refusalOf(action, option)), result.err());
                         assertFalse(Files.exists(root), "a refused option must create nothing: " + root);
                     }
-                })));
+                }))));
     }
 
     /** A blank value and a repeated option are refused before the store too, on every action that takes an option. */
     @TestFactory
     Stream<DynamicTest> aBlankOrRepeatedOptionIsRefusedBeforeTheStoreIsOpened() {
-        return ACTIONS.stream()
+        return GeneratedCases.nonEmpty("aBlankOrRepeatedOptionIsRefusedBeforeTheStoreIsOpened",
+                ACTIONS.stream()
                 .filter(action -> action.options().stream().anyMatch(option -> !action.base().contains("--" + option)))
                 .flatMap(action -> {
                     String option = new TreeSet<>(action.options()).stream()
@@ -140,7 +142,7 @@ class NothingIsCreatedBeforeTheOptionsAreAcceptedTest {
                                     "--" + option + " requires a non-blank value", "--" + option, ""),
                             refusal(action.label() + " --" + option + " twice", action,
                                     "duplicate option: --" + option, "--" + option, "a", "--" + option, "b"));
-                });
+                }));
     }
 
     /**
@@ -151,18 +153,19 @@ class NothingIsCreatedBeforeTheOptionsAreAcceptedTest {
     Stream<DynamicTest> anUnknownOrMissingActionIsRefusedBeforeTheStoreIsOpened() {
         Map<List<String>, String> invocations = new java.util.LinkedHashMap<>();
         invocations.put(List.of("policy", "evaluate", "--project", P, "--id", ""), "--id requires a non-blank value");
-        invocations.put(List.of("policy", "frobnicate", "--id", "x"), "unknown policy action: frobnicate");
-        invocations.put(List.of("policy", "pack", "frobnicate"), "unknown policy action: pack-frobnicate");
-        invocations.put(List.of("query", "frobnicate", "--entity", "change"), "query requires action execute");
+        invocations.put(List.of("policy", "frobnicate", "--id", "x"), "unknown command: policy frobnicate");
+        invocations.put(List.of("policy", "pack", "frobnicate"), "unknown command: policy pack frobnicate");
+        invocations.put(List.of("query", "frobnicate", "--entity", "change"), "unknown command: query frobnicate");
         invocations.put(List.of("query", "--entity", "change"), "query requires action execute");
-        invocations.put(List.of("views", "frobnicate", "--id", "x"), "unknown views action: frobnicate");
+        invocations.put(List.of("views", "frobnicate", "--id", "x"), "unknown command: views frobnicate");
         invocations.put(List.of("views", "--id", "x"), "views requires an action");
-        invocations.put(List.of("export", "frobnicate", "--format", "json"), "unknown export action: frobnicate");
+        invocations.put(List.of("export", "frobnicate", "--format", "json"), "unknown command: export frobnicate");
         invocations.put(List.of("export", "--format", "json"), "export requires query or view");
         invocations.put(List.of("export", "view", "--format", "yaml", "--id", "x"), "--format must be json, csv or markdown");
         invocations.put(List.of("portfolio", "list", "--projet", "x"), "unknown option: --projet");
-        invocations.put(List.of("portfolio", "frobnicate"), "unknown portfolio action: frobnicate");
-        return invocations.entrySet().stream().map(invocation -> DynamicTest.dynamicTest(
+        invocations.put(List.of("portfolio", "frobnicate"), "unknown command: portfolio frobnicate");
+        return GeneratedCases.nonEmpty("anUnknownOrMissingActionIsRefusedBeforeTheStoreIsOpened",
+                invocations.entrySet().stream().map(invocation -> DynamicTest.dynamicTest(
                 String.join(" ", invocation.getKey()), () -> {
                     Path root = caseDirectory();
                     List<String> args = new ArrayList<>(List.of("--data-dir", root.resolve("data").toString()));
@@ -173,13 +176,14 @@ class NothingIsCreatedBeforeTheOptionsAreAcceptedTest {
                     assertEquals(CliExitCode.USAGE.code(), result.exitCode(), result.err());
                     assertTrue(result.err().contains(invocation.getValue()), result.err());
                     assertFalse(Files.exists(root), "a refused invocation must create nothing: " + root);
-                }));
+                })));
     }
 
     /** Moving the validation ahead must not stop a valid invocation from creating the database it needs. */
     @TestFactory
     Stream<DynamicTest> aValidInvocationOnAMissingDataDirectoryStillCreatesTheDatabase() {
-        return Stream.of(
+        return GeneratedCases.nonEmpty("aValidInvocationOnAMissingDataDirectoryStillCreatesTheDatabase",
+                Stream.of(
                         List.of("policy", "pack", "list"),
                         List.of("policy", "evaluate", "--project", P),
                         List.of("query", "execute", "--project", P, "--entity", "change"),
@@ -194,7 +198,7 @@ class NothingIsCreatedBeforeTheOptionsAreAcceptedTest {
 
                     assertEquals(CliExitCode.SUCCESS.code(), result.exitCode(), result.err());
                     assertTrue(Files.isRegularFile(database(root)), "the database must have been created: " + root);
-                }));
+                })));
     }
 
     /**
@@ -252,7 +256,8 @@ class NothingIsCreatedBeforeTheOptionsAreAcceptedTest {
     Stream<DynamicTest> everyActionOfATableHasACaseThatExecutesIt() {
         List<DynamicTest> tests = new ArrayList<>();
         MorpheusPolicyCli.ACTION_OPTIONS.keySet().stream().sorted().forEach(action -> tests.add(dispatch(
-                "policy", action)));
+                Stream.concat(Stream.of("policy"), Stream.of(action.matches("(pack|override)-.*") ? action.split("-", 2) : new String[] {action}))
+                        .toArray(String[]::new))));
         MorpheusQueryCli.VIEW_ACTION_OPTIONS.keySet().stream().sorted().forEach(action -> tests.add(dispatch(
                 "views", action)));
         MorpheusQueryCli.EXPORT_ACTION_OPTIONS.keySet().stream().sorted().forEach(action -> tests.add(dispatch(
@@ -260,7 +265,8 @@ class NothingIsCreatedBeforeTheOptionsAreAcceptedTest {
         MorpheusPortfolioCli.ACTION_OPTIONS.keySet().stream().sorted().forEach(action -> tests.add(dispatch(
                 "portfolio", action)));
         assertTrue(tests.size() > 20, "the tables were not read: " + tests.size());
-        return tests.stream();
+        return GeneratedCases.nonEmpty("everyActionOfATableHasACaseThatExecutesIt",
+                tests.stream());
     }
 
     private DynamicTest dispatch(String... command) {

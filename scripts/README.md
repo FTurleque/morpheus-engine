@@ -56,7 +56,8 @@ M21 applique notamment :
 
 ```text
 clean verify
-Surefire total       >= 3820
+Surefire written     >= 2600
+Surefire generated   >= 1574
 architecture         >= 585
 aggregate line coverage    >= 90.0%
 aggregate branch coverage  >= 75.7%
@@ -97,8 +98,9 @@ D2 reste un gate **local spécialisé** :
 ```text
 .github/workflows delta forbidden
 clean verify required
-Surefire total         >= testsMinimum of config/m21-quality-ratchets.properties
-architecture total     >= architectureTestsMinimum of the same file
+Surefire written       >= testsMinimum of config/m21-quality-ratchets.properties
+Surefire generated     >= generatedTestsMinimum of the same file
+architecture written   >= architectureTestsMinimum of the same file
 absolute line floor    >= 40.0%
 absolute branch floor  >= 35.0%
 dependency hygiene blocking
