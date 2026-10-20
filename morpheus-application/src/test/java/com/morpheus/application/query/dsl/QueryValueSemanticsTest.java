@@ -43,7 +43,8 @@ class QueryValueSemanticsTest {
 
     @Test
     void invalidNumericValueFailsClosed() {
-        assertThrows(IllegalArgumentException.class,
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
                 () -> QueryValueSemantics.sameValue("not-a-number", "1", QueryFieldType.NUMBER));
+        assertEquals("invalid numeric query value: not-a-number", failure.getMessage());
     }
 }

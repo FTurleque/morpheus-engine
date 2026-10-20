@@ -171,11 +171,15 @@ class RemoteIdentityCredentialServiceTest {
 
     @Test
     void hashingRefusesAbsentInputRatherThanProducingAConstant() {
-        assertThrows(NullPointerException.class, () -> RemoteIdentityCredentialService.sha256Bytes(null));
-        assertThrows(NullPointerException.class,
+        NullPointerException tokenFailure =
+                assertThrows(NullPointerException.class, () -> RemoteIdentityCredentialService.sha256Bytes(null));
+        assertEquals("token", tokenFailure.getMessage());
+        NullPointerException identitiesFailure = assertThrows(NullPointerException.class,
                 () -> RemoteIdentityCredentialService.authenticate(null, "token", Instant.now()));
-        assertThrows(NullPointerException.class,
+        assertEquals("identities", identitiesFailure.getMessage());
+        NullPointerException nowFailure = assertThrows(NullPointerException.class,
                 () -> RemoteIdentityCredentialService.authenticate(List.of(), "token", null));
+        assertEquals("now", nowFailure.getMessage());
     }
 
     private static void assertArrayEqualsSha256(String token, byte[] actual) {

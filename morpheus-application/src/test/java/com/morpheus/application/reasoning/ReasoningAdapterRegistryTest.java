@@ -107,7 +107,8 @@ class ReasoningAdapterRegistryTest {
             }
         };
 
-        assertThrows(IllegalArgumentException.class,
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
                 () -> new ReasoningAdapterRegistry(List.of(first, duplicate)));
+        assertEquals("duplicate reasoning adapter id: " + EvidenceSynthesisReasoningAdapter.ID, failure.getMessage());
     }
 }

@@ -64,8 +64,9 @@ class SqliteSnapshotBusinessContentIdentifierGuardTest {
 
     @Test
     void aNullIdentifierIsRefused() {
-        assertThrows(
+        NullPointerException failure = assertThrows(
                 NullPointerException.class,
                 () -> SqliteSnapshotBusinessContentStore.requireSqlIdentifier(null, "table"));
+        assertEquals("table", failure.getMessage());
     }
 }

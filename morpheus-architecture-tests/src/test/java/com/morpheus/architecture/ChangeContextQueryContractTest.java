@@ -270,9 +270,10 @@ class ChangeContextQueryContractTest {
         assertEquals(1, filtered.designDecisions().size());
         assertEquals(1, filtered.implementationTasks().size());
         assertTrue(filtered.externalLinks().isEmpty());
-        assertThrows(IllegalArgumentException.class, () -> service(
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> service(
                 snapshots, content, snapshots, traceability, references)
                 .active(fixture.projectId(), fixture.changeId(), 0, Set.of()));
+        assertEquals("maxDepth must be greater than zero", failure.getMessage());
     }
 
     @Test

@@ -78,7 +78,9 @@ class MorpheusMcpToolCatalogTest {
 
     @Test
     void rejectsUnknownToolName() {
-        assertThrows(IllegalArgumentException.class, () -> new MorpheusMcpToolCatalog().require("write_requirement"));
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class, () -> new MorpheusMcpToolCatalog().require("write_requirement"));
+        assertEquals("unknown MCP tool: write_requirement", failure.getMessage());
     }
 
     private Map<?, ?> properties(MorpheusMcpToolCatalog.ToolDefinition definition) {

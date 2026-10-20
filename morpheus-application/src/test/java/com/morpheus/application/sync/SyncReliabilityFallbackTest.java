@@ -138,7 +138,9 @@ class SyncReliabilityFallbackTest {
                 T0.plusSeconds(2));
         store.failBeforeCommit = 2;
 
-        assertThrows(IllegalStateException.class, () -> service.complete(plan, T0.plusSeconds(3)));
+        IllegalStateException failure = assertThrows(
+                IllegalStateException.class, () -> service.complete(plan, T0.plusSeconds(3)));
+        assertEquals("synthetic pre-commit failure", failure.getMessage());
         assertEquals(2, store.commitAttempts);
     }
 

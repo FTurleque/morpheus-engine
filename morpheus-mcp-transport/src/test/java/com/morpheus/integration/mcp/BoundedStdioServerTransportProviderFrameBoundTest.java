@@ -106,9 +106,10 @@ class BoundedStdioServerTransportProviderFrameBoundTest {
                         new ByteArrayOutputStream(), FRAME_BOUND, 4, atTheBound + "g"));
         assertEquals("oversizedResponseGuidance must not exceed "
                 + BoundedStdioServerTransportProvider.MAX_GUIDANCE_CHARS + " characters", refused.getMessage());
-        assertThrows(NullPointerException.class,
+        NullPointerException missing = assertThrows(NullPointerException.class,
                 () -> new BoundedStdioServerTransportProvider(McpJsonDefaults.getMapper(), new BlockingInputStream(),
                         new ByteArrayOutputStream(), FRAME_BOUND, 4, null));
+        assertEquals("oversizedResponseGuidance", missing.getMessage());
     }
 
     @Test
@@ -119,8 +120,12 @@ class BoundedStdioServerTransportProviderFrameBoundTest {
 
         McpSyncServer server = server(provider);
         try {
-            assertThrows(RuntimeException.class, () -> provider.notifyClients(
+            RuntimeException refused = assertThrows(RuntimeException.class, () -> provider.notifyClients(
                     "notifications/test", Map.of("value", "x".repeat(4096))).block());
+            assertTrue(refused.getMessage().contains("outbound notification notifications/test of "),
+                    refused.getMessage());
+            assertTrue(refused.getMessage().endsWith("exceeds the " + FRAME_BOUND + "-byte frame bound and was not sent"),
+                    refused.getMessage());
             provider.notifyClients("notifications/test", Map.of("value", "still-open")).block();
 
             assertFalse(provider.awaitTermination(Duration.ofMillis(300)),
