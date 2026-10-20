@@ -45,7 +45,7 @@ class D2RepositoryHardeningArchitectureTest {
         String pom = Files.readString(repoRoot().resolve("pom.xml"));
         assertTrue(pom.contains("<jackson.version>3.2.3</jackson.version>"));
         assertTrue(pom.contains("<sqlite-jdbc.version>3.53.4.0</sqlite-jdbc.version>"));
-        assertTrue(pom.contains("<mcp-sdk.version>2.0.1</mcp-sdk.version>"));
+        assertTrue(pom.contains("<mcp-sdk.version>2.1.0</mcp-sdk.version>"));
         assertTrue(pom.contains("<dependency-check.maven.plugin.version>13.0.0</dependency-check.maven.plugin.version>"));
         assertTrue(pom.contains("<failOnWarning>true</failOnWarning>"));
         assertTrue(pom.contains("<id>d2-security</id>"));
@@ -133,7 +133,7 @@ class D2RepositoryHardeningArchitectureTest {
     @Test
     void activeMcpDocumentationMatchesPinnedSdkVersion() throws IOException {
         String mcp = Files.readString(repoRoot().resolve("docs/developer/MCP.md"));
-        assertTrue(mcp.contains("Java MCP SDK 2.0.1"));
+        assertTrue(mcp.contains("Java MCP SDK 2.1.0"));
         assertFalse(mcp.contains("Java MCP SDK 2.0.0"));
     }
 
