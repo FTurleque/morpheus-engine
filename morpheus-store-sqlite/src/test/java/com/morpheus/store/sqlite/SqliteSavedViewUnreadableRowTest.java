@@ -101,8 +101,9 @@ class SqliteSavedViewUnreadableRowTest {
         try (SqliteSavedViewStore store = new SqliteSavedViewStore(database)) {
             SavedViewDefinition view = create(store, scope, "readable");
 
-            assertThrows(IllegalArgumentException.class,
+            IllegalArgumentException unknownFailure = assertThrows(IllegalArgumentException.class,
                     () -> store.archive(SavedViewId.generate(), 1L, NOW));
+            assertTrue(unknownFailure.getMessage().contains("unknown saved view"), unknownFailure.getMessage());
             SavedViewConflictException stale = assertThrows(SavedViewConflictException.class,
                     () -> store.archive(view.id(), 7L, NOW));
             assertTrue(stale.getMessage().contains("expected 7 but current is 1"), stale.getMessage());
@@ -110,7 +111,8 @@ class SqliteSavedViewUnreadableRowTest {
             SavedViewEntry.Readable archived =
                     assertInstanceOf(SavedViewEntry.Readable.class, store.archive(view.id(), 1L, NOW));
             assertEquals(SavedViewStatus.ARCHIVED, archived.definition().status());
-            assertThrows(IllegalStateException.class, () -> store.archive(view.id(), 2L, NOW));
+            IllegalStateException archivedFailure = assertThrows(IllegalStateException.class, () -> store.archive(view.id(), 2L, NOW));
+            assertEquals("saved view is archived: " + view.id(), archivedFailure.getMessage());
         }
     }
 

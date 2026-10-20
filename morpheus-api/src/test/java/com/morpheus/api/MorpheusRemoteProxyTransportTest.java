@@ -67,15 +67,20 @@ class MorpheusRemoteProxyTransportTest {
                 new ByteArrayInputStream(payload), copied, payload.length, payload.length, () -> { });
         assertArrayEquals(payload, copied.toByteArray());
 
-        assertThrows(IOException.class, () -> MorpheusRemoteProxyTransport.copyBounded(
+        IOException beyondDeclared = assertThrows(IOException.class, () -> MorpheusRemoteProxyTransport.copyBounded(
                 new ByteArrayInputStream(payload), new ByteArrayOutputStream(),
                 payload.length - 1, payload.length, () -> { }));
-        assertThrows(IOException.class, () -> MorpheusRemoteProxyTransport.copyBounded(
+        assertEquals("local MORPHEUS response exceeded its declared or configured bound",
+                beyondDeclared.getMessage());
+        IOException shorterThanDeclared = assertThrows(IOException.class, () -> MorpheusRemoteProxyTransport.copyBounded(
                 new ByteArrayInputStream(payload, 0, payload.length - 1),
                 new ByteArrayOutputStream(), payload.length, payload.length, () -> { }));
-        assertThrows(IOException.class, () -> MorpheusRemoteProxyTransport.copyBounded(
+        assertEquals("local MORPHEUS response length changed while proxying", shorterThanDeclared.getMessage());
+        IOException beyondConfigured = assertThrows(IOException.class, () -> MorpheusRemoteProxyTransport.copyBounded(
                 new ByteArrayInputStream(payload), new ByteArrayOutputStream(),
                 payload.length, payload.length - 1, () -> { }));
+        assertEquals("local MORPHEUS response exceeded its declared or configured bound",
+                beyondConfigured.getMessage());
     }
 
     @Test
@@ -111,13 +116,15 @@ class MorpheusRemoteProxyTransportTest {
 
     @Test
     void responseBoundMustBePositive() {
-        assertThrows(IllegalArgumentException.class, () -> new MorpheusRemoteProxyTransport(
-                MorpheusInternalCapability.generate(),
-                new MorpheusRemoteRuntimeState(1, 1, Duration.ofSeconds(1), 1, 1, 1),
-                0,
-                new Semaphore(1),
-                HttpClient.newHttpClient(),
-                new TimedBoundedResponseWriter()));
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
+                () -> new MorpheusRemoteProxyTransport(
+                        MorpheusInternalCapability.generate(),
+                        new MorpheusRemoteRuntimeState(1, 1, Duration.ofSeconds(1), 1, 1, 1),
+                        0,
+                        new Semaphore(1),
+                        HttpClient.newHttpClient(),
+                        new TimedBoundedResponseWriter()));
+        assertEquals("maxResponseBytes must be positive", failure.getMessage());
     }
 
     private static final class StubExchange extends HttpExchange {

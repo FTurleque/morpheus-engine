@@ -70,11 +70,13 @@ class SqliteServerMaintenanceTest {
         SqliteServerMaintenance.BackupVerification backup =
                 maintenance.createBackup(database, temp.resolve("backups"));
 
-        assertThrows(IllegalArgumentException.class,
+        IllegalArgumentException unconfirmedFailure = assertThrows(IllegalArgumentException.class,
                 () -> maintenance.restoreOffline(backup.path(), database, false));
+        assertEquals("offline restore requires explicit confirmation", unconfirmedFailure.getMessage());
         try (SqliteServerMaintenance.ServerLease ignored = maintenance.acquireServerLease(database)) {
-            assertThrows(IllegalStateException.class,
+            IllegalStateException leaseHeldFailure = assertThrows(IllegalStateException.class,
                     () -> maintenance.restoreOffline(backup.path(), database, true));
+            assertEquals("MORPHEUS server lease is already held for this database", leaseHeldFailure.getMessage());
         }
         try (var activeLocalConnection = SqliteDatabaseSecurity.open(database)) {
             IllegalStateException failure = assertThrows(IllegalStateException.class,

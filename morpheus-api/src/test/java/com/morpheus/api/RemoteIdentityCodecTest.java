@@ -64,7 +64,9 @@ class RemoteIdentityCodecTest {
         assertTrue(refusal(List.of("bad principal|ADMIN|" + HASH_A)).contains("principal must match"));
         assertTrue(refusal(List.of("|ADMIN|" + HASH_A)).contains("principal must match"));
         assertTrue(refusal(List.of("x".repeat(129) + "|ADMIN|" + HASH_A)).contains("principal must match"));
-        assertThrows(IllegalArgumentException.class, () -> RemoteIdentityCodec.requirePrincipal(null));
+        IllegalArgumentException nullPrincipal =
+                assertThrows(IllegalArgumentException.class, () -> RemoteIdentityCodec.requirePrincipal(null));
+        assertTrue(nullPrincipal.getMessage().contains("principal must match"));
     }
 
     @Test
@@ -185,9 +187,12 @@ class RemoteIdentityCodecTest {
 
     @Test
     void anExpiryThatIsNotInTheFutureIsRefused() {
-        assertThrows(IllegalArgumentException.class,
+        IllegalArgumentException pastFailure = assertThrows(IllegalArgumentException.class,
                 () -> RemoteIdentityCodec.requireFutureExpiry(Instant.now().minusSeconds(1)));
-        assertThrows(NullPointerException.class, () -> RemoteIdentityCodec.requireFutureExpiry(null));
+        assertEquals("remote identity expiry must be in the future", pastFailure.getMessage());
+        NullPointerException nullFailure =
+                assertThrows(NullPointerException.class, () -> RemoteIdentityCodec.requireFutureExpiry(null));
+        assertEquals("expiresAt", nullFailure.getMessage());
         Instant future = Instant.now().plusSeconds(3600);
         assertEquals(future, RemoteIdentityCodec.requireFutureExpiry(future));
     }

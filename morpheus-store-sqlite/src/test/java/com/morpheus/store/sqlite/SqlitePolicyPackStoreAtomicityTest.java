@@ -57,26 +57,31 @@ class SqlitePolicyPackStoreAtomicityTest {
             PolicyConfiguration.Activation replacement = activation(scope, target);
             int auditBefore = store.listAudit(target.packId(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches();
 
-            assertThrows(IllegalArgumentException.class, () -> store.compareAndSetActivation(
+            IllegalArgumentException wrongActionFailure = assertThrows(IllegalArgumentException.class, () -> store.compareAndSetActivation(
                     scope, target.packId(), 0L, replacement,
                     audit(PolicyConfiguration.AuditAction.UPDATE, target.packId(),
                             Optional.of(target.versionId()), Optional.empty(), Optional.of(scope), "wrong action")));
-            assertThrows(IllegalArgumentException.class, () -> store.compareAndSetActivation(
+            assertEquals("policy audit target mismatch for ACTIVATE", wrongActionFailure.getMessage());
+            IllegalArgumentException wrongPackFailure = assertThrows(IllegalArgumentException.class, () -> store.compareAndSetActivation(
                     scope, target.packId(), 0L, replacement,
                     audit(PolicyConfiguration.AuditAction.ACTIVATE, other.packId(),
                             Optional.of(target.versionId()), Optional.empty(), Optional.of(scope), "wrong pack")));
-            assertThrows(IllegalArgumentException.class, () -> store.compareAndSetActivation(
+            assertEquals("policy audit target mismatch for ACTIVATE", wrongPackFailure.getMessage());
+            IllegalArgumentException wrongVersionFailure = assertThrows(IllegalArgumentException.class, () -> store.compareAndSetActivation(
                     scope, target.packId(), 0L, replacement,
                     audit(PolicyConfiguration.AuditAction.ACTIVATE, target.packId(),
                             Optional.of(other.versionId()), Optional.empty(), Optional.of(scope), "wrong version")));
-            assertThrows(IllegalArgumentException.class, () -> store.compareAndSetActivation(
+            assertEquals("policy audit version mismatch for ACTIVATE", wrongVersionFailure.getMessage());
+            IllegalArgumentException wrongRuleFailure = assertThrows(IllegalArgumentException.class, () -> store.compareAndSetActivation(
                     scope, target.packId(), 0L, replacement,
                     audit(PolicyConfiguration.AuditAction.ACTIVATE, target.packId(),
                             Optional.of(target.versionId()), Optional.of(target.ruleIds().getFirst()), Optional.of(scope), "wrong rule")));
-            assertThrows(IllegalArgumentException.class, () -> store.compareAndSetActivation(
+            assertEquals("policy audit target mismatch for ACTIVATE", wrongRuleFailure.getMessage());
+            IllegalArgumentException wrongScopeFailure = assertThrows(IllegalArgumentException.class, () -> store.compareAndSetActivation(
                     scope, target.packId(), 0L, replacement,
                     audit(PolicyConfiguration.AuditAction.ACTIVATE, target.packId(),
                             Optional.of(target.versionId()), Optional.empty(), Optional.of(otherScope), "wrong scope")));
+            assertEquals("policy audit target mismatch for ACTIVATE", wrongScopeFailure.getMessage());
 
             assertFalse(store.findActivation(scope, target.packId()).isPresent());
             assertEquals(auditBefore, store.listAudit(target.packId(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches());
@@ -131,8 +136,9 @@ class SqlitePolicyPackStoreAtomicityTest {
             for (int index = 0; index < PolicyBudgets.MAX_ACTIVE_PACKS_PER_SCOPE; index++) {
                 activateDirect(store, activationScope, activationPacks.get(index), "activation " + index);
             }
-            assertThrows(IllegalArgumentException.class,
+            IllegalArgumentException activationBudgetFailure = assertThrows(IllegalArgumentException.class,
                     () -> activateDirect(store, activationScope, activationPacks.getLast(), "activation overflow"));
+            assertEquals("policy scope exceeds active pack budget: " + PolicyBudgets.MAX_ACTIVE_PACKS_PER_SCOPE, activationBudgetFailure.getMessage());
             assertEquals(PolicyBudgets.MAX_ACTIVE_PACKS_PER_SCOPE, store.listActivations(activationScope).size());
 
             PolicyScope overrideScope = new PolicyScope.Project(ProjectSpecificationId.generate());
@@ -150,8 +156,9 @@ class SqlitePolicyPackStoreAtomicityTest {
             for (int index = 0; index < PolicyBudgets.MAX_OVERRIDES_PER_SCOPE; index++) {
                 putOverrideDirect(store, overrideScope, overrides.get(index), "override " + index);
             }
-            assertThrows(IllegalArgumentException.class,
+            IllegalArgumentException overrideBudgetFailure = assertThrows(IllegalArgumentException.class,
                     () -> putOverrideDirect(store, overrideScope, overrides.getLast(), "override overflow"));
+            assertEquals("policy scope exceeds override budget: " + PolicyBudgets.MAX_OVERRIDES_PER_SCOPE, overrideBudgetFailure.getMessage());
             assertEquals(PolicyBudgets.MAX_OVERRIDES_PER_SCOPE, store.listOverrides(overrideScope).size());
         }
     }

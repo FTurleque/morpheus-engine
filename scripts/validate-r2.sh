@@ -47,7 +47,7 @@ MORPHEUS_M27_BASE_REF="$BASE_REF" \
 MORPHEUS_M27_SKIP_PORTABLE="$SKIP_PORTABLE" \
   bash "$SCRIPT_DIR/validate-m27.sh" "$VERSION"
 
-UPGRADE_REPORT="$REPO/morpheus-store-sqlite/target/surefire-reports/TEST-com.morpheus.store.sqlite.R2UpgradeCompatibilityTest.xml"
+UPGRADE_REPORT="$REPO/morpheus-store-sqlite/target/surefire-reports/TEST-com.morpheus.store.sqlite.ReleasedSchemaUpgradeTest.xml"
 [[ -f "$UPGRADE_REPORT" ]] || { echo "R2 upgrade report is missing: $UPGRADE_REPORT" >&2; exit 1; }
 morpheus_python - "$UPGRADE_REPORT" <<'PY'
 import sys
@@ -59,7 +59,7 @@ failures = int(suite.attrib.get('failures', 0))
 errors = int(suite.attrib.get('errors', 0))
 if tests < 1 or failures or errors:
     raise SystemExit(f'R2 upgrade compatibility test failed: tests={tests} failures={failures} errors={errors}')
-print('SQLite V012 -> V015 upgrade compatibility: PASS')
+print('SQLite upgrade from every released schema level: PASS')
 PY
 
 PACKAGED_M25_M26=SKIPPED

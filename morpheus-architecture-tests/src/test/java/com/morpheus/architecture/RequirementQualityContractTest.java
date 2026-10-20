@@ -183,7 +183,7 @@ class RequirementQualityContractTest {
                 TraceabilityEntityKind.REQUIREMENT, DomainIdentity.generate());
         EvidenceId evidenceId = EvidenceId.generate();
 
-        assertThrows(IllegalArgumentException.class, () -> new QualityFinding(
+        IllegalArgumentException heuristicWithoutConfidence = assertThrows(IllegalArgumentException.class, () -> new QualityFinding(
                 QualityFindingCode.ORPHAN_REQUIREMENT,
                 DiagnosticSeverity.WARNING,
                 QualityEvidenceKind.HEURISTIC,
@@ -192,7 +192,9 @@ class RequirementQualityContractTest {
                 Map.of(),
                 Optional.empty(),
                 List.of(evidenceId)));
-        assertThrows(IllegalArgumentException.class, () -> new QualityFinding(
+        assertEquals("heuristic quality finding requires explicit confidence",
+                heuristicWithoutConfidence.getMessage());
+        IllegalArgumentException deterministicWithConfidence = assertThrows(IllegalArgumentException.class, () -> new QualityFinding(
                 QualityFindingCode.ORPHAN_REQUIREMENT,
                 DiagnosticSeverity.WARNING,
                 QualityEvidenceKind.DETERMINISTIC,
@@ -201,7 +203,9 @@ class RequirementQualityContractTest {
                 Map.of(),
                 Optional.of(0.9),
                 List.of(evidenceId)));
-        assertThrows(IllegalArgumentException.class, () -> new QualityFinding(
+        assertEquals("deterministic quality finding must not carry confidence",
+                deterministicWithConfidence.getMessage());
+        IllegalArgumentException confidenceOutOfRange = assertThrows(IllegalArgumentException.class, () -> new QualityFinding(
                 QualityFindingCode.ORPHAN_REQUIREMENT,
                 DiagnosticSeverity.WARNING,
                 QualityEvidenceKind.HEURISTIC,
@@ -210,6 +214,7 @@ class RequirementQualityContractTest {
                 Map.of(),
                 Optional.of(1.1),
                 List.of(evidenceId)));
+        assertEquals("confidence must be finite and between 0.0 and 1.0", confidenceOutOfRange.getMessage());
 
         QualityFinding heuristic = new QualityFinding(
                 QualityFindingCode.ORPHAN_REQUIREMENT,

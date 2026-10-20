@@ -89,10 +89,12 @@ class SqliteStoreConnectionOwnershipTest {
     void anOutOfRangeBusyTimeoutIsRejectedBeforeAnythingIsAcquired() {
         Path database = temp.resolve("bad-timeout.db").toAbsolutePath().normalize();
 
-        assertThrows(IllegalArgumentException.class,
+        IllegalArgumentException zeroFailure = assertThrows(IllegalArgumentException.class,
                 () -> SqliteStoreConnection.openAndMigrate(database, 0, "Cannot initialize the test store"));
-        assertThrows(IllegalArgumentException.class,
+        assertEquals("busyTimeoutMillis must be between 1 and 60000", zeroFailure.getMessage());
+        IllegalArgumentException tooHighFailure = assertThrows(IllegalArgumentException.class,
                 () -> SqliteStoreConnection.openAndMigrate(database, 60_001, "Cannot initialize the test store"));
+        assertEquals("busyTimeoutMillis must be between 1 and 60000", tooHighFailure.getMessage());
 
         assertTrue(java.nio.file.Files.notExists(database), "a rejected timeout must not have opened anything");
         SqliteDatabaseLease.acquireExclusive(database).close();

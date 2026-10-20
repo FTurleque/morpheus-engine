@@ -13,7 +13,9 @@ class MorpheusHttpAllowedMethodsTest {
 
     @Test
     void rejectsNullPathParser() {
-        assertThrows(NullPointerException.class, () -> new MorpheusHttpAllowedMethods(null));
+        NullPointerException failure =
+                assertThrows(NullPointerException.class, () -> new MorpheusHttpAllowedMethods(null));
+        assertEquals("pathParser", failure.getMessage());
     }
 
     @Test

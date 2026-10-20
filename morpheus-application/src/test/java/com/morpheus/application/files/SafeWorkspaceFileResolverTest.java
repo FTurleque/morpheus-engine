@@ -43,7 +43,9 @@ class SafeWorkspaceFileResolverTest {
 
         SafeWorkspaceFileResolver resolver = SafeWorkspaceFileResolver.rootedAt(workspace);
         assertEquals("€", resolver.readUtf8(Path.of("spec.md"), 3));
-        assertThrows(IllegalArgumentException.class, () -> resolver.readUtf8(Path.of("spec.md"), 2));
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class, () -> resolver.readUtf8(Path.of("spec.md"), 2));
+        assertEquals("workspace file exceeds maximum input size of 2 bytes: spec.md", failure.getMessage());
     }
 
     @Test
@@ -147,8 +149,14 @@ class SafeWorkspaceFileResolverTest {
         Files.writeString(temp.resolve("secret.txt"), "secret");
 
         SafeWorkspaceFileResolver resolver = SafeWorkspaceFileResolver.rootedAt(workspace);
-        assertThrows(IllegalArgumentException.class, () -> resolver.readUtf8(Path.of("../secret.txt")));
-        assertThrows(IllegalArgumentException.class, () -> resolver.readUtf8(Path.of("nested/../spec.md")));
+        IllegalArgumentException leadingTraversal = assertThrows(
+                IllegalArgumentException.class, () -> resolver.readUtf8(Path.of("../secret.txt")));
+        assertTrue(leadingTraversal.getMessage().contains("workspace traversal is not allowed"),
+                leadingTraversal::getMessage);
+        IllegalArgumentException nestedTraversal = assertThrows(
+                IllegalArgumentException.class, () -> resolver.readUtf8(Path.of("nested/../spec.md")));
+        assertTrue(nestedTraversal.getMessage().contains("workspace traversal is not allowed"),
+                nestedTraversal::getMessage);
     }
 
     @Test
@@ -160,7 +168,9 @@ class SafeWorkspaceFileResolverTest {
         assumeTrue(createSymlink(link, secret), "symbolic links cannot be created in this environment");
 
         SafeWorkspaceFileResolver resolver = SafeWorkspaceFileResolver.rootedAt(workspace);
-        assertThrows(IllegalArgumentException.class, () -> resolver.readUtf8(Path.of("spec.md")));
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class, () -> resolver.readUtf8(Path.of("spec.md")));
+        assertEquals("symbolic workspace path is not allowed: spec.md", failure.getMessage());
     }
 
     @Test
@@ -172,7 +182,9 @@ class SafeWorkspaceFileResolverTest {
         assumeTrue(createSymlink(link, outside), "symbolic links cannot be created in this environment");
 
         SafeWorkspaceFileResolver resolver = SafeWorkspaceFileResolver.rootedAt(workspace);
-        assertThrows(IllegalArgumentException.class, () -> resolver.readUtf8(Path.of("linked/spec.md")));
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class, () -> resolver.readUtf8(Path.of("linked/spec.md")));
+        assertEquals("symbolic workspace path is not allowed: linked/spec.md", failure.getMessage());
     }
 
     @Test
@@ -184,7 +196,9 @@ class SafeWorkspaceFileResolverTest {
         assumeTrue(createSymlink(link, target), "symbolic links cannot be created in this environment");
 
         SafeWorkspaceFileResolver resolver = SafeWorkspaceFileResolver.rootedAt(workspace);
-        assertThrows(IllegalArgumentException.class, () -> resolver.readUtf8(Path.of("linked/spec.md")));
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class, () -> resolver.readUtf8(Path.of("linked/spec.md")));
+        assertEquals("symbolic workspace path is not allowed: linked/spec.md", failure.getMessage());
     }
 
     @Test
@@ -203,7 +217,9 @@ class SafeWorkspaceFileResolverTest {
         assertEquals(0, exitCode, output);
 
         SafeWorkspaceFileResolver resolver = SafeWorkspaceFileResolver.rootedAt(workspace);
-        assertThrows(IllegalArgumentException.class, () -> resolver.readUtf8(Path.of("junction/spec.md")));
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class, () -> resolver.readUtf8(Path.of("junction/spec.md")));
+        assertTrue(failure.getMessage().contains("symbolic workspace path is not allowed"), failure::getMessage);
     }
 
     private void alignReplacementMetadata(Path first, Path second) throws IOException {

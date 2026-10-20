@@ -25,9 +25,11 @@ import java.util.TreeSet;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -281,12 +283,14 @@ class BoundedStdioClientTransportTest {
                 .build();
         try {
             client.initialize().block();
-            assertThrows(RuntimeException.class, () -> client.callTool(
+            RuntimeException unanswered = assertThrows(RuntimeException.class, () -> client.callTool(
                             CallToolRequest.builder(FixtureBoundedMcpServer.TOOL_LARGE)
                                     .arguments(Map.of("size", 8192))
                                     .build())
                     .timeout(OVERSIZED_RESPONSE_WINDOW)
                     .block());
+            assertInstanceOf(TimeoutException.class, unanswered.getCause(),
+                    "the oversized response is dropped, so the call can only end by timing out");
         } finally {
             client.closeGracefully().block();
         }
@@ -333,12 +337,14 @@ class BoundedStdioClientTransportTest {
                 .build();
         try {
             client.initialize().block();
-            assertThrows(RuntimeException.class, () -> client.callTool(
+            RuntimeException unanswered = assertThrows(RuntimeException.class, () -> client.callTool(
                             CallToolRequest.builder(FixtureBoundedMcpServer.TOOL_LARGE)
                                     .arguments(Map.of("size", 8192))
                                     .build())
                     .timeout(OVERSIZED_RESPONSE_WINDOW)
                     .block());
+            assertInstanceOf(TimeoutException.class, unanswered.getCause(),
+                    "the oversized response is dropped, so the call can only end by timing out");
             BoundedWait.until(
                     "the transport to fail closed on an inbound frame past its bound",
                     Duration.ofSeconds(5),
@@ -358,7 +364,8 @@ class BoundedStdioClientTransportTest {
 
         transport.sendMessage(message).block();
 
-        assertThrows(RuntimeException.class, () -> transport.sendMessage(message).block());
+        RuntimeException overflow = assertThrows(RuntimeException.class, () -> transport.sendMessage(message).block());
+        assertEquals("MCP outbound queue capacity exceeded", overflow.getMessage());
     }
 
     @Test
@@ -367,7 +374,11 @@ class BoundedStdioClientTransportTest {
         McpSchema.JSONRPCNotification message = new McpSchema.JSONRPCNotification(
                 "notifications/test", Map.of("value", "x".repeat(512)));
 
-        assertThrows(RuntimeException.class, () -> transport.sendMessage(message).block());
+        RuntimeException refused = assertThrows(RuntimeException.class, () -> transport.sendMessage(message).block());
+        assertTrue(refused.getMessage().contains("outbound notification notifications/test of "),
+                refused.getMessage());
+        assertTrue(refused.getMessage().endsWith("exceeds the 128-byte frame bound and was not sent"),
+                refused.getMessage());
     }
 
     @Test
@@ -376,7 +387,10 @@ class BoundedStdioClientTransportTest {
         BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
                 launch, McpJsonDefaults.getMapper(), 1024, failure -> { });
 
-        assertThrows(RuntimeException.class, () -> transport.connect(message -> message).block());
+        RuntimeException startFailure =
+                assertThrows(RuntimeException.class, () -> transport.connect(message -> message).block());
+        assertEquals("failed to start MCP process", startFailure.getMessage());
+        assertInstanceOf(IOException.class, startFailure.getCause());
     }
 
     @Test
@@ -452,10 +466,12 @@ class BoundedStdioClientTransportTest {
     void rejectsNonPositiveTransportLimits() {
         McpPeerLaunch launch = serverLaunch();
 
-        assertThrows(IllegalArgumentException.class, () -> new BoundedStdioClientTransport(
-                launch, McpJsonDefaults.getMapper(), 0, 1, failure -> { }));
-        assertThrows(IllegalArgumentException.class, () -> new BoundedStdioClientTransport(
-                launch, McpJsonDefaults.getMapper(), 1024, 0, failure -> { }));
+        IllegalArgumentException noBytes = assertThrows(IllegalArgumentException.class,
+                () -> new BoundedStdioClientTransport(launch, McpJsonDefaults.getMapper(), 0, 1, failure -> { }));
+        assertEquals("maxMessageBytes must be positive", noBytes.getMessage());
+        IllegalArgumentException noPending = assertThrows(IllegalArgumentException.class,
+                () -> new BoundedStdioClientTransport(launch, McpJsonDefaults.getMapper(), 1024, 0, failure -> { }));
+        assertEquals("maxPendingMessages must be positive", noPending.getMessage());
     }
 
     private BoundedStdioClientTransport transport(int maxBytes) {

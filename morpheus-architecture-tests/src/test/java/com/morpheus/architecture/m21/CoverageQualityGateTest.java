@@ -156,8 +156,14 @@ class CoverageQualityGateTest {
         double minBranchRatio = Math.max(D2_MIN_BRANCH_RATIO, ratchets.perModuleBranchCoverageMinimum());
         assertTrue(0.49d >= D2_MIN_LINE_RATIO);
         assertTrue(0.41d >= D2_MIN_BRANCH_RATIO);
-        assertThrows(AssertionError.class, () -> assertCoverageAtLeast("line", 0.49d, minLineRatio));
-        assertThrows(AssertionError.class, () -> assertCoverageAtLeast("branch", 0.41d, minBranchRatio));
+        AssertionError lineRegression = assertThrows(
+                AssertionError.class, () -> assertCoverageAtLeast("line", 0.49d, minLineRatio));
+        assertTrue(lineRegression.getMessage().contains("per-module JaCoCo line coverage 0.49 is below qualified-baseline ratchet"),
+                () -> "the line regression must be refused for falling below the ratchet: " + lineRegression.getMessage());
+        AssertionError branchRegression = assertThrows(
+                AssertionError.class, () -> assertCoverageAtLeast("branch", 0.41d, minBranchRatio));
+        assertTrue(branchRegression.getMessage().contains("per-module JaCoCo branch coverage 0.41 is below qualified-baseline ratchet"),
+                () -> "the branch regression must be refused for falling below the ratchet: " + branchRegression.getMessage());
     }
 
     /**
@@ -296,14 +302,26 @@ class CoverageQualityGateTest {
      */
     @Test
     void perModuleRatchetWindowRejectsAnUnqualifiedRaiseAndAReturnToTheD2Floor() {
-        assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
+        AssertionError lineAboveCap = assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
                 "line", PER_MODULE_QUALIFIED_LINE_RATIO + 0.000001d, D2_MIN_LINE_RATIO, PER_MODULE_QUALIFIED_LINE_RATIO));
-        assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
+        assertTrue(lineAboveCap.getMessage().contains("per-module line ratchet")
+                        && lineAboveCap.getMessage().contains("exceeds its qualified per-module baseline"),
+                () -> "a line ratchet above its qualified baseline must be refused as such: " + lineAboveCap.getMessage());
+        AssertionError branchAboveCap = assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
                 "branch", PER_MODULE_QUALIFIED_BRANCH_RATIO + 0.000001d, D2_MIN_BRANCH_RATIO, PER_MODULE_QUALIFIED_BRANCH_RATIO));
-        assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
+        assertTrue(branchAboveCap.getMessage().contains("per-module branch ratchet")
+                        && branchAboveCap.getMessage().contains("exceeds its qualified per-module baseline"),
+                () -> "a branch ratchet above its qualified baseline must be refused as such: " + branchAboveCap.getMessage());
+        AssertionError lineAtFloor = assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
                 "line", D2_MIN_LINE_RATIO, D2_MIN_LINE_RATIO, PER_MODULE_QUALIFIED_LINE_RATIO));
-        assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
+        assertTrue(lineAtFloor.getMessage().contains("per-module line ratchet")
+                        && lineAtFloor.getMessage().contains("must stay stricter than the D2 floor"),
+                () -> "a line ratchet back at the D2 floor must be refused as such: " + lineAtFloor.getMessage());
+        AssertionError branchAtFloor = assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
                 "branch", D2_MIN_BRANCH_RATIO, D2_MIN_BRANCH_RATIO, PER_MODULE_QUALIFIED_BRANCH_RATIO));
+        assertTrue(branchAtFloor.getMessage().contains("per-module branch ratchet")
+                        && branchAtFloor.getMessage().contains("must stay stricter than the D2 floor"),
+                () -> "a branch ratchet back at the D2 floor must be refused as such: " + branchAtFloor.getMessage());
     }
 
     private static void assertRatchetWithinQualifiedWindow(String kind, double ratchet, double floor, double cap) {

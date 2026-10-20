@@ -29,7 +29,9 @@ class SyncPublicationFailureTruthfulnessTest {
         store.commitFailuresRemaining = 2;
         store.recordAttemptFailuresRemaining = 1;
 
-        assertThrows(IllegalStateException.class, () -> service.complete(plan, T0.plusSeconds(2)));
+        IllegalStateException failure = assertThrows(
+                IllegalStateException.class, () -> service.complete(plan, T0.plusSeconds(2)));
+        assertEquals("synthetic sync-state commit failure", failure.getMessage());
 
         // Simulate the storage layer becoming writable again before the adapter's outer catch calls fail().
         service.fail(plan, T0.plusSeconds(3));

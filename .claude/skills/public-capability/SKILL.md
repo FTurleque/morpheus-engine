@@ -19,6 +19,14 @@ framework, ni réflexion, ni scan de classpath.
 Un consommateur de port doit rester provider-neutre : il fonctionne avec les trois providers
 (openspec, markdown, synthetic). C'est vérifié.
 
+## 1 bis. Déclarer la commande CLI
+
+Une commande ou une action de CLI s'ajoute dans `CliCommandPaths` (`morpheus-cli`) : `MorpheusMain.run` refuse comme
+commande inconnue tout chemin non déclaré, avant d'interroger une sous-commande. Un `case` ajouté au seul `switch` de la
+sous-commande n'est pas atteignable. Le chemin déclaré doit aussi figurer dans une ligne `usage` de l'aide de
+`MorpheusMain` (`CliCommandPathsTest`) et dans la colonne `cli` d'une ligne du manifeste, ou dans les `EXCLUSIONS` écrites de
+`PublicSurfaceManifestCoversEveryServedCliCommandTest` si c'est un point d'entrée du processus et non une capacité.
+
 ## 2. Écrire la ligne du manifeste
 
 Format TSV, tabulations réelles :
@@ -42,7 +50,9 @@ silencieux de ce système. L'absence se déclare, elle ne se déduit pas. La col
 justifie le sentinelle : « ce code tiers est exécutable, donc jamais model-facing » est une
 justification, « non exposé » n'en est pas une.
 
-Toute valeur autre qu'un sentinelle doit correspondre à une surface **réellement implémentée**.
+Toute valeur autre qu'un sentinelle doit correspondre à une surface **réellement implémentée** : les gates comparent les
+colonnes `http` (table des routes), `mcp` (outils servis) et `cli` (`CliCommandPaths`) à ce que chaque transport sert, dans les
+deux sens. Un sentinelle sur un transport qui sert la commande laisse la commande sans ligne, et le build échoue.
 
 ## 3. Mettre l'OpenAPI au même niveau
 

@@ -92,7 +92,7 @@ class ExternalTraceabilityLinkFactoryTest {
                 DomainIdentity.generate());
         ExternalReference reference = reference(owner, ExternalReferenceResolutionState.UNVALIDATED);
 
-        assertThrows(IllegalArgumentException.class, () -> factory.create(
+        IllegalArgumentException ownerMismatch = assertThrows(IllegalArgumentException.class, () -> factory.create(
                 TraceabilityLinkId.generate(),
                 wrongSource,
                 TraceabilityRelationType.LINKS_TO_CODE,
@@ -101,9 +101,11 @@ class ExternalTraceabilityLinkFactoryTest {
                 Optional.empty(),
                 Set.of(EvidenceId.generate()),
                 T0));
+        assertEquals("external reference owner must match traceability source identity",
+                ownerMismatch.getMessage());
 
         TraceabilityEntityRef correctSource = new TraceabilityEntityRef(TraceabilityEntityKind.REQUIREMENT, owner);
-        assertThrows(IllegalArgumentException.class, () -> factory.create(
+        IllegalArgumentException nonExternalRelation = assertThrows(IllegalArgumentException.class, () -> factory.create(
                 TraceabilityLinkId.generate(),
                 correctSource,
                 TraceabilityRelationType.RELATED_TO,
@@ -112,6 +114,8 @@ class ExternalTraceabilityLinkFactoryTest {
                 Optional.empty(),
                 Set.of(EvidenceId.generate()),
                 T0));
+        assertEquals("relation is not an external traceability relation: RELATED_TO",
+                nonExternalRelation.getMessage());
     }
 
     @Test

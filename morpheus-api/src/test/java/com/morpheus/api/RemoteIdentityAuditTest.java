@@ -74,7 +74,9 @@ class RemoteIdentityAuditTest {
         assertTrue(salvaged.records().isEmpty());
         assertEquals(corrupted.size(), salvaged.quarantined());
         for (String line : corrupted) {
-            assertThrows(IllegalArgumentException.class, () -> RemoteIdentityAudit.parseStrict(List.of(line)));
+            IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
+                    () -> RemoteIdentityAudit.parseStrict(List.of(line)));
+            assertEquals("invalid remote identity audit at line 1", failure.getMessage(), line);
         }
     }
 
@@ -169,7 +171,11 @@ class RemoteIdentityAuditTest {
 
     @Test
     void aNegativeQuarantineCountIsRejected() {
-        assertThrows(IllegalArgumentException.class, () -> new RetainedAudit(List.of(), -1));
-        assertThrows(NullPointerException.class, () -> new RetainedAudit(null, 0));
+        IllegalArgumentException negativeFailure =
+                assertThrows(IllegalArgumentException.class, () -> new RetainedAudit(List.of(), -1));
+        assertEquals("quarantined must not be negative", negativeFailure.getMessage());
+        NullPointerException nullFailure =
+                assertThrows(NullPointerException.class, () -> new RetainedAudit(null, 0));
+        assertEquals("records", nullFailure.getMessage());
     }
 }
