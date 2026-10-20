@@ -152,6 +152,12 @@ morpheus --json policy activate \
   --reason "enable governance"
 ```
 
+Lister les activations d’un scope (`--project` ou `--portfolio`) :
+
+```bash
+morpheus --json policy activations --project <projectId>
+```
+
 Évaluer :
 
 ```bash
@@ -186,6 +192,19 @@ morpheus --json policy override put \
   --expected-revision 0 \
   --actor security-owner \
   --reason "temporary waiver"
+```
+
+Lister les overrides d’un scope, puis en retirer un (la révision attendue est celle de l’override, un retrait périmé échoue) :
+
+```bash
+morpheus --json policy override list --project <projectId>
+morpheus --json policy override remove \
+  --id <policyPackId> \
+  --rule <ruleId> \
+  --project <projectId> \
+  --expected-revision 1 \
+  --actor security-owner \
+  --reason "waiver expired"
 ```
 
 Audit :

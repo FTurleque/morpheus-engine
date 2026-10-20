@@ -45,7 +45,7 @@ class CoverageScaleSeparationTest {
         try (var reader = Files.newBufferedReader(repoRoot().resolve("config/m21-quality-ratchets.properties"))) {
             ratchets.load(reader);
         }
-        for (String key : List.of("testsMinimum", "architectureTestsMinimum",
+        for (String key : List.of("testsMinimum", "generatedTestsMinimum", "architectureTestsMinimum",
                 "perModuleLineCoverageMinimum", "perModuleBranchCoverageMinimum",
                 "aggregateLineCoverageMinimum", "aggregateBranchCoverageMinimum")) {
             assertNotNull(ratchets.getProperty(key), () -> "missing M21 quality ratchet: " + key);

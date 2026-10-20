@@ -23,6 +23,7 @@ $validationSha = (git rev-parse HEAD).Trim()
 # repository that had lost most of its tests. Read here, before the long build, so a missing key fails at once.
 $ratchetsPath = Join-Path $repo 'config\m21-quality-ratchets.properties'
 $testsMinimum = [int](Get-QualityRatchet -Path $ratchetsPath -Key 'testsMinimum' -Kind integer)
+$generatedTestsMinimum = [int](Get-QualityRatchet -Path $ratchetsPath -Key 'generatedTestsMinimum' -Kind integer)
 $architectureTestsMinimum = [int](Get-QualityRatchet -Path $ratchetsPath -Key 'architectureTestsMinimum' -Kind integer)
 
 function Assert-NativeSuccess([string]$Label) {
@@ -119,7 +120,10 @@ Assert-NativeSuccess 'D2 Maven clean verify'
 
 $reports = @(Get-ChildItem -Path $repo -Recurse -File -Filter 'TEST-*.xml' |
     Where-Object { $_.FullName -match '[\\/]target[\\/]surefire-reports[\\/]' })
-$tests = 0
+# Surefire names each invocation of a test factory, of a parameterised or of a repeated test `method()[N]`; a declared
+# test method keeps its bare name. The two counts are of one total: every execution is one or the other.
+$writtenTests = 0
+$generatedTests = 0
 $failures = 0
 $errors = 0
 $skipped = 0
@@ -128,24 +132,30 @@ foreach ($report in $reports) {
     [xml]$xml = Get-Content -LiteralPath $report.FullName -Raw
     $suite = $xml.testsuite
     if ($null -eq $suite) { continue }
-    $tests += [int]$suite.tests
+    $invoked = @($suite.SelectNodes('testcase') | Where-Object { $_.GetAttribute('name') -match '\[[0-9]+\]$' }).Count
+    $writtenTests += [int]$suite.tests - $invoked
+    $generatedTests += $invoked
     $failures += [int]$suite.failures
     $errors += [int]$suite.errors
     $skipped += [int]$suite.skipped
     if ($report.FullName -like "$(Join-Path $repo 'morpheus-architecture-tests')*") {
-        $architectureTests += [int]$suite.tests
+        $architectureTests += [int]$suite.tests - $invoked
     }
 }
 if ($failures -ne 0 -or $errors -ne 0) {
     throw "D2 Surefire failures=$failures errors=$errors"
 }
-if ($tests -lt $testsMinimum) {
-    throw "D2 test baseline regression: $tests < $testsMinimum (testsMinimum in $ratchetsPath)"
+if ($writtenTests -lt $testsMinimum) {
+    throw "D2 test baseline regression: $writtenTests < $testsMinimum written executions (testsMinimum in $ratchetsPath)"
+}
+Write-Host "D2 written tests: PASS ($writtenTests >= $testsMinimum)"
+if ($generatedTests -lt $generatedTestsMinimum) {
+    throw "D2 generated test baseline regression: $generatedTests < $generatedTestsMinimum generated executions (generatedTestsMinimum in $ratchetsPath)"
 }
 if ($architectureTests -lt $architectureTestsMinimum) {
     throw "D2 architecture baseline regression: $architectureTests < $architectureTestsMinimum (architectureTestsMinimum in $ratchetsPath)"
 }
-Write-Host "D2 tests: PASS ($tests tests >= $testsMinimum, architecture=$architectureTests >= $architectureTestsMinimum, skipped=$skipped)"
+Write-Host "D2 tests: PASS ($writtenTests written >= $testsMinimum, $generatedTests generated >= $generatedTestsMinimum, architecture=$architectureTests >= $architectureTestsMinimum, skipped=$skipped)"
 
 $coveragePath = Join-Path $repo 'morpheus-architecture-tests\target\m21-aggregate-coverage-summary.txt'
 & (Join-Path $PSScriptRoot 'lib\Require-AggregateCoverageEvidence.ps1') -EvidencePath $coveragePath
@@ -206,7 +216,9 @@ $summary = @(
     "sha=$validationSha",
     "baseRef=$BaseRef",
     "version=$Version",
-    "tests=$tests",
+    "tests=$($writtenTests + $generatedTests)",
+    "writtenTests=$writtenTests",
+    "generatedTests=$generatedTests",
     "architectureTests=$architectureTests",
     "lineCoverage=$($coverage.lineRatio)",
     "branchCoverage=$($coverage.branchRatio)",

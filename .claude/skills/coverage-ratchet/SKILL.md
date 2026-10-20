@@ -63,6 +63,24 @@ aligner sur une moyenne.
 Citer la preuve — SHA, plateforme, run — dans le commentaire du plafond. Un plafond sans preuve
 citée n'est pas qualifié.
 
+## Déposer la preuve d'une requalification
+
+Les artefacts expirent, donc la citation ne suffit pas : la qualification en vigueur est **gardée**
+dans `config/coverage-qualification/`, et `CoverageQualificationEvidenceTest` exige que chaque
+plafond soit égal au plus bas ratio de son échelle dans ces fichiers.
+
+1. Télécharger `m21-integrity-<OS>` des runs de la qualification (deux runs au moins par
+   plateforme, un seul commit) et garder, tels quels, `m21-per-module-coverage-summary.txt` et
+   `m21-aggregate-coverage-summary.txt`.
+2. Les ranger sous `per-module/<Plateforme>-<run>.txt` et `aggregate/<Plateforme>-<run>.txt`, et
+   remplacer les lignes de l'échelle requalifiée dans `evidence.tsv` (échelle, plateforme, run,
+   commit, fichier). Le commit se lit dans `gh run view <run> --json headSha`, pas dans le résumé.
+3. Changer les deux constantes du gate dans le même changement, et supprimer les résumés de
+   l'ensemble remplacé : Git garde l'ancien.
+
+Un ensemble incomplet (plateforme absente, un seul run, deux commits, deux populations, résumé d'une
+autre échelle) est refusé par le test ; ne pas l'affaiblir pour le faire passer.
+
 ## Répercuter la hausse — ne pas se fier à une liste écrite à la main
 
 La valeur vit dans le `.properties`, mais elle est recopiée dans des pages de documentation et
@@ -96,6 +114,7 @@ Une **mesure datée** ne se réécrit pas. Seule une affirmation courante se met
 ```bash
 ./mvnw clean verify
 ./mvnw test -pl morpheus-architecture-tests -Dtest=CoverageQualityGateTest
+./mvnw test -pl morpheus-architecture-tests -Dtest=CoverageQualificationEvidenceTest
 ./mvnw test -pl morpheus-coverage-report
 ```
 

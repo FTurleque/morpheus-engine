@@ -56,7 +56,8 @@ M21 applique notamment :
 
 ```text
 clean verify
-Surefire total       >= 3820
+Surefire written     >= 2600
+Surefire generated   >= 1574
 architecture         >= 585
 aggregate line coverage    >= 90.0%
 aggregate branch coverage  >= 75.7%
@@ -97,8 +98,9 @@ D2 reste un gate **local spécialisé** :
 ```text
 .github/workflows delta forbidden
 clean verify required
-Surefire total         >= testsMinimum of config/m21-quality-ratchets.properties
-architecture total     >= architectureTestsMinimum of the same file
+Surefire written       >= testsMinimum of config/m21-quality-ratchets.properties
+Surefire generated     >= generatedTestsMinimum of the same file
+architecture written   >= architectureTestsMinimum of the same file
 absolute line floor    >= 40.0%
 absolute branch floor  >= 35.0%
 dependency hygiene blocking
@@ -163,6 +165,7 @@ message qui nomme la cause, aucune ligne `PASS` pour le contrôle refusé, aucun
 | `test_validator_verdicts.py` | le contrat commun de `m21`, `d2` et `m22` à `m27`, sur le `.sh` et le `.ps1` ; pour chacun, le verdict suit les minimums écrits dans le `config/m21-quality-ratchets.properties` du checkout fabriqué (`m22` à `m27` comparaient jusqu'au 15/10/2026 aux planchers littéraux de leur date) |
 | `test_validator_entry_refusals.py` | ce que `m19`, `m20`, `m28` et `r3` refusent avant d'avoir besoin d'un produit, le verdict complet de `r2`, et pour `r2` et `r3` le compte de POM qu'ils dérivent des `<module>` du POM racine |
 | `test_validate_dispatcher.py` | `validate.ps1` et `validate.cmd` : cibles listées, cibles refusées, arguments transmis, échec propagé |
+| `test_write_build_provenance.py` | l'écrivain de provenance, `.sh` et `.ps1`, sur les mêmes cas : une branche, une tête détachée sans étiquette (`detached`), une étiquette, un SBOM absent |
 | `test_read_quality_ratchet.py`, `test_require_aggregate_coverage_evidence.py` | les bibliothèques de `lib/` écrites en deux langages, sur **une** liste de cas |
 | `test_script_inventory.py` | l'inventaire : tout script est lancé par quelque chose, et exécuté par un test ou excusé par son nom |
 

@@ -8,16 +8,43 @@ sources différentes du repo (`rules/testing.md`, `rules/governance.md`, `docs/R
 citaient chacune un chiffre différent au 31/08/2026. **Avant toute décision de gouvernance
 ou de coverage, relire le fichier properties, pas cette page.**
 
-Valeur constatée en lisant `config/m21-quality-ratchets.properties` (09/10/2026) :
+Valeur constatée en lisant `config/m21-quality-ratchets.properties` (18/10/2026) :
 
 | Clé | Valeur constatée |
 |---|---|
-| `testsMinimum` | 3820 |
-| `architectureTestsMinimum` | 585 |
+| `testsMinimum` | 2600 (exécutions de méthodes déclarées) |
+| `generatedTestsMinimum` | 1574 (exécutions générées par une fabrique) |
+| `architectureTestsMinimum` | 585 (exécutions déclarées du module d'architecture) |
 | `aggregateLineCoverageMinimum` | 0.900 (90.0%) |
 | `aggregateBranchCoverageMinimum` | 0.757 (75.7%) |
 | `perModuleLineCoverageMinimum` | 0.691 (69.1%) |
 | `perModuleBranchCoverageMinimum` | 0.612 (61.2%) |
+
+## Deux mesures de présence : déclarées et générées
+
+Deux questions se posent à la présence des tests : des tests ont-ils été supprimés, et la matrice d'options de la CLI
+a-t-elle changé ? Un total Surefire ne peut répondre qu'à l'une des deux. Les validateurs comptent donc deux grandeurs,
+**de somme égale au total Surefire** (ADR-0089, amendement du 18/10/2026) :
+
+- une exécution **déclarée** est l'unique exécution d'une méthode de test : nom nu dans le rapport, borne `testsMinimum` ;
+- une exécution **générée** vient d'une fabrique (`@TestFactory`) ou de toute source à plusieurs invocations par méthode
+  (`@ParameterizedTest`, `@RepeatedTest`, `@TestTemplate`) : Surefire la nomme `méthode()[N]`, borne
+  `generatedTestsMinimum`. Aucune liste de classes n'est tenue : un test paramétré ajouté plus tard est compté comme
+  généré de lui-même.
+
+`validate-m21.*` et `validate-d2.*` comparent chaque compte à **sa** clé et nomment la clé dans le refus ; aucun ne se
+compare à l'autre clé ni à leur somme. `validate-m22.*` à `validate-m27.*` comparent le compte déclaré à `testsMinimum`.
+`architectureTestsMinimum` borne les exécutions déclarées du module d'architecture.
+
+**Gouvernance des deux clés.** `testsMinimum` ne fait que monter. `generatedTestsMinimum` suit la matrice d'options : il
+peut baisser dans le lot qui retire l'option ou la commande qui produisait ces exécutions, et ce lot le dit dans sa
+description de PR ; sinon il ne fait que monter lui aussi. Aucun test ne distingue une réduction justifiée d'une
+réduction injustifiée — ce que le build garantit est qu'elle est refusée sous son propre nom. Ne jamais compter un
+ratchet de présence par `grep -c '@Test'` : une annotation n'est pas une exécution.
+
+**Une fabrique qui ne génère rien échoue.** Chaque `@TestFactory` passe son flux par `GeneratedCases.nonEmpty` (module
+`morpheus-cli`, qui seul en porte), et `TestFactoryAssertsItsSourceTest` refuse une fabrique qui ne le fait pas. Une
+fabrique ajoutée ailleurs porte sa propre assertion `assertFalse(…isEmpty())` : la règle la reconnaît.
 
 ## Deux échelles de couverture, deux jeux de seuils
 
@@ -81,8 +108,11 @@ Windows   64,5952 % / 64,5987 % lignes   56,3942 % / 56,4040 % branches
 Linux     64,5143 % / 64,5495 % lignes   56,2964 % / 56,3453 % branches   <- plafond sur la plus basse
 ```
 
-Les runners CI sont une source recevable : ce sont les mêmes que ceux des checks requis, et la preuve reste
-consultable dans les artefacts. Le plafond précédent (62,5013 % / 53,7997 %, 08/09/2026) était dépassé
+Les runners CI sont une source recevable : ce sont les mêmes que ceux des checks requis. Leurs artefacts expirent :
+la preuve de la qualification en vigueur est donc **gardée dans `config/coverage-qualification/`** (un résumé par run
+et par échelle, `evidence.tsv` pour la plateforme, le run et le commit), et `CoverageQualificationEvidenceTest`
+exige que chaque plafond soit égal au plus bas ratio de son échelle dans ces fichiers. Relever un plafond remplace
+cet ensemble dans le même changement. Le plafond précédent (62,5013 % / 53,7997 %, 08/09/2026) était dépassé
 depuis le 09/09.
 
 Le **ratchet** se place délibérément *sous* le plafond, pas dessus : les deux runs Linux de ce SHA ont

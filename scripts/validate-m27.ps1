@@ -32,14 +32,16 @@ function Invoke-Native([string]$Label, [scriptblock]$Command) {
 }
 
 function Get-SurefireTotals([string]$Root) {
-    $result = [ordered]@{ Tests = 0; Failures = 0; Errors = 0; Skipped = 0; Suites = 0 }
+    $result = [ordered]@{ Tests = 0; Generated = 0; Failures = 0; Errors = 0; Skipped = 0; Suites = 0 }
     $reports = @(Get-ChildItem -Path $Root -Recurse -File -Filter 'TEST-*.xml' -ErrorAction SilentlyContinue |
         Where-Object { $_.FullName -match '[\\/]target[\\/]surefire-reports[\\/]' })
     foreach ($report in $reports) {
         [xml]$document = Get-Content -LiteralPath $report.FullName -Raw
         $suite = $document.testsuite
         if ($null -eq $suite) { continue }
-        $result.Tests += [int]$suite.tests; $result.Failures += [int]$suite.failures
+        $result.Tests += [int]$suite.tests
+        $result.Generated += @($suite.SelectNodes('testcase') | Where-Object { $_.GetAttribute('name') -match '\[[0-9]+\]$' }).Count
+        $result.Failures += [int]$suite.failures
         $result.Errors += [int]$suite.errors; $result.Skipped += [int]$suite.skipped; $result.Suites++
     }
     return [pscustomobject]$result
@@ -66,14 +68,15 @@ Invoke-Native 'Maven clean verify' { & .\mvnw.cmd 'clean' 'verify' }
 
 $totals = Get-SurefireTotals $repo
 if ($totals.Failures -ne 0 -or $totals.Errors -ne 0) { throw "Surefire failures=$($totals.Failures) errors=$($totals.Errors)" }
-if ($totals.Tests -lt $testsMinimum) {
-    throw "M27 test baseline regression: $($totals.Tests) < $testsMinimum (testsMinimum in $ratchetsPath)"
+$writtenTests = $totals.Tests - $totals.Generated
+if ($writtenTests -lt $testsMinimum) {
+    throw "M27 test baseline regression: $writtenTests < $testsMinimum written executions (testsMinimum in $ratchetsPath)"
 }
 $architecture = Get-SurefireTotals (Join-Path $repo 'morpheus-architecture-tests')
 if ($architecture.Tests -lt $architectureTestsMinimum) {
     throw "M27 architecture baseline regression: $($architecture.Tests) < $architectureTestsMinimum (architectureTestsMinimum in $ratchetsPath)"
 }
-Write-Host "Tests: PASS ($($totals.Tests), baseline >= $testsMinimum)"
+Write-Host "Tests: PASS ($writtenTests written, baseline >= $testsMinimum)"
 Write-Host "Architecture: PASS ($($architecture.Tests), baseline >= $architectureTestsMinimum)"
 
 $coverageSummary = Join-Path $repo 'morpheus-architecture-tests\target\m21-aggregate-coverage-summary.txt'
