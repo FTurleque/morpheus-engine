@@ -60,8 +60,9 @@ class MorpheusRemoteConcurrencyPolicyTest {
         assertEquals(8, MorpheusRemoteHttpServer.observabilityConcurrencyLimit(64));
         assertEquals(8, MorpheusRemoteHttpServer.observabilityConcurrencyLimit(
                 MorpheusRemoteHttpServer.MAX_CONCURRENT_REQUESTS));
-        assertThrows(IllegalArgumentException.class,
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
                 () -> MorpheusRemoteHttpServer.observabilityConcurrencyLimit(0));
+        assertEquals("maxConcurrentRequests must be positive", failure.getMessage());
     }
 
     @Test

@@ -63,9 +63,10 @@ class TemporalProjectionTest {
     void multipleCurrentOccurrencesForSameLogicalIdentityAreRejected() {
         DomainIdentity logicalIdentity = DomainIdentity.generate();
 
-        assertThrows(IllegalArgumentException.class, () -> new TemporalProjection<>(List.of(
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> new TemporalProjection<>(List.of(
                 occurrence(logicalIdentity, SpecificationVersionId.generate(), TemporalState.CURRENT, "first"),
                 occurrence(logicalIdentity, SpecificationVersionId.generate(), TemporalState.CURRENT, "second"))));
+        assertEquals("multiple CURRENT occurrences for logical identity: " + logicalIdentity, failure.getMessage());
     }
 
     @Test

@@ -37,7 +37,8 @@ class SqliteSavedViewStoreBudgetTest {
             }
 
             SavedViewDefinition overflow = definition("overflow", query);
-            assertThrows(IllegalStateException.class, () -> store.create(overflow, version(overflow)));
+            IllegalStateException failure = assertThrows(IllegalStateException.class, () -> store.create(overflow, version(overflow)));
+            assertEquals("saved view budget exceeded for scope: " + QueryBudgets.MAX_SAVED_VIEWS_PER_SCOPE, failure.getMessage());
             assertEquals(QueryBudgets.MAX_SAVED_VIEWS_PER_SCOPE, store.count(scope));
         }
     }

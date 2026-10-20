@@ -133,7 +133,10 @@ class MorpheusRemoteProxyResponseBudgetTest {
         Future<Object> pending = callers.submit(() -> forward(transport, write));
 
         // It must not have answered anything yet: no budget, and no refusal either.
-        assertThrows(TimeoutException.class, () -> pending.get(300, TimeUnit.MILLISECONDS));
+        TimeoutException unanswered =
+                assertThrows(TimeoutException.class, () -> pending.get(300, TimeUnit.MILLISECONDS));
+        assertEquals("java.util.concurrent.FutureTask", unanswered.getStackTrace()[0].getClassName());
+        assertEquals("get", unanswered.getStackTrace()[0].getMethodName());
 
         exhausted.release();
         assertNull(pending.get(10, TimeUnit.SECONDS), "the mutation must complete once a slot frees up");

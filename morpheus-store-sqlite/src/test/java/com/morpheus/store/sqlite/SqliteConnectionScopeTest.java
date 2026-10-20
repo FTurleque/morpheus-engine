@@ -73,7 +73,8 @@ class SqliteConnectionScopeTest {
             }
             assertEquals(2, scope.logicalConnectionsBorrowed());
             first.close();
-            assertThrows(java.sql.SQLException.class, first::createStatement);
+            java.sql.SQLException closedFailure = assertThrows(java.sql.SQLException.class, first::createStatement);
+            assertEquals("logical SQLite connection is closed", closedFailure.getMessage());
             try (var statement = second.createStatement()) {
                 statement.execute("SELECT 1");
             }
@@ -113,8 +114,11 @@ class SqliteConnectionScopeTest {
         Path firstDatabase = temp.resolve("one.db");
         Path secondDatabase = temp.resolve("two.db");
         try (SqliteConnectionScope ignored = SqliteConnectionScope.open(firstDatabase, recorder)) {
-            assertThrows(IllegalStateException.class, () -> SqliteConnectionScope.open(firstDatabase, recorder));
-            assertThrows(java.sql.SQLException.class, () -> SqliteDatabaseSecurity.open(secondDatabase));
+            IllegalStateException nestedFailure = assertThrows(IllegalStateException.class, () -> SqliteConnectionScope.open(firstDatabase, recorder));
+            assertEquals(SqliteConnectionScope.NESTED_REFUSAL
+                    + ": a SQLite connection scope is already open on this thread, and scopes do not nest", nestedFailure.getMessage());
+            java.sql.SQLException otherDatabaseFailure = assertThrows(java.sql.SQLException.class, () -> SqliteDatabaseSecurity.open(secondDatabase));
+            assertEquals("active SQLite scope is bound to a different database", otherDatabaseFailure.getMessage());
         }
     }
 

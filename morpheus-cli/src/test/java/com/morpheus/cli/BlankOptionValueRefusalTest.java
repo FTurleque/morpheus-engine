@@ -58,7 +58,8 @@ class BlankOptionValueRefusalTest {
 
     @TestFactory
     Stream<DynamicTest> aBlankValueIsRefusedNamingItsOptionBeforeAnythingIsWritten() {
-        return invocations().stream().flatMap(invocation -> BLANKS.stream().map(blank -> DynamicTest.dynamicTest(
+        return GeneratedCases.nonEmpty("aBlankValueIsRefusedNamingItsOptionBeforeAnythingIsWritten",
+                invocations().stream().flatMap(invocation -> BLANKS.stream().map(blank -> DynamicTest.dynamicTest(
                 String.join(" ", invocation.template()).replace(B, shown(blank)),
                 () -> {
                     Path root = tempDirectory.resolve("case-" + cases.incrementAndGet());
@@ -68,7 +69,7 @@ class BlankOptionValueRefusalTest {
                     assertTrue(result.err().contains(invocation.option() + " requires a non-blank value"),
                             result.err());
                     assertFalse(Files.exists(root), "a refused invocation must write nothing: " + root);
-                })));
+                }))));
     }
 
     /** {@code projects add} opens the store before it checks its options; the refusal must still register nothing. */
@@ -102,7 +103,8 @@ class BlankOptionValueRefusalTest {
         commands.put(List.of("change-orchestration"), "change-orchestration requires action");
         commands.put(List.of("augmented-context"), "augmented-context requires subject");
         commands.put(List.of("external-references"), "external-references requires subcommand");
-        return commands.entrySet().stream().map(command -> DynamicTest.dynamicTest(
+        return GeneratedCases.nonEmpty("aNonBlankLayoutIsStillAcceptedByEveryParser",
+                commands.entrySet().stream().map(command -> DynamicTest.dynamicTest(
                 String.join(" ", command.getKey()),
                 () -> {
                     Path root = tempDirectory.resolve("case-" + cases.incrementAndGet());
@@ -117,7 +119,7 @@ class BlankOptionValueRefusalTest {
                     assertEquals(CliExitCode.USAGE.code(), result.exitCode(), result.err());
                     assertTrue(result.err().contains(command.getValue()), result.err());
                     assertFalse(Files.exists(root), "a usage error must write nothing: " + root);
-                }));
+                })));
     }
 
     /** Non-blank reasoning options still reach the analysis. */
@@ -172,9 +174,10 @@ class BlankOptionValueRefusalTest {
             launchers.add(new Launcher(option, args -> RemoteApiLaunchOptions.parse(args, Map.of(), properties()),
                     "api", "--remote"));
         }
-        return launchers.stream().flatMap(launcher -> BLANKS.stream().flatMap(blank -> Stream.of(
+        return GeneratedCases.nonEmpty("aLauncherRefusesABlankValueNamingItsOption",
+                launchers.stream().flatMap(launcher -> BLANKS.stream().flatMap(blank -> Stream.of(
                 launcherTest(launcher, launcher.option() + " " + shown(blank), launcher.option(), blank),
-                launcherTest(launcher, launcher.option() + "=" + shown(blank), launcher.option() + "=" + blank))));
+                launcherTest(launcher, launcher.option() + "=" + shown(blank), launcher.option() + "=" + blank)))));
     }
 
     /**

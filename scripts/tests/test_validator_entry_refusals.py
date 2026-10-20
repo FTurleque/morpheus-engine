@@ -12,7 +12,7 @@ from __future__ import annotations
 import unittest
 import xml.etree.ElementTree as ET
 
-from validator_harness import (FABRICATED_TESTS, REPOSITORY, FabricatedCheckout, PlayedScenarios, Run, require_bash,
+from validator_harness import (FABRICATED_TESTS, FABRICATED_TOTAL_TESTS, REPOSITORY, FabricatedCheckout, PlayedScenarios, Run, require_bash,
                                require_powershell)
 
 UPGRADE_MODULE = "morpheus-store-sqlite"
@@ -184,7 +184,7 @@ class R2Cases:
         self.assertEqual("R2 VALIDATION PASS", lines[0])
         self.assertIn(f"sha={checkout.head()}", lines)
         self.assertIn(f"version={checkout.version}", lines)
-        self.assertIn(f"tests={FABRICATED_TESTS}", lines)
+        self.assertIn(f"tests={FABRICATED_TOTAL_TESTS}", lines)
         self.assertEqual("M27 VALIDATION PASS", checkout.summary("m27").splitlines()[0])
         self.assertEqual("clean verify", checkout.builds()[0])
         self.assertEqual(1, checkout.builds().count("clean verify"), "the chain builds once")

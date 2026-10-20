@@ -38,17 +38,19 @@ class UpdateManifestTrustTest {
 
     @Test
     void relativeArtifactAndAttestationUrisAreRejected() {
-        assertThrows(IllegalArgumentException.class, () -> new UpdateManifest(
+        IllegalArgumentException relativeArtifact = assertThrows(IllegalArgumentException.class, () -> new UpdateManifest(
                 "1.2.2", "stable", URI.create("morpheus.zip"), SHA256, Optional.empty()));
+        assertEquals("artifactUri must be absolute", relativeArtifact.getMessage());
 
         URI validArtifactUri = URI.create("https://downloads.example.invalid/morpheus.zip");
         java.util.Optional<URI> relativeAttestationUri = java.util.Optional.of(URI.create("attestation.jsonl"));
-        assertThrows(IllegalArgumentException.class, () -> new UpdateManifest(
+        IllegalArgumentException relativeAttestation = assertThrows(IllegalArgumentException.class, () -> new UpdateManifest(
                 "1.2.2",
                 "stable",
                 validArtifactUri,
                 SHA256,
                 relativeAttestationUri));
+        assertEquals("attestationUri must be absolute", relativeAttestation.getMessage());
     }
 
     @Test

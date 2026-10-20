@@ -168,6 +168,7 @@ class D2RepositoryHardeningArchitectureTest {
         Path root = repoRoot();
         Properties ratchets = m21Ratchets(root);
         assertTrue(Integer.parseInt(ratchets.getProperty("testsMinimum")) >= 860);
+        assertTrue(Integer.parseInt(ratchets.getProperty("generatedTestsMinimum")) >= 1);
         assertTrue(Integer.parseInt(ratchets.getProperty("architectureTestsMinimum")) >= 265);
         assertTrue(Double.parseDouble(ratchets.getProperty("perModuleLineCoverageMinimum")) >= 0.510d);
         assertTrue(Double.parseDouble(ratchets.getProperty("perModuleBranchCoverageMinimum")) >= 0.435d);
@@ -197,8 +198,9 @@ class D2RepositoryHardeningArchitectureTest {
     @Test
     void d2ScriptsReadThePresenceMinimumsFromTheLivingRatchetsAndKeepTheProductVersion() throws IOException {
         Path root = repoRoot();
-        Pattern shellComparison = Pattern.compile("\\(\\(\\s*(ARCH_TESTS|TESTS)\\s*<\\s*([^\\s)]+)\\s*\\)\\)");
-        Pattern windowsComparison = Pattern.compile("\\$(architectureTests|tests)\\s+-lt\\s+([^\\s)]+)");
+        Pattern shellComparison = Pattern.compile("\\(\\(\\s*(ARCH_TESTS|WRITTEN|GENERATED)\\s*<\\s*([^\\s)]+)\\s*\\)\\)");
+        Pattern windowsComparison = Pattern.compile(
+                "\\$(architectureTests|writtenTests|generatedTests)\\s+-lt\\s+([^\\s)]+)");
         Map<String, String> scripts = Map.of(
                 "scripts/validate-d2.sh", "config/m21-quality-ratchets.properties",
                 "scripts/validate-d2.ps1", "config\\m21-quality-ratchets.properties");
@@ -210,8 +212,8 @@ class D2RepositoryHardeningArchitectureTest {
             while (matcher.find()) {
                 operands.add(matcher.group(2));
             }
-            assertEquals(2, operands.size(),
-                    () -> entry.getKey() + " must compare the test total and the architecture total, once each");
+            assertEquals(3, operands.size(), () -> entry.getKey()
+                    + " must compare the written count, the generated count and the architecture count, once each");
             for (String operand : operands) {
                 assertFalse(operand.matches("[0-9][0-9._]*"),
                         () -> entry.getKey() + " compares an observed count with the literal " + operand
@@ -220,6 +222,8 @@ class D2RepositoryHardeningArchitectureTest {
             assertTrue(script.contains(entry.getValue()), () -> entry.getKey() + " must name " + entry.getValue());
             assertTrue(Pattern.compile("\\btestsMinimum\\b").matcher(script).find(),
                     () -> entry.getKey() + " must read the testsMinimum key");
+            assertTrue(Pattern.compile("\\bgeneratedTestsMinimum\\b").matcher(script).find(),
+                    () -> entry.getKey() + " must read the generatedTestsMinimum key");
             assertTrue(Pattern.compile("\\barchitectureTestsMinimum\\b").matcher(script).find(),
                     () -> entry.getKey() + " must read the architectureTestsMinimum key");
             assertTrue(script.contains("1.2.1"), () -> entry.getKey() + " must still name the product version");

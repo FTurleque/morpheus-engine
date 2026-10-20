@@ -52,7 +52,8 @@ class MemoryChangeLifecycleMutationStoreTest {
 
     @Test
     void constructorRejectsNullProjectStore() {
-        assertThrows(NullPointerException.class, () -> new MemoryChangeLifecycleMutationStore(null));
+        NullPointerException failure = assertThrows(NullPointerException.class, () -> new MemoryChangeLifecycleMutationStore(null));
+        assertEquals("projects", failure.getMessage());
     }
 
     private ChangeLifecycleMutationAttempt attempt(ProjectSpecificationId projectId, ChangeId changeId, String key) {

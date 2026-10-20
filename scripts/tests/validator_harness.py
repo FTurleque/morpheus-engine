@@ -35,12 +35,16 @@ SCRIPTS = REPOSITORY / "scripts"
 WINDOWS = os.name == "nt"
 
 # The fabricated build and the fabricated ratchet file agree: every validator compares the one with the other.
+# FABRICATED_TESTS counts the executions of declared test methods; the executions a factory generates are counted apart.
 FABRICATED_TESTS = 5000
+FABRICATED_GENERATED_TESTS = 300
+FABRICATED_TOTAL_TESTS = FABRICATED_TESTS + FABRICATED_GENERATED_TESTS
 FABRICATED_ARCHITECTURE_TESTS = 1000
 FABRICATED_LINE_RATIO = "0.950000"
 FABRICATED_BRANCH_RATIO = "0.850000"
 FABRICATED_RATCHETS = {
     "testsMinimum": str(FABRICATED_TESTS),
+    "generatedTestsMinimum": str(FABRICATED_GENERATED_TESTS),
     "architectureTestsMinimum": str(FABRICATED_ARCHITECTURE_TESTS),
     "aggregateLineCoverageMinimum": "0.900",
     "aggregateBranchCoverageMinimum": "0.800",
@@ -51,6 +55,9 @@ FABRICATED_RATCHETS = {
 UPGRADE_SUITE = "com.morpheus.store.sqlite.ReleasedSchemaUpgradeTest"
 UPGRADE_TESTS = 1
 DOMAIN_TESTS = FABRICATED_TESTS - FABRICATED_ARCHITECTURE_TESTS - UPGRADE_TESTS
+# The suite of a test factory: Surefire names each invocation of one `method()[N]`, a declared method by its bare name.
+GENERATED_SUITE = "fabricated.GeneratedTest"
+GENERATED_MODULE = "morpheus-cli"
 RATCHETS_FILE = "config/m21-quality-ratchets.properties"
 COVERAGE_EVIDENCE = "morpheus-architecture-tests/target/m21-aggregate-coverage-summary.txt"
 SBOM_JSON = "target/m21-supply-chain/morpheus-sbom.json"
@@ -281,6 +288,7 @@ class FabricatedCheckout:
         cls._surefire(root, "morpheus-architecture-tests", "fabricated.ArchitectureTest", FABRICATED_ARCHITECTURE_TESTS)
         cls._surefire(root, "morpheus-store-sqlite", UPGRADE_SUITE, UPGRADE_TESTS)
         cls._surefire(root, "morpheus-domain", "fabricated.DomainTest", DOMAIN_TESTS)
+        cls._invocations(root, GENERATED_MODULE, GENERATED_SUITE, [f"factory()[{n}]" for n in range(1, FABRICATED_GENERATED_TESTS + 1)])
         _write(root / COVERAGE_EVIDENCE, cls.coverage_evidence("aggregate"))
         _write(root / SBOM_JSON, '{"bomFormat":"CycloneDX"}\n')
         _write(root / SBOM_XML, "<bom/>\n")
@@ -293,6 +301,16 @@ class FabricatedCheckout:
                '<?xml version="1.0" encoding="UTF-8"?>\n'
                f'<testsuite name="{suite}" time="0.001" tests="{tests}" errors="{errors}" skipped="0" '
                f'failures="{failures}" flakes="0"/>\n')
+
+    @staticmethod
+    def _invocations(root: Path, module: str, suite: str, names: list[str], declared: int = 0) -> None:
+        """A report that lists its test cases: ``names`` as given, then ``declared`` methods under their bare names."""
+        cases = [f'  <testcase name="{name}" classname="{suite}" time="0.001"/>\n' for name in names]
+        cases += [f'  <testcase name="declared{n}" classname="{suite}" time="0.001"/>\n' for n in range(1, declared + 1)]
+        _write(root / module / "target" / "surefire-reports" / f"TEST-{suite}.xml",
+               '<?xml version="1.0" encoding="UTF-8"?>\n'
+               f'<testsuite name="{suite}" time="0.001" tests="{len(cases)}" errors="0" skipped="0" failures="0" '
+               'flakes="0">\n' + "".join(cases) + '</testsuite>\n')
 
     @staticmethod
     def coverage_evidence(scope: str, line: str = FABRICATED_LINE_RATIO, branch: str = FABRICATED_BRANCH_RATIO) -> str:
@@ -318,6 +336,20 @@ class FabricatedCheckout:
     def failing_suite(self, failures: int = 0, errors: int = 0) -> None:
         """One suite of the build reports a failure or an error; the total is unchanged."""
         self.surefire("morpheus-domain", DOMAIN_TESTS, failures=failures, errors=errors)
+
+    def invocations(self, module: str, suite: str, names: list[str], declared: int = 0) -> None:
+        """A suite that lists its test cases: ``names`` as given, then ``declared`` methods under bare names."""
+        self._invocations(self.root, module, suite, names, declared)
+
+    def generated_tests(self, count: int, names: str = "factory()[{n}]", declared: int = 0) -> None:
+        """The suite of the test factories reports ``count`` invocations named after ``names``, and ``declared`` methods."""
+        self._invocations(self.root, GENERATED_MODULE, GENERATED_SUITE,
+                          [names.format(n=n) for n in range(1, count + 1)], declared)
+
+    def architecture_suite(self, declared: int, generated: int) -> None:
+        """The architecture module's suite: ``declared`` methods and ``generated`` invocations of a factory."""
+        self._invocations(self.root, "morpheus-architecture-tests", "fabricated.ArchitectureTest",
+                          [f"factory()[{n}]" for n in range(1, generated + 1)], declared)
 
     def total_tests(self, total: int, architecture: int = FABRICATED_ARCHITECTURE_TESTS) -> None:
         self.surefire("morpheus-architecture-tests", architecture)

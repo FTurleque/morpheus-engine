@@ -3,7 +3,7 @@
 - Statut : **Acceptée — séparation livrée le 09/09/2026 (#297), population commune le 11/09/2026 (#309)**
 - Date : 11 septembre 2026
 - Dépend de : ADR-0089 (intégrité de production M21), ADR-0085 (déterminisme des gates), ADR-0103 (une règle n'est acceptée qu'après avoir été cassée)
-- Portée : `CoverageQualityGateTest`, `AggregateCoverageGateTest`, `CoverageScaleSeparationTest`, `config/m21-quality-ratchets.properties`, les validateurs `validate-m21.*` et ceux qui consomment la même preuve
+- Portée : `CoverageQualityGateTest`, `AggregateCoverageGateTest`, `CoverageScaleSeparationTest`, `CoverageQualificationEvidenceTest`, `config/m21-quality-ratchets.properties`, `config/coverage-qualification/`, les validateurs `validate-m21.*` et ceux qui consomment la même preuve
 
 ## Contexte
 
@@ -116,6 +116,10 @@ l'autre — deux lignes couvertes d'écart entre deux runs du même commit sur l
 08/09/2026), 0,045 point en lignes et 0,038 en branches sur quatre runs (échelle agrégée, 09/09/2026). Un ratchet
 collé à la mesure transformerait une variation ordinaire en échec de build.
 
+La mesure citée est aussi **déposée** : les résumés de couverture des runs de qualification vivent dans
+`config/coverage-qualification/`, et la hausse d'un plafond remplace cet ensemble dans le même changement
+(amendement du 18 octobre 2026).
+
 Une session qui ne dispose que d'une plateforme peut relever un ratchet **dans la marge déjà qualifiée** ; elle
 ne touche pas au plafond. Une hausse ne concerne que **l'échelle réellement mesurée** : aligner les deux sur une
 valeur moyenne referait sous un autre nom le défaut que la séparation a corrigé.
@@ -172,3 +176,40 @@ récente). Les tests posent les dates explicitement et n'attendent jamais l'horl
 
 Le verdict de l'ADR est inchangé, et le refus coûte la même chose que les deux autres : `./mvnw clean verify` sur tout le
 réacteur. Aucune valeur, aucun ratchet ni aucun plafond ne bouge.
+
+
+## Amendement du 18 octobre 2026 — la preuve d'un plafond est gardée avec le code, et le plafond lui est égal
+
+Un plafond qualifié est une constante saisie à la main d'après les artefacts `m21-integrity-<OS>` des runs de
+qualification, et ces artefacts expirent à la rétention de `ci.yml`. Rien ne comparait la constante à une mesure :
+un plafond saisi un chiffre trop haut passait tous les gates, et une fois les artefacts expirés plus personne ne
+pouvait le dire (constat AUD-TST-09 de l'audit du 9 octobre 2026). Le commentaire d'un plafond cite des runs ; il ne
+peut pas les conserver.
+
+### Décision
+
+- Les résumés de couverture de **la qualification en vigueur** sont gardés dans `config/coverage-qualification/` :
+  un résumé par run et par échelle (`per-module/`, `aggregate/`), copié tel que le gate l'a écrit, et
+  `evidence.tsv`, qui nomme pour chacun l'échelle, la plateforme, le run et le commit. Les résumés ne portent pas
+  leur commit : le manifeste le consigne, d'après les métadonnées du run.
+- `CoverageQualificationEvidenceTest` lie chaque constante `*_QUALIFIED_*_RATIO` à ces fichiers : **un plafond est
+  égal au plus bas ratio de son échelle**, à la précision des résumés. Un plafond plus haut, ou calé sur la meilleure
+  plateforme, ou une preuve remplacée sans sa constante, fait échouer le build en nommant la constante.
+- Une qualification est **complète ou refusée** : les deux plateformes, au moins deux runs chacune, un seul commit,
+  une seule population (et, sur l'échelle agrégée, la liste des modules que le résumé nomme). Un résumé d'une autre
+  échelle, un ratio qui contredit ses propres compteurs, un fichier absent du manifeste ou un fichier du manifeste
+  absent sont refusés.
+- Seule la qualification en vigueur est gardée. Une requalification remplace l'ensemble de l'échelle dans le même
+  changement ; Git garde l'ensemble précédent.
+
+L'application est textuelle (ADR-0103) : les constantes sont privées à deux gates de deux modules, et la preuve est
+une donnée hors du classpath. La règle est exercée contre des ensembles fabriqués — plateforme manquante, un seul run,
+deux commits, deux populations, résumé de l'autre échelle, ratio incohérent — pour qu'un vérificateur qui accepte tout
+échoue ici.
+
+### Ce que cet amendement ne décide pas
+
+La distance entre un ratchet et son plafond reste une convention (trois fois la dispersion maximale observée entre
+plateformes, comptée en lignes et en branches) : la dispersion de référence n'est dans aucun artefact conservé, et
+l'exécuter figerait un nombre que la règle veut périssable. Elle devient une règle exécutable le jour où un ratchet
+est relevé dans les derniers millièmes d'un plafond. Aucun ratchet ni aucun plafond ne change de valeur.
