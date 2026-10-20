@@ -70,7 +70,7 @@ final class PageArguments {
      * <p>Under the server, an out-of-range page does not reach this refusal. {@code MorpheusMcpServer} arms
      * {@code validateToolInputs(true)} (pinned by
      * {@code McpFailureContractTest#theServerArmsSchemaValidationForEveryToolItServes}), and the SDK (mcp-core
-     * 2.0.1, {@code McpAsyncServer.toolsCallRequestHandler}) validates the arguments against the published schema
+     * 2.1.0, {@code McpAsyncServer.toolsCallRequestHandler}) validates the arguments against the published schema
      * before it calls the handler. {@link #properties()} publishes the bounds this method enforces
      * ({@code GrowingCollectionToolsPagingTest#theBoundsAreEnforcedByTheHandlerAndAnnouncedByTheSchemaAlike}), so a
      * served call with {@code limit = 0} is refused by the SDK before any handler runs, and no store is opened

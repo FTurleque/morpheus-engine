@@ -73,11 +73,11 @@ n'a pas de `<version>` du tout, elle vient du `junit-bom` importé plus haut.
 
 Versions actuelles pilotées par propriété dans le POM racine (à revérifier avant de citer,
 cf. `rules/meta.md`) : `junit.version=6.1.3`, `archunit.version=1.5.1`,
-`sqlite-jdbc.version=3.53.4.0`, `mcp-sdk.version=2.0.1`, `reactor-bom.version=2024.0.18`,
+`sqlite-jdbc.version=3.53.4.0`, `mcp-sdk.version=2.1.0`, `reactor-bom.version=2024.0.18`,
 `slf4j.version=2.0.20`, `jackson.version=3.2.3`, `jacoco.version=0.8.15`,
 `dependency-check.maven.plugin.version=13.0.0`.
 Un commentaire explique un couplage de versions non trivial quand il existe
-(ex. `reactor-bom` doit rester sur la même ligne que `mcp-sdk` 2.0.1 — voir le commentaire
+(ex. `reactor-bom` doit rester sur la même ligne que `mcp-sdk` 2.1.0 — voir le commentaire
 juste au-dessus de cette dépendance dans le POM).
 
 ## Stack imposée

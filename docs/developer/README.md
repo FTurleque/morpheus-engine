@@ -68,7 +68,7 @@ product                    1.2.1
 Java                       21
 Jackson                    3.2.3
 sqlite-jdbc                3.53.4.0
-MCP SDK                    2.0.1
+MCP SDK                    2.1.0
 OWASP Dependency-Check     13.0.0
 JaCoCo aggregate line ratchet     >= 90.0%
 JaCoCo aggregate branch ratchet   >= 75.7%

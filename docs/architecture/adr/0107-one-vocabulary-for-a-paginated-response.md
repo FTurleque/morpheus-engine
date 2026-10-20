@@ -306,7 +306,7 @@ et il ajoute la garde d'une égalité que ce même amendement affirmait.
 
 - **Le texte est corrigé seul ; la validation de page n'est pas remontée avant l'ouverture du store.** Sous le serveur la propriété voulue existe déjà, pour les
   refus que le schéma exprime : `MorpheusMcpServer.build` arme `validateToolInputs(true)` (tenu par
-  `McpFailureContractTest#theServerArmsSchemaValidationForEveryToolItServes`), et le SDK (`mcp-core` 2.0.1, `McpAsyncServer.toolsCallRequestHandler`) exécute
+  `McpFailureContractTest#theServerArmsSchemaValidationForEveryToolItServes`), et le SDK (`mcp-core` 2.1.0, `McpAsyncServer.toolsCallRequestHandler`) exécute
   `ToolInputValidator.validate` **avant** `callHandler().apply` ; `McpSyncServer` enveloppe le serveur asynchrone. Le schéma de ces outils publie les mêmes bornes que
   le handler (`PageArguments.properties()` ; `GrowingCollectionToolsPagingTest#theBoundsAreEnforcedByTheHandlerAndAnnouncedByTheSchemaAlike`). Un appel servi avec
   `limit = 0` est donc refusé par le SDK avant tout handler, et **aucun store n'est ouvert pour lui**. C'est ce que CLI-9 installe dans le CLI (le store n'est

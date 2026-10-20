@@ -340,7 +340,7 @@ ci-dessous avant tout correctif (« handler bound 240 s must outlast the longest
 
 **Alternatives écartées.** Abaisser le délai maximal configurable à 60 s aurait fait tenir 4 × 60 s sous 4 min, mais aurait
 retiré aux opérateurs un réglage publié pour un défaut qui ne vient pas d'eux, et laissé la pagination non bornée. Borner chaque
-requête par le temps restant de l'opération est impossible avec le client synchrone du SDK 2.0.1, dont le délai de requête est
+requête par le temps restant de l'opération est impossible avec le client synchrone du SDK 2.1.0, dont le délai de requête est
 fixé à la construction.
 
 **Coût assumé.** Un handler réellement bloqué est détecté après 9 minutes au lieu de 4. La borne reste finie et elle est
