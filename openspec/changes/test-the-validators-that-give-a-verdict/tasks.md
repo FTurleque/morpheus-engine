@@ -187,8 +187,12 @@ branch `python -m unittest discover -s scripts/tests` ran 521 cases, 1 class ski
 
 ## 4. Verification and destinations
 
-- [ ] 4.1 The pull request's required checks on both platforms. Proof: the script tests executed on each leg, with the
+- [x] 4.1 The pull request's required checks on both platforms. Proof: the script tests executed on each leg, with the
       number of cases run and none skipped.
+  - 2026-10-20: pull request 520 merged (`c165eb80`); every required check green on both platforms. Run `39409286981`
+    (`ci.yml`, head `72366974`): the Linux leg ran the Linux step, 322 cases, `OK (skipped=21)` -- the skipped are the
+    Windows PowerShell 5.1 classes, which cannot exist on Linux; the Windows leg ran the Windows step, 579 cases, `OK`
+    with none skipped.
   - 2026-10-18: **pending, needs a push and a pull request** (not done here by instruction). The text of the description
     is in `pull-request-description.md`. Locally, Windows, after this session's additions: 529 cases run, 1 class skipped (`jq` is not
     installed here; with `CI` set it fails instead); Linux (WSL), the new file alone: 4 cases run, 4 skipped by name (the
@@ -197,7 +201,11 @@ branch `python -m unittest discover -s scripts/tests` ran 521 cases, 1 class ski
     this machine; with `CI` set the same class fails instead); Linux (WSL), 238 cases run, 18 skipped, 17 of them the
     PowerShell classes. "None skipped" cannot hold on the Linux leg: Windows PowerShell 5.1 does not exist there, and
     those classes are skipped by name on any platform but Windows.
-- [ ] 4.2 Measure the duration of the new step on the Windows leg. Proof: the figure, in the pull request.
+- [x] 4.2 Measure the duration of the new step on the Windows leg. Proof: the figure, in the pull request.
+  - 2026-10-20: the Windows step of run `39409286981` lasted 477 s (579 cases, 10:38:12 to 10:46:12 UTC, per the
+    log), the Linux step 25 s (322 cases). That is a little over the 3 to 4 minutes measured on the development
+    machine, and well over "seconds": the Windows leg is the longest of the workflow and the step is what a pull
+    request waits for there.
   - 2026-10-18: **pending, needs a runner**: the figure comes from the Windows leg of the pull request.
   - 2026-10-13: not measured on a runner. On the development machine the whole discovery takes three to four minutes
     on Windows (measured twice: 179 s for 404 cases, 234 s for 427) and 36 s on Linux. The step is not "counted in
