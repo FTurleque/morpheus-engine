@@ -58,7 +58,7 @@ Baseline développement 1.2.1
 Persistent store       SQLite
 SQLite JDBC            3.53.4.0
 Jackson                3.2.3
-MCP SDK                Java MCP SDK 2.0.1
+MCP SDK                Java MCP SDK 2.1.0
 HTTP local             JDK jdk.httpserver
 Remote HTTPS           JDK HttpsServer, opt-in
 Distribution           jpackage + Inno Setup Windows

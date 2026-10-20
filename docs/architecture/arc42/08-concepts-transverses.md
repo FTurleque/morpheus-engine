@@ -161,7 +161,7 @@ Java                  21
 Maven Wrapper         3.10.0
 sqlite-jdbc           3.53.4.0
 Jackson BOM           3.2.3
-MCP SDK Java          2.0.1
+MCP SDK Java          2.1.0
 JUnit                 6.1.3
 ArchUnit              1.5.1
 JaCoCo                0.8.15

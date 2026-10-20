@@ -36,7 +36,7 @@ import java.util.function.UnaryOperator;
 /**
  * MCP STDIO client transport with hard per-frame and aggregate queue bounds.
  *
- * <p>The upstream Java SDK 2.0.1 STDIO transport can materialize unbounded lines and uses unbounded Reactor queues.
+ * <p>The upstream Java SDK 2.1.0 STDIO transport can materialize unbounded lines and uses unbounded Reactor queues.
  * MORPHEUS reads process streams as bounded UTF-8 bytes before JSON parsing, caps pending inbound/outbound messages,
  * minimizes inherited child-process environment, retains observed descendants for deterministic cleanup, handles stderr
  * synchronously on its reader thread, and fails closed when a peer exceeds a resource budget.</p>
