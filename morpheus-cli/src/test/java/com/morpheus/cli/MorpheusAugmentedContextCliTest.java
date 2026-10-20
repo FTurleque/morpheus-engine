@@ -64,7 +64,7 @@ class MorpheusAugmentedContextCliTest {
         refusals.put(List.of("requirement", "--constraint", "=value"), "--constraint must use key=value");
         refusals.put(List.of("requirement", "--constraint", "key="), "--constraint must use key=value");
         refusals.put(List.of("requirement", "--constraint", "k=v", "--constraint", "k=w"), "duplicate constraint: k");
-        refusals.put(List.of("decision", "--project", project), "unknown augmented-context subject: decision");
+        refusals.put(List.of("decision", "--project", project), "unknown command: augmented-context decision");
         refusals.put(List.of("requirement", "--project", project), "--requirement is required");
         refusals.put(List.of("requirement", "--requirement", "r", "--change", "c"),
                 "--change is not valid for augmented-context requirement");

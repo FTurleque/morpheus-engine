@@ -125,6 +125,25 @@ Ceci est une décision de portée assumée, pas un oubli à corriger a posterior
 besoin de convergence machine-lisible apparaissait pour ces surfaces historiques, mais n'est pas
 requis par cette ADR.
 
+## Amendement du 18 octobre 2026 — la colonne `cli` est comparée aux commandes que le CLI sert
+
+La décision 4 fait du manifeste la source des capabilities publiques ; elle n'en est un contrat que si chaque colonne est comparée à ce que son transport sert. La colonne `http` l'est à `MorpheusHttpRouteTable` et aux documents OpenAPI, la colonne `mcp` aux outils que le serveur sert. La colonne `cli` l'est à la déclaration des chemins de commande du CLI.
+
+### Décision
+
+1. **Le CLI déclare ses chemins de commande une fois**, dans `CliCommandPaths`. Un chemin est la suite de mots qui sélectionne un comportement avant toute option : `version`, `portfolio list`, `policy pack create`. `MorpheusMain.run` refuse comme commande inconnue tout chemin qui n'y figure pas, avant d'interroger une sous-commande : une action ajoutée au seul `switch` d'une sous-commande n'est pas atteignable tant qu'elle n'est pas déclarée. Un chemin interrompu avant un chemin déclaré (`portfolio`, `policy pack`) est laissé à sa commande, qui dit l'action qui manque.
+2. **Le manifeste et la déclaration désignent le même ensemble de commandes.** Toute cellule `cli` qui n'est pas un sentinelle nomme, par les mots qui précèdent sa première option, un chemin déclaré ; tout chemin déclaré est nommé par exactement une ligne ou par une exclusion écrite avec sa raison. Les exclusions sont les points d'entrée du processus (`help`, `paths`, les lanceurs `api` et `mcp`) et les formes dont la capacité porte une autre ligne ; une exclusion pour un chemin non déclaré, ou déjà nommé par une ligne, est refusée. Un sentinelle ne cache donc plus une commande servie : le chemin reste alors sans ligne.
+3. **L'aide embarquée documente chaque chemin déclaré**, hors les formes par lesquelles on l'atteint (`help`, `reason help`).
+4. **Le garde tient les deux prises** (ADR-0103). Le côté manifeste est textuel, parce qu'un `.tsv` ne se lit pas autrement. Le côté CLI est une exécution : chaque chemin déclaré est lancé sans option contre un store vide et ne doit pas être refusé comme inconnu, un chemin non déclaré doit l'être.
+
+### Pourquoi pas les `case` des sous-commandes
+
+Les `case` mêlent commandes, actions et noms d'option ; les compter ou les lire ne distingue pas ce qu'un utilisateur tape de ce qu'un analyseur teste. Faire de l'aide la source ne vaut pas mieux : elle peut omettre une commande servie, c'est ce que la comparaison 3 mesure. Une liste tenue par le seul test serait une seconde liste qui peut mentir comme le manifeste l'a fait.
+
+### Ce que le garde ne prouve pas
+
+Il compare des chemins. Une option renommée dans un analyseur, une intention ou une note fausse, une commande qui échoue pour une autre raison que « inconnue » lui échappent ; les options sont tenues par l'aide et son test d'analyse. Un nom de commande n'est pas une capacité : la ligne est une décision d'écriture, que le garde ne juge pas.
+
 
 ## Amendement du 18 octobre 2026 — la présence des tests a deux mesures
 

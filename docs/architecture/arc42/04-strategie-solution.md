@@ -24,8 +24,8 @@
 
 ## 4.2 Décomposition
 
-MORPHEUS 1.2.1 est un reactor Maven de **17 modules** (18 projets Maven en
-comptant le parent) :
+MORPHEUS 1.2.1 est un reactor Maven dont le `pom.xml` racine déclare les
+modules suivants (le nombre se compte dans le POM, il ne s'écrit pas ici) :
 
 ```text
 Adapters / surfaces
@@ -58,6 +58,9 @@ Domain
 
 Architecture qualification
   morpheus-architecture-tests
+
+Coverage aggregation
+  morpheus-coverage-report
 ```
 
 Sens de dépendance essentiel :
