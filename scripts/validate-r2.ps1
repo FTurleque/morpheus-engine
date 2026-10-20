@@ -94,13 +94,13 @@ Assert-ReactorVersion $Version
 & (Join-Path $PSScriptRoot 'validate-m27.ps1') -Version $Version -BaseRef $BaseRef -SkipPortable:$SkipPortable
 Assert-NativeSuccess 'M27 inherited exact-head gate'
 
-$upgradeReport = Join-Path $repo 'morpheus-store-sqlite\target\surefire-reports\TEST-com.morpheus.store.sqlite.R2UpgradeCompatibilityTest.xml'
+$upgradeReport = Join-Path $repo 'morpheus-store-sqlite\target\surefire-reports\TEST-com.morpheus.store.sqlite.ReleasedSchemaUpgradeTest.xml'
 if (-not (Test-Path -LiteralPath $upgradeReport)) { throw "R2 upgrade report is missing: $upgradeReport" }
 [xml]$upgrade = Get-Content -LiteralPath $upgradeReport -Raw
 if ([int]$upgrade.testsuite.tests -lt 1 -or [int]$upgrade.testsuite.failures -ne 0 -or [int]$upgrade.testsuite.errors -ne 0) {
     throw "R2 upgrade compatibility test failed: tests=$($upgrade.testsuite.tests) failures=$($upgrade.testsuite.failures) errors=$($upgrade.testsuite.errors)"
 }
-Write-Host 'SQLite V012 -> V015 upgrade compatibility: PASS'
+Write-Host 'SQLite upgrade from every released schema level: PASS'
 
 $packagedM25M26 = 'SKIPPED'
 if (-not $SkipPortable) {

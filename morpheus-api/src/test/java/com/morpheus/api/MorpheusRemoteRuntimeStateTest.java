@@ -77,28 +77,39 @@ class MorpheusRemoteRuntimeStateTest {
 
     @Test
     void rejectsInvalidRuntimeBounds() {
-        assertThrows(IllegalArgumentException.class, () -> new MorpheusRemoteRuntimeState(
-                0, 1, Duration.ofSeconds(1), 1, 1, 1, STARTED_AT));
-        assertThrows(IllegalArgumentException.class, () -> new MorpheusRemoteRuntimeState(
-                1, 0, Duration.ofSeconds(1), 1, 1, 1, STARTED_AT));
-        assertThrows(IllegalArgumentException.class, () -> new MorpheusRemoteRuntimeState(
-                4, 5, Duration.ofSeconds(1), 1, 1, 1, STARTED_AT));
+        IllegalArgumentException requestsFailure = assertThrows(IllegalArgumentException.class,
+                () -> new MorpheusRemoteRuntimeState(0, 1, Duration.ofSeconds(1), 1, 1, 1, STARTED_AT));
+        assertEquals("maxConcurrentRequests must be positive", requestsFailure.getMessage());
+        IllegalArgumentException privilegedFailure = assertThrows(IllegalArgumentException.class,
+                () -> new MorpheusRemoteRuntimeState(1, 0, Duration.ofSeconds(1), 1, 1, 1, STARTED_AT));
+        assertEquals("maxConcurrentPrivilegedRequests must be positive", privilegedFailure.getMessage());
+        IllegalArgumentException exceedingFailure = assertThrows(IllegalArgumentException.class,
+                () -> new MorpheusRemoteRuntimeState(4, 5, Duration.ofSeconds(1), 1, 1, 1, STARTED_AT));
+        assertEquals("maxConcurrentPrivilegedRequests must not exceed maxConcurrentRequests",
+                exceedingFailure.getMessage());
         Duration positiveDuration = Duration.ofSeconds(1);
-        assertThrows(IllegalArgumentException.class, () -> new MorpheusRemoteRuntimeState(
-                1, 1, Duration.ofSeconds(1), 0, 1, 1, STARTED_AT));
-        assertThrows(IllegalArgumentException.class, () -> new MorpheusRemoteRuntimeState(
-                1, 1, positiveDuration, 1, 0, 1, STARTED_AT));
-        assertThrows(IllegalArgumentException.class, () -> new MorpheusRemoteRuntimeState(
-                1, 1, positiveDuration, 1, 1, 0, STARTED_AT));
-        assertThrows(IllegalArgumentException.class, () -> new MorpheusRemoteRuntimeState(
-                1, 1, Duration.ZERO, 1, 1, 1, STARTED_AT));
+        IllegalArgumentException responseBytesFailure = assertThrows(IllegalArgumentException.class,
+                () -> new MorpheusRemoteRuntimeState(1, 1, Duration.ofSeconds(1), 0, 1, 1, STARTED_AT));
+        assertEquals("maxProxyResponseBytes must be positive", responseBytesFailure.getMessage());
+        IllegalArgumentException inFlightFailure = assertThrows(IllegalArgumentException.class,
+                () -> new MorpheusRemoteRuntimeState(1, 1, positiveDuration, 1, 0, 1, STARTED_AT));
+        assertEquals("maxProxyInFlightBytes must be positive", inFlightFailure.getMessage());
+        IllegalArgumentException bufferedFailure = assertThrows(IllegalArgumentException.class,
+                () -> new MorpheusRemoteRuntimeState(1, 1, positiveDuration, 1, 1, 0, STARTED_AT));
+        assertEquals("maxConcurrentBufferedProxyResponses must be positive", bufferedFailure.getMessage());
+        IllegalArgumentException zeroTimeoutFailure = assertThrows(IllegalArgumentException.class,
+                () -> new MorpheusRemoteRuntimeState(1, 1, Duration.ZERO, 1, 1, 1, STARTED_AT));
+        assertEquals("requestBodyReadTimeout must be positive", zeroTimeoutFailure.getMessage());
         Duration negativeDuration = Duration.ofSeconds(-1);
-        assertThrows(IllegalArgumentException.class, () -> new MorpheusRemoteRuntimeState(
-                1, 1, negativeDuration, 1, 1, 1, STARTED_AT));
-        assertThrows(NullPointerException.class, () -> new MorpheusRemoteRuntimeState(
-                1, 1, null, 1, 1, 1, STARTED_AT));
-        assertThrows(NullPointerException.class, () -> new MorpheusRemoteRuntimeState(
-                1, 1, Duration.ofSeconds(1), 1, 1, 1, null));
+        IllegalArgumentException negativeTimeoutFailure = assertThrows(IllegalArgumentException.class,
+                () -> new MorpheusRemoteRuntimeState(1, 1, negativeDuration, 1, 1, 1, STARTED_AT));
+        assertEquals("requestBodyReadTimeout must be positive", negativeTimeoutFailure.getMessage());
+        NullPointerException nullTimeoutFailure = assertThrows(NullPointerException.class,
+                () -> new MorpheusRemoteRuntimeState(1, 1, null, 1, 1, 1, STARTED_AT));
+        assertEquals("requestBodyReadTimeout", nullTimeoutFailure.getMessage());
+        NullPointerException nullStartFailure = assertThrows(NullPointerException.class,
+                () -> new MorpheusRemoteRuntimeState(1, 1, Duration.ofSeconds(1), 1, 1, 1, null));
+        assertEquals("startedAt", nullStartFailure.getMessage());
     }
 
     /**
@@ -161,8 +172,12 @@ class MorpheusRemoteRuntimeStateTest {
     void rejectsNullStatusInputs() {
         MorpheusRemoteRuntimeState runtime = state(STARTED_AT);
 
-        assertThrows(NullPointerException.class, () -> runtime.statusAt(null, 443, STARTED_AT));
-        assertThrows(NullPointerException.class, () -> runtime.statusAt("localhost", 443, null));
+        NullPointerException hostFailure =
+                assertThrows(NullPointerException.class, () -> runtime.statusAt(null, 443, STARTED_AT));
+        assertEquals("host", hostFailure.getMessage());
+        NullPointerException nowFailure =
+                assertThrows(NullPointerException.class, () -> runtime.statusAt("localhost", 443, null));
+        assertEquals("now", nowFailure.getMessage());
     }
 
     private static MorpheusRemoteRuntimeState state(Instant startedAt) {

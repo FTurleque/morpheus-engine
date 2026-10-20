@@ -86,26 +86,31 @@ class TraceabilityLinkTest {
                 Set.of(evidenceId));
 
         assertEquals(1, link.evidenceIds().size());
-        assertThrows(UnsupportedOperationException.class, () -> link.evidenceIds().add(EvidenceId.generate()));
-        assertThrows(IllegalArgumentException.class, () -> link(
+        UnsupportedOperationException immutableFailure = assertThrows(UnsupportedOperationException.class, () -> link.evidenceIds().add(EvidenceId.generate()));
+        assertTrue(immutableFailure.getStackTrace()[0].getClassName().startsWith("java.util.ImmutableCollections"),
+                immutableFailure.getStackTrace()[0].getClassName());
+        IllegalArgumentException missingEvidenceFailure = assertThrows(IllegalArgumentException.class, () -> link(
                 TraceabilityLinkOrigin.EXPLICIT,
                 TraceabilityResolutionState.RESOLVED,
                 Optional.empty(),
                 Set.of()));
+        assertEquals("traceability link must contain at least one evidence id", missingEvidenceFailure.getMessage());
     }
 
     @Test
     void heuristicOriginOrResolutionRequiresExplicitConfidence() {
-        assertThrows(IllegalArgumentException.class, () -> link(
+        IllegalArgumentException heuristicOriginFailure = assertThrows(IllegalArgumentException.class, () -> link(
                 TraceabilityLinkOrigin.HEURISTIC,
                 TraceabilityResolutionState.RESOLVED,
                 Optional.empty(),
                 Set.of(EvidenceId.generate())));
-        assertThrows(IllegalArgumentException.class, () -> link(
+        assertEquals("heuristic traceability requires an explicit confidence", heuristicOriginFailure.getMessage());
+        IllegalArgumentException heuristicResolutionFailure = assertThrows(IllegalArgumentException.class, () -> link(
                 TraceabilityLinkOrigin.DERIVED,
                 TraceabilityResolutionState.HEURISTIC,
                 Optional.empty(),
                 Set.of(EvidenceId.generate())));
+        assertEquals("heuristic traceability requires an explicit confidence", heuristicResolutionFailure.getMessage());
 
         TraceabilityLink heuristic = link(
                 TraceabilityLinkOrigin.HEURISTIC,
@@ -120,10 +125,14 @@ class TraceabilityLinkTest {
     void confidenceIsFiniteAndInclusivelyBounded() {
         assertEquals(0.0d, TraceabilityConfidence.of(0.0d).value());
         assertEquals(1.0d, TraceabilityConfidence.of(1.0d).value());
-        assertThrows(IllegalArgumentException.class, () -> TraceabilityConfidence.of(-0.0001d));
-        assertThrows(IllegalArgumentException.class, () -> TraceabilityConfidence.of(1.0001d));
-        assertThrows(IllegalArgumentException.class, () -> TraceabilityConfidence.of(Double.NaN));
-        assertThrows(IllegalArgumentException.class, () -> TraceabilityConfidence.of(Double.POSITIVE_INFINITY));
+        IllegalArgumentException belowZeroFailure = assertThrows(IllegalArgumentException.class, () -> TraceabilityConfidence.of(-0.0001d));
+        assertEquals("traceability confidence must be finite and between 0.0 and 1.0", belowZeroFailure.getMessage());
+        IllegalArgumentException aboveOneFailure = assertThrows(IllegalArgumentException.class, () -> TraceabilityConfidence.of(1.0001d));
+        assertEquals("traceability confidence must be finite and between 0.0 and 1.0", aboveOneFailure.getMessage());
+        IllegalArgumentException notANumberFailure = assertThrows(IllegalArgumentException.class, () -> TraceabilityConfidence.of(Double.NaN));
+        assertEquals("traceability confidence must be finite and between 0.0 and 1.0", notANumberFailure.getMessage());
+        IllegalArgumentException infiniteFailure = assertThrows(IllegalArgumentException.class, () -> TraceabilityConfidence.of(Double.POSITIVE_INFINITY));
+        assertEquals("traceability confidence must be finite and between 0.0 and 1.0", infiniteFailure.getMessage());
     }
 
     @Test

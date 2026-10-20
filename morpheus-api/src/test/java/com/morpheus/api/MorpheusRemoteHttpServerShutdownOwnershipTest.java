@@ -15,6 +15,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
+import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -33,6 +34,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -179,8 +181,10 @@ class MorpheusRemoteHttpServerShutdownOwnershipTest {
         assertSame(injected, thrown, "the caller must see the release that failed, not a later one");
 
         assertTrue(delegate.isShutdown(), "the executor itself must have been stopped before it reported failure");
-        assertThrows(IOException.class, () -> probe(localProbe),
+        IOException refused = assertThrows(IOException.class, () -> probe(localProbe),
                 "the local server must be closed even though the release before it failed");
+        assertInstanceOf(ConnectException.class, refused,
+                "the probe must be refused by a closed port, not fail for another reason");
 
         // The server lease is exclusive: re-acquiring it is the only proof that the failed shutdown released it
         // rather than holding the database for the rest of the process.

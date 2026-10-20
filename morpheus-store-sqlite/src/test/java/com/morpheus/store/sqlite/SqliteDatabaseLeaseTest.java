@@ -114,7 +114,8 @@ class SqliteDatabaseLeaseTest {
         assertEquals(1, closeAttempts.get());
 
         assertTrue(guarded.isClosed(), "a connection whose close failed is unusable either way");
-        assertThrows(SQLException.class, guarded::createStatement);
+        SQLException closedFailure = assertThrows(SQLException.class, guarded::createStatement);
+        assertEquals("SQLite connection is closed", closedFailure.getMessage());
 
         // The decisive assertion: the physical handle was never proven released, so maintenance stays out.
         IllegalStateException blocked = assertThrows(

@@ -252,6 +252,7 @@ Contrats de durcissement particulièrement importants :
 
 ```text
 morpheus-store-sqlite/.../SqliteTransactionRunnerTest.java
+morpheus-store-sqlite/.../ReleasedSchemaUpgradeTest.java
 morpheus-application/.../SyncReliabilityFallbackTest.java
 morpheus-api/.../MorpheusRemoteIdentityLifecycleTest.java
 morpheus-api/.../ApiRuntimeSqliteSessionTest.java
@@ -261,6 +262,8 @@ morpheus-mcp-transport/.../McpDiagnosticRedactorTest.java
 morpheus-architecture-tests/.../ProductReleaseContractTest.java
 morpheus-architecture-tests/.../AuditHardeningWorkflowContractTest.java
 ```
+
+`ReleasedSchemaUpgradeTest` ouvre avec le store courant une base construite par les seules migrations de chaque niveau de schéma publié, garnie de lignes dans toutes les tables qu'une migration ultérieure lit ou réécrit, puis relit ces lignes par les opérations des stores. Les niveaux sont déclarés une fois dans `morpheus-store-sqlite/src/test/resources/released-schema-levels.properties` ; une release y déclare son niveau dans la version qui la suit, et `ReleasedSchemaLevelsDeclarationTest` fait échouer le build tant qu'une version publiée dont les notes existent n'a pas sa ligne. Les lignes sont écrites par le test, d'après les requêtes d'insertion des stores aux tags, et non par le programme publié.
 
 Windows et Linux doivent qualifier exactement le même SHA pour considérer une baseline M21 comme durable.
 

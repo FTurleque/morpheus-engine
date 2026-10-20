@@ -118,7 +118,9 @@ class SyntheticJsonParserSecurityTest {
                 IllegalArgumentException.class, () -> SyntheticJsonParser.parseObject(loneLows));
         assertTrue(oversized.getMessage().contains("UTF-8 bytes"), oversized.getMessage());
 
-        assertThrows(IllegalArgumentException.class, () -> SyntheticJsonParser.parseObject("{}" + (char) 0xD83D));
+        IllegalArgumentException trailing = assertThrows(
+                IllegalArgumentException.class, () -> SyntheticJsonParser.parseObject("{}" + (char) 0xD83D));
+        assertEquals("unexpected trailing content at index 2", trailing.getMessage());
     }
 
     @Test

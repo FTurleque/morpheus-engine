@@ -68,13 +68,20 @@ class PeerOperationDeadlineTest {
         IllegalArgumentException tooMany = assertThrows(IllegalArgumentException.class,
                 () -> PeerOperationDeadline.of(Duration.ofSeconds(1), 5));
         assertTrue(tooMany.getMessage().contains("between 1 and 4"), tooMany.getMessage());
-        assertThrows(IllegalArgumentException.class, () -> PeerOperationDeadline.of(Duration.ZERO, 1));
-        assertThrows(IllegalArgumentException.class, () -> PeerOperationDeadline.of(Duration.ofSeconds(-1), 1));
+        IllegalArgumentException zeroTimeout = assertThrows(IllegalArgumentException.class,
+                () -> PeerOperationDeadline.of(Duration.ZERO, 1));
+        assertEquals("peer request timeout must be positive and at most 120 s", zeroTimeout.getMessage());
+        IllegalArgumentException negativeTimeout = assertThrows(IllegalArgumentException.class,
+                () -> PeerOperationDeadline.of(Duration.ofSeconds(-1), 1));
+        assertEquals("peer request timeout must be positive and at most 120 s", negativeTimeout.getMessage());
         IllegalArgumentException none = assertThrows(IllegalArgumentException.class,
                 () -> PeerOperationDeadline.of(Duration.ofSeconds(1), 0));
         assertTrue(none.getMessage().contains("between 1 and 4"), none.getMessage());
-        assertThrows(IllegalArgumentException.class, () -> PeerOperationDeadline.arm(Duration.ZERO, () -> { }));
-        assertThrows(IllegalArgumentException.class,
+        IllegalArgumentException zeroDeadline = assertThrows(IllegalArgumentException.class,
+                () -> PeerOperationDeadline.arm(Duration.ZERO, () -> { }));
+        assertEquals("peer operation deadline must be positive", zeroDeadline.getMessage());
+        IllegalArgumentException negativeDeadline = assertThrows(IllegalArgumentException.class,
                 () -> PeerOperationDeadline.arm(Duration.ofMillis(-1), () -> { }));
+        assertEquals("peer operation deadline must be positive", negativeDeadline.getMessage());
     }
 }

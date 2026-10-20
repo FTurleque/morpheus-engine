@@ -97,6 +97,10 @@ rewriting the validators into a shared library; changing what a validator checks
    scan, which `security.yml` runs with the NVD cache. The `.ps1` variants stay reachable through the dispatcher only.
    A red leg is the first real run task 1.4 asked for, not a merge gate. Keeping, testing or retiring each validator
    remains the maintainer's decision; the lane is what lets that decision rest on a run rather than a guess.
+
+   *Decided on 2026-10-18 by the maintainer, after the real runs of task 1.4.* `d2`, `m22` to `m26` and `r3` are kept
+   with the lane as it is; none is retired. Both platforms ran every one of them to a PASS (`m22.ps1` after one
+   correction), so the question "does it still run" has its answer.
 2. **Should a validator refuse to start without the version argument?** Each has a default dated from its milestone and
    fails on the launcher's version after the build. Recommendation: yes, as a separate small change once the tests of
    this one exist to hold it; it is a change of behaviour, not a test.

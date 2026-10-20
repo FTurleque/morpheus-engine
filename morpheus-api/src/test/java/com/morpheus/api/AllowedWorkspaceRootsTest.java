@@ -17,6 +17,7 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 class AllowedWorkspaceRootsTest {
@@ -32,10 +33,13 @@ class AllowedWorkspaceRootsTest {
 
         assertEquals(allowed.toRealPath(), roots.requireAllowedDirectory(allowed));
         assertEquals(child.toRealPath(), roots.requireAllowedDirectory(child));
-        assertThrows(IllegalArgumentException.class, () -> roots.requireAllowedDirectory(outside));
-        assertThrows(
+        IllegalArgumentException outsideFailure =
+                assertThrows(IllegalArgumentException.class, () -> roots.requireAllowedDirectory(outside));
+        assertEquals("workspace is outside the server-configured allowed roots", outsideFailure.getMessage());
+        IllegalArgumentException traversalFailure = assertThrows(
                 IllegalArgumentException.class,
                 () -> roots.requireAllowedDirectory(child.resolve("..").resolve("sub")));
+        assertEquals("workspace traversal is not allowed", traversalFailure.getMessage());
     }
 
     @Test
@@ -46,7 +50,9 @@ class AllowedWorkspaceRootsTest {
         assumeTrue(createSymlink(link, outside), "symbolic links cannot be created in this environment");
 
         AllowedWorkspaceRoots roots = AllowedWorkspaceRoots.of(List.of(allowed));
-        assertThrows(IllegalArgumentException.class, () -> roots.requireAllowedDirectory(link));
+        IllegalArgumentException failure =
+                assertThrows(IllegalArgumentException.class, () -> roots.requireAllowedDirectory(link));
+        assertEquals("workspace must be an existing real directory", failure.getMessage());
     }
 
     @Test
@@ -57,7 +63,9 @@ class AllowedWorkspaceRootsTest {
         assumeTrue(createSymlink(alias, project), "symbolic links cannot be created in this environment");
 
         AllowedWorkspaceRoots roots = AllowedWorkspaceRoots.of(List.of(allowed));
-        assertThrows(IllegalArgumentException.class, () -> roots.requireAllowedDirectory(alias));
+        IllegalArgumentException failure =
+                assertThrows(IllegalArgumentException.class, () -> roots.requireAllowedDirectory(alias));
+        assertEquals("workspace must be an existing real directory", failure.getMessage());
     }
 
     @Test
@@ -95,12 +103,17 @@ class AllowedWorkspaceRootsTest {
         assertEquals(0, exitCode, output);
 
         AllowedWorkspaceRoots roots = AllowedWorkspaceRoots.of(List.of(allowed));
-        assertThrows(IllegalArgumentException.class, () -> roots.requireAllowedDirectory(junction));
+        IllegalArgumentException failure =
+                assertThrows(IllegalArgumentException.class, () -> roots.requireAllowedDirectory(junction));
+        assertEquals("workspace is outside the server-configured allowed roots", failure.getMessage());
     }
 
     @Test
     void rejectsEmptyRootConfiguration() {
-        assertThrows(IllegalArgumentException.class, () -> AllowedWorkspaceRoots.of(List.of()));
+        IllegalArgumentException failure =
+                assertThrows(IllegalArgumentException.class, () -> AllowedWorkspaceRoots.of(List.of()));
+        assertEquals("remote workspace roots must contain at least one server-configured directory",
+                failure.getMessage());
     }
 
     @Test
@@ -109,7 +122,10 @@ class AllowedWorkspaceRootsTest {
         Path link = temp.resolve("root-link");
         assumeTrue(createSymlink(link, target), "symbolic links cannot be created in this environment");
 
-        assertThrows(IllegalArgumentException.class, () -> AllowedWorkspaceRoots.of(List.of(link)));
+        IllegalArgumentException failure =
+                assertThrows(IllegalArgumentException.class, () -> AllowedWorkspaceRoots.of(List.of(link)));
+        assertTrue(failure.getMessage().contains("remote workspace root must be a real directory"),
+                () -> "unexpected rejection: " + failure.getMessage());
     }
 
     /**

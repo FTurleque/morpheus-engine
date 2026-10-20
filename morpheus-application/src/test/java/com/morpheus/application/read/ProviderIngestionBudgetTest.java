@@ -29,21 +29,39 @@ class ProviderIngestionBudgetTest {
         assertDoesNotThrow(() -> budget.requireEntities(5, "doc"));
         assertDoesNotThrow(() -> budget.requireEvidenceBytes(6, "evidence"));
 
-        assertThrows(IllegalArgumentException.class, () -> budget.requireDocumentBytes(11, "doc"));
-        assertThrows(IllegalArgumentException.class, () -> budget.requireFiles(3, "corpus"));
-        assertThrows(IllegalArgumentException.class, () -> budget.requireAggregateBytes(21, "corpus"));
-        assertThrows(IllegalArgumentException.class, () -> budget.requireLines(4, "doc"));
-        assertThrows(IllegalArgumentException.class, () -> budget.requireBlocks(5, "doc"));
-        assertThrows(IllegalArgumentException.class, () -> budget.requireEntities(6, "doc"));
-        assertThrows(IllegalArgumentException.class, () -> budget.requireEvidenceBytes(7, "evidence"));
+        IllegalArgumentException documentBytes = assertThrows(
+                IllegalArgumentException.class, () -> budget.requireDocumentBytes(11, "doc"));
+        assertEquals("provider ingestion document bytes exceeds budget for doc: 11 > 10", documentBytes.getMessage());
+        IllegalArgumentException files = assertThrows(
+                IllegalArgumentException.class, () -> budget.requireFiles(3, "corpus"));
+        assertEquals("provider ingestion file count exceeds budget for corpus: 3 > 2", files.getMessage());
+        IllegalArgumentException aggregateBytes = assertThrows(
+                IllegalArgumentException.class, () -> budget.requireAggregateBytes(21, "corpus"));
+        assertEquals("provider ingestion aggregate bytes exceeds budget for corpus: 21 > 20",
+                aggregateBytes.getMessage());
+        IllegalArgumentException lines = assertThrows(
+                IllegalArgumentException.class, () -> budget.requireLines(4, "doc"));
+        assertEquals("provider ingestion line count exceeds budget for doc: 4 > 3", lines.getMessage());
+        IllegalArgumentException blocks = assertThrows(
+                IllegalArgumentException.class, () -> budget.requireBlocks(5, "doc"));
+        assertEquals("provider ingestion block count exceeds budget for doc: 5 > 4", blocks.getMessage());
+        IllegalArgumentException entities = assertThrows(
+                IllegalArgumentException.class, () -> budget.requireEntities(6, "doc"));
+        assertEquals("provider ingestion entity count exceeds budget for doc: 6 > 5", entities.getMessage());
+        IllegalArgumentException evidenceBytes = assertThrows(
+                IllegalArgumentException.class, () -> budget.requireEvidenceBytes(7, "evidence"));
+        assertEquals("provider ingestion evidence bytes exceeds budget for evidence: 7 > 6",
+                evidenceBytes.getMessage());
     }
 
     @Test
     void rejectsIncoherentConfiguration() {
-        assertThrows(IllegalArgumentException.class,
+        IllegalArgumentException documentAboveAggregate = assertThrows(IllegalArgumentException.class,
                 () -> new ProviderIngestionBudget(21, 2, 20, 3, 4, 5, 6));
-        assertThrows(IllegalArgumentException.class,
+        assertEquals("maxDocumentBytes must not exceed maxAggregateBytes", documentAboveAggregate.getMessage());
+        IllegalArgumentException noDocumentBytes = assertThrows(IllegalArgumentException.class,
                 () -> new ProviderIngestionBudget(0, 2, 20, 3, 4, 5, 6));
+        assertEquals("maxDocumentBytes must be >= 1", noDocumentBytes.getMessage());
     }
 
     @Test

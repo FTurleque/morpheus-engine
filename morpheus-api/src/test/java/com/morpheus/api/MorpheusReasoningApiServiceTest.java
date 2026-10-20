@@ -36,9 +36,11 @@ class MorpheusReasoningApiServiceTest {
 
         // The adapter fails, and the service then records the failure under an identifier the adapter no longer
         // gives: the NullPointerException comes from the service, not from anything the client sent.
-        assertThrows(NullPointerException.class, () -> api.analyze(
+        NullPointerException failure = assertThrows(NullPointerException.class, () -> api.analyze(
                 new MorpheusReasoningApiService.ReasoningRequest(
                         "Which requirement is covered?", List.of(), List.of("id-losing"), null, null)));
+
+        assertEquals("adapter id", failure.getMessage());
     }
 
     /** Answers its identifier once, for its registration, and null afterwards; its reasoning always fails. */

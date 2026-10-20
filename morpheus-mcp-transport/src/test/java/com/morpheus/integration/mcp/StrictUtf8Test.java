@@ -4,9 +4,11 @@ import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.charset.MalformedInputException;
 import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
@@ -26,15 +28,17 @@ class StrictUtf8Test {
     void malformedUtf8IsRejectedRatherThanReplaced() {
         byte[] malformed = {(byte) 0xC3, (byte) 0x28, (byte) '\n'};
 
-        assertThrows(IOException.class,
+        IOException refused = assertThrows(IOException.class,
                 () -> new BoundedStdioLineReader(new ByteArrayInputStream(malformed)).readLine(64));
+        assertInstanceOf(MalformedInputException.class, refused);
     }
 
     @Test
     void anIsolatedInvalidByteIsRefusedRatherThanDecodedToAReplacementCharacter() {
         byte[] invalid = {(byte) 0xFF, (byte) '\n'};
 
-        assertThrows(IOException.class,
+        IOException refused = assertThrows(IOException.class,
                 () -> new BoundedStdioLineReader(new ByteArrayInputStream(invalid)).readLine(64));
+        assertInstanceOf(MalformedInputException.class, refused);
     }
 }

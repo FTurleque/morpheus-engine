@@ -84,7 +84,7 @@ class SqliteSqlStatementsTest {
                         """);
             }
 
-            assertThrows(
+            RuntimeException failure = assertThrows(
                     RuntimeException.class,
                     () -> SqliteTransactionRunner.runVoid(connection, "synthetic migration failed", current -> {
                         new SqliteSchemaManager().executeScript(current, """
@@ -97,6 +97,8 @@ class SqliteSqlStatementsTest {
                                     "INSERT INTO schema_migrations(version, name) VALUES (99, 'invalid')");
                         }
                     }));
+            assertEquals("synthetic migration failed", failure.getMessage());
+            assertTrue(failure.getCause().getMessage().contains("syntax error"), failure.getCause().getMessage());
 
             try (Statement statement = connection.createStatement();
                  ResultSet result = statement.executeQuery(

@@ -59,7 +59,9 @@ class ProviderPluginContractAssertionsTest {
     void rejectsPluginWhoseMetadataProviderIdDisagreesWithItsProvider() {
         FakePlugin plugin = new FakePlugin(PROVIDER_ID, true);
 
-        assertThrows(AssertionError.class, () -> ProviderPluginContractAssertions.verify(plugin, WORKSPACE));
+        AssertionError failure = assertThrows(
+                AssertionError.class, () -> ProviderPluginContractAssertions.verify(plugin, WORKSPACE));
+        assertEquals("plugin metadata provider id does not match provider.id()", failure.getMessage());
     }
 
     @Test
@@ -69,8 +71,10 @@ class ProviderPluginContractAssertionsTest {
         plugin.nonDeterministicReadFrom(2);
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
 
-        assertThrows(AssertionError.class, () -> ProviderPluginContractAssertions.verifyRead(
+        AssertionError failure = assertThrows(AssertionError.class, () -> ProviderPluginContractAssertions.verifyRead(
                 snapshot, WORKSPACE, projectId));
+        assertEquals("contentReader.read() must be deterministic for an unchanged workspace and identity resolver"
+                + " state", failure.getMessage());
     }
 
     @Test
@@ -80,8 +84,12 @@ class ProviderPluginContractAssertionsTest {
         plugin.dropCategoryReport(ReadCategory.ARCHIVES);
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
 
-        assertThrows(AssertionError.class, () -> ProviderPluginContractAssertions.verifyRead(
+        AssertionError failure = assertThrows(AssertionError.class, () -> ProviderPluginContractAssertions.verifyRead(
                 snapshot, WORKSPACE, projectId));
+        assertTrue(failure.getMessage().startsWith(
+                        "contentReader.read() must return exactly one report per requested category, requested="),
+                failure.getMessage());
+        assertTrue(failure.getMessage().contains(" reported="), failure.getMessage());
     }
 
     /**

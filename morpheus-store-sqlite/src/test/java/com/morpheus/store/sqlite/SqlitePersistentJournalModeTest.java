@@ -46,14 +46,16 @@ class SqlitePersistentJournalModeTest {
     void transitionWithoutAResultRowFailsClosed() {
         JournalModeStatement fixture = statement(result(true, "delete"), result(false, null));
 
-        assertThrows(SQLException.class, () -> ensurePersistentJournalMode(fixture.statement()));
+        SQLException failure = assertThrows(SQLException.class, () -> ensurePersistentJournalMode(fixture.statement()));
+        assertEquals("SQLite journal mode must be PERSIST for secure reusable sidecars", failure.getMessage());
     }
 
     @Test
     void transitionThatDoesNotReachPersistFailsClosed() {
         JournalModeStatement fixture = statement(result(true, "wal"), result(true, "delete"));
 
-        assertThrows(SQLException.class, () -> ensurePersistentJournalMode(fixture.statement()));
+        SQLException failure = assertThrows(SQLException.class, () -> ensurePersistentJournalMode(fixture.statement()));
+        assertEquals("SQLite journal mode must be PERSIST for secure reusable sidecars", failure.getMessage());
     }
 
     private static void ensurePersistentJournalMode(Statement statement) throws Exception {
