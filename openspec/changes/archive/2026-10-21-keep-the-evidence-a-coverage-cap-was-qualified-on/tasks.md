@@ -39,11 +39,12 @@
 
 ## 4. Verification and destinations
 
-- [ ] 4.1 `./mvnw clean verify` on both platforms. Proof: green, the six ratchet values and the four caps unchanged.
+- [x] 4.1 `./mvnw clean verify` on both platforms. Proof: green, the six ratchet values and the four caps unchanged.
+  - 2026-10-21: pull request 517, `exact-head` green on both platforms before the merge.
 - [x] 4.2 Amend ADR-0104 (`adr-author`): the requirements of a cap raise include the kept evidence and the equality.
 - [x] 4.3 `docs/developer/BUILD_AND_TEST.md`: the two kinds of raise and where the three values are read, with no
       headroom figure. `RepositoryDocumentationCoherenceTest` must stay green.
 - [x] 4.4 `.claude/rules/testing.md`: replace the statement that the proof stays consultable in the artifacts by where
       it is kept. `.claude/skills/coverage-ratchet/SKILL.md`: the step that files the evidence of a requalification.
-- [ ] 4.5 Pull request description: the finding, the comparisons of 1.2, the location chosen, the justification of each
+- [x] 4.5 Pull request description: the finding, the comparisons of 1.2, the location chosen, the justification of each
       governance file touched.
