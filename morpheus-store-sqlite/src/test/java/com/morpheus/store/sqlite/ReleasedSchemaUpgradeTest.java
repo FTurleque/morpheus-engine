@@ -39,9 +39,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.SortedSet;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -73,7 +75,9 @@ class ReleasedSchemaUpgradeTest {
 
     @TestFactory
     Stream<DynamicTest> aDatabaseOfEveryReleasedSchemaLevelIsUpgradedWithoutLosingWhatItHeld() {
-        return ReleasedSchemaLevels.distinctLevels().stream().map(level -> DynamicTest.dynamicTest(
+        SortedSet<Integer> levels = ReleasedSchemaLevels.distinctLevels();
+        assertFalse(levels.isEmpty(), "released-schema-levels.properties declares no schema level: nothing would be upgraded");
+        return levels.stream().map(level -> DynamicTest.dynamicTest(
                 "released schema level " + level, () -> upgradeFrom(level)));
     }
 
