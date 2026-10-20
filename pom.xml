@@ -84,7 +84,7 @@
             changes which detectors run without anyone choosing it. pitest.junit5.plugin.version is the bridge
             PIT needs to run a JUnit Platform test; it is released on its own cadence, not with pitest.
         -->
-        <spotbugs.maven.plugin.version>4.10.4.1</spotbugs.maven.plugin.version>
+        <spotbugs.maven.plugin.version>4.10.5.0</spotbugs.maven.plugin.version>
         <spotbugs.version>4.10.4</spotbugs.version>
         <pitest.maven.plugin.version>1.30.0</pitest.maven.plugin.version>
         <pitest.junit5.plugin.version>1.2.3</pitest.junit5.plugin.version>
