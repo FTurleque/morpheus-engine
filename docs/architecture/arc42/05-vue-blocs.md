@@ -78,8 +78,8 @@ supportent ; OpenSpec ne doit pas être confondu avec OpenAPI.
 
 ## 5.2 Reactor Maven
 
-Le parent `morpheus-engine` agrège 17 modules (18 projets Maven en comptant
-le parent) :
+Le parent `morpheus-engine` agrège les modules que son `pom.xml` déclare (le
+nombre se compte dans le POM, il ne s'écrit pas ici) :
 
 | Famille | Modules | Responsabilité |
 |---------|---------|----------------|
@@ -90,7 +90,7 @@ le parent) :
 | Stores | `morpheus-store-memory`, `morpheus-store-sqlite` | Persistance derrière les ports applicatifs |
 | Intégrations | `morpheus-mcp-transport`, `morpheus-integration-minos`, `morpheus-integration-nexus` | Transport MCP STDIO borné partagé et passerelles optionnelles vers les moteurs externes |
 | Surfaces | `morpheus-cli`, `morpheus-mcp`, `morpheus-api` | CLI, MCP STDIO et HTTP |
-| Qualification | `morpheus-architecture-tests` | Invariants et gates d'architecture |
+| Qualification | `morpheus-architecture-tests`, `morpheus-coverage-report` | Invariants et gates d'architecture ; rapport JaCoCo agrégé, mesure canonique de couverture et gate de l'échelle agrégée |
 
 Les nombres de classes, paquetages et endpoints ne sont volontairement pas
 figés ici : ce sont des métriques volatiles et non des propriétés

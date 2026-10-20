@@ -16,6 +16,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -140,12 +141,15 @@ class TimedBoundedResponseWriterTest {
         Duration twoSeconds = Duration.ofSeconds(2);
         Duration negative = Duration.ofSeconds(-1);
 
-        assertThrows(IllegalArgumentException.class,
+        IllegalArgumentException stallFailure = assertThrows(IllegalArgumentException.class,
                 () -> new TimedBoundedResponseWriter(Duration.ZERO, oneSecond));
-        assertThrows(IllegalArgumentException.class,
+        assertEquals("stallTimeout must be positive", stallFailure.getMessage());
+        IllegalArgumentException totalFailure = assertThrows(IllegalArgumentException.class,
                 () -> new TimedBoundedResponseWriter(oneSecond, negative));
-        assertThrows(IllegalArgumentException.class,
+        assertEquals("totalTimeout must be positive", totalFailure.getMessage());
+        IllegalArgumentException orderFailure = assertThrows(IllegalArgumentException.class,
                 () -> new TimedBoundedResponseWriter(twoSeconds, oneSecond));
+        assertEquals("stallTimeout must not exceed totalTimeout", orderFailure.getMessage());
     }
 
     private static void writeUntilBlocked(Peers peers, TimedBoundedResponseWriter.Progress progress)

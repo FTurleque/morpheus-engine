@@ -107,9 +107,11 @@ class AdrIndexCoherenceTest {
 
         assertVerdictsAgree(Map.of("0001", "Acceptee -- M0, durcie le 19 aout 2026"), rows, verdicts);
 
-        assertThrows(AssertionError.class,
+        AssertionError flattened = assertThrows(AssertionError.class,
                 () -> assertVerdictsAgree(Map.of("0001", "Acceptee avec contraintes -- M0"), rows, verdicts),
                 "Acceptee avec contraintes is its own verdict, not a qualification of Acceptee");
+        assertTrue(flattened.getMessage().contains("\"Acceptee avec contraintes -- M0\" in the record"),
+                () -> "the concordance must quote the record status it refuses to flatten: " + flattened.getMessage());
 
         AssertionError vocabulary = assertThrows(AssertionError.class,
                 () -> assertClosedVocabulary(Map.of("0001", "Validee -- M0"), rows, verdicts));

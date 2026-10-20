@@ -118,24 +118,29 @@ class SnapshotBusinessContentPersistenceTest {
         Fixture fixture = fixture();
         SnapshotBusinessContent content = fixture.content();
 
-        assertThrows(IllegalArgumentException.class, () -> new SnapshotBusinessContent(
+        IllegalArgumentException duplicateFailure = assertThrows(IllegalArgumentException.class, () -> new SnapshotBusinessContent(
                 fixture.snapshotId(), fixture.versionId(),
                 List.of(content.specifications().get(0), content.specifications().get(0)),
                 content.scenarios(), content.changes(), content.constraints(), content.designDecisions(), content.tasks(),
                 content.acceptanceCriteria(), content.evidence()));
+        assertEquals("duplicate specifications identity: " + content.specifications().get(0).id(),
+                duplicateFailure.getMessage());
 
         Constraint broken = Constraint.withUnknownSemantics(
                 ConstraintId.generate(), ChangeId.generate(), "must remain auditable", content.constraints().get(0).provenance());
-        assertThrows(IllegalArgumentException.class, () -> new SnapshotBusinessContent(
+        IllegalArgumentException brokenChangeFailure = assertThrows(IllegalArgumentException.class, () -> new SnapshotBusinessContent(
                 fixture.snapshotId(), fixture.versionId(), content.specifications(), content.scenarios(), content.changes(),
                 List.of(broken), content.designDecisions(), content.tasks(), content.acceptanceCriteria(), content.evidence()));
+        assertEquals("constraint references unknown change: " + broken.id(), brokenChangeFailure.getMessage());
 
         Specification unknownEvidence = new Specification(
                 SpecificationId.generate(), fixture.projectId(), "unknown-evidence", "Unknown evidence", Optional.empty(),
                 provenance(EvidenceId.generate(), "specs/unknown.md", "SPEC-UNKNOWN"));
-        assertThrows(IllegalArgumentException.class, () -> new SnapshotBusinessContent(
+        IllegalArgumentException unknownEvidenceFailure = assertThrows(IllegalArgumentException.class, () -> new SnapshotBusinessContent(
                 fixture.snapshotId(), fixture.versionId(), List.of(unknownEvidence), List.of(), List.of(), List.of(),
                 List.of(), List.of(), List.of(), content.evidence()));
+        assertEquals("provenance references unknown evidence: " + unknownEvidence.provenance().evidenceId(),
+                unknownEvidenceFailure.getMessage());
 
         AcceptanceCriterion brokenVerificationEvidence = new AcceptanceCriterion(
                 AcceptanceCriterionId.generate(),
@@ -146,9 +151,12 @@ class SnapshotBusinessContentPersistenceTest {
                 VerificationStatus.VERIFIED,
                 List.of(EvidenceId.generate()),
                 content.acceptanceCriteria().getFirst().provenance());
-        assertThrows(IllegalArgumentException.class, () -> new SnapshotBusinessContent(
+        IllegalArgumentException brokenVerificationFailure = assertThrows(IllegalArgumentException.class, () -> new SnapshotBusinessContent(
                 fixture.snapshotId(), fixture.versionId(), content.specifications(), content.scenarios(), content.changes(),
                 content.constraints(), content.designDecisions(), content.tasks(), List.of(brokenVerificationEvidence), content.evidence()));
+        assertEquals("provenance references unknown evidence: "
+                + brokenVerificationEvidence.verificationEvidenceIds().getFirst(),
+                brokenVerificationFailure.getMessage());
     }
 
     @Test

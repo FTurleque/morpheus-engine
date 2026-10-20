@@ -161,7 +161,9 @@ class ChangeAnalysisContractTest {
         ChangeAnalysisResult depthOne = service.analyzeActive(fixture.proposal(), 1).orElseThrow();
         assertFalse(depthOne.dependencyImpacts().stream().anyMatch(impact ->
                 impact.impactedEntity().identity().equals(fixture.transitiveDependencyRequirementId().value())));
-        assertThrows(IllegalArgumentException.class, () -> service.analyzeActive(fixture.proposal(), 0));
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class, () -> service.analyzeActive(fixture.proposal(), 0));
+        assertEquals("maxDepth must be greater than zero", failure.getMessage());
     }
 
     @Test

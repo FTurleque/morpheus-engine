@@ -21,15 +21,24 @@ class LoopbackHostPolicyTest {
 
     @Test
     void rejectsWildcardAndKnownNonLoopbackAddress() {
-        assertThrows(IllegalArgumentException.class, () -> LoopbackHostPolicy.requireLoopback("0.0.0.0"));
-        assertThrows(IllegalArgumentException.class, () -> LoopbackHostPolicy.requireLoopback("192.0.2.1"));
+        IllegalArgumentException wildcardFailure =
+                assertThrows(IllegalArgumentException.class, () -> LoopbackHostPolicy.requireLoopback("0.0.0.0"));
+        assertEquals("non-loopback API bind requires explicit remote mode with TLS and authentication",
+                wildcardFailure.getMessage());
+        IllegalArgumentException lanFailure =
+                assertThrows(IllegalArgumentException.class, () -> LoopbackHostPolicy.requireLoopback("192.0.2.1"));
+        assertEquals("non-loopback API bind requires explicit remote mode with TLS and authentication",
+                lanFailure.getMessage());
     }
 
     @Test
     void rejectsBlankOrUnknownHost() {
-        assertThrows(IllegalArgumentException.class, () -> LoopbackHostPolicy.requireLoopback(" "));
-        assertThrows(IllegalArgumentException.class,
+        IllegalArgumentException blankFailure =
+                assertThrows(IllegalArgumentException.class, () -> LoopbackHostPolicy.requireLoopback(" "));
+        assertEquals("local API host must not be blank", blankFailure.getMessage());
+        IllegalArgumentException unknownFailure = assertThrows(IllegalArgumentException.class,
                 () -> LoopbackHostPolicy.requireLoopback("definitely-not-a-morpheus-host.invalid"));
+        assertEquals("cannot resolve local API host", unknownFailure.getMessage());
     }
 
     @Test
@@ -41,18 +50,23 @@ class LoopbackHostPolicyTest {
         assertEquals("all-loopback", LoopbackHostPolicy.requireLoopback(
                 "all-loopback",
                 ignored -> new InetAddress[]{ipv4Loopback, ipv6Loopback}));
-        assertThrows(IllegalArgumentException.class, () -> LoopbackHostPolicy.requireLoopback(
-                "mixed",
-                ignored -> new InetAddress[]{ipv4Loopback, lan}));
+        IllegalArgumentException mixedFailure = assertThrows(IllegalArgumentException.class,
+                () -> LoopbackHostPolicy.requireLoopback(
+                        "mixed",
+                        ignored -> new InetAddress[]{ipv4Loopback, lan}));
+        assertEquals("non-loopback API bind requires explicit remote mode with TLS and authentication",
+                mixedFailure.getMessage());
     }
 
     @Test
     void directServerCallerCannotBindWildcard(@TempDir Path workspace) {
         Path database = workspace.resolve("morpheus.db");
 
-        assertThrows(
+        IllegalArgumentException failure = assertThrows(
                 IllegalArgumentException.class,
                 () -> MorpheusHttpServer.start(database, "0.0.0.0", 0));
+        assertEquals("non-loopback API bind requires explicit remote mode with TLS and authentication",
+                failure.getMessage());
         assertFalse(Files.exists(database));
     }
 }

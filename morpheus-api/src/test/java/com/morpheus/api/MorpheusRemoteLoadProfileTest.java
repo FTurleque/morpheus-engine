@@ -12,6 +12,7 @@ import org.junit.jupiter.api.io.TempDir;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
+import java.net.ConnectException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
@@ -31,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -245,9 +247,10 @@ class MorpheusRemoteLoadProfileTest {
         }
 
         URI closed = base;
-        assertThrows(IOException.class, () -> RemoteHttpTestSupport.send(
+        IOException refused = assertThrows(IOException.class, () -> RemoteHttpTestSupport.send(
                 client, closed.resolve("/api/v1/health"), "GET", admin.token(), null),
                 "a closed facade must refuse connections");
+        assertInstanceOf(ConnectException.class, refused, "the connection must be refused by a closed port");
     }
 
     private <T> List<T> invokeAll(ExecutorService pool, List<Callable<T>> work) throws InterruptedException {

@@ -198,7 +198,7 @@ class MorpheusPortfolioCliTest {
         Result result = run("portfolio", "frobnicate", "--anything", "x");
 
         assertEquals(CliExitCode.USAGE.code(), result.exitCode());
-        assertTrue(result.err().contains("unknown portfolio action: frobnicate"), result.err());
+        assertTrue(result.err().contains("unknown command: portfolio frobnicate"), result.err());
     }
 
     @Test

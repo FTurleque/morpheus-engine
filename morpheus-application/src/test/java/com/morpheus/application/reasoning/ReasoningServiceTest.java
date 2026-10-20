@@ -118,12 +118,13 @@ class ReasoningServiceTest {
     @Test
     void duplicateEvidenceIdentityIsRejectedBeforeAdapterExecution() {
         ReasoningService service = new ReasoningService(ReasoningAdapterRegistry.empty());
-        assertThrows(IllegalArgumentException.class, () -> service.execute(new Request(
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> service.execute(new Request(
                 "Question",
                 List.of(fact("same", "Fact one"), fact("same", "Fact two")),
                 List.of(),
                 Map.of(),
                 10)));
+        assertEquals("duplicate evidence id: same", failure.getMessage());
     }
 
     private static Evidence fact(String id, String statement) {

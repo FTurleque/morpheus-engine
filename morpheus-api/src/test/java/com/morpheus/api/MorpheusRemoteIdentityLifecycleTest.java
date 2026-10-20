@@ -48,9 +48,12 @@ class MorpheusRemoteIdentityLifecycleTest {
         MorpheusRemoteIdentityFile.create(auth, "admin", MorpheusRemoteRole.ADMIN);
         MorpheusRemoteIdentityFile.create(auth, "reader", MorpheusRemoteRole.READ);
 
-        assertThrows(IllegalArgumentException.class, () -> MorpheusRemoteIdentityFile.revoke(auth, "admin"));
-        assertThrows(IllegalArgumentException.class,
+        IllegalArgumentException revokeFailure = assertThrows(IllegalArgumentException.class,
+                () -> MorpheusRemoteIdentityFile.revoke(auth, "admin"));
+        assertEquals("cannot revoke the last active ADMIN identity", revokeFailure.getMessage());
+        IllegalArgumentException demoteFailure = assertThrows(IllegalArgumentException.class,
                 () -> MorpheusRemoteIdentityFile.changeRole(auth, "admin", MorpheusRemoteRole.WRITE));
+        assertEquals("cannot change the role of the last active ADMIN identity", demoteFailure.getMessage());
     }
 
     @Test
