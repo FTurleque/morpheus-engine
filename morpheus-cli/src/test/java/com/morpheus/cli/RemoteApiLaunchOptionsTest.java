@@ -27,9 +27,11 @@ class RemoteApiLaunchOptionsTest {
         assertEquals("127.0.0.1", local.host());
         assertEquals(8765, local.port());
 
-        assertThrows(IllegalArgumentException.class, () -> ApiLaunchOptions.parse(
+        IllegalArgumentException nonLoopback = assertThrows(IllegalArgumentException.class, () -> ApiLaunchOptions.parse(
                 new String[]{"--data-dir", temp.toString(), "api", "--host", "0.0.0.0"},
                 Map.of(), properties));
+        assertEquals("non-loopback API bind requires explicit remote mode with TLS and authentication",
+                nonLoopback.getMessage());
     }
 
     @Test
@@ -42,9 +44,13 @@ class RemoteApiLaunchOptionsTest {
         assertFalse(RemoteApiLaunchOptions.isRemoteApiCommand(new String[]{"api"}));
         assertTrue(RemoteApiLaunchOptions.isRemoteApiCommand(new String[]{"api", "--remote"}));
 
-        assertThrows(IllegalArgumentException.class, () -> RemoteApiLaunchOptions.parse(
-                new String[]{"--data-dir", temp.toString(), "api", "--remote", "--tls-keystore", keyStore.toString()},
+        IllegalArgumentException withoutPassword = assertThrows(IllegalArgumentException.class, () -> RemoteApiLaunchOptions.parse(
+                new String[]{
+                        "--data-dir", temp.toString(), "api", "--remote", "--tls-keystore", keyStore.toString(),
+                        "--workspace-root", temp.toString()
+                },
                 Map.of(), properties));
+        assertEquals(TlsKeystorePassword.MISSING, withoutPassword.getMessage());
 
         Map<String, String> environment = new HashMap<>();
         environment.put("MORPHEUS_SERVER_TLS_PASSWORD", "test-password");
@@ -188,18 +194,20 @@ class RemoteApiLaunchOptionsTest {
 
     @Test
     void remoteModeFailsClosedWithoutServerConfiguredWorkspaceRoot() {
-        assertThrows(IllegalArgumentException.class, () -> RemoteApiLaunchOptions.parse(
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> RemoteApiLaunchOptions.parse(
                 new String[]{
                         "--data-dir", temp.toString(), "api", "--remote",
                         "--tls-keystore", temp.resolve("server.p12").toString()
                 },
                 Map.of("MORPHEUS_SERVER_TLS_PASSWORD", "protected-source"),
                 properties()));
+        assertEquals("remote mode requires at least one --workspace-root or MORPHEUS_SERVER_WORKSPACE_ROOTS",
+                failure.getMessage());
     }
 
     @Test
     void tlsPasswordIsNotAcceptedAsCommandLineArgument() {
-        assertThrows(IllegalArgumentException.class, () -> RemoteApiLaunchOptions.parse(
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> RemoteApiLaunchOptions.parse(
                 new String[]{
                         "--data-dir", temp.toString(), "api", "--remote",
                         "--tls-keystore", temp.resolve("server.p12").toString(),
@@ -207,6 +215,8 @@ class RemoteApiLaunchOptionsTest {
                 },
                 Map.of("MORPHEUS_SERVER_TLS_PASSWORD", "protected-source"),
                 properties()));
+        assertTrue(failure.getMessage().startsWith("unknown remote API arguments: [--tls-password"),
+                () -> "the password flag must be refused as an unknown argument: " + failure.getMessage());
     }
 
     private Properties properties() {

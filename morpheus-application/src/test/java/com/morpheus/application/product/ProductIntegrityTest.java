@@ -119,8 +119,9 @@ class ProductIntegrityTest {
 
     @Test
     void sha256IsValidated() {
-        assertThrows(IllegalArgumentException.class, () -> new UpdateManifest(
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> new UpdateManifest(
                 "1.0.1", "stable", URI.create("https://example.invalid/morpheus.zip"), "not-a-sha", Optional.empty()));
+        assertEquals("sha256 must contain exactly 64 hexadecimal characters", failure.getMessage());
     }
 
     @Test

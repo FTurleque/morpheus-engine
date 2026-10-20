@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -147,6 +148,7 @@ class MorpheusQueryPolicyMcpRuntimeOwnershipTest {
         List<McpServerFeatures.SyncToolSpecification> specifications =
                 new MorpheusQueryMcpTools(temporaryDirectory.resolve("absent.db"), OperationalRecorder.noop()).specifications();
 
-        assertThrows(AssertionError.class, () -> call(specifications, "no_such_tool", Map.of()));
+        AssertionError failure = assertThrows(AssertionError.class, () -> call(specifications, "no_such_tool", Map.of()));
+        assertEquals("tool not published: no_such_tool", failure.getMessage());
     }
 }

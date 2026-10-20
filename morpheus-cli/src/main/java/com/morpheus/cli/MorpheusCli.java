@@ -59,6 +59,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -138,6 +139,12 @@ public final class MorpheusCli {
             printError(err, jsonOutput, CliExitCode.INTERNAL_ERROR, safeMessage(failure));
             return CliExitCode.INTERNAL_ERROR.code();
         }
+    }
+
+    /** Answers an invocation whose command path is not declared, the way every unknown command is answered. */
+    int refuseUndeclared(String[] args, PrintStream err, String message) {
+        printError(err, Arrays.asList(args).contains("--json"), CliExitCode.USAGE, message);
+        return CliExitCode.USAGE.code();
     }
 
     private int dispatch(

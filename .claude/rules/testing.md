@@ -180,7 +180,12 @@ Voir `rules/meta.md`.
   exigent un comportement identique entre `store-memory` et `store-sqlite`
 - Construire `morpheus-provider-reference` **avant** les tests d'architecture — M22 charge son JAR depuis `target/`
 - Tester un cas d'échec par `assertThrows` **et** une assertion sur le message ou le code de rejet — un échec
-  pour une autre raison ne doit pas faire passer le test
+  pour une autre raison ne doit pas faire passer le test. `RefusalTestEvidenceArchitectureTest` le tient pour tout
+  `assertThrows` sur un type que le dépôt ne déclare pas (`IllegalArgumentException`, `NullPointerException`,
+  `AssertionError`…) : le résultat doit être passé à un appel, retourné, ou lié à un nom que la méthode relit.
+  Ce que la règle prouve, c'est qu'une assertion a **pu** être écrite, pas qu'elle compare le bon message — la revue
+  le lit. Un type du projet n'est pas concerné (il porte sa raison), et une exception sans message (collection
+  immuable, JDK) s'assert par sa cause ou son origine, jamais par `null`
 
 ## JAMAIS
 

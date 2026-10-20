@@ -65,7 +65,7 @@ class TemporalVersioningTest {
 
     @Test
     void specificationVersionRejectsNonPositiveSequence() {
-        assertThrows(IllegalArgumentException.class, () -> new SpecificationVersion(
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> new SpecificationVersion(
                 SpecificationVersionId.generate(),
                 ProjectSpecificationId.generate(),
                 Optional.of(0L),
@@ -73,13 +73,14 @@ class TemporalVersioningTest {
                 Optional.empty(),
                 Instant.parse("2026-07-22T20:00:00Z"),
                 Optional.empty()));
+        assertEquals("sequence must be greater than zero", failure.getMessage());
     }
 
     @Test
     void specificationVersionRejectsSelfPredecessorAndNormalizesBlankMetadata() {
         SpecificationVersionId id = SpecificationVersionId.generate();
 
-        assertThrows(IllegalArgumentException.class, () -> new SpecificationVersion(
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> new SpecificationVersion(
                 id,
                 ProjectSpecificationId.generate(),
                 Optional.of(2L),
@@ -87,6 +88,7 @@ class TemporalVersioningTest {
                 Optional.of("source-2"),
                 Instant.parse("2026-07-22T20:00:00Z"),
                 Optional.of(id)));
+        assertEquals("a specification version cannot be its own predecessor", failure.getMessage());
 
         SpecificationVersion normalized = new SpecificationVersion(
                 SpecificationVersionId.generate(),

@@ -183,6 +183,10 @@ class MorpheusHelpInvocationsParseTest {
                 return "change";
             case "--start-type":
                 return "PROJECT";
+            case "--source-type", "--target-type":
+                return "REQUIREMENT";
+            case "--state":
+                return "FRESH";
             case "--rules":
                 return "new|No findings|QUALITY_THRESHOLD|BLOCKER|FINDINGS|LTE|0";
             case "--tls-keystore", "--file":

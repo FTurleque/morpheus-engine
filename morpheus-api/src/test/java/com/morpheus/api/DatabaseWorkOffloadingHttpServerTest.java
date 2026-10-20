@@ -209,7 +209,10 @@ class DatabaseWorkOffloadingHttpServerTest {
 
         server.stop(0);
 
-        assertThrows(RejectedExecutionException.class, () -> handler.handle(null));
+        RejectedExecutionException failure =
+                assertThrows(RejectedExecutionException.class, () -> handler.handle(null));
+        assertTrue(failure.getMessage().contains("rejected from") && failure.getMessage().contains("Terminated"),
+                () -> "the pool of a stopped server must be the one that refused: " + failure.getMessage());
     }
 
     private HttpHandler offloaded(HttpHandler handler) {

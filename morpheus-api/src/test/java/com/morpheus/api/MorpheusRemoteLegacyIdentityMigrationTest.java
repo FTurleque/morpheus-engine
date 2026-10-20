@@ -107,8 +107,10 @@ class MorpheusRemoteLegacyIdentityMigrationTest {
         Path auth = legacyFile("reader|READ");
         MorpheusRemoteIdentityFile.create(auth, "admin", MorpheusRemoteRole.ADMIN, Instant.parse("2099-01-01T00:00:00Z"));
 
-        assertThrows(IllegalArgumentException.class, () ->
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () ->
                 MorpheusRemoteIdentityFile.migrateLegacyExpiry(auth, DEADLINE, Set.of(), false));
+
+        assertTrue(failure.getMessage().contains("no ADMIN identity active after"), failure.getMessage());
     }
 
     @Test
@@ -119,10 +121,12 @@ class MorpheusRemoteLegacyIdentityMigrationTest {
         Set<String> reader = Set.of("reader");
         Set<String> absent = Set.of("absent");
 
-        assertThrows(IllegalArgumentException.class,
+        IllegalArgumentException pastFailure = assertThrows(IllegalArgumentException.class,
                 () -> MorpheusRemoteIdentityFile.migrateLegacyExpiry(auth, past, reader, false));
-        assertThrows(IllegalArgumentException.class,
+        assertEquals("remote identity expiry must be in the future", pastFailure.getMessage());
+        IllegalArgumentException absentFailure = assertThrows(IllegalArgumentException.class,
                 () -> MorpheusRemoteIdentityFile.migrateLegacyExpiry(auth, DEADLINE, absent, true));
+        assertEquals("remote principal does not exist: absent", absentFailure.getMessage());
     }
 
     /** Migrating twice is a no-op, so an interrupted rollout can simply be run again. */

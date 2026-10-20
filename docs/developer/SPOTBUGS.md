@@ -61,8 +61,8 @@ deux propriétés **ensemble**, puis rejouer l'analyse complète (§ 4) et compa
 
 ## 3. Périmètre : modules analysés
 
-Le réacteur compte **18 modules** (19 projets avec le POM parent). **16** portent des classes sous `src/main/java` et
-sont tous analysés ; les deux autres n'ont aucune classe de production :
+Tous les modules que le POM racine déclare et qui portent des classes sous `src/main/java` sont analysés ; ceux qui
+n'en portent aucune sont nommés dans le tableau :
 
 | Module | Traitement | Raison |
 |---|---|---|

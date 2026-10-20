@@ -51,7 +51,11 @@ class MorpheusMcpServerContractTest {
         ByteArrayInputStream input = new ByteArrayInputStream(new byte[0]);
         ByteArrayOutputStream output = new ByteArrayOutputStream();
 
-        assertThrows(NullPointerException.class, () -> MorpheusMcpServer.build(database, null, output));
-        assertThrows(NullPointerException.class, () -> MorpheusMcpServer.build(database, input, null));
+        NullPointerException missingInput = assertThrows(
+                NullPointerException.class, () -> MorpheusMcpServer.build(database, null, output));
+        assertEquals("inputStream", missingInput.getMessage());
+        NullPointerException missingOutput = assertThrows(
+                NullPointerException.class, () -> MorpheusMcpServer.build(database, input, null));
+        assertEquals("outputStream", missingOutput.getMessage());
     }
 }

@@ -50,9 +50,12 @@ class BoundedStdioServerTransportProviderFailedSessionTest {
         Set<Thread> before = workerThreads();
 
         BoundedStdioServerTransportProvider provider = provider();
-        assertThrows(ExceptionInInitializerError.class, () -> provider.setSessionFactory(transport -> {
-            throw new ExceptionInInitializerError("tool registry failed to initialize");
-        }));
+        ExceptionInInitializerError failure = assertThrows(
+                ExceptionInInitializerError.class,
+                () -> provider.setSessionFactory(transport -> {
+                    throw new ExceptionInInitializerError("tool registry failed to initialize");
+                }));
+        assertEquals("tool registry failed to initialize", failure.getMessage());
 
         assertTrue(provider.awaitTermination(Duration.ofSeconds(5)));
         assertNoWorkerThreadsLeaked(before);
@@ -61,9 +64,10 @@ class BoundedStdioServerTransportProviderFailedSessionTest {
     @Test
     void theSingleSessionContractStillRejectsASecondFactory() {
         BoundedStdioServerTransportProvider provider = provider();
-        assertThrows(IllegalStateException.class, () -> provider.setSessionFactory(transport -> {
+        IllegalStateException first = assertThrows(IllegalStateException.class, () -> provider.setSessionFactory(transport -> {
             throw new IllegalStateException("first attempt failed");
         }));
+        assertEquals("first attempt failed", first.getMessage());
 
         IllegalStateException second = assertThrows(
                 IllegalStateException.class,

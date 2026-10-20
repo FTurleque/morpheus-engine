@@ -42,9 +42,15 @@ class ApiEnvelopeNullContractTest {
 
     @Test
     void apiFailureRefusesANullMessageCodeOrDetailsSoTheErrorPathCannotCarryOne() {
-        assertThrows(NullPointerException.class, () -> new ApiFailure(400, "BAD_REQUEST", null));
-        assertThrows(NullPointerException.class, () -> new ApiFailure(400, null, "message"));
-        assertThrows(NullPointerException.class, () -> new ApiFailure(400, "BAD_REQUEST", "message", null));
+        NullPointerException messageFailure =
+                assertThrows(NullPointerException.class, () -> new ApiFailure(400, "BAD_REQUEST", null));
+        assertEquals("message", messageFailure.getMessage());
+        NullPointerException codeFailure =
+                assertThrows(NullPointerException.class, () -> new ApiFailure(400, null, "message"));
+        assertEquals("code", codeFailure.getMessage());
+        NullPointerException detailsFailure =
+                assertThrows(NullPointerException.class, () -> new ApiFailure(400, "BAD_REQUEST", "message", null));
+        assertEquals("details", detailsFailure.getMessage());
     }
 
     @Test
@@ -63,14 +69,28 @@ class ApiEnvelopeNullContractTest {
 
     @Test
     void theSharedEnvelopeRecordsRejectEveryNullComponent() {
-        assertThrows(NullPointerException.class, () -> new MorpheusHttpServer.ApiSuccess(null, "data"));
-        assertThrows(NullPointerException.class, () -> new MorpheusHttpServer.ApiSuccess("v1", null));
-        assertThrows(NullPointerException.class, () -> new MorpheusHttpServer.ApiError(null, "m", Map.of()));
-        assertThrows(NullPointerException.class, () -> new MorpheusHttpServer.ApiError("CODE", null, Map.of()));
-        assertThrows(NullPointerException.class, () -> new MorpheusHttpServer.ApiError("CODE", "m", null));
-        assertThrows(NullPointerException.class, () -> new MorpheusHttpServer.ApiErrorEnvelope(null,
-                new MorpheusHttpServer.ApiError("CODE", "m", Map.of())));
-        assertThrows(NullPointerException.class, () -> new MorpheusHttpServer.ApiErrorEnvelope("v1", null));
+        NullPointerException successVersionFailure =
+                assertThrows(NullPointerException.class, () -> new MorpheusHttpServer.ApiSuccess(null, "data"));
+        assertEquals("apiVersion", successVersionFailure.getMessage());
+        NullPointerException successDataFailure =
+                assertThrows(NullPointerException.class, () -> new MorpheusHttpServer.ApiSuccess("v1", null));
+        assertEquals("data", successDataFailure.getMessage());
+        NullPointerException errorCodeFailure =
+                assertThrows(NullPointerException.class, () -> new MorpheusHttpServer.ApiError(null, "m", Map.of()));
+        assertEquals("code", errorCodeFailure.getMessage());
+        NullPointerException errorMessageFailure =
+                assertThrows(NullPointerException.class, () -> new MorpheusHttpServer.ApiError("CODE", null, Map.of()));
+        assertEquals("message", errorMessageFailure.getMessage());
+        NullPointerException errorDetailsFailure =
+                assertThrows(NullPointerException.class, () -> new MorpheusHttpServer.ApiError("CODE", "m", null));
+        assertEquals("details", errorDetailsFailure.getMessage());
+        NullPointerException envelopeVersionFailure = assertThrows(NullPointerException.class,
+                () -> new MorpheusHttpServer.ApiErrorEnvelope(null,
+                        new MorpheusHttpServer.ApiError("CODE", "m", Map.of())));
+        assertEquals("apiVersion", envelopeVersionFailure.getMessage());
+        NullPointerException envelopeErrorFailure =
+                assertThrows(NullPointerException.class, () -> new MorpheusHttpServer.ApiErrorEnvelope("v1", null));
+        assertEquals("error", envelopeErrorFailure.getMessage());
     }
 
     /** The second half of the tightening: {@code details} is copied, so a caller's later mutation cannot reach it. */
@@ -81,6 +101,8 @@ class ApiEnvelopeNullContractTest {
         mutable.put("added", "after");
 
         assertEquals(Map.of("field", "value"), error.details());
-        assertThrows(UnsupportedOperationException.class, () -> error.details().put("direct", "write"));
+        UnsupportedOperationException failure = assertThrows(UnsupportedOperationException.class,
+                () -> error.details().put("direct", "write"));
+        assertEquals("java.util.ImmutableCollections", failure.getStackTrace()[0].getClassName());
     }
 }

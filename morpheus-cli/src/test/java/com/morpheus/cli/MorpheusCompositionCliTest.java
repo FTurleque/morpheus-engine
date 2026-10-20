@@ -67,7 +67,7 @@ class MorpheusCompositionCliTest {
         Invocation misspelledAction = invokeWithData(
                 data, "composition", "statsu", "--project", projectId, "--revision", "r1");
         assertEquals(2, misspelledAction.exitCode(), misspelledAction.stderr());
-        assertTrue(misspelledAction.stderr().contains("unknown composition action: statsu"), misspelledAction.stderr());
+        assertTrue(misspelledAction.stderr().contains("unknown command: composition statsu"), misspelledAction.stderr());
         Invocation withoutIt = invokeWithData(data, "composition", "status", "--project", projectId);
         assertEquals(4, withoutIt.exitCode(), withoutIt.stderr());
         assertTrue(withoutIt.stderr().contains("project has no ACTIVE snapshot"), withoutIt.stderr());

@@ -153,17 +153,17 @@ class NothingIsCreatedBeforeTheOptionsAreAcceptedTest {
     Stream<DynamicTest> anUnknownOrMissingActionIsRefusedBeforeTheStoreIsOpened() {
         Map<List<String>, String> invocations = new java.util.LinkedHashMap<>();
         invocations.put(List.of("policy", "evaluate", "--project", P, "--id", ""), "--id requires a non-blank value");
-        invocations.put(List.of("policy", "frobnicate", "--id", "x"), "unknown policy action: frobnicate");
-        invocations.put(List.of("policy", "pack", "frobnicate"), "unknown policy action: pack-frobnicate");
-        invocations.put(List.of("query", "frobnicate", "--entity", "change"), "query requires action execute");
+        invocations.put(List.of("policy", "frobnicate", "--id", "x"), "unknown command: policy frobnicate");
+        invocations.put(List.of("policy", "pack", "frobnicate"), "unknown command: policy pack frobnicate");
+        invocations.put(List.of("query", "frobnicate", "--entity", "change"), "unknown command: query frobnicate");
         invocations.put(List.of("query", "--entity", "change"), "query requires action execute");
-        invocations.put(List.of("views", "frobnicate", "--id", "x"), "unknown views action: frobnicate");
+        invocations.put(List.of("views", "frobnicate", "--id", "x"), "unknown command: views frobnicate");
         invocations.put(List.of("views", "--id", "x"), "views requires an action");
-        invocations.put(List.of("export", "frobnicate", "--format", "json"), "unknown export action: frobnicate");
+        invocations.put(List.of("export", "frobnicate", "--format", "json"), "unknown command: export frobnicate");
         invocations.put(List.of("export", "--format", "json"), "export requires query or view");
         invocations.put(List.of("export", "view", "--format", "yaml", "--id", "x"), "--format must be json, csv or markdown");
         invocations.put(List.of("portfolio", "list", "--projet", "x"), "unknown option: --projet");
-        invocations.put(List.of("portfolio", "frobnicate"), "unknown portfolio action: frobnicate");
+        invocations.put(List.of("portfolio", "frobnicate"), "unknown command: portfolio frobnicate");
         return GeneratedCases.nonEmpty("anUnknownOrMissingActionIsRefusedBeforeTheStoreIsOpened",
                 invocations.entrySet().stream().map(invocation -> DynamicTest.dynamicTest(
                 String.join(" ", invocation.getKey()), () -> {
@@ -256,7 +256,8 @@ class NothingIsCreatedBeforeTheOptionsAreAcceptedTest {
     Stream<DynamicTest> everyActionOfATableHasACaseThatExecutesIt() {
         List<DynamicTest> tests = new ArrayList<>();
         MorpheusPolicyCli.ACTION_OPTIONS.keySet().stream().sorted().forEach(action -> tests.add(dispatch(
-                "policy", action)));
+                Stream.concat(Stream.of("policy"), Stream.of(action.matches("(pack|override)-.*") ? action.split("-", 2) : new String[] {action}))
+                        .toArray(String[]::new))));
         MorpheusQueryCli.VIEW_ACTION_OPTIONS.keySet().stream().sorted().forEach(action -> tests.add(dispatch(
                 "views", action)));
         MorpheusQueryCli.EXPORT_ACTION_OPTIONS.keySet().stream().sorted().forEach(action -> tests.add(dispatch(

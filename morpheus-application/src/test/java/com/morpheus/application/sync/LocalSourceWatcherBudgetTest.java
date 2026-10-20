@@ -33,8 +33,9 @@ class LocalSourceWatcherBudgetTest {
                 1024,
                 1024 * 100L);
 
-        assertThrows(IOException.class,
+        IOException failure = assertThrows(IOException.class,
                 () -> new LocalSourceWatcher(tempDir, List.of(Path.of("specs")), policy, OperationalRecorder.noop()));
+        assertEquals("watched directory budget exceeds 2", failure.getMessage());
     }
 
     /**
@@ -72,8 +73,10 @@ class LocalSourceWatcherBudgetTest {
                 1024,
                 1024 * 100L);
 
-        assertThrows(IOException.class,
+        IOException failure = assertThrows(IOException.class,
                 () -> new LocalSourceWatcher(
                         tempDir, List.of(Path.of("one/two/three")), policy, OperationalRecorder.noop()));
+        assertTrue(failure.getMessage().startsWith("watched root exceeds source scan depth budget: "),
+                failure::getMessage);
     }
 }

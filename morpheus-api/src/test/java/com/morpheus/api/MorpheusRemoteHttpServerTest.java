@@ -247,7 +247,7 @@ class MorpheusRemoteHttpServerTest {
         Path keyStore = temp.resolve("oversized.p12");
         Files.write(keyStore, new byte[MorpheusRemoteHttpServer.MAX_KEYSTORE_BYTES + 1]);
 
-        assertThrows(IllegalArgumentException.class, () -> MorpheusRemoteHttpServer.start(
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> MorpheusRemoteHttpServer.start(
                 temp.resolve("oversized.db"),
                 temp.resolve("oversized-backups"),
                 temp.resolve("oversized-plugins"),
@@ -262,6 +262,8 @@ class MorpheusRemoteHttpServerTest {
                 () -> new ExternalIntegrationStatus("MINOS", "DISABLED", false, "test", Map.of()),
                 new DisabledTechnicalContextProvider("NEXUS", "test"),
                 project -> ChangeWriteCapabilityObservation.denied("test"), OperationalRuntime.of(OperationalLogMode.OFF)));
+        assertEquals("workspace file exceeds maximum input size of " + MorpheusRemoteHttpServer.MAX_KEYSTORE_BYTES
+                + " bytes: oversized.p12", failure.getMessage());
     }
 
     @Test

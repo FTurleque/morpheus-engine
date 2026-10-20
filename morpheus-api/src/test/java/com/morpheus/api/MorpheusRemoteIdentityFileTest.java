@@ -133,25 +133,31 @@ class MorpheusRemoteIdentityFileTest {
     @Test
     void rejectsPastExpiryAtCredentialCreation() {
         Path auth = temp.resolve("past-auth.txt");
-        assertThrows(IllegalArgumentException.class,
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
                 () -> MorpheusRemoteIdentityFile.create(
                         auth, "alice", MorpheusRemoteRole.READ, Instant.parse("2000-01-01T00:00:00Z")));
+        assertEquals("remote identity expiry must be in the future", failure.getMessage());
     }
 
     @Test
     void duplicatePrincipalAndMalformedHashesFailClosed() throws Exception {
         Path auth = temp.resolve("remote-auth.txt");
         MorpheusRemoteIdentityFile.create(auth, "alice", MorpheusRemoteRole.READ);
-        assertThrows(IllegalArgumentException.class,
+        IllegalArgumentException duplicateFailure = assertThrows(IllegalArgumentException.class,
                 () -> MorpheusRemoteIdentityFile.create(auth, "alice", MorpheusRemoteRole.ADMIN));
+        assertEquals("remote principal already exists: alice", duplicateFailure.getMessage());
 
         Path malformed = temp.resolve("malformed.txt");
         Files.writeString(malformed, "bob|READ|not-a-hash\n");
-        assertThrows(IllegalArgumentException.class, () -> MorpheusRemoteIdentityFile.load(malformed));
+        IllegalArgumentException hashFailure =
+                assertThrows(IllegalArgumentException.class, () -> MorpheusRemoteIdentityFile.load(malformed));
+        assertEquals("invalid token SHA-256 at line 1", hashFailure.getMessage());
 
         Path malformedExpiry = temp.resolve("malformed-expiry.txt");
         Files.writeString(malformedExpiry, "bob|READ|" + "0".repeat(64) + "|tomorrow\n");
-        assertThrows(IllegalArgumentException.class, () -> MorpheusRemoteIdentityFile.load(malformedExpiry));
+        IllegalArgumentException expiryFailure =
+                assertThrows(IllegalArgumentException.class, () -> MorpheusRemoteIdentityFile.load(malformedExpiry));
+        assertEquals("invalid remote identity expiry at line 1", expiryFailure.getMessage());
     }
 
     @Test
@@ -175,7 +181,11 @@ class MorpheusRemoteIdentityFileTest {
         Path auth = temp.resolve("invalid-utf8.txt");
         Files.write(auth, new byte[]{(byte) 0xC3, 0x28});
 
-        assertThrows(IllegalArgumentException.class, () -> MorpheusRemoteIdentityFile.load(auth));
+        IllegalArgumentException failure =
+                assertThrows(IllegalArgumentException.class, () -> MorpheusRemoteIdentityFile.load(auth));
+        assertEquals("cannot read remote auth file", failure.getMessage());
+        assertTrue(failure.getCause().getMessage().startsWith("workspace file is not valid UTF-8"),
+                () -> "the file must be refused for its encoding: " + failure.getCause().getMessage());
     }
 
     @Test
@@ -192,7 +202,9 @@ class MorpheusRemoteIdentityFileTest {
             return;
         }
 
-        assertThrows(IllegalArgumentException.class, () -> MorpheusRemoteIdentityFile.load(link));
+        IllegalArgumentException failure =
+                assertThrows(IllegalArgumentException.class, () -> MorpheusRemoteIdentityFile.load(link));
+        assertEquals("remote auth file must not be a symbolic link", failure.getMessage());
     }
 
     @Test

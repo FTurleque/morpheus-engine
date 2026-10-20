@@ -59,8 +59,10 @@ class RemoteIdentityFileStoreTest {
     void aFailedWriteLeavesNoTemporaryFileBehind() throws IOException {
         Path file = temp.resolve("auth.txt");
 
-        assertThrows(IllegalArgumentException.class,
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
                 () -> RemoteIdentityFileStore.writeAtomically(file, "x".repeat(RemoteIdentityFileStore.MAX_FILE_BYTES + 1)));
+        assertEquals("remote auth file would exceed " + RemoteIdentityFileStore.MAX_FILE_BYTES + " bytes",
+                failure.getMessage());
 
         try (var entries = Files.list(temp)) {
             assertTrue(entries.noneMatch(entry -> entry.getFileName().toString().startsWith(".morpheus-auth-")));
@@ -89,8 +91,10 @@ class RemoteIdentityFileStoreTest {
         String multibyte = "é".repeat(RemoteIdentityFileStore.MAX_FILE_BYTES / 2 + 1);
 
         assertTrue(multibyte.length() <= RemoteIdentityFileStore.MAX_FILE_BYTES);
-        assertThrows(IllegalArgumentException.class,
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
                 () -> RemoteIdentityFileStore.writeAtomically(file, multibyte));
+        assertEquals("remote auth file would exceed " + RemoteIdentityFileStore.MAX_FILE_BYTES + " bytes",
+                failure.getMessage());
     }
 
     @Test
@@ -227,12 +231,18 @@ class RemoteIdentityFileStoreTest {
 
     @Test
     void absentArgumentsAreRefusedRatherThanDefaulted() {
-        assertThrows(NullPointerException.class, () -> RemoteIdentityFileStore.normalizedFile(null));
-        assertThrows(NullPointerException.class, () -> RemoteIdentityFileStore.exists(null));
-        assertThrows(NullPointerException.class,
+        NullPointerException authFileFailure =
+                assertThrows(NullPointerException.class, () -> RemoteIdentityFileStore.normalizedFile(null));
+        assertEquals("authFile", authFileFailure.getMessage());
+        NullPointerException fileFailure =
+                assertThrows(NullPointerException.class, () -> RemoteIdentityFileStore.exists(null));
+        assertEquals("file", fileFailure.getMessage());
+        NullPointerException contentFailure = assertThrows(NullPointerException.class,
                 () -> RemoteIdentityFileStore.writeAtomically(temp.resolve("auth.txt"), null));
-        assertThrows(NullPointerException.class,
+        assertEquals("content", contentFailure.getMessage());
+        NullPointerException workFailure = assertThrows(NullPointerException.class,
                 () -> RemoteIdentityFileStore.withMutationLock(temp.resolve("auth.txt"), null));
+        assertEquals("work", workFailure.getMessage());
     }
 
     /** Windows without the developer-mode privilege cannot create one; the invariant is still asserted elsewhere. */
