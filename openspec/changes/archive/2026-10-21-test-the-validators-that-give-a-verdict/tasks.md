@@ -220,7 +220,8 @@ branch `python -m unittest discover -s scripts/tests` ran 521 cases, 1 class ski
     `failure-summary.txt`.
   - 2026-10-15: `scripts/README.md` says what a launch is now, what `LAUNCHED_BY_HAND` holds, how a declaration is
     checked, and which validators the nightly lane runs. No sentence of `.claude/rules` described the old state.
-- [ ] 4.5 Pull request description: the finding, the tables of 1.1 and 1.2, the validators corrected, the excuses and
+- [x] 4.5 Pull request description: the finding, the tables of 1.1 and 1.2, the validators corrected, the excuses and
       their reasons, the justification of the test added under `morpheus-architecture-tests/` and of the workflow edit.
-  - 2026-10-18: drafted in `pull-request-description.md`; **pending**, a pull request has to exist first.
+  - 2026-10-18: drafted in `pull-request-description.md`.
+  - 2026-10-21: opened as pull request 520 with that description, merged.
   - 2026-10-13: no pull request opened.

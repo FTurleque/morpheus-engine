@@ -36,11 +36,12 @@
 
 ## 4. Verification and destinations
 
-- [ ] 4.1 `./mvnw clean verify` on Windows and on Linux (the pull request's required checks). Proof: green on both.
+- [x] 4.1 `./mvnw clean verify` on Windows and on Linux (the pull request's required checks). Proof: green on both.
+  - 2026-10-21: pull request 522, `exact-head` green on both platforms on head `06c7d226` before the merge.
 - [x] 4.2 If the presence ratchets are raised, raise them from the executions measured on both platforms and follow
       `coverage-ratchet` and `live-numbers`; run `RepositoryDocumentationCoherenceTest` and
       `ProductionIntegrityContractTest` and let their failures name the destinations.
 - [x] 4.3 One sentence in the developer documentation of the store and one step in
       `docs/project/validation/RELEASE_QUALIFICATION.md`: a release declares its level in the version that follows it.
-- [ ] 4.4 Pull request description: the finding, the table of 1.1, what the level-15 run found, and the limit of the
+- [x] 4.4 Pull request description: the finding, the table of 1.1, what the level-15 run found, and the limit of the
       proof (rows written by the test, not by the released program).
