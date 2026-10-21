@@ -12,11 +12,19 @@ changes of sprints 6, 7 and 13. Nothing below is done by the pull request that i
 - [x] 1.2 Read `M19PerformanceGate`'s inventory-scan metric on the unchanged code, on Windows and on Linux, and the
       depth of its fixture. Proof: the two figures and the depth; if the fixture is shallow, say that M19 cannot show
       the saving and that the count test is the proof.
-- [ ] 1.3 Decision 3, option (b): on Windows and on Linux, compare the real path of a scanned file with the physical
+- [x] 1.3 Decision 3, option (b): on Windows and on Linux, compare the real path of a scanned file with the physical
       workspace root followed by the walker's relative path, for an ordinary tree, a root given in another letter
       case, an 8.3 short name, a substituted drive, a junction or mount above the workspace root, and a link at each
       level below it. Proof: the table of cases, equal or different, per platform. One legitimate case that differs
       rejects (b) and the lot implements (a).
+      Result, measured on 2026-10-21 with `Path.toRealPath`, equal unless said:
+      Windows - ordinary tree, root in another letter case, root given as an 8.3 short name, root on a `subst` drive,
+      symbolic link above the root and junction above the root: **equal**; a junction below the root, to a place inside
+      the workspace or outside it: **different** (the junction is not a symbolic link for Java; by reading the check, which
+      this measurement did not run, it accepts the first and refuses the second, and the walker does not descend into
+      either);
+      Linux (WSL) - ordinary tree and a symbolic link above the root: equal; a link at a file: different.
+      A legitimate case differs, so (b) is rejected and (a) stays, as implemented.
 - [x] 1.4 List the call sites of `WorkspacePathBoundary` in the scanner and the watcher. Proof: the list with line
       numbers (ten on 2026-10-13: four in the scanner, six in the watcher), re-measured.
 
@@ -52,7 +60,7 @@ changes of sprints 6, 7 and 13. Nothing below is done by the pull request that i
 - [x] 4.2 `IntermediateSymlinkBoundaryTest`, `LocalSourceInventorySecurityTest`, `SourceInventoryScanDisclosureTest`,
       `LocalSourceWatcherBudgetTest`. Proof: green unmodified.
 - [x] 4.3 M19: `scripts\validate.cmd m19` and its `.sh` twin. Proof: the inventory-scan figure before (1.2) and after.
-- [ ] 4.4 Run the filter of `.claude/skills/adr-author`. Proof: its answer in the pull request. No ADR if the three
+- [x] 4.4 Run the filter of `.claude/skills/adr-author`. Proof: its answer in the pull request. No ADR if the three
       first requirements hold as written; an ADR and a paragraph of `SECURITY.md` if open question 1 was answered yes.
-- [ ] 4.5 Pull request description: the finding, the two points where this change departs from its remedy (line 39,
+- [x] 4.5 Pull request description: the finding, the two points where this change departs from its remedy (line 39,
       the second call per file), the counts of 1.1 before and after, the table of 1.3.

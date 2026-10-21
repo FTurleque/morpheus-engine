@@ -43,5 +43,5 @@ Implementation is a separate lot, started after this specification is reviewed a
       `TraceabilityTruncationContractTest` and `IncrementalSyncPersistenceContractTest`. Proof: green unmodified.
 - [x] 4.3 M19: `scripts\validate.cmd m19` and its `.sh` twin. Proof: the traceability budget holds; figures before and
       after in the pull request.
-- [ ] 4.4 Pull request description: the two findings, the half of `AUD-PRF-13` already held by `policy-audit-order`,
+- [x] 4.4 Pull request description: the two findings, the half of `AUD-PRF-13` already held by `policy-audit-order`,
       the plans of 1.2, and the `listSnapshots` observation of the design as a separate item.
