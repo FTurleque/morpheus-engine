@@ -1,5 +1,7 @@
 # ADR-0013 — Modéliser le cycle de vie d'un changement comme machine d'état explicite
 
+> Lecture : à lire avec [ADR-0032](0032-explicit-change-lifecycle-state-machine.md) (la machine d'état opérationnalisée) et [ADR-0078](0078-explicit-lifecycle-and-tristate-transition-evaluation.md) (l'évaluation tri-state d'une transition). (note éditoriale du 21 octobre 2026 : le texte de la décision n'est pas modifié)
+
 - Statut : **Acceptée avec contraintes — M0**
 - Date : 22 juillet 2026
 - Portée : domaine, validation, providers, orchestration future

@@ -111,4 +111,4 @@ Les tests utilisent un vrai `HttpServer` loopback + `java.net.http.HttpClient` e
 
 La spécification OpenAPI 3.1 est publiée dans `docs/developer/reference/openapi/morpheus-v1.yaml`.
 
-Décision : **ADR-0066 ACCEPTÉE — M11**. Voir `docs/VALIDATION_M11.md`.
+Décision : **ADR-0066 ACCEPTÉE — M11**. Voir `docs/project/validation/VALIDATION_M11.md`.

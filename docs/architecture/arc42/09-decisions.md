@@ -4,9 +4,9 @@ Les ADR produit sont stockés dans [`../adr/`](../adr/). Cette section
 fournit une vue architecturale synthétique ; le contenu de chaque ADR reste la
 source autoritative de sa décision, de son statut et de ses preuves.
 
-La baseline 1.2.0 contient les ADR **ADR-0001 à ADR-0096**. L'index
-`docs/architecture/adr/README.md` est un document de navigation historique et peut être
-réconcilié séparément lorsqu'il accuse un retard sur les fichiers ADR présents.
+Cette section est une synthèse par thème, pas l'index complet. La baseline 1.2.0 porte les ADR
+**ADR-0001 à ADR-0096** (9.1 à 9.3) ; ceux qui la suivent sont en 9.5. L'index de tous les ADR, avec leur statut, est
+`docs/architecture/adr/README.md` ; `AdrIndexCoherenceTest` vérifie qu'il correspond aux fichiers.
 
 ---
 
@@ -51,6 +51,11 @@ réconcilié séparément lorsqu'il accuse un retard sur les fichiers ADR prése
 
 | Milestone | Décision structurante | ADR |
 |-----------|------------------------|-----|
+| M14 | Lifecycle explicite et évaluation de transition tri-state | [ADR-0078](../adr/0078-explicit-lifecycle-and-tristate-transition-evaluation.md) |
+| M14 | État d'orchestration non destructif | [ADR-0079](../adr/0079-nondestructive-change-orchestration-state.md) |
+| M14 | Surfaces d'orchestration et client JARVIS optionnel | [ADR-0080](../adr/0080-jarvis-orchestration-surfaces-and-optional-client.md) |
+| M15 | Critères d'acceptation et statut de vérification | [ADR-0081](../adr/0081-first-class-acceptance-verification-evidence.md) |
+| M16 | Sémantique des contraintes et politique de blocage | [ADR-0082](../adr/0082-explicit-constraint-semantics-and-blocking-policy.md) |
 | M17 | Controlled lifecycle writes | [ADR-0083](../adr/0083-controlled-lifecycle-write-operations.md) |
 | M18 | Composition multi-provider | [ADR-0084](../adr/0084-provider-neutral-multi-provider-composition.md) |
 | M19 | Budgets de performance | [ADR-0085](../adr/0085-predeclared-performance-budgets-and-deterministic-large-fixtures.md) |
@@ -82,9 +87,40 @@ faire l'objet d'un nouvel ADR.
 
 ---
 
-## 9.5 Prochaine décision
+## 9.5 Décisions postérieures à la baseline 1.2.0
 
-Aucun ADR-0097 n'est présupposé par cette documentation. Les sujets futurs
+Décisions du durcissement qui a suivi la baseline (audit 1.2.1 et travaux postérieurs). Elles sont toutes acceptées ;
+ADR-0117 remplace en partie la section « Sync M7 » d'ADR-0060.
+
+| Sujet | ADR |
+|-------|-----|
+| Sémantique de version d'une publication complète et candidats en échec | [ADR-0097](../adr/0097-full-publish-version-semantics-and-failed-candidates.md) |
+| Le runtime embarqué conserve son lanceur Java | [ADR-0098](../adr/0098-embedded-runtime-retains-its-java-launcher.md) |
+| Durée de vie bornée d'une réponse de la façade remote | [ADR-0099](../adr/0099-bounded-response-lifetime-on-the-remote-facade.md) |
+| L'audit d'identités est une preuve, pas une autorité | [ADR-0100](../adr/0100-identity-audit-is-evidence-not-authority.md) |
+| Le code externe approuvé est du code de confiance, non sandboxé | [ADR-0101](../adr/0101-external-code-is-trusted-code-not-sandboxed-code.md) |
+| Contrat d'échec MCP unique | [ADR-0102](../adr/0102-mcp-failure-contract-is-one-rule.md) |
+| Assertion textuelle ou règle ArchUnit | [ADR-0103](../adr/0103-textual-assertions-and-archunit-rules-enforce-different-things.md) |
+| Deux échelles de couverture, une population | [ADR-0104](../adr/0104-two-coverage-scales-share-one-population.md) |
+| Pas de coffre de secrets | [ADR-0105](../adr/0105-no-secret-vault-no-reusable-secret-at-rest.md) |
+| Borne entrante défensive, borne sortante défaut | [ADR-0106](../adr/0106-inbound-bound-is-defensive-outbound-bound-is-a-defect.md) |
+| Vocabulaire unique d'une réponse paginée | [ADR-0107](../adr/0107-one-vocabulary-for-a-paginated-response.md) |
+| Une réponse dit ce qu'elle n'a pas pu observer | [ADR-0108](../adr/0108-a-response-says-what-it-could-not-observe.md) |
+| Adaptateurs de transport : racines de composition nommées | [ADR-0109](../adr/0109-transport-adapters-are-named-composition-roots.md) |
+| Copie de la base avant l'avance du schéma | [ADR-0110](../adr/0110-a-copy-is-kept-before-the-schema-advances.md) |
+| Un seul binding de journalisation | [ADR-0111](../adr/0111-the-product-ships-one-logging-binding-its-own.md) |
+| Journal opérationnel borné | [ADR-0112](../adr/0112-the-logs-directory-holds-a-bounded-operational-log.md) |
+| Journal d'accès du serveur remote | [ADR-0113](../adr/0113-the-remote-server-records-who-was-authorized-to-do-what.md) |
+| Pool borné de threads plateforme pour la base | [ADR-0114](../adr/0114-database-work-runs-on-a-bounded-pool-of-platform-threads.md) |
+| Runtime opérationnel passé comme valeur | [ADR-0115](../adr/0115-the-operational-runtime-is-a-value-the-launcher-hands-on.md) |
+| Journaux conservés et lus par pages | [ADR-0116](../adr/0116-the-journals-are-kept-and-read-by-pages.md) |
+| Le reçu d'un sync dit ce qui a été exécuté | [ADR-0117](../adr/0117-the-sync-receipt-says-what-was-executed.md) |
+
+---
+
+## 9.6 Prochaine décision
+
+Aucun ADR au-delà du plus haut numéro du registre n'est présupposé par cette documentation. Les sujets futurs
 (stockage alternatif, IAM entreprise, nouvelle API majeure, changement de
 système de build, etc.) restent des **candidats** et ne deviennent des décisions
 qu'après besoin démontré, ADR dédié et qualification.

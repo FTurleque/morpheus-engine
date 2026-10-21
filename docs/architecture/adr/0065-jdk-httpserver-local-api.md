@@ -83,4 +83,4 @@ Portable archive creation: PASS
 
 Le smoke démarre le launcher packagé sur un port loopback éphémère et obtient `200` sur `/api/v1/health`.
 
-Décision : **ADR-0065 ACCEPTÉE — M11**. Voir `docs/VALIDATION_M11.md`.
+Décision : **ADR-0065 ACCEPTÉE — M11**. Voir `docs/project/validation/VALIDATION_M11.md`.

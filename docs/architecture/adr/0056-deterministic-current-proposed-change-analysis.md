@@ -1,5 +1,7 @@
 # ADR-0056 — Analyse déterministe CURRENT / proposé des changements
 
+> Lecture : à lire avec [ADR-0081](0081-first-class-acceptance-verification-evidence.md) (le modèle y gagne `AcceptanceCriterion`). (note éditoriale du 21 octobre 2026 : le texte de la décision n'est pas modifié)
+
 - Statut : **Acceptée — M8**
 - Date : 24 juillet 2026
 - Dépend de : ADR-0006, ADR-0025, ADR-0034, ADR-0044, ADR-0049

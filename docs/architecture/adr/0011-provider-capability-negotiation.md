@@ -1,5 +1,7 @@
 # ADR-0011 — Sélectionner les providers par capacités et non par type de source uniquement
 
+> Lecture : à lire avec [ADR-0084](0084-provider-neutral-multi-provider-composition.md) (la composition multi-provider, différée ici, est décidée). (note éditoriale du 21 octobre 2026 : le texte de la décision n'est pas modifié)
+
 - Statut : **Acceptée — M0**
 - Date : 22 juillet 2026
 - Portée : providers, registry, orchestration d'ingestion

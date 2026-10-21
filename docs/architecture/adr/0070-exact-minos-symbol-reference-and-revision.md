@@ -66,4 +66,4 @@ MINOS Integration                      8/8 PASS
 Maven total                          331/331 PASS
 ```
 
-Voir `docs/VALIDATION_M12.md`.
+Voir `docs/project/validation/VALIDATION_M12.md`.

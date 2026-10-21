@@ -1,5 +1,7 @@
 # ADR-0076 — Runtime et surfaces NEXUS optionnels
 
+> Lecture : le défaut du lanceur Java de cette décision est remplacé par l'amendement du 13 octobre 2026, en fin de document. (note éditoriale du 21 octobre 2026 : le texte de la décision n'est pas modifié)
+
 - Statut : **Acceptée — M13**
 - Date : 24 juillet 2026
 - Dépend de : ADR-0059, ADR-0063, ADR-0066, ADR-0073, ADR-0075

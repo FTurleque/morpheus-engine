@@ -45,7 +45,7 @@ rewrite reads of the same tables are merged. Nothing below is done by the pull r
       indexes in `SqliteSchemaMigrationTest` into assertions of absence. Proof: 2.1, 2.2 and 2.4 pass.
 - [x] 3.3 Time one full publication on the M19 large fixture before and after. Proof: the two figures; the bulk inserts
       into the three projection tables that lost an index do not cost more.
-- [ ] 3.4 Extend the plan guard to the statements of 1.3 whose index changed name, then, as a second lot, to the list
+- [x] 3.4 Extend the plan guard to the statements of 1.3 whose index changed name, then, as a second lot, to the list
       of 1.2, each remaining sort listed with its reason. Proof: the guard is green and its list has no entry without
       a reason.
 - [x] 3.5 Break each rule once, then revert: re-create one dropped index in a scratch migration (2.1 fails and names
@@ -61,10 +61,10 @@ rewrite reads of the same tables are merged. Nothing below is done by the pull r
       can be named.
 - [x] 4.3 `./mvnw clean verify` on Windows and on Linux; the changed-line coverage gate. Proof: green; no ratchet of
       `config/m21-quality-ratchets.properties` is touched.
-- [ ] 4.4 Run the filter of `.claude/skills/adr-author`. Proof: its answer in the pull request; recommendation of the
+- [x] 4.4 Run the filter of `.claude/skills/adr-author`. Proof: its answer in the pull request; recommendation of the
       design is that no ADR is needed.
 - [x] 4.5 M19: `scripts\validate.cmd m19` and its `.sh` twin. Proof: the publication and query budgets hold; the
       figures before and after are in the pull request.
-- [ ] 4.6 Pull request description: the three findings, the list of 1.1 with the audit's count beside it, the plan
+- [x] 4.6 Pull request description: the three findings, the list of 1.1 with the audit's count beside it, the plan
       table of 1.2 and 1.3, and the justification required for a change under `morpheus-architecture-tests/` if 3.2
       touches one.

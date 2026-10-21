@@ -1,5 +1,7 @@
 # ADR-0008 — Le cœur MORPHEUS est read-first ; l'écriture est une capacité séparée
 
+> Lecture : à lire avec [ADR-0083](0083-controlled-lifecycle-write-operations.md) (mutations contrôlées du cycle de vie, qui dépend de cette décision). (note éditoriale du 21 octobre 2026 : le texte de la décision n'est pas modifié)
+
 - Statut : **Acceptée — M0**
 - Date : 22 juillet 2026
 - Dépend de : ADR-0001, ADR-0002
