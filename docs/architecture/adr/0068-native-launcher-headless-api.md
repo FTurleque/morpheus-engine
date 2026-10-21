@@ -101,4 +101,4 @@ N:\workspace-dev\morpheus-engine\dist\morpheus-0.1.0-windows-x64.zip
 
 Le ZIP contient son runtime Java, MCP STDIO et l'API HTTP ; aucun JDK séparé n'est nécessaire côté utilisateur final.
 
-Décision : **ADR-0068 ACCEPTÉE — M11**. Voir `docs/VALIDATION_M11.md`.
+Décision : **ADR-0068 ACCEPTÉE — M11**. Voir `docs/project/validation/VALIDATION_M11.md`.

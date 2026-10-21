@@ -1,5 +1,7 @@
 # ADR-0039 — Dérivation déterministe de la traçabilité depuis le modèle normalisé
 
+> Lecture : à lire avec [ADR-0081](0081-first-class-acceptance-verification-evidence.md) (les relations `VERIFIED_BY` dérivées des critères d'acceptation). (note éditoriale du 21 octobre 2026 : le texte de la décision n'est pas modifié)
+
 - Statut : **Acceptée — M4**
 - Date : 23 juillet 2026
 - Dépend de : ADR-0022, ADR-0025, ADR-0037, ADR-0038

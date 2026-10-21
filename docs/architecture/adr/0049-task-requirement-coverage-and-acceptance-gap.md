@@ -1,5 +1,7 @@
 # ADR-0049 — Couverture task → requirement et gap explicite d'acceptance coverage
 
+> Lecture : à lire avec [ADR-0081](0081-first-class-acceptance-verification-evidence.md) (le critère d'acceptation y devient un type du modèle) et [ADR-0108](0108-a-response-says-what-it-could-not-observe.md) (le ratio d'une population vide). (note éditoriale du 21 octobre 2026 : le texte de la décision n'est pas modifié)
+
 - Statut : **Acceptée — M6**
 - Date : 23 juillet 2026
 - Dépend de : ADR-0037, ADR-0038, ADR-0039, ADR-0044, ADR-0048

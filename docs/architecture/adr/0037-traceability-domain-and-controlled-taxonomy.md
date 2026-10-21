@@ -1,5 +1,7 @@
 # ADR-0037 — Domaine de traçabilité et taxonomie contrôlée
 
+> Lecture : à lire avec [ADR-0081](0081-first-class-acceptance-verification-evidence.md) (les critères d'acceptation étendent la liste des types d'entité de traçabilité). (note éditoriale du 21 octobre 2026 : le texte de la décision n'est pas modifié)
+
 - Statut : **Acceptée — M4**
 - Date : 23 juillet 2026
 - Dépend de : ADR-0005, ADR-0009, ADR-0010, ADR-0012, ADR-0031, ADR-0033, ADR-0036

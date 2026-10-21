@@ -54,4 +54,4 @@ Architecture                                153/153 PASS
 Maven total                                 331/331 PASS
 ```
 
-Les preuves Memory, SQLite et reopen SQLite sont détaillées dans `docs/VALIDATION_M12.md`.
+Les preuves Memory, SQLite et reopen SQLite sont détaillées dans `docs/project/validation/VALIDATION_M12.md`.

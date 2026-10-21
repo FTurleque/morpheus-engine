@@ -1,5 +1,7 @@
 # ADR-0045 — Getters et listes métier déterministes sur snapshots publiés
 
+> Lecture : à lire avec [ADR-0081](0081-first-class-acceptance-verification-evidence.md) (`get_acceptance_criteria` y est exposé, ce qui lève la condition posée ici). (note éditoriale du 21 octobre 2026 : le texte de la décision n'est pas modifié)
+
 - Statut : **Acceptée — M5**
 - Date : 23 juillet 2026
 - Dépend de : ADR-0033, ADR-0034, ADR-0036, ADR-0043, ADR-0044

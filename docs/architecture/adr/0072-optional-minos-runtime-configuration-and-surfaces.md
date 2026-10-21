@@ -1,5 +1,7 @@
 # ADR-0072 — Configuration runtime et surfaces MINOS optionnelles
 
+> Lecture : le défaut du lanceur Java de cette décision est remplacé par l'amendement du 13 octobre 2026, en fin de document. (note éditoriale du 21 octobre 2026 : le texte de la décision n'est pas modifié)
+
 - Statut : **Acceptée — M12**
 - Date : 24 juillet 2026
 - Dépend de : ADR-0059, ADR-0063, ADR-0066, ADR-0069
@@ -88,7 +90,7 @@ Packaged API health smoke                      PASS
 Portable archive creation                      PASS
 ```
 
-Voir `docs/VALIDATION_M12.md`.
+Voir `docs/project/validation/VALIDATION_M12.md`.
 
 ## Amendement du 13 octobre 2026 — le lanceur Java du pair n'est plus cherché dans le `PATH`
 
