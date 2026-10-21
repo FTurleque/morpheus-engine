@@ -162,7 +162,7 @@ class SqliteQueryPlanGuardTest {
         return connection;
     }
 
-    private static List<String> problems(Connection connection, Guarded guarded) throws SQLException {
+    static List<String> problems(Connection connection, Guarded guarded) throws SQLException {
         Set<String> tables = tables(connection);
         List<String> flagged = new ArrayList<>();
         boolean searchTermSeen = guarded.searchTerm() == null;
