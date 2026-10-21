@@ -74,4 +74,4 @@ Le ZIP validé est :
 N:\workspace-dev\morpheus-engine\dist\morpheus-0.1.0-windows-x64.zip
 ```
 
-Validation détaillée : `docs/VALIDATION_M10.md`.
+Validation détaillée : `docs/project/validation/VALIDATION_M10.md`.

@@ -75,4 +75,4 @@ lifecycleState=UNAVAILABLE quand lifecycle non persisté
 ACTIVE/CURRENT conservés
 ```
 
-Validation détaillée : `docs/VALIDATION_M10.md`.
+Validation détaillée : `docs/project/validation/VALIDATION_M10.md`.

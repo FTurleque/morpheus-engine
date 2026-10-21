@@ -71,7 +71,7 @@ JARVIS jarvis-core: 536 tests, 0 failure, 0 error, 16 skipped
 MorpheusOrchestrationClientTest 6/6 PASS
 ```
 
-Validation : `docs/VALIDATION_M14.md`.
+Validation : `docs/project/validation/VALIDATION_M14.md`.
 
 ## Critères d'acceptation
 

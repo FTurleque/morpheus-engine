@@ -1,5 +1,7 @@
 # ADR-0048 — Findings de qualité explicables et couverture de traçabilité des requirements
 
+> Lecture : à lire avec [ADR-0108](0108-a-response-says-what-it-could-not-observe.md) (le ratio d'une population vide). (note éditoriale du 21 octobre 2026 : le texte de la décision n'est pas modifié)
+
 - Statut : **Acceptée — M6**
 - Date : 23 juillet 2026
 - Dépend de : ADR-0033, ADR-0034, ADR-0037, ADR-0038, ADR-0042, ADR-0043

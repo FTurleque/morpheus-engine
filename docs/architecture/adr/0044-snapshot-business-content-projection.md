@@ -1,5 +1,7 @@
 # ADR-0044 — Projection métier requêtable snapshot-scoped
 
+> Lecture : à lire avec [ADR-0081](0081-first-class-acceptance-verification-evidence.md) (la projection porte aussi les critères d'acceptation). (note éditoriale du 21 octobre 2026 : le texte de la décision n'est pas modifié)
+
 - Statut : **Acceptée — M5**
 - Date : 23 juillet 2026
 - Dépend de : ADR-0022, ADR-0030, ADR-0034, ADR-0036, ADR-0043

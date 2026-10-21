@@ -1,5 +1,7 @@
 # ADR-0030 — Introduire la persistance métier normalisée avec M3
 
+> Lecture : à lire avec [ADR-0034](0034-versioned-requirement-persistence.md) (la persistance versionnée des requirements) et [ADR-0044](0044-snapshot-business-content-projection.md) (la projection des autres familles métier). (note éditoriale du 21 octobre 2026 : le texte de la décision n'est pas modifié)
+
 - Statut : **Acceptée — M2**
 - Date : 22 juillet 2026
 - Dépend de : ADR-0003, ADR-0006, ADR-0012, ADR-0018, ADR-0021, ADR-0022, ADR-0023, ADR-0025
