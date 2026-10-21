@@ -40,6 +40,8 @@ Le build produit un SBOM CycloneDX. Les artefacts release sont accompagnés de S
 
 La découverte d’une version disponible est un service read-only. Elle n’est exécutée que sur demande explicite avec une URI de manifeste fournie par l’appelant. Aucun accès réseau n’est effectué au démarrage. Le service peut lire `file:`, `http:` ou `https:`. Il valide version, channel, URI d’artefact et SHA-256, puis compare la version cible à la version courante. Il ne télécharge, n’installe et ne remplace aucun binaire.
 
+> Amendé le 21 octobre 2026 : le service lit `file:` et `https:` seulement ; `http:` est refusé avant tout accès réseau. Voir « Amendement du 21 octobre 2026 — la découverte de mise à jour lit `file:` et `https:` », en fin de document.
+
 ## Invariants
 
 ```text
@@ -186,3 +188,52 @@ l'audit du 9 octobre 2026).
 Les valeurs : elles vivent dans le fichier de ratchets et ne se recopient pas ici (`rules/meta.md`). Il ne réduit ni les
 fabriques ni leur matrice, et ne pose aucun plancher sur le nombre d'annotations des sources, qui n'est pas ce qui
 s'exécute.
+
+
+## Amendement du 21 octobre 2026 — la découverte de mise à jour lit `file:` et `https:`
+
+Le §7 dit que le service « peut lire `file:`, `http:` ou `https:` », et la validation d'acceptation compte la découverte
+`file:`/HTTP parmi les cas qui passent. Depuis le 26 août 2026 (commit `3dcefa091`), le code refuse `http:` avant tout
+accès réseau ; `docs/user/PRODUCT_INTEGRITY.md` et `.claude/rules/security.md` le disent. Le commit ne consigne pas la
+raison de ce refus. Cet amendement a été accepté le 21 octobre 2026 par le mainteneur du dépôt.
+
+### Décision
+
+1. **Le service lit un manifeste `file:` ou `https:`.** Un manifeste `http:` est refusé avant toute requête réseau
+   (« insecure update manifest scheme »), et tout autre schéma aussi (« unsupported update manifest scheme »).
+2. **Un manifeste `https:` est accepté sous un contrat fail-closed** : `artifactUri` en `https:`, `attestationUri`
+   présent et en `https:` (`UpdateManifest.requireRemoteDiscoveryContract`).
+3. **Un manifeste `file:` reste utilisable sans attestation**, pour les tests, la qualification packagée et les
+   diagnostics explicites. Il ne rend aucun artefact installable, et l'URI d'artefact qu'il annonce n'est jamais en
+   `http:` ni dans un autre schéma que `file:` ou `https:`.
+4. **Le reste du §7 est inchangé** : service read-only, exécuté sur demande explicite avec une URI fournie par
+   l'appelant, aucun accès réseau au démarrage, version, channel, URI d'artefact et SHA-256 validés, aucun
+   téléchargement, aucune installation, aucun remplacement de binaire.
+
+### Alternatives
+
+Analyse du 21 octobre 2026 ; ce ne sont pas des options étudiées à l'époque du §7.
+
+- **Ré-autoriser `http:`.** Écarté : un manifeste lu en clair n'offre aucune garantie d'intégrité de transport, alors que
+  la découverte porte un SHA-256 et une référence d'attestation qu'il faut pouvoir croire.
+- **Autoriser `http:` sur la seule boucle locale.** Écarté faute de besoin : les essais passent par `file:`.
+
+### Vérification
+
+| Contrainte | Contrôle | Couverture |
+|---|---|---|
+| `http:` refusé avant tout accès réseau | `ProductIntegrityTest#insecureHttpManifestIsRejectedBeforeAnyNetworkIo` | existe |
+| tout autre schéma refusé | `ProductIntegrityTest#unsupportedManifestSchemesAreRejectedBeforeAnyIo` | existe |
+| URI d'artefact en `http:` refusée, même pour un manifeste local | `ProductIntegrityTest#advertisedArtifactRejectsInsecureSchemesEvenForLocalDiscovery` | existe |
+| manifeste distant : artefact et attestation en `https:`, attestation obligatoire | `ProductIntegrityTest#remoteManifestRequiresHttpsArtifactAndAttestationReference`, `#remoteManifestRejectsFileAttestation` | existe |
+| manifeste local sans attestation toléré, sans valeur d'installation | `ProductIntegrityTest#localManifestMayRemainDiscoveryOnlyWithoutAttestation` | existe |
+| la découverte n'affirme pas une vérification d'éditeur | `UpdateTrustBoundaryContractTest#discoveryCarriesProvenanceReferenceButCannotClaimPublisherVerification` | existe |
+
+Commande : `./mvnw test -pl morpheus-application,morpheus-architecture-tests -am`. Revue humaine : le choix de refuser
+`http:` plutôt que de le cantonner à la boucle locale.
+
+### Traçabilité
+
+- Remplace en partie : le §7 d'ADR-0089, la phrase « Le service peut lire `file:`, `http:` ou `https:` ».
+- Documents qui disaient déjà la règle : `docs/user/PRODUCT_INTEGRITY.md`, `.claude/rules/security.md`.
+- Commit d'origine du changement de comportement : `3dcefa091` (26 août 2026).
