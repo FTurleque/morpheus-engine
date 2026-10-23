@@ -18,7 +18,7 @@ docs/
       contracts/     contrats de ports
       domain/        modèle de domaine
   architecture/      dossier arc42, overview, quality/, risks/
-    adr/             registre unique des ADR + template.md
+    adr/             registre unique des ADR + template.md, lu par Archgate (docs/developer/ARCHGATE.md)
   project/           piloter et auditer le projet
     governance/      ROADMAP, DOCUMENTATION_STATUS, PLAN
     roadmap/         <jalon>_EXECUTION.md
@@ -26,6 +26,7 @@ docs/
     audits/          un relevé par date
     product/         cadrage produit
     research/        études et expériences
+    rapport-supervisor/  dossier local du superviseur de code, non versionné
 ```
 
 `docs/README.md` est le **seul** fichier à la racine de `docs/`, et `user/`, `developer/`,
@@ -76,7 +77,12 @@ page mixte.
   (`docs/adr/`, `docs/openapi/`, `docs/reference/`, `docs/contracts/`, `docs/domain/`, `docs/release/`,
   `docs/governance/`, `docs/roadmap/`, `docs/validation/`, `docs/audit/`, `docs/audits/`,
   `docs/research/`, `docs/product/`)
-- Jamais de second registre d'ADR, ni de second dossier d'audits
+- Jamais de second registre d'ADR, ni de second dossier d'audits : Archgate lit `docs/architecture/adr/`
+  (`.archgate/config.json`, `paths.adrs`), `.archgate/adrs/` ne contient que `.gitkeep`, et `archgate adr create`
+  n'est pas utilisé (il numérote par domaine)
+- Jamais de document versionné sous `docs/project/rapport-supervisor/` : c'est le dossier local du superviseur de
+  code (rapports et état de session, auto-ignoré), fixé par `log_subdir` dans `.claude/supervisor.config.json`.
+  Jamais de rapport ailleurs — ni `docs/rapport-supervisor/`, ni un `docs/` imbriqué dans un sous-dossier
 - Jamais dans `docs/user/` : un SHA, un compteur de tests ou de couverture, un numéro d'issue ou de PR,
   un nom de gate, une commande `./mvnw`, un chemin `src/` — c'est du contenu `developer/` ou `project/`
   (`UserDocumentationSpeaksOfTheInstalledProductTest` le refuse dans toute page active ; seules les notes de
@@ -110,4 +116,4 @@ la compléter à chaque déplacement plutôt que de retoucher un relevé.
 
 `contracts/public-surfaces.tsv`, `distribution/README.md`, `scripts/README.md` et `SECURITY.md`
 restent où ils sont : ils sont lus par des outils ou attendus à cet endroit.
-`docs/rapport-supervisor/` est un dossier local non versionné, hors de cette arborescence.
+`.archgate/` porte la configuration d'Archgate, pas de documentation.
