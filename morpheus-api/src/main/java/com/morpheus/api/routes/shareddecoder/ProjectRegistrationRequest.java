@@ -1,4 +1,4 @@
-package com.morpheus.api;
+package com.morpheus.api.routes.shareddecoder;
 
 /** The body of a project registration request. */
 record ProjectRegistrationRequest(String workspace) {

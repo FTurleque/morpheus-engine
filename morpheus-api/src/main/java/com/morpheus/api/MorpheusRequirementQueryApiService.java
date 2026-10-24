@@ -22,7 +22,7 @@ import java.util.Objects;
 import java.util.Set;
 
 /** Owns active requirement search, detail and trace API views. */
-final class MorpheusRequirementQueryApiService {
+public final class MorpheusRequirementQueryApiService {
     private final Path databasePath;
     private final OperationalRecorder recorder;
 
@@ -31,7 +31,7 @@ final class MorpheusRequirementQueryApiService {
         this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
-    Object requirements(String projectIdValue, String query, PageRequest pageRequest) {
+    public Object requirements(String projectIdValue, String query, PageRequest pageRequest) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         String queryText = query == null ? "" : query.trim();
         Objects.requireNonNull(pageRequest, "pageRequest");
@@ -47,7 +47,7 @@ final class MorpheusRequirementQueryApiService {
         }
     }
 
-    Object requirement(String projectIdValue, String requirementIdValue) {
+    public Object requirement(String projectIdValue, String requirementIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         RequirementId requirementId = RequirementId.parse(requirementIdValue);
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
@@ -58,7 +58,7 @@ final class MorpheusRequirementQueryApiService {
         }
     }
 
-    Object traceRequirement(String projectIdValue, String requirementIdValue, int depth) {
+    public Object traceRequirement(String projectIdValue, String requirementIdValue, int depth) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         RequirementId requirementId = RequirementId.parse(requirementIdValue);
         requireRange("depth", depth, 1, MorpheusApiService.MAX_DEPTH);

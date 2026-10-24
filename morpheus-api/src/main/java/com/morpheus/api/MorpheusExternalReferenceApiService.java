@@ -34,11 +34,11 @@ public final class MorpheusExternalReferenceApiService {
         this.minosStatus = Objects.requireNonNull(minosStatus, "minosStatus");
     }
 
-    Object minosStatus() {
+    public Object minosStatus() {
         return IntegrationStatusViews.status(minosStatus.status());
     }
 
-    Object list(String projectIdValue, String ownerIdValue) {
+    public Object list(String projectIdValue, String ownerIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         DomainIdentity ownerId = DomainIdentity.parse(ownerIdValue);
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
@@ -56,7 +56,7 @@ public final class MorpheusExternalReferenceApiService {
         }
     }
 
-    Object resolve(String projectIdValue, String referenceIdValue) {
+    public Object resolve(String projectIdValue, String referenceIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ExternalReferenceId referenceId = ExternalReferenceId.parse(referenceIdValue);
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {

@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /** Owns published snapshot history queries and version-history API views. */
-final class MorpheusHistoryApiService {
+public final class MorpheusHistoryApiService {
     private final Path databasePath;
     private final OperationalRecorder recorder;
 
@@ -36,7 +36,7 @@ final class MorpheusHistoryApiService {
      * One page of the published lineage, oldest first. The lineage never shrinks ({@code KEEP_ALL_PUBLISHED}), so it is
      * walked whole to know {@code totalMatches}, but only the retained page pays the two store reads of {@link #version}.
      */
-    Object versions(String projectIdValue, PageRequest pageRequest) {
+    public Object versions(String projectIdValue, PageRequest pageRequest) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         Objects.requireNonNull(pageRequest, "pageRequest");
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
@@ -50,7 +50,7 @@ final class MorpheusHistoryApiService {
         }
     }
 
-    Object historicalRequirements(
+    public Object historicalRequirements(
             String projectIdValue,
             String snapshotIdValue,
             PageRequest pageRequest) {
@@ -67,7 +67,7 @@ final class MorpheusHistoryApiService {
         }
     }
 
-    Object compareVersions(String projectIdValue, String sourceIdValue, String targetIdValue) {
+    public Object compareVersions(String projectIdValue, String sourceIdValue, String targetIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         KnowledgeSnapshotId sourceId = KnowledgeSnapshotId.parse(sourceIdValue);
         KnowledgeSnapshotId targetId = KnowledgeSnapshotId.parse(targetIdValue);

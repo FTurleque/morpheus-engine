@@ -30,7 +30,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /** Owns project synchronization orchestration and synchronization API views. */
-final class MorpheusProjectSyncApiService {
+public final class MorpheusProjectSyncApiService {
     private static final String UNKNOWN_VALUE = "unknown";
 
     private final Path databasePath;
@@ -43,7 +43,7 @@ final class MorpheusProjectSyncApiService {
         this.allowedWorkspaceRoots = Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots");
     }
 
-    Object sync(String projectIdValue, Optional<String> revision) {
+    public Object sync(String projectIdValue, Optional<String> revision) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         Optional<String> normalizedRevision = Objects.requireNonNull(revision, "revision")
                 .map(String::trim)
@@ -102,7 +102,7 @@ final class MorpheusProjectSyncApiService {
         }
     }
 
-    Object syncStatus(String projectIdValue, long maxAgeMinutes) {
+    public Object syncStatus(String projectIdValue, long maxAgeMinutes) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         requireRange("maxAgeMinutes", maxAgeMinutes, 1L, MorpheusApiService.MAX_MAX_AGE_MINUTES);
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {

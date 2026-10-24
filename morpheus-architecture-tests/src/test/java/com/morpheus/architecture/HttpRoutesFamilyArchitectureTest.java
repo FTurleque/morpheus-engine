@@ -47,6 +47,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class HttpRoutesFamilyArchitectureTest {
 
     private static final String ROUTER_SUFFIX = "HttpRoutes";
+    private static final String ROUTES_PACKAGE = "com.morpheus.api.routes";
 
     private final JavaClasses classes = new ClassFileImporter().importPackages("com.morpheus");
 
@@ -68,7 +69,7 @@ class HttpRoutesFamilyArchitectureTest {
     @Test
     void noRouterReachesTheRemoteAuthorizationModel() throws IOException {
         noClasses()
-                .that().haveSimpleNameEndingWith(ROUTER_SUFFIX)
+                .that().resideInAPackage(ROUTES_PACKAGE + "..")
                 .should().dependOnClassesThat().haveSimpleNameStartingWith("MorpheusRemote")
                 .because("routers serve the loopback server; the remote surface carries its own TLS, RBAC and "
                         + "audit obligations and must not be reachable from any route")
@@ -108,7 +109,7 @@ class HttpRoutesFamilyArchitectureTest {
     @Test
     void noRouterWritesTheResponseItself() throws IOException {
         noClasses()
-                .that().haveSimpleNameEndingWith(ROUTER_SUFFIX)
+                .that().resideInAPackage(ROUTES_PACKAGE + "..")
                 .should().callMethodWhere(target(name("sendResponseHeaders")))
                 .because("a router decides a route and hands the outcome on; setting the response headers and "
                         + "pushing the bytes belongs to MorpheusHttpResponseWriter, which owns them for the whole "
@@ -127,7 +128,7 @@ class HttpRoutesFamilyArchitectureTest {
     @Test
     void noRouterParsesThePathItself() {
         noClasses()
-                .that().haveSimpleNameEndingWith(ROUTER_SUFFIX)
+                .that().resideInAPackage(ROUTES_PACKAGE + "..")
                 .should().dependOnClassesThat().haveSimpleName("MorpheusHttpPathParser")
                 .because("a router does not parse a path itself: it receives the segments the server parsed, or, "
                         + "when it registers its own context, asks MorpheusHttpRequestDecoder for them; a parser of "
@@ -140,14 +141,16 @@ class HttpRoutesFamilyArchitectureTest {
      *
      * <p>{@code failOnEmptyShould} catches a rule that retains no class at all; it does not catch one that retains
      * sixteen routers out of seventeen. The rules above see the ArchUnit classpath, which excludes
-     * {@code morpheus-provider-testkit}; the text scan sees every module's sources. Holding the two to the same set
-     * means a router declared where the rules cannot follow is refused by name instead of silently escaping them.</p>
+     * {@code morpheus-provider-testkit}, and they select the routers by their package, {@code com.morpheus.api.routes};
+     * the text scan sees every module's sources. Holding the two to the same set means a router declared where the
+     * rules cannot follow, or outside the routers' package, is refused by name instead of silently escaping them.</p>
      */
     @Test
     void theRulesSeeEveryRouterTheSourcesDeclare() throws IOException {
         TreeSet<String> imported = new TreeSet<>();
         for (JavaClass javaClass : classes) {
-            if (javaClass.getSimpleName().endsWith(ROUTER_SUFFIX)) {
+            if (javaClass.getSimpleName().endsWith(ROUTER_SUFFIX)
+                    && javaClass.getPackageName().startsWith(ROUTES_PACKAGE + ".")) {
                 imported.add(javaClass.getSimpleName());
             }
         }
@@ -213,7 +216,8 @@ class HttpRoutesFamilyArchitectureTest {
         sourceless.removeAll(declared);
         assertTrue(escaping.isEmpty() && sourceless.isEmpty(),
                 () -> "the family rules must see exactly the routers the sources declare; declared outside the "
-                        + "architecture-test classpath, so escaping every rule here: " + escaping
+                        + "architecture-test classpath or outside com.morpheus.api.routes, so escaping every rule "
+                        + "here: " + escaping
                         + "; imported without a source the text scan can read: " + sourceless);
     }
 

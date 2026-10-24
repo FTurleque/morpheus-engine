@@ -16,7 +16,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /** Owns project registry orchestration and project registry API views. */
-final class MorpheusProjectRegistryApiService {
+public final class MorpheusProjectRegistryApiService {
     /** What a workspace registered at a filesystem root is called: it names the shape, and locates nothing. */
     static final String FILESYSTEM_ROOT_WORKSPACE_NAME = "filesystem-root";
 
@@ -30,7 +30,7 @@ final class MorpheusProjectRegistryApiService {
         this.allowedWorkspaceRoots = Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots");
     }
 
-    Object listProjects() {
+    public Object listProjects() {
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             return runtime.snapshots().listProjects().stream()
                     .map(project -> project(runtime, project))
@@ -38,7 +38,7 @@ final class MorpheusProjectRegistryApiService {
         }
     }
 
-    RegistrationResult registerProject(String workspace) {
+    public RegistrationResult registerProject(String workspace) {
         Path path = allowedWorkspaceRoots
                 .map(policy -> policy.requireAllowedDirectory(workspace))
                 .orElseGet(() -> existingDirectory(workspace));
@@ -54,7 +54,7 @@ final class MorpheusProjectRegistryApiService {
         }
     }
 
-    Object project(String projectIdValue) {
+    public Object project(String projectIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             ProjectStoreEntry entry = runtime.snapshots().findProject(projectId)
@@ -135,8 +135,8 @@ final class MorpheusProjectRegistryApiService {
         return path;
     }
 
-    record RegistrationResult(Object project, boolean created) {
-        RegistrationResult {
+    public record RegistrationResult(Object project, boolean created) {
+        public RegistrationResult {
             Objects.requireNonNull(project, "project");
         }
     }

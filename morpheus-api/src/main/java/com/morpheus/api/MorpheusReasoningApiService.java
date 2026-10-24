@@ -15,11 +15,11 @@ import java.util.Map;
 import java.util.Objects;
 
 /** HTTP-safe translation for the read-only M27 reasoning application service. */
-final class MorpheusReasoningApiService {
+public final class MorpheusReasoningApiService {
     private final ReasoningService service;
 
     /** Adapter discovery failures it skips are counted on {@code recorder}, the one its server was handed. */
-    MorpheusReasoningApiService(OperationalRecorder recorder) {
+    public MorpheusReasoningApiService(OperationalRecorder recorder) {
         this(ReasoningService.standard(recorder
                 .suppressing(SuppressedFailureFamily.ADAPTER_DISCOVERY)));
     }
@@ -28,11 +28,11 @@ final class MorpheusReasoningApiService {
         this.service = Objects.requireNonNull(service, "service");
     }
 
-    Object adapters() {
+    public Object adapters() {
         return service.adapters();
     }
 
-    Object analyze(ReasoningRequest request) {
+    public Object analyze(ReasoningRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("reasoning request is required");
         }
@@ -73,7 +73,7 @@ final class MorpheusReasoningApiService {
         }
     }
 
-    record ReasoningRequest(
+    public record ReasoningRequest(
             String question,
             List<EvidenceRequest> evidence,
             List<String> adapterIds,

@@ -1,4 +1,4 @@
-package com.morpheus.api;
+package com.morpheus.api.routes.owncontext;
 
 import com.morpheus.api.local.MorpheusHttpServer;
 import org.junit.jupiter.api.Test;

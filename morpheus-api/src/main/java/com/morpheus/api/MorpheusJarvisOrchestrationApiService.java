@@ -27,7 +27,7 @@ public final class MorpheusJarvisOrchestrationApiService {
         this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
-    Object state(
+    public Object state(
             String projectIdValue,
             String changeIdValue,
             Optional<String> lifecycleState,
@@ -48,7 +48,7 @@ public final class MorpheusJarvisOrchestrationApiService {
         }
     }
 
-    Object transition(String projectIdValue, String changeIdValue, TransitionCheckRequest request) {
+    public Object transition(String projectIdValue, String changeIdValue, TransitionCheckRequest request) {
         Objects.requireNonNull(request, "request");
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ChangeId changeId = ChangeId.parse(changeIdValue);

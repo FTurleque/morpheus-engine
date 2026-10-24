@@ -1,4 +1,4 @@
-package com.morpheus.api;
+package com.morpheus.api.routes.owncontext;
 
 import com.morpheus.api.local.MorpheusHttpServer;
 import com.morpheus.api.transport.HttpQueryBudget;
@@ -111,7 +111,7 @@ class ExtensionRoutesRequestBoundaryParityTest {
     @Test
     void policyManagementRoutesKeepTheirRequestBoundaryFailures() throws Exception {
         String remove = "/policy-overrides/remove";
-        String removeRequest = "com.morpheus.api.MorpheusPolicyManagementHttpRoutes$RemoveOverrideRequest";
+        String removeRequest = "com.morpheus.api.routes.owncontext.MorpheusPolicyManagementHttpRoutes$RemoveOverrideRequest";
         List<Case> cases = new ArrayList<>(jsonBodyCases("POST", remove));
         cases.add(unknownProperty("POST", remove, removeRequest,
                 "7 known properties: \\\"id\\\", \\\"ruleId\\\", \\\"scopeKind\\\", \\\"scopeId\\\", "

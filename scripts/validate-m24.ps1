@@ -258,7 +258,7 @@ if (-not $SkipPortable) {
         'com/morpheus/cli/MorpheusQueryCli.class',
         'com/morpheus/mcp/MorpheusQueryMcpTools.class',
         'com/morpheus/api/MorpheusQueryApiService.class',
-        'com/morpheus/api/MorpheusQueryHttpRoutes.class',
+        'com/morpheus/api/routes/owncontext/MorpheusQueryHttpRoutes.class',
         'db/migration/V014__saved_views.sql')) {
         if ($entries -notcontains $entry) { throw "M24 packaged runtime is missing $entry" }
     }

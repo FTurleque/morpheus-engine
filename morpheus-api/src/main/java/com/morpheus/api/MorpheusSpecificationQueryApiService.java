@@ -25,7 +25,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /** Owns active specification list, detail and contextual API views. */
-final class MorpheusSpecificationQueryApiService {
+public final class MorpheusSpecificationQueryApiService {
     private static final String FIELD_TITLE = "title";
 
     private final Path databasePath;
@@ -36,7 +36,7 @@ final class MorpheusSpecificationQueryApiService {
         this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
-    Object listSpecifications(String projectIdValue, PageRequest pageRequest) {
+    public Object listSpecifications(String projectIdValue, PageRequest pageRequest) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         Objects.requireNonNull(pageRequest, "pageRequest");
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
@@ -52,7 +52,7 @@ final class MorpheusSpecificationQueryApiService {
         }
     }
 
-    Object specification(String projectIdValue, String specificationIdValue) {
+    public Object specification(String projectIdValue, String specificationIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         SpecificationId specificationId = SpecificationId.parse(specificationIdValue);
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
@@ -65,7 +65,7 @@ final class MorpheusSpecificationQueryApiService {
         }
     }
 
-    Object specificationContext(
+    public Object specificationContext(
             String projectIdValue,
             String specificationIdValue,
             PageRequest pageRequest) {

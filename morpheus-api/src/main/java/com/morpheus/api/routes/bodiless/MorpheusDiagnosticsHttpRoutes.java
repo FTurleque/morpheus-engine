@@ -1,5 +1,7 @@
-package com.morpheus.api;
+package com.morpheus.api.routes.bodiless;
 
+import com.morpheus.api.MorpheusApiService;
+import com.morpheus.api.MorpheusDiagnosticsApiService;
 import com.morpheus.api.transport.MorpheusHttpQuery;
 import com.morpheus.api.transport.MorpheusHttpRouteGuards;
 import com.morpheus.api.transport.MorpheusHttpRouteResponse;

@@ -34,7 +34,7 @@ public final class MorpheusControlledLifecycleApiService {
         this.writeCapability = Objects.requireNonNull(writeCapability, "writeCapability");
     }
 
-    ChangeLifecycleMutationResultView apply(String rawProjectId, String rawChangeId, LifecycleMutationRequest request) {
+    public ChangeLifecycleMutationResultView apply(String rawProjectId, String rawChangeId, LifecycleMutationRequest request) {
         Objects.requireNonNull(request, "request");
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(requireNonBlank(rawProjectId, "projectId"));
         ChangeId changeId = ChangeId.parse(requireNonBlank(rawChangeId, "changeId"));

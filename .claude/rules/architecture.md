@@ -92,9 +92,11 @@ méthodes `@Test`, et `architectureTestsMinimum` ne se baisse pas (`rules/testin
   et enforçait son contraire. Interdire **la mécanique** plutôt que le collaborateur dit ce que la méthode a
   toujours annoncé ; le writer, lui, s'interdit **par groupe** (voir ci-dessous) ;
 - la frontière transport/JSON se règle par capacité dans `HttpRoutesTransportBoundaryArchitectureTest`, en
-  **trois groupes listés par nom** — `ROUTERS_WITHOUT_A_BODY`, `ROUTERS_THROUGH_THE_SHARED_DECODER`,
-  `ROUTERS_REGISTERING_THEIR_OWN_CONTEXT` : un nouveau routeur est refusé tant que personne
-  ne l'a classé, et `theClassificationRefusesAnUnclassifiedADoublyClassifiedAndAVanishedRouter` le prouve.
+  **trois groupes qui sont trois paquets** de `com.morpheus.api.routes` — `bodiless`, `shareddecoder`,
+  `owncontext`, nommés par `ROUTERS_WITHOUT_A_BODY`, `ROUTERS_THROUGH_THE_SHARED_DECODER`,
+  `ROUTERS_REGISTERING_THEIR_OWN_CONTEXT`. Ranger un routeur, c'est le classer : un routeur rangé ailleurs (le paquet
+  parent, un paquet qu'aucune règle ne nomme) est refusé, et
+  `theClassificationRefusesARouterLeftInTheParentPackageAndOneInAnUnnamedPackage` le prouve.
   Le troisième groupe porte une **règle de dépendance**, pas une règle de configuration : ces routeurs
   *doivent* dépendre de `MorpheusHttpRequestDecoder` **et de `MorpheusHttpResponseWriter`**, et ne dépendent
   ni de `tools.jackson..`, ni d'`HttpRequestBodyReader`, ni de `CanonicalJsonSerializer` (les volets Jackson

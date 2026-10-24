@@ -147,8 +147,17 @@ same tree as `0b90cdcf`).
       89 declarations in main sources, each named by a compiler refusal, plus `HttpQueryBudget.MAX_QUERY_BYTES` and
       `MAX_PARAMETERS` for a moved test. The copy of `PagedEnvelope` in `morpheus-mcp` widens the same four members as
       the one in `morpheus-api`, so that the two stay identical (`PagedResponseVocabularyArchitectureTest`).
-- [ ] 4.3 The routers, into their group packages. `HttpRoutesTransportBoundaryArchitectureTest` and
+- [x] 4.3 The routers, into their group packages. `HttpRoutesTransportBoundaryArchitectureTest` and
       `HttpRoutesFamilyArchitectureTest` select by package; the text scans beside the rules stay.
+      Done 2026-10-25: the 17 routers to `com.morpheus.api.routes.bodiless` (8), `.shareddecoder` (5, with
+      `ProjectRegistrationRequest` and `SyncRequest`, which only their router reads) and `.owncontext` (4, with the
+      three `ExtensionRoutes*` tests). No router references a router of another group. The routers leave the
+      services' package, so the services they call, the methods they call and the views those return become
+      public: 65 declarations, each named by a compiler refusal. `HttpRoutesTransportBoundaryArchitectureTest`
+      selects each group by its package and refuses a router left in the parent package or in a package no group
+      names; `HttpRoutesFamilyArchitectureTest` selects the routers by `com.morpheus.api.routes..` and its bijection
+      with the sources counts only the routers of that package. Broken once: an empty `PlantedHttpRoutes` in
+      `com.morpheus.api` failed both, each naming it. Reverted.
 - [ ] 4.4 For each pull request: a line per moved file in the table of old and new paths of
       `docs/project/README.md`; dated records are not rewritten (`rules/documentation.md`).
 
