@@ -4,10 +4,10 @@ Statut : **stratégie native-first acceptée ; M9 validé sur Windows et Linux**
 
 Décisions de référence :
 
-- [`../../architecture/adr/0027-native-first-container-supported-distribution.md`](../../architecture/adr/0027-native-first-container-supported-distribution.md)
-- [`../../architecture/adr/0059-stable-local-cli-contract.md`](../../architecture/adr/0059-stable-local-cli-contract.md)
-- [`../../architecture/adr/0060-conservative-full-snapshot-cli-sync.md`](../../architecture/adr/0060-conservative-full-snapshot-cli-sync.md)
-- [`../../architecture/adr/0061-self-contained-jpackage-portable-distribution.md`](../../architecture/adr/0061-self-contained-jpackage-portable-distribution.md)
+- [`../../architecture/adr/0027-native-first-container-supported-distribution.md`](../../architecture/adr/GEN-0027-native-distribution-without-container-image.md)
+- [`../../architecture/adr/0059-stable-local-cli-contract.md`](../../architecture/adr/GEN-0059-stable-local-cli-contract.md)
+- [`../../architecture/adr/0060-conservative-full-snapshot-cli-sync.md`](../../architecture/adr/archive/0060-conservative-full-snapshot-cli-sync.md)
+- [`../../architecture/adr/0061-self-contained-jpackage-portable-distribution.md`](../../architecture/adr/GEN-0061-self-contained-jpackage-portable-distribution.md)
 
 Les ADR M9 sont **Acceptées** après preuves reproductibles Windows/Linux.
 

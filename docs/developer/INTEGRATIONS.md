@@ -225,4 +225,4 @@ Merge M18 : `30f11ac3ffc522bcc0c71e31216a3fb70f0631d7`.
 - [API HTTP](API.md)
 - [MCP](MCP.md)
 - [Guide utilisateur des intégrations](../user/INTEGRATIONS.md)
-- [ADR-0084](../architecture/adr/0084-provider-neutral-multi-provider-composition.md)
+- [ADR-0084](../architecture/adr/ARCH-0084-provider-neutral-multi-provider-composition.md)

@@ -29,7 +29,9 @@ docs/architecture/
 │   └── 12-glossaire.md
 ├── adr/
 │   ├── README.md
-│   └── template.md
+│   ├── {PRÉFIXE}-{NNNN}-{slug}.md   (ADR en vigueur, lus par Archgate)
+│   ├── archive/
+│   └── gabarit/template.md
 ├── quality/
 │   └── scenarios.md
 └── risks/
@@ -58,7 +60,7 @@ docs/architecture/
 ### Registre ADR principal
 
 Les décisions architecturales du produit sont conservées dans [`adr/`](adr/README.md) :
-c'est le seul registre d'ADR du dépôt, et il porte aussi leur [gabarit](adr/template.md).
+c'est le seul registre d'ADR du dépôt, et il porte aussi leur [gabarit](adr/gabarit/template.md).
 
 ---
 

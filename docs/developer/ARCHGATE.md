@@ -1,51 +1,45 @@
 # Archgate
 
 [Archgate](https://cli.archgate.dev) lit des ADR et exécute des règles TypeScript (`*.rules.ts`) qui leur sont
-rattachées. Dans MORPHEUS, il est configuré pour lire **le registre lui-même**, `docs/architecture/adr/` : il n'existe
-pas de second registre sous `.archgate/`.
+rattachées. Dans MORPHEUS, il lit **le registre lui-même**, `docs/architecture/adr/`
+([ADR-0132](../architecture/adr/GEN-0132-tenir-le-registre-d-adr-au-format-archgate.md)) : il n'existe pas de second
+registre sous `.archgate/`. Ses règles tiennent des contraintes qu'aucun test de `morpheus-architecture-tests` ne tient ;
+elles complètent les tests, elles ne les dupliquent pas.
 
 ## Ce qui fait foi
 
 | Sujet | Source de vérité |
 |---|---|
-| Décisions d'architecture | [`docs/architecture/adr/`](../architecture/adr/README.md), registre unique |
-| Contrôle exécuté par la CI | les tests de `morpheus-architecture-tests` (ArchUnit et assertions textuelles), joués par `./mvnw clean verify` |
-| Contrôle Archgate | `docs/architecture/adr/<ADR>.rules.ts`, joué à la demande, hors CI |
+| Décisions d'architecture | [`docs/architecture/adr/`](../architecture/adr/README.md), registre unique, lu par Archgate |
+| Contrôle exécuté par la CI | les tests de `morpheus-architecture-tests` et des modules (ArchUnit et assertions textuelles), joués par `./mvnw clean verify` |
+| Contrôle Archgate | `docs/architecture/adr/{ID}-{slug}.rules.ts`, joué à la demande, hors CI |
 
-Quand une règle Archgate et un test d'architecture divergent, le test d'architecture a raison et la règle Archgate
-se corrige.
-
-## État du registre
-
-Archgate ne lit un ADR que si son fichier s'ouvre, en ligne 1, sur un en-tête YAML (`id`, `title`, `domain`, `rules`,
-`files` facultatif). Les ADR de MORPHEUS n'en portent pas : `archgate adr list` répond `No ADRs found` et
-`archgate check` les énumère dans `unparsedAdrs`. Le registre garde son format (titre `# ADR-NNNN — …`, ligne
-`Statut`, sections en français) et ses noms de fichier `NNNN-slug.md`, que `AdrIndexCoherenceTest` et d'autres tests
-d'architecture épinglent. Passer le registre au format Archgate est une décision de structure qui se prend par un ADR.
+Quand une règle Archgate et un test divergent, le test a raison et la règle se corrige.
 
 ## Disposition
 
 ```text
 .archgate/
-  config.json         paths.adrs = docs/architecture/adr, domaine personnalisé security (SEC), branche de base origin/develop
-  adrs/.gitkeep       exigé par la CLI pour reconnaître le projet ; rien d'autre n'y vit
-  lint/               réservé par Archgate aux règles de linter (vide)
-  rules.d.ts          généré, ignoré par Git
+  config.json                paths.adrs = docs/architecture/adr, domaine personnalisé security (SEC), branche de base origin/develop
+  adrs/.gitkeep              exigé par la CLI pour reconnaître le projet ; rien d'autre n'y vit
+  lint/                      réservé par Archgate aux règles de linter (vide)
+  rules.d.ts                 généré, ignoré par Git
 docs/architecture/
-  rules.d.ts          généré dans le parent du dossier d'ADR, ignoré par Git
+  rules.d.ts                 généré dans le parent du dossier d'ADR, ignoré par Git
   adr/
-    NNNN-slug.md      ADR
-    NNNN-slug.rules.ts  règle compagnon, quand l'en-tête de l'ADR porte rules: true
-    tsconfig.json     vérification de type des règles par l'éditeur et par tsc (ES2022, strict) ; Archgate ne s'en sert pas
+    {ID}-{slug}.md           ADR en vigueur, {ID} = préfixe du domaine + numéro (ARCH-0109)
+    {ID}-{slug}.rules.ts     règle compagnon, quand l'en-tête de l'ADR porte rules: true
+    README.md                index ; sans en-tête, Archgate le signale comme non lu
+    archive/                 ADR retirés, avec leur bandeau ; non lu par Archgate
+    gabarit/template.md      gabarit ; non lu par Archgate
+    tsconfig.json            vérification de type des règles par l'éditeur et par tsc ; Archgate ne s'en sert pas
 ```
 
-Archgate ne lit pas les sous-dossiers du registre.
+Le format d'un ADR (en-tête YAML, sections `Context`, `Decision`, `Do's and Don'ts`, `Consequences`,
+`Compliance and Enforcement`, `References`) est décrit dans le [gabarit](../architecture/adr/gabarit/template.md) et
+dans l'[index du registre](../architecture/adr/README.md).
 
 ## Commandes
-
-```bash
-archgate --version
-```
 
 ```bash
 archgate adr list
@@ -59,31 +53,71 @@ archgate review-context
 archgate check --verbose
 ```
 
-`archgate adr list` liste les ADR reconnus ; `archgate review-context` donne, pour les fichiers modifiés, les sections
-`Decision` et `Do's and Don'ts` des ADR concernés ; `archgate check` exécute les règles (`--staged` sur les fichiers
-indexés, `--adr <id>` pour un seul ADR, `--output json` pour un outil).
+```bash
+archgate check --base HEAD --output json
+```
 
-Code de sortie de `check` : 0 conforme, 1 violation, 2 erreur interne. Sans `--strict`, seules les violations de
-sévérité `error` échouent. `total: 0` dans la sortie JSON signifie « aucune règle exécutée », pas « conforme ».
-Un ADR dont l'en-tête porte `files:` n'est exécuté que si un fichier de cette portée a changé.
+`archgate adr list` liste les ADR reconnus ; un ADR absent de la liste a un en-tête invalide. `archgate review-context`
+donne, pour les fichiers modifiés, les sections `Decision` et `Do's and Don'ts` des ADR concernés. `archgate check`
+exécute les règles (`--staged` sur les fichiers indexés, `--adr <id>` pour un seul ADR, `--output json` pour un outil).
+
+Un ADR dont l'en-tête porte `files:` n'est exécuté que si un fichier de cette portée a changé. Toutes les règles
+s'exécutent seulement sur un arbre propre avec `--base HEAD` ; sur un arbre modifié, lancer la commande dans un
+`git worktree` détaché. Code de sortie : 0 conforme, 1 violation, 2 erreur d'une règle ; `total: 0` dans la sortie JSON
+signifie « aucune règle exécutée », pas « conforme ». Les avertissements `briefingWarnings` signalent une section
+`Decision` plus longue que ce que `review-context` résume ; ils n'échouent pas.
+
+## Règles
+
+| ADR | Règles |
+|---|---|
+| [ARCH-0001](../architecture/adr/ARCH-0001-morpheus-owned-domain.md) | `domain-names-no-provider` |
+| [ARCH-0002](../architecture/adr/ARCH-0002-openspec-reference-provider.md) | `openspec-provider-declares-no-write-capability` |
+| [SEC-0004](../architecture/adr/SEC-0004-local-first-no-llm-core.md) | `no-llm-client-dependency` |
+| [GEN-0016](../architecture/adr/GEN-0016-java-21-production-baseline.md) | `compiler-release-is-21`, `workflows-install-java-21`, `no-preview-features` |
+| [GEN-0017](../architecture/adr/GEN-0017-maven-build-foundation.md) | `maven-version-is-enforced`, `wrapper-distribution-is-pinned`, `no-extra-maven-repository`, `workflows-run-the-wrapper` |
+| [DATA-0018](../architecture/adr/DATA-0018-sqlite-initial-persistent-store.md) | `inner-layers-do-not-declare-sqlite` |
+| [BE-0020](../architecture/adr/BE-0020-workspace-root-resolution.md) | `workspace-discovery-starts-no-process` |
+| [DATA-0021](../architecture/adr/DATA-0021-sqlite-schema-migrations-foundation.md) | `sql-migrations-keep-lf` |
+| [GEN-0027](../architecture/adr/GEN-0027-native-distribution-without-container-image.md) | `no-container-image-definition`, `no-container-build-in-pipelines` |
+| [ARCH-0029](../architecture/adr/ARCH-0029-second-provider-anti-lockin-proof.md) | `synthetic-provider-is-test-scoped` |
+| [BE-0039](../architecture/adr/BE-0039-deterministic-traceability-derivation.md) | `derivation-is-deterministic` |
+| [ARCH-0056](../architecture/adr/ARCH-0056-deterministic-current-proposed-change-analysis.md) | `change-analysis-reads-no-clock` |
+| [ARCH-0065](../architecture/adr/ARCH-0065-jdk-httpserver-local-api.md) | `no-server-framework-dependency`, `portable-image-adds-jdk-httpserver` |
+| [DATA-0071](../architecture/adr/DATA-0071-live-external-resolution-without-snapshot-mutation.md) | `live-resolution-writes-no-reference` |
+| [ARCH-0077](../architecture/adr/ARCH-0077-morpheus-jarvis-read-only-orchestration-boundary.md) | `no-jarvis-dependency` |
+| [ARCH-0084](../architecture/adr/ARCH-0084-provider-neutral-multi-provider-composition.md) | `no-implicit-precedence-selection` |
+| [GEN-0088](../architecture/adr/GEN-0088-product-release-installation-and-persistent-data-separation.md) | `path-task-is-opt-in` |
+| [BE-0111](../architecture/adr/BE-0111-the-product-ships-one-logging-binding-its-own.md) | `no-other-slf4j-provider` |
+| [BE-0112](../architecture/adr/BE-0112-the-logs-directory-holds-a-bounded-operational-log.md) | `no-logger-finder` |
+| [SEC-0113](../architecture/adr/SEC-0113-the-remote-server-records-who-was-authorized-to-do-what.md) | `operator-guide-names-the-journal-refusal` |
+| [ARCH-0123](../architecture/adr/ARCH-0123-vues-compactes-et-json-canonique.md) | `inner-layers-have-no-jackson` |
+| [DATA-0125](../architecture/adr/DATA-0125-detection-de-changement-des-sources.md) | `sync-freshness-reads-no-clock`, `sync-state-has-no-blind-upsert` |
+| [GEN-0127](../architecture/adr/GEN-0127-un-launcher-natif-unique.md) | `portable-image-checks-launcher-classes` |
+| [ARCH-0128](../architecture/adr/ARCH-0128-pairs-minos-et-nexus-par-mcp-stdio.md) | `portable-image-refuses-peer-engines` |
+| [SEC-0129](../architecture/adr/SEC-0129-plugins-provider-code-de-confiance-hors-processus.md) | `embedded-runtime-keeps-native-commands` |
+| [BE-0130](../architecture/adr/BE-0130-contrat-des-options-de-la-cli.md) | `user-guide-exit-codes-match-the-enum` |
+| [GEN-0132](../architecture/adr/GEN-0132-tenir-le-registre-d-adr-au-format-archgate.md) | `adr-id-matches-file-name`, `adr-heading-matches-title`, `adr-index-row-names-the-title`, `adr-has-archgate-sections`, `adr-has-no-amendment-section`, `archgate-adrs-holds-only-gitkeep` |
 
 ## Ajouter une règle
 
-1. Vérifier que l'invariant est déjà tenu par un test de `morpheus-architecture-tests`.
-2. Donner à l'ADR concerné son en-tête YAML, puis créer `docs/architecture/adr/<même nom de base>.rules.ts`
-   (identifiants de règle en kebab-case anglais ; `files` dans l'en-tête si la règle ne regarde qu'une partie du dépôt)
-   et passer l'en-tête à `rules: true`.
-3. La règle lit la source de vérité du test (POM, manifeste, fichier de configuration) ; elle ne recopie aucune liste.
-4. Vérifier les types après un `archgate check`, qui génère `docs/architecture/rules.d.ts` :
-   `npx --package typescript tsc -p docs/architecture/adr/tsconfig.json` ; aucune erreur attendue.
-5. Prouver la règle au rouge : introduire la violation, constater l'échec de `archgate check`, revenir en arrière.
-6. Rejouer `./mvnw test -pl morpheus-architecture-tests`.
+1. Vérifier qu'aucun test de `morpheus-architecture-tests` ni d'un module ne tient déjà la contrainte ; s'il en existe
+   un, la section `Compliance and Enforcement` de l'ADR le nomme et aucune règle n'est écrite.
+2. Créer `docs/architecture/adr/{ID}-{slug}.rules.ts` à côté de l'ADR (même nom de base, identifiants de règle en
+   kebab-case anglais), passer son en-tête à `rules: true` et borner `files` aux fichiers que la règle lit.
+3. La règle lit la source de vérité (POM, workflow, script, constante Java) ; elle ne recopie aucune liste.
+4. Vérifier les types : `npx --package typescript tsc -p docs/architecture/adr/tsconfig.json` après un
+   `archgate check`, qui génère `docs/architecture/rules.d.ts` ; aucune erreur attendue.
+5. Prouver la règle au rouge : introduire la violation, constater l'échec de `archgate check --adr {ID}`, revenir en
+   arrière.
+6. Nommer la règle dans la section `Compliance and Enforcement` de l'ADR et dans la table ci-dessus.
 
 ## Limites
 
-- Archgate n'est pas dans la CI : un invariant n'est exigé que par son test d'architecture.
+- Archgate n'est pas dans la CI : une contrainte n'est exigée par le build que si un test la tient.
+- `ctx.ast` ne lit pas Java : une règle sur du code Java est une recherche textuelle ; une dépendance entre couches se
+  tient par ArchUnit.
 - `archgate adr create` n'est pas utilisé : il numérote par domaine, alors que les numéros du registre sont uniques et
-  jamais réattribués ; un ADR s'écrit à partir de [`template.md`](../architecture/adr/template.md).
-- `README.md` et `template.md` vivent dans le registre sans en-tête : Archgate les signale comme non lus, ce qui
-  interdit le mode `--strict`.
+  jamais réattribués.
+- `README.md` vit dans le registre sans en-tête : Archgate le signale comme non lu, ce qui interdit le mode `--strict`.
 - Version éprouvée : Archgate 0.60.0.

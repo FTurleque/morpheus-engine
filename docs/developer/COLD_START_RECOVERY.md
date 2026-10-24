@@ -141,8 +141,9 @@ doute, lancez le test — ne devinez jamais.
 | Les deux échelles de couverture ne se mélangent pas | `CoverageScaleSeparationTest` — voir §4 |
 
 Le *pourquoi* de chaque décision structurelle vit dans [`docs/architecture/adr/`](../architecture/adr/). Comptez les ADR
-avec un `glob` sur `docs/architecture/adr/0*.md` avant d'en citer le nombre ou d'en attribuer un nouveau : le
-répertoire contient aussi un `README.md`, et un doublon de numérotation a déjà existé.
+avec un `glob` sur `docs/architecture/adr/*-[0-9][0-9][0-9][0-9]-*.md` avant d'en citer le nombre, et relisez aussi
+`docs/architecture/adr/archive/` avant d'en attribuer un nouveau : le répertoire contient aussi un `README.md`, et un
+doublon de numérotation a déjà existé.
 
 ---
 

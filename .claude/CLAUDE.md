@@ -28,10 +28,10 @@ Java 21 · Maven 3.10.0 · multi-module Maven (compter les `<module>` de `pom.xm
 chaque milestone) assertent la structure, les contrats, la sécurité et jusqu'au contenu
 textuel de fichiers précis.
 `docs/architecture/adr/` documente le *pourquoi*. **Ne jamais citer un total d'ADR de mémoire** : compter
-les fichiers numérotés (`docs/architecture/adr/0*.md`) avec un `glob` au moment où la réponse est
-écrite — le répertoire contient aussi un `README.md`, donc « nombre de fichiers » et
-« nombre d'ADR » ne sont pas le même chiffre. Vérifier aussi le plus haut numéro attribué
-avant d'en assigner un nouveau : un doublon de numérotation a déjà existé.
+les ADR en vigueur (`docs/architecture/adr/*-[0-9][0-9][0-9][0-9]-*.md`) avec un `glob` au moment où la
+réponse est écrite — le répertoire contient aussi un `README.md`, et les ADR retirés vivent dans `archive/`, donc
+« nombre de fichiers » et « nombre d'ADR » ne sont pas le même chiffre. Vérifier aussi le plus haut numéro attribué,
+registre **et** archive, avant d'en assigner un nouveau : un doublon de numérotation a déjà existé.
 
 > Avant de décider quoi que ce soit de structurel : **lire le test ArchUnit concerné**, puis l'ADR.
 > Ne jamais deviner une règle — elle est écrite quelque part et vérifiable.

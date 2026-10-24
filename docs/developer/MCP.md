@@ -423,6 +423,6 @@ write capability is not escalated
 - [Guide utilisateurs MCP](../user/MCP_CLIENTS.md)
 - [Plan M28](../project/roadmap/M28_EXECUTION.md)
 - [Validation M28](../project/validation/VALIDATION_M28.md)
-- [ADR-0062 — MCP SDK et STDIO](../architecture/adr/0062-official-java-mcp-sdk-and-native-stdio.md)
+- [ADR-0062 — MCP SDK et STDIO](../architecture/adr/ARCH-0062-official-java-mcp-sdk-and-native-stdio.md)
 - [CLI](../user/CLI.md)
 - [Intégrations](../user/INTEGRATIONS.md)

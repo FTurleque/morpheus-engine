@@ -237,7 +237,7 @@ Règles :
 - les ambiguïtés sont représentées ;
 - une fusion heuristique silencieuse est interdite.
 
-Voir [`adr/0009-stable-domain-identity.md`](adr/0009-stable-domain-identity.md).
+Voir [`adr/0009-stable-domain-identity.md`](adr/DATA-0009-stable-domain-identity.md).
 
 ---
 

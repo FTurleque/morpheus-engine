@@ -36,7 +36,7 @@ composition, c'est le comportement de tout échec de lecture de ce provider.
 le déclare pas. Aucune migration de base n'est nécessaire : les tâches déjà publiées ne changent pas tant que le projet
 n'est pas resynchronisé.
 
-Décision : [ADR-0108, amendement du 24 septembre 2026 (PRV-4)](../../architecture/adr/0108-a-response-says-what-it-could-not-observe.md).
+Décision : [ADR-0108, amendement du 24 septembre 2026 (PRV-4)](../../architecture/adr/BE-0108-a-response-says-what-it-could-not-observe.md).
 Format du bloc : [`../QUICKSTART.md`](../QUICKSTART.md).
 
 ### Qualité d'un change : l'absence d'observation n'est plus un fait
@@ -58,7 +58,7 @@ une contrainte d'applicabilité `UNKNOWN` était bloqué. Inversement, un change
 **Migration.** Un change qui doit pouvoir passer `SPECIFIED` sans contrainte substantielle doit l'exprimer : ingérer ses contraintes, ou
 déclarer explicitement une contrainte `NOT_APPLICABLE` (applicabilité et sévérité connues).
 
-Décision : [ADR-0108, amendement du 25 septembre 2026 (QLT-1, QLT-2)](../../architecture/adr/0108-a-response-says-what-it-could-not-observe.md).
+Décision : [ADR-0108, amendement du 25 septembre 2026 (QLT-1, QLT-2)](../../architecture/adr/BE-0108-a-response-says-what-it-could-not-observe.md).
 
 ### Contexte augmenté : plus de chemin serveur dans le statut NEXUS (HTTP et MCP)
 
@@ -75,7 +75,7 @@ remplacer). La CLI garde les réglages complets.
 **Migration.** Un client qui lisait `details.jar`, `details.home` ou `details.javaCommand` dans une réponse HTTP ou MCP doit lire
 `jarPathConfigured`, `homeDirectoryConfigured` ou `javaCommandConfigured` ; la valeur du chemin reste disponible via la CLI.
 
-Décision : [ADR-0094, amendement du 25 septembre 2026 (NEX-1)](../../architecture/adr/0094-optional-team-remote-server-mode.md).
+Décision : [ADR-0094, amendement du 25 septembre 2026 (NEX-1)](../../architecture/adr/SEC-0094-optional-team-remote-server-mode.md).
 
 ### Références externes MINOS : une recherche tronquée n'est plus une absence
 
@@ -107,7 +107,7 @@ MORPHEUS error [2]: unknown option: --projet
 **Migration.** Un script qui passait une option ignorée reçoit maintenant le code `2` : corriger ou retirer l'option.
 Les options reconnues par action sont exactement celles que l'action lit.
 
-Décision : [ADR-0103](../../architecture/adr/0103-textual-assertions-and-archunit-rules-enforce-different-things.md), qui décrit le contrôle automatisé tenant cette règle.
+Décision : [ADR-0103](../../architecture/adr/archive/0103-textual-assertions-and-archunit-rules-enforce-different-things.md), qui décrit le contrôle automatisé tenant cette règle.
 
 ### CLI `policy evaluate` et `policy dry-run` : un refus atteint le code de sortie
 
@@ -128,7 +128,7 @@ changent pas : elles rendent `0` quand elles réussissent.
 **Migration.** Une CI qui appelait `policy evaluate` ou `policy dry-run` sans regarder le JSON échoue maintenant sur `BLOCK` et
 `UNKNOWN` : c'est le but. Pour ne pas échouer, lire `decision` dans le JSON plutôt que le code de sortie.
 
-Décision : [ADR-0108](../../architecture/adr/0108-a-response-says-what-it-could-not-observe.md).
+Décision : [ADR-0108](../../architecture/adr/BE-0108-a-response-says-what-it-could-not-observe.md).
 
 ### CLI : un refus sur l'état ne rend plus le code d'usage
 
@@ -161,7 +161,7 @@ HTTP et MCP ne changent pas : ces refus restent `400 BAD_REQUEST` et un résulta
 qui ne distingue que `0` du reste n'est pas concerné. Les refus de budget (packs actifs, overrides, règles évaluées,
 identités) et `freshness observation must not move backwards` rendent toujours `2`.
 
-Décision : [ADR-0108, amendement du 26 septembre 2026 (codes de sortie des refus sur l'état)](../../architecture/adr/0108-a-response-says-what-it-could-not-observe.md).
+Décision : [ADR-0108, amendement du 26 septembre 2026 (codes de sortie des refus sur l'état)](../../architecture/adr/BE-0108-a-response-says-what-it-could-not-observe.md).
 
 ### MCP `apply_change_lifecycle_transition` : un refus rend un résultat en erreur
 
@@ -186,7 +186,7 @@ Le corps ne change pas d'un octet : c'est le même JSON (`state`, `reason`, `lif
 `true` : c'est là que se trouvent désormais l'état et la raison du refus, en JSON et non en message d'exception. Un client qui
 branchait sur `isError` seul obtient désormais le bon comportement sans changement.
 
-Décision : [ADR-0102, amendement du 29 septembre 2026 (MCP-5)](../../architecture/adr/0102-mcp-failure-contract-is-one-rule.md).
+Décision : [ADR-0102, amendement du 29 septembre 2026 (MCP-5)](../../architecture/adr/BE-0102-mcp-failure-contract-is-one-rule.md).
 
 ### MCP `get_policy_audit`, `list_policy_pack_versions`, `list_saved_view_versions` : une page, et non plus un tableau nu
 
@@ -212,7 +212,7 @@ Enfin, ce changement ne promet pas que toute réponse MCP tient dans 1 Mio : d'a
 `trace_requirement` et `get_change_context`, `export_saved_view`, entre autres) ne prennent pas de page, et le pire cas en octets de
 plusieurs d'entre eux dépasse le cadre par arithmétique (non mesuré) ; la liste, avec sa raison par outil, est dans l'ADR-0107.
 
-Décision : [ADR-0107, amendement du 29 septembre 2026 (MCP-2)](../../architecture/adr/0107-one-vocabulary-for-a-paginated-response.md).
+Décision : [ADR-0107, amendement du 29 septembre 2026 (MCP-2)](../../architecture/adr/archive/0107-one-vocabulary-for-a-paginated-response.md).
 
 ### MCP, pages des trois outils de collection croissante : aucune sortie ne change, trois phrases sont corrigées
 
@@ -223,7 +223,7 @@ que les bornes de `limit` sont celles du catalogue « que `PageRequest` applique
 désormais, ainsi que trois descriptions d'outils qui écrivaient « default 50, maximum 100 » à la main) ; et que tout outil sur une collection qui ne fait que croître prend une page
 (trois outils le font ; `list_policy_packs` et d'autres restent rendus entiers, avec leur raison dans l'ADR-0107).
 
-Décision : [ADR-0107, amendement du 30 septembre 2026 (MCP-6)](../../architecture/adr/0107-one-vocabulary-for-a-paginated-response.md).
+Décision : [ADR-0107, amendement du 30 septembre 2026 (MCP-6)](../../architecture/adr/archive/0107-one-vocabulary-for-a-paginated-response.md).
 
 ### Exports (CLI `export query`, MCP `export_query`, HTTP `POST /api/v1/exports`) : `limit` et `offset` sont refusés
 
@@ -257,7 +257,7 @@ d'un export ni ses rendus CSV et Markdown ; ou exporter par le CLI (`export quer
 cadre. `export_saved_view` a la même limite et pas de recours MCP paginé (CLI `export view` ou HTTP). Le recours par `execute_query` est
 prouvé par un test sur le serveur réel ; ceux du CLI et de HTTP sont lus dans le code, non mesurés sur un export de plus d'1 Mio.
 
-Décision : [ADR-0102, amendement du 29 septembre 2026 (MCP-3)](../../architecture/adr/0102-mcp-failure-contract-is-one-rule.md).
+Décision : [ADR-0102, amendement du 29 septembre 2026 (MCP-3)](../../architecture/adr/BE-0102-mcp-failure-contract-is-one-rule.md).
 
 ### HTTP, requêtes, exports, vues, policies et raisonnement : un message d'erreur ne nomme plus d'emplacement
 
@@ -474,7 +474,7 @@ le mode `INCREMENTAL` sur un inventaire que le système savait incomplet.
 Un client qui enchaînait deux `sync` concurrents sur le même projet voit maintenant l'un d'eux échouer au lieu d'un succès silencieux et faux : relancer
 la sync. Un appelant du port `SyncStateStore` (tests, doubles) doit passer la révision attendue.
 
-Décision : [ADR-0054, amendement du 25 septembre 2026 (SYN-1)](../../architecture/adr/0054-persisted-sync-state-archives-and-freshness.md).
+Décision : [ADR-0054, amendement du 25 septembre 2026 (SYN-1)](../../architecture/adr/archive/0054-persisted-sync-state-archives-and-freshness.md).
 
 ### Vues sauvegardées : ce qui s'écrit se relit, et une vue illisible est nommée
 
@@ -496,7 +496,7 @@ La forme d'une vue lisible ne change pas : seule une vue illisible porte `unread
 **Migration.** Une installation qui contient déjà une vue illisible la voit apparaître dans `list` avec sa raison ; l'archiver
 (`morpheus views archive`, `archive_saved_view`, `POST /api/v1/saved-views/{id}/archive`) la retire de la liste des vues actives.
 
-Décision : [ADR-0108, amendement du 25 septembre 2026 (QRY-1)](../../architecture/adr/0108-a-response-says-what-it-could-not-observe.md).
+Décision : [ADR-0108, amendement du 25 septembre 2026 (QRY-1)](../../architecture/adr/BE-0108-a-response-says-what-it-could-not-observe.md).
 
 ### Composition multi-provider : l'union est le mode, et elle cesse d'être muette
 
@@ -518,7 +518,7 @@ population dupliquée.
 Une composition à un seul provider est inchangée : mêmes entités, aucun conflit, mêmes ratios. En revanche des compositions multi-providers qui ne
 rapportaient aucun conflit en rapportent maintenant (les `IDENTICAL`), et un seuil de couverture peut passer de mesuré à `UNKNOWN`.
 
-Décision : [ADR-0084, amendement du 26 septembre 2026 (CMP-1, CMP-2)](../../architecture/adr/0084-provider-neutral-multi-provider-composition.md).
+Décision : [ADR-0084, amendement du 26 septembre 2026 (CMP-1, CMP-2)](../../architecture/adr/ARCH-0084-provider-neutral-multi-provider-composition.md).
 
 ### CLI `composition status` et `composition conflicts` : `--revision` est refusé
 
@@ -539,7 +539,7 @@ sous-commande inconnue aussi (`unknown external-references subcommand`). Le code
 **Migration.** Retirer `--revision` des appels à `composition status` et `composition conflicts` ; il n'a jamais eu
 d'effet.
 
-Décision : [ADR-0103, amendement du 26 septembre 2026 (CLI-8)](../../architecture/adr/0103-textual-assertions-and-archunit-rules-enforce-different-things.md) :
+Décision : [ADR-0103, amendement du 26 septembre 2026 (CLI-8)](../../architecture/adr/archive/0103-textual-assertions-and-archunit-rules-enforce-different-things.md) :
 le contrôle automatisé qu'il décrit couvre désormais toutes les familles de commandes du CLI.
 
 ### Qualité (`quality`, diagnostics HTTP) : un ratio sur population vide n'est plus publié comme une mesure
@@ -567,7 +567,7 @@ lire le statut. Un script qui analysait la sortie texte comme un nombre reçoit 
 `MEASURED` ne dit que la population n'est pas vide : sur une composition multi-provider qui publie deux fois la même
 exigence, le ratio reste `MEASURED` ici alors qu'une policy le lit `UNKNOWN` (voir la composition plus haut).
 
-Décision : [ADR-0108, amendement du 26 septembre 2026 (CLI-4)](../../architecture/adr/0108-a-response-says-what-it-could-not-observe.md).
+Décision : [ADR-0108, amendement du 26 septembre 2026 (CLI-4)](../../architecture/adr/BE-0108-a-response-says-what-it-could-not-observe.md).
 
 ### CLI `portfolio`, `query`, `views`, `export` et `policy` : une option passée vide est refusée
 
@@ -598,7 +598,7 @@ reste `2`.
 valeur vide que l'omission n'ait pas déjà : `views update` reconstruit toute la définition, donc omettre `--filter`
 suffit à retirer un filtre.
 
-Décision : [ADR-0108, amendement du 26 septembre 2026 (CLI-7)](../../architecture/adr/0108-a-response-says-what-it-could-not-observe.md).
+Décision : [ADR-0108, amendement du 26 septembre 2026 (CLI-7)](../../architecture/adr/BE-0108-a-response-says-what-it-could-not-observe.md).
 
 ### CLI (toutes les autres commandes) et lanceurs `api`, `mcp`, `api --remote` : une option passée vide est refusée
 
@@ -644,7 +644,7 @@ variables `MORPHEUS_SERVER_*` vides restent lues comme non définies.
 `--workspace-root "$ROOT"`) reçoit maintenant le code `2` quand elle est vide. **Omettre l'option** quand il n'y a pas
 de valeur, au lieu de la passer vide. Pour viser réellement le répertoire courant, l'écrire : `--data-dir .`.
 
-Décision : [ADR-0108, amendement du 26 septembre 2026 (CLI-7, suite)](../../architecture/adr/0108-a-response-says-what-it-could-not-observe.md).
+Décision : [ADR-0108, amendement du 26 septembre 2026 (CLI-7, suite)](../../architecture/adr/BE-0108-a-response-says-what-it-could-not-observe.md).
 
 ### CLI et lanceurs `api`, `mcp`, `api --remote` : une valeur faite d'espaces Unicode est une valeur blanche
 
@@ -678,7 +678,7 @@ variables d'environnement ne changent pas.
 **Migration.** Aucune pour une valeur qui porte un contenu. Un fichier ou un répertoire dont le nom entier est un
 espace Unicode se désigne par une orthographe qui n'est pas blanche : `--data-dir ./<nom>`.
 
-Décision : [ADR-0108, amendement du 30 septembre 2026 (CLI-10, CLI-11)](../../architecture/adr/0108-a-response-says-what-it-could-not-observe.md).
+Décision : [ADR-0108, amendement du 30 septembre 2026 (CLI-10, CLI-11)](../../architecture/adr/BE-0108-a-response-says-what-it-could-not-observe.md).
 
 ### CLI et lanceurs `api`, `mcp`, `api --remote` : une option répétée est refusée
 
@@ -714,7 +714,7 @@ effet. Le message de `server` et de `reason analyze --question` pour une option 
 pour la remplacer reçoit maintenant le code `2`. **Passer l'option une seule fois**, avec la valeur voulue. Pour
 plusieurs racines de workspace, `--workspace-root` reste répétable.
 
-Décision : [ADR-0108, amendement du 26 septembre 2026 (CLI-7, répétition)](../../architecture/adr/0108-a-response-says-what-it-could-not-observe.md).
+Décision : [ADR-0108, amendement du 26 septembre 2026 (CLI-7, répétition)](../../architecture/adr/BE-0108-a-response-says-what-it-could-not-observe.md).
 
 ### OpenAPI : `CompositionConflict.entityType` publie dix valeurs, `direction` de M23 publie `OUTGOING`/`INCOMING`
 
@@ -735,7 +735,7 @@ n'acceptent que `OUTGOING`, `INCOMING` et `BOTH` (sans distinction de casse). Le
 corrigés ; le code ne change pas. Une requête écrite d'après l'ancien contrat avec `OUTBOUND` ou `INBOUND` était refusée
 (HTTP 400, code d'usage du CLI, erreur d'outil MCP) et l'est toujours : **écrire `OUTGOING` ou `INCOMING`**.
 
-Décision : [ADR-0103, amendement du 29 septembre 2026 (API-5)](../../architecture/adr/0103-textual-assertions-and-archunit-rules-enforce-different-things.md).
+Décision : [ADR-0103, amendement du 29 septembre 2026 (API-5)](../../architecture/adr/archive/0103-textual-assertions-and-archunit-rules-enforce-different-things.md).
 
 ### HTTP `GET /api/v1/projects/{id}/versions` : la lignée est une page
 
@@ -748,7 +748,7 @@ acceptés ; l'ordre reste du plus ancien au plus récent.
 paginer** (`?offset=50`, puis suivants). Une lignée de moins de 50 publications rend exactement les mêmes éléments qu'avant, aux clés de
 page près. Le contrat OpenAPI déclare `offset` et `limit` sur cette route.
 
-Décision : [ADR-0107, amendement du 29 septembre 2026 (API-3)](../../architecture/adr/0107-one-vocabulary-for-a-paginated-response.md).
+Décision : [ADR-0107, amendement du 29 septembre 2026 (API-3)](../../architecture/adr/archive/0107-one-vocabulary-for-a-paginated-response.md).
 
 ### HTTP `saved-views`, `policy-overrides`, `policy-activations` : la query string passe par le budget partagé
 
@@ -768,7 +768,7 @@ Différences visibles, toutes sur des requêtes déjà mal formées (le statut r
 Un client qui branchait sur l'ancien texte d'erreur doit brancher sur le code (`BAD_REQUEST`, HTTP 400), pas sur le message. Une requête
 légitime (`?scopeKind=…&scopeId=…`) répond à l'identique.
 
-Décision : [ADR-0103, amendement du 29 septembre 2026 (API-4)](../../architecture/adr/0103-textual-assertions-and-archunit-rules-enforce-different-things.md).
+Décision : [ADR-0103, amendement du 29 septembre 2026 (API-4)](../../architecture/adr/archive/0103-textual-assertions-and-archunit-rules-enforce-different-things.md).
 
 ### CLI `policy`, `query`, `views` et `export` : un refus d'option ne crée plus de base de données
 
@@ -794,7 +794,7 @@ refuser une partie de leurs options.
 
 **Migration.** Aucune : seul disparaît l'effet de bord d'une invocation refusée.
 
-Décision : [ADR-0108, amendement du 30 septembre 2026 (CLI-9)](../../architecture/adr/0108-a-response-says-what-it-could-not-observe.md).
+Décision : [ADR-0108, amendement du 30 septembre 2026 (CLI-9)](../../architecture/adr/BE-0108-a-response-says-what-it-could-not-observe.md).
 ### Synchronisation OpenSpec : un refus nomme le fichier tel qu'il existe
 
 Jusqu'à 1.2.0, l'échec de lecture d'un fichier OpenSpec ne nommait que le groupe (`current`, `changes`,
@@ -821,7 +821,7 @@ instruit à part.
 
 **Migration.** Aucune. Un client qui branchait sur le texte d'un refus doit brancher sur le code (`INVALID_SOURCE`).
 
-Décision : [ADR-0028, amendement du 30 septembre 2026 (PRV-6)](../../architecture/adr/0028-unified-provider-read-contract.md).
+Décision : [ADR-0028, amendement du 30 septembre 2026 (PRV-6)](../../architecture/adr/BE-0028-unified-provider-read-contract.md).
 ### Deltas OpenSpec : un bloc de code jamais fermé est signalé, et `sync` nomme ce qu'il a sauté
 
 Jusqu'à 1.2.0, une ligne qui commence par trois accents graves ou tildes suivis de texte (```` ```inline``` markers ````)
@@ -859,4 +859,4 @@ suite d'accents graves en début de ligne) les rétablit. Un client qui lisait l
 de `sync` clé par clé n'est pas affecté ; un client qui validait la réponse contre un schéma fermé doit accepter
 `diagnostics`.
 
-Décision : [ADR-0028, amendement du 30 septembre 2026 (PRV-2, suite)](../../architecture/adr/0028-unified-provider-read-contract.md).
+Décision : [ADR-0028, amendement du 30 septembre 2026 (PRV-2, suite)](../../architecture/adr/BE-0028-unified-provider-read-contract.md).

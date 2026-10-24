@@ -437,7 +437,7 @@ class RepositoryDocumentationCoherenceTest {
 
         String arc42 = Files.readString(root.resolve("docs/architecture/arc42/11-risques-dette.md"));
         String adrIndex = Files.readString(root.resolve("docs/architecture/adr/README.md"));
-        assertTrue(adrIndex.contains("[ADR-0096](0096-conservative-native-mcp-client"),
+        assertTrue(adrIndex.contains("[ADR-0096](GEN-0096-conservative-native-mcp-client"),
                 "ADR index must retain the accepted ADR-0096 entry");
         assertFalse(arc42.contains("| DT-02 |"),
                 "active debt register must not advertise the already-resolved ADR-0096 index drift");
@@ -662,7 +662,7 @@ class RepositoryDocumentationCoherenceTest {
         Path root = repositoryRoot();
         long numberedAdrs;
         try (var files = Files.list(root.resolve("docs/architecture/adr"))) {
-            numberedAdrs = files.filter(path -> path.getFileName().toString().matches("\\d{4}-.*\\.md")).count();
+            numberedAdrs = files.filter(path -> path.getFileName().toString().matches("[A-Z]+-\\d{4}-.*\\.md")).count();
         }
         assertTrue(numberedAdrs > 0, "the ADR directory must contain numbered decision records");
 
@@ -671,7 +671,7 @@ class RepositoryDocumentationCoherenceTest {
             assertFalse(ADR_OR_MODULE_TOTAL.matcher(content).find(),
                     () -> root.relativize(page) + " restates a perishable total (\""
                             + describeFirstMatch(ADR_OR_MODULE_TOTAL, content)
-                            + "\"); count docs/architecture/adr/0*.md or pom.xml <module> entries instead");
+                            + "\"); count docs/architecture/adr/*-[0-9][0-9][0-9][0-9]-*.md or pom.xml <module> entries instead");
         }
     }
 

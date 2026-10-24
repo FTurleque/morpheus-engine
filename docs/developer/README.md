@@ -231,12 +231,12 @@ Architecture et décisions (dans `docs/architecture/`) :
 
 - [Architecture générale](ARCHITECTURE.md)
 - [Dossier d'architecture arc42](../architecture/README.md) — [vue d'ensemble](../architecture/overview.md), [scénarios qualité](../architecture/quality/scenarios.md), [registre des risques](../architecture/risks/register.md)
-- [Registre des ADR](../architecture/adr/README.md) — [gabarit](../architecture/adr/template.md)
+- [Registre des ADR](../architecture/adr/README.md) — [gabarit](../architecture/adr/gabarit/template.md)
 - [Archgate](ARCHGATE.md) — lecture du registre d'ADR et règles TypeScript rattachées, hors CI
 
 Plateformes et surfaces :
 
-- [Provider SDK](PROVIDER_SDK.md)
+- [Provider SDK](PROVIDER_SDK.md) · [Provider OpenSpec — règles de lecture](OPENSPEC_PROVIDER.md)
 - [Portfolio Intelligence](PORTFOLIO_INTELLIGENCE.md)
 - [Query Platform](QUERY_PLATFORM.md)
 - [Policy Platform](POLICY_PLATFORM.md)

@@ -35,8 +35,8 @@ Les anciens risques de gouvernance liés à l'absence de protection de `main`/`d
 
 `DT-04` (SQLite unique backend), `DT-05` (macOS) et `DT-12` (identités historiques à trois champs) sont
 **requalifiées le 16/09/2026** : ce sont des positions tenues, pas des dettes. Elles partent respectivement vers
-[ADR-0018 §15](../adr/0018-sqlite-initial-persistent-store.md), [§10.4 ci-contre](10-exigences-qualite.md) et
-[ADR-0094](../adr/0094-optional-team-remote-server-mode.md), chacune avec l'événement qui la rouvrira.
+[ADR-0018 §15](../adr/DATA-0018-sqlite-initial-persistent-store.md), [§10.4 ci-contre](10-exigences-qualite.md) et
+[ADR-0094](../adr/SEC-0094-optional-team-remote-server-mode.md), chacune avec l'événement qui la rouvrira.
 `DT-07` et `DT-08` **sortent du registre technique** le même jour : ce sont des réglages de comptes externes,
 suivis dans #154, qu'aucun commit ne ferme et qu'aucun test ne surveille — suivis ailleurs, pas réglés. Détail
 et conditions de réouverture : [`../risks/register.md`](../risks/register.md).

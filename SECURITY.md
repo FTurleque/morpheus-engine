@@ -22,9 +22,9 @@ Remote identity tokens contain 256 bits of random material and only their SHA-25
 
 Credential material printed by `server identity create` or `server identity rotate` must be captured once into an appropriate secret store. Never commit generated tokens, keystore passwords, or authentication files containing operational credential hashes. The repository ignores identity files and key material by name (`remote-auth*.txt`, `*.p12`, `*.jks`, `*.pfx`, `*.pem`, `*.key`), and its build refuses a tracked file that matches one; that guard covers a mistake, not a decision to bypass it.
 
-MORPHEUS integrates no secret vault and persists no reusable secret: tokens are stored as SHA-256 hashes only, and the TLS keystore password is read from the `MORPHEUS_SERVER_TLS_PASSWORD` environment variable alone — never from a command-line argument or a `-D` JVM property, both of which other local accounts can read. The protection is bounded to other accounts of the host; it does not extend to a compromise of the account running MORPHEUS, to an administrator, or to unencrypted backups. The full threat model and the conditions that would reopen the decision are in [ADR-0105](docs/architecture/adr/0105-no-secret-vault-no-reusable-secret-at-rest.md).
+MORPHEUS integrates no secret vault and persists no reusable secret: tokens are stored as SHA-256 hashes only, and the TLS keystore password is read from the `MORPHEUS_SERVER_TLS_PASSWORD` environment variable alone — never from a command-line argument or a `-D` JVM property, both of which other local accounts can read. The protection is bounded to other accounts of the host; it does not extend to a compromise of the account running MORPHEUS, to an administrator, or to unencrypted backups. The full threat model and the conditions that would reopen the decision are in [ADR-0105](docs/architecture/adr/SEC-0105-no-secret-vault-no-reusable-secret-at-rest.md).
 
-Before it advances the schema of an existing database, MORPHEUS writes a copy of that database beside it (`<database>.pre-migration-v<NNN>-<timestamp>-<id>.db`, [ADR-0110](docs/architecture/adr/0110-a-copy-is-kept-before-the-schema-advances.md)). The copy holds everything the database held, is unencrypted like any backup, receives the same local permission hardening as the database, and is never removed automatically: it falls under the same handling rules as a backup. If it cannot be written, the upgrade is refused rather than performed without a way back.
+Before it advances the schema of an existing database, MORPHEUS writes a copy of that database beside it (`<database>.pre-migration-v<NNN>-<timestamp>-<id>.db`, [ADR-0110](docs/architecture/adr/DATA-0110-a-copy-is-kept-before-the-schema-advances.md)). The copy holds everything the database held, is unencrypted like any backup, receives the same local permission hardening as the database, and is never removed automatically: it falls under the same handling rules as a backup. If it cannot be written, the upgrade is refused rather than performed without a way back.
 
 ### Two records: what happens to credentials, and what they are used for
 
@@ -34,7 +34,7 @@ The **credential audit** is held inside the identity file: each creation, revoca
 an identity, without a secret, as a rolling window of the most recent events. It says what happened to a credential.
 
 The **access journal** is a file of its own beside the identity file, `morpheus-remote-access.jsonl`
-([ADR-0113](docs/architecture/adr/0113-the-remote-server-records-who-was-authorized-to-do-what.md)). It says what a
+([ADR-0113](docs/architecture/adr/SEC-0113-the-remote-server-records-who-was-authorized-to-do-what.md)). It says what a
 credential was used for: for every request the server authorizes, the time, the request identifier returned in
 `X-Request-Id`, the principal, the role it holds, the role the route requires, the method, the route template and the
 status. A request refused for want of a role (403) is recorded with its principal. A record never holds a token, a

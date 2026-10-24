@@ -11,7 +11,7 @@ import java.util.Locale;
 import org.junit.jupiter.api.Test;
 
 /**
- * The external-code trust boundary, stated as what it guarantees and as what it deliberately does not (ADR-0101).
+ * The external-code trust boundary, stated as what it guarantees and as what it deliberately does not (ADR-0129).
  *
  * <p>MORPHEUS runs two kinds of code it did not write: a provider plugin an operator activated, and an MCP peer
  * whose launch command an operator configured. Both cross a real process and environment boundary. None of it is
@@ -153,12 +153,12 @@ class ProviderPluginTrustBoundaryContractTest {
 
         String sdkGuide = read("docs/developer/PROVIDER_SDK.md");
         assertTrue(sdkGuide.contains("classloader isolation != security sandbox"));
-        assertTrue(sdkGuide.contains("0101-external-code-is-trusted-code-not-sandboxed-code.md"),
+        assertTrue(sdkGuide.contains("SEC-0129-plugins-provider-code-de-confiance-hors-processus.md"),
                 "the SDK guide must point at the trust model rather than restate it");
         assertFalse(sdkGuide.contains("différée au-delà de M22"),
                 "the process boundary exists since M22; only the sandbox does not");
 
-        String adr = read("docs/architecture/adr/0101-external-code-is-trusted-code-not-sandboxed-code.md");
+        String adr = read("docs/architecture/adr/SEC-0129-plugins-provider-code-de-confiance-hors-processus.md");
         assertTrue(adr.contains("PAS une sandbox du système d'exploitation"));
         assertTrue(adr.contains("= code de confiance"));
 
@@ -168,7 +168,7 @@ class ProviderPluginTrustBoundaryContractTest {
         for (String page : List.of(
                 "SECURITY.md",
                 "docs/developer/PROVIDER_SDK.md",
-                "docs/architecture/adr/0101-external-code-is-trusted-code-not-sandboxed-code.md",
+                "docs/architecture/adr/SEC-0129-plugins-provider-code-de-confiance-hors-processus.md",
                 "docs/developer/MCP.md",
                 SDK + "ProviderPluginProbeProcess.java",
                 SDK + "ProviderPluginActivator.java")) {

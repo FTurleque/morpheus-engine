@@ -42,10 +42,15 @@ foreach ($proof in @(
 }
 
 Section 'ADR  <- docs/architecture/adr/ (compte, jamais recopie)'
-$records = @(Get-ChildItem -LiteralPath 'docs/architecture/adr' -Filter '0*.md' -File)
-$numbers = @($records | ForEach-Object { $_.Name.Substring(0, 4) })
-Item 'records numerotes' $records.Count
-Item 'numero le plus haut attribue' ($numbers | Sort-Object | Select-Object -Last 1)
+$recordName = '^(?:[A-Z]+-)?(\d{4})-.*\.md$'
+$inForce = @(Get-ChildItem -LiteralPath 'docs/architecture/adr' -Filter '*.md' -File |
+        Where-Object { $_.Name -cmatch '^[A-Z]+-\d{4}-' })
+$archived = @(Get-ChildItem -LiteralPath 'docs/architecture/adr/archive' -Filter '*.md' -File |
+        Where-Object { $_.Name -cmatch $recordName })
+$numbers = @(($inForce + $archived) | ForEach-Object { [regex]::Match($_.Name, $recordName).Groups[1].Value })
+Item 'ADR en vigueur' $inForce.Count
+Item 'ADR archivees' $archived.Count
+Item 'numero le plus haut attribue (registre et archive)' ($numbers | Sort-Object | Select-Object -Last 1)
 Item 'doublons de numerotation' (($numbers | Group-Object | Where-Object Count -gt 1 |
         ForEach-Object Name) -join ' ')
 

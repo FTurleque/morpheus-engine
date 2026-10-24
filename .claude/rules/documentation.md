@@ -18,7 +18,7 @@ docs/
       contracts/     contrats de ports
       domain/        modèle de domaine
   architecture/      dossier arc42, overview, quality/, risks/
-    adr/             registre unique des ADR + template.md, lu par Archgate (docs/developer/ARCHGATE.md)
+    adr/             registre unique des ADR (format Archgate, lu par Archgate), archive/, gabarit/template.md
   project/           piloter et auditer le projet
     governance/      ROADMAP, DOCUMENTATION_STATUS, PLAN
     roadmap/         <jalon>_EXECUTION.md
@@ -65,8 +65,9 @@ page mixte.
   commandes et de ses fichiers de configuration
 - Ajouter un audit sous `docs/project/audits/`, soit `AUDIT_<objet>_<AAAA-MM-JJ>.md`, soit un dossier
   `<AAAA-MM-JJ>/` quand il porte plusieurs fichiers, et l'indexer dans `audits/README.md`
-- Partir de `docs/architecture/adr/template.md` pour une ADR, vérifier le plus haut numéro attribué,
-  et ajouter sa ligne à `docs/architecture/adr/README.md` (`AdrIndexCoherenceTest`)
+- Partir de `docs/architecture/adr/gabarit/template.md` pour une ADR, la nommer `{PRÉFIXE}-{NNNN}-{slug}.md`
+  (préfixe du domaine, numéro qui suit le plus haut attribué dans le registre et l'archive, ADR-0132), et ajouter sa
+  ligne à `docs/architecture/adr/README.md` (`AdrIndexCoherenceTest`) puis à `docs/architecture/arc42/09-decisions.md`
 - Livrer plan et preuve d'un jalon dans `docs/project/roadmap/` et `docs/project/validation/`
   (cf. `rules/testing.md`, quadruplet)
 
@@ -100,7 +101,9 @@ Un chemin de documentation est **épinglé** : des tests d'architecture le lisen
 1. Déplacer avec `git mv`, jamais par suppression puis recréation.
 2. Chercher l'ancien chemin dans **tout** le dépôt, sous ses deux écritures (`docs/x/` et `docs\x\`),
    et dans les motifs d'expression régulière du hook (`docs[\\/]x[\\/]`).
-3. Recalculer les liens relatifs des pages déplacées **et** de celles qui pointent vers elles.
+3. Recalculer les liens relatifs des pages déplacées **et** de celles qui pointent vers elles. Un lien redirigé vers
+   un autre document change aussi de libellé : `[ADR-0101](…SEC-0129-…)` ment au lecteur. Un fichier compagnon
+   (`{ID}-{slug}.rules.ts` d'un ADR) se renomme avec lui.
 4. Lancer `RepositoryDocumentationCoherenceTest` — il refuse un lien Markdown cassé — puis les tests
    d'architecture qui lisent le fichier.
 

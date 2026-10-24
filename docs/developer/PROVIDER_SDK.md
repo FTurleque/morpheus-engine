@@ -169,7 +169,7 @@ La frontière de processus, elle, existe depuis M22 : le probe s’exécute dans
 n’est pas planifié — c’est une **sandbox du système d’exploitation**. Un plugin approuvé s’exécute
 sous le compte système MORPHEUS et dispose donc des mêmes droits fichiers et réseau que MORPHEUS. Le
 pin SHA-256 garantit que le code exécuté est exactement celui qui a été approuvé ; il ne dit rien de
-ce que ce code fait. Voir [ADR-0101](../architecture/adr/0101-external-code-is-trusted-code-not-sandboxed-code.md)
+ce que ce code fait. Voir [ADR-0129](../architecture/adr/SEC-0129-plugins-provider-code-de-confiance-hors-processus.md)
 pour le modèle de confiance complet, garanties et non-garanties.
 
 Pour exécuter du code tiers **non fiable**, isoler MORPHEUS ou le processus externe avec un
@@ -376,4 +376,4 @@ Le reactor/architecture gate charge le JAR externe, exécute son probe puis son 
 
 Avant août, la qualification M22 est locale exact-head uniquement ; le workflow GitHub Actions n’est pas utilisé comme preuve.
 
-ADR : [`../architecture/adr/0090-provider-sdk-plugin-discovery-platform.md`](../architecture/adr/0090-provider-sdk-plugin-discovery-platform.md).
+ADR : [`../architecture/adr/0090-provider-sdk-plugin-discovery-platform.md`](../architecture/adr/SEC-0129-plugins-provider-code-de-confiance-hors-processus.md).
