@@ -79,9 +79,8 @@ fonctionnalités.
 **Provider explicite.** Une configuration peut imposer un provider (`provider = openspec`) ; le moteur vérifie tout de
 même ses capacités et sa version, et une incompatibilité ne devient jamais un succès silencieux.
 
-**Écriture.** Une opération d'écriture requiert une capacité explicite (`WRITE_CHANGE`, `WRITE_TASK_STATE`,
-`ARCHIVE_CHANGE`). `READ_CHANGES` n'implique jamais `WRITE_CHANGE`. Un provider read-only reste valide et préférable
-pour de nombreux usages.
+**Écriture.** La séparation des capacités de lecture et d'écriture, et l'interdit d'en déduire une écriture, sont
+décidés par ADR-0008. Pour la sélection, un provider read-only reste valide et préférable pour de nombreux usages.
 
 **Diagnostics de négociation.** La sélection nomme son issue par un code : `NO_PROVIDER_FOUND`,
 `UNSUPPORTED_SOURCE`, `UNSUPPORTED_FORMAT_VERSION`, `MISSING_REQUIRED_CAPABILITY`,

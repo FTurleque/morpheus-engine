@@ -48,7 +48,7 @@ OpenSpec, et le serveur remote avec son bootstrap, qui prennent le fichier de ba
   retirée. La liste peut rétrécir, elle ne peut pas grandir en silence.
 
 **Ajouter une racine exige un ADR consolidé qui remplace celui-ci et la nomme**, avec la raison pour laquelle la classe ne peut pas passer par un port
-de l'application. Le reste des interdits est inchangé : `application` ne connaît aucun adaptateur, `api` ne dépend ni
+de l'application. Les autres interdits valent sans exception : `application` ne connaît aucun adaptateur, `api` ne dépend ni
 de `cli` ni de `mcp`, les providers et les stores restent frères.
 
 La CLI est la racine de composition du processus : `MorpheusMain` câble le processus et `CliRuntime` construit le
@@ -84,15 +84,15 @@ n'ont qu'un câblage pour les trois transports.
 Le transport STDIO borné (`com.morpheus.integration.mcp`) est partagé par le serveur MCP et par les clients MINOS et
 NEXUS : il ne connaît aucun type MORPHEUS.
 
-### 4. Les paquets du domaine sont sans cycle, à deux exceptions nommées ; l'application est reportée
+### 4. Les paquets du domaine sont sans cycle, à deux exceptions nommées ; l'application n'a pas de règle de cycle
 
 Tout cycle entre tranches de `com.morpheus.domain` est interdit, sauf deux, **nommés par la paire de types exacte**
 qui ferme chacun : `ProviderProbeResult → SourceLocator` (un résultat de sonde porte le localisateur de la source
 sondée) et `RequirementDelta → Scenario` (un delta porte ses scénarios, un scénario nomme son exigence). Toute autre
 dépendance entre ces paquets, ou tout nouveau cycle, échoue.
 
-La même règle sur `com.morpheus.application` est **reportée** : les cycles entre tranches de l'application sont trop
-nombreux pour être retirés sans refonte des paquets, ce qui sort de la portée d'une décision d'architecture.
+Aucune règle de cycle ne porte sur `com.morpheus.application` : les cycles entre ses tranches ne se retirent pas sans
+refonte des paquets, ce qui sort de la portée d'une décision d'architecture.
 
 ## Do's and Don'ts
 

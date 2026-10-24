@@ -60,10 +60,18 @@ restent dans le snapshot.
 de départ est à la profondeur 0 ; une arête n'est explorée que depuis un nœud de profondeur strictement inférieure à
 `maxDepth`.
 
-**Budgets et troncature.** La profondeur appartient à l'appelant ; les nœuds et les liens sont bornés par le service,
-par `TraceabilityTraversalService.MAX_NODES` et `TraceabilityTraversalService.MAX_LINKS`. Une traversée qui s'arrête
-avant d'avoir observé tout ce que sa profondeur admet le dit dans `TraceabilitySubgraph.truncationReason()` (budget de
-nœuds, de liens ou de profondeur atteint), selon ADR-0108.
+**Budgets et troncature.** La profondeur appartient à l'appelant, bornée par les transports ; les nœuds et les liens
+sont bornés par le service, par `TraceabilityTraversalService.MAX_NODES` et `TraceabilityTraversalService.MAX_LINKS`,
+aux valeurs du portefeuille (ADR-0091). Une traversée qui s'arrête avant d'avoir observé tout ce que sa profondeur
+admet le dit dans `TraceabilitySubgraph.truncationReason()` et `truncated()`, avec les raisons du portefeuille :
+`NODE_BUDGET_REACHED:<n>`, `LINK_BUDGET_REACHED:<n>`, `DEPTH_BUDGET_REACHED:<n>`.
+
+- Un lien n'est pas retenu s'il mène à un nœud refusé par le budget.
+- `DEPTH_BUDGET_REACHED` n'est déclaré que si un lien reste réellement non observé au-delà de la frontière : un nœud
+  plus profond, ou un lien entre deux nœuds de la frontière.
+
+Les vues compactes de `trace_requirement` et `get_change_context`, chemin commun de MCP, de HTTP et du JSON de la CLI,
+portent la même paire, `truncationReason` (chaîne ou `null`) et `truncated` (ADR-0123).
 
 **Cycles.** La traversée est un parcours en largeur borné, avec suivi explicite des nœuds découverts. Un cycle reste
 visible dans le sous-graphe lorsque ses arêtes appartiennent à la frontière explorée, mais aucun cycle ne provoque
@@ -79,7 +87,9 @@ TraceabilityLinkId
 
 Les nœuds et arêtes du sous-graphe sont retournés dans un ordre stable. `traverseExplained` rend, pour chaque nœud
 atteint, le plus court chemin depuis le départ, reconstruit depuis l'étape qui a découvert ce nœud : avec le même ordre,
-c'est le premier plus court chemin du parcours en largeur, choisi de façon déterministe.
+c'est le premier plus court chemin du parcours en largeur, choisi de façon déterministe. `ExplainedTraversal`
+n'explique, sans relancer de recherche, que les nœuds que le sous-graphe rapporte : un nœud non atteint n'a pas de
+chemin et n'est pas présenté comme « sans chemin ».
 
 **Filtres.** Le filtre est un `Set<TraceabilityRelationType>` explicite ; l'ensemble vide signifie toutes les
 relations. Aucun type hors de l'énumération n'est accepté.
@@ -118,13 +128,14 @@ Les références externes relèvent d'ADR-0142.
 - Exiger `maxDepth > 0`.
 - Ordonner les voisins par entité suivante, type de relation, puis identifiant de lien.
 - Exposer la raison de troncature quand un budget de nœuds, de liens ou de profondeur est atteint.
+- Écarter tout lien qui mène à un nœud refusé par le budget.
 - Rendre dans chaque étape de chemin le lien persisté réel et le sens de parcours.
 
 ### Don't
 
 - Ne pas fusionner des liens de snapshots différents.
 - Ne pas matérialiser d'arête inverse ni de lien transitif synthétique.
-- Ne pas présenter un sous-graphe tronqué comme complet.
+- Ne pas présenter un sous-graphe tronqué comme complet, ni un nœud non atteint comme sans chemin.
 - Ne pas introduire de base graphe pour la traversée.
 
 ## Consequences
@@ -137,6 +148,9 @@ Les références externes relèvent d'ADR-0142.
 ### Négatives
 
 - Une traversée large lit le store nœud par nœud ; les budgets bornent ce coût au lieu de le supprimer.
+- Les réponses de trace et de contexte de changement portent deux champs de plus ; les routes concernées répondent la
+  réponse générique `Success` de l'OpenAPI et les outils MCP ne déclarent pas de schéma de sortie.
+- La fixture large de M19 se tronque sur `NODE_BUDGET_REACHED`, ce que son gate asserte.
 
 ### Risques
 
@@ -153,7 +167,10 @@ Les références externes relèvent d'ADR-0142.
   troncature de la traversée.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/TraceabilityRelationFilterParityTest.java` :
   parité du filtre de relations entre stores.
-- Revue : l'absence de base graphe et de lien synthétique dans tout nouveau consommateur.
+- `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m19/M19TraceabilityPerformanceGate.java` :
+  troncature de la fixture large sur le budget de nœuds (lane nocturne).
+- Revue : l'absence de base graphe et de lien synthétique dans tout nouveau consommateur ; les budgets de traversée et
+  la règle « un lien vers un nœud refusé n'est pas retenu ».
 
 ## References
 
@@ -162,6 +179,8 @@ Les références externes relèvent d'ADR-0142.
 - [ADR-0039](BE-0039-deterministic-traceability-derivation.md) — dérivation déterministe de la traçabilité.
 - [ADR-0142](DATA-0142-references-externes.md) — traçabilité des références externes.
 - [ADR-0138](ARCH-0138-analyse-de-changement-derivee-et-bornee.md) — chemins d'impact bornés.
-- [ADR-0108](BE-0108-a-response-says-what-it-could-not-observe.md) — plafonds de nœuds et de liens, raison de
-  troncature.
+- [ADR-0091](DATA-0091-multi-project-portfolio-intelligence.md) — traversée du portefeuille, valeurs et raisons des
+  budgets.
+- [ADR-0123](ARCH-0123-vues-compactes-et-json-canonique.md) — vues compactes de la trace.
+- [ADR-0124](ARCH-0124-qualite-findings-et-faits-tri-etat.md) — ce qui n'est pas observé est dit.
 - [Validation M4](../../project/validation/VALIDATION_M4.md)

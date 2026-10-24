@@ -2,7 +2,7 @@
 
 > **Archivée.** Cette décision est consolidée dans [ADR-0124](../ARCH-0124-qualite-findings-et-faits-tri-etat.md). Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
-> Lecture : à lire avec [ADR-0081](../DATA-0081-first-class-acceptance-verification-evidence.md) (le critère d'acceptation y devient un type du modèle) et [ADR-0108](../BE-0108-a-response-says-what-it-could-not-observe.md) (le ratio d'une population vide). (note éditoriale du 21 octobre 2026 : le texte de la décision n'est pas modifié)
+> Lecture : à lire avec [ADR-0081](../DATA-0081-first-class-acceptance-verification-evidence.md) (le critère d'acceptation y devient un type du modèle) et [ADR-0108](0108-a-response-says-what-it-could-not-observe.md) (le ratio d'une population vide). (note éditoriale du 21 octobre 2026 : le texte de la décision n'est pas modifié)
 
 - Statut : **Remplacée par ADR-0124**
 - Date : 23 juillet 2026

@@ -15,7 +15,7 @@ files: ["**/pom.xml"]
 ## Context
 
 MORPHEUS connaît l'intention, les règles de cycle de vie, les contraintes et la qualité observable ; il porte les
-faits de cycle de vie et l'évaluation des transitions (ADR-0079, ADR-0119). JARVIS est l'orchestrateur de
+faits de cycle de vie et l'évaluation des transitions (ADR-0119). JARVIS est l'orchestrateur de
 l'écosystème : il orchestre le travail autour d'un changement.
 
 JARVIS doit pouvoir lire ces faits et demander une évaluation sans recoder les règles de cycle de vie, sans dépendance
@@ -139,7 +139,6 @@ deux dépôts. Aucun runtime JARVIS n'est embarqué dans MORPHEUS ; aucun runtim
 - [ADR-0059](GEN-0059-stable-local-cli-contract.md) — contrat CLI local stable.
 - [ADR-0063](ARCH-0063-read-only-mcp-tool-contract.md) — contrat des outils MCP.
 - [ADR-0066](ARCH-0066-versioned-http-api-contract.md) — contrat HTTP `/api/v1`.
-- [ADR-0079](BE-0079-nondestructive-change-orchestration-state.md) — état d'orchestration non destructif.
 - [ADR-0083](BE-0083-controlled-lifecycle-write-operations.md) — opérations d'écriture contrôlées du cycle de vie.
 - [ADR-0119](BE-0119-cycle-de-vie-des-changements-et-transition-tri-etat.md) — cycle de vie et transition tri-état.
 - Preuve : [VALIDATION_M14](../../project/validation/VALIDATION_M14.md).

@@ -238,7 +238,7 @@ class GrowingCollectionToolsArePageableTest {
                 + " portfolio holds that many references is not established");
         unbounded(map, "trace_requirement", "depth is at most MorpheusMcpToolCatalog.MAX_DEPTH (20) and"
                 + " TraceabilityTraversalService stops at MAX_NODES (1000) and MAX_LINKS (5000), declaring the truncation"
-                + " (ADR-0108), but the link budget is not the caller's and a link is not small: the smallest link the compact"
+                + " (ADR-0040), but the link budget is not the caller's and a link is not small: the smallest link the compact"
                 + " view renders (four identifiers, one evidence id) is about 320 bytes and may carry any number of evidence"
                 + " ids, so 5000 links are above the frame. Worst case by arithmetic, not measured; whether a snapshot holds"
                 + " that many links is not established");
@@ -253,9 +253,9 @@ class GrowingCollectionToolsArePageableTest {
                 + " Worst case by arithmetic, not measured");
         unbounded(map, "evaluate_policies", "at most MAX_ACTIVE_PACKS_PER_SCOPE (32) packs and MAX_DRY_RUN_EVALUATIONS (4096)"
                 + " rules are evaluated, but each rule result carries an evidence list of up to"
-                + " PolicyBudgets.MAX_CONSTRAINT_EVALUATIONS_PER_FACT (1024) entries (ADR-0108): the count budget is above the frame");
+                + " PolicyBudgets.MAX_CONSTRAINT_EVALUATIONS_PER_FACT (1024) entries (ADR-0093): the count budget is above the frame");
         unbounded(map, "dry_run_policy_pack", "one version of at most 4096 rules is evaluated, but each rule result carries an"
-                + " evidence list of up to 1024 entries (ADR-0108): the count budget is above the frame");
+                + " evidence list of up to 1024 entries (ADR-0093): the count budget is above the frame");
         unbounded(map, "export_saved_view", "complete by contract; refused past MAX_EXPORT_ROWS (10000) rows and"
                 + " QueryBudgets.MAX_EXPORT_BYTES (10 MiB), and 10 MiB is above the 1 MiB frame: a valid export of a few MiB"
                 + " cannot be answered and the transport's advice cannot be followed on it");

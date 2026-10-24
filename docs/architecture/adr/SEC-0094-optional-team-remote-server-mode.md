@@ -29,9 +29,8 @@ Le mode local reste la baseline produit. Un bind non-loopback est refusé en mod
 (`LoopbackHostPolicy`).
 
 **Frontière TLS.** Le mode REMOTE utilise le serveur HTTPS du JDK, en TLSv1.3 et TLSv1.2, avec un keystore PKCS12
-fourni explicitement. Le mot de passe du keystore vient **uniquement** de la variable d'environnement
-`MORPHEUS_SERVER_TLS_PASSWORD` : il n'est accepté ni comme argument CLI, ni comme propriété JVM, et n'est ni
-sérialisé, ni retourné dans un statut ou des métriques (ADR-0105).
+fourni explicitement. Le mot de passe du keystore est lu comme le fixe ADR-0105 ; il n'est ni sérialisé, ni
+retourné dans un statut ou des métriques.
 
 ```text
 remote != plaintext HTTP
@@ -39,9 +38,8 @@ remote startup without TLS material => FAIL
 ```
 
 **Authentification.** Le provider de référence est local et portable : un fichier d'identités porte, par principal, son
-rôle, l'empreinte SHA-256 de son jeton et, s'il en a une, son expiration. Le jeton en clair n'est jamais persisté.
-L'en-tête attendu est `Authorization: Bearer <token>`. Les empreintes sont comparées en temps constant
-(`MessageDigest.isEqual`). Un `principal` fourni dans un corps ou un paramètre de requête ne constitue jamais une
+rôle, l'empreinte de son jeton et, s'il en a une, son expiration ; la forme persistée d'un jeton et sa comparaison
+relèvent d'ADR-0105. L'en-tête attendu est `Authorization: Bearer <token>`. Un `principal` fourni dans un corps ou un paramètre de requête ne constitue jamais une
 authentification.
 
 **Identités au format historique à trois champs.** Elles n'expirent pas, et c'est un engagement de compatibilité, pas
@@ -104,8 +102,6 @@ l'opérabilité. Ils ne deviennent jamais source de vérité des spécifications
 ### Do
 
 - Exiger TLS, authentification Bearer et rôle pour toute exposition non-loopback.
-- Lire le mot de passe du keystore dans `MORPHEUS_SERVER_TLS_PASSWORD` seulement.
-- Comparer les empreintes de jeton en temps constant.
 - Refuser par défaut une route inconnue.
 - Rejeter une surcharge par `429` dans une limite de concurrence explicite.
 - Passer tout statut d'intégration par `IntegrationStatusDisclosure` avant une frontière distante ou orientée modèle.
@@ -114,8 +110,7 @@ l'opérabilité. Ils ne deviennent jamais source de vérité des spécifications
 ### Don't
 
 - Ne pas accepter un bind non-loopback en mode local.
-- Ne pas accepter le mot de passe TLS comme argument CLI ni comme propriété JVM.
-- Ne pas persister un jeton en clair, ni l'exposer avec son empreinte dans un statut ou des métriques.
+- Ne pas exposer un jeton ni son empreinte dans un statut ou des métriques.
 - Ne pas traiter un `principal` fourni dans un corps ou un paramètre comme une authentification.
 - Ne pas exposer de restauration par un endpoint ; ne pas restaurer la base active.
 - Ne pas projeter le statut d'intégration dans la CLI.
@@ -151,9 +146,6 @@ l'opérabilité. Ils ne deviennent jamais source de vérité des spécifications
   format d'identité non expirant sans rotation de jeton.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m26/RemoteIdentityDecompositionContractTest.java` :
   décomposition du fichier d'identités.
-- `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/RemoteHttpServerBootstrapArchitectureTest.java`
-  et `morpheus-cli/src/test/java/com/morpheus/cli/RemoteApiLaunchOptionsTest.java` :
-  `aTlsPasswordGivenOnlyAsAJvmPropertyIsRefused`.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/LocalHttpServerBootstrapArchitectureTest.java` :
   loopback du serveur local.
 - `morpheus-api/src/test/java/com/morpheus/api/MorpheusRemoteIdentityFileTest.java` :
@@ -173,7 +165,7 @@ l'opérabilité. Ils ne deviennent jamais source de vérité des spécifications
 - [ADR-0099](SEC-0099-bounded-response-lifetime-on-the-remote-facade.md) — durée de vie bornée d'une réponse remote.
 - [ADR-0100](SEC-0100-identity-audit-is-evidence-not-authority.md) — l'audit d'identités est une preuve.
 - [ADR-0105](SEC-0105-no-secret-vault-no-reusable-secret-at-rest.md) — pas de coffre de secrets ; mot de passe TLS
-  par l'environnement.
+  par l'environnement, jetons persistés en empreinte.
 - [ADR-0110](DATA-0110-a-copy-is-kept-before-the-schema-advances.md) — copie avant migration.
 - [ADR-0113](SEC-0113-the-remote-server-records-who-was-authorized-to-do-what.md) — journal d'accès remote.
 - [Validation M26](../../project/validation/VALIDATION_M26.md)

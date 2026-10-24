@@ -13,7 +13,7 @@ rules: false
 ## Context
 
 MORPHEUS normalise et expose des `Constraint` portant une identité, un changement, un texte et une provenance. Le
-cycle de vie d'un changement (ADR-0119) et l'état d'orchestration (ADR-0079) doivent pouvoir dire si une contrainte
+cycle de vie d'un changement (ADR-0119) et l'état d'orchestration (ADR-0119) doivent pouvoir dire si une contrainte
 bloque une transition, sans jamais interpréter le texte d'une contrainte comme une politique exécutable.
 
 Principes à préserver :
@@ -235,7 +235,6 @@ lorsque ce fait est requis pour décider.
 
 - [ADR-0135](ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — domaine possédé par MORPHEUS.
 - [ADR-0141](DATA-0141-contenu-metier-par-snapshot.md) — projection du contenu métier du snapshot.
-- [ADR-0079](BE-0079-nondestructive-change-orchestration-state.md) — état d'orchestration non destructif.
 - [ADR-0081](DATA-0081-first-class-acceptance-verification-evidence.md) — preuves d'acceptation.
 - [ADR-0118](ARCH-0118-tracabilite-typee-et-taxonomie-controlee.md) — traçabilité typée.
 - [ADR-0119](BE-0119-cycle-de-vie-des-changements-et-transition-tri-etat.md) — cycle de vie et transition tri-état.

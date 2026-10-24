@@ -123,35 +123,20 @@ confirmation, CAS, acteur, raison et audit.
 
 ### Budgets
 
-Les bornes sont les constantes de `ReasoningContracts` et la borne de corps HTTP de `MorpheusHttpServer` :
-
-| Borne | Constante | Valeur |
-|---|---|---|
-| éléments d'évidence | `MAX_EVIDENCE` | 256 |
-| adaptateurs sélectionnés | `MAX_ADAPTERS` | 8 |
-| claims acceptées | `MAX_CLAIMS` | 256 |
-| références d'évidence par claim | `MAX_EVIDENCE_REFERENCES` | 32 |
-| entrées de provenance | `MAX_PROVENANCE_ENTRIES` | 32 |
-| entrées de paramètres | `MAX_PARAMETER_ENTRIES` | 32 |
-| question (caractères) | `MAX_QUESTION_CHARS` | 8 192 |
-| énoncé (caractères) | `MAX_STATEMENT_CHARS` | 16 384 |
-| corps HTTP (octets) | `MAX_REQUEST_BODY_BYTES` | 65 536 |
+Les bornes sont des constantes (valeurs à lire dans les classes) : celles de `ReasoningContracts` couvrent les
+éléments d'évidence (`MAX_EVIDENCE`), les adaptateurs sélectionnés (`MAX_ADAPTERS`), les claims acceptées
+(`MAX_CLAIMS`), les références d'évidence par claim (`MAX_EVIDENCE_REFERENCES`), les entrées de provenance
+(`MAX_PROVENANCE_ENTRIES`) et de paramètres (`MAX_PARAMETER_ENTRIES`), la longueur d'une question
+(`MAX_QUESTION_CHARS`) et d'un énoncé (`MAX_STATEMENT_CHARS`) ; le corps HTTP est borné par
+`MorpheusHttpServer.MAX_REQUEST_BODY_BYTES`.
 
 Un dépassement échoue explicitement ; aucune troncature silencieuse n'est présentée comme une analyse complète.
 
 ### Surfaces
 
-```text
-CLI   reason adapters
-MCP   list_reasoning_adapters
-HTTP  GET /api/v1/reasoning/adapters
-
-CLI   reason analyze
-MCP   reason_with_evidence
-HTTP  POST /api/v1/reasoning/analyze
-```
-
-Les deux familles sont `READ` dans `contracts/public-surfaces.tsv`. La façade remote classe explicitement
+Le raisonnement expose deux capacités, la découverte des adaptateurs et l'analyse, sur la CLI, MCP et HTTP ; leurs
+surfaces exactes sont les lignes `reasoning.adapters` et `reasoning.analyze` de `contracts/public-surfaces.tsv`, toutes
+deux d'intention `READ`. La façade remote classe explicitement
 `POST /api/v1/reasoning/analyze` comme un POST de rôle `READ` (`MorpheusRemoteRoutePolicy`) ; un principal `READ` peut
 l'appeler. Une route absente de la politique remote est refusée (`404 NOT_FOUND`), une méthode non déclarée pour une
 route l'est aussi (`405 METHOD_NOT_ALLOWED`).

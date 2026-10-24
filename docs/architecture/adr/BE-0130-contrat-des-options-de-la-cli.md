@@ -21,7 +21,7 @@ et les parseurs de lancement `ApiLaunchOptions`, `McpLaunchOptions`, `RemoteApiL
 traite une invocation fautive autrement qu'une autre fait qu'une option mal orthographiée, vide ou répétée produit un
 résultat calculé sur la mauvaise population, avec le code `0`, ou un fichier de base créé avant le refus.
 
-Le principe d'ADR-0108 s'applique au processus : une réponse ne se présente pas comme réussie quand l'appel était mal
+Le principe d'ADR-0124 (ce qui n'est pas observé est dit) s'applique au processus : une réponse ne se présente pas comme réussie quand l'appel était mal
 formé, ni comme mal formé quand c'est l'état qui refuse. Un code de sortie qui contredit ce qui a été observé est
 converti en succès ou en faute d'usage par tout ce qui ne lit pas le JSON.
 
@@ -203,7 +203,7 @@ sont confiées à leur parseur de lancement. Un marqueur que la garde ne sait pa
 
 - [ADR-0059](GEN-0059-stable-local-cli-contract.md) — contrat CLI local stable
 - [ADR-0102](BE-0102-mcp-failure-contract-is-one-rule.md) — contrat d'échec MCP
-- [ADR-0108](BE-0108-a-response-says-what-it-could-not-observe.md) — une réponse dit ce qu'elle n'a pas pu observer
+- [ADR-0124](ARCH-0124-qualite-findings-et-faits-tri-etat.md) — ce qui n'est pas observé est dit
 - [ADR-0093](ARCH-0093-provider-neutral-policy-packs-governance-automation.md) — policy packs, `UNKNOWN` jamais `BLOCKED`
 - [Référence de la CLI](../../user/CLI.md)
 - `contracts/public-surfaces.tsv`

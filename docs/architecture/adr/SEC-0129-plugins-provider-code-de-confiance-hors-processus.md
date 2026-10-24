@@ -206,6 +206,11 @@ décision d'architecture.
 - Un plugin approuvé peut lire, écrire et joindre tout ce que le compte MORPHEUS atteint : le pin n'en limite rien.
 - Un descendant d'un pair MCP créé puis orphelin entre deux observations peut survivre ; le trou est documenté dans
   `SECURITY.md`.
+- **Question ouverte** : trois outils MCP — `resolve_external_reference`, `get_augmented_requirement_context` et
+  `get_augmented_change_context` — lancent à la demande du modèle le pair MCP que l'opérateur a configuré (MINOS
+  ou NEXUS), comme le disent leurs lignes de `contracts/public-surfaces.tsv`. La garantie « le modèle ne peut pas
+  déclencher l'exécution de code tiers » ne porte que sur le probe de plugin. L'exposition de ces trois outils au
+  modèle est une décision de produit à prendre.
 
 ## Compliance and Enforcement
 
@@ -224,14 +229,6 @@ décision d'architecture.
   launcher Java ; `scripts/validate-m22.ps1` exécute `discover`, activation et `probe` depuis le launcher packagé et
   exige le statut `SUPPORTED`.
 - Revue : les options `--jlink-options` des deux scripts de distribution, qu'aucun test ne lit.
-
-## Question ouverte
-
-Trois outils MCP — `resolve_external_reference`, `get_augmented_requirement_context` et
-`get_augmented_change_context` — lancent à la demande du modèle le pair MCP que l'opérateur a configuré (MINOS ou
-NEXUS), comme le disent leurs lignes de `contracts/public-surfaces.tsv`. La garantie « le modèle ne peut pas déclencher
-l'exécution de code tiers » ne porte que sur le probe de plugin. L'exposition de ces trois outils au modèle est une
-décision de produit à prendre.
 
 ## References
 

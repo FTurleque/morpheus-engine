@@ -17,9 +17,9 @@ MORPHEUS a besoin d'une persistance locale pour les snapshots, les spécificatio
 versions, les changements, les relations de traçabilité, les diagnostics et les métadonnées utiles. Le domaine ne doit
 pas être couplé à un produit de stockage (ADR-0003).
 
-Trois options ont été évaluées : un store mémoire, SQLite comme candidat persistant, et une graph database.
+Trois options sont en présence : un store mémoire, SQLite comme candidat persistant, et une graph database.
 
-Les expérimentations ont montré sur SQLite : création locale sans service, persistance après redémarrage,
+SQLite couvre les besoins du store : création locale sans service, persistance après redémarrage,
 transactions, activation atomique de snapshots, rejet d'un prédécesseur obsolète, idempotence, comparaison de
 snapshots, requêtes simples, persistance des relations de traçabilité, traversée directe et inverse à profondeur 3,
 conservation des références non résolues. Aucun besoin mesuré n'impose une graph database : une traversée de
@@ -72,7 +72,7 @@ Storage boundary   = SpecificationKnowledgeStore
 
 ### Schéma
 
-Le payload JSON complet de l'expérimentation n'est pas le schéma de production. Le schéma de production distingue au
+Un payload JSON monolithique n'est pas le schéma de production. Le schéma de production distingue au
 minimum les familles : projets, snapshots de connaissance, spécifications, requirements, changements, contraintes,
 scénarios, décisions de conception, critères d'acceptation, tâches d'implémentation, liens de traçabilité, références
 externes, provenance et preuves.
@@ -86,16 +86,15 @@ d'ADR-0110.
 
 ### Invariants
 
-1. SQLite reste un adaptateur.
-2. Aucune API SQL dans le domaine.
-3. Le snapshot actif est atomique au niveau observable.
-4. `DomainIdentity` est conservée exactement.
-5. Les liens de traçabilité sont associés au snapshot.
-6. Les références non résolues sont conservées.
-7. Le store est reconstructible.
-8. Les migrations sont explicites.
-9. Le fonctionnement ne requiert pas de réseau.
-10. Un graph store reste réévaluable sans refonte du domaine.
+Les invariants de l'adaptateur SQLite et des migrations sont ceux d'ADR-0021 ; la frontière du port de persistance
+est celle d'ADR-0003. S'y ajoutent :
+
+1. Le snapshot actif est atomique au niveau observable.
+2. `DomainIdentity` est conservée exactement.
+3. Les liens de traçabilité sont associés au snapshot.
+4. Les références non résolues sont conservées.
+5. Le fonctionnement ne requiert pas de réseau.
+6. Un graph store reste réévaluable sans refonte du domaine.
 
 ### Un seul backend, par choix
 

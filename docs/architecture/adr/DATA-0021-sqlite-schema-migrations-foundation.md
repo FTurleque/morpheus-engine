@@ -13,7 +13,7 @@ files: [".gitattributes"]
 
 ## Context
 
-ADR-0018 retient SQLite derrière `SpecificationKnowledgeStore` et rejette le payload JSON du spike E08 comme schéma
+ADR-0018 retient SQLite derrière `SpecificationKnowledgeStore` et rejette un payload JSON monolithique comme schéma
 de production. MORPHEUS a besoin d'un mécanisme de migration durable **avant** d'avoir besoin du schéma complet, et
 deux erreurs doivent être évitées :
 
@@ -23,8 +23,7 @@ deux erreurs doivent être évitées :
 
 Options considérées :
 
-- **Blob JSON du spike E08** : rejeté. Il a rempli son rôle expérimental mais ne fournit pas le schéma relationnel de
-  production recherché.
+- **Blob JSON générique** : rejeté. Il ne fournit pas le schéma relationnel de production recherché.
 - **Créer toutes les tables métier d'emblée** : rejeté. Cela figerait des familles métier avant que leurs contrats
   Java soient stabilisés.
 - **ORM et génération automatique de schéma** : non retenu. MORPHEUS a besoin d'un historique de migration explicite

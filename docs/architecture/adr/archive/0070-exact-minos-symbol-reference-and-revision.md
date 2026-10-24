@@ -117,6 +117,6 @@ la cible.
 - [ADR-0009](0009-stable-domain-identity.md) — identité, version, locator et référence externe distincts.
 - [ADR-0026](0026-optional-external-reference-resolution.md) — résolution optionnelle des références externes.
 - [ADR-0041](0041-snapshot-external-reference-traceability.md) — références externes du snapshot.
-- [ADR-0108](../BE-0108-a-response-says-what-it-could-not-observe.md) — une recherche bornée rend une indisponibilité.
+- [ADR-0108](0108-a-response-says-what-it-could-not-observe.md) — une recherche bornée rend une indisponibilité.
 - [ADR-0128](../ARCH-0128-pairs-minos-et-nexus-par-mcp-stdio.md) — pairs MINOS et NEXUS par MCP STDIO.
 - [VALIDATION_M12](../../../project/validation/VALIDATION_M12.md)

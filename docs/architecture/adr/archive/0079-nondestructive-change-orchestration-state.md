@@ -1,13 +1,8 @@
----
-id: BE-0079
-title: "État d'orchestration agrégé non destructif"
-domain: backend
-rules: false
----
+# ADR-0079 — État d'orchestration agrégé non destructif
 
-# État d'orchestration agrégé non destructif
+> **Archivée.** Les règles d'architecture de cette décision vivent dans [ADR-0119](../BE-0119-cycle-de-vie-des-changements-et-transition-tri-etat.md) (vue en lecture seule depuis le snapshot `ACTIVE`, jamais persistée, artefact manquant distinct d'un fait indisponible), [ADR-0082](../DATA-0082-explicit-constraint-semantics-and-blocking-policy.md) (sémantique de blocage), [ADR-0081](../DATA-0081-first-class-acceptance-verification-evidence.md) (un `Scenario` n'est pas un critère d'acceptation) et [ADR-0139](../ARCH-0139-frontiere-morpheus-jarvis-en-lecture-seule.md) (surfaces d'orchestration en lecture seule) ; les champs de la vue et leurs scénarios, dans la spécification [`change-orchestration-state`](../../../../openspec/specs/change-orchestration-state/spec.md). Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
-- Statut : **Acceptée**
+- Statut : **Remplacée par ADR-0119**
 - Date : 2026-07-24
 
 ## Context
@@ -126,13 +121,13 @@ de `ChangeOrchestrationState` refuse `persisted=true`.
 
 ## References
 
-- [ADR-0142](DATA-0142-references-externes.md) — références externes du snapshot.
-- [ADR-0123](ARCH-0123-vues-compactes-et-json-canonique.md) — vues compactes et JSON canonique.
-- [ADR-0124](ARCH-0124-qualite-findings-et-faits-tri-etat.md) — qualité, findings et faits tri-état.
-- [ADR-0119](BE-0119-cycle-de-vie-des-changements-et-transition-tri-etat.md) — cycle de vie et transition tri-état.
-- [ADR-0081](DATA-0081-first-class-acceptance-verification-evidence.md) — critères d'acceptation et preuves de
+- [ADR-0142](../DATA-0142-references-externes.md) — références externes du snapshot.
+- [ADR-0123](../ARCH-0123-vues-compactes-et-json-canonique.md) — vues compactes et JSON canonique.
+- [ADR-0124](../ARCH-0124-qualite-findings-et-faits-tri-etat.md) — qualité, findings et faits tri-état.
+- [ADR-0119](../BE-0119-cycle-de-vie-des-changements-et-transition-tri-etat.md) — cycle de vie et transition tri-état.
+- [ADR-0081](../DATA-0081-first-class-acceptance-verification-evidence.md) — critères d'acceptation et preuves de
   vérification.
-- [ADR-0082](DATA-0082-explicit-constraint-semantics-and-blocking-policy.md) — sémantique des contraintes et
+- [ADR-0082](../DATA-0082-explicit-constraint-semantics-and-blocking-policy.md) — sémantique des contraintes et
   politique de blocage.
-- [ADR-0139](ARCH-0139-frontiere-morpheus-jarvis-en-lecture-seule.md) — surfaces d'orchestration JARVIS.
-- [VALIDATION_M14](../../project/validation/VALIDATION_M14.md) — preuve du jalon M14.
+- [ADR-0139](../ARCH-0139-frontiere-morpheus-jarvis-en-lecture-seule.md) — surfaces d'orchestration JARVIS.
+- [VALIDATION_M14](../../../project/validation/VALIDATION_M14.md) — preuve du jalon M14.

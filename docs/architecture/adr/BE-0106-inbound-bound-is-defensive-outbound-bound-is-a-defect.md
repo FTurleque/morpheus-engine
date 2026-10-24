@@ -82,7 +82,7 @@ avec la capacité.
 Aucun nom d'outil du catalogue serveur n'apparaît dans `morpheus-mcp-transport`.
 
 `get_current_specification` est paginé par `offset` et `limit`, aux mêmes bornes que les autres outils de lecture
-paginés, dans le vocabulaire de page d'ADR-0131 ; la page est ordonnée par identifiant de spécification et chaque
+paginés ; la forme de sa page est décidée par ADR-0131 (§2). La page est ordonnée par identifiant de spécification et chaque
 spécification garde sa `description`. Une page d'une seule spécification dont la description dépasse à elle seule la
 borne reste refusée par `MCP_RESPONSE_TOO_LARGE`, et la session survit.
 
@@ -157,9 +157,9 @@ fermeture. Un pair ajouté, ou une requête de plus, repose la question.
 
 ### 6. Chaque outil MCP servi a sa ligne dans le manifeste de convergence
 
-`contracts/public-surfaces.tsv` porte une ligne par capacité, donc une par outil MCP servi par le câblage par défaut de
-`MorpheusMcpServer`. Les colonnes `cli` et `http` sont lues dans les commandes et routes réelles ; une sentinelle
-n'est écrite que là où la capacité est réellement absente du transport. Les outils qui lancent à la demande un pair
+La règle d'une ligne de `contracts/public-surfaces.tsv` par outil MCP servi, et de colonnes `cli` et `http` comparées
+aux commandes et routes réelles avec une sentinelle pour toute absence, est décidée par ADR-0089 (§5) ; elle vaut pour
+chaque outil servi par le câblage par défaut de `MorpheusMcpServer`. Les outils qui lancent à la demande un pair
 configuré par l'opérateur (`resolve_external_reference`, `get_augmented_requirement_context`,
 `get_augmented_change_context`) nomment l'outil dans la colonne `mcp`, et leurs notes disent qu'ils lancent ce pair.
 
@@ -191,10 +191,10 @@ configuré par l'opérateur (`resolve_external_reference`, `get_augmented_requir
 
 ### Positives
 
-- Une réponse trop grosse ne tue plus la session ni le serveur ; le client apprend ce qui a été refusé et quoi faire.
+- Une réponse trop grosse ne ferme ni la session ni le serveur ; le client apprend ce qui a été refusé et quoi faire.
 - Un superviseur distingue une fin propre d'un arrêt en échec.
 - Le coût de surveillance d'un pair suit ses processus vivants, pas son historique.
-- Un handler bloqué ne bloque plus le lecteur indéfiniment, et un pair lent finit par sa propre erreur bornée.
+- Un handler bloqué ne bloque pas le lecteur indéfiniment, et un pair lent finit par sa propre erreur bornée.
 
 ### Négatives
 
@@ -250,6 +250,7 @@ configuré par l'opérateur (`resolve_external_reference`, `get_augmented_requir
 
 - [ADR-0062](ARCH-0062-official-java-mcp-sdk-and-native-stdio.md) — SDK MCP officiel et transport STDIO.
 - [ADR-0087](SEC-0087-local-first-operability-and-secure-diagnostic-defaults.md) — diagnostics sûrs par défaut.
+- [ADR-0089](GEN-0089-production-integrity-surface-convergence.md) — manifeste public de surfaces.
 - [ADR-0096](GEN-0096-conservative-native-mcp-client-integration.md) — intégration conservatrice des clients MCP.
 - [ADR-0102](BE-0102-mcp-failure-contract-is-one-rule.md) — contrat d'échec MCP.
 - [ADR-0128](ARCH-0128-pairs-minos-et-nexus-par-mcp-stdio.md) — pairs MINOS et NEXUS par MCP STDIO.

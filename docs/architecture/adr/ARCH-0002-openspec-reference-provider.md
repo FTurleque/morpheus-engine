@@ -84,19 +84,9 @@ scénarios, changements, décisions de design, tâches, historique et archives. 
 (`WATCH_CHANGES`), ni l'écriture (`WRITE_CHANGE`, `WRITE_TASK_STATE`), ni l'archivage (`ARCHIVE_CHANGE`), ni la
 lecture de critères d'acceptation (`READ_ACCEPTANCE_CRITERIA`).
 
-Mapping conceptuel d'étude ; les règles précises sont documentées et testées :
-
-| Source OpenSpec | MORPHEUS |
-|---|---|
-| spec par capacité | `Specification` |
-| requirement | `Requirement` |
-| scenario | `Scenario` |
-| répertoire de changement | `ChangeProposal` |
-| proposal | objectif, motivation, périmètre du changement |
-| design | `DesignDecision` ou information de design |
-| tasks | `ImplementationTask` |
-| spec delta | relations entre `ChangeProposal` et éléments modifiés |
-| archive | état / historique de changement |
+La correspondance conceptuelle entre artefacts OpenSpec et concepts MORPHEUS est une donnée d'étude, tenue dans
+l'[étude du provider OpenSpec](../../project/research/openspec-provider-study.md) (§5) ; les règles précises sont
+documentées et testées dans le provider.
 
 OpenSpec est réévalué comme provider de référence si apparaissent : une instabilité de format incompatible avec une
 intégration fiable, une impossibilité de reconstruire les informations nécessaires, des contraintes de licence
@@ -157,10 +147,10 @@ domaine. Dans ce cas, la stratégie provider reste valide même si le provider d
 
 ## References
 
-- [ADR-0135](ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — le domaine appartient à MORPHEUS.
+- [ADR-0135](ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — le domaine appartient à MORPHEUS ; preuve
+  anti-verrouillage par un second provider.
 - [ADR-0136](ARCH-0136-etat-temporel-et-occurrences-versionnees.md) — état courant et état proposé.
 - [ADR-0028](BE-0028-unified-provider-read-contract.md) — contrat de lecture provider unifié.
-- [ADR-0135](ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — preuve anti-verrouillage par un second provider.
 - [ADR-0083](BE-0083-controlled-lifecycle-write-operations.md) — écritures lifecycle contrôlées.
 - [VALIDATION_M0](../../project/validation/VALIDATION_M0.md)
 - [Étude du provider OpenSpec](../../project/research/openspec-provider-study.md)
