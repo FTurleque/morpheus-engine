@@ -152,15 +152,15 @@ et SQLite, pour qu'aucune sémantique propre à JDBC ne devienne implicitement l
 ## Compliance and Enforcement
 
 - Règle Archgate `DATA-0021-sqlite-schema-migrations-foundation.rules.ts` : `sql-migrations-keep-lf`.
-- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/SqliteSchemaMigrationTest.java` :
+- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/runtime/SqliteSchemaMigrationTest.java` :
   `migrationsCreateVersionedNormalizedFoundationWithoutGenericJsonPayload`,
   `migrationReplayIsIdempotentAndLedgerContainsOneEntryPerSupportedMigration`, `modifiedMigrationHistoryIsRejected`,
   `projectAndActiveSnapshotSurviveStoreReopen`.
-- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/SqliteMigrationChecksumGoldenTest.java` : épingle le
+- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/runtime/SqliteMigrationChecksumGoldenTest.java` : épingle le
   checksum canonique de chaque migration ; une modification de contenu fait échouer le build.
-- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/SqliteMigrationLineEndingCompatibilityTest.java` :
+- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/runtime/SqliteMigrationLineEndingCompatibilityTest.java` :
   ouvre un registre écrit en LF et un registre écrit en CRLF, refuse un contenu modifié.
-- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/SqliteRestoreLedgerVerificationTest.java` : refuse une
+- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/runtime/SqliteRestoreLedgerVerificationTest.java` : refuse une
   sauvegarde au registre refusé sans toucher à la base vivante, restaure une sauvegarde écrite par l'autre convention.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/SpecificationKnowledgeStoreContractTest.java` :
   même contrat sur mémoire et SQLite.

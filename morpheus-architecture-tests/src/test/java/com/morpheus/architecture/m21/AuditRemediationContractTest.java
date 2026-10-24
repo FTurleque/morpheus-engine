@@ -20,7 +20,7 @@ class AuditRemediationContractTest {
         Path root = repoRoot();
         String query = read(root, "morpheus-application/src/main/java/com/morpheus/application/query/dsl/QueryExecutionService.java");
         String store = read(root, "morpheus-application/src/main/java/com/morpheus/application/store/VersionedRequirementStore.java");
-        String sqlite = read(root, "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteVersionedRequirementStore.java");
+        String sqlite = read(root, "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/adapter/SqliteVersionedRequirementStore.java");
         String memory = read(root, "morpheus-store-memory/src/main/java/com/morpheus/store/memory/MemorySpecificationKnowledgeStore.java");
 
         assertTrue(store.contains("listCurrentRequirementVersions("));

@@ -8,7 +8,7 @@ import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.provider.synthetic.SyntheticSpecificationContentReader;
-import com.morpheus.store.sqlite.SqliteChangeLifecycleMutationStore;
+import com.morpheus.store.sqlite.adapter.SqliteChangeLifecycleMutationStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

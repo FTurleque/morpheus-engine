@@ -85,7 +85,7 @@ class MultiResourceOwnershipContractTest {
     @Test
     void theOperationRuntimeRegistersEveryStoreItOpensForRelease() throws IOException {
         String runtime = Files.readString(repositoryRoot().resolve(
-                "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteOperationRuntime.java"));
+                "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/runtime/SqliteOperationRuntime.java"));
 
         int acquisitions = countMatches(STORE_ACQUISITION, runtime);
         int registered = countMatches(REGISTERED_STORE_ACQUISITION, runtime);
@@ -128,8 +128,9 @@ class MultiResourceOwnershipContractTest {
      */
     @Test
     void everySqliteStoreInitializesThroughTheOwnedSharedPath() throws IOException {
-        Path stores = repositoryRoot().resolve("morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite");
-        assertTrue(Files.isRegularFile(stores.resolve("SqliteStoreConnection.java")),
+        Path stores = repositoryRoot().resolve("morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/adapter");
+        Path runtime = repositoryRoot().resolve("morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/runtime");
+        assertTrue(Files.isRegularFile(runtime.resolve("SqliteStoreConnection.java")),
                 "the shared owned initialization path must exist");
 
         List<String> offenders = new ArrayList<>();

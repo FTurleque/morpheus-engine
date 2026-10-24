@@ -46,7 +46,7 @@ Ne doit **PAS** contenir : `token + "|"`
 Récupérer d'abord la valeur normative — ne jamais la citer de mémoire ni la recopier ici :
 
 ```bash
-grep -n "SUPPORTED_SCHEMA_VERSION = " morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSchemaManager.java
+grep -n "SUPPORTED_SCHEMA_VERSION = " morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/runtime/SqliteSchemaManager.java
 ```
 
 `SqliteSchemaManager.java` **déclare** la version supportée ; `SqliteServerMaintenance.java` doit

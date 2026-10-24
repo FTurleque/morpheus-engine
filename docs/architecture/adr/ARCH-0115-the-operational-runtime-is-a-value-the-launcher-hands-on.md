@@ -142,7 +142,7 @@ Options écartées :
   `theConnectionScopeKeepsNoCounterOfTheProcess`.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/SqliteConnectionScopeUseArchitectureTest.java` :
   construction d'un store seulement dans `SqliteOperationRuntime` ou une classe nommée, portée ouverte d'abord.
-- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/SqliteContentionObservabilityTest.java`
+- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/runtime/SqliteContentionObservabilityTest.java`
   (`twoStoresOpenedWithTwoRecordersMoveTwoSetsOfCounters`) : valeurs absolues sur ses propres compteurs.
 - `morpheus-api/src/test/java/com/morpheus/api/MorpheusRootHttpRoutesContractTest.java`
   (`theServedMetricsCarryTheTransactionsOfTheStoresTheServerOpens`) et `UnforeseenFailureTraceTest.java` : la route
@@ -150,7 +150,7 @@ Options écartées :
 - `HttpRequestConnectionCountTest` (`morpheus-api`), `CliCommandConnectionCountTest` (`morpheus-cli`),
   `McpToolCallConnectionCountTest` (`morpheus-mcp`) : une connexion de portée et une vérification de schéma par
   opération, sur le recorder du test.
-- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/NoSqliteScopeLeftBehindExtension.java` et
+- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/runtime/NoSqliteScopeLeftBehindExtension.java` et
   `SqliteConnectionScopeThreadConfinementTest.java` : portée laissée sur un thread.
 - `morpheus-store-sqlite/src/test/resources/junit-platform.properties` : configuration du parallélisme.
 - Revue : l'absence de `junit-platform.properties` activant le parallélisme dans un autre module.

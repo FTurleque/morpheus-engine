@@ -1,6 +1,6 @@
 package com.morpheus.architecture;
 
-import com.morpheus.store.sqlite.SqliteConnectionScope;
+import com.morpheus.store.sqlite.runtime.SqliteConnectionScope;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaField;

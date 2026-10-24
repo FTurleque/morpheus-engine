@@ -337,7 +337,7 @@ recomposée.
   collision.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/EntityIdentityStoreContractTest.java` : même
   contrat de binding sur mémoire et SQLite ; une clé externe ne pointe jamais vers deux identités.
-- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/SqliteEntityIdentityStoreTest.java` : binding qui
+- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/adapter/SqliteEntityIdentityStoreTest.java` : binding qui
   survit à la réouverture de la base.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/PersistentIdentityOpenSpecIntegrationTest.java`
   : le reader OpenSpec retrouve les mêmes identités après réouverture.

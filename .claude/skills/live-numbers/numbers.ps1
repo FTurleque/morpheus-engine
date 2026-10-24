@@ -71,7 +71,7 @@ Item 'suites par milestone' ((Get-ChildItem -LiteralPath `
 
 Section 'Schema SQLite  <- la constante qui le declare'
 $schema = Get-Content -Raw -LiteralPath `
-    'morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSchemaManager.java'
+    'morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/runtime/SqliteSchemaManager.java'
 Item 'SUPPORTED_SCHEMA_VERSION' ([regex]::Match($schema, 'SUPPORTED_SCHEMA_VERSION = (\d+)').Groups[1].Value)
 
 Section 'Versions pinnees  <- proprietes du pom.xml racine'

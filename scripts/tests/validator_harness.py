@@ -52,7 +52,7 @@ FABRICATED_RATCHETS = {
     "perModuleBranchCoverageMinimum": "0.600",
 }
 # The one suite a validator reads by name: validate-r2 requires the report of the SQLite upgrade test.
-UPGRADE_SUITE = "com.morpheus.store.sqlite.ReleasedSchemaUpgradeTest"
+UPGRADE_SUITE = "com.morpheus.store.sqlite.runtime.ReleasedSchemaUpgradeTest"
 UPGRADE_TESTS = 1
 DOMAIN_TESTS = FABRICATED_TESTS - FABRICATED_ARCHITECTURE_TESTS - UPGRADE_TESTS
 # The suite of a test factory: Surefire names each invocation of one `method()[N]`, a declared method by its bare name.

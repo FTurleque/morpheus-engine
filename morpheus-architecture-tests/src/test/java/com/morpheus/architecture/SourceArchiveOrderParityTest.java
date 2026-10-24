@@ -13,8 +13,8 @@ import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.source.SourceLocator;
 import com.morpheus.store.memory.MemorySpecificationKnowledgeStore;
 import com.morpheus.store.memory.MemorySyncStateStore;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
-import com.morpheus.store.sqlite.SqliteSyncStateStore;
+import com.morpheus.store.sqlite.adapter.SqliteSpecificationKnowledgeStore;
+import com.morpheus.store.sqlite.adapter.SqliteSyncStateStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

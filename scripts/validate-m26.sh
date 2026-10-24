@@ -127,7 +127,7 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
     'com/morpheus/api/MorpheusRemoteHttpServer.class' \
     'com/morpheus/api/MorpheusRemoteIdentityFile.class' \
     'com/morpheus/api/MorpheusRemoteRole.class' \
-    'com/morpheus/store/sqlite/SqliteServerMaintenance.class' \
+    'com/morpheus/store/sqlite/runtime/SqliteServerMaintenance.class' \
     'com/morpheus/cli/RemoteApiLaunchOptions.class' \
     'com/morpheus/cli/MorpheusServerCli.class'; do
     grep -Fxq "$entry" "$OUTPUT/shaded-entries.txt" || { echo "M26 packaged runtime is missing $entry" >&2; exit 1; }

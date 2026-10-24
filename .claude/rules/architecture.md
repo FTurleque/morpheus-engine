@@ -174,6 +174,16 @@ classe qui construit un store est refusée, sauf si elle est **nommée** dans `S
 avec son opération à store unique ; le texte (sans commentaires, ouverture avant la première construction) et le
 bytecode (appel de `SqliteConnectionScope.open`, pas une simple dépendance) le tiennent (ADR-0109).
 
+### `store-sqlite` : `adapter` et `runtime`, et le runtime reste interne
+`com.morpheus.store.sqlite.adapter` ne contient que des implémentations de ports de l'application, plus les deux
+collaborateurs nommés du store de contenu de snapshot. `com.morpheus.store.sqlite.runtime` porte la connexion, la
+portée, le bail, le schéma et les transactions. Aucune classe de production hors du module ne dépend du runtime,
+sauf `SqliteOperationRuntime` et `SqliteServerMaintenance`. Cette liste est fermée, et c'est AUD-ARC-01 qui la tranche.
+Une source principale qui nomme une autre classe du runtime est refusée par le texte, qui voit aussi une constante
+inlinée. Les classes publiques du runtime le sont pour les stores : ce n'est pas une autorisation pour les autres
+modules.
+> `SqliteStorePackagesArchitectureTest`
+
 ### `morpheus-mcp-transport` ne dépend d'aucun autre paquet MORPHEUS
 Le transport STDIO borné est partagé par le serveur MCP et les clients MINOS/NEXUS.
 > `theMcpTransportDependsOnNoOtherMorpheusPackage`

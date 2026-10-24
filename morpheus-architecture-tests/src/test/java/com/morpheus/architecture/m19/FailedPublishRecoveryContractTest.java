@@ -22,10 +22,10 @@ import com.morpheus.domain.traceability.TraceabilityEntityRef;
 import com.morpheus.domain.traceability.TraceabilityLink;
 import com.morpheus.domain.traceability.TraceabilityLinkId;
 import com.morpheus.domain.traceability.TraceabilityRelationType;
-import com.morpheus.store.sqlite.SqliteSnapshotBusinessContentStore;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
-import com.morpheus.store.sqlite.SqliteTraceabilityStore;
-import com.morpheus.store.sqlite.SqliteVersionedRequirementStore;
+import com.morpheus.store.sqlite.adapter.SqliteSnapshotBusinessContentStore;
+import com.morpheus.store.sqlite.adapter.SqliteSpecificationKnowledgeStore;
+import com.morpheus.store.sqlite.adapter.SqliteTraceabilityStore;
+import com.morpheus.store.sqlite.adapter.SqliteVersionedRequirementStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

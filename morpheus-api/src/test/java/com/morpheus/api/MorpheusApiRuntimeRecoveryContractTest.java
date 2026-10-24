@@ -6,7 +6,7 @@ import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotState;
 import com.morpheus.domain.source.SourceLocator;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
+import com.morpheus.store.sqlite.adapter.SqliteSpecificationKnowledgeStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

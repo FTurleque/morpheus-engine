@@ -147,9 +147,9 @@ invalidation incrémentale complète.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/TraceabilityPersistenceContractTest.java` :
   round-trip et requêtes directes, snapshot inconnu et collision d'identité, lot en tout ou rien, sur mémoire et
   SQLite ; réouverture SQLite qui conserve définitions, preuves et memberships.
-- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/SqliteSchemaMigrationTest.java` : tables et index de
+- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/runtime/SqliteSchemaMigrationTest.java` : tables et index de
   traçabilité, absence de l'index de membership redondant.
-- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/SqliteTraceabilityStorePersistenceTest.java`.
+- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/adapter/SqliteTraceabilityStorePersistenceTest.java`.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/LayerDependencyTest.java` : aucun type SQLite
   dans `domain` ni `application`.
 

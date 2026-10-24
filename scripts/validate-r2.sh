@@ -47,7 +47,7 @@ MORPHEUS_M27_BASE_REF="$BASE_REF" \
 MORPHEUS_M27_SKIP_PORTABLE="$SKIP_PORTABLE" \
   bash "$SCRIPT_DIR/validate-m27.sh" "$VERSION"
 
-UPGRADE_REPORT="$REPO/morpheus-store-sqlite/target/surefire-reports/TEST-com.morpheus.store.sqlite.ReleasedSchemaUpgradeTest.xml"
+UPGRADE_REPORT="$REPO/morpheus-store-sqlite/target/surefire-reports/TEST-com.morpheus.store.sqlite.runtime.ReleasedSchemaUpgradeTest.xml"
 [[ -f "$UPGRADE_REPORT" ]] || { echo "R2 upgrade report is missing: $UPGRADE_REPORT" >&2; exit 1; }
 morpheus_python - "$UPGRADE_REPORT" <<'PY'
 import sys
@@ -77,7 +77,7 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
   for entry in \
     'com/morpheus/application/policy/PolicyPackService.class' \
     'com/morpheus/application/policy/PolicyEvaluationService.class' \
-    'com/morpheus/store/sqlite/SqlitePolicyPackStore.class' \
+    'com/morpheus/store/sqlite/adapter/SqlitePolicyPackStore.class' \
     'com/morpheus/cli/MorpheusPolicyCli.class' \
     'com/morpheus/mcp/MorpheusPolicyMcpTools.class' \
     'com/morpheus/api/MorpheusPolicyApiService.class' \
@@ -86,7 +86,7 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
     'com/morpheus/api/MorpheusRemoteHttpServer.class' \
     'com/morpheus/api/MorpheusRemoteIdentityFile.class' \
     'com/morpheus/api/MorpheusRemoteRole.class' \
-    'com/morpheus/store/sqlite/SqliteServerMaintenance.class' \
+    'com/morpheus/store/sqlite/runtime/SqliteServerMaintenance.class' \
     'com/morpheus/cli/RemoteApiLaunchOptions.class' \
     'com/morpheus/cli/MorpheusServerCli.class'; do
     grep -Fxq "$entry" "$OUTPUT/shaded-entries.txt" || { echo "R2 packaged runtime is missing $entry" >&2; exit 1; }

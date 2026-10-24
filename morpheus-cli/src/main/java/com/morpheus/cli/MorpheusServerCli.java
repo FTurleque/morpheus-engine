@@ -5,7 +5,7 @@ import com.morpheus.api.MorpheusRemoteRole;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.store.EntityNotFoundException;
 import com.morpheus.application.store.EntityStateException;
-import com.morpheus.store.sqlite.SqliteServerMaintenance;
+import com.morpheus.store.sqlite.runtime.SqliteServerMaintenance;
 
 import java.io.PrintStream;
 import java.nio.file.Path;

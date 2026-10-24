@@ -76,7 +76,7 @@ Partout sous `src/main/java/` : `activateDefaultTyping(` · `enableDefaultTyping
 ```
 VIOLATION [CRITIQUE|MAJEURE|MINEURE]
   Fichier:    morpheus-application/src/main/java/.../Foo.java:42
-  Import:     com.morpheus.store.sqlite.SqliteThing
+  Import:     com.morpheus.store.sqlite.adapter.SqliteThing
   Règle:      applicationMustNotDependOnAdapters
   Test:       morpheus-architecture-tests/.../LayerDependencyTest.java:32
   Raison:     "application services define use cases and ports without depending on adapters"

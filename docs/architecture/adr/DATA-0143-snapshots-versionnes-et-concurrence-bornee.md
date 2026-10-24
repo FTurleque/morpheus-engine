@@ -238,7 +238,7 @@ stale recovery != overwrite of fresh concurrent work
   `READY` rejetée, candidat obligatoirement en `BUILDING`.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/SpecificationKnowledgeStoreContractTest.java` :
   même contrat de snapshot sur le store mémoire et le store SQLite.
-- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/SqliteSnapshotLifecyclePersistenceTest.java` :
+- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/adapter/SqliteSnapshotLifecyclePersistenceTest.java` :
   l'actif et son prédécesseur `RETIRED` survivent à la réouverture.
 - `morpheus-store-sqlite/src/main/resources/db/migration/V001__foundation.sql` : contrainte `CHECK` sur les six états
   et index unique partiel `uq_knowledge_snapshots_active_project` (un seul `ACTIVE` par projet).
@@ -250,9 +250,9 @@ stale recovery != overwrite of fresh concurrent work
   récupération multi-projets en ordre déterministe.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m19/FailedPublishRecoveryContractTest.java` :
   un candidat invalide ne fuit jamais dans `ACTIVE`, une reconstruction valide publie ensuite.
-- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/SqliteConcurrencyHardeningTest.java` : base
+- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/adapter/SqliteConcurrencyHardeningTest.java` : base
   verrouillée en échec dans la borne puis reprise, activation concurrente à gagnant unique.
-- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/SqliteConcurrentReaderContractTest.java` : lecteurs
+- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/adapter/SqliteConcurrentReaderContractTest.java` : lecteurs
   qui voient l'ancien ou le nouveau `ACTIVE`, jamais un état vide ou partiel.
 - Revue : aucune autre opération que `activateSnapshot` ne produit `ACTIVE`.
 

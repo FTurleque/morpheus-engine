@@ -109,7 +109,7 @@ Le mécanisme vit dans `morpheus-store-sqlite` : `SqlitePreMigrationCopy`, appel
 
 ## Compliance and Enforcement
 
-`morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/SqlitePreMigrationCopyTest.java` :
+`morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/runtime/SqlitePreMigrationCopyTest.java` :
 
 | Méthode | Ce qu'elle tient |
 |---|---|

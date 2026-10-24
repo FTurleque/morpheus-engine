@@ -1,1 +1,1 @@
-com.morpheus.store.sqlite.NoSqliteScopeLeftBehindExtension
+com.morpheus.store.sqlite.runtime.NoSqliteScopeLeftBehindExtension

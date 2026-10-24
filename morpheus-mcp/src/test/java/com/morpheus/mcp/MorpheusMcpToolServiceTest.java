@@ -24,10 +24,10 @@ import com.morpheus.domain.specification.Specification;
 import com.morpheus.domain.specification.SpecificationId;
 import com.morpheus.domain.task.ImplementationTask;
 import com.morpheus.domain.task.TaskId;
-import com.morpheus.store.sqlite.SqliteSnapshotBusinessContentStore;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
-import com.morpheus.store.sqlite.SqliteTraceabilityStore;
-import com.morpheus.store.sqlite.SqliteVersionedRequirementStore;
+import com.morpheus.store.sqlite.adapter.SqliteSnapshotBusinessContentStore;
+import com.morpheus.store.sqlite.adapter.SqliteSpecificationKnowledgeStore;
+import com.morpheus.store.sqlite.adapter.SqliteTraceabilityStore;
+import com.morpheus.store.sqlite.adapter.SqliteVersionedRequirementStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

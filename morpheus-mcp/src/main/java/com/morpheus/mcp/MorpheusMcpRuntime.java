@@ -16,7 +16,7 @@ import com.morpheus.application.store.SpecificationKnowledgeStore;
 import com.morpheus.application.store.SyncStateStore;
 import com.morpheus.application.store.TraceabilityStore;
 import com.morpheus.application.store.VersionedRequirementStore;
-import com.morpheus.store.sqlite.SqliteOperationRuntime;
+import com.morpheus.store.sqlite.runtime.SqliteOperationRuntime;
 
 import java.nio.file.Path;
 import java.util.Objects;

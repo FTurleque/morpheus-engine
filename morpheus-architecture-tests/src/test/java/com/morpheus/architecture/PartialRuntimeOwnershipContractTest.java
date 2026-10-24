@@ -90,7 +90,7 @@ class PartialRuntimeOwnershipContractTest {
         List<String> owners = List.of(
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java",
                 "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java",
-                "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteOperationRuntime.java");
+                "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/runtime/SqliteOperationRuntime.java");
 
         for (String owner : owners) {
             String content = Files.readString(root.resolve(owner));

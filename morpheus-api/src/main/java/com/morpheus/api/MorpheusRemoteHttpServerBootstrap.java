@@ -8,7 +8,7 @@ import com.morpheus.application.operability.StartupOwnership;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.application.security.LocalWritePermissionHardener;
-import com.morpheus.store.sqlite.SqliteServerMaintenance;
+import com.morpheus.store.sqlite.runtime.SqliteServerMaintenance;
 import com.sun.net.httpserver.HttpsConfigurator;
 import com.sun.net.httpserver.HttpsParameters;
 import com.sun.net.httpserver.HttpsServer;
