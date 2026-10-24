@@ -140,8 +140,10 @@ same tree as `0b90cdcf`).
       protections, `DatabaseCallWorkers`, `MorpheusInternalCapability`) with 8 tests, and 20 to
       `com.morpheus.api.transport` (decoder, writer, parser, query, budget, route table and guards, envelopes,
       failures, the timed readers and writers) with 15 tests; `AllowedWorkspaceRoots` stays with the services that
-      use it. The local server holds every router and service as a field, so its move makes the 17 routers, the
-      services it builds, their constructors and their route methods public, and every transport type is public:
+      use it. The local server builds the routers and services it holds as fields, so its move makes 14 of the 17 routers
+      public (`MorpheusPolicyHttpRoutes`, `MorpheusPolicyManagementHttpRoutes` and `MorpheusReasoningHttpRoutes`, which
+      the local server does not name, stay package-private), with the services it builds, their constructors and their route methods public, and every
+      transport type another package uses is public (`HttpRequestBodyReader` and `JsonMediaType` stay package-private):
       89 declarations in main sources, each named by a compiler refusal, plus `HttpQueryBudget.MAX_QUERY_BYTES` and
       `MAX_PARAMETERS` for a moved test. The copy of `PagedEnvelope` in `morpheus-mcp` widens the same four members as
       the one in `morpheus-api`, so that the two stay identical (`PagedResponseVocabularyArchitectureTest`).

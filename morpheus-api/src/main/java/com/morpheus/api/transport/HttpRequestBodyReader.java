@@ -12,7 +12,7 @@ import java.util.concurrent.ExecutorService;
  * <p>{@link MorpheusHttpRequestDecoder} is its caller: every local router reads its body through the decoder, and the
  * decoder turns a {@link RequestBodyException} into the {@code 400} a client sees.</p>
  */
-public final class HttpRequestBodyReader {
+final class HttpRequestBodyReader {
 
     private HttpRequestBodyReader() {
     }

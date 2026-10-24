@@ -10,7 +10,7 @@ import java.util.Locale;
  * accepted by it. This parses the header instead: the type and subtype must match exactly, and a {@code charset}
  * parameter is honoured only when it names the UTF-8 encoding the decoders actually read.</p>
  */
-public final class JsonMediaType {
+final class JsonMediaType {
     private static final String TYPE = "application/json";
 
     private JsonMediaType() {
