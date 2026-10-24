@@ -33,8 +33,8 @@ Jusqu'au 15/09/2026, `.github/` portait une configuration Copilot complète
 Avant la suppression, les consignes normatives propres à la surface Copilot ont été
 reportées dans `.claude/` (secrets, justification des fichiers de gouvernance en PR, style
 de test, formulations sans chiffre des commandes). Celles qui contredisaient `.claude/rules/`
-n'ont pas été reportées : un commentaire de code qui cite un ticket, et l'interdiction
-d'amender un ADR fusionné — ADR-0103 porte un amendement daté.
+n'ont pas été reportées : un commentaire de code qui cite un ticket. Ce qui justifie un ADR,
+et la consolidation d'une décision en un seul ADR actif, sont dans `.claude/rules/adr.md`.
 
 **Ne pas réintroduire** de miroir `.github/instructions/`, `.github/prompts/`, ni de
 `copilot-instructions.md`. Si un second outil IA doit un jour lire les règles, il lit

@@ -7,6 +7,7 @@
 @.claude/rules/testing.md
 @.claude/rules/security.md
 @.claude/rules/governance.md
+@.claude/rules/adr.md
 @.claude/rules/build.md
 @.claude/rules/code-style.md
 @.claude/rules/tooling.md
