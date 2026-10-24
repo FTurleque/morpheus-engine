@@ -1,6 +1,6 @@
 # ADR-0097 — Full publish version semantics and failed candidates
 
-> **Archivée.** Cette décision est consolidée dans [ADR-0126](../DATA-0126-publication-complete-d-un-snapshot.md). Ce texte n'est plus en vigueur et n'est pas tenu à jour.
+> **Archivée.** Cette décision est consolidée dans [ADR-0126](0126-publication-complete-d-un-snapshot.md). Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
 - Statut : **Remplacée par ADR-0126**
 - Date : 19 août 2026

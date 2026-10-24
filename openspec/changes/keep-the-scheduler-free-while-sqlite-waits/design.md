@@ -7,7 +7,7 @@
 - `sqlite-jdbc` calls SQLite through JNI. The busy handler sleeps and retries inside the native call.
 - The scheduler's parallelism defaults to the number of processors and is set by
   `jdk.virtualThreadScheduler.parallelism` / `maxPoolSize`.
-- The packaged product embeds a Java 21 runtime; the baseline is asserted (ADR-0016, the Enforcer, the workflows).
+- The packaged product embeds a Java 21 runtime; the baseline is asserted (ADR-0133, the Enforcer, the workflows).
 - `-Djdk.tracePinnedThreads` and the JFR event `jdk.VirtualThreadPinned` report pinning without changing the code.
 - The health and readiness routes are served by the same executor as everything else.
 

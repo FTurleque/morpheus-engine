@@ -42,7 +42,7 @@ Options écartées :
    ne produisent que des findings `DETERMINISTIC`.
 3. **Politique de snapshot.** Chaque service a une forme par projet (`ACTIVE`, `Optional.empty()` sans `ACTIVE`) et
    une forme par snapshot explicite limitée à `ACTIVE` ou `RETIRED` ; un snapshot sans projection métier est un
-   échec (ADR-0122). « Pas d'`ACTIVE` » reste distinct d'un rapport vide. Seules les occurrences `CURRENT` des
+   échec (ADR-0137). « Pas d'`ACTIVE` » reste distinct d'un rapport vide. Seules les occurrences `CURRENT` des
    exigences sont prises en compte.
 4. **Couverture des exigences** (`RequirementQualityService`). Une exigence `CURRENT` est liée si elle a au moins un
    lien de traçabilité direct, entrant ou sortant, de n'importe quelle relation, dans le snapshot ; sinon elle est
@@ -184,13 +184,13 @@ Options écartées :
 
 - [ADR-0004](SEC-0004-local-first-no-llm-core.md)
 - [ADR-0039](BE-0039-deterministic-traceability-derivation.md)
-- [ADR-0041](DATA-0041-snapshot-external-reference-traceability.md)
-- [ADR-0044](DATA-0044-snapshot-business-content-projection.md)
+- [ADR-0142](DATA-0142-references-externes.md)
+- [ADR-0141](DATA-0141-contenu-metier-par-snapshot.md)
 - [ADR-0081](DATA-0081-first-class-acceptance-verification-evidence.md)
 - [ADR-0082](DATA-0082-explicit-constraint-semantics-and-blocking-policy.md)
 - [ADR-0108](BE-0108-a-response-says-what-it-could-not-observe.md)
 - [ADR-0118](ARCH-0118-tracabilite-typee-et-taxonomie-controlee.md)
 - [ADR-0119](BE-0119-cycle-de-vie-des-changements-et-transition-tri-etat.md)
-- [ADR-0122](ARCH-0122-lectures-metier-sur-le-snapshot-publie.md)
+- [ADR-0137](ARCH-0137-lectures-et-recherche-sur-le-snapshot-publie.md)
 - [ADR-0123](ARCH-0123-vues-compactes-et-json-canonique.md)
 - Preuve de jalon : [VALIDATION_M6](../../project/validation/VALIDATION_M6.md)

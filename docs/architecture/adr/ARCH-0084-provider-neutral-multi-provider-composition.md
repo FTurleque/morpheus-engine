@@ -26,7 +26,7 @@ Les risques à tenir sont :
 - fuite de types OpenSpec ou Markdown dans le domaine ou l'application ;
 - publication d'un snapshot incohérent lorsqu'une source optionnelle est absente.
 
-Les identités sont scopées par provider (ADR-0023) : les deux versions d'une même exigence lues par deux providers
+Les identités sont scopées par provider (ADR-0140) : les deux versions d'une même exigence lues par deux providers
 portent deux identités différentes.
 
 Options écartées :
@@ -40,7 +40,7 @@ Options écartées :
   serait donc faisable pour spécifications, exigences et changements. Mais l'identité de l'entité écartée est
   référencée, chez son propre provider, par ses scénarios, contraintes, critères d'acceptation et liens de
   traçabilité. La retirer sans remapper ces références les rend orphelines ; les remapper revient à fusionner les
-  identités de deux providers, ce qu'ADR-0023 interdit. Une sélection exige une décision sur la corrélation
+  identités de deux providers, ce qu'ADR-0140 interdit. Une sélection exige une décision sur la corrélation
   inter-provider que cet ADR ne prend pas.
 
 ## Decision
@@ -170,8 +170,8 @@ mémoire et SQLite conservent contributions observées, provenance, priorité et
 ## References
 
 - [ADR-0011](BE-0011-provider-capability-negotiation.md) — sélection des providers par capacités.
-- [ADR-0023](DATA-0023-persistent-provider-scoped-entity-identity.md) — identité persistée scopée par provider.
+- [ADR-0140](DATA-0140-identite-de-domaine.md) — identité persistée scopée par provider.
 - [ADR-0028](BE-0028-unified-provider-read-contract.md) — contrat de lecture provider unifié.
-- [ADR-0029](ARCH-0029-second-provider-anti-lockin-proof.md) — preuve anti-verrouillage.
+- [ADR-0135](ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — preuve anti-verrouillage.
 - [ADR-0093](ARCH-0093-provider-neutral-policy-packs-governance-automation.md) — policy packs et faits `UNKNOWN`.
 - [VALIDATION_M18](../../project/validation/VALIDATION_M18.md)

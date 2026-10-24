@@ -70,12 +70,12 @@ d'ingestion.
 Le choix est assorti de contraintes, toutes en vigueur :
 
 1. **Aucun type OpenSpec dans le domaine ni dans l'application.** Les services MORPHEUS restent indépendants du
-   provider ; un second provider démontre cette indépendance (ADR-0029).
+   provider ; un second provider démontre cette indépendance (ADR-0135).
 2. **Version supportée explicite.** Le provider déclare le schéma OpenSpec qu'il supporte
    (`OpenSpecSpecificationProvider.SUPPORTED_SCHEMA`). Un autre schéma est refusé à la sonde : statut `UNSUPPORTED`,
    diagnostic `UNSUPPORTED_PROVIDER_SCHEMA`, aucune capacité déclarée.
 3. **Lecture d'abord.** Les mutations sont une capacité distincte, décidée ailleurs (ADR-0083).
-4. **Courant et proposé restent deux dimensions séparées** du modèle (ADR-0006).
+4. **Courant et proposé restent deux dimensions séparées** du modèle (ADR-0136).
 5. **Provenance.** Tout élément ingéré permet de revenir à son fichier source.
 
 Capacités : le provider déclare les capacités qu'il détecte dans l'arborescence OpenSpec
@@ -157,10 +157,10 @@ domaine. Dans ce cas, la stratégie provider reste valide même si le provider d
 
 ## References
 
-- [ADR-0001](ARCH-0001-morpheus-owned-domain.md) — le domaine appartient à MORPHEUS.
-- [ADR-0006](ARCH-0006-current-vs-proposed-state.md) — état courant et état proposé.
+- [ADR-0135](ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — le domaine appartient à MORPHEUS.
+- [ADR-0136](ARCH-0136-etat-temporel-et-occurrences-versionnees.md) — état courant et état proposé.
 - [ADR-0028](BE-0028-unified-provider-read-contract.md) — contrat de lecture provider unifié.
-- [ADR-0029](ARCH-0029-second-provider-anti-lockin-proof.md) — preuve anti-verrouillage par un second provider.
+- [ADR-0135](ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — preuve anti-verrouillage par un second provider.
 - [ADR-0083](BE-0083-controlled-lifecycle-write-operations.md) — écritures lifecycle contrôlées.
 - [VALIDATION_M0](../../project/validation/VALIDATION_M0.md)
 - [Étude du provider OpenSpec](../../project/research/openspec-provider-study.md)

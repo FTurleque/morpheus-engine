@@ -134,9 +134,9 @@ Options rejetées :
 - [ADR-0008](SEC-0008-read-first-write-capability.md) — providers read-first, écriture optionnelle.
 - [ADR-0011](BE-0011-provider-capability-negotiation.md) — sélection par capacités.
 - [ADR-0119](BE-0119-cycle-de-vie-des-changements-et-transition-tri-etat.md) — cycle de vie et transition tri-état.
-- [ADR-0120](DATA-0120-snapshots-versionnes-et-activation-atomique.md) — snapshots versionnés immuables.
+- [ADR-0143](DATA-0143-snapshots-versionnes-et-concurrence-bornee.md) — snapshots versionnés immuables.
 - [ADR-0124](ARCH-0124-qualite-findings-et-faits-tri-etat.md) — qualité et faits tri-état.
-- [ADR-0077](ARCH-0077-morpheus-jarvis-read-only-orchestration-boundary.md) — frontière d'orchestration read-only.
+- [ADR-0139](ARCH-0139-frontiere-morpheus-jarvis-en-lecture-seule.md) — frontière d'orchestration read-only.
 - [ADR-0079](BE-0079-nondestructive-change-orchestration-state.md) — état d'orchestration non destructif.
 - [ADR-0082](DATA-0082-explicit-constraint-semantics-and-blocking-policy.md) — sémantique des contraintes.
 - [VALIDATION_M17](../../project/validation/VALIDATION_M17.md).

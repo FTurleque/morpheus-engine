@@ -129,7 +129,7 @@ sont construits par `SqliteOperationRuntime`, sur les trois transports.
 
 ## References
 
-- [ADR-0001](ARCH-0001-morpheus-owned-domain.md) — domaine possédé par MORPHEUS.
+- [ADR-0135](ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — domaine possédé par MORPHEUS.
 - [ADR-0018](DATA-0018-sqlite-initial-persistent-store.md) — SQLite comme backend persistant.
 - [ADR-0109](ARCH-0109-transport-adapters-are-named-composition-roots.md) — racines de composition nommées.
 - [ADR-0114](BE-0114-database-work-runs-on-a-bounded-pool-of-platform-threads.md) — travail sur la base.

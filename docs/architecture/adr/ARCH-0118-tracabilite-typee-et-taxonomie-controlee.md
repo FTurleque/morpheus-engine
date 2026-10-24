@@ -147,7 +147,7 @@ convention de structure, inférence MORPHEUS) et le consommateur doit pouvoir le
 Un lien dont la cible n'a pas pu être résolue reste visible avec `resolution = UNRESOLVED` ; il n'est jamais supprimé
 silencieusement. Un lien que la source ne porte plus est invalidé lors de la synchronisation. Les liens vers des
 références externes (cross-engine) sont distingués des liens internes par le type `EXTERNAL_REFERENCE` de leur
-extrémité (ADR-0041).
+extrémité (ADR-0142).
 
 ### Relations propres à un provider
 
@@ -164,7 +164,7 @@ que si un cas d'usage concret l'exige.
 
 Le domaine de traçabilité ne dépend d'aucun provider, store, transport, ni de MINOS, NEXUS ou JARVIS. Le stockage
 physique n'a pas à être un graphe : la traversée dans les deux directions se fait par requête. Persistance
-(ADR-0038), dérivation (ADR-0039), traversée (ADR-0040) et références externes (ADR-0041) sont décidées à part.
+(ADR-0038), dérivation (ADR-0039), traversée (ADR-0040) et références externes (ADR-0142) sont décidées à part.
 
 ## Do's and Don'ts
 
@@ -232,14 +232,14 @@ physique n'a pas à être un graphe : la traversée dans les deux directions se 
 
 ## References
 
-- [ADR-0001](ARCH-0001-morpheus-owned-domain.md) — domaine possédé par MORPHEUS.
-- [ADR-0009](DATA-0009-stable-domain-identity.md) — identité de domaine stable.
-- [ADR-0031](ARCH-0031-explicit-temporal-projection-and-entity-version.md) — projection temporelle explicite.
-- [ADR-0120](DATA-0120-snapshots-versionnes-et-activation-atomique.md) — snapshots versionnés et activation atomique.
+- [ADR-0135](ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — domaine possédé par MORPHEUS.
+- [ADR-0140](DATA-0140-identite-de-domaine.md) — identité de domaine stable.
+- [ADR-0136](ARCH-0136-etat-temporel-et-occurrences-versionnees.md) — projection temporelle explicite.
+- [ADR-0143](DATA-0143-snapshots-versionnes-et-concurrence-bornee.md) — snapshots versionnés et activation atomique.
 - [ADR-0038](DATA-0038-snapshot-scoped-traceability-persistence.md) — persistance de la traçabilité par snapshot.
 - [ADR-0039](BE-0039-deterministic-traceability-derivation.md) — dérivation déterministe de la traçabilité.
 - [ADR-0040](BE-0040-bounded-deterministic-traceability-traversal.md) — traversée bornée et déterministe.
-- [ADR-0041](DATA-0041-snapshot-external-reference-traceability.md) — traçabilité des références externes.
+- [ADR-0142](DATA-0142-references-externes.md) — traçabilité des références externes.
 - [ADR-0081](DATA-0081-first-class-acceptance-verification-evidence.md) — critères d'acceptation et preuves de
   vérification.
 - [VALIDATION_M0](../../project/validation/VALIDATION_M0.md) — preuve du jalon M0.

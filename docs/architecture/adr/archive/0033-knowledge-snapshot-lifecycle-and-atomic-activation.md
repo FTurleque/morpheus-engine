@@ -1,6 +1,6 @@
 # ADR-0033 — Compléter le lifecycle KnowledgeSnapshot et préserver l'activation atomique
 
-> **Archivée.** Cette décision est consolidée dans [ADR-0120](../DATA-0120-snapshots-versionnes-et-activation-atomique.md). Ce texte n'est plus en vigueur et n'est pas tenu à jour.
+> **Archivée.** Cette décision est consolidée dans [ADR-0120](0120-snapshots-versionnes-et-activation-atomique.md). Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
 - Statut : **Remplacée par ADR-0120**
 - Date : 22 juillet 2026

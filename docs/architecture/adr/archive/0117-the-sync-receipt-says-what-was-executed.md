@@ -1,6 +1,6 @@
 # ADR-0117 — Le reçu d'un sync dit ce qui a été exécuté
 
-> **Archivée.** Cette décision est consolidée dans [ADR-0126](../DATA-0126-publication-complete-d-un-snapshot.md). Ce texte n'est plus en vigueur et n'est pas tenu à jour.
+> **Archivée.** Cette décision est consolidée dans [ADR-0126](0126-publication-complete-d-un-snapshot.md). Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
 - Statut : **Remplacée par ADR-0126**
 - Date : 18 octobre 2026
@@ -113,7 +113,7 @@ Commande : `./mvnw test -pl morpheus-cli,morpheus-api -am`. Revue humaine : le c
 
 - Remplace en partie : [ADR-0060](0060-conservative-full-snapshot-cli-sync.md), section « Sync M7 ». ADR-0060 porte
   « remplacée en partie par ADR-0117 » dans son en-tête ; son texte n'est pas réécrit.
-- Non modifié : [ADR-0067](../BE-0067-explicit-conservative-http-sync.md).
+- Non modifié : [ADR-0067](0067-explicit-conservative-http-sync.md).
 - Commit d'origine du changement de comportement : `e059e637` (2 septembre 2026).
 - Mis en œuvre par : `SyncPlan.Trigger.withoutIncrementalExecutor()`, `IncrementalSyncService` (raison
   `INCREMENTAL_EXECUTOR_UNAVAILABLE`) et la commande `sync` de `morpheus-cli`.

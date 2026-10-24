@@ -1,8 +1,8 @@
 # ADR-0030 — Introduire la persistance métier normalisée avec M3
 
-> **Archivée.** Décision exécutée : la persistance métier normalisée est portée par [ADR-0034](../DATA-0034-versioned-requirement-persistence.md) et [ADR-0044](../DATA-0044-snapshot-business-content-projection.md). Ce texte n'est plus en vigueur et n'est pas tenu à jour.
+> **Archivée.** Décision exécutée : la persistance métier normalisée est portée par [ADR-0034](0034-versioned-requirement-persistence.md) et [ADR-0044](0044-snapshot-business-content-projection.md). Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
-> Lecture : à lire avec [ADR-0034](../DATA-0034-versioned-requirement-persistence.md) (la persistance versionnée des requirements) et [ADR-0044](../DATA-0044-snapshot-business-content-projection.md) (la projection des autres familles métier). (note éditoriale du 21 octobre 2026 : le texte de la décision n'est pas modifié)
+> Lecture : à lire avec [ADR-0034](0034-versioned-requirement-persistence.md) (la persistance versionnée des requirements) et [ADR-0044](0044-snapshot-business-content-projection.md) (la projection des autres familles métier). (note éditoriale du 21 octobre 2026 : le texte de la décision n'est pas modifié)
 
 - Statut : **Remplacée par ADR-0034**
 - Date : 22 juillet 2026

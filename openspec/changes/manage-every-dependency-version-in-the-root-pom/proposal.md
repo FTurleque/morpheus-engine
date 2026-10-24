@@ -67,7 +67,7 @@ accepted the same way, with the four existing ones as precedent.
   `distribution/third-party/components.tsv` and the generated notices are untouched.
 - `D2RepositoryHardeningArchitectureTest#dependencyAndQualityBaselineIsPinned` keeps passing: the property
   `<sqlite-jdbc.version>` stays in the root POM, where the test looks for it.
-- No ADR (ADR-0017 decides the multi-module build; this applies a rule that exists). No contract, no ratchet beyond
+- No ADR (ADR-0133 decides the multi-module build; this applies a rule that exists). No contract, no ratchet beyond
   the count of architecture tests.
 - Related: `keep-reactor-on-its-patched-line` owns `reactor-bom.version` and the update bot's rule for it; this change
   does not touch either.

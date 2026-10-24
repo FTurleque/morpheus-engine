@@ -129,9 +129,9 @@ Invariants :
 
 ## References
 
-- [ADR-0026](ARCH-0026-optional-external-reference-resolution.md) — résolution optionnelle des références externes.
-- [ADR-0071](DATA-0071-live-external-resolution-without-snapshot-mutation.md) — résolution live sans mutation du
+- [ADR-0142](DATA-0142-references-externes.md) — résolution optionnelle des références externes.
+- [ADR-0142](DATA-0142-references-externes.md) — résolution live sans mutation du
   snapshot.
-- [ADR-0077](ARCH-0077-morpheus-jarvis-read-only-orchestration-boundary.md) — frontière d'orchestration JARVIS.
+- [ADR-0139](ARCH-0139-frontiere-morpheus-jarvis-en-lecture-seule.md) — frontière d'orchestration JARVIS.
 - [ADR-0128](ARCH-0128-pairs-minos-et-nexus-par-mcp-stdio.md) — pairs MINOS et NEXUS par MCP STDIO.
 - [Validation M0](../../project/validation/VALIDATION_M0.md)

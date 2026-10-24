@@ -23,7 +23,7 @@ APPLY != PROMOTE != ACTIVATE
 ```
 
 L'état publié doit être consultable dans le temps et comparable, et un retour à un état antérieur doit être possible
-sans contourner le lifecycle des snapshots (ADR-0120).
+sans contourner le lifecycle des snapshots (ADR-0143).
 
 Le store possède déjà les informations structurelles nécessaires :
 
@@ -292,13 +292,13 @@ com.morpheus.application -X-> SQLite
 
 ## References
 
-- [ADR-0006](ARCH-0006-current-vs-proposed-state.md) — état courant et proposé.
-- [ADR-0009](DATA-0009-stable-domain-identity.md) — identité stable.
-- [ADR-0031](ARCH-0031-explicit-temporal-projection-and-entity-version.md) — projection temporelle et version
+- [ADR-0136](ARCH-0136-etat-temporel-et-occurrences-versionnees.md) — état courant et proposé.
+- [ADR-0140](DATA-0140-identite-de-domaine.md) — identité stable.
+- [ADR-0136](ARCH-0136-etat-temporel-et-occurrences-versionnees.md) — projection temporelle et version
   d'entité.
-- [ADR-0034](DATA-0034-versioned-requirement-persistence.md) — persistance versionnée des requirements.
+- [ADR-0141](DATA-0141-contenu-metier-par-snapshot.md) — persistance versionnée des requirements.
 - [ADR-0035](BE-0035-explicit-requirement-delta-application-and-promotion.md) — application et promotion des deltas.
 - [ADR-0119](BE-0119-cycle-de-vie-des-changements-et-transition-tri-etat.md) — cycle de vie des changements.
-- [ADR-0120](DATA-0120-snapshots-versionnes-et-activation-atomique.md) — snapshots versionnés et activation atomique.
+- [ADR-0143](DATA-0143-snapshots-versionnes-et-concurrence-bornee.md) — snapshots versionnés et activation atomique.
 - [ADR-0121](ARCH-0121-modele-normalise-neutre-vis-a-vis-des-providers.md) — modèle normalisé, deltas de requirement.
 - [VALIDATION_M3](../../project/validation/VALIDATION_M3.md)

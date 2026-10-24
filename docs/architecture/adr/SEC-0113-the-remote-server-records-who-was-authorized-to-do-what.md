@@ -39,7 +39,7 @@ Options écartées :
    répertoire du fichier d'identités, jamais dans ce fichier ni dans son audit. Un objet JSON par ligne, privé au
    compte, borné en taille et en nombre de générations gardées (`RemoteAccessJournal.MAX_FILE_BYTES`,
    `RemoteAccessJournal.KEPT_GENERATIONS`) : il reprend l'écrivain et la discipline d'écriture du journal
-   opérationnel en fichier (ADR-0112).
+   opérationnel en fichier (ADR-0146).
 
 2. **Ce qu'un enregistrement contient.** L'instant, l'identifiant de requête, le principal, le rôle détenu, le rôle
    exigé, la méthode, le **gabarit** de route, le statut. Rien d'autre.
@@ -136,6 +136,6 @@ Options écartées :
 
 - [ADR-0105](SEC-0105-no-secret-vault-no-reusable-secret-at-rest.md) — aucun secret réutilisable persisté.
 - [ADR-0108](BE-0108-a-response-says-what-it-could-not-observe.md) — une réponse dit ce qu'elle n'a pas pu observer.
-- [ADR-0112](BE-0112-the-logs-directory-holds-a-bounded-operational-log.md) — journal opérationnel borné en fichier.
+- [ADR-0146](BE-0146-journal-operationnel-slf4j-et-fichier-borne.md) — journal opérationnel borné en fichier.
 - [Guide du serveur d'équipe](../../user/TEAM_REMOTE_SERVER.md)
 - `SECURITY.md`

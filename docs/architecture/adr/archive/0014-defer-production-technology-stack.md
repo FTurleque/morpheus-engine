@@ -1,8 +1,8 @@
 # ADR-0014 — Différer le choix de la stack de production jusqu'aux preuves nécessaires
 
-> **Archivée.** Décision exécutée : la stack de production est fixée par [ADR-0016](../GEN-0016-java-21-production-baseline.md), [ADR-0017](../GEN-0017-maven-build-foundation.md) et [ADR-0018](../DATA-0018-sqlite-initial-persistent-store.md). Ce texte n'est plus en vigueur et n'est pas tenu à jour.
+> **Archivée.** Décision exécutée : la stack de production est fixée par [ADR-0016](0016-java-21-production-baseline.md), [ADR-0017](0017-maven-build-foundation.md) et [ADR-0018](../DATA-0018-sqlite-initial-persistent-store.md). Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
-> Lecture : à lire avec [ADR-0016](../GEN-0016-java-21-production-baseline.md) (Java 21), [ADR-0017](../GEN-0017-maven-build-foundation.md) (Maven et son wrapper) et [ADR-0018](../DATA-0018-sqlite-initial-persistent-store.md) (SQLite comme backend persistant initial). (note éditoriale du 21 octobre 2026 : le texte de la décision n'est pas modifié)
+> Lecture : à lire avec [ADR-0016](0016-java-21-production-baseline.md) (Java 21), [ADR-0017](0017-maven-build-foundation.md) (Maven et son wrapper) et [ADR-0018](../DATA-0018-sqlite-initial-persistent-store.md) (SQLite comme backend persistant initial). (note éditoriale du 21 octobre 2026 : le texte de la décision n'est pas modifié)
 
 - Statut : **Remplacée par ADR-0016**
 - Date : 22 juillet 2026

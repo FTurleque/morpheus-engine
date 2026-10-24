@@ -194,8 +194,8 @@ métier. Les contrôles applicatifs restent inchangés.
 
 ## References
 
-- [ADR-0027](GEN-0027-native-distribution-without-container-image.md) — distribution native d'abord.
-- [ADR-0061](GEN-0061-self-contained-jpackage-portable-distribution.md) — distribution portable `jpackage`.
+- [ADR-0134](GEN-0134-distribution-native-autonome.md) — distribution native d'abord.
+- [ADR-0134](GEN-0134-distribution-native-autonome.md) — distribution portable `jpackage`.
 - [ADR-0062](ARCH-0062-official-java-mcp-sdk-and-native-stdio.md) — SDK MCP Java officiel et STDIO natif.
 - [ADR-0127](GEN-0127-un-launcher-natif-unique.md) — un launcher natif unique.
 - [ADR-0088](GEN-0088-product-release-installation-and-persistent-data-separation.md) — séparation programme /

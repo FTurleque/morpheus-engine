@@ -35,7 +35,7 @@ Options écartées :
 - **Présenter la frontière de processus comme une sandbox** : faux, et dangereux dans le seul sens qui compte.
 - **Restreindre le plugin par un `SecurityManager`** : retiré de la plateforme Java ; une réimplémentation partielle
   donnerait la même fausse assurance.
-- **Lancer le probe dans un conteneur** : la distribution n'utilise pas Docker (ADR-0027, ADR-0061) ; l'exiger rendrait
+- **Lancer le probe dans un conteneur** : la distribution n'utilise pas Docker (ADR-0134) ; l'exiger rendrait
   le probe indisponible sur une installation locale standard.
 - **Restreindre le processus enfant par ACL sur chaque OS** : non portable, non testable de façon reproductible sur les
   deux plateformes supportées.
@@ -235,9 +235,9 @@ décision de produit à prendre.
 
 ## References
 
-- [ADR-0027](GEN-0027-native-distribution-without-container-image.md) — distribution native, sans image Docker
+- [ADR-0134](GEN-0134-distribution-native-autonome.md) — distribution native, sans image Docker
 - [ADR-0028](BE-0028-unified-provider-read-contract.md) — contrat de lecture provider unifié, probe distinct de read
-- [ADR-0061](GEN-0061-self-contained-jpackage-portable-distribution.md) — app-image `jpackage` autoportée
+- [ADR-0134](GEN-0134-distribution-native-autonome.md) — app-image `jpackage` autoportée
 - [ADR-0096](GEN-0096-conservative-native-mcp-client-integration.md) — intégration client MCP native
 - [ADR-0128](ARCH-0128-pairs-minos-et-nexus-par-mcp-stdio.md) — pairs MINOS et NEXUS par MCP STDIO
 - [Preuve du jalon M22](../../project/validation/VALIDATION_M22.md)

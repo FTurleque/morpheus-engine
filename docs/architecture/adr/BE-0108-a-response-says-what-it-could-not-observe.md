@@ -197,7 +197,7 @@ décision de policy portée par le code de sortie, refus d'état distincts d'un 
 ## References
 
 - [ADR-0040](BE-0040-bounded-deterministic-traceability-traversal.md) — traversée de traçabilité bornée et déterministe
-- [ADR-0057](ARCH-0057-explicit-bounded-dependency-impact-paths.md) — chemins d'impact de dépendance explicites et bornés
+- [ADR-0138](ARCH-0138-analyse-de-changement-derivee-et-bornee.md) — chemins d'impact de dépendance explicites et bornés
 - [ADR-0093](ARCH-0093-provider-neutral-policy-packs-governance-automation.md) — policy packs, `UNKNOWN` jamais `BLOCKED`
 - [ADR-0119](BE-0119-cycle-de-vie-des-changements-et-transition-tri-etat.md) — transition tri-état
 - [ADR-0124](ARCH-0124-qualite-findings-et-faits-tri-etat.md) — qualité, findings et faits tri-état

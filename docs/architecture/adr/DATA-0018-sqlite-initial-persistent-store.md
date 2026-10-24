@@ -172,8 +172,8 @@ Critères de réouverture :
 ## References
 
 - [ADR-0003](DATA-0003-specification-knowledge-store.md) — port `SpecificationKnowledgeStore`.
-- [ADR-0120](DATA-0120-snapshots-versionnes-et-activation-atomique.md) — snapshots versionnés et activation atomique.
-- [ADR-0016](GEN-0016-java-21-production-baseline.md) — baseline Java 21.
+- [ADR-0143](DATA-0143-snapshots-versionnes-et-concurrence-bornee.md) — snapshots versionnés et activation atomique.
+- [ADR-0133](GEN-0133-toolchain-java-21-et-maven-wrapper.md) — baseline Java 21.
 - [ADR-0021](DATA-0021-sqlite-schema-migrations-foundation.md) — fondation des migrations SQLite.
 - [ADR-0110](DATA-0110-a-copy-is-kept-before-the-schema-advances.md) — copie conservée avant migration.
 - [ADR-0109](ARCH-0109-transport-adapters-are-named-composition-roots.md) — racines de composition nommées.

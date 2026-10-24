@@ -233,8 +233,8 @@ lorsque ce fait est requis pour décider.
 
 ## References
 
-- [ADR-0001](ARCH-0001-morpheus-owned-domain.md) — domaine possédé par MORPHEUS.
-- [ADR-0044](DATA-0044-snapshot-business-content-projection.md) — projection du contenu métier du snapshot.
+- [ADR-0135](ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — domaine possédé par MORPHEUS.
+- [ADR-0141](DATA-0141-contenu-metier-par-snapshot.md) — projection du contenu métier du snapshot.
 - [ADR-0079](BE-0079-nondestructive-change-orchestration-state.md) — état d'orchestration non destructif.
 - [ADR-0081](DATA-0081-first-class-acceptance-verification-evidence.md) — preuves d'acceptation.
 - [ADR-0118](ARCH-0118-tracabilite-typee-et-taxonomie-controlee.md) — traçabilité typée.

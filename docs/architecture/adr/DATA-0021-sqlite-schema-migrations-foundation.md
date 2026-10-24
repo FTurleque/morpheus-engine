@@ -72,7 +72,7 @@ lorsque son contrat Java est stabilisé. La liste des migrations fait foi dans `
 
 ### Identités
 
-Les identités MORPHEUS sont stockées sous leur représentation texte canonique UUIDv7 (ADR-0015).
+Les identités MORPHEUS sont stockées sous leur représentation texte canonique UUIDv7 (ADR-0140).
 
 ```text
 DomainIdentity != SourceLocator
@@ -171,8 +171,8 @@ et SQLite, pour qu'aucune sémantique propre à JDBC ne devienne implicitement l
 ## References
 
 - [ADR-0003](DATA-0003-specification-knowledge-store.md) — port `SpecificationKnowledgeStore`.
-- [ADR-0015](DATA-0015-domain-identity-uuidv7.md) — identité UUIDv7.
+- [ADR-0140](DATA-0140-identite-de-domaine.md) — identité UUIDv7.
 - [ADR-0018](DATA-0018-sqlite-initial-persistent-store.md) — SQLite comme store persistant.
 - [ADR-0110](DATA-0110-a-copy-is-kept-before-the-schema-advances.md) — copie de la base avant migration.
-- [ADR-0120](DATA-0120-snapshots-versionnes-et-activation-atomique.md) — snapshots versionnés et activation atomique.
+- [ADR-0143](DATA-0143-snapshots-versionnes-et-concurrence-bornee.md) — snapshots versionnés et activation atomique.
 - [VALIDATION_M1](../../project/validation/VALIDATION_M1.md)

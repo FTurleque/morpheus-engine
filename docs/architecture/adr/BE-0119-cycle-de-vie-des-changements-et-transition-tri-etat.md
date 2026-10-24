@@ -74,7 +74,7 @@ COMPLETED != CURRENT
 ARCHIVED  != CURRENT
 ```
 
-Le cycle de vie ne remplace ni l'état temporel (ADR-0031), ni l'état technique du snapshot (ADR-0120), ni la
+Le cycle de vie ne remplace ni l'état temporel (ADR-0136), ni l'état technique du snapshot (ADR-0143), ni la
 résolution (ADR-0118), ni la vérification (ADR-0081). Une transition ne modifie jamais une projection temporelle.
 `COMPLETED` ne signifie pas que les deltas du changement sont devenus `CURRENT` : achèvement de l'implémentation et
 promotion de la baseline sont deux événements distincts (ADR-0035). Une tâche marquée `completed` ne fait pas avancer le
@@ -212,16 +212,16 @@ jamais mutation, et une mutation n'est tenue pour réussie que confirmée par la
 
 ## References
 
-- [ADR-0006](ARCH-0006-current-vs-proposed-state.md) — distinction courant / proposé / historique.
-- [ADR-0031](ARCH-0031-explicit-temporal-projection-and-entity-version.md) — projection temporelle explicite.
+- [ADR-0136](ARCH-0136-etat-temporel-et-occurrences-versionnees.md) — distinction courant / proposé / historique.
+- [ADR-0136](ARCH-0136-etat-temporel-et-occurrences-versionnees.md) — projection temporelle explicite.
 - [ADR-0035](BE-0035-explicit-requirement-delta-application-and-promotion.md) — application et promotion des deltas.
-- [ADR-0077](ARCH-0077-morpheus-jarvis-read-only-orchestration-boundary.md) — frontière d'orchestration read-only
+- [ADR-0139](ARCH-0139-frontiere-morpheus-jarvis-en-lecture-seule.md) — frontière d'orchestration read-only
   avec JARVIS.
 - [ADR-0081](DATA-0081-first-class-acceptance-verification-evidence.md) — vérification des critères d'acceptation.
 - [ADR-0082](DATA-0082-explicit-constraint-semantics-and-blocking-policy.md) — sémantique des contraintes bloquantes.
 - [ADR-0083](BE-0083-controlled-lifecycle-write-operations.md) — mutations lifecycle contrôlées.
 - [ADR-0118](ARCH-0118-tracabilite-typee-et-taxonomie-controlee.md) — traçabilité typée.
-- [ADR-0120](DATA-0120-snapshots-versionnes-et-activation-atomique.md) — snapshots versionnés.
+- [ADR-0143](DATA-0143-snapshots-versionnes-et-concurrence-bornee.md) — snapshots versionnés.
 - [ADR-0121](ARCH-0121-modele-normalise-neutre-vis-a-vis-des-providers.md) — modèle normalisé.
 - [ADR-0124](ARCH-0124-qualite-findings-et-faits-tri-etat.md) — faits de qualité tri-état.
 - [VALIDATION_M0](../../project/validation/VALIDATION_M0.md) — preuve du jalon M0.
