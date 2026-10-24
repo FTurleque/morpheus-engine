@@ -1,5 +1,7 @@
 # ADR-0022 — Normaliser le contenu en M2 avant la projection temporelle M3
 
+> Lecture : à lire avec [ADR-0031](0031-explicit-temporal-projection-and-entity-version.md) (la projection temporelle) et [ADR-0034](0034-versioned-requirement-persistence.md) (la persistance versionnée des requirements). (note éditoriale du 21 octobre 2026 : le texte de la décision n'est pas modifié)
+
 - Statut : **Acceptée — M2**
 - Date : 22 juillet 2026
 - Dépend de : ADR-0001, ADR-0006, ADR-0009, ADR-0015

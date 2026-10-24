@@ -58,7 +58,7 @@ JARVIS MorpheusOrchestrationClientTest 6/6 PASS
 JARVIS jarvis-core BUILD SUCCESS
 ```
 
-Validation : `docs/VALIDATION_M14.md`.
+Validation : `docs/project/validation/VALIDATION_M14.md`.
 
 ## Critères d'acceptation
 

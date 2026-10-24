@@ -1,5 +1,7 @@
 # ADR-0014 — Différer le choix de la stack de production jusqu'aux preuves nécessaires
 
+> Lecture : à lire avec [ADR-0016](0016-java-21-production-baseline.md) (Java 21), [ADR-0017](0017-maven-build-foundation.md) (Maven et son wrapper) et [ADR-0018](0018-sqlite-initial-persistent-store.md) (SQLite comme backend persistant initial). (note éditoriale du 21 octobre 2026 : le texte de la décision n'est pas modifié)
+
 - Statut : **Acceptée — validation C0 du 22 juillet 2026**
 - Date : 22 juillet 2026
 - Portée : langage, build, frameworks, distribution et spikes M0

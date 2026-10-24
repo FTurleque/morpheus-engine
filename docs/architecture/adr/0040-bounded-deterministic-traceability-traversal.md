@@ -1,5 +1,7 @@
 # ADR-0040 — Traversée bornée et déterministe de la traçabilité
 
+> Lecture : à lire avec [ADR-0108](0108-a-response-says-what-it-could-not-observe.md) (les plafonds de nœuds et de liens et la raison de troncature). (note éditoriale du 21 octobre 2026 : le texte de la décision n'est pas modifié)
+
 - Statut : **Acceptée — M4**
 - Date : 23 juillet 2026
 - Dépend de : ADR-0005, ADR-0010, ADR-0037, ADR-0038, ADR-0039

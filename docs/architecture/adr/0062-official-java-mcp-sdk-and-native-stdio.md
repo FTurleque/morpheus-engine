@@ -81,4 +81,4 @@ launcher smoke PASS
 Windows ZIP PASS
 ```
 
-Validation détaillée : `docs/VALIDATION_M10.md`.
+Validation détaillée : `docs/project/validation/VALIDATION_M10.md`.

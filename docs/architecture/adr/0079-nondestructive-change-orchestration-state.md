@@ -1,5 +1,7 @@
 # ADR-0079 — État d'orchestration agrégé non destructif
 
+> Lecture : à lire avec [ADR-0081](0081-first-class-acceptance-verification-evidence.md) (les critères d'acceptation) et [ADR-0082](0082-explicit-constraint-semantics-and-blocking-policy.md) (la sémantique des contraintes et de leur blocage). (note éditoriale du 21 octobre 2026 : le texte de la décision n'est pas modifié)
+
 - Statut : **Acceptée — M14**
 - Date : 24 juillet 2026
 - Dépend de : ADR-0041, ADR-0047, ADR-0050, ADR-0078
@@ -75,7 +77,7 @@ JARVIS client 6/6 PASS
 persisted=false conservé
 ```
 
-Validation : `docs/VALIDATION_M14.md`.
+Validation : `docs/project/validation/VALIDATION_M14.md`.
 
 ## Critères d'acceptation
 

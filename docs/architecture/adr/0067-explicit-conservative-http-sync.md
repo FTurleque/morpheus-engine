@@ -89,4 +89,4 @@ failed sync
 
 Gate complet : **314/314 PASS**, aucune failure/error/skipped.
 
-Décision : **ADR-0067 ACCEPTÉE — M11**. Voir `docs/VALIDATION_M11.md`.
+Décision : **ADR-0067 ACCEPTÉE — M11**. Voir `docs/project/validation/VALIDATION_M11.md`.
