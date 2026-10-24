@@ -101,7 +101,9 @@ Un chemin de documentation est **épinglé** : des tests d'architecture le lisen
 1. Déplacer avec `git mv`, jamais par suppression puis recréation.
 2. Chercher l'ancien chemin dans **tout** le dépôt, sous ses deux écritures (`docs/x/` et `docs\x\`),
    et dans les motifs d'expression régulière du hook (`docs[\\/]x[\\/]`).
-3. Recalculer les liens relatifs des pages déplacées **et** de celles qui pointent vers elles.
+3. Recalculer les liens relatifs des pages déplacées **et** de celles qui pointent vers elles. Un lien redirigé vers
+   un autre document change aussi de libellé : `[ADR-0101](…SEC-0129-…)` ment au lecteur. Un fichier compagnon
+   (`{ID}-{slug}.rules.ts` d'un ADR) se renomme avec lui.
 4. Lancer `RepositoryDocumentationCoherenceTest` — il refuse un lien Markdown cassé — puis les tests
    d'architecture qui lisent le fichier.
 
