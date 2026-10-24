@@ -133,7 +133,7 @@ capacité `portfolio.*` et déclare explicitement toute absence d'un transport.
 ### Risques
 
 - Le traversal du portfolio déclare `DEPTH_BUDGET_REACHED` dès qu'un nœud de la frontière a un voisin, y compris
-  déjà observé : il peut se dire tronqué alors que rien ne reste à voir (écart connu, ADR-0108).
+  déjà observé : il peut se dire tronqué alors que rien ne reste à voir (écart connu, ADR-0124).
 
 ## Compliance and Enforcement
 
@@ -150,6 +150,6 @@ capacité `portfolio.*` et déclare explicitement toute absence d'un transport.
 ## References
 
 - [Plateforme portfolio](../../developer/PORTFOLIO_INTELLIGENCE.md)
-- [ADR-0108](BE-0108-a-response-says-what-it-could-not-observe.md) — troncature déclarée, écart connu du portfolio.
+- [ADR-0124](ARCH-0124-qualite-findings-et-faits-tri-etat.md) — troncature déclarée, écart connu du portfolio.
 - [VALIDATION_M23](../../project/validation/VALIDATION_M23.md)
 - `contracts/public-surfaces.tsv`

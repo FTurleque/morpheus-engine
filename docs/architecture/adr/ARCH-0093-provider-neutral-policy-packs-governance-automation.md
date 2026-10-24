@@ -99,6 +99,16 @@ append-only. L'audit de configuration de policy est distinct de l'audit des muta
 overrides par scope, longueur du nom de pack, longueur de la description de règle, règles évaluées par un dry-run.
 Tout dépassement est rejeté explicitement avant toute exécution partielle.
 
+**Budget d'évaluation d'une garde de contraintes.** `PolicyBudgets.MAX_CONSTRAINT_EVALUATIONS_PER_FACT` borne le
+parcours d'une garde de contraintes, et donc son evidence, qui compte une entrée par évaluation ; ce budget ne refuse
+pas la configuration, il borne l'observation. Si une contrainte reste à observer au-delà du budget, le fait rend
+`UNKNOWN` avec la raison `EVALUATION_BUDGET_REACHED:<budget> …`, jamais `PASS`. Un change dont toutes les contraintes
+sont observées dans le budget rend `PASS` ; une contrainte `BLOCKING` rencontrée dans le budget rend `FAIL`
+immédiatement.
+
+Une page d'évaluations de contraintes (`ConstraintEvaluationQueryService`) filtre et trie l'ensemble des contraintes du
+change, ce qui donne le total et l'ordre déterministe, puis n'évalue que la tranche de la page.
+
 **Persistance.** Port `PolicyPackStore`, adaptateurs mémoire et SQLite. La migration SQLite est additive
 (`V015__policy_packs.sql`), avec versions et audit append-only ; aucune migration antérieure n'est réécrite.
 
@@ -114,11 +124,13 @@ override, évaluation et audit. La parité d'intention n'impose pas la même for
 - Activer une version par CAS sur un scope projet ou portfolio explicite.
 - Rendre `UNKNOWN` quand l'information manque, et conserver la décision originale à côté de l'override appliqué.
 - Rejeter tout dépassement d'une borne de `PolicyBudgets` avant d'exécuter quoi que ce soit.
+- Rendre `UNKNOWN`, avec la raison du budget, quand une garde n'a pas observé toutes les contraintes.
 - Écrire un enregistrement d'audit append-only pour chaque opération de configuration.
 
 ### Don't
 
 - Ne jamais convertir `UNKNOWN` en `BLOCK`.
+- Ne jamais conclure `PASS` après un parcours interrompu par un budget.
 - Ne jamais exécuter un script, une expression libre, du SQL, un nom de classe ou du code de plugin comme règle.
 - Ne jamais analyser le texte d'une contrainte pour en déduire une politique.
 - Ne jamais muter le lifecycle, le snapshot ou la vérité provider depuis une évaluation, une activation ou un
@@ -133,6 +145,8 @@ override, évaluation et audit. La parité d'intention n'impose pas la même for
 - Politiques partageables et versionnées, explicables et reproductibles.
 - Réutilisation des sémantiques existantes (contraintes, transitions, qualité, requêtes).
 - Séparation forte entre recommandation et mutation ; dry-run sûr.
+- Un change au-delà du budget d'évaluation sans contrainte bloquante observée rend `UNKNOWN` ; une policy qui force
+  `UNKNOWN` en `BLOCK` par override explicite le bloque.
 
 ### Négatives
 
@@ -142,7 +156,9 @@ override, évaluation et audit. La parité d'intention n'impose pas la même for
 
 ### Risques
 
-- Aucun risque propre n'est consigné par cette décision au-delà des conséquences négatives.
+- La garde de cycle de vie (`DefaultPolicyFactResolver.lifecycle()`) s'appuie sur `ChangeTransitionEvaluationService`,
+  qui évalue toutes les contraintes du change sans budget ; la borner changerait sa sémantique et relève d'une décision
+  séparée.
 
 ## Compliance and Enforcement
 
@@ -154,6 +170,10 @@ override, évaluation et audit. La parité d'intention n'impose pas la même for
   `PolicyCodecAndBudgetContractTest.java`, `PolicyPersistenceParityTest.java`, `PolicyStoreAtomicityContractTest.java`
   et `PolicyAuditOrderTest.java` : contrat des packs, bornes, parité mémoire / SQLite, atomicité du store, ordre de
   l'audit.
+- `morpheus-application/src/test/java/com/morpheus/application/policy/ConstraintGuardBudgetTest.java` : parcours
+  au-delà du budget `UNKNOWN`, parcours complet `PASS`, contrainte bloquante vue dans le budget `FAIL`.
+- `morpheus-application/src/test/java/com/morpheus/application/query/ConstraintEvaluationPageTest.java` : une page
+  n'évalue que sa tranche et compte tout le change.
 - `scripts/validate-m25.ps1` et `scripts/validate-m25.sh` : gate du jalon.
 - Revue : l'absence de mutation lifecycle dans le dry-run et l'activation au-delà de ce que les tests exercent.
 

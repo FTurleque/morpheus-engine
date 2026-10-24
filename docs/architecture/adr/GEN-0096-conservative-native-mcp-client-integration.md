@@ -141,7 +141,7 @@ la parité de distribution.
 ### Sécurité
 
 Cette intégration n'ajoute aucun listener réseau, secret, token, capacité `WRITE`, dépendance Docker ni mutation
-métier. Les contrôles applicatifs restent inchangés.
+métier, et ne modifie aucun contrôle applicatif.
 
 ## Do's and Don'ts
 
@@ -178,10 +178,6 @@ métier. Les contrôles applicatifs restent inchangés.
 - Tests avec de faux clients.
 - Adaptation aux commandes propres à chaque client.
 
-### Risques
-
-- Aucun risque n'est consigné au-delà des conséquences négatives.
-
 ## Compliance and Enforcement
 
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m28/McpClientIntegrationArchitectureTest.java` :
@@ -194,8 +190,8 @@ métier. Les contrôles applicatifs restent inchangés.
 
 ## References
 
-- [ADR-0134](GEN-0134-distribution-native-autonome.md) — distribution native d'abord.
-- [ADR-0134](GEN-0134-distribution-native-autonome.md) — distribution portable `jpackage`.
+- [ADR-0134](GEN-0134-distribution-native-autonome.md) — distribution native d'abord, distribution portable
+  `jpackage`.
 - [ADR-0062](ARCH-0062-official-java-mcp-sdk-and-native-stdio.md) — SDK MCP Java officiel et STDIO natif.
 - [ADR-0127](GEN-0127-un-launcher-natif-unique.md) — un launcher natif unique.
 - [ADR-0088](GEN-0088-product-release-installation-and-persistent-data-separation.md) — séparation programme /

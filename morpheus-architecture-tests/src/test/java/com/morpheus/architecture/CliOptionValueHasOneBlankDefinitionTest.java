@@ -51,7 +51,7 @@ import org.junit.jupiter.api.Test;
  *   variable merely named {@code message}, a message read from something that is not such a parameter, and a
  *   {@code getMessage()} in a method without such a parameter are not recognised.</li>
  *   <li><b>A named other question</b>, in {@link #OTHER_QUESTIONS}: an option's <em>name</em>, an environment variable
- *   or JVM property (empty means unset there, ADR-0108), a message printed by the reasoning output -- and two open
+ *   or JVM property (empty means unset there, ADR-0130), a message printed by the reasoning output -- and two open
  *   residuals where the test reads a <em>part</em> of an option value, not the value: the elements of
  *   {@code --providers} and the provenance field of {@code --evidence}. Each entry holds the number of blank tests of
  *   its method: a method that gains one, loses one or disappears fails the guard until the entry is written again.</li>
@@ -94,13 +94,13 @@ class CliOptionValueHasOneBlankDefinitionTest {
             "MorpheusReasoningCli.java#analyze", new OtherQuestion(1,
                     "the message of an adapter execution, printed only when there is one"),
             "CliLayout.java#envPath", new OtherQuestion(1,
-                    "an environment variable: empty means unset (ADR-0108, CLI-7 suite)"),
+                    "an environment variable: empty means unset (ADR-0130)"),
             "RemoteApiLaunchOptions.java#presentSetting", new OtherQuestion(1,
-                    "an environment variable or JVM property: empty means unset (ADR-0108, CLI-7 suite)"),
+                    "an environment variable or JVM property: empty means unset (ADR-0130)"),
             "RemoteApiLaunchOptions.java#resolveWorkspaceRoots", new OtherQuestion(1,
                     "an element of MORPHEUS_SERVER_WORKSPACE_ROOTS, an environment variable or JVM property"),
             "MorpheusPortfolioCli.java#providers", new OtherQuestion(1,
-                    "open residual: an element of --providers; a list made of separators is dropped (ADR-0108, CLI-7)"),
+                    "open residual: an element of --providers; a list made of separators is dropped (ADR-0130)"),
             "MorpheusReasoningCli.java#parseAssignments", new OtherQuestion(1,
                     "open residual: the optional provenance field of an --evidence value, not the value"));
 

@@ -64,11 +64,12 @@ Invariants :
 1. `groupId = io.github.fturleque` ;
 2. les `artifactId` MORPHEUS utilisent le préfixe `morpheus-` ;
 3. le namespace Java racine est `com.morpheus` ;
-4. aucun package `com.morpheus.domain` ne dépend d'un adaptateur ;
-5. le nom du dépôt `morpheus-engine` n'est pas encodé dans les packages métier ;
-6. aucune classe OpenSpec n'apparaît dans `com.morpheus.domain` ;
-7. aucun type SQLite ou JDBC n'apparaît dans `com.morpheus.domain` ;
-8. les DTO réseau ne dépendent pas implicitement du nom pleinement qualifié des classes du domaine.
+4. le nom du dépôt `morpheus-engine` n'est pas encodé dans les packages métier ;
+5. aucun type SQLite ou JDBC n'apparaît dans `com.morpheus.domain` ;
+6. les DTO réseau ne dépendent pas implicitement du nom pleinement qualifié des classes du domaine.
+
+Les autres frontières de `com.morpheus.domain` (aucun adaptateur, aucun type propre à un provider, OpenSpec
+compris) relèvent d'ADR-0135.
 
 ## Do's and Don'ts
 
@@ -81,7 +82,7 @@ Invariants :
 ### Don't
 
 - Ne pas utiliser `io.github.fturleque.morpheus` ni `com.morpheus.engine` comme package Java.
-- Ne pas faire dépendre `com.morpheus.domain` d'un adaptateur, d'une classe OpenSpec, ni d'un type SQLite ou JDBC.
+- Ne pas faire dépendre `com.morpheus.domain` d'un type SQLite ou JDBC ; ses autres frontières relèvent d'ADR-0135.
 - Ne pas sérialiser un nom de classe Java comme type public d'une surface réseau.
 
 ## Consequences
@@ -112,6 +113,5 @@ Invariants :
 ## References
 
 - [ADR-0135](ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — domaine possédé par MORPHEUS.
-- [ADR-0133](GEN-0133-toolchain-java-21-et-maven-wrapper.md) — baseline Java 21.
-- [ADR-0133](GEN-0133-toolchain-java-21-et-maven-wrapper.md) — fondation Maven.
+- [ADR-0133](GEN-0133-toolchain-java-21-et-maven-wrapper.md) — baseline Java 21 et fondation Maven.
 - [Validation M1](../../project/validation/VALIDATION_M1.md)

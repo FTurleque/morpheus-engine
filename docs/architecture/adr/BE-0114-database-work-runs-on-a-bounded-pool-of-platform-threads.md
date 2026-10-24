@@ -101,7 +101,7 @@ Options écartées :
 
 - `health`, `metrics` et `version` restent servies pendant qu'une base occupée retient les travailleurs.
 - Un pic de requêtes devient une file bornée, et un dépassement est refusé par un code nommé.
-- La sauvegarde distante ne tient plus de porteur pendant qu'elle attend la base.
+- La sauvegarde distante ne tient aucun porteur pendant qu'elle attend la base.
 
 ### Négatives
 
@@ -114,8 +114,9 @@ Options écartées :
 
 - Ce que protège chaque moniteur des stores, construits par requête, n'est pas documenté ; ce n'est pas une question
   de disponibilité.
-- Des sauvegardes distantes en échec sous saturation n'ont pas de cause établie (famine des porteurs ou course sur le
-  verrou de la base) ; elles ne se produisent plus quand la sauvegarde passe par les travailleurs.
+- Les échecs de sauvegarde distante observés sous saturation, quand la sauvegarde ne passe pas par les travailleurs,
+  n'ont pas de cause établie (famine des porteurs ou course sur le verrou de la base) ; une sauvegarde qui passe par
+  les travailleurs ne les produit pas.
 
 ## Compliance and Enforcement
 

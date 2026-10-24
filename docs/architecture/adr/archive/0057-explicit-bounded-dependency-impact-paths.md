@@ -160,6 +160,6 @@ L'analyse ne parcourt ni AST, ni call graph, ni index SCIP, ni graphe de symbole
 - [ADR-0038](../DATA-0038-snapshot-scoped-traceability-persistence.md) — persistance de traçabilité par snapshot.
 - [ADR-0040](../BE-0040-bounded-deterministic-traceability-traversal.md) — traversée bornée et déterministe.
 - [ADR-0056](0056-deterministic-current-proposed-change-analysis.md) — analyse current/proposed d'un changement.
-- [ADR-0108](../BE-0108-a-response-says-what-it-could-not-observe.md) — budgets de traversée et raison de troncature.
+- [ADR-0108](0108-a-response-says-what-it-could-not-observe.md) — budgets de traversée et raison de troncature.
 - [ADR-0118](../ARCH-0118-tracabilite-typee-et-taxonomie-controlee.md) — taxonomie de traçabilité contrôlée.
 - [VALIDATION_M8](../../../project/validation/VALIDATION_M8.md)

@@ -122,13 +122,9 @@ Le dernier lien ne concerne que les `verificationEvidenceIds`, jamais la seule p
 
 ### Couverture d'acceptance
 
-La couverture d'acceptance d'un snapshot publié est évaluée par `AcceptanceQualityService` sur les critères de sa
-projection de contenu métier : `EVALUATED` quand au moins un critère existe, `NO_CRITERIA` quand il n'y en a aucun
-(zéro critère n'est pas « modèle indisponible »).
-
-L'analyse d'un changement proposé (ADR-0138) n'évalue pas cette couverture : elle rend toujours
-`AcceptanceCoverageStatus.UNAVAILABLE_IN_NORMALIZED_MODEL` avec le warning `ACCEPTANCE_CRITERIA_UNAVAILABLE`, car le
-`ProposedChangeSet` ne porte aucun critère.
+La couverture d'acceptance d'un snapshot publié est évaluée par `AcceptanceQualityService` selon ADR-0124 ; zéro
+critère y donne `NO_CRITERIA`, jamais « modèle indisponible ». L'analyse d'un changement proposé n'évalue pas cette
+couverture et rend le statut que fixe ADR-0138.
 
 ### Providers
 
@@ -199,7 +195,7 @@ aucun critère, plutôt que d'utiliser une heuristique.
 - [ADR-0136](ARCH-0136-etat-temporel-et-occurrences-versionnees.md) — projection temporelle et versions.
 - [ADR-0141](DATA-0141-contenu-metier-par-snapshot.md) — projection du contenu métier d'un snapshot.
 - [ADR-0138](ARCH-0138-analyse-de-changement-derivee-et-bornee.md) — analyse de changement.
-- [ADR-0079](BE-0079-nondestructive-change-orchestration-state.md) — état d'orchestration non destructif.
+- [ADR-0119](BE-0119-cycle-de-vie-des-changements-et-transition-tri-etat.md) — état d'orchestration d'un changement.
 - [ADR-0118](ARCH-0118-tracabilite-typee-et-taxonomie-controlee.md) — traçabilité typée.
 - [ADR-0124](ARCH-0124-qualite-findings-et-faits-tri-etat.md) — qualité, `Scenario != AcceptanceCriterion`.
 - [VALIDATION_M15](../../project/validation/VALIDATION_M15.md) — preuve du jalon M15.

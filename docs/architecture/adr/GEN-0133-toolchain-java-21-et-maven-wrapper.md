@@ -48,6 +48,7 @@ Options écartées :
 - **Maven 4 avant sa GA** : la fondation ne dépend pas d'une release candidate uniquement pour être plus récente ;
   la série Maven 3.9 est GA et maintenue.
 - **Build manuel ou par scripts** : insuffisant pour la gestion des dépendances, des tests et du packaging.
+- **Un workflow par jalon** : produit de la dette temporaire et rend la CI non durable.
 
 ## Decision
 
@@ -95,6 +96,9 @@ Le gate local est `./mvnw clean verify` sous Unix et `.\mvnw.cmd clean verify` s
 workflow `.github/workflows/ci.yml` exécute le gate sur la tête exacte de la PR, sous Linux et sous Windows, pour
 `develop` et `main`, avec un JDK 21. Elle appelle le même Wrapper et ne crée pas de second chemin de build divergent.
 
+Ce workflow est générique : aucun workflow n'est propre à un jalon. Les validateurs locaux restent supportés ; le
+workflow est une preuve reproductible supplémentaire, pas un remplacement des invariants produit.
+
 ### 4. Invariants de build
 
 1. Les tests unitaires sont exécutés par défaut.
@@ -130,6 +134,7 @@ dépendances, pas le nombre de POMs.
 - Ne pas embarquer de dépendance Python dans le runtime produit.
 - Ne pas déclarer de dépôt Maven dans un POM, ni exiger de secret pour compiler ou tester.
 - Ne pas rendre advisory le job CI exact-head.
+- Ne pas créer de workflow propre à un jalon.
 
 ## Consequences
 
@@ -140,6 +145,7 @@ dépendances, pas le nombre de POMs.
 - Build familier et déclaratif, multi-module, avec des plugins de tests et de packaging matures.
 - Dépendances Maven Central et Wrapper Windows/Linux ; version de Maven identique sur tous les postes.
 - Séparation claire entre baseline Java et JDK de build.
+- Le workflow de CI n'a pas à être recréé à chaque jalon.
 
 ### Négatives
 
@@ -175,7 +181,8 @@ dépendances, pas le nombre de POMs.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/GateReachabilityArchitectureTest.java`
   (`theScriptTestsRunOnEachLegOfTheContinuousIntegrationWorkflow`) : le job de vérification de `ci.yml` tourne sous
   Linux et sous Windows.
-- Revue : l'absence de framework dans le domaine, et le contenu des règles Archgate, qui ne s'exécutent pas en CI.
+- Revue : l'absence de framework dans le domaine, l'absence de workflow propre à un jalon, et le contenu des règles
+  Archgate, qui ne s'exécutent pas en CI.
 
 ## References
 

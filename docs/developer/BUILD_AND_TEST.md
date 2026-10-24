@@ -267,6 +267,29 @@ morpheus-architecture-tests/.../AuditHardeningWorkflowContractTest.java
 
 Windows et Linux doivent qualifier exactement le même SHA pour considérer une baseline M21 comme durable.
 
+## Parallélisme JUnit
+
+La règle est décidée par [ADR-0115](../architecture/adr/ARCH-0115-the-operational-runtime-is-a-value-the-launcher-hands-on.md) : le parallélisme JUnit n'est activé que dans un module dont aucun test ne partage un état de la JVM.
+
+`morpheus-store-sqlite` est ce module. Son `src/test/resources/junit-platform.properties` versionné rend concurrentes les méthodes et les classes, sur un pool fixe (`config.strategy=fixed`), pour qu'une course ne dépende pas du nombre de cœurs de la machine. Dans ce module :
+
+- `NoSqliteScopeLeftBehindExtension`, enregistrée par `META-INF/services` et `junit.jupiter.extensions.autodetection.enabled`, lit après chaque test la portée encore attachée au thread (`SqliteConnectionScope.attachedToThisThread()`, visible du paquet seulement), la ferme, et fait échouer le test fautif par son nom : une portée laissée ouverte ferait sinon échouer, par le refus `SQLITE_CONNECTION_SCOPE_NESTED`, le test suivant du même thread du pool ;
+- une portée se ferme dans un `finally`, jamais seulement après des assertions ;
+- un test qui sature SQLite exprès (`SqliteLocalSecurityContractTest`) ou qui compte une ressource de toute la JVM (`SqliteDatabaseLeaseTest`) est `@Isolated` : il ne rivalise pas avec d'autres tests.
+
+Les autres modules restent séquentiels. État de la JVM encore partagé entre tests, hors `morpheus-store-sqlite` :
+
+| État partagé | Qui l'écrit ou le lit | Effet attendu en parallèle |
+|---|---|---|
+| Propriété système `java.home` | posée puis rétablie par `MinosPeerLauncherResolutionTest` et `NexusPeerLauncherResolutionTest` | tout test qui résout un lanceur Java pendant la fenêtre lit un répertoire temporaire |
+| `Locale.setDefault` | `PolicyApiEnumVocabularyLocaleTest`, `McpEnumVocabularyLocaleTest` | tout formatage sensible à la locale dans un autre test |
+| Fichier hors répertoire temporaire | `MorpheusRemoteLoadProfileTest` écrit `target/remote-load-profile.txt`, que la lane nocturne publie | aucun tant qu'il reste le seul écrivain |
+| Champs statiques d'une classe de test | `MorpheusRemoteAdversarialClientTest` (serveur, client et répertoire partagés entre ses méthodes, posés en `@BeforeAll`) | ses méthodes ne peuvent pas s'exécuter en concurrence |
+
+Aucun test n'écoute sur un port fixe. Les baux (`SqliteDatabaseLease`) et la quarantaine de l'exécuteur de transactions sont statiques mais indexés par base ou par connexion : deux tests sur deux bases temporaires n'y partagent rien.
+
+Activer le parallélisme dans un autre module est un changement à part, précédé d'exécutions parallèles propres répétées dans ce module.
+
 ## Preuves historiques
 
 - R3 / release 1.2.0 : [`../project/validation/VALIDATION_R3.md`](../project/validation/VALIDATION_R3.md)

@@ -29,7 +29,12 @@ Options écartées :
 - inférer un lien, une justification ou un critère depuis le texte (correspondance approchée, recherche sémantique,
   LLM) : contraire à ADR-0004 ;
 - reconstruire le cycle de vie d'un changement depuis l'état du snapshot, l'état temporel ou l'achèvement des
-  tâches : ces états sont orthogonaux au cycle de vie.
+  tâches : ces états sont orthogonaux au cycle de vie ;
+- un `OptionalDouble` ou un ratio `null` pour une population vide : change le type de champs publiés et casse tout
+  client qui les lit comme des nombres, pour tous les projets et pas seulement le cas fautif ;
+- `notApplicable` pour un ratio indéfini : la règle s'applique au projet, c'est la mesure qui n'existe pas ;
+- un tri-état pour `ImplementationTask.completed` : changement du modèle publié (schéma, trois transports, contexte
+  augmenté), à reconsidérer seulement si un provider ne peut structurellement pas dire l'achèvement.
 
 ## Decision
 
@@ -55,8 +60,19 @@ Options écartées :
    changement dans ce snapshot.
 6. **Ratio sur une population vide.** Le ratio de couverture des exigences et celui des tâches valent `1.0` sur une
    population vide par convention de validation des records ; ce n'est pas une mesure. `QualityReportMetrics` le dit
-   par `CoverageRatioStatus.UNDEFINED_EMPTY_POPULATION` (sinon `MEASURED`), et toute surface lit ce statut avant le
-   ratio. Les comptes restent de vrais zéros (ADR-0108).
+   par `#requirementCoverageStatus()` et `#taskCoverageStatus()`, qui rendent
+   `CoverageRatioStatus.UNDEFINED_EMPTY_POPULATION` (sinon `MEASURED`). Ce prédicat est le seul, et toute surface lit
+   ce statut avant le ratio :
+
+   - la policy rend `Fact.unknown(...)` en nommant la population vide pour `REQUIREMENT_COVERAGE_PERCENT` et
+     `TASK_COVERAGE_PERCENT`, sans valeur observée ; `notApplicable` reste réservé aux désaccords de portée ;
+   - la vue compacte porte l'indéfinition dans des champs frères, `requirementCoverageStatus` et `taskCoverageStatus`,
+     sur le patron d'`acceptanceCoverageStatus` ; le ratio garde son type et sa valeur ;
+   - la sortie texte de `quality` n'imprime pas un nombre qui n'est pas une mesure :
+     `requirementCoverage=UNDEFINED_EMPTY_POPULATION`.
+
+   Les comptes restent de vrais zéros : `ORPHAN_REQUIREMENTS = 0` sur une population vide est un zéro vrai. Les
+   records de couverture gardent `1.0` comme convention de validation, et un commentaire y nomme le garde-fou.
 7. **Couverture d'acceptance** (`AcceptanceQualityService`). Les critères sont ceux du modèle (ADR-0081). Sans
    critère, le statut est `NO_CRITERIA` ; sinon `EVALUATED`, avec un compte par `VerificationStatus` et le ratio des
    critères `VERIFIED`. Chaque critère non vérifié produit un finding : `ACCEPTANCE_CRITERION_FAILED` (`ERROR`),
@@ -116,6 +132,15 @@ Options écartées :
     vue compacte (`get_quality_report`) suit ADR-0123.
 12. **Parité.** Toute la logique est dans `morpheus-application` ; le store mémoire et le store SQLite rendent les
     mêmes findings, y compris après réouverture.
+13. **Ce qui n'est pas observé est dit.** Une réponse ne se présente jamais comme complète quand elle a été tronquée,
+    ni comme mesurée quand la mesure n'existe pas : ce qu'elle n'a pas pu observer, elle le dit, avec une raison
+    nommée. La règle vaut au-delà de la qualité : traversée de traçabilité (ADR-0040), budget de policy (ADR-0093),
+    liste de saved views (ADR-0092), recherche MINOS (ADR-0145), sortie de la CLI (ADR-0130). À l'entrée, une lecture
+    ne remplace pas le silence d'une source par une valeur : un champ dont le modèle ne porte pas d'état inconnu est
+    obligatoire, et son absence est refusée par un message qui nomme le bloc source et sa ligne, sans chemin d'hôte —
+    pour le provider Markdown structuré, `completed` d'un bloc `morpheus task`, obligatoire comme `key`, `change` et
+    `title` et contraint à `true`/`false`. Un défaut qui est un état du modèle n'est pas une valeur inventée :
+    `verification_status` d'un bloc `acceptance` garde son défaut `UNKNOWN`.
 
 ## Do's and Don'ts
 
@@ -123,7 +148,8 @@ Options écartées :
 
 - Marquer tout finding `DETERMINISTIC` sans confiance, ou `HEURISTIC` avec une confiance dans `[0, 1]`.
 - Rendre `UNAVAILABLE` tout fait que le snapshot ne permet pas d'observer, y compris sur une population vide.
-- Lire `CoverageRatioStatus` avant le ratio de couverture.
+- Lire `CoverageRatioStatus` avant le ratio de couverture, sur toute surface.
+- Refuser l'absence d'un champ source dont le modèle ne porte pas d'état inconnu.
 - Ne pas appeler la machine de cycle de vie en mode dérivé tant qu'un fait requis est `UNAVAILABLE`.
 - Déléguer le rapport agrégé aux services spécialisés et exiger le même snapshot de chacun.
 - Joindre à chaque finding l'evidence de la provenance de son sujet ou du lien concerné.
@@ -131,7 +157,9 @@ Options écartées :
 ### Don't
 
 - Ne jamais convertir `UNAVAILABLE` en `FALSE` ni en `TRUE`, ni inventer une valeur de substitution.
-- Ne jamais présenter un ratio sur une population vide comme une mesure.
+- Ne jamais présenter un ratio sur une population vide comme une mesure, ni réécrire ailleurs le prédicat de
+  population vide.
+- Ne jamais inventer une valeur par défaut pour un champ absent d'une source.
 - Ne jamais persister un finding ni un rapport de qualité.
 - Ne jamais synthétiser un lien de traçabilité, une justification ou un critère d'acceptation.
 - Ne jamais déduire le cycle de vie de l'état du snapshot, de l'état temporel ou de l'achèvement des tâches.
@@ -145,12 +173,16 @@ Options écartées :
 - Chaque constat nomme son sujet, sa preuve et le snapshot dont il vient.
 - Un fait manquant est dit manquant : un verdict de transition n'est jamais rendu sur une donnée inventée.
 - Le rapport agrégé et ses composants ne peuvent pas diverger.
+- Un seuil de couverture sur un projet sans exigence ou sans tâche rend `UNKNOWN` pour la policy ; une policy qui
+  force `UNKNOWN` en `BLOCK` par override explicite (ADR-0093) le bloque.
 
 ### Négatives
 
 - Plusieurs faits restent `UNAVAILABLE` en permanence (`designRequired`, les deux faits de critère bloquant) : une
   transition qui les consulte n'est évaluable qu'en mode explicite.
 - Un changement sans contrainte ne passe pas `PROPOSED → SPECIFIED` en mode dérivé.
+- Un client qui ignore `requirementCoverageStatus` lit toujours `1.0`.
+- Un fichier `morpheus/specification.md` dont un bloc `task` omet `completed` est refusé.
 
 ### Risques
 
@@ -158,6 +190,8 @@ Options écartées :
   changement : le lien est la seule preuve d'appartenance.
 - `knownBlocker` vaut `FALSE` sur un changement sans contrainte (« aucun bloqueur connu ») ; c'est
   `criticalConstraintsKnown` qui porte l'affirmation de complétude.
+- Un ratio dont la population est dupliquée par une composition multi-provider est `UNKNOWN` pour la policy
+  (ADR-0084) mais publié `MEASURED` par `quality`.
 
 ## Compliance and Enforcement
 
@@ -174,6 +208,14 @@ Options écartées :
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/AggregateQualityReportContractTest.java` et
   `QualityReportSnapshotCoherenceTest.java` (même répertoire) : métriques, findings distincts et triés, cohérence
   stricte du snapshot, cycle de vie hors agrégat.
+- `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/CoverageRatioHasOneEmptyPopulationPredicateTest.java` :
+  un seul prédicat de population vide, aucun ratio lu sans son statut hors `application.quality`.
+- `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/EmptyPopulationQualityPolicyContractTest.java` :
+  seuil de couverture `UNKNOWN` sur une population vide, zéro orphelin observé.
+- `morpheus-cli/src/test/java/com/morpheus/cli/MorpheusCliTest.java`
+  (`aProjectWithoutRequirementsOrTasksHasNoCoverageMeasurement`) : texte et JSON de `quality` sans exigence ni tâche.
+- `morpheus-provider-markdown/src/test/java/com/morpheus/provider/markdown/StructuredMarkdownStrictValidationTest.java` :
+  bloc `task` sans `completed` refusé avec bloc et ligne, sans chemin d'hôte.
 - Les records `QualityFinding`, `RequirementTraceabilityCoverage`, `QualityReportMetrics` et `QualityReport`
   refusent à la construction une confiance incohérente, un ratio incohérent avec ses comptes et des findings agrégés
   différents de ceux des composants.
@@ -188,7 +230,12 @@ Options écartées :
 - [ADR-0141](DATA-0141-contenu-metier-par-snapshot.md)
 - [ADR-0081](DATA-0081-first-class-acceptance-verification-evidence.md)
 - [ADR-0082](DATA-0082-explicit-constraint-semantics-and-blocking-policy.md)
-- [ADR-0108](BE-0108-a-response-says-what-it-could-not-observe.md)
+- [ADR-0040](BE-0040-bounded-deterministic-traceability-traversal.md)
+- [ADR-0084](ARCH-0084-provider-neutral-multi-provider-composition.md)
+- [ADR-0092](ARCH-0092-provider-neutral-query-dsl-saved-views-reporting.md)
+- [ADR-0093](ARCH-0093-provider-neutral-policy-packs-governance-automation.md)
+- [ADR-0130](BE-0130-contrat-des-options-de-la-cli.md)
+- [ADR-0145](BE-0145-ressource-de-pair-mcp-designee-explicitement.md)
 - [ADR-0118](ARCH-0118-tracabilite-typee-et-taxonomie-controlee.md)
 - [ADR-0119](BE-0119-cycle-de-vie-des-changements-et-transition-tri-etat.md)
 - [ADR-0137](ARCH-0137-lectures-et-recherche-sur-le-snapshot-publie.md)

@@ -168,7 +168,7 @@ disparu.
 - [ADR-0137](ARCH-0137-lectures-et-recherche-sur-le-snapshot-publie.md) — requête lexicale déterministe
 - [ADR-0106](BE-0106-inbound-bound-is-defensive-outbound-bound-is-a-defect.md) — borne entrante défensive, borne
   sortante comme défaut
-- [ADR-0108](BE-0108-a-response-says-what-it-could-not-observe.md) — une réponse dit ce qu'elle n'a pas pu observer
+- [ADR-0124](ARCH-0124-qualite-findings-et-faits-tri-etat.md) — une réponse dit ce qu'elle n'a pas pu observer
 - [ADR-0110](DATA-0110-a-copy-is-kept-before-the-schema-advances.md) — une copie est gardée avant que le schéma avance
 - [ADR-0137](ARCH-0137-lectures-et-recherche-sur-le-snapshot-publie.md) — lectures métier sur le snapshot publié
 - [ADR-0123](ARCH-0123-vues-compactes-et-json-canonique.md) — vues compactes et JSON canonique

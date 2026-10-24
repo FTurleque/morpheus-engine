@@ -28,8 +28,8 @@ peut survenir pendant un appel HTTP ou un outil MCP.
 
 Alternatives écartées :
 
-- **La procédure seule.** Elle est écrite (`docs/user/UPGRADE_1_2_1.md`) et reste la première étape ; elle ne protège
-  que l'opérateur qui la lit.
+- **La procédure seule.** Une procédure de mise à niveau écrite reste la première étape ; elle ne protège que
+  l'opérateur qui la lit.
 - **Un contrôle par l'installeur Windows.** Il ne couvre qu'un des artefacts distribués et ne connaît pas la base.
 - **Un nom fixe par version d'origine, vérifié puis réutilisé.** Après une restauration hors ligne ou un retour au
   programme précédent, la base en version N peut être une autre que celle dont la copie « de version N » a été tirée, et la
@@ -105,8 +105,7 @@ Le mécanisme vit dans `morpheus-store-sqlite` : `SqlitePreMigrationCopy`, appel
 
 - **Ce n'est pas une sauvegarde de reprise après sinistre** : la copie est sur le même volume que la base.
 - **Deux ouvertures concurrentes d'une même base ancienne** laissent chacune au plus une copie, et seules des copies
-  vraies subsistent. La perdante peut encore échouer sur la migration elle-même ; cette décision ne change pas ce
-  comportement.
+  vraies subsistent. La perdante peut encore échouer sur la migration elle-même.
 
 ## Compliance and Enforcement
 

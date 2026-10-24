@@ -137,6 +137,5 @@ Options rejetées :
 - [ADR-0143](DATA-0143-snapshots-versionnes-et-concurrence-bornee.md) — snapshots versionnés immuables.
 - [ADR-0124](ARCH-0124-qualite-findings-et-faits-tri-etat.md) — qualité et faits tri-état.
 - [ADR-0139](ARCH-0139-frontiere-morpheus-jarvis-en-lecture-seule.md) — frontière d'orchestration read-only.
-- [ADR-0079](BE-0079-nondestructive-change-orchestration-state.md) — état d'orchestration non destructif.
 - [ADR-0082](DATA-0082-explicit-constraint-semantics-and-blocking-policy.md) — sémantique des contraintes.
 - [VALIDATION_M17](../../project/validation/VALIDATION_M17.md).

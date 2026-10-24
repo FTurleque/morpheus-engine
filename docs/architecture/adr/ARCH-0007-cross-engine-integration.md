@@ -57,18 +57,16 @@ Une relation cross-engine peut être portée par un lien de traçabilité dont l
 conserve le lien même si MINOS n'est pas disponible au moment de la requête : la résolution live est une capacité
 d'intégration, pas une condition d'existence du lien.
 
-**NEXUS.** MORPHEUS expose une vue stable du contexte de spécification (objectif, exigences, contraintes, décisions,
-critères d'acceptation, tâches, traçabilité, provenance), que NEXUS consomme par un contrat ou un adaptateur. MORPHEUS
-ne connaît ni les budgets de tokens de NEXUS, ni ses stratégies de ranking, ni ses profils d'agents, ni ses
-algorithmes de compression.
+**NEXUS.** NEXUS consomme le contexte de spécification de MORPHEUS par un contrat ou un adaptateur ; la séparation
+entre l'intention MORPHEUS et le contexte technique NEXUS est décidée par ADR-0075. MORPHEUS ne connaît ni les budgets
+de tokens de NEXUS, ni ses stratégies de ranking, ni ses profils d'agents, ni ses algorithmes de compression.
 
 **JARVIS.** JARVIS appelle les opérations MORPHEUS, mais le cœur MORPHEUS ne contient aucun workflow JARVIS. Le
-workflow (lire un changement et son contexte dans MORPHEUS, analyser l'impact dans MINOS, construire le contexte dans
-NEXUS, exécuter l'agent) appartient à JARVIS.
+partage des responsabilités entre les deux moteurs est décidé par ADR-0139.
 
-**Références obsolètes.** Une référence externe peut devenir invalide si le système cible change. MORPHEUS distingue
-les états de résolution `UNVALIDATED`, `UNRESOLVED`, `RESOLVED` et `STALE`
-(`ExternalReferenceResolutionState`). La disparition d'une cible externe ne supprime pas l'historique de la relation.
+**Références obsolètes.** Une référence externe peut devenir invalide si le système cible change. Ses états de
+résolution (`ExternalReferenceResolutionState`), et le fait que la disparition d'une cible ne supprime ni la référence
+ni son historique, sont décidés par ADR-0142.
 
 Invariants :
 
@@ -129,9 +127,9 @@ Invariants :
 
 ## References
 
-- [ADR-0142](DATA-0142-references-externes.md) — résolution optionnelle des références externes.
-- [ADR-0142](DATA-0142-references-externes.md) — résolution live sans mutation du
-  snapshot.
+- [ADR-0075](ARCH-0075-morpheus-intent-vs-nexus-technical-context.md) — intention MORPHEUS et contexte technique NEXUS.
+- [ADR-0142](DATA-0142-references-externes.md) — résolution optionnelle des références externes, résolution live sans
+  mutation du snapshot.
 - [ADR-0139](ARCH-0139-frontiere-morpheus-jarvis-en-lecture-seule.md) — frontière d'orchestration JARVIS.
 - [ADR-0128](ARCH-0128-pairs-minos-et-nexus-par-mcp-stdio.md) — pairs MINOS et NEXUS par MCP STDIO.
 - [Validation M0](../../project/validation/VALIDATION_M0.md)

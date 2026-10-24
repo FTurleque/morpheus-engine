@@ -68,6 +68,6 @@ change); merging the two sync sequences into one use case (AUD-ARC-09, sprint 12
 ## Open Questions
 
 - **Is content with an `UNSUPPORTED` category publishable?** Recommendation: yes, with the category named in the
-  response (ADR-0108) - a provider that cannot carry a category is not a failed read, and whether a shipped provider reports one on its own fixtures is
+  response (ADR-0124) - a provider that cannot carry a category is not a failed read, and whether a shipped provider reports one on its own fixtures is
   measured in task 1.2. To be confirmed by the maintainer before task 3.
 - **Is the strict aggregator removed or kept for tests?** Recommendation: removed; its three test users take the port.
