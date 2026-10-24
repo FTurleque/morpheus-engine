@@ -1,7 +1,7 @@
 package com.morpheus.api.remote;
 
-import com.morpheus.api.MorpheusHttpRouteTable;
-import com.morpheus.api.MorpheusHttpServer;
+import com.morpheus.api.local.MorpheusHttpServer;
+import com.morpheus.api.transport.MorpheusHttpRouteTable;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

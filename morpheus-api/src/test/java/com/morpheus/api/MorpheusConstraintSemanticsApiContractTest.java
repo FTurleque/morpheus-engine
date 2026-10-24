@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.api.local.MorpheusHttpServer;
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.application.operability.OperationalRecorder;

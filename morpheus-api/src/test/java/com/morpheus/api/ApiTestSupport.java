@@ -1,5 +1,7 @@
 package com.morpheus.api;
 
+import com.morpheus.api.local.MorpheusHttpServer;
+import com.morpheus.api.transport.MorpheusHttpRouteTable;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;

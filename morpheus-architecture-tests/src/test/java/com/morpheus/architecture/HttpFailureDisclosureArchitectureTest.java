@@ -34,11 +34,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class HttpFailureDisclosureArchitectureTest {
     private static final String ADAPTER_PACKAGE = "com.morpheus.api";
-    private static final String FILTER = "com.morpheus.api.BoundaryFailureMessage";
+    private static final String FILTER = "com.morpheus.api.transport.BoundaryFailureMessage";
 
     /** Failure types whose message is written by MORPHEUS for the caller, each with the reason it needs no filter. */
     private static final Map<String, String> AUTHORED_FOR_THE_CALLER = Map.of(
-            "com.morpheus.api.ApiFailure",
+            "com.morpheus.api.transport.ApiFailure",
             "built by the adapter with a status, a code and a message meant for the response; a foreign message enters "
                     + "it only through the filter",
             "com.morpheus.api.remote.MorpheusRemoteHttpServer$RemoteFailure",

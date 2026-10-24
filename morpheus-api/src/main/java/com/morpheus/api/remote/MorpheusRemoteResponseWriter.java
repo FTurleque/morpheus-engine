@@ -1,6 +1,6 @@
 package com.morpheus.api.remote;
 
-import com.morpheus.api.TimedBoundedResponseWriter;
+import com.morpheus.api.transport.TimedBoundedResponseWriter;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;

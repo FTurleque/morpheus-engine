@@ -1,8 +1,8 @@
 package com.morpheus.api.remote;
 
-import com.morpheus.api.ApiFailure;
-import com.morpheus.api.MorpheusHttpPathParser;
-import com.morpheus.api.MorpheusHttpRouteTable;
+import com.morpheus.api.transport.ApiFailure;
+import com.morpheus.api.transport.MorpheusHttpPathParser;
+import com.morpheus.api.transport.MorpheusHttpRouteTable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;

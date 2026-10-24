@@ -1,7 +1,7 @@
 package com.morpheus.architecture.m22;
 
-import com.morpheus.architecture.ProductionSources;
 import com.morpheus.application.product.ProductMetadata;
+import com.morpheus.architecture.ProductionSources;
 import com.morpheus.sdk.provider.ProviderPluginCandidate;
 import com.morpheus.sdk.provider.ProviderPluginDiscovery;
 import org.junit.jupiter.api.Test;

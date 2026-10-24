@@ -1,7 +1,7 @@
 package com.morpheus.cli;
 
 import com.morpheus.api.AllowedWorkspaceRoots;
-import com.morpheus.api.MorpheusHttpServer;
+import com.morpheus.api.local.MorpheusHttpServer;
 import com.morpheus.api.remote.MorpheusRemoteHttpServer;
 import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.operability.OperationalLogFileException;

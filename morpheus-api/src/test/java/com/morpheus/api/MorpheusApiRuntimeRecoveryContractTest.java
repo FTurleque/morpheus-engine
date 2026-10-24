@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.api.local.MorpheusHttpServer;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotId;

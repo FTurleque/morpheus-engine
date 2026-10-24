@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.api.local.MorpheusHttpServer;
 import com.morpheus.application.operability.OperationalLogMode;
 import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.store.sqlite.runtime.SqliteConnectionScope;

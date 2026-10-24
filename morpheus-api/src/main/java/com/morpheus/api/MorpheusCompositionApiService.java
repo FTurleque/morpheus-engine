@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.api.transport.PagedEnvelope;
 import com.morpheus.application.composition.CompositionQueryService;
 import com.morpheus.application.composition.CompositionStateView;
 import com.morpheus.application.operability.OperationalRecorder;
@@ -13,14 +14,14 @@ import java.util.Objects;
 import java.util.function.Function;
 
 /** M18 read-only HTTP application facade for persisted multi-provider composition state. */
-final class MorpheusCompositionApiService {
+public final class MorpheusCompositionApiService {
     static final int DEFAULT_LIMIT = 50;
     static final int MAX_LIMIT = 100;
 
     private final Path databasePath;
     private final OperationalRecorder recorder;
 
-    MorpheusCompositionApiService(Path databasePath, OperationalRecorder recorder) {
+    public MorpheusCompositionApiService(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
         this.recorder = Objects.requireNonNull(recorder, "recorder");
     }

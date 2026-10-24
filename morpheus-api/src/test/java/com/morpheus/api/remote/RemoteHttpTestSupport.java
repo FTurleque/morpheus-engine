@@ -1,7 +1,5 @@
 package com.morpheus.api.remote;
 
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManagerFactory;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -14,6 +12,8 @@ import java.security.KeyStore;
 import java.security.cert.Certificate;
 import java.time.Duration;
 import java.util.Locale;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;

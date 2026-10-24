@@ -38,7 +38,7 @@ public final class MorpheusApiService {
         this(databasePath, recorder, Optional.empty());
     }
 
-    MorpheusApiService(Path databasePath, OperationalRecorder recorder, AllowedWorkspaceRoots allowedWorkspaceRoots) {
+    public MorpheusApiService(Path databasePath, OperationalRecorder recorder, AllowedWorkspaceRoots allowedWorkspaceRoots) {
         this(databasePath, recorder,
                 Optional.of(Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots")));
     }

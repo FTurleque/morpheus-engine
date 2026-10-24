@@ -1,7 +1,7 @@
 package com.morpheus.architecture.m21;
 
-import com.morpheus.architecture.ProductionSources;
 import com.morpheus.application.product.UpdateTrustLevel;
+import com.morpheus.architecture.ProductionSources;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;

@@ -1,18 +1,22 @@
 package com.morpheus.api;
 
+import com.morpheus.api.transport.ApiFailure;
+import com.morpheus.api.transport.MorpheusHttpQuery;
+import com.morpheus.api.transport.MorpheusHttpRouteGuards;
+import com.morpheus.api.transport.MorpheusHttpRouteResponse;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
 /** Routes persisted composition reads without owning HTTP transport or top-level project dispatch. */
-final class MorpheusCompositionHttpRoutes {
+public final class MorpheusCompositionHttpRoutes {
     private final MorpheusCompositionApiService compositionService;
 
-    MorpheusCompositionHttpRoutes(MorpheusCompositionApiService compositionService) {
+    public MorpheusCompositionHttpRoutes(MorpheusCompositionApiService compositionService) {
         this.compositionService = Objects.requireNonNull(compositionService, "compositionService");
     }
 
-    MorpheusHttpRouteResponse route(
+    public MorpheusHttpRouteResponse route(
             String method,
             List<String> segments,
             MorpheusHttpQuery query,

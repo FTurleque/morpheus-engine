@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.api.local.MorpheusHttpServer;
 import com.morpheus.application.context.TechnicalContextBundle;
 import com.morpheus.application.context.TechnicalContextItem;
 import com.morpheus.application.context.TechnicalContextObservation;

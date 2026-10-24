@@ -1,6 +1,6 @@
 package com.morpheus.cli;
 
-import com.morpheus.api.MorpheusHttpServer;
+import com.morpheus.api.local.MorpheusHttpServer;
 import com.morpheus.application.operability.OperationalLogMode;
 import com.morpheus.application.operability.OperationalRuntime;
 import org.junit.jupiter.api.Test;

@@ -1,5 +1,9 @@
 package com.morpheus.api;
 
+import com.morpheus.api.transport.ApiFailure;
+import com.morpheus.api.transport.MorpheusHttpQuery;
+import com.morpheus.api.transport.MorpheusHttpRouteGuards;
+import com.morpheus.api.transport.MorpheusHttpRouteResponse;
 import com.morpheus.application.query.PageRequest;
 
 import java.util.List;
@@ -7,10 +11,10 @@ import java.util.Objects;
 import java.util.Set;
 
 /** Owns local HTTP dispatch for project version-history reads. */
-final class MorpheusVersionsHttpRoutes {
+public final class MorpheusVersionsHttpRoutes {
     private final MorpheusHistoryApiService service;
 
-    MorpheusVersionsHttpRoutes(MorpheusApiService facade) {
+    public MorpheusVersionsHttpRoutes(MorpheusApiService facade) {
         this(Objects.requireNonNull(facade, "facade").historyService());
     }
 
@@ -18,7 +22,7 @@ final class MorpheusVersionsHttpRoutes {
         this.service = Objects.requireNonNull(service, "service");
     }
 
-    MorpheusHttpRouteResponse route(
+    public MorpheusHttpRouteResponse route(
             String method,
             List<String> segments,
             MorpheusHttpQuery query,

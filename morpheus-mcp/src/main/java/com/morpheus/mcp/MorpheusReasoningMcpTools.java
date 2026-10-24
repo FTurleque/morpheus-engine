@@ -1,12 +1,12 @@
 package com.morpheus.mcp;
 
 import com.morpheus.application.operability.OperationalRecorder;
-import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.operability.SuppressedFailureFamily;
-import com.morpheus.application.reasoning.ReasoningContracts;
+import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.reasoning.ReasoningContracts.Evidence;
 import com.morpheus.application.reasoning.ReasoningContracts.EvidenceKind;
 import com.morpheus.application.reasoning.ReasoningContracts.Request;
+import com.morpheus.application.reasoning.ReasoningContracts;
 import com.morpheus.application.reasoning.ReasoningService;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;

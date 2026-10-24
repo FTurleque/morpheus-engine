@@ -9,7 +9,7 @@ grep -rn "activateDefaultTyping(\|enableDefaultTyping(" --include="*.java" .
 ```
 → doit être **vide** sous `src/main/java/`.
 
-Vérifier `morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java` :
+Vérifier `morpheus-api/src/main/java/com/morpheus/api/local/MorpheusHttpServer.java` :
 - `MAX_REQUEST_BODY_BYTES = 65_536`
 - `FAIL_ON_UNKNOWN_PROPERTIES`
 - `FAIL_ON_TRAILING_TOKENS`

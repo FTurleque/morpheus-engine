@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.api.local.MorpheusHttpServer;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
 import com.morpheus.application.reference.ExternalReferenceResolver;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;

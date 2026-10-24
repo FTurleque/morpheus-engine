@@ -131,8 +131,20 @@ same tree as `0b90cdcf`).
       `BoundedWait` (type, two poll constants, `until`, `untilObserved`); the copy in `morpheus-mcp-transport`
       widens `until` and `untilObserved` the same way so that the two stay byte-identical, which
       `BoundedWaitOwnershipTest` checks.
-- [ ] 4.2 The transport plumbing and the local server, with the extractions 1.4 found necessary. The textual pins
+- [x] 4.2 The transport plumbing and the local server, with the extractions 1.4 found necessary. The textual pins
       of `.claude/rules/security.md` follow a constant to its new owner in the same pull request.
+      Done 2026-10-24, in two commits. First the extractions: `ApiSuccess`, `ApiError`, `ApiErrorEnvelope`,
+      `ProjectRegistrationRequest`, `SyncRequest` become top-level records with the same simple names and JSON
+      shapes, and `API_PREFIX` is declared by `MorpheusHttpRouteTable`; no router depends on `MorpheusHttpServer`
+      any more. Then the moves: 10 classes to `com.morpheus.api.local` (the local server, its bootstrap and
+      protections, `DatabaseCallWorkers`, `MorpheusInternalCapability`) with 8 tests, and 20 to
+      `com.morpheus.api.transport` (decoder, writer, parser, query, budget, route table and guards, envelopes,
+      failures, the timed readers and writers) with 15 tests; `AllowedWorkspaceRoots` stays with the services that
+      use it. The local server holds every router and service as a field, so its move makes the 17 routers, the
+      services it builds, their constructors and their route methods public, and every transport type is public:
+      89 declarations in main sources, each named by a compiler refusal, plus `HttpQueryBudget.MAX_QUERY_BYTES` and
+      `MAX_PARAMETERS` for a moved test. The copy of `PagedEnvelope` in `morpheus-mcp` widens the same four members as
+      the one in `morpheus-api`, so that the two stay identical (`PagedResponseVocabularyArchitectureTest`).
 - [ ] 4.3 The routers, into their group packages. `HttpRoutesTransportBoundaryArchitectureTest` and
       `HttpRoutesFamilyArchitectureTest` select by package; the text scans beside the rules stay.
 - [ ] 4.4 For each pull request: a line per moved file in the table of old and new paths of

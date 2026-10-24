@@ -2,7 +2,7 @@ package com.morpheus.api.remote;
 
 import com.morpheus.api.AllowedWorkspaceRoots;
 import com.morpheus.api.BoundedWait;
-import com.morpheus.api.MorpheusHttpServer;
+import com.morpheus.api.local.MorpheusHttpServer;
 import com.morpheus.application.context.DisabledTechnicalContextProvider;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityObservation;
 import com.morpheus.application.operability.OperationalLogMode;

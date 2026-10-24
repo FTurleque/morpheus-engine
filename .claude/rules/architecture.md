@@ -108,9 +108,10 @@ méthodes `@Test`, et `architectureTestsMinimum` ne se baisse pas (`rules/testin
   `everyApiJsonMapperIsStrictAboutUnknownPropertiesAndTrailingTokens` exige les deux features de
   désérialisation stricte de **tout** `JsonMapper.builder()` de `morpheus-api` — depuis DT-16 elle ne trouve
   plus qu'un seul site, le décodeur. `MorpheusHttpServer` n'est la frontière d'aucun groupe : ne l'interdire
-  nulle part. Depuis DT-17 tout routeur qui le mentionne en dépend aussi — les quatre du troisième groupe
-  construisent ses records publics d'enveloppe, en plus d'emprunter `API_PREFIX` que `javac` inline ; avant
-  DT-17 quatre des six mentions étaient la constante seule, invisible à toute règle de bytecode ;
+  nulle part. Aucun routeur ne le mentionne : les enveloppes (`ApiSuccess`, `ApiError`, `ApiErrorEnvelope`)
+  sont des types de `com.morpheus.api.transport`, les records de requête des types du paquet des routeurs, et
+  `API_PREFIX`, que `javac` inline, est déclaré par `MorpheusHttpRouteTable`. Le serveur local, dans
+  `com.morpheus.api.local`, dépend des routeurs et jamais l'inverse ;
 
   > Rien ne compare cette description à la classe qu'elle décrit. Ces lignes ont menti d'une révision entière
   > après DT-16 (constat O-3 de l'audit du 16/09/2026) : elles annonçaient un groupe « à `JsonMapper` propre »

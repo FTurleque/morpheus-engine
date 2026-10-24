@@ -41,3 +41,5 @@ Les relevés datés citent aussi des sources des adaptateurs par leur chemin. Un
 | Chemin cité | Emplacement actuel |
 |---|---|
 | `morpheus-api/src/{main,test}/java/com/morpheus/api/MorpheusRemote*.java`, `Remote*.java` | même module, paquet `com.morpheus.api.remote` |
+| `morpheus-api/src/{main,test}/java/com/morpheus/api/MorpheusHttpServer.java`, `MorpheusLocalHttpServerBootstrap.java`, `Loopback*.java`, `*ProtectedHttpServer.java`, `DatabaseWorkOffloadingHttpServer.java`, `DatabaseCallWorkers.java`, `MorpheusInternalCapability.java`, `LocalAdmissionTest.java`, `LocalResponseSecurityHeadersTest.java` | même module, paquet `com.morpheus.api.local` |
+| `morpheus-api/src/{main,test}/java/com/morpheus/api/MorpheusHttp*.java` hors `MorpheusHttpServer.java`, `HttpQueryBudget.java`, `HttpRequestBodyReader*.java`, `TimedBounded*.java`, `ApiFailure.java`, `BoundaryFailureMessage.java`, `JsonMediaType.java`, `PagedEnvelope.java`, `UnforeseenFailureTrace.java`, `ApiEnvelopeNullContractTest.java` | même module, paquet `com.morpheus.api.transport` |

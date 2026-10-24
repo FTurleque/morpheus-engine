@@ -86,7 +86,7 @@ requis) afin que le runtime embarqué le contienne.
 ## Compliance and Enforcement
 
 - Règle Archgate `ARCH-0065-jdk-httpserver-local-api.rules.ts` : `no-server-framework-dependency`, `portable-image-adds-jdk-httpserver`.
-- `morpheus-api/src/test/java/com/morpheus/api/LoopbackHostPolicyTest.java` : adresses loopback acceptées, joker et
+- `morpheus-api/src/test/java/com/morpheus/api/local/LoopbackHostPolicyTest.java` : adresses loopback acceptées, joker et
   adresses non loopback refusées.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/LocalHttpServerBootstrapArchitectureTest.java` :
   le démarrage du serveur local passe par la politique loopback.

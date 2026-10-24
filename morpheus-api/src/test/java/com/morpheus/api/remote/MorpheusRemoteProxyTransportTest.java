@@ -1,7 +1,7 @@
 package com.morpheus.api.remote;
 
-import com.morpheus.api.MorpheusInternalCapability;
-import com.morpheus.api.TimedBoundedResponseWriter;
+import com.morpheus.api.local.MorpheusInternalCapability;
+import com.morpheus.api.transport.TimedBoundedResponseWriter;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpContext;
 import com.sun.net.httpserver.HttpExchange;

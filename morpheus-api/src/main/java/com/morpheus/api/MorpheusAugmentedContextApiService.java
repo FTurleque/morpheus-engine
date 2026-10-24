@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.api.transport.ApiFailure;
 import com.morpheus.application.context.AugmentedContextService;
 import com.morpheus.application.context.TechnicalContextOptions;
 import com.morpheus.application.context.TechnicalContextProvider;
@@ -18,12 +19,12 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /** M13 HTTP mapper over the provider-neutral augmented-context use case. */
-final class MorpheusAugmentedContextApiService {
+public final class MorpheusAugmentedContextApiService {
     private final Path databasePath;
     private final OperationalRecorder recorder;
     private final TechnicalContextProvider provider;
 
-    MorpheusAugmentedContextApiService(Path databasePath, OperationalRecorder recorder, TechnicalContextProvider provider) {
+    public MorpheusAugmentedContextApiService(Path databasePath, OperationalRecorder recorder, TechnicalContextProvider provider) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
         this.recorder = Objects.requireNonNull(recorder, "recorder");
         this.provider = Objects.requireNonNull(provider, "provider");

@@ -131,7 +131,7 @@ Options écartées :
   nombre de processeurs.
 - `morpheus-api/src/test/java/com/morpheus/api/remote/RemoteSchedulerAvailabilityUnderSqliteWaitTest.java` : même preuve sur
   le serveur distant, sauvegardes en vol.
-- `morpheus-api/src/test/java/com/morpheus/api/LocalAdmissionTest.java` : jamais plus de requêtes dans les
+- `morpheus-api/src/test/java/com/morpheus/api/local/LocalAdmissionTest.java` : jamais plus de requêtes dans les
   travailleurs que `DATABASE_WORKERS`, refus nommé avec `Retry-After` après l'attente bornée, place rendue par un
   gestionnaire qui échoue.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/api/PublicHttpRouteConvergenceTest.java` : chaque route de

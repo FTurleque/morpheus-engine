@@ -1,9 +1,9 @@
 package com.morpheus.api.remote;
 
 import com.morpheus.api.AllowedWorkspaceRoots;
-import com.morpheus.api.ApiFailure;
-import com.morpheus.api.HttpQueryBudget;
-import com.morpheus.api.MorpheusHttpPathParser;
+import com.morpheus.api.transport.ApiFailure;
+import com.morpheus.api.transport.HttpQueryBudget;
+import com.morpheus.api.transport.MorpheusHttpPathParser;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.net.URLEncoder;

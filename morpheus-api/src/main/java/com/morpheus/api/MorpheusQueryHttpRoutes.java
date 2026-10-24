@@ -1,13 +1,21 @@
 package com.morpheus.api;
 
-import com.morpheus.api.ApiError;
-import com.morpheus.api.ApiErrorEnvelope;
-import com.morpheus.api.ApiSuccess;
+import com.morpheus.api.transport.ApiError;
+import com.morpheus.api.transport.ApiErrorEnvelope;
+import com.morpheus.api.transport.ApiFailure;
+import com.morpheus.api.transport.ApiSuccess;
+import com.morpheus.api.transport.BoundaryFailureMessage;
+import com.morpheus.api.transport.MorpheusHttpAllowedMethods;
+import com.morpheus.api.transport.MorpheusHttpQuery;
+import com.morpheus.api.transport.MorpheusHttpRequestDecoder;
+import com.morpheus.api.transport.MorpheusHttpResponseWriter;
+import com.morpheus.api.transport.MorpheusHttpRouteTable;
+import com.morpheus.api.transport.UnforeseenFailureTrace;
 import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.query.dsl.QueryValidationException;
 import com.morpheus.application.query.export.QueryExport;
 import com.morpheus.application.query.export.QueryExportBudgetException;
 import com.morpheus.application.query.saved.SavedViewConflictException;
-import com.morpheus.application.query.dsl.QueryValidationException;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -22,7 +30,7 @@ import java.util.Optional;
 import java.util.Set;
 
 /** Isolated M24/M25 extension routing contexts so legacy /api/v1 routes remain untouched. */
-final class MorpheusQueryHttpRoutes {
+public final class MorpheusQueryHttpRoutes {
     private static final String QUERIES = "queries";
     private static final String VIEWS = "saved-views";
     private static final String EXPORTS = "exports";
@@ -46,7 +54,7 @@ final class MorpheusQueryHttpRoutes {
         this.responseWriter = Objects.requireNonNull(responseWriter, "responseWriter");
     }
 
-    static void register(HttpServer server, Path databasePath, OperationalRecorder recorder,
+    public static void register(HttpServer server, Path databasePath, OperationalRecorder recorder,
             MorpheusHttpRequestDecoder requestDecoder, MorpheusHttpAllowedMethods allowedMethods,
             MorpheusHttpResponseWriter responseWriter) {
         Objects.requireNonNull(server, "server");

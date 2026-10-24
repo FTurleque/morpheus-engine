@@ -1,8 +1,16 @@
 package com.morpheus.api;
 
-import com.morpheus.api.ApiError;
-import com.morpheus.api.ApiErrorEnvelope;
-import com.morpheus.api.ApiSuccess;
+import com.morpheus.api.transport.ApiError;
+import com.morpheus.api.transport.ApiErrorEnvelope;
+import com.morpheus.api.transport.ApiFailure;
+import com.morpheus.api.transport.ApiSuccess;
+import com.morpheus.api.transport.BoundaryFailureMessage;
+import com.morpheus.api.transport.MorpheusHttpAllowedMethods;
+import com.morpheus.api.transport.MorpheusHttpQuery;
+import com.morpheus.api.transport.MorpheusHttpRequestDecoder;
+import com.morpheus.api.transport.MorpheusHttpResponseWriter;
+import com.morpheus.api.transport.MorpheusHttpRouteTable;
+import com.morpheus.api.transport.UnforeseenFailureTrace;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.policy.PolicyConflictException;
 import com.morpheus.application.policy.PolicyIds;

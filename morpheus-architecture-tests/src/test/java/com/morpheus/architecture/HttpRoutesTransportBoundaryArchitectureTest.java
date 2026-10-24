@@ -57,14 +57,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>Every group is listed by name. A router added tomorrow belongs to no group until someone classifies it, and
  * {@link #everyRouterIsClassifiedIntoExactlyOneTransportGroup} refuses it until then.</p>
  *
- * <p>{@code MorpheusHttpServer} appears in no ban, and since DT-17 every router that mentions it also depends on it:
- * the four above decode into, or build, records nested in it, which ArchUnit sees, on top of borrowing
- * {@code API_PREFIX}, a compile-time constant javac inlines. Before DT-17 four of the six mentions were the inlined
- * constant alone and no bytecode ban could have seen them. It is not the boundary either way.</p>
+ * <p>{@code MorpheusHttpServer} appears in no ban, and no router mentions it: the envelopes the routers build are
+ * types of {@code com.morpheus.api.transport}, the request records they decode into live beside them, and
+ * {@code API_PREFIX}, a compile-time constant javac inlines, is declared by {@code MorpheusHttpRouteTable}. The local
+ * server depends on the routers, never the reverse; it is not their boundary.</p>
  */
 class HttpRoutesTransportBoundaryArchitectureTest {
 
     private static final String API_PACKAGE = "com.morpheus.api";
+    private static final String TRANSPORT_PACKAGE = API_PACKAGE + ".transport";
     private static final String ROUTER_SUFFIX = "HttpRoutes";
 
     private static final List<String> ROUTERS_WITHOUT_A_BODY = List.of(
@@ -88,13 +89,13 @@ class HttpRoutesTransportBoundaryArchitectureTest {
             "MorpheusQueryHttpRoutes",
             "MorpheusReasoningHttpRoutes");
 
-    private static final String REQUEST_DECODER = API_PACKAGE + ".MorpheusHttpRequestDecoder";
+    private static final String REQUEST_DECODER = TRANSPORT_PACKAGE + ".MorpheusHttpRequestDecoder";
     private static final DescribedPredicate<JavaCall<?>> ASKS_THE_DECODER_FOR_THE_PATH = DescribedPredicate.describe(
             "asks MorpheusHttpRequestDecoder for the segments of the path",
-            call -> call.getTargetOwner().getName().equals(API_PACKAGE + ".MorpheusHttpRequestDecoder")
+            call -> call.getTargetOwner().getName().equals(TRANSPORT_PACKAGE + ".MorpheusHttpRequestDecoder")
                     && call.getName().startsWith("pathSegments"));
-    private static final String REQUEST_BODY_READER = API_PACKAGE + ".HttpRequestBodyReader";
-    private static final String RESPONSE_WRITER = API_PACKAGE + ".MorpheusHttpResponseWriter";
+    private static final String REQUEST_BODY_READER = TRANSPORT_PACKAGE + ".HttpRequestBodyReader";
+    private static final String RESPONSE_WRITER = TRANSPORT_PACKAGE + ".MorpheusHttpResponseWriter";
     private static final String CANONICAL_JSON_SERIALIZER =
             "com.morpheus.application.query.compact.CanonicalJsonSerializer";
     private static final List<String> STRICT_FEATURES = List.of("FAIL_ON_UNKNOWN_PROPERTIES", "FAIL_ON_TRAILING_TOKENS");

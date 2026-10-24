@@ -1,15 +1,15 @@
 package com.morpheus.api.remote;
 
 import com.morpheus.api.AllowedWorkspaceRoots;
-import com.morpheus.api.BoundaryFailureMessage;
-import com.morpheus.api.DatabaseCallWorkers;
-import com.morpheus.api.DatabaseWorkOffloadingHttpServer;
-import com.morpheus.api.MorpheusHttpRouteTable;
-import com.morpheus.api.MorpheusHttpServer;
-import com.morpheus.api.MorpheusInternalCapability;
-import com.morpheus.api.TimedBoundedInputReader;
-import com.morpheus.api.TimedBoundedResponseWriter;
-import com.morpheus.api.UnforeseenFailureTrace;
+import com.morpheus.api.local.DatabaseCallWorkers;
+import com.morpheus.api.local.DatabaseWorkOffloadingHttpServer;
+import com.morpheus.api.local.MorpheusHttpServer;
+import com.morpheus.api.local.MorpheusInternalCapability;
+import com.morpheus.api.transport.BoundaryFailureMessage;
+import com.morpheus.api.transport.MorpheusHttpRouteTable;
+import com.morpheus.api.transport.TimedBoundedInputReader;
+import com.morpheus.api.transport.TimedBoundedResponseWriter;
+import com.morpheus.api.transport.UnforeseenFailureTrace;
 import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;
 import com.morpheus.application.operability.ExhaustiveShutdown;

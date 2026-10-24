@@ -1,6 +1,6 @@
 package com.morpheus.api.remote;
 
-import com.morpheus.api.MorpheusHttpServer;
+import com.morpheus.api.local.MorpheusHttpServer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

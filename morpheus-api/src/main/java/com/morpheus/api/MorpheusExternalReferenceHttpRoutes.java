@@ -1,18 +1,22 @@
 package com.morpheus.api;
 
+import com.morpheus.api.transport.ApiFailure;
+import com.morpheus.api.transport.MorpheusHttpQuery;
+import com.morpheus.api.transport.MorpheusHttpRouteGuards;
+import com.morpheus.api.transport.MorpheusHttpRouteResponse;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
 /** Owns local HTTP dispatch for project external-reference reads. */
-final class MorpheusExternalReferenceHttpRoutes {
+public final class MorpheusExternalReferenceHttpRoutes {
     private final MorpheusExternalReferenceApiService service;
 
-    MorpheusExternalReferenceHttpRoutes(MorpheusExternalReferenceApiService service) {
+    public MorpheusExternalReferenceHttpRoutes(MorpheusExternalReferenceApiService service) {
         this.service = Objects.requireNonNull(service, "service");
     }
 
-    MorpheusHttpRouteResponse route(
+    public MorpheusHttpRouteResponse route(
             String method,
             List<String> segments,
             MorpheusHttpQuery query,

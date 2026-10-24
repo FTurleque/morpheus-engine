@@ -1,6 +1,6 @@
 package com.morpheus.api.remote;
 
-import com.morpheus.api.TimedBoundedResponseWriter;
+import com.morpheus.api.transport.TimedBoundedResponseWriter;
 import com.sun.net.httpserver.Headers;
 import org.junit.jupiter.api.Test;
 

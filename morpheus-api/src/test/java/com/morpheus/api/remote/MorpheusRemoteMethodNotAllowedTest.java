@@ -1,7 +1,7 @@
 package com.morpheus.api.remote;
 
 import com.morpheus.api.AllowedWorkspaceRoots;
-import com.morpheus.api.MorpheusHttpRouteTable;
+import com.morpheus.api.transport.MorpheusHttpRouteTable;
 import com.morpheus.application.context.DisabledTechnicalContextProvider;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityObservation;
 import com.morpheus.application.operability.OperationalLogMode;

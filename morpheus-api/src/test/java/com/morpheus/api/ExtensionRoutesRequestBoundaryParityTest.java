@@ -1,5 +1,7 @@
 package com.morpheus.api;
 
+import com.morpheus.api.local.MorpheusHttpServer;
+import com.morpheus.api.transport.HttpQueryBudget;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.api.io.TempDir;

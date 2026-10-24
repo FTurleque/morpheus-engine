@@ -19,7 +19,7 @@ inventer des faits métier dans le mapping HTTP.
 
 ## Decision
 
-**Préfixe versionné.** La surface HTTP stable est préfixée par `/api/v1` (`MorpheusHttpServer.API_PREFIX`).
+**Préfixe versionné.** La surface HTTP stable est préfixée par `/api/v1` (`MorpheusHttpRouteTable.API_PREFIX`).
 
 **Enveloppe.** Les réponses sont en JSON UTF-8 et encapsulées explicitement, avec la version d'API
 (`ProductMetadata.API_VERSION`) :
@@ -129,7 +129,7 @@ Java qu'il publie ; un énuméré qui n'a pas d'équivalent Java est une exempti
   les énumérés des contrats OpenAPI aux énumérés Java.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/api/PublicHttpRouteConvergenceTest.java` compare les routes
   servies, `contracts/public-surfaces.tsv` et l'OpenAPI.
-- `morpheus-api/src/test/java/com/morpheus/api/BoundaryFailureMessageTest.java` tient le message d'une erreur relayée.
+- `morpheus-api/src/test/java/com/morpheus/api/transport/BoundaryFailureMessageTest.java` tient le message d'une erreur relayée.
 - Revue : la règle de versionnement d'une évolution incompatible.
 
 ## References

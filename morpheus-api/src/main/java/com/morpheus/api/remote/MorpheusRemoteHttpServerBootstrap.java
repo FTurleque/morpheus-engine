@@ -1,9 +1,9 @@
 package com.morpheus.api.remote;
 
 import com.morpheus.api.AllowedWorkspaceRoots;
-import com.morpheus.api.MorpheusHttpRouteTable;
-import com.morpheus.api.MorpheusHttpServer;
-import com.morpheus.api.MorpheusInternalCapability;
+import com.morpheus.api.local.MorpheusHttpServer;
+import com.morpheus.api.local.MorpheusInternalCapability;
+import com.morpheus.api.transport.MorpheusHttpRouteTable;
 import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.files.SafeWorkspaceFileResolver;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;

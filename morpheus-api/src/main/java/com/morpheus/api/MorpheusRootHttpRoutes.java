@@ -1,16 +1,20 @@
 package com.morpheus.api;
 
+import com.morpheus.api.transport.ApiFailure;
+import com.morpheus.api.transport.MorpheusHttpQuery;
+import com.morpheus.api.transport.MorpheusHttpRouteGuards;
+import com.morpheus.api.transport.MorpheusHttpRouteResponse;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
 /** Owns local root, product and operability read routes. */
-final class MorpheusRootHttpRoutes {
+public final class MorpheusRootHttpRoutes {
     private final MorpheusApiService service;
     private final MorpheusOperabilityApiService operabilityService;
 
-    MorpheusRootHttpRoutes(MorpheusApiService service, MorpheusOperabilityApiService operabilityService) {
+    public MorpheusRootHttpRoutes(MorpheusApiService service, MorpheusOperabilityApiService operabilityService) {
         this.service = Objects.requireNonNull(service, "service");
         this.operabilityService = Objects.requireNonNull(operabilityService, "operabilityService");
     }
@@ -20,9 +24,9 @@ final class MorpheusRootHttpRoutes {
      * database every worker is waiting on does not silence them; {@code readiness} is not one of them, it asks the
      * database.
      */
-    static final List<String> ANSWERED_WITHOUT_THE_DATABASE = List.of("health", "metrics", "version");
+    public static final List<String> ANSWERED_WITHOUT_THE_DATABASE = List.of("health", "metrics", "version");
 
-    boolean handles(List<String> segments) {
+    public boolean handles(List<String> segments) {
         return segments.isEmpty()
                 || (segments.size() == 1
                 && switch (segments.getFirst()) {
@@ -31,7 +35,7 @@ final class MorpheusRootHttpRoutes {
                 });
     }
 
-    MorpheusHttpRouteResponse route(String method, List<String> segments, MorpheusHttpQuery query) {
+    public MorpheusHttpRouteResponse route(String method, List<String> segments, MorpheusHttpQuery query) {
         MorpheusHttpRouteGuards.requireMethod(method, "GET");
         query.rejectUnknown(Set.of());
         if (segments.isEmpty()) {

@@ -23,12 +23,12 @@ import java.util.Objects;
 import java.util.Optional;
 
 /** HTTP application adapter for M17 explicit lifecycle mutation; routing remains in MorpheusHttpServer. */
-final class MorpheusControlledLifecycleApiService {
+public final class MorpheusControlledLifecycleApiService {
     private final Path databasePath;
     private final OperationalRecorder recorder;
     private final ChangeWriteCapabilityResolver writeCapability;
 
-    MorpheusControlledLifecycleApiService(Path databasePath, OperationalRecorder recorder, ChangeWriteCapabilityResolver writeCapability) {
+    public MorpheusControlledLifecycleApiService(Path databasePath, OperationalRecorder recorder, ChangeWriteCapabilityResolver writeCapability) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
         this.recorder = Objects.requireNonNull(recorder, "recorder");
         this.writeCapability = Objects.requireNonNull(writeCapability, "writeCapability");

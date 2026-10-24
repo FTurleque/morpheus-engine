@@ -1,0 +1,243 @@
+package com.morpheus.api.local;
+
+import com.morpheus.api.AllowedWorkspaceRoots;
+import com.morpheus.api.ApiRuntime;
+import com.morpheus.api.MorpheusApiService;
+import com.morpheus.api.MorpheusAugmentedContextApiService;
+import com.morpheus.api.MorpheusCompositionApiService;
+import com.morpheus.api.MorpheusControlledLifecycleApiService;
+import com.morpheus.api.MorpheusExternalReferenceApiService;
+import com.morpheus.api.MorpheusJarvisOrchestrationApiService;
+import com.morpheus.api.MorpheusOperabilityApiService;
+import com.morpheus.api.MorpheusPortfolioApiService;
+import com.morpheus.api.MorpheusQueryHttpRoutes;
+import com.morpheus.api.MorpheusRootHttpRoutes;
+import com.morpheus.api.transport.MorpheusHttpRouteTable;
+import com.morpheus.application.context.DisabledTechnicalContextProvider;
+import com.morpheus.application.context.TechnicalContextProvider;
+import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityObservation;
+import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver;
+import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.operability.OperationalRuntime;
+import com.morpheus.application.operability.StartupOwnership;
+import com.morpheus.application.reference.ExternalIntegrationStatus;
+import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
+import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
+import com.morpheus.application.snapshot.RuntimeSnapshotRecovery;
+import com.sun.net.httpserver.HttpServer;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+/** Owns local HTTP runtime bootstrap while {@link MorpheusHttpServer} keeps request dispatch/translation. */
+final class MorpheusLocalHttpServerBootstrap {
+
+    private MorpheusLocalHttpServerBootstrap() {
+    }
+
+    static MorpheusHttpServer start(Path databasePath, String host, int port) {
+        return start(databasePath, host, port, ownRuntime());
+    }
+
+    static MorpheusHttpServer start(Path databasePath, String host, int port, OperationalRuntime runtime) {
+        ExternalReferenceResolverRegistry resolvers = new ExternalReferenceResolverRegistry(List.of());
+        ExternalIntegrationStatusProvider disabledMinos = () -> new ExternalIntegrationStatus(
+                "MINOS", "DISABLED", false, "MINOS integration is not configured", Map.of());
+        return start(
+                databasePath,
+                host,
+                port,
+                new HttpServerIntegrations(resolvers, disabledMinos, disabledNexus(), deniedWrites()),
+                new RemoteAccessControls(Optional.empty(), Optional.empty()),
+                runtime);
+    }
+
+    static MorpheusHttpServer start(
+            Path databasePath,
+            String host,
+            int port,
+            ExternalReferenceResolverRegistry resolverRegistry,
+            ExternalIntegrationStatusProvider minosStatus) {
+        return start(
+                databasePath,
+                host,
+                port,
+                new HttpServerIntegrations(resolverRegistry, minosStatus, disabledNexus(), deniedWrites()),
+                new RemoteAccessControls(Optional.empty(), Optional.empty()),
+                ownRuntime());
+    }
+
+    static MorpheusHttpServer start(
+            Path databasePath,
+            String host,
+            int port,
+            ExternalReferenceResolverRegistry resolverRegistry,
+            ExternalIntegrationStatusProvider minosStatus,
+            TechnicalContextProvider technicalContextProvider) {
+        return start(
+                databasePath,
+                host,
+                port,
+                new HttpServerIntegrations(resolverRegistry, minosStatus, technicalContextProvider, deniedWrites()),
+                new RemoteAccessControls(Optional.empty(), Optional.empty()),
+                ownRuntime());
+    }
+
+    static MorpheusHttpServer start(
+            Path databasePath,
+            String host,
+            int port,
+            ExternalReferenceResolverRegistry resolverRegistry,
+            ExternalIntegrationStatusProvider minosStatus,
+            TechnicalContextProvider technicalContextProvider,
+            ChangeWriteCapabilityResolver writeCapabilityResolver,
+            OperationalRuntime runtime) {
+        return start(
+                databasePath,
+                host,
+                port,
+                new HttpServerIntegrations(resolverRegistry, minosStatus, technicalContextProvider, writeCapabilityResolver),
+                new RemoteAccessControls(Optional.empty(), Optional.empty()),
+                runtime);
+    }
+
+    static MorpheusHttpServer startRemote(
+            Path databasePath,
+            String host,
+            int port,
+            ExternalReferenceResolverRegistry resolverRegistry,
+            ExternalIntegrationStatusProvider minosStatus,
+            TechnicalContextProvider technicalContextProvider,
+            ChangeWriteCapabilityResolver writeCapabilityResolver,
+            AllowedWorkspaceRoots allowedWorkspaceRoots,
+            MorpheusInternalCapability internalCapability,
+            OperationalRuntime runtime) {
+        return start(
+                databasePath,
+                host,
+                port,
+                new HttpServerIntegrations(resolverRegistry, minosStatus, technicalContextProvider, writeCapabilityResolver),
+                new RemoteAccessControls(
+                        Optional.of(Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots")),
+                        Optional.of(Objects.requireNonNull(internalCapability, "internalCapability"))),
+                runtime);
+    }
+
+    /**
+     * The runtime of a server started without one: its own, which its {@code metrics} route serves and nothing else
+     * writes to. The launcher hands the runtime of the process instead.
+     */
+    private static OperationalRuntime ownRuntime() {
+        return OperationalRuntime.of(OperationalLogMode.OFF);
+    }
+
+    /** Groups the read/write/telemetry integration collaborators the local HTTP server delegates to. */
+    private record HttpServerIntegrations(
+            ExternalReferenceResolverRegistry resolverRegistry,
+            ExternalIntegrationStatusProvider minosStatus,
+            TechnicalContextProvider technicalContextProvider,
+            ChangeWriteCapabilityResolver writeCapabilityResolver) {
+    }
+
+    /** Groups the remote-only access-control extras that are absent for the plain local server. */
+    private record RemoteAccessControls(
+            Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots,
+            Optional<MorpheusInternalCapability> internalCapability) {
+    }
+
+    private static MorpheusHttpServer start(
+            Path databasePath,
+            String host,
+            int port,
+            HttpServerIntegrations integrations,
+            RemoteAccessControls remoteAccessControls,
+            OperationalRuntime runtime) {
+        Objects.requireNonNull(databasePath, "databasePath");
+        Objects.requireNonNull(runtime, "runtime");
+        OperationalRecorder recorder = runtime.recorder();
+        Objects.requireNonNull(integrations, "integrations");
+        Objects.requireNonNull(remoteAccessControls, "remoteAccessControls");
+        ExternalReferenceResolverRegistry resolverRegistry = integrations.resolverRegistry();
+        ExternalIntegrationStatusProvider minosStatus = integrations.minosStatus();
+        TechnicalContextProvider technicalContextProvider = integrations.technicalContextProvider();
+        ChangeWriteCapabilityResolver writeCapabilityResolver = integrations.writeCapabilityResolver();
+        Optional<AllowedWorkspaceRoots> allowedWorkspaceRoots = remoteAccessControls.allowedWorkspaceRoots();
+        Optional<MorpheusInternalCapability> internalCapability = remoteAccessControls.internalCapability();
+        Objects.requireNonNull(resolverRegistry, "resolverRegistry");
+        Objects.requireNonNull(minosStatus, "minosStatus");
+        Objects.requireNonNull(technicalContextProvider, "technicalContextProvider");
+        Objects.requireNonNull(writeCapabilityResolver, "writeCapabilityResolver");
+        Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots");
+        Objects.requireNonNull(internalCapability, "internalCapability");
+        if (port < 0 || port > 65_535) {
+            throw new IllegalArgumentException("port must be between 0 and 65535");
+        }
+
+        var bindAddress = LoopbackHostPolicy.requireLoopbackAddress(host);
+        String normalizedHost = bindAddress.getHostAddress();
+        try (ApiRuntime recovery = new ApiRuntime(databasePath, recorder)) {
+            new RuntimeSnapshotRecovery(recovery.snapshots(), recorder).recoverAll(Instant.now());
+        }
+
+        // HttpServer.create binds the socket, and everything after it can fail -- notably the API services, which
+        // each open the SQLite database. Until MorpheusHttpServer exists and holds them, the socket and the
+        // executor belong to this method, or a failed start leaves the port bound and the threads alive.
+        try (StartupOwnership owned = new StartupOwnership()) {
+            HttpServer delegate = owned.keep(
+                    HttpServer.create(new InetSocketAddress(bindAddress, port), 0), server -> server.stop(0));
+            HttpServer loopbackProtected = new LoopbackRequestProtectedHttpServer(delegate);
+            HttpServer httpServer = internalCapability
+                    .<HttpServer>map(capability -> new CapabilityProtectedHttpServer(loopbackProtected, capability))
+                    .orElse(loopbackProtected);
+            ExecutorService executor = owned.keep(
+                    Executors.newVirtualThreadPerTaskExecutor(), ExecutorService::shutdownNow);
+            // Stopping it stops the server it decorates, then its workers: it is the server the result owns.
+            HttpServer databaseWork = owned.keep(
+                    DatabaseWorkOffloadingHttpServer.over(httpServer), server -> server.stop(0));
+            MorpheusHttpServer result = new MorpheusHttpServer(
+                    databaseWork,
+                    executor,
+                    allowedWorkspaceRoots
+                            .map(policy -> new MorpheusApiService(databasePath, recorder, policy))
+                            .orElseGet(() -> new MorpheusApiService(databasePath, recorder)),
+                    new MorpheusExternalReferenceApiService(databasePath, recorder, resolverRegistry, minosStatus),
+                    new MorpheusAugmentedContextApiService(databasePath, recorder, technicalContextProvider),
+                    new MorpheusJarvisOrchestrationApiService(databasePath, recorder),
+                    new MorpheusControlledLifecycleApiService(databasePath, recorder, writeCapabilityResolver),
+                    new MorpheusCompositionApiService(databasePath, recorder),
+                    new MorpheusPortfolioApiService(databasePath, recorder),
+                    new MorpheusOperabilityApiService(databasePath, runtime),
+                    allowedWorkspaceRoots.isPresent());
+            httpServer.setExecutor(executor);
+            databaseWork.createContext(MorpheusHttpRouteTable.API_PREFIX, result::handle);
+            for (String probe : MorpheusRootHttpRoutes.ANSWERED_WITHOUT_THE_DATABASE) {
+                httpServer.createContext(MorpheusHttpRouteTable.API_PREFIX + "/" + probe, result::handle);
+            }
+            MorpheusQueryHttpRoutes.register(databaseWork, databasePath, recorder, result.requestDecoder(),
+                    result.allowedMethods(), result.responseWriter());
+            httpServer.start();
+            owned.transferred();
+            return result;
+        } catch (IOException failure) {
+            throw new IllegalStateException("cannot start MORPHEUS API on " + normalizedHost + ":" + port, failure);
+        }
+    }
+
+    private static TechnicalContextProvider disabledNexus() {
+        return new DisabledTechnicalContextProvider("NEXUS", "NEXUS integration is not configured");
+    }
+
+    private static ChangeWriteCapabilityResolver deniedWrites() {
+        return projectId -> ChangeWriteCapabilityObservation.denied(
+                "No WRITE_CHANGE provider capability resolver is configured for this HTTP server");
+    }
+}
