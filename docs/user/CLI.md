@@ -424,5 +424,5 @@ Le contrat d’automatisation est : **code de sortie + JSON structuré**, pas la
 - [Intégrations optionnelles](INTEGRATIONS.md)
 - [API HTTP](../developer/API.md)
 - [MCP](../developer/MCP.md)
-- [ADR-0083](../architecture/adr/0083-controlled-lifecycle-write-operations.md)
-- [ADR-0084](../architecture/adr/0084-provider-neutral-multi-provider-composition.md)
+- [ADR-0083](../architecture/adr/BE-0083-controlled-lifecycle-write-operations.md)
+- [ADR-0084](../architecture/adr/ARCH-0084-provider-neutral-multi-provider-composition.md)

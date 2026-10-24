@@ -43,9 +43,9 @@ implicite de se reformer. C'est le bon usage du [registre](../../architecture/ri
 
 | Point ouvert en rév. 4 | Verdict de la rév. 5 | PR |
 |---|---|---|
-| L'ADR sur la séparation des échelles, due depuis le 9 septembre | **Écrite — [ADR-0104](../../architecture/adr/0104-two-coverage-scales-share-one-population.md)**, couvrant les deux sujets : la séparation (#297) *et* la population commune (#309) | #312 |
+| L'ADR sur la séparation des échelles, due depuis le 9 septembre | **Écrite — [ADR-0104](../../architecture/adr/GEN-0104-two-coverage-scales-share-one-population.md)**, couvrant les deux sujets : la séparation (#297) *et* la population commune (#309) | #312 |
 | **DT-14** — workflows historiques, décision du mainteneur | **Tranchée : supprimés**, et le test D2 **remplacé, pas retiré** — plus strict qu'avant | #313 |
-| **Le mandat ouvert d'[ADR-0103](../../architecture/adr/0103-textual-assertions-and-archunit-rules-enforce-different-things.md)** — généralisation aux classes restantes | **Tranché par amendement, en trois groupes** : groupe 1 livré, groupe 2 planifié (DT-15), groupe 3 refusé | #314 |
+| **Le mandat ouvert d'[ADR-0103](../../architecture/adr/archive/0103-textual-assertions-and-archunit-rules-enforce-different-things.md)** — généralisation aux classes restantes | **Tranché par amendement, en trois groupes** : groupe 1 livré, groupe 2 planifié (DT-15), groupe 3 refusé | #314 |
 | **F-11 · F-12** — les deux constats du 9 septembre jamais ré-examinés | **Mesurés et clos** ; F-12 coupé en un défaut réel corrigé et une observation sans action | #315 |
 
 Ratchets à l'arrivée, lus dans [`config/m21-quality-ratchets.properties`](../../../config/m21-quality-ratchets.properties)

@@ -240,7 +240,7 @@ avait l'intention d'en sortir, ce qui était faux pour les trois. Chacune part l
 l'événement qui la rouvrira — une requalification qui ne nomme pas cet événement est une disparition, et le
 prochain audit recréerait la ligne sous un autre numéro.
 
-- **`DT-04` — SQLite unique backend persistant → [ADR-0018 §15](../adr/0018-sqlite-initial-persistent-store.md).**
+- **`DT-04` — SQLite unique backend persistant → [ADR-0018 §15](../adr/DATA-0018-sqlite-initial-persistent-store.md).**
   Son action se lisait « n'engager un backend alternatif qu'après besoin et ADR dédiés », c'est-à-dire *ne rien
   faire jusqu'à nouvel ordre*. Les critères de réouverture n'étaient pas à écrire : ADR-0018 §15 les porte déjà,
   au nombre de cinq (volume ou latence hors objectifs, concurrence multi-utilisateur prioritaire, traversées
@@ -255,7 +255,7 @@ prochain audit recréerait la ligne sous un autre numéro.
   liste des plateformes qualifiées reste `Windows` / `Linux`. **Événement de réouverture** : une décision
   produit de supporter macOS, qui appelle alors packaging et qualification dédiés — pas la simple accumulation
   de lanes smoke vertes, que §10.4 refuse explicitement comme preuve de support.
-- **`DT-12` — identités remote historiques à trois champs → [ADR-0094](../adr/0094-optional-team-remote-server-mode.md).**
+- **`DT-12` — identités remote historiques à trois champs → [ADR-0094](../adr/SEC-0094-optional-team-remote-server-mode.md).**
   Le tableau disait lui-même que retirer le format « reste une évolution explicitement incompatible, pas un
   patch 1.2.1 » : c'est la définition d'une position. Elle est verrouillée par test, visible par
   `server identity list` et migrable par `server identity migrate-legacy`. **Événement de réouverture** : une

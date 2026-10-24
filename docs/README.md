@@ -57,7 +57,7 @@ Les seuils de qualité actifs (tests, couverture, gates) sont énoncés dans le 
 
 | Besoin | Document |
 |---|---|
-| retrouver ou écrire une décision | [Registre des ADR](architecture/adr/README.md) · [gabarit](architecture/adr/template.md) |
+| retrouver ou écrire une décision | [Registre des ADR](architecture/adr/README.md) · [gabarit](architecture/adr/gabarit/template.md) |
 | vue d'ensemble du système | [Vue d'ensemble](architecture/overview.md) |
 | dossier arc42 complet | [Index arc42](architecture/README.md) |
 | scénarios qualité, risques et dette | [Scénarios qualité](architecture/quality/scenarios.md) · [Registre des risques](architecture/risks/register.md) |

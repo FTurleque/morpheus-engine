@@ -46,7 +46,8 @@ class AdrIndexCoherenceTest {
     private static final Pattern RECORD_STATUS =
             Pattern.compile("^-?\\s*Statut\\s*:\\s*\\*\\*(.+?)\\*\\*", Pattern.MULTILINE);
     private static final Pattern DECLARED_VERDICT = Pattern.compile("^- \\*\\*(.+?)\\*\\*\\s*:", Pattern.MULTILINE);
-    private static final Pattern RECORD_FILE = Pattern.compile("^(\\d{4})-.*\\.md$");
+    /** A record in force is {@code PREFIX-NNNN-slug.md}; an archived record keeps the name it had when retired. */
+    private static final Pattern RECORD_FILE = Pattern.compile("^(?:[A-Z]+-)?(\\d{4})-.*\\.md$");
     private static final Pattern SUCCESSOR = Pattern.compile("ADR-(\\d{4})");
     private static final String REGISTRY = "docs/architecture/adr";
     private static final String ARCHIVE = "docs/architecture/adr/archive";
@@ -147,6 +148,24 @@ class AdrIndexCoherenceTest {
                 () -> "the uniqueness check must name the reused number: " + duplicate.getMessage());
     }
 
+    /** A record in force carries its domain prefix, an archived one keeps its old name: one number space for both. */
+    @Test
+    void aPrefixedRecordAndAnArchivedRecordShareOneNumberSpace() {
+        Map<String, String> records = Map.of("0001", "Acceptee -- M0");
+        assertBijection(records, Map.of("0001", new IndexRow("ARCH-0001-a.md", "Acceptee -- M0")));
+        assertNumbersAreUnique(List.of("ARCH-0001-a.md", "archive/0002-b.md"));
+
+        AssertionError reused = assertThrows(AssertionError.class,
+                () -> assertNumbersAreUnique(List.of("ARCH-0095-first.md", "archive/0095-second.md")));
+        assertTrue(reused.getMessage().contains("0095"),
+                () -> "the uniqueness check must name a number reused across namings: " + reused.getMessage());
+
+        AssertionError crossLinked = assertThrows(AssertionError.class,
+                () -> assertBijection(records, Map.of("0001", new IndexRow("ARCH-0002-b.md", "Acceptee -- M0"))));
+        assertTrue(crossLinked.getMessage().contains("ARCH-0002-b.md"),
+                () -> "a prefixed row must link to its own record: " + crossLinked.getMessage());
+    }
+
     @Test
     void theArchivePropertyRefusesARetiredRecordInForceAndARecordInForceInTheArchive() {
         List<String> verdicts = List.of("Propos\u00e9e", "Accept\u00e9e", "Accept\u00e9e avec contraintes", SUPERSEDED,
@@ -213,7 +232,7 @@ class AdrIndexCoherenceTest {
                 () -> "every index row must point at an existing decision record; dangling: " + orphaned);
         for (var row : new TreeMap<>(rows).entrySet()) {
             String linked = row.getValue().file();
-            assertTrue(linked.startsWith(row.getKey() + "-"),
+            assertEquals(row.getKey(), numberOf(linked),
                     () -> "the index row for ADR-" + row.getKey() + " links to " + linked + ", another record");
         }
     }
@@ -302,7 +321,7 @@ class AdrIndexCoherenceTest {
             String text = Files.readString(root.resolve(directory).resolve(name)).replace("\r\n", "\n");
             Matcher matcher = RECORD_STATUS.matcher(text);
             assertTrue(matcher.find(), () -> name + " must carry a bold \"Statut : **...**\" line");
-            records.put(name.substring(0, 4), matcher.group(1).trim());
+            records.put(numberOf(name), matcher.group(1).trim());
         }
         return records;
     }
@@ -317,6 +336,11 @@ class AdrIndexCoherenceTest {
                     .sorted()
                     .toList();
         }
+    }
+
+    private static String numberOf(String fileName) {
+        Matcher matcher = RECORD_FILE.matcher(fileName);
+        return matcher.matches() ? matcher.group(1) : fileName;
     }
 
     private record IndexRow(String file, String status) {}

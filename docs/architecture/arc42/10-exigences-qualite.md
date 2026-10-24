@@ -204,7 +204,7 @@ mesure sont [`../../project/roadmap/M19_PERFORMANCE_BUDGETS.md`](../../project/r
 (document daté M19-S1, `FROZEN BEFORE OPTIMIZATION` — c'est une preuve
 historique, pas un état courant). La décision qui institue ces budgets
 pré-déclarés sur fixtures larges déterministes est
-[ADR-0085](../adr/0085-predeclared-performance-budgets-and-deterministic-large-fixtures.md).
+[ADR-0085](../adr/GEN-0085-predeclared-performance-budgets-and-deterministic-large-fixtures.md).
 
 **Cette page ne reproduit aucun seuil.** Un budget se lit dans la constante du
 gate qui l'applique — une valeur recopiée ici deviendrait périmée sans que rien

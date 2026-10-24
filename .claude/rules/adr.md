@@ -62,10 +62,13 @@ Avant de créer un ADR, répondre aux trois. Un seul « non » suffit : ce n'est
 
 ## Contrôles
 
-Tenus par `AdrIndexCoherenceTest` : fichier `NNNN-<slug>.md`, numéro unique entre le registre et l'archive, une ligne
+Tenus par `AdrIndexCoherenceTest` : numéro unique entre le registre et l'archive, une ligne
 d'index par ADR du registre et réciproquement, statut de l'ADR et de sa ligne d'index concordants et pris dans le
 vocabulaire que l'index déclare, aucun ADR `Remplacée` ou `Rejetée` dans le registre, rien d'autre dans l'archive, et
 un ADR remplacé qui nomme un successeur existant (`Statut : **Remplacée par ADR-NNNN**`).
 
-Tenus par la revue, faute de test : une `Proposée` qu'aucun travail ne porte, le titre `#` égal au titre de la ligne
-d'index, la présence des sections du gabarit, et l'absence de nouvelle section d'amendement.
+Tenus par la règle Archgate de GEN-0132 (`archgate check`, hors CI) : fichier `{PRÉFIXE}-{NNNN}-{slug}.md` avec un
+en-tête YAML en ligne 1 et un `id` égal, préfixe conforme au domaine, titre `#` égal au `title` et à la ligne d'index,
+sections du gabarit présentes, aucune section d'amendement, `.archgate/adrs/` réduit à `.gitkeep`.
+
+Tenus par la revue : une `Proposée` qu'aucun travail ne porte, la rédaction au présent, le bandeau d'un ADR archivé.

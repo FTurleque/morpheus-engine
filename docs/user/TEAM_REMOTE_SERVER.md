@@ -47,7 +47,7 @@ MORPHEUS ne recopie pas ce secret. La JVM le détient déjà sous forme de `Stri
 
 **Ce n'est pas une promesse d'effacement.** Un secret présent dans l'environnement d'un processus reste lisible par tout ce qui peut inspecter ce processus. La mesure réduit le nombre et la durée de vie des copies, elle ne remplace pas un gestionnaire de secrets ni un compte OS dédié.
 
-L'environnement est la **seule** source acceptée. Une propriété JVM (`-Dmorpheus.server.tls.password=…`) est refusée au démarrage, avec un message qui nomme `MORPHEUS_SERVER_TLS_PASSWORD` : c'est un argument de ligne de commande, et sous Linux `/proc/<pid>/cmdline` est lisible par tous les comptes de la machine, là où `/proc/<pid>/environ` ne l'est que par le propriétaire du processus. MORPHEUS n'intègre pas de coffre de secrets ; ce qu'il protège, ce qu'il ne protège pas, et les conditions qui rouvriraient la question sont décrits dans [ADR-0105](../architecture/adr/0105-no-secret-vault-no-reusable-secret-at-rest.md).
+L'environnement est la **seule** source acceptée. Une propriété JVM (`-Dmorpheus.server.tls.password=…`) est refusée au démarrage, avec un message qui nomme `MORPHEUS_SERVER_TLS_PASSWORD` : c'est un argument de ligne de commande, et sous Linux `/proc/<pid>/cmdline` est lisible par tous les comptes de la machine, là où `/proc/<pid>/environ` ne l'est que par le propriétaire du processus. MORPHEUS n'intègre pas de coffre de secrets ; ce qu'il protège, ce qu'il ne protège pas, et les conditions qui rouvriraient la question sont décrits dans [ADR-0105](../architecture/adr/SEC-0105-no-secret-vault-no-reusable-secret-at-rest.md).
 
 ## 2. Créer et administrer les identités
 

@@ -403,7 +403,7 @@ Une modification post-gate de code, POM, contrat runtime, packaging ou validateu
 
 ## Références
 
-- [`../architecture/adr/0092-provider-neutral-query-dsl-saved-views-reporting.md`](../architecture/adr/0092-provider-neutral-query-dsl-saved-views-reporting.md)
+- [`../architecture/adr/0092-provider-neutral-query-dsl-saved-views-reporting.md`](../architecture/adr/ARCH-0092-provider-neutral-query-dsl-saved-views-reporting.md)
 - [`../project/validation/VALIDATION_M24.md`](../project/validation/VALIDATION_M24.md)
 - [`../project/roadmap/M24_EXECUTION.md`](../project/roadmap/M24_EXECUTION.md)
 - [`reference/openapi/morpheus-v1-query-m24.yaml`](reference/openapi/morpheus-v1-query-m24.yaml)

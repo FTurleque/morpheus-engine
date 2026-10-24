@@ -31,9 +31,13 @@ for proof in morpheus-architecture-tests/target/m21-per-module-coverage-summary.
 done
 
 section "ADR  <- docs/architecture/adr/ (compte, jamais recopie)"
-item "records numerotes" "$(ls docs/architecture/adr/0*.md 2>/dev/null | wc -l | tr -d ' ')"
-item "numero le plus haut attribue" "$(ls docs/architecture/adr/0*.md 2>/dev/null | sed 's:.*/::' | cut -c1-4 | sort -n | tail -1)"
-item "doublons de numerotation" "$(ls docs/architecture/adr/0*.md 2>/dev/null | sed 's:.*/::' | cut -c1-4 | sort | uniq -d | tr '\n' ' ')"
+adr_in_force() { ls docs/architecture/adr/*-[0-9][0-9][0-9][0-9]-*.md 2>/dev/null; }
+adr_archived() { ls docs/architecture/adr/archive/*.md 2>/dev/null | grep -v '/README\.md$'; }
+adr_numbers() { { adr_in_force; adr_archived; } | sed -E 's:.*/::; s:^([A-Z]+-)?([0-9]{4})-.*:\2:'; }
+item "ADR en vigueur" "$(adr_in_force | wc -l | tr -d ' ')"
+item "ADR archivees" "$(adr_archived | wc -l | tr -d ' ')"
+item "numero le plus haut attribue (registre et archive)" "$(adr_numbers | sort -n | tail -1)"
+item "doublons de numerotation" "$(adr_numbers | sort | uniq -d | tr '\n' ' ')"
 
 section "Reacteur  <- pom.xml <module>"
 item "modules declares" "$(grep -c '<module>' pom.xml)"

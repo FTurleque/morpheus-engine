@@ -381,5 +381,5 @@ Preuve : [`../project/validation/VALIDATION_M18.md`](../project/validation/VALID
 - [Intégrations](INTEGRATIONS.md)
 - [OpenAPI](reference/openapi/morpheus-v1.yaml)
 - [Référence CLI](../user/CLI.md)
-- [ADR-0083](../architecture/adr/0083-controlled-lifecycle-write-operations.md)
-- [ADR-0084](../architecture/adr/0084-provider-neutral-multi-provider-composition.md)
+- [ADR-0083](../architecture/adr/BE-0083-controlled-lifecycle-write-operations.md)
+- [ADR-0084](../architecture/adr/ARCH-0084-provider-neutral-multi-provider-composition.md)
