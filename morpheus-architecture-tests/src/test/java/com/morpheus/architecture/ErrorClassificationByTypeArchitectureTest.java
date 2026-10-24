@@ -20,7 +20,8 @@ import org.junit.jupiter.api.Test;
  * it had failed for a different reason. The resolver now raises {@code WorkspaceFileTooLargeException} and the
  * consumers catch that type.</p>
  *
- * <p>Textual by nature (ADR-0103): a string handed to {@code contains} leaves no dependency in the bytecode, so no
+ * <p>Textual by nature ({@code .claude/rules/architecture.md}): a string handed to {@code contains} leaves no
+ * dependency in the bytecode, so no
  * ArchUnit rule can see it.</p>
  */
 class ErrorClassificationByTypeArchitectureTest {

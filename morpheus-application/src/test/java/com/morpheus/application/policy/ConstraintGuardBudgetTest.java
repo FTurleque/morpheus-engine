@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * A constraint guard that could not observe every constraint of its change does not know that none of them blocks.
- * Past {@link PolicyBudgets#MAX_CONSTRAINT_EVALUATIONS_PER_FACT} the fact is UNKNOWN, never PASS (ADR-0078,
+ * Past {@link PolicyBudgets#MAX_CONSTRAINT_EVALUATIONS_PER_FACT} the fact is UNKNOWN, never PASS (ADR-0119,
  * ADR-0093); a blocking constraint observed before the budget still fails the fact.
  */
 class ConstraintGuardBudgetTest {

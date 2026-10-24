@@ -6,7 +6,7 @@ that introduces this change.
 ## 1. Measure before changing
 
 - [ ] 1.1 Re-run the eight commands of the proposal's table on the lot's base. Proof: the table with its date and
-      commit. Do not trust either column of the proposal; the audit, ADR-0103 and the proposal already disagree.
+      commit. Do not trust either column of the proposal; the audit, the archived ADR-0103 and the proposal already disagree.
 - [ ] 1.2 List the members of the mechanical family by file, and for each file whether its subject is a class of a
       module on the ArchUnit classpath (re-read the `pom.xml` of `morpheus-architecture-tests`, not a rule page).
       Proof: the list; on 2026-10-13, 196 members in 31 files, 9 more of the same form with a message.
@@ -48,7 +48,7 @@ that introduces this change.
 
 ## 5. Decision record and rules
 
-- [ ] 5.1 The dated amendment of ADR-0103 (design, decision 6). Dated figures of the ADR are not rewritten.
+- [ ] 5.1 The section of `.claude/rules/architecture.md` (design, decision 6). Dated figures of the archived ADR-0103 are not rewritten.
 - [ ] 5.2 `.claude/rules/architecture.md` and `.claude/skills/enforcement-choice/SKILL.md`: a textual ban of a type
       carries its intent as its message; the family only shrinks; the proof file is where a count is read. No figure.
 - [ ] 5.3 `docs/developer/BUILD_AND_TEST.md`, if it lists the proof files of a build: the new one, with its method.

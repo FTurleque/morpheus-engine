@@ -101,7 +101,7 @@ Toute spec `docs/developer/reference/openapi/*.yaml` doit porter :
 
 ## Sémantiques métier non négociables
 
-- **Policy tri-state** : `UNKNOWN` n'est **jamais** implicitement `BLOCKED` (ADR-0078, ADR-0093)
+- **Policy tri-state** : `UNKNOWN` n'est **jamais** implicitement `BLOCKED` (ADR-0119, ADR-0093)
 - **Pas de last-write-wins silencieux** : les conflits de composition restent explicites
 - **CAS obligatoire** sur les écritures de configuration (`expected revision`) — les writers périmés échouent explicitement
 - **Non-destructif** : `missing`, `archive`, `deactivate` conservent identité, références et révision antérieure

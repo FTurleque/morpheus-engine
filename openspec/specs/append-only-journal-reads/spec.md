@@ -39,7 +39,7 @@ read of the whole journal. The SQLite store MUST NOT materialise more records th
 ### Requirement: Every transport SHALL page the policy audit with one vocabulary and one set of bounds
 
 The HTTP route, the CLI command and the MCP tool that return the audit of a policy pack MUST each accept an offset and
-a limit, MUST answer with the paginated response of ADR-0107, and MUST apply the default and the maximum that the
+a limit, MUST answer with the paginated response of ADR-0131, and MUST apply the default and the maximum that the
 adapter's other paged reads apply; the OpenAPI document MUST declare both parameters with their bounds and the shape
 of the answer.
 

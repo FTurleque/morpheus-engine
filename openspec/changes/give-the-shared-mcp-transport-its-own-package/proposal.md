@@ -44,7 +44,7 @@ transport apart from it.
   by the move.
 - A test holds the correspondence between each module of the reactor and its root package, read from the root POM,
   with the modules whose package does not follow from their name declared and reasoned.
-- ADR-0109 is amended, and the rule page names the package the rule judges.
+- ADR-0109 is clarified, and the rule page names the package the rule judges.
 
 ## Capabilities
 
@@ -66,7 +66,7 @@ transport apart from it.
   patterns, two imports, nine file paths read as text).
 - `LayerDependencyTest`, `AdapterSiblingArchitectureTest`, `AdapterCompositionRootArchitectureTest`: targets and
   subject updated; one new test class for the correspondence.
-- ADR-0109: an amendment (the decision is unchanged, its wording names a package that moves). No new ADR.
+- ADR-0109: a clarification (the decision is unchanged, its wording names a package that moves). No new ADR.
 - `.claude/rules/architecture.md`; `docs/developer/` and `docs/architecture/arc42/` name the module only and are
   unaffected by a package move.
 - No POM coordinates, no module name, no script, no workflow, no configuration file: none of them names the package

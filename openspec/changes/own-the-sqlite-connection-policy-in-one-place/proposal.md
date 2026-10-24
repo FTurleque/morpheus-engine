@@ -44,5 +44,5 @@ nothing tests.
 
 - `morpheus-mcp` (the runtime and four tool classes), `morpheus-api` (five classes), `morpheus-cli` (three classes),
   `morpheus-store-sqlite` (the scope).
-- ADR-0109 is amended: its list of composition roots shrinks. `.claude/rules/security.md` and `architecture.md`.
+- ADR-0109 is clarified: its list of composition roots shrinks. `.claude/rules/security.md` and `architecture.md`.
 - With `keep-the-scheduler-free-while-sqlite-waits`, before `admit-local-requests-before-they-meet-the-database`.

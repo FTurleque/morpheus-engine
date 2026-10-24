@@ -1,7 +1,7 @@
 # Tasks
 
 Implementation is a separate lot, started after this specification is reviewed and after the sprint 11 decision
-(`decide-what-technology-the-application-core-may-touch`) is accepted or amended to name the resolver. Nothing below is
+(`decide-what-technology-the-application-core-may-touch`) is accepted naming the resolver, or replaced by a consolidated ADR that names it. Nothing below is
 done by the pull request that introduces this change.
 
 ## 1. Measure before changing
@@ -41,7 +41,7 @@ done by the pull request that introduces this change.
       sentences, one more.
 - [ ] 3.5 Break each rule once, then revert: a `Files` check in one settings type; a bare `java` fallback in the
       resolver; a bound changed on one side. Proof: the three named failures.
-- [ ] 3.6 Amend ADR-0069 and ADR-0073; add the resolver to the sprint 11 list if 1.4 requires it. Proof: the diffs;
+- [ ] 3.6 Clarify ADR-0128 (the settings resolution is shared, and where it lives); add the resolver to the sprint 11 list if 1.4 requires it. Proof: the diffs;
       `AdrIndexCoherenceTest` green.
 
 ## 4. Verification

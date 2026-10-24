@@ -63,7 +63,8 @@ import org.junit.jupiter.api.Test;
  * is derived from sealed {@code PolicyScope} records, {@code Error.code} from string literals in {@code ApiFailure});
  * enumerations spelled {@code const}, {@code oneOf} or in prose; and an enum-typed property that is written without
  * an {@code enum:} list. A block-style {@code enum:} is counted, so it must be classified, but a table row on it
- * fails to resolve until the locator learns the form. The read is textual by design (ADR-0103): no YAML parser dependency is added, and the
+ * fails to resolve until the locator learns the form. The read is textual by design
+ * ({@code .claude/rules/architecture.md}): no YAML parser dependency is added, and the
  * proposition -- these two lists of names are equal -- is about the text of the contract.</p>
  */
 class PublishedEnumsMatchJavaEnumsTest {

@@ -50,7 +50,7 @@ import org.junit.jupiter.api.Test;
  * <p>Comments and string literals, text blocks included, are blanked before scanning, so a {@code rejectUnknown} in a
  * comment or in a message satisfies nothing. The rule is textual because the proposition is about a call that must
  * <em>follow</em> another in the same block, and about the shape of a {@code switch}; no dependency rule over compiled
- * classes expresses either (ADR-0103).</p>
+ * classes expresses either ({@code .claude/rules/architecture.md}).</p>
  *
  * <p>What it does not cover: the <em>argument</em> of {@code rejectUnknown} -- a call allowing every option would
  * satisfy rule 1 -- nor its receiver; a dispatch written as a chain of {@code if} is checked for the presence of one

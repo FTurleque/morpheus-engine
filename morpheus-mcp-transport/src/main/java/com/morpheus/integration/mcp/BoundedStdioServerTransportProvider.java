@@ -63,7 +63,7 @@ public final class BoundedStdioServerTransportProvider implements McpServerTrans
      * The longest peer operation the envelope admits, the time to close its gateway, and the handler's own work, so
      * a handler waiting on a peer that keeps every request within its configured timeout ends by the operation's own
      * bounded error, never by this bound. Derived, not chosen: twice one request timeout, the previous rule, was
-     * shorter than one operation of three or four sequential requests (ADR-0106, amendment of 8 October 2026).
+     * shorter than one operation of three or four sequential requests (ADR-0106).
      */
     public static final Duration DEFAULT_HANDLER_DEADLINE = PeerOperationDeadline.LONGEST_OPERATION
             .plus(PeerOperationDeadline.CLOSE_ALLOWANCE)

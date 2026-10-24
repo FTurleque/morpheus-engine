@@ -38,7 +38,7 @@ module, where it is a fact about the module); the versions inside the root POM's
    need a carve-out whose only justification is that the audit did not look there.
 
 4. **The gate is textual, over the POM files.** Intent in one sentence: *no module POM states a version*. A `.xml` file
-   is outside any bytecode rule (ADR-0103: text is the only grip). The test reads the `<module>` list of the root POM,
+   is outside any bytecode rule (`.claude/rules/architecture.md`: text is the only grip). The test reads the `<module>` list of the root POM,
    as `ImportedClasspathCompletenessTest` does, so a new module is judged from the day it is declared; it accepts
    `<version>${project.version}</version>` and the `<version>` of the `<parent>` block, and nothing else. It names the
    file and the line of what it refuses. No exception list: after this change there is none to name.

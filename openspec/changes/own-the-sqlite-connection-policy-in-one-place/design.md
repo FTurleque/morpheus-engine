@@ -35,12 +35,12 @@ refusal stays - it is made explicit and tested).
 4. **The rule.** Structural: a class of `api`, `mcp` or `cli` that depends on a concrete SQLite store also depends on
    the scope, or is one of the named exceptions. Textual where structure cannot say it: a `new Sqlite...Store(` in an
    adapter appears lexically inside a try-with-resources that opens the scope. Both, because they do not see the same
-   thing (ADR-0103); each is broken once.
+   thing (`.claude/rules/architecture.md`); each is broken once.
 
 5. **Nesting is refused by a tested property**, and its converse is proved: two runtimes of one adapter built in
    sequence on one thread both work. A route that needs two runtimes at once is a defect the test names.
 
-6. **ADR-0109 is amended**, not replaced: the composition roots that become users of a runtime leave its list.
+6. **ADR-0109 is clarified**, not replaced: the composition roots that become users of a runtime leave its list.
 
 ## Risks / Trade-offs
 

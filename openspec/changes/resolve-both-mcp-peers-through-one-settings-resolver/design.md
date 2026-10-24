@@ -62,7 +62,7 @@ a type; a generic "peer" abstraction beyond what the two existing peers need.
      resolver, and extended to the two settings files as an absence - the rule is at least as strict as before.
    - *Parity*: a behavioural test in `morpheus-architecture-tests`, on the pattern of the persistence parity tests:
      the same table of inputs resolved for both peers, the results equal once the peer's name is abstracted.
-   Each is broken once (ADR-0103; `.claude/skills/enforcement-choice`).
+   Each is broken once (`.claude/rules/architecture.md`; `.claude/skills/enforcement-choice`).
 
 6. **The behaviour tests stay per peer and are not thinned.** One parameterised suite over the two peers, in the
    module of the resolver, replaces the four twins only if the execution count read from Surefire does not fall;

@@ -70,7 +70,7 @@ C costs what B costs plus one small extraction, and leaves A reachable: the name
 
 2. **ArchUnit rules, with the existing textual bans kept.** Intent, in one sentence: *no class of the application
    depends on this technology, except the named ones* - a dependency, so a rule on the bytecode
-   (`enforcement-choice`, ADR-0103). `morpheus-application` is in the imported set and `failOnEmptyShould` is active.
+   (`enforcement-choice`, `.claude/rules/architecture.md`). `morpheus-application` is in the imported set and `failOnEmptyShould` is active.
    The textual assertions on `application.reasoning` and `application.policy` are not migrated: they also refuse a
    mention, and they ban more (`com.morpheus.application.store`, `SELECT * FROM`). *Rejected*: extending the textual
    scan to 36 packages - a mention of `java.sql` in a Javadoc would fail, and an unspelled dependency would pass.
@@ -81,8 +81,8 @@ C costs what B costs plus one small extraction, and leaves A reachable: the name
    same lists; the test is the living source.
 
 4. **The named list is exact, by the pattern of `AdapterCompositionRootArchitectureTest`.** A class that reaches a
-   confined family without being named fails; a named class that no longer reaches it fails too. Adding a name amends
-   the ADR.
+   confined family without being named fails; a named class that no longer reaches it fails too. Adding a name takes
+   a consolidated ADR that replaces this one (`.claude/rules/adr.md`).
 
 5. **`java.time.Clock` is the clock port.** It is a JDK type already injected by six services; a port of the project's
    own would be a second name for it. The two direct `Instant.now()` of `operability` are listed in the ADR; gating

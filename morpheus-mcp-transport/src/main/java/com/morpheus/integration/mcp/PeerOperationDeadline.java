@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * The wall-clock bound of one operation towards an external MCP peer, and the envelope every peer integration must
- * fit in (ADR-0106, amendment of 8 October 2026).
+ * fit in (ADR-0106).
  *
  * <p>The SDK bounds each request on its own. An operation is several of them in sequence -- {@code initialize},
  * {@code tools/list} (one request per page, with no limit on the pages), then one or more {@code tools/call} -- so

@@ -2,8 +2,8 @@
 
 ## Context
 
-- ADR-0103 defines the "mechanical family" by a regular expression written in its context section, and has re-counted
-  it three times with it (198, 193, now 196). Every decision of its amendment of 11/09/2026 was taken on that count.
+- The archived ADR-0103 defines the "mechanical family" by a regular expression written in its context section, and has re-counted
+  it three times with it (198, 193, now 196). Every decision of its section of 11/09/2026 was taken on that count.
   The expression matches a single-argument `assertFalse`: the form with no message.
 - JUnit's `assertFalse(condition, message)` prints the message in the failure. A member of the family fails today
   with `expected: <false> but was: <true>` and the line number.
@@ -22,13 +22,13 @@
 the composition of the gate module is read from one place by one method; a check on documents can be told from a
 check on code without leaving the module.
 
-**Non-Goals**: a threshold on the share of textual assertions; migrating any assertion to ArchUnit (ADR-0103's third
-group stays closed until a fact reopens it); moving a test class to another module or another package; splitting a
+**Non-Goals**: a threshold on the share of textual assertions; migrating any assertion to ArchUnit (the third group of the archived ADR-0103,
+held by `.claude/rules/architecture.md`, stays closed until a fact reopens it); moving a test class to another module or another package; splitting a
 mixed class; touching the assertions on non-Java artefacts.
 
 ## Decisions
 
-1. **What only shrinks is the unexplained family, not the share.** The population is ADR-0103's own: an
+1. **What only shrinks is the unexplained family, not the share.** The population is the archived ADR-0103's own: an
    `assertFalse` whose single argument is `<identifier>.contains("<TypeIdentifier>")`. The gate holds the expression,
    proves it on fixtures in both directions (a member, a member with a message, a lower-case literal, a call inside
    a comment or a string), and compares the measured count with a ceiling. *Rejected*: a ceiling on the ratio of
@@ -39,8 +39,8 @@ mixed class; touching the assertions on non-Java artefacts.
    fails, and one fewer fails until the ceiling is lowered in the same change - the semantics of
    `everyNamedCompositionRootStillReachesAConcreteStoreOrProvider`. The ceiling is a constant of the gate class,
    with the date and the commit of the measure in its Javadoc, as the qualified coverage ceilings are. Raising it is
-   an edit of a governance file that the pull request must justify (`rules/governance.md`), and the amendment of
-   ADR-0103 says no reason is known that would justify it. *Rejected*: a key in
+   an edit of a governance file that the pull request must justify (`rules/governance.md`), and
+   `.claude/rules/architecture.md` says no reason is known that would justify it. *Rejected*: a key in
    `config/m21-quality-ratchets.properties` - that file is mirrored in seventeen places (`rules/meta.md`) and its
    keys are read by validators that have no use for this one. *Rejected*: "not greater than" - a silent drop followed
    by a silent return to the ceiling is growth nobody saw.
@@ -65,8 +65,8 @@ mixed class; touching the assertions on non-Java artefacts.
    65 of the 69 classes that read production sources also read artefacts; deriving the property per method is a
    parser, and splitting those classes is a refactoring this change has no reason to force.
 
-6. **ADR-0103 is amended, not replaced.** One dated section: the family is defined by the gate; its ceiling; the
-   message rule; the refusal of a cap on the share and why; the marker. The figures of its context section are dated
+6. **`.claude/rules/architecture.md` states it, not an ADR**: the criterion of the archived ADR-0103 is a test convention. One section: the family is defined by the gate; its ceiling; the
+   message rule; the refusal of a cap on the share and why; the marker. The figures of the archived ADR-0103 are dated
    records and are not rewritten.
 
 ## Risks / Trade-offs
@@ -87,6 +87,6 @@ mixed class; touching the assertions on non-Java artefacts.
   doubles a Maven invocation of the gate module on two platforms. Decide once the marker exists and the count of
   marked classes is known.
 - **Should `express-adapter-internal-roles-as-packages` be allowed to retire the family-wide textual assertions that
-  its package rules duplicate?** ADR-0103 kept them on purpose (group 1 "removes no assertion"). Recommendation:
+  its package rules duplicate?** The archived ADR-0103 kept them on purpose (group 1 "removes no assertion"), and `.claude/rules/architecture.md` keeps them, rule and text. Recommendation:
   only those whose banned type declares no compile-time constant, one by one, each lowering the ceiling.
 - **Ceiling in the gate class or in a properties file?** Recommendation: the gate class, by decision 2.

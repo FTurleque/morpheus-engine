@@ -29,7 +29,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * the next module makes false, even when it is right on the day it is written. A section (cut at its level 1 and 2
  * headings) that carries a date or a commit reports a measurement and is read by neither rule. Both rules are
  * textual because the
- * targets are Markdown files and a POM (ADR-0103); the proofs below run them on fabricated corpora so that a rule
+ * targets are Markdown files and a POM ({@code .claude/rules/architecture.md}); the proofs below run them on fabricated
+ * corpora so that a rule
  * which reads nothing fails instead of passing.</p>
  */
 class ReactorModuleDocumentationTest {

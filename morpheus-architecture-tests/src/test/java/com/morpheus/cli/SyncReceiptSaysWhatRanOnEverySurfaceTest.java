@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * ADR-0117: a sync receipt names what was executed, on the CLI and on the HTTP API alike, over one database.
+ * ADR-0126: a sync receipt names what was executed, on the CLI and on the HTTP API alike, over one database.
  * A receipt that says {@code published=true} says {@code FULL_REBUILD}; a sync that publishes nothing says
  * {@code INCREMENTAL}. The two surfaces differ on one point only, a sync without change: the CLI publishes
  * nothing, the HTTP sync always publishes.

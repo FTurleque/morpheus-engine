@@ -27,7 +27,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * routes relayed a pathname raised from below a service to the caller, and through the remote facade to a caller
  * outside the machine. The helper had the same name in each of them and nothing compared it with the filter.</p>
  *
- * <p>Two holds, because they do not see the same thing (ADR-0103). The rule reads the bytecode: a class of the adapter
+ * <p>Two holds, because they do not see the same thing ({@code .claude/rules/architecture.md}). The rule reads the
+ * bytecode: a class of the adapter
  * that calls {@code getMessage()} on anything but a failure MORPHEUS authors is refused, whatever the helper is called.
  * The text refuses the helper's name in the adapter's sources, which is what a reviewer greps for.</p>
  */

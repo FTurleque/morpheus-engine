@@ -91,7 +91,7 @@ try {
     }
 
     if ($filePath -match 'docs[\\/]architecture[\\/]adr[\\/](archive[\\/])?([A-Z]+-)?\d{4}-.*\.(md|rules\.ts)$') {
-        Note "[GOVERNANCE] ADR ajoutee ou modifiee. AdrIndexCoherenceTest exige une ligne d'index et une seule dans docs/architecture/adr/README.md, un verdict identique des deux cotes, et un numero non deja attribue (registre et archive). Lancer archgate check --base HEAD sur un arbre propre pour la regle de GEN-0132 (format Archgate, titre, sections)."
+        Note "[GOVERNANCE] ADR ajoutee ou modifiee. AdrIndexCoherenceTest exige une ligne d'index et une seule dans docs/architecture/adr/README.md, un verdict identique des deux cotes, et un numero non deja attribue (registre et archive). Lancer archgate check --base HEAD sur un arbre propre pour la regle d'ADR-0132 (format Archgate, titre, sections)."
     }
 
     if ($filePath -match '\.claude[\\/](rules|skills)[\\/]') {

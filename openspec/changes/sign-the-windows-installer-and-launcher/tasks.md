@@ -51,7 +51,7 @@ Section 1 is the maintainer's and should start first: identity validation has a 
 - [ ] 3.1 Extend the rehearsal's proofs in `validate-m20.ps1` behind the test-signing request: the four files of the
       sixth requirement must be signed by the run's identity, and the two launchers byte-identical. Proof: red on
       `HEAD` — every file is unsigned.
-- [ ] 3.2 Workflow contract rules in `AuditHardeningWorkflowContractTest`, textual by nature (ADR-0103; intent: "these
+- [ ] 3.2 Workflow contract rules in `AuditHardeningWorkflowContractTest`, textual by nature (`.claude/rules/architecture.md`; intent: "these
       names must not appear in a workflow a pull request or a schedule can reach"): no workflow with a `pull_request`
       trigger and no job of `nightly.yml` names the signing environment, the signing credential or the release state;
       no `run:` block of any workflow contains a secret expression. Proof: the last rule is measured on `HEAD` first —
@@ -101,7 +101,7 @@ Section 1 is the maintainer's and should start first: identity validation has a 
 - [ ] 5.3 `docs/architecture/risks/register.md`: the unsigned-distribution entry of the other change gains this
       mitigation; a second entry for certificate renewal (a lapse fails the next release at the signing step).
 - [ ] 5.4 Draft the ADR (signing policy) with the `adr-author` procedure: next free number re-measured with a `glob`
-      on `docs/architecture/adr/0*.md` (`live-numbers`), status *proposed* until the maintainer's decisions of
+      on `docs/architecture/adr/*-[0-9][0-9][0-9][0-9]-*.md` and `archive/` (`live-numbers`), status *proposed* until the maintainer's decisions of
       section 1 are in it; index line in `docs/architecture/adr/README.md` (`AdrIndexCoherenceTest`). The dated
       pointer in ADR-0089 is added when the ADR is accepted.
 

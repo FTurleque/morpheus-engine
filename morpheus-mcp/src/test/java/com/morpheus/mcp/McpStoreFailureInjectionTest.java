@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * A store that cannot be opened is answered as a tool refusal by every handler that reaches one (ADR-0102 section
- * 2, amendment of 8 October 2026).
+ * 7).
  *
  * <p>Every published tool is called with the smallest arguments its own schema accepts, so it gets past its argument
  * checks and has to open the store. Two ways the store can fail to open are injected: a database file the driver

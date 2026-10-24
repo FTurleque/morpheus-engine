@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * A tool the server serves either takes a page or says, in writing, why it does not (ADR-0107, amendment on MCP-2).
+ * A tool the server serves either takes a page or says, in writing, why it does not (ADR-0131).
  *
  * <p>The transport answers an oversized response with advice that only works on a tool whose schema accepts
  * {@code offset} and {@code limit}. Three tools that read collections which only ever grow published a schema
@@ -93,7 +93,7 @@ class GrowingCollectionToolsArePageableTest {
 
         assertEquals(List.of(), problems(served, NOT_PAGED),
                 "a tool must take offset and limit, or be listed in NOT_PAGED with the reason it need not "
-                        + "(ADR-0107, MCP-2): the transport's advice is to retry with a smaller limit");
+                        + "(ADR-0131, MCP-2): the transport's advice is to retry with a smaller limit");
     }
 
     @Test

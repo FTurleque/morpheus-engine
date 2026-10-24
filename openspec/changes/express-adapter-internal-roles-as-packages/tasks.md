@@ -36,7 +36,7 @@ that introduces this change. Lot A (tasks 1 to 5) does not wait for sprint 11; l
 
 - [ ] 3.1 The ArchUnit rule (*no class outside the adapter depends on its non-entry packages* - a dependency, so a
       rule) and the scan of imports beside it (*no source outside the adapter names those packages* - a mention, and
-      the only form that sees an inlined constant). Both, per ADR-0103 section 3.
+      the only form that sees an inlined constant). Both, per `.claude/rules/architecture.md` (in doubt, keep both).
 - [ ] 3.2 Break each once and revert: a dependency from `morpheus-cli` on a planted public class of a sub-package
       fails the rule; a read of a planted public constant passes the rule and fails the scan. Proof: the two named
       failures, recorded in the ADR.
@@ -68,16 +68,16 @@ that introduces this change. Lot A (tasks 1 to 5) does not wait for sprint 11; l
 ## 6. Lot B - services and composition (after sprint 11's ADR and `own-the-sqlite-connection-policy-in-one-place`)
 
 - [ ] 6.1 Re-measure the composition roots and say whether each remaining one composes and does nothing else.
-- [ ] 6.2 If they do: the composition package, the package rule in both directions, and the amendment of ADR-0109
+- [ ] 6.2 If they do: the composition package, the package rule in both directions, and a consolidated ADR replacing ADR-0109
       that replaces "add a name" by "add a class to the package". If they do not: the list stays, and the ADR says
       what is still missing.
 - [ ] 6.3 The package of the `*ApiService` classes. Break the rule that separates it from the routers once.
 
 ## 7. Documentation and decision records
 
-- [ ] 7.1 The ADR (next free number, re-read `docs/architecture/adr/0*.md`; line in its `README.md`), with the
+- [ ] 7.1 The ADR (next free number, re-read `docs/architecture/adr/*-[0-9][0-9][0-9][0-9]-*.md` and `archive/`; line in its `README.md`), with the
       measures of 1.1 to 1.4 and the breakages of 3.2 and 5.x.
-- [ ] 7.2 Dated amendments: ADR-0109 (the row "not applicable"), ADR-0103 (placement is classification).
+- [ ] 7.2 A consolidated ADR replacing ADR-0109 (the row "not applicable"); `.claude/rules/architecture.md` (placement is classification).
 - [ ] 7.3 `.claude/rules/architecture.md` - re-read the classes before rewriting the paragraph on router groups, as
       the paragraph itself asks; `.claude/rules/security.md`; `.claude/CLAUDE.md`;
       `.claude/skills/enforcement-choice/SKILL.md`; `docs/architecture/arc42/05-vue-blocs.md`.

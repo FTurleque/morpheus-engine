@@ -36,7 +36,7 @@ timings.
 - Each is measured on the uncorrected code, and the result is recorded whichever way it falls.
 - The gates build the changes, constraints and acceptance criteria the frozen profile declares, in a database of their
   own, so that no existing measurement moves.
-- ADR-0085 is amended: how a budget is added after the freeze.
+- ADR-0085 says how a budget is added after the freeze.
 
 ## Capabilities
 
@@ -55,7 +55,7 @@ timings.
   added, `docs/project/roadmap/M19_PERFORMANCE_BUDGETS.md` (new dated rows; no existing row changes),
   `docs/architecture/arc42/10-exigences-qualite.md` section 10.3, `.claude/rules/testing.md` (the M19 paragraph names
   the gates).
-- ADR-0085 amended. No product code, no contract, no ratchet lowered; `architectureTestsMinimum` is unaffected by
+- ADR-0085 says it. No product code, no contract, no ratchet lowered; `architectureTestsMinimum` is unaffected by
   classes Surefire does not select and is re-read from `config/m21-quality-ratchets.properties` if a `*Test` is added.
 - First change of sprint 6. The four corrections
   (`read-a-snapshot-content-in-a-fixed-number-of-statements`, `explain-every-dependency-from-one-traversal`,

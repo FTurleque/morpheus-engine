@@ -64,7 +64,7 @@ The `cli` column of `contracts/public-surfaces.tsv` is compared with the code by
   `MorpheusMcpToolService.java` as text (two files each on 2026-10-13); `CliOptionParsingRefusesUnknownOptionsTest`
   and `MorpheusHelpInvocationsParseTest` must pass unmodified - they discover parsers and help lines by shape.
   `architectureTestsMinimum` rises with the new rule (`live-numbers`).
-- ADR-0109: its list changes only by names leaving it, or by one name replaced by another under an amendment.
+- ADR-0109: its list changes only by names leaving it, or by one name replaced by another in a consolidated ADR that replaces it.
   The convention itself is recorded in the ADR of `express-adapter-internal-roles-as-packages`, or in one of its own
   if that change is not taken.
 - No public surface moves: `contracts/public-surfaces.tsv`, the OpenAPI files, the tool catalogue and the help text

@@ -71,4 +71,4 @@ gateways for AUD-TRV-06, left here.
   `PLUGIN_SHA256_REQUIRED`, and the MCP column stays `EXPLICITLY_NOT_EXPOSED`. `contracts/public-surfaces.tsv` and the
   OpenAPI are untouched.
 - Coverage: two always-throwing methods and one unreachable branch leave the denominator. No ratchet is touched.
-- No ADR: ADR-0090 and ADR-0101 already decide pinned, explicit activation.
+- No ADR: ADR-0129 already decides pinned, explicit activation.

@@ -110,7 +110,7 @@ Instant                                           -> String
 Optional<T>                                       -> Optional transport-safe
 ```
 
-Cette règle reste cohérente avec ADR-0047 ; il n'est pas nécessaire d'élargir `CanonicalJsonSerializer` pour sérialiser directement des UUID ou des objets domaine.
+Cette règle reste cohérente avec ADR-0123 ; il n'est pas nécessaire d'élargir `CanonicalJsonSerializer` pour sérialiser directement des UUID ou des objets domaine.
 
 Vues publiques :
 

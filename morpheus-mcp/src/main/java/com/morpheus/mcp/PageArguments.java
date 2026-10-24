@@ -15,7 +15,7 @@ import java.util.function.Supplier;
  * <p>The transport answers an oversized response with {@code MorpheusMcpServer.OVERSIZED_RESPONSE_GUIDANCE}:
  * paginated read tools accept {@code offset} and {@code limit}. A tool whose schema forbids them makes that
  * advice impossible to follow, so the three tools of the MCP-2 finding (the policy audit journal, the policy pack
- * versions, the saved-view versions) take these arguments (ADR-0107, amendment of 29 September 2026 on MCP-2).
+ * versions, the saved-view versions) take these arguments (ADR-0131).
  * Other growing collections are still served whole, such as {@code list_policy_packs}; each is named with its
  * reason in {@code GrowingCollectionToolsArePageableTest}. The default and the maximum are the catalog's
  * ({@code MorpheusMcpToolCatalog.DEFAULT_LIMIT} and {@code MAX_LIMIT}). The maximum equals

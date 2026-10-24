@@ -33,7 +33,7 @@ question, below); splitting `MorpheusMcpToolService` by capability - that is AUD
    for test support, and a parity test over nineteen methods is the gate without the fix.
 
 2. **What is shared is the shape, not the envelope.** A projection answers one domain value. Lists, pages, absence
-   notes (ADR-0107, ADR-0108) and transport wrappers stay where they are. The convergence test compares shapes after
+   notes (ADR-0131, ADR-0108) and transport wrappers stay where they are. The convergence test compares shapes after
    removing each transport's envelope, and names the envelope it removed.
 
 3. **The convergence test is behavioural and runs through the real surfaces.** For one published fixture
@@ -49,7 +49,7 @@ question, below); splitting `MorpheusMcpToolService` by capability - that is AUD
    copy is seen and sprint 12 can move classes freely. The shared domain types are a named list that only grows, each
    entry with the transports that show it. A textual assertion would have to match method names, which is exactly what
    a copy changes. What the rule does not see is said in its comment: an inline construction in a lambda, which only
-   the convergence test catches - the two are complementary, neither is kept "in doubt" (ADR-0103;
+   the convergence test catches - the two are complementary, neither is kept "in doubt" (`.claude/rules/architecture.md`;
    `.claude/skills/enforcement-choice`).
 
 5. **The versioned requirement record moves with the requirement**, though both its copies are in `morpheus-api`: it

@@ -75,8 +75,8 @@ run of `ci.yml` uploads the per-module and the aggregate `jacoco.xml` of both pl
   `config/m21-quality-ratchets.properties` (one new pair of keys, of the opposite direction: a maximum),
   `.github/workflows/ci.yml` (the new evidence joins the `m21-integrity-<OS>` artifact),
   `morpheus-application/src/test` (the tests).
-- **ADR-0104 is amended**: a third quantity, its definition, its qualification rule and what it must never be used
-  for. No new ADR.
+- **A consolidated ADR replaces ADR-0104**: the two scales, and a third quantity, its definition, its qualification rule
+  and what it must never be used for.
 - Ratchets: the four coverage keys and the four `*_QUALIFIED_*_RATIO` constants are **not** touched. The presence
   ratchets (`testsMinimum`) may be raised by a later lot with the two-platform evidence their header demands; this
   change does not.

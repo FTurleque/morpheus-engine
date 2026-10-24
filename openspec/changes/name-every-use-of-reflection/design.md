@@ -27,7 +27,7 @@ by hand.
 
 1. **Three ArchUnit rules, one intent each.** *No product class depends on `java.lang.reflect`*, *no product class
    loads a service or a class*, *no product class depends on an injection framework*. All three are "no dependency"
-   propositions (ADR-0103), and the first two must see a use that is not spelled as an import - a lambda implementing
+   propositions (`.claude/rules/architecture.md`), and the first two must see a use that is not spelled as an import - a lambda implementing
    `InvocationHandler`, a fully qualified `java.lang.reflect.Method` (`SqliteConnectionScope.java:244` is one). A
    textual assertion would miss both. No textual twin: `java.lang.reflect` declares no compile-time constant the
    product could read.
@@ -55,7 +55,7 @@ by hand.
    it does not copy the lists. A copied list is the kind of line `rules/architecture.md` already admits "nothing
    compares to the class it describes". The skill's sentence is aligned.
 
-6. **No ADR.** Nothing is decided that an ADR does not already hold; the test's `because` clauses cite ADR-0090,
+6. **No ADR.** Nothing is decided that an ADR does not already hold; the test's `because` clauses cite ADR-0129,
    ADR-0095 and ADR-0109.
 
 ## Risks / Trade-offs

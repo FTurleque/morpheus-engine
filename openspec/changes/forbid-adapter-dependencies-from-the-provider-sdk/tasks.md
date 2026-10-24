@@ -7,7 +7,7 @@
 - [ ] 1.2 List what `morpheus-provider-sdk` depends on today: its POM and the packages its sources import. Proof: the
       list; on 2026-10-13, `domain`, `application` and the JDK only.
 - [ ] 1.3 Check whether a class of an adapter declares a compile-time constant the SDK could read without a bytecode
-      dependency (ADR-0103, second asymmetry). Proof: the answer decides whether the rule needs a textual twin; the
+      dependency (`.claude/rules/architecture.md`, the inlined-constant asymmetry). Proof: the answer decides whether the rule needs a textual twin; the
       design assumes it does not.
 - [ ] 1.4 Search `.claude/` and `docs/` (dated records excluded) for `provider.sdk` used as a package name. Proof: the
       list; on 2026-10-13, four lines in three files under `.claude/`.
@@ -15,7 +15,7 @@
 ## 2. The rule
 
 - [ ] 2.1 Add `theProviderSdkDependsOnNoAdapter`: subject `SDK`, targets `STORES`, `PROVIDERS`, `INTEGRATIONS`, `MCP`,
-      `API`, `CLI`, with a `because` that cites ADR-0090. Mechanism: ArchUnit rule - intent "the SDK has no dependency
+      `API`, `CLI`, with a `because` that cites ADR-0129. Mechanism: ArchUnit rule - intent "the SDK has no dependency
       on an adapter". Proof: green on `HEAD`.
 - [ ] 2.2 Break it once, then revert (`.claude/skills/enforcement-choice`): add to one SDK class a reference to a class
       of `com.morpheus.store.memory`, with the POM edge it needs. Proof: the named failure, quoted in the pull request;

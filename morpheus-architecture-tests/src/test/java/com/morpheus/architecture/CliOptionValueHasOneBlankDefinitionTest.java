@@ -80,7 +80,7 @@ import org.junit.jupiter.api.Test;
  * </ul>
  *
  * <p>The rule is textual because the proposition is about which method tests a string, which no dependency rule over
- * compiled classes expresses (ADR-0103).</p>
+ * compiled classes expresses ({@code .claude/rules/architecture.md}).</p>
  */
 class CliOptionValueHasOneBlankDefinitionTest {
 

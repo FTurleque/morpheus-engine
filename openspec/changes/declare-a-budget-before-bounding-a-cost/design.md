@@ -2,7 +2,7 @@
 
 ## Context
 
-- ADR-0085: budgets are predeclared on deterministic large fixtures; its amendment of 2026-10-10 says where they run
+- ADR-0085: budgets are predeclared on deterministic large fixtures, and it says where they run
   (the nightly lane, Linux and Windows, through `validate-m19`).
 - `M19_PERFORMANCE_BUDGETS.md` is frozen. Its section 8 allows an optimisation to lower a time, forbids raising a
   threshold because the code misses it, and says a change of fixture or threshold needs a justification and
@@ -52,7 +52,7 @@ costs of sprint 7 (index choice, per-row filters) or of sprint 13 (the requireme
    - Journal page: a journal long enough that reading it whole and reading one page differ measurably; the size is
      declared with the row.
 
-5. **ADR-0085 is amended**, not replaced: a budget may be added after the freeze when a cost is found without one; it is
+5. **ADR-0085 holds it**, no new ADR: a budget may be added after the freeze when a cost is found without one; it is
    dated, it is declared before the code it will judge is changed, and it never alters an existing row.
 
 ## Risks / Trade-offs

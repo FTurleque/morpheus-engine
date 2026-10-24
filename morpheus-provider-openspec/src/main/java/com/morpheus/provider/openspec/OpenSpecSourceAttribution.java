@@ -34,8 +34,7 @@ import java.util.function.Supplier;
  * nothing to remove). They differ for a name that has a backslash on a platform where it is a legal character:
  * the delta read from {@code openspec/specs/a\b/spec.md} carries the locator
  * {@code file:openspec/specs/a/b/spec.md}, and the refusal names {@code openspec/specs/a\b/spec.md}.
- * That difference is intended and is the reason this class builds no text from a locator (ADR-0028, amendment of
- * 30 September 2026).</p>
+ * That difference is intended and is the reason this class builds no text from a locator (ADR-0028).</p>
  *
  * <p>A backslash also makes {@link ServerLocationDisclosure} take a text for a possible server location, and the
  * surfaces differ in whether they ask. The CLI {@code sync} relays the message as written, so it names the exact file
@@ -45,7 +44,7 @@ import java.util.function.Supplier;
  * ({@code OpenSpec content reader failed for group current: InvalidOpenSpecSource}), and the publication refusal
  * then counts that text as shown, not as withheld, because it no longer holds a backslash. Before, all three named
  * the rewritten path, which does not exist, and kept the cause. The exact path stays in the diagnostic's
- * {@code source}, which no CLI, HTTP or MCP surface serializes today. The amendment of ADR-0028 records why this
+ * {@code source}, which no CLI, HTTP or MCP surface serializes today. ADR-0028 records why this
  * is kept and names the broader finding, a withheld refusal that becomes a bare type without saying so.</p>
  */
 final class OpenSpecSourceAttribution {

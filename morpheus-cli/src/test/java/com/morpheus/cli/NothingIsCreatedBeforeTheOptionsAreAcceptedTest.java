@@ -48,7 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * these four commands as in {@code portfolio}; so do refusals on the state of the store, which cannot come earlier.
  * The commands of {@code MorpheusCli} that open the store before checking their options ({@code projects},
  * {@code changes}) and {@code change-orchestration}, whose per-action option refusals come after it, are not
- * covered here (ADR-0108, amendment of 30 September 2026). The probe population is the adapters' known options and one
+ * covered here (ADR-0130). The probe population is the adapters' known options and one
  * misspelling, not every string: an option neither listed here nor in a table is only held by the value comparison,
  * which it fails. A future adapter that opens a store is not discovered; this class names its commands.</p>
  */

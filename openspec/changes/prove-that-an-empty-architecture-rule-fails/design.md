@@ -4,7 +4,7 @@
 
 - ArchUnit evaluates a rule whose `that()` clause retains no class as a failure ("failed to check any classes") when
   `archRule.failOnEmptyShould` is true, its default in the version the root POM pins (`archunit.version`).
-- ADR-0103 recorded one manual verification of it: a rule aimed at a class outside the imported classpath broke the
+- The archived ADR-0103 recorded one manual verification of it: a rule aimed at a class outside the imported classpath broke the
   build. It was an experiment, not a test.
 - The setting has three entrances: `archunit.properties` at the root of the test classpath, a system property of the
   same name prefixed with `archunit.`, and `ArchRule.allowEmptyShould(true)` on one rule. The first two are global;
@@ -19,7 +19,7 @@
 rule, fails that build.
 
 **Non-Goals**: forbidding an ArchUnit configuration file; proving that every rule retains the classes its author
-meant (that stays the obligation "break the rule once" of ADR-0103); upgrading ArchUnit.
+meant (that stays the obligation "break the rule once" of `.claude/rules/architecture.md`); upgrading ArchUnit.
 
 ## Decisions
 
@@ -27,7 +27,7 @@ meant (that stays the obligation "break the rule once" of ADR-0103); upgrading A
    package that cannot exist and checks it against the classes the suite imports; the test passes only if the
    evaluation fails for the reason of emptiness. Intent, in one sentence: *in the configuration these gates run
    under, a rule that selects nothing fails* - neither a dependency nor a mention, so neither ArchUnit nor text: it
-   is executed (ADR-0103, amendment CLI-6, same reasoning). This holds against all three entrances at once for the
+   is executed (ADR-0130, decision 8, same reasoning). This holds against all three entrances at once for the
    global setting, and against a change of the upstream default. *Rejected*: asserting the value of the configuration
    property - it tests the entrance, not the effect, and names an internal of the library.
 

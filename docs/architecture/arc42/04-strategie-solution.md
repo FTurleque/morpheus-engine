@@ -14,7 +14,7 @@
 | P-3 | **Read-first / controlled write** | Une capacité de lecture n'implique jamais une capacité d'écriture ; toute mutation est explicite et contrôlée | ADR-0008, ADR-0083 |
 | P-4 | **Facts before inference** | Faits, inférences, heuristiques et suggestions ne sont jamais confondus | ADR-0004, ADR-0095 |
 | P-5 | **Identité stable** | `DomainIdentity` est indépendante de la version, du locator et des références externes | ADR-0009, ADR-0015 |
-| P-6 | **Snapshots atomiques** | Un snapshot publié est cohérent ; une activation partielle n'est pas observable | ADR-0012, ADR-0033 |
+| P-6 | **Snapshots atomiques** | Un snapshot publié est cohérent ; une activation partielle n'est pas observable | ADR-0120 |
 | P-7 | **Convergence des surfaces** | Les capacités publiques sont suivies entre CLI, MCP et HTTP sans imposer une forme de transport identique | `contracts/public-surfaces.tsv` |
 | P-8 | **Migrations vérifiables** | Les migrations SQLite sont versionnées, checksummées et appliquées explicitement | ADR-0021 |
 | P-9 | **Intégrations optionnelles** | MINOS et NEXUS sont isolés derrière des ports et ne sont pas requis pour les faits locaux | ADR-0007 |

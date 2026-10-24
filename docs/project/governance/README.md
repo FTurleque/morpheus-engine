@@ -36,7 +36,7 @@ packaging       PASS
 - `ADR-0083` couvre les mutations lifecycle contrôlées M17 ;
 - `ADR-0084` couvre la composition multi-provider provider-neutral, déterministe et explicable M18.
 
-Une ADR dépendante d’une hypothèse technique ne doit être acceptée qu’après preuve reproductible. Une ADR acceptée reste normative pour la décision qu’elle porte jusqu’à remplacement ou amendement explicite.
+Une ADR dépendante d’une hypothèse technique ne doit être acceptée qu’après preuve reproductible. Une ADR acceptée reste normative pour la décision qu’elle porte jusqu’à son remplacement explicite par un ADR qui la consolide.
 
 ## Validations
 

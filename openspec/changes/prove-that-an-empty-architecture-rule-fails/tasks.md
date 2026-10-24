@@ -32,7 +32,7 @@ that introduces this change.
 
 ## 4. Decision record and rules
 
-- [ ] 4.1 The dated amendment of ADR-0103, section 4: the guard is proved by a named test; the manual verification
+- [ ] 4.1 No ADR: the guard is obligation 1 of `.claude/rules/architecture.md` (4.2), proved by a named test; the manual verification
       of 10/09/2026 stays as the dated record it is.
 - [ ] 4.2 `.claude/rules/architecture.md` (obligation 1 of the three) and
       `.claude/skills/enforcement-choice/SKILL.md`: "do not disable it" names the test.

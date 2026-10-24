@@ -8,7 +8,7 @@ description: Choisir entre une règle ArchUnit et une assertion textuelle pour e
 `morpheus-architecture-tests` enforce la plupart des interdits de dépendance par
 `assertFalse(<source lue>.contains("Type"))` alors qu'ArchUnit est déjà une dépendance déclarée
 du module. **Ce n'est pas de la dette à migrer par réflexe.** Le *pourquoi* est dans
-`docs/architecture/adr/BE-0130-contrat-des-options-de-la-cli.md`.
+`.claude/rules/architecture.md`, section « Règle ArchUnit ou assertion textuelle ».
 
 ## D'abord : écrire l'intention en une phrase
 

@@ -170,7 +170,8 @@ class AggregateCoverageGateTest {
     }
 
     /**
-     * A guard that has never refused is not a guard (ADR-0103). A reactor assembled on purpose, then a report that
+     * A guard that has never refused is not a guard ({@code .claude/rules/architecture.md}). A reactor assembled on
+     * purpose, then a report that
      * dropped one of its modules and one that measured a stranger, must both be refused by name before the report
      * that matches is accepted.
      */

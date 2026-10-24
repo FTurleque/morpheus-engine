@@ -20,7 +20,7 @@ Re-read on `develop` at `8b26d3d7` on 2026-10-13, the finding **holds, and its e
     every constraint known - and, for the evaluation itself, a call to the first class.
 - Nothing ties the first two writings together. Today they agree: whenever the orchestration says a constraint's blocking is
   explicit, its evaluation is never `UNKNOWN`; whenever an evaluation is `BLOCKING`, the orchestration counts the
-  constraint. That is two proofs by reading, and the tri-state rule of ADR-0078 and ADR-0093 - `UNKNOWN` is never
+  constraint. That is two proofs by reading, and the tri-state rule of ADR-0119 and ADR-0093 - `UNKNOWN` is never
   `BLOCKING` - rests on both.
 
 The audit asks to measure the result by the dependencies removed from the application's cyclic component, not by
@@ -52,7 +52,7 @@ lies on no cycle. Three dependencies and one package leave the application graph
   `quality`, `query`: three services construct `ConstraintPolicyEvaluationService`).
 - Reason texts reach the HTTP, MCP and CLI outputs: they are characterised before the move and must not change. No
   manifest line, no OpenAPI change.
-- No ADR: ADR-0078 and ADR-0093 already state the semantics; this moves where they are implemented.
+- No ADR: ADR-0119 and ADR-0093 already state the semantics; this moves where they are implemented.
 - `domainPackagesAreFreeOfCyclesBesideTheTwoNamedOnes` guards the move: `domain.constraint` already depends on
   `domain.change.lifecycle`.
 - Coverage: lines move from one module to another inside one population; the per-module and the aggregate scales are

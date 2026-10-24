@@ -41,7 +41,7 @@ the packages that carried a ban before the record.
 ### Requirement: A technology the application does use SHALL be confined to named classes
 
 A family in use MUST be reachable only from the classes the record names for it. The named set MUST be exactly the set
-that reaches the family: it may shrink, and it MUST NOT grow without the record being amended.
+that reaches the family: it may shrink, and it MUST NOT grow without a consolidated record replacing it.
 
 #### Scenario: A second class opens an outbound connection
 

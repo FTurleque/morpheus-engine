@@ -37,7 +37,7 @@ of behaviour seen from a command.
    assertion is broken once at its new target.
 
 5. **One lot per family.** Outbound network first; file access, if the record marks it, only after the home is
-   decided. Each lot shrinks the named list and amends the record.
+   decided. Each lot shrinks the named list and clarifies the record.
 
 ## Risks / Trade-offs
 

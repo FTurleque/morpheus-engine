@@ -20,14 +20,14 @@ Implemented on 2026-10-13; each task carries what was done and what was not.
 - [x] 2.2 Health under a saturated ceiling. Proof: red or green on `HEAD`, stated.
       *2026-10-13: `SchedulerAvailabilityUnderSqliteWaitTest` - red on the `HEAD` of the scheduler change, green since. `health`, `metrics` and `version` take no place; `readiness` asks the database and does, which departs from decision 3.*
 - [ ] 2.3 The comparison of the two ceilings in remote mode.
-      *2026-10-13: **not done, and decision 4 is not applied.** The facade's ceiling is an operator setting; matching it locally would bring back the contention the measurement showed. A request the facade admitted can wait for a worker, within the same bound. Recorded in the amendment of ADR-0114.*
+      *2026-10-13: **not done, and decision 4 is not applied.** The facade's ceiling is an operator setting; matching it locally would bring back the contention the measurement showed. A request the facade admitted can wait for a worker, within the same bound. Recorded in ADR-0114.*
 
 ## 3. The change
 
 - [x] 3.1 The admission, the bound, the refusal. Proof: 2.1 to 2.3 pass.
       *2026-10-13: a fair semaphore of one permit per worker in `DatabaseWorkOffloadingHttpServer`, a wait of ten seconds, then `429 LOCAL_SERVER_BUSY`. **Not done**: refusals are not counted.*
 - [ ] 3.2 The OpenAPI files; `PublicHttpRouteConvergenceTest` green. The risk register and the operability page.
-      *2026-10-13: no OpenAPI change (1.3). The operability page and the amendment of ADR-0114. The risk register is not updated.*
+      *2026-10-13: no OpenAPI change (1.3). The operability page and ADR-0114. The risk register is not updated.*
 - [x] 3.3 Break once, then revert: remove the permit release on a failed request. Proof: a test that the ceiling is not
       leaked fails.
       *2026-10-13: with the release of the place removed, the three tests of `LocalAdmissionTest` fail; reverted.*

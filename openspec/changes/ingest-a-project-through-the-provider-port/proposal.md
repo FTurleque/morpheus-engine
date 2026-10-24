@@ -56,7 +56,7 @@ publication does with the read result the port can return and the strict reader 
   rewritten in the same change, to the stricter form - a governance file, to be justified in the pull request.
   `ProjectSnapshotImportContractTest` and `FailedPublishSequenceContractTest` use the strict reader as a fixture.
 - `AdapterCompositionRootArchitectureTest`: `MorpheusProjectSyncApiService` stays the only transport class that
-  reaches a provider; the list does not grow, ADR-0109 is not amended.
+  reaches a provider; the list does not grow, ADR-0109 does not change.
 - `contracts/public-surfaces.tsv` and the OpenAPI are **expected unchanged**: `project.sync` keeps its route and its
   conflict status. To be confirmed by the convergence gates, not assumed.
 - No ADR of its own. Independent of the decision of `decide-what-technology-the-application-core-may-touch`: the

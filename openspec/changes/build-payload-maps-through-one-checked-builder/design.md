@@ -50,7 +50,7 @@ other uses of `Map<String, Object>` in the adapters; the projections themselves,
    *requires* the builder; a private copy depends on nothing but the JDK, so no dependency rule can see it, and
    requiring a dependency from every class that builds a map is not expressible. The textual twin scans every
    `src/main/java` for the cast `(String) entries[`-shaped key cast in a method taking `Object...`, because
-   `morpheus-provider-testkit` is outside the imported classpath (ADR-0103; `.claude/skills/enforcement-choice`,
+   `morpheus-provider-testkit` is outside the imported classpath (`.claude/rules/architecture.md`; `.claude/skills/enforcement-choice`,
    "in doubt, keep both"). The leaf property of decision 1 is a plain ArchUnit dependency rule.
 
 ## Risks / Trade-offs

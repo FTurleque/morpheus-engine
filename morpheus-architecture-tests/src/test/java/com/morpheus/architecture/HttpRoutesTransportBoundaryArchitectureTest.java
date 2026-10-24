@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * What a router may touch of the HTTP transport and of JSON depends on how it reads a request body, so these rules
  * are stated per capability group, not over the family.
  *
- * <p>ADR-0103's amendment of 11/09/2026 sketched two groups: eight routers without a body, nine that read one.
+ * <p>The first classification by capability sketched two groups: eight routers without a body, nine that read one.
  * Establishing the second group literal by literal (15/09/2026) showed it is two groups, not one:</p>
  *
  * <ul>
@@ -269,9 +269,10 @@ class HttpRoutesTransportBoundaryArchitectureTest {
      * accept unknown fields or trailing tokens silently, which is why the rule outlived the duplication it was written
      * against.</p>
      *
-     * <p>This is text, not bytecode, by ADR-0103: its first section reserves rules for an intention of the form "no
+     * <p>This is text, not bytecode, by {@code .claude/rules/architecture.md}: it reserves rules for an intention of
+     * the form "no
      * dependency", and which feature a builder received is no dependency at all -- it is an argument, the same kind
-     * of fact as the wiring expressions its second section keeps textual.</p>
+     * of fact as the wiring expressions it keeps textual.</p>
      *
      * <p>Broken on the real tree, 15/09/2026, besides the resident proof below: removing
      * {@code FAIL_ON_TRAILING_TOKENS} from {@code MorpheusReasoningHttpRoutes} failed this method, naming the file and

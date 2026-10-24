@@ -51,4 +51,4 @@ the invariant went unwatched.
 - Under the pure-core option, additionally: a home for ten classes, which is a structural decision of its own
   (coverage population of ADR-0104, `ImportedClasspathCompletenessTest`, release layout) and is split into one lot per
   family.
-- No public surface changes: same commands, same outputs, same refusals. The ADR is amended only to record what moved.
+- No public surface changes: same commands, same outputs, same refusals. The ADR is clarified only so that its list says where each class lives.

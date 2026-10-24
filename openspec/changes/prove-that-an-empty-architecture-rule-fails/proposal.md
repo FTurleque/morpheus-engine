@@ -2,12 +2,12 @@
 
 ## Why
 
-The last sentence of AUD-TRV-03 (sprint 12) is a finding of its own: `archRule.failOnEmptyShould`, which ADR-0103
+The last sentence of AUD-TRV-03 (sprint 12) is a finding of its own: `archRule.failOnEmptyShould`, which `.claude/rules/architecture.md`
 treats as load-bearing, "comes from the library's default: an `archunit.properties` added elsewhere or a change of
 the upstream default would disable the guard in silence". Re-read on `develop` at `8b26d3d7` on 2026-10-13, it
 **holds**:
 
-- ADR-0103, lines 156-159: "`archRule.failOnEmptyShould` is `true` by default and nothing in this repository
+- The archived ADR-0103, lines 156-159: "`archRule.failOnEmptyShould` is `true` by default and nothing in this repository
   disables it. [...] Do not disable it." `.claude/rules/architecture.md` and `.claude/skills/enforcement-choice`
   repeat the instruction.
 - No test asserts it. `grep -rn 'failOnEmptyShould\|allowEmptyShould\|ArchConfiguration'` over the gate module finds
@@ -44,7 +44,7 @@ is that an invariant the whole suite rests on is an instruction to people.
 ## Impact
 
 - `morpheus-architecture-tests`: one new test class. `architectureTestsMinimum` rises with it (`live-numbers`).
-- A dated amendment to ADR-0103, section 4: the guard is proved, no longer assumed.
+- No ADR: the guard is obligation 1 of `.claude/rules/architecture.md` (section 4 of the archived ADR-0103); the rule page says it is proved, no longer assumed.
 - `.claude/rules/architecture.md` and `.claude/skills/enforcement-choice/SKILL.md`: the sentence "do not disable it"
   names the test that fails if someone does.
 - No product code, no public surface, no validator, no workflow.

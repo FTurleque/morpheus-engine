@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** {@code policy audit} answers with a page, as the HTTP route and the MCP tool do (AUD-PRF-04, ADR-0107). */
+/** {@code policy audit} answers with a page, as the HTTP route and the MCP tool do (AUD-PRF-04, ADR-0131). */
 class MorpheusPolicyAuditPagingCliTest {
     private static final Pattern UUID_V7 = Pattern.compile(
             "[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}");

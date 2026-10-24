@@ -5,8 +5,8 @@
 - The flat package is not only an absence of structure: with 68 package-private types out of 81, it is the boundary
   between `morpheus-api` and the modules that depend on it, and the compiler holds it. `morpheus-cli` uses six types
   of `api`.
-- ADR-0103 (amendment of 11/09/2026) asks that a router be "listed explicitly, never by suffix: a ninth router must
-  be classified by someone, not by default". Its reason is the classification, not the list.
+- `.claude/rules/architecture.md` ("Règle ArchUnit ou assertion textuelle") refuses a new router until someone has classified it,
+  by name and never by suffix. Its reason is the classification, not the list.
 - ADR-0109 calls `COMPOSITION_ROOTS` a counter: the alternative it rejected - "bring all the wiring back into
   `morpheus-cli`" - "remains possible: the named list is its counter". Two tests keep it exact in both directions.
 - `MorpheusHttpServer` is a hub. It declares four public compile-time constants (`API_PREFIX`, `DEFAULT_HOST`,
@@ -15,7 +15,7 @@
   named by six routers, one service, two classes of the transport plumbing and two of the remote server. A layering
   of packages that puts the server above the routers has those edges pointing upwards.
 - `javac` inlines a compile-time constant: a class that reads `MorpheusHttpServer.API_PREFIX` carries no dependency
-  on it (ADR-0103, measured twice). A rule on packages does not see that reading; a scan of the source does.
+  on it (`.claude/rules/architecture.md`). A rule on packages does not see that reading; a scan of the source does.
 - `HttpRoutesTransportBoundaryArchitectureTest` has changed its groups twice in a month (DT-16, DT-17): a group was
   deleted, another renamed. With a list that is a one-line edit.
 - `.claude/rules/security.md` pins text inside named classes (`MorpheusHttpServer` keeps
@@ -30,7 +30,7 @@ dozens of gates.
 
 **Non-Goals**: changing a route, a payload, a refusal or a header; splitting a class by capability (that is
 `give-each-cli-command-and-mcp-tool-a-capability-class` for `cli` and `mcp`; `api` is already split);
-`morpheus-store-sqlite`; JPMS; migrating the textual assertions of ADR-0103's third group; removing a composition
+`morpheus-store-sqlite`; JPMS; migrating the textual assertions on targets without a family (`.claude/rules/architecture.md`); removing a composition
 root (that is `own-the-sqlite-connection-policy-in-one-place`).
 
 ## Decisions
@@ -61,12 +61,12 @@ root (that is `own-the-sqlite-connection-policy-in-one-place`).
    another module may use; today's six are the starting set, re-measured. `noClasses().that().resideOutsideOf(the
    adapter).should().dependOnClassesThat().resideIn(the adapter's other packages)`, and beside it a scan of the
    sources of the dependent modules for an import of those packages: a public constant of a newly public class is
-   inlined, the rule would not see it, and an import must spell the package (ADR-0103, section 3 - both forms, since
+   inlined, the rule would not see it, and an import must spell the package (`.claude/rules/architecture.md`: both forms, since
    each sees what the other misses). Written and broken first, while it is still vacuously true, then the classes
    move.
 
 5. **The router groups become packages; `COMPOSITION_ROOTS` does not, yet.**
-   - *Router groups.* Placement in one of the group packages is the classification ADR-0103 asks for, provided
+   - *Router groups.* Placement in one of the group packages is the classification `.claude/rules/architecture.md` asks for, provided
      no router can sit outside all of them: a rule requires every class named `*HttpRoutes` to reside in exactly one
      group package, and the bijection with the sources (`theRulesSeeEveryRouterTheSourcesDeclare`) stays. "Doubly
      classified" and "classified but vanished" become impossible instead of refused. The cost is real and accepted:
@@ -80,8 +80,8 @@ root (that is `own-the-sqlite-connection-policy-in-one-place`).
      whose role is to compose - which is what `own-the-sqlite-connection-policy-in-one-place` moves towards ("one
      runtime per adapter") and what sprint 11 may change again. The replacement is written now so that nobody
      improvises it: classes of the composition package may reach a concrete store or provider, no other class of the
-     adapter may, and every class of that package does reach one - the two directions of today, with "amend ADR-0109
-     to add a name" becoming "amend ADR-0109 to add a class to the package", which the ADR must say.
+     adapter may, and every class of that package does reach one - the two directions of today, with "a name is added by a
+     consolidated ADR that replaces ADR-0109" becoming "a class is added to the package by one", which the ADR must say.
 
 6. **A gate finds a production source by its type.** One locator in the gate module resolves the source file of a
    class from its simple name within a module and fails when the name is absent or ambiguous; the 141 literal paths
@@ -136,12 +136,12 @@ which the cycle rule treats as one slice.
 ## Open Questions
 
 - **Router groups as packages, or as lists inside one `routes` package?** Recommendation: packages, because the exit
-  criterion of the sprint is about them and placement satisfies ADR-0103. The alternative is defensible - a capability
+  criterion of the sprint is about them and placement satisfies `.claude/rules/architecture.md`. The alternative is defensible - a capability
   ("reads a body") is not quite a role - and costs nothing if chosen: decisions 1 to 4 and 6 stand either way.
 - **Is the split worth its cost at all without the composition list?** It is the question this proposal cannot
   answer for the maintainer. Recommendation: do decision 6 and decision 4 unconditionally, then decide on the measure
   of decision 2.
-- **One new ADR, or amendments only?** Recommendation: one ADR for the three kinds of selection and the entry rule,
-  dated amendments to ADR-0103 and ADR-0109 that point to it.
+- **One new ADR, or consolidated ADRs only?** Recommendation: one ADR for the three kinds of selection and the entry rule;
+  a consolidated ADR replacing ADR-0109 that points to it, and `.claude/rules/architecture.md` saying that placement is classification.
 - **Does the gate module's test declared in `com.morpheus.api` follow `MorpheusHttpRouteTable`, or does the table join the
   entry package?** Recommendation: the test follows; the table is not something another module should build on.

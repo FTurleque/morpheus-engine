@@ -26,7 +26,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@code CliCommandPathsAreRoutedTest} in {@code morpheus-cli} runs every declared path to prove the declaration is what
  * the CLI routes. This test compares that declaration with the column, in both directions.</p>
  *
- * <p><b>Two holds, kept together</b> (ADR-0103). The manifest side is textual: a {@code .tsv} is only readable as text,
+ * <p><b>Two holds, kept together</b> ({@code .claude/rules/architecture.md}). The manifest side is textual: a
+ * {@code .tsv} is only readable as text,
  * and a cell names a command by the words before its first option. The CLI side is an execution, in the other test,
  * because "this path is served" is a behaviour and not a mention.</p>
  *

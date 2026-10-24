@@ -11,7 +11,7 @@
 - Without those three: `{context, ingestion, query, security, traceability}` (6 dependencies) and
   `{lifecycle, orchestration, quality}` (4).
 - An import graph sees what is spelled in source. The bytecode sees more (an unspelled type of a chained call) and
-  less (an inlined constant). ADR-0103 states both asymmetries; the rule is written on the bytecode.
+  less (an inlined constant). `.claude/rules/architecture.md` states both asymmetries; the rule is written on the bytecode.
 
 ## Goals / Non-Goals
 
@@ -50,7 +50,7 @@ AUD-ARC-13 and sprint 12); slicing below the first level.
    cycle" is enforced by the list having no entry that starts or ends at `store`, plus a rule that refuses one. If the
    bytecode shows a fourth dependency the import graph missed, the requirement still says what must be true.
 
-6. **An amendment to ADR-0109, not a new ADR.** The deferral is a sentence of that record; replacing it there keeps
+6. **A consolidated ADR replaces ADR-0109.** The deferral is a sentence of that record; replacing it there keeps
    one place that says what holds for package cycles.
 
 ## Risks / Trade-offs
@@ -65,5 +65,5 @@ AUD-ARC-13 and sprint 12); slicing below the first level.
 
 - **Move the three ports, or split each into a store-side port that speaks only identifiers?** Recommendation: move
   them; the second is a redesign of three contracts.
-- **Should the two residual components be given owners now?** Recommendation: name them in the amended ADR with their
+- **Should the two residual components be given owners now?** Recommendation: name them in the consolidated ADR with their
   measured dependencies, and leave the work to the changes that touch those packages.

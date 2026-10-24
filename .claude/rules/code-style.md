@@ -75,7 +75,7 @@ public record DomainIdentity(UUID value) implements Comparable<DomainIdentity> {
 
 ## Déterminisme
 
-Le projet vend du déterminisme (ADR-0039, 0043, 0045, 0053, 0056, 0085). Concrètement :
+Le projet vend du déterminisme (ADR-0039, 0043, 0056, 0085, 0122, 0125). Concrètement :
 
 - Ordonner explicitement toute collection retournée par une requête
 - Sérialiser en **JSON canonique** (`CanonicalJsonSerializer`) pour toute sortie comparable
@@ -85,4 +85,4 @@ Le projet vend du déterminisme (ADR-0039, 0043, 0045, 0053, 0056, 0085). Concr�
 ## Sémantique tri-state
 
 `UNKNOWN` n'est jamais silencieusement converti en `BLOCKED` ou en `PASS`.
-Si une information manque, la réponse le dit. Cf. ADR-0078, ADR-0093.
+Si une information manque, la réponse le dit. Cf. ADR-0119, ADR-0093.
