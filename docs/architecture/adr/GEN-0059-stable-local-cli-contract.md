@@ -85,10 +85,8 @@ option CLI > variable MORPHEUS_* > défaut de l'OS
 ```
 
 Options globales : `--data-dir`, `--config-dir`, `--db`. Variables : `MORPHEUS_DATA_DIR`, `MORPHEUS_CONFIG_DIR`,
-`MORPHEUS_DB`, ainsi que `MORPHEUS_LOGS_DIR` et `MORPHEUS_BACKUPS_DIR`. Les défauts par OS sont ceux d'ADR-0088 :
-sous Windows, l'état sous `%LOCALAPPDATA%\MORPHEUS\{data,config,logs,backups}` ; sous Linux, les répertoires XDG
-(`$XDG_DATA_HOME`, `$XDG_CONFIG_HOME`, `$XDG_STATE_HOME`) avec leurs replis sous `~/.local/share`, `~/.config` et
-`~/.local/state`. Un `--data-dir` explicite (ou `MORPHEUS_DATA_DIR`) regroupe par défaut configuration, logs,
+`MORPHEUS_DB`, ainsi que `MORPHEUS_LOGS_DIR` et `MORPHEUS_BACKUPS_DIR`. Les défauts par OS sont ceux d'ADR-0088.
+Un `--data-dir` explicite (ou `MORPHEUS_DATA_DIR`) regroupe par défaut configuration, logs,
 sauvegardes et base sous ce répertoire, ce qui permet un mode portable. `CliLayout` est la seule résolution.
 
 ### Persistance
@@ -160,7 +158,7 @@ n'utilise pas de framework CLI externe.
 - [ADR-0088](GEN-0088-product-release-installation-and-persistent-data-separation.md) — emplacements par défaut.
 - [ADR-0109](ARCH-0109-transport-adapters-are-named-composition-roots.md) — racines de composition et runtime.
 - [ADR-0123](ARCH-0123-vues-compactes-et-json-canonique.md) — vues compactes et JSON canonique.
-- [ADR-0137](ARCH-0137-lectures-et-recherche-sur-le-snapshot-publie.md) — requête lexicale déterministe.
-- [ADR-0137](ARCH-0137-lectures-et-recherche-sur-le-snapshot-publie.md) — lectures métier sur le snapshot publié.
+- [ADR-0137](ARCH-0137-lectures-et-recherche-sur-le-snapshot-publie.md) — requête lexicale déterministe et lectures
+  métier sur le snapshot publié.
 - [ADR-0124](ARCH-0124-qualite-findings-et-faits-tri-etat.md) — qualité.
 - [VALIDATION_M9](../../project/validation/VALIDATION_M9.md).

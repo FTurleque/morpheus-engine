@@ -83,7 +83,6 @@ nouvel ADR qui remplace les précédents. Le cycle de vie complet est dans `.cla
 | [ADR-0065](ARCH-0065-jdk-httpserver-local-api.md) | JDK HttpServer pour l'API locale | **Acceptée** |
 | [ADR-0066](ARCH-0066-versioned-http-api-contract.md) | Contrat HTTP `/api/v1` et erreurs JSON stables | **Acceptée** |
 | [ADR-0075](ARCH-0075-morpheus-intent-vs-nexus-technical-context.md) | Séparer l'intention MORPHEUS du contexte technique NEXUS | **Acceptée** |
-| [ADR-0079](BE-0079-nondestructive-change-orchestration-state.md) | État d'orchestration agrégé non destructif | **Acceptée** |
 | [ADR-0081](DATA-0081-first-class-acceptance-verification-evidence.md) | AcceptanceCriterion et VerificationStatus first-class | **Acceptée** |
 | [ADR-0082](DATA-0082-explicit-constraint-semantics-and-blocking-policy.md) | Sémantique explicite des contraintes et politique de blocage | **Acceptée** |
 | [ADR-0083](BE-0083-controlled-lifecycle-write-operations.md) | Mutations lifecycle contrôlées, CAS, idempotency et audit | **Acceptée** |
@@ -104,7 +103,6 @@ nouvel ADR qui remplace les précédents. Le cycle de vie complet est dans `.cla
 | [ADR-0104](GEN-0104-two-coverage-scales-share-one-population.md) | Deux échelles de couverture, une population commune : elles ne diffèrent que par l'attribution | **Acceptée** |
 | [ADR-0105](SEC-0105-no-secret-vault-no-reusable-secret-at-rest.md) | Pas de coffre de secrets : MORPHEUS ne stocke aucun secret réutilisable, et le seul qu'il lit vient de l'environnement | **Acceptée** |
 | [ADR-0106](BE-0106-inbound-bound-is-defensive-outbound-bound-is-a-defect.md) | Une borne entrante est défensive, une borne sortante est un défaut interne | **Acceptée** |
-| [ADR-0108](BE-0108-a-response-says-what-it-could-not-observe.md) | Une réponse dit ce qu'elle n'a pas pu observer : traversée bornée, budget de policy, ratio indéfini | **Acceptée** |
 | [ADR-0109](ARCH-0109-transport-adapters-are-named-composition-roots.md) | Les adaptateurs de transport sont des racines de composition nommées, et leur liste ne fait que rétrécir | **Acceptée** |
 | [ADR-0110](DATA-0110-a-copy-is-kept-before-the-schema-advances.md) | Une copie de la base est conservée avant que son schéma n'avance, et sans elle la migration n'a pas lieu | **Acceptée** |
 | [ADR-0113](SEC-0113-the-remote-server-records-who-was-authorized-to-do-what.md) | Le serveur distant consigne qui a été autorisé à faire quoi | **Acceptée** |

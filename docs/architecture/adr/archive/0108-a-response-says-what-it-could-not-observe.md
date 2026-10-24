@@ -1,13 +1,8 @@
----
-id: BE-0108
-title: "Une réponse dit ce qu'elle n'a pas pu observer : traversée bornée, budget de policy, ratio indéfini"
-domain: backend
-rules: false
----
+# ADR-0108 — Une réponse dit ce qu'elle n'a pas pu observer : traversée bornée, budget de policy, ratio indéfini
 
-# Une réponse dit ce qu'elle n'a pas pu observer : traversée bornée, budget de policy, ratio indéfini
+> **Archivée.** Cette décision est répartie entre les ADR qui portent chacune de ses parties : le principe général, le ratio sur une population vide (§3), le flux vide (§5) et la frontière d'entrée (§4) dans [ADR-0124](../ARCH-0124-qualite-findings-et-faits-tri-etat.md) ; la traversée bornée (§1) dans [ADR-0040](../BE-0040-bounded-deterministic-traceability-traversal.md), et sa troncature dans l'analyse de changement dans [ADR-0138](../ARCH-0138-analyse-de-changement-derivee-et-bornee.md) ; le budget d'évaluation de policy (§2) dans [ADR-0093](../ARCH-0093-provider-neutral-policy-packs-governance-automation.md) ; la recherche MINOS bornée (§6) dans [ADR-0145](../BE-0145-ressource-de-pair-mcp-designee-explicitement.md) ; le budget de valeurs d'un prédicat et les saved views illisibles (§7) dans [ADR-0092](../ARCH-0092-provider-neutral-query-dsl-saved-views-reporting.md) ; la CLI (§8) dans [ADR-0130](../BE-0130-contrat-des-options-de-la-cli.md). Le format du bloc `task` du provider Markdown structuré est décrit pour l'utilisateur dans le [guide de démarrage](../../../user/QUICKSTART.md#3-préparer-un-workspace-compatible). Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
-- Statut : **Acceptée**
+- Statut : **Remplacée par ADR-0124**
 - Date : 2026-09-23
 
 ## Context
@@ -189,17 +184,17 @@ décision de policy portée par le code de sortie, refus d'état distincts d'un 
 - `morpheus-integration-minos/src/test/java/com/morpheus/integration/minos/MinosBoundedSearchResolutionTest.java` :
   recherche tronquée rendue indisponible, jamais supprimée.
 - `morpheus-application/src/test/java/com/morpheus/application/query/dsl/QueryPredicateValuesBudgetTest.java`,
-  `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/adapter/SqliteSavedViewUnreadableRowTest.java`,
+  `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/SqliteSavedViewUnreadableRowTest.java`,
   `morpheus-application/src/test/java/com/morpheus/application/query/dsl/QueryPublicViewsUnreadableTest.java` :
   symétrie écriture-lecture du budget de valeurs, liste et archivage d'une vue illisible.
 - Revue : les budgets de traversée et de policy, et la règle « un lien vers un nœud refusé n'est pas retenu ».
 
 ## References
 
-- [ADR-0040](BE-0040-bounded-deterministic-traceability-traversal.md) — traversée de traçabilité bornée et déterministe
-- [ADR-0138](ARCH-0138-analyse-de-changement-derivee-et-bornee.md) — chemins d'impact de dépendance explicites et bornés
-- [ADR-0093](ARCH-0093-provider-neutral-policy-packs-governance-automation.md) — policy packs, `UNKNOWN` jamais `BLOCKED`
-- [ADR-0119](BE-0119-cycle-de-vie-des-changements-et-transition-tri-etat.md) — transition tri-état
-- [ADR-0124](ARCH-0124-qualite-findings-et-faits-tri-etat.md) — qualité, findings et faits tri-état
-- [ADR-0130](BE-0130-contrat-des-options-de-la-cli.md) — contrat des options et des codes de sortie de la CLI
-- [ADR-0131](BE-0131-pagination-des-collections-et-journaux.md) — pagination des collections et des journaux
+- [ADR-0040](../BE-0040-bounded-deterministic-traceability-traversal.md) — traversée de traçabilité bornée et déterministe
+- [ADR-0138](../ARCH-0138-analyse-de-changement-derivee-et-bornee.md) — chemins d'impact de dépendance explicites et bornés
+- [ADR-0093](../ARCH-0093-provider-neutral-policy-packs-governance-automation.md) — policy packs, `UNKNOWN` jamais `BLOCKED`
+- [ADR-0119](../BE-0119-cycle-de-vie-des-changements-et-transition-tri-etat.md) — transition tri-état
+- [ADR-0124](../ARCH-0124-qualite-findings-et-faits-tri-etat.md) — qualité, findings et faits tri-état
+- [ADR-0130](../BE-0130-contrat-des-options-de-la-cli.md) — contrat des options et des codes de sortie de la CLI
+- [ADR-0131](../BE-0131-pagination-des-collections-et-journaux.md) — pagination des collections et des journaux

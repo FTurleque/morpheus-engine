@@ -30,7 +30,8 @@ Options écartées :
   qu'une classe reste sur le défaut.
 - **Une remise à zéro du runtime statique entre tests** : elle garde l'état partagé, ajoute un ordre d'exécution à
   respecter, et ne survit pas au parallélisme.
-- **Activer le parallélisme JUnit partout** : les états de JVM encore partagés (voir plus bas) le refusent.
+- **Activer le parallélisme JUnit partout** : les états de JVM encore partagés entre tests (décrits dans
+  [BUILD_AND_TEST](../../developer/BUILD_AND_TEST.md#parallélisme-junit)) le refusent.
 
 ## Decision
 
@@ -79,33 +80,12 @@ Options écartées :
    (ADR-0146) : personne ne le construit, donc personne ne peut rien lui remettre. C'est pourquoi le défaut statique
    ne disparaît pas quand la liste se vide de tout le reste.
 
-9. **Le parallélisme JUnit est activé pour `morpheus-store-sqlite` seul**, par un `junit-platform.properties`
-   versionné dans ses ressources de test : méthodes et classes concurrentes, pool fixe (`config.strategy=fixed`), pour
-   qu'une course ne dépende pas du nombre de cœurs de la machine. Dans ce module :
-   - `NoSqliteScopeLeftBehindExtension`, enregistrée par `META-INF/services` et
-     `junit.jupiter.extensions.autodetection.enabled`, lit après chaque test la portée encore attachée au thread
-     (`SqliteConnectionScope.attachedToThisThread()`, visible du paquet seulement), la ferme, et fait échouer le test
-     fautif par son nom : une portée laissée ouverte ferait sinon échouer, par le refus
-     `SQLITE_CONNECTION_SCOPE_NESTED`, le test suivant du même thread du pool ;
-   - une portée se ferme dans un `finally`, jamais seulement après des assertions ;
-   - un test qui sature SQLite exprès (`SqliteLocalSecurityContractTest`) ou qui compte une ressource de toute la JVM
-     (`SqliteDatabaseLeaseTest`) est `@Isolated` : il ne rivalise pas avec d'autres tests.
-
-10. **Les autres modules restent séquentiels** tant qu'ils partagent un état de la JVM entre tests (tableau
-    ci-dessous). Les activer est un changement à part, précédé d'exécutions parallèles propres répétées par module.
-
-État de la JVM encore partagé entre tests, hors `morpheus-store-sqlite` :
-
-| État partagé | Qui l'écrit ou le lit | Effet attendu en parallèle |
-|---|---|---|
-| Propriété système `java.home` | posée puis rétablie par `MinosPeerLauncherResolutionTest` et `NexusPeerLauncherResolutionTest` | tout test qui résout un lanceur Java pendant la fenêtre lit un répertoire temporaire |
-| `Locale.setDefault` | `PolicyApiEnumVocabularyLocaleTest`, `McpEnumVocabularyLocaleTest` | tout formatage sensible à la locale dans un autre test |
-| Fichier hors répertoire temporaire | `MorpheusRemoteLoadProfileTest` écrit `target/remote-load-profile.txt`, que la lane nocturne publie | aucun tant qu'il reste le seul écrivain |
-| Champs statiques d'une classe de test | `MorpheusRemoteAdversarialClientTest` (serveur, client et répertoire partagés entre ses méthodes, posés en `@BeforeAll`) | ses méthodes ne peuvent pas s'exécuter en concurrence |
-
-Aucun test n'écoute sur un port fixe. Les baux (`SqliteDatabaseLease`) et la quarantaine de l'exécuteur de
-transactions sont statiques mais indexés par base ou par connexion : deux tests sur deux bases temporaires n'y
-partagent rien.
+9. **Le parallélisme JUnit n'est activé que dans un module dont aucun test ne partage un état de la JVM** :
+   `morpheus-store-sqlite` seul, par un `junit-platform.properties` versionné dans ses ressources de test. Les autres
+   modules restent séquentiels tant qu'ils partagent un état de la JVM entre tests ; en activer un est un changement à
+   part, précédé d'exécutions parallèles propres répétées par module. La configuration de `morpheus-store-sqlite`,
+   ses garde-fous et l'état de la JVM encore partagé dans les autres modules sont décrits dans
+   [BUILD_AND_TEST](../../developer/BUILD_AND_TEST.md#parallélisme-junit).
 
 ## Do's and Don'ts
 
@@ -179,6 +159,8 @@ partagent rien.
 
 - [ADR-0109](ARCH-0109-transport-adapters-are-named-composition-roots.md) — racines de composition nommées, une
   portée de connexion par opération.
-- [ADR-0146](BE-0146-journal-operationnel-slf4j-et-fichier-borne.md) — un seul binding de journalisation.
-- [ADR-0146](BE-0146-journal-operationnel-slf4j-et-fichier-borne.md) — journal opérationnel borné.
+- [ADR-0146](BE-0146-journal-operationnel-slf4j-et-fichier-borne.md) — un seul binding de journalisation, journal
+  opérationnel borné.
+- [BUILD_AND_TEST](../../developer/BUILD_AND_TEST.md#parallélisme-junit) — parallélisme JUnit et état de la JVM partagé
+  entre tests.
 - [ADR-0129](SEC-0129-plugins-provider-code-de-confiance-hors-processus.md) — plugins providers hors processus.

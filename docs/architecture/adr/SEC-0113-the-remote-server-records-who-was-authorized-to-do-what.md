@@ -135,7 +135,7 @@ Options écartées :
 ## References
 
 - [ADR-0105](SEC-0105-no-secret-vault-no-reusable-secret-at-rest.md) — aucun secret réutilisable persisté.
-- [ADR-0108](BE-0108-a-response-says-what-it-could-not-observe.md) — une réponse dit ce qu'elle n'a pas pu observer.
+- [ADR-0124](ARCH-0124-qualite-findings-et-faits-tri-etat.md) — une réponse dit ce qu'elle n'a pas pu observer.
 - [ADR-0146](BE-0146-journal-operationnel-slf4j-et-fichier-borne.md) — journal opérationnel borné en fichier.
 - [Guide du serveur d'équipe](../../user/TEAM_REMOTE_SERVER.md)
 - `SECURITY.md`

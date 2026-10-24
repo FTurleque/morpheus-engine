@@ -148,6 +148,17 @@ La sémantique des contraintes bloquantes relève d'ADR-0082 ; les faits de comp
 persiste rien. Une écriture de transition passe par le chemin contrôlé d'ADR-0083 : une décision `ALLOWED` ne vaut
 jamais mutation, et une mutation n'est tenue pour réussie que confirmée par la source ou une preuve adaptée.
 
+### État d'orchestration d'un changement
+
+`ChangeOrchestrationStateService` (paquet `com.morpheus.application.orchestration`) agrège en lecture seule l'état
+d'orchestration d'un changement, `ChangeOrchestrationState`, depuis le seul snapshot `ACTIVE` de son projet. Cette vue
+est une observation : elle n'est jamais persistée comme état métier (le constructeur de `ChangeOrchestrationState`
+refuse `persisted=true`), et la construire ne mute pas le snapshot ni ne déclenche de résolution live. Un artefact n'y
+est déclaré manquant que si le fait correspondant vaut `FALSE` ; un fait `UNAVAILABLE` y figure comme indisponible,
+jamais comme manquant. Ses transitions sont celles de l'évaluation tri-état ci-dessus, depuis l'état fourni par
+l'appelant. Les champs de la vue et leur comportement sont spécifiés par
+[`change-orchestration-state`](../../../openspec/specs/change-orchestration-state/spec.md).
+
 ## Do's and Don'ts
 
 ### Do
@@ -160,6 +171,8 @@ jamais mutation, et une mutation n'est tenue pour réussie que confirmée par la
 - Rendre `UNKNOWN` dès qu'un fait requis ou la sémantique d'une contrainte est indisponible.
 - Rendre `REQUIRES_INPUT` quand l'abandon demandé n'a pas de raison.
 - Marquer la provenance de l'état observé (`CALLER_SUPPLIED` ou `UNAVAILABLE`).
+- Construire l'état d'orchestration depuis le seul snapshot `ACTIVE`, et n'y déclarer manquant qu'un artefact dont le
+  fait vaut `FALSE`.
 
 ### Don't
 
@@ -171,6 +184,7 @@ jamais mutation, et une mutation n'est tenue pour réussie que confirmée par la
 - Ne pas autoriser un retour arrière sans politique explicite.
 - Ne pas inventer une raison d'abandon.
 - Ne pas persister quoi que ce soit lors d'une évaluation de transition.
+- Ne pas persister l'état d'orchestration, ni muter le snapshot ou déclencher une résolution live en le construisant.
 
 ## Consequences
 
@@ -207,7 +221,10 @@ jamais mutation, et une mutation n'est tenue pour réussie que confirmée par la
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/ChangeLifecycleQualityContractTest.java` : faits
   tri-état identiques sur les deux stores, transition non évaluée quand un fait requis manque, aucune inférence depuis
   une tâche terminée.
-- Constructeurs compacts de `ChangeLifecycle` et `ChangeLifecycleObservation` : rejets à la construction.
+- `morpheus-api/src/test/java/com/morpheus/api/MorpheusJarvisOrchestrationApiContractTest.java` : contrat HTTP de
+  l'état d'orchestration.
+- Constructeurs compacts de `ChangeLifecycle` et `ChangeLifecycleObservation` : rejets à la construction ; constructeur
+  compact de `ChangeOrchestrationState` : refus de `persisted=true`.
 - Revue : aucun provider n'expose son statut brut comme état public ; l'évaluation ne persiste rien.
 
 ## References
@@ -224,6 +241,9 @@ jamais mutation, et une mutation n'est tenue pour réussie que confirmée par la
 - [ADR-0143](DATA-0143-snapshots-versionnes-et-concurrence-bornee.md) — snapshots versionnés.
 - [ADR-0121](ARCH-0121-modele-normalise-neutre-vis-a-vis-des-providers.md) — modèle normalisé.
 - [ADR-0124](ARCH-0124-qualite-findings-et-faits-tri-etat.md) — faits de qualité tri-état.
+- [ADR-0142](DATA-0142-references-externes.md) — références externes du snapshot.
+- [`change-orchestration-state`](../../../openspec/specs/change-orchestration-state/spec.md) — champs et comportement
+  de l'état d'orchestration.
 - [VALIDATION_M0](../../project/validation/VALIDATION_M0.md) — preuve du jalon M0.
 - [VALIDATION_M3](../../project/validation/VALIDATION_M3.md) — preuve du jalon M3.
 - [VALIDATION_M14](../../project/validation/VALIDATION_M14.md) — preuve du jalon M14.

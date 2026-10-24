@@ -50,13 +50,16 @@ result.symbolKey.equals(target.externalId)
 Puis :
 
 ```text
-0 exact  -> NOT_FOUND, ou UNAVAILABLE si la recherche bornée a pu être tronquée (ADR-0108)
+0 exact  -> NOT_FOUND, ou UNAVAILABLE si la recherche bornée a pu être tronquée
 1 exact  -> FOUND
 >1 exact -> AMBIGUOUS
 ```
 
 Une recherche qui a rendu une page pleine ne prouve rien sur ce qui se trouve au-delà : l'absence de correspondance
-exacte n'y vaut `NOT_FOUND` que si la recherche était exhaustive.
+exacte n'y vaut `NOT_FOUND` que si la recherche était exhaustive. `MinosCodeGateway.findSymbols` rend un
+`SymbolSearch(symbols, possiblyTruncated)` : MINOS ne fournissant ni total, ni drapeau, ni curseur, une page qui
+atteint la limite demandée est déclarée possiblement tronquée. Une troncature n'est jamais présentée comme un symbole
+supprimé.
 
 Aucun nom simple, `qualifiedName`, fichier, module ou score lexical ne constitue seul une identité suffisante.
 
@@ -119,6 +122,7 @@ NEXUS. Le registre et l'index NEXUS restent administrés par NEXUS ou par un orc
 
 - Ne pas promouvoir un résultat sur un nom simple, un `qualifiedName`, un fichier, un module ou un score lexical.
 - Ne pas faire de correspondance floue.
+- Ne pas lire une recherche possiblement tronquée comme une cible supprimée.
 - Ne pas réécrire la cible persistée avec l'identité ou la révision canonique de MINOS.
 - Ne jamais déduire le projet NEXUS d'un chemin, d'un nom de projet MORPHEUS ou d'une heuristique.
 - N'appeler aucun outil NEXUS de mutation ou d'indexation (`project add`, `index`, `rebuild`, `remove`).
@@ -139,13 +143,14 @@ NEXUS. Le registre et l'index NEXUS restent administrés par NEXUS ou par un orc
 
 - Un renommage de symbole côté MINOS rend la référence `NOT_FOUND` : il n'y a pas de rattrapage approximatif.
 - Une recherche tronquée rend `UNAVAILABLE` même quand le symbole n'existe réellement pas.
+- Une page qui contient exactement autant de symboles que la limite est déclarée possiblement tronquée.
 - L'appelant doit connaître et fournir l'identifiant du projet NEXUS à chaque appel.
 
 ### Risques
 
 - La stabilité du `symbolKey` dépend de MINOS ; un changement de son format casserait toutes les références persistées.
 - Une correspondance exacte unique trouvée dans une page tronquée reste `FOUND` : un second exact au-delà de la page
-  ne serait pas vu (ADR-0108).
+  ne serait pas vu.
 
 ## Compliance and Enforcement
 
@@ -175,6 +180,6 @@ NEXUS. Le registre et l'index NEXUS restent administrés par NEXUS ou par un orc
 - [ADR-0142](DATA-0142-references-externes.md) — références externes du snapshot.
 - [ADR-0075](ARCH-0075-morpheus-intent-vs-nexus-technical-context.md) — intention MORPHEUS et contexte technique
   NEXUS.
-- [ADR-0108](BE-0108-a-response-says-what-it-could-not-observe.md) — une recherche bornée rend une indisponibilité.
+- [ADR-0124](ARCH-0124-qualite-findings-et-faits-tri-etat.md) — ce qui n'est pas observé est dit.
 - [ADR-0128](ARCH-0128-pairs-minos-et-nexus-par-mcp-stdio.md) — pairs MINOS et NEXUS par MCP STDIO, outils requis.
 - [VALIDATION_M12](../../project/validation/VALIDATION_M12.md), [VALIDATION_M13](../../project/validation/VALIDATION_M13.md).

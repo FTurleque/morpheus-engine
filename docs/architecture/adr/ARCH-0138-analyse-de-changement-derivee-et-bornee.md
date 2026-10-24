@@ -191,7 +191,7 @@ maxDepth = 2 -> jusqu'à deux relations DEPENDS_ON
 ```
 
 Il n'existe ni profondeur implicite, ni profondeur illimitée. La traversée porte en outre les budgets de nœuds et de
-liens de `TraceabilityTraversalService` (ADR-0108) : quand elle s'arrête avant d'avoir tout observé dans la profondeur
+liens de `TraceabilityTraversalService` (ADR-0040) : quand elle s'arrête avant d'avoir tout observé dans la profondeur
 demandée, l'analyse émet `TRACEABILITY_TRAVERSAL_TRUNCATED` avec la raison de troncature, au lieu de présenter la
 liste des impacts comme complète.
 
@@ -311,7 +311,7 @@ MINOS    -> structure, symboles, références et impact de code
 - [ADR-0040](BE-0040-bounded-deterministic-traceability-traversal.md) — traversée bornée et déterministe.
 - [ADR-0141](DATA-0141-contenu-metier-par-snapshot.md) — projection du contenu métier d'un snapshot.
 - [ADR-0081](DATA-0081-first-class-acceptance-verification-evidence.md) — critères d'acceptation de première classe.
-- [ADR-0108](BE-0108-a-response-says-what-it-could-not-observe.md) — budgets de traversée et raison de troncature.
+- [ADR-0040](BE-0040-bounded-deterministic-traceability-traversal.md) — budgets de traversée et raison de troncature.
 - [ADR-0118](ARCH-0118-tracabilite-typee-et-taxonomie-controlee.md) — taxonomie de traçabilité contrôlée.
 - [ADR-0121](ARCH-0121-modele-normalise-neutre-vis-a-vis-des-providers.md) — modèle normalisé et deltas.
 - [ADR-0123](ARCH-0123-vues-compactes-et-json-canonique.md) — vue compacte de l'analyse et JSON canonique.

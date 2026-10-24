@@ -22,7 +22,6 @@ dépendance réseau cachée.
 
 Options rejetées :
 
-- **Un workflow par jalon** : produit de la dette temporaire et rend la CI non durable.
 - **Déduire le contrat public de la documentation** : le texte humain n'est pas un contrat machine fiable.
 - **Forcer exactement les mêmes commandes, routes et outils** : la parité porte sur l'intention et la sémantique, pas
   sur la forme du transport.
@@ -41,9 +40,7 @@ Options rejetées :
 
 ### 1. CI durable et non liée aux jalons
 
-Le dépôt porte un workflow générique `.github/workflows/ci.yml` qui exécute le reactor Maven complet sur Windows et
-Linux avec JDK 21. Les validateurs locaux restent supportés ; le workflow est une preuve reproductible supplémentaire,
-pas un remplacement des invariants produit.
+La CI requise, son workflow générique et son rapport aux validateurs locaux relèvent d'ADR-0133.
 
 ### 2. Couverture mesurée et bornée
 
@@ -53,26 +50,12 @@ constitue pas une affirmation de couverture suffisante par domaine.
 
 ### 3. Présence des tests : deux mesures
 
-Le ratchet de présence compte des exécutions telles que Surefire les rapporte, en deux comptes de somme égale au total
-Surefire :
-
-- une exécution **déclarée** est l'unique exécution d'une méthode de test : Surefire la nomme par son nom nu ;
-- une exécution **générée** vient d'une fabrique (`@TestFactory`) ou de toute source qui produit plusieurs exécutions
-  par méthode (`@ParameterizedTest`, `@RepeatedTest`, `@TestTemplate`) : Surefire la nomme `méthode()[N]`. Un test
-  paramétré introduit plus tard est compté comme généré sans toucher aux validateurs.
-
-`config/m21-quality-ratchets.properties` porte une clé par compte : `testsMinimum` borne les exécutions déclarées,
-`generatedTestsMinimum` les exécutions générées. `validate-m21.*` et `validate-d2.*` comparent chaque compte à sa propre
-clé, nomment la clé dans le refus, n'en comparent aucun à l'autre clé ni à leur somme, et écrivent les deux comptes
-dans `validation-summary.txt`. `validate-m22.*` à `validate-m27.*` comparent le compte des exécutions déclarées à
-`testsMinimum`. `architectureTestsMinimum` borne les exécutions déclarées du module d'architecture.
-
-`testsMinimum` ne fait que monter. `generatedTestsMinimum` suit la matrice d'options : le lot qui retire une option ou
-une commande l'abaisse et le dit ; sinon il ne fait que monter. Le build garantit qu'une réduction est refusée sous son
-propre nom ; distinguer une réduction justifiée d'une réduction injustifiée relève de la gouvernance.
-
-Une fabrique qui ne génère rien échoue : chaque `@TestFactory` passe son flux par `GeneratedCases.nonEmpty`, et aucune
-source génératrice n'admet `allowZeroInvocations = true`.
+Le ratchet de présence compte des exécutions telles que Surefire les rapporte, en deux comptes — exécutions déclarées
+et exécutions générées — bornés chacun par sa propre clé de `config/m21-quality-ratchets.properties`. La convention de
+comptage, la comparaison faite par chaque validateur et la gouvernance des deux clés sont celles de
+`.claude/rules/testing.md` (« Deux mesures de présence : déclarées et générées »). `validate-m21.*` et `validate-d2.*`
+écrivent les deux comptes dans `validation-summary.txt`, et aucune source génératrice n'admet
+`allowZeroInvocations = true`.
 
 ### 4. Métadonnées produit convergentes
 
@@ -159,7 +142,6 @@ local-first remains default
 
 ### Do
 
-- Exécuter le reactor complet dans `ci.yml`, sur Windows et Linux, avec JDK 21.
 - Lire tout seuil de couverture ou de présence dans `config/m21-quality-ratchets.properties`.
 - Comparer le compte déclaré à `testsMinimum` et le compte généré à `generatedTestsMinimum`, chacun nommé dans son
   refus.
@@ -175,7 +157,6 @@ local-first remains default
 
 ### Don't
 
-- Ne pas créer de workflow propre à un jalon.
 - Ne pas recopier un seuil de couverture ou un minimum de tests hors de sa source.
 - Ne pas comparer un compte de présence à l'autre clé ni à leur somme.
 - Ne pas coder une version produit dans un adaptateur.
@@ -194,7 +175,6 @@ local-first remains default
 - Un seul contrat machine identifie les capacités publiques, comparé à ce que chaque transport sert.
 - La version ne peut pas diverger silencieusement entre CLI, MCP et HTTP.
 - La qualité et la couverture sont mesurables.
-- Le workflow n'a pas à être recréé à chaque jalon.
 - Les releases disposent d'un SBOM et d'une provenance vérifiable.
 - La découverte de mise à jour ne crée aucune mutation implicite.
 - Retirer une option de la CLI se lit sous la clé des exécutions générées, pas comme une suppression de tests.
@@ -247,6 +227,7 @@ local-first remains default
 ## References
 
 - [ADR-0104](GEN-0104-two-coverage-scales-share-one-population.md) — deux échelles de couverture, une population.
+- [ADR-0133](GEN-0133-toolchain-java-21-et-maven-wrapper.md) — toolchain de build et CI requise.
 - [ADR-0130](BE-0130-contrat-des-options-de-la-cli.md) — contrat des options de la CLI.
 - [ADR-0088](GEN-0088-product-release-installation-and-persistent-data-separation.md) — release, installation et
   données persistantes.

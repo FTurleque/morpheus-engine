@@ -57,7 +57,7 @@ Options écartées :
    toute projection reste un échec (ADR-0137).
 5. **Trace compacte.** Le graphe expose des nœuds (type, identité) et des liens (identifiant, source, relation,
    cible, origine, résolution, identifiants d'evidence triés), sans nouvelle traversée ni arête ajoutée ; la troncature
-   du sous-graphe est rendue par `truncated` et `truncationReason` (ADR-0108). Une référence externe compacte garde
+   du sous-graphe est rendue par `truncated` et `truncationReason` (ADR-0040). Une référence externe compacte garde
    l'identité portée par le lien, même quand la `ExternalReference` n'existe pas (`BROKEN_REFERENCE`). Dans l'analyse
    de changement, chaque étape de chemin (`PathStepView`) porte le sens de traversée (`from`, `into`) et le lien tel
    que persisté, indispensable pour une traversée entrante.
@@ -163,7 +163,7 @@ Options écartées :
 - [ADR-0138](ARCH-0138-analyse-de-changement-derivee-et-bornee.md)
 - [ADR-0062](ARCH-0062-official-java-mcp-sdk-and-native-stdio.md)
 - [ADR-0075](ARCH-0075-morpheus-intent-vs-nexus-technical-context.md)
-- [ADR-0108](BE-0108-a-response-says-what-it-could-not-observe.md)
+- [ADR-0040](BE-0040-bounded-deterministic-traceability-traversal.md)
 - [ADR-0137](ARCH-0137-lectures-et-recherche-sur-le-snapshot-publie.md)
 - [ADR-0124](ARCH-0124-qualite-findings-et-faits-tri-etat.md)
 - Preuves de jalon : [VALIDATION_M5](../../project/validation/VALIDATION_M5.md),

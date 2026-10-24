@@ -95,10 +95,10 @@ le commentaire de la constante, et qualifiée sur **la plus basse** des mesures,
 plateformes exécutent le même nombre de tests, mais certains no-opent hors de leur OS, donc Linux couvre légèrement
 moins de lignes à nombre de tests identique.
 
-La preuve de la qualification en vigueur est gardée avec le code, dans `config/coverage-qualification/` : un résumé
-par run et par échelle (`per-module/`, `aggregate/`), copié tel que le gate l'a écrit, et `evidence.tsv`, qui nomme
-pour chacun l'échelle, la plateforme, le run et le commit (les résumés ne portent pas leur commit). Un plafond est
-**égal au plus bas ratio de son échelle** dans ces fichiers, à la précision des résumés. Une qualification est complète
+La preuve de la qualification en vigueur est gardée avec le code, dans `config/coverage-qualification/`, sous la
+disposition et selon la procédure de dépôt que décrit la skill `coverage-ratchet`
+(`.claude/skills/coverage-ratchet/SKILL.md`). Un plafond est **égal au plus bas ratio de son échelle** dans ces
+fichiers, à la précision des résumés. Une qualification est complète
 ou refusée : les deux plateformes, au moins deux runs chacune, un seul commit, une seule population (et, sur l'échelle
 agrégée, la liste des modules que le résumé nomme). Un résumé d'une autre échelle, un ratio qui contredit ses propres
 compteurs, un fichier absent du manifeste ou un fichier du manifeste absent sont refusés. Seule la qualification en

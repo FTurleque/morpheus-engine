@@ -37,8 +37,6 @@ Options écartées :
   se justifie que là où la copie ne peut pas disparaître ; ici elle le peut.
 - **Un `default -> false` ou un `Set` d'états de succès** : un état futur y serait classé sans que personne ne l'ait
   décidé, la conversion silencieuse qu'interdit ADR-0093.
-- **Un export qui honore `offset` et `limit`** : il changerait `QueryExport` sur les trois surfaces, dont les rendus CSV
-  et Markdown, et contredirait le contrat publié d'un export, la vue bornée **complète**.
 - **Ignorer un paramètre déclaré en corrigeant seulement la description** : un client qui borne obtiendrait tout.
 - **Convertir le type de l'échec d'ouverture du store** : aucun défaut observable ne le justifie, puisque le chemin
   d'ouverture MCP le convertit déjà (décision 7).
@@ -105,7 +103,7 @@ du résultat :
 
 - succès : `APPLIED` et `ALREADY_APPLIED` ; tout le reste est une erreur ;
 - le corps ne change pas : l'état, la raison, `lifecycleState` et `audit` restent présents. Le drapeau ajoute un fait,
-  il n'en retire aucun (ADR-0108) ;
+  il n'en retire aucun ;
 - la partition s'écrit à un seul endroit, `ChangeLifecycleMutationResultState.successful()`, un `switch` qui nomme
   chaque constante **sans `default`** : un nouvel état ne compile pas tant que personne n'a décidé de son côté. Le CLI
   (code de sortie), MCP (`isError`) et l'invariant de `ChangeLifecycleMutationResult` (seul un succès porte un
@@ -119,32 +117,13 @@ Un verdict n'est pas un refus : `evaluate_change_transition` rend le verdict d'u
 `BLOCKED`…), `evaluate_policies` et `dry_run_policy_pack` rendent une décision (`BLOCK` et `UNKNOWN` comprises), et le
 statut `FAILED` d'un adaptateur de raisonnement est une exécution partielle déclarée ; tous rendent `isError(false)`.
 Un statut d'intégration, un `resolutionState` ou un conflit de composition sont des observations déclarées dans la
-réponse (ADR-0108), pas le refus d'une opération.
+réponse (ADR-0124), pas le refus d'une opération.
 
 ### 6. Un schéma d'entrée ne déclare que ce que le handler honore
 
-Un paramètre publié est honoré ou refusé, jamais accepté puis ignoré. Application à l'export : **un export est complet
-par contrat, sur les trois surfaces, et un paramètre de page y est refusé**, là où chaque surface refuse déjà :
-
-- **MCP** : le schéma d'`export_query` ne déclare que le périmètre, `entity`, `filter`, `sort`, `fields` et `format` ;
-  `offset` et `limit` sont refusés par le validateur du SDK. La description de l'outil dit que l'export est toujours
-  complet, borné par `QueryBudgets.MAX_EXPORT_ROWS`, et ne prend ni `offset` ni `limit` ; celle d'`export_saved_view`
-  dit qu'il ignore la page stockée avec la vue.
-- **CLI** : `export query` n'accepte ni `--offset` ni `--limit`, et le refus dit pourquoi
-  (`--limit is not accepted by export: an export is always complete…`) ; l'aide le dit aussi.
-- **HTTP** : `ExportRequest.query` est un `ExportQueryRequest` (`entity`, `filter`, `sort`, `fields`), fermé par
-  `additionalProperties: false` dans `docs/developer/reference/openapi/morpheus-v1-query-m24.yaml` ; `limit` et `offset`
-  y sont refusés en `400` par le décodeur strict.
-- **Saved view** : `export view` et `POST /api/v1/saved-views/{id}/export` ignorent la page stockée avec la vue, et le
-  disent.
-
-Conséquence assumée : un export valide plus grand que le cadre STDIO MCP
-(`BoundedStdioServerTransportProvider.DEFAULT_MAX_FRAME_BYTES`, inférieur à `QueryBudgets.MAX_EXPORT_BYTES`) n'est pas
-rendu par `export_query` ni par `export_saved_view` : le transport le refuse par `MCP_RESPONSE_TOO_LARGE`, avec le
-conseil `MorpheusMcpServer.OVERSIZED_RESPONSE_GUIDANCE`, qui ne peut pas être suivi sur un export. Les recours sont
-`execute_query` paginé (mêmes lignes, sans l'enveloppe d'export ni ses rendus CSV et Markdown), le CLI
-(`export query`, `export view`) et HTTP (`POST /api/v1/exports`, `POST /api/v1/saved-views/{id}/export`).
-`export_saved_view` n'a pas de recours MCP paginé. La description d'`export_query` le dit à l'agent.
+Un paramètre publié est honoré ou refusé, jamais accepté puis ignoré. L'export en est l'application : son contrat
+— complet sur les trois surfaces, paramètre de page refusé, limite du cadre STDIO MCP et ses recours — est décidé par
+ADR-0092.
 
 ### 7. L'échec d'ouverture du store est un refus
 
@@ -167,7 +146,6 @@ composition reste explicite, et un résultat en erreur reste un refus, jamais un
 - Décider `isError` d'une mutation de cycle de vie par `ChangeLifecycleMutationResultState.successful()`, en gardant le
   corps inchangé.
 - Garder `.validateToolInputs(true)` dans `MorpheusMcpServer`.
-- Refuser, sur les trois surfaces, un paramètre de page passé à un export.
 - Rendre par le code stable `PROVIDER_PLUGIN_DISCOVERY_FAILED` tout échec de `MorpheusProviderPluginMcpTools`.
 
 ### Don't
@@ -192,19 +170,17 @@ composition reste explicite, et un résultat en erreur reste un refus, jamais un
 ### Négatives
 
 - Le message d'un argument inconnu échappe au format canonique : il est celui du SDK, localisé.
-- Un export plus grand que le cadre MCP n'est atteignable qu'en lignes paginées (`execute_query`) ou hors MCP.
 
 ### Risques
 
 - Les garde-fous statiques ne savent pas si un **corps** porte un refus : un handler qui répond `isError(false)` autour
   d'un état `BLOCKED` les satisfait. Cette propriété se teste outil par outil, là où l'état existe.
-- La garde « un paramètre déclaré est honoré ou refusé » est tenue par des tests de bout en bout écrits pour l'export ;
-  elle ne couvre pas mécaniquement le prochain outil.
-- Non tranché : `POST /api/v1/projects/{projectId}/changes/{changeId}/lifecycle-transitions` répond `200` avec l'état de
-  refus dans le corps, `NOT_AUTHORIZED` compris ; et `evaluate_policies` / `dry_run_policy_pack` rendent
-  `isError(false)` pour `BLOCK` et `UNKNOWN`, là où `policy evaluate` et `policy dry-run` rendent un code de sortie
-  d'échec. Le sens de `isError` pour un verdict reste une question ouverte.
-- Les recours CLI et HTTP pour un export plus grand que le cadre MCP sont établis par lecture du code, pas mesurés.
+- La garde « un paramètre déclaré est honoré ou refusé » est tenue par des tests de bout en bout écrits pour l'export
+  (ADR-0092) ; elle ne couvre pas mécaniquement le prochain outil.
+- Le sens de `isError` pour un verdict n'est pas fixé : `POST /api/v1/projects/{projectId}/changes/{changeId}/lifecycle-transitions`
+  répond `200` avec l'état de refus dans le corps, `NOT_AUTHORIZED` compris ; et `evaluate_policies` /
+  `dry_run_policy_pack` rendent `isError(false)` pour `BLOCK` et `UNKNOWN`, là où `policy evaluate` et
+  `policy dry-run` rendent un code de sortie d'échec.
 
 ## Compliance and Enforcement
 
@@ -223,20 +199,16 @@ composition reste explicite, et un résultat en erreur reste un refus, jamais un
   `onlyAppliedAndAlreadyAppliedAreSuccessful`.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m21/AuditRemediationContractTest.java` :
   `providerPluginMcpFallbackNeverRelaysArbitraryExceptionMessages`.
-- Export complet : `morpheus-mcp/src/test/java/com/morpheus/mcp/MorpheusQueryMcpToolsTest.java`
-  (`anExportPastTheFrameIsRefusedByTheTransportAndItsRowsAreReadThroughPagedQueries`),
-  `morpheus-cli/src/test/java/com/morpheus/cli/MorpheusQueryCliTest.java`,
-  `morpheus-api/src/test/java/com/morpheus/api/MorpheusQueryApiContractTest.java`,
-  `morpheus-application/src/test/java/com/morpheus/application/query/export/QueryExportMaterializationTest.java`
-  (`anExportIgnoresThePageOfItsDefinitionAndIsComplete`).
+- Paramètre déclaré honoré ou refusé : les tests de bout en bout de l'export complet, listés par ADR-0092.
 - `morpheus-mcp/src/test/java/com/morpheus/mcp/McpStoreFailureInjectionTest.java` : chaque outil servi, contre une base
   illisible puis réservée, répond par un refus du store ; `theInjectedClassesAreExactlyTheServedOnes`.
 
 ## References
 
 - [ADR-0062](ARCH-0062-official-java-mcp-sdk-and-native-stdio.md) — SDK MCP officiel et STDIO natif.
+- [ADR-0092](ARCH-0092-provider-neutral-query-dsl-saved-views-reporting.md) — contrat de l'export.
 - [ADR-0093](ARCH-0093-provider-neutral-policy-packs-governance-automation.md) — `UNKNOWN` n'est jamais `BLOCKED`.
-- [ADR-0108](BE-0108-a-response-says-what-it-could-not-observe.md) — une réponse dit ce qu'elle n'a pas pu observer.
+- [ADR-0124](ARCH-0124-qualite-findings-et-faits-tri-etat.md) — ce qui n'est pas observé est dit.
 - [ADR-0129](SEC-0129-plugins-provider-code-de-confiance-hors-processus.md) — frontière du code externe.
 - [ADR-0131](BE-0131-pagination-des-collections-et-journaux.md) — pagination des collections.
 - `contracts/public-surfaces.tsv`

@@ -33,7 +33,7 @@ question, below); splitting `MorpheusMcpToolService` by capability - that is AUD
    for test support, and a parity test over nineteen methods is the gate without the fix.
 
 2. **What is shared is the shape, not the envelope.** A projection answers one domain value. Lists, pages, absence
-   notes (ADR-0131, ADR-0108) and transport wrappers stay where they are. The convergence test compares shapes after
+   notes (ADR-0131, ADR-0124) and transport wrappers stay where they are. The convergence test compares shapes after
    removing each transport's envelope, and names the envelope it removed.
 
 3. **The convergence test is behavioural and runs through the real surfaces.** For one published fixture
