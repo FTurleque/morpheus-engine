@@ -101,12 +101,17 @@ same tree as `0b90cdcf`).
 
 ## 3. The entry rule, before any visibility is widened
 
-- [ ] 3.1 The ArchUnit rule (*no class outside the adapter depends on a type of the adapter other than the six entry
+- [x] 3.1 The ArchUnit rule (*no class outside the adapter depends on a type of the adapter other than the six entry
       types* - a dependency, so a rule) and the scan beside it (*no source outside the adapter names such a type* - a
       mention, and the only form that sees an inlined constant). Both, per `.claude/rules/architecture.md` (in doubt, keep both).
-- [ ] 3.2 Break each once and revert: a dependency from `morpheus-cli` on a planted public class of a sub-package
+- [x] 3.2 Break each once and revert: a dependency from `morpheus-cli` on a planted public class of a sub-package
       fails the rule; a read of a planted public constant of a non-entry type passes the rule and fails the scan. Proof: the two named
       failures, recorded in the ADR.
+
+      Done 2026-10-24: `ApiEntryTypesArchitectureTest`, the closed list `ENTRY_TYPES` and a guard that each entry
+      type is still reached and named. Broken once with a public `com.morpheus.api.planted.PlantedPublic`: the rule
+      refused `com.morpheus.cli.PlantedUse` ("calls method <com.morpheus.api.planted.PlantedPublic.use()>") and did
+      not see `PlantedConstantRead`, which read only `PlantedPublic.CONSTANT`; the scan named both files. Reverted.
 
 ## 4. Move the transport roles, one role per pull request
 
