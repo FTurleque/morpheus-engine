@@ -41,7 +41,7 @@
 - [x] 5.1 `./mvnw clean verify` and `./mvnw dependency:analyze` green; counts and coverage of 1.1 not lower, per
       scale. Proof: the figures before and after.
 - [x] 5.2 Changed-line coverage gate, as `ci.yml` runs it.
-- [ ] 5.3 The validators of jalon touched by 3.2, on Windows and on Linux, with the current version.
+- [x] 5.3 The validators of jalon touched by 3.2, on Windows and on Linux, with the current version.
 - [x] 5.4 `contracts/public-surfaces.tsv` and `docs/developer/reference/openapi/*.yaml` byte-identical to the base.
-- [ ] 5.5 Pull request description: the measure, the tables of `design.md`, the breakages, the justification of
+- [x] 5.5 Pull request description: the measure, the tables of `design.md`, the breakages, the justification of
       every change under `morpheus-architecture-tests/`.
