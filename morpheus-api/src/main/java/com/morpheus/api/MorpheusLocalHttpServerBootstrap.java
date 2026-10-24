@@ -205,9 +205,9 @@ final class MorpheusLocalHttpServerBootstrap {
                     new MorpheusOperabilityApiService(databasePath, runtime),
                     allowedWorkspaceRoots.isPresent());
             httpServer.setExecutor(executor);
-            databaseWork.createContext(MorpheusHttpServer.API_PREFIX, result::handle);
+            databaseWork.createContext(MorpheusHttpRouteTable.API_PREFIX, result::handle);
             for (String probe : MorpheusRootHttpRoutes.ANSWERED_WITHOUT_THE_DATABASE) {
-                httpServer.createContext(MorpheusHttpServer.API_PREFIX + "/" + probe, result::handle);
+                httpServer.createContext(MorpheusHttpRouteTable.API_PREFIX + "/" + probe, result::handle);
             }
             MorpheusQueryHttpRoutes.register(databaseWork, databasePath, recorder, result.requestDecoder(),
                     result.allowedMethods(), result.responseWriter());

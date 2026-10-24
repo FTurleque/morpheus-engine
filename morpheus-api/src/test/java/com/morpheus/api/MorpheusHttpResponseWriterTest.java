@@ -51,7 +51,7 @@ class MorpheusHttpResponseWriterTest {
     void sendPreservesVersionedServerEnvelopeShape() throws Exception {
         MorpheusHttpResponseWriter writer = new MorpheusHttpResponseWriter();
         StubExchange exchange = new StubExchange();
-        MorpheusHttpServer.ApiSuccess envelope = new MorpheusHttpServer.ApiSuccess(
+        ApiSuccess envelope = new ApiSuccess(
                 "v1", Map.of("service", "morpheus"));
 
         writer.send(exchange, 200, envelope);

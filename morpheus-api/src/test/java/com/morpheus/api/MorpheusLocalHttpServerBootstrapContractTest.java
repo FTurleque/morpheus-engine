@@ -32,7 +32,7 @@ class MorpheusLocalHttpServerBootstrapContractTest {
             assertEquals("127.0.0.1", server.host());
             assertTrue(server.port() > 0);
             assertTrue(server.baseUri().toString().startsWith("http://127.0.0.1:"));
-            assertTrue(server.baseUri().toString().endsWith(MorpheusHttpServer.API_PREFIX));
+            assertTrue(server.baseUri().toString().endsWith(MorpheusHttpRouteTable.API_PREFIX));
         }
     }
 }

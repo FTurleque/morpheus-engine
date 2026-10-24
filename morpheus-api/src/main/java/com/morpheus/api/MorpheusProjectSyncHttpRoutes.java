@@ -30,10 +30,10 @@ final class MorpheusProjectSyncHttpRoutes {
         MorpheusHttpRouteGuards.requireExactSegments(segments, 3);
         MorpheusHttpRouteGuards.requireMethod(method, "POST");
         query.rejectUnknown(Set.of());
-        MorpheusHttpServer.SyncRequest request = requestDecoder.readOptionalJson(
+        SyncRequest request = requestDecoder.readOptionalJson(
                 exchange,
-                MorpheusHttpServer.SyncRequest.class,
-                new MorpheusHttpServer.SyncRequest(null));
+                SyncRequest.class,
+                new SyncRequest(null));
         return ok(service.sync(projectId, Optional.ofNullable(request.revision())));
     }
 

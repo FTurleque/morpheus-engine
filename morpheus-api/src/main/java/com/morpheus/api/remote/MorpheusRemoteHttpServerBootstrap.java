@@ -1,6 +1,7 @@
 package com.morpheus.api.remote;
 
 import com.morpheus.api.AllowedWorkspaceRoots;
+import com.morpheus.api.MorpheusHttpRouteTable;
 import com.morpheus.api.MorpheusHttpServer;
 import com.morpheus.api.MorpheusInternalCapability;
 import com.morpheus.application.context.TechnicalContextProvider;
@@ -129,7 +130,7 @@ final class MorpheusRemoteHttpServerBootstrap {
                     maxConcurrentRequests,
                     operational);
             https.setExecutor(executor);
-            https.createContext(MorpheusHttpServer.API_PREFIX, result::handle);
+            https.createContext(MorpheusHttpRouteTable.API_PREFIX, result::handle);
             https.start();
             owned.transferred();
             return result;

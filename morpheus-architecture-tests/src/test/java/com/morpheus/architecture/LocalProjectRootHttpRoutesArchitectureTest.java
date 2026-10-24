@@ -39,7 +39,7 @@ class LocalProjectRootHttpRoutesArchitectureTest {
         assertTrue(routes.contains("method.equals(\"GET\")"));
         assertTrue(routes.contains("method.equals(\"POST\")"));
         assertTrue(routes.contains("requestDecoder.readRequiredJson("));
-        assertTrue(routes.contains("MorpheusHttpServer.ProjectRegistrationRequest.class"));
+        assertTrue(routes.contains("ProjectRegistrationRequest.class"));
         assertTrue(routes.contains("service.listProjects()"));
         assertTrue(routes.contains("service.registerProject(request.workspace())"));
         assertTrue(routes.contains("result.created() ? 201 : 200"));

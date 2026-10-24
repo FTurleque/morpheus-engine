@@ -1,8 +1,8 @@
 package com.morpheus.api;
 
-import com.morpheus.api.MorpheusHttpServer.ApiError;
-import com.morpheus.api.MorpheusHttpServer.ApiErrorEnvelope;
-import com.morpheus.api.MorpheusHttpServer.ApiSuccess;
+import com.morpheus.api.ApiError;
+import com.morpheus.api.ApiErrorEnvelope;
+import com.morpheus.api.ApiSuccess;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -16,7 +16,7 @@ import java.util.Objects;
 /** Isolated M27 HTTP context. Reasoning execution never mutates the knowledge store. */
 final class MorpheusReasoningHttpRoutes {
     private static final String REASONING = "reasoning";
-    static final String CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + REASONING;
+    static final String CONTEXT = MorpheusHttpRouteTable.API_PREFIX + "/" + REASONING;
     private static final List<String> ADAPTERS = List.of(REASONING, "adapters");
     private static final List<String> ANALYZE = List.of(REASONING, "analyze");
 

@@ -104,7 +104,7 @@ final class ApiTestSupport {
 
     private URI uri(MorpheusHttpServer server, String pathAndQuery) {
         String suffix = pathAndQuery.startsWith("/") ? pathAndQuery : "/" + pathAndQuery;
-        return URI.create("http://" + server.host() + ":" + server.port() + MorpheusHttpServer.API_PREFIX + suffix);
+        return URI.create("http://" + server.host() + ":" + server.port() + MorpheusHttpRouteTable.API_PREFIX + suffix);
     }
 
     private Response send(HttpRequest request) {

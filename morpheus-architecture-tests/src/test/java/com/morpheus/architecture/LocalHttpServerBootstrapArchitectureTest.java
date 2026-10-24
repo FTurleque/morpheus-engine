@@ -35,7 +35,7 @@ class LocalHttpServerBootstrapArchitectureTest {
         assertTrue(bootstrap.contains("new CapabilityProtectedHttpServer(loopbackProtected, capability)"));
         assertTrue(bootstrap.contains("Executors.newVirtualThreadPerTaskExecutor()"));
         assertTrue(bootstrap.contains("DatabaseWorkOffloadingHttpServer.over(httpServer)"));
-        assertTrue(bootstrap.contains("databaseWork.createContext(MorpheusHttpServer.API_PREFIX, result::handle)"));
+        assertTrue(bootstrap.contains("databaseWork.createContext(MorpheusHttpRouteTable.API_PREFIX, result::handle)"));
         assertTrue(bootstrap.contains(
                 "MorpheusQueryHttpRoutes.register(databaseWork, databasePath, recorder, result.requestDecoder(),"));
         assertFalse(bootstrap.contains("MorpheusQueryHttpRoutes.register(httpServer,"),
@@ -45,7 +45,7 @@ class LocalHttpServerBootstrapArchitectureTest {
                 "only the routes answered without the database are registered outside the database workers");
         assertTrue(bootstrap.contains("for (String probe : MorpheusRootHttpRoutes.ANSWERED_WITHOUT_THE_DATABASE) {"));
         assertTrue(bootstrap.contains(
-                "httpServer.createContext(MorpheusHttpServer.API_PREFIX + \"/\" + probe, result::handle);"));
+                "httpServer.createContext(MorpheusHttpRouteTable.API_PREFIX + \"/\" + probe, result::handle);"));
         assertTrue(bootstrap.contains("result.responseWriter())"));
         assertTrue(bootstrap.contains("httpServer.start()"));
 

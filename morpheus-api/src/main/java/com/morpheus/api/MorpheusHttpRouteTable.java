@@ -16,6 +16,8 @@ import java.util.TreeSet;
  * nothing of roles, so the local surface reads it without reaching the remote authorization model.</p>
  */
 public final class MorpheusHttpRouteTable {
+    public static final String API_PREFIX = "/api/v1";
+
     private static final String GET = "GET";
     private static final String POST = "POST";
     private static final String PUT = "PUT";
@@ -122,8 +124,8 @@ public final class MorpheusHttpRouteTable {
     public static Map<String, Set<String>> declaredRoutes() {
         Map<String, Set<String>> routes = new LinkedHashMap<>();
         templates().forEach((template, methods) -> routes.put(template.isEmpty()
-                ? MorpheusHttpServer.API_PREFIX
-                : MorpheusHttpServer.API_PREFIX + "/" + template, methods));
+                ? API_PREFIX
+                : API_PREFIX + "/" + template, methods));
         return Collections.unmodifiableMap(routes);
     }
 

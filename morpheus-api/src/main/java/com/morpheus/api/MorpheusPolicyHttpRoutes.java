@@ -1,8 +1,8 @@
 package com.morpheus.api;
 
-import com.morpheus.api.MorpheusHttpServer.ApiError;
-import com.morpheus.api.MorpheusHttpServer.ApiErrorEnvelope;
-import com.morpheus.api.MorpheusHttpServer.ApiSuccess;
+import com.morpheus.api.ApiError;
+import com.morpheus.api.ApiErrorEnvelope;
+import com.morpheus.api.ApiSuccess;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.policy.PolicyConflictException;
 import com.morpheus.application.query.PageRequest;
@@ -23,9 +23,9 @@ final class MorpheusPolicyHttpRoutes {
     private static final String PACKS = "policy-packs";
     private static final String POLICIES = "policies";
     private static final String OVERRIDES = "policy-overrides";
-    private static final String PACK_CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + PACKS;
-    private static final String POLICY_CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + POLICIES;
-    private static final String OVERRIDE_CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + OVERRIDES;
+    private static final String PACK_CONTEXT = MorpheusHttpRouteTable.API_PREFIX + "/" + PACKS;
+    private static final String POLICY_CONTEXT = MorpheusHttpRouteTable.API_PREFIX + "/" + POLICIES;
+    private static final String OVERRIDE_CONTEXT = MorpheusHttpRouteTable.API_PREFIX + "/" + OVERRIDES;
 
     private final MorpheusPolicyApiService service;
     private final OperationalRecorder recorder;

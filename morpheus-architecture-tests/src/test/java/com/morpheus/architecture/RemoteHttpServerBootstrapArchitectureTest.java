@@ -37,7 +37,7 @@ class RemoteHttpServerBootstrapArchitectureTest {
         assertTrue(bootstrap.contains("MorpheusInternalCapability.generate()"));
         assertTrue(bootstrap.contains("MorpheusHttpServer.startRemote("));
         assertTrue(bootstrap.contains("Executors.newVirtualThreadPerTaskExecutor()"));
-        assertTrue(bootstrap.contains("https.createContext(MorpheusHttpServer.API_PREFIX, result::handle)"));
+        assertTrue(bootstrap.contains("https.createContext(MorpheusHttpRouteTable.API_PREFIX, result::handle)"));
         assertTrue(bootstrap.contains("https.start()"));
 
         assertTrue(server.contains("private MorpheusRemoteIdentityFile.Identity authenticate(HttpExchange exchange)"));

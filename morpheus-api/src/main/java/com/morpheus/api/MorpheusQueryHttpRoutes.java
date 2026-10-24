@@ -1,8 +1,8 @@
 package com.morpheus.api;
 
-import com.morpheus.api.MorpheusHttpServer.ApiError;
-import com.morpheus.api.MorpheusHttpServer.ApiErrorEnvelope;
-import com.morpheus.api.MorpheusHttpServer.ApiSuccess;
+import com.morpheus.api.ApiError;
+import com.morpheus.api.ApiErrorEnvelope;
+import com.morpheus.api.ApiSuccess;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.export.QueryExport;
 import com.morpheus.application.query.export.QueryExportBudgetException;
@@ -26,9 +26,9 @@ final class MorpheusQueryHttpRoutes {
     private static final String QUERIES = "queries";
     private static final String VIEWS = "saved-views";
     private static final String EXPORTS = "exports";
-    private static final String QUERY_CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + QUERIES;
-    private static final String VIEW_CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + VIEWS;
-    private static final String EXPORT_CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + EXPORTS;
+    private static final String QUERY_CONTEXT = MorpheusHttpRouteTable.API_PREFIX + "/" + QUERIES;
+    private static final String VIEW_CONTEXT = MorpheusHttpRouteTable.API_PREFIX + "/" + VIEWS;
+    private static final String EXPORT_CONTEXT = MorpheusHttpRouteTable.API_PREFIX + "/" + EXPORTS;
 
     private final MorpheusQueryApiService service;
     private final OperationalRecorder recorder;

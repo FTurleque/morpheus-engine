@@ -4,6 +4,7 @@ import com.morpheus.api.AllowedWorkspaceRoots;
 import com.morpheus.api.BoundaryFailureMessage;
 import com.morpheus.api.DatabaseCallWorkers;
 import com.morpheus.api.DatabaseWorkOffloadingHttpServer;
+import com.morpheus.api.MorpheusHttpRouteTable;
 import com.morpheus.api.MorpheusHttpServer;
 import com.morpheus.api.MorpheusInternalCapability;
 import com.morpheus.api.TimedBoundedInputReader;
@@ -181,7 +182,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     }
 
     public URI baseUri() {
-        return URI.create("https://" + hostForUri(host()) + ":" + port() + MorpheusHttpServer.API_PREFIX);
+        return URI.create("https://" + hostForUri(host()) + ":" + port() + MorpheusHttpRouteTable.API_PREFIX);
     }
 
     // The exclusive server lease is released last and matters most: a failure in any earlier release used to

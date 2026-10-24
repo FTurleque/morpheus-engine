@@ -24,7 +24,6 @@ import java.util.concurrent.ExecutorService;
 
 /** Local HTTP server. Routing and HTTP translation only; business behavior stays in application services. */
 public final class MorpheusHttpServer implements AutoCloseable {
-    public static final String API_PREFIX = "/api/v1";
     public static final String DEFAULT_HOST = "127.0.0.1";
     public static final int DEFAULT_PORT = 8765;
     public static final int MAX_REQUEST_BODY_BYTES = 65_536;
@@ -188,7 +187,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
     }
 
     public URI baseUri() {
-        return URI.create("http://" + hostForUri(host()) + ":" + port() + API_PREFIX);
+        return URI.create("http://" + hostForUri(host()) + ":" + port() + MorpheusHttpRouteTable.API_PREFIX);
     }
 
     /** The request boundary this server's routers read through, handed to the contexts registered beside it. */
@@ -294,46 +293,5 @@ public final class MorpheusHttpServer implements AutoCloseable {
 
     private static String hostForUri(String host) {
         return host.contains(":") && !host.startsWith("[") ? "[" + host + "]" : host;
-    }
-
-
-    public record ApiSuccess(String apiVersion, Object data) {
-        public ApiSuccess {
-            Objects.requireNonNull(apiVersion, "apiVersion");
-            Objects.requireNonNull(data, "data");
-        }
-    }
-
-    public record ApiError(String code, String message, Map<String, Object> details) {
-        public ApiError {
-            Objects.requireNonNull(code, "code");
-            Objects.requireNonNull(message, "message");
-            details = Map.copyOf(Objects.requireNonNull(details, "details"));
-        }
-    }
-
-    public record ApiErrorEnvelope(String apiVersion, ApiError error) {
-        public ApiErrorEnvelope {
-            Objects.requireNonNull(apiVersion, "apiVersion");
-            Objects.requireNonNull(error, "error");
-        }
-    }
-
-    public record ProjectRegistrationRequest(String workspace) {
-        public ProjectRegistrationRequest {
-            if (workspace == null || workspace.isBlank()) {
-                throw new IllegalArgumentException("workspace is required");
-            }
-            workspace = workspace.trim();
-        }
-    }
-
-    public record SyncRequest(String revision) {
-        public SyncRequest {
-            revision = revision == null ? null : revision.trim();
-            if (revision != null && revision.isEmpty()) {
-                revision = null;
-            }
-        }
     }
 }

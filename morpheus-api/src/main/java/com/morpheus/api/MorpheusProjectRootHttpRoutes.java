@@ -36,8 +36,8 @@ final class MorpheusProjectRootHttpRoutes {
             return ok(service.listProjects());
         }
         if (method.equals("POST")) {
-            MorpheusHttpServer.ProjectRegistrationRequest request = requestDecoder.readRequiredJson(
-                    exchange, MorpheusHttpServer.ProjectRegistrationRequest.class);
+            ProjectRegistrationRequest request = requestDecoder.readRequiredJson(
+                    exchange, ProjectRegistrationRequest.class);
             MorpheusProjectRegistryApiService.RegistrationResult result = service.registerProject(request.workspace());
             return new MorpheusHttpRouteResponse(result.created() ? 201 : 200, result.project());
         }

@@ -19,7 +19,7 @@ import java.util.Optional;
  * sign -- it means a space in a form, not in a path.</p>
  */
 public final class MorpheusHttpPathParser {
-    private static final MorpheusHttpPathParser API = new MorpheusHttpPathParser(MorpheusHttpServer.API_PREFIX);
+    private static final MorpheusHttpPathParser API = new MorpheusHttpPathParser(MorpheusHttpRouteTable.API_PREFIX);
 
     private final List<String> prefixSegments;
 

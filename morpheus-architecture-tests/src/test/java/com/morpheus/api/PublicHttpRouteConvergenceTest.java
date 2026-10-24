@@ -291,8 +291,8 @@ class PublicHttpRouteConvergenceTest {
                 Matcher pathKey = OPENAPI_PATH.matcher(line);
                 if (pathKey.matches()) {
                     path = pathKey.group(1).equals("/")
-                            ? MorpheusHttpServer.API_PREFIX
-                            : MorpheusHttpServer.API_PREFIX + pathKey.group(1);
+                            ? MorpheusHttpRouteTable.API_PREFIX
+                            : MorpheusHttpRouteTable.API_PREFIX + pathKey.group(1);
                     continue;
                 }
                 Matcher operation = OPENAPI_OPERATION.matcher(line);

@@ -35,8 +35,8 @@ class LocalProjectSyncHttpRoutesArchitectureTest {
         assertTrue(routes.contains("query.rejectUnknown(Set.of())"));
         assertTrue(routes.contains("query.rejectUnknown(Set.of(\"maxAgeMinutes\"))"));
         assertTrue(routes.contains("requestDecoder.readOptionalJson("));
-        assertTrue(routes.contains("MorpheusHttpServer.SyncRequest.class"));
-        assertTrue(routes.contains("new MorpheusHttpServer.SyncRequest(null)"));
+        assertTrue(routes.contains("SyncRequest.class"));
+        assertTrue(routes.contains("new SyncRequest(null)"));
         assertTrue(routes.contains("Optional.ofNullable(request.revision())"));
         assertTrue(routes.contains("MorpheusApiService.DEFAULT_MAX_AGE_MINUTES"));
         assertTrue(routes.contains("MorpheusApiService.MAX_MAX_AGE_MINUTES"));

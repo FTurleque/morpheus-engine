@@ -27,8 +27,8 @@ class CapabilityProtectedHttpServerTest {
         HttpServer server = new CapabilityProtectedHttpServer(delegate, capability);
         ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
         server.setExecutor(executor);
-        server.createContext(MorpheusHttpServer.API_PREFIX, CapabilityProtectedHttpServerTest::noContent);
-        var childContext = server.createContext(MorpheusHttpServer.API_PREFIX + "/reasoning");
+        server.createContext(MorpheusHttpRouteTable.API_PREFIX, CapabilityProtectedHttpServerTest::noContent);
+        var childContext = server.createContext(MorpheusHttpRouteTable.API_PREFIX + "/reasoning");
         childContext.setHandler(CapabilityProtectedHttpServerTest::noContent);
         UnsupportedOperationException filterFailure =
                 assertThrows(UnsupportedOperationException.class, () -> childContext.getFilters().clear());
@@ -38,7 +38,7 @@ class CapabilityProtectedHttpServerTest {
         server.start();
 
         try {
-            URI root = URI.create("http://127.0.0.1:" + server.getAddress().getPort() + MorpheusHttpServer.API_PREFIX);
+            URI root = URI.create("http://127.0.0.1:" + server.getAddress().getPort() + MorpheusHttpRouteTable.API_PREFIX);
             URI child = URI.create(root + "/reasoning/analyze");
             HttpClient client = HttpClient.newHttpClient();
 

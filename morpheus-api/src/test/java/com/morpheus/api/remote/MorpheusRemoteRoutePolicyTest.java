@@ -182,7 +182,7 @@ class MorpheusRemoteRoutePolicyTest {
     @Test
     void everyRouteOfTheTableCarriesARoleForExactlyItsMethods() {
         MorpheusHttpRouteTable.templates().forEach((template, methods) -> {
-            String path = MorpheusHttpServer.API_PREFIX + (template.isEmpty() ? "" : "/" + template);
+            String path = MorpheusHttpRouteTable.API_PREFIX + (template.isEmpty() ? "" : "/" + template);
             for (String method : methods) {
                 assertDoesNotThrow(() -> requiredRole(method, path), method + " " + path);
             }

@@ -70,26 +70,26 @@ class ApiEnvelopeNullContractTest {
     @Test
     void theSharedEnvelopeRecordsRejectEveryNullComponent() {
         NullPointerException successVersionFailure =
-                assertThrows(NullPointerException.class, () -> new MorpheusHttpServer.ApiSuccess(null, "data"));
+                assertThrows(NullPointerException.class, () -> new ApiSuccess(null, "data"));
         assertEquals("apiVersion", successVersionFailure.getMessage());
         NullPointerException successDataFailure =
-                assertThrows(NullPointerException.class, () -> new MorpheusHttpServer.ApiSuccess("v1", null));
+                assertThrows(NullPointerException.class, () -> new ApiSuccess("v1", null));
         assertEquals("data", successDataFailure.getMessage());
         NullPointerException errorCodeFailure =
-                assertThrows(NullPointerException.class, () -> new MorpheusHttpServer.ApiError(null, "m", Map.of()));
+                assertThrows(NullPointerException.class, () -> new ApiError(null, "m", Map.of()));
         assertEquals("code", errorCodeFailure.getMessage());
         NullPointerException errorMessageFailure =
-                assertThrows(NullPointerException.class, () -> new MorpheusHttpServer.ApiError("CODE", null, Map.of()));
+                assertThrows(NullPointerException.class, () -> new ApiError("CODE", null, Map.of()));
         assertEquals("message", errorMessageFailure.getMessage());
         NullPointerException errorDetailsFailure =
-                assertThrows(NullPointerException.class, () -> new MorpheusHttpServer.ApiError("CODE", "m", null));
+                assertThrows(NullPointerException.class, () -> new ApiError("CODE", "m", null));
         assertEquals("details", errorDetailsFailure.getMessage());
         NullPointerException envelopeVersionFailure = assertThrows(NullPointerException.class,
-                () -> new MorpheusHttpServer.ApiErrorEnvelope(null,
-                        new MorpheusHttpServer.ApiError("CODE", "m", Map.of())));
+                () -> new ApiErrorEnvelope(null,
+                        new ApiError("CODE", "m", Map.of())));
         assertEquals("apiVersion", envelopeVersionFailure.getMessage());
         NullPointerException envelopeErrorFailure =
-                assertThrows(NullPointerException.class, () -> new MorpheusHttpServer.ApiErrorEnvelope("v1", null));
+                assertThrows(NullPointerException.class, () -> new ApiErrorEnvelope("v1", null));
         assertEquals("error", envelopeErrorFailure.getMessage());
     }
 
@@ -97,7 +97,7 @@ class ApiEnvelopeNullContractTest {
     @Test
     void theSharedErrorRecordCopiesDetailsDefensively() {
         Map<String, Object> mutable = new HashMap<>(Map.of("field", "value"));
-        MorpheusHttpServer.ApiError error = new MorpheusHttpServer.ApiError("CODE", "message", mutable);
+        ApiError error = new ApiError("CODE", "message", mutable);
         mutable.put("added", "after");
 
         assertEquals(Map.of("field", "value"), error.details());
