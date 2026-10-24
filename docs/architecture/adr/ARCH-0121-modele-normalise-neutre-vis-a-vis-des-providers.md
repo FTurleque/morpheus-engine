@@ -38,7 +38,7 @@ Le contenu structurel d'un projet est normalisé en concepts provider-neutral : 
 `ImplementationTask`, `AcceptanceCriterion`, `Provenance`, `Evidence` et `ExternalReference`.
 
 Les records du modèle normalisé ne portent pas `TemporalState`. La temporalité est projetée par une occurrence
-versionnée qui enveloppe le contenu sans le modifier (ADR-0031). Un provider peut garder dans ses faits internes toute
+versionnée qui enveloppe le contenu sans le modifier (ADR-0136). Un provider peut garder dans ses faits internes toute
 information utile à cette projection, sans qu'elle devienne une propriété publique du domaine.
 
 ```text
@@ -55,7 +55,7 @@ devient pas un critère d'acceptation sans règle explicite (ADR-0081).
 
 Trois notions restent distinctes :
 
-- `DomainIdentity` : identité MORPHEUS, UUIDv7 résolue et persistée par provider (ADR-0023) ;
+- `DomainIdentity` : identité MORPHEUS, UUIDv7 résolue et persistée par provider (ADR-0140) ;
 - `SourceLocator` : emplacement de la source ;
 - clé externe : identifiant provider-scoped à partir duquel l'identité est résolue.
 
@@ -203,13 +203,13 @@ Un provider compose des lecteurs séparés plutôt qu'un parser monolithique. Po
 
 ## References
 
-- [ADR-0001](ARCH-0001-morpheus-owned-domain.md) — domaine possédé par MORPHEUS.
-- [ADR-0006](ARCH-0006-current-vs-proposed-state.md) — distinction courant / proposé / historique.
-- [ADR-0009](DATA-0009-stable-domain-identity.md) — identité de domaine stable.
-- [ADR-0015](DATA-0015-domain-identity-uuidv7.md) — identité UUIDv7.
-- [ADR-0023](DATA-0023-persistent-provider-scoped-entity-identity.md) — identité persistante scopée par provider.
-- [ADR-0031](ARCH-0031-explicit-temporal-projection-and-entity-version.md) — projection temporelle explicite.
-- [ADR-0034](DATA-0034-versioned-requirement-persistence.md) — persistance versionnée des requirements.
+- [ADR-0135](ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — domaine possédé par MORPHEUS.
+- [ADR-0136](ARCH-0136-etat-temporel-et-occurrences-versionnees.md) — distinction courant / proposé / historique.
+- [ADR-0140](DATA-0140-identite-de-domaine.md) — identité de domaine stable.
+- [ADR-0140](DATA-0140-identite-de-domaine.md) — identité UUIDv7.
+- [ADR-0140](DATA-0140-identite-de-domaine.md) — identité persistante scopée par provider.
+- [ADR-0136](ARCH-0136-etat-temporel-et-occurrences-versionnees.md) — projection temporelle explicite.
+- [ADR-0141](DATA-0141-contenu-metier-par-snapshot.md) — persistance versionnée des requirements.
 - [ADR-0035](BE-0035-explicit-requirement-delta-application-and-promotion.md) — application et promotion des deltas.
 - [ADR-0081](DATA-0081-first-class-acceptance-verification-evidence.md) — critères d'acceptation.
 - [ADR-0118](ARCH-0118-tracabilite-typee-et-taxonomie-controlee.md) — traçabilité typée.

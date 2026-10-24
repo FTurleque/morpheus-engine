@@ -38,7 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <ul>
  *   <li>{@code MorpheusMain} and {@code MorpheusCli} are the two entry points: they take the runtime of the process and
  *   hand it on;</li>
- *   <li>{@code OperationalSlf4jServiceProvider} is instantiated by the service loader (ADR-0111): nobody can hand it
+ *   <li>{@code OperationalSlf4jServiceProvider} is instantiated by the service loader (ADR-0146): nobody can hand it
  *   anything;</li>
  *   <li>{@code SqliteContentionMetrics} is the default of a connection opened outside a scope, whose opener named no
  *   recorder: a single store a class builds alone, such as the backup of {@code SqliteServerMaintenance};</li>

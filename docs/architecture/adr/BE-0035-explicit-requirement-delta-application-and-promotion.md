@@ -13,7 +13,7 @@ rules: false
 ## Context
 
 `RequirementDelta` est normalisé sans être appliqué (ADR-0121), et la persistance distingue identité logique,
-occurrence versionnée, version métier, snapshot technique et projection `Requirement` (ADR-0031, ADR-0034).
+occurrence versionnée, version métier, snapshot technique et projection `Requirement` (ADR-0136, ADR-0141).
 
 Il faut transformer explicitement :
 
@@ -166,7 +166,7 @@ séparément ; il n'est jamais détourné dans `sourceRevision` ou dans une payl
 
 ### Activation
 
-L'activation reste exclusivement celle d'ADR-0120 :
+L'activation reste exclusivement celle d'ADR-0143 :
 
 ```text
 SnapshotLifecycleService.activate(candidateSnapshotId)
@@ -177,7 +177,7 @@ atomique, il lit le nouveau. Un candidat `FAILED` ne peut pas évincer l'ancien 
 
 ### Persistance
 
-Ces opérations réutilisent les tables de la persistance versionnée des requirements (ADR-0034) :
+Ces opérations réutilisent les tables de la persistance versionnée des requirements (ADR-0141) :
 
 ```text
 specification_versions
@@ -258,12 +258,12 @@ provider-neutral.
 
 ## References
 
-- [ADR-0006](ARCH-0006-current-vs-proposed-state.md) — état courant et changements proposés.
-- [ADR-0009](DATA-0009-stable-domain-identity.md) — identité de domaine stable.
-- [ADR-0031](ARCH-0031-explicit-temporal-projection-and-entity-version.md) — projection temporelle et versions
+- [ADR-0136](ARCH-0136-etat-temporel-et-occurrences-versionnees.md) — état courant et changements proposés.
+- [ADR-0140](DATA-0140-identite-de-domaine.md) — identité de domaine stable.
+- [ADR-0136](ARCH-0136-etat-temporel-et-occurrences-versionnees.md) — projection temporelle et versions
   d'entité.
-- [ADR-0034](DATA-0034-versioned-requirement-persistence.md) — persistance versionnée des requirements.
+- [ADR-0141](DATA-0141-contenu-metier-par-snapshot.md) — persistance versionnée des requirements.
 - [ADR-0119](BE-0119-cycle-de-vie-des-changements-et-transition-tri-etat.md) — cycle de vie des changements.
-- [ADR-0120](DATA-0120-snapshots-versionnes-et-activation-atomique.md) — snapshots versionnés et activation atomique.
+- [ADR-0143](DATA-0143-snapshots-versionnes-et-concurrence-bornee.md) — snapshots versionnés et activation atomique.
 - [ADR-0121](ARCH-0121-modele-normalise-neutre-vis-a-vis-des-providers.md) — normalisation des deltas.
 - [VALIDATION_M3](../../project/validation/VALIDATION_M3.md) — preuve du jalon M3.

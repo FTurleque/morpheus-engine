@@ -101,7 +101,7 @@ MORPHEUS_OPERATIONAL_LOGS=file
 ```
 
 Les mêmes lignes vont dans `morpheus-operational.jsonl` sous le répertoire de logs, et plus sur `stderr`
-(`RotatingOperationalLogFile`, ADR-0112). Le fichier courant est borné à 4 Mio ; quatre générations sont gardées, de
+(`RotatingOperationalLogFile`, ADR-0146). Le fichier courant est borné à 4 Mio ; quatre générations sont gardées, de
 `.1` à `.4`. Répertoire et fichiers sont privés au compte (`LocalWritePermissionHardener`). Rien n'est tenu ouvert
 entre deux événements : plusieurs processus du même compte écrivent dans le même journal.
 
@@ -126,7 +126,7 @@ Aucun transport réseau n'est créé.
 ### Ce que journalisent les bibliothèques embarquées
 
 Le SDK MCP et ses dépendances journalisent par SLF4J. Le produit embarque un seul binding, le sien
-(`OperationalSlf4jServiceProvider`, dans `morpheus-cli`, ADR-0111) :
+(`OperationalSlf4jServiceProvider`, dans `morpheus-cli`, ADR-0146) :
 
 ```text
 journal coupé   -> aucun niveau accepté, rien n'est écrit
@@ -145,7 +145,7 @@ Trois classes du produit journalisent par `System.Logger` (`BoundedStdioClientTr
 `BoundedStdioServerTransportProvider`, `SqliteTransactionRunner`). Elles ne passent pas par ce binding : leurs
 enregistrements `INFO` et au-dessus sortent en texte sur la sortie d'erreur, dans tous les modes. Avec le journal
 sur `stderr`, la sortie d'erreur mêle donc des lignes JSON et ce texte ; avec le journal en fichier, ce texte reste sur
-la sortie d'erreur et n'est pas dans le fichier (ADR-0112, décision 8).
+la sortie d'erreur et n'est pas dans le fichier (ADR-0146, décision 8).
 
 ## Redaction
 

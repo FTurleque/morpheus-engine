@@ -2,7 +2,7 @@
 
 > **Archivée.** Cette décision est consolidée dans [ADR-0121](../ARCH-0121-modele-normalise-neutre-vis-a-vis-des-providers.md). Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
-> Lecture : à lire avec [ADR-0031](../ARCH-0031-explicit-temporal-projection-and-entity-version.md) (la projection temporelle) et [ADR-0034](../DATA-0034-versioned-requirement-persistence.md) (la persistance versionnée des requirements). (note éditoriale du 21 octobre 2026 : le texte de la décision n'est pas modifié)
+> Lecture : à lire avec [ADR-0031](0031-explicit-temporal-projection-and-entity-version.md) (la projection temporelle) et [ADR-0034](0034-versioned-requirement-persistence.md) (la persistance versionnée des requirements). (note éditoriale du 21 octobre 2026 : le texte de la décision n'est pas modifié)
 
 - Statut : **Remplacée par ADR-0121**
 - Date : 22 juillet 2026

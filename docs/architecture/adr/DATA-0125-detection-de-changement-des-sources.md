@@ -147,11 +147,11 @@ peut pas être la preuve de l'état des sources.
 
 ## References
 
-- [ADR-0120](DATA-0120-snapshots-versionnes-et-activation-atomique.md) — snapshots versionnés et activation atomique.
+- [ADR-0143](DATA-0143-snapshots-versionnes-et-concurrence-bornee.md) — snapshots versionnés et activation atomique.
 - [ADR-0036](DATA-0036-published-history-comparison-and-logical-rollback.md) — historique publié.
 - [ADR-0018](DATA-0018-sqlite-initial-persistent-store.md) et
   [ADR-0021](DATA-0021-sqlite-schema-migrations-foundation.md) — SQLite et migrations.
-- [ADR-0126](DATA-0126-publication-complete-d-un-snapshot.md) — ce qu'une synchronisation exécute et ce que son reçu
+- [ADR-0144](DATA-0144-publication-complete-cli-et-http.md) — ce qu'une synchronisation exécute et ce que son reçu
   en dit.
-- [ADR-0067](BE-0067-explicit-conservative-http-sync.md) — synchronisation HTTP.
+- [ADR-0144](DATA-0144-publication-complete-cli-et-http.md) — synchronisation HTTP.
 - [VALIDATION_M7](../../project/validation/VALIDATION_M7.md).

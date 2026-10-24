@@ -160,7 +160,7 @@ n'utilise pas de framework CLI externe.
 - [ADR-0088](GEN-0088-product-release-installation-and-persistent-data-separation.md) — emplacements par défaut.
 - [ADR-0109](ARCH-0109-transport-adapters-are-named-composition-roots.md) — racines de composition et runtime.
 - [ADR-0123](ARCH-0123-vues-compactes-et-json-canonique.md) — vues compactes et JSON canonique.
-- [ADR-0043](ARCH-0043-deterministic-requirement-lexical-query.md) — requête lexicale déterministe.
-- [ADR-0122](ARCH-0122-lectures-metier-sur-le-snapshot-publie.md) — lectures métier sur le snapshot publié.
+- [ADR-0137](ARCH-0137-lectures-et-recherche-sur-le-snapshot-publie.md) — requête lexicale déterministe.
+- [ADR-0137](ARCH-0137-lectures-et-recherche-sur-le-snapshot-publie.md) — lectures métier sur le snapshot publié.
 - [ADR-0124](ARCH-0124-qualite-findings-et-faits-tri-etat.md) — qualité.
 - [VALIDATION_M9](../../project/validation/VALIDATION_M9.md).

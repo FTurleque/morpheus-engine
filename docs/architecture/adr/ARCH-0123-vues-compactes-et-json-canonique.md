@@ -14,7 +14,7 @@ files: ["morpheus-application/pom.xml", "morpheus-application/src/main/java/**/*
 
 ## Context
 
-Les lectures métier (ADR-0122), l'analyse de changement (ADR-0056) et le rapport qualité (ADR-0124) rendent des
+Les lectures métier (ADR-0137), l'analyse de changement (ADR-0138) et le rapport qualité (ADR-0124) rendent des
 objets applicatifs riches. Les scripts, les agents et les transports (CLI, MCP, HTTP) ont besoin d'une représentation
 stable : mêmes champs, même ordre, mêmes octets pour une même réponse. MORPHEUS ne prend pas en charge le ranking, la
 fusion multi-moteurs ni la compression par budget de jetons, qui relèvent de NEXUS (ADR-0075).
@@ -54,7 +54,7 @@ Options écartées :
    identifiant externe et révision source facultatifs, et `evidenceId`. Une vue n'inclut que les evidence
    effectivement référencées par ce qu'elle expose, dédupliquées et triées par identifiant. Une evidence référencée
    absente de la projection laisse la donnée visible et produit l'avertissement `EVIDENCE_NOT_FOUND` ; l'absence de
-   toute projection reste un échec (ADR-0122).
+   toute projection reste un échec (ADR-0137).
 5. **Trace compacte.** Le graphe expose des nœuds (type, identité) et des liens (identifiant, source, relation,
    cible, origine, résolution, identifiants d'evidence triés), sans nouvelle traversée ni arête ajoutée ; la troncature
    du sous-graphe est rendue par `truncated` et `truncationReason` (ADR-0108). Une référence externe compacte garde
@@ -159,12 +159,12 @@ Options écartées :
 ## References
 
 - [ADR-0004](SEC-0004-local-first-no-llm-core.md)
-- [ADR-0056](ARCH-0056-deterministic-current-proposed-change-analysis.md)
-- [ADR-0057](ARCH-0057-explicit-bounded-dependency-impact-paths.md)
+- [ADR-0138](ARCH-0138-analyse-de-changement-derivee-et-bornee.md)
+- [ADR-0138](ARCH-0138-analyse-de-changement-derivee-et-bornee.md)
 - [ADR-0062](ARCH-0062-official-java-mcp-sdk-and-native-stdio.md)
 - [ADR-0075](ARCH-0075-morpheus-intent-vs-nexus-technical-context.md)
 - [ADR-0108](BE-0108-a-response-says-what-it-could-not-observe.md)
-- [ADR-0122](ARCH-0122-lectures-metier-sur-le-snapshot-publie.md)
+- [ADR-0137](ARCH-0137-lectures-et-recherche-sur-le-snapshot-publie.md)
 - [ADR-0124](ARCH-0124-qualite-findings-et-faits-tri-etat.md)
 - Preuves de jalon : [VALIDATION_M5](../../project/validation/VALIDATION_M5.md),
   [VALIDATION_M8](../../project/validation/VALIDATION_M8.md)

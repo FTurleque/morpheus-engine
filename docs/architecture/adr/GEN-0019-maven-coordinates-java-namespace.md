@@ -111,7 +111,7 @@ Invariants :
 
 ## References
 
-- [ADR-0001](ARCH-0001-morpheus-owned-domain.md) — domaine possédé par MORPHEUS.
-- [ADR-0016](GEN-0016-java-21-production-baseline.md) — baseline Java 21.
-- [ADR-0017](GEN-0017-maven-build-foundation.md) — fondation Maven.
+- [ADR-0135](ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — domaine possédé par MORPHEUS.
+- [ADR-0133](GEN-0133-toolchain-java-21-et-maven-wrapper.md) — baseline Java 21.
+- [ADR-0133](GEN-0133-toolchain-java-21-et-maven-wrapper.md) — fondation Maven.
 - [Validation M1](../../project/validation/VALIDATION_M1.md)

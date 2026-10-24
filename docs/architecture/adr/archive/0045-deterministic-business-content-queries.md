@@ -1,6 +1,6 @@
 # ADR-0045 — Getters et listes métier déterministes sur snapshots publiés
 
-> **Archivée.** Cette décision est consolidée dans [ADR-0122](../ARCH-0122-lectures-metier-sur-le-snapshot-publie.md). Ce texte n'est plus en vigueur et n'est pas tenu à jour.
+> **Archivée.** Cette décision est consolidée dans [ADR-0122](0122-lectures-metier-sur-le-snapshot-publie.md). Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
 > Lecture : à lire avec [ADR-0081](../DATA-0081-first-class-acceptance-verification-evidence.md) (`get_acceptance_criteria` y est exposé, ce qui lève la condition posée ici). (note éditoriale du 21 octobre 2026 : le texte de la décision n'est pas modifié)
 

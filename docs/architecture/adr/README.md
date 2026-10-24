@@ -61,59 +61,34 @@ nouvel ADR qui remplace les précédents. Le cycle de vie complet est dans `.cla
 
 | ADR | Décision | Statut |
 |---|---|---|
-| [ADR-0001](ARCH-0001-morpheus-owned-domain.md) | Le domaine MORPHEUS est indépendant des formats et providers | **Acceptée avec contraintes** |
 | [ADR-0002](ARCH-0002-openspec-reference-provider.md) | OpenSpec comme premier provider de référence, sans verrouillage du domaine | **Acceptée avec contraintes** |
 | [ADR-0003](DATA-0003-specification-knowledge-store.md) | Isoler la persistance derrière `SpecificationKnowledgeStore` | **Acceptée** |
 | [ADR-0004](SEC-0004-local-first-no-llm-core.md) | Le cœur MORPHEUS est local-first et ne dépend d'aucun LLM | **Acceptée** |
-| [ADR-0006](ARCH-0006-current-vs-proposed-state.md) | Distinguer structurellement l'état courant des changements proposés | **Acceptée** |
 | [ADR-0007](ARCH-0007-cross-engine-integration.md) | Les intégrations cross-engine utilisent des contrats explicites et découplés | **Acceptée** |
 | [ADR-0008](SEC-0008-read-first-write-capability.md) | Le cœur MORPHEUS est read-first ; l'écriture est une capacité séparée | **Acceptée** |
-| [ADR-0009](DATA-0009-stable-domain-identity.md) | Séparer l'identité logique, la version, l'emplacement et l'identifiant externe | **Acceptée** |
 | [ADR-0011](BE-0011-provider-capability-negotiation.md) | Sélectionner les providers par capacités et non par type de source uniquement | **Acceptée** |
-| [ADR-0015](DATA-0015-domain-identity-uuidv7.md) | Utiliser UUIDv7 comme format canonique de `DomainIdentity` | **Acceptée** |
-| [ADR-0016](GEN-0016-java-21-production-baseline.md) | Utiliser Java 21 comme baseline de compatibilité MORPHEUS | **Acceptée** |
-| [ADR-0017](GEN-0017-maven-build-foundation.md) | Utiliser Maven avec le Maven Wrapper comme fondation de build | **Acceptée avec contraintes** |
 | [ADR-0018](DATA-0018-sqlite-initial-persistent-store.md) | Utiliser SQLite comme backend persistant initial derrière `SpecificationKnowledgeStore` | **Acceptée avec contraintes** |
 | [ADR-0019](GEN-0019-maven-coordinates-java-namespace.md) | Stabiliser les coordonnées Maven et le namespace Java de MORPHEUS | **Acceptée** |
 | [ADR-0020](BE-0020-workspace-root-resolution.md) | Résoudre la racine de workspace sans dépendance Git obligatoire | **Acceptée** |
 | [ADR-0021](DATA-0021-sqlite-schema-migrations-foundation.md) | Versionner le schéma SQLite par migrations explicites et minimales | **Acceptée** |
-| [ADR-0023](DATA-0023-persistent-provider-scoped-entity-identity.md) | Persister les identités d'entités par clé externe provider-scoped | **Acceptée** |
-| [ADR-0026](ARCH-0026-optional-external-reference-resolution.md) | Références externes résolues par adapters optionnels | **Acceptée** |
-| [ADR-0027](GEN-0027-native-distribution-without-container-image.md) | Distribution native, sans image Docker | **Acceptée avec contraintes** |
 | [ADR-0028](BE-0028-unified-provider-read-contract.md) | Contrat de lecture provider unifié et résultats partiels explicites | **Acceptée** |
-| [ADR-0029](ARCH-0029-second-provider-anti-lockin-proof.md) | Prouver l'anti-lock-in avec un second provider synthétique | **Acceptée** |
-| [ADR-0031](ARCH-0031-explicit-temporal-projection-and-entity-version.md) | Projeter explicitement l'état temporel sur des occurrences versionnées | **Acceptée** |
-| [ADR-0034](DATA-0034-versioned-requirement-persistence.md) | Introduire une persistance métier versionnée par occurrence | **Acceptée** |
 | [ADR-0035](BE-0035-explicit-requirement-delta-application-and-promotion.md) | Séparer explicitement application, promotion et activation des RequirementDelta | **Acceptée** |
 | [ADR-0036](DATA-0036-published-history-comparison-and-logical-rollback.md) | Historique publié, comparaison de snapshots et rollback logique | **Acceptée** |
 | [ADR-0038](DATA-0038-snapshot-scoped-traceability-persistence.md) | Persistance de traçabilité snapshot-scoped | **Acceptée** |
 | [ADR-0039](BE-0039-deterministic-traceability-derivation.md) | Dérivation déterministe de la traçabilité depuis le modèle normalisé | **Acceptée** |
 | [ADR-0040](BE-0040-bounded-deterministic-traceability-traversal.md) | Traversée bornée et déterministe de la traçabilité | **Acceptée** |
-| [ADR-0041](DATA-0041-snapshot-external-reference-traceability.md) | Références externes snapshot-scoped et traçabilité non résolue | **Acceptée** |
-| [ADR-0043](ARCH-0043-deterministic-requirement-lexical-query.md) | Recherche lexicale déterministe et pagination des requirements | **Acceptée** |
-| [ADR-0044](DATA-0044-snapshot-business-content-projection.md) | Projection métier requêtable snapshot-scoped | **Acceptée** |
-| [ADR-0056](ARCH-0056-deterministic-current-proposed-change-analysis.md) | Analyse déterministe CURRENT / proposé des changements | **Acceptée** |
-| [ADR-0057](ARCH-0057-explicit-bounded-dependency-impact-paths.md) | Impacts de dépendance explicites par chemins bornés | **Acceptée** |
 | [ADR-0059](GEN-0059-stable-local-cli-contract.md) | Contrat CLI local stable, scriptable et explicite | **Acceptée** |
-| [ADR-0061](GEN-0061-self-contained-jpackage-portable-distribution.md) | Distribution portable autonome via JAR ombré et jpackage app-image | **Acceptée** |
 | [ADR-0062](ARCH-0062-official-java-mcp-sdk-and-native-stdio.md) | Java MCP SDK officiel et transport STDIO natif | **Acceptée** |
 | [ADR-0063](ARCH-0063-read-only-mcp-tool-contract.md) | Catalogue MCP read-only et sémantique explicite | **Acceptée** |
 | [ADR-0065](ARCH-0065-jdk-httpserver-local-api.md) | JDK HttpServer pour l'API locale | **Acceptée** |
 | [ADR-0066](ARCH-0066-versioned-http-api-contract.md) | Contrat HTTP `/api/v1` et erreurs JSON stables | **Acceptée** |
-| [ADR-0067](BE-0067-explicit-conservative-http-sync.md) | Synchronisation HTTP explicite par full snapshot conservateur | **Acceptée** |
-| [ADR-0070](BE-0070-exact-minos-symbol-reference-and-revision.md) | Référence MINOS par `symbolKey` exact et révision explicite | **Acceptée** |
-| [ADR-0071](DATA-0071-live-external-resolution-without-snapshot-mutation.md) | Résolution externe live sans mutation d'un snapshot publié | **Acceptée** |
-| [ADR-0074](BE-0074-explicit-nexus-project-mapping.md) | Mapping projet NEXUS explicite sans ownership de lifecycle | **Acceptée** |
 | [ADR-0075](ARCH-0075-morpheus-intent-vs-nexus-technical-context.md) | Séparer l'intention MORPHEUS du contexte technique NEXUS | **Acceptée** |
-| [ADR-0077](ARCH-0077-morpheus-jarvis-read-only-orchestration-boundary.md) | Frontière d'orchestration read-only MORPHEUS / JARVIS | **Acceptée** |
 | [ADR-0079](BE-0079-nondestructive-change-orchestration-state.md) | État d'orchestration agrégé non destructif | **Acceptée** |
-| [ADR-0080](ARCH-0080-jarvis-orchestration-surfaces-and-optional-client.md) | Surfaces d'orchestration et client JARVIS optionnel | **Acceptée** |
 | [ADR-0081](DATA-0081-first-class-acceptance-verification-evidence.md) | AcceptanceCriterion et VerificationStatus first-class | **Acceptée** |
 | [ADR-0082](DATA-0082-explicit-constraint-semantics-and-blocking-policy.md) | Sémantique explicite des contraintes et politique de blocage | **Acceptée** |
 | [ADR-0083](BE-0083-controlled-lifecycle-write-operations.md) | Mutations lifecycle contrôlées, CAS, idempotency et audit | **Acceptée** |
 | [ADR-0084](ARCH-0084-provider-neutral-multi-provider-composition.md) | Composition multi-provider provider-neutral, déterministe et explicable | **Acceptée** |
 | [ADR-0085](GEN-0085-predeclared-performance-budgets-and-deterministic-large-fixtures.md) | Budgets de performance pré-déclarés et fixtures larges déterministes | **Acceptée** |
-| [ADR-0086](DATA-0086-failure-atomic-snapshot-recovery-and-bounded-sqlite-concurrency.md) | Recovery failure-atomic des snapshots et concurrence SQLite bornée | **Acceptée** |
 | [ADR-0087](SEC-0087-local-first-operability-and-secure-diagnostic-defaults.md) | Opérabilité local-first et diagnostics sûrs par défaut | **Acceptée** |
 | [ADR-0088](GEN-0088-product-release-installation-and-persistent-data-separation.md) | Product release, installation and persistent-data separation | **Acceptée** |
 | [ADR-0089](GEN-0089-production-integrity-surface-convergence.md) | Production integrity and public-surface convergence | **Acceptée** |
@@ -132,26 +107,35 @@ nouvel ADR qui remplace les précédents. Le cycle de vie complet est dans `.cla
 | [ADR-0108](BE-0108-a-response-says-what-it-could-not-observe.md) | Une réponse dit ce qu'elle n'a pas pu observer : traversée bornée, budget de policy, ratio indéfini | **Acceptée** |
 | [ADR-0109](ARCH-0109-transport-adapters-are-named-composition-roots.md) | Les adaptateurs de transport sont des racines de composition nommées, et leur liste ne fait que rétrécir | **Acceptée** |
 | [ADR-0110](DATA-0110-a-copy-is-kept-before-the-schema-advances.md) | Une copie de la base est conservée avant que son schéma n'avance, et sans elle la migration n'a pas lieu | **Acceptée** |
-| [ADR-0111](BE-0111-the-product-ships-one-logging-binding-its-own.md) | Le produit embarque un seul binding de journalisation, le sien | **Acceptée** |
-| [ADR-0112](BE-0112-the-logs-directory-holds-a-bounded-operational-log.md) | Le répertoire de logs contient le journal opérationnel, borné, quand l'opérateur le demande | **Acceptée** |
 | [ADR-0113](SEC-0113-the-remote-server-records-who-was-authorized-to-do-what.md) | Le serveur distant consigne qui a été autorisé à faire quoi | **Acceptée** |
 | [ADR-0114](BE-0114-database-work-runs-on-a-bounded-pool-of-platform-threads.md) | Le travail sur la base s'exécute sur un pool borné de threads plateforme | **Acceptée** |
 | [ADR-0115](ARCH-0115-the-operational-runtime-is-a-value-the-launcher-hands-on.md) | Le runtime opérationnel est une valeur que le lanceur remet ; le parallélisme JUnit en dépend | **Acceptée** |
 | [ADR-0118](ARCH-0118-tracabilite-typee-et-taxonomie-controlee.md) | Tracer par des liens typés selon une taxonomie contrôlée | **Acceptée** |
 | [ADR-0119](BE-0119-cycle-de-vie-des-changements-et-transition-tri-etat.md) | Évaluer le cycle de vie d'un changement par une machine d'état canonique et une transition tri-état | **Acceptée** |
-| [ADR-0120](DATA-0120-snapshots-versionnes-et-activation-atomique.md) | Publier la connaissance par snapshots versionnés à activation atomique | **Acceptée** |
 | [ADR-0121](ARCH-0121-modele-normalise-neutre-vis-a-vis-des-providers.md) | Normaliser le contenu des providers sans temporalité ni effet appliqué | **Acceptée** |
-| [ADR-0122](ARCH-0122-lectures-metier-sur-le-snapshot-publie.md) | Les lectures métier ne voient que le snapshot publié | **Acceptée** |
 | [ADR-0123](ARCH-0123-vues-compactes-et-json-canonique.md) | Vues compactes typées et JSON canonique | **Acceptée** |
 | [ADR-0124](ARCH-0124-qualite-findings-et-faits-tri-etat.md) | Findings de qualité explicables et faits tri-état | **Acceptée** |
 | [ADR-0125](DATA-0125-detection-de-changement-des-sources.md) | Détecter les changements de source par inventaire SHA-256, reconstruire en entier en cas de doute | **Acceptée** |
-| [ADR-0126](DATA-0126-publication-complete-d-un-snapshot.md) | Publier un snapshot complet sous une ancre BUILDING, et dire dans le reçu ce qui a été exécuté | **Acceptée** |
 | [ADR-0127](GEN-0127-un-launcher-natif-unique.md) | Un launcher natif unique pour la CLI, le serveur MCP STDIO et l'API HTTP | **Acceptée** |
 | [ADR-0128](ARCH-0128-pairs-minos-et-nexus-par-mcp-stdio.md) | MINOS et NEXUS sont des pairs optionnels, lancés à la demande par MCP STDIO | **Acceptée** |
 | [ADR-0129](SEC-0129-plugins-provider-code-de-confiance-hors-processus.md) | Un plugin provider est du code de confiance, sondé hors du processus MORPHEUS | **Acceptée** |
 | [ADR-0130](BE-0130-contrat-des-options-de-la-cli.md) | Une invocation de la CLI est validée avant tout effet, et son code de sortie dit ce qui a été observé | **Acceptée** |
 | [ADR-0131](BE-0131-pagination-des-collections-et-journaux.md) | Une page parle un seul vocabulaire, et un journal est conservé et lu par pages | **Acceptée** |
 | [ADR-0132](GEN-0132-tenir-le-registre-d-adr-au-format-archgate.md) | Tenir le registre d'ADR au format Archgate, à l'emplacement arc42 | **Acceptée** |
+| [ADR-0133](GEN-0133-toolchain-java-21-et-maven-wrapper.md) | Toolchain de build : Java 21 et Maven par Wrapper épinglé | **Acceptée** |
+| [ADR-0134](GEN-0134-distribution-native-autonome.md) | Distribution native autonome, sans image de conteneur | **Acceptée** |
+| [ADR-0135](ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) | Le domaine appartient à MORPHEUS, et sa neutralité se prouve sur plusieurs providers | **Acceptée** |
+| [ADR-0136](ARCH-0136-etat-temporel-et-occurrences-versionnees.md) | L'état temporel est une donnée normalisée, portée par des occurrences versionnées | **Acceptée** |
+| [ADR-0137](ARCH-0137-lectures-et-recherche-sur-le-snapshot-publie.md) | Lectures métier et recherche sur le snapshot publié | **Acceptée** |
+| [ADR-0138](ARCH-0138-analyse-de-changement-derivee-et-bornee.md) | Analyse de changement dérivée, déterministe et bornée | **Acceptée** |
+| [ADR-0139](ARCH-0139-frontiere-morpheus-jarvis-en-lecture-seule.md) | Frontière MORPHEUS / JARVIS : un contrat machine en lecture seule | **Acceptée** |
+| [ADR-0140](DATA-0140-identite-de-domaine.md) | Identité de domaine : opaque, UUIDv7, distincte du locator, persistée par clé scopée par provider | **Acceptée** |
+| [ADR-0141](DATA-0141-contenu-metier-par-snapshot.md) | Contenu métier persisté par snapshot en tables typées | **Acceptée** |
+| [ADR-0142](DATA-0142-references-externes.md) | Références externes : persistées par snapshot, résolues sur demande, observées sans mutation | **Acceptée** |
+| [ADR-0143](DATA-0143-snapshots-versionnes-et-concurrence-bornee.md) | Snapshots versionnés, activation atomique, récupération et concurrence bornées | **Acceptée** |
+| [ADR-0144](DATA-0144-publication-complete-cli-et-http.md) | Publication complète d'un snapshot, en CLI comme en HTTP | **Acceptée** |
+| [ADR-0145](BE-0145-ressource-de-pair-mcp-designee-explicitement.md) | Une ressource d'un pair MCP se désigne explicitement, sans heuristique ni mutation du pair | **Acceptée** |
+| [ADR-0146](BE-0146-journal-operationnel-slf4j-et-fichier-borne.md) | Journal opérationnel : un seul binding SLF4J, un fichier borné à la demande | **Acceptée** |
 
 Les preuves de qualification de chaque jalon sont dans [`../../project/validation/`](../../project/validation/README.md).
 

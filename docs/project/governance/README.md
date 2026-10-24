@@ -30,7 +30,7 @@ packaging       PASS
 ## Architecture Decision Records
 
 - [`../../architecture/adr/README.md`](../../architecture/adr/README.md) — index des ADR ;
-- `ADR-0077` à `ADR-0080` couvrent le contrat d’orchestration M14 ;
+- `ADR-0139` à `ADR-0139` couvrent le contrat d’orchestration M14 ;
 - `ADR-0081` couvre acceptance/verification M15 ;
 - `ADR-0082` couvre la politique de contraintes M16 ;
 - `ADR-0083` couvre les mutations lifecycle contrôlées M17 ;

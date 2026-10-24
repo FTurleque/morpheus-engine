@@ -151,7 +151,7 @@ nombreux pour être retirés sans refonte des paquets, ce qui sort de la portée
 ## References
 
 - [ADR-0003](DATA-0003-specification-knowledge-store.md) — port de stockage de connaissance.
-- [ADR-0017](GEN-0017-maven-build-foundation.md) — build Maven multi-module.
+- [ADR-0133](GEN-0133-toolchain-java-21-et-maven-wrapper.md) — build Maven multi-module.
 - [ADR-0062](ARCH-0062-official-java-mcp-sdk-and-native-stdio.md) — SDK MCP natif.
 - [ADR-0065](ARCH-0065-jdk-httpserver-local-api.md) — API HTTP sur `jdk.httpserver`.
 - `.claude/rules/architecture.md`

@@ -88,7 +88,7 @@ contenu, un même instant d'observation et un même mapping d'identité. `observ
 `Instant.now()` caché n'est autorisé dans le cœur de dérivation.
 
 **Périmètre.** Le service retourne les `TraceabilityLink` ; il n'écrit pas lui-même dans `TraceabilityStore`. Il ne
-fait ni traversée (ADR-0040), ni résolution externe (ADR-0041), ni liens vers le code ou les tests
+fait ni traversée (ADR-0040), ni résolution externe (ADR-0142), ni liens vers le code ou les tests
 (`LINKS_TO_CODE`, `LINKS_TO_TEST`), ni invalidation incrémentale.
 
 ## Do's and Don'ts
@@ -141,7 +141,7 @@ fait ni traversée (ADR-0040), ni résolution externe (ADR-0041), ni liens vers 
 
 - [ADR-0038](DATA-0038-snapshot-scoped-traceability-persistence.md) — persistance de la traçabilité par snapshot.
 - [ADR-0040](BE-0040-bounded-deterministic-traceability-traversal.md) — traversée bornée.
-- [ADR-0041](DATA-0041-snapshot-external-reference-traceability.md) — références externes et liens non résolus.
+- [ADR-0142](DATA-0142-references-externes.md) — références externes et liens non résolus.
 - [ADR-0081](DATA-0081-first-class-acceptance-verification-evidence.md) — critères d'acceptation et evidence.
 - [ADR-0118](ARCH-0118-tracabilite-typee-et-taxonomie-controlee.md) — traçabilité typée et taxonomie contrôlée.
 - [ADR-0121](ARCH-0121-modele-normalise-neutre-vis-a-vis-des-providers.md) — modèle normalisé.

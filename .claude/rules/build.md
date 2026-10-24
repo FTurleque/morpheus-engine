@@ -30,7 +30,7 @@ Bumper une de ces versions **casse le gate** tant que le test n'est pas mis à j
 - Jamais ajouter `morpheus-provider-sdk` ou `morpheus-provider-reference` aux POMs de `domain` / `application`
 - Jamais embarquer `morpheus-provider-reference` dans `morpheus-cli/pom.xml`
 - Jamais introduire une CVE ≥ 7.0 sans suppression approuvée
-- Jamais Java < 21 (baseline ADR-0016) ni Maven < 3.9.16 (Enforcer actif)
+- Jamais Java < 21 (baseline ADR-0133) ni Maven < 3.9.16 (Enforcer actif)
 
 ## `dependencyManagement` — le mécanisme concret
 

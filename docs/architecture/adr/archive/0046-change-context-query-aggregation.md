@@ -1,6 +1,6 @@
 # ADR-0046 — Agrégation déterministe du contexte de changement
 
-> **Archivée.** Cette décision est consolidée dans [ADR-0122](../ARCH-0122-lectures-metier-sur-le-snapshot-publie.md). Ce texte n'est plus en vigueur et n'est pas tenu à jour.
+> **Archivée.** Cette décision est consolidée dans [ADR-0122](0122-lectures-metier-sur-le-snapshot-publie.md). Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
 - Statut : **Remplacée par ADR-0122**
 - Date : 23 juillet 2026

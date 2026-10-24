@@ -97,11 +97,11 @@ runtime diagnostics to stderr only
 
 ## References
 
-- [ADR-0016](GEN-0016-java-21-production-baseline.md) — baseline Java 21.
-- [ADR-0017](GEN-0017-maven-build-foundation.md) — fondation de build Maven.
-- [ADR-0027](GEN-0027-native-distribution-without-container-image.md) — distribution native, sans image Docker.
+- [ADR-0133](GEN-0133-toolchain-java-21-et-maven-wrapper.md) — baseline Java 21.
+- [ADR-0133](GEN-0133-toolchain-java-21-et-maven-wrapper.md) — fondation de build Maven.
+- [ADR-0134](GEN-0134-distribution-native-autonome.md) — distribution native, sans image Docker.
 - [ADR-0059](GEN-0059-stable-local-cli-contract.md) — contrat CLI local.
-- [ADR-0061](GEN-0061-self-contained-jpackage-portable-distribution.md) — distribution portable autonome.
+- [ADR-0134](GEN-0134-distribution-native-autonome.md) — distribution portable autonome.
 - [ADR-0063](ARCH-0063-read-only-mcp-tool-contract.md) — catalogue d'outils MCP.
 - [ADR-0102](BE-0102-mcp-failure-contract-is-one-rule.md) — contrat d'échec MCP.
 - [ADR-0106](BE-0106-inbound-bound-is-defensive-outbound-bound-is-a-defect.md) — bornes du transport STDIO.

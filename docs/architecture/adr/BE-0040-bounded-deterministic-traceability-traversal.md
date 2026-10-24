@@ -108,7 +108,7 @@ transitive edge materialization
 graph database
 ```
 
-Les références externes relèvent d'ADR-0041.
+Les références externes relèvent d'ADR-0142.
 
 ## Do's and Don'ts
 
@@ -160,8 +160,8 @@ Les références externes relèvent d'ADR-0041.
 - [ADR-0118](ARCH-0118-tracabilite-typee-et-taxonomie-controlee.md) — traçabilité typée et taxonomie contrôlée.
 - [ADR-0038](DATA-0038-snapshot-scoped-traceability-persistence.md) — persistance snapshot-scoped de la traçabilité.
 - [ADR-0039](BE-0039-deterministic-traceability-derivation.md) — dérivation déterministe de la traçabilité.
-- [ADR-0041](DATA-0041-snapshot-external-reference-traceability.md) — traçabilité des références externes.
-- [ADR-0057](ARCH-0057-explicit-bounded-dependency-impact-paths.md) — chemins d'impact bornés.
+- [ADR-0142](DATA-0142-references-externes.md) — traçabilité des références externes.
+- [ADR-0138](ARCH-0138-analyse-de-changement-derivee-et-bornee.md) — chemins d'impact bornés.
 - [ADR-0108](BE-0108-a-response-says-what-it-could-not-observe.md) — plafonds de nœuds et de liens, raison de
   troncature.
 - [Validation M4](../../project/validation/VALIDATION_M4.md)

@@ -126,7 +126,7 @@ La couverture d'acceptance d'un snapshot publié est évaluée par `AcceptanceQu
 projection de contenu métier : `EVALUATED` quand au moins un critère existe, `NO_CRITERIA` quand il n'y en a aucun
 (zéro critère n'est pas « modèle indisponible »).
 
-L'analyse d'un changement proposé (ADR-0056) n'évalue pas cette couverture : elle rend toujours
+L'analyse d'un changement proposé (ADR-0138) n'évalue pas cette couverture : elle rend toujours
 `AcceptanceCoverageStatus.UNAVAILABLE_IN_NORMALIZED_MODEL` avec le warning `ACCEPTANCE_CRITERIA_UNAVAILABLE`, car le
 `ProposedChangeSet` ne porte aucun critère.
 
@@ -194,11 +194,11 @@ aucun critère, plutôt que d'utiliser une heuristique.
 
 ## References
 
-- [ADR-0001](ARCH-0001-morpheus-owned-domain.md) — domaine propre à MORPHEUS.
-- [ADR-0009](DATA-0009-stable-domain-identity.md) — identité de domaine stable.
-- [ADR-0031](ARCH-0031-explicit-temporal-projection-and-entity-version.md) — projection temporelle et versions.
-- [ADR-0044](DATA-0044-snapshot-business-content-projection.md) — projection du contenu métier d'un snapshot.
-- [ADR-0056](ARCH-0056-deterministic-current-proposed-change-analysis.md) — analyse de changement.
+- [ADR-0135](ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — domaine propre à MORPHEUS.
+- [ADR-0140](DATA-0140-identite-de-domaine.md) — identité de domaine stable.
+- [ADR-0136](ARCH-0136-etat-temporel-et-occurrences-versionnees.md) — projection temporelle et versions.
+- [ADR-0141](DATA-0141-contenu-metier-par-snapshot.md) — projection du contenu métier d'un snapshot.
+- [ADR-0138](ARCH-0138-analyse-de-changement-derivee-et-bornee.md) — analyse de changement.
 - [ADR-0079](BE-0079-nondestructive-change-orchestration-state.md) — état d'orchestration non destructif.
 - [ADR-0118](ARCH-0118-tracabilite-typee-et-taxonomie-controlee.md) — traçabilité typée.
 - [ADR-0124](ARCH-0124-qualite-findings-et-faits-tri-etat.md) — qualité, `Scenario != AcceptanceCriterion`.

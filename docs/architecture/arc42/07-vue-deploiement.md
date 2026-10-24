@@ -1,8 +1,8 @@
 # §7 — Vue de déploiement
 
 > **Sources actives** : `distribution/`, `docs/user/INSTALLATION.md`,
-> `docs/developer/BUILD_AND_TEST.md`, `.github/workflows/ci.yml`, ADR-0027,
-> ADR-0061, ADR-0094 et preuves R3.
+> `docs/developer/BUILD_AND_TEST.md`, `.github/workflows/ci.yml`, ADR-0134,
+> ADR-0134, ADR-0094 et preuves R3.
 
 ---
 

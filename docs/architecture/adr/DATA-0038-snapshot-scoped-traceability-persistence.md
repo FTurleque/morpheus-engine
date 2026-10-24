@@ -159,6 +159,6 @@ invalidation incrémentale complète.
 - [ADR-0118](ARCH-0118-tracabilite-typee-et-taxonomie-controlee.md) — traçabilité typée et taxonomie contrôlée.
 - [ADR-0018](DATA-0018-sqlite-initial-persistent-store.md) — SQLite.
 - [ADR-0021](DATA-0021-sqlite-schema-migrations-foundation.md) — migrations SQLite.
-- [ADR-0120](DATA-0120-snapshots-versionnes-et-activation-atomique.md) — snapshots versionnés.
+- [ADR-0143](DATA-0143-snapshots-versionnes-et-concurrence-bornee.md) — snapshots versionnés.
 - [ADR-0040](BE-0040-bounded-deterministic-traceability-traversal.md) — traversée bornée.
 - [VALIDATION_M4](../../project/validation/VALIDATION_M4.md).

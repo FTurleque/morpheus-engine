@@ -38,7 +38,7 @@ Options écartées :
    journal en fichier. Deux runtimes ne partagent rien.
 
 2. **Le lanceur le prend une fois et le remet.** `MorpheusMain` prend le runtime du processus
-   (`LocalOperationalRuntime.process()`), y nomme le répertoire du journal (ADR-0112), et le remet par constructeur au
+   (`LocalOperationalRuntime.process()`), y nomme le répertoire du journal (ADR-0146), et le remet par constructeur au
    serveur local, au serveur remote, au serveur MCP et à chaque commande. `MorpheusCli.main`, second point d'entrée,
    fait de même. Aucune injection par annotation, aucun conteneur : le câblage reste explicite.
 
@@ -76,7 +76,7 @@ Options écartées :
    du processus comme valeur.
 
 8. **Le binding SLF4J reste sur le défaut.** `OperationalSlf4jServiceProvider` est instancié par le `ServiceLoader`
-   (ADR-0111) : personne ne le construit, donc personne ne peut rien lui remettre. C'est pourquoi le défaut statique
+   (ADR-0146) : personne ne le construit, donc personne ne peut rien lui remettre. C'est pourquoi le défaut statique
    ne disparaît pas quand la liste se vide de tout le reste.
 
 9. **Le parallélisme JUnit est activé pour `morpheus-store-sqlite` seul**, par un `junit-platform.properties`
@@ -179,6 +179,6 @@ partagent rien.
 
 - [ADR-0109](ARCH-0109-transport-adapters-are-named-composition-roots.md) — racines de composition nommées, une
   portée de connexion par opération.
-- [ADR-0111](BE-0111-the-product-ships-one-logging-binding-its-own.md) — un seul binding de journalisation.
-- [ADR-0112](BE-0112-the-logs-directory-holds-a-bounded-operational-log.md) — journal opérationnel borné.
+- [ADR-0146](BE-0146-journal-operationnel-slf4j-et-fichier-borne.md) — un seul binding de journalisation.
+- [ADR-0146](BE-0146-journal-operationnel-slf4j-et-fichier-borne.md) — journal opérationnel borné.
 - [ADR-0129](SEC-0129-plugins-provider-code-de-confiance-hors-processus.md) — plugins providers hors processus.

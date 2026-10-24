@@ -10,11 +10,11 @@
 | # | Principe | Formulation | Référence |
 |---|----------|-------------|-----------|
 | P-1 | **Local-first** | Le cœur fonctionne sans réseau, LLM ni service cloud obligatoire | ADR-0004 |
-| P-2 | **Ports & Adapters** | Domaine et application possèdent leurs contrats ; les technologies restent aux frontières | ADR-0001, ADR-0003 |
+| P-2 | **Ports & Adapters** | Domaine et application possèdent leurs contrats ; les technologies restent aux frontières | ADR-0135, ADR-0003 |
 | P-3 | **Read-first / controlled write** | Une capacité de lecture n'implique jamais une capacité d'écriture ; toute mutation est explicite et contrôlée | ADR-0008, ADR-0083 |
 | P-4 | **Facts before inference** | Faits, inférences, heuristiques et suggestions ne sont jamais confondus | ADR-0004, ADR-0095 |
-| P-5 | **Identité stable** | `DomainIdentity` est indépendante de la version, du locator et des références externes | ADR-0009, ADR-0015 |
-| P-6 | **Snapshots atomiques** | Un snapshot publié est cohérent ; une activation partielle n'est pas observable | ADR-0120 |
+| P-5 | **Identité stable** | `DomainIdentity` est indépendante de la version, du locator et des références externes | ADR-0140 |
+| P-6 | **Snapshots atomiques** | Un snapshot publié est cohérent ; une activation partielle n'est pas observable | ADR-0143 |
 | P-7 | **Convergence des surfaces** | Les capacités publiques sont suivies entre CLI, MCP et HTTP sans imposer une forme de transport identique | `contracts/public-surfaces.tsv` |
 | P-8 | **Migrations vérifiables** | Les migrations SQLite sont versionnées, checksummées et appliquées explicitement | ADR-0021 |
 | P-9 | **Intégrations optionnelles** | MINOS et NEXUS sont isolés derrière des ports et ne sont pas requis pour les faits locaux | ADR-0007 |
@@ -114,11 +114,11 @@ baseline au moment de la réconciliation documentaire.
 
 | Décision | ADR |
 |----------|-----|
-| Domaine MORPHEUS indépendant | [ADR-0001](../adr/ARCH-0001-morpheus-owned-domain.md) |
+| Domaine MORPHEUS indépendant | [ADR-0135](../adr/ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) |
 | Local-first sans LLM obligatoire | [ADR-0004](../adr/SEC-0004-local-first-no-llm-core.md) |
 | Store derrière port | [ADR-0003](../adr/DATA-0003-specification-knowledge-store.md) |
 | SQLite initial | [ADR-0018](../adr/DATA-0018-sqlite-initial-persistent-store.md) |
-| Distribution native-first | [ADR-0027](../adr/GEN-0027-native-distribution-without-container-image.md) |
+| Distribution native-first | [ADR-0134](../adr/GEN-0134-distribution-native-autonome.md) |
 | MCP STDIO officiel | [ADR-0062](../adr/ARCH-0062-official-java-mcp-sdk-and-native-stdio.md) |
 | Provider SDK | [ADR-0129](../adr/SEC-0129-plugins-provider-code-de-confiance-hors-processus.md) |
 | Remote server optionnel | [ADR-0094](../adr/SEC-0094-optional-team-remote-server-mode.md) |

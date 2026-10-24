@@ -115,9 +115,9 @@ indisponible, la réponse le dit explicitement et garde l'intention MORPHEUS, sa
 
 ## References
 
-- [ADR-0001](ARCH-0001-morpheus-owned-domain.md) — domaine possédé par MORPHEUS.
+- [ADR-0135](ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — domaine possédé par MORPHEUS.
 - [ADR-0007](ARCH-0007-cross-engine-integration.md) — intégrations cross-engine par contrats explicites.
-- [ADR-0074](BE-0074-explicit-nexus-project-mapping.md) — correspondance explicite des projets NEXUS.
+- [ADR-0145](BE-0145-ressource-de-pair-mcp-designee-explicitement.md) — correspondance explicite des projets NEXUS.
 - [ADR-0123](ARCH-0123-vues-compactes-et-json-canonique.md) — vues compactes et JSON canonique.
 - [ADR-0128](ARCH-0128-pairs-minos-et-nexus-par-mcp-stdio.md) — pairs MINOS et NEXUS par MCP STDIO.
 - [ADR-0094](SEC-0094-optional-team-remote-server-mode.md) — projection du statut d'intégration sur les frontières

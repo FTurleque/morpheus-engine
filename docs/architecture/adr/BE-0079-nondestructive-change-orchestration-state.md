@@ -126,7 +126,7 @@ de `ChangeOrchestrationState` refuse `persisted=true`.
 
 ## References
 
-- [ADR-0041](DATA-0041-snapshot-external-reference-traceability.md) — références externes du snapshot.
+- [ADR-0142](DATA-0142-references-externes.md) — références externes du snapshot.
 - [ADR-0123](ARCH-0123-vues-compactes-et-json-canonique.md) — vues compactes et JSON canonique.
 - [ADR-0124](ARCH-0124-qualite-findings-et-faits-tri-etat.md) — qualité, findings et faits tri-état.
 - [ADR-0119](BE-0119-cycle-de-vie-des-changements-et-transition-tri-etat.md) — cycle de vie et transition tri-état.
@@ -134,5 +134,5 @@ de `ChangeOrchestrationState` refuse `persisted=true`.
   vérification.
 - [ADR-0082](DATA-0082-explicit-constraint-semantics-and-blocking-policy.md) — sémantique des contraintes et
   politique de blocage.
-- [ADR-0080](ARCH-0080-jarvis-orchestration-surfaces-and-optional-client.md) — surfaces d'orchestration JARVIS.
+- [ADR-0139](ARCH-0139-frontiere-morpheus-jarvis-en-lecture-seule.md) — surfaces d'orchestration JARVIS.
 - [VALIDATION_M14](../../project/validation/VALIDATION_M14.md) — preuve du jalon M14.

@@ -139,9 +139,9 @@ Le lanceur Java d'un pair est un choix de sécurité : une commande nue (`java`)
 
 - [ADR-0007](ARCH-0007-cross-engine-integration.md) — intégration entre moteurs.
 - [ADR-0062](ARCH-0062-official-java-mcp-sdk-and-native-stdio.md) — SDK MCP Java et STDIO.
-- [ADR-0026](ARCH-0026-optional-external-reference-resolution.md) — résolution facultative des références externes.
-- [ADR-0070](BE-0070-exact-minos-symbol-reference-and-revision.md) — référence exacte d'un symbole MINOS.
-- [ADR-0074](BE-0074-explicit-nexus-project-mapping.md) — correspondance explicite des projets NEXUS.
+- [ADR-0142](DATA-0142-references-externes.md) — résolution facultative des références externes.
+- [ADR-0145](BE-0145-ressource-de-pair-mcp-designee-explicitement.md) — référence exacte d'un symbole MINOS.
+- [ADR-0145](BE-0145-ressource-de-pair-mcp-designee-explicitement.md) — correspondance explicite des projets NEXUS.
 - [ADR-0075](ARCH-0075-morpheus-intent-vs-nexus-technical-context.md) — intention MORPHEUS et contexte NEXUS.
 - [ADR-0106](BE-0106-inbound-bound-is-defensive-outbound-bound-is-a-defect.md) — bornes des opérations vers un pair.
 - [ADR-0129](SEC-0129-plugins-provider-code-de-confiance-hors-processus.md) — code externe de confiance, pin SHA-256.

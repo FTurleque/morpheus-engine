@@ -14,7 +14,7 @@ files: ["distribution/build-portable.ps1", "distribution/build-portable.sh"]
 
 ## Context
 
-La distribution portable (ADR-0061) produit un launcher natif `morpheus` / `morpheus.exe` qui embarque son runtime
+La distribution portable (ADR-0134) produit un launcher natif `morpheus` / `morpheus.exe` qui embarque son runtime
 Java et lance `com.morpheus.cli.MorpheusMain`. MORPHEUS s'utilise par trois transports : la CLI, un serveur MCP en
 STDIO (ADR-0062) et une API HTTP sur `jdk.httpserver` (ADR-0065). Livrer un second mécanisme d'installation ou un
 second runtime pour MCP ou pour l'API compliquerait la distribution locale et ferait diverger la localisation des
@@ -107,7 +107,7 @@ log, message de démarrage) casse la session du client.
 
 ## References
 
-- [ADR-0061](GEN-0061-self-contained-jpackage-portable-distribution.md) — distribution portable autonome.
+- [ADR-0134](GEN-0134-distribution-native-autonome.md) — distribution portable autonome.
 - [ADR-0059](GEN-0059-stable-local-cli-contract.md) — contrat de la CLI locale et layout.
 - [ADR-0062](ARCH-0062-official-java-mcp-sdk-and-native-stdio.md) — SDK MCP Java et STDIO natif.
 - [ADR-0063](ARCH-0063-read-only-mcp-tool-contract.md) — contrat des outils MCP en lecture.

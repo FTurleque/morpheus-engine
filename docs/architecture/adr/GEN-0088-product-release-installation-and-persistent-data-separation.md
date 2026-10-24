@@ -114,10 +114,10 @@ GitHub Actions n'en est pas la preuve autoritative.
 
 ## References
 
-- [ADR-0027](GEN-0027-native-distribution-without-container-image.md) — distribution native d'abord.
-- [ADR-0061](GEN-0061-self-contained-jpackage-portable-distribution.md) — distribution portable `jpackage`.
+- [ADR-0134](GEN-0134-distribution-native-autonome.md) — distribution native d'abord.
+- [ADR-0134](GEN-0134-distribution-native-autonome.md) — distribution portable `jpackage`.
 - [ADR-0096](GEN-0096-conservative-native-mcp-client-integration.md) — intégration conservatrice des clients MCP.
 - [ADR-0110](DATA-0110-a-copy-is-kept-before-the-schema-advances.md) — copie avant migration du schéma.
-- [ADR-0112](BE-0112-the-logs-directory-holds-a-bounded-operational-log.md) — journal opérationnel du répertoire de
+- [ADR-0146](BE-0146-journal-operationnel-slf4j-et-fichier-borne.md) — journal opérationnel du répertoire de
   logs.
 - [Validation M20](../../project/validation/VALIDATION_M20.md)

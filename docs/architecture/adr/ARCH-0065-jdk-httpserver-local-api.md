@@ -14,7 +14,7 @@ files: ["**/pom.xml", "distribution/build-portable.ps1", "distribution/build-por
 ## Context
 
 MORPHEUS doit s'exposer comme service headless local sans restructurer le produit autour d'un framework web. La
-baseline est Java 21 (ADR-0016), la distribution est autonome via `jpackage` (ADR-0027, ADR-0061), et le produit n'a
+baseline est Java 21 (ADR-0133), la distribution est autonome via `jpackage` (ADR-0134), et le produit n'a
 besoin ni de servlet container, ni d'injection de dépendances web, ni de templating, ni de websocket, ni de stack
 cloud.
 
@@ -97,9 +97,9 @@ requis) afin que le runtime embarqué le contienne.
 
 ## References
 
-- [ADR-0016](GEN-0016-java-21-production-baseline.md) — baseline Java 21.
-- [ADR-0027](GEN-0027-native-distribution-without-container-image.md) — distribution native d'abord.
-- [ADR-0061](GEN-0061-self-contained-jpackage-portable-distribution.md) — distribution portable `jpackage`.
+- [ADR-0133](GEN-0133-toolchain-java-21-et-maven-wrapper.md) — baseline Java 21.
+- [ADR-0134](GEN-0134-distribution-native-autonome.md) — distribution native d'abord.
+- [ADR-0134](GEN-0134-distribution-native-autonome.md) — distribution portable `jpackage`.
 - [ADR-0066](ARCH-0066-versioned-http-api-contract.md) — contrat HTTP versionné.
 - [ADR-0094](SEC-0094-optional-team-remote-server-mode.md) — mode serveur remote optionnel.
 - [VALIDATION_M11](../../project/validation/VALIDATION_M11.md) — preuve du jalon M11.

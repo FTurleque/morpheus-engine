@@ -250,7 +250,7 @@ Options écartées :
 
 ## References
 
-- [ADR-0001](ARCH-0001-morpheus-owned-domain.md) — domaine possédé par MORPHEUS.
+- [ADR-0135](ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — domaine possédé par MORPHEUS.
 - [ADR-0002](ARCH-0002-openspec-reference-provider.md) — OpenSpec, provider de référence.
 - [ADR-0011](BE-0011-provider-capability-negotiation.md) — négociation des capacités, que décrit la sonde.
 - [ADR-0121](ARCH-0121-modele-normalise-neutre-vis-a-vis-des-providers.md) — modèle normalisé neutre que les lecteurs
