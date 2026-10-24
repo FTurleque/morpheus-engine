@@ -3,7 +3,6 @@ package com.morpheus.architecture;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
-import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -12,11 +11,8 @@ class DiagnosticsApiServiceArchitectureTest {
 
     @Test
     void qualityDiagnosticsStayExtractedFromApiFacade() throws Exception {
-        Path root = repositoryRoot();
-        String facade = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusApiService.java"));
-        String diagnostics = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusDiagnosticsApiService.java"));
+        String facade = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusApiService"));
+        String diagnostics = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusDiagnosticsApiService"));
 
         assertTrue(facade.contains("private final MorpheusDiagnosticsApiService diagnosticsService;"));
         assertTrue(facade.contains("return diagnosticsService.changeStatus(projectIdValue, changeIdValue);"));
@@ -38,17 +34,5 @@ class DiagnosticsApiServiceArchitectureTest {
         assertFalse(diagnostics.contains("LocalSourceInventoryScanner"));
         assertFalse(diagnostics.contains("MorpheusHttpResponseWriter"));
         assertFalse(diagnostics.contains("MorpheusRemote"));
-    }
-
-    private Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
     }
 }

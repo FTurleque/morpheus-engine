@@ -1,5 +1,6 @@
 package com.morpheus.architecture.m21;
 
+import com.morpheus.architecture.ProductionSources;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -34,11 +35,11 @@ class ProductVersionSourceOfTruthTest {
     @Test
     void publicProductSurfacesDelegateToCanonicalMetadata() throws IOException {
         Path root = repoRoot();
-        assertContains(root.resolve("morpheus-api/src/main/java/com/morpheus/api/MorpheusApiService.java"),
+        assertContains(ProductionSources.mainSource("morpheus-api", "MorpheusApiService"),
                 "ProductMetadata.version()");
-        assertContains(root.resolve("morpheus-cli/src/main/java/com/morpheus/cli/MorpheusProductCli.java"),
+        assertContains(ProductionSources.mainSource("morpheus-cli", "MorpheusProductCli"),
                 "ProductMetadata.version()");
-        assertContains(root.resolve("morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusProductMcpTools.java"),
+        assertContains(ProductionSources.mainSource("morpheus-mcp", "MorpheusProductMcpTools"),
                 "ProductMetadata.current()");
         String metadata = Files.readString(root.resolve(
                 "morpheus-application/src/main/java/com/morpheus/application/product/ProductMetadata.java"));

@@ -13,13 +13,9 @@ class ProjectRegistryApiServiceArchitectureTest {
 
     @Test
     void projectRegistryOrchestrationStaysExtractedFromApiFacade() throws IOException {
-        Path root = repositoryRoot();
-        String facade = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusApiService.java"));
-        String registry = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusProjectRegistryApiService.java"));
-        String routes = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusProjectRootHttpRoutes.java"));
+        String facade = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusApiService"));
+        String registry = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusProjectRegistryApiService"));
+        String routes = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusProjectRootHttpRoutes"));
 
         assertTrue(facade.contains("private final MorpheusProjectRegistryApiService projectRegistryService;"));
         assertTrue(facade.contains("return projectRegistryService.listProjects();"));
@@ -49,17 +45,5 @@ class ProjectRegistryApiServiceArchitectureTest {
         assertTrue(routes.contains("private final MorpheusProjectRegistryApiService service;"));
         assertTrue(routes.contains("service.project(projectId)"));
         assertFalse(routes.contains("private final MorpheusApiService service;"));
-    }
-
-    private Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
     }
 }

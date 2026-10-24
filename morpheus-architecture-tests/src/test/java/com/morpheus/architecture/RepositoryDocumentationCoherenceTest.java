@@ -751,9 +751,9 @@ class RepositoryDocumentationCoherenceTest {
     @Test
     void httpExtensionRoutesUseSharedTimedRequestBodyBoundary() throws Exception {
         Path root = repositoryRoot();
-        Path api = root.resolve("morpheus-api/src/main/java/com/morpheus/api");
+        Path api = root.resolve("morpheus-api/src/main/java");
         List<Path> routers;
-        try (var files = Files.list(api)) {
+        try (var files = Files.walk(api)) {
             routers = files.filter(path -> path.getFileName().toString().endsWith("HttpRoutes.java")).sorted().toList();
         }
         assertFalse(routers.isEmpty(), "no *HttpRoutes.java found under " + api);
@@ -766,10 +766,10 @@ class RepositoryDocumentationCoherenceTest {
                     () -> route + " must read its body through MorpheusHttpRequestDecoder, not a reader of its own");
         }
 
-        String decoder = Files.readString(api.resolve("MorpheusHttpRequestDecoder.java"));
+        String decoder = ProductionSources.readMain("morpheus-api", "MorpheusHttpRequestDecoder");
         assertTrue(decoder.contains("HttpRequestBodyReader.read("),
                 "the request decoder must read bodies through the shared bounded reader");
-        String reader = Files.readString(api.resolve("HttpRequestBodyReader.java"));
+        String reader = ProductionSources.readMain("morpheus-api", "HttpRequestBodyReader");
         assertTrue(reader.contains("TimedBoundedInputReader.read("),
                 "shared request-body reader must delegate to the deadline-aware primitive");
     }
@@ -793,10 +793,8 @@ class RepositoryDocumentationCoherenceTest {
     @Test
     void remoteAuthorizationAndCredentialDocumentationStayFailClosedAndExpiryAware() throws Exception {
         Path root = repositoryRoot();
-        String routePolicy = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteRoutePolicy.java"));
-        String remoteServer = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
+        String routePolicy = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteRoutePolicy"));
+        String remoteServer = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServer"));
         String userGuide = Files.readString(root.resolve("docs/user/TEAM_REMOTE_SERVER.md"));
         String developerGuide = Files.readString(root.resolve("docs/developer/REMOTE_SERVER_PLATFORM.md"));
 

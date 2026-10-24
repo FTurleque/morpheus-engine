@@ -1,10 +1,10 @@
 package com.morpheus.architecture.m26;
 
+import com.morpheus.architecture.ProductionSources;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -21,8 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class RemoteAccessJournalArchitectureTest {
     @Test
     void theOutcomeIsRecordedOnceInTheFinallyOfServeAndTheAcceptanceBeforeAnythingIsServed() throws IOException {
-        String server = Files.readString(repositoryRoot().resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
+        String server = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServer"));
         String serve = server.substring(
                 server.indexOf("private void serve(HttpExchange exchange)"),
                 server.indexOf("private long acquirePrivilegedTicket("));
@@ -52,10 +51,8 @@ class RemoteAccessJournalArchitectureTest {
 
     @Test
     void aRecordIsBuiltFromTheRouteTemplateAndNeverFromThePath() throws IOException {
-        String journal = Files.readString(repositoryRoot().resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/RemoteAccessJournal.java"));
-        String server = Files.readString(repositoryRoot().resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
+        String journal = Files.readString(ProductionSources.mainSource("morpheus-api", "RemoteAccessJournal"));
+        String server = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServer"));
 
         assertTrue(server.contains("exchange.getRequestMethod(), route.template());"),
                 "the record takes the template the route table matched");
@@ -74,17 +71,5 @@ class RemoteAccessJournalArchitectureTest {
             count++;
         }
         return count;
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 }

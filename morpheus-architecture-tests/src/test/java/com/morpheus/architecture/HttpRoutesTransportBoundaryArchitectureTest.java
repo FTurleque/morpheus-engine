@@ -177,7 +177,7 @@ class HttpRoutesTransportBoundaryArchitectureTest {
                         + "the decoding and the encoding belong to the server")
                 .check(classes);
 
-        assertNoSourceMentions(routerSources(repositoryRoot(), ROUTERS_WITHOUT_A_BODY), "tools.jackson");
+        assertNoSourceMentions(routerSources(ROUTERS_WITHOUT_A_BODY), "tools.jackson");
     }
 
     /**
@@ -205,7 +205,7 @@ class HttpRoutesTransportBoundaryArchitectureTest {
                         + "in step")
                 .check(classes);
 
-        Map<String, Path> sources = routerSources(repositoryRoot(), ROUTERS_THROUGH_THE_SHARED_DECODER);
+        Map<String, Path> sources = routerSources(ROUTERS_THROUGH_THE_SHARED_DECODER);
         assertNoSourceMentions(sources, "tools.jackson");
         assertNoSourceMentions(sources, "CanonicalJsonSerializer");
     }
@@ -255,7 +255,7 @@ class HttpRoutesTransportBoundaryArchitectureTest {
                         + "step with the server's")
                 .check(classes);
 
-        Map<String, Path> sources = routerSources(repositoryRoot(), ROUTERS_REGISTERING_THEIR_OWN_CONTEXT);
+        Map<String, Path> sources = routerSources(ROUTERS_REGISTERING_THEIR_OWN_CONTEXT);
         assertNoSourceMentions(sources, "tools.jackson");
         assertNoSourceMentions(sources, "CanonicalJsonSerializer");
     }
@@ -389,11 +389,10 @@ class HttpRoutesTransportBoundaryArchitectureTest {
                         && routers.contains(javaClass.getSimpleName()));
     }
 
-    private static Map<String, Path> routerSources(Path repository, List<String> routers) {
+    private static Map<String, Path> routerSources(List<String> routers) {
         Map<String, Path> sources = new TreeMap<>();
         for (String router : routers) {
-            sources.put(router, repository.resolve(
-                    "morpheus-api/src/main/java/com/morpheus/api/" + router + ".java"));
+            sources.put(router, ProductionSources.mainSource("morpheus-api", router));
         }
         return sources;
     }

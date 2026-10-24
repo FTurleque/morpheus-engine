@@ -1,5 +1,6 @@
 package com.morpheus.architecture.m21;
 
+import com.morpheus.architecture.ProductionSources;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -87,11 +88,11 @@ class ProductionIntegrityContractTest {
         assertTrue(manifest.contains("product.update-discovery\tREAD\tupdate-check --manifest\tcheck_product_update\tEXPLICITLY_NOT_EXPOSED"));
         assertTrue(manifest.contains("lifecycle.apply\tWRITE"));
 
-        String main = Files.readString(root.resolve("morpheus-cli/src/main/java/com/morpheus/cli/MorpheusMain.java"));
-        String productCli = Files.readString(root.resolve("morpheus-cli/src/main/java/com/morpheus/cli/MorpheusProductCli.java"));
-        String mcp = Files.readString(root.resolve("morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusProductMcpTools.java"));
-        String http = Files.readString(root.resolve("morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
-        String rootHttp = Files.readString(root.resolve("morpheus-api/src/main/java/com/morpheus/api/MorpheusRootHttpRoutes.java"));
+        String main = Files.readString(ProductionSources.mainSource("morpheus-cli", "MorpheusMain"));
+        String productCli = Files.readString(ProductionSources.mainSource("morpheus-cli", "MorpheusProductCli"));
+        String mcp = Files.readString(ProductionSources.mainSource("morpheus-mcp", "MorpheusProductMcpTools"));
+        String http = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusHttpServer"));
+        String rootHttp = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRootHttpRoutes"));
         String compositionMcp = readJavaTree(root.resolve("morpheus-mcp/src/main/java"));
         String lifecycleCli = readJavaTree(root.resolve("morpheus-cli/src/main/java"));
 
@@ -124,7 +125,7 @@ class ProductionIntegrityContractTest {
         }
 
         assertEquals(1, constructionSites.size(), "update discovery must only be constructed by the explicit CLI operation");
-        assertTrue(constructionSites.contains(Path.of("morpheus-cli/src/main/java/com/morpheus/cli/MorpheusProductCli.java")));
+        assertTrue(constructionSites.contains(ProductionSources.relativeMainSource("morpheus-cli", "MorpheusProductCli")));
         assertTrue(Files.isDirectory(productionRoot), "repository production source tree must remain discoverable");
     }
 

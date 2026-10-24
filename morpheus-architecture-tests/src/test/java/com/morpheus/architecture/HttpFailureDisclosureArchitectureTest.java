@@ -102,7 +102,7 @@ class HttpFailureDisclosureArchitectureTest {
 
     @Test
     void noSourceOfTheAdapterDeclaresAMessageHelperOfItsOwn() throws IOException {
-        Path sources = repositoryRoot().resolve("morpheus-api/src/main/java/com/morpheus/api");
+        Path sources = repositoryRoot().resolve("morpheus-api/src/main/java");
         List<String> offenders = new ArrayList<>();
         int scanned = 0;
         try (Stream<Path> files = Files.walk(sources)) {

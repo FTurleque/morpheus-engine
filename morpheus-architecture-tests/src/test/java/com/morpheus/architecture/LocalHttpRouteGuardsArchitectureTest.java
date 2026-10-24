@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -13,15 +12,10 @@ class LocalHttpRouteGuardsArchitectureTest {
 
     @Test
     void localRouteGuardsStayExtractedAndPure() throws IOException {
-        Path root = repositoryRoot();
-        String server = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
-        String rootRoutes = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRootHttpRoutes.java"));
-        String projectSyncRoutes = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusProjectSyncHttpRoutes.java"));
-        String guards = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpRouteGuards.java"));
+        String server = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusHttpServer"));
+        String rootRoutes = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRootHttpRoutes"));
+        String projectSyncRoutes = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusProjectSyncHttpRoutes"));
+        String guards = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusHttpRouteGuards"));
         String localHttpConsumers = server + "\n" + rootRoutes + "\n" + projectSyncRoutes;
 
         assertTrue(rootRoutes.contains("MorpheusHttpRouteGuards.requireMethod(method, \"GET\")"));
@@ -39,17 +33,5 @@ class LocalHttpRouteGuardsArchitectureTest {
         assertFalse(guards.contains("MorpheusApiService"));
         assertFalse(guards.contains("MorpheusRemoteRoutePolicy"));
         assertFalse(guards.contains("MorpheusRemoteRole"));
-    }
-
-    private Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
     }
 }

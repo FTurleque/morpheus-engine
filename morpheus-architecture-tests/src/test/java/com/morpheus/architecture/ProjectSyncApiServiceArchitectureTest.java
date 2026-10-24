@@ -13,13 +13,9 @@ class ProjectSyncApiServiceArchitectureTest {
 
     @Test
     void projectSyncOrchestrationStaysExtractedFromApiFacade() throws IOException {
-        Path root = repositoryRoot();
-        String facade = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusApiService.java"));
-        String sync = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusProjectSyncApiService.java"));
-        String routes = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusProjectSyncHttpRoutes.java"));
+        String facade = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusApiService"));
+        String sync = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusProjectSyncApiService"));
+        String routes = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusProjectSyncHttpRoutes"));
 
         assertTrue(facade.contains("private final MorpheusProjectSyncApiService projectSyncService;"));
         assertTrue(facade.contains("return projectSyncService.sync(projectIdValue, revision);"));
@@ -48,17 +44,5 @@ class ProjectSyncApiServiceArchitectureTest {
         assertTrue(routes.contains("projectSyncService()"));
         assertTrue(routes.contains("service.sync(projectId"));
         assertTrue(routes.contains("service.syncStatus(projectId"));
-    }
-
-    private Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
     }
 }

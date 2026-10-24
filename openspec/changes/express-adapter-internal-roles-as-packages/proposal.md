@@ -46,7 +46,7 @@ And the two lists the finding cites are **not the same kind of list**:
 - `morpheus-api` gets sub-packages by role; the rules that select its classes by a suffix, a prefix or a list of
   names standing in for a role select them by package.
 - A gate keeps the adapter's packages free of cycles, which ADR-0109 could not write.
-- A rule holds what package-private visibility held: the types another module may use are a named entry package, and
+- A rule holds what package-private visibility held: the types another module may use are a closed list of six, and
   nothing outside the adapter depends on the rest.
 - The gates stop pinning a production class by the path of its file, so that moving a class changes no gate whose
   subject is not its package.
@@ -66,8 +66,8 @@ And the two lists the finding cites are **not the same kind of list**:
 
 ## Impact
 
-- `morpheus-api`: every source file changes package or stays in the entry package; its tests move with their
-  subjects. No behaviour, no route, no payload changes.
+- `morpheus-api`: the servers, the remote model, the plumbing and the routers change package; the services and
+  `ApiRuntime` stay in `com.morpheus.api` until lot B; tests move with their subjects. No behaviour, no route, no payload changes.
 - `morpheus-architecture-tests`: `HttpRoutesFamilyArchitectureTest`, `HttpRoutesTransportBoundaryArchitectureTest`,
   `HttpPathReadingArchitectureTest`, `AdapterCompositionRootArchitectureTest`, the thirteen
   `Local*HttpRoutesArchitectureTest`, and every class that reads an `api` source by a literal path.

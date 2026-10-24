@@ -1,5 +1,6 @@
 package com.morpheus.architecture.m26;
 
+import com.morpheus.architecture.ProductionSources;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -22,7 +23,6 @@ import org.junit.jupiter.api.Test;
  * rather than a convention (issue #289).</p>
  */
 class RemoteIdentityDecompositionContractTest {
-    private static final String PACKAGE = "morpheus-api/src/main/java/com/morpheus/api/";
 
     /** Filesystem verbs no in-memory component of the identity boundary may reach for. */
     private static final List<String> FILESYSTEM_VERBS =
@@ -181,18 +181,6 @@ class RemoteIdentityDecompositionContractTest {
     }
 
     private static String read(String fileName) throws IOException {
-        return Files.readString(repositoryRoot().resolve(PACKAGE + fileName));
-    }
-
-    private static Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found");
+        return ProductionSources.readMain("morpheus-api", fileName.substring(0, fileName.length() - ".java".length()));
     }
 }

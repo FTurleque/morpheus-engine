@@ -82,8 +82,7 @@ class PagedResponseVocabularyArchitectureTest {
 
     @Test
     void theCurrentSpecificationToolEmbedsItsPageAsAValue() throws IOException {
-        String service = Files.readString(root().resolve(
-                "morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusMcpToolService.java"));
+        String service = Files.readString(ProductionSources.mainSource("morpheus-mcp", "MorpheusMcpToolService"));
         assertTrue(service.contains("\"specifications\", PagedEnvelope.slice("),
                 "get_current_specification carries its page under the key that names the collection");
     }

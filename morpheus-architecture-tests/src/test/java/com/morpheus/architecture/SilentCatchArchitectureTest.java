@@ -121,13 +121,13 @@ class SilentCatchArchitectureTest {
                         .contains("System.Logger.Level.DEBUG"),
                 "a failed signal logged at DEBUG is dropped by the default handler of the JDK: the transport reports "
                         + "it to the observer its gateway hands it");
-        assertTrue(Files.readString(root.resolve("morpheus-cli/src/main/java/com/morpheus/cli/MorpheusMain.java"))
+        assertTrue(Files.readString(ProductionSources.mainSource("morpheus-cli", "MorpheusMain"))
                         .contains("new MorpheusProviderPluginCli(runtime.recorder())"),
                 "the CLI probe must count on the recorder of the process");
-        assertTrue(Files.readString(root.resolve("morpheus-cli/src/main/java/com/morpheus/cli/MorpheusMain.java"))
+        assertTrue(Files.readString(ProductionSources.mainSource("morpheus-cli", "MorpheusMain"))
                         .contains("exitCode = run(runtime, args, out, err, System.getenv(), System.getProperties());"),
                 "the runtime the launcher hands to its commands must be the one of the process");
-        assertTrue(Files.readString(root.resolve("morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"))
+        assertTrue(Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusHttpServer"))
                         .contains("providerPluginProbeEnabled, operabilityService.recorder());"),
                 "the HTTP probe must count where the same server serves its metrics");
 
@@ -139,8 +139,7 @@ class SilentCatchArchitectureTest {
         assertFalse(service.contains("OperationalRecorder.noop()"), "the SDK must not choose a recorder that counts nowhere");
         assertFalse(Files.readString(root.resolve(sdk + "ProviderPluginProbeProcess.java"))
                 .contains("OperationalRecorder.noop()"), "the probe process must not choose a recorder that counts nowhere");
-        assertFalse(Files.readString(root.resolve(
-                        "morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusProviderPluginMcpTools.java"))
+        assertFalse(Files.readString(ProductionSources.mainSource("morpheus-mcp", "MorpheusProviderPluginMcpTools"))
                 .contains("ProviderPluginService"),
                 "the MCP adapter only discovers: it holds no service that could probe, so it needs no recorder");
     }

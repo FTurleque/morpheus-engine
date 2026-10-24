@@ -34,7 +34,7 @@ class ErrorClassificationByTypeArchitectureTest {
             "morpheus-application/src/main/java/com/morpheus/application/files/SafeWorkspaceFileResolver.java");
     private static final List<Path> SIZE_CONSUMERS = List.of(
             Path.of("morpheus-application/src/main/java/com/morpheus/application/read/ProviderIngestionBudget.java"),
-            Path.of("morpheus-api/src/main/java/com/morpheus/api/RemoteIdentityFileStore.java"));
+            ProductionSources.relativeMainSource("morpheus-api", "RemoteIdentityFileStore"));
 
     @Test
     void noProductionSourceClassifiesAFailureByInspectingItsMessage() throws IOException {

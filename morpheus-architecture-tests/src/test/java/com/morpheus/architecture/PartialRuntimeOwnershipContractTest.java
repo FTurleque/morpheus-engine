@@ -27,12 +27,12 @@ class PartialRuntimeOwnershipContractTest {
                         "morpheus-application/src/main/java/com/morpheus/application/operability/StartupOwnership.java")),
                 "the shared startup-ownership primitive must exist");
 
-        List<String> assemblers = List.of(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusLocalHttpServerBootstrap.java",
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServerBootstrap.java",
-                "morpheus-cli/src/main/java/com/morpheus/cli/CliRuntime.java");
+        List<Path> assemblers = List.of(
+                ProductionSources.relativeMainSource("morpheus-api", "MorpheusLocalHttpServerBootstrap"),
+                ProductionSources.relativeMainSource("morpheus-api", "MorpheusRemoteHttpServerBootstrap"),
+                ProductionSources.relativeMainSource("morpheus-cli", "CliRuntime"));
 
-        for (String assembler : assemblers) {
+        for (Path assembler : assemblers) {
             String content = Files.readString(root.resolve(assembler));
             assertTrue(content.contains("try (StartupOwnership owned = new StartupOwnership())"),
                     () -> assembler + " must hold what it acquires until assembly finishes");
@@ -47,8 +47,7 @@ class PartialRuntimeOwnershipContractTest {
      */
     @Test
     void theRemoteBootstrapKeepsItsTlsServerReachableFromTheRecoveryPath() throws IOException {
-        String bootstrap = Files.readString(repositoryRoot().resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServerBootstrap.java"));
+        String bootstrap = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServerBootstrap"));
 
         assertTrue(bootstrap.contains("HttpsServer https = owned.keep("),
                 "the bound TLS server must be registered for release");
@@ -63,8 +62,7 @@ class PartialRuntimeOwnershipContractTest {
      */
     @Test
     void theRemoteBootstrapEntersOwnershipBeforeItTakesTheExclusiveServerLease() throws IOException {
-        String bootstrap = Files.readString(repositoryRoot().resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServerBootstrap.java"));
+        String bootstrap = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServerBootstrap"));
 
         int ownership = bootstrap.indexOf("try (StartupOwnership owned = new StartupOwnership())");
         int acquisition = bootstrap.indexOf("maintenance.acquireServerLease(databasePath)");
@@ -87,19 +85,18 @@ class PartialRuntimeOwnershipContractTest {
                         "morpheus-application/src/main/java/com/morpheus/application/operability/ExhaustiveShutdown.java")),
                 "the shared exhaustive-shutdown primitive must exist");
 
-        List<String> owners = List.of(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java",
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java",
-                "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/runtime/SqliteOperationRuntime.java");
+        List<Path> owners = List.of(
+                ProductionSources.relativeMainSource("morpheus-api", "MorpheusRemoteHttpServer"),
+                ProductionSources.relativeMainSource("morpheus-api", "MorpheusHttpServer"),
+                ProductionSources.relativeMainSource("morpheus-store-sqlite", "SqliteOperationRuntime"));
 
-        for (String owner : owners) {
+        for (Path owner : owners) {
             String content = Files.readString(root.resolve(owner));
             assertTrue(content.contains("ExhaustiveShutdown.releaseAll("),
                     () -> owner + " must release every resource it owns, not stop at the first failure");
         }
 
-        String remote = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
+        String remote = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServer"));
         assertFalse(remote.contains("localServer.close();"),
                 "a bare close call leaves the exclusive lease held when an earlier release fails");
     }

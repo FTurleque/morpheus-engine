@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -13,15 +12,10 @@ class LocalHttpRequestDecoderArchitectureTest {
 
     @Test
     void localHttpRequestDecodingStaysExtractedStrictAndBounded() throws IOException {
-        Path root = repositoryRoot();
-        String server = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
-        String projectRootRoutes = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusProjectRootHttpRoutes.java"));
-        String projectSyncRoutes = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusProjectSyncHttpRoutes.java"));
-        String decoder = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpRequestDecoder.java"));
+        String server = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusHttpServer"));
+        String projectRootRoutes = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusProjectRootHttpRoutes"));
+        String projectSyncRoutes = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusProjectSyncHttpRoutes"));
+        String decoder = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusHttpRequestDecoder"));
         String localHttpConsumers = server + "\n" + projectRootRoutes + "\n" + projectSyncRoutes;
 
         assertTrue(server.contains("private final MorpheusHttpRequestDecoder requestDecoder;"));
@@ -39,22 +33,10 @@ class LocalHttpRequestDecoderArchitectureTest {
         assertTrue(decoder.contains("FAIL_ON_UNKNOWN_PROPERTIES"));
         assertTrue(decoder.contains("FAIL_ON_TRAILING_TOKENS"));
         assertTrue(decoder.contains("HttpRequestBodyReader.read("));
-        assertTrue(Files.readString(root.resolve("morpheus-api/src/main/java/com/morpheus/api/HttpRequestBodyReader.java"))
+        assertTrue(Files.readString(ProductionSources.mainSource("morpheus-api", "HttpRequestBodyReader"))
                 .contains("TimedBoundedInputReader.read("));
         assertTrue(decoder.contains("Content-Type application/json is required"));
         assertFalse(decoder.contains("MorpheusApiService"));
         assertFalse(decoder.contains("MorpheusRemoteRoutePolicy"));
-    }
-
-    private Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
     }
 }

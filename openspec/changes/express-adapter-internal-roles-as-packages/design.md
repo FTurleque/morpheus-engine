@@ -47,23 +47,28 @@ root (that is `own-the-sqlite-connection-policy-in-one-place`).
    package by a predicate on its name and asks ArchUnit for the cycles between the candidates. The candidates are the
    roles the existing gates already speak of: routers, application-facing services, transport plumbing (decoder,
    writer, parser, query, budget, route table, guards), the local server and its protections, the remote server and
-   its identity model, and an entry package. The lot keeps the assignment that needs the fewest extractions, and
-   records the measure in the ADR. *Rejected*: writing the layout in this specification - the name scan above is not
+   its identity model. The lot keeps the assignment that needs the fewest extractions, and records the measure in
+   the ADR. The measure of 2026-10-24 is in `tasks.md`, under task 1. *Rejected*: writing the layout in this specification - the name scan above is not
    a dependency graph, and an inlined constant is in neither.
 
 3. **What closes a cycle is extracted, not excused.** The envelopes and the request records nested in
-   `MorpheusHttpServer`, and `API_PREFIX`, are the expected cases. Each extraction keeps the type's simple name and
+   `MorpheusHttpServer`, `API_PREFIX`, and the four types nested in `MorpheusRemoteIdentityFile` that the identity
+   model reads are the measured cases. Each extraction keeps the type's simple name and
    its JSON shape; the textual pins of `rules/security.md` follow the constant to its new owner in the same change.
    An `ignoreDependency` is accepted only by the pattern of ADR-0109, decision 3 - the exact pair of types, with its
    reason - and only if the ADR says why extraction was refused.
 
-4. **The cross-module boundary becomes a rule before visibility is widened.** The entry package holds the types
-   another module may use; today's six are the starting set, re-measured. `noClasses().that().resideOutsideOf(the
-   adapter).should().dependOnClassesThat().resideIn(the adapter's other packages)`, and beside it a scan of the
-   sources of the dependent modules for an import of those packages: a public constant of a newly public class is
-   inlined, the rule would not see it, and an import must spell the package (`.claude/rules/architecture.md`: both forms, since
-   each sees what the other misses). Written and broken first, while it is still vacuously true, then the classes
-   move.
+4. **The cross-module boundary becomes a rule before visibility is widened.** The types another module may use are
+   a closed list, the six that `morpheus-cli` uses: `AllowedWorkspaceRoots`, `LoopbackHostPolicy`,
+   `MorpheusHttpServer`, `MorpheusRemoteHttpServer`, `MorpheusRemoteIdentityFile`, `MorpheusRemoteRole`, with their
+   nested types. They sit at two levels of the layering, the servers and the identity file at the top and the three
+   values at the bottom, so no single package can hold them without a cycle. The list is a table of facts (decision
+   1): the public surface of the module, changed by a written decision only. `noClasses().that().resideOutsideOf(the
+   adapter).should().dependOnClassesThat(are in the adapter and not one of the six)`, and beside it a scan of the
+   sources of the dependent modules for any `com.morpheus.api` type outside the six: a public constant of a newly
+   public class is inlined, the rule would not see it, and the source has to spell the type
+   (`.claude/rules/architecture.md`: both forms, since each sees what the other misses). Written and broken first,
+   then the classes move.
 
 5. **The router groups become packages; `COMPOSITION_ROOTS` does not, yet.**
    - *Router groups.* Placement in one of the group packages is the classification `.claude/rules/architecture.md` asks for, provided
@@ -117,8 +122,11 @@ The audit orders AUD-ARC-06 after AUD-ARC-01. Read against
 - **Depends on sprint 5, not on sprint 11**: any change to the list itself.
 
 So the change is two lots: transport roles now, service and composition after the ADR of sprint 11 and after
-`own-the-sqlite-connection-policy-in-one-place`. Until the second lot the services stay in the package they are in,
-which the cycle rule treats as one slice.
+`own-the-sqlite-connection-policy-in-one-place`. Until the second lot the services, their request records and
+`ApiRuntime` stay in `com.morpheus.api`, which the cycle rule treats as one slice. The servers leave it: a server
+depends on the routers and the routers on the services, so a parent package that holds both is a cycle with every
+router package. Each server goes to the package of its role with its bootstrap, which it delegates `start` to, and
+`morpheus-cli` imports the two servers from there.
 
 ## Risks / Trade-offs
 
@@ -144,4 +152,4 @@ which the cycle rule treats as one slice.
 - **One new ADR, or consolidated ADRs only?** Recommendation: one ADR for the three kinds of selection and the entry rule;
   a consolidated ADR replacing ADR-0109 that points to it, and `.claude/rules/architecture.md` saying that placement is classification.
 - **Does the gate module's test declared in `com.morpheus.api` follow `MorpheusHttpRouteTable`, or does the table join the
-  entry package?** Recommendation: the test follows; the table is not something another module should build on.
+  entry types?** Recommendation: the test follows; the table is not something another module should build on.

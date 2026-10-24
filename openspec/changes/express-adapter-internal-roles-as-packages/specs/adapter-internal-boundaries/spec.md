@@ -43,22 +43,27 @@ named by the exact pair of types that closes it, with its reason, and MUST be re
 - **WHEN** `morpheus-api` is reduced to a single package again
 - **THEN** the suite fails, instead of passing because no pair of packages exists
 
-### Requirement: What another module may use of an adapter SHALL be a named entry package, and SHALL NOT grow by a relocation
+### Requirement: What another module may use of an adapter SHALL be a closed list of types, and SHALL NOT grow by a relocation
 
-A class outside `com.morpheus.api..` MUST depend on classes of the adapter's entry package only, and MUST NOT name
-another package of the adapter in its sources. The set of types of the entry package MUST be the set other modules
-use on the day the rule is written, re-measured, and a type added to it MUST be justified in the ADR.
+A class outside `com.morpheus.api..` MUST depend only on the entry types of the adapter and their nested types, and
+its sources MUST NOT name another type of the adapter. The entry types MUST be the types other modules use on the day
+the rule is written, re-measured, wherever they reside, and a type added to the list MUST be justified in the ADR.
 
 #### Scenario: A neighbouring module uses a class that had to become public
 
-- **WHEN** a class of `morpheus-cli` depends on a class of `morpheus-api` that resides outside the entry package
+- **WHEN** a class of `morpheus-cli` depends on a class of `morpheus-api` that is not an entry type
 - **THEN** the architecture suite fails and names both classes
 
 #### Scenario: A neighbouring module reads a constant of such a class
 
-- **WHEN** a class of `morpheus-cli` reads a compile-time constant of a class outside the entry package, so that no
-  dependency is compiled
-- **THEN** the suite still fails, on the import the source had to write
+- **WHEN** a class of `morpheus-cli` reads a compile-time constant of a class of `morpheus-api` that is not an entry
+  type, so that no dependency is compiled
+- **THEN** the suite still fails, on the name the source had to write
+
+#### Scenario: An entry type moves to a sub-package
+
+- **WHEN** an entry type moves to another package of the adapter
+- **THEN** the rule still accepts its users, and nothing outside the adapter gains access to its neighbours
 
 ### Requirement: A selection that remains a list of class names SHALL be of a declared kind and exact in both directions
 

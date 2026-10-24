@@ -32,15 +32,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class BoundaryResilienceContractTest {
     private static final Path RESPONSE_WRITER =
-            Path.of("morpheus-api/src/main/java/com/morpheus/api/TimedBoundedResponseWriter.java");
+            ProductionSources.relativeMainSource("morpheus-api", "TimedBoundedResponseWriter");
     private static final Path REMOTE_SERVER =
-            Path.of("morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java");
+            ProductionSources.relativeMainSource("morpheus-api", "MorpheusRemoteHttpServer");
     private static final Path REMOTE_RESPONSES =
-            Path.of("morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteResponseWriter.java");
+            ProductionSources.relativeMainSource("morpheus-api", "MorpheusRemoteResponseWriter");
     private static final Path PROXY_TRANSPORT =
-            Path.of("morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteProxyTransport.java");
+            ProductionSources.relativeMainSource("morpheus-api", "MorpheusRemoteProxyTransport");
     private static final Path QUERY_BUDGET =
-            Path.of("morpheus-api/src/main/java/com/morpheus/api/HttpQueryBudget.java");
+            ProductionSources.relativeMainSource("morpheus-api", "HttpQueryBudget");
     private static final Pattern SPLIT_ON_AMPERSAND = Pattern.compile(
             "\\.split\\(\\s*\"[^\"]*&|splitAsStream|StringTokenizer\\(|Pattern\\.compile\\(\"[^\"]*&");
     private static final Path MCP_TRANSPORT = Path.of(
@@ -107,10 +107,8 @@ class BoundaryResilienceContractTest {
      */
     @Test
     void abandonmentIsExercisedFromASocketRatherThanFromADiscardingBodyHandler() throws IOException {
-        String loadProfile = read(Path.of(
-                "morpheus-api/src/test/java/com/morpheus/api/MorpheusRemoteLoadProfileTest.java"));
-        String adversarial = read(Path.of(
-                "morpheus-api/src/test/java/com/morpheus/api/MorpheusRemoteAdversarialClientTest.java"));
+        String loadProfile = read(ProductionSources.testSource("morpheus-api", "MorpheusRemoteLoadProfileTest"));
+        String adversarial = read(ProductionSources.testSource("morpheus-api", "MorpheusRemoteAdversarialClientTest"));
 
         assertFalse(loadProfile.contains("HttpResponse.BodyHandlers.discarding()"),
                 "discarding() drains the body; it cannot stand for a client that stopped reading");
@@ -265,9 +263,8 @@ class BoundaryResilienceContractTest {
      */
     @Test
     void aCorruptedIdentityAuditIsQuarantinedRatherThanBlockingCredentialMutations() throws IOException {
-        String audit = read(Path.of("morpheus-api/src/main/java/com/morpheus/api/RemoteIdentityAudit.java"));
-        String identities = read(Path.of(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteIdentityFile.java"));
+        String audit = read(ProductionSources.relativeMainSource("morpheus-api", "RemoteIdentityAudit"));
+        String identities = read(ProductionSources.relativeMainSource("morpheus-api", "MorpheusRemoteIdentityFile"));
 
         assertTrue(audit.contains("static RetainedAudit salvage(List<String> lines)"),
                 "the mutation path must salvage the audit rather than require it");
