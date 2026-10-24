@@ -10,7 +10,7 @@ import com.morpheus.application.store.PolicyPackStore;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.store.memory.MemoryPolicyPackStore;
-import com.morpheus.store.sqlite.SqlitePolicyPackStore;
+import com.morpheus.store.sqlite.adapter.SqlitePolicyPackStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

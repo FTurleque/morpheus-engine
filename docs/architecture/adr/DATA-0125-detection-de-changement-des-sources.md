@@ -3,7 +3,7 @@ id: DATA-0125
 title: "Détecter les changements de source par inventaire SHA-256, reconstruire en entier en cas de doute"
 domain: data
 rules: true
-files: ["morpheus-application/src/main/java/com/morpheus/application/sync/SyncFreshness*.java", "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSyncStateStore.java"]
+files: ["morpheus-application/src/main/java/com/morpheus/application/sync/SyncFreshness*.java", "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/adapter/SqliteSyncStateStore.java"]
 ---
 
 # Détecter les changements de source par inventaire SHA-256, reconstruire en entier en cas de doute
@@ -140,7 +140,7 @@ peut pas être la preuve de l'état des sources.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/IncrementalSyncPersistenceContractTest.java` :
   parité mémoire/SQLite des plans, de l'état, de l'inventaire, des archives et de la fraîcheur, réouverture SQLite,
   reconstruction en attente.
-- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/SqliteSyncStateRevisionMigrationTest.java` : une base
+- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/runtime/SqliteSyncStateRevisionMigrationTest.java` : une base
   existante reçoit la révision et reste inscriptible.
 - Revue : absence de colonne JSON générique dans les migrations de synchronisation, et rôle de simple déclencheur du
   watcher s'il est branché sur une surface.

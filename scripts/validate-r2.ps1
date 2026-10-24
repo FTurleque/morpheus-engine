@@ -59,7 +59,7 @@ function Assert-PackagedM25M26 {
     foreach ($entry in @(
         'com/morpheus/application/policy/PolicyPackService.class',
         'com/morpheus/application/policy/PolicyEvaluationService.class',
-        'com/morpheus/store/sqlite/SqlitePolicyPackStore.class',
+        'com/morpheus/store/sqlite/adapter/SqlitePolicyPackStore.class',
         'com/morpheus/cli/MorpheusPolicyCli.class',
         'com/morpheus/mcp/MorpheusPolicyMcpTools.class',
         'com/morpheus/api/MorpheusPolicyApiService.class',
@@ -68,7 +68,7 @@ function Assert-PackagedM25M26 {
         'com/morpheus/api/MorpheusRemoteHttpServer.class',
         'com/morpheus/api/MorpheusRemoteIdentityFile.class',
         'com/morpheus/api/MorpheusRemoteRole.class',
-        'com/morpheus/store/sqlite/SqliteServerMaintenance.class',
+        'com/morpheus/store/sqlite/runtime/SqliteServerMaintenance.class',
         'com/morpheus/cli/RemoteApiLaunchOptions.class',
         'com/morpheus/cli/MorpheusServerCli.class')) {
         if ($entries -notcontains $entry) { throw "R2 packaged runtime is missing $entry" }
@@ -94,7 +94,7 @@ Assert-ReactorVersion $Version
 & (Join-Path $PSScriptRoot 'validate-m27.ps1') -Version $Version -BaseRef $BaseRef -SkipPortable:$SkipPortable
 Assert-NativeSuccess 'M27 inherited exact-head gate'
 
-$upgradeReport = Join-Path $repo 'morpheus-store-sqlite\target\surefire-reports\TEST-com.morpheus.store.sqlite.ReleasedSchemaUpgradeTest.xml'
+$upgradeReport = Join-Path $repo 'morpheus-store-sqlite\target\surefire-reports\TEST-com.morpheus.store.sqlite.runtime.ReleasedSchemaUpgradeTest.xml'
 if (-not (Test-Path -LiteralPath $upgradeReport)) { throw "R2 upgrade report is missing: $upgradeReport" }
 [xml]$upgrade = Get-Content -LiteralPath $upgradeReport -Raw
 if ([int]$upgrade.testsuite.tests -lt 1 -or [int]$upgrade.testsuite.failures -ne 0 -or [int]$upgrade.testsuite.errors -ne 0) {

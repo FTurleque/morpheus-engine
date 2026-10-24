@@ -2,7 +2,7 @@ package com.morpheus.cli;
 
 import com.morpheus.application.operability.OperationalLogMode;
 import com.morpheus.application.operability.OperationalRuntime;
-import com.morpheus.store.sqlite.SqliteServerMaintenance;
+import com.morpheus.store.sqlite.runtime.SqliteServerMaintenance;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

@@ -26,7 +26,7 @@ export default {
       severity: "error",
       async check(ctx) {
         const pattern = /DO\s+UPDATE|OR\s+REPLACE|REPLACE\s+INTO/i;
-        const scope = "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSyncStateStore.java";
+        const scope = "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/adapter/SqliteSyncStateStore.java";
         for (const match of await ctx.grepFiles(pattern, scope)) {
           ctx.report.violation({
             message: `Upsert aveugle sur l'état de sync : ${match.content.trim()}`,

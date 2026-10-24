@@ -112,7 +112,7 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
     'com/morpheus/application/policy/PolicyPackService.class' \
     'com/morpheus/application/policy/PolicyEvaluationService.class' \
     'com/morpheus/application/policy/DefaultPolicyFactResolver.class' \
-    'com/morpheus/store/sqlite/SqlitePolicyPackStore.class' \
+    'com/morpheus/store/sqlite/adapter/SqlitePolicyPackStore.class' \
     'com/morpheus/cli/MorpheusPolicyCli.class' \
     'com/morpheus/mcp/MorpheusPolicyMcpTools.class' \
     'com/morpheus/api/MorpheusPolicyApiService.class' \

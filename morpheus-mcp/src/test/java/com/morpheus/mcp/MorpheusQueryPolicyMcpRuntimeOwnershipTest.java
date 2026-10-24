@@ -1,7 +1,7 @@
 package com.morpheus.mcp;
 
 import com.morpheus.application.operability.OperationalRecorder;
-import com.morpheus.store.sqlite.SqliteServerMaintenance;
+import com.morpheus.store.sqlite.runtime.SqliteServerMaintenance;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import org.junit.jupiter.api.Test;

@@ -6,7 +6,7 @@ import com.morpheus.application.operability.ExhaustiveShutdown;
 import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
-import com.morpheus.store.sqlite.SqliteServerMaintenance;
+import com.morpheus.store.sqlite.runtime.SqliteServerMaintenance;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpsServer;
 

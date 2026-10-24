@@ -12,7 +12,7 @@ import com.morpheus.application.query.saved.SavedViewVersion;
 import com.morpheus.application.store.SavedViewStore;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.store.memory.MemorySavedViewStore;
-import com.morpheus.store.sqlite.SqliteSavedViewStore;
+import com.morpheus.store.sqlite.adapter.SqliteSavedViewStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

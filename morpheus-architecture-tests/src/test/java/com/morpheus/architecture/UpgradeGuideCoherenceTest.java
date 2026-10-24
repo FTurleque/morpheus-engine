@@ -31,7 +31,7 @@ class UpgradeGuideCoherenceTest {
     private static final Pattern MIGRATION_TOKEN = Pattern.compile("\\bV(\\d{3})\\b");
     private static final Pattern OPTIONAL_BACKUP = Pattern.compile("(?i)sauvegarde[^.\\n]*souhait");
     private static final String SCHEMA_MANAGER =
-            "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSchemaManager.java";
+            "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/runtime/SqliteSchemaManager.java";
     private static final String FUTURE_SCHEMA_REFUSAL = "is newer than supported";
     private static final String BACKUP_HEADING = "## Sauvegarde obligatoire";
     private static final String INSTALLATION_HEADING = "## Installation";

@@ -39,8 +39,8 @@ import com.morpheus.store.memory.MemoryChangeLifecycleMutationStore;
 import com.morpheus.store.memory.MemorySnapshotBusinessContentStore;
 import com.morpheus.store.memory.MemorySpecificationKnowledgeStore;
 import com.morpheus.store.memory.MemoryTraceabilityStore;
-import com.morpheus.store.sqlite.SqliteChangeLifecycleMutationStore;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
+import com.morpheus.store.sqlite.adapter.SqliteChangeLifecycleMutationStore;
+import com.morpheus.store.sqlite.adapter.SqliteSpecificationKnowledgeStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

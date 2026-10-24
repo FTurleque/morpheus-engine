@@ -61,7 +61,7 @@ est identique octet pour octet de `30adc86c` à `d95549e2`. **104 ADR et 104 lig
 ### A-09 — un correctif de sécurité que l'audit n'avait pas trouvé
 
 Le 15/09/2026, `df4cbe4c` (#321) corrige
-[`SqliteServerMaintenance`](../../../morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteServerMaintenance.java) :
+[`SqliteServerMaintenance`](../../../morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/runtime/SqliteServerMaintenance.java) :
 la cible d'un `VACUUM INTO` était concaténée dans le texte SQL derrière un échappement écrit à la main. Alerte
 CodeQL n° 2, `java/concatenated-sql-query`, sévérité **high**, ouverte sur `main` depuis le **26/08/2026** — deux
 semaines avant l'ouverture de cet audit.

@@ -18,7 +18,7 @@ import com.morpheus.domain.traceability.TraceabilityLinkId;
 import com.morpheus.domain.traceability.TraceabilityLinkOrigin;
 import com.morpheus.domain.traceability.TraceabilityRelationType;
 import com.morpheus.domain.traceability.TraceabilityResolutionState;
-import com.morpheus.store.sqlite.SqliteTraceabilityStore;
+import com.morpheus.store.sqlite.adapter.SqliteTraceabilityStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

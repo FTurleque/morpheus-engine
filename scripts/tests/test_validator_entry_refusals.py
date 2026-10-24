@@ -212,7 +212,7 @@ class R2Cases:
 
     @staticmethod
     def given_no_upgrade_report(checkout, validate):
-        checkout.remove(f"{UPGRADE_MODULE}/target/surefire-reports/TEST-com.morpheus.store.sqlite.ReleasedSchemaUpgradeTest.xml")
+        checkout.remove(f"{UPGRADE_MODULE}/target/surefire-reports/TEST-com.morpheus.store.sqlite.runtime.ReleasedSchemaUpgradeTest.xml")
         checkout.total_tests(FABRICATED_TESTS + 1)
 
     def test_a_missing_upgrade_report_is_refused_by_name(self) -> None:

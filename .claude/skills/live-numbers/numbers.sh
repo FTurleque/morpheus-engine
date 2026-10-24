@@ -52,7 +52,7 @@ item "suites par milestone" "$(ls -d morpheus-architecture-tests/src/test/java/c
 
 section "Schema SQLite  <- la constante qui le declare"
 item "SUPPORTED_SCHEMA_VERSION" \
-    "$(grep -oE 'SUPPORTED_SCHEMA_VERSION = [0-9]+' morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSchemaManager.java | grep -oE '[0-9]+$')"
+    "$(grep -oE 'SUPPORTED_SCHEMA_VERSION = [0-9]+' morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/runtime/SqliteSchemaManager.java | grep -oE '[0-9]+$')"
 
 section "Versions pinnees  <- proprietes du pom.xml racine"
 grep -oE '<(jackson|sqlite-jdbc|junit|archunit|mcp-sdk|slf4j|jacoco|dependency-check\.maven\.plugin)\.version>[^<]+' pom.xml |

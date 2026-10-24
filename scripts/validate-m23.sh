@@ -106,7 +106,7 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
   for entry in \
     'com/morpheus/application/portfolio/PortfolioRegistryService.class' \
     'com/morpheus/application/portfolio/PortfolioTraversalService.class' \
-    'com/morpheus/store/sqlite/SqlitePortfolioStore.class' \
+    'com/morpheus/store/sqlite/adapter/SqlitePortfolioStore.class' \
     'com/morpheus/cli/MorpheusPortfolioCli.class' \
     'com/morpheus/mcp/MorpheusPortfolioMcpTools.class' \
     'com/morpheus/api/MorpheusPortfolioApiService.class' \

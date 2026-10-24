@@ -162,7 +162,7 @@ mémoire et SQLite conservent contributions observées, provenance, priorité et
   en clair, cas mono-provider sans conflit.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/DuplicatedCompositionPolicyContractTest.java` :
   ratio de politique `UNKNOWN` sous duplication.
-- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/SqliteCompositionResolutionMigrationTest.java` :
+- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/adapter/SqliteCompositionResolutionMigrationTest.java` :
   migration des résolutions persistées.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/LayerDependencyTest.java` et
   `ProviderAntiLockInTest.java` : aucune dépendance du domaine ou de l'application vers un provider.

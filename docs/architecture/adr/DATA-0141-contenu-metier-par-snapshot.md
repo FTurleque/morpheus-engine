@@ -184,7 +184,7 @@ projection après fermeture et réouverture.
 - Le constructeur compact de `SnapshotBusinessContent`
   (`morpheus-application/src/main/java/com/morpheus/application/store/SnapshotBusinessContent.java`) ordonne les
   collections et refuse une preuve ou un changement inconnu.
-- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/SqliteSnapshotBusinessContentProjectionTest.java`
+- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/adapter/SqliteSnapshotBusinessContentProjectionTest.java`
   exerce la projection SQLite.
 - Revue : absence de payload JSON métier dans les migrations.
 

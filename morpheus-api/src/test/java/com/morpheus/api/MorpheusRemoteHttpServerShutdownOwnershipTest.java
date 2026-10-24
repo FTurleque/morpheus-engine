@@ -6,7 +6,7 @@ import com.morpheus.application.operability.OperationalLogMode;
 import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
-import com.morpheus.store.sqlite.SqliteServerMaintenance;
+import com.morpheus.store.sqlite.runtime.SqliteServerMaintenance;
 import com.sun.net.httpserver.HttpsServer;
 
 import org.junit.jupiter.api.Test;

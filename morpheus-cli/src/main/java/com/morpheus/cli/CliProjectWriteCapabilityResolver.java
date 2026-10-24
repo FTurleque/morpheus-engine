@@ -7,7 +7,7 @@ import com.morpheus.application.provider.ProviderSelectionPolicy;
 import com.morpheus.application.provider.SpecificationProviderRegistry;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.provider.openspec.OpenSpecSpecificationProvider;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
+import com.morpheus.store.sqlite.adapter.SqliteSpecificationKnowledgeStore;
 
 import java.nio.file.Path;
 import java.util.List;

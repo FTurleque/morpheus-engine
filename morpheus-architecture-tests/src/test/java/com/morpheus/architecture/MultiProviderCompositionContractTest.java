@@ -19,7 +19,7 @@ import com.morpheus.provider.markdown.StructuredMarkdownSpecificationProvider;
 import com.morpheus.provider.openspec.OpenSpecSpecificationContentReader;
 import com.morpheus.provider.openspec.OpenSpecSpecificationProvider;
 import com.morpheus.store.memory.MemoryCompositionStateStore;
-import com.morpheus.store.sqlite.SqliteCompositionStateStore;
+import com.morpheus.store.sqlite.adapter.SqliteCompositionStateStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

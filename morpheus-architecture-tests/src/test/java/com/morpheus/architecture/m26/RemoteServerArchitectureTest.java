@@ -120,7 +120,7 @@ class RemoteServerArchitectureTest {
     void remoteBackupSchemaCeilingCannotRotBelowTheSupportedSchemaVersion() throws IOException {
         Path root = repositoryRoot();
         String manager = Files.readString(root.resolve(
-                "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSchemaManager.java"));
+                "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/runtime/SqliteSchemaManager.java"));
         Matcher declaration = Pattern.compile("SUPPORTED_SCHEMA_VERSION\\s*=\\s*(\\d+)").matcher(manager);
         assertTrue(declaration.find(), "SqliteSchemaManager must declare SUPPORTED_SCHEMA_VERSION");
         int supported = Integer.parseInt(declaration.group(1));

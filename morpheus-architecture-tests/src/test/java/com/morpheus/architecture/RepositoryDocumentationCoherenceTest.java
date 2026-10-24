@@ -568,12 +568,12 @@ class RepositoryDocumentationCoherenceTest {
     void activeGovernanceDocumentationNeverPinsTheSqliteSchemaVersion() throws Exception {
         Path root = repositoryRoot();
         String manager = Files.readString(root.resolve(
-                "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSchemaManager.java"));
+                "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/runtime/SqliteSchemaManager.java"));
         Matcher declaration = SCHEMA_VERSION_DECLARATION.matcher(manager);
         assertTrue(declaration.find(), "SqliteSchemaManager must declare SUPPORTED_SCHEMA_VERSION");
 
         String maintenance = Files.readString(root.resolve(
-                "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteServerMaintenance.java"));
+                "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/runtime/SqliteServerMaintenance.java"));
         assertTrue(maintenance.contains("SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION"),
                 "maintenance must consume the declared constant rather than restate the version");
 
@@ -715,7 +715,8 @@ class RepositoryDocumentationCoherenceTest {
         Matcher named = Pattern.compile("`(Sqlite[A-Za-z]*Exception)`").matcher(guide);
         while (named.find()) {
             String type = named.group(1);
-            assertTrue(Files.isRegularFile(sqliteSources.resolve(type + ".java")),
+            assertTrue(Files.isRegularFile(sqliteSources.resolve("adapter").resolve(type + ".java"))
+                            || Files.isRegularFile(sqliteSources.resolve("runtime").resolve(type + ".java")),
                     () -> "REMOTE_SERVER_PLATFORM.md documents " + type + ", which no longer exists");
         }
     }

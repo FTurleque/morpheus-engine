@@ -3,7 +3,7 @@ package com.morpheus.architecture;
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.provider.openspec.OpenSpecCurrentSpecificationReader;
-import com.morpheus.store.sqlite.SqliteEntityIdentityStore;
+import com.morpheus.store.sqlite.adapter.SqliteEntityIdentityStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

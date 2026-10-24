@@ -189,7 +189,7 @@ décision de policy portée par le code de sortie, refus d'état distincts d'un 
 - `morpheus-integration-minos/src/test/java/com/morpheus/integration/minos/MinosBoundedSearchResolutionTest.java` :
   recherche tronquée rendue indisponible, jamais supprimée.
 - `morpheus-application/src/test/java/com/morpheus/application/query/dsl/QueryPredicateValuesBudgetTest.java`,
-  `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/SqliteSavedViewUnreadableRowTest.java`,
+  `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/adapter/SqliteSavedViewUnreadableRowTest.java`,
   `morpheus-application/src/test/java/com/morpheus/application/query/dsl/QueryPublicViewsUnreadableTest.java` :
   symétrie écriture-lecture du budget de valeurs, liste et archivage d'une vue illisible.
 - Revue : les budgets de traversée et de policy, et la règle « un lien vers un nœud refusé n'est pas retenu ».

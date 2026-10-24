@@ -4,7 +4,7 @@ import com.morpheus.application.operability.OperationalEventSink;
 import com.morpheus.application.operability.OperationalMetrics;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.store.sqlite.SqliteConnectionScope;
+import com.morpheus.store.sqlite.runtime.SqliteConnectionScope;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

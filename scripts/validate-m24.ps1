@@ -254,7 +254,7 @@ if (-not $SkipPortable) {
         'com/morpheus/application/query/dsl/QueryDslParser.class',
         'com/morpheus/application/query/saved/SavedViewService.class',
         'com/morpheus/application/query/export/QueryExportService.class',
-        'com/morpheus/store/sqlite/SqliteSavedViewStore.class',
+        'com/morpheus/store/sqlite/adapter/SqliteSavedViewStore.class',
         'com/morpheus/cli/MorpheusQueryCli.class',
         'com/morpheus/mcp/MorpheusQueryMcpTools.class',
         'com/morpheus/api/MorpheusQueryApiService.class',

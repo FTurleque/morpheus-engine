@@ -158,7 +158,7 @@ disparu.
   `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/LocalVersionsHttpRoutesArchitectureTest.java` :
   pagination de la lignée d'un projet.
 - `morpheus-api/src/test/java/com/morpheus/api/MorpheusPolicyAuditPagingHttpTest.java` et
-  `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/SqlitePolicyAuditPageTest.java` : page de l'audit sur
+  `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/adapter/SqlitePolicyAuditPageTest.java` : page de l'audit sur
   HTTP, requête de page sans tri.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/AppendOnlyJournalReadsArchitectureTest.java` :
   aucune lecture de production des deux journaux sans lecteur, aucune instruction qui supprime d'un journal.

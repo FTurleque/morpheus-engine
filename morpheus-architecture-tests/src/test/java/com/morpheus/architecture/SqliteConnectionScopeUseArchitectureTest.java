@@ -1,6 +1,6 @@
 package com.morpheus.architecture;
 
-import com.morpheus.store.sqlite.SqliteConnectionScope;
+import com.morpheus.store.sqlite.runtime.SqliteConnectionScope;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
@@ -53,7 +53,7 @@ class SqliteConnectionScopeUseArchitectureTest {
     private static final String SCOPE_OPENING = "SqliteConnectionScope.open(";
     private static final List<String> MODULES_THAT_BUILD_STORES =
             List.of("morpheus-api", "morpheus-mcp", "morpheus-cli", "morpheus-store-sqlite");
-    private static final String SQLITE_ADAPTER = "com.morpheus.store.sqlite";
+    private static final String SQLITE_ADAPTER = "com.morpheus.store.sqlite.adapter";
 
     /** The classes that build the stores of an operation under a scope they open themselves. */
     private static final Set<String> SCOPE_OWNERS = Set.of("SqliteOperationRuntime");

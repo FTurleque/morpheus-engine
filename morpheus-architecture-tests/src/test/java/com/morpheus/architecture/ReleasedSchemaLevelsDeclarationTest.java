@@ -41,9 +41,9 @@ class ReleasedSchemaLevelsDeclarationTest {
             "morpheus-store-sqlite/src/test/resources/released-schema-levels.properties";
     private static final String RELEASE_NOTES = "docs/user/release-notes";
     private static final String SCHEMA_MANAGER =
-            "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSchemaManager.java";
+            "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/runtime/SqliteSchemaManager.java";
     private static final String CHECKSUMS =
-            "morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/SqliteMigrationChecksumGoldenTest.java";
+            "morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/runtime/SqliteMigrationChecksumGoldenTest.java";
     private static final String FIRST_PUBLISHED_RELEASE = "1.0.0";
     private static final Pattern NOTES_NAME = Pattern.compile("RELEASE_NOTES_(\\d+(?:\\.\\d+)*)\\.md");
     private static final Pattern SCHEMA_VERSION_DECLARATION =

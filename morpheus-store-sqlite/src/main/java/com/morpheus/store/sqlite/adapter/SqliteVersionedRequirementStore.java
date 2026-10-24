@@ -1,0 +1,583 @@
+package com.morpheus.store.sqlite.adapter;
+
+import com.morpheus.application.store.KnowledgeStoreException;
+import com.morpheus.application.store.RequirementVersionRecord;
+import com.morpheus.application.store.SnapshotSpecificationVersionBinding;
+import com.morpheus.application.store.VersionedRequirementStore;
+import com.morpheus.domain.evidence.EvidenceId;
+import com.morpheus.domain.identity.DomainIdentity;
+import com.morpheus.domain.project.ProjectSpecificationId;
+import com.morpheus.domain.provenance.Provenance;
+import com.morpheus.domain.provider.ProviderId;
+import com.morpheus.domain.requirement.Requirement;
+import com.morpheus.domain.requirement.RequirementId;
+import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
+import com.morpheus.domain.source.SourceLocator;
+import com.morpheus.domain.specification.SpecificationId;
+import com.morpheus.domain.temporal.TemporalState;
+import com.morpheus.domain.version.EntityVersion;
+import com.morpheus.domain.version.EntityVersionId;
+import com.morpheus.domain.version.SpecificationVersion;
+import com.morpheus.domain.version.SpecificationVersionId;
+import com.morpheus.store.sqlite.runtime.SqliteFailureClassifier;
+import com.morpheus.store.sqlite.runtime.SqliteStoreConnection;
+import com.morpheus.store.sqlite.runtime.SqliteTransactionRunner;
+
+import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+/** SQLite adapter for versioned Requirement persistence introduced by M3-S4. */
+public final class SqliteVersionedRequirementStore implements VersionedRequirementStore, AutoCloseable {
+    static final String LIST_CURRENT_SQL = """
+            SELECT * FROM requirement_versions
+            WHERE snapshot_id = ? AND temporal_state = 'CURRENT'
+            ORDER BY entity_version_id
+            """;
+    static final String LIST_CURRENT_BOUNDED_SQL = """
+            SELECT * FROM requirement_versions
+            WHERE snapshot_id = ? AND temporal_state = 'CURRENT'
+            ORDER BY entity_version_id
+            LIMIT ?
+            """;
+    private static final int SEQUENCE_ALLOCATION_MAX_ATTEMPTS = 24;
+    private static final long SEQUENCE_ALLOCATION_INITIAL_BACKOFF_MILLIS = 10L;
+    private static final long SEQUENCE_ALLOCATION_MAX_BACKOFF_MILLIS = 250L;
+    private static final SqliteFailureClassifier CONTENTION_CLASSIFIER = new SqliteFailureClassifier();
+
+    private final Connection connection;
+    private boolean closed;
+
+    public SqliteVersionedRequirementStore(Path databasePath) {
+        Objects.requireNonNull(databasePath, "databasePath");
+        this.connection = SqliteStoreConnection.openAndMigrate(
+                databasePath, "Cannot initialize SQLite versioned requirement store", SqliteVersionedRequirementStore::configure);
+    }
+
+    @Override
+    public synchronized void putSpecificationVersion(SpecificationVersion version) {
+        ensureOpen();
+        Objects.requireNonNull(version, "version");
+        try {
+            if (!projectExists(version.projectId())) {
+                throw new KnowledgeStoreException("project not found for specification version: " + version.projectId());
+            }
+            if (version.predecessor().isPresent()) {
+                SpecificationVersion predecessor = findSpecificationVersionInternal(version.predecessor().orElseThrow())
+                        .orElseThrow(() -> new KnowledgeStoreException(
+                                "specification version predecessor not found: " + version.predecessor().orElseThrow()));
+                if (!predecessor.projectId().equals(version.projectId())) {
+                    throw new KnowledgeStoreException("specification version predecessor belongs to another project");
+                }
+            }
+
+            Optional<SpecificationVersion> existing = findSpecificationVersionInternal(version.id());
+            if (existing.isPresent()) {
+                if (!existing.orElseThrow().equals(version)) {
+                    throw new KnowledgeStoreException("specification version identity collision: " + version.id());
+                }
+                return;
+            }
+
+            try (PreparedStatement statement = connection.prepareStatement("""
+                    INSERT INTO specification_versions(
+                        id, project_id, sequence, provider_version, source_revision, created_at, predecessor_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """)) {
+                statement.setString(1, version.id().toString());
+                statement.setString(2, version.projectId().toString());
+                if (version.sequence().isPresent()) {
+                    statement.setLong(3, version.sequence().orElseThrow());
+                } else {
+                    statement.setNull(3, java.sql.Types.BIGINT);
+                }
+                statement.setString(4, version.providerVersion().orElse(null));
+                statement.setString(5, version.sourceRevision().orElse(null));
+                statement.setString(6, version.createdAt().toString());
+                statement.setString(7, version.predecessor().map(SpecificationVersionId::toString).orElse(null));
+                statement.executeUpdate();
+            }
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot store specification version " + version.id(), exception);
+        }
+    }
+
+    @Override
+    public synchronized Optional<SpecificationVersion> findSpecificationVersion(SpecificationVersionId versionId) {
+        ensureOpen();
+        try {
+            return findSpecificationVersionInternal(versionId);
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot read specification version " + versionId, exception);
+        }
+    }
+
+    @Override
+    public synchronized long nextSpecificationVersionSequence(ProjectSpecificationId projectId) {
+        ensureOpen();
+        Objects.requireNonNull(projectId, "projectId");
+        long backoffMillis = SEQUENCE_ALLOCATION_INITIAL_BACKOFF_MILLIS;
+        for (int attempt = 1; attempt <= SEQUENCE_ALLOCATION_MAX_ATTEMPTS; attempt++) {
+            try {
+                return SqliteTransactionRunner.run(
+                        connection,
+                        "Cannot allocate specification version sequence for " + projectId,
+                        ignored -> reserveNextSpecificationVersionSequence(projectId));
+            } catch (KnowledgeStoreException failure) {
+                if (!isSqliteBusy(failure) || attempt == SEQUENCE_ALLOCATION_MAX_ATTEMPTS) {
+                    throw failure;
+                }
+                sleepBeforeSequenceRetry(projectId, backoffMillis, failure);
+                backoffMillis = Math.min(backoffMillis * 2L, SEQUENCE_ALLOCATION_MAX_BACKOFF_MILLIS);
+            }
+        }
+        throw new IllegalStateException("unreachable specification version sequence retry state");
+    }
+
+    @Override
+    public synchronized void bindSnapshotVersion(SnapshotSpecificationVersionBinding binding) {
+        ensureOpen();
+        Objects.requireNonNull(binding, "binding");
+        try {
+            ProjectSpecificationId snapshotProject = snapshotProject(binding.snapshotId())
+                    .orElseThrow(() -> new KnowledgeStoreException("snapshot not found: " + binding.snapshotId()));
+            SpecificationVersion version = findSpecificationVersionInternal(binding.specificationVersionId())
+                    .orElseThrow(() -> new KnowledgeStoreException(
+                            "specification version not found: " + binding.specificationVersionId()));
+            if (!snapshotProject.equals(version.projectId())) {
+                throw new KnowledgeStoreException("snapshot and specification version belong to different projects");
+            }
+
+            Optional<SnapshotSpecificationVersionBinding> existing = findSnapshotVersionInternal(binding.snapshotId());
+            if (existing.isPresent()) {
+                if (!existing.orElseThrow().equals(binding)) {
+                    throw new KnowledgeStoreException("snapshot already bound to another specification version");
+                }
+                return;
+            }
+
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "INSERT INTO snapshot_specification_versions(snapshot_id, specification_version_id) VALUES (?, ?)")) {
+                statement.setString(1, binding.snapshotId().toString());
+                statement.setString(2, binding.specificationVersionId().toString());
+                statement.executeUpdate();
+            }
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot bind snapshot to specification version " + binding.snapshotId(), exception);
+        }
+    }
+
+    @Override
+    public synchronized Optional<SnapshotSpecificationVersionBinding> findSnapshotVersion(KnowledgeSnapshotId snapshotId) {
+        ensureOpen();
+        try {
+            return findSnapshotVersionInternal(snapshotId);
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot read snapshot specification version binding " + snapshotId, exception);
+        }
+    }
+
+    @Override
+    public synchronized void putRequirementVersion(RequirementVersionRecord record) {
+        ensureOpen();
+        Objects.requireNonNull(record, "record");
+        try {
+            SnapshotSpecificationVersionBinding binding = findSnapshotVersionInternal(record.snapshotId())
+                    .orElseThrow(() -> new KnowledgeStoreException(
+                            "snapshot has no specification version binding: " + record.snapshotId()));
+            if (!binding.specificationVersionId().equals(record.entityVersion().specificationVersionId())) {
+                throw new KnowledgeStoreException("requirement version does not match snapshot specification version");
+            }
+
+            Optional<RequirementVersionRecord> existing = findRequirementVersionInternal(record.entityVersion().id());
+            if (existing.isPresent()) {
+                if (!existing.orElseThrow().equals(record)) {
+                    throw new KnowledgeStoreException("entity version identity collision: " + record.entityVersion().id());
+                }
+                return;
+            }
+
+            if (record.entityVersion().temporalState() == TemporalState.CURRENT
+                    && currentRequirementInternal(record.snapshotId(), record.entityVersion().entityIdentity()).isPresent()) {
+                throw new KnowledgeStoreException(
+                        "multiple CURRENT requirement versions for the same identity in one snapshot");
+            }
+
+            Requirement requirement = record.entityVersion().content();
+            Provenance provenance = requirement.provenance();
+            try (PreparedStatement statement = connection.prepareStatement("""
+                    INSERT INTO requirement_versions(
+                        entity_version_id, entity_identity_id, requirement_id, specification_id,
+                        specification_version_id, snapshot_id, temporal_state, requirement_key,
+                        title, statement, provider_id, provider_version, source_scheme, source_value,
+                        external_id, source_revision, evidence_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """)) {
+                statement.setString(1, record.entityVersion().id().toString());
+                statement.setString(2, record.entityVersion().entityIdentity().toString());
+                statement.setString(3, requirement.id().toString());
+                statement.setString(4, requirement.specificationId().toString());
+                statement.setString(5, record.entityVersion().specificationVersionId().toString());
+                statement.setString(6, record.snapshotId().toString());
+                statement.setString(7, record.entityVersion().temporalState().name());
+                statement.setString(8, requirement.key().orElse(null));
+                statement.setString(9, requirement.title());
+                statement.setString(10, requirement.statement());
+                statement.setString(11, provenance.providerId().value());
+                statement.setString(12, provenance.providerVersion().orElse(null));
+                statement.setString(13, provenance.source().scheme());
+                statement.setString(14, provenance.source().value());
+                statement.setString(15, provenance.externalId().orElse(null));
+                statement.setString(16, provenance.sourceRevision().orElse(null));
+                statement.setString(17, provenance.evidenceId().toString());
+                statement.executeUpdate();
+            }
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot store requirement version " + record.entityVersion().id(), exception);
+        }
+    }
+
+    @Override
+    public synchronized void putRequirementVersions(List<RequirementVersionRecord> records) {
+        ensureOpen();
+        List<RequirementVersionRecord> batch = List.copyOf(Objects.requireNonNull(records, "records"));
+        if (batch.isEmpty()) {
+            return;
+        }
+        SqliteTransactionRunner.runVoid(connection, "Cannot store requirement version batch", ignored -> {
+            batch.forEach(this::putRequirementVersion);
+        });
+    }
+
+    @Override
+    public synchronized Optional<RequirementVersionRecord> findRequirementVersion(EntityVersionId entityVersionId) {
+        ensureOpen();
+        try {
+            return findRequirementVersionInternal(entityVersionId);
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot read requirement version " + entityVersionId, exception);
+        }
+    }
+
+    @Override
+    public synchronized List<RequirementVersionRecord> listRequirementVersions(KnowledgeSnapshotId snapshotId) {
+        ensureOpen();
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT * FROM requirement_versions
+                WHERE snapshot_id = ?
+                ORDER BY entity_version_id
+                """)) {
+            statement.setString(1, snapshotId.toString());
+            try (ResultSet result = statement.executeQuery()) {
+                List<RequirementVersionRecord> records = new ArrayList<>();
+                while (result.next()) {
+                    records.add(mapRequirementVersion(result));
+                }
+                return List.copyOf(records);
+            }
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot list requirement versions for snapshot " + snapshotId, exception);
+        }
+    }
+
+    @Override
+    public synchronized List<RequirementVersionRecord> listCurrentRequirementVersions(KnowledgeSnapshotId snapshotId) {
+        ensureOpen();
+        Objects.requireNonNull(snapshotId, "snapshotId");
+        try (PreparedStatement statement = connection.prepareStatement(LIST_CURRENT_SQL)) {
+            statement.setString(1, snapshotId.toString());
+            try (ResultSet result = statement.executeQuery()) {
+                List<RequirementVersionRecord> records = new ArrayList<>();
+                while (result.next()) {
+                    records.add(mapRequirementVersion(result));
+                }
+                return List.copyOf(records);
+            }
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot list CURRENT requirement versions for snapshot "
+                    + snapshotId, exception);
+        }
+    }
+
+    @Override
+    public synchronized List<RequirementVersionRecord> listCurrentRequirementVersions(
+            KnowledgeSnapshotId snapshotId,
+            int limit) {
+        ensureOpen();
+        Objects.requireNonNull(snapshotId, "snapshotId");
+        if (limit < 1) {
+            throw new IllegalArgumentException("limit must be positive");
+        }
+        try (PreparedStatement statement = connection.prepareStatement(LIST_CURRENT_BOUNDED_SQL)) {
+            statement.setString(1, snapshotId.toString());
+            statement.setInt(2, limit);
+            try (ResultSet result = statement.executeQuery()) {
+                List<RequirementVersionRecord> records = new ArrayList<>();
+                while (result.next()) {
+                    records.add(mapRequirementVersion(result));
+                }
+                return List.copyOf(records);
+            }
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot list bounded CURRENT requirement versions for snapshot "
+                    + snapshotId, exception);
+        }
+    }
+
+    @Override
+    public synchronized Optional<RequirementVersionRecord> currentRequirement(
+            KnowledgeSnapshotId snapshotId,
+            DomainIdentity entityIdentity) {
+        ensureOpen();
+        try {
+            return currentRequirementInternal(snapshotId, entityIdentity);
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot read CURRENT requirement " + entityIdentity, exception);
+        }
+    }
+
+    @Override
+    public synchronized void close() {
+        if (closed) {
+            return;
+        }
+        try {
+            connection.close();
+            closed = true;
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot close SQLite versioned requirement store", exception);
+        }
+    }
+
+    private long reserveNextSpecificationVersionSequence(ProjectSpecificationId projectId) throws SQLException {
+        if (!projectExists(projectId)) {
+            throw new KnowledgeStoreException("project not found for specification version sequence: " + projectId);
+        }
+
+        try (PreparedStatement createReservation = connection.prepareStatement("""
+                INSERT OR IGNORE INTO specification_version_sequences(project_id, last_sequence)
+                VALUES (?, 0)
+                """)) {
+            createReservation.setString(1, projectId.toString());
+            createReservation.executeUpdate();
+        }
+
+        // Force this deferred SQLite transaction into the writer set before reading MAX(sequence), so concurrent
+        // allocators serialize instead of observing the same pre-allocation state. Some sqlite-jdbc/PERSIST lock
+        // transitions can still surface SQLITE_BUSY immediately; the caller retries the complete rolled-back
+        // transaction only for that specific transient condition.
+        try (PreparedStatement acquireWrite = connection.prepareStatement("""
+                UPDATE specification_version_sequences
+                SET last_sequence = last_sequence
+                WHERE project_id = ?
+                """)) {
+            acquireWrite.setString(1, projectId.toString());
+            if (acquireWrite.executeUpdate() != 1) {
+                throw new KnowledgeStoreException("specification version sequence reservation is missing for " + projectId);
+            }
+        }
+
+        long reserved;
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT last_sequence FROM specification_version_sequences WHERE project_id = ?")) {
+            statement.setString(1, projectId.toString());
+            try (ResultSet result = statement.executeQuery()) {
+                if (!result.next()) {
+                    throw new KnowledgeStoreException("specification version sequence reservation is missing for " + projectId);
+                }
+                reserved = result.getLong(1);
+            }
+        }
+
+        long stored;
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT COALESCE(MAX(sequence), 0)
+                FROM specification_versions
+                WHERE project_id = ?
+                """)) {
+            statement.setString(1, projectId.toString());
+            try (ResultSet result = statement.executeQuery()) {
+                stored = result.next() ? result.getLong(1) : 0L;
+            }
+        }
+
+        long current = Math.max(reserved, stored);
+        if (current == Long.MAX_VALUE) {
+            throw new KnowledgeStoreException("specification version sequence exhausted for project " + projectId);
+        }
+        long next = current + 1L;
+
+        try (PreparedStatement statement = connection.prepareStatement("""
+                UPDATE specification_version_sequences
+                SET last_sequence = ?
+                WHERE project_id = ?
+                """)) {
+            statement.setLong(1, next);
+            statement.setString(2, projectId.toString());
+            if (statement.executeUpdate() != 1) {
+                throw new KnowledgeStoreException("cannot persist specification version sequence reservation for " + projectId);
+            }
+        }
+        return next;
+    }
+
+    private void sleepBeforeSequenceRetry(
+            ProjectSpecificationId projectId,
+            long backoffMillis,
+            KnowledgeStoreException busyFailure) {
+        try {
+            Thread.sleep(backoffMillis);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            KnowledgeStoreException failure = new KnowledgeStoreException(
+                    "Interrupted while retrying SQLite specification version sequence allocation for " + projectId,
+                    interrupted);
+            failure.addSuppressed(busyFailure);
+            throw failure;
+        }
+    }
+
+    private static boolean isSqliteBusy(Throwable failure) {
+        return CONTENTION_CLASSIFIER.classify(failure).isPresent();
+    }
+
+    private Optional<SpecificationVersion> findSpecificationVersionInternal(SpecificationVersionId versionId)
+            throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT project_id, sequence, provider_version, source_revision, created_at, predecessor_id
+                FROM specification_versions
+                WHERE id = ?
+                """)) {
+            statement.setString(1, versionId.toString());
+            try (ResultSet result = statement.executeQuery()) {
+                if (!result.next()) {
+                    return Optional.empty();
+                }
+                long sequence = result.getLong("sequence");
+                boolean sequenceWasNull = result.wasNull();
+                String predecessor = result.getString("predecessor_id");
+                return Optional.of(new SpecificationVersion(
+                        versionId,
+                        ProjectSpecificationId.parse(result.getString("project_id")),
+                        sequenceWasNull ? Optional.empty() : Optional.of(sequence),
+                        Optional.ofNullable(result.getString("provider_version")),
+                        Optional.ofNullable(result.getString("source_revision")),
+                        Instant.parse(result.getString("created_at")),
+                        predecessor == null ? Optional.empty() : Optional.of(SpecificationVersionId.parse(predecessor))));
+            }
+        }
+    }
+
+    private Optional<SnapshotSpecificationVersionBinding> findSnapshotVersionInternal(KnowledgeSnapshotId snapshotId)
+            throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT specification_version_id FROM snapshot_specification_versions WHERE snapshot_id = ?")) {
+            statement.setString(1, snapshotId.toString());
+            try (ResultSet result = statement.executeQuery()) {
+                if (!result.next()) {
+                    return Optional.empty();
+                }
+                return Optional.of(new SnapshotSpecificationVersionBinding(
+                        snapshotId,
+                        SpecificationVersionId.parse(result.getString("specification_version_id"))));
+            }
+        }
+    }
+
+    private Optional<RequirementVersionRecord> findRequirementVersionInternal(EntityVersionId entityVersionId)
+            throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT * FROM requirement_versions WHERE entity_version_id = ?")) {
+            statement.setString(1, entityVersionId.toString());
+            try (ResultSet result = statement.executeQuery()) {
+                return result.next() ? Optional.of(mapRequirementVersion(result)) : Optional.empty();
+            }
+        }
+    }
+
+    private Optional<RequirementVersionRecord> currentRequirementInternal(
+            KnowledgeSnapshotId snapshotId,
+            DomainIdentity entityIdentity) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT * FROM requirement_versions
+                WHERE snapshot_id = ? AND entity_identity_id = ? AND temporal_state = 'CURRENT'
+                """)) {
+            statement.setString(1, snapshotId.toString());
+            statement.setString(2, entityIdentity.toString());
+            try (ResultSet result = statement.executeQuery()) {
+                return result.next() ? Optional.of(mapRequirementVersion(result)) : Optional.empty();
+            }
+        }
+    }
+
+    private RequirementVersionRecord mapRequirementVersion(ResultSet result) throws SQLException {
+        Requirement requirement = new Requirement(
+                RequirementId.parse(result.getString("requirement_id")),
+                SpecificationId.parse(result.getString("specification_id")),
+                Optional.ofNullable(result.getString("requirement_key")),
+                result.getString("title"),
+                result.getString("statement"),
+                new Provenance(
+                        new ProviderId(result.getString("provider_id")),
+                        Optional.ofNullable(result.getString("provider_version")),
+                        new SourceLocator(result.getString("source_scheme"), result.getString("source_value")),
+                        Optional.ofNullable(result.getString("external_id")),
+                        Optional.ofNullable(result.getString("source_revision")),
+                        EvidenceId.parse(result.getString("evidence_id"))));
+
+        EntityVersion<Requirement> entityVersion = new EntityVersion<>(
+                EntityVersionId.parse(result.getString("entity_version_id")),
+                DomainIdentity.parse(result.getString("entity_identity_id")),
+                SpecificationVersionId.parse(result.getString("specification_version_id")),
+                TemporalState.valueOf(result.getString("temporal_state")),
+                requirement);
+
+        return new RequirementVersionRecord(
+                KnowledgeSnapshotId.parse(result.getString("snapshot_id")),
+                entityVersion);
+    }
+
+    private boolean projectExists(ProjectSpecificationId projectId) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("SELECT 1 FROM projects WHERE id = ?")) {
+            statement.setString(1, projectId.toString());
+            try (ResultSet result = statement.executeQuery()) {
+                return result.next();
+            }
+        }
+    }
+
+    private Optional<ProjectSpecificationId> snapshotProject(KnowledgeSnapshotId snapshotId) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT project_id FROM knowledge_snapshots WHERE id = ?")) {
+            statement.setString(1, snapshotId.toString());
+            try (ResultSet result = statement.executeQuery()) {
+                return result.next()
+                        ? Optional.of(ProjectSpecificationId.parse(result.getString("project_id")))
+                        : Optional.empty();
+            }
+        }
+    }
+
+    private static void configure(Connection connection) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("PRAGMA foreign_keys = ON");
+            statement.execute("PRAGMA busy_timeout = 5000");
+        }
+    }
+
+    private void ensureOpen() {
+        if (closed) {
+            throw new KnowledgeStoreException("SQLite versioned requirement store is closed");
+        }
+    }
+
+
+}
