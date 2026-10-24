@@ -115,9 +115,22 @@ same tree as `0b90cdcf`).
 
 ## 4. Move the transport roles, one role per pull request
 
-- [ ] 4.1 The remote server and its identity model. Tests of `morpheus-api` move with their subjects;
+- [x] 4.1 The remote server and its identity model. Tests of `morpheus-api` move with their subjects;
       `validate-m26.ps1` and `validate-m26.sh` change together (`.ps1` stays ASCII). Proof: `clean verify` on both
       platforms; `scripts\validate.cmd m26 -Version <current>` and its `.sh`.
+      Done 2026-10-24: 15 classes to `com.morpheus.api.remote`, `MorpheusRemoteHttpServerBootstrap` among them, and
+      32 tests with them (`RemoteHttpTestSupport` included). No class of `com.morpheus.api` names a remote class, so
+      the package depends on the parent and never the reverse; the remote model reads the types nested in
+      `MorpheusRemoteIdentityFile` inside its own package, so no extraction was needed for this role. Widened for the
+      compiler, main sources: 11 types (`ApiFailure`, `BoundaryFailureMessage`, `DatabaseCallWorkers`,
+      `DatabaseWorkOffloadingHttpServer`, `HttpQueryBudget`, `MorpheusHttpPathParser`, `MorpheusHttpRouteTable`,
+      `MorpheusInternalCapability`, `TimedBoundedInputReader`, `TimedBoundedResponseWriter`,
+      `UnforeseenFailureTrace`) and the members the remote classes call, plus `MorpheusHttpServer.startRemote`.
+      Widened for the moved tests only: `ApiRuntime` (type, constructor, `snapshots()`),
+      `TimedBoundedResponseWriter.RESPONSE_STALL_TIMEOUT`, `MorpheusHttpRouteTable.declaredRoutes()`, and
+      `BoundedWait` (type, two poll constants, `until`, `untilObserved`); the copy in `morpheus-mcp-transport`
+      widens `until` and `untilObserved` the same way so that the two stay byte-identical, which
+      `BoundedWaitOwnershipTest` checks.
 - [ ] 4.2 The transport plumbing and the local server, with the extractions 1.4 found necessary. The textual pins
       of `.claude/rules/security.md` follow a constant to its new owner in the same pull request.
 - [ ] 4.3 The routers, into their group packages. `HttpRoutesTransportBoundaryArchitectureTest` and

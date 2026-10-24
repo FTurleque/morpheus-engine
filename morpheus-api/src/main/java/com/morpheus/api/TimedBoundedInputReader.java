@@ -11,11 +11,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /** Reads a request body with both a byte bound and a wall-clock deadline. */
-final class TimedBoundedInputReader {
+public final class TimedBoundedInputReader {
     private TimedBoundedInputReader() {
     }
 
-    static byte[] read(InputStream input, int maxBytes, Duration timeout, ExecutorService executor) throws IOException {
+    public static byte[] read(InputStream input, int maxBytes, Duration timeout, ExecutorService executor) throws IOException {
         Objects.requireNonNull(input, "input");
         Objects.requireNonNull(timeout, "timeout");
         Objects.requireNonNull(executor, "executor");
@@ -59,13 +59,13 @@ final class TimedBoundedInputReader {
         }
     }
 
-    static final class ReadTimeoutException extends IOException {
+    public static final class ReadTimeoutException extends IOException {
         private ReadTimeoutException(String message, Throwable cause) {
             super(message, cause);
         }
     }
 
-    static final class LimitExceededException extends IOException {
+    public static final class LimitExceededException extends IOException {
         private LimitExceededException(String message) {
             super(message);
         }

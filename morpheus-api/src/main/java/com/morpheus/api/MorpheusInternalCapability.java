@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Objects;
 
 /** Per-process capability used only on the private loopback hop of the remote server. */
-final class MorpheusInternalCapability {
+public final class MorpheusInternalCapability {
     static final String HEADER = "X-Morpheus-Internal-Capability";
     private static final int TOKEN_BYTES = 32;
     private static final byte[] UNAUTHENTICATED_BODY = (
@@ -29,7 +29,7 @@ final class MorpheusInternalCapability {
         this.tokenUtf8 = token.getBytes(StandardCharsets.UTF_8);
     }
 
-    static MorpheusInternalCapability generate() {
+    public static MorpheusInternalCapability generate() {
         byte[] random = new byte[TOKEN_BYTES];
         new SecureRandom().nextBytes(random);
         try {
@@ -50,7 +50,7 @@ final class MorpheusInternalCapability {
         };
     }
 
-    void authorize(java.net.http.HttpRequest.Builder request) {
+    public void authorize(java.net.http.HttpRequest.Builder request) {
         Objects.requireNonNull(request, "request").header(HEADER, token);
     }
 

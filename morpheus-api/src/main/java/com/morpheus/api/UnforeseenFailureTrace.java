@@ -14,11 +14,11 @@ import com.morpheus.application.operability.SuppressedFailureFamily;
  * <p>It is counted on the recorder of the server that answered, whose {@code metrics} route serves it: the launcher
  * hands that server the runtime of the process, a test hands it its own.</p>
  */
-final class UnforeseenFailureTrace {
+public final class UnforeseenFailureTrace {
     private UnforeseenFailureTrace() {
     }
 
-    static void record(OperationalRecorder recorder, RuntimeException failure) {
+    public static void record(OperationalRecorder recorder, RuntimeException failure) {
         recorder.suppressed(SuppressedFailureFamily.HTTP_INTERNAL_ERROR, failure);
     }
 }

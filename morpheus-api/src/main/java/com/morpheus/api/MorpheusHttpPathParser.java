@@ -18,7 +18,7 @@ import java.util.Optional;
  * encoded {@code /} stays inside its segment, a doubly encoded character stays encoded once, and {@code +} is a plus
  * sign -- it means a space in a form, not in a path.</p>
  */
-final class MorpheusHttpPathParser {
+public final class MorpheusHttpPathParser {
     private static final MorpheusHttpPathParser API = new MorpheusHttpPathParser(MorpheusHttpServer.API_PREFIX);
 
     private final List<String> prefixSegments;
@@ -28,11 +28,11 @@ final class MorpheusHttpPathParser {
     }
 
     /** The one parser of the adapter: every reader of a path shares it, so none can read under another prefix. */
-    static MorpheusHttpPathParser api() {
+    public static MorpheusHttpPathParser api() {
         return API;
     }
 
-    List<String> segments(String rawPath) {
+    public List<String> segments(String rawPath) {
         if (!rawPath.startsWith("/")) throw ApiFailure.notFound("unknown API route: " + rawPath);
         String body = rawPath.substring(1);
         if (body.endsWith("/")) body = body.substring(0, body.length() - 1);

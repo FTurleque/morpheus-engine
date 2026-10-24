@@ -35,3 +35,9 @@ En conséquence, les relevés antérieurs au 11 octobre 2026 citent dans leur pr
 | `docs/ECOSYSTEME.md` | `docs/project/ECOSYSTEME.md` |
 
 `docs/user/`, `docs/developer/` et `docs/architecture/` n'ont pas changé d'emplacement.
+
+Les relevés datés citent aussi des sources des adaptateurs par leur chemin. Une source rangée depuis dans un sous-paquet de son module :
+
+| Chemin cité | Emplacement actuel |
+|---|---|
+| `morpheus-api/src/{main,test}/java/com/morpheus/api/MorpheusRemote*.java`, `Remote*.java` | même module, paquet `com.morpheus.api.remote` |

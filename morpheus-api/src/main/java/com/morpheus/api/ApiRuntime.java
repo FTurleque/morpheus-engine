@@ -29,16 +29,16 @@ import java.util.Objects;
  * and is built the first time it is asked for. The accessors answer application ports: a service that reads through
  * this runtime depends on no SQLite type, which is what keeps it out of the composition roots of ADR-0109.</p>
  */
-final class ApiRuntime implements AutoCloseable {
+public final class ApiRuntime implements AutoCloseable {
     private final SqliteOperationRuntime operation;
 
     /** Opens the runtime of one operation, whose pressure on the database is counted on {@code recorder}. */
-    ApiRuntime(Path databasePath, OperationalRecorder recorder) {
+    public ApiRuntime(Path databasePath, OperationalRecorder recorder) {
         this.operation = SqliteOperationRuntime.open(
                 Objects.requireNonNull(databasePath, "databasePath"), Objects.requireNonNull(recorder, "recorder"));
     }
 
-    SpecificationKnowledgeStore snapshots() {
+    public SpecificationKnowledgeStore snapshots() {
         return operation.snapshots();
     }
 

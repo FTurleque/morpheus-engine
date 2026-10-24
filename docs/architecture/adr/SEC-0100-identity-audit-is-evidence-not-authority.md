@@ -109,7 +109,7 @@ première mutation, elle redevient lisible sur le fichier même qu'elle refusait
 
 ## Compliance and Enforcement
 
-- `morpheus-api/src/test/java/com/morpheus/api/MorpheusRemoteIdentityAuditRecoveryTest.java` : revoke, rotate et
+- `morpheus-api/src/test/java/com/morpheus/api/remote/MorpheusRemoteIdentityAuditRecoveryTest.java` : revoke, rotate et
   create sur un historique corrompu, rétention des entrées valides de part et d'autre de l'entrée illisible, borne,
   unicité de la quarantaine, absence de tout écho du contenu rejeté dans l'erreur comme dans le fichier écrit.
 

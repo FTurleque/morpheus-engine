@@ -15,7 +15,7 @@ import java.util.function.Function;
  * parameters, no parameter name exceeds twenty characters, and the largest legitimate values are filesystem
  * paths and a requirement search term.</p>
  */
-final class HttpQueryBudget {
+public final class HttpQueryBudget {
     static final int MAX_QUERY_BYTES = 16 * 1024;
     static final int MAX_PARAMETERS = 16;
     static final int MAX_PARAMETER_NAME_BYTES = 128;
@@ -24,25 +24,25 @@ final class HttpQueryBudget {
     private HttpQueryBudget() {
     }
 
-    static void requireBoundedQuery(String rawQuery, Function<String, RuntimeException> failure) {
+    public static void requireBoundedQuery(String rawQuery, Function<String, RuntimeException> failure) {
         if (exceedsUtf8(rawQuery, MAX_QUERY_BYTES)) {
             throw failure.apply(overBudget("query string", MAX_QUERY_BYTES));
         }
     }
 
-    static void requireBoundedParameterCount(int parameters, Function<String, RuntimeException> failure) {
+    public static void requireBoundedParameterCount(int parameters, Function<String, RuntimeException> failure) {
         if (parameters > MAX_PARAMETERS) {
             throw failure.apply("query string exceeds " + MAX_PARAMETERS + " parameters");
         }
     }
 
-    static void requireBoundedParameterName(String rawName, Function<String, RuntimeException> failure) {
+    public static void requireBoundedParameterName(String rawName, Function<String, RuntimeException> failure) {
         if (exceedsUtf8(rawName, MAX_PARAMETER_NAME_BYTES)) {
             throw failure.apply(overBudget("query parameter name", MAX_PARAMETER_NAME_BYTES));
         }
     }
 
-    static void requireBoundedParameterValue(String rawValue, Function<String, RuntimeException> failure) {
+    public static void requireBoundedParameterValue(String rawValue, Function<String, RuntimeException> failure) {
         if (exceedsUtf8(rawValue, MAX_PARAMETER_VALUE_BYTES)) {
             throw failure.apply(overBudget("query parameter value", MAX_PARAMETER_VALUE_BYTES));
         }

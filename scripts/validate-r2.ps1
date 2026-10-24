@@ -65,9 +65,9 @@ function Assert-PackagedM25M26 {
         'com/morpheus/api/MorpheusPolicyApiService.class',
         'com/morpheus/api/MorpheusPolicyHttpRoutes.class',
         'db/migration/V015__policy_packs.sql',
-        'com/morpheus/api/MorpheusRemoteHttpServer.class',
-        'com/morpheus/api/MorpheusRemoteIdentityFile.class',
-        'com/morpheus/api/MorpheusRemoteRole.class',
+        'com/morpheus/api/remote/MorpheusRemoteHttpServer.class',
+        'com/morpheus/api/remote/MorpheusRemoteIdentityFile.class',
+        'com/morpheus/api/remote/MorpheusRemoteRole.class',
         'com/morpheus/store/sqlite/runtime/SqliteServerMaintenance.class',
         'com/morpheus/cli/RemoteApiLaunchOptions.class',
         'com/morpheus/cli/MorpheusServerCli.class')) {

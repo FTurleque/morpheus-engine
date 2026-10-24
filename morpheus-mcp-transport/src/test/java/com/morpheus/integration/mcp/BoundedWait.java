@@ -68,7 +68,7 @@ final class BoundedWait {
     // observe by looking. The state belongs to an operating-system process that cannot signal into this one,
     // so there is nothing to await; the deadline is what keeps a stuck peer a failure, not a hang.
     @SuppressWarnings("java:S2925")
-    static void until(
+    public static void until(
             String what,
             Duration budget,
             Duration pollInterval,
@@ -96,7 +96,7 @@ final class BoundedWait {
      */
     // java:S2925 -- category one of three: a bounded poll of external state, exactly as above.
     @SuppressWarnings("java:S2925")
-    static <T> T untilObserved(
+    public static <T> T untilObserved(
             String what,
             Duration budget,
             Duration pollInterval,

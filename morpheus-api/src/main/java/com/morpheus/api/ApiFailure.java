@@ -4,7 +4,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /** Internal typed failure translated to the stable M11 JSON error envelope. */
-final class ApiFailure extends RuntimeException {
+public final class ApiFailure extends RuntimeException {
     private final int status;
     private final String code;
     private final Map<String, Object> details;

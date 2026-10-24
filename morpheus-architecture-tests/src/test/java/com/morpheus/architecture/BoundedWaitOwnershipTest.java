@@ -158,7 +158,7 @@ class BoundedWaitOwnershipTest {
         List<String> cores = new ArrayList<>();
         for (Path owner : OWNERS) {
             String text = Files.readString(root.resolve(owner));
-            int coreStart = text.indexOf("    static void until(");
+            int coreStart = text.indexOf("    public static void until(");
             assertTrue(coreStart > 0, () -> owner + " must declare the shared bounded-wait entry point");
             cores.add(text.substring(coreStart));
         }

@@ -14,12 +14,12 @@ import com.morpheus.application.security.ServerLocationDisclosure;
  * Both servers apply this: the local one is the internal hop behind the remote facade, so its answers reach the
  * same callers.</p>
  */
-final class BoundaryFailureMessage {
+public final class BoundaryFailureMessage {
 
     private BoundaryFailureMessage() {
     }
 
-    static String safe(Throwable failure) {
+    public static String safe(Throwable failure) {
         String message = failure.getMessage();
         if (message == null || message.isBlank() || !ServerLocationDisclosure.isSafeToRelay(message)) {
             return failure.getClass().getSimpleName();

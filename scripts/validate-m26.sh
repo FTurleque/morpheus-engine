@@ -124,9 +124,9 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
   SHADED_JAR="$(ls -1t "$REPO"/morpheus-cli/target/morpheus-cli-*-all.jar | head -n 1)"
   "$JAR_TOOL" tf "$SHADED_JAR" > "$OUTPUT/shaded-entries.txt"
   for entry in \
-    'com/morpheus/api/MorpheusRemoteHttpServer.class' \
-    'com/morpheus/api/MorpheusRemoteIdentityFile.class' \
-    'com/morpheus/api/MorpheusRemoteRole.class' \
+    'com/morpheus/api/remote/MorpheusRemoteHttpServer.class' \
+    'com/morpheus/api/remote/MorpheusRemoteIdentityFile.class' \
+    'com/morpheus/api/remote/MorpheusRemoteRole.class' \
     'com/morpheus/store/sqlite/runtime/SqliteServerMaintenance.class' \
     'com/morpheus/cli/RemoteApiLaunchOptions.class' \
     'com/morpheus/cli/MorpheusServerCli.class'; do

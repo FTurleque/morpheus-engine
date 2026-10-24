@@ -38,8 +38,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <p>The routes that answer without the database are not registered through this server: they must stay answerable
  * when every worker is taken.</p>
  */
-final class DatabaseWorkOffloadingHttpServer extends RequestProtectedHttpServer {
-    static final int DATABASE_WORKERS = Math.max(2, Runtime.getRuntime().availableProcessors());
+public final class DatabaseWorkOffloadingHttpServer extends RequestProtectedHttpServer {
+    public static final int DATABASE_WORKERS = Math.max(2, Runtime.getRuntime().availableProcessors());
 
     /**
      * How long a request waits for a worker before it is refused: twice the five seconds a connection waits for a

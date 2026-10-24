@@ -155,7 +155,7 @@ public final class MorpheusHttpServer implements AutoCloseable {
                 runtime);
     }
 
-    static MorpheusHttpServer startRemote(
+    public static MorpheusHttpServer startRemote(
             Path databasePath,
             String host,
             int port,

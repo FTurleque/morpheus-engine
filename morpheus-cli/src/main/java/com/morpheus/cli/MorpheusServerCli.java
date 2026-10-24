@@ -1,7 +1,7 @@
 package com.morpheus.cli;
 
-import com.morpheus.api.MorpheusRemoteIdentityFile;
-import com.morpheus.api.MorpheusRemoteRole;
+import com.morpheus.api.remote.MorpheusRemoteIdentityFile;
+import com.morpheus.api.remote.MorpheusRemoteRole;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.store.EntityNotFoundException;
 import com.morpheus.application.store.EntityStateException;

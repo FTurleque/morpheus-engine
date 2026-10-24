@@ -159,10 +159,10 @@ class RemoteIdentityDecompositionContractTest {
         assertTrue(facade.contains("MAX_AUDIT_RECORDS = RemoteIdentityAudit.MAX_AUDIT_RECORDS"));
         assertTrue(facade.contains("TOKEN_BYTES = RemoteIdentityCredentialService.TOKEN_BYTES"));
 
-        assertEquals(256 * 1024, com.morpheus.api.MorpheusRemoteIdentityFile.MAX_FILE_BYTES);
-        assertEquals(256, com.morpheus.api.MorpheusRemoteIdentityFile.MAX_IDENTITIES);
-        assertEquals(512, com.morpheus.api.MorpheusRemoteIdentityFile.MAX_AUDIT_RECORDS);
-        assertEquals(32, com.morpheus.api.MorpheusRemoteIdentityFile.TOKEN_BYTES);
+        assertEquals(256 * 1024, com.morpheus.api.remote.MorpheusRemoteIdentityFile.MAX_FILE_BYTES);
+        assertEquals(256, com.morpheus.api.remote.MorpheusRemoteIdentityFile.MAX_IDENTITIES);
+        assertEquals(512, com.morpheus.api.remote.MorpheusRemoteIdentityFile.MAX_AUDIT_RECORDS);
+        assertEquals(32, com.morpheus.api.remote.MorpheusRemoteIdentityFile.TOKEN_BYTES);
     }
 
     private static void assertAbsent(String source, String component, List<String> forbidden) {
@@ -174,9 +174,9 @@ class RemoteIdentityDecompositionContractTest {
 
     private static Class<?> load(String simpleName) {
         try {
-            return Class.forName("com.morpheus.api." + simpleName);
+            return Class.forName("com.morpheus.api.remote." + simpleName);
         } catch (ClassNotFoundException missing) {
-            throw new AssertionError("com.morpheus.api." + simpleName + " must exist", missing);
+            throw new AssertionError("com.morpheus.api.remote." + simpleName + " must exist", missing);
         }
     }
 

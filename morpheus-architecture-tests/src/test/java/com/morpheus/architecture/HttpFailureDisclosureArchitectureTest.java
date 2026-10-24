@@ -41,13 +41,13 @@ class HttpFailureDisclosureArchitectureTest {
             "com.morpheus.api.ApiFailure",
             "built by the adapter with a status, a code and a message meant for the response; a foreign message enters "
                     + "it only through the filter",
-            "com.morpheus.api.MorpheusRemoteHttpServer$RemoteFailure",
+            "com.morpheus.api.remote.MorpheusRemoteHttpServer$RemoteFailure",
             "the remote facade's own refusal, built from an ApiFailure or from a literal",
-            "com.morpheus.api.MorpheusRemoteRoutePolicy$RoutePolicyException",
+            "com.morpheus.api.remote.MorpheusRemoteRoutePolicy$RoutePolicyException",
             "a refusal of the remote route policy: a status, a code and one of two literal messages",
-            "com.morpheus.api.MorpheusRemoteProxyTargetResolver$ResolutionException",
+            "com.morpheus.api.remote.MorpheusRemoteProxyTargetResolver$ResolutionException",
             "a refusal to resolve the proxied target, built from a code and a message the resolver writes",
-            "com.morpheus.api.MorpheusRemoteProxyTransport$TransportException",
+            "com.morpheus.api.remote.MorpheusRemoteProxyTransport$TransportException",
             "a failure of the upstream hop reported under the facade's own code and message, never the upstream's");
 
     private static final Set<String> MESSAGE_ACCESSORS = Set.of("getMessage", "getLocalizedMessage");

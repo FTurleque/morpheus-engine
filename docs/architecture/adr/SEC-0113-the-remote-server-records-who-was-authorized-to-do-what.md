@@ -124,11 +124,11 @@ Options écartées :
   `finally`, statut lu avant la fermeture, fermeture avant l'écriture, acceptation après le contrôle du rôle et avant
   tout service), `aRecordIsBuiltFromTheRouteTemplateAndNeverFromThePath` (gabarit de route, jamais le chemin ; le
   journal ne lit ni l'échange ni un jeton).
-- `morpheus-api/src/test/java/com/morpheus/api/RemoteAccessJournalHttpTest.java` : à travers un vrai serveur, lecture,
+- `morpheus-api/src/test/java/com/morpheus/api/remote/RemoteAccessJournalHttpTest.java` : à travers un vrai serveur, lecture,
   refus de rôle et écritures laissent les enregistrements attendus joints par `X-Request-Id` ; un appelant sans jeton
   valide et une route inconnue n'en laissent aucun ; ni jeton, ni empreinte, ni identifiant de chemin ; journal
   inécrivable : `503 ACCESS_JOURNAL_UNAVAILABLE` sans emplacement pour l'écriture, lecture servie.
-- `morpheus-api/src/test/java/com/morpheus/api/RemoteAccessJournalTest.java` : une ligne pour une lecture, deux pour une
+- `morpheus-api/src/test/java/com/morpheus/api/remote/RemoteAccessJournalTest.java` : une ligne pour une lecture, deux pour une
   écriture ou une administration, principal en forme de secret rédigé, rotation à la borne, perte comptée, refus
   d'ouverture sans emplacement.
 

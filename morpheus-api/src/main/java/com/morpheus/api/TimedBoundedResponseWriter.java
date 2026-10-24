@@ -46,8 +46,8 @@ import java.util.concurrent.TimeUnit;
  * and no error envelope can be delivered, because the connection that would carry it is the resource being
  * reclaimed. That is the honest outcome -- the alternative is holding the slot until the client relents.</p>
  */
-final class TimedBoundedResponseWriter implements AutoCloseable {
-    static final Duration RESPONSE_STALL_TIMEOUT = Duration.ofSeconds(15);
+public final class TimedBoundedResponseWriter implements AutoCloseable {
+    public static final Duration RESPONSE_STALL_TIMEOUT = Duration.ofSeconds(15);
     static final Duration RESPONSE_TOTAL_TIMEOUT = Duration.ofSeconds(120);
 
     private final ScheduledExecutorService watchdog;
@@ -55,7 +55,7 @@ final class TimedBoundedResponseWriter implements AutoCloseable {
     private final long totalNanos;
     private final long tickMillis;
 
-    TimedBoundedResponseWriter() {
+    public TimedBoundedResponseWriter() {
         this(RESPONSE_STALL_TIMEOUT, RESPONSE_TOTAL_TIMEOUT);
     }
 
@@ -77,7 +77,7 @@ final class TimedBoundedResponseWriter implements AutoCloseable {
      * @throws ResponseWriteTimeoutException when the client stopped draining the response and the connection was
      *                                       reclaimed; the exchange is unusable afterwards
      */
-    void write(ResponseBody body) throws IOException {
+    public void write(ResponseBody body) throws IOException {
         Objects.requireNonNull(body, "body");
         Deadline deadline = new Deadline(Thread.currentThread(), System.nanoTime(), stallNanos, totalNanos);
         ScheduledFuture<?> alarm = watchdog.scheduleAtFixedRate(
@@ -105,17 +105,17 @@ final class TimedBoundedResponseWriter implements AutoCloseable {
 
     /** A response body written against a deadline that {@link Progress#made()} rearms. */
     @FunctionalInterface
-    interface ResponseBody {
+    public interface ResponseBody {
         void writeTo(Progress progress) throws IOException;
     }
 
     /** Reports that bytes reached the client, which rearms the stall budget. */
     @FunctionalInterface
-    interface Progress {
+    public interface Progress {
         void made();
     }
 
-    static final class ResponseWriteTimeoutException extends IOException {
+    public static final class ResponseWriteTimeoutException extends IOException {
         private ResponseWriteTimeoutException(String message, Throwable cause) {
             super(message, cause);
         }

@@ -78,7 +78,7 @@ class HttpPathReadingArchitectureTest {
     void everyNamedFormDecoderStillDecodesAForm() {
         for (String decoder : FORM_DECODERS.keySet()) {
             classes()
-                    .that().haveFullyQualifiedName("com.morpheus.api." + decoder)
+                    .that().haveSimpleName(decoder).and().resideInAPackage("com.morpheus.api..")
                     .should().dependOnClassesThat().haveFullyQualifiedName("java.net.URLDecoder")
                     .because("an exception that no longer applies is removed from FORM_DECODERS, not kept")
                     .check(classes);

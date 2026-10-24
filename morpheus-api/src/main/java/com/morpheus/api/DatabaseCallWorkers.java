@@ -18,10 +18,10 @@ import java.util.function.Supplier;
  * meaning. Requests that reach it are already bounded by the facade's privileged lane, so the pool has no admission of
  * its own.</p>
  */
-final class DatabaseCallWorkers implements AutoCloseable {
+public final class DatabaseCallWorkers implements AutoCloseable {
     private final ExecutorService workers;
 
-    DatabaseCallWorkers(int count) {
+    public DatabaseCallWorkers(int count) {
         if (count < 1) {
             throw new IllegalArgumentException("count must be positive");
         }
@@ -34,7 +34,7 @@ final class DatabaseCallWorkers implements AutoCloseable {
                         .unstarted(work));
     }
 
-    <T> T call(Supplier<T> call) {
+    public <T> T call(Supplier<T> call) {
         Objects.requireNonNull(call, "call");
         Future<T> outcome = workers.submit(call::get);
         try {
