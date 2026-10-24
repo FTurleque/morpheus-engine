@@ -188,7 +188,7 @@ public final class OpenSpecChangeMetadataReader {
         List<String> proposalLines = readAllLines(workspaceRoot, proposalFile, budget);
         SourceLocator proposalSource = locator(workspaceRoot, proposalFile);
         String changeExternalId = "change:" + changeKey;
-        // Two proposal dialects (ADR-0028, amendment of 8 October 2026): the original `# Proposal: <title>` and
+        // Two proposal dialects (ADR-0028; docs/developer/OPENSPEC_PROVIDER.md): the original `# Proposal: <title>` and
         // `## Intent`, and the OpenSpec CLI templates, whose `# Proposal` has no title and whose motivation is `## Why`.
         String title = proposalTitle(proposalLines).orElse(changeKey);
         String intent = sectionBody(proposalLines, "## Intent")

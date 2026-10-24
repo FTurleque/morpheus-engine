@@ -56,7 +56,7 @@ class AdapterSiblingArchitectureTest {
         noClasses()
                 .that().resideInAnyPackage(DOMAIN, APPLICATION)
                 .should().dependOnClassesThat().resideInAnyPackage(SDK)
-                .because("ADR-0090: domain and application never depend on the provider SDK")
+                .because("ADR-0129: domain and application never depend on the provider SDK")
                 .check(PRODUCTION);
     }
 
@@ -126,7 +126,7 @@ class AdapterSiblingArchitectureTest {
         noClasses()
                 .that().resideInAPackage(MCP)
                 .should().dependOnClassesThat().resideInAnyPackage(API, CLI)
-                .because("ADR-0107: morpheus-mcp and morpheus-api are sibling adapters, neither calls the other")
+                .because("ADR-0131: morpheus-mcp and morpheus-api are sibling adapters, neither calls the other")
                 .check(PRODUCTION);
     }
 

@@ -48,7 +48,7 @@ services application/domain
 Provider SDK + providers
 store SQLite + migrations V001→V015
 Jackson
-runtime Java minimal, avec son bin/java (probe isolé de plugin, ADR-0098)
+runtime Java minimal, avec son bin/java (probe isolé de plugin, ADR-0129)
 integration/configure-mcp-clients.ps1
 integration/configure-mcp-clients-setup.ps1
 integration/README.md

@@ -28,7 +28,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Three boundaries hold for every HTTP router, so they are stated once over the family instead of once per router.
  *
- * <p>ADR-0103 left the generalisation of its pilot undecided; its amendment of 11/09/2026 decides it by capability,
+ * <p>{@code .claude/rules/architecture.md} generalises the textual pilot by capability group, never over the whole
+ * family,
  * and this is the first group. Most of what a router may touch depends on whether it reads a request body -- nine
  * of the seventeen legitimately carry {@code HttpExchange} and a decoder -- so it is not a family property and is
  * not stated here. These three are: no {@code *HttpRoutes} class reaches the remote authorization model, writes a
@@ -38,7 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * policy-management, query and reasoning -- carried none, and a router added tomorrow would carry none until
  * someone wrote its test. Nothing is removed: the per-class assertions stay where they are.</p>
  *
- * <p>Each guard was broken before it was accepted (executions E0-E5 of the amendment). The two halves that do not
+ * <p>Each guard was broken before it was accepted (executions E0-E5 of 11/09/2026). The two halves that do not
  * need a classpath -- the source scan and the router bijection -- replay their refusal on every build over synthetic
  * inputs. The three ArchUnit rules would need a synthetic classpath to do the same; each records instead the
  * execution that broke it.</p>
@@ -56,7 +57,7 @@ class HttpRoutesFamilyArchitectureTest {
      * {@code MorpheusRemoteHttpServer.MAX_CONCURRENT_REQUESTS} and {@code DEFAULT_MAX_CONCURRENT_REQUESTS} are
      * public, three more of its limits are package-private, and {@code MorpheusRemoteIdentityFile} exposes four
      * public ones. A router writing any of them carries the value and no reference to the class, so the rule alone
-     * would pass. ADR-0103 makes coexistence mandatory in exactly that case.</p>
+     * would pass. {@code .claude/rules/architecture.md} keeps both holds in exactly that case.</p>
      *
      * <p>Broken before acceptance, 11/09/2026. E1, {@code MorpheusRemoteProxyTransport.class} written into
      * {@code MorpheusPolicyHttpRoutes}: this rule failed, and the three other suites naming that router passed. E2,

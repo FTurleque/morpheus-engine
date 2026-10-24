@@ -91,7 +91,7 @@ Contraintes M22 :
 
 - `plugin.id` stable, minuscule, borné à 128 caractères ;
 - `provider.id` doit correspondre au provider **et** au content reader réellement créés ;
-- `provider.id` ne contient aucun caractère de contrôle : `ProviderId` le refuse, métadonnées comprises (ADR-0023, amendement PIT-AUD-5) ;
+- `provider.id` ne contient aucun caractère de contrôle : `ProviderId` le refuse, métadonnées comprises (ADR-0023) ;
 - `plugin.version`, min/max MORPHEUS utilisent une version `x.y.z` avec prerelease/build optionnels ;
 - `sdk.apiVersion` doit être exactement `1` pour M22.
 
@@ -236,7 +236,7 @@ workspace, même si la primitive lit le chemin canonique.
 Un locator et le texte d'un refus n'obéissent pas à la même règle. `SourceLocator.file(...)` normalise (`\` devient
 `/`), pour que le même fichier porte le même locator sur toutes les plateformes ; le texte d'un refus nomme le fichier
 tel qu'il existe et passe par `WorkspaceRelativePathText`, sans rien substituer. Un refus ne se construit donc jamais à
-partir d'un locator (ADR-0028, amendement du 30 septembre 2026, PRV-6). Le paramètre `source` de chaque méthode de
+partir d'un locator (ADR-0028). Le paramètre `source` de chaque méthode de
 `ProviderIngestionBudget.Session` (`addBlocks`, `addEntities`, `addEvidenceFragment`, `requireAdditionalFiles`) est
 **le texte d'un refus** : un nom écrit par `WorkspaceRelativePathText`, une constante ou une étiquette de groupe, jamais la
 valeur d'un locator. `addEvidenceFragment(fragment)`, sans texte, attribue le fragment au dernier document lu par la
@@ -261,7 +261,7 @@ Un plugin ne doit pas fabriquer une identité MORPHEUS à partir d’un simple c
 
 Pour les données normalisées, la provenance doit conserver le `ProviderId`, la source et l’évidence réellement observée. Le template M22 montre ce flux avec une `Specification`, une `Evidence` et une `Provenance`.
 
-La racine du projet publié (`ProjectSpecification.rootLocator`) n’est pas une source : c’est la racine du workspace que le lecteur a reçue, obtenue par `ProviderProjectRoot.locator(request.workspaceRoot())` (`com.morpheus.application.read`). La publication la compare caractère par caractère avec la racine sous laquelle le projet a été enregistré ; un lecteur qui publie le fichier qu’il a lu, ou la racine normalisée autrement, rend sa propre publication impossible (ADR-0028, amendement PRV-1). Les évidences et provenances, elles, nomment le fichier où elles ont été observées.
+La racine du projet publié (`ProjectSpecification.rootLocator`) n’est pas une source : c’est la racine du workspace que le lecteur a reçue, obtenue par `ProviderProjectRoot.locator(request.workspaceRoot())` (`com.morpheus.application.read`). La publication la compare caractère par caractère avec la racine sous laquelle le projet a été enregistré ; un lecteur qui publie le fichier qu’il a lu, ou la racine normalisée autrement, rend sa propre publication impossible (ADR-0028). Les évidences et provenances, elles, nomment le fichier où elles ont été observées.
 
 ## 10. Test kit
 

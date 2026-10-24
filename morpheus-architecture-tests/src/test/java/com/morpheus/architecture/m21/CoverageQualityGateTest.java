@@ -167,7 +167,8 @@ class CoverageQualityGateTest {
     }
 
     /**
-     * A guard that has never refused is not a guard (ADR-0103). The rule is exercised here against a reactor
+     * A guard that has never refused is not a guard ({@code .claude/rules/architecture.md}). The rule is exercised here
+     * against a reactor
      * assembled on purpose, holding one module of every kind it must tell apart, and then completed to prove it
      * stops refusing for the right reason rather than for none.
      */

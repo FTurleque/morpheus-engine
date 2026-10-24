@@ -42,7 +42,7 @@ class ProductionIntegrityContractTest {
     }
 
     /**
-     * ADR-0106, amendment of 8 October 2026: the handler bound is a safety bound, so a handler waiting on a peer
+     * ADR-0106: the handler bound is a safety bound, so a handler waiting on a peer
      * that keeps every request within the longest timeout an operator may configure must still end by the
      * operation's bounded error. One operation is several requests in sequence, so the bound is composed from each
      * gateway's request count, not from one request: the previous rule, twice one timeout, gave 240 s against a

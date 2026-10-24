@@ -23,7 +23,7 @@ type; changing any default value; the `check_product_update` MCP stub (a public 
 ## Decisions
 
 1. **The enforced property is structural: a record declares no public constructor besides its canonical one.**
-   Intent in one sentence: *a record offers one public way to be constructed*. Neither of ADR-0103's two shapes
+   Intent in one sentence: *a record offers one public way to be constructed*. Neither of the two shapes of `.claude/rules/architecture.md`
    exactly: it is not a dependency, and a textual scan for "Compatibility constructor" would forbid a comment, not a
    constructor. The test reads the imported production classes and compares each record's public constructors to its
    components. *Rejected*: the textual ban on the comment. *Rejected*: extending the unreferenced-method gate to
@@ -64,8 +64,8 @@ type; changing any default value; the `check_product_update` MCP stub (a public 
 
 - **Does removing public constructors of `application` and `domain` records require a new `sdk.apiVersion`?**
   A plugin compiled against the old constructors fails at link time, not at discovery. **Recommendation**: yes if the
-  maintainer considers these records part of the plugin contract (ADR-0090 says the SDK "depends on provider-neutral
-  ports", which makes them so); decide before the lot, since a version change touches the compatibility check and its
+  maintainer considers these records part of the plugin contract (ADR-0129 says the SDK depends on MORPHEUS's provider-neutral
+  contracts, which makes them so); decide before the lot, since a version change touches the compatibility check and its
   documentation. If the answer is "not now", `Constraint` and `NormalizedProjectContent` stay on the exception list
   with that reason, and the rest of the change proceeds.
 - **`check_product_update`.** The MCP tool is an error stub kept under its historical name and declared in the

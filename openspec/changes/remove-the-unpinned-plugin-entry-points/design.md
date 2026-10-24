@@ -9,7 +9,7 @@
   (`stageVerifiedCopy`) and gives that copy to the class loader. The child process verifies the pin again.
 - `ServerLocationDisclosureTest` and `RemoteTextPolicyTest` quote the shim's message as a sample of text that is safe to
   disclose. They test a text filter, not the activator.
-- ADR-0103: a textual assertion forbids or requires a *mention*. Here the required mention was satisfied by the code
+- `.claude/rules/architecture.md`: a textual assertion forbids or requires a *mention*. Here the required mention was satisfied by the code
   the rule page forbids.
 
 ## Goals / Non-Goals

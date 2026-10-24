@@ -43,7 +43,7 @@ void applicationMustNotDependOnAdapters() {
 milestone (règles de sous-plateforme, ex. `m24/QueryPlatformArchitectureTest`). Ne jamais
 se contenter d'une convention non testée — si ArchUnit ne la vérifie pas, elle n'existe pas.
 
-## Règle ArchUnit ou assertion textuelle — cf. ADR-0103
+## Règle ArchUnit ou assertion textuelle
 
 Beaucoup d'interdits de dépendance sont aujourd'hui écrits `assertFalse(<source lue>.contains("X"))`.
 **Ce n'est pas une forme dégradée à migrer par réflexe** : les deux mécanismes n'enforcent pas la
@@ -70,7 +70,7 @@ Restent textuels par nature, ne pas les migrer :
 Trois obligations avant d'accepter une règle migrée :
 
 1. **Vérifier que la classe visée est dans l'ensemble importé.** `morpheus-provider-testkit` n'y est
-   pas (`morpheus-provider-reference` y est depuis le 30/09/2026, ADR-0028 amendement PRV-7) — relire
+   pas (`morpheus-provider-reference` y est, ADR-0028) — relire
    le `pom.xml` de `morpheus-architecture-tests` plutôt que cette ligne. Le garde-fou `archRule.failOnEmptyShould` est actif et
    fait échouer une règle qui ne retient aucune classe — **ne pas le désactiver**.
 2. **Vérifier qu'un littéral n'est pas un préfixe de famille.** `contains("MorpheusRemote")` interdit
@@ -81,8 +81,7 @@ Trois obligations avant d'accepter une règle migrée :
 Découper par **intention**, jamais par classe de test : regrouper fait descendre le compte de
 méthodes `@Test`, et `architectureTestsMinimum` ne se baisse pas (`rules/testing.md`).
 
-**Généralisation décidée le 11/09/2026** (amendement d'ADR-0103), par groupe de capacité, jamais par
-famille entière :
+**Généralisation par groupe de capacité**, jamais par famille entière :
 
 - les trois interdits vrais pour **tous** les routeurs (`MorpheusRemote*`, l'appel `sendResponseHeaders`,
   `MorpheusHttpPathParser`) vivent dans `HttpRoutesFamilyArchitectureTest`, règle **et** texte — n'y
@@ -119,7 +118,7 @@ famille entière :
   > de modifier ce paragraphe** — les noms de constantes ci-dessus sont la seule prise fiable.
 - les assertions visant des cibles sans famille (services, plomberie `LocalHttp*`, serveur remote) **ne
   migrent pas** ;
-- depuis le 13/10/2026 (amendement d'ADR-0103) le troisième groupe a une seconde règle de groupe : ses quatre
+- le troisième groupe a une seconde règle de groupe : ses quatre
   routeurs, à qui le serveur ne remet aucun segment, les demandent à `MorpheusHttpRequestDecoder.pathSegments*` —
   et **eux seuls** (`onlyARouterThatRegistersItsOwnContextAsksTheDecoderForThePath`). L'interdit de famille sur
   `MorpheusHttpPathParser` tient le parseur ; cette règle tient le chemin. Un routeur porté par le serveur qui
@@ -164,7 +163,7 @@ ni `morpheus-provider-sdk` ni `morpheus-provider-reference`.
 ### `api` / `mcp` → stores et providers concrets : seulement par les racines nommées (ADR-0109)
 Les serveurs HTTP et MCP construisent le runtime de chaque requête à partir de `store-sqlite` (et le provider OpenSpec
 pour la synchronisation HTTP). Seules les classes de `AdapterCompositionRootArchitectureTest.COMPOSITION_ROOTS` y ont
-droit ; la liste est exactement l'ensemble mesuré et ne fait que rétrécir. En ajouter une exige d'amender ADR-0109.
+droit ; la liste est exactement l'ensemble mesuré et ne fait que rétrécir. En ajouter une exige de remplacer ADR-0109 par un ADR consolidé qui la nomme.
 > `onlyTheNamedCompositionRootsReachAConcreteStoreOrProvider`, `everyNamedCompositionRootStillReachesAConcreteStoreOrProvider`
 
 Les stores d'une opération sont construits par **une seule classe**, `SqliteOperationRuntime`, qui ouvre la
@@ -173,8 +172,7 @@ transports. Chaque transport a **un** type de runtime qui l'enveloppe (`ApiRunti
 et ne rend que des ports de l'application — c'est ce qui garde les services hors de `COMPOSITION_ROOTS`. Une autre
 classe qui construit un store est refusée, sauf si elle est **nommée** dans `SqliteConnectionScopeUseArchitectureTest`
 avec son opération à store unique ; le texte (sans commentaires, ouverture avant la première construction) et le
-bytecode (appel de `SqliteConnectionScope.open`, pas une simple dépendance) le tiennent (amendement d'ADR-0109 du
-15/10/2026).
+bytecode (appel de `SqliteConnectionScope.open`, pas une simple dépendance) le tiennent (ADR-0109).
 
 ### `morpheus-mcp-transport` ne dépend d'aucun autre paquet MORPHEUS
 Le transport STDIO borné est partagé par le serveur MCP et les clients MINOS/NEXUS.

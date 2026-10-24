@@ -63,7 +63,7 @@ keeps its three requirements; this change moves where they are implemented, not 
 - `PeerLauncherArchitectureTest` is **retargeted, not removed**: its two assertions move to the single
   implementation and are joined by a dependency rule; nothing is weakened. One parity test is added in
   `morpheus-architecture-tests`, the only module that sees both integrations.
-- **ADR amendments**, not a new ADR: ADR-0069 (MINOS over MCP STDIO) and ADR-0073 (NEXUS over MCP STDIO) each gain
+- **ADR-0128 is clarified**, not a new ADR: ADR-0128 (MINOS and NEXUS over MCP STDIO) gains
   the statement that the settings resolution is shared and where it lives. The sprint 11 ADR names the resolver in its
   list of application classes that read the file system.
 - **Ratchets.** `testsMinimum` counts test executions across the reactor: folding four twin test classes into two

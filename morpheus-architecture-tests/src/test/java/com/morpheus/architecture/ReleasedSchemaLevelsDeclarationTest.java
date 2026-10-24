@@ -32,7 +32,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * The version in progress is exempt until it is released; the first build of the next version then fails until the
  * level just shipped is declared.</p>
  *
- * <p>The documentation side is textual by nature (a {@code .md} file name, ADR-0103): the intent is "a released
+ * <p>The documentation side is textual by nature (a {@code .md} file name, {@code .claude/rules/architecture.md}): the
+ * intent is "a released
  * version without a declared level must not pass", and no bytecode rule sees that file.</p>
  */
 class ReleasedSchemaLevelsDeclarationTest {

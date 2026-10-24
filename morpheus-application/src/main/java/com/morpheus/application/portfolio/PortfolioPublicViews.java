@@ -14,7 +14,7 @@ import java.util.Optional;
  * Transport-safe M23 projections for CLI, MCP and HTTP.
  *
  * <p>Domain identities and temporal values are deliberately converted to strings before canonical JSON
- * serialization, in accordance with ADR-0047. Domain objects are never serialized directly.</p>
+ * serialization, in accordance with ADR-0123. Domain objects are never serialized directly.</p>
  */
 public final class PortfolioPublicViews {
     private PortfolioPublicViews() {

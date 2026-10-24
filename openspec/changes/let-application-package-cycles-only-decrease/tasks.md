@@ -39,7 +39,7 @@
 
 ## 4. Record and descriptions
 
-- [ ] 4.1 Amend ADR-0109: decision 3 and the measurement table - the rule, the measurements of 1.1 and 1.2 with their
+- [ ] 4.1 Replace ADR-0109 by a consolidated ADR: decision 3 and the measurement table - the rule, the measurements of 1.1 and 1.2 with their
       date, the list after 3.2, the residual components and what holds each. Keep the index line of
       `docs/architecture/adr/README.md` true. Proof: `AdrIndexCoherenceTest`.
 - [ ] 4.2 `.claude/CLAUDE.md` and `.claude/rules/architecture.md`: replace "deferred" and its dated count by the rule

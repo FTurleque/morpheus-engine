@@ -24,7 +24,7 @@ Valeur constatée en lisant `config/m21-quality-ratchets.properties` (18/10/2026
 
 Deux questions se posent à la présence des tests : des tests ont-ils été supprimés, et la matrice d'options de la CLI
 a-t-elle changé ? Un total Surefire ne peut répondre qu'à l'une des deux. Les validateurs comptent donc deux grandeurs,
-**de somme égale au total Surefire** (ADR-0089, amendement du 18/10/2026) :
+**de somme égale au total Surefire** (ADR-0089) :
 
 - une exécution **déclarée** est l'unique exécution d'une méthode de test : nom nu dans le rapport, borne `testsMinimum` ;
 - une exécution **générée** vient d'une fabrique (`@TestFactory`) ou de toute source à plusieurs invocations par méthode
@@ -121,7 +121,7 @@ ratchet collé à la mesure transformerait une variation ordinaire en échec de 
 `0.620 / 0.535`, laisse **146 lignes et 30 branches** de marge sur l'échelle par module — soit 6,1 fois la
 variation inter-plateforme en lignes, mais seulement 2,8 fois en branches. **C'est la branche qui est serrée,
 pas la ligne** : un relèvement ultérieur dans ce plafond doit traiter les deux clés séparément, et rien
-n'oblige à les faire bouger ensemble (ADR-0104 §4 interdit seulement de les aligner sur une moyenne). L'échelle agrégée compte une autre population
+n'oblige à les faire bouger ensemble (ADR-0104 §5 interdit seulement de les aligner sur une moyenne). L'échelle agrégée compte une autre population
 de lignes et sa marge se lit dans `AggregateCoverageGateTest`.
 
 Le 22/09/2026 la seule clé ligne passe de `0.640` à `0.642`, dans le même plafond et sans mesure nouvelle :

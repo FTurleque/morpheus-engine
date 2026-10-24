@@ -34,7 +34,7 @@ that introduces this change.
 
 - [ ] 3.1 The runtime hands out application ports where 1.4 found concrete types read by a future capability class.
       Proof: the tests of 2.1 pass unmodified; if a root no longer reaches a concrete store, its name leaves
-      `COMPOSITION_ROOTS` in the same pull request, with the dated amendment of ADR-0109.
+      `COMPOSITION_ROOTS` in the same pull request, with ADR-0109 clarified to match.
 - [ ] 3.2 The capability package of each adapter, and the classes of 1.6, one family per pull request, read-only
       families first. Proof per pull request: 2.1 and 2.2 untouched and green,
       `CliOptionParsingRefusesUnknownOptionsTest` and `MorpheusHelpInvocationsParseTest` untouched and green.
@@ -49,12 +49,12 @@ that introduces this change.
 ## 4. Documentation and decision records
 
 - [ ] 4.1 The convention in the ADR of `express-adapter-internal-roles-as-packages`, or its own ADR if that change
-      was not taken (re-read `docs/architecture/adr/0*.md` for the next free number; line in the `README.md`).
+      was not taken (re-read `docs/architecture/adr/*-[0-9][0-9][0-9][0-9]-*.md` and `archive/` for the next free number; line in the `README.md`).
 - [ ] 4.2 `.claude/rules/architecture.md` (the adapters' shape), `.claude/CLAUDE.md` ("Points d'entree cles"),
       `.claude/skills/public-capability/SKILL.md` (where a new command or tool goes), the `docs/developer/` pages of
       the CLI and MCP adapters. A file of `docs/` that moves gets its line in `docs/project/README.md`.
-- [ ] 4.3 The amendments CLI-6 and CLI-8 of ADR-0103 are dated records: not rewritten. If a parser family they name
-      changes owner, a new dated note says so.
+- [ ] 4.3 ADR-0130 names the parser families (decisions 2 and 8). If one of them changes owner, ADR-0130 is
+      clarified to say so.
 
 ## 5. Verification
 

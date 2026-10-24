@@ -121,7 +121,8 @@ class RepositoryDocumentationCoherenceTest {
     }
 
     /**
-     * An empty corpus would satisfy the rule above as well (ADR-0103). This proves it refuses a moved target, names
+     * An empty corpus would satisfy the rule above as well ({@code .claude/rules/architecture.md}). This proves it
+     * refuses a moved target, names
      * the page and the target, and leaves alone what is not a link to a file.
      */
     @Test
@@ -597,7 +598,8 @@ class RepositoryDocumentationCoherenceTest {
     }
 
     /**
-     * The surface list must refuse a missing surface rather than scan less (ADR-0103): every check iterating it would
+     * The surface list must refuse a missing surface rather than scan less ({@code .claude/rules/architecture.md}):
+     * every check iterating it would
      * otherwise keep passing on a narrower population. Proven on a copy, one surface removed at a time.
      */
     @Test

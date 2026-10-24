@@ -27,7 +27,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * or a test template that yields no invocation, unless {@code allowZeroInvocations = true} turns that refusal off,
  * which this rule forbids.</p>
  *
- * <p>The intent is "a generating method that does not assert its source is not empty must not appear" (ADR-0103):
+ * <p>The intent is "a generating method that does not assert its source is not empty must not appear"
+ * ({@code .claude/rules/architecture.md}):
  * a property of the text of the test sources, which ArchUnit does not import, so the rule reads them. Comments and the
  * contents of literals are blanked first, so a Javadoc or a fixture that names an annotation is not a factory.</p>
  */

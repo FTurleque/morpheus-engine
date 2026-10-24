@@ -240,7 +240,7 @@ class AuditHardeningWorkflowContractTest {
     }
 
     /**
-     * ADR-0106, amendment of 23/09/2026: the principle holds in both transports. A client has no pending peer request
+     * ADR-0106: the principle holds in both transports. A client has no pending peer request
      * to answer, so its only outbound treatment is refusal to the local sender, and {@code sendMessage} must catch that
      * refusal before the {@code IOException} branch that fails the session closed. Text, for the same reason as the
      * server rule above.
@@ -274,7 +274,7 @@ class AuditHardeningWorkflowContractTest {
     /**
      * The MCP transport module is shared by the MORPHEUS server and by the MINOS and NEXUS clients. Naming a tool of
      * the server catalog in it would leak the application into the transport; the guidance for an oversized response
-     * is supplied by the layer that owns the catalog (ADR-0106, amendment of 23/09/2026).
+     * is supplied by the layer that owns the catalog (ADR-0106).
      */
     @Test
     void mcpTransportNamesNoServerCatalogTool() throws IOException {

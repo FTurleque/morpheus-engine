@@ -24,7 +24,7 @@ sentence:
   from the three transports through `ReasoningService.standard`. ADR-0095 decides it ("des providers classpath peuvent
   être découverts via `ServiceLoader`").
 - `ProviderPluginActivator.java:52` and `:62`, `ProviderPluginActivation.java:19`: a dedicated `URLClassLoader` and
-  `ServiceLoader.load(MorpheusProviderPlugin.class, loader)`. ADR-0090 decides it.
+  `ServiceLoader.load(MorpheusProviderPlugin.class, loader)`. ADR-0129 decides it.
 
 **Frameworks and injection annotations** - true today (no POM names one), and enforced by nothing: no rule of
 `morpheus-architecture-tests` names `org.springframework`, `io.quarkus`, `io.micronaut`, `com.google.inject`,
@@ -59,7 +59,7 @@ that applies the sentence refuses a legitimate fix, or believes it may delete th
 - `morpheus-architecture-tests`: one test class of ArchUnit rules.
 - `.claude/rules/architecture.md` (the section above), `.claude/skills/public-capability/SKILL.md` (one sentence).
 - No product code: the five uses stay as they are.
-- No ADR: ADR-0090 and ADR-0095 decide the two loaders, ADR-0109 decides explicit wiring; the two reflection uses are
+- No ADR: ADR-0129 and ADR-0095 decide the two loaders, ADR-0109 decides explicit wiring; the two reflection uses are
   implementation techniques, named in the test with their reason.
 - `architectureTestsMinimum` rises by the tests added; never lowered.
 - Related: `own-the-sqlite-connection-policy-in-one-place` touches `SqliteConnectionScope`; if it removes a proxy, the

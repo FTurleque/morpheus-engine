@@ -47,7 +47,7 @@ OpenSpec, et le serveur remote avec son bootstrap, qui prennent le fichier de ba
 - La liste est **exactement** l'ensemble des classes qui en dépendent : une racine qui n'en dépend plus doit être
   retirée. La liste peut rétrécir, elle ne peut pas grandir en silence.
 
-**Ajouter une racine exige d'amender cet ADR**, avec la raison pour laquelle la classe ne peut pas passer par un port
+**Ajouter une racine exige un ADR consolidé qui remplace celui-ci et la nomme**, avec la raison pour laquelle la classe ne peut pas passer par un port
 de l'application. Le reste des interdits est inchangé : `application` ne connaît aucun adaptateur, `api` ne dépend ni
 de `cli` ni de `mcp`, les providers et les stores restent frères.
 
@@ -106,7 +106,7 @@ nombreux pour être retirés sans refonte des paquets, ce qui sort de la portée
 
 ### Don't
 
-- Ne pas ajouter une racine de composition sans amender cet ADR.
+- Ne pas ajouter une racine de composition sans un ADR consolidé qui remplace celui-ci et la nomme.
 - Ne pas construire plusieurs stores SQLite hors de `SqliteOperationRuntime`.
 - Ne pas exposer un type `Sqlite…Store` depuis un runtime de transport.
 - Ne pas imbriquer deux portées de connexion sur un même thread.

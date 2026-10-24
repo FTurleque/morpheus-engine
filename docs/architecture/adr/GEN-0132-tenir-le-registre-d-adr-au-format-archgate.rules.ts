@@ -1,6 +1,6 @@
 /// <reference path="../rules.d.ts" />
 
-// Règles de GEN-0132. AdrIndexCoherenceTest tient déjà l'index, l'unicité des numéros et les statuts ; ces règles
+// Règles d'ADR-0132. AdrIndexCoherenceTest tient déjà l'index, l'unicité des numéros et les statuts ; ces règles
 // tiennent ce qu'aucun test ne lit : nom et en-tête au format Archgate, titre, sections, absence d'amendement et
 // .archgate/adrs/ réduit à .gitkeep.
 

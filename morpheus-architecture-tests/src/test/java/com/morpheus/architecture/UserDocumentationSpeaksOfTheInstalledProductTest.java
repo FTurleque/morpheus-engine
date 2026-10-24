@@ -23,7 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>{@code .claude/rules/documentation.md} forbids there a commit hash, a test counter, an issue or pull request
  * number, a test or gate name, a {@code ./mvnw} command and a {@code src/} path. The rule was prose only, and a
  * review of 2026-10-13 found it broken on five pages by sentences older than the rule. The check is textual
- * because Markdown offers no other hold (ADR-0103): it forbids the mention, which is the intention.</p>
+ * because Markdown offers no other hold ({@code .claude/rules/architecture.md}): it forbids the mention, which is the
+ * intention.</p>
  *
  * <p>The release notes of a published version are dated records and are not rewritten; they are exempt by name.
  * The note of a version still in preparation is an active page and is scanned.</p>

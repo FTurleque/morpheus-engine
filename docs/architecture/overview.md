@@ -380,7 +380,7 @@ confidence = 0.74
 
 La direction est canonique et les inverses utiles peuvent être dérivés par la couche de requête.
 
-Voir ADR-0005 et ADR-0010.
+Voir ADR-0118.
 
 ---
 
@@ -452,7 +452,7 @@ consumers see Vn+1
 
 Le backend peut implémenter cette propriété via transaction, MVCC, génération, staging ou autre mécanisme.
 
-Voir ADR-0012.
+Voir ADR-0120.
 
 ---
 

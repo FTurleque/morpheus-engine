@@ -33,7 +33,7 @@ configuration sets.
   own living source; no count is written anywhere as a threshold.
 - The package of the store ports stops taking part in any cycle: a port lives with the capability whose vocabulary it
   speaks, or does not speak it. This is the first decrease.
-- ADR-0109 is amended: decision 3's deferral is replaced by the rule, with the measurement of the day.
+- A consolidated ADR replaces ADR-0109: decision 3's deferral becomes the rule, with the measurement of the day.
 
 ## Capabilities
 
@@ -48,7 +48,7 @@ configuration sets.
 
 ## Impact
 
-- **Amends ADR-0109** (decision 3 and its measurement table); no new ADR number.
+- **A consolidated ADR replaces ADR-0109** (decision 3 and its measurement table); it takes the next free number.
 - `AdapterCompositionRootArchitectureTest` or a sibling class in `morpheus-architecture-tests`;
   `architectureTestsMinimum` rises.
 - Three port interfaces of `application.store` and their implementations in `morpheus-store-memory` and

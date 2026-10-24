@@ -52,7 +52,7 @@
 
 ## 5. Documentation
 
-- [ ] 5.1 ADR-0109: a dated amendment naming the new package and why; the decision and its measures untouched.
+- [ ] 5.1 ADR-0109 clarified: its text names the new package and why; the decision and its measures untouched.
       `docs/architecture/adr/README.md` only if its line for the ADR changes (`AdrIndexCoherenceTest`).
 - [ ] 5.2 `.claude/rules/architecture.md`: the entry on the transport titled by the package the rule judges, the
       correspondence test cited where the page explains how to add a module boundary.

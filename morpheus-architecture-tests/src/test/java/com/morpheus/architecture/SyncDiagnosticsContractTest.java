@@ -32,7 +32,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>It also holds the one choice the HTTP adapter makes: a remote WRITE caller reaches the sync route, so no class of
  * {@code com.morpheus.api} may relay the local projection, and the sync service relays the remote one. These are
- * bytecode rules (ADR-0103: the intention is "no call", which a text search would only approximate).</p>
+ * bytecode rules ({@code .claude/rules/architecture.md}: the intention is "no call", which a text search would only
+ * approximate).</p>
  *
  * <p>What it does not cover: that the remote projection is applied to the value the route actually serializes rather
  * than computed and dropped — the integration test proves it, with a title the location predicate refuses; and

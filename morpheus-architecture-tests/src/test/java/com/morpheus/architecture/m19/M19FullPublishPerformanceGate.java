@@ -136,7 +136,7 @@ class M19FullPublishPerformanceGate {
     /**
      * Reading back the business content of a large snapshot, in a database of its own.
      *
-     * <p>Budget declared on 13/10/2026, before the read was changed (ADR-0085, amendment of that day). The snapshot is
+     * <p>Budget declared on 13/10/2026, before the read was changed (ADR-0085). The snapshot is
      * published into its own file so that neither the publication time, nor the database size, nor the retention
      * growth measured above moves. Every child table of the projection is filled: a list left empty measures
      * nothing, and the guards below refuse a fixture that leaves one.</p>

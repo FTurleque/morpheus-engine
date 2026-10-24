@@ -34,7 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Pins, through the server's real wiring, that the guidance for an oversized response comes from this layer and
  * reaches the client. The transport cannot supply it: it is shared with the MINOS and NEXUS clients and knows no
- * catalog (ADR-0106, amendment of 23/09/2026).
+ * catalog (ADR-0106).
  */
 class MorpheusMcpServerOversizedResponseTest {
 

@@ -74,8 +74,8 @@ And the two lists the finding cites are **not the same kind of list**:
   `architectureTestsMinimum` does not go down (`config/m21-quality-ratchets.properties`, procedure `live-numbers`).
 - `scripts/validate-m23` to `m27` and `validate-r2`, `.ps1` and `.sh` together.
 - **A new ADR** (the highest number attributed on 2026-10-13 is `0110`; re-read the directory before assigning), and
-  dated amendments to ADR-0109 (the row "not applicable" of its measure, the condition under which the list becomes a
-  package rule) and to ADR-0103 (a classification by placement is a classification by name).
+  a consolidated ADR replacing ADR-0109 (the row "not applicable" of its measure, the condition under which the list becomes a
+  package rule), and `.claude/rules/architecture.md` (a classification by placement is a classification by name).
 - `.claude/rules/architecture.md`, `.claude/rules/security.md`, `.claude/CLAUDE.md` ("Points d'entree cles"),
   `.claude/skills/enforcement-choice/SKILL.md`, `docs/developer/` pages that name a class by path,
   `docs/architecture/arc42/05-vue-blocs.md`, `docs/project/README.md` (table of old and new paths).

@@ -34,7 +34,7 @@ checked fact.
 
 2. **Nothing is relaxed by the move.** Each rule whose targets include `com.morpheus.integration..` gains
    `com.morpheus.transport..` as a target: domain, application, api, providers, stores. For `api` this states in the
-   open what was true by accident; if the HTTP adapter ever needs an MCP transport, that will be an amendment someone
+   open what was true by accident; if the HTTP adapter ever needs an MCP transport, that will be a consolidated ADR someone
    writes, not a prohibition someone trips over. The three `"..mcp.."` patterns keep matching the transport by its
    last segment; the lot verifies it rather than assumes it (task 1.3) and adds the explicit target if it does not.
 
@@ -55,7 +55,7 @@ checked fact.
 5. **The transport rule keeps its name and changes its subject.** `theMcpTransportDependsOnNoOtherMorpheusPackage`
    judges `com.morpheus.transport.mcp..`; `failOnEmptyShould` guarantees the subject is not empty after the move.
 
-6. **ADR-0109 is amended, not superseded.** A dated amendment records the new package name and the reason; the
+6. **ADR-0109 is clarified, not replaced.** Its text names the new package and the reason; the
    decision and its measures stay as written. The rule page then titles the rule by the package it judges and gives
    the module in passing.
 

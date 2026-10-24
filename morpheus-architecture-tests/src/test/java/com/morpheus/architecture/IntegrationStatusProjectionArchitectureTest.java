@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
  * augmented-context MCP tools carried the same status object verbatim, three absolute server paths included. The
  * proposition is "every adapter that produces such a status calls the projection", which is a call that must
  * <em>exist</em> in a file, not a dependency that must be absent: a rule over compiled classes cannot see a call
- * that was never written (ADR-0103), so it is textual.</p>
+ * that was never written ({@code .claude/rules/architecture.md}), so it is textual.</p>
  */
 class IntegrationStatusProjectionArchitectureTest {
 

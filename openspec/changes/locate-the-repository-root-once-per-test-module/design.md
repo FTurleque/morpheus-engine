@@ -46,7 +46,7 @@ suite reads once it has the root; locating the root from product code.
 4. **The refusal is textual.** The proposition is "this declaration must not appear here": a method that compiles
    perfectly well and should not exist. No dependency is involved, the coverage report module is outside the classpath
    of the architecture tests, and test sources are what is scanned - exactly the case of `BoundedWaitOwnershipTest`
-   (ADR-0103, `.claude/skills/enforcement-choice`). The rule looks for the *shape*, not the three names: a method that
+   (`.claude/rules/architecture.md`, `.claude/skills/enforcement-choice`). The rule looks for the *shape*, not the three names: a method that
    returns a `Path`, starts from the working directory and climbs through parents. A renamed copy is the likely next
    one. Comments and string literals are blanked before scanning, as `CliOptionParsingRefusesUnknownOptionsTest` does.
 

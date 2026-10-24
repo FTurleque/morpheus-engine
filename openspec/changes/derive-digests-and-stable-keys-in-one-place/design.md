@@ -57,7 +57,7 @@ encoding; moving file reading into `morpheus-application`; the Markdown provider
      asks the platform for a message digest.* The rule is on the call to `MessageDigest.getInstance`, so a copy under
      any method name is seen, and `MessageDigest.isEqual` - which `security.md` requires elsewhere - is not touched.
      The twin scans every `src/main/java` for the literal `getInstance("SHA-256")`, because the algorithm name is a
-     string the bytecode rule cannot read and one product module is outside its classpath (ADR-0103; "in doubt, keep
+     string the bytecode rule cannot read and one product module is outside its classpath (`.claude/rules/architecture.md`; "in doubt, keep
      both").
    - *Provider-internal helpers*: textual. Intent: *these declarations must not appear outside the owner.* A private
      method that takes a `String` and returns a `String` has no signature a members rule could single out, and it

@@ -138,7 +138,7 @@ La déterminisme observable ne dépend jamais de l’ordre SQLite, provider ou `
 
 `QueryPublicViews` convertit les résultats en records adaptés aux surfaces. Les adapters ne sérialisent pas directement les objets domaine ni les identités internes.
 
-Ce principe prolonge ADR-0047 :
+Ce principe prolonge ADR-0123 :
 
 ```text
 domain/application result

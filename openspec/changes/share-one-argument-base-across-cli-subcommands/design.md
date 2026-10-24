@@ -51,7 +51,7 @@ which read a different grammar and are named exceptions.
      token, or a code and a message into an error line.* A signature survives a rename, which a name does not; the
      module is in the imported classpath. Exceptions are listed by name with their reason.
    - *The error format*: textual. Intent: *the literal `MORPHEUS error [` appears in one source file.* A string
-     literal is a compile-time constant; no rule on bytecode says which class spelled it (ADR-0103).
+     literal is a compile-time constant; no rule on bytecode says which class spelled it (`.claude/rules/architecture.md`).
    - *The parsers*: textual, by extending the discovery of `CliOptionParsingRefusesUnknownOptionsTest`. Intent: *a
      type that parses a list of option tokens is the shared parser or a named exception.* The existing test already
      finds these types by shape; this adds that their list is closed.

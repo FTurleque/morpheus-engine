@@ -37,7 +37,7 @@
       is taken and written down. Proof: 2.2 and 2.3 pass; `HttpRoutesFamilyArchitectureTest` green, and its ban broken
       once to prove it still bites.
       *2026-10-12: decision 3 ends on (a). The routers obtain their segments from `MorpheusHttpRequestDecoder`
-      (`pathSegments`, `pathSegmentsBelow`); no rule moved and ADR-0103 is not amended. The exact-path checks of the
+      (`pathSegments`, `pathSegmentsBelow`); no rule moved and ADR-0103 (archived) is not amended. The exact-path checks of the
       query, policy-management and reasoning routers read segments too, so no source of the adapter reads
       `getRequestURI().getPath()` any more. Broken once in `MorpheusReasoningHttpRoutes` with a single line that
       form-decoded a split of the decoded path and named the parser: four failures, one per rule
@@ -68,7 +68,7 @@
 - The design spoke of "two routers"; four register their own context, and all four read segments now.
 - Decision 3 promised a test that proves the family ban still bites. The ban held, but only on a name: a router the
   server holds could ask the decoder for the path. `onlyARouterThatRegistersItsOwnContextAsksTheDecoderForThePath`
-  closes it, and ADR-0103 is amended after all — not to narrow the ban, to say what it holds.
+  closes it, and ADR-0066 says what it holds — without narrowing the ban.
 - The remote server authorizes a request once (`MorpheusRemoteRoutePolicy.authorize`) and asks the result for the
   route and the role; the proxy resolver still reads the path once, through the same parser, and knows no role.
 - The readers of the raw path are a closed, named list, and none compares it as text.

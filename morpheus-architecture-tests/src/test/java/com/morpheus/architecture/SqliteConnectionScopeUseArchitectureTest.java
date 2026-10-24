@@ -44,7 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * itself. It used to ask only for a dependency on the scope class, which a field of that type, or a catch of its
  * nested exception, satisfied. It sees a store built through a constructor reference, which the text does not spell
  * {@code new Sqlite...Store(}; it cannot see that the scope is open around the constructions, which the text holds
- * (ADR-0103).</p>
+ * ({@code .claude/rules/architecture.md}).</p>
  */
 class SqliteConnectionScopeUseArchitectureTest {
     private static final Pattern CONSTRUCTION = Pattern.compile("new Sqlite[A-Za-z]*Store\\(");

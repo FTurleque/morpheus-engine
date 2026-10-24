@@ -131,7 +131,7 @@ réutilisation croisée est correcte et doit être *visible*, pas interdite). Pl
 passe par un mtime.
 
 **Un cache restauré sans sentinelle est traité comme périmé**, jamais comme frais : son âge est *inconnu*, et
-la règle tri-state de ce dépôt (ADR-0078, ADR-0093) interdit de convertir `UNKNOWN` en `PASS`.
+la règle tri-state de ce dépôt (ADR-0119, ADR-0093) interdit de convertir `UNKNOWN` en `PASS`.
 `DependencyCheckWorkflowContractTest` verrouille les cinq points.
 
 **Effet attendu et assumé de ce correctif :** le premier scan qui suit ne trouvera ni cache à la nouvelle clé,

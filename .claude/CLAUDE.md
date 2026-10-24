@@ -101,7 +101,7 @@ Les adaptateurs dépendent vers l'intérieur. Les adaptateurs sont **frères** �
 Exception écrite et bornée (ADR-0109) : `api` et `mcp` construisent le runtime de chaque requête HTTP ou appel
 d'outil MCP à partir de `store-sqlite` (et, pour la synchronisation HTTP, du provider OpenSpec), **uniquement** par
 les racines de composition nommées dans `AdapterCompositionRootArchitectureTest`. Cette liste ne fait que rétrécir ;
-une nouvelle classe qui veut un store concret passe par une racine existante ou amende l'ADR.
+une nouvelle classe qui veut un store concret passe par une racine existante, ou par un ADR consolidé qui remplace ADR-0109 et la nomme.
 
 ## Commandes
 

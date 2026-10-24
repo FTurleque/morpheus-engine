@@ -23,14 +23,14 @@ about the plugin API, not a repair of a false sentence); a rule on what plugins 
 ## Decisions
 
 1. **An ArchUnit rule, not a textual assertion.** Intent in one sentence: *the provider SDK has no dependency on an
-   adapter*. "No dependency" is the bytecode proposition (ADR-0103). No textual twin: the forbidden targets are
+   adapter*. "No dependency" is the bytecode proposition (`.claude/rules/architecture.md`). No textual twin: the forbidden targets are
    packages, not names, and none of the SDK's possible targets is reached through an inlined constant alone - the lot
    checks this claim rather than trusts it (task 1.3).
 
 2. **Targets: `STORES`, `PROVIDERS`, `INTEGRATIONS`, `MCP`, `API`, `CLI`.** These are the constants the class already
    declares. `PROVIDERS` includes the reference plugin: the SDK must not know an implementation of itself.
    *Rejected*: an allowlist ("the SDK depends only on `domain`, `application` and the JDK") - stricter, but it turns
-   every JDK or third-party type into a named exception, and ADR-0090 does not forbid the SDK a library.
+   every JDK or third-party type into a named exception, and ADR-0129 does not forbid the SDK a library.
 
 3. **The subjects are a constant, and a test compares it to the rules.** The Javadoc sentence was false because nothing
    compared it to the class. The rules of the class are held as values, the class declares the subjects it claims, and
@@ -44,7 +44,7 @@ about the plugin API, not a repair of a false sentence); a rule on what plugins 
    `sdk.provider`. No test compares these lines to the class; the entry cites the test method so that a reader goes to
    the source.
 
-5. **No ADR.** The decision exists (ADR-0090: the SDK depends on provider-neutral ports; ADR-0028 amendment PRV-7).
+5. **No ADR.** The decision exists (ADR-0129: the SDK depends on MORPHEUS's provider-neutral contracts; ADR-0028).
 
 ## Risks / Trade-offs
 

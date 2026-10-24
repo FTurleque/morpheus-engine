@@ -10,7 +10,7 @@
   classes, and wraps the fourteen historical tools around `MorpheusMcpToolService.execute(toolName, arguments)`.
 - `MorpheusMcpRuntime` exposes its stores as fields of concrete SQLite types. ArchUnit counts a field access as a
   dependency on the field's type.
-- ADR-0103's amendments CLI-6 and CLI-8 guard the help text and the option parsers by discovery; they name
+- ADR-0130 (decisions 2 and 8) guards the help text and the option parsers by discovery; it names
   `MorpheusCli.CommandOptions` as one of four permissive parser families, found by its shape.
 - `MorpheusCliTest` holds 17 tests for the thirteen commands. Whether each command's text and JSON output is pinned
   by a test is not known and is the first measure.

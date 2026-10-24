@@ -26,7 +26,8 @@ import org.junit.jupiter.api.Test;
  * asserts the type and nothing else.</p>
  *
  * <p>The proposition is about the form of the source -- whether a returned value is read -- over files that are
- * not on this module's classpath, which is why it is a textual assertion (ADR-0103) and has no ArchUnit twin.</p>
+ * not on this module's classpath, which is why it is a textual assertion ({@code .claude/rules/architecture.md}) and
+ * has no ArchUnit twin.</p>
  *
  * <p>A type "of the project" is one declared under a {@code src/main/java} or {@code src/test/java} of the
  * repository: it names its own reason. Any other expected type, or one the scan cannot read, is generic.</p>

@@ -32,7 +32,7 @@ one class as leaving. Otherwise withdraw this change.
 
 - [ ] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green on both platforms through the required
       checks.
-- [ ] 4.2 Amend the ADR: what moved, where, on which date. Update `.claude/rules/architecture.md` if it named the
+- [ ] 4.2 Clarify the ADR: where each class lives (what moved and when goes to the pull request). Update `.claude/rules/architecture.md` if it named the
       class. Proof: the diff.
 - [ ] 4.3 Pull request description: the finding, the record's decision, the table of 1.2, and that no command changed
       its output.

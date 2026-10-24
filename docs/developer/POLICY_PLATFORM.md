@@ -244,7 +244,7 @@ L’audit décrit la configuration de gouvernance, pas une mutation métier.
 
 Le journal ne fait que croître et n'est jamais lu en entier : `PolicyPackStore.listAudit(packId, PageRequest)` rend une
 `PolicyAuditPage` (page, total, `hasMore`) dans l'ordre de `AuditRecord` — par instant, puis par identité — et le port
-n'offre pas de lecture complète. HTTP, CLI et MCP rendent cette page avec le vocabulaire d'ADR-0107. Le magasin SQLite
+n'offre pas de lecture complète. HTTP, CLI et MCP rendent cette page avec le vocabulaire d'ADR-0131. Le magasin SQLite
 suit `idx_policy_audit_pack_order (pack_id, at_key, id)` : `at_key` est l'instant en texte de largeur fixe (13 chiffres
 de secondes, un point, 9 chiffres de nanosecondes), que la migration 21 calcule pour les lignes existantes, parce que
 le texte de `at` (`Instant.toString()`) ne se trie pas par date quand la fraction varie en longueur. Aucune instruction

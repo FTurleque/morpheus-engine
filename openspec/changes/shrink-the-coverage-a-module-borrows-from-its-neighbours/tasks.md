@@ -33,9 +33,9 @@ that introduces this change.
 
 ## 3. The change
 
-- [ ] 3.1 Amend ADR-0104: the third quantity, its definition in counts, the direction of its maximum, its
+- [ ] 3.1 Replace ADR-0104 by a consolidated ADR: the third quantity, its definition in counts, the direction of its maximum, its
       qualification on the highest measurement of both platforms, and the interdiction to derive a coverage threshold
-      from it. Count the ADRs with a glob; no new number is assigned.
+      from it. Check the highest number attributed before assigning the next one (`live-numbers`).
 - [ ] 3.2 The list of wholly borrowed classes, exact, with the platform-dependent group only if 1.2 found a member.
       Mechanism: an assertion on the reports, since the property is about measured execution and no rule on bytecode
       can state it. Proof: 2.1 passes.

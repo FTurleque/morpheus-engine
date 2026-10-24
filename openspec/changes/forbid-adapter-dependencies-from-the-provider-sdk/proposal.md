@@ -57,7 +57,7 @@ it:
   package name, and a `JAMAIS` entry for the SDK naming the rule.
 - `config/m21-quality-ratchets.properties`: the count of architecture tests rises by the tests added; the ratchet may
   be raised in the lot, never lowered (`.claude/skills/coverage-ratchet`).
-- No product code, no POM, no contract, no ADR: ADR-0090 and ADR-0028 already state the boundary; this change enforces
+- No product code, no POM, no contract, no ADR: ADR-0129 and ADR-0028 already state the boundary; this change enforces
   it.
 - Related: `give-the-shared-mcp-transport-its-own-package` (AUD-ARC-07) moves the transport out of
   `com.morpheus.integration..`; whichever lands second adds the transport's package to the SDK's forbidden targets.

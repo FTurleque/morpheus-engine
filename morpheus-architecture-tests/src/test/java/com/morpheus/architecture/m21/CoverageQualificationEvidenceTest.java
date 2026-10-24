@@ -32,7 +32,8 @@ import org.junit.jupiter.api.io.TempDir;
  * one population.</p>
  *
  * <p>Both bindings are textual because their subjects lie outside the compiled classpath: the constants are private
- * to gates in two different modules, and the evidence is data (ADR-0103). The rule is exercised against fabricated
+ * to gates in two different modules, and the evidence is data ({@code .claude/rules/architecture.md}). The rule is
+ * exercised against fabricated
  * sets, so that a verifier that accepts anything fails here.</p>
  */
 class CoverageQualificationEvidenceTest {

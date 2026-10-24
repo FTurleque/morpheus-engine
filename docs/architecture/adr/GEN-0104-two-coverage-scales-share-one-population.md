@@ -179,7 +179,7 @@ deux gates et leur preuve dans `config/coverage-qualification/`. Cet ADR fixe **
 
 - [ADR-0089](GEN-0089-production-integrity-surface-convergence.md) — intégrité de production.
 - [ADR-0085](GEN-0085-predeclared-performance-budgets-and-deterministic-large-fixtures.md) — déterminisme des gates.
-- [ADR-0103 archivé](BE-0130-contrat-des-options-de-la-cli.md) — assertion
+- `.claude/rules/architecture.md` (« Règle ArchUnit ou assertion textuelle ») et la skill `enforcement-choice` — assertion
   textuelle et règle ArchUnit, et l'exigence de casser une règle avant de l'accepter.
 - `config/m21-quality-ratchets.properties`, `config/coverage-qualification/`, `.claude/rules/testing.md`.
 - [VALIDATION_M21](../../project/validation/VALIDATION_M21.md).
