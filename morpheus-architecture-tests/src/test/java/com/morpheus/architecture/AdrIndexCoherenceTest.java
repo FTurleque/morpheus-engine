@@ -33,6 +33,11 @@ import org.junit.jupiter.api.Test;
  * Five records qualify their status more richly than the index summarises it. Demanding string equality would
  * push an author to delete that qualification to make a test pass, trading a real document for a green build.
  * The record stays free to say more than its row.</p>
+ *
+ * <p>A decision that is no longer in force lives in {@code docs/architecture/adr/archive/}, out of the index and out
+ * of Archgate's reach. The registry holds only decisions in force, the archive only retired ones, and a number is
+ * unique across both: an archived record keeps its number forever, so reusing it would make an old citation point
+ * at a new decision. A superseded record names its successor, and that successor must exist.</p>
  */
 class AdrIndexCoherenceTest {
     private static final Pattern INDEX_ROW =
@@ -42,22 +47,40 @@ class AdrIndexCoherenceTest {
             Pattern.compile("^-?\\s*Statut\\s*:\\s*\\*\\*(.+?)\\*\\*", Pattern.MULTILINE);
     private static final Pattern DECLARED_VERDICT = Pattern.compile("^- \\*\\*(.+?)\\*\\*\\s*:", Pattern.MULTILINE);
     private static final Pattern RECORD_FILE = Pattern.compile("^(\\d{4})-.*\\.md$");
+    private static final Pattern SUCCESSOR = Pattern.compile("ADR-(\\d{4})");
+    private static final String REGISTRY = "docs/architecture/adr";
+    private static final String ARCHIVE = "docs/architecture/adr/archive";
+    private static final String SUPERSEDED = "Remplac\u00e9e";
+    private static final String REJECTED = "Rejet\u00e9e";
+    private static final List<String> RETIRED_VERDICTS = List.of(SUPERSEDED, REJECTED);
 
     @Test
     void everyDecisionRecordHasExactlyOneIndexRowAndEveryRowHasItsRecord() throws IOException {
         Path root = repositoryRoot();
-        assertBijection(records(root), indexRows(root));
+        assertBijection(records(root, REGISTRY), indexRows(root));
     }
 
     @Test
     void theIndexAndTheRecordAgreeOnTheVerdictWhileTheRecordStaysFreeToQualifyIt() throws IOException {
         Path root = repositoryRoot();
-        assertVerdictsAgree(records(root), indexRows(root), declaredVerdicts(root));
+        assertVerdictsAgree(records(root, REGISTRY), indexRows(root), declaredVerdicts(root));
     }
 
     @Test
-    void noDecisionNumberIsAssignedTwice() throws IOException {
-        assertNumbersAreUnique(recordFileNames(repositoryRoot()));
+    void noDecisionNumberIsAssignedTwiceAcrossTheRegistryAndTheArchive() throws IOException {
+        Path root = repositoryRoot();
+        List<String> fileNames = new ArrayList<>(recordFileNames(root, REGISTRY));
+        recordFileNames(root, ARCHIVE).forEach(name -> fileNames.add("archive/" + name));
+        assertNumbersAreUnique(fileNames);
+    }
+
+    @Test
+    void theRegistryHoldsDecisionsInForceAndTheArchiveHoldsRetiredOnes() throws IOException {
+        Path root = repositoryRoot();
+        List<String> verdicts = declaredVerdicts(root);
+        assertTrue(verdicts.containsAll(RETIRED_VERDICTS),
+                () -> "the ADR index must declare the retired verdicts " + RETIRED_VERDICTS + ": " + verdicts);
+        assertRetirement(records(root, REGISTRY), records(root, ARCHIVE), verdicts);
     }
 
     @Test
@@ -65,7 +88,7 @@ class AdrIndexCoherenceTest {
         Path root = repositoryRoot();
         List<String> verdicts = declaredVerdicts(root);
         assertEquals(5, verdicts.size(), () -> "the ADR index must declare its status vocabulary: " + verdicts);
-        assertClosedVocabulary(records(root), indexRows(root), verdicts);
+        assertClosedVocabulary(records(root, REGISTRY), indexRows(root), verdicts);
     }
 
     /**
@@ -124,6 +147,61 @@ class AdrIndexCoherenceTest {
                 () -> "the uniqueness check must name the reused number: " + duplicate.getMessage());
     }
 
+    @Test
+    void theArchivePropertyRefusesARetiredRecordInForceAndARecordInForceInTheArchive() {
+        List<String> verdicts = List.of("Propos\u00e9e", "Accept\u00e9e", "Accept\u00e9e avec contraintes", SUPERSEDED,
+                REJECTED);
+        Map<String, String> registry = Map.of("0002", "Accept\u00e9e -- M1");
+        Map<String, String> archive = Map.of("0001", SUPERSEDED + " par ADR-0002", "0003", REJECTED);
+        assertRetirement(registry, archive, verdicts);
+
+        AssertionError retiredInForce = assertThrows(AssertionError.class,
+                () -> assertRetirement(Map.of("0002", SUPERSEDED + " par ADR-0004"), Map.of(), verdicts));
+        assertTrue(retiredInForce.getMessage().contains("ADR-0002") && retiredInForce.getMessage().contains("archive"),
+                () -> "a retired record left in the registry must be named: " + retiredInForce.getMessage());
+
+        AssertionError inForceArchived = assertThrows(AssertionError.class,
+                () -> assertRetirement(registry, Map.of("0001", "Accept\u00e9e -- M0"), verdicts));
+        assertTrue(inForceArchived.getMessage().contains("ADR-0001"),
+                () -> "a record in force left in the archive must be named: " + inForceArchived.getMessage());
+
+        AssertionError orphanedSupersession = assertThrows(AssertionError.class,
+                () -> assertRetirement(registry, Map.of("0001", SUPERSEDED), verdicts));
+        assertTrue(orphanedSupersession.getMessage().contains("ADR-0001"),
+                () -> "a superseded record must name its successor: " + orphanedSupersession.getMessage());
+
+        AssertionError missingSuccessor = assertThrows(AssertionError.class,
+                () -> assertRetirement(registry, Map.of("0001", SUPERSEDED + " par ADR-0009"), verdicts));
+        assertTrue(missingSuccessor.getMessage().contains("ADR-0009"),
+                () -> "a successor that does not exist must be named: " + missingSuccessor.getMessage());
+    }
+
+    private static void assertRetirement(Map<String, String> registry, Map<String, String> archive,
+            List<String> verdicts) {
+        for (var record : new TreeMap<>(registry).entrySet()) {
+            String verdict = verdictOf(record.getValue(), verdicts);
+            assertFalse(RETIRED_VERDICTS.contains(verdict),
+                    () -> "ADR-" + record.getKey() + " is " + verdict + " but still in the registry; move it to "
+                            + ARCHIVE + " and remove its index row");
+        }
+        var known = new TreeSet<>(registry.keySet());
+        known.addAll(archive.keySet());
+        for (var record : new TreeMap<>(archive).entrySet()) {
+            String verdict = verdictOf(record.getValue(), verdicts);
+            assertTrue(RETIRED_VERDICTS.contains(verdict),
+                    () -> "ADR-" + record.getKey() + " is in " + ARCHIVE + " but reads \"" + record.getValue()
+                            + "\"; only a decision " + RETIRED_VERDICTS + " is archived");
+            if (SUPERSEDED.equals(verdict)) {
+                Matcher successor = SUCCESSOR.matcher(record.getValue());
+                assertTrue(successor.find(), () -> "ADR-" + record.getKey()
+                        + " is superseded but its status names no successor: \"" + record.getValue() + "\"");
+                String number = successor.group(1);
+                assertTrue(known.contains(number), () -> "ADR-" + record.getKey() + " is superseded by ADR-"
+                        + number + ", which is neither in the registry nor in the archive");
+            }
+        }
+    }
+
     private static void assertBijection(Map<String, String> records, Map<String, IndexRow> rows) {
         var unindexed = new TreeSet<>(records.keySet());
         unindexed.removeAll(rows.keySet());
@@ -171,7 +249,7 @@ class AdrIndexCoherenceTest {
     private static void assertNumbersAreUnique(List<String> fileNames) {
         Map<String, List<String>> byNumber = new TreeMap<>();
         for (String name : fileNames) {
-            Matcher matcher = RECORD_FILE.matcher(name);
+            Matcher matcher = RECORD_FILE.matcher(name.substring(name.lastIndexOf('/') + 1));
             if (matcher.matches()) {
                 byNumber.computeIfAbsent(matcher.group(1), number -> new ArrayList<>()).add(name);
             }
@@ -218,10 +296,10 @@ class AdrIndexCoherenceTest {
         return rows;
     }
 
-    private static Map<String, String> records(Path root) throws IOException {
+    private static Map<String, String> records(Path root, String directory) throws IOException {
         Map<String, String> records = new LinkedHashMap<>();
-        for (String name : recordFileNames(root)) {
-            String text = Files.readString(root.resolve("docs/architecture/adr").resolve(name)).replace("\r\n", "\n");
+        for (String name : recordFileNames(root, directory)) {
+            String text = Files.readString(root.resolve(directory).resolve(name)).replace("\r\n", "\n");
             Matcher matcher = RECORD_STATUS.matcher(text);
             assertTrue(matcher.find(), () -> name + " must carry a bold \"Statut : **...**\" line");
             records.put(name.substring(0, 4), matcher.group(1).trim());
@@ -229,8 +307,11 @@ class AdrIndexCoherenceTest {
         return records;
     }
 
-    private static List<String> recordFileNames(Path root) throws IOException {
-        try (var files = Files.list(root.resolve("docs/architecture/adr"))) {
+    /** A missing directory fails rather than reading as empty, so the archive cannot vanish unnoticed. */
+    private static List<String> recordFileNames(Path root, String directory) throws IOException {
+        Path location = root.resolve(directory);
+        assertTrue(Files.isDirectory(location), () -> directory + " must exist");
+        try (var files = Files.list(location)) {
             return files.map(path -> path.getFileName().toString())
                     .filter(name -> RECORD_FILE.matcher(name).matches())
                     .sorted()

@@ -5,7 +5,10 @@ Ce répertoire contient les **Architecture Decision Records** de MORPHEUS.
 Une ADR dépendante d'une hypothèse technique n'est acceptée qu'après preuve.
 
 Ce registre est le seul du dépôt. Une nouvelle ADR part du [gabarit](template.md) et prend le numéro qui suit le plus
-haut numéro attribué ; une ADR acceptée n'est jamais supprimée, elle est amendée ou remplacée.
+haut numéro attribué ; une ADR acceptée n'est jamais supprimée : elle est clarifiée sans changer de sens, ou remplacée
+par une ADR consolidée qui porte toute la décision en vigueur. Une ADR remplacée ou rejetée quitte cet index et rejoint
+l'[archive](archive/README.md). Une ADR ne s'écrit que si la décision est durable, en
+vigueur et coûteuse à inverser — le filtre est dans `.claude/rules/adr.md`.
 
 ## Statuts
 
