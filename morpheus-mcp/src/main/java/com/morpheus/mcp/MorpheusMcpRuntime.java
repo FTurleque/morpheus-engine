@@ -8,6 +8,7 @@ import com.morpheus.application.policy.PolicyPackService;
 import com.morpheus.application.query.dsl.QueryExecutionService;
 import com.morpheus.application.query.export.QueryExportService;
 import com.morpheus.application.query.saved.SavedViewService;
+import com.morpheus.application.snapshot.RuntimeSnapshotRecovery;
 import com.morpheus.application.store.ExternalReferenceStore;
 import com.morpheus.application.store.PolicyPackStore;
 import com.morpheus.application.store.PortfolioStore;
@@ -19,6 +20,7 @@ import com.morpheus.application.store.VersionedRequirementStore;
 import com.morpheus.store.sqlite.runtime.SqliteOperationRuntime;
 
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.Objects;
 
 /**
@@ -32,12 +34,22 @@ public final class MorpheusMcpRuntime implements AutoCloseable {
     private final SqliteOperationRuntime operation;
 
     /** Opens the runtime of one tool call, whose pressure on the database is counted on {@code recorder}. */
-    public MorpheusMcpRuntime(Path databasePath, OperationalRecorder recorder) {
+    MorpheusMcpRuntime(Path databasePath, OperationalRecorder recorder) {
         this.operation = SqliteOperationRuntime.open(
                 Objects.requireNonNull(databasePath, "databasePath"), Objects.requireNonNull(recorder, "recorder"));
     }
 
-    public SpecificationKnowledgeStore snapshots() {
+    /**
+     * Recovers, once and before any tool is served, the publications a previous process left interrupted, as the HTTP
+     * server does when it starts and as each CLI command does before it reads.
+     */
+    public static void recoverInterruptedPublications(Path databasePath, OperationalRecorder recorder) {
+        try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath, recorder)) {
+            new RuntimeSnapshotRecovery(runtime.snapshots(), recorder).recoverAll(Instant.now());
+        }
+    }
+
+    SpecificationKnowledgeStore snapshots() {
         return operation.snapshots();
     }
 

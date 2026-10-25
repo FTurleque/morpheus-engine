@@ -7,7 +7,6 @@ import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.product.ProductMetadata;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
-import com.morpheus.application.snapshot.RuntimeSnapshotRecovery;
 import com.morpheus.integration.mcp.BoundedStdioServerTransportProvider;
 import com.morpheus.mcp.MorpheusAcceptanceCriteriaMcpTools;
 import com.morpheus.mcp.MorpheusAugmentedContextMcpTools;
@@ -37,7 +36,6 @@ import io.modelcontextprotocol.spec.McpSchema;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Path;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -138,9 +136,7 @@ public final class MorpheusMcpServer {
         Objects.requireNonNull(technicalContextProvider, "technicalContextProvider");
         Objects.requireNonNull(writeCapabilityResolver, "writeCapabilityResolver");
         Objects.requireNonNull(transport, "transport");
-        try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath, recorder)) {
-            new RuntimeSnapshotRecovery(runtime.snapshots(), recorder).recoverAll(Instant.now());
-        }
+        MorpheusMcpRuntime.recoverInterruptedPublications(databasePath, recorder);
         List<McpServerFeatures.SyncToolSpecification> tools = toolSpecifications(
                 databasePath, resolverRegistry, technicalContextProvider, writeCapabilityResolver, recorder);
 

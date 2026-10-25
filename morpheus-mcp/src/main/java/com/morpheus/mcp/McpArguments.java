@@ -24,7 +24,7 @@ import java.util.Optional;
  * optional, present but unusable    name must be &lt;expectation&gt; when present
  * </pre>
  */
-public final class McpArguments {
+final class McpArguments {
     private static final String STRING = "a string";
     private static final String NON_BLANK_STRING = "a non-blank string";
     private static final String INTEGER = "an integer";
@@ -36,7 +36,7 @@ public final class McpArguments {
     }
 
     /** MCP delivers no arguments as a null map; every reader below expects a map it can query. */
-    public static Map<String, Object> orEmpty(Map<String, Object> arguments) {
+    static Map<String, Object> orEmpty(Map<String, Object> arguments) {
         return arguments == null ? Map.of() : arguments;
     }
 
