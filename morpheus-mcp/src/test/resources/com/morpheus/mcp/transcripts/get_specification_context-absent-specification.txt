@@ -1,0 +1,5 @@
+tool: get_specification_context
+arguments: {"projectId":"01920000-0000-7000-8000-000000000101","specificationId":"01920000-0000-7000-8000-0000000000ff"}
+isError: true
+text:
+specification not found: 01920000-0000-7000-8000-0000000000ff

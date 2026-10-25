@@ -1,0 +1,5 @@
+tool: get_change
+arguments: {"changeId":"01920000-0000-7000-8000-000000000106","projectId":"01920000-0000-7000-8000-000000000101"}
+isError: false
+text:
+{"change":{"id":"01920000-0000-7000-8000-000000000106","intent":"Keep a trusted session longer on request.","key":"add-remember-me","outOfScope":["Single sign-on"],"projectId":"01920000-0000-7000-8000-000000000101","risks":["Stolen device"],"scope":["Persistent sessions"],"title":"Add remember-me sessions"},"snapshotId":"<id-1>"}

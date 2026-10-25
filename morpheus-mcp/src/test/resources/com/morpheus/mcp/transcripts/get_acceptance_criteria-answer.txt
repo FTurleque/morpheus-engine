@@ -1,0 +1,5 @@
+tool: get_acceptance_criteria
+arguments: {"changeId":"01920000-0000-7000-8000-000000000106","projectId":"01920000-0000-7000-8000-000000000101"}
+isError: false
+text:
+{"hasMore":false,"items":[{"changeId":"01920000-0000-7000-8000-000000000106","condition":"A remembered session is restored after a browser restart","id":"01920000-0000-7000-8000-00000000010a","requirementId":"01920000-0000-7000-8000-000000000103","sourceEvidenceId":"01920000-0000-7000-8000-00000000010b","title":"Remember-me survives a restart","verificationEvidenceIds":[],"verificationStatus":"NOT_VERIFIED"}],"limit":50,"offset":0,"snapshotId":"<id-1>","totalMatches":1}

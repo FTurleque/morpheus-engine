@@ -1,0 +1,6 @@
+args: changes get --project <project> --change <change> --offset 1
+exit: 2
+stdout:
+
+stderr:
+MORPHEUS error [2]: unknown options: [offset]

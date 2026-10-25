@@ -1,0 +1,9 @@
+args: analyze-change --project <project> --change <change>
+exit: 0
+stdout:
+change=Add remember-me sessions
+requirements=3 added=2 modified=1 removed=0
+dependencies=0 dependents=0 warnings=3
+warningCodes=ACCEPTANCE_CRITERIA_UNAVAILABLE,PROPOSED_ONLY_REQUIREMENT_TRACEABILITY_UNAVAILABLE,PROPOSED_ONLY_REQUIREMENT_TRACEABILITY_UNAVAILABLE
+
+stderr:

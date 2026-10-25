@@ -1,0 +1,6 @@
+args: --json requirements find --project 01900000-0000-7000-8000-000000000001
+exit: 3
+stdout:
+
+stderr:
+{"exitCode":3,"code":"NOT_FOUND","message":"project has no ACTIVE snapshot: 01900000-0000-7000-8000-000000000001"}

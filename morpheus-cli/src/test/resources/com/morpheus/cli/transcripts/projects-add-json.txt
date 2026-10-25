@@ -1,0 +1,6 @@
+args: --json projects add --workspace <temp>/workspace
+exit: 0
+stdout:
+{"projectId":"<project>","workspace":"<temp>/workspace"}
+
+stderr:

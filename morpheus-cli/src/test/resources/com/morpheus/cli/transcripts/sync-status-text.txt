@@ -1,0 +1,12 @@
+args: sync-status --project <project>
+exit: 0
+stdout:
+state=FRESH
+lastSuccessfulSyncAt=<instant>
+ageSeconds=<age>
+sourceRevision=unknown
+mode=FULL_REBUILD
+pendingFullRebuildReason=none
+sourceCount=10
+
+stderr:

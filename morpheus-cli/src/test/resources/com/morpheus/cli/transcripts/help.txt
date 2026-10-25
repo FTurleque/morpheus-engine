@@ -1,0 +1,154 @@
+args: help
+exit: 0
+stdout:
+MORPHEUS — Specification & Intent Intelligence Engine
+
+Usage:
+  morpheus [--json] [--data-dir PATH] [--config-dir PATH] [--db PATH] <command>
+
+Commands:
+  help
+  version
+  paths
+  projects list
+  projects add --workspace PATH
+  sync --project ID [--revision REV] [--force]
+  sync-status --project ID [--max-age-minutes N]
+  requirements find --project ID [--query TEXT] [--offset N] [--limit N]
+  changes list --project ID [--offset N] [--limit N]
+  changes get --project ID --change ID
+  constraints list --project ID --change ID [--offset N] [--limit N]
+  decisions list --project ID --change ID [--offset N] [--limit N]
+  tasks list --project ID --change ID [--offset N] [--limit N]
+  trace-requirement --project ID --requirement ID [--depth N]
+  change-context --project ID --change ID [--depth N]
+  analyze-change --project ID --change ID [--depth N]
+  quality --project ID
+
+Environment overrides:
+  MORPHEUS_DATA_DIR
+  MORPHEUS_CONFIG_DIR
+  MORPHEUS_DB
+
+Exit codes:
+  0 success
+  2 usage / invalid arguments
+  3 requested project/entity/snapshot not found
+  4 persisted state or synchronization error
+  5 I/O error
+ 10 unexpected internal error
+
+MCP:
+  morpheus [--data-dir PATH] [--config-dir PATH] [--db PATH] mcp --stdio
+  STDIO mode reserves stdout for the MCP protocol; --json is not valid in MCP mode.
+
+API local:
+  morpheus [--data-dir PATH] [--config-dir PATH] [--db PATH] api [--host HOST] [--port PORT]
+  Local mode is loopback-only. Defaults: host=127.0.0.1 port=8765; API base path=/api/v1.
+
+Team / remote server (M26, opt-in):
+  morpheus [layout] api --remote --host HOST --port PORT --tls-keystore FILE --workspace-root PATH [--workspace-root PATH ...] [--auth-file FILE] [--max-concurrent N] [--provider-plugin-dir PATH]
+  Remote mode is HTTPS-only and requires MORPHEUS_SERVER_TLS_PASSWORD, at least one active ADMIN identity and at least one server-owned workspace root.
+  morpheus [layout] server identity create --principal NAME --role READ|WRITE|ADMIN [--expires-at ISO-8601] [--auth-file FILE]
+  morpheus [layout] server identity rotate --principal NAME [--expires-at ISO-8601|never] [--auth-file FILE]
+  morpheus [layout] server identity role --principal NAME --role READ|WRITE|ADMIN [--auth-file FILE]
+  morpheus [layout] server identity revoke --principal NAME [--auth-file FILE]
+  morpheus [layout] server identity list [--auth-file FILE]
+  Rotation preserves the current expiry when --expires-at is omitted; --expires-at never makes the credential permanent.
+  morpheus [layout] server identity migrate-legacy --expires-at ISO-8601 [--principal NAME] [--dry-run] [--auth-file FILE]
+  migrate-legacy gives non-expiring identities an explicit expiry without rotating any token; it refuses to leave no ADMIN active after the deadline.
+  morpheus [layout] server backup create [--output-dir PATH]
+  morpheus [layout] server backup verify --file PATH
+  morpheus [layout] server restore --file PATH --confirm
+  Restore is offline-only; stop the remote server first. Tokens are printed once and only SHA-256 hashes are persisted.
+
+Policy packs / governance automation (M25):
+  morpheus [--json] policy pack create --name NAME --rules RULES --actor NAME --reason TEXT
+  morpheus [--json] policy pack list
+  morpheus [--json] policy pack get|versions --id ID
+  morpheus [--json] policy pack update --id ID --expected-revision N --name NAME --rules RULES --actor NAME --reason TEXT
+  morpheus [--json] policy activate --id ID --version ID (--project ID | --portfolio ID) --expected-revision N --actor NAME --reason TEXT
+  morpheus [--json] policy deactivate --id ID (--project ID | --portfolio ID) --expected-revision N --actor NAME --reason TEXT
+  morpheus [--json] policy activations (--project ID | --portfolio ID)
+  morpheus [--json] policy override put --id ID --rule ID --mode DISABLE|FORCE_WARN|FORCE_BLOCK (--project ID | --portfolio ID) --expected-revision N --actor NAME --reason TEXT
+  morpheus [--json] policy override remove --id ID --rule ID (--project ID | --portfolio ID) --expected-revision N --actor NAME --reason TEXT
+  morpheus [--json] policy override list (--project ID | --portfolio ID)
+  morpheus [--json] policy evaluate (--project ID | --portfolio ID) [--id ID]
+  morpheus [--json] policy dry-run --id ID --version ID (--project ID | --portfolio ID)
+  morpheus [--json] policy audit --id ID
+  Rule grammar: id-or-new|description|KIND|SEVERITY|fields ; multiple rules separated by ';;'.
+  Policy evaluation and dry-run are read-only; lifecycle mutations remain a distinct controlled operation.
+
+Query DSL / saved views / reporting (M24):
+  morpheus [--json] query execute (--project ID | --portfolio ID) --entity TYPE [--filter DSL] [--sort field:asc,...] [--fields a,b] [--offset N] [--limit N]
+  morpheus [--json] views create --name NAME (--project ID | --portfolio ID) --entity TYPE [query options]
+  morpheus [--json] views list (--project ID | --portfolio ID)
+  morpheus [--json] views get|versions|execute --id ID
+  morpheus [--json] views update --id ID --expected-revision N --name NAME --entity TYPE [query options]
+  morpheus [--json] views archive --id ID --expected-revision N
+  morpheus export query --format json|csv|markdown (--project ID | --portfolio ID) --entity TYPE [--filter DSL] [--sort field:asc,...] [--fields a,b]
+  morpheus export view --format json|csv|markdown --id ID
+  An export is always complete (at most 10000 rows): it takes no --offset or --limit, and export view ignores the stored page.
+  Filter DSL examples: title contains "security" ; and(title contains login,providerId in [openspec,markdown])
+
+Portfolio intelligence (M23):
+  morpheus [--json] portfolio create --name NAME
+  morpheus [--json] portfolio add-project --portfolio ID --project ID --name NAME [--workspace PATH] [--repository SCHEME:VALUE] [--providers a,b]
+  morpheus [--json] portfolio missing --portfolio ID --project ID
+  morpheus [--json] portfolio freshness --portfolio ID --project ID --state FRESH|STALE|MISSING|UNKNOWN [--revision REV] [--explanation TEXT]
+  morpheus [--json] portfolio add-reference --portfolio ID --source-project ID --source-type TYPE --source-id ID --target-project ID --target-type TYPE --target-id ID --relation NAME --provider NAME [--source-locator SCHEME:VALUE] [--evidence ID]
+  morpheus [--json] portfolio list [--offset N] [--limit N]
+  morpheus [--json] portfolio overview --portfolio ID
+  morpheus [--json] portfolio members --portfolio ID [--offset N] [--limit N]
+  morpheus [--json] portfolio conflicts --portfolio ID
+  morpheus [--json] portfolio references --portfolio ID [--project ID] [--offset N] [--limit N]
+  morpheus [--json] portfolio traverse --portfolio ID --start-project ID --start-type TYPE --start-id ID [--direction BOTH] [--depth N] [--nodes N] [--links N]
+  Project identity remains distinct from workspace, repository and provider observations.
+
+Provider plugins (M22, explicit only):
+  morpheus [--json] provider-plugins discover --directory PATH
+  morpheus [--json] provider-plugins probe --directory PATH --plugin ID --workspace PATH --sha256 HEX
+  Discovery reads JAR metadata only; probe performs explicit compatible-plugin activation.
+
+Product integrity (M21):
+  morpheus [--json] version
+  morpheus [--json] product-info
+  morpheus [--json] update-check --manifest URI_OR_PATH
+  Update discovery is explicit and read-only: no startup network call, download, or automatic install.
+
+Multi-provider composition (M18):
+  morpheus [--json] composition sync --project ID [--revision REV]
+  morpheus [--json] composition status --project ID
+  morpheus [--json] composition conflicts --project ID
+  Composition preserves all provider observations and exposes precedence/conflicts explicitly.
+
+Controlled lifecycle mutations (write, opt-in):
+  morpheus [--json] lifecycle apply --project ID --change ID --expected-revision N --to STATE --idempotency-key KEY --actor NAME --confirm [--abandonment-reason REASON]
+  Evaluation remains read-only; WRITE_CHANGE capability, confirmation and CAS are mandatory for mutation.
+
+Acceptance criteria / verification:
+  morpheus [--json] acceptance-criteria list --project ID [--change ID | --requirement ID] [--offset N] [--limit N]
+  Criteria are explicit snapshot facts; scenarios and tests are never converted into criteria implicitly.
+
+Constraint semantics / policy:
+  morpheus [--json] constraints evaluate --project ID --change ID --target STATE [--offset N] [--limit N]
+  Constraint text and severity never imply blocking; UNKNOWN remains distinct from BLOCKED.
+
+MINOS / external references:
+  morpheus [--json] minos-status
+  morpheus [--json] external-references list --project ID --owner ID
+  morpheus [--json] external-references resolve --project ID --reference ID
+  MINOS is optional; configure MORPHEUS_MINOS_JAR to enable live resolution.
+
+NEXUS / augmented context:
+  morpheus [--json] nexus-status
+  morpheus [--json] augmented-context requirement --project ID --requirement ID --nexus-project ID_OR_NAME [--budget N] [--source TYPE] [--constraint k=v] [--explain]
+  morpheus [--json] augmented-context change --project ID --change ID --nexus-project ID_OR_NAME [--budget N] [--source TYPE] [--constraint k=v] [--explain]
+  NEXUS is optional; configure MORPHEUS_NEXUS_JAR to enable live technical context.
+
+JARVIS / orchestration contract (read-only):
+  morpheus [--json] change-orchestration state --project ID --change ID [--lifecycle STATE] [--abandonment-reason REASON]
+  morpheus [--json] change-orchestration transition-check --project ID --change ID --from STATE --to STATE [--from-abandonment-reason REASON] [--abandonment-reason REASON] [--allow-backward] [--allow-completed-reopen]
+  MORPHEUS exposes lifecycle facts and decisions; JARVIS remains responsible for orchestration.
+
+stderr:

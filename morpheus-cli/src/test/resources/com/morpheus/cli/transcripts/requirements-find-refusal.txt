@@ -1,0 +1,6 @@
+args: requirements find --project <project> --bogus x
+exit: 2
+stdout:
+
+stderr:
+MORPHEUS error [2]: unknown options: [bogus]

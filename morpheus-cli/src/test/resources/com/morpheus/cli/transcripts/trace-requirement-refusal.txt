@@ -1,0 +1,6 @@
+args: trace-requirement --project <project> --requirement <requirement> --depth 0
+exit: 2
+stdout:
+
+stderr:
+MORPHEUS error [2]: --depth must be between 1 and 20

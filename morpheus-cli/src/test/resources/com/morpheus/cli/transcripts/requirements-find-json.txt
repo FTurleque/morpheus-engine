@@ -1,0 +1,6 @@
+args: --json requirements find --project <project> --query session
+exit: 0
+stdout:
+{"snapshotId":"<id>","query":"session","totalMatches":2,"hasMore":false,"items":[{"id":"<id>","key":"auth-session/session-activity-refresh","title":"Session activity refresh","statement":"The system SHALL refresh the inactivity timer when an authenticated user performs a protected action.","specificationId":"<id>"},{"id":"<requirement>","key":"auth-session/session-expiration","title":"Session expiration","statement":"The system SHALL expire an authenticated session after 30 minutes of inactivity.","specificationId":"<id>"}]}
+
+stderr:

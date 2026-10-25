@@ -1,0 +1,5 @@
+tool: get_specification_context
+arguments: {"projectId":"not-an-id","specificationId":"01920000-0000-7000-8000-000000000102"}
+isError: true
+text:
+Invalid UUID string: not-an-id

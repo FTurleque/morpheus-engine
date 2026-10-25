@@ -1,0 +1,5 @@
+tool: get_current_specification
+arguments: {"projectId":"01920000-0000-7000-8000-000000000101"}
+isError: false
+text:
+{"acceptanceCriterionCount":1,"changeCount":1,"projectId":"01920000-0000-7000-8000-000000000101","requirementCount":2,"scenarioCount":1,"snapshotId":"<id-1>","snapshotState":"ACTIVE","specificationVersionId":"<id-2>","specifications":{"hasMore":false,"items":[{"description":"Describe the authenticated session.","id":"01920000-0000-7000-8000-000000000102","key":"auth-session","projectId":"01920000-0000-7000-8000-000000000101","title":"Authentication session"}],"limit":50,"offset":0,"totalMatches":1}}
