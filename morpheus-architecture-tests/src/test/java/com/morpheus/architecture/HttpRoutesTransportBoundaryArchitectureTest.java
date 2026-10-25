@@ -106,14 +106,17 @@ class HttpRoutesTransportBoundaryArchitectureTest {
     @Test
     void everyRouterIsClassifiedIntoExactlyOneTransportGroup() {
         Map<String, String> packageByRouter = new TreeMap<>();
+        List<String> defects = new ArrayList<>();
         for (JavaClass javaClass : classes) {
-            if (javaClass.getSimpleName().endsWith(ROUTER_SUFFIX) && !javaClass.isNestedClass()) {
-                packageByRouter.put(javaClass.getSimpleName(), javaClass.getPackageName());
+            if (javaClass.getSimpleName().endsWith(ROUTER_SUFFIX)) {
+                String previous = packageByRouter.put(javaClass.getSimpleName(), javaClass.getPackageName());
+                if (previous != null) {
+                    defects.add(javaClass.getSimpleName() + " is declared in " + previous + " and in "
+                            + javaClass.getPackageName());
+                }
             }
         }
-        assertTrue(packageByRouter.size() >= transportGroups().size(),
-                () -> "the classification must see the routers: " + packageByRouter);
-        List<String> defects = classificationDefects(packageByRouter, transportGroups().keySet());
+        defects.addAll(classificationDefects(packageByRouter, transportGroups().keySet()));
         assertTrue(defects.isEmpty(), () -> "every router must reside in exactly one transport group package of "
                 + "this test: " + defects);
         for (String group : transportGroups().keySet()) {
