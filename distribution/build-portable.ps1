@@ -7,7 +7,7 @@ $ErrorActionPreference = "Stop"
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $dist = Join-Path $repo $OutputDirectory
 $work = Join-Path $dist ".m20-windows"
-$input = Join-Path $work "input"
+$jpackageInput = Join-Path $work "input"
 $appImageRoot = Join-Path $work "image"
 
 $mvnw = Join-Path $repo "mvnw.cmd"
@@ -87,7 +87,7 @@ function Test-PackagedApiOperability {
     $stderr = Join-Path $WorkDirectory "api-smoke.stderr.log"
     Remove-Item $stdout, $stderr -Force -ErrorAction SilentlyContinue
     $process = Start-Process -FilePath $Launcher `
-        -ArgumentList @("--data-dir", $apiData, "api", "--host", "127.0.0.1", "--port", "$port") `
+        -ArgumentList "--data-dir `"$apiData`" api --host 127.0.0.1 --port $port" `
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr -WindowStyle Hidden -PassThru
     try {
         for ($attempt = 1; $attempt -le 60; $attempt++) {
@@ -193,14 +193,14 @@ if ($embeddedReferenceProvider) { throw "Packaging proof failed; reference provi
 Write-Host "Baseline MCP/API/provider-SDK/MINOS/NEXUS packaging proof: PASS"
 
 Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
-New-Item $input -ItemType Directory -Force | Out-Null
+New-Item $jpackageInput -ItemType Directory -Force | Out-Null
 New-Item $appImageRoot -ItemType Directory -Force | Out-Null
-Copy-Item $jar.FullName (Join-Path $input "morpheus.jar")
+Copy-Item $jar.FullName (Join-Path $jpackageInput "morpheus.jar")
 
 Write-Host "Creating self-contained Windows app-image with embedded runtime + jdk.httpserver + java.sql + java.net.http..."
 & $jpackage --type app-image --name morpheus --app-version $Version `
     --description "MORPHEUS Specification & Intent Intelligence Engine" `
-    --input $input --main-jar "morpheus.jar" --main-class "com.morpheus.cli.MorpheusMain" `
+    --input $jpackageInput --main-jar "morpheus.jar" --main-class "com.morpheus.cli.MorpheusMain" `
     --add-modules jdk.httpserver,java.sql,java.net.http --java-options "--enable-native-access=ALL-UNNAMED -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8" `
     --jlink-options "--strip-debug --no-man-pages --no-header-files" --win-console --dest $appImageRoot
 if ($LASTEXITCODE -ne 0) { throw "jpackage app-image failed with exit code $LASTEXITCODE" }

@@ -17,11 +17,8 @@ import com.morpheus.domain.specification.Specification;
 import com.morpheus.domain.specification.SpecificationId;
 
 import java.nio.file.Path;
-import java.util.Collections;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 /** Owns active specification list, detail and contextual API views. */
@@ -47,7 +44,7 @@ public final class MorpheusSpecificationQueryApiService {
                     .sorted(Comparator.comparing(Specification::id))
                     .toList();
             return PagedEnvelope.following(
-                    map("snapshotId", snapshot.id().toString()),
+                    OrderedFields.map("snapshotId", snapshot.id().toString()),
                     PagedEnvelope.slice(pageRequest.offset(), pageRequest.limit(), specifications, this::specification));
         }
     }
@@ -61,7 +58,7 @@ public final class MorpheusSpecificationQueryApiService {
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
             Specification item = result.item()
                     .orElseThrow(() -> ApiFailure.notFound("specification not found: " + specificationId));
-            return map("snapshotId", result.snapshot().id().toString(), "specification", specification(item));
+            return OrderedFields.map("snapshotId", result.snapshot().id().toString(), "specification", specification(item));
         }
     }
 
@@ -83,7 +80,7 @@ public final class MorpheusSpecificationQueryApiService {
                     runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability())
                     .active(projectId, specificationId, pageRequest)
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
-            return map(
+            return OrderedFields.map(
                     "snapshotId", result.snapshot().id().toString(),
                     "specification", specification(result.specification()),
                     "requirements", page(result.requirements(), result.requirements().items().stream()
@@ -110,7 +107,7 @@ public final class MorpheusSpecificationQueryApiService {
     }
 
     private Object requirement(Requirement item) {
-        return map(
+        return OrderedFields.map(
                 "id", item.id().toString(),
                 "specificationId", item.specificationId().toString(),
                 "key", item.key().orElse(""),
@@ -119,7 +116,7 @@ public final class MorpheusSpecificationQueryApiService {
     }
 
     private Object specification(Specification item) {
-        return map(
+        return OrderedFields.map(
                 "id", item.id().toString(),
                 "projectId", item.projectId().toString(),
                 "key", item.key(),
@@ -128,7 +125,7 @@ public final class MorpheusSpecificationQueryApiService {
     }
 
     private Object change(ChangeProposal item) {
-        return map(
+        return OrderedFields.map(
                 "id", item.id().toString(),
                 "projectId", item.projectId().toString(),
                 "key", item.key().orElse(""),
@@ -140,7 +137,7 @@ public final class MorpheusSpecificationQueryApiService {
     }
 
     private Object scenario(Scenario item) {
-        return map(
+        return OrderedFields.map(
                 "id", item.id().toString(),
                 "requirementId", item.requirementId().map(Object::toString).orElse(""),
                 FIELD_TITLE, item.title(),
@@ -151,18 +148,6 @@ public final class MorpheusSpecificationQueryApiService {
 
     private Object page(SnapshotPage<?> page, List<?> items) {
         return PagedEnvelope.snapshotPage(page, items);
-    }
-
-    /** LinkedHashMap preserves stable construction order before canonical JSON serialization. */
-    private Map<String, Object> map(Object... entries) {
-        if (entries.length % 2 != 0) {
-            throw new IllegalArgumentException("map entries must be key/value pairs");
-        }
-        Map<String, Object> result = new LinkedHashMap<>();
-        for (int index = 0; index < entries.length; index += 2) {
-            result.put((String) entries[index], entries[index + 1]);
-        }
-        return Collections.unmodifiableMap(result);
     }
 
     private KnowledgeStoreException state(String message) {

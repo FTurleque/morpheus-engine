@@ -16,10 +16,7 @@ import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 
 import java.nio.file.Path;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 /** Owns published snapshot history queries and version-history API views. */
@@ -44,7 +41,7 @@ public final class MorpheusHistoryApiService {
             PublishedSnapshotHistoryService history = new PublishedSnapshotHistoryService(runtime.snapshots());
             List<KnowledgeSnapshotMetadata> lineage = history.lineage(projectId);
             return PagedEnvelope.following(
-                    map("projectId", projectId.toString(), "retentionPolicy", history.retentionPolicy().name()),
+                    OrderedFields.map("projectId", projectId.toString(), "retentionPolicy", history.retentionPolicy().name()),
                     PagedEnvelope.slice(
                             pageRequest.offset(), pageRequest.limit(), lineage, snapshot -> version(runtime, snapshot)));
         }
@@ -62,7 +59,7 @@ public final class MorpheusHistoryApiService {
             List<RequirementVersionRecord> records = new HistoricalRequirementQueryService(runtime.snapshots(), runtime.requirements())
                     .requirements(snapshotId);
             return PagedEnvelope.following(
-                    map("snapshotId", snapshotId.toString()),
+                    OrderedFields.map("snapshotId", snapshotId.toString()),
                     PagedEnvelope.slice(pageRequest.offset(), pageRequest.limit(), records, this::requirementRecord));
         }
     }
@@ -76,11 +73,11 @@ public final class MorpheusHistoryApiService {
             requireSnapshotProject(runtime, projectId, targetId);
             var comparison = new RequirementSnapshotComparisonService(runtime.snapshots(), runtime.requirements())
                     .compare(sourceId, targetId);
-            return map(
+            return OrderedFields.map(
                     "projectId", projectId.toString(),
                     "sourceSnapshotId", comparison.sourceSnapshot().id().toString(),
                     "targetSnapshotId", comparison.targetSnapshot().id().toString(),
-                    "differences", comparison.differences().stream().map(difference -> map(
+                    "differences", comparison.differences().stream().map(difference -> OrderedFields.map(
                             "requirementId", difference.entityIdentity().toString(),
                             "kind", difference.kind().name(),
                             "source", difference.source().map(this::requirementRecord).orElse(null),
@@ -110,7 +107,7 @@ public final class MorpheusHistoryApiService {
                 .orElseThrow(() -> state("published snapshot has no specification version binding: " + snapshot.id()));
         var specificationVersion = runtime.requirements().findSpecificationVersion(binding.specificationVersionId())
                 .orElseThrow(() -> state("specification version not found: " + binding.specificationVersionId()));
-        return map(
+        return OrderedFields.map(
                 "snapshotId", snapshot.id().toString(),
                 "snapshotState", snapshot.state().name(),
                 "predecessorSnapshotId", snapshot.predecessorId().map(Object::toString).orElse("none"),
@@ -125,7 +122,7 @@ public final class MorpheusHistoryApiService {
 
     private Object requirementRecord(RequirementVersionRecord record) {
         var version = record.entityVersion();
-        return map(
+        return OrderedFields.map(
                 "entityVersionId", version.id().toString(),
                 "specificationVersionId", version.specificationVersionId().toString(),
                 "temporalState", version.temporalState().name(),
@@ -133,7 +130,7 @@ public final class MorpheusHistoryApiService {
     }
 
     private Object requirement(Requirement item) {
-        return map(
+        return OrderedFields.map(
                 "id", item.id().toString(),
                 "specificationId", item.specificationId().toString(),
                 "key", item.key().orElse(""),
@@ -143,17 +140,5 @@ public final class MorpheusHistoryApiService {
 
     private KnowledgeStoreException state(String message) {
         return new KnowledgeStoreException(message);
-    }
-
-    /** LinkedHashMap keeps construction stable while preserving JSON null in historical diffs. */
-    private Map<String, Object> map(Object... entries) {
-        if (entries.length % 2 != 0) {
-            throw new IllegalArgumentException("map entries must be key/value pairs");
-        }
-        Map<String, Object> result = new LinkedHashMap<>();
-        for (int index = 0; index < entries.length; index += 2) {
-            result.put((String) entries[index], entries[index + 1]);
-        }
-        return Collections.unmodifiableMap(result);
     }
 }

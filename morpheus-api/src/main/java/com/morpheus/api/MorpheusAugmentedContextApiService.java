@@ -1,6 +1,7 @@
 package com.morpheus.api;
 
 import com.morpheus.api.transport.ApiFailure;
+import com.morpheus.application.context.AugmentedContextResult;
 import com.morpheus.application.context.AugmentedContextService;
 import com.morpheus.application.context.TechnicalContextOptions;
 import com.morpheus.application.context.TechnicalContextProvider;
@@ -15,7 +16,9 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /** M13 HTTP mapper over the provider-neutral augmented-context use case. */
@@ -38,40 +41,33 @@ public final class MorpheusAugmentedContextApiService {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         RequirementId requirementId = RequirementId.parse(requirementIdValue);
         TechnicalContextOptions options = options(request);
-        try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
-            if (runtime.snapshots().findProject(projectId).isEmpty()) {
-                throw ApiFailure.notFound("project not found: " + projectId);
-            }
-            return new AugmentedContextService(
-                    runtime.snapshots(),
-                    runtime.content(),
-                    runtime.requirements(),
-                    runtime.traceability(),
-                    runtime.externalReferences(),
-                    provider, new OperationalExecution(recorder))
-                    .requirement(projectId, requirementId, options)
-                    .map(IntegrationStatusDisclosure::project)
-                    .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
-        }
+        return augmentedContext(projectId, service -> service.requirement(projectId, requirementId, options)
+                .map(IntegrationStatusDisclosure::project));
     }
 
     public Object change(String projectIdValue, String changeIdValue, AugmentedContextRequest request) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ChangeId changeId = ChangeId.parse(changeIdValue);
         TechnicalContextOptions options = options(request);
+        return augmentedContext(projectId, service -> service.change(projectId, changeId, options)
+                .map(IntegrationStatusDisclosure::project));
+    }
+
+    private AugmentedContextResult augmentedContext(
+            ProjectSpecificationId projectId,
+            Function<AugmentedContextService, Optional<AugmentedContextResult>> query) {
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             if (runtime.snapshots().findProject(projectId).isEmpty()) {
                 throw ApiFailure.notFound("project not found: " + projectId);
             }
-            return new AugmentedContextService(
+            AugmentedContextService service = new AugmentedContextService(
                     runtime.snapshots(),
                     runtime.content(),
                     runtime.requirements(),
                     runtime.traceability(),
                     runtime.externalReferences(),
-                    provider, new OperationalExecution(recorder))
-                    .change(projectId, changeId, options)
-                    .map(IntegrationStatusDisclosure::project)
+                    provider, new OperationalExecution(recorder));
+            return query.apply(service)
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
         }
     }
