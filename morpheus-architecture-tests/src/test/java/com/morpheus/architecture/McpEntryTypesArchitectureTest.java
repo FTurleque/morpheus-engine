@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * adapter: the bytecode rule sees a dependency however it is spelled, the scan of the sources sees a compile-time
  * constant that {@code javac} inlines and leaves no dependency behind ({@code .claude/rules/architecture.md}).</p>
  *
- * <p>The list is the public surface of the module, measured on 25 October 2026: the launcher starts the server and
+ * <p>The list is the public surface of the module, as measured: the launcher starts the server and
  * reads nothing else of the adapter. A type is added to it by a written decision.</p>
  */
 class McpEntryTypesArchitectureTest {

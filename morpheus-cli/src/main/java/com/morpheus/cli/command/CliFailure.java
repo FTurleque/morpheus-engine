@@ -23,7 +23,7 @@ public final class CliFailure extends RuntimeException {
         return new CliFailure(CliExitCode.STATE_ERROR, message);
     }
 
-    public CliExitCode exitCode() {
+    CliExitCode exitCode() {
         return exitCode;
     }
 }

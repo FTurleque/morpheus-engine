@@ -83,7 +83,7 @@ public final class CliCommandRun {
         return json;
     }
 
-    public CliLayout layout() {
+    CliLayout layout() {
         return layout;
     }
 

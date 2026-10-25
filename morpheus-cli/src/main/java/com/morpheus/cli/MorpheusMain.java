@@ -8,6 +8,7 @@ import com.morpheus.application.operability.OperationalLogFileException;
 import com.morpheus.application.operability.OperationalLogMode;
 import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.query.dsl.QueryBudgets;
+import com.morpheus.cli.command.CliCommandRun;
 import com.morpheus.cli.command.CliExitCode;
 import com.morpheus.cli.command.CliLayout;
 import com.morpheus.cli.command.MorpheusAcceptanceCriteriaCli;
@@ -153,7 +154,7 @@ public final class MorpheusMain {
         Objects.requireNonNull(runtime, "runtime");
         Optional<String> undeclared = CliCommandPaths.refusalOf(args);
         if (undeclared.isPresent()) {
-            return new MorpheusCli(runtime.recorder()).refuseUndeclared(args, err, undeclared.get());
+            return CliCommandRun.refuseUndeclared(args, err, undeclared.get());
         }
         if (MorpheusProviderPluginCli.handles(args)) {
             return new MorpheusProviderPluginCli(runtime.recorder()).run(args, out, err);

@@ -43,7 +43,9 @@ class ServedToolsAreClaimedOnceTest {
                 MorpheusMcpServer.unconfiguredTechnicalContext(),
                 MorpheusMcpServer.deniedWriteCapability(),
                 OperationalRecorder.noop());
-        assertTrue(served.size() > 50, "the server publishes too few tools to be read: " + served.size());
+        int catalogued = new MorpheusMcpToolCatalog().tools().size();
+        assertTrue(served.size() > catalogued, "the server publishes no tool beside the " + catalogued
+                + " of the catalogue: too few to be read: " + served.size());
 
         Map<String, List<String>> owners = new TreeMap<>();
         for (McpServerFeatures.SyncToolSpecification specification : served) {

@@ -18,8 +18,7 @@ classes. Une commande ou un outil servi par la classe qui distribue est un compo
 devient l'endroit où une commande ou un outil arrive sans que personne le décide (AUD-ARC-09). Le contenu de leurs réponses est une surface publique (texte, JSON, codes de sortie,
 charges utiles) que les transports doivent garder identique quand le code qui les sert change de classe.
 
-Les contraintes, mesurées sur le code (tâche 1 du changement OpenSpec
-`give-each-cli-command-and-mcp-tool-a-capability-class`) :
+Les contraintes, mesurées sur le code :
 
 - `MorpheusMain` est la classe principale que nomment la distribution (`jpackage`) et le JAR ombré : elle ne quitte pas
   `com.morpheus.cli` ;
@@ -59,20 +58,25 @@ Chaque chemin de commande déclaré par `CliCommandPaths` est revendiqué par ex
 
 ### 3. Un dispatcher ne tient aucun cas d'usage
 
-Une classe de `com.morpheus.cli` ou de `com.morpheus.mcp.server` ne nomme de `com.morpheus.application..` que les types
-dont la distribution a besoin : le runtime opérationnel qu'elle transmet, la version du produit, la borne que l'aide
-imprime, et les types d'intégration que le serveur passe aux classes de capacité. La liste est exacte ; un nom
-qu'aucun dispatcher n'utilise en sort. Une commande écrite dans un dispatcher n'a donc rien à appeler.
+Une classe de `com.morpheus.cli` ou de `com.morpheus.mcp.server` ne nomme de `com.morpheus.application..`,
+`com.morpheus.provider..` et `com.morpheus.store..` que les types de la liste autorisée de son adaptateur : pour la
+CLI, le runtime opérationnel que le lanceur transmet, la version du produit et la borne que l'aide imprime ; pour le
+serveur MCP, le recorder, la version du produit et les types d'intégration qu'il passe aux classes de capacité. Chaque
+liste est exacte ; un nom qu'aucun dispatcher de l'adaptateur n'utilise en sort. Une commande écrite dans un
+dispatcher n'a donc rien à appeler.
 
 `MorpheusCli` sert encore `projects`, `sync` et `analyze-change` jusqu'à ce que leur ingestion passe par le port du
-provider : les types de l'application qu'ils utilisent forment une dette nommée, qui ne fait que rétrécir.
+provider : les types qu'ils utilisent, `OpenSpecProjectContentReader` compris, forment une dette nommée, qui ne fait
+que rétrécir. `MorpheusCli` sert aussi `version` à son propre point d'entrée (`MorpheusCli.main`, ADR-0115) ; depuis
+`MorpheusMain`, c'est `MorpheusProductCli` qui le sert.
 
 ### 4. Ce que les familles partagent est écrit une fois
 
 Le parseur d'options (`CommandOptions`), le cadre d'exécution, la correspondance des échecs et la ligne d'erreur
 (`CliCommandRun`, `CliFailure`) des commandes extraites de `MorpheusCli` sont des collaborateurs de
 `com.morpheus.cli.command`. Les projections des outils du catalogue (`McpContentPayloads`), leur cadre d'appel et leurs
-lectures communes (`McpCatalogTool`) sont des collaborateurs de `com.morpheus.mcp`. Aucune famille n'en porte de copie.
+lectures communes (`McpCatalogTool`) sont des collaborateurs de `com.morpheus.mcp`. Chaque classe MCP déclare elle-même la lambda du gestionnaire de ses outils, dans une méthode
+privée de quelques lignes : c'est par elle que se lit le propriétaire d'un outil.
 
 ## Do's and Don'ts
 
@@ -88,8 +92,9 @@ lectures communes (`McpCatalogTool`) sont des collaborateurs de `com.morpheus.mc
 
 - Ne pas écrire de commande dans `MorpheusMain`, `MorpheusCli` ou `CliCommandPaths`, ni d'outil dans
   `MorpheusMcpServer`.
-- Ne pas ajouter de type de l'application à l'allocation des dispatchers pour servir une commande.
-- Ne pas recopier dans une classe de capacité le parseur, le cadre d'exécution ou une projection qu'une autre utilise.
+- Ne pas ajouter de type à la liste autorisée d'un dispatcher pour servir une commande ou un outil.
+- Ne pas recopier dans une classe de capacité le parseur, le cadre d'exécution ou une projection qu'une autre utilise
+  (tenu par la revue).
 - Ne pas faire dépendre `com.morpheus.cli.command` de `com.morpheus.cli`, ni `com.morpheus.mcp` de
   `com.morpheus.mcp.server`.
 
@@ -115,8 +120,8 @@ lectures communes (`McpCatalogTool`) sont des collaborateurs de `com.morpheus.mc
 
 ## Compliance and Enforcement
 
-- `DispatchersHoldNoUseCaseArchitectureTest` : bytecode et sources des dispatchers, allocation exacte, dette de
-  `MorpheusCli`, nom inutilisé refusé. Vue en échec : une commande écrite dans `MorpheusMain`, un outil écrit dans le
+- `DispatchersHoldNoUseCaseArchitectureTest` : bytecode et sources des dispatchers, une liste autorisée exacte par
+  adaptateur, dette de `MorpheusCli`, import joker et nom inutilisé refusés. Vue en échec : une commande écrite dans `MorpheusMain`, un outil écrit dans le
   serveur, une constante de l'application lue par son nom qualifié (vue par le scan des sources seul), une allocation
   inutilisée.
 - `CliCommandDispatchIsExhaustiveTest` : chaque chemin déclaré revendiqué par une seule classe de la chaîne, lue dans le
@@ -133,5 +138,5 @@ lectures communes (`McpCatalogTool`) sont des collaborateurs de `com.morpheus.mc
 - [ADR-0147](ARCH-0147-un-role-d-adaptateur-est-un-paquet.md) — un rôle de l'adaptateur HTTP est un paquet.
 - [ADR-0109](ARCH-0109-transport-adapters-are-named-composition-roots.md) — racines de composition nommées.
 - [ADR-0130](BE-0130-contrat-des-options-de-la-cli.md) — contrat des options de la CLI.
-- Changement OpenSpec `give-each-cli-command-and-mcp-tool-a-capability-class` : mesures (tâche 1) et notes des
-  tâches 2 à 5.
+- [ADR-0115](ARCH-0115-the-operational-runtime-is-a-value-the-launcher-hands-on.md) — les deux points d'entrée de
+  la CLI.

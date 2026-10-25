@@ -83,11 +83,6 @@ public final class MorpheusCli {
         });
     }
 
-    /** Answers an invocation whose command path is not declared, the way every unknown command is answered. */
-    int refuseUndeclared(String[] args, PrintStream err, String message) {
-        return CliCommandRun.refuseUndeclared(args, err, message);
-    }
-
     private int dispatch(String command, List<String> tokens, CliCommandRun run) {
         return switch (command) {
             case "help", "--help", "-h" -> {

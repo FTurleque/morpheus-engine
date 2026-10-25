@@ -58,7 +58,7 @@ MorpheusCompositionMcpTools            composition multi-provider
 MorpheusControlledLifecycleMcpTools    mutation lifecycle contrôlée
 ```
 
-Les définitions des quatorze tools du catalogue (noms, descriptions, schémas) sont dans `MorpheusMcpToolCatalog` ; le
+Les définitions des tools du catalogue (noms, descriptions, schémas) sont dans `MorpheusMcpToolCatalog` ; le
 serveur les publie dans cet ordre et refuse de démarrer si l'une n'est servie par aucune classe.
 
 Le serveur publie la capability `tools`, active `validateToolInputs=true` et construit les handlers sur les mêmes services applicatifs que la CLI et l’API.
