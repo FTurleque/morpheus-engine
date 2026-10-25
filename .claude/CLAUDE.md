@@ -129,6 +129,8 @@ Gates actifs : **M19** (perf, lane nocturne — pas dans `clean verify`) · **M2
 | Fichier | Rôle |
 |---|---|
 | `morpheus-cli/.../MorpheusMain.java` | Câblage du processus (les runtimes par requête : racines nommées d'ADR-0109) |
+| `morpheus-cli/.../command/` | Classes de capacité de la CLI, une par famille du manifeste (ADR-0149) |
+| `morpheus-mcp/.../server/MorpheusMcpServer.java` | Serveur MCP STDIO ; ses outils sont les classes de capacité de `com.morpheus.mcp` |
 | `morpheus-api/.../MorpheusHttpServer.java` | Serveur local (loopback obligatoire) |
 | `morpheus-api/.../MorpheusRemoteHttpServer.java` | Serveur remote (TLS + RBAC) |
 | `morpheus-application/.../product/ProductMetadata.java` | Source unique de la version |

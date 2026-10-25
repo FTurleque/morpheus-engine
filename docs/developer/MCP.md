@@ -35,10 +35,15 @@ server     morpheus
 
 ## 2. Composition du serveur
 
-`MorpheusMcpServer` assemble les familles de tools suivantes :
+`MorpheusMcpServer` (`com.morpheus.mcp.server`) enregistre les familles de tools suivantes, chacune servie par sa
+classe de `com.morpheus.mcp` ([ADR-0149](../architecture/adr/ARCH-0149-une-commande-et-un-outil-sont-servis-par-une-classe-de-capacite.md)) :
 
 ```text
-MorpheusMcpToolCatalog                 spécification / requirements / changes
+MorpheusSpecificationMcpTools          spécification courante et contexte d'une spécification
+MorpheusRequirementMcpTools            recherche et traçabilité des requirements
+MorpheusChangeMcpTools                 changes, éléments attachés, contexte et faits de lifecycle
+MorpheusAcceptanceCriteriaMcpTools     critères d'acceptation d'un change
+MorpheusSyncStatusMcpTools             fraîcheur de synchronisation
 MorpheusProductMcpTools                version et informations produit
 MorpheusProviderPluginMcpTools         découverte et inspection plugins
 MorpheusPortfolioMcpTools              portfolios et références inter-projets
@@ -52,6 +57,9 @@ MorpheusJarvisOrchestrationMcpTools    état et évaluation orchestration
 MorpheusCompositionMcpTools            composition multi-provider
 MorpheusControlledLifecycleMcpTools    mutation lifecycle contrôlée
 ```
+
+Les définitions des quatorze tools du catalogue (noms, descriptions, schémas) sont dans `MorpheusMcpToolCatalog` ; le
+serveur les publie dans cet ordre et refuse de démarrer si l'une n'est servie par aucune classe.
 
 Le serveur publie la capability `tools`, active `validateToolInputs=true` et construit les handlers sur les mêmes services applicatifs que la CLI et l’API.
 

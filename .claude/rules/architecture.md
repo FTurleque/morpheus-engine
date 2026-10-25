@@ -198,6 +198,17 @@ Une liste de classes de l'adaptateur qui reste dans les tests est un compteur de
 déclarée dans `HttpAdapterClassListsArchitectureTest` ; une liste qui serait un rôle est un paquet.
 > `noClassOutsideTheAdapterDependsOnATypeOfTheAdapterBesideTheEntryTypes`, `thePackagesOfTheHttpAdapterFormNoCycle`, `everyListOfTheAdaptersClassesIsADebtCounterOrATableOfFacts`
 
+### `morpheus-cli` et `morpheus-mcp` : une commande, un outil, une classe de capacité (ADR-0149)
+Une commande CLI va dans une classe de `com.morpheus.cli.command`, un outil MCP dans une classe de
+`com.morpheus.mcp` qui déclare la lambda de son gestionnaire ; la classe sert une famille de
+`contracts/public-surfaces.tsv`. `MorpheusMain`, `MorpheusCli`, `CliCommandPaths` (`com.morpheus.cli`) et
+`MorpheusMcpServer` (`com.morpheus.mcp.server`) distribuent et ne nomment de l'application que leur allocation
+exacte ; `MorpheusCli` garde la dette nommée de `projects`, `sync` et `analyze-change` jusqu'au port d'ingestion.
+Le parseur (`CommandOptions`), le cadre d'exécution et la ligne d'erreur (`CliCommandRun`), les projections
+(`McpContentPayloads`) et le cadre des outils du catalogue (`McpCatalogTool`) existent une fois. Les paquets de chaque
+adaptateur sont sans cycle ; les autres modules n'utilisent de `morpheus-mcp` que `MorpheusMcpServer`.
+> `DispatchersHoldNoUseCaseArchitectureTest`, `CliCommandDispatchIsExhaustiveTest`, `ServedToolsAreClaimedOnceTest`, `CliAndMcpPackageCyclesArchitectureTest`, `McpEntryTypesArchitectureTest`
+
 ### `morpheus-mcp-transport` ne dépend d'aucun autre paquet MORPHEUS
 Le transport STDIO borné est partagé par le serveur MCP et les clients MINOS/NEXUS.
 > `theMcpTransportDependsOnNoOtherMorpheusPackage`
