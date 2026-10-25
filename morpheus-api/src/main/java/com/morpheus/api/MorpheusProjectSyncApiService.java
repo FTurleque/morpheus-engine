@@ -22,10 +22,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -81,7 +78,7 @@ public final class MorpheusProjectSyncApiService {
                         recorder)
                         .publishFull(normalized, normalizedRevision, Instant.now());
                 syncService.complete(plan, Instant.now());
-                return map(
+                return OrderedFields.map(
                         "projectId", projectId.toString(),
                         "snapshotId", imported.snapshot().id().toString(),
                         "mode", plan.mode().name(),
@@ -109,7 +106,7 @@ public final class MorpheusProjectSyncApiService {
             requireProject(runtime, projectId);
             SyncFreshness freshness = new SyncFreshnessService(runtime.syncState())
                     .assess(projectId, Instant.now(), Duration.ofMinutes(maxAgeMinutes));
-            return map(
+            return OrderedFields.map(
                     "projectId", projectId.toString(),
                     "state", freshness.state().name(),
                     "lastSuccessfulSyncAt", freshness.lastSuccessfulSyncAt().map(Instant::toString).orElse(UNKNOWN_VALUE),
@@ -149,17 +146,5 @@ public final class MorpheusProjectSyncApiService {
         if (value < minimum || value > maximum) {
             throw ApiFailure.badRequest(name + " must be between " + minimum + " and " + maximum);
         }
-    }
-
-    /** LinkedHashMap preserves stable construction order before canonical JSON serialization. */
-    private Map<String, Object> map(Object... entries) {
-        if (entries.length % 2 != 0) {
-            throw new IllegalArgumentException("map entries must be key/value pairs");
-        }
-        Map<String, Object> result = new LinkedHashMap<>();
-        for (int index = 0; index < entries.length; index += 2) {
-            result.put((String) entries[index], entries[index + 1]);
-        }
-        return Collections.unmodifiableMap(result);
     }
 }

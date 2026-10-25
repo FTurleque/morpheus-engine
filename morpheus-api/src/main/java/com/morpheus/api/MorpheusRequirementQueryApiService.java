@@ -15,9 +15,6 @@ import com.morpheus.domain.requirement.RequirementId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 
 import java.nio.file.Path;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -41,7 +38,7 @@ public final class MorpheusRequirementQueryApiService {
                     .findActive(projectId, new RequirementSearchQuery(queryText), pageRequest)
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
             return PagedEnvelope.following(
-                    map("snapshotId", result.snapshot().id().toString(), "query", queryText),
+                    OrderedFields.map("snapshotId", result.snapshot().id().toString(), "query", queryText),
                     PagedEnvelope.page(result.pageRequest(), result.totalMatches(), result.hasMore(),
                             result.items().stream().map(this::requirementRecord).toList()));
         }
@@ -54,7 +51,7 @@ public final class MorpheusRequirementQueryApiService {
             KnowledgeSnapshotMetadata snapshot = activeSnapshot(runtime, projectId);
             RequirementVersionRecord record = runtime.requirements().currentRequirement(snapshot.id(), requirementId.value())
                     .orElseThrow(() -> ApiFailure.notFound("requirement not found: " + requirementId));
-            return map("snapshotId", snapshot.id().toString(), "requirement", requirementRecord(record));
+            return OrderedFields.map("snapshotId", snapshot.id().toString(), "requirement", requirementRecord(record));
         }
     }
 
@@ -86,7 +83,7 @@ public final class MorpheusRequirementQueryApiService {
 
     private Object requirementRecord(RequirementVersionRecord record) {
         var version = record.entityVersion();
-        return map(
+        return OrderedFields.map(
                 "entityVersionId", version.id().toString(),
                 "specificationVersionId", version.specificationVersionId().toString(),
                 "temporalState", version.temporalState().name(),
@@ -94,7 +91,7 @@ public final class MorpheusRequirementQueryApiService {
     }
 
     private Object requirement(Requirement item) {
-        return map(
+        return OrderedFields.map(
                 "id", item.id().toString(),
                 "specificationId", item.specificationId().toString(),
                 "key", item.key().orElse(""),
@@ -106,17 +103,5 @@ public final class MorpheusRequirementQueryApiService {
         if (value < minimum || value > maximum) {
             throw ApiFailure.badRequest(name + " must be between " + minimum + " and " + maximum);
         }
-    }
-
-    /** LinkedHashMap preserves stable construction order before canonical JSON serialization. */
-    private Map<String, Object> map(Object... entries) {
-        if (entries.length % 2 != 0) {
-            throw new IllegalArgumentException("map entries must be key/value pairs");
-        }
-        Map<String, Object> result = new LinkedHashMap<>();
-        for (int index = 0; index < entries.length; index += 2) {
-            result.put((String) entries[index], entries[index + 1]);
-        }
-        return Collections.unmodifiableMap(result);
     }
 }
