@@ -8,13 +8,13 @@ sources différentes du repo (`rules/testing.md`, `rules/governance.md`, `docs/R
 citaient chacune un chiffre différent au 31/08/2026. **Avant toute décision de gouvernance
 ou de coverage, relire le fichier properties, pas cette page.**
 
-Valeur constatée en lisant `config/m21-quality-ratchets.properties` (18/10/2026) :
+Valeur constatée en lisant `config/m21-quality-ratchets.properties` (25/10/2026) :
 
 | Clé | Valeur constatée |
 |---|---|
 | `testsMinimum` | 2600 (exécutions de méthodes déclarées) |
 | `generatedTestsMinimum` | 1574 (exécutions générées par une fabrique) |
-| `architectureTestsMinimum` | 585 (exécutions déclarées du module d'architecture) |
+| `architectureTestsMinimum` | 762 (exécutions déclarées du module d'architecture) |
 | `aggregateLineCoverageMinimum` | 0.900 (90.0%) |
 | `aggregateBranchCoverageMinimum` | 0.757 (75.7%) |
 | `perModuleLineCoverageMinimum` | 0.691 (69.1%) |

@@ -62,7 +62,7 @@ Le workflow `MORPHEUS CI` exécute le même gate exact-head sur Windows et Ubunt
 ```text
 baseline Surefire écrits       >= 2600
 baseline Surefire générés     >= 1574
-baseline architecture          >= 585
+baseline architecture          >= 762
 JaCoCo aggregate line ratchet     >= 90.0%
 JaCoCo aggregate branch ratchet   >= 75.7%
 JaCoCo per-module line ratchet    >= 69.1%
