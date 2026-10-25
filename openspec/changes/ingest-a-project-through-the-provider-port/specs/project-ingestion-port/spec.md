@@ -29,9 +29,10 @@ Every capability that reads the content of a workspace to publish or to analyse 
 
 ### Requirement: An incomplete read SHALL NOT be published
 
-A sync MUST refuse, by name, a read result that carries no content or in which a requested category failed or was read
-partially. The refusal MUST name the categories, the sync MUST be recorded as failed, and the active snapshot MUST be
-unchanged.
+A sync MUST refuse, by name, a read result that carries no content, in which a requested category failed, or in which
+a requested category was read partially because a source was rejected. The refusal MUST name the categories, the sync
+MUST be recorded as failed, and the active snapshot MUST be unchanged. A category read partially for another reason,
+or one the provider does not support, MUST be published with a diagnostic that names it.
 
 #### Scenario: One group of sources cannot be read
 
@@ -43,6 +44,16 @@ unchanged.
 
 - **WHEN** a workspace has no change at all and everything else is read
 - **THEN** the sync publishes
+
+#### Scenario: A requirement the provider could not normalize
+
+- **WHEN** a sync reads a workspace in which one requirement of a delta follows a fence that is never closed
+- **THEN** the sync publishes, and its diagnostics name the requirement and the fence
+
+#### Scenario: A category the provider does not support
+
+- **WHEN** the provider reports a published category as unsupported
+- **THEN** the content is published and a warning names the category
 
 #### Scenario: The refusal over HTTP discloses no server path
 

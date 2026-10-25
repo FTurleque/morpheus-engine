@@ -17,7 +17,7 @@ Lecteurs concernés, tous dans `com.morpheus.provider.openspec` :
 | `OpenSpecRequirementDeltaReader` | groupe `requirement-deltas` : `openspec/changes/<change>/specs/**/spec.md` |
 | `OpenSpecCodeFences` | masque des blocs de code, partagé par les lecteurs courant et de deltas |
 | `OpenSpecSourceAttribution` | rattachement d'un échec au fichier qui l'a causé |
-| `OpenSpecProjectContentReader` | lecteur strict employé par `sync` |
+| `OpenSpecSpecificationProvider.SOURCE_DIRECTORIES` | les répertoires que lit le provider, que `sync` passe au scan des sources |
 
 ## Sonde et capacités
 
@@ -187,11 +187,14 @@ aucun diagnostic ; leur sortie est figée par un test.
   `CONSTRAINTS`, `DESIGN_DECISIONS` et `IMPLEMENTATION_TASKS` passent alors `PARTIAL` (`[PARTIAL_INGESTION,
   INVALID_SOURCE]`), **même à zéro élément** : ce que portait le changement rejeté est inconnu, son silence n'est pas une
   absence. Ils restent `FAILED` si aucun changement n'a pu être lu. Un échec qui n'est attribuable à aucun fichier
-  (défaut, magasin d'identités) fait échouer tout le groupe.
+  (défaut, magasin d'identités) ne décrit aucune catégorie : il quitte la lecture tel quel.
 - **Deltas d'un changement rejeté** : ils sont retirés avec leurs preuves, puisqu'ils désigneraient un changement non
   publié, et `REQUIREMENT_DELTAS` passe `PARTIAL` (`[PARTIAL_INGESTION, INVALID_SOURCE]`) quand il en retire.
-- **Le lecteur strict de `sync`** (`OpenSpecProjectContentReader`) ne rejette pas changement par changement : il refuse
-  l'espace de travail entier.
+- **Publication** : `sync` et `analyze-change` lisent par ce lecteur au travers de `ProjectContentIngestion`
+  (`morpheus-application`), qui refuse une lecture sans contenu, une catégorie `FAILED` ou une catégorie `PARTIAL` dont
+  le rapport porte `INVALID_SOURCE`. Une catégorie `PARTIAL` pour une autre raison (exigence non normalisée, bloc de
+  code jamais fermé, exigence sans scénario) est publiée avec ses diagnostics. Le refus est un échec d'état : il nomme
+  chaque catégorie non lue et relaie les premières erreurs du lecteur.
 
 ## Noms dans les diagnostics et budget de preuve
 
@@ -240,8 +243,9 @@ Ces comportements sont connus et non corrigés ; les changer modifierait des del
   deux dialectes de proposal.
 - `morpheus-provider-openspec/src/test/java/com/morpheus/provider/openspec/OpenSpecSpecificationProviderTest.java` :
   schéma entre guillemets.
-- `morpheus-provider-openspec/src/test/java/com/morpheus/provider/openspec/OpenSpecProjectContentReaderTest.java` et
-  `morpheus-provider-openspec/src/test/java/com/morpheus/provider/openspec/OpenSpecRefusedFileNameTest.java` : type
-  des échecs attribués, nom d'un fichier à `\`.
+- `morpheus-provider-openspec/src/test/java/com/morpheus/provider/openspec/OpenSpecRefusedFileNameTest.java` : nom
+  d'un fichier à `\`.
+- `morpheus-application/src/test/java/com/morpheus/application/ingestion/ProjectContentIngestionTest.java` : ce qu'une
+  publication refuse et ce qu'elle publie, statut par statut.
 - `morpheus-application/src/test/java/com/morpheus/application/files/SafeWorkspaceFileResolverTest.java` : retrait d'un
   seul BOM initial.

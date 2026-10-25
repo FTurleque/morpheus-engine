@@ -200,14 +200,15 @@ then replaces one class in place, and its `tasks.md` names that class.
       (2.1); the names leaving the two shrinking lists, and, once `SERVED_BY_THE_SERVER_CLASS` is empty, its
       replacement by the stricter assertion that no class of the server's package owns a tool (2.2).*
 
-- [ ] 3.3 `sync` and `projects`, after `ingest-a-project-through-the-provider-port`.
-      *Waits for the sprint 11 decision record of that change (AUD-ARC-02): these are the only commands that build a
-      provider reader, and moving them first would move the direct instantiation into a class that change rewrites.
-      Until then they stay in `MorpheusCli`, in `SERVED_BY_THE_DEFAULT_BRANCH`.*
-      *`analyze-change` waits with them: it builds the OpenSpec reader itself (`MorpheusCli.analyzeChange`), and
-      `ingest-a-project-through-the-provider-port` rewires it too (its proposal lists `sync` and `analyze change`). The
-      design names `sync` and `projects` as the only commands that build a provider reader; `projects` builds none,
-      `analyze-change` does. The three stay in `MorpheusCli` and in `MORPHEUS_CLI_DEBT`.*
+- [x] 3.3 `sync` and `projects`, after `ingest-a-project-through-the-provider-port`.
+      *2026-10-25, in the pull request of that change: `projects list|add` and `sync` are served by
+      `MorpheusProjectCli` (the `project.*` family), `analyze-change` by `MorpheusChangeCli` (`change.*`); both read
+      the workspace through `ProjectContentIngestion`. `MorpheusCli` serves the help, and `version` when it is called
+      directly; its entry point hands the process runtime to `MorpheusMain.run`. `SERVED_BY_THE_DEFAULT_BRANCH` is
+      `help` alone, `MORPHEUS_CLI_DEBT` is gone and `MorpheusCli` falls under the common CLI allowance, from which
+      `OperationalRecorder` leaves (no dispatcher uses it). Broken once each, then reverted: `MorpheusProjectCli`
+      taken out of the table leaves `projects add`, `projects list` and `sync` unclaimed; `SyncPlan` used in
+      `MorpheusCli` fails both rules of `DispatchersHoldNoUseCaseArchitectureTest`. The transcripts are unchanged.*
 
 - [x] 3.4 The dispatcher rule, as an ArchUnit rule with the exact allowance of 1.3. Intent: *a class that dispatches
       depends on no use case of the application* - a dependency. Check the three obligations of `enforcement-choice`:

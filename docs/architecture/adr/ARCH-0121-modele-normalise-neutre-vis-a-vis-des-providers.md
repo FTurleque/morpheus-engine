@@ -137,7 +137,7 @@ SHA-256).
 
 Un provider compose des lecteurs séparés plutôt qu'un parser monolithique. Pour OpenSpec :
 `OpenSpecCurrentSpecificationReader`, `OpenSpecChangeMetadataReader` et `OpenSpecRequirementDeltaReader` alimentent
-`OpenSpecProjectContentReader`, qui produit le `NormalizedProjectContent`.
+`OpenSpecSpecificationContentReader`, le lecteur du port, qui produit le `NormalizedProjectContent`.
 
 ## Do's and Don'ts
 

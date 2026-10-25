@@ -24,8 +24,6 @@ Les contraintes, mesurées sur le code :
   `com.morpheus.cli` ;
 - `MorpheusMcpRuntime` est une racine de composition nommée d'ADR-0109 : elle ne change pas de nom, donc reste dans
   `com.morpheus.mcp` ;
-- `projects`, `sync` et `analyze-change` construisent eux-mêmes le lecteur OpenSpec, que le changement
-  `ingest-a-project-through-the-provider-port` remplace par le port d'ingestion.
 
 Options considérées pour dire où vit un comportement : une borne sur le nombre de méthodes de commande d'une classe
 (rejetée : la borne ne se justifie pas, et découper une méthode la satisfait), une règle sur les noms
@@ -65,10 +63,9 @@ serveur MCP, le recorder, la version du produit et les types d'intégration qu'i
 liste est exacte ; un nom qu'aucun dispatcher de l'adaptateur n'utilise en sort. Une commande écrite dans un
 dispatcher n'a donc rien à appeler.
 
-`MorpheusCli` sert encore `projects`, `sync` et `analyze-change` jusqu'à ce que leur ingestion passe par le port du
-provider : les types qu'ils utilisent, `OpenSpecProjectContentReader` compris, forment une dette nommée, qui ne fait
-que rétrécir. `MorpheusCli` sert aussi `version` à son propre point d'entrée (`MorpheusCli.main`, ADR-0115) ; depuis
-`MorpheusMain`, c'est `MorpheusProductCli` qui le sert.
+`MorpheusCli` est la branche par défaut de `MorpheusMain.run` : il sert l'aide, et `version` quand il est appelé
+directement. Son propre point d'entrée (`MorpheusCli.main`, ADR-0115) remet le runtime du processus à
+`MorpheusMain.run` et sert donc les mêmes commandes que le lanceur.
 
 ### 4. Ce que les familles partagent est écrit une fois
 
@@ -83,7 +80,7 @@ privée de quelques lignes : c'est par elle que se lit le propriétaire d'un out
 ### Do
 
 - Ajouter une commande dans une classe de `com.morpheus.cli.command`, déclarer son chemin dans `CliCommandPaths` et
-  sa ligne d'aide, et la brancher dans la chaîne de `MorpheusMain.run`.
+  sa ligne d'aide, et ajouter sa classe à la table de `MorpheusMain.run`.
 - Ajouter un outil dans une classe de `com.morpheus.mcp`, dont la lambda du gestionnaire est déclarée par cette classe.
 - Ranger une commande ou un outil avec ceux de sa famille du manifeste.
 - Faire passer un module voisin par `MorpheusMcpServer`.
@@ -111,20 +108,19 @@ privée de quelques lignes : c'est par elle que se lit le propriétaire d'un out
 
 - Les classes de capacité sont publiques pour leur dispatcher ; la frontière avec les autres modules est tenue par une
   règle (`McpEntryTypesArchitectureTest`), plus par le compilateur.
-- `MorpheusCli` garde trois commandes et leur dette tant que l'ingestion n'est pas recâblée.
 
 ### Risques
 
-- Une commande ajoutée à `MorpheusCli` avec les types de sa dette passerait la règle de dépendance ; elle est refusée
-  par la liste des chemins que `MorpheusCli` sert (`CliCommandDispatchIsExhaustiveTest`).
+- Une commande ajoutée à `MorpheusCli` sans type de l'application passerait la règle de dépendance ; elle est refusée
+  par la liste des chemins que `MorpheusCli` sert (`CliCommandDispatchIsExhaustiveTest`), réduite à l'aide.
 
 ## Compliance and Enforcement
 
 - `DispatchersHoldNoUseCaseArchitectureTest` : bytecode et sources des dispatchers, une liste autorisée exacte par
-  adaptateur, dette de `MorpheusCli`, import joker et nom inutilisé refusés. Vue en échec : une commande écrite dans `MorpheusMain`, un outil écrit dans le
+  adaptateur, import joker et nom inutilisé refusés. Vue en échec : une commande écrite dans `MorpheusMain`, un outil écrit dans le
   serveur, une constante de l'application lue par son nom qualifié (vue par le scan des sources seul), une allocation
   inutilisée.
-- `CliCommandDispatchIsExhaustiveTest` : chaque chemin déclaré revendiqué par une seule classe de la chaîne, lue dans le
+- `CliCommandDispatchIsExhaustiveTest` : chaque chemin déclaré revendiqué par une seule classe de la table, lue dans le
   bytecode de `MorpheusMain.run`. Vue en échec : un chemin sans classe, un chemin revendiqué par deux.
 - `ServedToolsAreClaimedOnceTest` (`morpheus-mcp`) : un outil publié une fois, servi par une classe hors du paquet du
   serveur. Vue en échec : un outil publié deux fois, un outil du catalogue servi par le serveur.

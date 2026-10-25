@@ -46,7 +46,7 @@ Les onze classes d'accès fichier (2 424 lignes) :
 | Classe | Lignes | Appelants de production | Tests d'architecture qui la nomment |
 |---|---|---|---|
 | `files.SafeWorkspaceFileResolver` | 269 | 9 (providers, remote) | 4 |
-| `sync.LocalSourceInventoryScanner` | 408 | `MorpheusProjectSyncApiService`, `MorpheusCli` | 10 |
+| `sync.LocalSourceInventoryScanner` | 408 | `MorpheusProjectSyncApiService`, `MorpheusProjectCli` | 10 |
 | `sync.ScanWorkspaceBoundary` | 134 | `LocalSourceInventoryScanner`, `WorkspacePathBoundary` | 0 |
 | `sync.SourceFingerprint` | 235 | 5, dont `SqliteSyncStateStore` | 3 |
 | `security.ExternalJarIntegrity` | 121 | 6 (plugins, pairs MCP) | 3 |
