@@ -24,11 +24,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Every command path the CLI declares is claimed by exactly one class of the dispatch, and the dispatch is read from
  * the launcher itself.
  *
- * <p>{@code MorpheusMain.run} asks a chain of capability classes, in order, whether each {@code handles} the
- * arguments; what none claims goes to {@code MorpheusCli}. The chain is the set of classes whose {@code handles} the
- * compiled {@code run} calls, so a class added to it or taken out of it is seen without being named here. Each
- * declared path is offered to every class of the chain, whatever order the launcher tries them in: a path two classes
- * claim fails, and so does one that none claims unless it is one of the paths {@code MorpheusCli} still serves.</p>
+ * <p>{@code MorpheusMain.run} holds an ordered table of capability classes and serves the arguments with the first
+ * one whose {@code handles} claims them; what none claims goes to {@code MorpheusCli}. The chain is the set of classes
+ * whose {@code handles} the compiled {@code run} references or calls, so a class added to the table or taken out of it
+ * is seen without being named here. Each declared path is offered to every class of the chain, whatever order the
+ * table gives them: a path two classes claim fails, and so does one that none claims unless it is one of the paths
+ * {@code MorpheusCli} still serves.</p>
  *
  * <p>{@link #SERVED_BY_THE_DEFAULT_BRANCH} is the default branch that made {@code MorpheusCli} the place where a
  * command lands without anybody deciding it. It only shrinks: a command extracted into a capability class leaves it.
@@ -96,7 +97,10 @@ class CliCommandDispatchIsExhaustiveTest {
         assertEquals(Set.of(), vacant, "classes of the dispatch that claim no declared path");
     }
 
-    /** The classes whose {@code handles(String[])} the compiled {@code MorpheusMain.run} calls. */
+    /**
+     * The classes whose {@code handles(String[])} the compiled {@code MorpheusMain.run} references, as an entry of its
+     * table, or calls.
+     */
     private static List<Class<?>> chain() throws ClassNotFoundException {
         JavaClass launcher = CLI.get(LAUNCHER);
         Set<String> owners = new TreeSet<>();
@@ -104,6 +108,9 @@ class CliCommandDispatchIsExhaustiveTest {
             if (!method.getName().equals("run")) {
                 continue;
             }
+            method.getMethodReferencesFromSelf().stream()
+                    .filter(reference -> reference.getName().equals("handles"))
+                    .forEach(reference -> owners.add(reference.getTargetOwner().getName()));
             method.getMethodCallsFromSelf().stream()
                     .filter(call -> call.getName().equals("handles"))
                     .forEach(call -> owners.add(call.getTargetOwner().getName()));
