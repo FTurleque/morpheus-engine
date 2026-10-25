@@ -52,41 +52,56 @@ under every option; whether a transport holds the runtime type or only a port ma
 
 ## 2. The decision
 
-- [ ] 2.1 Put options A, B and C of `design.md` to the maintainer with the tables of 1.1 and 1.2. Proof: the choice,
+- [x] 2.1 Put options A, B and C of `design.md` to the maintainer with the tables of 1.1 and 1.2. Proof: the choice,
       dated, and for each named class "stays" or "leaves".
 
-      2026-10-25: put to the maintainer with ADR-0148 at **Proposée** (option C written as the proposed decision,
-      A and B as options considered). Waiting for the choice.
-- [ ] 2.2 Write the ADR from `docs/architecture/adr/gabarit/template.md`, under the next free number - read the directory
+      2026-10-25: option **C**, chosen by the maintainer the same day. Fates as written in ADR-0148 decision 2: the
+      transport of `UpdateDiscoveryService` (network, threads, its `file:` read) leaves; every other named class
+      stays, the three without a production caller for as long as they exist.
+- [x] 2.2 Write the ADR from `docs/architecture/adr/gabarit/template.md`, under the next free number - read the directory
       first (`live-numbers`), never a remembered total. It carries the measured table, the families and their type
       lists, the named classes with their fate, the options not taken and why. Index it in
       `docs/architecture/adr/README.md`. Proof: `AdrIndexCoherenceTest`.
 
       2026-10-25: drafted as ADR-0148, indexed in `docs/architecture/adr/README.md` and
-      `docs/architecture/arc42/09-decisions.md`. Checked when the maintainer's choice is written into it and it turns
-      **Acceptée**.
+      `docs/architecture/arc42/09-decisions.md`. **Acceptée** on 2026-10-25 with option C.
 
 ## 3. The gate
 
-- [ ] 3.1 One architecture test class, one `@Test` per intent (`enforcement-choice`): the unused families refused for
+- [x] 3.1 One architecture test class, one `@Test` per intent (`enforcement-choice`): the unused families refused for
       the whole application; each confined family reachable from its named classes only; each named set exact.
       ArchUnit, intent "no class of the application depends on this technology, except the named ones". Proof: green
       on the measured state, with no product code changed.
-- [ ] 3.2 Break each rule once, then revert: a planted application class depending on `java.sql`; a planted class
+- [x] 3.2 Break each rule once, then revert: a planted application class depending on `java.sql`; a planted class
       calling `Files.readString`; a name added to a list without the dependency; a class using only `Path`. Proof: the
       three named failures, and the fourth passing.
-- [ ] 3.3 Confirm the textual bans of `reasoning` and `policy` are untouched. Proof: their tests in the diff, absent.
+
+      2026-10-25: `ApplicationTechnologyBoundaryArchitectureTest`, four `@Test`: unused families refused, confined
+      families reached only by their named classes, every named set exact, a `Path` used as a value not counted.
+      Green on `b60a9286` with no product code changed. Broken once each, then reverted: a planted
+      `PlantedSql` returning `java.sql.Connection` fails the first ("reaches SQL ... has return type
+      <java.sql.Connection>"); a planted `PlantedAccess` calling `Files.readString`, `System.getenv` and reading
+      `System.out` fails the second for file access, process environment and standard streams, and the third; the
+      name `UpdateCheckResult` added to the network list fails the third alone; a planted record holding only a
+      `Path` fails nothing. The textual bans of `reasoning` and `policy` are not in the diff (3.3).
+- [x] 3.3 Confirm the textual bans of `reasoning` and `policy` are untouched. Proof: their tests in the diff, absent.
 - [ ] 3.4 Raise `architectureTestsMinimum` for the added executions (`coverage-ratchet`; count executions, not
       `@Test` annotations). Proof: `RepositoryDocumentationCoherenceTest` and `ProductionIntegrityContractTest` name
       the destinations; all are updated in the same change.
 
+      2026-10-25, **not raised**: the full module run on Windows (`-Djacoco.skip=true`, so `CoverageQualityGateTest`
+      refuses to conclude, as it must without coverage reports) counts 768 declared executions, 4 of them from this
+      gate, against `architectureTestsMinimum=585`. The repository raises presence ratchets on Surefire counts read on
+      both platforms at one exact head (18/10/2026: 693 on both); a one-platform local count is not that evidence.
+      Left to the next presence requalification.
+
 ## 4. The descriptions
 
-- [ ] 4.1 `.claude/CLAUDE.md` and `.claude/rules/architecture.md`: the application layer as the ADR decides it, the new
+- [x] 4.1 `.claude/CLAUDE.md` and `.claude/rules/architecture.md`: the application layer as the ADR decides it, the new
       test named beside `LayerDependencyTest`, no count copied. Proof: the diff.
-- [ ] 4.2 `docs/architecture/arc42/05-vue-blocs.md`, `11-risques-dette.md`, `docs/architecture/risks/register.md`: the
+- [x] 4.2 `docs/architecture/arc42/05-vue-blocs.md`, `11-risques-dette.md`, `docs/architecture/risks/register.md`: the
       same statement, with the link to the ADR. Proof: `RepositoryDocumentationCoherenceTest`.
-- [ ] 4.3 If the ADR marks a class as leaving, say in it that
+- [x] 4.3 If the ADR marks a class as leaving, say in it that
       `move-marked-technology-access-behind-application-ports` carries the move; if it marks none, withdraw that
       change. Proof: the ADR, and the state of the change.
 

@@ -7,7 +7,7 @@ rules: false
 
 # Le cœur applicatif touche le disque local par des classes nommées, et jamais le réseau
 
-- Statut : **Proposée**
+- Statut : **Acceptée**
 - Date : 2026-10-25
 
 ## Context
@@ -22,7 +22,8 @@ AUD-ARC-01 de l'audit du 09/10/2026 le relève ; AUD-ARC-02, AUD-ARC-03, AUD-ARC
 
 Mesuré par une règle ArchUnit jetable sur `develop` à `b60a9286`, le 25/10/2026 : 349 sources, 36 paquets, 539 classes
 importées (classes imbriquées comprises, rapportées à leur classe de premier niveau). Une famille est un ensemble de
-types ou d'appels :
+types ou d'appels ; la colonne en donne les principaux, et `ApplicationTechnologyBoundaryArchitectureTest` la liste
+complète :
 
 | Famille | Types ou appels | Classes |
 |---|---|---|
@@ -56,9 +57,8 @@ Les onze classes d'accès fichier (2 424 lignes) :
 | `discovery.ProjectDiscoveryService` | 102 | aucun | 0 |
 | `discovery.WorkspaceRootResolver` | 43 | `ProjectDiscoveryService` seulement | 0 |
 
-Deux affirmations de l'audit sont plus faibles sur `develop` qu'écrites : `java.time.Clock` est déjà le port d'horloge,
-injecté par constructeur, et `UpdateDiscoveryService(HttpClient, Duration)` permet de tester la découverte sans réseau.
-L'inventaire est en revanche plus large que les deux familles citées.
+`java.time.Clock` est le port d'horloge, injecté par constructeur, et `UpdateDiscoveryService(HttpClient, Duration)`
+permet de tester la découverte sans réseau.
 
 ### Options considérées
 
@@ -145,21 +145,25 @@ Ce qu'un transport tient de `SqliteOperationRuntime` et `SqliteServerMaintenance
 
 ### Négatives
 
-- Le cœur n'est pas purement hexagonal : sept classes d'accès fichier et quatre lecteurs d'environnement y restent.
+- Le cœur n'est pas purement hexagonal : dix classes d'accès fichier, dont trois sans appelant de production, et quatre lecteurs d'environnement y restent.
 - La règle ajoute des listes de noms, que l'audit voudrait moins nombreuses (AUD-ARC-06).
 
 ### Risques
 
-- Les trois classes sans appelant restent nommées tant qu'aucune décision ne les retire.
+- Les trois classes sans appelant de production restent nommées tant qu'aucune décision ne les retire.
 - Le transport extrait emporte avec lui des invariants de sécurité épinglés textuellement : une extraction qui
   laisserait ces assertions sur un fichier vidé garderait les gates verts sans plus rien surveiller.
 
 ## Compliance and Enforcement
 
-- À écrire avant l'acceptation : une classe de `morpheus-architecture-tests` (changement OpenSpec
-  `decide-what-technology-the-application-core-may-touch`, tâche 3), règle ArchUnit par intention — familles
-  inutilisées refusées pour tout `com.morpheus.application..`, chaque famille confinée atteignable par ses seules
-  classes nommées, chaque liste exacte dans les deux sens. Chaque règle est cassée une fois avant d'être acceptée.
+- `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/ApplicationTechnologyBoundaryArchitectureTest.java`,
+  règles ArchUnit sur le bytecode, dont les listes de types et d'appels sont la source vivante des familles :
+  `aFamilyTheApplicationDoesNotUseIsRefusedInEveryPackage` (décision 1),
+  `aConfinedFamilyIsReachedOnlyByTheClassesNamedForIt` et `everyNamedClassStillReachesItsFamily` (décision 2, les deux
+  sens), `aPathUsedAsAValueIsNotAnAccess` (le vocabulaire).
+- Décision 4 : la famille SQL de `aFamilyTheApplicationDoesNotUseIsRefusedInEveryPackage` interdit le runtime SQLite
+  dans l'application ; ce que les transports en tiennent est tenu par `AdapterCompositionRootArchitectureTest` et
+  `SqliteStorePackagesArchitectureTest` (ADR-0109).
 - `m27/ReasoningPlatformArchitectureTest` et `m25/PolicyPlatformArchitectureTest` : interdits textuels inchangés.
 - `LayerDependencyTest` : l'application ne dépend d'aucun adaptateur.
 - Revue : l'extraction du transport de découverte de mise à jour (changement OpenSpec
