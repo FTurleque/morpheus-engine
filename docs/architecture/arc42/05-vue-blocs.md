@@ -84,7 +84,7 @@ nombre se compte dans le POM, il ne s'écrit pas ici) :
 | Famille | Modules | Responsabilité |
 |---------|---------|----------------|
 | Domaine | `morpheus-domain` | Modèle métier, value objects, invariants et state machines |
-| Application | `morpheus-application` | Use cases, orchestration et ports possédés par MORPHEUS |
+| Application | `morpheus-application` | Use cases, orchestration et ports possédés par MORPHEUS ; accès au disque local, à l'environnement et à l'horloge par des classes nommées, ni SQL, ni JSON, ni processus ([ADR-0148](../adr/ARCH-0148-ce-que-le-coeur-applicatif-peut-toucher.md)) |
 | Provider SDK | `morpheus-provider-sdk`, `morpheus-provider-testkit`, `morpheus-provider-reference` | Contrats d'extension, qualification et plugin de référence |
 | Providers | `morpheus-provider-openspec`, `morpheus-provider-markdown`, `morpheus-provider-synthetic` | Adaptation des sources vers les contrats MORPHEUS |
 | Stores | `morpheus-store-memory`, `morpheus-store-sqlite` | Persistance derrière les ports applicatifs |
@@ -120,6 +120,8 @@ Invariants :
 ```text
 domain -X-> application infrastructure
 application -X-> adapters
+application -X-> SQL / JSON library / process execution
+application -> file, network, environment, clock, reflection : named classes only (ADR-0148)
 provider-specific types -X-> public domain contracts
 store implementation details -X-> domain
 optional integration failure != local fact loss
