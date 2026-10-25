@@ -166,9 +166,8 @@ public final class MorpheusMcpServer {
         MorpheusMcpToolService service = new MorpheusMcpToolService(databasePath, recorder);
         List<McpServerFeatures.SyncToolSpecification> tools = new ArrayList<>();
 
-        Map<String, McpServerFeatures.SyncToolSpecification> catalogTools = new LinkedHashMap<>();
-        new MorpheusRequirementMcpTools(databasePath, recorder).specifications()
-                .forEach(specification -> catalogTools.put(specification.tool().name(), specification));
+        Map<String, McpServerFeatures.SyncToolSpecification> catalogTools =
+                byName(new MorpheusRequirementMcpTools(databasePath, recorder).specifications());
         for (MorpheusMcpToolCatalog.ToolDefinition definition : catalog.tools()) {
             McpServerFeatures.SyncToolSpecification extracted = catalogTools.remove(definition.name());
             tools.add(extracted != null ? extracted : tool(definition, service));
@@ -192,6 +191,19 @@ public final class MorpheusMcpServer {
         tools.addAll(new MorpheusControlledLifecycleMcpTools(databasePath, recorder, writeCapabilityResolver)
                 .specifications());
         return List.copyOf(tools);
+    }
+
+    /** The catalogue tools the capability classes serve, by name; a name served twice stops the server from being built. */
+    static Map<String, McpServerFeatures.SyncToolSpecification> byName(
+            List<McpServerFeatures.SyncToolSpecification> specifications) {
+        Map<String, McpServerFeatures.SyncToolSpecification> byName = new LinkedHashMap<>();
+        for (McpServerFeatures.SyncToolSpecification specification : specifications) {
+            if (byName.putIfAbsent(specification.tool().name(), specification) != null) {
+                throw new IllegalStateException(
+                        "catalogue tool served by two capability classes: " + specification.tool().name());
+            }
+        }
+        return byName;
     }
 
     public static TechnicalContextProvider unconfiguredTechnicalContext() {

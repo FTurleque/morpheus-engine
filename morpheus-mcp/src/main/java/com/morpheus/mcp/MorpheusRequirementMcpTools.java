@@ -31,16 +31,16 @@ public final class MorpheusRequirementMcpTools {
 
     public List<McpServerFeatures.SyncToolSpecification> specifications() {
         return List.of(
-                McpServerFeatures.SyncToolSpecification.builder()
-                        .tool(McpCatalogTool.definition(FIND_TOOL))
-                        .callHandler((exchange, request) -> McpCatalogTool.answer(
-                                databasePath, recorder, request.arguments(), MorpheusRequirementMcpTools::findRequirements))
-                        .build(),
-                McpServerFeatures.SyncToolSpecification.builder()
-                        .tool(McpCatalogTool.definition(TRACE_TOOL))
-                        .callHandler((exchange, request) -> McpCatalogTool.answer(
-                                databasePath, recorder, request.arguments(), MorpheusRequirementMcpTools::traceRequirement))
-                        .build());
+                tool(FIND_TOOL, MorpheusRequirementMcpTools::findRequirements),
+                tool(TRACE_TOOL, MorpheusRequirementMcpTools::traceRequirement));
+    }
+
+    /** The handler is declared here, so the tool's owner is this class (ADR-0149). */
+    private McpServerFeatures.SyncToolSpecification tool(String name, McpCatalogTool.Answer answer) {
+        return McpServerFeatures.SyncToolSpecification.builder()
+                .tool(McpCatalogTool.definition(name))
+                .callHandler((exchange, request) -> McpCatalogTool.answer(databasePath, recorder, request.arguments(), answer))
+                .build();
     }
 
     private static Object findRequirements(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
