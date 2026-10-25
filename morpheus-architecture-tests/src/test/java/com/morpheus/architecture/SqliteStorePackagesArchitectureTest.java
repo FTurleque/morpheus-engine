@@ -100,15 +100,7 @@ class SqliteStorePackagesArchitectureTest {
             try (Stream<Path> tree = Files.walk(sources)) {
                 for (Path source : tree.filter(path -> path.toString().endsWith(".java")).sorted().toList()) {
                     scanned++;
-                    Matcher named = RUNTIME_NAME.matcher(Files.readString(source));
-                    while (named.find()) {
-                        String name = named.group(1);
-                        if (RUNTIME_ENTRY_POINTS.contains(name)) {
-                            entryPointsNamed.add(name);
-                        } else {
-                            offenders.add(root.relativize(source).toString().replace('\\', '/') + " names " + name);
-                        }
-                    }
+                    classifyRuntimeNames(root, source, entryPointsNamed, offenders);
                 }
             }
         }
@@ -119,6 +111,19 @@ class SqliteStorePackagesArchitectureTest {
         assertEquals(List.of(), offenders, "a main source outside " + STORE_MODULE + " names a runtime class of the "
                 + "SQLite store: a compile-time constant read this way leaves no dependency for the bytecode rule. "
                 + "Reach the store through an application port");
+    }
+
+    private static void classifyRuntimeNames(Path root, Path source, Set<String> entryPointsNamed, List<String> offenders)
+            throws IOException {
+        Matcher named = RUNTIME_NAME.matcher(Files.readString(source));
+        while (named.find()) {
+            String name = named.group(1);
+            if (RUNTIME_ENTRY_POINTS.contains(name)) {
+                entryPointsNamed.add(name);
+            } else {
+                offenders.add(root.relativize(source).toString().replace('\\', '/') + " names " + name);
+            }
+        }
     }
 
     @Test

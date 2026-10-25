@@ -28,7 +28,8 @@ public final class MorpheusControlledLifecycleApiService {
     private final OperationalRecorder recorder;
     private final ChangeWriteCapabilityResolver writeCapability;
 
-    public MorpheusControlledLifecycleApiService(Path databasePath, OperationalRecorder recorder, ChangeWriteCapabilityResolver writeCapability) {
+    public MorpheusControlledLifecycleApiService(
+            Path databasePath, OperationalRecorder recorder, ChangeWriteCapabilityResolver writeCapability) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
         this.recorder = Objects.requireNonNull(recorder, "recorder");
         this.writeCapability = Objects.requireNonNull(writeCapability, "writeCapability");

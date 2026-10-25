@@ -18,10 +18,7 @@ import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 import com.morpheus.domain.task.ImplementationTask;
 
 import java.nio.file.Path;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -53,7 +50,7 @@ public final class MorpheusChangeQueryApiService {
         ChangeId changeId = ChangeId.parse(changeIdValue);
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             var result = requireChange(runtime, projectId, changeId);
-            return map("snapshotId", result.snapshot().id().toString(), "change", change(result.item().orElseThrow()));
+            return OrderedFields.map("snapshotId", result.snapshot().id().toString(), "change", change(result.item().orElseThrow()));
         }
     }
 
@@ -157,7 +154,7 @@ public final class MorpheusChangeQueryApiService {
     }
 
     private Object change(ChangeProposal item) {
-        return map(
+        return OrderedFields.map(
                 "id", item.id().toString(),
                 "projectId", item.projectId().toString(),
                 "key", item.key().orElse(""),
@@ -169,11 +166,11 @@ public final class MorpheusChangeQueryApiService {
     }
 
     private Object constraint(Constraint item) {
-        return map("id", item.id().toString(), "changeId", item.changeId().toString(), "statement", item.statement());
+        return OrderedFields.map("id", item.id().toString(), "changeId", item.changeId().toString(), "statement", item.statement());
     }
 
     private Object acceptanceCriterion(AcceptanceCriterion item) {
-        return map(
+        return OrderedFields.map(
                 "id", item.id().toString(),
                 "requirementId", item.requirementId().map(Object::toString).orElse(""),
                 "changeId", item.changeId().map(Object::toString).orElse(""),
@@ -185,7 +182,7 @@ public final class MorpheusChangeQueryApiService {
     }
 
     private Object decision(DesignDecision item) {
-        return map(
+        return OrderedFields.map(
                 "id", item.id().toString(),
                 "changeId", item.changeId().toString(),
                 FIELD_TITLE, item.title(),
@@ -193,7 +190,7 @@ public final class MorpheusChangeQueryApiService {
     }
 
     private Object task(ImplementationTask item) {
-        return map(
+        return OrderedFields.map(
                 "id", item.id().toString(),
                 "changeId", item.changeId().toString(),
                 "key", item.key().orElse(""),
@@ -203,18 +200,6 @@ public final class MorpheusChangeQueryApiService {
 
     private Object page(SnapshotPage<?> page, List<?> items) {
         return PagedEnvelope.snapshotPage(page, items);
-    }
-
-    /** LinkedHashMap preserves stable construction order before canonical JSON serialization. */
-    private Map<String, Object> map(Object... entries) {
-        if (entries.length % 2 != 0) {
-            throw new IllegalArgumentException("map entries must be key/value pairs");
-        }
-        Map<String, Object> result = new LinkedHashMap<>();
-        for (int index = 0; index < entries.length; index += 2) {
-            result.put((String) entries[index], entries[index + 1]);
-        }
-        return Collections.unmodifiableMap(result);
     }
 
     private void requireRange(String name, long value, long minimum, long maximum) {

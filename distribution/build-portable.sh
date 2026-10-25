@@ -40,7 +40,7 @@ if [[ -z "$JAR" ]]; then
 fi
 
 printf '%s\n' "Verifying baseline MCP/API/provider-SDK/MINOS/NEXUS classes are embedded in the shaded JAR..."
-JAR_ENTRIES="$($JAR_TOOL tf "$JAR")"
+JAR_ENTRIES="$("$JAR_TOOL" tf "$JAR")"
 for entry in \
   'com/morpheus/mcp/MorpheusMcpServer.class' \
   'com/morpheus/mcp/MorpheusJarvisOrchestrationMcpTools.class' \
@@ -205,7 +205,7 @@ if [[ "$NEXUS_STATUS" != *'"state":"DISABLED"'* ]]; then
   exit 1
 fi
 printf '%s\n' "$NEXUS_STATUS"
-HELP="$($LAUNCHER help)"
+HELP="$("$LAUNCHER" help)"
 if [[ "$HELP" != *'change-orchestration'* || "$HELP" != *'update-check'* || "$HELP" != *'provider-plugins'* ]]; then
   echo "Packaged baseline CLI help smoke failed" >&2
   exit 1
