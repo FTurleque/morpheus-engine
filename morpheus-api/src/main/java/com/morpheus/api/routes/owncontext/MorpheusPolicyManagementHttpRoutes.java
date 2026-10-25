@@ -111,19 +111,24 @@ final class MorpheusPolicyManagementHttpRoutes {
         try {
             responseWriter.send(exchange, 200, new ApiSuccess("v1", handler.execute()));
         } catch (PolicyConflictException failure) {
-            responseWriter.send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("REVISION_CONFLICT", BoundaryFailureMessage.safe(failure), Map.of())));
+            responseWriter.send(exchange, 409, new ApiErrorEnvelope(
+                    "v1", new ApiError("REVISION_CONFLICT", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (ApiFailure failure) {
             if (failure.status() == 405) {
                 exchange.getResponseHeaders().set("Allow", allowedMethods.forPath(exchange.getRequestURI().getRawPath()));
             }
-            responseWriter.send(exchange, failure.status(), new ApiErrorEnvelope("v1", new ApiError(failure.code(), failure.getMessage(), failure.details())));
+            responseWriter.send(exchange, failure.status(), new ApiErrorEnvelope(
+                    "v1", new ApiError(failure.code(), failure.getMessage(), failure.details())));
         } catch (IllegalArgumentException failure) {
-            responseWriter.send(exchange, 400, new ApiErrorEnvelope("v1", new ApiError("BAD_REQUEST", BoundaryFailureMessage.safe(failure), Map.of())));
+            responseWriter.send(exchange, 400, new ApiErrorEnvelope(
+                    "v1", new ApiError("BAD_REQUEST", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (KnowledgeStoreException | IllegalStateException failure) {
-            responseWriter.send(exchange, 409, new ApiErrorEnvelope("v1", new ApiError("STATE_CONFLICT", BoundaryFailureMessage.safe(failure), Map.of())));
+            responseWriter.send(exchange, 409, new ApiErrorEnvelope(
+                    "v1", new ApiError("STATE_CONFLICT", BoundaryFailureMessage.safe(failure), Map.of())));
         } catch (RuntimeException failure) {
             UnforeseenFailureTrace.record(recorder, failure);
-            responseWriter.send(exchange, 500, new ApiErrorEnvelope("v1", new ApiError("INTERNAL_ERROR", "internal MORPHEUS API error", Map.of())));
+            responseWriter.send(exchange, 500, new ApiErrorEnvelope(
+                    "v1", new ApiError("INTERNAL_ERROR", "internal MORPHEUS API error", Map.of())));
         } finally {
             exchange.close();
         }
