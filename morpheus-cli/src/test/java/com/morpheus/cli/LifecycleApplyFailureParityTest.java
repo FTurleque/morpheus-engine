@@ -28,6 +28,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -41,10 +42,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@code lifecycle.apply} is declared on all three transports; an invalid argument must fail the same way on
  * all three.
  *
- * <p>{@code contracts/public-surfaces.tsv} claims CLI/MCP/HTTP convergence, and the tests that back that claim
- * exercise the passing paths. The failure paths were never compared, and MCP -- the surface agents call -- was
- * the one whose failure paths were not exercised at all. This submits the same three malformed commands to the
- * real CLI, the real loopback HTTP server and a real STDIO MCP server process.</p>
+ * <p>{@code contracts/public-surfaces.tsv} claims CLI/MCP/HTTP convergence; this compares the failure paths of
+ * that claim. It submits the same three malformed commands to the CLI through its launcher, the real loopback HTTP
+ * server and a real STDIO MCP server process -- MCP being the surface agents call -- and asserts on each which
+ * argument was refused.</p>
  *
  * <p>What must converge is the <em>class</em> of failure: refused, and nothing written. The text does not
  * converge and must not -- each surface names the argument as its own caller spelled it, {@code --to} on the
@@ -110,7 +111,7 @@ class LifecycleApplyFailureParityTest {
      */
     private void assertCliRefuses(
             Path database, Seed seed, String targetState, long expectedRevision, String actor, String refusal) {
-        List<String> arguments = new java.util.ArrayList<>(List.of(
+        List<String> arguments = new ArrayList<>(List.of(
                 "--db", database.toString(), "lifecycle", "apply",
                 "--project", seed.projectId(),
                 "--change", seed.changeId(),
