@@ -24,8 +24,6 @@ import com.morpheus.application.quality.compact.CompactQualityReportService;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.application.sync.IncrementalSyncService;
 import com.morpheus.application.sync.LocalSourceInventoryScanner;
-import com.morpheus.application.sync.SyncFreshness;
-import com.morpheus.application.sync.SyncFreshnessService;
 import com.morpheus.application.sync.SyncPlan;
 import com.morpheus.cli.command.CliCommandRun;
 import com.morpheus.cli.command.CliExitCode;
@@ -43,7 +41,6 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -62,7 +59,6 @@ public final class MorpheusCli {
     private static final String OPT_CHANGE = "change";
     private static final String OPT_DEPTH = "depth";
     private static final String KEY_SNAPSHOT_ID = "snapshotId=";
-    private static final String KEY_UNKNOWN = "unknown";
     private static final String MSG_PROJECT_NO_ACTIVE_SNAPSHOT = "project has no ACTIVE snapshot: ";
 
     private final OperationalRecorder recorder;
@@ -114,7 +110,6 @@ public final class MorpheusCli {
             case "paths" -> paths(run);
             case "projects" -> projects(tokens, run);
             case "sync" -> sync(tokens, run);
-            case "sync-status" -> syncStatus(tokens, run);
             case "analyze-change" -> analyzeChange(tokens, run);
             case "quality" -> quality(tokens, run);
             default -> throw CliFailure.usage("unknown command: " + command);
@@ -285,36 +280,6 @@ public final class MorpheusCli {
         return lines;
     }
 
-    private int syncStatus(List<String> tokens, CliCommandRun run) {
-        CommandOptions options = CommandOptions.parse(tokens, Set.of());
-        options.rejectUnknown(Set.of(OPT_PROJECT, "max-age-minutes"));
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
-        long maxAgeMinutes = options.longValue("max-age-minutes", 60L, 1L, 525600L);
-        try (CliRuntime runtime = CliRuntime.recovering(run.databasePath(), recorder)) {
-            SyncFreshness freshness = new SyncFreshnessService(runtime.syncState())
-                    .assess(projectId, Instant.now(), Duration.ofMinutes(maxAgeMinutes));
-            SyncStatusView view = new SyncStatusView(
-                    projectId.toString(),
-                    freshness.state().name(),
-                    freshness.lastSuccessfulSyncAt().map(Instant::toString),
-                    freshness.ageSinceSuccessfulSync().map(Duration::toSeconds),
-                    freshness.lastObservedChangeAt().map(Instant::toString),
-                    freshness.sourceRevision(),
-                    freshness.lastSuccessfulMode().map(Enum::name),
-                    freshness.pendingFullRebuildReason().map(Enum::name),
-                    freshness.currentSourceCount());
-            run.print(view, String.join(System.lineSeparator(),
-                    "state=" + view.state(),
-                    "lastSuccessfulSyncAt=" + view.lastSuccessfulSyncAt().orElse(KEY_UNKNOWN),
-                    "ageSeconds=" + view.ageSeconds().map(Object::toString).orElse(KEY_UNKNOWN),
-                    "sourceRevision=" + view.sourceRevision().orElse(KEY_UNKNOWN),
-                    "mode=" + view.lastSuccessfulMode().orElse(KEY_UNKNOWN),
-                    "pendingFullRebuildReason=" + view.pendingFullRebuildReason().orElse("none"),
-                    "sourceCount=" + view.currentSourceCount()));
-            return CliExitCode.SUCCESS.code();
-        }
-    }
-
     private int analyzeChange(List<String> tokens, CliCommandRun run) {
         CommandOptions options = CommandOptions.parse(tokens, Set.of());
         options.rejectUnknown(Set.of(OPT_PROJECT, OPT_CHANGE, OPT_DEPTH));
@@ -478,14 +443,4 @@ public final class MorpheusCli {
             int diagnosticCount,
             boolean published,
             BoundedDiagnostics diagnostics) {}
-    private record SyncStatusView(
-            String projectId,
-            String state,
-            Optional<String> lastSuccessfulSyncAt,
-            Optional<Long> ageSeconds,
-            Optional<String> lastObservedChangeAt,
-            Optional<String> sourceRevision,
-            Optional<String> lastSuccessfulMode,
-            Optional<String> pendingFullRebuildReason,
-            int currentSourceCount) {}
 }

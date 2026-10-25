@@ -46,7 +46,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class MorpheusMcpToolServiceTest {
+class CatalogueToolsAnswerTest {
 
     @TempDir
     Path tempDirectory;

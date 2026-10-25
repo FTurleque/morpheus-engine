@@ -3,6 +3,10 @@
 Implementation is a separate lot, started after this specification is reviewed. Nothing below is done by the pull request
 that introduces this change.
 
+**Where the MCP caller is.** `give-each-cli-command-and-mcp-tool-a-capability-class` retires `MorpheusMcpToolService`:
+the requirement reads its tools made are in `MorpheusSpecificationMcpTools` (`get_current_specification`) and
+`MorpheusRequirementMcpTools`, and its test is `CatalogueToolsAnswerTest`.
+
 ## 1. Measure before changing
 
 - [ ] 1.1 List every caller of both overloads of `listCurrentRequirementVersions` under `src/main`, and for each

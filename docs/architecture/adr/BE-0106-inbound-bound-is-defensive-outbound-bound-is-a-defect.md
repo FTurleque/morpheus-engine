@@ -232,7 +232,7 @@ configuré par l'opérateur (`resolve_external_reference`, `get_augmented_requir
 - `morpheus-mcp/src/test/java/com/morpheus/mcp/server/MorpheusMcpServerExitCodeTest.java` et
   `morpheus-mcp/src/test/java/com/morpheus/mcp/server/MorpheusMcpServerOversizedResponseTest.java` : codes de sortie, et
   refus d'une spécification hors borne par le câblage réel, sans fragment, avec code de fin propre.
-- `morpheus-mcp/src/test/java/com/morpheus/mcp/MorpheusMcpToolServiceTest.java` :
+- `morpheus-mcp/src/test/java/com/morpheus/mcp/CatalogueToolsAnswerTest.java` :
   `aBoundedSliceOfSpecificationsIsReturnedForAnOffsetAndALimit` ;
   `morpheus-mcp/src/test/java/com/morpheus/mcp/MorpheusMcpToolCatalogTest.java` :
   `theCurrentSpecificationToolDescribesWhatItActuallyReturns`.

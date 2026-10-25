@@ -1,8 +1,8 @@
 package com.morpheus.mcp.server;
 
 import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.mcp.MorpheusMcpToolCatalog;
-import com.morpheus.mcp.MorpheusMcpToolService;
 import com.morpheus.mcp.MorpheusRequirementMcpTools;
 import io.modelcontextprotocol.server.McpSyncServer;
 import org.junit.jupiter.api.Test;
@@ -26,10 +26,16 @@ class MorpheusMcpServerContractTest {
     @Test
     void buildsSdkSpecificationsForEveryM10Tool() {
         MorpheusMcpToolCatalog catalog = new MorpheusMcpToolCatalog();
-        MorpheusMcpToolService service = new MorpheusMcpToolService(tempDirectory.resolve("morpheus.db"), OperationalRecorder.noop());
+        List<String> catalogued = catalog.tools().stream().map(MorpheusMcpToolCatalog.ToolDefinition::name).toList();
 
-        var specifications = catalog.tools().stream()
-                .map(tool -> MorpheusMcpServer.tool(tool, service))
+        var specifications = MorpheusMcpServer.toolSpecifications(
+                        tempDirectory.resolve("morpheus.db"),
+                        new ExternalReferenceResolverRegistry(List.of()),
+                        MorpheusMcpServer.unconfiguredTechnicalContext(),
+                        MorpheusMcpServer.deniedWriteCapability(),
+                        OperationalRecorder.noop())
+                .stream()
+                .filter(specification -> catalogued.contains(specification.tool().name()))
                 .toList();
 
         assertEquals(14, specifications.size());

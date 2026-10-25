@@ -34,7 +34,7 @@ import java.util.function.Supplier;
  * maximum {@code PortfolioQueryService.MAX_PAGE_SIZE}, 500), the query tools ({@code queryProperties()}: default 100,
  * maximum {@code QueryBudgets.MAX_PAGE_SIZE}, and an {@code offset} whose schema declares no maximum although the code
  * enforces {@code Integer.MAX_VALUE}), and the catalog tools ({@code MorpheusMcpToolCatalog} and
- * {@code MorpheusMcpToolService}: 50 and 100, {@code offset} up to 1 000 000). They differ in value, so an equality guard
+ * {@code McpCatalogTool}: 50 and 100, {@code offset} up to 1 000 000). They differ in value, so an equality guard
  * across them would be wrong, and the schema-versus-code disagreement of the query tools is the defect class of the
  * export finding (MCP-3), not of this one: no guard on it is claimed here.</p>
  */

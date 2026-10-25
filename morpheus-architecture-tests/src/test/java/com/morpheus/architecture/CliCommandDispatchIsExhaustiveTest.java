@@ -46,7 +46,6 @@ class CliCommandDispatchIsExhaustiveTest {
             "projects list",
             "projects add",
             "sync",
-            "sync-status",
             "analyze-change",
             "quality");
 

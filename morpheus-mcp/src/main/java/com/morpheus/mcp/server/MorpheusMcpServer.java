@@ -8,10 +8,8 @@ import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.product.ProductMetadata;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.application.snapshot.RuntimeSnapshotRecovery;
-import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.integration.mcp.BoundedStdioServerTransportProvider;
-import com.morpheus.mcp.McpArguments;
-import com.morpheus.mcp.McpToolFailure;
+import com.morpheus.mcp.MorpheusAcceptanceCriteriaMcpTools;
 import com.morpheus.mcp.MorpheusAugmentedContextMcpTools;
 import com.morpheus.mcp.MorpheusChangeMcpTools;
 import com.morpheus.mcp.MorpheusCompositionMcpTools;
@@ -20,7 +18,6 @@ import com.morpheus.mcp.MorpheusExternalReferenceMcpTools;
 import com.morpheus.mcp.MorpheusJarvisOrchestrationMcpTools;
 import com.morpheus.mcp.MorpheusMcpRuntime;
 import com.morpheus.mcp.MorpheusMcpToolCatalog;
-import com.morpheus.mcp.MorpheusMcpToolService;
 import com.morpheus.mcp.MorpheusPolicyMcpManagementTools;
 import com.morpheus.mcp.MorpheusPolicyMcpTools;
 import com.morpheus.mcp.MorpheusPortfolioMcpTools;
@@ -29,6 +26,8 @@ import com.morpheus.mcp.MorpheusProviderPluginMcpTools;
 import com.morpheus.mcp.MorpheusQueryMcpTools;
 import com.morpheus.mcp.MorpheusReasoningMcpTools;
 import com.morpheus.mcp.MorpheusRequirementMcpTools;
+import com.morpheus.mcp.MorpheusSpecificationMcpTools;
+import com.morpheus.mcp.MorpheusSyncStatusMcpTools;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpServerFeatures;
@@ -164,23 +163,7 @@ public final class MorpheusMcpServer {
             TechnicalContextProvider technicalContextProvider,
             ChangeWriteCapabilityResolver writeCapabilityResolver,
             OperationalRecorder recorder) {
-        MorpheusMcpToolCatalog catalog = new MorpheusMcpToolCatalog();
-        MorpheusMcpToolService service = new MorpheusMcpToolService(databasePath, recorder);
-        List<McpServerFeatures.SyncToolSpecification> tools = new ArrayList<>();
-
-        Map<String, McpServerFeatures.SyncToolSpecification> catalogTools = byName(Stream.of(
-                        new MorpheusRequirementMcpTools(databasePath, recorder).specifications(),
-                        new MorpheusChangeMcpTools(databasePath, recorder).specifications())
-                .flatMap(List::stream)
-                .toList());
-        for (MorpheusMcpToolCatalog.ToolDefinition definition : catalog.tools()) {
-            McpServerFeatures.SyncToolSpecification extracted = catalogTools.remove(definition.name());
-            tools.add(extracted != null ? extracted : tool(definition, service));
-        }
-        if (!catalogTools.isEmpty()) {
-            throw new IllegalStateException("tools served as catalogue tools but absent from the catalogue: "
-                    + catalogTools.keySet());
-        }
+        List<McpServerFeatures.SyncToolSpecification> tools = new ArrayList<>(catalogueTools(databasePath, recorder));
         tools.addAll(new MorpheusProductMcpTools().specifications());
         tools.addAll(new MorpheusProviderPluginMcpTools().specifications());
         tools.addAll(new MorpheusPortfolioMcpTools(databasePath, recorder).specifications());
@@ -209,6 +192,35 @@ public final class MorpheusMcpServer {
             }
         }
         return byName;
+    }
+
+    /**
+     * The tools {@link MorpheusMcpToolCatalog} defines, in its order, each served by its capability class. A definition
+     * no class serves, and a tool served under a name the catalogue does not define, stop the server from being built.
+     */
+    private static List<McpServerFeatures.SyncToolSpecification> catalogueTools(
+            Path databasePath, OperationalRecorder recorder) {
+        Map<String, McpServerFeatures.SyncToolSpecification> served = byName(Stream.of(
+                        new MorpheusSpecificationMcpTools(databasePath, recorder).specifications(),
+                        new MorpheusRequirementMcpTools(databasePath, recorder).specifications(),
+                        new MorpheusChangeMcpTools(databasePath, recorder).specifications(),
+                        new MorpheusAcceptanceCriteriaMcpTools(databasePath, recorder).specifications(),
+                        new MorpheusSyncStatusMcpTools(databasePath, recorder).specifications())
+                .flatMap(List::stream)
+                .toList());
+        List<McpServerFeatures.SyncToolSpecification> tools = new ArrayList<>();
+        for (MorpheusMcpToolCatalog.ToolDefinition definition : new MorpheusMcpToolCatalog().tools()) {
+            McpServerFeatures.SyncToolSpecification tool = served.remove(definition.name());
+            if (tool == null) {
+                throw new IllegalStateException("catalogue tool served by no capability class: " + definition.name());
+            }
+            tools.add(tool);
+        }
+        if (!served.isEmpty()) {
+            throw new IllegalStateException("tools served as catalogue tools but absent from the catalogue: "
+                    + served.keySet());
+        }
+        return tools;
     }
 
     public static TechnicalContextProvider unconfiguredTechnicalContext() {
@@ -295,33 +307,6 @@ public final class MorpheusMcpServer {
             return EXIT_TRANSPORT_FAILURE;
         } finally {
             server.close();
-        }
-    }
-
-    public static McpServerFeatures.SyncToolSpecification tool(
-            MorpheusMcpToolCatalog.ToolDefinition definition,
-            MorpheusMcpToolService service) {
-        McpSchema.Tool tool = McpSchema.Tool.builder(definition.name(), definition.inputSchema())
-                .description(definition.description())
-                .build();
-        return McpServerFeatures.SyncToolSpecification.builder()
-                .tool(tool)
-                .callHandler((exchange, request) -> call(service, definition.name(), request.arguments()))
-                .build();
-    }
-
-    private static McpSchema.CallToolResult call(
-            MorpheusMcpToolService service,
-            String toolName,
-            Map<String, Object> arguments) {
-        try {
-            String result = service.execute(toolName, McpArguments.orEmpty(arguments));
-            return McpSchema.CallToolResult.builder()
-                    .addTextContent(result)
-                    .isError(false)
-                    .build();
-        } catch (IllegalArgumentException | KnowledgeStoreException expected) {
-            return McpToolFailure.result(expected);
         }
     }
 

@@ -94,7 +94,7 @@ propres au MCP restent déterministes, ordonnées et snapshot-scoped.
 
 - `morpheus-architecture-tests/src/test/java/com/morpheus/mcp/PublicSurfaceManifestCoversEveryServedToolTest.java` :
   tout outil servi a sa ligne au manifeste, et toute ligne nomme un outil servi.
-- `morpheus-mcp/src/test/java/com/morpheus/mcp/MorpheusMcpToolServiceTest.java`
+- `morpheus-mcp/src/test/java/com/morpheus/mcp/CatalogueToolsAnswerTest.java`
   (`executesEntireReadOnlyCatalogWithoutInventingUnavailableSemantics`) : critères d'acceptation vides sans
   `UNAVAILABLE_IN_NORMALIZED_MODEL`, scénario jamais relabellisé, `lifecycleState` `UNAVAILABLE`.
 - `morpheus-mcp/src/test/java/com/morpheus/mcp/MorpheusMcpToolCatalogTest.java` : schémas d'entrée stricts et bornés.
