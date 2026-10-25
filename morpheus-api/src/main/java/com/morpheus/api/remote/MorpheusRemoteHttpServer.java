@@ -185,9 +185,9 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         return URI.create("https://" + hostForUri(host()) + ":" + port() + MorpheusHttpRouteTable.API_PREFIX);
     }
 
-    // The exclusive server lease is released last and matters most: a failure in any earlier release used to
-    // skip it, leaving the database reserved for the rest of the process while the facade reported itself shut
-    // down. Every release now runs, and the first failure is the one the caller sees.
+    // Every release runs even when an earlier one fails, and the first failure is the one the caller sees. The
+    // exclusive server lease is released last and matters most: skipping it would keep the database reserved for
+    // the rest of the process while the facade reports itself shut down.
     @Override
     public void close() {
         ExhaustiveShutdown.releaseAll(
@@ -204,9 +204,9 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
      * Lets the requests already being served write their access record before the facade reports itself shut down.
      *
      * <p>{@code server.stop(0)} closes the connections but returns while handlers still run, and a handler journals
-     * its outcome after its exchange is closed. Interrupting them at once lost that record, and the journal could
-     * recreate its file after the caller had moved on. A handler whose connection is gone finishes quickly; one that
-     * does not within {@link #IN_FLIGHT_GRACE} is interrupted as before.</p>
+     * its outcome after its exchange is closed. Interrupting them at once would lose that record, and the journal
+     * could recreate its file after the caller has moved on. A handler whose connection is gone finishes quickly;
+     * one that does not within {@link #IN_FLIGHT_GRACE} is interrupted.</p>
      */
     private void finishInFlightRequests() throws InterruptedException {
         executor.shutdown();
@@ -376,9 +376,9 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     /**
      * Answers the runtime status outside the request budget it reports on.
      *
-     * <p>Status is the one route an operator needs precisely when the facade is saturated, and it used to be
-     * admitted through the same semaphore as the traffic it describes: a server at its request ceiling answered
-     * 429 to the question "why are you at your ceiling?". It reads process-local counters, touches no database
+     * <p>Status is the one route an operator needs precisely when the facade is saturated. Admitted through the
+     * same semaphore as the traffic it describes, a server at its request ceiling would answer 429 to the question
+     * "why are you at your ceiling?". It reads process-local counters, touches no database
      * and makes no upstream call, so it does not belong in that budget -- but it is still authenticated,
      * authorized and separately bounded, so an authenticated reader cannot turn it into an unmetered lane.</p>
      */

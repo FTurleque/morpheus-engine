@@ -81,18 +81,18 @@ final class RemoteAccessJournal {
         if (!MorpheusRemoteHttpServer.usesPrivilegedConcurrency(request.method(), request.required())) {
             return true;
         }
-        return write(request, "accepted", OperationalEventLevel.INFO, Map.of());
+        return tryWrite(request, "accepted", OperationalEventLevel.INFO, Map.of());
     }
 
     /** Records how a request ended. A status the server never sent is recorded as such. */
     void completed(Request request, int status) {
-        write(request,
+        tryWrite(request,
                 "completed",
                 status == 403 ? OperationalEventLevel.WARNING : OperationalEventLevel.INFO,
                 Map.of("status", status < 0 ? "unsent" : Integer.toString(status)));
     }
 
-    private boolean write(Request request, String phase, OperationalEventLevel level, Map<String, String> more) {
+    private boolean tryWrite(Request request, String phase, OperationalEventLevel level, Map<String, String> more) {
         Map<String, String> record = new LinkedHashMap<>(more);
         record.put("phase", phase);
         record.put("requestId", request.requestId());

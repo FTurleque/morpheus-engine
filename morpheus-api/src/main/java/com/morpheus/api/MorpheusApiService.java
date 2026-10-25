@@ -5,9 +5,6 @@ import com.morpheus.application.product.ProductMetadata;
 import com.morpheus.application.query.PageRequest;
 
 import java.nio.file.Path;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -58,11 +55,11 @@ public final class MorpheusApiService {
     }
 
     public Object health() {
-        return map("status", "UP", "service", "morpheus", "apiVersion", ProductMetadata.API_VERSION);
+        return OrderedFields.map("status", "UP", "service", "morpheus", "apiVersion", ProductMetadata.API_VERSION);
     }
 
     public Object version() {
-        return map("version", ProductMetadata.version());
+        return OrderedFields.map("version", ProductMetadata.version());
     }
 
     public Object listProjects() {
@@ -201,18 +198,6 @@ public final class MorpheusApiService {
 
     public Object diagnostics(String projectIdValue) {
         return diagnosticsService.diagnostics(projectIdValue);
-    }
-
-    /** LinkedHashMap keeps construction stable while the canonical serializer sorts JSON keys. */
-    private Map<String, Object> map(Object... entries) {
-        if (entries.length % 2 != 0) {
-            throw new IllegalArgumentException("map entries must be key/value pairs");
-        }
-        Map<String, Object> result = new LinkedHashMap<>();
-        for (int index = 0; index < entries.length; index += 2) {
-            result.put((String) entries[index], entries[index + 1]);
-        }
-        return Collections.unmodifiableMap(result);
     }
 
     public record RegistrationResult(Object project, boolean created) {
