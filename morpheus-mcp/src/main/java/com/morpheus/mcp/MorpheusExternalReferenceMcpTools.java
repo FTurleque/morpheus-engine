@@ -20,7 +20,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /** Additive M12 read-only MCP tools for snapshot-scoped external references. */
-final class MorpheusExternalReferenceMcpTools {
+public final class MorpheusExternalReferenceMcpTools {
     static final String LIST_TOOL = "list_external_references";
     static final String RESOLVE_TOOL = "resolve_external_reference";
 
@@ -29,13 +29,13 @@ final class MorpheusExternalReferenceMcpTools {
     private final ExternalReferenceResolverRegistry resolverRegistry;
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
-    MorpheusExternalReferenceMcpTools(Path databasePath, OperationalRecorder recorder, ExternalReferenceResolverRegistry resolverRegistry) {
+    public MorpheusExternalReferenceMcpTools(Path databasePath, OperationalRecorder recorder, ExternalReferenceResolverRegistry resolverRegistry) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
         this.recorder = Objects.requireNonNull(recorder, "recorder");
         this.resolverRegistry = Objects.requireNonNull(resolverRegistry, "resolverRegistry");
     }
 
-    List<McpServerFeatures.SyncToolSpecification> specifications() {
+    public List<McpServerFeatures.SyncToolSpecification> specifications() {
         return List.of(
                 tool(LIST_TOOL,
                         "List snapshot-scoped external references owned by one entity in the ACTIVE project snapshot.",

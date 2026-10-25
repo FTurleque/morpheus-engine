@@ -23,7 +23,7 @@ import java.util.Objects;
 import java.util.Set;
 
 /** Additive M13 read-only MCP tools for MORPHEUS intent augmented by optional technical context. */
-final class MorpheusAugmentedContextMcpTools {
+public final class MorpheusAugmentedContextMcpTools {
     static final String REQUIREMENT_TOOL = "get_augmented_requirement_context";
     static final String CHANGE_TOOL = "get_augmented_change_context";
 
@@ -32,13 +32,13 @@ final class MorpheusAugmentedContextMcpTools {
     private final TechnicalContextProvider provider;
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
-    MorpheusAugmentedContextMcpTools(Path databasePath, OperationalRecorder recorder, TechnicalContextProvider provider) {
+    public MorpheusAugmentedContextMcpTools(Path databasePath, OperationalRecorder recorder, TechnicalContextProvider provider) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
         this.recorder = Objects.requireNonNull(recorder, "recorder");
         this.provider = Objects.requireNonNull(provider, "provider");
     }
 
-    List<McpServerFeatures.SyncToolSpecification> specifications() {
+    public List<McpServerFeatures.SyncToolSpecification> specifications() {
         return List.of(
                 tool(
                         REQUIREMENT_TOOL,

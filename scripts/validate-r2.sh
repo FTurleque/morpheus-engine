@@ -78,7 +78,7 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
     'com/morpheus/application/policy/PolicyPackService.class' \
     'com/morpheus/application/policy/PolicyEvaluationService.class' \
     'com/morpheus/store/sqlite/adapter/SqlitePolicyPackStore.class' \
-    'com/morpheus/cli/MorpheusPolicyCli.class' \
+    'com/morpheus/cli/command/MorpheusPolicyCli.class' \
     'com/morpheus/mcp/MorpheusPolicyMcpTools.class' \
     'com/morpheus/api/MorpheusPolicyApiService.class' \
     'com/morpheus/api/routes/owncontext/MorpheusPolicyHttpRoutes.class' \
@@ -87,8 +87,8 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
     'com/morpheus/api/remote/MorpheusRemoteIdentityFile.class' \
     'com/morpheus/api/remote/MorpheusRemoteRole.class' \
     'com/morpheus/store/sqlite/runtime/SqliteServerMaintenance.class' \
-    'com/morpheus/cli/RemoteApiLaunchOptions.class' \
-    'com/morpheus/cli/MorpheusServerCli.class'; do
+    'com/morpheus/cli/launch/RemoteApiLaunchOptions.class' \
+    'com/morpheus/cli/command/MorpheusServerCli.class'; do
     grep -Fxq "$entry" "$OUTPUT/shaded-entries.txt" || { echo "R2 packaged runtime is missing $entry" >&2; exit 1; }
   done
 

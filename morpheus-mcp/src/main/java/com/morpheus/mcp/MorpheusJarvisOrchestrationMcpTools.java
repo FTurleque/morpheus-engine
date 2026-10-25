@@ -24,7 +24,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /** Additive M14 read-only tools exposing lifecycle facts and transition decisions to orchestrators. */
-final class MorpheusJarvisOrchestrationMcpTools {
+public final class MorpheusJarvisOrchestrationMcpTools {
     static final String STATE_TOOL = "get_change_orchestration_state";
     static final String TRANSITION_TOOL = "evaluate_change_transition";
 
@@ -32,12 +32,12 @@ final class MorpheusJarvisOrchestrationMcpTools {
     private final OperationalRecorder recorder;
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
-    MorpheusJarvisOrchestrationMcpTools(Path databasePath, OperationalRecorder recorder) {
+    public MorpheusJarvisOrchestrationMcpTools(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
         this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
-    List<McpServerFeatures.SyncToolSpecification> specifications() {
+    public List<McpServerFeatures.SyncToolSpecification> specifications() {
         return List.of(
                 tool(
                         STATE_TOOL,

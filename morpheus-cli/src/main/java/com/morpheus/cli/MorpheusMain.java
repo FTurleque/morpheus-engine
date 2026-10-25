@@ -8,9 +8,28 @@ import com.morpheus.application.operability.OperationalLogFileException;
 import com.morpheus.application.operability.OperationalLogMode;
 import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.query.dsl.QueryBudgets;
+import com.morpheus.cli.command.CliExitCode;
+import com.morpheus.cli.command.CliLayout;
+import com.morpheus.cli.command.MorpheusAcceptanceCriteriaCli;
+import com.morpheus.cli.command.MorpheusAugmentedContextCli;
+import com.morpheus.cli.command.MorpheusCompositionCli;
+import com.morpheus.cli.command.MorpheusConstraintSemanticsCli;
+import com.morpheus.cli.command.MorpheusControlledLifecycleCli;
+import com.morpheus.cli.command.MorpheusExternalIntegrationCli;
+import com.morpheus.cli.command.MorpheusJarvisOrchestrationCli;
+import com.morpheus.cli.command.MorpheusPolicyCli;
+import com.morpheus.cli.command.MorpheusPortfolioCli;
+import com.morpheus.cli.command.MorpheusProductCli;
+import com.morpheus.cli.command.MorpheusProviderPluginCli;
+import com.morpheus.cli.command.MorpheusQueryCli;
+import com.morpheus.cli.command.MorpheusServerCli;
+import com.morpheus.cli.launch.ApiLaunchOptions;
+import com.morpheus.cli.launch.CliProjectWriteCapabilityResolver;
+import com.morpheus.cli.launch.McpLaunchOptions;
+import com.morpheus.cli.launch.RemoteApiLaunchOptions;
 import com.morpheus.integration.minos.MinosIntegrationRuntime;
 import com.morpheus.integration.nexus.NexusIntegrationRuntime;
-import com.morpheus.mcp.MorpheusMcpServer;
+import com.morpheus.mcp.server.MorpheusMcpServer;
 
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
@@ -119,7 +138,7 @@ public final class MorpheusMain {
         return Optional.empty();
     }
 
-    static int run(
+    public static int run(
             OperationalRuntime runtime,
             String[] args,
             PrintStream out,

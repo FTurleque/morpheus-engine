@@ -89,7 +89,7 @@ runtime diagnostics to stderr only
   `theServerArmsSchemaValidationForEveryToolItServes` épingle la validation des arguments par schéma.
 - `morpheus-cli/src/test/java/com/morpheus/cli/MorpheusMcpStdioIntegrationTest.java` : négociation, `tools/list`,
   `tools/call` et refus d'un argument invalide sur un vrai processus STDIO.
-- `morpheus-cli/src/test/java/com/morpheus/cli/OperationalSlf4jServiceProviderTest.java` : dans un processus réel, le
+- `morpheus-cli/src/test/java/com/morpheus/cli/launch/OperationalSlf4jServiceProviderTest.java` : dans un processus réel, le
   journal opérationnel écrit sur la sortie d'erreur et laisse la sortie standard vide.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m28/McpClientIntegrationArchitectureTest.java` :
   l'intégration des clients MCP ne mentionne pas `docker`.

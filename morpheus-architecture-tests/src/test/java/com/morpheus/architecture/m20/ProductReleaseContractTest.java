@@ -1,6 +1,6 @@
 package com.morpheus.architecture.m20;
 
-import com.morpheus.cli.CliLayout;
+import com.morpheus.cli.command.CliLayout;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;

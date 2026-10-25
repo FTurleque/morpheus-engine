@@ -3,7 +3,7 @@ id: BE-0130
 title: "Une invocation de la CLI est validée avant tout effet, et son code de sortie dit ce qui a été observé"
 domain: backend
 rules: true
-files: ["docs/user/CLI.md", "morpheus-cli/src/main/java/com/morpheus/cli/CliExitCode.java"]
+files: ["docs/user/CLI.md", "morpheus-cli/src/main/java/com/morpheus/cli/command/CliExitCode.java"]
 ---
 
 # Une invocation de la CLI est validée avant tout effet, et son code de sortie dit ce qui a été observé
@@ -185,15 +185,15 @@ sont confiées à leur parseur de lancement. Un marqueur que la garde ne sait pa
   refus nommé par les trois parseurs de lancement.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/CliOptionValueHasOneBlankDefinitionTest.java` :
   un seul test du blanc dans `morpheus-cli`, par point de code et avec ses deux moitiés.
-- `morpheus-cli/src/test/java/com/morpheus/cli/OptionValueTest.java`, `SimpleOptionsTest.java`,
+- `morpheus-cli/src/test/java/com/morpheus/cli/command/OptionValueTest.java`, `SimpleOptionsTest.java`,
   `BlankOptionValueRefusalTest.java` : refus du vide et du blanc sur chaque option de chaque parseur, rien d'écrit.
 - `morpheus-cli/src/test/java/com/morpheus/cli/DuplicateOptionRefusalTest.java` : refus de la répétition dans toutes les
   orthographes, accumulation de `--workspace-root`.
-- `morpheus-cli/src/test/java/com/morpheus/cli/NothingIsCreatedBeforeTheOptionsAreAcceptedTest.java` : `policy`,
+- `morpheus-cli/src/test/java/com/morpheus/cli/command/NothingIsCreatedBeforeTheOptionsAreAcceptedTest.java` : `policy`,
   `query`, `views`, `export` et `portfolio` refusent avant d'ouvrir le store ; tables comparées à une liste écrite à part.
 - `morpheus-cli/src/test/java/com/morpheus/cli/MorpheusStateRefusalExitCodeTest.java` : codes `3` et `4` des refus
   d'état, maintien de `2` pour un appel mal formé.
-- `morpheus-cli/src/test/java/com/morpheus/cli/MorpheusPolicyCliTest.java` : code de sortie des quatre décisions.
+- `morpheus-cli/src/test/java/com/morpheus/cli/command/MorpheusPolicyCliTest.java` : code de sortie des quatre décisions.
 - `morpheus-cli/src/test/java/com/morpheus/cli/MorpheusCliTest.java`
   (`aTruncatedAnalysisNamesItsTruncationInTextAsInJsonAndStillSucceeds`) : troncature dite en texte, code `0`.
 - `morpheus-cli/src/test/java/com/morpheus/cli/MorpheusHelpInvocationsParseTest.java` : chaque invocation documentée

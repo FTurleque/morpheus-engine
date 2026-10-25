@@ -28,16 +28,16 @@ import java.util.Objects;
  * time it is asked for. The connection is thread-confined, so a runtime is built, used and closed by the thread that
  * handles the tool call. A database that cannot be opened is the store failure every tool handler answers.</p>
  */
-final class MorpheusMcpRuntime implements AutoCloseable {
+public final class MorpheusMcpRuntime implements AutoCloseable {
     private final SqliteOperationRuntime operation;
 
     /** Opens the runtime of one tool call, whose pressure on the database is counted on {@code recorder}. */
-    MorpheusMcpRuntime(Path databasePath, OperationalRecorder recorder) {
+    public MorpheusMcpRuntime(Path databasePath, OperationalRecorder recorder) {
         this.operation = SqliteOperationRuntime.open(
                 Objects.requireNonNull(databasePath, "databasePath"), Objects.requireNonNull(recorder, "recorder"));
     }
 
-    SpecificationKnowledgeStore snapshots() {
+    public SpecificationKnowledgeStore snapshots() {
         return operation.snapshots();
     }
 

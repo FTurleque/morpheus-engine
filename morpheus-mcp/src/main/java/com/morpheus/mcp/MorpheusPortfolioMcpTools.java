@@ -32,7 +32,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /** M23 MCP tools for explicit portfolio registry and bounded cross-project intelligence. */
-final class MorpheusPortfolioMcpTools {
+public final class MorpheusPortfolioMcpTools {
     static final String CREATE = "create_portfolio";
     static final String REGISTER_PROJECT = "register_portfolio_project";
     static final String MARK_MISSING = "mark_portfolio_project_missing";
@@ -46,12 +46,12 @@ final class MorpheusPortfolioMcpTools {
     private final OperationalRecorder recorder;
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
-    MorpheusPortfolioMcpTools(Path databasePath, OperationalRecorder recorder) {
+    public MorpheusPortfolioMcpTools(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
         this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
-    List<McpServerFeatures.SyncToolSpecification> specifications() {
+    public List<McpServerFeatures.SyncToolSpecification> specifications() {
         return List.of(
                 tool(CREATE, "Create a stable MORPHEUS portfolio identity.", schema(required("name"), strings("name"))),
                 tool(REGISTER_PROJECT, "Register or refresh one project membership without deriving identity from paths.",

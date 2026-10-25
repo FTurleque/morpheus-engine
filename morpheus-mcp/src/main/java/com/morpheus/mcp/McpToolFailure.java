@@ -19,7 +19,7 @@ import io.modelcontextprotocol.spec.McpSchema;
  * a mapping one, and answers with a stable failure code instead of the exception's own message. It still builds
  * its error through {@link #refusal(String)}.</p>
  */
-final class McpToolFailure {
+public final class McpToolFailure {
     private McpToolFailure() {
     }
 
@@ -29,7 +29,7 @@ final class McpToolFailure {
         return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 
-    static McpSchema.CallToolResult result(RuntimeException failure) {
+    public static McpSchema.CallToolResult result(RuntimeException failure) {
         return refusal(safeMessage(failure));
     }
 

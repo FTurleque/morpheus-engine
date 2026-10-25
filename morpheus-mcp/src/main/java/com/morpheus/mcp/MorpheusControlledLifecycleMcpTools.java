@@ -35,7 +35,7 @@ import java.util.Optional;
  * result state ({@link com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationResultState#successful()}),
  * not from an exception. The body is the same JSON either way: the flag adds a fact, it removes none.</p>
  */
-final class MorpheusControlledLifecycleMcpTools {
+public final class MorpheusControlledLifecycleMcpTools {
     static final String APPLY_TOOL = "apply_change_lifecycle_transition";
 
     private final Path databasePath;
@@ -43,13 +43,13 @@ final class MorpheusControlledLifecycleMcpTools {
     private final ChangeWriteCapabilityResolver writeCapability;
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
-    MorpheusControlledLifecycleMcpTools(Path databasePath, OperationalRecorder recorder, ChangeWriteCapabilityResolver writeCapability) {
+    public MorpheusControlledLifecycleMcpTools(Path databasePath, OperationalRecorder recorder, ChangeWriteCapabilityResolver writeCapability) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
         this.recorder = Objects.requireNonNull(recorder, "recorder");
         this.writeCapability = Objects.requireNonNull(writeCapability, "writeCapability");
     }
 
-    List<McpServerFeatures.SyncToolSpecification> specifications() {
+    public List<McpServerFeatures.SyncToolSpecification> specifications() {
         McpSchema.Tool tool = McpSchema.Tool.builder(APPLY_TOOL, schema())
                 .description("Apply one controlled MORPHEUS lifecycle transition. This is a side-effecting M17 operation requiring WRITE_CHANGE capability, expectedRevision, idempotencyKey and explicit confirmation.")
                 .build();

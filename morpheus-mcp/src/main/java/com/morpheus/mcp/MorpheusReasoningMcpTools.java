@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /** M27 read-only MCP tools. Adapters are listed and selected explicitly. */
-final class MorpheusReasoningMcpTools {
+public final class MorpheusReasoningMcpTools {
     static final String LIST_TOOL = "list_reasoning_adapters";
     static final String REASON_TOOL = "reason_with_evidence";
 
@@ -27,16 +27,16 @@ final class MorpheusReasoningMcpTools {
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
     /** Adapter discovery failures it skips are counted on {@code recorder}, the one its server was handed. */
-    MorpheusReasoningMcpTools(OperationalRecorder recorder) {
+    public MorpheusReasoningMcpTools(OperationalRecorder recorder) {
         this(ReasoningService.standard(recorder
                 .suppressing(SuppressedFailureFamily.ADAPTER_DISCOVERY)));
     }
 
-    MorpheusReasoningMcpTools(ReasoningService service) {
+    public MorpheusReasoningMcpTools(ReasoningService service) {
         this.service = Objects.requireNonNull(service, "service");
     }
 
-    List<McpServerFeatures.SyncToolSpecification> specifications() {
+    public List<McpServerFeatures.SyncToolSpecification> specifications() {
         return List.of(
                 tool(
                         LIST_TOOL,

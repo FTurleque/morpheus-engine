@@ -2,6 +2,7 @@ package com.morpheus.mcp;
 
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
+import com.morpheus.mcp.server.MorpheusMcpServer;
 import com.morpheus.store.sqlite.adapter.SqliteSpecificationKnowledgeStore;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.json.schema.JsonSchemaValidator;

@@ -6,14 +6,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.morpheus.application.product.ProductMetadata;
-import com.morpheus.cli.CliExitCode;
+import com.morpheus.cli.command.CliExitCode;
 import com.morpheus.integration.mcp.BoundedStdioServerTransportProvider;
 import com.morpheus.integration.mcp.PeerOperationDeadline;
 import com.morpheus.integration.minos.MinosIntegrationSettings;
 import com.morpheus.integration.minos.MinosMcpCodeGateway;
 import com.morpheus.integration.nexus.NexusIntegrationSettings;
 import com.morpheus.integration.nexus.NexusMcpContextGateway;
-import com.morpheus.mcp.MorpheusMcpServer;
+import com.morpheus.mcp.server.MorpheusMcpServer;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

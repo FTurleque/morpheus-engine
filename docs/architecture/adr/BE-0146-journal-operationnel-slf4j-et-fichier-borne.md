@@ -180,7 +180,7 @@ pour l'exploitation passent par les compteurs `failure.suppressed.*`, pas par le
 
 - Règle Archgate `BE-0146-journal-operationnel-slf4j-et-fichier-borne.rules.ts` : `no-other-slf4j-provider`,
   `no-logger-finder`.
-- `morpheus-cli/src/test/java/com/morpheus/cli/OperationalSlf4jServiceProviderTest.java` : un avertissement et une
+- `morpheus-cli/src/test/java/com/morpheus/cli/launch/OperationalSlf4jServiceProviderTest.java` : un avertissement et une
   erreur donnent chacun un événement ; rien sous l'avertissement ; rien quand le journal est coupé ; message borné ;
   secret rédigé ; un seul fournisseur sur le chemin de classes du produit, celui-ci ; dans un processus réel, une
   ligne JSON sur la sortie d'erreur et une sortie standard vide avec le journal actif, les deux sorties vides avec le

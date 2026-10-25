@@ -148,7 +148,7 @@ fichier de mot de passe compatible avec les identifiants systemd.
 
 ## Compliance and Enforcement
 
-- `morpheus-cli/src/test/java/com/morpheus/cli/RemoteApiLaunchOptionsTest.java` : mot de passe refusé en argument,
+- `morpheus-cli/src/test/java/com/morpheus/cli/launch/RemoteApiLaunchOptionsTest.java` : mot de passe refusé en argument,
   refusé en propriété JVM (`aTlsPasswordGivenOnlyAsAJvmPropertyIsRefused`, message nommant la variable), non retenu,
   non rendu (`parsedOptionsNeitherRetainNorRenderTheTlsPassword`).
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/RemoteHttpServerBootstrapArchitectureTest.java` :

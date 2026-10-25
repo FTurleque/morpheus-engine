@@ -187,7 +187,7 @@ if (-not $SkipPortable) {
         'com/morpheus/application/portfolio/PortfolioRegistryService.class',
         'com/morpheus/application/portfolio/PortfolioTraversalService.class',
         'com/morpheus/store/sqlite/adapter/SqlitePortfolioStore.class',
-        'com/morpheus/cli/MorpheusPortfolioCli.class',
+        'com/morpheus/cli/command/MorpheusPortfolioCli.class',
         'com/morpheus/mcp/MorpheusPortfolioMcpTools.class',
         'com/morpheus/api/MorpheusPortfolioApiService.class',
         'db/migration/V013__portfolio_intelligence.sql')) {

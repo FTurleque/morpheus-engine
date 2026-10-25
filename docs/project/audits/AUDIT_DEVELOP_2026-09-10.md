@@ -233,10 +233,10 @@ maintenant inscrit dans le dépôt, pas seulement évité une fois.
 Le finding mélangeait deux choses. Séparées :
 
 **(a) Un défaut réel, corrigé.** `MorpheusAugmentedContextCli$ContextOptions` — le parseur d'options de la
-commande `augmented-context` ([`MorpheusAugmentedContextCli.java`](../../../morpheus-cli/src/main/java/com/morpheus/cli/MorpheusAugmentedContextCli.java))
+commande `augmented-context` ([`MorpheusAugmentedContextCli.java`](../../../morpheus-cli/src/main/java/com/morpheus/cli/command/MorpheusAugmentedContextCli.java))
 — était à **0/49 lignes et 0/32 branches**. C'est le pendant CLI de F-02 : une
 validation d'arguments que rien n'atteignait.
-[`MorpheusAugmentedContextCliTest`](../../../morpheus-cli/src/test/java/com/morpheus/cli/MorpheusAugmentedContextCliTest.java)
+[`MorpheusAugmentedContextCliTest`](../../../morpheus-cli/src/test/java/com/morpheus/cli/command/MorpheusAugmentedContextCliTest.java)
 (9 tests, vérifié) la porte à
 **49/49 et 32/32**, chaque refus asserté par le message que lit l'utilisateur et aucune base créée par un refus.
 La classe englobante passe de 24/78 à 78/78 lignes.

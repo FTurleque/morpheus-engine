@@ -125,7 +125,7 @@ deux dépôts. Aucun runtime JARVIS n'est embarqué dans MORPHEUS ; aucun runtim
   une entrée plutôt que de muter.
 - `morpheus-api/src/test/java/com/morpheus/api/MorpheusJarvisOrchestrationApiContractTest.java`
   (`transitionCheckKeepsUnknownDistinctFromBlockedAndRequiresInputWithoutMutation`) et
-  `morpheus-cli/src/test/java/com/morpheus/cli/MorpheusJarvisOrchestrationCliTest.java` exercent les surfaces HTTP et
+  `morpheus-cli/src/test/java/com/morpheus/cli/command/MorpheusJarvisOrchestrationCliTest.java` exercent les surfaces HTTP et
   CLI.
 - `PublicHttpRouteConvergenceTest` (`morpheus-architecture-tests/src/test/java/com/morpheus/api/`),
   `PublicSurfaceManifestCoversEveryServedToolTest` (`.../com/morpheus/mcp/`) et
