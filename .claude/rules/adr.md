@@ -54,6 +54,8 @@ Avant de créer un ADR, répondre aux trois. Un seul « non » suffit : ce n'est
 
 - Rédigé **au présent** : il dit ce qui est décidé aujourd'hui, sans récit du chantier, ni « auparavant »,
   « désormais » ou « mis à jour pour… ». L'historique est dans Git et dans les relevés datés de `docs/project/`.
+- Sa section `Decision` tient sous **2 000 caractères** : c'est elle qu'Archgate remet aux agents, et `archgate check`
+  signale au-delà un `briefingWarnings` sans échouer. Les raisons et les options vont dans `Context`.
 - Il porte des **Do's and Don'ts vérifiables**. Une contrainte qui se lit dans le code ou les fichiers a sa règle
   exécutable — un test sous `morpheus-architecture-tests/` (le mécanisme du dépôt, cf. `rules/architecture.md`) ou une
   règle Archgate compagnon ; sinon, la section de conformité dit comment elle est tenue (test, revue, gate de CI).

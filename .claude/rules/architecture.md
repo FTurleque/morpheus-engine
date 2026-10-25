@@ -1,6 +1,7 @@
 # Règles — Architecture (ports & adapters)
 
-Source de vérité : `morpheus-architecture-tests/.../LayerDependencyTest.java` + les `*ArchitectureTest` par milestone.
+Source de vérité : `morpheus-architecture-tests/.../LayerDependencyTest.java`, `ApplicationTechnologyBoundaryArchitectureTest`
++ les `*ArchitectureTest` par milestone.
 Ces règles sont **exécutables** — si tu doutes, lance le test, ne devine pas.
 
 ## Le modèle réel : hexagonal, pas en couches empilées
@@ -211,6 +212,18 @@ autre cycle échoue. La même règle sur `application` est reportée (167 cycles
 Jamais Spring / Quarkus / Micronaut / Guice, jamais de réflexion, de classpath scanning
 ou d'annotations d'injection. Le câblage est explicite : dans `MorpheusMain` pour le processus, dans les racines
 de composition nommées d'ADR-0109 pour le runtime de chaque requête HTTP ou appel MCP.
+
+## Ce que l'application touche (ADR-0148)
+
+`com.morpheus.application..` ne dépend **jamais** de SQL (`java.sql`), d'une bibliothèque JSON (Jackson) ni de
+l'exécution de processus. L'accès fichier, le réseau sortant, l'environnement du processus, les flux standard, les
+fils d'exécution, l'horloge murale et la réflexion n'y sont atteints que par les classes que
+`ApplicationTechnologyBoundaryArchitectureTest` nomme pour chaque famille — la liste est exacte, elle rétrécit, et un
+nom ajouté exige un ADR consolidé qui remplace ADR-0148. Le test porte les listes de types et d'appels de chaque
+famille : les lire là, pas ici. `Path` est du vocabulaire, pas un accès. Le seul nom marqué *sort* est le transport de
+`UpdateDiscoveryService` (`move-marked-technology-access-behind-application-ports`).
+
+> `ApplicationTechnologyBoundaryArchitectureTest` — `aFamilyTheApplicationDoesNotUseIsRefusedInEveryPackage`, `aConfinedFamilyIsReachedOnlyByTheClassesNamedForIt`, `everyNamedClassStillReachesItsFamily`
 
 ## Cœurs purs — interdits textuels (scannés dans les sources)
 
