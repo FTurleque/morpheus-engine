@@ -121,8 +121,8 @@ et gardent la version courante et deux planchers absolus de couverture, nommés 
 la couverture elle-même est conclue par les gates Java que D2 exécute dans son `clean verify`.
 La couverture y est déclarée
 **deux fois**, une paire de clés par échelle de mesure (`aggregate*` et `perModule*`) — citer
-un seuil sans nommer son échelle n'a pas de sens. Valeurs constatées le 18/10/2026 :
-présence `2600 / 1574 / 585` (déclarés / générés / architecture), couverture `90,0% / 75,7%` agrégée et
+un seuil sans nommer son échelle n'a pas de sens. Valeurs constatées le 25/10/2026 :
+présence `2600 / 1574 / 762` (déclarés / générés / architecture), couverture `90,0% / 75,7%` agrégée et
 `69,1% / 61,2%` par module (les quatre de couverture relevées le 09/10/2026, dans les deux plafonds requalifiés le même
 jour sur `8e3fda5a`).
 Ces nombres sont des

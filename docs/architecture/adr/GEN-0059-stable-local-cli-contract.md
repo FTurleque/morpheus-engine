@@ -143,7 +143,7 @@ n'utilise pas de framework CLI externe.
   documenté dans l'aide embarquée ; un chemin non déclaré est refusé comme commande inconnue.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/cli/PublicSurfaceManifestCoversEveryServedCliCommandTest.java`
   : la colonne `cli` de `contracts/public-surfaces.tsv` et `CliCommandPaths` se couvrent dans les deux sens.
-- `morpheus-cli/src/test/java/com/morpheus/cli/MorpheusServerCliTest.java`
+- `morpheus-cli/src/test/java/com/morpheus/cli/command/MorpheusServerCliTest.java`
   (`anIdentityIsRenderedInTheDeclaredOrderWhateverTheIterationOrderOfItsMap`,
   `theTextAndJsonIdentityListingsCarryTheSameFields`) : ordre déclaré d'une identité, mêmes champs en texte et en JSON.
 - `morpheus-domain/src/test/java/com/morpheus/domain/provider/ProviderCapabilitySetTest.java` : ordre de déclaration

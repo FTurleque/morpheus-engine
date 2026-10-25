@@ -51,7 +51,7 @@ log, message de démarrage) casse la session du client.
    l'app-image embarquent le serveur MCP, le SDK MCP et l'API sans runtime externe. Le runtime embarqué ajoute
    explicitement `jdk.httpserver` aux modules que `jpackage` passe à `jlink`. Avant `jpackage`, le build portable
    vérifie la présence dans le JAR ombré des classes de sa liste `$requiredEntries` (`distribution/build-portable.ps1`,
-   liste équivalente dans `distribution/build-portable.sh`), dont `com/morpheus/mcp/MorpheusMcpServer.class`,
+   liste équivalente dans `distribution/build-portable.sh`), dont `com/morpheus/mcp/server/MorpheusMcpServer.class`,
    `io/modelcontextprotocol/server/McpServer.class` et `com/morpheus/api/local/MorpheusHttpServer.class`. Il lance ensuite
    le launcher packagé (`--version`, `--json version`) et l'API packagée, dont `GET /api/v1/health` doit répondre `200`.
    Aucun JDK séparé n'est requis côté utilisateur final.

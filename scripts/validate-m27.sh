@@ -125,7 +125,7 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
     'com/morpheus/application/reasoning/ReasoningService.class' \
     'com/morpheus/application/reasoning/ReasoningAdapter.class' \
     'com/morpheus/application/reasoning/EvidenceSynthesisReasoningAdapter.class' \
-    'com/morpheus/cli/MorpheusReasoningCli.class' \
+    'com/morpheus/cli/command/MorpheusReasoningCli.class' \
     'com/morpheus/api/routes/owncontext/MorpheusReasoningHttpRoutes.class' \
     'com/morpheus/mcp/MorpheusReasoningMcpTools.class'; do
     grep -Fxq "$entry" "$OUTPUT/shaded-entries.txt" || { echo "M27 packaged runtime is missing $entry" >&2; exit 1; }

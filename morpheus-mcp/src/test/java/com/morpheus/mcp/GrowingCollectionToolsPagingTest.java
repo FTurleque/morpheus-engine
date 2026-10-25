@@ -4,6 +4,7 @@ import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.policy.PolicyPack;
 import com.morpheus.application.policy.PolicyPackService;
 import com.morpheus.application.policy.PolicyRule;
+import com.morpheus.mcp.server.MorpheusMcpServer;
 import com.morpheus.store.sqlite.adapter.SqlitePolicyPackStore;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.json.schema.JsonSchemaValidator;

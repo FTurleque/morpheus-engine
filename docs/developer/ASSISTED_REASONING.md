@@ -4,7 +4,7 @@ M27 ajoute une capacité d’analyse assistée **read-only**, provider-neutral e
 
 ```text
 morpheus-application/src/main/java/com/morpheus/application/reasoning
-morpheus-cli/src/main/java/com/morpheus/cli/MorpheusReasoningCli.java
+morpheus-cli/src/main/java/com/morpheus/cli/command/MorpheusReasoningCli.java
 morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusReasoningMcpTools.java
 morpheus-api/src/main/java/com/morpheus/api/MorpheusReasoning*.java
 ```

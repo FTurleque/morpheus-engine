@@ -92,7 +92,11 @@ the size of a class.
 - **Does `MorpheusCli` survive as the dispatcher, or does `MorpheusMain` absorb it?** Recommendation: it survives,
   reduced: it owns the error mapping that the thirteen commands share and that the capability classes of M22+
   duplicate; whether those converge on it is `share-one-argument-base-across-cli-subcommands`' question.
-- **Should the `handles(args)` chain of `MorpheusMain` become a table?** Recommendation: yes, as the form decision 2
-  reads, but only if it changes no precedence between two classes that claim overlapping words - measured first.
+- **Should the `handles(args)` chain of `MorpheusMain` become a table?** Yes. `MorpheusMain.run` holds one ordered
+  table of capability classes, each a `handles` method reference and the run that serves it, in the order the chain
+  had; the first that claims the arguments serves them, `MorpheusCli` serves what none claims. No declared path has
+  two claimants (task 1.5), so the order decides nothing today. MINOS and NEXUS are resolved inside the two entries
+  that use them. `CliCommandDispatchIsExhaustiveTest` reads the classes of the table from the method references of
+  the compiled `run`.
 - **Is `MorpheusMcpToolService`, a public class, used outside the module?** No import of it exists outside
   `morpheus-mcp` on 2026-10-13. Recommendation: it disappears rather than staying as a facade.

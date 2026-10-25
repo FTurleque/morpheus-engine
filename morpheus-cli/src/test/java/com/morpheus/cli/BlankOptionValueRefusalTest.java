@@ -2,6 +2,10 @@ package com.morpheus.cli;
 
 import com.morpheus.application.operability.OperationalLogMode;
 import com.morpheus.application.operability.OperationalRuntime;
+import com.morpheus.cli.command.CliExitCode;
+import com.morpheus.cli.launch.ApiLaunchOptions;
+import com.morpheus.cli.launch.McpLaunchOptions;
+import com.morpheus.cli.launch.RemoteApiLaunchOptions;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.requirement.RequirementId;
@@ -267,7 +271,7 @@ class BlankOptionValueRefusalTest {
 
     private static List<Invocation> invocations() {
         List<Invocation> invocations = new ArrayList<>();
-        // MorpheusCli.CommandOptions, and GlobalArgs for the three layout options.
+        // CommandOptions, and GlobalArgs for the three layout options.
         add(invocations, "--data-dir", "--data-dir", B, "paths");
         add(invocations, "--config-dir", "--data-dir", DATA, "--config-dir", B, "paths");
         add(invocations, "--db", "--data-dir", DATA, "--db", B, "paths");

@@ -2,6 +2,7 @@ package com.morpheus.mcp;
 
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
+import com.morpheus.mcp.server.MorpheusMcpServer;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -23,31 +24,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>A tool's call handler is a lambda, and the JDK names the class it generates for one after the class that
  * declares it. That class is the tool's owner: the capability class whose {@code specifications()} built the
- * handler, or {@code MorpheusMcpServer} for the tools it wraps around {@code MorpheusMcpToolService}. A tool name
- * published twice fails, and so does a tool the server class owns unless it is one it still serves itself.</p>
- *
- * <p>{@link #SERVED_BY_THE_SERVER_CLASS} only shrinks: a tool extracted into a capability class leaves it.</p>
+ * handler. A tool name published twice fails, and so does a tool whose handler a class of the server's package
+ * declares: the server registers tools, it serves none.</p>
  */
 class ServedToolsAreClaimedOnceTest {
 
     private static final String LAMBDA_MARKER = "$$Lambda";
-
-    /** The tools {@code MorpheusMcpServer} wraps around {@code MorpheusMcpToolService}. */
-    static final Set<String> SERVED_BY_THE_SERVER_CLASS = Set.of(
-            "get_current_specification",
-            "find_requirements",
-            "get_change",
-            "list_changes",
-            "get_constraints",
-            "get_acceptance_criteria",
-            "get_design_decisions",
-            "get_implementation_tasks",
-            "trace_requirement",
-            "get_change_context",
-            "get_specification_context",
-            "get_change_status",
-            "get_blocking_conditions",
-            "get_sync_status");
+    private static final String SERVER_PACKAGE = MorpheusMcpServer.class.getPackageName();
 
     @TempDir
     Path temporaryDirectory;
@@ -60,7 +43,9 @@ class ServedToolsAreClaimedOnceTest {
                 MorpheusMcpServer.unconfiguredTechnicalContext(),
                 MorpheusMcpServer.deniedWriteCapability(),
                 OperationalRecorder.noop());
-        assertTrue(served.size() > SERVED_BY_THE_SERVER_CLASS.size(), "the server publishes too few tools to be read");
+        int catalogued = new MorpheusMcpToolCatalog().tools().size();
+        assertTrue(served.size() > catalogued, "the server publishes no tool beside the " + catalogued
+                + " of the catalogue: too few to be read: " + served.size());
 
         Map<String, List<String>> owners = new TreeMap<>();
         for (McpServerFeatures.SyncToolSpecification specification : served) {
@@ -73,14 +58,13 @@ class ServedToolsAreClaimedOnceTest {
         owners.forEach((tool, owning) -> {
             if (owning.size() > 1) {
                 publishedTwice.put(tool, owning);
-            } else if (owning.getFirst().equals(MorpheusMcpServer.class.getSimpleName())) {
-                ownedByTheServer.add(tool);
+            } else if (owning.getFirst().startsWith(SERVER_PACKAGE + ".")) {
+                ownedByTheServer.add(tool + " (" + owning.getFirst() + ")");
             }
         });
         assertEquals(Map.of(), publishedTwice, "tool names that two specifications publish, with their owners");
-        assertEquals(new TreeSet<>(SERVED_BY_THE_SERVER_CLASS), ownedByTheServer,
-                "the tools whose handler the server class declares must be exactly those it still serves itself: a "
-                        + "tool extracted into a capability class leaves this list");
+        assertEquals(Set.of(), ownedByTheServer,
+                "tools whose handler a class of the server's package declares: a tool is served by a capability class");
     }
 
     /** The top-level class that declares the lambda of the tool's call handler. */
@@ -91,7 +75,6 @@ class ServedToolsAreClaimedOnceTest {
                 + " is not a lambda, so its owner cannot be read: " + name);
         String declaring = name.substring(0, lambda);
         int nested = declaring.indexOf('$');
-        String topLevel = nested < 0 ? declaring : declaring.substring(0, nested);
-        return topLevel.substring(topLevel.lastIndexOf('.') + 1);
+        return nested < 0 ? declaring : declaring.substring(0, nested);
     }
 }

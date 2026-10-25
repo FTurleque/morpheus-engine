@@ -8,7 +8,7 @@ export default {
       description: "Les deux scripts vérifient MorpheusMcpServer et MorpheusHttpServer",
       severity: "error",
       async check(ctx) {
-        const required = ["com/morpheus/mcp/MorpheusMcpServer.class", "com/morpheus/api/local/MorpheusHttpServer.class"];
+        const required = ["com/morpheus/mcp/server/MorpheusMcpServer.class", "com/morpheus/api/local/MorpheusHttpServer.class"];
         for (const file of ["distribution/build-portable.ps1", "distribution/build-portable.sh"]) {
           const script = await ctx.readFile(file);
           for (const entry of required.filter((name) => !script.includes(name))) {

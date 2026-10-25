@@ -176,37 +176,110 @@ then replaces one class in place, and its `tasks.md` names that class.
       `COMPOSITION_ROOTS` in the same pull request, with ADR-0109 clarified to match.
       *2026-10-25: nothing to do. 1.4 found no concrete type: `own-the-sqlite-connection-policy-in-one-place` made
       both runtimes answer ports, and `MorpheusMcpToolService` had already left `COMPOSITION_ROOTS`.*
-- [ ] 3.2 The capability package of each adapter, and the classes of 1.6, one family per pull request, read-only
+- [x] 3.2 The capability package of each adapter, and the classes of 1.6, one family per pull request, read-only
       families first. Proof per pull request: 2.1 and 2.2 untouched and green,
       `CliOptionParsingRefusesUnknownOptionsTest` and `MorpheusHelpInvocationsParseTest` untouched and green.
+      *2026-10-25: the packages first (`com.morpheus.cli` / `.launch` / `.command`; `com.morpheus.mcp.server` above
+      `com.morpheus.mcp`, so that `MorpheusMain` keeps the class name the distribution launches and
+      `MorpheusMcpRuntime` the name ADR-0109 lists), then the families, read-only first:*
+
+      | Pull request | CLI | MCP |
+      |---|---|---|
+      | packages | 14 capability classes into `command`, the server wiring into `launch` | the server into `server` |
+      | `requirement.*` | `MorpheusRequirementCli` | `MorpheusRequirementMcpTools` |
+      | `change.*` | `MorpheusChangeCli` | `MorpheusChangeMcpTools` |
+      | `specification.*`, `acceptance.criteria`, `sync.status` | `MorpheusSyncStatusCli` | `MorpheusSpecificationMcpTools`, `MorpheusAcceptanceCriteriaMcpTools`, `MorpheusSyncStatusMcpTools`; `MorpheusMcpToolService` goes |
+      | `quality.report`, `paths` | `MorpheusQualityCli`, `MorpheusPathsCli` | - |
+
+      *The small families of the last two rows share a pull request each: one family per pull request would have
+      cost a full two-platform verification for a single tool. What the families share moved once: `CommandOptions`,
+      `CliCommandRun` and `CliFailure` in `command`, `McpContentPayloads` and `McpCatalogTool` in `com.morpheus.mcp`.
+      In every pull request `CliCommandTranscriptTest` and `McpToolTranscriptTest` pass with their transcripts
+      unchanged, and `CliOptionParsingRefusesUnknownOptionsTest` and `MorpheusHelpInvocationsParseTest` are not
+      edited. The edits the tests of 2.1 and 2.2 receive are: the import of `MorpheusMcpServer`, which moved package
+      (2.1); the names leaving the two shrinking lists, and, once `SERVED_BY_THE_SERVER_CLASS` is empty, its
+      replacement by the stricter assertion that no class of the server's package owns a tool (2.2).*
+
 - [ ] 3.3 `sync` and `projects`, after `ingest-a-project-through-the-provider-port`.
       *Waits for the sprint 11 decision record of that change (AUD-ARC-02): these are the only commands that build a
       provider reader, and moving them first would move the direct instantiation into a class that change rewrites.
       Until then they stay in `MorpheusCli`, in `SERVED_BY_THE_DEFAULT_BRANCH`.*
-- [ ] 3.4 The dispatcher rule, as an ArchUnit rule with the exact allowance of 1.3. Intent: *a class that dispatches
+      *`analyze-change` waits with them: it builds the OpenSpec reader itself (`MorpheusCli.analyzeChange`), and
+      `ingest-a-project-through-the-provider-port` rewires it too (its proposal lists `sync` and `analyze change`). The
+      design names `sync` and `projects` as the only commands that build a provider reader; `projects` builds none,
+      `analyze-change` does. The three stay in `MorpheusCli` and in `MORPHEUS_CLI_DEBT`.*
+
+- [x] 3.4 The dispatcher rule, as an ArchUnit rule with the exact allowance of 1.3. Intent: *a class that dispatches
       depends on no use case of the application* - a dependency. Check the three obligations of `enforcement-choice`:
       the classes are in the imported set; none of the banned types is reached through a compile-time constant (or
       the text scan is added beside the rule); the rule is broken once.
-- [ ] 3.5 Break once, then revert: a command implemented in the dispatch class of `cli`; a tool implemented in the
+      *2026-10-25: `DispatchersHoldNoUseCaseArchitectureTest`. Its classes are those of `com.morpheus.cli` and
+      `com.morpheus.mcp.server`, in the imported set (the rule refuses fewer than four). Its allowance is the exact set
+      of 1.3, minus the start-up recovery, which moved to `MorpheusMcpRuntime.recoverInterruptedPublications`. The
+      source of each dispatch class is scanned for every qualified application type it names, so the inlined
+      `QueryBudgets.MAX_EXPORT_ROWS` is held. `MorpheusCli` carries the named debt of the three commands of 3.3.*
+
+- [x] 3.5 Break once, then revert: a command implemented in the dispatch class of `cli`; a tool implemented in the
       server class of `mcp`; an allowance left unused. Proof: the three named failures.
+      *2026-10-25, all four at once, then reverted:*
+
+      ```text
+      a command in MorpheusMain:  Method <com.morpheus.cli.MorpheusMain.requirementsBreak(...)> calls constructor
+                                  <com.morpheus.application.query.RequirementQueryService.<init>(...)>
+      a tool in the server:       Method <com.morpheus.mcp.server.MorpheusMcpServer.syncBreak(...)> calls constructor
+                                  <com.morpheus.application.sync.SyncFreshnessService.<init>(...)>
+      a constant by its name:     a dispatch class names an application type outside the allowance ...
+                                  com.morpheus.mcp.server.MorpheusMcpServer=[com.morpheus.application.query.PageRequest, ...]
+                                  (no bytecode violation: javac inlines PageRequest.MAX_LIMIT)
+      an unused allowance:        names of the allowance no dispatch class uses: remove them ==> expected: <[]> but
+                                  was: <[com.morpheus.application.query.dsl.QueryExecutionService]>
+      ```
 
 ## 4. Documentation and decision records
 
-- [ ] 4.1 The convention in the ADR of `express-adapter-internal-roles-as-packages`, or its own ADR if that change
+- [x] 4.1 The convention in the ADR of `express-adapter-internal-roles-as-packages`, or its own ADR if that change
       was not taken (re-read `docs/architecture/adr/*-[0-9][0-9][0-9][0-9]-*.md` and `archive/` for the next free number; line in the `README.md`).
-- [ ] 4.2 `.claude/rules/architecture.md` (the adapters' shape), `.claude/CLAUDE.md` ("Points d'entree cles"),
+      *2026-10-25: ADR-0149 (`ARCH-0149-...`, status Proposée), its own record: ADR-0147 leaves `morpheus-cli` and
+      `morpheus-mcp` to their own decision, and `.claude/rules/adr.md` forbids changing an accepted record's meaning
+      in place. The highest number was 0148 (accepted the same day). Index line added.*
+
+- [x] 4.2 `.claude/rules/architecture.md` (the adapters' shape), `.claude/CLAUDE.md` ("Points d'entree cles"),
       `.claude/skills/public-capability/SKILL.md` (where a new command or tool goes), the `docs/developer/` pages of
       the CLI and MCP adapters. A file of `docs/` that moves gets its line in `docs/project/README.md`.
-- [ ] 4.3 ADR-0130 names the parser families (decisions 2 and 8). If one of them changes owner, ADR-0130 is
+      *2026-10-25: done in the pull request of ADR-0149, with `docs/architecture/arc42/05-vue-blocs.md` and
+      `09-decisions.md`. `docs/developer/MCP.md` is the MCP adapter page; the CLI has no developer page of its own
+      (`docs/user/CLI.md` speaks of the installed product and names no class). No file of `docs/` moved.*
+
+- [x] 4.3 ADR-0130 names the parser families (decisions 2 and 8). If one of them changes owner, ADR-0130 is
       clarified to say so.
+      *2026-10-25: `CommandOptions` left `MorpheusCli` for `com.morpheus.cli.command`; ADR-0130 names it by its
+      class, in the pull request of the requirement family.*
 
 ## 5. Verification
 
-- [ ] 5.1 `./mvnw clean verify` and `./mvnw dependency:analyze` on Linux and Windows; changed-line coverage gate.
-- [ ] 5.2 `scripts\validate.cmd m28 -Version <current>` and `validate-m28.sh`: the MCP client integration starts the
+- [x] 5.1 `./mvnw clean verify` and `./mvnw dependency:analyze` on Linux and Windows; changed-line coverage gate.
+      *2026-10-25: `clean verify` green on Windows and on Linux (WSL clone) at the head of each pull request of the
+      lot, and the changed-line gate passed on each (cumulative from `develop`: 93.8 to 96.1 % of changed lines, 82.4
+      to 83.2 % of changed branches). `dependency:analyze` runs inside `verify` (`failOnWarning`): no module gained or
+      lost a dependency.*
+
+- [x] 5.2 `scripts\validate.cmd m28 -Version <current>` and `validate-m28.sh`: the MCP client integration starts the
       real server.
-- [ ] 5.3 `contracts/public-surfaces.tsv`, the OpenAPI files and the embedded help byte-identical to the base.
+      *2026-10-25, on the pull request of the packages (the server changes package there): `validate-m28` green on
+      Windows and Linux, with `m23` to `m27` and `r2`, the validators whose JAR entries that pull request edits.*
+
+- [x] 5.3 `contracts/public-surfaces.tsv`, the OpenAPI files and the embedded help byte-identical to the base.
       Proof: `git diff --stat`.
-- [ ] 5.4 The executed-test count of `morpheus-architecture-tests` before and after, read in a validation summary:
+      *2026-10-25: `git diff --stat b60a9286 -- contracts/public-surfaces.tsv docs/developer/reference/openapi` is empty
+      at the head of the lot; the help and the catalogue are held by the `help` and `catalogue` transcripts, unchanged
+      since the pull request of 2.1.*
+
+- [x] 5.4 The executed-test count of `morpheus-architecture-tests` before and after, read in a validation summary:
       higher. `architectureTestsMinimum` is raised by the `coverage-ratchet` procedure, in its own commit.
-- [ ] 5.5 Pull request description: the finding, the tables of 1.1 to 1.6, the composition roots before and after.
+      *2026-10-25, the same on Windows and Linux: 764 executions on `b60a9286`, 765 after 2.1 and 2.2, 769 after the
+      packages (two cycle rules, two entry-type checks), 772 after the dispatcher rule. `architectureTestsMinimum`
+      rises from 585 to 762, ten under the measure, in its own commit.*
+
+- [x] 5.5 Pull request description: the finding, the tables of 1.1 to 1.6, the composition roots before and after.
+      *2026-10-25: each pull request of the lot carries its part of 1.1 to 1.6; the composition roots are the same
+      five before and after (`COMPOSITION_ROOTS` is not edited), and `MorpheusMcpToolService`, which was none, is gone.*

@@ -59,7 +59,7 @@ où `<attendu>` est l'un de : `a non-blank string` · `an integer` · `an intege
 
 C'est le format vers lequel convergent les deux autres surfaces : le CLI dit `--<key> must be an integer`,
 l'adaptateur HTTP `<name> must be an integer` (`MorpheusHttpQuery`). La forme requise est celle des outils du
-catalogue (`MorpheusMcpToolService`). La forme `missing required MCP argument: <nom>` est écartée : elle ne dit pas à
+catalogue (`McpCatalogTool` et les classes qui servent ces outils). La forme `missing required MCP argument: <nom>` est écartée : elle ne dit pas à
 quoi ressemble une valeur valide et place le nom en fin de phrase.
 
 `McpArguments` est le seul endroit du paquet où ce format est écrit, et le seul qui lit un argument d'outil.

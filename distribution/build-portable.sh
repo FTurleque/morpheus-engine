@@ -42,7 +42,7 @@ fi
 printf '%s\n' "Verifying baseline MCP/API/provider-SDK/MINOS/NEXUS classes are embedded in the shaded JAR..."
 JAR_ENTRIES="$("$JAR_TOOL" tf "$JAR")"
 for entry in \
-  'com/morpheus/mcp/MorpheusMcpServer.class' \
+  'com/morpheus/mcp/server/MorpheusMcpServer.class' \
   'com/morpheus/mcp/MorpheusJarvisOrchestrationMcpTools.class' \
   'com/morpheus/mcp/MorpheusProductMcpTools.class' \
   'com/morpheus/mcp/MorpheusProviderPluginMcpTools.class' \
@@ -53,9 +53,9 @@ for entry in \
   'com/morpheus/api/MorpheusOperabilityApiService.class' \
   'com/morpheus/api/MorpheusJarvisOrchestrationApiService.class' \
   'com/morpheus/api/MorpheusProviderPluginApiService.class' \
-  'com/morpheus/cli/MorpheusJarvisOrchestrationCli.class' \
-  'com/morpheus/cli/MorpheusProductCli.class' \
-  'com/morpheus/cli/MorpheusProviderPluginCli.class' \
+  'com/morpheus/cli/command/MorpheusJarvisOrchestrationCli.class' \
+  'com/morpheus/cli/command/MorpheusProductCli.class' \
+  'com/morpheus/cli/command/MorpheusProviderPluginCli.class' \
   'com/morpheus/sdk/provider/MorpheusProviderPlugin.class' \
   'com/morpheus/sdk/provider/ProviderPluginService.class' \
   'com/morpheus/application/product/ProductMetadata.class' \

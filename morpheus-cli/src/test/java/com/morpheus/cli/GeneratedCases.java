@@ -14,12 +14,12 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
  * module passes its stream through {@link #nonEmpty}, so that case fails and names the factory.
  * {@code TestFactoryAssertsItsSourceTest} refuses a factory that does not.</p>
  */
-final class GeneratedCases {
+public final class GeneratedCases {
 
     private GeneratedCases() {
     }
 
-    static Stream<DynamicTest> nonEmpty(String factory, Stream<DynamicTest> tests) {
+    public static Stream<DynamicTest> nonEmpty(String factory, Stream<DynamicTest> tests) {
         List<DynamicTest> cases = tests.toList();
         assertFalse(cases.isEmpty(), () -> "the test factory " + factory + " generated no test: its source of cases was empty");
         return cases.stream();

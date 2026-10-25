@@ -30,7 +30,7 @@ Les anciens risques de gouvernance liés à l'absence de protection de `main`/`d
 
 | ID | Dette | Domaine | Priorité | Traitement |
 |----|-------|---------|----------|------------|
-| DT-10 | Couverture historique globale encore modeste malgré un changed-code gate strict | Qualité | **Moyenne** | Ratchets M21 actifs à `2600 / 1574 / 585`, couverture `90,0% / 75,7%` agrégée et `69,1% / 61,2%` par module ; chaque échelle a son propre plafond qualifié et ne se relève qu'après nouvelle preuve exact-head reproductible sur les deux plateformes |
+| DT-10 | Couverture historique globale encore modeste malgré un changed-code gate strict | Qualité | **Moyenne** | Ratchets M21 actifs à `2600 / 1574 / 762`, couverture `90,0% / 75,7%` agrégée et `69,1% / 61,2%` par module ; chaque échelle a son propre plafond qualifié et ne se relève qu'après nouvelle preuve exact-head reproductible sur les deux plateformes |
 | DT-11 | Nouveau workflow de release attestée pas encore qualifié par une vraie release publiée | Release | **Moyenne** | Valider l'enchaînement tag -> Linux/Windows -> attestations -> assets -> GitHub Release lors de la prochaine vraie release `v1.2.1+` ; suivi #185. Atténuation depuis le 11/10/2026 : la moitié « build » est répétée sur les deux plateformes par la lane `Release rehearsal` de `nightly.yml`, chaque nuit dès que `main` porte cette lane et à la demande avant cela ; attestation, publication et relecture publique restent non exercées |
 | DT-18 | Le cœur applicatif porte encore un transport HTTP sortant, celui de `UpdateDiscoveryService` | Architecture | **Faible** | [ADR-0148](../adr/ARCH-0148-ce-que-le-coeur-applicatif-peut-toucher.md) le marque *sort* : le transport passe derrière un port de `application.product`, implémenté dans `morpheus-cli`, par le changement OpenSpec `move-marked-technology-access-behind-application-ports`. D'ici là, `ApplicationTechnologyBoundaryArchitectureTest` confine le réseau à cette seule classe ; sa ligne tombe avec le déplacement |
 
@@ -67,7 +67,7 @@ La baseline active du gate est :
 ```text
 Surefire written        >= 2600
 Surefire generated      >= 1574
-architecture            >= 585
+architecture            >= 762
 aggregate line          >= 90.0%
 aggregate branch        >= 75.7%
 per-module line         >= 69.1%

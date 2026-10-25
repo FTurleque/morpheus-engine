@@ -98,6 +98,12 @@ paquets de routeurs de `routes`, `transport` (plomberie partagée) et le paquet 
 services de l'application. Ces paquets sont sans cycle, dans cet ordre, et les autres modules
 n'utilisent que six types de l'adaptateur.
 
+`morpheus-cli` et `morpheus-mcp` séparent de même la distribution des appels et ce qui les sert
+([ADR-0149](../adr/ARCH-0149-une-commande-et-un-outil-sont-servis-par-une-classe-de-capacite.md)) : le lanceur et le dispatcher de la CLI
+dans `com.morpheus.cli`, au-dessus du câblage des serveurs (`launch`) et des classes de capacité (`command`) ; le
+serveur MCP dans `com.morpheus.mcp.server`, au-dessus des classes de capacité de `com.morpheus.mcp`. Une commande ou
+un outil est servi par la classe de sa famille du manifeste ; un dispatcher ne tient aucun cas d'usage.
+
 Les nombres de classes, paquetages et endpoints ne sont volontairement pas
 figés ici : ce sont des métriques volatiles et non des propriétés
 architecturales.

@@ -17,7 +17,7 @@ import java.util.Objects;
 import java.util.function.Function;
 
 /** M18 read-only tools exposing persisted multi-provider composition state and conflicts. */
-final class MorpheusCompositionMcpTools {
+public final class MorpheusCompositionMcpTools {
     static final String STATUS_TOOL = "get_composition_status";
     static final String CONFLICTS_TOOL = "list_composition_conflicts";
 
@@ -25,12 +25,12 @@ final class MorpheusCompositionMcpTools {
     private final OperationalRecorder recorder;
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
-    MorpheusCompositionMcpTools(Path databasePath, OperationalRecorder recorder) {
+    public MorpheusCompositionMcpTools(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
         this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
-    List<McpServerFeatures.SyncToolSpecification> specifications() {
+    public List<McpServerFeatures.SyncToolSpecification> specifications() {
         return List.of(
                 tool(
                         STATUS_TOOL,

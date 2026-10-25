@@ -78,7 +78,7 @@ class McpArgumentHelperOwnershipTest {
     }
 
     private static List<Path> sources() throws IOException {
-        try (Stream<Path> files = Files.list(SOURCES)) {
+        try (Stream<Path> files = Files.walk(SOURCES)) {
             return files.filter(path -> path.getFileName().toString().endsWith(".java")).sorted().toList();
         }
     }

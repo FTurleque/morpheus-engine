@@ -136,7 +136,7 @@ Write-Host "Verifying baseline MCP/API/provider-SDK/MINOS/NEXUS classes are embe
 $jarEntries = & $jarTool tf $jar.FullName
 if ($LASTEXITCODE -ne 0) { throw "Unable to inspect shaded JAR" }
 $requiredEntries = @(
-    "com/morpheus/mcp/MorpheusMcpServer.class",
+    "com/morpheus/mcp/server/MorpheusMcpServer.class",
     "com/morpheus/mcp/MorpheusJarvisOrchestrationMcpTools.class",
     "com/morpheus/mcp/MorpheusControlledLifecycleMcpTools.class",
     "com/morpheus/mcp/MorpheusCompositionMcpTools.class",
@@ -151,11 +151,11 @@ $requiredEntries = @(
     "com/morpheus/api/MorpheusCompositionApiService.class",
     "com/morpheus/api/MorpheusOperabilityApiService.class",
     "com/morpheus/api/MorpheusProviderPluginApiService.class",
-    "com/morpheus/cli/MorpheusJarvisOrchestrationCli.class",
-    "com/morpheus/cli/MorpheusControlledLifecycleCli.class",
-    "com/morpheus/cli/MorpheusCompositionCli.class",
-    "com/morpheus/cli/MorpheusProductCli.class",
-    "com/morpheus/cli/MorpheusProviderPluginCli.class",
+    "com/morpheus/cli/command/MorpheusJarvisOrchestrationCli.class",
+    "com/morpheus/cli/command/MorpheusControlledLifecycleCli.class",
+    "com/morpheus/cli/command/MorpheusCompositionCli.class",
+    "com/morpheus/cli/command/MorpheusProductCli.class",
+    "com/morpheus/cli/command/MorpheusProviderPluginCli.class",
     "com/morpheus/sdk/provider/MorpheusProviderPlugin.class",
     "com/morpheus/sdk/provider/ProviderPluginService.class",
     "com/morpheus/application/product/ProductMetadata.class",

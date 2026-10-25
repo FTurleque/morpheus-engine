@@ -89,7 +89,7 @@ class CliOptionValueHasOneBlankDefinitionTest {
 
     /** Methods whose blank tests answer another question than "is this option value blank", with their count. */
     private static final Map<String, OtherQuestion> OTHER_QUESTIONS = Map.of(
-            "MorpheusCli.java#consumeOption", new OtherQuestion(1,
+            "CommandOptions.java#consumeOption", new OtherQuestion(1,
                     "the option's name: a token '--' followed by nothing is an empty option, not a blank value"),
             "MorpheusReasoningCli.java#analyze", new OtherQuestion(1,
                     "the message of an adapter execution, printed only when there is one"),

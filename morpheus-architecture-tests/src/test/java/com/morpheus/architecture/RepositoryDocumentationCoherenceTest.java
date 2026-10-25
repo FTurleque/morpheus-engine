@@ -383,7 +383,9 @@ class RepositoryDocumentationCoherenceTest {
         // 4174, which is not below the 3820 they bound together.
         assertEquals("2600", ratchets.get("testsMinimum"));
         assertEquals("1574", ratchets.get("generatedTestsMinimum"));
-        assertEquals("585", ratchets.get("architectureTestsMinimum"));
+        // architectureTestsMinimum 585 -> 762 on 25/10/2026: 772 architecture executions measured on Windows and
+        // Linux at the head of give-each-cli-command-and-mcp-tool-a-capability-class, ten under the measure.
+        assertEquals("762", ratchets.get("architectureTestsMinimum"));
         assertEquals("0.691", ratchets.get("perModuleLineCoverageMinimum"));
         assertEquals("0.612", ratchets.get("perModuleBranchCoverageMinimum"));
         assertEquals("0.900", ratchets.get("aggregateLineCoverageMinimum"));

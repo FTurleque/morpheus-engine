@@ -188,8 +188,8 @@ if (-not $SkipPortable) {
         'com/morpheus/api/remote/MorpheusRemoteIdentityFile.class',
         'com/morpheus/api/remote/MorpheusRemoteRole.class',
         'com/morpheus/store/sqlite/runtime/SqliteServerMaintenance.class',
-        'com/morpheus/cli/RemoteApiLaunchOptions.class',
-        'com/morpheus/cli/MorpheusServerCli.class')) {
+        'com/morpheus/cli/launch/RemoteApiLaunchOptions.class',
+        'com/morpheus/cli/command/MorpheusServerCli.class')) {
         if ($entries -notcontains $entry) { throw "M26 packaged runtime is missing $entry" }
     }
     $help = (& $launcher help) -join "`n"

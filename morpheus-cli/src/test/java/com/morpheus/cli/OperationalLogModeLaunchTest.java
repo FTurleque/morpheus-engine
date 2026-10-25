@@ -1,6 +1,7 @@
 package com.morpheus.cli;
 
 import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.cli.command.CliExitCode;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;

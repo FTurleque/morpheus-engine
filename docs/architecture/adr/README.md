@@ -136,6 +136,7 @@ nouvel ADR qui remplace les précédents. Le cycle de vie complet est dans `.cla
 | [ADR-0146](BE-0146-journal-operationnel-slf4j-et-fichier-borne.md) | Journal opérationnel : un seul binding SLF4J, un fichier borné à la demande | **Acceptée** |
 | [ADR-0147](ARCH-0147-un-role-d-adaptateur-est-un-paquet.md) | Un rôle de l'adaptateur HTTP est un paquet ; ce qui reste une liste de noms en déclare la sorte | **Acceptée** |
 | [ADR-0148](ARCH-0148-ce-que-le-coeur-applicatif-peut-toucher.md) | Le cœur applicatif touche le disque local par des classes nommées, et jamais le réseau | **Acceptée** |
+| [ADR-0149](ARCH-0149-une-commande-et-un-outil-sont-servis-par-une-classe-de-capacite.md) | Une commande CLI et un outil MCP sont servis par une classe de capacité ; un dispatcher ne tient aucun cas d'usage | **Proposée** |
 
 Les preuves de qualification de chaque jalon sont dans [`../../project/validation/`](../../project/validation/README.md).
 

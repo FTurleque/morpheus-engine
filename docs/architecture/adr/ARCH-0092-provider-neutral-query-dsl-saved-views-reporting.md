@@ -256,7 +256,7 @@ l'application.
   symétrie écriture-lecture du budget de valeurs, liste et archivage d'une saved view illisible.
 - Export complet : `morpheus-mcp/src/test/java/com/morpheus/mcp/MorpheusQueryMcpToolsTest.java`
   (`anExportPastTheFrameIsRefusedByTheTransportAndItsRowsAreReadThroughPagedQueries`),
-  `morpheus-cli/src/test/java/com/morpheus/cli/MorpheusQueryCliTest.java`,
+  `morpheus-cli/src/test/java/com/morpheus/cli/command/MorpheusQueryCliTest.java`,
   `morpheus-api/src/test/java/com/morpheus/api/MorpheusQueryApiContractTest.java`,
   `morpheus-application/src/test/java/com/morpheus/application/query/export/QueryExportMaterializationTest.java`
   (`anExportIgnoresThePageOfItsDefinitionAndIsComplete`).
