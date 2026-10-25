@@ -34,13 +34,18 @@ change); merging the two sync sequences into one use case (AUD-ARC-09, sprint 12
    have two contracts to keep equal.
 
 2. **Publishable is decided once, in the application.** A use case takes a `ProviderReadResult` and returns the content
-   or a named refusal. Content is publishable when it is present and every requested category is `READ` or `ABSENT`;
-   `FAILED` and `PARTIAL` refuse. This is the behaviour of today's strict reader - a failure does not publish - said
-   by the application instead of by an exception escaping a provider. `UNSUPPORTED` is the open question below.
+   or a named refusal. Content is publishable when it is present, no requested category is `FAILED`, and no category
+   is `PARTIAL` because a source was rejected (`INVALID_SOURCE` among the codes of its report). A category read
+   partially for another reason - a requirement the provider could not normalize, a fence never closed, a requirement
+   without scenario - is published with the diagnostics that name what was left out, as the strict reader published
+   it; an `UNSUPPORTED` category is published and named by a warning. A missing report counts as unread. This is the
+   behaviour of the strict reader on the situations task 1.2 measured, said by the application instead of by an
+   exception escaping a provider.
 
 3. **The refusal is the one a caller already knows.** Same shape as "source scan is incomplete": the sync plan is
    marked failed, the HTTP route answers its conflict, the CLI its state failure, and the message names the categories
-   - through the public projection on the HTTP side, never a server path.
+   and relays the first errors of the provider, which name the file at fault relative to the workspace - through the
+   public projection on the HTTP side, never a server path.
 
 4. **Equivalence is measured before the switch.** A test reads the fixtures of `experiments/m0/fixtures/` with both
    aggregators and compares what a publication stores. A difference is either removed in the port aggregator or
@@ -60,14 +65,17 @@ change); merging the two sync sequences into one use case (AUD-ARC-09, sprint 12
 
 ## Risks / Trade-offs
 
-- The port aggregator contains failures the strict one let through as exceptions; the error a caller reads for a
-  broken workspace changes from the provider's exception message to the named refusal. Tests of both transports state
-  what is read.
+- The port aggregator contains the failures of a file that the strict one let through as exceptions; the error a
+  caller reads for a broken workspace changes from the provider's exception to the named refusal, which still relays
+  the provider's errors. A failure that is not a file's - a defect, the identity store - leaves the port read as it
+  left the strict one. Tests of both transports state what is read.
 - The probe runs before the read: a workspace the probe does not support is now refused before any reader runs.
 
 ## Open Questions
 
-- **Is content with an `UNSUPPORTED` category publishable?** Recommendation: yes, with the category named in the
-  response (ADR-0124) - a provider that cannot carry a category is not a failed read, and whether a shipped provider reports one on its own fixtures is
-  measured in task 1.2. To be confirmed by the maintainer before task 3.
-- **Is the strict aggregator removed or kept for tests?** Recommendation: removed; its three test users take the port.
+- **Is content with an `UNSUPPORTED` category publishable?** Yes, with the category named by a warning (ADR-0124);
+  decided by the maintainer on 2026-10-25. No shipped provider reports one for the published categories on the
+  OpenSpec fixtures; Markdown and synthetic do for the categories they do not carry.
+- **Is the strict aggregator removed or kept for tests?** Removed; its test users take the port (2026-10-25).
+- **Which `PARTIAL` refuses?** Only one caused by a rejected source (2026-10-25), so that a workspace the strict reader
+  published still publishes.

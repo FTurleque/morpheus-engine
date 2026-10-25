@@ -226,8 +226,9 @@ Options écartées :
   (`everyClassThatConstructsAProjectSpecificationHasATestThatReadsTheRootItPublishes`), refus de passer à vide.
 - `morpheus-provider-testkit/src/main/java/com/morpheus/sdk/provider/testkit/ProviderPluginContractAssertions.java`
   (`verifyRead`) : un plugin qui publie une autre racine que la racine reçue échoue au contrat publié.
-- `morpheus-provider-openspec/src/test/java/com/morpheus/provider/openspec/OpenSpecProjectContentReaderTest.java` :
-  une attribution garde le type de l'échec ; un échec qui n'est pas celui du fichier passe inchangé.
+- `morpheus-provider-openspec/src/test/java/com/morpheus/provider/openspec/OpenSpecSpecificationContentReaderTest.java` :
+  un échec attribué à un fichier fait échouer son groupe et nomme le fichier ; un échec qui n'est pas celui d'un
+  fichier quitte la lecture inchangé (`aFailureThatIsNotTheFilesLeavesTheReadUnchangedAndFailsNoCategory`).
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/RefusalPathTextArchitectureTest.java` : une
   classe qui écrit un refus par `WorkspaceRelativePathText` ne l'écrit par aucune voie de locator ou de substitution ;
   aucun appel du budget ne reçoit un locator ; `OpenSpecSourceAttribution` ne dépend pas de `SourceLocator`.

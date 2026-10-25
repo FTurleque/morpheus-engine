@@ -38,16 +38,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * an import on demand of those packages is refused, since it would let a constant in under its simple name. Every name
  * of each list must still be used by a dispatch class of its adapter, so no list grows wider than what dispatching
  * does.</p>
- *
- * <p>{@link #MORPHEUS_CLI_DEBT} is a debt counter: {@code MorpheusCli} still serves {@code projects}, {@code sync} and
- * {@code analyze-change}, the commands {@code ingest-a-project-through-the-provider-port} rewires, and may use the
- * types they use and no other. It only shrinks.</p>
  */
 class DispatchersHoldNoUseCaseArchitectureTest {
 
     private static final String CLI_DISPATCH = "com.morpheus.cli";
     private static final String MCP_DISPATCH = "com.morpheus.mcp.server";
-    private static final String MORPHEUS_CLI = "com.morpheus.cli.MorpheusCli";
     private static final List<String> GUARDED = List.of(
             "com.morpheus.application", "com.morpheus.provider", "com.morpheus.store");
     private static final String APPLICATION = "com.morpheus.application";
@@ -57,7 +52,6 @@ class DispatchersHoldNoUseCaseArchitectureTest {
             APPLICATION + ".operability.LocalOperationalRuntime",
             APPLICATION + ".operability.OperationalLogFileException",
             APPLICATION + ".operability.OperationalLogMode",
-            APPLICATION + ".operability.OperationalRecorder",
             APPLICATION + ".operability.OperationalRuntime",
             APPLICATION + ".product.ProductMetadata",
             APPLICATION + ".query.dsl.QueryBudgets");
@@ -71,29 +65,6 @@ class DispatchersHoldNoUseCaseArchitectureTest {
             APPLICATION + ".operability.OperationalRecorder",
             APPLICATION + ".product.ProductMetadata",
             APPLICATION + ".reference.ExternalReferenceResolverRegistry");
-
-    /** The types {@code MorpheusCli} uses for the three commands it still serves. */
-    static final Set<String> MORPHEUS_CLI_DEBT = Set.of(
-            APPLICATION + ".analysis.ChangeAnalysisResult",
-            APPLICATION + ".analysis.ChangeAnalysisService",
-            APPLICATION + ".analysis.ChangeAnalysisSummary",
-            APPLICATION + ".analysis.ChangeAnalysisWarning",
-            APPLICATION + ".analysis.ChangeAnalysisWarningCode",
-            APPLICATION + ".analysis.ProposedChangeSet",
-            APPLICATION + ".analysis.compact.CompactChangeAnalysisViewService",
-            APPLICATION + ".identity.PersistentEntityIdentityResolver",
-            APPLICATION + ".ingestion.BoundedDiagnostics",
-            APPLICATION + ".ingestion.ObservedProjectSnapshotPublisher",
-            APPLICATION + ".ingestion.ProjectSnapshotImportResult",
-            APPLICATION + ".ingestion.ProjectSnapshotImportService",
-            APPLICATION + ".store.ProjectStoreEntry",
-            APPLICATION + ".store.SpecificationKnowledgeStore",
-            APPLICATION + ".sync.IncrementalSyncService",
-            APPLICATION + ".sync.LocalSourceInventoryScanner",
-            APPLICATION + ".sync.SourceInventory",
-            APPLICATION + ".sync.SourceInventoryScanResult",
-            APPLICATION + ".sync.SyncPlan",
-            "com.morpheus.provider.openspec.OpenSpecProjectContentReader");
 
     private static final JavaClasses PRODUCTION = new ClassFileImporter()
             .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
@@ -109,15 +80,9 @@ class DispatchersHoldNoUseCaseArchitectureTest {
     @Test
     void aDispatchClassDependsOnNoGuardedTypeBesideItsAllowance() {
         noClasses()
-                .that(classesOf(CLI_DISPATCH).and(DescribedPredicate.not(morpheusCli())))
+                .that(classesOf(CLI_DISPATCH))
                 .should().dependOnClassesThat(guardedTypesOutsideOf(CLI_ALLOWANCE))
                 .because("a command is served by a capability class; the launcher has no use case to call")
-                .check(PRODUCTION);
-        noClasses()
-                .that(morpheusCli())
-                .should().dependOnClassesThat(guardedTypesOutsideOf(union(CLI_ALLOWANCE, MORPHEUS_CLI_DEBT)))
-                .because("MorpheusCli serves projects, sync and analyze-change until their ingestion is rewired, with "
-                        + "the types they use today and no other")
                 .check(PRODUCTION);
         noClasses()
                 .that(classesOf(MCP_DISPATCH))
@@ -153,38 +118,27 @@ class DispatchersHoldNoUseCaseArchitectureTest {
     @Test
     void everyNameOfEachListIsStillUsed() {
         Set<String> usedByTheCli = new TreeSet<>();
-        Set<String> usedByMorpheusCli = new TreeSet<>();
         Set<String> usedByTheServer = new TreeSet<>();
         for (JavaClass origin : PRODUCTION) {
             if (!isDispatchClass(origin)) {
                 continue;
             }
-            usedBy(topLevelName(origin), usedByTheCli, usedByMorpheusCli, usedByTheServer)
-                    .addAll(guardedDependencies(origin));
+            usedBy(topLevelName(origin), usedByTheCli, usedByTheServer).addAll(guardedDependencies(origin));
         }
         for (String dispatchClass : dispatchClassNames()) {
-            usedBy(dispatchClass, usedByTheCli, usedByMorpheusCli, usedByTheServer)
-                    .addAll(guardedTypesNamed(codeOf(dispatchClass)));
+            usedBy(dispatchClass, usedByTheCli, usedByTheServer).addAll(guardedTypesNamed(codeOf(dispatchClass)));
         }
-        assertEquals(Set.of(), unused(CLI_ALLOWANCE, union(usedByTheCli, usedByMorpheusCli)),
+        assertEquals(Set.of(), unused(CLI_ALLOWANCE, usedByTheCli),
                 "names of the CLI allowance no dispatch class of the CLI uses: remove them");
         assertEquals(Set.of(), unused(MCP_ALLOWANCE, usedByTheServer),
                 "names of the MCP allowance the server does not use: remove them");
-        assertEquals(Set.of(), unused(MORPHEUS_CLI_DEBT, usedByMorpheusCli),
-                "names of the MorpheusCli debt it no longer uses: remove them");
     }
 
-    private static Set<String> usedBy(String dispatchClass, Set<String> cli, Set<String> morpheusCli, Set<String> server) {
-        if (dispatchClass.equals(MORPHEUS_CLI)) {
-            return morpheusCli;
-        }
+    private static Set<String> usedBy(String dispatchClass, Set<String> cli, Set<String> server) {
         return dispatchClass.startsWith(MCP_DISPATCH + ".") ? server : cli;
     }
 
     private static Set<String> permitted(String dispatchClass) {
-        if (dispatchClass.equals(MORPHEUS_CLI)) {
-            return union(CLI_ALLOWANCE, MORPHEUS_CLI_DEBT);
-        }
         return dispatchClass.startsWith(MCP_DISPATCH + ".") ? MCP_ALLOWANCE : CLI_ALLOWANCE;
     }
 
@@ -214,10 +168,6 @@ class DispatchersHoldNoUseCaseArchitectureTest {
     private static DescribedPredicate<JavaClass> classesOf(String packageName) {
         return DescribedPredicate.describe("reside in " + packageName,
                 javaClass -> javaClass.getPackageName().equals(packageName));
-    }
-
-    private static DescribedPredicate<JavaClass> morpheusCli() {
-        return DescribedPredicate.describe("are " + MORPHEUS_CLI, javaClass -> topLevelName(javaClass).equals(MORPHEUS_CLI));
     }
 
     private static DescribedPredicate<JavaClass> guardedTypesOutsideOf(Set<String> permitted) {
@@ -252,12 +202,6 @@ class DispatchersHoldNoUseCaseArchitectureTest {
             named.add(matcher.group());
         }
         return named;
-    }
-
-    private static Set<String> union(Set<String> first, Set<String> second) {
-        Set<String> union = new TreeSet<>(first);
-        union.addAll(second);
-        return union;
     }
 
     private static String topLevelName(JavaClass javaClass) {

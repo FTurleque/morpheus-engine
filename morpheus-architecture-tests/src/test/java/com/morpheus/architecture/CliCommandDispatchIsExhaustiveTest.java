@@ -28,11 +28,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * one whose {@code handles} claims them; what none claims goes to {@code MorpheusCli}. The chain is the set of classes
  * whose {@code handles} the compiled {@code run} references or calls, so a class added to the table or taken out of it
  * is seen without being named here. Each declared path is offered to every class of the chain, whatever order the
- * table gives them: a path two classes claim fails, and so does one that none claims unless it is one of the paths
- * {@code MorpheusCli} still serves.</p>
+ * table gives them: a path two classes claim fails, and so does one that none claims unless {@code MorpheusCli}
+ * serves it.</p>
  *
- * <p>{@link #SERVED_BY_THE_DEFAULT_BRANCH} is the default branch that made {@code MorpheusCli} the place where a
- * command lands without anybody deciding it. It only shrinks: a command extracted into a capability class leaves it.
+ * <p>{@link #SERVED_BY_THE_DEFAULT_BRANCH} is what {@code MorpheusCli} serves when no capability class claims the
+ * arguments: the help. It does not grow, since a command belongs to a capability class (ADR-0149).
  * {@code api} and {@code mcp} are declared paths that {@code MorpheusMain.main} starts before {@code run} is reached,
  * so the dispatch of {@code run} does not concern them.</p>
  */
@@ -41,12 +41,7 @@ class CliCommandDispatchIsExhaustiveTest {
     private static final String LAUNCHER = "com.morpheus.cli.MorpheusMain";
 
     /** The declared paths no capability class claims, which {@code MorpheusCli} serves. */
-    static final Set<String> SERVED_BY_THE_DEFAULT_BRANCH = Set.of(
-            "help",
-            "projects list",
-            "projects add",
-            "sync",
-            "analyze-change");
+    static final Set<String> SERVED_BY_THE_DEFAULT_BRANCH = Set.of("help");
 
     private static final Set<String> STARTED_BEFORE_THE_DISPATCH = Set.of("api", "mcp");
 

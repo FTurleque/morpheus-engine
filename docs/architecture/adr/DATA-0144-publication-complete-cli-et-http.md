@@ -126,7 +126,7 @@ publication complète :
 LocalSourceInventoryScanner
 IncrementalSyncService
 PersistentEntityIdentityResolver
-OpenSpecProjectContentReader
+ProjectContentIngestion (OpenSpecSpecificationContentReader)
 ProjectSnapshotImportService
 ```
 

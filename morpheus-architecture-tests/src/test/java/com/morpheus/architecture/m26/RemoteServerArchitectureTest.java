@@ -84,7 +84,7 @@ class RemoteServerArchitectureTest {
         Path root = repositoryRoot();
         String projects = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusProjectRegistryApiService"));
         String integrations = Files.readString(ProductionSources.mainSource("morpheus-api", "IntegrationStatusViews"));
-        String cli = Files.readString(ProductionSources.mainSource("morpheus-cli", "MorpheusCli"));
+        String cli = Files.readString(ProductionSources.mainSource("morpheus-cli", "MorpheusProjectCli"));
         String integrationProjection = Files.readString(root.resolve(
                 "morpheus-application/src/main/java/com/morpheus/application/security/IntegrationStatusDisclosure.java"));
 

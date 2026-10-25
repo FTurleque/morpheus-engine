@@ -111,7 +111,7 @@ class LifecycleApplyFailureParityTest {
         int exit;
         try (PrintStream outStream = new PrintStream(out, true, StandardCharsets.UTF_8);
              PrintStream errStream = new PrintStream(err, true, StandardCharsets.UTF_8)) {
-            exit = new MorpheusCli(OperationalRecorder.noop()).run(
+            exit = new MorpheusCli().run(
                     arguments.toArray(String[]::new), outStream, errStream, Map.of(), properties());
         }
 
