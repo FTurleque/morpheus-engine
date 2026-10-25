@@ -8,7 +8,7 @@ export default {
       description: "La table « Codes de sortie » de docs/user/CLI.md égale CliExitCode",
       severity: "error",
       async check(ctx) {
-        const enumFile = "morpheus-cli/src/main/java/com/morpheus/cli/CliExitCode.java";
+        const enumFile = "morpheus-cli/src/main/java/com/morpheus/cli/command/CliExitCode.java";
         const guide = "docs/user/CLI.md";
         const declared = [...(await ctx.readFile(enumFile)).matchAll(/^\s*([A-Z_]+)\((\d+)\)[,;]/gm)]
           .map((m) => `${m[2]} ${m[1]}`)
