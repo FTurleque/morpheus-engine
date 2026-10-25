@@ -12,15 +12,6 @@ import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.product.ProductMetadata;
-import com.morpheus.application.quality.AcceptanceQualityService;
-import com.morpheus.application.quality.ChangeCompletenessService;
-import com.morpheus.application.quality.CoverageRatioStatus;
-import com.morpheus.application.quality.DecisionReferenceQualityService;
-import com.morpheus.application.quality.QualityReport;
-import com.morpheus.application.quality.QualityReportService;
-import com.morpheus.application.quality.RequirementQualityService;
-import com.morpheus.application.quality.TaskQualityService;
-import com.morpheus.application.quality.compact.CompactQualityReportService;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.application.sync.IncrementalSyncService;
 import com.morpheus.application.sync.LocalSourceInventoryScanner;
@@ -107,27 +98,11 @@ public final class MorpheusCli {
                 run.print(new VersionView(version()), "MORPHEUS " + version());
                 yield CliExitCode.SUCCESS.code();
             }
-            case "paths" -> paths(run);
             case "projects" -> projects(tokens, run);
             case "sync" -> sync(tokens, run);
             case "analyze-change" -> analyzeChange(tokens, run);
-            case "quality" -> quality(tokens, run);
             default -> throw CliFailure.usage("unknown command: " + command);
         };
-    }
-
-    private int paths(CliCommandRun run) {
-        PathsView view = new PathsView(
-                run.layout().dataDirectory().toString(),
-                run.layout().configDirectory().toString(),
-                run.layout().logsDirectory().toString(),
-                run.databasePath().toString());
-        run.print(view, String.join(System.lineSeparator(),
-                "data=" + view.dataDirectory(),
-                "config=" + view.configDirectory(),
-                "logs=" + view.logsDirectory(),
-                "database=" + view.databasePath()));
-        return CliExitCode.SUCCESS.code();
     }
 
     private int projects(List<String> tokens, CliCommandRun run) {
@@ -330,43 +305,6 @@ public final class MorpheusCli {
         return lines;
     }
 
-    private int quality(List<String> tokens, CliCommandRun run) {
-        CommandOptions options = CommandOptions.parse(tokens, Set.of());
-        options.rejectUnknown(Set.of(OPT_PROJECT));
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
-        try (CliRuntime runtime = CliRuntime.recovering(run.databasePath(), recorder)) {
-            QualityReportService service = new QualityReportService(
-                    runtime.snapshots(),
-                    new RequirementQualityService(runtime.snapshots(), runtime.requirements(), runtime.traceability()),
-                    new TaskQualityService(runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability()),
-                    new AcceptanceQualityService(runtime.snapshots(), runtime.content()),
-                    new ChangeCompletenessService(runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability()),
-                    new DecisionReferenceQualityService(
-                            runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability(), runtime.externalReferences()));
-            QualityReport report = service.assessActive(projectId)
-                    .orElseThrow(() -> CliFailure.notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
-            if (run.json()) {
-                run.printLine(new CompactQualityReportService().toJson(report));
-            } else {
-                var metrics = report.metrics();
-                run.printLine(KEY_SNAPSHOT_ID + report.snapshot().id());
-                run.printLine("findings=" + metrics.totalFindings()
-                        + " requirements=" + metrics.totalRequirements()
-                        + " requirementCoverage="
-                        + coverage(metrics.requirementCoverageStatus(), metrics.requirementCoverageRatio())
-                        + " tasks=" + metrics.totalTasks()
-                        + " taskCoverage=" + coverage(metrics.taskCoverageStatus(), metrics.taskCoverageRatio())
-                        + " acceptance=" + metrics.acceptanceCoverageStatus());
-            }
-            return CliExitCode.SUCCESS.code();
-        }
-    }
-
-    /** A ratio over an empty population is not a measurement, so it is not printed as a number. */
-    private static String coverage(CoverageRatioStatus status, double ratio) {
-        return status == CoverageRatioStatus.MEASURED ? Double.toString(ratio) : status.name();
-    }
-
     private Path projectWorkspace(CliRuntime runtime, ProjectSpecificationId projectId) {
         ProjectStoreEntry project = runtime.snapshots().findProject(projectId)
                 .orElseThrow(() -> CliFailure.notFound("project not found: " + projectId));
@@ -430,7 +368,6 @@ public final class MorpheusCli {
     }
 
     private record VersionView(String version) {}
-    private record PathsView(String dataDirectory, String configDirectory, String logsDirectory, String databasePath) {}
     private record ProjectView(String projectId, String workspace) {}
     private record SyncView(
             String projectId,

@@ -18,10 +18,12 @@ import com.morpheus.cli.command.MorpheusConstraintSemanticsCli;
 import com.morpheus.cli.command.MorpheusControlledLifecycleCli;
 import com.morpheus.cli.command.MorpheusExternalIntegrationCli;
 import com.morpheus.cli.command.MorpheusJarvisOrchestrationCli;
+import com.morpheus.cli.command.MorpheusPathsCli;
 import com.morpheus.cli.command.MorpheusPolicyCli;
 import com.morpheus.cli.command.MorpheusPortfolioCli;
 import com.morpheus.cli.command.MorpheusProductCli;
 import com.morpheus.cli.command.MorpheusProviderPluginCli;
+import com.morpheus.cli.command.MorpheusQualityCli;
 import com.morpheus.cli.command.MorpheusQueryCli;
 import com.morpheus.cli.command.MorpheusRequirementCli;
 import com.morpheus.cli.command.MorpheusServerCli;
@@ -187,6 +189,10 @@ public final class MorpheusMain {
         } else if (MorpheusExternalIntegrationCli.handles(args)) {
             exitCode = new MorpheusExternalIntegrationCli(runtime.recorder(), minos.resolverRegistry(), minos)
                     .run(args, out, err, environment, properties);
+        } else if (MorpheusQualityCli.handles(args)) {
+            exitCode = new MorpheusQualityCli(runtime.recorder()).run(args, out, err, environment, properties);
+        } else if (MorpheusPathsCli.handles(args)) {
+            exitCode = new MorpheusPathsCli().run(args, out, err, environment, properties);
         } else if (MorpheusSyncStatusCli.handles(args)) {
             exitCode = new MorpheusSyncStatusCli(runtime.recorder()).run(args, out, err, environment, properties);
         } else if (MorpheusChangeCli.handles(args)) {

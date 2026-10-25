@@ -42,12 +42,10 @@ class CliCommandDispatchIsExhaustiveTest {
     /** The declared paths no capability class claims, which {@code MorpheusCli} serves. */
     static final Set<String> SERVED_BY_THE_DEFAULT_BRANCH = Set.of(
             "help",
-            "paths",
             "projects list",
             "projects add",
             "sync",
-            "analyze-change",
-            "quality");
+            "analyze-change");
 
     private static final Set<String> STARTED_BEFORE_THE_DISPATCH = Set.of("api", "mcp");
 
