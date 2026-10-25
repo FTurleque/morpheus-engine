@@ -13,6 +13,7 @@ import com.morpheus.integration.mcp.BoundedStdioServerTransportProvider;
 import com.morpheus.mcp.McpArguments;
 import com.morpheus.mcp.McpToolFailure;
 import com.morpheus.mcp.MorpheusAugmentedContextMcpTools;
+import com.morpheus.mcp.MorpheusChangeMcpTools;
 import com.morpheus.mcp.MorpheusCompositionMcpTools;
 import com.morpheus.mcp.MorpheusControlledLifecycleMcpTools;
 import com.morpheus.mcp.MorpheusExternalReferenceMcpTools;
@@ -43,6 +44,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Stream;
 
 /** Native STDIO MCP adapter. Stdout is owned exclusively by the MCP transport. */
 public final class MorpheusMcpServer {
@@ -166,8 +168,11 @@ public final class MorpheusMcpServer {
         MorpheusMcpToolService service = new MorpheusMcpToolService(databasePath, recorder);
         List<McpServerFeatures.SyncToolSpecification> tools = new ArrayList<>();
 
-        Map<String, McpServerFeatures.SyncToolSpecification> catalogTools =
-                byName(new MorpheusRequirementMcpTools(databasePath, recorder).specifications());
+        Map<String, McpServerFeatures.SyncToolSpecification> catalogTools = byName(Stream.of(
+                        new MorpheusRequirementMcpTools(databasePath, recorder).specifications(),
+                        new MorpheusChangeMcpTools(databasePath, recorder).specifications())
+                .flatMap(List::stream)
+                .toList());
         for (MorpheusMcpToolCatalog.ToolDefinition definition : catalog.tools()) {
             McpServerFeatures.SyncToolSpecification extracted = catalogTools.remove(definition.name());
             tools.add(extracted != null ? extracted : tool(definition, service));

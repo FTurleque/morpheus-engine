@@ -12,6 +12,7 @@ import com.morpheus.cli.command.CliExitCode;
 import com.morpheus.cli.command.CliLayout;
 import com.morpheus.cli.command.MorpheusAcceptanceCriteriaCli;
 import com.morpheus.cli.command.MorpheusAugmentedContextCli;
+import com.morpheus.cli.command.MorpheusChangeCli;
 import com.morpheus.cli.command.MorpheusCompositionCli;
 import com.morpheus.cli.command.MorpheusConstraintSemanticsCli;
 import com.morpheus.cli.command.MorpheusControlledLifecycleCli;
@@ -185,6 +186,8 @@ public final class MorpheusMain {
         } else if (MorpheusExternalIntegrationCli.handles(args)) {
             exitCode = new MorpheusExternalIntegrationCli(runtime.recorder(), minos.resolverRegistry(), minos)
                     .run(args, out, err, environment, properties);
+        } else if (MorpheusChangeCli.handles(args)) {
+            exitCode = new MorpheusChangeCli(runtime.recorder()).run(args, out, err, environment, properties);
         } else if (MorpheusRequirementCli.handles(args)) {
             exitCode = new MorpheusRequirementCli(runtime.recorder()).run(args, out, err, environment, properties);
         } else {

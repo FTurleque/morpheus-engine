@@ -1,9 +1,13 @@
 package com.morpheus.mcp;
 
 import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.query.BusinessContentQueryService;
 import com.morpheus.application.query.PageRequest;
+import com.morpheus.application.query.SnapshotItemResult;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.store.KnowledgeStoreException;
+import com.morpheus.domain.change.ChangeId;
+import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import io.modelcontextprotocol.spec.McpSchema;
 
@@ -61,6 +65,21 @@ final class McpCatalogTool {
         return new PageRequest(
                 McpArguments.optionalInt(arguments, "offset", 0, 0, 1_000_000),
                 McpArguments.optionalInt(arguments, "limit", MorpheusMcpToolCatalog.DEFAULT_LIMIT, 1, MorpheusMcpToolCatalog.MAX_LIMIT));
+    }
+
+    static BusinessContentQueryService business(MorpheusMcpRuntime runtime) {
+        return new BusinessContentQueryService(runtime.snapshots(), runtime.content());
+    }
+
+    /** The change of the ACTIVE snapshot, refused when the snapshot or the change is absent. */
+    static SnapshotItemResult<ChangeProposal> requireChange(
+            MorpheusMcpRuntime runtime, ProjectSpecificationId projectId, ChangeId changeId) {
+        var result = business(runtime).activeChange(projectId, changeId)
+                .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
+        if (result.item().isEmpty()) {
+            throw notFound("change not found: " + changeId);
+        }
+        return result;
     }
 
     static KnowledgeStoreException notFound(String message) {

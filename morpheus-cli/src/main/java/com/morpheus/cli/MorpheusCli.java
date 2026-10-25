@@ -21,10 +21,6 @@ import com.morpheus.application.quality.QualityReportService;
 import com.morpheus.application.quality.RequirementQualityService;
 import com.morpheus.application.quality.TaskQualityService;
 import com.morpheus.application.quality.compact.CompactQualityReportService;
-import com.morpheus.application.query.BusinessContentQueryService;
-import com.morpheus.application.query.ChangeContextQueryService;
-import com.morpheus.application.query.SnapshotPage;
-import com.morpheus.application.query.compact.CompactQueryViewService;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.application.sync.IncrementalSyncService;
 import com.morpheus.application.sync.LocalSourceInventoryScanner;
@@ -37,12 +33,8 @@ import com.morpheus.cli.command.CliFailure;
 import com.morpheus.cli.command.CliRuntime;
 import com.morpheus.cli.command.CommandOptions;
 import com.morpheus.domain.change.ChangeId;
-import com.morpheus.domain.change.ChangeProposal;
-import com.morpheus.domain.constraint.Constraint;
-import com.morpheus.domain.decision.DesignDecision;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.source.SourceLocator;
-import com.morpheus.domain.task.ImplementationTask;
 import com.morpheus.provider.openspec.OpenSpecProjectContentReader;
 
 import java.io.FileDescriptor;
@@ -68,8 +60,6 @@ public final class MorpheusCli {
     private static final String OPT_PROJECT = "project";
     private static final String OPT_FORCE = "force";
     private static final String OPT_CHANGE = "change";
-    private static final String OPT_OFFSET = "offset";
-    private static final String OPT_LIMIT = "limit";
     private static final String OPT_DEPTH = "depth";
     private static final String KEY_SNAPSHOT_ID = "snapshotId=";
     private static final String KEY_UNKNOWN = "unknown";
@@ -125,11 +115,6 @@ public final class MorpheusCli {
             case "projects" -> projects(tokens, run);
             case "sync" -> sync(tokens, run);
             case "sync-status" -> syncStatus(tokens, run);
-            case "changes" -> changes(tokens, run);
-            case "constraints" -> constraints(tokens, run);
-            case "decisions" -> decisions(tokens, run);
-            case "tasks" -> tasks(tokens, run);
-            case "change-context" -> changeContext(tokens, run);
             case "analyze-change" -> analyzeChange(tokens, run);
             case "quality" -> quality(tokens, run);
             default -> throw CliFailure.usage("unknown command: " + command);
@@ -330,129 +315,6 @@ public final class MorpheusCli {
         }
     }
 
-    private int changes(List<String> tokens, CliCommandRun run) {
-        if (tokens.isEmpty()) {
-            throw CliFailure.usage("changes requires subcommand: list | get");
-        }
-        String subcommand = tokens.getFirst();
-        CommandOptions options = CommandOptions.parse(tokens.subList(1, tokens.size()), Set.of());
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
-        try (CliRuntime runtime = CliRuntime.recovering(run.databasePath(), recorder)) {
-            BusinessContentQueryService service = new BusinessContentQueryService(runtime.snapshots(), runtime.content());
-            if (subcommand.equals("list")) {
-                options.rejectUnknown(Set.of(OPT_PROJECT, OPT_OFFSET, OPT_LIMIT));
-                SnapshotPage<ChangeProposal> page = service.listActiveChanges(projectId, options.page())
-                        .orElseThrow(() -> CliFailure.notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
-                PageView<ChangeView> view = new PageView<>(
-                        page.snapshot().id().toString(), page.totalMatches(), page.hasMore(),
-                        page.items().stream().map(this::changeView).toList());
-                run.printPage(view.snapshotId(), view.totalMatches(), view.hasMore(), view.items(), view, item -> item.id() + "\t" + item.key().orElse("") + "\t" + item.title());
-                return CliExitCode.SUCCESS.code();
-            }
-            if (subcommand.equals("get")) {
-                options.rejectUnknown(Set.of(OPT_PROJECT, OPT_CHANGE));
-                ChangeId changeId = ChangeId.parse(options.required(OPT_CHANGE));
-                var result = service.activeChange(projectId, changeId)
-                        .orElseThrow(() -> CliFailure.notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
-                ChangeProposal change = result.item().orElseThrow(() -> CliFailure.notFound("change not found: " + changeId));
-                ChangeView view = changeView(change);
-                run.print(view, String.join(System.lineSeparator(),
-                        "id=" + view.id(), "key=" + view.key().orElse(""), "title=" + view.title(), "intent=" + view.intent()));
-                return CliExitCode.SUCCESS.code();
-            }
-            throw CliFailure.usage("unknown changes subcommand: " + subcommand);
-        }
-    }
-
-    private int constraints(List<String> tokens, CliCommandRun run) {
-        if (tokens.isEmpty() || !tokens.getFirst().equals("list")) {
-            throw CliFailure.usage("constraints requires subcommand: list");
-        }
-        CommandOptions options = CommandOptions.parse(tokens.subList(1, tokens.size()), Set.of());
-        options.rejectUnknown(Set.of(OPT_PROJECT, OPT_CHANGE, OPT_OFFSET, OPT_LIMIT));
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
-        ChangeId changeId = ChangeId.parse(options.required(OPT_CHANGE));
-        try (CliRuntime runtime = CliRuntime.recovering(run.databasePath(), recorder)) {
-            SnapshotPage<Constraint> page = new BusinessContentQueryService(runtime.snapshots(), runtime.content())
-                    .activeConstraints(projectId, changeId, options.page())
-                    .orElseThrow(() -> CliFailure.notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
-            PageView<ConstraintView> view = new PageView<>(page.snapshot().id().toString(), page.totalMatches(), page.hasMore(),
-                    page.items().stream().map(item -> new ConstraintView(item.id().toString(), item.changeId().toString(), item.statement())).toList());
-            run.printPage(view.snapshotId(), view.totalMatches(), view.hasMore(), view.items(), view, item -> item.id() + "\t" + item.statement());
-            return CliExitCode.SUCCESS.code();
-        }
-    }
-
-    private int decisions(List<String> tokens, CliCommandRun run) {
-        if (tokens.isEmpty() || !tokens.getFirst().equals("list")) {
-            throw CliFailure.usage("decisions requires subcommand: list");
-        }
-        CommandOptions options = CommandOptions.parse(tokens.subList(1, tokens.size()), Set.of());
-        options.rejectUnknown(Set.of(OPT_PROJECT, OPT_CHANGE, OPT_OFFSET, OPT_LIMIT));
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
-        ChangeId changeId = ChangeId.parse(options.required(OPT_CHANGE));
-        try (CliRuntime runtime = CliRuntime.recovering(run.databasePath(), recorder)) {
-            SnapshotPage<DesignDecision> page = new BusinessContentQueryService(runtime.snapshots(), runtime.content())
-                    .activeDesignDecisions(projectId, changeId, options.page())
-                    .orElseThrow(() -> CliFailure.notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
-            PageView<DecisionView> view = new PageView<>(page.snapshot().id().toString(), page.totalMatches(), page.hasMore(),
-                    page.items().stream().map(item -> new DecisionView(item.id().toString(), item.changeId().toString(), item.title(), item.decision())).toList());
-            run.printPage(view.snapshotId(), view.totalMatches(), view.hasMore(), view.items(), view, item -> item.id() + "\t" + item.title());
-            return CliExitCode.SUCCESS.code();
-        }
-    }
-
-    private int tasks(List<String> tokens, CliCommandRun run) {
-        if (tokens.isEmpty() || !tokens.getFirst().equals("list")) {
-            throw CliFailure.usage("tasks requires subcommand: list");
-        }
-        CommandOptions options = CommandOptions.parse(tokens.subList(1, tokens.size()), Set.of());
-        options.rejectUnknown(Set.of(OPT_PROJECT, OPT_CHANGE, OPT_OFFSET, OPT_LIMIT));
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
-        ChangeId changeId = ChangeId.parse(options.required(OPT_CHANGE));
-        try (CliRuntime runtime = CliRuntime.recovering(run.databasePath(), recorder)) {
-            SnapshotPage<ImplementationTask> page = new BusinessContentQueryService(runtime.snapshots(), runtime.content())
-                    .activeImplementationTasks(projectId, changeId, options.page())
-                    .orElseThrow(() -> CliFailure.notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
-            PageView<TaskView> view = new PageView<>(page.snapshot().id().toString(), page.totalMatches(), page.hasMore(),
-                    page.items().stream().map(item -> new TaskView(
-                            item.id().toString(), item.changeId().toString(), item.key(), item.title(), item.completed())).toList());
-            run.printPage(view.snapshotId(), view.totalMatches(), view.hasMore(), view.items(), view, item -> item.id() + "\t" + (item.completed() ? "done" : "todo") + "\t" + item.title());
-            return CliExitCode.SUCCESS.code();
-        }
-    }
-
-    private int changeContext(List<String> tokens, CliCommandRun run) {
-        CommandOptions options = CommandOptions.parse(tokens, Set.of());
-        options.rejectUnknown(Set.of(OPT_PROJECT, OPT_CHANGE, OPT_DEPTH));
-        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
-        ChangeId changeId = ChangeId.parse(options.required(OPT_CHANGE));
-        int depth = options.intValue(OPT_DEPTH, 2, 1, 20);
-        try (CliRuntime runtime = CliRuntime.recovering(run.databasePath(), recorder)) {
-            var result = new ChangeContextQueryService(
-                    runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability(), runtime.externalReferences())
-                    .active(projectId, changeId, depth, Set.of())
-                    .orElseThrow(() -> CliFailure.notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
-            if (result.change().isEmpty()) {
-                throw CliFailure.notFound("change not found: " + changeId);
-            }
-            var compact = new CompactQueryViewService(runtime.content()).changeContext(result);
-            if (run.json()) {
-                run.printJson(compact);
-            } else {
-                run.printLine("change=" + result.change().orElseThrow().title());
-                run.printLine("affectedRequirements=" + result.affectedRequirements().size()
-                        + " constraints=" + result.constraints().size()
-                        + " decisions=" + result.designDecisions().size()
-                        + " tasks=" + result.implementationTasks().size()
-                        + " links=" + result.subgraph().links().size());
-                result.subgraph().truncationReason()
-                        .ifPresent(reason -> run.printLine("truncationReason=" + reason));
-            }
-            return CliExitCode.SUCCESS.code();
-        }
-    }
-
     private int analyzeChange(List<String> tokens, CliCommandRun run) {
         CommandOptions options = CommandOptions.parse(tokens, Set.of());
         options.rejectUnknown(Set.of(OPT_PROJECT, OPT_CHANGE, OPT_DEPTH));
@@ -538,10 +400,6 @@ public final class MorpheusCli {
     /** A ratio over an empty population is not a measurement, so it is not printed as a number. */
     private static String coverage(CoverageRatioStatus status, double ratio) {
         return status == CoverageRatioStatus.MEASURED ? Double.toString(ratio) : status.name();
-    }
-
-    private ChangeView changeView(ChangeProposal change) {
-        return new ChangeView(change.id().toString(), change.key(), change.title(), change.intent(), change.scope(), change.outOfScope(), change.risks());
     }
 
     private Path projectWorkspace(CliRuntime runtime, ProjectSpecificationId projectId) {
@@ -630,16 +488,4 @@ public final class MorpheusCli {
             Optional<String> lastSuccessfulMode,
             Optional<String> pendingFullRebuildReason,
             int currentSourceCount) {}
-    private record ChangeView(
-            String id,
-            Optional<String> key,
-            String title,
-            String intent,
-            List<String> scope,
-            List<String> outOfScope,
-            List<String> risks) {}
-    private record ConstraintView(String id, String changeId, String statement) {}
-    private record DecisionView(String id, String changeId, String title, String decision) {}
-    private record TaskView(String id, String changeId, Optional<String> key, String title, boolean completed) {}
-    private record PageView<T>(String snapshotId, int totalMatches, boolean hasMore, List<T> items) {}
 }

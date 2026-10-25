@@ -47,12 +47,6 @@ class CliCommandDispatchIsExhaustiveTest {
             "projects add",
             "sync",
             "sync-status",
-            "changes list",
-            "changes get",
-            "constraints list",
-            "decisions list",
-            "tasks list",
-            "change-context",
             "analyze-change",
             "quality");
 
