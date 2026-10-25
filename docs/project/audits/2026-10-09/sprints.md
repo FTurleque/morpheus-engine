@@ -1,7 +1,9 @@
 # Sprints de correction
-État au **17 octobre 2026** sur `ae368aa3` (`origin/develop`). L'ordre et le découpage sont ceux du 9 octobre ; seuls les statuts ont été réétablis, constat par constat, sur le code.
+État au **21 octobre 2026** sur `6bdf4bbb` (`origin/develop`). L'ordre et le découpage sont ceux du 9 octobre ; seuls les statuts ont été réétablis, constat par constat, sur le code.
 
-**77 constats affectés à un sprint, 34 soldés, 43 restants.**
+**Plan du 9 octobre : 73 constats, 45 soldés, 28 restants.** Les sprints 2, 3 et 4 sont terminés ; les sprints 1, 5, 6 et 7 gardent un reliquat chacun ; le sprint 8 est largement entamé ; les sprints 9 à 14 n'ont pas commencé, conformément à l'ordre.
+
+**Sprint 15 — dérives : 9 constats, 5 restants.** Ce sprint n'est pas du plan d'origine : il rassemble les constats nés *après* l'audit, d'une scission, d'un effet de bord d'un correctif ou du changement de branche d'intégration. Les ranger dans les sprints d'origine faisait croire que ceux-ci traînaient depuis le 9 octobre ; ils sont soldés, et du travail neuf est apparu à côté.
 
 ## Avancement
 
@@ -10,18 +12,19 @@
 | **1** | Remettre le dispositif en marche | 8 | 7 | 1 | 1 à 3 j |
 | **2** ✓ | Débloquer la release 1.2.1 | 6 | 6 | 0 | — |
 | **3** ✓ | Fermer les écarts de sécurité | 8 | 8 | 0 | — |
-| **4** | Rendre le produit observable | 7 | 5 | 2 | 1.25 à 4 j |
-| **5** | Écarter le risque d'indisponibilité | 5 | 3 | 2 | 1.25 à 4 j |
-| **6** | Borner les coûts qui croissent avec les données | 4 | 2 | 2 | 2 à 6 j |
-| **7** | Le SQL de détail | 7 | 0 | 7 | 2.5 à 9 j |
-| **8** | Fiabiliser les tests | 8 | 1 | 7 | 4.75 à 15 j |
+| **4** ✓ | Rendre le produit observable | 5 | 5 | 0 | — |
+| **5** | Écarter le risque d'indisponibilité | 4 | 3 | 1 | 0.25 à 1 j |
+| **6** | Borner les coûts qui croissent avec les données | 4 | 3 | 1 | 1 à 3 j |
+| **7** | Le SQL de détail | 7 | 6 | 1 | 0.25 à 1 j |
+| **8** | Fiabiliser les tests | 8 | 4 | 4 | 2.5 à 8 j |
 | **9** | Supprimer la duplication du socle | 6 | 0 | 6 | 4.5 à 14 j |
-| **10** | Dire la vérité dans les règles | 8 | 2 | 6 | 2.25 à 8 j |
+| **10** | Dire la vérité dans les règles | 7 | 3 | 4 | 1.75 à 6 j |
 | **11** | Trancher l'architecture | 4 | 0 | 4 | 10 à 27 j |
 | **12** | Restructurer les adaptateurs | 3 | 0 | 3 | 7 à 19 j |
 | **13** | Couverture et pagination | 2 | 0 | 2 | 6 à 16 j |
 | **14** | Signer la distribution | 1 | 0 | 1 | 1 à 3 j |
-| | **Total** | **77** | **34** | **43** | **43.5 à 128 j** |
+| **15** | Dérives apparues pendant les correctifs | 9 | 4 | 5 | 2.75 à 9 j |
+| | **Total** | **82** | **49** | **33** | **38 à 110 j** |
 
 Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j · L 3 à 8 j). Un constat `partiel` compte pour son effort entier : ce qui reste d'un constat partiellement traité n'est pas proportionnel à ce qui en a été fait.
 
@@ -82,9 +85,9 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 | `AUD-SEC-06` | corrigé | Faible | S | En-têtes de sécurité incomplets : pas de X-Frame-Options ni de CSP sur les réponses de succès locales, pas de HSTS sur la façade remote |
 | `AUD-SEC-07` | corrigé | Faible | S | Aucune règle .gitignore ne protège le fichier d'identités remote ni le keystore TLS, que SECURITY.md interdit de committer |
 
-## Sprint 4 — Rendre le produit observable
+## Sprint 4 — Rendre le produit observable  ·  **terminé**
 
-7 constats · 5 corrigé · 1 partiel · 1 toujours valide
+5 constats · 5 corrigé
 
 *Pourquoi ici* — Sans trace, les sprints suivants corrigent à l'aveugle et aucun incident n'est reconstituable.
 
@@ -94,15 +97,13 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 |---|---|---|---|---|
 | `AUD-TRV-04` | corrigé | Élevée | M | Le produit est muet : aucun journal applicatif, slf4j-nop comme seul binding, et un répertoire de logs publié sans aucun écrivain |
 | `AUD-DEP-10` | corrigé | Moyenne | S | MORPHEUS_OPERATIONAL_LOGS retombe silencieusement sur noop pour toute valeur non reconnue |
-| `AUD-QUA-17` | partiel | Moyenne | M | Le verrou du parallelisme JUnit se deplace : SqliteConnectionScope porte quatre compteurs statiques de processus lus en difference par les tests |
 | `AUD-SEC-04` | corrigé | Moyenne | M | Aucune trace d'attribution : le principal authentifié d'une requête remote n'est enregistré nulle part |
 | `AUD-QUA-12` | corrigé | Faible | S | 47 @SuppressWarnings dont environ cinq portent une justification écrite, alors que les exclusions SpotBugs en exigent une |
 | `AUD-QUA-13` | corrigé | Faible | M | L'observabilité repose sur un singleton statique mutable qui interdit d'activer le parallélisme JUnit |
-| `AUD-QUA-18` | toujours valide | Faible | S | Le parallelisme JUnit est active sur le module ou une portee mal fermee empoisonne un thread du pool, sans aucun filet |
 
 ## Sprint 5 — Écarter le risque d'indisponibilité
 
-5 constats · 2 corrigé · 2 toujours valide · 1 caduc
+4 constats · 2 corrigé · 1 toujours valide · 1 caduc
 
 *Pourquoi ici* — Le chemin vers l'indisponibilité du serveur entier, et la politique de connexion qui le sous-tend.
 
@@ -113,12 +114,11 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 | `AUD-PRF-18` | caduc | Élevée | M | Épinglage des threads virtuels : 94 méthodes public synchronized faisant du JDBC bloquant, atteintes depuis les serveurs HTTP, sur une baseline Java 21 |
 | `AUD-TRV-05` | corrigé | Élevée | M | La politique de connexion SQLite est une propriété de chaque site de composition, pas du module : 12 sites, 3 ouvertures de scope |
 | `AUD-PRF-03` | corrigé | Moyenne | M | Serveur HTTP local sans contrôle d'admission : threads virtuels illimités, une connexion SQLite physique par requête, journal PERSIST |
-| `AUD-PRF-09` | toujours valide | Moyenne | S | Le proxy remote n'impose ni timeout de lecture ni budget mémoire sur les routes WRITE et ADMIN |
-| `AUD-PRF-19` | toujours valide | Moyenne | M | Le serveur remote sert toujours sur threads virtuels nus, et sa route de sauvegarde appelle SQLite directement |
+| `AUD-PRF-09` | toujours valide | Moyenne | S | Le proxy remote n'impose aucun délai de lecture amont sur les routes WRITE et ADMIN |
 
 ## Sprint 6 — Borner les coûts qui croissent avec les données
 
-4 constats · 2 corrigé · 2 toujours valide
+4 constats · 3 corrigé · 1 partiel
 
 *Pourquoi ici* — Les quatre chemins dont le coût croît avec le volume, mesurables seulement après le sprint 1.
 
@@ -127,13 +127,13 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 | Constat | Statut | Sév. | Eff. | Objet |
 |---|---|---|---|---|
 | `AUD-PRF-01` | corrigé | Élevée | M | N+1 SQL dans la lecture du contenu métier d'un snapshot : 7 requêtes filles par ligne parente |
-| `AUD-PRF-02` | toujours valide | Élevée | M | ChangeAnalysisService refait un BFS complet par nœud déjà découvert par la traversée |
-| `AUD-PRF-04` | toujours valide | Élevée | M | Trois tables en croissance monotone lues sans LIMIT ni pagination, dont une exposée en HTTP et en MCP |
+| `AUD-PRF-02` | corrigé | Élevée | M | ChangeAnalysisService refait un BFS complet par nœud déjà découvert par la traversée |
+| `AUD-PRF-04` | partiel | Élevée | M | Trois tables en croissance monotone lues sans LIMIT ni pagination, dont une exposée en HTTP et en MCP |
 | `AUD-PRF-06` | corrigé | Moyenne | M | Écriture N+1 des liens de traçabilité : trois à quatre prepareStatement par lien, sans batch, dans une transaction unique |
 
 ## Sprint 7 — Le SQL de détail
 
-7 constats · 7 toujours valide
+7 constats · 6 corrigé · 1 toujours valide
 
 *Pourquoi ici* — Même couche que le sprint 6, volontairement après lui pour éviter les conflits de fusion sur les mêmes fichiers.
 
@@ -141,17 +141,17 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 
 | Constat | Statut | Sév. | Eff. | Objet |
 |---|---|---|---|---|
-| `AUD-PRF-07` | toujours valide | Moyenne | S | Six index redondants dupliquant l'index implicite d'une clé primaire |
-| `AUD-PRF-08` | toujours valide | Moyenne | M | La vérification de frontière du workspace fait un toRealPath par segment, deux fois par fichier scanné |
-| `AUD-PRF-10` | toujours valide | Moyenne | S | Le seul SELECT paginé du module trie sur une colonne que son index ne couvre pas |
-| `AUD-PRF-11` | toujours valide | Faible | S | ORDER BY name COLLATE NOCASE sur saved_views ne peut pas utiliser l'index BINARY qui porte la colonne |
-| `AUD-PRF-12` | toujours valide | Faible | S | Le filtre de type de relation des liens de traçabilité est appliqué en Java alors que l'index le porte |
-| `AUD-PRF-13` | toujours valide | Faible | S | Deux lectures triées en SQL puis retriées en Java |
+| `AUD-PRF-07` | corrigé | Moyenne | S | Onze index redondants dupliquant l'index implicite d'une clé primaire (l'audit en annonçait six) |
+| `AUD-PRF-08` | corrigé | Moyenne | M | La vérification de frontière du workspace fait un toRealPath par segment, deux fois par fichier scanné |
+| `AUD-PRF-10` | corrigé | Moyenne | S | Le seul SELECT paginé du module trie sur une colonne que son index ne couvre pas |
+| `AUD-PRF-11` | corrigé | Faible | S | ORDER BY name COLLATE NOCASE sur saved_views ne peut pas utiliser l'index BINARY qui porte la colonne |
+| `AUD-PRF-12` | corrigé | Faible | S | Le filtre de type de relation des liens de traçabilité est appliqué en Java alors que l'index le porte |
+| `AUD-PRF-13` | corrigé | Faible | S | Deux lectures triées en SQL puis retriées en Java |
 | `AUD-PRF-14` | toujours valide | Faible | S | Aucun cache de lecture de document : chaque lecture reparcourt le texte deux fois de plus et consomme le budget |
 
 ## Sprint 8 — Fiabiliser les tests
 
-8 constats · 1 corrigé · 1 partiel · 6 toujours valide
+8 constats · 4 corrigé · 3 partiel · 1 toujours valide
 
 *Pourquoi ici* — Ce qui empêche la suite de détecter une régression, une fois le dispositif remis en marche.
 
@@ -159,14 +159,14 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 
 | Constat | Statut | Sév. | Eff. | Objet |
 |---|---|---|---|---|
-| `AUD-QUA-04` | toujours valide | Moyenne | S | Dérive documentation/code sur le nombre de modules : 18 déclarés, 17 annoncés par quatre pages vivantes |
+| `AUD-QUA-04` | corrigé | Moyenne | S | Dérive documentation/code sur le nombre de modules : 18 déclarés, 17 annoncés par quatre pages vivantes |
 | `AUD-TRV-07` | partiel | Moyenne | M | Les 44 scripts de scripts/ sont le dispositif d'enforcement du dépôt et aucun n'est testé, sauf le gate de couverture différentielle |
-| `AUD-TST-03` | toujours valide | Moyenne | M | 300 des 831 assertThrows n'assertent qu'un type d'exception JDK générique, sans message ni code de rejet |
-| `AUD-TST-06` | toujours valide | Moyenne | M | La colonne cli du manifeste de convergence n'est vérifiée que pour sa non-vacuité, sans gate bidirectionnel, contrairement à http et mcp |
-| `AUD-TST-10` | toujours valide | Moyenne | M | Aucun test d'upgrade depuis une base réelle aux paliers de schéma 13 à 19 ; le seul vrai test d'upgrade part du palier 12 |
-| `AUD-TST-18` | corrigé | Moyenne | S | Le validateur de release R3 ne peut pas passer : il exige 17 POM dans le reacteur, le depot en compte 19 |
-| `AUD-TST-08` | toujours valide | Faible | S | Le ratchet testsMinimum est dominé par la combinatoire : au moins 40 % des exécutions comptées viennent de 13 méthodes dans 3 fichiers |
-| `AUD-TST-09` | toujours valide | Faible | S | Les quatre ratchets de couverture sont à moins de 0,41 point de leur plafond qualifié : plus de marge sans requalification CI |
+| `AUD-TST-03` | corrigé | Moyenne | M | 300 des 831 assertThrows n'assertent qu'un type d'exception JDK générique, sans message ni code de rejet |
+| `AUD-TST-06` | corrigé | Moyenne | M | La colonne cli du manifeste de convergence n'est vérifiée que pour sa non-vacuité, sans gate bidirectionnel, contrairement à http et mcp |
+| `AUD-TST-10` | partiel | Moyenne | M | Aucun test d'upgrade depuis une base réelle aux paliers de schéma 13 à 19 ; le seul vrai test d'upgrade part du palier 12 |
+| `AUD-TST-19` | toujours valide | Moyenne | S | Le ratchet des tests d'architecture a cent huit exécutions de jeu : il est resté à 585 alors que la mesure du lot donnait 693 |
+| `AUD-TST-08` | corrigé | Faible | S | Le ratchet testsMinimum est dominé par la combinatoire : au moins 40 % des exécutions comptées viennent de 13 méthodes dans 3 fichiers |
+| `AUD-TST-09` | partiel | Faible | S | Les quatre ratchets de couverture sont à moins de 0,41 point de leur plafond qualifié : plus de marge sans requalification CI |
 
 ## Sprint 9 — Supprimer la duplication du socle
 
@@ -187,7 +187,7 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 
 ## Sprint 10 — Dire la vérité dans les règles
 
-8 constats · 2 corrigé · 6 toujours valide
+7 constats · 3 corrigé · 4 toujours valide
 
 *Pourquoi ici* — Sept règles du dépôt sont fausses au sens où elles sont écrites, ou absentes là où un javadoc les annonce.
 
@@ -199,8 +199,7 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 | `AUD-ARC-08` | toujours valide | Moyenne | S | com.morpheus.sdk n'est sujet d'aucune règle ArchUnit, contrairement à ce qu'annonce le javadoc du test qui le nomme |
 | `AUD-ARC-11` | toujours valide | Moyenne | S | Interdiction absolue de la réflexion dans les règles du dépôt, contredite par trois classes de production |
 | `AUD-ARC-14` | corrigé | Faible | M | Huit constructeurs de compatibilité rétroactive alors que les règles du dépôt les interdisent |
-| `AUD-ARC-15` | toujours valide | Faible | S | Les 94 méthodes public synchronized de morpheus-store-sqlite n'ont aucune raison d'être documentée |
-| `AUD-DEP-13` | toujours valide | Faible | S | Version littérale 1.0.4 en dur dans un POM de module, contre la règle du dépôt |
+| `AUD-DEP-13` | corrigé | Faible | S | Version littérale 1.0.4 en dur dans un POM de module, contre la règle du dépôt |
 | `AUD-DEP-14` | corrigé | Faible | S | sqlite-jdbc et slf4j-nop sont versionnés par propriété dans le module au lieu du dependencyManagement racine |
 | `AUD-QUA-11` | toujours valide | Faible | S | Deux shims de compatibilité @Deprecated(forRemoval = true) vivent depuis deux mois sans plan de retrait |
 
@@ -257,3 +256,23 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 | Constat | Statut | Sév. | Eff. | Objet |
 |---|---|---|---|---|
 | `AUD-DEP-05` | toujours valide | Moyenne | M | L'installeur Windows et les archives ne sont pas signés Authenticode, alors que le dépôt exige cette signature de son propre outillage |
+
+## Sprint 15 — Dérives apparues pendant les correctifs
+
+9 constats · 2 corrigé · 2 partiel · 3 toujours valide · 2 caduc
+
+*Pourquoi ici* — Ce sprint n'est pas du plan du 9 octobre : il rassemble les constats nés **après** l'audit, soit d'une scission quand la mesure du dépôt a montré que ma cause était fausse, soit d'un effet de bord d'un correctif, soit du changement de branche d'intégration du 18 octobre. Les ranger dans les sprints d'origine faisait croire que ceux-ci traînaient depuis le 9 octobre, ce qui est faux : ils sont soldés, et du travail neuf est apparu à côté. Deux d'entre eux sont déjà corrigés.
+
+*Critère de sortie* — Les huit voies nocturnes analysent la branche d'intégration réelle ; Dependabot et les quatorze validateurs aussi ; la version du produit et la version du schéma sont reliées par un gate ; le contrôle de frontière redevient antérieur à la lecture ; et le verrou du parallélisme est levé sur les trois modules qui le portent encore.
+
+| Constat | Statut | Sév. | Eff. | Objet |
+|---|---|---|---|---|
+| `AUD-DEP-23` | caduc | Moyenne | S | Les huit voies nocturnes analysent `develop`, qui n'est pas la branche d'intégration, et que rien ne garantit à jour |
+| `AUD-DEP-24` | caduc | Moyenne | S | Le basculement vers main n'est répercuté ni dans Dependabot, ni dans les sept validateurs, ni dans la documentation du modèle de branches |
+| `AUD-DEP-25` | toujours valide | Moyenne | S | Le produit s'annonce 1.2.1 alors qu'il migre la base en V022, et aucun gate ne relie la version du réacteur au schéma |
+| `AUD-PRF-19` | partiel | Moyenne | M | Le serveur remote sert toujours sur threads virtuels nus, et sa route de sauvegarde appelle SQLite directement |
+| `AUD-QUA-17` | partiel | Moyenne | M | Le verrou du parallelisme JUnit se deplace : SqliteConnectionScope porte quatre compteurs statiques de processus lus en difference par les tests |
+| `AUD-SEC-17` | toujours valide | Moyenne | S | L'optimisation de la frontière du workspace a rétréci le contrôle avant lecture : un fichier peut être lu et empreinté avant d'être refusé |
+| `AUD-TST-18` | corrigé | Moyenne | S | Le validateur de release R3 ne peut pas passer : il exige 17 POM dans le reacteur, le depot en compte 19 |
+| `AUD-ARC-15` | toujours valide | Faible | S | Les 94 méthodes public synchronized de morpheus-store-sqlite n'ont aucune raison d'être documentée |
+| `AUD-QUA-18` | corrigé | Faible | S | Le parallelisme JUnit est active sur le module ou une portee mal fermee empoisonne un thread du pool, sans aucun filet |

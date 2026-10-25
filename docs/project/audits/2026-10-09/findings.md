@@ -1,13 +1,11 @@
 # MORPHEUS — constats d'audit
-Audit du **9 octobre 2026** sur `20cf2e0`, revérifié le 13 octobre, le 15 octobre, puis le **17 octobre 2026** sur `ae368aa3` (`origin/develop`). Chaque constat porte son statut sur `origin/develop` et la preuve qui l'établit.
+Audit du **9 octobre 2026** sur `20cf2e0`, revérifié les 13, 15, 17 et 18 octobre, puis le **21 octobre 2026** sur `6bdf4bbb` (`origin/develop`). Chaque constat porte son statut et la preuve qui l'établit.
 
-**101 constats** — 33 corrigé, 3 partiel, 40 toujours valide, 2 caduc, 22 tient, 1 non vérifiable ici.
+**106 constats** — 46 corrigé, 7 partiel, 26 toujours valide, 4 caduc, 22 tient, 1 non vérifiable ici.
 
-> **Passe du 17 octobre** : 54 commits de plus (PR #493 à #506), dont la promotion de v1.2.1 sur `main`. Le mainteneur avait porté sept constats à *corrigé* dans ce fichier ; chacun a été revérifié sur le code. Cinq sont confirmés, deux ne le sont pas.
+> **Passe du 21 octobre** : 72 commits de plus (PR #517 à #535), le **sprint 8** et la clôture du sprint 7. Quatre constats du sprint 8 passent à *corrigé*, deux restent partiels. Les deux constats de branche du 18 octobre sont **caducs** : ils décrivaient une fenêtre de promotion, pas un changement de modèle.
 
-`tient` ne s'applique qu'aux constats *Info* : ils n'affirment pas un défaut mais une propriété, et le statut dit si elle tient encore. `AUD-PRF-19` et `AUD-ARC-15` sont nés le 13 octobre de la scission de `AUD-PRF-18` ; `AUD-QUA-17` et `AUD-TST-18` sont nés le 15 octobre ; `AUD-QUA-18` est né le 17 octobre de la vérification de `AUD-QUA-13`.
-
----
+`tient` ne s'applique qu'aux constats *Info* : ils n'affirment pas un défaut mais une propriété, et le statut dit si elle tient encore. `AUD-PRF-19` et `AUD-ARC-15` sont nés le 13 octobre, `AUD-QUA-17` et `AUD-TST-18` le 15, `AUD-QUA-18` le 17, `AUD-DEP-23` à `AUD-SEC-17` le 18, et `AUD-TST-19` le 21.
 
 ## Sévérité : Élevée
 
@@ -243,20 +241,22 @@ morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSnapshotBusi
 ### AUD-PRF-02 — ChangeAnalysisService refait un BFS complet par nœud déjà découvert par la traversée
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Élevée |
 | **Axe** | Performance |
 | **Effort** | M |
 | **Sprint** | 6 — Borner les coûts qui croissent avec les données |
 | **Après** | AUD-TST-01 |
 | **Débloque** | AUD-PRF-12 |
-| **Vérifié le** | 2026-10-13 sur `d5be889b` |
+| **Vérifié le** | 2026-10-18 sur `29c942ae` |
 
-**Constat de vérification** — Fichier strictement intact depuis l'audit : `git log 20cf2e0..HEAD -- ChangeAnalysisService.java` ne retourne aucun commit. Le BFS complet par noeud deja decouvert subsiste, et findPath construit toujours une carte de predecesseurs qu'il n'expose pas. Les lignes de l'audit (321-325) sont exactement celles d'aujourd'hui. Aucun budget M19 n'a ete ajoute sur ChangeAnalysisService : la tache 3.2 du change declare-a-budget-before-bounding-a-cost, qui devait porter cette mesure, est non cochee.
+**Constat de vérification** — Solde. `findPath` n'existe plus nulle part en Java — ni dans src/main, ni dans src/test. Une analyse ne declenche plus que deux traversees par delta present dans la baseline, et chaque chemin est reconstruit en memoire depuis la carte des predecesseurs que le BFS construisait deja. L'invariant est pose dans le type : le constructeur compact d'ExplainedTraversal refuse une traversee qui n'expliquerait pas exactement les noeuds atteints. **Contre-vérifié le 18/10 au soir sur `29c942ae` par une lecture indépendante : verdict confirmé.** Le comptage revendiqué est non seulement exact mais recalculable : sur la chaîne du test, 92 lectures de store avant pour L=12 et 326 pour L=24, contre 14 et 26 après — ce sont les chiffres du relevé de clôture, retrouvés à l'identique. `findPath` est supprimé du code de production (0 occurrence contre 2 avant) et aucun appel de traversée ne subsiste dans une boucle sur les nœuds découverts. Le test qui tient la propriété discrimine réellement les deux structures : avec l'ancien code, 326 ≤ 184 échoue.
 
 ```
-morpheus-application/src/main/java/com/morpheus/application/analysis/ChangeAnalysisService.java:321-325 `for (TraceabilityEntityRef target : subgraph.nodes()) { ... traversalService.findPath(snapshotId, root, target, maxDepth, traversalDirection, DEPENDS_ON_ONLY)` ; morpheus-application/src/main/java/com/morpheus/application/traceability/TraceabilityTraversalService.java:139 (carte predecessor construite puis jetee), :164 reconstruct, :193-209 neighbors avec store.outgoing:200 et store.incoming:205
+`grep -rln findPath . --include=*.java` -> **0 fichier** (avant : declare en TraceabilityTraversalService.java:119-171 et appele par ChangeAnalysisService pour chaque noeud du sous-graphe). Algorithme actuel : TraceabilityTraversalService.java:80-94 (traverseExplained), :109 et :135-137 (carte discoveredBy remplie pendant le BFS), :193-209 (reconstruct) ; ChangeAnalysisService.java:307-312 un seul appel, :323-326 la boucle itere traversal.paths() sans toucher au store. Invariant : ExplainedTraversal.java:21-29. Comptage : ChangeAnalysisService.java:262-288, exactement deux appels a collectDependencyDirection par delta analysable, zero traversee par noeud (avant : 2 + 1 BFS complet par noeud, jusqu'a MAX_NODES = 1 000). Test de cout : ChangeAnalysisTraversalCostTest.java:71-74, borne de proportionnalite `assertTrue(longChain.storeReads() <= 2 * shortChain.storeReads())` sur 12 puis 24 requirements, mesuree par un decorateur comptant les appels au port (:148-189). Budget M19 declare dans le code : M19TraceabilityPerformanceGate.java:203-210 `ANALYSIS_BUDGET_NANOS = 2_000_000_000L`, assertion :315-316. Propriete du plus court chemin preservee : BFS FIFO (:111-142), discoveredBy ecrit une seule fois a la premiere decouverte (:129-139), voisins tries par le meme NEIGHBOR_ORDER (:32-35) qu'avant ; tenue par TraceabilityTraversalContractTest.java:111-135, joue sur les deux backends memoire et SQLite.
 ```
+
+**Ce qui reste** — Rien qui tienne le constat ouvert. Trois choses à connaître. (1) **Un changement de contrat observable a été livré sous une étiquette « perf » et n'est pas nommé dans le verdict** : au budget de nœuds, l'analyse ne lève plus d'exception. Avant, un nœud hors d'atteinte faisait lever `TraceabilityTraversalBudgetException` et **toute l'analyse échouait** ; elle rend maintenant un résultat complet assorti d'avertissements `TRACEABILITY_TRAVERSAL_TRUNCATED`. Le même appel CLI `analyze-change` qui plantait rend désormais une réponse. C'est une amélioration, elle est documentée dans l'amendement d'ADR-0108, mais c'est une rupture de comportement pour un appelant qui filtrait sur l'exception. (2) Aucun test ne tient *directement* la propriété « une seule traversée par direction » : le test compte les lectures de store avec un facteur 2, ce qui est plus fort pour le coût mais laisserait passer la réintroduction d'un second parcours (coût ×2, pas ×N). (3) La parité du résultat n'est plus testée : la comparaison sur 60 graphes aléatoires citée par le change était un test jetable, supprimé avec `findPath`. La lecture du code l'établit quand même — `explore()` et l'ancien `findPath` partagent le même `neighbors()`, le même `NEIGHBOR_ORDER`, la même file FIFO et la même règle de premier prédécesseur — mais plus aucun test ne la garde.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -275,20 +275,22 @@ morpheus-application/src/main/java/com/morpheus/application/analysis/ChangeAnaly
 ### AUD-PRF-04 — Trois tables en croissance monotone lues sans LIMIT ni pagination, dont une exposée en HTTP et en MCP
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **PARTIEL** |
 | **Sévérité** | Élevée |
 | **Axe** | Performance |
 | **Effort** | M |
 | **Sprint** | 6 — Borner les coûts qui croissent avec les données |
 | **Après** | AUD-TST-01 |
 | **Débloque** | AUD-PRF-13 |
-| **Vérifié le** | 2026-10-13 sur `d5be889b` |
+| **Vérifié le** | 2026-10-18 sur `29c942ae` |
 
-**Constat de vérification** — Aucune pagination ajoutee. Comptage des LIMIT dans le module : 1 le 9 octobre, 1 aujourd'hui, au meme endroit. Aucun DELETE sur les trois tables append-only (recherche sur *.java et *.sql : zero resultat), donc toujours aucune politique de retention. Le change OpenSpec read-an-append-only-journal-one-page-at-a-time couvre exactement ce constat mais son tasks.md annonce en tete que l'implementation est un lot separe et que rien n'est fait par la PR qui l'introduit : toutes ses taches 3.x et 4.x sont non cochees. Specification honnete, correction non faite.
+**Constat de vérification** — La seule des trois tables exposee publiquement, `policy_audit`, est reellement paginee au store, avec un index qui porte l'ordre et un plan de requete verifie — pas un `LIMIT` pose sur un tri complet. Le piege de ce genre de migration est ferme : un test prouve que la cle de tri ecrite par la migration est celle que le code ecrit ensuite. Les trois surfaces (HTTP, CLI, MCP) paginent bien au store. Mais les deux autres tables du constat ne sont pas paginees du tout — elles sont seulement interdites d'appel par une regle — et aucune politique de retention n'existe, alors que l'action du constat la demandait. **Contre-vérifié le 18/10 au soir sur `29c942ae` par une lecture indépendante : verdict confirmé.** Avec une nuance importante sur la répartition : **la table exposée en HTTP est pleinement corrigée**, au store, avec un index dédié et un contrat borné — ce n'est pas un demi-travail. Le SQL porte un vrai `LIMIT ? OFFSET ?` avec `ORDER BY at_key, id`, la clé d'ordre vient de la migration V021 (le texte d'un `Instant` ne trie pas par temps), et un test lit le **plan d'exécution** pour exiger l'index et interdire un `TEMP B-TREE`. La borne est dans le contrat OpenAPI, pas seulement dans le code : `limit ∈ [1,100]` défaut 50, `offset ≥ 0`, tout paramètre inconnu refusé, et les trois transports suivent.
 
 ```
-morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqlitePolicyPackStore.java:564 `FROM policy_audit WHERE pack_id = ?` puis :572 `values.stream().sorted().toList()` ; SqliteChangeLifecycleMutationStore.java:82 `FROM change_lifecycle_mutation_audit` ; SqliteSyncStateStore.java:95-115 `FROM sync_source_archives` ; un seul LIMIT dans tout morpheus-store-sqlite/src/main : SqliteVersionedRequirementStore.java:313
+`policy_audit` : SqlitePolicyPackStore.java:44-49, `ORDER BY at_key, id LIMIT ? OFFSET ?`, plus un COUNT(*) (:578-586) ; le tri Java `values.stream().sorted()` a disparu. Migration V021__policy_audit_order_key.sql : colonne `at_key` TEXT de largeur fixe (:4-12) et index `idx_policy_audit_pack_order(pack_id, at_key, id)` (:14-15). **Plan de requete reellement verifie** : SqlitePolicyAuditPageTest.java:77-86 asserte `plan.contains("idx_policy_audit_pack_order")` et `assertFalse(plan.contains("TEMP B-TREE"))`, sur un EXPLAIN QUERY PLAN execute (:108-119) contre la constante `AUDIT_PAGE_SQL` elle-meme, pas une copie. **Coherence de la cle** : SqlitePolicyAuditOrderKeyMigrationTest recule d'un cran sur V021, insere 8 enregistrements aux fractions variees, rejoue la migration, puis :81 compare la cle produite par le SQL a `SqlitePolicyPackStore.orderKey(...)`, la methode appelee a l'ecriture (:690, :694). Trois surfaces : MorpheusPolicyHttpRoutes.java:83 et :185-191, MorpheusPolicyCli.java:162-164, MorpheusPolicyMcpTools.java:125, toutes via `PolicyPackService.audit(packId, PageRequest)`. Contrat declare : contracts/public-surfaces.tsv:44, morpheus-v1-policy-m25.yaml:158-181 et :210-222, docs/user/UPGRADE_1_2_2.md. Les deux autres tables : SqliteChangeLifecycleMutationStore.java:87-95 et SqliteSyncStateStore.java:34,:105 rendent toujours la liste complete, sans LIMIT.
 ```
+
+**Ce qui reste** — Deux des trois tables ne sont toujours pas paginées : `SqliteChangeLifecycleMutationStore.listAudit` (`morpheus-store-sqlite/.../SqliteChangeLifecycleMutationStore.java:87`) rend toutes les lignes de `change_lifecycle_mutation_audit` pour un change, et `SqliteSyncStateStore.listArchives` (`.../SqliteSyncStateStore.java:105`) toutes celles de `sync_source_archives` pour un projet — sans `LIMIT`, la seconde triant encore en Java après chargement, exactement le motif que le constat dénonçait. Ce qui a changé, ce n'est pas leur coût : c'est qu'**aucune classe de production ne les appelle**, et qu'une règle ArchUnit (`AppendOnlyJournalReadsArchitectureTest#noProductionClassReadsAWholeLifecycleAuditOrAProjectsArchives`, :49-59) fait échouer le build si l'une d'elles acquiert un appelant de production. Le risque n'est pas annulé, il est **déplacé sur la règle** : la première surface qui en aura besoin devra écrire la pagination, et rien ne garantit qu'elle le fera mieux que la première fois. Le test de garde de cette règle est d'ailleurs plus faible que son nom : il compte des appels que les implémentations satisfont déjà en s'appelant elles-mêmes. Trois choses à savoir en plus. (1) **Le coût par page reste linéaire en la taille du journal** malgré la pagination : le `SELECT COUNT(*)` parcourt tout le pack à chaque page, et `OFFSET ?` saute N entrées d'index. La mémoire et la taille de réponse sont bornées — l'essentiel du constat — mais « une page à la fois » ne veut pas dire « à coût constant » ; un curseur sur `(at_key, id)` l'aurait donné, et le choix de l'offset est celui d'ADR-0107. (2) **Rupture de contrat public** : la réponse de `GET /api/v1/policy-packs/{id}/audit` était une liste, c'est maintenant un objet `{offset, limit, totalMatches, hasMore, items}`, idem CLI et MCP. C'est documenté dans `UPGRADE_1_2_2.md` et le manifeste est réécrit, donc c'est propre — mais c'est une rupture livrée sous une étiquette « perf ». (3) Le seul test à volume réaliste (100 000 lignes) est un gate M19, hors `clean verify` ; le test HTTP tourne sur 5 enregistrements et le test de plan sur 3 — ce dernier est néanmoins la bonne preuve, puisqu'il lit le plan et non un volume. Aucune politique de purge n'existe sur les trois tables, et c'est une décision écrite (ADR-0116) tenue par un test qui refuse tout `DELETE FROM`/`DROP TABLE` sur elles.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -381,9 +383,9 @@ morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSchemaManage
 | **Sprint** | 11 — Trancher l'architecture |
 | **Après** | AUD-ARC-01 |
 | **Débloque** | AUD-ARC-13 |
-| **Vérifié le** | 2026-10-13 sur `d5be889b` |
+| **Vérifié le** | 2026-10-21 sur `6bdf4bbb` |
 
-**Constat de vérification** — SCC identique en taille et en composition. Aretes 87 -> 83, mais paires mutuelles directes 6 -> 7 : une nouvelle paire operability <-> security (operability/RotatingOperationalLogFile.java:3 importe security.LocalWritePermissionHardener contre security/ExternalJarIntegrity.java:3 qui importe operability.LocalOperationalRuntime). Change let-application-package-cycles-only-decrease : 0/18.
+**Constat de vérification** — Reconfirmé et légèrement aggravé : `morpheus-application` compte **40 répertoires de paquets**, contre 36 au 9 octobre. Les 167 cycles relevés par l'audit n'ont pas été remesurés dans cette passe — il faudrait pour cela l'outillage de graphe, et les conclusions de l'audit sur ce point restent reconstruites depuis les `import`.
 
 ```
 Recomptage Tarjan sur morpheus-application/src/main/java : 36 paquets, 83 aretes, 1 SCC de 17 paquets (composition, context, ingestion, operability, orchestration, policy, quality, query, query.dsl, query.saved, read, reference, security, snapshot, store, sync, traceability). Paire citee toujours la : morpheus-application/src/main/java/com/morpheus/application/policy/PolicyPackService.java:3 `import com.morpheus.application.store.EntityNotFoundException`. Pas de paquet application.failure. La seule regle beFreeOfCycles est morpheus-architecture-tests/src/test/java/com/morpheus/architecture/AdapterCompositionRootArchitectureTest.java:112, et elle vise `com.morpheus.domain.(*)..`, pas l'application.
@@ -415,9 +417,9 @@ Analyse des `import` par paquet (script Tarjan sur morpheus-application/src/main
 | **Sprint** | 12 — Restructurer les adaptateurs |
 | **Après** | AUD-ARC-01 |
 | **Débloque** | AUD-ARC-09, AUD-TRV-03 |
-| **Vérifié le** | 2026-10-13 sur `d5be889b` |
+| **Vérifié le** | 2026-10-21 sur `6bdf4bbb` |
 
-**Constat de vérification** — Aggravation : 80 -> 83 classes dans le paquet plat, les autres modules ont aussi gagne une classe chacun. Aucun sous-paquet cree. Change express-adapter-internal-roles-as-packages : 0/27.
+**Constat de vérification** — Aggravé. `morpheus-api/src/main/java/com/morpheus/api/` compte désormais **84 classes dans un paquet unique et plat, zéro sous-paquet** — contre 80 au 9 octobre. Les quatre classes ajoutées depuis (pagination de l'audit de policy, compteurs servis par la façade remote) y sont allées comme les autres, parce qu'il n'y a pas d'autre endroit où les mettre. Aucune frontière interne n'y est exprimable par une règle, et c'est ce qui oblige les gates à maintenir des listes de noms de classes.
 
 ```
 `find morpheus-api/src/main/java -type d` s'arrete a morpheus-api/src/main/java/com/morpheus/api ; 83 fichiers .java dans ce paquet unique (17 *HttpRoutes, 19 *ApiService). morpheus-mcp : 20 classes, un paquet ; morpheus-cli : 29 classes, un paquet ; morpheus-store-sqlite : 30 classes, un paquet. Listes nominatives toujours en place : AdapterCompositionRootArchitectureTest.java:38-71 (COMPOSITION_ROOTS, 32 noms) et HttpRoutesTransportBoundaryArchitectureTest.java:70, :79, :85 (trois groupes de routeurs par nom).
@@ -447,9 +449,9 @@ Analyse des `import` par paquet (script Tarjan sur morpheus-application/src/main
 | **Axe** | Architecture |
 | **Effort** | M |
 | **Sprint** | 10 — Dire la vérité dans les règles |
-| **Vérifié le** | 2026-10-13 sur `d5be889b` |
+| **Vérifié le** | 2026-10-21 sur `6bdf4bbb` |
 
-**Constat de vérification** — 1 commit a touche le module depuis 20cf2e0 mais le paquet n'a pas bouge. Aucun test de correspondance module/paquet pour les 18 modules n'existe (ImportedClasspathCompletenessTest lit bien les <module> du POM racine mais ne verifie pas le prefixe de paquet). Change give-the-shared-mcp-transport-its-own-package : 0/21.
+**Constat de vérification** — Reconfirmé le 21/10 : `morpheus-mcp-transport` livre toujours le paquet `com.morpheus.integration`.
 
 ```
 morpheus-mcp-transport/src/main/java ne contient que com/morpheus/integration/mcp. Regles englobantes inchangees : morpheus-architecture-tests/src/test/java/com/morpheus/architecture/LayerDependencyTest.java:56 (`com.morpheus.integration..` interdit a api) et AdapterSiblingArchitectureTest.java:43 (INTEGRATIONS), :75, :92. La regle qui vise vraiment le transport le designe par le paquet : AdapterCompositionRootArchitectureTest.java:97 `.that().resideInAPackage("com.morpheus.integration.mcp..")`.
@@ -577,9 +579,9 @@ morpheus-api : 17 `*HttpRoutes` + 19 `*ApiService`, une classe par capacite. mor
 | **Axe** | Architecture |
 | **Effort** | S |
 | **Sprint** | 10 — Dire la vérité dans les règles |
-| **Vérifié le** | 2026-10-13 sur `d5be889b` |
+| **Vérifié le** | 2026-10-21 sur `6bdf4bbb` |
 
-**Constat de vérification** — Le fichier de regles a recu 2 commits depuis 20cf2e0 mais la phrase absolue est intacte. Les lignes de SqliteConnectionScope ont glisse (114 -> 132, 244 -> 262) sans changement de fond. Le perimetre est de 3 classes de production (l'audit en annoncait quatre dans le titre tout en en nommant trois). Change name-every-use-of-reflection : 0/18. Correction de l'énoncé : l'audit annonçait « quatre classes », il y en a trois.
+**Constat de vérification** — Reconfirmé le 21/10. Les trois classes de production qui emploient la réflexion sont intactes (`SqliteConnectionScope`, `SqliteDatabaseLease`, `CanonicalJsonSerializer`), et la phrase absolue de `.claude/rules/architecture.md:189` — « jamais de réflexion, de classpath scanning ou d'annotations d'injection » — est inchangée, tout comme sa reprise dans `.claude/rules/code-review.md:13`, ajoutée depuis. La règle s'est donc propagée dans un second fichier sans être bornée.
 
 ```
 .claude/rules/architecture.md:184-185, section `Pas de framework, pas de magie` : `Jamais Spring / Quarkus / Micronaut / Guice, jamais de reflexion, de classpath scanning`. Contredit par : morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteConnectionScope.java:3-5 (imports), :132 `Proxy.newProxyInstance(` et :262 `public Object invoke(Object proxy, java.lang.reflect.Method method, ...)` ; morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteDatabaseLease.java:12-13 et :118 ; morpheus-application/src/main/java/com/morpheus/application/query/compact/CanonicalJsonSerializer.java:3-5. Aucune regle ArchUnit ne vise java.lang.reflect.. en sujet.
@@ -609,12 +611,12 @@ morpheus-api : 17 `*HttpRoutes` + 19 `*ApiService`, une classe par capacite. mor
 | **Axe** | Qualité |
 | **Effort** | M |
 | **Sprint** | 9 — Supprimer la duplication du socle |
-| **Vérifié le** | 2026-10-13 sur `d5be889b` |
+| **Vérifié le** | 2026-10-21 sur `6bdf4bbb` |
 
-**Constat de vérification** — Inchange et aggrave : 73 -> 91 copies en quatre jours, 14 -> 15 corps distincts. Le change openspec/changes/locate-the-repository-root-once-per-test-module n'est qu'une proposition (toutes les taches non cochees, en-tete 'Implementation is a separate lot'). Ironie documentee : les gates ajoutes pour corriger AUD-QUA-05 et AUD-QUA-12 ont eux-memes recopie le localisateur 15 fois de plus.
+**Constat de vérification** — **Aggravé pour la troisième fois, et par les correctifs eux-mêmes.** Le localisateur de racine de dépôt est désormais recopié dans **99 fichiers**, contre 73 au 9 octobre, 91 au 13 et 97 au 18 — la croissance suit exactement les lots de tests. Le sprint 8, qui a ajouté sept changes de tests d'architecture, en a apporté sa part : **97 des 99 copies sont dans `morpheus-architecture-tests`**, et il n'y en a aucune dans `src/main`. C'est le mécanisme que le constat décrit : chaque nouveau test a besoin de localiser la racine, aucun point de passage ne le fournit, donc chacun recopie. Tant que le socle n'existe pas, tout travail de test aggrave ce constat — y compris le travail qui solde les autres.
 
 ```
-grep 'Path repositoryRoot()|Path repoRoot()' sous /src/test/ -> 91 (62 repositoryRoot + 29 repoRoot) contre 73 le 9 octobre ; +1 'Path root()' = 92 declarations contre 74. Hachage md5 des corps : 15 variantes contre 14. Nouvelle variante majoritaire cd0cca4c, 15 copies, introduite par les tests de garde du sprint 3, ex. morpheus-architecture-tests/src/test/java/com/morpheus/architecture/WarningSuppressionJustificationTest.java:118-128 et UnreferencedPublicMethodArchitectureTest.java:257. Aucune classe RepositoryRoot (find -name 'RepositoryRoot*.java' -> vide), aucun test de gouvernance sur la copie. Ancrages : 104 resolve("pom.xml"), 60 resolve("contracts/public-surfaces.tsv"), 24 resolve("distribution"), 3 resolve("docs/architecture/adr"), 3 resolve("morpheus-application"), 1 resolve("config/m21-quality-ratchets.properties").
+`grep -rl 'repositoryRoot\|repoRoot\|findRepositoryRoot' --include=*.java morpheus-*/src` -> **99 fichiers**, dont 97 sous `morpheus-architecture-tests` et 0 sous `src/main`. Repères : 73 le 09/10, 91 le 13/10, 97 le 18/10.
 ```
 
 **Ce qui reste** — Tout : creer l'owner unique dans morpheus-architecture-tests, remplacer les 92 declarations, ajouter le test de gouvernance sur le patron BoundedWaitOwnershipTest, et couvrir aussi morpheus-coverage-report (1 copie).
@@ -636,20 +638,20 @@ grep -rn "Path repositoryRoot()\|Path repoRoot()" --include=*.java . | grep /src
 ### AUD-QUA-04 — Dérive documentation/code sur le nombre de modules : 18 déclarés, 17 annoncés par quatre pages vivantes
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Qualité |
 | **Effort** | S |
 | **Sprint** | 8 — Fiabiliser les tests |
-| **Vérifié le** | 2026-10-13 sur `d5be889b` |
+| **Vérifié le** | 2026-10-21 sur `6bdf4bbb` |
 
-**Constat de vérification** — Strictement inchange. Le change openspec/changes/list-the-reactor-modules-from-the-pom existe mais aucune tache n'est cochee ; il redit le constat (18 modules) sans l'avoir corrige. Le test cite toujours litteralement '17 modules' comme exemple de total perissable interdit, sans l'interdire sur ces pages.
+**Constat de vérification** — Soldé, et les **deux** options ont été prises ensemble plutôt que l'une ou l'autre : le total est retiré du texte, **et** un gate compare chaque énumération de modules au POM racine, dans les deux sens, avec un garde-fou qui échoue si aucune page n'énumère le réacteur.
 
 ```
-grep -c '<module>' pom.xml -> 18. Les quatre enonces subsistent mot pour mot : docs/developer/BUILD_AND_TEST.md:17 '**17 modules enfants**, soit **18 projets Maven parent inclus**', docs/developer/README.md:32, docs/architecture/arc42/05-vue-blocs.md:81, docs/architecture/arc42/04-strategie-solution.md:27. RepositoryDocumentationCoherenceTest.java:60-61 : GOVERNANCE_PAGES = .claude/CLAUDE.md, .github/AI_GOVERNANCE.md ; le pattern ADR_OR_MODULE_TOTAL (ligne 40) n'est toujours applique qu'aux surfaces IA via activeGovernanceSurfaces (ligne 563).
+`ReactorModuleDocumentationTest.java:66-70` : la liste de référence est dérivée du POM (`MODULE_BLOCK`/`MODULE`, :35-36) ; les deux sens sont couverts (`omits X, which the root POM declares` :247-249 et `names X, which the root POM does not declare` :250-255). `:72-79` interdit d'énoncer un total (motif reconnaissant « 17 modules », « 18 projets Maven », « 18 POMs », « 14/14 modules »). Non-vacuité `:258-261` : échoue si aucune page n'énumère le réacteur. Les deux règles sont éprouvées sur corpus fabriqués. Périmètre : `README.md`, `CONTRIBUTING.md`, `docs/README.md`, plus `docs/developer` et `docs/architecture` ; une section datée est lue comme un relevé et exemptée (`DATE_OR_COMMIT`, :60-62). `grep -c '<module>' pom.xml` -> 18.
 ```
 
-**Ce qui reste** — Etendre activeGovernanceSurfaces (ou deriver le compte des <module>) aux pages docs/developer/ et docs/architecture/arc42/, puis reecrire les quatre enonces sans chiffre.
+**Ce qui reste** — Rien. Une nuance de portée : une énumération n'est jugée que si elle contient plus de la moitié des modules déclarés (:240), donc une liste de neuf modules ou moins qui se présenterait comme exhaustive passerait. Et le gate ne balaie ni `.claude/`, ni `docs/user/`, ni `docs/project/`.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -833,18 +835,19 @@ diff apres normalisation du nom (s/Minos/XXX/ contre s/Nexus/XXX/) entre morpheu
 | **Sévérité** | Moyenne |
 | **Axe** | Qualité · Tests |
 | **Effort** | M |
-| **Sprint** | 4 — Rendre le produit observable |
+| **Sprint** | 15 — Dérives apparues pendant les correctifs |
 | **Après** | AUD-QUA-13 |
 | **Fusionne / issu de** | AUD-QUA-13 |
-| **Vérifié le** | 2026-10-17 sur `ae368aa3` |
+| **Origine** | **Né le 15 octobre**, pendant les correctifs — hors du plan du 9 octobre |
+| **Vérifié le** | 2026-10-21 sur `6bdf4bbb` |
 
-**Constat de vérification** — **Le mainteneur le marque corrige ; la verification ne le suit pas.** La moitie nommee du constat est bien faite : SqliteConnectionScope ne declare plus aucun compteur statique mutable, `diagnostics()` est supprime, et les dix classes de test qui le lisaient sont tombees a zero. Mais le constat ne portait pas sur une classe, il portait sur une **classe de defaut** - un etat de processus lu en difference par des tests - et elle n'a pas disparu du produit : elle s'est deplacee dans `PhysicalSqliteConnections`, un pilote JDBC compteur recopie a l'identique dans trois modules, qui deregistre le driver SQLite du DriverManager global de la JVM, met un compteur a sa place et le restaure. C'est exactement la meme forme, et c'est precisement pour lui que morpheus-api, morpheus-cli et morpheus-mcp restent sequentiels - c'est-a-dire sept des dix classes qui lisaient `diagnostics()`. Le depot est plus honnete que la revendication : ce residu est **explicitement declare dans ADR-0115**, second amendement du 15/10. C'est le resume de PR recopie dans le fichier d'audit qui conclut sans reserve.
+**Constat de vérification** — Le pilote compteur JDBC a bien disparu des trois modules et les trois tests lisent desormais un compteur sur un recorder qu'ils construisent eux-memes : plus rien n'est partage entre tests de la JVM. **Mais le remplacement n'est pas equivalent, et la perte de couverture est reelle.** Le pilote, branche sur le DriverManager, voyait *toute* connexion physique a l'execution. La regle d'architecture qui le remplace est statique, limitee aux constructeurs dont le nom correspond a `Sqlite*Store`, bornee a quatre modules, et exempte deux classes par liste. Surtout, le mecanisme de comptage est devenu aveugle au defaut : les compteurs ne sont ecrits que par la portee, donc une connexion ouverte **hors** portee part sur le runtime du processus et reste invisible du recorder du test. Les trois tests asserteraient toujours `1`. **Contre-vérifié le 18/10 au soir sur `29c942ae` par une lecture indépendante : verdict confirmé.** Le geste annoncé est fait et bien fait : les trois copies de `PhysicalSqliteConnections` sont supprimées, et **plus aucune ligne du dépôt ne touche au `DriverManager`** (0 occurrence de `deregisterDriver`/`registerDriver`, contre 12 avant). Les trois tests de comptage lisent désormais les compteurs d'un `OperationalRuntime` que le test construit lui-même et remet au serveur : un recorder par test, aucun état de JVM. Mais le constat porte sur le **déplacement** du verrou, et il s'est déplacé une fois de plus : **aucun module n'a gagné le parallélisme** — un seul `junit-platform.properties` dans le dépôt, avant comme après. Reconfirmé le 21/10, inchangé : un seul `junit-platform.properties` dans le dépôt (`morpheus-store-sqlite`), `PhysicalSqliteConnections` toujours absent, et les deux `Locale.setDefault` de `PolicyApiEnumVocabularyLocaleTest` et `McpEnumVocabularyLocaleTest` tiennent toujours `morpheus-api` et `morpheus-mcp` en séquentiel.
 
 ```
-Champs statiques de SqliteConnectionScope aujourd'hui : quatre `static final String` (:26, :28, :30, :32), un serialVersionUID (:40), un `static final ThreadLocal<State> ACTIVE` (:53). Les quatre Atomic de `984bb270:44-47` sont supprimes, ainsi que le record Diagnostics et la methode `diagnostics()` (`984bb270:116-123`, `:266-272`). Lectures par les tests : 10 classes a `984bb270`, **0** aujourd'hui. Les trois compteurs de remplacement (`sqlite.scope.connection.opened/closed`, `sqlite.scope.schema.checked`, :28/:30/:32) sont ecrits par SqliteContentionMetrics:103-113 sur le recorder pris au constructeur :54-57, jamais par un singleton. Le residu : `find . -name PhysicalSqliteConnections.java` -> **3 copies identiques de 95 lignes**, sous morpheus-{api,cli,mcp}/src/test/java/com/morpheus/{api,cli,mcp}/ ; `openedDuring` :32-46 deregistre le driver SQLite du DriverManager, enregistre un driver compteur, puis restaure - son propre javadoc dit qu'il voit « toute connexion SQLite de la JVM, quel que soit le thread ». Parallelisme : un seul junit-platform.properties dans le depot, sur morpheus-store-sqlite. Declare dans ADR-0115 amendement du 15/10 : « le pilote compteur (PhysicalSqliteConnections) de morpheus-api, morpheus-cli et morpheus-mcp y partagent encore un etat de la JVM ».
+`find . -name 'PhysicalSqliteConnections*'` -> **0** (trois copies de 95 lignes supprimees par 2c7032fe). Les trois tests : HttpRequestConnectionCountTest.java:49 construit `OperationalRuntime.of(OperationalLogMode.OFF)` et asserte :60 et :63 ; idem CliCommandConnectionCountTest.java:52,:57,:60 et McpToolCallConnectionCountTest.java:61-69. La regle : SqliteConnectionScopeUseArchitectureTest.java:74 (textuelle, quatre modules, :54-55) et :148 (bytecode, constructeurs `com.morpheus.store.sqlite.Sqlite*Store`, :214-215) ; son propre commentaire :45-47 dit qu'elle ne peut pas voir que la portee est ouverte autour des constructions. Deux classes exemptees (:63-68). **Trois `DriverManager.getConnection` subsistent en production hors de toute portee et hors de la regle** : SqliteDatabaseSecurity.java:60, SqlitePreMigrationCopy.java:105, SqliteServerMaintenance.java:165. Chemin aveugle : SqliteDatabaseSecurity.open:29-30 -> openPhysical -> :34 `SqliteContentionMetrics.processDefault()`, c'est-a-dire LocalOperationalRuntime, jamais le recorder du test. Les compteurs ne sont ecrits que par la portee (SqliteConnectionScope.java:112, :135, :185).
 ```
 
-**Ce qui reste** — (1) **Trois copies d'un compteur qui manipule un etat global de la JVM.** `PhysicalSqliteConnections.openedDuring`, identique dans morpheus-api, morpheus-cli et morpheus-mcp, retire le driver SQLite du DriverManager, met un driver compteur a sa place et le restaure dans un `finally`. Deux tests du meme module qui tourneraient en parallele se voleraient leurs connexions ou se restaureraient mutuellement le driver. C'est ce qui empeche d'activer le parallelisme sur ces trois modules, et aucune regle n'interdit d'en ajouter un quatrieme exemplaire. Remede : un compteur par connexion plutot que par DriverManager, comme SqliteContentionMetrics vient de le recevoir ; a defaut, une regle qui interdise de toucher au DriverManager depuis un test. (2) **La regle de champ exempte `ThreadLocal` par type**, pas par nom (StaticOperationalRuntimeUsersArchitectureTest:123-126) : un `static final ThreadLocal<...>` de n'importe quel contenu est classe « constant ». L'exemption est necessaire pour ACTIVE, mais un second ThreadLocal statique ajoute demain passerait sans discussion. (3) **La regle textuelle est nominative** : elle cherche deux litteraux pleinement qualifies (`SqliteConnectionScope.diagnostics(` et `SqliteConnectionScope.Diagnostics`) dans les tests, hors morpheus-architecture-tests. Lui echappent un appel non qualifie depuis le paquet, un import statique, un appel sur instance, une qualification coupee par un retour a la ligne - et surtout tout compteur de processus reintroduit sous un autre nom. C'est un garde-fou de non-regression, pas une interdiction de la classe de defaut. (4) Les trois javadoc de `PhysicalSqliteConnections` sont perimes : ils parlent des « diagnostics de SqliteConnectionScope », qui n'existent plus.
+**Ce qui reste** — (1) **Les trois modules visés restent séquentiels.** Pour `morpheus-api` et `morpheus-mcp` le blocage est identifié et c'est le même : un `Locale.setDefault(tr-TR)` posé en `@BeforeEach` et restauré en `@AfterEach` (`PolicyApiEnumVocabularyLocaleTest:45,:50` et `McpEnumVocabularyLocaleTest:49,:54`). Ces tests vérifient qu'un parsing d'énumérations résiste à une locale hostile ; cela se teste en passant la locale explicitement aux `toLowerCase`/`toUpperCase` côté produit, plutôt qu'en déplaçant la locale par défaut de la JVM — ou, à défaut, en marquant ces deux classes `@Isolated`. (2) **`morpheus-cli` n'a aucun obstacle identifié et reste pourtant séquentiel** : ni `Locale.setDefault`, ni `System.setProperty`, ni `setOut/setErr/setIn`, ni port fixe, ni champ statique mutable partagé. Rien n'interdit d'y activer le parallélisme ; rien ne l'a fait. (3) Les deux modules d'intégration posent `System.setProperty("java.home", …)` (`MinosPeerLauncherResolutionTest:128,:138` et son jumeau Nexus) et ne figuraient pas au périmètre annoncé. (4) **Aucune règle n'empêche la réintroduction du défaut.** La suppression de `PhysicalSqliteConnections` est un nettoyage, pas un invariant : rien n'interdit à un futur test de refaire un pilote JDBC compteur, d'appeler `DriverManager.deregisterDriver` ou de poser une propriété système. Le dépôt sait écrire ce genre de garde — il en a une douzaine sous forme d'assertion textuelle sur `src/test/java` — il ne l'a pas fait ici.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -953,6 +956,38 @@ morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java:212-22
 
 </details>
 
+### AUD-SEC-17 — L'optimisation de la frontière du workspace a rétréci le contrôle avant lecture : un fichier peut être lu et empreinté avant d'être refusé
+| | |
+|---|---|
+| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Sévérité** | Moyenne |
+| **Axe** | Sécurité |
+| **Effort** | S |
+| **Sprint** | 15 — Dérives apparues pendant les correctifs |
+| **Fusionne / issu de** | AUD-PRF-08 |
+| **Origine** | **Né le 18 octobre**, pendant les correctifs — hors du plan du 9 octobre |
+| **Vérifié le** | 2026-10-21 sur `6bdf4bbb` |
+
+**Constat de vérification** — Reconfirmé le 21/10 : `ScanWorkspaceBoundary.java` n'a reçu aucun commit depuis `29c942ae` ; le cache `validatedDirectories` (:21) et la mémorisation de `physicalWorkspace` sont intacts. Le constat tient sans changement.
+
+```
+Constat neuf du 18/10/2026, vérifié sur origin/main (341b08ad) par lecture de ScanWorkspaceBoundary et de ses tests.
+```
+
+<details><summary>Constat d'origine (9 octobre)</summary>
+
+**Preuve**
+
+```
+Le correctif d'`AUD-PRF-08` met en cache les répertoires déjà validés pendant un scan (`ScanWorkspaceBoundary.java:46-49`). Sur le chemin rapide, seules les ancêtres non validées sont interrogées, et le `toRealPath()` du segment feuille compare le chemin entier à `physicalWorkspace` (`:98-103`). Deux cas y échappent, tous deux dans la fenêtre « après validation de l'ancêtre, avant lecture de l'entrée » : (a) une ancêtre déjà validée remplacée par un lien symbolique pointant **à l'intérieur** du workspace satisfait le `startsWith(physicalWorkspace)` ; l'ancien code levait « source path crosses a symbolic link inside the workspace » pour *tout* lien sur le chemin ; (b) `physicalWorkspace` (`:22`, `:80`) est mémorisé et n'est pas réévalué sur le chemin rapide : si la racine du workspace est elle-même remplacée par un lien pendant le scan, le refus « workspace root must not be a symbolic link » ne se déclenche plus avant lecture. Dans les deux cas le fichier est **ouvert, lu et empreinté**, puis refusé par `requireStillContained` (`LocalSourceInventoryScanner.java:274`), qui a gardé la marche complète.
+```
+
+**Impact** — L'invariant « rien hors frontière n'entre dans l'inventaire » est préservé — c'est le plus important, et il est testé (`ScanWorkspaceBoundaryTest:116` et `:122` montent le remplacement d'une ancêtre pendant la lecture, dans les deux variantes). L'invariant « aucun contenu n'est jamais lu à travers un lien » ne l'est plus, et la fenêtre de lecture s'est élargie. Sur un workspace partagé ou monté, un attaquant qui gagne la course fait lire et hacher un fichier que le produit refusera ensuite d'inventorier : la lecture a quand même eu lieu, et son empreinte a transité en mémoire. Le commit est honnête sur la re-validation, qu'il dit inchangée — ce qui est exact — mais ne dit pas que la vérification *avant lecture*, elle, a changé de sens. À noter aussi : les deux tests de sécurité qui couvrent ce chemin sont `@DisabledOnOs(WINDOWS)`, donc la propriété n'est tenue par la CI que sous Linux.
+
+**Action** — Décider laquelle des deux propriétés le produit tient, et l'écrire. Si « aucun contenu n'est lu à travers un lien » doit survivre, garder l'interrogation `isSymbolicLink` sur les ancêtres même en cache — elle coûte une requête par segment, pas quatre — ou invalider le cache sur tout changement de `mtime` du parent. Si la propriété retenue est seulement « rien hors frontière n'entre dans l'inventaire », l'écrire dans la spec de scan et dans l'ADR, pour que la prochaine relecture ne la rouvre pas. Dans les deux cas, réévaluer `physicalWorkspace` ou justifier sa mémorisation, et donner au refus son propre code — une évasion de frontière remonte aujourd'hui sous `SOURCE_UNREADABLE`.
+
+</details>
+
 ### AUD-TRV-06 — Trois branches inatteignables sur des chemins de sécurité, dont deux sur l'exécution de code tiers
 | | |
 |---|---|
@@ -994,9 +1029,9 @@ morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java:212-22
 | **Sprint** | 13 — Couverture et pagination |
 | **Après** | AUD-TST-01 |
 | **Fusionne / issu de** | AUD-TST-07, AUD-QUA-10 |
-| **Vérifié le** | 2026-10-13 sur `d5be889b` |
+| **Vérifié le** | 2026-10-21 sur `6bdf4bbb` |
 
-**Constat de vérification** — Rien n'a bouge sur le fond. Seule CompactChangeAnalysisView est desormais nommee, et par un test du module d'architecture (morpheus-architecture-tests/.../ChangeAnalysisContractTest.java), c'est-a-dire par execution croisee - exactement le mecanisme que le constat denonce : cela remonte l'echelle agregee, pas l'echelle par module. Le recomptage donne 26 classes de morpheus-application sur 346 nommees par aucun test (31 sur 341 le 9 octobre) ; la baisse vient surtout de nouvelles classes testees, pas d'un rattrapage sur les anciennes. CoverageScaleSeparationTest tient toujours la separation des deux echelles, mais ne reduit pas l'ecart.
+**Constat de vérification** — Reconfirmé le 21/10 : `config/m21-quality-ratchets.properties` porte toujours 0,691 / 0,612 par module contre 0,900 / 0,757 en agrégé — l'écart de 20,9 points est inchangé.
 
 ```
 morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m21/CoverageQualityGateTest.java:95 PER_MODULE_QUALIFIED_LINE_RATIO = 0.694341d et :96 PER_MODULE_QUALIFIED_BRANCH_RATIO = 0.615727d ; config/m21-quality-ratchets.properties perModuleLineCoverageMinimum=0.691 / aggregateLineCoverageMinimum=0.900, commentaire inchange « measures what each module covers without help from the others ». Ecart recalcule a HEAD : 0.903026 - 0.694341 = 20,87 points. Ratios test/main relus : morpheus-application 11994/25117 = 0,48 ; morpheus-domain 1010/2624 = 0,38 ; morpheus-api 1,42 ; morpheus-mcp 1,45. Six des sept classes de comportement nommees par l'audit ne sont nommees par aucun fichier de test : PolicyPublicViews, CompactQualityReportView, CompactQualityReportService, QuerySchemaRegistry, ObservedProjectSnapshotPublisher, WorkspacePathBoundary. openspec/changes/shrink-the-coverage-a-module-borrows-from-its-neighbours/tasks.md : toutes les cases decochees.
@@ -1063,15 +1098,15 @@ Retire en relecture : l'absence d'un archunit.properties n'est pas une lacune - 
 | **Sprint** | 8 — Fiabiliser les tests |
 | **Après** | AUD-TRV-01, AUD-DEP-06 |
 | **Fusionne / issu de** | AUD-TST-17 |
-| **Vérifié le** | 2026-10-17 sur `ae368aa3` |
+| **Vérifié le** | 2026-10-21 sur `6bdf4bbb` |
 
-**Constat de vérification** — Reste partiel, comme le mainteneur le declare lui-meme - et les progres sont nets. Le dispositif n'est plus non teste : la suite passe de 244 a **292 tests** (0 echec, 17 sautes), les 50 fichiers de scripts/ sont tous soit lances par un workflow, soit nommes comme lances a la main avec leur raison, `NOT_LAUNCHED` est vide, et une page de documentation ne compte plus comme un lancement - le defaut que je reprochais a la regle d'inventaire. Les planchers litteraux sont corriges : les douze fichiers m22 a m27 lisent les ratchets vivants, et le `507` de validate-m24.sh a disparu du depot. Le spec delta est amende. Ce qui reste, c'est la moitie Windows et la tache 1.4.
+**Constat de vérification** — Progrès réels, et le constat reste partiel pour une seule raison : **la moitié Windows du dispositif n'a toujours aucun lanceur automatique**. Ce qui a avancé : les sept points ouverts sont documentés, les 24 cases du change sont cochées, et la tâche 1.4 — « aucun validateur n'a jamais été exécuté pour de vrai », ouverte depuis le premier jour — a produit un relevé de 547 lignes, cible par cible et plateforme par plateforme. Ce relevé est une revendication que je ne peux pas recouper, mais il est **falsifiable** (il nomme un échec, `m22.ps1` rc=1) et il a produit **un effet vérifiable dans le code** : `write-build-provenance.ps1` mourait sur un HEAD détaché, son repli était inatteignable, et le correctif plus son test sont là. C'est le genre de défaut qu'un run fictif n'invente pas. La décision 3.7, attendue depuis trois passes, est écrite, datée et attribuée — une clôture par décision légitime. Mais elle ne porte que sur les cibles `.sh` : « gardées avec la lane telle quelle » entérine une lane Linux-seule sans que la question de la parité de plateforme soit posée.
 
 ```
-`python3 -B -m unittest discover -s scripts/tests` -> **292 tests, 0 echec, 0 erreur, 17 sautes** (repere : 244). 218 portent sur les validateurs (test_validator_verdicts 192 + test_validator_entry_refusals 26), soit 75 % de la suite. Inventaire : population() -> **50 fichiers**, launchers(by_hand=False) -> **38 atteints depuis les workflows seuls** (repere : 27), launchers(by_hand=True) -> 50 ; `NOT_LAUNCHED` (:67) est **vide** ; `LAUNCHED_BY_HAND` (:58-63) porte trois entrees motivees ; `executable_text()` (:112-128) retire les commentaires. Planchers : `grep -rn '507' scripts/` -> **aucune occurrence** (`984bb270:scripts/validate-m24.sh` contenait `if (( TESTS < 507 ))`) ; validate-m24.sh:16-23 lit config/m21-quality-ratchets.properties, pendant PowerShell :23-26. Spec amende : specs/validator-self-test/spec.md:116-121 dit desormais « **The inventory of the script tests** MUST find ... A documentation page MUST NOT count as a launch », avec deux scenarios ajoutes. `SCRIPTS_UNDER_TEST` n'est plus une simple auto-declaration : test_script_inventory.py:298-324 croise la declaration avec le code, hors docstrings et hors le noeud de declaration lui-meme. Job nocturne nightly.yml:378-439, matrice de 7 cibles, **ubuntu-latest seulement** (:392).
+Comptage refait indépendamment, sans reprendre la liste « lancés à la main » du dépôt : **50 fichiers sous `scripts/` hors `tests/`, 38 atteints** par clôture transitive depuis les workflows. Les 12 non atteints : les huit `.ps1` `d2`, `m21`, `m22`→`m26`, `r3`, plus `validate.cmd`, `validate.ps1` et les deux `verify-release-provenance`. La lane `validators-without-a-lane` existe bien (`.github/workflows/nightly.yml:379`, matrice `:398-406`) mais `:392` est `runs-on: ubuntu-latest`. Cases du change : `grep -c '^- \[ \]'` -> **0**, `'^- \[x\]'` -> **24**. Tâche 1.3 faite : `refusals-table.md`, 575 lignes, 545 sites — et le document dit lui-même que **239 sites, la zone après le commutateur de packaging, ne sont atteints par aucun test**. Correctif réel : `scripts/write-build-provenance.ps1:35` passe de `(git branch --show-current).Trim()` à `"$(git branch --show-current)".Trim()`, rendant atteignable le repli `detached` de `:38` ; commit `e99e35a9`, avec `scripts/tests/test_write_build_provenance.py` (+74 lignes). Suite Python exécutée ici : **322 tests, 0 échec, 21 sautés** (repère 292 / 17). **257 des 322 portent sur les validateurs** (80 %), et **les 21 sauts sont tous des classes PowerShell 5.1**. `test_validate_dispatcher.py` exécute toujours **0 cas sous Linux**.
 ```
 
-**Ce qui reste** — (1) **La moitie Windows du dispositif n'a toujours aucun lanceur automatique** : huit `.ps1` - d2, m21, m22, m23, m24, m25, m26, r3 - ne sont nommes par aucun workflow, la lane nocturne etant Linux seule. Le `tasks.md:41-42` le dit : « No Windows run of the .ps1 variants is planned by it. » Le constat porte sur l'ensemble de scripts/, pas sur sa moitie Linux. (2) **Tache 1.4 toujours pas faite** : aucun validateur n'a encore ete execute de bout en bout sur un vrai arbre ; tout est prouve sur le checkout fabrique a mvnw bouchon, qui s'arrete a l'interrupteur de packaging. `NOT_REACHED_BY_A_TEST` nomme cette moitie non atteinte pour les 13 cibles. (3) **Tache 3.7** : la decision du mainteneur sur l'avenir de m22-m26 et r3 n'est pas prise ; la lane nocturne est inscrite comme defaut pris en attendant, pas comme la decision. (4) Taches 1.3, 2.1, 4.1, 4.2, 4.5 ouvertes : table des refus, comparaison du checkout fabrique avec un vrai clean verify, checks requis d'une PR sur les deux plateformes, duree de l'etape Windows sur un runner, description de PR. (5) `test_validate_dispatcher.py` execute **0 cas sous Linux** : `validate.cmd` et `validate.ps1`, le chemin que tout guide donne a un utilisateur Windows, ne sont testes que par la jambe Windows de ci.yml - laquelle, d'apres tasks.md:81, n'a pas encore tourne sur un runner GitHub. (6) La lane nocturne fait sauter le scan Dependency-Check de D2 (nightly.yml:424) : la seule execution reelle de validate-d2.sh ne couvre pas sa partie securite. (7) Le compte de la suite depend de la plateforme - 292 sous Linux, 427 revendiques sous Windows - et les reperes circulent sans leur plateforme. Meme defaut que celui que .claude/rules/meta.md traque sur les ratchets.
+**Ce qui reste** — (1) **Huit `.ps1` sans lanceur automatique** : `validate-d2.ps1`, `validate-m21.ps1`, `validate-m22.ps1` à `validate-m26.ps1`, `validate-r3.ps1`. Aucun workflow ne les nomme, ni directement ni par chaîne ; ils ne sont atteignables qu'à la main sur une machine Windows. La lane nocturne ajoutée pour couvrir les orphelins est Linux-seule. À noter que ces huit **ont tourné pour de vrai le 18 octobre et sont passés**, ce qui montre qu'une lane Windows est possible. (2) Cas le plus net de la même asymétrie : **`validate-m21.sh` est un check requis de chaque PR** (`.github/workflows/ci.yml:43`) tandis que `validate-m21.ps1`, qui porte le même contrat de ratchets et de version, n'est lancé par rien. Les deux variantes d'un même gate n'ont pas le même statut d'enforcement. (3) Le dispatcher Windows (`validate.ps1`, `validate.cmd`) n'est lancé par aucun workflow non plus, et `test_validate_dispatcher.py` exécute 0 cas hors Windows : la seule couverture de toute la moitié `.ps1` du dispositif tient à une unique étape, `.github/workflows/ci.yml:56-59`. (4) **239 sites de refus ne sont atteints par aucun test**, de l'aveu du dépôt : leur seule observation est les deux runs manuels du 18 octobre, non reproductibles automatiquement. (5) Dérive de documentation : la décision 3.7 est datée du 18 octobre, mais `scripts/README.md:207-208` et le commentaire de `.github/workflows/nightly.yml:382-386` décrivent toujours l'état « en attendant que le mainteneur décide ». Un lecteur du dépôt conclut aujourd'hui que la question est ouverte.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -1127,20 +1162,20 @@ Aucune comparaison de date avec `target/classes` ni marqueur d'invocation. La co
 ### AUD-TST-03 — 300 des 831 assertThrows n'assertent qu'un type d'exception JDK générique, sans message ni code de rejet
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Tests |
 | **Effort** | M |
 | **Sprint** | 8 — Fiabiliser les tests |
-| **Vérifié le** | 2026-10-13 sur `d5be889b` |
+| **Vérifié le** | 2026-10-21 sur `6bdf4bbb` |
 
-**Constat de vérification** — Le constat n'a pas ete traite et le chiffre a monte : 300 -> 332 assertThrows nus sur exception JDK generique, soit +32 en quatre jours. La proportion reste stable (36,1 % hier, 38,3 % aujourd'hui) : les nouveaux tests reproduisent le defaut au lieu de le resorber.
+**Constat de vérification** — Soldé, et le recomptage indépendant le confirme franchement : **457 sites nus avant le lot, 0 après** hors les corpus fabriqués du gate lui-même. Aucune liste transitoire n'a été livrée avec la règle : les sites ont tous été corrigés par les six commits qui la précèdent.
 
 ```
-Recomptage du 13/10/2026 sur les 574 fichiers de src/test/java (script reconstruit d'apres la methode decrite dans la preuve d'origine, conserve en /tmp/claude-0/-home-claude/0afb933e-09ad-536b-8c1f-812ae3fc8d7f/scratchpad/verif/at2-recount-20261013.py) : total assertThrows(X.class) = 866 (831 le 09/10), captures ou suivis d'une assertion de message/cause = 404 (381), nus + exception JDK generique = 332 (300), nus + exception du projet = 130 (150). Exemple d'origine toujours en place : morpheus-api/src/test/java/com/morpheus/api/RemoteIdentityFileStoreTest.java. Aucun test d'architecture textuel n'ancre la regle : le change `assert-the-reason-of-every-refusal-a-test-expects` est encore actif (non archive).
+Recomptage par appariement de parenthèses sur chaque site `assertThrows(`, avec examen du contexte : **901 sites** aujourd'hui (876 avant) ; résultat jeté — type seul — **137 contre 457**. Sur ces 137, **125 portent sur un type d'exception déclaré par le dépôt** (`KnowledgeStoreException` 64, `RejectedRequestException` 9, `SnapshotConflictException` 6, …) et les **12 autres sont les corpus fabriqués de `RefusalTestEvidenceArchitectureTest`**. Avant : 220 `IllegalArgumentException`, 41 `NPE`, 17 `IOException`, 15 `AssertionError`, 13 `IllegalStateException`, 10 `RuntimeException`, 7 `SQLException` nus — il en reste 0. Sur 744 sites liés ou chaînés hors fichier de règle, **683 lisent `getMessage`/`getCause`/`reason`/`code`** dans les lignes qui suivent. Règle : `RefusalTestEvidenceArchitectureTest.java:46-60`, assertion textuelle (ADR-0103) sur tous les `src/test/java`.
 ```
 
-**Ce qui reste** — Traiter les 332 cas par lot en commencant par morpheus-api et morpheus-cli (capturer l'exception, asserter le message ou le code), puis ancrer la regle par un test d'architecture textuel sur src/test/java, sur le patron de BoundedWaitOwnershipTest, pour refuser la prochaine occurrence. Le change `assert-the-reason-of-every-refusal-a-test-expects` porte deja la proposition ; rien n'est implemente.
+**Ce qui reste** — Rien. Trois limites de la règle, à connaître : un type d'exception **déclaré par le dépôt** n'est pas concerné — et « déclaré » inclut `src/test/java`, donc une classe d'exception définie dans un test suffit à sortir du périmètre, ce qui explique les 125 sites nus restants ; la règle prouve qu'une assertion **a pu** être écrite, pas que la bonne chose soit comparée, un `assertNotNull(ex)` la satisferait ; et elle est textuelle, donc un `assertThrows` passé par un alias ou un utilitaire maison lui échapperait.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -1166,20 +1201,20 @@ Exemples : morpheus-api/src/test/java/com/morpheus/api/RemoteIdentityFileStoreTe
 ### AUD-TST-06 — La colonne cli du manifeste de convergence n'est vérifiée que pour sa non-vacuité, sans gate bidirectionnel, contrairement à http et mcp
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Tests |
 | **Effort** | M |
 | **Sprint** | 8 — Fiabiliser les tests |
-| **Vérifié le** | 2026-10-13 sur `d5be889b` |
+| **Vérifié le** | 2026-10-21 sur `6bdf4bbb` |
 
-**Constat de vérification** — Rien n'a bouge, ni le code ni les chiffres. La colonne cli reste verifiee pour sa seule non-vacuite, l'asymetrie avec http et mcp subsiste. Deux changes actifs la visent (`compare-the-cli-with-the-convergence-manifest`, `explain-every-dependency-from-one-traversal`), aucun n'est archive.
+**Constat de vérification** — Soldé. Le gate ne compare pas la colonne `cli` à une liste recopiée : il la compare à `CliCommandPaths.PATHS`, **qui est la table de routage de la CLI elle-même**. `MorpheusMain.run` consulte cette déclaration avant tout dispatch et refuse « unknown command » pour un chemin non déclaré — une action ajoutée au `switch` d'une sous-commande est donc inatteignable tant qu'elle n'y figure pas. La déclaration gouverne le comportement, c'est ce qui rend la comparaison valable.
 
 ```
-morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m21/ProductionIntegrityContractTest.java:79 `assertFalse(columns[2].isBlank(), "CLI shape must be explicit");` (meme ligne qu'au 09/10) ; :86-88 trois lignes litterales choisies a la main (`product.version...`, `product.update-discovery...`, `lifecycle.apply\tWRITE`) ; `grep -rln "cliColumn|CLI_COLUMN|columns\[2\]" morpheus-*/src/test` ne retourne toujours que ce fichier ; aucun fichier `PublicCliSurfaceConvergenceTest.java` n'existe. Volumetrie inchangee : `wc -l contracts/public-surfaces.tsv` = 90, `cut -f3 | grep -c '^EXPLICITLY'` = 15 (74 surfaces CLI reelles), litteraux `case "..."` distincts dans morpheus-cli = 88. Les deux autres transports gardent leur gate bidirectionnel : morpheus-architecture-tests/src/test/java/com/morpheus/api/PublicHttpRouteConvergenceTest.java.
+`CliCommandPaths.java:21-97` : 84 chemins ; `refusalOf` (:115) appelée par `MorpheusMain.java:130-133` via `MorpheusCli.refuseUndeclared` (`MorpheusCli.java:145-148`). `PublicSurfaceManifestCoversEveryServedCliCommandTest.java:57-66` et `:152-213` : comparaison dans les **deux sens** — cellule nommant un chemin non déclaré, chemin déclaré que rien ne nomme, doublon, exclusion inutile, cellule vide, sentinelle inventée. Non-vacuité `:68-74` (> 50 chemins, > 50 lignes, > 50 cellules) et `:124-132` (une lecture vide échoue) ; le comparateur est éprouvé sur 7 corpus fabriqués. `CliCommandPathsTest.java:49-60` **exécute** chaque chemin déclaré. Comptage croisé : 90 lignes de capacité, 78 cellules nommant une commande, 12 sentinelles, 84 chemins déclarés, 6 exclusions écrites — 78 + 6 = 84, et les deux différences d'ensembles sont vides.
 ```
 
-**Ce qui reste** — Creer `PublicCliSurfaceConvergenceTest` sur le modele de PublicHttpRouteConvergenceTest : extraire la table des commandes et sous-actions depuis une source unique du module CLI (a creer, l'equivalent de MorpheusHttpRouteTable n'existe pas cote CLI), comparer dans les deux sens avec la colonne `cli` du manifeste, echouer sur une commande servie sans ligne et sur une ligne sans commande.
+**Ce qui reste** — Rien. Portée déclarée dans le Javadoc du gate (`:38-41`) : il compare des chemins, pas des options ni la justesse de `intent`/`notes`, et `CliCommandPathsTest` reconnaît le refus « inconnu » par un motif de libellé — une sous-commande qui formulerait autrement son refus serait acceptée à tort.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -1198,21 +1233,21 @@ morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m21/Producti
 ### AUD-TST-10 — Aucun test d'upgrade depuis une base réelle aux paliers de schéma 13 à 19 ; le seul vrai test d'upgrade part du palier 12
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **PARTIEL** |
 | **Sévérité** | Moyenne |
 | **Axe** | Tests |
 | **Effort** | M |
 | **Sprint** | 8 — Fiabiliser les tests |
 | **Après** | AUD-DEP-01 |
-| **Vérifié le** | 2026-10-13 sur `d5be889b` |
+| **Vérifié le** | 2026-10-21 sur `6bdf4bbb` |
 
-**Constat de vérification** — Strictement inchange. Le seul vrai test d'upgrade part toujours du palier 12 et les quatre paliers 13, 14, 15, 18 n'ont aucune couverture d'upgrade depuis une base reelle. Deux changes actifs le visent (`prove-the-upgrade-from-every-released-schema`, `state-the-schema-upgrade-and-its-way-back`), aucun n'est archive.
+**Constat de vérification** — Le test existe, et il va plus loin que ce qu'il remplaçait : **trois paliers publiés au lieu d'un**, remontée jusqu'au schéma courant, relecture puis réécriture par les stores, registre complet vérifié et seconde ouverture sans rejeu. Mais la base de départ est **fabriquée à la volée en rejouant les scripts de migration de l'arbre courant**, et aucune base de référence n'est versionnée — c'est exactement la distinction que le constat posait. Le test l'admet lui-même : « the released program did not write them ». Atténuation réelle à porter au crédit du lot : le registre reçoit les **empreintes figées** et non des empreintes recalculées, donc l'édition d'une migration déjà publiée fait échouer l'upgrade.
 
 ```
-morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSchemaManager.java:45 `static final int SUPPORTED_SCHEMA_VERSION = 20;` (inchangee) ; morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/R2UpgradeCompatibilityTest.java:24-36 : la baseline `ONE_DOT_ZERO_MIGRATIONS` s'arrete toujours a `new BaselineMigration(12, "multi-provider-composition", ...)` ; morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/SqliteMigrationAtomicityTest.java:45 et :77 utilisent encore `applyThroughVersion12`. Les paliers superieurs restent simules par suppression d'une ligne du journal sur un schema deja courant : SqliteSchemaMigrationTest.java (version 16), SqliteSpecificationVersionSequenceMigrationTest.java (17), SqliteSyncStateRevisionMigrationTest.java (19), SqliteCompositionResolutionMigrationTest.java (20). Aucun test ne part d'un palier 13, 14, 15 ou 18. `ls morpheus-store-sqlite/src/main/resources/db/migration/ | wc -l` = 20.
+`ReleasedSchemaUpgradeTest.java:76-83` : `@TestFactory` sur `ReleasedSchemaLevels.distinctLevels()`, refus explicite si la liste est vide. `released-schema-levels.properties` : 1.0.0=12, 1.1.0=15, 1.2.0=15, 1.2.1=20 -> **3 paliers distincts**. Schéma courant 22 ; `ROW_SHAPES_KNOWN_THROUGH = 20` (:66) refuse un palier déclaré au-delà. Base non réelle : `:275-310` (`applyBaseline`) crée `schema_migrations` à la main puis rejoue V001…V<n> **lus sur le classpath courant** (`:312-315`). `find . -name '*.db' -o -name '*.sqlite*'` hors target -> **aucun fichier**. Empreintes figées : `:293-295`, comparées au texte courant par `SqliteSchemaManager.accepts` (:147-152). Garde de complétude : `ReleasedSchemaLevelsDeclarationTest.java:56-122` fait échouer le build si une version ayant des notes de version n'a pas de palier déclaré. Remplacement : l'ancien `R2UpgradeCompatibilityTest` ne couvrait **qu'un** palier, le 12, par la même technique.
 ```
 
-**Ce qui reste** — Generaliser R2UpgradeCompatibilityTest en test parametre sur la baseline : pour chaque palier publie, construire la base avec les seules migrations de cette baseline, y inserer un etat publie, migrer avec le runtime courant et asserter la preservation d'identite et d'historique. Les checksums golden epingles (SqliteMigrationChecksumGoldenTest.java:23-44) fournissent les valeurs.
+**Ce qui reste** — Aucune base produite par un binaire publié n'existe dans le dépôt. Ce que le test prouve est « la suite de migrations V(n+1)…V022 s'applique sur un schéma V(n) reconstruit, et les stores courants relisent et réécrivent des lignes de forme ancienne » ; il ne prouve pas qu'une base réellement écrite par 1.0.0, 1.1.0 ou 1.2.1 — avec ses index réels, ses valeurs réelles, ses NULL, ses encodages, ses éventuelles lignes orphelines — s'ouvre. Deux points à surveiller : les paliers 21 et 22 ne correspondent à aucune version publiée, donc la prochaine release devra fournir les formes de lignes de son tag avant de déclarer son palier ; et `scripts/validate-r2.sh:57-61` n'exige du rapport Surefire que `tests >= 1`, donc si deux des trois paliers disparaissaient de la déclaration, R2 passerait encore.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -1235,7 +1270,8 @@ morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSchemaManage
 | **Sévérité** | Moyenne |
 | **Axe** | Tests · Qualité |
 | **Effort** | S |
-| **Sprint** | 8 — Fiabiliser les tests |
+| **Sprint** | 15 — Dérives apparues pendant les correctifs |
+| **Origine** | **Né le 15 octobre**, pendant les correctifs — hors du plan du 9 octobre |
 | **Vérifié le** | 2026-10-17 sur `ae368aa3` |
 
 **Constat de vérification** — Solde (PR #495), et le piege a ete evite - c'est le point que je voulais verifier. Le litteral 17 a disparu des deux variantes, et le compte derive est **juste** : `expected = 1 + count('<module>')` = 1 + 18 = 19, ce qui est exactement le nombre de pom.xml de l'arbre. Le `+ 1` du POM racine est bien present dans les deux. Le contrat ReactorCountCases attrape reellement un retour en arriere : verifie empiriquement en remettant le litteral 17 dans le script, ce qui fait echouer deux cas, puis en le restaurant. Et r3 a enfin une voie d'execution : le job nocturne `validators-without-a-lane`.
@@ -1259,6 +1295,34 @@ scripts/validate-r3.sh:41-42 `if len(poms) != 17: raise SystemExit(f'Unexpected 
 **Action** — Remplacer le litteral 17 par une lecture du nombre de modules declares dans le POM racine, dans les deux variantes, et ajouter au contrat de verdict partage un cas qui assertit ce compte - sinon la meme derive se reproduira au 19e module. Puis trancher la question ouverte 1 du change AUD-TRV-07 : donner une voie CI a r3, ou le retirer.
 
 </details>
+
+### AUD-TST-19 — Le ratchet des tests d'architecture a cent huit exécutions de jeu : il est resté à 585 alors que la mesure du lot donnait 693  *(constat neuf, 15/10)*
+| | |
+|---|---|
+| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Sévérité** | Moyenne |
+| **Axe** | Tests |
+| **Effort** | S |
+| **Sprint** | 8 — Fiabiliser les tests |
+| **Fusionne / issu de** | AUD-TST-08 |
+| **Origine** | **Né le 21 octobre**, pendant les correctifs — hors du plan du 9 octobre |
+| **Vérifié le** | 2026-10-21 sur `6bdf4bbb` |
+
+**Constat de vérification** — Né de la vérification du sprint 8 : le lot qui corrigeait le comptage des deux premières clés a laissé la troisième au niveau du 9 octobre.
+
+```
+Constat neuf du 21/10/2026, relevé pendant la vérification d'AUD-TST-08 sur `6bdf4bbb`.
+```
+
+**Preuve**
+
+```
+`config/m21-quality-ratchets.properties:8` porte `architectureTestsMinimum=585`, inchangé depuis le 9 octobre. Or le commit `61cbb5b0`, qui a re-basé les deux autres clés du même fichier, indique avoir mesuré à `29c942ae` : « 2610 declared, 1584 generated, **693 architecture** ». Il a posé `testsMinimum=2600` et `generatedTestsMinimum=1574` — dix sous chaque mesure — et **laissé la troisième clé telle quelle**. L'écart entre le ratchet et la mesure est donc de **108 exécutions**, contre 10 pour les deux autres.
+```
+
+**Impact** — Plus d'une centaine de tests d'architecture peuvent disparaître sans qu'aucun validateur ne bronche. C'est la même famille de défaut que celle qu'`AUD-TST-08` vient de corriger — un ratchet qui ne mesure plus ce qu'il prétend mesurer — sur la troisième clé du même fichier, traitée dans le même commit. Et ce ratchet porte sur les tests d'architecture, c'est-à-dire sur le dispositif qui tient tous les autres invariants du dépôt : c'est la couche dont l'érosion serait la plus coûteuse et la moins visible.
+
+**Action** — Re-baser `architectureTestsMinimum` sur la mesure du jour avec la même marge que les deux autres clés, et dire dans le fichier pourquoi cette marge est celle-là. Si la valeur de 585 a une raison — une dispersion inter-plateformes plus large sur ce compte, par exemple — l'écrire à côté de la clé, puisque rien aujourd'hui ne distingue un plancher assumé d'un plancher oublié.
 
 ### AUD-PRF-03 — Serveur HTTP local sans contrôle d'admission : threads virtuels illimités, une connexion SQLite physique par requête, journal PERSIST
 | | |
@@ -1355,22 +1419,24 @@ Contre-preuve relevee en relecture : M19FullPublishPerformanceGate.java:40 PUBLI
 
 </details>
 
-### AUD-PRF-07 — Six index redondants dupliquant l'index implicite d'une clé primaire
+### AUD-PRF-07 — Onze index redondants dupliquant l'index implicite d'une clé primaire (l'audit en annonçait six)
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Performance |
 | **Effort** | S |
 | **Sprint** | 7 — Le SQL de détail |
 | **Après** | AUD-PRF-01 |
-| **Vérifié le** | 2026-10-13 sur `d5be889b` |
+| **Vérifié le** | 2026-10-18 sur `341b08ad` |
 
-**Constat de vérification** — Aucune migration V021, aucun fichier de migration modifie d'une seule ligne depuis l'audit, et le schema reste a V020. Les six index redondants sont tous encore la. Point positif : aucun index n'a change sans migration, donc pas de divergence schema/code a signaler de ce cote. Le change serve-ordered-store-reads-from-an-index est une specification non implementee ; sa tache 1.1 recense onze index redondants au lieu des dix de l'audit (elle ajoute idx_policy_pack_versions_pack), ce qui veut dire que le constat sous-comptait legerement.
+**Constat de vérification** — Solde, et le constat sous-comptait : il y en avait **onze**, pas six — la reverification du 13 octobre l'avait deja signale sans que le titre soit corrige, et un recomptage independant sur une base reelle le confirme. La migration V022 les supprime tous, et la propriete est desormais tenue par un test **derive du schema**, pas par une liste de noms : ajouter demain un nouvel index redondant le ferait echouer.
 
 ```
-morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSchemaManager.java:45 `SUPPORTED_SCHEMA_VERSION = 20` ; `git diff 20cf2e0..HEAD -- morpheus-store-sqlite/src/main/resources/db/migration/` est vide ; V014__saved_views.sql:23 PRIMARY KEY (saved_view_id, revision) vs :27 CREATE INDEX idx_saved_view_versions_identity ; V005:24 vs :29 ; V015:31 vs :36 et :49 vs :53
+V022__serve_ordered_reads_from_an_index.sql:4-14, onze DROP INDEX. Recomptage sur base reelle (schema du depot applique, analyse par `pragma index_list` / `index_xinfo`) : index explicites 36 -> 27, index explicites redondants avec un implicite **11 -> 0**. Quatre repetaient exactement l'index implicite, sept en etaient un prefixe strict. Version de schema : SqliteSchemaManager.java:48 `SUPPORTED_SCHEMA_VERSION = 22`. Tests : SqliteIndexRedundancyTest.java:22 `aMigratedDatabaseHoldsNoRepeatedIndex`, propriete derivee du schema via `SqliteIndexRepetitions.find()`, collations et sens de tri compris, aucun nom code en dur ; SqliteIndexRemovalUpgradeTest.java:73 rejoue une base au schema publie, verifie qu'aucune ligne n'est perdue et que l'unicite et les cles etrangeres restent appliquees (:107).
 ```
+
+**Ce qui reste** — Rien. Deux notes : le test exclut deliberement les index partiels du role de doublon couvrant, ce qui est juste (un partiel ne peut pas repondre pour les lignes hors de son predicat) ; et il subsiste un doublon entre deux index **implicites** sur `snapshot_specification_versions`, qui vient de contraintes, n'est pas supprimable par DROP INDEX, et qu'aucun test ne peut structurellement voir.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -1389,18 +1455,20 @@ V014__saved_views.sql:23 `PRIMARY KEY (saved_view_id, revision)` vs :27 `CREATE 
 ### AUD-PRF-08 — La vérification de frontière du workspace fait un toRealPath par segment, deux fois par fichier scanné
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Performance |
 | **Effort** | M |
 | **Sprint** | 7 — Le SQL de détail |
-| **Vérifié le** | 2026-10-13 sur `d5be889b` |
+| **Vérifié le** | 2026-10-18 sur `341b08ad` |
 
-**Constat de vérification** — Le fichier a ete touche par deux commits (78956636, c85b9702) mais la boucle par segment est intacte et la condition morte de la ligne 39 est toujours la. Les lignes de l'audit (31-41) sont aujourd'hui a 30-42, simple decalage. Aucune memoisation : pas de Set<Path> de prefixes deja valides, et le double appel par fichier (:206 et :260) subsiste. Le change check-the-workspace-boundary-once-per-directory est une specification annoncee comme non implementee.
+**Constat de vérification** — Solde sur le cout, et prouve par comptage plutot que par duree. La verification de frontiere passe de `3 + 4 x profondeur` requetes systeme a **4** par repertoire entre et 4 par fichier avant lecture ; la re-validation apres empreinte garde la marche complete. Le cache est mieux concu qu'un cache naif : vide a chaque source root, mort avec le scan, et le `toRealPath()` du segment feuille resout toujours le chemin entier. **Mais l'optimisation a retreci une propriete de securite** : du contenu peut desormais etre lu et empreinte avant d'etre refuse. Ce point sort du perimetre de ce constat de performance et fait l'objet d'AUD-SEC-17.
 
 ```
-morpheus-application/src/main/java/com/morpheus/application/sync/WorkspacePathBoundary.java:30-42 (boucle `for (Path segment : relative)` avec Files.exists NOFOLLOW_LINKS:32, Files.isSymbolicLink:35, current.toRealPath():38) et condition morte :39 `if (Files.isSymbolicLink(current) || ...)` apres le test identique de la ligne 35 ; appels LocalSourceInventoryScanner.java:155 (racine), :174 (par repertoire), :206 et :260 (deux fois par fichier)
+`WorkspacePathBoundary.java:11-13` n'est plus qu'une facade vers `ScanWorkspaceBoundary`, porteuse d'un etat de scan. Quatre requetes par segment (:107-128). Points d'appel : LocalSourceInventoryScanner.java:167-168 (racine), :187-188 (repertoire), :220 (fichier avant lecture), :274 (apres empreinte). Correction du cache : `validatedDirectories` vide a chaque source root (:31-33), chemin rapide pris seulement si le parent immediat est un repertoire que le scan a lui-meme valide (:46-49), et le toRealPath du segment feuille compare le chemin entier a `physicalWorkspace` (:98-103). Tests de non-regression de cout, exprimes en comptage et jamais en duree : ScanWorkspaceBoundaryTest.java, constantes `QUERIES_PER_SEGMENT = 4` et `QUERIES_ON_THE_WORKSPACE_ROOT = 3` ; :41 quatre repertoires de plus coutent exactement 4x4 requetes ; :53 un repertoire n'est valide qu'une fois quel que soit le nombre de fichiers ; :62 la re-validation reste la marche complete ; :127 un repertoire remplace entre deux scans du meme scanner est bien refuse par le second.
 ```
+
+**Ce qui reste** — Rien sur le cout. Deux notes. La « condition morte » que le constat d'origine reprochait a `WorkspacePathBoundary.java:39` **n'en etait pas une** : c'etait un second regard volontaire, le seul qui refuse un segment echange contre un lien entre le test et la resolution ; le nouveau code la conserve et l'explique. Le constat se trompait sur ce detail. Et un echec de frontiere detecte apres empreinte remonte sous le code `SOURCE_UNREADABLE`, pas `WORKSPACE_BOUNDARY_ESCAPED` : un consommateur du resultat de scan ne peut pas distinguer un fichier illisible d'une tentative d'evasion.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -1416,7 +1484,7 @@ morpheus-application/src/main/java/com/morpheus/application/sync/WorkspacePathBo
 
 </details>
 
-### AUD-PRF-09 — Le proxy remote n'impose ni timeout de lecture ni budget mémoire sur les routes WRITE et ADMIN
+### AUD-PRF-09 — Le proxy remote n'impose aucun délai de lecture amont sur les routes WRITE et ADMIN
 | | |
 |---|---|
 | **Statut sur `develop`** | **TOUJOURS VALIDE** |
@@ -1424,13 +1492,15 @@ morpheus-application/src/main/java/com/morpheus/application/sync/WorkspacePathBo
 | **Axe** | Performance |
 | **Effort** | S |
 | **Sprint** | 5 — Écarter le risque d'indisponibilité |
-| **Vérifié le** | 2026-10-13 sur `d5be889b` |
+| **Vérifié le** | 2026-10-18 sur `341b08ad` |
 
-**Constat de vérification** — Code inchange : les routes WRITE et ADMIN n'ont toujours ni timeout de lecture amont ni budget memoire. Les lignes de l'audit (75, 89, 179-186) sont a 75, 89 et 213-215. Le change bound-every-upstream-call-of-the-remote-proxy existe mais son tasks.md porte en tete, en gras : arrete le 13 octobre 2026 avant tout changement, sur une decision qui revient au mainteneur, avec la mention que le constat est a moitie faux. Contestation explicite et assumee, pas une correction.
+**Constat de vérification** — **Deux choses a dire, et la premiere est une erreur de mon audit.** Le constat affirmait « ni timeout de lecture **ni budget memoire** ». La seconde moitie est fausse : le budget memoire couvre bien les ecritures. Le depot l'avait releve le 13 octobre dans son tasks.md, avec le test a l'appui ; le constat n'a pas ete corrige en consequence. Le titre est rectifie ici. Sur ce qui reste vrai — l'absence de delai amont sur WRITE et ADMIN — **la cloture par decision est legitime** : la decision est ecrite, datee, verifiable a deux endroits, et le raisonnement tient. Le constat reste ouvert au sens du barème parce que le defaut existe, mais il n'attend plus de correctif : il attend une reouverture de la decision.
 
 ```
-morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteProxyTransport.java:21 READ_ONLY_UPSTREAM_TIMEOUT = 60 s, :75 `if (boundedUpstreamTimeout) request.timeout(READ_ONLY_UPSTREAM_TIMEOUT);`, :89 `if (boundedUpstreamTimeout && !responseSlots.tryAcquire())` ; morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteRoutePolicy.java:213-215 `boolean usesBoundedUpstreamTimeout() { return role == MorpheusRemoteRole.READ; }`
+Delai : MorpheusRemoteProxyTransport.java:75 `if (boundedUpstreamTimeout) request.timeout(READ_ONLY_UPSTREAM_TIMEOUT)` — 60 s (:21), READ seulement ; seul `CONNECT_TIMEOUT` de 5 s (:20) s'applique aux ecritures. Cette moitie tient. **Budget memoire, en revanche** : :121-122 `requireBoundedLength(Content-Length, maxResponseBytes)` et :125 `copyBounded(..., maxResponseBytes, ...)` s'appliquent **sans condition** ; ce qui differe entre lecture et ecriture est le *moment* de la prise du slot (:89 avant l'appel pour un READ, :100-103 apres la reponse pour une mutation, via `awaitResponseBudget` :155-164), justifie :147-153 par le fait que le commit a deja eu lieu. Test dedie : MorpheusRemoteProxyResponseBudgetTest.java:127. Corps entrant borne pour toutes les routes : MorpheusRemoteHttpServer.java:473-483, 65 536 octets et 15 s. Decision ecrite : docs/user/TEAM_REMOTE_SERVER.md:322 et :324 (« Risque residuel assume en 1.2.1 : une mutation reellement bloquee immobilise son slot jusqu'a sa fin reelle... MORPHEUS prefere ce refus explicite a une deadline qui rapporterait 504 pour un commit peut-etre deja durable »), **inchange depuis f7e304d8** — le document date de 1.2.1, il n'a pas ete ecrit apres coup pour justifier la cloture. Change arrete : openspec/changes/bound-every-upstream-call-of-the-remote-proxy/tasks.md:3. Degats confines : capacite privilegiee plafonnee au quart du budget (MorpheusRemoteHttpServer.java:103), refus 429 au-dela, et trois jauges exposees sur `server/status` gardees par une regle.
 ```
+
+**Ce qui reste** — Une ecriture ou une operation ADMIN proxifiee n'a toujours aucun delai amont : une mutation interne qui ne rend jamais la main tient son slot privilegie et son thread jusqu'au redemarrage du processus. C'est le risque accepte. Rien a faire tant que la decision tient ; la rouvrir demanderait de trancher ce qu'un 504 doit signifier pour un commit peut-etre durable.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -1449,18 +1519,21 @@ morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteProxyTransport.java:75
 ### AUD-PRF-10 — Le seul SELECT paginé du module trie sur une colonne que son index ne couvre pas
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Performance |
 | **Effort** | S |
 | **Sprint** | 7 — Le SQL de détail |
 | **Après** | AUD-PRF-01 |
-| **Vérifié le** | 2026-10-13 sur `d5be889b` |
+| **Vérifié le** | 2026-10-18 sur `341b08ad` |
 
-**Constat de vérification** — Requete et index strictement identiques a ceux du 9 octobre (lignes 308-314 hier, 309-314 aujourd'hui). Le tri porte toujours sur entity_version_id, que l'index partiel ne couvre pas, et aucun index (snapshot_id, entity_version_id) WHERE temporal_state = 'CURRENT' n'a ete cree : aucune migration n'a ete ajoutee. Vérification par EXPLAIN QUERY PLAN impossible ici.
+**Constat de vérification** — Solde, et c'est le cas ou seul un plan de requete reel tranche — je l'ai execute. L'index partiel ajoute par V022 sert les deux lectures dans l'ordre demande, et le tri en B-tree temporaire a disparu.
 
 ```
-morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteVersionedRequirementStore.java:309-314 `SELECT * FROM requirement_versions WHERE snapshot_id = ? AND temporal_state = 'CURRENT' ORDER BY entity_version_id LIMIT ?` ; morpheus-store-sqlite/src/main/resources/db/migration/V004__versioned_requirement_persistence.sql:45-47 index partiel sur (snapshot_id, entity_identity_id) WHERE temporal_state = 'CURRENT'
+SQL : SqliteVersionedRequirementStore.java:37-47, `WHERE snapshot_id = ? AND temporal_state = 'CURRENT' ORDER BY entity_version_id [LIMIT ?]`. Index : V022...sql:17-19, `idx_requirement_versions_current_order(snapshot_id, entity_version_id) WHERE temporal_state = 'CURRENT'`. EXPLAIN QUERY PLAN execute sur des bases construites depuis les migrations du depot (SQLite 3.45.1) :
+  avant (V001->V020) : `SEARCH requirement_versions USING INDEX idx_requirement_versions_snapshot (snapshot_id=?)` + `USE TEMP B-TREE FOR ORDER BY`
+  apres (V001->V022) : `SEARCH requirement_versions USING INDEX idx_requirement_versions_current_order (snapshot_id=?)`, sans tri temporaire
+Plan identique apres insertion de 500 lignes et ANALYZE ; l'ordre rendu par la requete bornee est bien croissant. Garde : SqliteQueryPlanGuardTest.java:56-57, les deux instructions enregistrees `served` — sans excuse — et le test echoue sur un SCAN de table ou un USE TEMP B-TREE ; il verifie son propre detecteur par quatre cas (:98, :109, :119, :145).
 ```
 
 <details><summary>Constat d'origine (9 octobre)</summary>
@@ -1480,19 +1553,22 @@ morpheus-store-sqlite/.../SqliteVersionedRequirementStore.java:308-314 : `SELECT
 ### AUD-PRF-19 — Le serveur remote sert toujours sur threads virtuels nus, et sa route de sauvegarde appelle SQLite directement
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **PARTIEL** |
 | **Sévérité** | Moyenne |
 | **Axe** | Performance |
 | **Effort** | M |
-| **Sprint** | 5 — Écarter le risque d'indisponibilité |
+| **Sprint** | 15 — Dérives apparues pendant les correctifs |
 | **Fusionne / issu de** | AUD-PRF-18 |
-| **Vérifié le** | 2026-10-13 sur `d5be889b` |
+| **Origine** | **Né le 13 octobre**, pendant les correctifs — hors du plan du 9 octobre |
+| **Vérifié le** | 2026-10-21 sur `6bdf4bbb` |
 
-**Constat de vérification** — Constat neuf issu de la scission de AUD-PRF-18 ; reconnu non traité par l'ADR du dépôt lui-même.
+**Constat de vérification** — La route de sauvegarde est bien deportee sur un travailleur plateforme, et c'est bien la seule route que la facade sert avec SQLite en main — je l'ai verifie en enumerant les routes, pas en reprenant l'affirmation. Mais **le serveur remote sert toujours sur un executeur de threads virtuels nu**, sans le decorateur d'admission bornee dont le serveur local dispose depuis le 13 octobre. Le titre du constat portait sur les deux ; seule la route est traitee. Reconfirmé le 21/10, inchangé par les 72 commits : `MorpheusRemoteHttpServerBootstrap.java:113` sert toujours sur `Executors.newVirtualThreadPerTaskExecutor()` **sans** le décorateur `DatabaseWorkOffloadingHttpServer`, que le serveur local reçoit bien (`MorpheusLocalHttpServerBootstrap.java:192`). Le commit `fbd83d0d` a déporté le travail SQLite propre à la façade sur un worker ; la décoration du serveur lui-même reste à faire.
 
 ```
-morpheus-api/.../MorpheusRemoteHttpServerBootstrap.java:109 ; docs/architecture/adr/0114
+Route deportee : MorpheusRemoteHttpServer.java:291-296, `databaseWorkers.call(() -> maintenance.createBackup(...))` ; `databaseWorkers` declare :68-69, pool fixe de threads plateforme daemon (DatabaseCallWorkers:29-34). Serveur nu : MorpheusRemoteHttpServerBootstrap.java:112-113 `Executors.newVirtualThreadPerTaskExecutor()` puis :128 `https.setExecutor(executor)`, rien d'autre — inchange. Le local, lui : MorpheusLocalHttpServerBootstrap.java:191-192 `DatabaseWorkOffloadingHttpServer.over(httpServer)`, avec pool plateforme (:42), semaphore equitable (:83), attente bornee a 10 s (:48) et refus `429 / LOCAL_SERVER_BUSY / Retry-After: 1` (:49-51). Enumeration des routes de la facade (handle, :272-300) : `server/status` sert un etat en memoire ; `server/backups` est la seule avec SQLite ; tout le reste part en `proxy(...)` vers le serveur local, qui est decore. L'affirmation tient donc — mais c'est une propriete du routage actuel, que rien ne garde.
 ```
+
+**Ce qui reste** — (1) **Le serveur remote n'est toujours pas decore.** La protection repose entierement sur le fait, non garde par un test, qu'une seule route de la facade touche SQLite. Une future route servie en direct avec SQLite en main n'aurait aucun filet d'admission. (2) **`RemoteServerArchitectureTest` ne couvre pas ce cas** : sa regle (:61-75) est une lecture textuelle d'un seul fichier code en dur, cherchant `maintenance\.\w+\(` precede de `databaseWorkers.call(() -> ` dans les 60 caracteres. Lui echappent tout acces SQLite qui ne passe pas par le champ nomme `maintenance`, tout acces ajoute dans un autre fichier de la facade, et le fait que l'executeur reste nu. La fenetre de 60 caracteres est fragile des deux cotes : un reformatage la casse sans defaut reel, un commentaire la satisfait. (3) **`DatabaseCallWorkers.call` attend sans delai** (:40 `outcome.get()`) : une sauvegarde bloquee immobilise un travailleur plateforme et le thread virtuel appelant indefiniment. Le pool a une file interne non bornee ; il n'est protege que par les semaphores en amont. (4) Le nombre de travailleurs suit `availableProcessors()` — non versionne, au moment meme ou le parallelisme JUnit vient d'etre fixe a 4 pour eviter exactement cette dependance a la machine.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -1609,9 +1685,9 @@ pom.xml:237-253 cyclonedx-maven-plugin `makeAggregateBom` liee a `verify`, sorti
 | **Effort** | M |
 | **Sprint** | 14 — Signer la distribution |
 | **Après** | AUD-DEP-12 |
-| **Vérifié le** | 2026-10-13 sur `d5be889b` |
+| **Vérifié le** | 2026-10-21 sur `6bdf4bbb` |
 
-**Constat de vérification** — Rien n'a bouge dans le code ni dans la documentation. Un change OpenSpec detaille existe desormais et constitue un progres de conception, mais aucune de ses taches n'est faite, y compris les sections 2 a 5 que le change lui-meme declare realisables sans certificat.
+**Constat de vérification** — Reconfirmé le 21/10 : aucune trace de `signtool`, `codesign` ou équivalent dans `distribution/` ni dans les workflows. Rien n'est signé.
 
 ```
 `grep -rniE 'signtool|osslsigncode|authenticode|codesign' distribution/ .github/workflows/ scripts/ docs/user/INSTALLATION.md` hors ensure-inno-setup.ps1 -> aucun resultat ; distribution/windows/MORPHEUS.iss ne declare aucune directive SignTool ; docs/user/INSTALLATION.md ne contient aucune mention de signature, SmartScreen ou editeur inconnu ; openspec/changes/sign-the-windows-installer-and-launcher/tasks.md : 0 tache cochee, la section 1 (achat du certificat) entierement ouverte
@@ -1771,6 +1847,103 @@ pom.xml:9 `<version>1.2.1</version>`. `git tag -l` -> v1.0.0, v1.1.0, v1.2.0. `g
 
 </details>
 
+### AUD-DEP-23 — Les huit voies nocturnes analysent `develop`, qui n'est pas la branche d'intégration, et que rien ne garantit à jour
+| | |
+|---|---|
+| **Statut sur `develop`** | **CADUC** |
+| **Sévérité** | Moyenne |
+| **Axe** | Dépendances · Tests |
+| **Effort** | S |
+| **Sprint** | 15 — Dérives apparues pendant les correctifs |
+| **Origine** | **Né le 18 octobre**, pendant les correctifs — hors du plan du 9 octobre |
+| **Vérifié le** | 2026-10-21 sur `6bdf4bbb` |
+
+**Constat de vérification** — **Caduc, et c'est une erreur de ma part : j'ai pris une fenêtre de release pour un changement de modèle.** Ce que j'ai observé le 18 octobre était réel — `develop` était alors 32 commits derrière `main`, et les PR #508 à #514 avaient bien atterri sur `main`. Mais c'était la fenêtre de promotion de la v1.2.1, pas une bascule permanente : la PR #515 a resynchronisé `develop` le 18 à 14h53, la #516 a refermé la fenêtre à 16h33, et depuis **tout est reparti sur `develop`** — les dix-neuf PR du lot (#517 à #535) y ont toutes atterri, `main` n'a plus reçu un seul merge depuis le 18 octobre 16h33. Le modèle décrit par `docs/project/governance/ROADMAP.md` (feature → `develop` → promotion vers `main`) n'a jamais changé ; c'est ma lecture qui a confondu une phase du cycle avec une règle. Conséquence directe : les huit voies nocturnes épinglent `develop`, qui **est** la branche d'intégration, donc elles analysent le bon code. Elles le faisaient déjà avant la fenêtre, et elles le refont depuis. Il reste un résidu, trop mince pour un constat à lui seul mais à connaître : `origin/HEAD` pointe sur `main`, donc un run planifié arme le cron depuis `main` et exécute **la version de `nightly.yml` portée par `main`**, aujourd'hui 72 commits en arrière. J'ai mesuré l'écart réel entre les deux définitions : il se réduit à des montées de version d'actions par Dependabot (`actions/setup-java` v6.0.1 → v6.1.0 et équivalents), **aucune différence de logique** — 7 lignes sur `nightly.yml`, 1 à 3 sur les quatre autres workflows. Le dispositif n'est donc pas faussé ; il tourne simplement avec des actions d'une version de retard entre deux promotions.
+
+```
+Mesuré le 21/10 sur `6bdf4bbb` : `origin/main..origin/develop` -> **72**, l'inverse -> **1** ; `git log --merges origin/main..origin/develop` -> dix-neuf PR, toutes vers `develop` ; `git log -1 origin/main` -> « Merge pull request #516 from FTurleque/develop », 18/10 16h33, dernier merge reçu par `main`. Les douze PR Dependabot du lot (`dependabot/maven/develop/...`, `dependabot/github_actions/develop/...`) ont toutes été ouvertes contre `develop` et fusionnées sans rejeu. Écart des définitions de workflow entre les deux branches : nightly 7+/7−, ci 2+/2−, security 1+/1−, release 2+/2−, codeql 3+/3− — le diff ne contient que des lignes `uses: actions/...@<sha> # vX.Y.Z`.
+```
+
+**Ce qui reste** — Rien. Le constat est caduc. Le seul geste qui vaudrait la peine, et il est de confort : faire pointer `origin/HEAD` sur la branche d'intégration réelle, pour qu'un run planifié exécute la définition de workflow courante plutôt que celle de la dernière promotion. Tant que l'écart se limite à des bumps d'actions, ce n'est pas un défaut.
+
+<details><summary>Constat d'origine (9 octobre)</summary>
+
+**Preuve**
+
+```
+La branche d'intégration est passée de `develop` à `main` le 18/10 : `git rev-list --count origin/develop..origin/main` -> **32**, l'inverse -> **0**, `git symbolic-ref refs/remotes/origin/HEAD` -> `refs/remotes/origin/main`. `origin/develop` est gelée exactement sur `f7e304d8` et n'a reçu aucun commit depuis la promotion. Or les huit voies de `.github/workflows/nightly.yml` se replient toutes sur `develop` : `:52` (+`:93`, `:106`) `sonar-develop` avec `ref: develop` **épinglé en dur** et `-Dsonar.branch.name=develop` ; `:130` `macos-smoke` épinglé ; et `:238`, `:293`, `:363`, `:410`, `:454`, `:497` avec `schedule && 'develop' || github.ref` pour `m19-budgets`, `release-rehearsal`, `release-rehearsal-assets`, `validators-without-a-lane`, `spotbugs-report` et `pit-mutation`. Le cron (`:19-24`, `41 3 * * *`) s'arme bien depuis `main`, puis chaque job fait un checkout de `develop`. `:44` laisse passer le run planifié : le job ne saute pas, il réussit.
+```
+
+**Impact** — Depuis la bascule, Sonar, SpotBugs, PIT, les budgets de performance M19, la répétition de release et les validateurs sans voie rejouent tous `f7e304d8` — ils ne voient aucun des 32 commits, dont les deux migrations SQLite et la réécriture des stores. **Un dispositif qui rend vert sur du code périmé est pire qu'un dispositif en échec** : il produit une assurance fausse, et c'est exactement le motif que l'audit suit depuis le 9 octobre. Le commentaire `:38-42` justifie l'épinglage par « ne pas analyser `main` une seconde fois » ; ce raisonnement est désormais inversé — c'est `main` qu'il faut analyser et `develop` qui est le doublon vide. Conséquence directe sur l'audit : les budgets M19 cités comme preuve par plusieurs constats ne sont plus mesurés sur le code qu'ils prétendent mesurer.
+
+**Action** — Remplacer les huit `develop` par `main` dans `nightly.yml`, y compris `sonar.branch.name`. Attention, le changement est **couplé** : trois tests d'architecture épinglent textuellement `develop` dans les workflows et tomberaient si on retirait la branche des déclencheurs — `D2RepositoryHardeningArchitectureTest.java:419` et `:543` (`assertTrue(... contains("branches: [main, develop]"))`), `AuditHardeningWorkflowContractTest.java:156` (exige `if: github.ref_name == 'main' || github.ref_name == 'develop'`). Traiter dans le même lot que `AUD-DEP-24`.
+
+</details>
+
+### AUD-DEP-24 — Le basculement vers main n'est répercuté ni dans Dependabot, ni dans les sept validateurs, ni dans la documentation du modèle de branches
+| | |
+|---|---|
+| **Statut sur `develop`** | **CADUC** |
+| **Sévérité** | Moyenne |
+| **Axe** | Dépendances · Qualité |
+| **Effort** | S |
+| **Sprint** | 15 — Dérives apparues pendant les correctifs |
+| **Origine** | **Né le 18 octobre**, pendant les correctifs — hors du plan du 9 octobre |
+| **Vérifié le** | 2026-10-21 sur `6bdf4bbb` |
+
+**Constat de vérification** — **Caduc, et c'est une erreur de ma part : j'ai pris une fenêtre de release pour un changement de modèle.** Ce que j'ai observé le 18 octobre était réel — `develop` était alors 32 commits derrière `main`, et les PR #508 à #514 avaient bien atterri sur `main`. Mais c'était la fenêtre de promotion de la v1.2.1, pas une bascule permanente : la PR #515 a resynchronisé `develop` le 18 à 14h53, la #516 a refermé la fenêtre à 16h33, et depuis **tout est reparti sur `develop`** — les dix-neuf PR du lot (#517 à #535) y ont toutes atterri, `main` n'a plus reçu un seul merge depuis le 18 octobre 16h33. Le modèle décrit par `docs/project/governance/ROADMAP.md` (feature → `develop` → promotion vers `main`) n'a jamais changé ; c'est ma lecture qui a confondu une phase du cycle avec une règle. Les quatre volets tombent avec la prémisse, et chacun est vérifié : **Dependabot** vise `develop`, qui est la bonne branche — douze PR du lot y ont été fusionnées sans rejeu, et l'historique en compte trente et une au total. **Les quatorze validateurs** comparent par défaut à `origin/develop`, ce qui est de nouveau correct. **La documentation** n'a jamais été fausse : `docs/developer/README.md` et `docs/project/governance/ROADMAP.md` décrivent le modèle que le dépôt suit réellement. Et le gate `validate-r3`, que j'annonçais rouge, ne l'était déjà plus le 18 au soir.
+
+```
+`.github/dependabot.yml:5` et `:21` : `target-branch: develop` — correct. Douze PR Dependabot fusionnées dans `develop` entre le 18 et le 21 octobre (mcp-bom 2.1.0, setup-java 6.1.0, codeql-action, pitest 1.30.1, spotbugs 4.10.5.0, …), aucune rejouée. `grep -l 'origin/develop' scripts/validate-*.{sh,ps1} | wc -l` -> 14, base par défaut correcte. `docs/developer/README.md:10` « branche d'intégration    develop » et `docs/project/governance/ROADMAP.md:9-14` « feature / fix branch -> develop via PR ; promotion branch temporaire -> main après qualification » : conformes au comportement observé.
+```
+
+**Ce qui reste** — Rien. Le constat est caduc : il décrivait les conséquences d'une bascule qui n'a pas eu lieu.
+
+<details><summary>Constat d'origine (9 octobre)</summary>
+
+**Preuve**
+
+```
+`.github/dependabot.yml:5` et `:21` : `target-branch: develop` pour les deux écosystèmes (maven, github-actions) — les PR Dependabot s'ouvriront contre une branche gelée et, fusionnées, n'atteindront pas `main`. Sept validateurs comparent par défaut à `origin/develop` : `validate-d2.sh:5`, `m25:6`, `m26:6`, `m27:6`, `m28:5`, `r2:5`, `r3:5`, et les `.ps1` jumeaux. `scripts/validate-m28.ps1:4` est lancé par `ci.yml:97` sans `-BaseRef`, donc avec cette valeur par défaut. **Un gate bascule réellement au rouge** : `scripts/validate-r3.sh:26-34` refuse toute migration SQLite dans `git diff --name-only "$BASE_REF...HEAD"` ; or `git diff --name-only origin/develop...origin/main -- .../db/migration` renvoie `V021__policy_audit_order_key.sql` et `V022__serve_ordered_reads_from_an_index.sql`. `validate-r3` échoue donc aujourd'hui sur `main` avec sa base par défaut, ligne 32. Atténuation : aucun workflow ne le lance hors de la lane nocturne, elle-même périmée (`AUD-DEP-23`). Documentation fausse : `docs/developer/README.md:10` « branche d'intégration `develop` », et `:13` vise la mauvaise branche ; `docs/project/governance/ROADMAP.md:9-14` décrit une politique `feature -> develop -> promotion -> main` que les 32 commits contredisent.
+```
+
+**Impact** — Le basculement a été fait sur la branche et dans `ci.yml`, pas dans ce qui gravite autour. Trois effets distincts : les mises à jour de dépendances arrivent sur une branche morte et devront être rejouées ; un validateur de release échoue pour une raison qui n'a rien à voir avec ce qu'il vérifie, ce qui est le meilleur moyen de prendre l'habitude de l'ignorer ; et un nouveau venu qui lit la documentation du dépôt apprend un modèle de branches qui n'existe plus. Aucun de ces effets n'est visible en CI, parce que rien ne compare la documentation au dépôt.
+
+**Action** — Un seul lot, parce que le changement est couplé : `dependabot.yml` (deux `target-branch`), les sept `BASE_REF` par défaut des validateurs et leurs jumeaux PowerShell, `docs/developer/README.md:10-13`, `docs/project/governance/ROADMAP.md:9-14`, et les trois tests d'architecture nommés dans `AUD-DEP-23` si l'on retire `develop` des déclencheurs. Trancher au passage le sort de `develop` : la supprimer, ou la resynchroniser et dire à quoi elle sert.
+
+</details>
+
+### AUD-DEP-25 — Le produit s'annonce 1.2.1 alors qu'il migre la base en V022, et aucun gate ne relie la version du réacteur au schéma
+| | |
+|---|---|
+| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Sévérité** | Moyenne |
+| **Axe** | Dépendances |
+| **Effort** | S |
+| **Sprint** | 15 — Dérives apparues pendant les correctifs |
+| **Origine** | **Né le 18 octobre**, pendant les correctifs — hors du plan du 9 octobre |
+| **Vérifié le** | 2026-10-21 sur `6bdf4bbb` |
+
+**Constat de vérification** — Reconfirmé le 21/10 sur `6bdf4bbb` : `pom.xml` déclare toujours `1.2.1`, `SUPPORTED_SCHEMA_VERSION` vaut 22, le dépôt compte 22 migrations, et aucun test ne relie la version du réacteur à la version du schéma. Inchangé par les 72 commits.
+
+```
+Constat neuf du 18/10/2026, vérifié sur origin/main (341b08ad), avec relecture assertion par assertion d'UpgradeGuideCoherenceTest contre les fichiers qu'il lit.
+```
+
+<details><summary>Constat d'origine (9 octobre)</summary>
+
+**Preuve**
+
+```
+`pom.xml:9` déclare toujours `<version>1.2.1</version>`, et `ProductMetadata` ne code aucune version : elle vient de la propriété `morpheus.project.version`, donc du POM. Or `SqliteSchemaManager.java:48` porte `SUPPORTED_SCHEMA_VERSION = 22` et le dépôt compte 22 migrations, contre 20 au tag `v1.2.1` (`2a8b1ede`). Les migrations V021 et V022 sont entrées sans bump de version. `UpgradeGuideCoherenceTest` fait bien son travail et **passerait** : le guide le plus récent est `docs/user/UPGRADE_1_2_2.md` (nouveau), son jeton `V` maximal est V022, il égale `SUPPORTED_SCHEMA_VERSION`, et les sections obligatoires y sont. Mais ce gate ne regarde **que** le guide et le schéma : rien ne relie le nom du guide à la version du réacteur.
+```
+
+**Impact** — Un binaire construit depuis `main` s'annonce `1.2.1` et migre une base en V022, alors que le `1.2.1` publié s'arrête à V020. Deux programmes portant la même version produisent deux schémas différents — exactement le scénario que `UPGRADE_1_2_1.md` décrit comme dangereux pour 1.2.0, et la raison d'être de la règle « une version de schéma est une version de produit ». Le dépôt en est conscient à moitié : il a écrit le guide 1.2.2 et l'annonce « en préparation », mais n'a pas ouvert la version. Le relevé de clôture le déclare comme une décision assumée, ce qui est honnête, mais la cohérence n'est gardée par rien.
+
+**Action** — Ouvrir 1.2.2 : POM, `ProductMetadata`, documents épinglés, et les deux versions codées en dur dans `ci.yml:43` (`validate-m21.sh 1.2.1`) et `ci.yml:97` (`validate-m28.ps1 -Version 1.2.1`) — `validate-r3.sh:52` exige la même version dans les 19 POM, donc le bump est un lot indivisible. Puis étendre `UpgradeGuideCoherenceTest`, ou en écrire un frère, pour qu'il refuse un réacteur dont la version ne correspond pas au guide de mise à niveau le plus récent : c'est le chaînon manquant.
+
+</details>
+
 ## Sévérité : Faible
 
 ### AUD-ARC-13 — Domaine sans aucun type polymorphe : 59 records et 25 enums, zéro interface, pour 9,4 fois moins de lignes que l'application
@@ -1845,8 +2018,9 @@ Sur origin/develop apres fusion (PR #489) : un balayage des 472 records de `src/
 | **Sévérité** | Faible |
 | **Axe** | Architecture |
 | **Effort** | S |
-| **Sprint** | 10 — Dire la vérité dans les règles |
+| **Sprint** | 15 — Dérives apparues pendant les correctifs |
 | **Fusionne / issu de** | AUD-PRF-18 |
+| **Origine** | **Né le 13 octobre**, pendant les correctifs — hors du plan du 9 octobre |
 | **Vérifié le** | 2026-10-13 sur `d5be889b` |
 
 **Constat de vérification** — Constat neuf issu de la scission de AUD-PRF-18 ; le dépôt a explicitement laissé la table à produire.
@@ -1877,9 +2051,9 @@ morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/*.java (94 occurre
 | **Axe** | Qualité |
 | **Effort** | S |
 | **Sprint** | 10 — Dire la vérité dans les règles |
-| **Vérifié le** | 2026-10-13 sur `d5be889b` |
+| **Vérifié le** | 2026-10-21 sur `6bdf4bbb` |
 
-**Constat de vérification** — Strictement inchange. openspec/changes/remove-the-unpinned-plugin-entry-points existe avec 20 taches, 0 cochee.
+**Constat de vérification** — Reconfirmé le 21/10 : les deux shims `@Deprecated(forRemoval = true)` sont toujours là, `ProviderPluginService.java:44` et `ProviderPluginActivator.java:23`.
 
 ```
 grep '@Deprecated(forRemoval = true)' -> 2, aux memes endroits : morpheus-provider-sdk/src/main/java/com/morpheus/sdk/provider/ProviderPluginActivator.java:23 (Javadoc :22 'retained only for compatibility and always fails closed') et ProviderPluginService.java:43. Aucun plan de retrait : grep 'forRemoval|until removal' docs/ .claude/ ne retourne que les pages de l'audit lui-meme (docs/project/audits/2026-10-09/findings.md:1044, sprints.md:228, plan-action.md:51), aucun ADR, aucune echeance, aucun gate.
@@ -1994,22 +2168,27 @@ pom.xml:87-90 epingle spotbugs.maven.plugin.version=4.10.4.1, spotbugs.version=4
 
 </details>
 
-### AUD-QUA-18 — Le parallelisme JUnit est active sur le module ou une portee mal fermee empoisonne un thread du pool, sans aucun filet  *(constat neuf, 15/10)*
+### AUD-QUA-18 — Le parallelisme JUnit est active sur le module ou une portee mal fermee empoisonne un thread du pool, sans aucun filet
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Qualité · Tests |
 | **Effort** | S |
-| **Sprint** | 4 — Rendre le produit observable |
+| **Sprint** | 15 — Dérives apparues pendant les correctifs |
 | **Fusionne / issu de** | AUD-QUA-13 |
-| **Vérifié le** | 2026-10-17 sur `ae368aa3` |
+| **Origine** | **Né le 17 octobre**, pendant les correctifs — hors du plan du 9 octobre |
+| **Vérifié le** | 2026-10-18 sur `29c942ae` |
 
-**Constat de vérification** — Ne du travail d'AUD-QUA-13 : le parallelisme a ete active, ce qui est le resultat voulu, mais il rend atteignable un risque qui dormait. Releve independamment par deux verifications de cette passe.
+**Constat de vérification** — Solde : les trois gestes demandes sont faits et corrects. La portee de SqliteConnectionScopeThreadConfinementTest est fermee dans un `finally` ; une extension auto-enregistree **ferme la portee puis echoue en nommant le test fautif** — le mecanisme est bien un `AfterEach`, qui voit le test qui vient de finir, donc le coupable et non sa victime ; et la strategie de parallelisme est fixee a quatre fils, versionnee, au lieu de suivre `availableProcessors()`. **Contre-vérifié le 18/10 au soir sur `29c942ae` par une lecture indépendante : verdict confirmé.** Les trois gestes sont faits, et le plus important — le filet — l'est sous la forme la plus forte possible : `NoSqliteScopeLeftBehindExtension` est enregistrée **automatiquement** par `META-INF/services` plus `junit.jupiter.extensions.autodetection.enabled=true`, donc elle couvre les 65 classes du module sans `@ExtendWith` ni classe de base, et couvrira celles ajoutées demain. Elle nomme bien le test fautif et non sa victime, et elle **détache** la portée avant d'échouer, de sorte que le test suivant sur le même thread ne soit plus refusé pour une portée qu'il n'a pas ouverte. La stratégie de parallélisme est désormais fixe (`strategy=fixed`, `parallelism=4`), donc reproductible d'une machine à l'autre.
 
 ```
-Constat neuf du 17/10/2026, verifie sur origin/develop (ae368aa3).
+NoSqliteScopeLeftBehindExtension.java, 29 lignes, `implements AfterEachCallback` (:13) ; detection par `SqliteConnectionScope.attachedToThisThread()` (:16) ; **nettoyage avant l'echec** (:21-25, `leaked.get().close()` dans un try, message « could not be detached » si le close leve) ; nommage :26-27 `context.getDisplayName() + " of " + context.getRequiredTestClass().getSimpleName()`. Enregistrement : morpheus-store-sqlite/src/test/resources/META-INF/services/org.junit.jupiter.api.extension.Extension la declare, et junit-platform.properties:14 pose `junit.jupiter.extensions.autodetection.enabled=true`. Portee corrigee : SqliteConnectionScopeThreadConfinementTest.java:105-117, `try { ... } finally { scope.close(); }` (la base f7e304d8 n'avait aucun finally). Strategie : junit-platform.properties:11-12, `config.strategy=fixed` et `config.fixed.parallelism=4`, absentes de la version precedente du meme fichier.
 ```
+
+**Ce qui reste** — Rien pour ce constat. Deux réserves. **Le filet n'est lui-même couvert par aucun test**, contrairement à ce qu'affirme le relevé de clôture : aucune classe du dépôt ne référence `NoSqliteScopeLeftBehindExtension` ni `attachedToThisThread`. Si la ligne `autodetection.enabled=true` ou le fichier `META-INF/services` disparaissait, le filet deviendrait du code mort sans que rien ne le signale. Et le filet attrape `RuntimeException` mais pas `Error`, là où `SqliteConnectionScope.close()` relaie délibérément les deux : un `Error` au rattrapage masquerait le message nommant le test fautif — chemin très improbable, mais c'est le cas même que le constat voulait éviter. À signaler aussi, parce que c'est un signal sur la stabilité : un cinquième geste non demandé (`355e8ef0`) a passé `SqliteLocalSecurityContractTest` en `@Isolated` après **deux échecs `SQLITE_BUSY` en CI sur le runner Windows**, dont un sur une PR ne touchant aucun code de store. ADR-0115 le dit franchement et conclut que la cause de la lenteur du runner n'est pas établie. Le parallélisme de ce module n'est donc pas encore une propriété stable.
+
+<details><summary>Constat d'origine (9 octobre)</summary>
 
 **Preuve**
 
@@ -2020,6 +2199,8 @@ morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteConnectionSc
 **Impact** — Si l'une des trois assertions intermediaires echoue, le ThreadLocal reste pose sur un thread du pool et le test suivant qui y atterrit se voit refuser sa portee par NestedScopeException - un echec en cascade sans rapport avec sa cause, qui envoie le lecteur enqueter sur le mauvais test. La probabilite depend du nombre de threads, qui varie d'une machine a l'autre : une course invisible sur un portable a 2 coeurs peut casser sur un runner a 16. C'est le seul endroit ou l'activation du parallelisme est optimiste plutot que sure ; partout ailleurs le module a ete verifie ligne a ligne.
 
 **Action** — Trois gestes, du moins cher au plus solide. (1) Mettre la portee de SqliteConnectionScopeThreadConfinementTest:105 dans un try-with-resources, ou la fermer dans un @AfterEach. (2) Ajouter une extension JUnit qui, apres chaque test du module, verifie qu'aucune portee ne reste attachee au thread et echoue en nommant le test fautif plutot que sa victime. (3) Declarer `junit.jupiter.execution.parallel.config.strategy=fixed` avec un parallelisme explicite, pour que la mesure soit reproductible d'une machine a l'autre. Et marquer la ligne 8 de la table d'ADR-0115 comme traitee, ou la laisser ouverte en disant pourquoi.
+
+</details>
 
 ### AUD-SEC-05 — La commande Java des pairs MCP est résolue via le PATH plutôt que par un chemin absolu
 | | |
@@ -2114,20 +2295,20 @@ morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpResponseWriter.java:33-3
 ### AUD-TST-08 — Le ratchet testsMinimum est dominé par la combinatoire : au moins 40 % des exécutions comptées viennent de 13 méthodes dans 3 fichiers
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Tests |
 | **Effort** | S |
 | **Sprint** | 8 — Fiabiliser les tests |
-| **Vérifié le** | 2026-10-13 sur `d5be889b` |
+| **Vérifié le** | 2026-10-21 sur `6bdf4bbb` |
 
-**Constat de vérification** — La structure du constat est intacte : un seul compteur melange tests ecrits et DynamicTest engendres. Le chiffre bouge dans le bon sens parce que 219 tests statiques ont ete ecrits en quatre jours sans que testsMinimum soit releve : le plancher dynamique passe de 1534 executions (40,2 % de 3820) a 1315 (34,4 %). La concentration reste la meme : 13 fabriques combinatoires dans 3 fichiers pesent au moins un tiers du ratchet. Change actif `count-written-tests-apart-from-generated-ones`, non archive.
+**Constat de vérification** — Soldé, et la frontière est **mesurée, pas déclarée** : c'est le nom que Surefire donne à l'exécution qui sépare les deux comptes — une méthode déclarée garde son nom nu, une invocation générée est nommée `méthode()[N]`. Ni liste, ni annotation, ni nom de classe à maintenir. Deux ratchets distincts existent désormais, chacun avec son refus nommant sa clé, et les deux plateformes utilisent la même expression.
 
 ```
-config/m21-quality-ratchets.properties:2 `testsMinimum=3820` et :3 `architectureTestsMinimum=585` : toujours deux cles, aucune cle distinguant le compte dynamique du compte statique (`grep -n "dynamic|Dynamic|static" config/m21-quality-ratchets.properties` => aucune sortie). Recomptage 13/10 sur les fichiers selectionnes par les patrons Surefire par defaut : 542 fichiers, `@Test` en declaration = 2505 (2286 le 09/10), `@TestFactory` = 13 (13). Les 13 fabriques vivent toujours dans les trois memes fichiers de morpheus-cli : BlankOptionValueRefusalTest.java (3), NothingIsCreatedBeforeTheOptionsAreAcceptedTest.java (5), DuplicateOptionRefusalTest.java (5).
+`config/m21-quality-ratchets.properties:6-8` : `testsMinimum=2600`, **`generatedTestsMinimum=1574`** (clé neuve), `architectureTestsMinimum=585`. Avant le lot : `testsMinimum=3820`, pas de clé « generated ». Le total n'a pas baissé : 2600 + 1574 = 4174 ≥ 3820. Frontière : `scripts/validate-m21.sh:57` `GENERATED = re.compile(r'\[[0-9]+\]$')` appliquée à l'attribut `name` de chaque `<testcase>` (:64), `return tests - generated, generated` (:67). Refus séparés `:78-87`. Parité Windows : même expression en `validate-m21.ps1:44` et `validate-d2.ps1:135`. État : `@ParameterizedTest|@RepeatedTest|@TestTemplate` -> **0** ; `@TestFactory` -> 5 fichiers. La `@TestFactory` est donc aujourd'hui la seule source d'exécutions générées, et la regex la capture.
 ```
 
-**Ce qui reste** — Declarer le compte dynamique separement du compte statique dans config/m21-quality-ratchets.properties (deux cles, comme pour les deux echelles de couverture) et faire lire les deux par validate-m21, afin qu'une variation de combinatoire CLI ne se confonde plus avec une variation du nombre de tests ecrits.
+**Ce qui reste** — Rien. Un point de fragilité à connaître : un `@ParameterizedTest(name = ...)` dont le libellé ne finirait pas par `[N]` verrait ses invocations comptées comme écrites. Aucun n'existe aujourd'hui.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -2146,20 +2327,20 @@ Comptage sur les fichiers dont le nom satisfait les includes par defaut de Suref
 ### AUD-TST-09 — Les quatre ratchets de couverture sont à moins de 0,41 point de leur plafond qualifié : plus de marge sans requalification CI
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **PARTIEL** |
 | **Sévérité** | Faible |
 | **Axe** | Tests |
 | **Effort** | S |
 | **Sprint** | 8 — Fiabiliser les tests |
-| **Vérifié le** | 2026-10-13 sur `d5be889b` |
+| **Vérifié le** | 2026-10-21 sur `6bdf4bbb` |
 
-**Constat de vérification** — Les quatre ecarts sont identiques au millieme pres a ceux du 09/10 : 0,334 / 0,373 / 0,303 / 0,409 point. Ni les ratchets ni les plafonds n'ont bouge, donc la situation est exactement celle decrite : la prochaine hausse de l'un des quatre ratchets exige une requalification de plafond, et la marge residuelle n'est documentee nulle part. Le change `keep-the-evidence-a-coverage-cap-was-qualified-on` est actif, non archive.
+**Constat de vérification** — **Le dépôt a traité l'autre moitié du problème, et il le dit.** Ce qui est fait, et c'était urgent : la preuve des quatre plafonds est désormais conservée dans le dépôt — les artefacts CI du 9 octobre expiraient le 23 — et un test exige qu'un plafond soit **égal** à la plus basse mesure conservée de son échelle, sur deux plateformes et au moins deux runs d'un même commit. Ce qui ne l'est pas : **aucune valeur de ratchet n'a bougé**, et l'écart que le constat nomme est inchangé. La proposition OpenSpec l'écrit noir sur blanc (« The margin is spent by convention, not by a gate »), ce qui est honnête — mais un lecteur qui verrait « corrigé » conclurait à tort que la marge a été traitée.
 
 ```
-Relecture du 13/10 : config/m21-quality-ratchets.properties:8-9 (perModule 0.691 / 0.612) et :16-17 (aggregate 0.900 / 0.757) ; plafonds qualifies morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m21/CoverageQualityGateTest.java:95-96 (PER_MODULE_QUALIFIED_LINE_RATIO = 0.694341d, PER_MODULE_QUALIFIED_BRANCH_RATIO = 0.615727d) et morpheus-coverage-report/src/test/java/com/morpheus/coverage/AggregateCoverageGateTest.java:77-78 (AGGREGATE_QUALIFIED_LINE_RATIO = 0.903026d, AGGREGATE_QUALIFIED_BRANCH_RATIO = 0.761089d) ; fenetre assertee AggregateCoverageGateTest.java:379-380 `assertTrue(ratchet <= cap, ...)`. Ecarts recalcules : ligne par module 0.694341-0.691 = 0,334 pt ; branche par module 0.615727-0.612 = 0,373 pt ; ligne agregee 0.903026-0.900 = 0,303 pt ; branche agregee 0.761089-0.757 = 0,409 pt. Aucune documentation de la marge nulle : `grep -i "marge|plafond|requalifi|0.694341|0.903026" docs/developer/BUILD_AND_TEST.md` => aucune sortie ; `0.694341|0.903026` n'apparait dans aucun .md hors openspec/changes/keep-the-evidence-a-coverage-cap-was-qualified-on/proposal.md. Note : AggregateCoverageGateTest a demenage de morpheus-architecture-tests vers morpheus-coverage-report ; la substance du constat est inchangee.
+Preuve conservée : `config/coverage-qualification/evidence.tsv` (2 échelles × 2 plateformes × 2 runs, un seul commit `8e3fda5a`) et 8 résumés. Test : `CoverageQualificationEvidenceTest.java:89-95` (`everyCapEqualsTheLowestMeasurementOfItsScaleInTheKeptEvidence`) et `:369-377` (écart > 1e-9 refusé). Concordance exacte : plafonds 0,694341 / 0,615727 et 0,903026 / 0,761089 = plus basses mesures conservées. **Écart inchangé** : `git diff 29c942ae 6bdf4bbb -- config/m21-quality-ratchets.properties` ne touche aucune des quatre clés de couverture. Marges : per-module ligne **0,334 pt**, branche **0,373 pt** ; agrégé ligne **0,303 pt**, branche **0,409 pt** — identiques à celles du constat.
 ```
 
-**Ce qui reste** — Documenter dans docs/developer/BUILD_AND_TEST.md que la marge residuelle est nulle et que toute hausse passe par une requalification de plafond ; prevoir l'archivage systematique des artefacts m21-integrity-<OS> des deux plateformes a chaque promotion, pour que la preuve de qualification soit disponible sans relancer le CI expres. Signaler aussi le demenagement du fichier porteur des plafonds agreges.
+**Ce qui reste** — Rien n'exécute la règle qui dit comment la marge résiduelle se dépense. Les gates assertent seulement qu'un ratchet ne dépasse pas son plafond et reste au-dessus du plancher D2 : il reste trois millièmes sous chaque plafond, quatre sous le plafond agrégé branche, et une session peut les prendre sans qu'aucun test ne s'y oppose. La règle « un ratchet garde trois fois la dispersion inter-plateformes » ne vit que dans les commentaires des gates et dans `.claude/rules/testing.md`. À signaler aussi : les fichiers de preuve conservés portent `lineRatchet=0.646` / `branchRatchet=0.569` (per-module) et `0.850` / `0.680` (agrégé) — les ratchets en vigueur au moment du run, **pas ceux d'aujourd'hui**. Le test ne lit que les ratios, donc rien ne signale la divergence, et un lecteur qui ouvre ces fichiers y trouve quatre chiffres qui ressemblent à des ratchets actifs et ne le sont plus.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -2240,17 +2421,20 @@ docs/validation/VALIDATION_M19.md:89 `.\validate-m19.cmd` et docs/roadmap/M19_EX
 ### AUD-PRF-11 — ORDER BY name COLLATE NOCASE sur saved_views ne peut pas utiliser l'index BINARY qui porte la colonne
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Performance |
 | **Effort** | S |
 | **Sprint** | 7 — Le SQL de détail |
-| **Vérifié le** | 2026-10-13 sur `d5be889b` |
+| **Vérifié le** | 2026-10-18 sur `341b08ad` |
 
-**Constat de vérification** — Inchange, lignes de l'audit (110-116) desormais 113-115. Ni migration redeclarant la colonne ou l'index en NOCASE, ni commentaire a cote de la requete actant le tri : aucune des deux branches de l'action n'a ete prise.
+**Constat de vérification** — Solde, plan de requete a l'appui. L'index est recree avec la collation `NOCASE` ; le tri temporaire disparait et l'index devient meme couvrant. Point verifie separement, parce que c'est le risque de ce changement : le COUNT(*) qui applique le budget par scope reste servi par un index couvrant.
 
 ```
-morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSavedViewStore.java:113-115 `FROM saved_views ... ORDER BY name COLLATE NOCASE, id` ; morpheus-store-sqlite/src/main/resources/db/migration/V014__saved_views.sql:13-14 `CREATE INDEX idx_saved_views_scope ON saved_views(scope_kind, scope_id, name, id)` en collation BINARY
+V022...sql:25-27, `DROP INDEX idx_saved_views_scope` puis `CREATE INDEX idx_saved_views_scope ON saved_views(scope_kind, scope_id, name COLLATE NOCASE, id)` (contre `name` en BINARY dans V014). Requete inchangee : SqliteSavedViewStore.java:42-48. EXPLAIN QUERY PLAN execute :
+  avant : `SEARCH saved_views USING INDEX idx_saved_views_scope (...)` + `USE TEMP B-TREE FOR ORDER BY`
+  apres : `SEARCH saved_views USING INDEX idx_saved_views_scope (...)`, sans tri ; sur base peuplee de six vues de casses melangees et apres ANALYZE, `USING COVERING INDEX`
+Ordre rendu : `Alpha, alpha, ALPHA2, beta, gamma, Zeta` — insensible a la casse puis departage par id. Tests : SqliteQueryPlanGuardTest.java:58-60 (trois instructions `served`), SqliteSavedViewListingOrderTest.java:30 pour le comportement observable.
 ```
 
 <details><summary>Constat d'origine (9 octobre)</summary>
@@ -2270,19 +2454,24 @@ morpheus-store-sqlite/.../SqliteSavedViewStore.java:110-116 `... FROM saved_view
 ### AUD-PRF-12 — Le filtre de type de relation des liens de traçabilité est appliqué en Java alors que l'index le porte
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Performance |
 | **Effort** | S |
 | **Sprint** | 7 — Le SQL de détail |
 | **Après** | AUD-PRF-02 |
-| **Vérifié le** | 2026-10-13 sur `d5be889b` |
+| **Vérifié le** | 2026-10-18 sur `341b08ad` |
 
-**Constat de vérification** — Le filtre de type de relation est toujours applique en Java apres remontee de toutes les lignes, alors que l'index le porte en troisieme position. Les lignes de l'audit (145-148 et 156-157) sont a 162-165 et 174 : le fichier a beaucoup bouge pour AUD-PRF-06, mais endpointQuery n'a pas ete touche sur ce point. Le change filter-and-order-a-store-read-once vise ce constat et declare en tete que rien n'est fait par la PR qui l'introduit.
+**Constat de vérification** — Solde. Le filtre est passe en SQL avec parametres lies, et l'index d'extremite, qui porte `relation_type` en troisieme position, le sert. Le texte de l'instruction depend du **nombre** de types et jamais de leur identite, ce qui preserve le cache d'instructions preparees.
 
 ```
-morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteTraceabilityStore.java:162-165 (la clause WHERE de endpointQuery ne mentionne que snapshot_id, le kind et l'identite) puis :174 `if (filter.isEmpty() || filter.contains(link.relationType()))` ; V005__snapshot_traceability_persistence.sql:29 idx_traceability_links_source porte bien relation_type
+SqliteTraceabilityStore.java:153-162 construit la clause `AND l.relation_type IN (?, ...)` ; le filtre Java `if (filter.isEmpty() || filter.contains(link.relationType()))` a disparu (:185). Types tries par nom d'enumeration avant liaison (:173-176). Index : V005...sql:29-33, `(source_kind, source_identity_id, relation_type, link_id)` et son symetrique. EXPLAIN QUERY PLAN execute :
+  avant : `SEARCH l USING INDEX idx_traceability_links_source (source_kind=? AND source_identity_id=?)` + `USE TEMP B-TREE FOR ORDER BY`
+  apres, 1 type : `SEARCH l USING INDEX idx_traceability_links_source (source_kind=? AND source_identity_id=? AND relation_type=?)`, sans tri temporaire
+Parite : TraceabilityRelationFilterParityTest.java:51,:57 compare memoire et SQLite sur toutes les formes de filtre dans les deux directions, ensemble vide et type absent compris.
 ```
+
+**Ce qui reste** — Rien, mais une nuance que l'enonce « l'index le porte » rend optimiste : **le gain n'est complet que pour un seul type**. A partir de deux, l'index restreint bien mais le `USE TEMP B-TREE FOR ORDER BY` revient, car `link_id` n'est ordonne qu'a l'interieur d'un type. Ce n'est pas une regression — l'ancien code triait en B-tree dans tous les cas, et le lot de lignes remontees est desormais reduit — et le depot ne le cache pas : les formes a plusieurs types sont enregistrees comme excuses motivees dans le garde-plan, qui refuse une excuse sans motif comme une excuse devenue obsolete.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -2301,18 +2490,18 @@ morpheus-store-sqlite/.../SqliteTraceabilityStore.java:145-148 (la clause WHERE 
 ### AUD-PRF-13 — Deux lectures triées en SQL puis retriées en Java
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Performance |
 | **Effort** | S |
 | **Sprint** | 7 — Le SQL de détail |
 | **Après** | AUD-PRF-04 |
-| **Vérifié le** | 2026-10-13 sur `d5be889b` |
+| **Vérifié le** | 2026-10-18 sur `341b08ad` |
 
-**Constat de vérification** — Les deux doubles tris sont intacts (lignes 94-98 et 116 hier, 95-97 et 115 aujourd'hui ; 574 hier, 572 aujourd'hui). Ni l'ORDER BY SQL retire, ni le tri Java retire, ni la note sur le format de archived_at ajoutee. La tache 3.2 de filter-and-order-a-store-read-once porte cette correction, non cochee.
+**Constat de vérification** — Solde, par deux chemins differents. Pour les archives de source, c'est la branche « retirer l'ORDER BY SQL » qui a ete prise, et c'etait le bon choix : l'ordre SQL etait **faux**, `archived_at` stocke un `Instant.toString()` dont le texte ne trie pas par temps quand la fraction varie de longueur. Pour l'audit des policies, le double tri a disparu avec la pagination d'AUD-PRF-04.
 
 ```
-morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSyncStateStore.java:97 `ORDER BY archived_at, source_path, reason` puis :115 `return records.stream().sorted().toList();` ; morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqlitePolicyPackStore.java:572 `values.stream().sorted().toList()`
+SqliteSyncStateStore.java:32-37, `LIST_ARCHIVES_SQL` sans ORDER BY, raison ecrite en commentaire au-dessus (:29-31) ; tri Java conserve (:125). Plan execute : avant, `SEARCH ... USING INDEX idx_sync_source_archives_project_time` + `USE TEMP B-TREE FOR RIGHT PART OF ORDER BY` ; apres, sans tri temporaire. SqlitePolicyPackStore.listAudit : le `values.stream().sorted().toList()` a disparu (attribution exacte : ce changement appartient a AUD-PRF-04, commit c03f7e95). Aucun autre « ORDER BY SQL puis tri Java » ne subsiste dans morpheus-store-sqlite/src/main. Tests : SqliteSourceArchiveListingTest.java:19 asserte que le SQL ne contient aucun ORDER BY, :25 que la **raison** est ecrite au-dessus de l'instruction dans le fichier source — un test qui garde la justification et pas seulement le code — et :37 que les autres instructions de la classe ont le droit d'ordonner. SourceArchiveOrderParityTest.java:44,:53 compare memoire et SQLite sur des instants qui trient differemment en texte et en temps : c'est lui qui etablit que le retrait de l'ORDER BY ne change pas l'ordre observable, et qu'il le corrige meme.
 ```
 
 <details><summary>Constat d'origine (9 octobre)</summary>
@@ -2337,13 +2526,15 @@ morpheus-store-sqlite/.../SqliteSyncStateStore.java:94-98 `ORDER BY archived_at,
 | **Axe** | Performance |
 | **Effort** | S |
 | **Sprint** | 7 — Le SQL de détail |
-| **Vérifié le** | 2026-10-13 sur `d5be889b` |
+| **Vérifié le** | 2026-10-21 sur `6bdf4bbb` |
 
-**Constat de vérification** — Aucune memoisation de read(), le texte est toujours reparcouru deux fois de plus apres le decodage, et les deux lecteurs OpenSpec enumerent toujours chacun de leur cote le meme repertoire openspec/changes en facturant chacun le budget. Les lignes de l'audit (177-178, 185, 224-239, 126, 93) sont a 144-145, 154, 224, 126, 93. Aucun commit sur ProviderIngestionBudget depuis l'audit. A noter : OpenSpecCurrentSpecificationReader.java:430 ajoute une troisieme enumeration bornee du meme type, ce qui etend legerement l'assiette du constat.
+**Constat de vérification** — **Intact, et le sprint 7 a été clos par-dessus sans le dire.** Aucune des trois parties du constat n'a bougé, et `ProviderIngestionBudget.java` n'a **reçu aucun commit depuis l'audit du 9 octobre** — `git diff 29c942ae` sur ce fichier est vide. La PR #533, nommée `test/sprint-7-close`, archive trois changes et ajoute deux tests ; elle ne touche aucun fichier de ce constat, et rien dans le merge ne signale que le sprint se ferme sur un constat ouvert. `AUD-PRF-14` n'est cité dans aucun change OpenSpec, archivé ou non. **L'assiette est en fait plus large que ce que le constat disait** : la duplication d'énumération ne touche pas deux lecteurs mais quatre méthodes jumelles sur deux répertoires — `listChangeRoots` est écrit deux fois pour `openspec/changes`, et `listSpecificationFiles` deux fois pour `openspec/specs`.
 
 ```
-morpheus-application/src/main/java/com/morpheus/application/read/ProviderIngestionBudget.java:144-145 `long bytes = utf8Bytes(text); long lines = text.lines().count();`, :154 fileCount++, :224 utf8Bytes toujours une boucle caractere par caractere ; enumeration dupliquee : OpenSpecRequirementDeltaReader.java:93 et OpenSpecChangeMetadataReader.java:126 appellent chacun listChangeRoots(root.resolve("openspec/changes"), budget), implemente respectivement en :440 et :322
+`ProviderIngestionBudget.java:144-145` : `long bytes = utf8Bytes(text); long lines = text.lines().count();` — le décodage a lieu en `:130`, le texte est donc reparcouru deux fois de plus, et `utf8Bytes` reste une boucle caractère par caractère (`:224-239`). Aucune mémoïsation : la classe `Session` (`:90-208`) n'a que des compteurs, deux lectures du même chemin relisent et recomptent. Énumérations jumelles : `OpenSpecChangeMetadataReader.java:126` appelle `listChangeRoots` implémenté en `:323` ; `OpenSpecRequirementDeltaReader.java:93` appelle sa **propre** implémentation en `:440`, identique au caractère près sauf l'étiquette de budget. Chacune fait son `Files.list` et facture le budget. Idem pour `listSpecificationFiles` : `OpenSpecCurrentSpecificationReader.java:423` et `OpenSpecRequirementDeltaReader.java:458`. `OpenSpecProjectContentReader.java:47-50` ouvre bien une session de budget unique mais ne passe **aucune liste de racines** aux trois lecteurs. Commits depuis `20cf2e0` : `ProviderIngestionBudget.java` **0**, `OpenSpecRequirementDeltaReader.java` **0** ; les trois autres fichiers en ont reçu un seul, `4a48482b refactor: construct a record through its canonical constructor`, sans rapport. Tests : `ProviderIngestionBudgetTest` (15 cas) et `ProviderIngestionBudgetPrecisionTest` (14) portent tous sur la justesse des comptes et des refus ; **aucun ne compte les parcours**, aucun gate M19 ne couvre ce chemin.
 ```
+
+**Ce qui reste** — L'intégralité du constat. (1) Dériver octets et lignes du parcours de décodage dans `ProviderIngestionBudget.read()` (`:144-145`) et fondre la boucle `utf8Bytes` (`:224-239`) dans ce parcours. (2) Énumérer `openspec/changes` une seule fois et passer la liste depuis `OpenSpecProjectContentReader.read()` (`:47-50`) aux deux lecteurs, au lieu des deux `listChangeRoots` jumeaux ; de même pour les deux `listSpecificationFiles` sur `openspec/specs`. **Attention au moment de le faire** : factoriser l'énumération **change la facturation du budget**. Aujourd'hui `requireAdditionalFiles` est appelé deux fois pour le même répertoire ; une facturation unique ferait passer un workspace qui échouait. C'est une modification de comportement observable, pas une simple optimisation, et elle mérite son test de parité.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -2362,20 +2553,18 @@ morpheus-application/src/main/java/com/morpheus/application/read/ProviderIngesti
 ### AUD-DEP-13 — Version littérale 1.0.4 en dur dans un POM de module, contre la règle du dépôt
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Dépendances |
 | **Effort** | S |
 | **Sprint** | 10 — Dire la vérité dans les règles |
-| **Vérifié le** | 2026-10-13 sur `d5be889b` |
+| **Vérifié le** | 2026-10-21 sur `6bdf4bbb` |
 
-**Constat de vérification** — Strictement inchange. Le change OpenSpec qui porte ce constat n'a commence aucune de ses taches.
+**Constat de vérification** — **Corrigé depuis le 14 octobre, et l'audit ne l'avait pas vu pendant une semaine.** Le `<version>1.0.4</version>` a disparu de `morpheus-mcp-transport/pom.xml` dans le commit `6a09a0a4` « build: let the root POM decide every dependency and plugin version » (PR #486, 14/10) — celui-là même qui a soldé `AUD-DEP-14`. La dépendance `org.reactivestreams:reactive-streams` est désormais déclarée **sans version** et résolue par le BOM Reactor, ce que le message de ce commit annonçait explicitement (« reactive-streams is left to the Reactor BOM, which resolves the same 1.0.4 »). Mon erreur : j'ai vérifié `AUD-DEP-14` ce jour-là sans regarder que le même commit fermait aussi `AUD-DEP-13`, et les quatre passes suivantes l'ont reconduit en « toujours valide » sans le remesurer. Un constat soldé en dommage collatéral d'un autre n'est signalé par rien : c'est le défaut de méthode à retenir de cette passe.
 
 ```
-morpheus-mcp-transport/pom.xml:25-29 `<groupId>org.reactivestreams</groupId><artifactId>reactive-streams</artifactId><version>1.0.4</version>` ; pom.xml:93-131 le `<dependencyManagement>` racine ne gere que quatre BOM importes et slf4j-api (pom.xml:117-121), aucune entree reactive-streams ; openspec/changes/manage-every-dependency-version-in-the-root-pom/tasks.md : 0 tache cochee sur 14
+`grep -rn '1.0.4' --include=pom.xml .` (hors `target/`) -> **aucune occurrence**. `morpheus-mcp-transport/pom.xml:25-28` déclare `org.reactivestreams:reactive-streams` sans `<version>`. `git log -S'1.0.4' -- morpheus-mcp-transport/pom.xml` -> le retrait est le commit `6a09a0a4`. Résolution : `pom.xml:53` `<reactor-bom.version>2024.0.18</reactor-bom.version>`, importé en `dependencyManagement` (`:112-114`). Enforcement : `D2RepositoryHardeningArchitectureTest.java:56` refuse toute `<version>` dans un POM de module autre que celle du parent et `${project.version}`.
 ```
-
-**Ce qui reste** — Deplacer org.reactivestreams:reactive-streams dans le `<dependencyManagement>` racine sous une propriete `reactive-streams.version` et retirer le `<version>` du module — ou verifier que reactor-bom le gere deja, ce que `./mvnw dependency:tree` trancherait (non executable ici).
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
