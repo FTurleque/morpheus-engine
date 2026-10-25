@@ -3,7 +3,9 @@ package com.morpheus.cli;
 import com.morpheus.api.local.MorpheusHttpServer;
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
+import com.morpheus.application.operability.OperationalLogMode;
 import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.cli.command.CliExitCode;
 import com.morpheus.cli.command.CliLayout;
@@ -32,6 +34,7 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -59,25 +62,28 @@ class LifecycleApplyFailureParityTest {
 
     @Test
     void anUnknownTargetStateIsRefusedByAllThreeSurfacesWithoutMutating() throws Exception {
-        assertRefusedEverywhere("unknown-target-state", "SIDEWAYS", 0, "parity-actor");
+        assertRefusedEverywhere("unknown-target-state", "SIDEWAYS", 0, "parity-actor",
+                "--to is not a valid MORPHEUS lifecycle state: SIDEWAYS");
     }
 
     @Test
     void aNegativeExpectedRevisionIsRefusedByAllThreeSurfacesWithoutMutating() throws Exception {
-        assertRefusedEverywhere("negative-revision", "PROPOSED", -1, "parity-actor");
+        assertRefusedEverywhere("negative-revision", "PROPOSED", -1, "parity-actor",
+                "--expected-revision must be between 0 and ");
     }
 
     @Test
     void anAbsentActorIsRefusedByAllThreeSurfacesWithoutMutating() throws Exception {
-        assertRefusedEverywhere("absent-actor", "PROPOSED", 0, null);
+        assertRefusedEverywhere("absent-actor", "PROPOSED", 0, null, "--actor is required");
     }
 
-    private void assertRefusedEverywhere(String label, String targetState, long expectedRevision, String actor)
+    private void assertRefusedEverywhere(
+            String label, String targetState, long expectedRevision, String actor, String cliRefusal)
             throws Exception {
         Path database = tempDirectory.resolve(label + ".db");
         Seed seed = seed(database);
 
-        assertCliRefuses(database, seed, targetState, expectedRevision, actor);
+        assertCliRefuses(database, seed, targetState, expectedRevision, actor, cliRefusal);
         assertHttpRefuses(database, seed, targetState, expectedRevision, actor);
         assertMcpRefuses(database, seed, targetState, expectedRevision, actor);
 
@@ -91,8 +97,12 @@ class LifecycleApplyFailureParityTest {
         }
     }
 
+    /**
+     * The command goes through the launcher, as the installed CLI runs it: the dispatcher alone does not serve
+     * {@code lifecycle} and would refuse it as an unknown command, with the same exit code.
+     */
     private void assertCliRefuses(
-            Path database, Seed seed, String targetState, long expectedRevision, String actor) {
+            Path database, Seed seed, String targetState, long expectedRevision, String actor, String refusal) {
         List<String> arguments = new java.util.ArrayList<>(List.of(
                 "--db", database.toString(), "lifecycle", "apply",
                 "--project", seed.projectId(),
@@ -111,14 +121,15 @@ class LifecycleApplyFailureParityTest {
         int exit;
         try (PrintStream outStream = new PrintStream(out, true, StandardCharsets.UTF_8);
              PrintStream errStream = new PrintStream(err, true, StandardCharsets.UTF_8)) {
-            exit = new MorpheusCli().run(
+            exit = MorpheusMain.run(OperationalRuntime.of(OperationalLogMode.OFF),
                     arguments.toArray(String[]::new), outStream, errStream, Map.of(), properties());
         }
 
         String diagnostics = err.toString(StandardCharsets.UTF_8) + out.toString(StandardCharsets.UTF_8);
         assertEquals(CliExitCode.USAGE.code(), exit,
                 () -> "the CLI must refuse the command as a usage fault: " + diagnostics);
-        assertTrue(diagnostics.contains("MORPHEUS error"), () -> diagnostics);
+        assertTrue(diagnostics.contains("MORPHEUS error [2]: " + refusal), () -> diagnostics);
+        assertFalse(diagnostics.contains("unknown command"), () -> diagnostics);
     }
 
     private void assertHttpRefuses(
