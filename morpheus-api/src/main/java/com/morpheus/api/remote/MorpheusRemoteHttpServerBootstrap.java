@@ -65,27 +65,15 @@ final class MorpheusRemoteHttpServerBootstrap {
         Objects.requireNonNull(technicalContextProvider, "technicalContextProvider");
         Objects.requireNonNull(writeCapabilityResolver, "writeCapabilityResolver");
         String normalizedHost = requireHost(host);
-        if (port < 0 || port > 65_535) {
-            throw new IllegalArgumentException("port must be between 0 and 65535");
-        }
-        if (maxConcurrentRequests < 1 || maxConcurrentRequests > MorpheusRemoteHttpServer.MAX_CONCURRENT_REQUESTS) {
-            throw new IllegalArgumentException(
-                    "maxConcurrentRequests must be between 1 and " + MorpheusRemoteHttpServer.MAX_CONCURRENT_REQUESTS);
-        }
-        if (keyStorePassword == null || keyStorePassword.length == 0) {
-            throw new IllegalArgumentException("remote TLS keystore password is required");
-        }
+        requireServingLimits(port, maxConcurrentRequests, keyStorePassword);
 
-        Path normalizedAuthFile = Objects.requireNonNull(authFile, "authFile").toAbsolutePath().normalize();
-        List<MorpheusRemoteIdentityFile.Identity> identities = MorpheusRemoteIdentityFile.load(normalizedAuthFile);
-        MorpheusRemoteHttpServer.validateStartupIdentities(identities, Instant.now());
+        Path normalizedAuthFile = requireServableIdentityFile(authFile);
 
         SSLContext sslContext = buildSslContext(keyStorePath, keyStorePassword.clone());
         SqliteServerMaintenance maintenance = new SqliteServerMaintenance();
-        // Ownership is entered before the first resource is acquired, not after: the lease was taken and the
-        // internal capability generated outside the try, so a failure in between held the database exclusively
-        // for the rest of the process. HttpsServer.create binds the TLS socket, and it used to be declared
-        // inside the try, so the recovery path could not reach it either.
+        // Ownership is entered before the first resource is acquired: a lease taken outside the try would stay
+        // held for the rest of the process if anything failed before ownership began. HttpsServer.create binds the
+        // TLS socket, so it is registered with the owner like every other resource the recovery path must release.
         try (StartupOwnership owned = new StartupOwnership()) {
             SqliteServerMaintenance.ServerLease lease = owned.keep(
                     maintenance.acquireServerLease(databasePath), SqliteServerMaintenance.ServerLease::close);
@@ -105,14 +93,7 @@ final class MorpheusRemoteHttpServerBootstrap {
             HttpsServer https = owned.keep(
                     HttpsServer.create(new InetSocketAddress(normalizedHost, port), listenBacklog),
                     server -> server.stop(0));
-            https.setHttpsConfigurator(new HttpsConfigurator(sslContext) {
-                @Override
-                public void configure(HttpsParameters parameters) {
-                    SSLParameters secure = sslContext.getDefaultSSLParameters();
-                    secure.setProtocols(new String[]{"TLSv1.3", "TLSv1.2"});
-                    parameters.setSSLParameters(secure);
-                }
-            });
+            https.setHttpsConfigurator(modernTlsOnly(sslContext));
             ExecutorService executor = owned.keep(
                     Executors.newVirtualThreadPerTaskExecutor(), ExecutorService::shutdownNow);
             MorpheusRemoteHttpServer result = new MorpheusRemoteHttpServer(
@@ -136,6 +117,37 @@ final class MorpheusRemoteHttpServerBootstrap {
             return result;
         } catch (IOException failure) {
             throw new IllegalStateException("cannot start MORPHEUS remote HTTPS server", failure);
+        }
+    }
+
+    private static Path requireServableIdentityFile(Path authFile) {
+        Path normalizedAuthFile = Objects.requireNonNull(authFile, "authFile").toAbsolutePath().normalize();
+        List<MorpheusRemoteIdentityFile.Identity> identities = MorpheusRemoteIdentityFile.load(normalizedAuthFile);
+        MorpheusRemoteHttpServer.validateStartupIdentities(identities, Instant.now());
+        return normalizedAuthFile;
+    }
+
+    private static HttpsConfigurator modernTlsOnly(SSLContext sslContext) {
+        return new HttpsConfigurator(sslContext) {
+            @Override
+            public void configure(HttpsParameters parameters) {
+                SSLParameters secure = sslContext.getDefaultSSLParameters();
+                secure.setProtocols(new String[]{"TLSv1.3", "TLSv1.2"});
+                parameters.setSSLParameters(secure);
+            }
+        };
+    }
+
+    private static void requireServingLimits(int port, int maxConcurrentRequests, char[] keyStorePassword) {
+        if (port < 0 || port > 65_535) {
+            throw new IllegalArgumentException("port must be between 0 and 65535");
+        }
+        if (maxConcurrentRequests < 1 || maxConcurrentRequests > MorpheusRemoteHttpServer.MAX_CONCURRENT_REQUESTS) {
+            throw new IllegalArgumentException(
+                    "maxConcurrentRequests must be between 1 and " + MorpheusRemoteHttpServer.MAX_CONCURRENT_REQUESTS);
+        }
+        if (keyStorePassword == null || keyStorePassword.length == 0) {
+            throw new IllegalArgumentException("remote TLS keystore password is required");
         }
     }
 
