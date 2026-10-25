@@ -2,22 +2,69 @@
 
 ## 1. Measure before deciding
 
-- [ ] 1.1 Re-measure the inventory of `design.md` with ArchUnit on the current `develop`: per family, the classes of
+- [x] 1.1 Re-measure the inventory of `design.md` with ArchUnit on the current `develop`: per family, the classes of
       `com.morpheus.application` that depend on it. Proof: the table, with its SHA and date; where it differs from the
       search of 2026-10-13 (1 / 10 / 4 / 1 / 1 / 2 files, 0 for the unused families), the difference is explained.
-- [ ] 1.2 For each of the ten file-access classes: its production callers, and the architecture tests that read it by
+- [x] 1.2 For each of the ten file-access classes: its production callers, and the architecture tests that read it by
       path. Proof: the list; on 2026-10-13 three classes had no caller under any `src/main`.
-- [ ] 1.3 Read the two existing textual bans (`ReasoningPlatformArchitectureTest`, `PolicyPlatformArchitectureTest`) and list what
+- [x] 1.3 Read the two existing textual bans (`ReasoningPlatformArchitectureTest`, `PolicyPlatformArchitectureTest`) and list what
       they refuse that a dependency rule would not. Proof: the list, kept in the ADR.
+
+### Measure of 2026-10-25, `develop` at `b60a9286`
+
+**1.1** A throwaway ArchUnit rule over `com.morpheus.application` (349 sources, 36 packages, 539 classes imported,
+nested classes folded into their top-level class), deleted after the run. Classes per family:
+
+| Family | 2026-10-13 | 2026-10-25 | Classes |
+|---|---|---|---|
+| Outbound network | 1 | 1 | `UpdateDiscoveryService` |
+| File access | 10 | 11 | `ProjectDiscoveryService`, `WorkspaceRootResolver`, `SafeWorkspaceFileResolver`, `RotatingOperationalLogFile`, `UpdateDiscoveryService`, `ExternalJarIntegrity`, `LocalWritePermissionHardener`, `LocalSourceInventoryScanner`, `LocalSourceWatcher`, `ScanWorkspaceBoundary`, `SourceFingerprint` |
+| Process environment | 4 | 4 | `LocalOperationalRuntime`, `SensitiveValueRedactor`, `ProductMetadata`, `LocalWritePermissionHardener` |
+| Standard streams | 1 | 2 | `OperationalRuntime`, `RotatingOperationalLogFile` |
+| Threads | 1 | 1 | `UpdateDiscoveryService` |
+| Wall clock | 2 | 2 direct + 4 defaults | `Instant.now()` in `LocalOperabilityService`, `OperationalRecorder`; `Clock.systemUTC()` as a constructor default in `ControlledChangeLifecycleMutationService`, `PolicyPackService`, `PortfolioRegistryService`, `SavedViewService` |
+| Reflection, class loading | 0 | 2 | `CanonicalJsonSerializer` (`java.lang.reflect`), `ReasoningAdapterRegistry` (`ServiceLoader`) |
+| SQL, JSON library, process execution | 0 | 0 | - |
+| `Path` only (vocabulary) | 23 files | 26 classes | ports included |
+
+Differences explained: `RotatingOperationalLogFile` (file access and `System.err`) was added on 2026-10-13
+by `3ec7b76f` (the bounded operational log file, ADR-0146), and `System.err` moved from `LocalOperationalRuntime` to
+`OperationalRuntime`; `WorkspacePathBoundary` no longer touches the disk, its checks went to `ScanWorkspaceBoundary`
+(AUD-PRF-08, `affccd9f`). Reflection and class loading were not searched on 2026-10-13: they are in use, and the
+`name-every-use-of-reflection` change names them. The `Instant.now()` of `operability` survived
+`inject-the-operational-runtime`: design decision 5's "gating them belongs to `inject-the-operational-runtime`" no
+longer has a carrier, so the ADR confines them like the other families.
+
+**1.2** The table "les onze classes d'accès fichier" of ADR-0148 (lines, production callers, architecture test files
+that name the class). Without a production caller: `LocalSourceWatcher`, `ProjectDiscoveryService`, and
+`WorkspaceRootResolver` (called by `ProjectDiscoveryService` only) - unchanged since 2026-10-13, and not listed by
+`remove-unreachable-and-unreferenced-code`. `UpdateDiscoveryService` is constructed by `MorpheusProductCli` only; the
+MCP tool `check_product_update` does no I/O.
+
+**1.3** What the textual bans refuse that a dependency rule would not: a mention (comment, string), the packages
+`com.morpheus.application.store` and `com.morpheus.application.lifecycle.mutation` (reasoning), `ScriptEngine`,
+`SELECT * FROM`, `executeQuery(` (policy). Kept in ADR-0148, decision 3.
+
+**Transports and the SQLite runtime** (`restructure-sqlite-store`, identified debt): `SqliteOperationRuntime` is
+imported by `ApiRuntime`, `CliRuntime`, `MorpheusMcpRuntime`; `SqliteServerMaintenance` by `MorpheusRemoteHttpServer`,
+`MorpheusRemoteHttpServerBootstrap`, `MorpheusServerCli`. ADR-0148 decision 4 keeps the runtime out of the application
+under every option; whether a transport holds the runtime type or only a port masking it stays ADR-0109's decision.
 
 ## 2. The decision
 
 - [ ] 2.1 Put options A, B and C of `design.md` to the maintainer with the tables of 1.1 and 1.2. Proof: the choice,
       dated, and for each named class "stays" or "leaves".
-- [ ] 2.2 Write the ADR from `docs/architecture/adr/template.md`, under the next free number - read the directory
+
+      2026-10-25: put to the maintainer with ADR-0148 at **Proposée** (option C written as the proposed decision,
+      A and B as options considered). Waiting for the choice.
+- [ ] 2.2 Write the ADR from `docs/architecture/adr/gabarit/template.md`, under the next free number - read the directory
       first (`live-numbers`), never a remembered total. It carries the measured table, the families and their type
       lists, the named classes with their fate, the options not taken and why. Index it in
       `docs/architecture/adr/README.md`. Proof: `AdrIndexCoherenceTest`.
+
+      2026-10-25: drafted as ADR-0148, indexed in `docs/architecture/adr/README.md` and
+      `docs/architecture/arc42/09-decisions.md`. Checked when the maintainer's choice is written into it and it turns
+      **Acceptée**.
 
 ## 3. The gate
 
