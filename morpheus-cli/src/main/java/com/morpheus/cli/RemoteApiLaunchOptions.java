@@ -1,6 +1,6 @@
 package com.morpheus.cli;
 
-import com.morpheus.api.MorpheusRemoteHttpServer;
+import com.morpheus.api.remote.MorpheusRemoteHttpServer;
 
 import java.io.File;
 import java.nio.file.Path;

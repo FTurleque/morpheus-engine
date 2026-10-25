@@ -148,9 +148,9 @@ l'opérabilité. Ils ne deviennent jamais source de vérité des spécifications
   décomposition du fichier d'identités.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/LocalHttpServerBootstrapArchitectureTest.java` :
   loopback du serveur local.
-- `morpheus-api/src/test/java/com/morpheus/api/MorpheusRemoteIdentityFileTest.java` :
+- `morpheus-api/src/test/java/com/morpheus/api/remote/MorpheusRemoteIdentityFileTest.java` :
   `legacyThreeFieldIdentityRemainsNonExpiring`.
-- `morpheus-api/src/test/java/com/morpheus/api/MorpheusRemoteRoutePolicyTest.java` : politique de rôles par route.
+- `morpheus-api/src/test/java/com/morpheus/api/remote/MorpheusRemoteRoutePolicyTest.java` : politique de rôles par route.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/IntegrationStatusProjectionArchitectureTest.java` :
   appel de la projection dans tout adaptateur `api` ou `mcp` qui produit un statut, et projection absente de la CLI
   (assertion textuelle).

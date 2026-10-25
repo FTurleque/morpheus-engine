@@ -36,7 +36,7 @@ class BoundedWaitOwnershipTest {
 
     /** The per-module owners. Deliberately two, not one: see {@link #theTwoOwnersStayInStep()}. */
     private static final List<Path> OWNERS = List.of(
-            Path.of("morpheus-api/src/test/java/com/morpheus/api/BoundedWait.java"),
+            ProductionSources.relativeTestSource("morpheus-api", "BoundedWait"),
             Path.of("morpheus-mcp-transport/src/test/java/com/morpheus/integration/mcp/BoundedWait.java"));
 
     /**
@@ -158,7 +158,7 @@ class BoundedWaitOwnershipTest {
         List<String> cores = new ArrayList<>();
         for (Path owner : OWNERS) {
             String text = Files.readString(root.resolve(owner));
-            int coreStart = text.indexOf("    static void until(");
+            int coreStart = text.indexOf("    public static void until(");
             assertTrue(coreStart > 0, () -> owner + " must declare the shared bounded-wait entry point");
             cores.add(text.substring(coreStart));
         }

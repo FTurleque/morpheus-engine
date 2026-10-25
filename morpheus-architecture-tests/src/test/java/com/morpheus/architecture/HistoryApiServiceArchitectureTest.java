@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -13,13 +12,9 @@ class HistoryApiServiceArchitectureTest {
 
     @Test
     void publishedHistoryQueriesStayExtractedFromApiFacade() throws IOException {
-        Path root = repositoryRoot();
-        String facade = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusApiService.java"));
-        String history = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusHistoryApiService.java"));
-        String routes = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusVersionsHttpRoutes.java"));
+        String facade = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusApiService"));
+        String history = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusHistoryApiService"));
+        String routes = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusVersionsHttpRoutes"));
 
         assertTrue(facade.contains("private final MorpheusHistoryApiService historyService;"));
         assertTrue(facade.contains("return historyService.versions(projectIdValue, pageRequest);"));
@@ -49,17 +44,5 @@ class HistoryApiServiceArchitectureTest {
         assertTrue(routes.contains("service.compareVersions("));
         assertTrue(routes.contains("service.historicalRequirements(projectId, segments.get(3), page(query))"));
         assertFalse(routes.contains("private final MorpheusApiService service;"));
-    }
-
-    private Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
     }
 }

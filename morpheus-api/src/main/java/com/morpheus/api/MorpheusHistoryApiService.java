@@ -1,5 +1,7 @@
 package com.morpheus.api;
 
+import com.morpheus.api.transport.ApiFailure;
+import com.morpheus.api.transport.PagedEnvelope;
 import com.morpheus.application.history.HistoricalRequirementQueryService;
 import com.morpheus.application.history.PublishedSnapshotHistoryService;
 import com.morpheus.application.history.RequirementSnapshotComparisonService;

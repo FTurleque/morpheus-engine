@@ -1,5 +1,7 @@
 package com.morpheus.api;
 
+import com.morpheus.api.local.MorpheusHttpServer;
+import com.morpheus.api.transport.MorpheusHttpRouteTable;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -104,7 +106,7 @@ final class ApiTestSupport {
 
     private URI uri(MorpheusHttpServer server, String pathAndQuery) {
         String suffix = pathAndQuery.startsWith("/") ? pathAndQuery : "/" + pathAndQuery;
-        return URI.create("http://" + server.host() + ":" + server.port() + MorpheusHttpServer.API_PREFIX + suffix);
+        return URI.create("http://" + server.host() + ":" + server.port() + MorpheusHttpRouteTable.API_PREFIX + suffix);
     }
 
     private Response send(HttpRequest request) {

@@ -1,5 +1,6 @@
 package com.morpheus.architecture.m21;
 
+import com.morpheus.architecture.ProductionSources;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -279,8 +280,7 @@ class AuditHardeningWorkflowContractTest {
     @Test
     void mcpTransportNamesNoServerCatalogTool() throws IOException {
         Path root = repoRoot();
-        String catalog = Files.readString(root.resolve(
-                "morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusMcpToolCatalog.java"));
+        String catalog = Files.readString(ProductionSources.mainSource("morpheus-mcp", "MorpheusMcpToolCatalog"));
         List<String> tools = Pattern.compile("tool\\(\"([a-z_]+)\"").matcher(catalog).results()
                 .map(match -> match.group(1))
                 .toList();
@@ -335,12 +335,9 @@ class AuditHardeningWorkflowContractTest {
         assertTrue(validator.contains("counters.exhausted"),
                 "QueryValidator must stop traversal after a structural budget is exceeded");
 
-        assertUsesBoundedQueryCodec(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusPolicyApiService.java"));
-        assertUsesBoundedQueryCodec(root.resolve(
-                "morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusPolicyMcpTools.java"));
-        assertUsesBoundedQueryCodec(root.resolve(
-                "morpheus-cli/src/main/java/com/morpheus/cli/MorpheusPolicyCli.java"));
+        assertUsesBoundedQueryCodec(ProductionSources.mainSource("morpheus-api", "MorpheusPolicyApiService"));
+        assertUsesBoundedQueryCodec(ProductionSources.mainSource("morpheus-mcp", "MorpheusPolicyMcpTools"));
+        assertUsesBoundedQueryCodec(ProductionSources.mainSource("morpheus-cli", "MorpheusPolicyCli"));
     }
 
     private void assertUsesBoundedQueryCodec(Path adapter) throws IOException {

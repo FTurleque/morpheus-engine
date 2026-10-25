@@ -1,6 +1,6 @@
 package com.morpheus.cli;
 
-import com.morpheus.api.MorpheusHttpServer;
+import com.morpheus.api.local.MorpheusHttpServer;
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.application.operability.OperationalRecorder;
@@ -121,7 +121,7 @@ class LifecycleApplyFailureParityTest {
     private void assertHttpRefuses(
             Path database, Seed seed, String targetState, long expectedRevision, String actor) throws Exception {
         try (MorpheusHttpServer server = MorpheusHttpServer.start(database, "127.0.0.1", 0)) {
-            URI uri = URI.create("http://" + server.host() + ":" + server.port() + MorpheusHttpServer.API_PREFIX
+            URI uri = URI.create(server.baseUri()
                     + "/projects/" + seed.projectId() + "/changes/" + seed.changeId() + "/lifecycle-transitions");
             HttpResponse<String> response = http.send(
                     HttpRequest.newBuilder(uri)

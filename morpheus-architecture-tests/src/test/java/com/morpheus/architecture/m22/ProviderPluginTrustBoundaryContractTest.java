@@ -1,5 +1,6 @@
 package com.morpheus.architecture.m22;
 
+import com.morpheus.architecture.ProductionSources;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -121,9 +122,8 @@ class ProviderPluginTrustBoundaryContractTest {
     @Test
     void executingThirdPartyCodeIsNeverModelFacingAndTheDirectoryIsServerChosen() throws IOException {
         String manifest = read("contracts/public-surfaces.tsv");
-        String mcpTools = read("morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusProviderPluginMcpTools.java");
-        String httpRoutes = read(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusProviderPluginHttpRoutes.java");
+        String mcpTools = ProductionSources.readMain("morpheus-mcp", "MorpheusProviderPluginMcpTools");
+        String httpRoutes = ProductionSources.readMain("morpheus-api", "MorpheusProviderPluginHttpRoutes");
 
         assertTrue(manifest.contains(
                         "provider.plugins.probe\tWRITE\tprovider-plugins probe\tEXPLICITLY_NOT_EXPOSED\t"),

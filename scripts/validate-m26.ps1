@@ -184,9 +184,9 @@ if (-not $SkipPortable) {
     if ($null -eq $shadedJar) { throw 'Shaded MORPHEUS CLI JAR not found' }
     $entries = & $jarTool tf $shadedJar.FullName
     foreach ($entry in @(
-        'com/morpheus/api/MorpheusRemoteHttpServer.class',
-        'com/morpheus/api/MorpheusRemoteIdentityFile.class',
-        'com/morpheus/api/MorpheusRemoteRole.class',
+        'com/morpheus/api/remote/MorpheusRemoteHttpServer.class',
+        'com/morpheus/api/remote/MorpheusRemoteIdentityFile.class',
+        'com/morpheus/api/remote/MorpheusRemoteRole.class',
         'com/morpheus/store/sqlite/runtime/SqliteServerMaintenance.class',
         'com/morpheus/cli/RemoteApiLaunchOptions.class',
         'com/morpheus/cli/MorpheusServerCli.class')) {

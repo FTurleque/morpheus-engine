@@ -1,5 +1,6 @@
 package com.morpheus.architecture.m21;
 
+import com.morpheus.architecture.ProductionSources;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -51,8 +52,7 @@ class AuditRemediationContractTest {
 
     @Test
     void providerPluginMcpFallbackNeverRelaysArbitraryExceptionMessages() throws IOException {
-        String mcp = read(repoRoot(),
-                "morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusProviderPluginMcpTools.java");
+        String mcp = ProductionSources.readMain("morpheus-mcp", "MorpheusProviderPluginMcpTools");
 
         assertTrue(mcp.contains("PROVIDER_PLUGIN_DISCOVERY_FAILED"));
         assertTrue(mcp.contains("McpToolFailure.refusal(REMOTE_DISCOVERY_FAILURE)"));

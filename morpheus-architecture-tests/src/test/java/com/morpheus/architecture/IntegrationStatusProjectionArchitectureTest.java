@@ -80,8 +80,7 @@ class IntegrationStatusProjectionArchitectureTest {
 
     @Test
     void theHttpViewIsATransformationOfTheSharedProjectionNotACopy() throws IOException {
-        String views = Files.readString(repoRoot().resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/IntegrationStatusViews.java"));
+        String views = Files.readString(ProductionSources.mainSource("morpheus-api", "IntegrationStatusViews"));
         String projection = Files.readString(repoRoot().resolve(
                 "morpheus-application/src/main/java/com/morpheus/application/security/IntegrationStatusDisclosure.java"));
 

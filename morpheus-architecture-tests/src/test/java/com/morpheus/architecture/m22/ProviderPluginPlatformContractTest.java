@@ -1,6 +1,7 @@
 package com.morpheus.architecture.m22;
 
 import com.morpheus.application.product.ProductMetadata;
+import com.morpheus.architecture.ProductionSources;
 import com.morpheus.sdk.provider.ProviderPluginCandidate;
 import com.morpheus.sdk.provider.ProviderPluginDiscovery;
 import org.junit.jupiter.api.Test;
@@ -62,11 +63,10 @@ class ProviderPluginPlatformContractTest {
         Path root = repoRoot();
         String cliPom = Files.readString(root.resolve("morpheus-cli/pom.xml"));
         String surfaces = Files.readString(root.resolve("contracts/public-surfaces.tsv"));
-        String main = Files.readString(root.resolve("morpheus-cli/src/main/java/com/morpheus/cli/MorpheusMain.java"));
-        String mcp = Files.readString(root.resolve("morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusProviderPluginMcpTools.java"));
-        String http = Files.readString(root.resolve("morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
-        String httpRoutes = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusProviderPluginHttpRoutes.java"));
+        String main = Files.readString(ProductionSources.mainSource("morpheus-cli", "MorpheusMain"));
+        String mcp = Files.readString(ProductionSources.mainSource("morpheus-mcp", "MorpheusProviderPluginMcpTools"));
+        String http = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusHttpServer"));
+        String httpRoutes = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusProviderPluginHttpRoutes"));
         String activator = Files.readString(root.resolve("morpheus-provider-sdk/src/main/java/com/morpheus/sdk/provider/ProviderPluginActivator.java"));
 
         assertFalse(cliPom.contains("morpheus-provider-reference"), "reference plugin must remain external to launcher runtime");

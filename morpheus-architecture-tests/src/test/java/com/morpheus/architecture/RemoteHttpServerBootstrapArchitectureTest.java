@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -13,11 +12,8 @@ class RemoteHttpServerBootstrapArchitectureTest {
 
     @Test
     void remoteServerKeepsRequestPolicyWhileBootstrapOwnsTlsAndRuntimeStartup() throws IOException {
-        Path root = repositoryRoot();
-        String server = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
-        String bootstrap = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServerBootstrap.java"));
+        String server = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServer"));
+        String bootstrap = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServerBootstrap"));
 
         assertTrue(server.contains("return MorpheusRemoteHttpServerBootstrap.start("));
         assertFalse(server.contains("HttpsServer.create("));
@@ -41,7 +37,7 @@ class RemoteHttpServerBootstrapArchitectureTest {
         assertTrue(bootstrap.contains("MorpheusInternalCapability.generate()"));
         assertTrue(bootstrap.contains("MorpheusHttpServer.startRemote("));
         assertTrue(bootstrap.contains("Executors.newVirtualThreadPerTaskExecutor()"));
-        assertTrue(bootstrap.contains("https.createContext(MorpheusHttpServer.API_PREFIX, result::handle)"));
+        assertTrue(bootstrap.contains("https.createContext(MorpheusHttpRouteTable.API_PREFIX, result::handle)"));
         assertTrue(bootstrap.contains("https.start()"));
 
         assertTrue(server.contains("private MorpheusRemoteIdentityFile.Identity authenticate(HttpExchange exchange)"));
@@ -70,15 +66,10 @@ class RemoteHttpServerBootstrapArchitectureTest {
      */
     @Test
     void theTlsKeystorePasswordIsResolvedLateHeldMutablyAndWiped() throws IOException {
-        Path root = repositoryRoot();
-        String options = Files.readString(root.resolve(
-                "morpheus-cli/src/main/java/com/morpheus/cli/RemoteApiLaunchOptions.java"));
-        String main = Files.readString(root.resolve(
-                "morpheus-cli/src/main/java/com/morpheus/cli/MorpheusMain.java"));
-        String handle = Files.readString(root.resolve(
-                "morpheus-cli/src/main/java/com/morpheus/cli/TlsKeystorePassword.java"));
-        String bootstrap = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServerBootstrap.java"));
+        String options = Files.readString(ProductionSources.mainSource("morpheus-cli", "RemoteApiLaunchOptions"));
+        String main = Files.readString(ProductionSources.mainSource("morpheus-cli", "MorpheusMain"));
+        String handle = Files.readString(ProductionSources.mainSource("morpheus-cli", "TlsKeystorePassword"));
+        String bootstrap = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServerBootstrap"));
 
         assertFalse(options.contains("String tlsPassword"),
                 "the launch options must not retain the TLS password as an immutable field");
@@ -104,17 +95,5 @@ class RemoteHttpServerBootstrapArchitectureTest {
                 "the bootstrap must wipe its own copy once the SSLContext exists");
         assertTrue(bootstrap.contains("java.util.Arrays.fill(encoded, (byte) 0);"),
                 "the bootstrap must wipe the decoded keystore bytes");
-    }
-
-    private Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
     }
 }

@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.simpleName;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
@@ -41,8 +40,7 @@ class LocalDiagnosticsHttpRoutesArchitectureTest {
 
     @Test
     void theServerDelegatesDiagnosticsRoutingInsteadOfInliningIt() throws IOException {
-        String server = Files.readString(repositoryRoot().resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
+        String server = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusHttpServer"));
 
         assertTrue(server.contains("MorpheusDiagnosticsHttpRoutes diagnosticsRoutes"));
         assertTrue(server.contains("new MorpheusDiagnosticsHttpRoutes(this.service)"));
@@ -76,8 +74,7 @@ class LocalDiagnosticsHttpRoutesArchitectureTest {
 
     @Test
     void theRouterIsBuiltFromTheApplicationFacadeAndItsGuards() throws IOException {
-        String routes = Files.readString(repositoryRoot().resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusDiagnosticsHttpRoutes.java"));
+        String routes = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusDiagnosticsHttpRoutes"));
 
         assertTrue(routes.contains("MorpheusDiagnosticsApiService service"));
         assertTrue(routes.contains("MorpheusApiService facade"));
@@ -151,23 +148,10 @@ class LocalDiagnosticsHttpRoutesArchitectureTest {
      */
     @Test
     void identifiersJavacCanInlineStayTextuallyForbidden() throws IOException {
-        String routes = Files.readString(repositoryRoot().resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusDiagnosticsHttpRoutes.java"));
+        String routes = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusDiagnosticsHttpRoutes"));
 
         assertFalse(routes.contains("MorpheusHttpResponseWriter"));
         assertFalse(routes.contains("MorpheusRemoteRoutePolicy"));
         assertFalse(routes.contains("MorpheusRemoteRole"));
-    }
-
-    private Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
     }
 }

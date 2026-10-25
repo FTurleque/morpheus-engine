@@ -44,8 +44,8 @@ class AdapterCompositionRootArchitectureTest {
     static final Set<String> COMPOSITION_ROOTS = Set.of(
             "com.morpheus.api.ApiRuntime",
             "com.morpheus.api.MorpheusProjectSyncApiService",
-            "com.morpheus.api.MorpheusRemoteHttpServer",
-            "com.morpheus.api.MorpheusRemoteHttpServerBootstrap",
+            "com.morpheus.api.remote.MorpheusRemoteHttpServer",
+            "com.morpheus.api.remote.MorpheusRemoteHttpServerBootstrap",
             "com.morpheus.mcp.MorpheusMcpRuntime");
 
     private final JavaClasses classes = new ClassFileImporter()

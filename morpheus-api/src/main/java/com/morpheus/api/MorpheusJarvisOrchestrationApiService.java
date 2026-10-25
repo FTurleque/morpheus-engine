@@ -18,11 +18,11 @@ import java.util.Objects;
 import java.util.Optional;
 
 /** M14 HTTP facade for the read-only MORPHEUS/JARVIS orchestration contract. */
-final class MorpheusJarvisOrchestrationApiService {
+public final class MorpheusJarvisOrchestrationApiService {
     private final Path databasePath;
     private final OperationalRecorder recorder;
 
-    MorpheusJarvisOrchestrationApiService(Path databasePath, OperationalRecorder recorder) {
+    public MorpheusJarvisOrchestrationApiService(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
         this.recorder = Objects.requireNonNull(recorder, "recorder");
     }

@@ -2,10 +2,10 @@ package com.morpheus.api;
 
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.operability.SuppressedFailureFamily;
-import com.morpheus.application.reasoning.ReasoningContracts;
 import com.morpheus.application.reasoning.ReasoningContracts.Evidence;
 import com.morpheus.application.reasoning.ReasoningContracts.EvidenceKind;
 import com.morpheus.application.reasoning.ReasoningContracts.Request;
+import com.morpheus.application.reasoning.ReasoningContracts;
 import com.morpheus.application.reasoning.ReasoningService;
 
 import java.util.ArrayList;

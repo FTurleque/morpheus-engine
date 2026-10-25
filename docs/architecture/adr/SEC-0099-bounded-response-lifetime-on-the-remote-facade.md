@@ -111,8 +111,8 @@ de **recevoir**, et seul le second retient un slot tant qu'il reste connecté.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/BoundaryResilienceContractTest.java` :
   `bothRemoteResponseWritePathsRunUnderTheResponseDeadline` et
   `theResponseDeadlineDoesNotRestOnAnInternalJdkProperty`.
-- `morpheus-api/src/test/java/com/morpheus/api/MorpheusRemoteAdversarialClientTest.java` (socket TLS brute contre la
-  vraie façade) et `morpheus-api/src/test/java/com/morpheus/api/TimedBoundedResponseWriterTest.java` (canaux TCP
+- `morpheus-api/src/test/java/com/morpheus/api/remote/MorpheusRemoteAdversarialClientTest.java` (socket TLS brute contre la
+  vraie façade) et `morpheus-api/src/test/java/com/morpheus/api/transport/TimedBoundedResponseWriterTest.java` (canaux TCP
   réels) prouvent l'arrêt de lecture, la lecture lente et la disparition brutale du client.
 
 ## References

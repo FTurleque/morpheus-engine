@@ -1,7 +1,7 @@
 package com.morpheus.cli;
 
-import com.morpheus.api.LoopbackHostPolicy;
-import com.morpheus.api.MorpheusHttpServer;
+import com.morpheus.api.local.LoopbackHostPolicy;
+import com.morpheus.api.local.MorpheusHttpServer;
 
 import java.nio.file.Path;
 import java.util.ArrayList;

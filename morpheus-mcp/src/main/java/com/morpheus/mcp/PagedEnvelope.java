@@ -16,7 +16,7 @@ import java.util.function.Function;
  * adapters may not share code; {@code PagedResponseVocabularyArchitectureTest} keeps the two copies and their
  * callers honest.
  */
-final class PagedEnvelope {
+public final class PagedEnvelope {
     private PagedEnvelope() {
     }
 
@@ -30,25 +30,25 @@ final class PagedEnvelope {
         return Collections.unmodifiableMap(page);
     }
 
-    static Map<String, Object> page(PageRequest request, int totalMatches, boolean hasMore, List<?> items) {
+    public static Map<String, Object> page(PageRequest request, int totalMatches, boolean hasMore, List<?> items) {
         return page(request.offset(), request.limit(), totalMatches, hasMore, items);
     }
 
-    static <T> Map<String, Object> slice(int offset, int limit, List<T> source, Function<? super T, ?> projection) {
+    public static <T> Map<String, Object> slice(int offset, int limit, List<T> source, Function<? super T, ?> projection) {
         int total = source.size();
         int from = Math.min(offset, total);
         int to = (int) Math.min((long) from + limit, total);
         return page(offset, limit, total, to < total, source.subList(from, to).stream().map(projection).toList());
     }
 
-    static Map<String, Object> snapshotPage(SnapshotPage<?> page, List<?> items) {
+    public static Map<String, Object> snapshotPage(SnapshotPage<?> page, List<?> items) {
         return following(
                 Map.of("snapshotId", page.snapshot().id().toString()),
                 page(page.pageRequest(), page.totalMatches(), page.hasMore(), items));
     }
 
     /** Places a page after a response's own identifiers; an identifier may not reuse a page key. */
-    static Map<String, Object> following(Map<String, Object> identifiers, Map<String, Object> page) {
+    public static Map<String, Object> following(Map<String, Object> identifiers, Map<String, Object> page) {
         Map<String, Object> response = new LinkedHashMap<>(identifiers);
         page.forEach((key, value) -> {
             if (response.containsKey(key)) {

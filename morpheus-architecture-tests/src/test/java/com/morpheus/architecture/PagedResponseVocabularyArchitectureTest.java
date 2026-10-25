@@ -82,8 +82,7 @@ class PagedResponseVocabularyArchitectureTest {
 
     @Test
     void theCurrentSpecificationToolEmbedsItsPageAsAValue() throws IOException {
-        String service = Files.readString(root().resolve(
-                "morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusMcpToolService.java"));
+        String service = Files.readString(ProductionSources.mainSource("morpheus-mcp", "MorpheusMcpToolService"));
         assertTrue(service.contains("\"specifications\", PagedEnvelope.slice("),
                 "get_current_specification carries its page under the key that names the collection");
     }
@@ -104,16 +103,13 @@ class PagedResponseVocabularyArchitectureTest {
     }
 
     private Path factory(String module) {
-        String adapterPackage = module.substring("morpheus-".length());
-        Path factory = root().resolve(module).resolve(
-                "src/main/java/com/morpheus/" + adapterPackage + "/PagedEnvelope.java");
+        Path factory = ProductionSources.mainSource(module, "PagedEnvelope");
         assertTrue(Files.isRegularFile(factory), "missing " + factory);
         return factory;
     }
 
     private String normalized(String source) {
-        return source.replace("package com.morpheus.mcp;", "package <adapter>;")
-                .replace("package com.morpheus.api;", "package <adapter>;")
+        return source.replaceFirst("package com\\.morpheus\\.(mcp|api)(\\.[a-z]+)*;", "package <adapter>;")
                 .replace("morpheus-mcp", "<adapter>")
                 .replace("morpheus-api", "<adapter>")
                 .replace("\r\n", "\n");

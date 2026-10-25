@@ -145,7 +145,7 @@ $requiredEntries = @(
     "io/modelcontextprotocol/server/McpServer.class",
     "io/modelcontextprotocol/client/McpClient.class",
     "io/modelcontextprotocol/client/transport/StdioClientTransport.class",
-    "com/morpheus/api/MorpheusHttpServer.class",
+    "com/morpheus/api/local/MorpheusHttpServer.class",
     "com/morpheus/api/MorpheusJarvisOrchestrationApiService.class",
     "com/morpheus/api/MorpheusControlledLifecycleApiService.class",
     "com/morpheus/api/MorpheusCompositionApiService.class",

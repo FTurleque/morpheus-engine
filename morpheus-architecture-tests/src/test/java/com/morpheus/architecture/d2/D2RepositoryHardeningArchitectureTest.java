@@ -1,5 +1,6 @@
 package com.morpheus.architecture.d2;
 
+import com.morpheus.architecture.ProductionSources;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -555,21 +556,18 @@ class D2RepositoryHardeningArchitectureTest {
     @Test
     void untrustedJsonRemainsStrictAndDefaultTypingIsNotActivated() throws IOException {
         Path root = repoRoot();
-        String server = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
-        String requestDecoder = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpRequestDecoder.java"));
+        String server = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusHttpServer"));
+        String requestDecoder = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusHttpRequestDecoder"));
         assertTrue(server.contains("MAX_REQUEST_BODY_BYTES = 65_536"));
         assertTrue(server.contains("private final MorpheusHttpRequestDecoder requestDecoder;"));
         assertTrue(requestDecoder.contains("FAIL_ON_UNKNOWN_PROPERTIES"));
         assertTrue(requestDecoder.contains("FAIL_ON_TRAILING_TOKENS"));
         assertTrue(requestDecoder.contains("HttpRequestBodyReader.read("),
                 "the request decoder must read bodies through the shared bounded reader");
-        assertTrue(Files.readString(root.resolve("morpheus-api/src/main/java/com/morpheus/api/HttpRequestBodyReader.java"))
+        assertTrue(Files.readString(ProductionSources.mainSource("morpheus-api", "HttpRequestBodyReader"))
                         .contains("TimedBoundedInputReader.read("),
                 "the shared bounded reader must delegate to the deadline-aware primitive");
-        assertTrue(Files.isRegularFile(root.resolve(
-                "morpheus-api/src/test/java/com/morpheus/api/JacksonSecurityRegressionTest.java")));
+        assertTrue(Files.isRegularFile(ProductionSources.testSource("morpheus-api", "JacksonSecurityRegressionTest")));
 
         try (var files = Files.walk(root, 16)) {
             for (Path source : files.filter(path -> path.toString().endsWith(".java"))
@@ -585,14 +583,14 @@ class D2RepositoryHardeningArchitectureTest {
 
     @Test
     void requestBodyBoundariesAdmitJsonByExactMediaTypeNotByPrefix() throws IOException {
-        Path api = repoRoot().resolve("morpheus-api/src/main/java/com/morpheus/api");
-        assertTrue(Files.isRegularFile(api.resolve("JsonMediaType.java")),
+        Path api = repoRoot().resolve("morpheus-api/src/main/java");
+        assertTrue(Files.isRegularFile(ProductionSources.mainSource("morpheus-api", "JsonMediaType")),
                 "the shared exact JSON media-type parser must exist");
 
-        assertTrue(Files.readString(api.resolve("MorpheusHttpRequestDecoder.java")).contains("JsonMediaType.isJson("),
+        assertTrue(ProductionSources.readMain("morpheus-api", "MorpheusHttpRequestDecoder").contains("JsonMediaType.isJson("),
                 "the request decoder must admit JSON through the shared exact media-type parser");
         List<Path> routers;
-        try (var files = Files.list(api)) {
+        try (var files = Files.walk(api)) {
             routers = files.filter(path -> path.getFileName().toString().endsWith("HttpRoutes.java")).toList();
         }
         assertFalse(routers.isEmpty(), "no *HttpRoutes.java found under " + api);
@@ -602,7 +600,7 @@ class D2RepositoryHardeningArchitectureTest {
                     () -> router.getFileName() + " must leave Content-Type admission to MorpheusHttpRequestDecoder");
         }
 
-        try (var files = Files.walk(api, 4)) {
+        try (var files = Files.walk(api)) {
             for (Path source : files.filter(path -> path.toString().endsWith(".java")).toList()) {
                 String text = Files.readString(source);
                 assertFalse(text.contains("startsWith(\"application/json\")"),

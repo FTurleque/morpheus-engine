@@ -129,9 +129,9 @@ Options écartées :
 - `morpheus-api/src/test/java/com/morpheus/api/SchedulerAvailabilityUnderSqliteWaitTest.java` : sur un vrai serveur
   local, `health` reste servie pendant qu'un écrivain exclusif tient la base et que les lectures en vol dépassent le
   nombre de processeurs.
-- `morpheus-api/src/test/java/com/morpheus/api/RemoteSchedulerAvailabilityUnderSqliteWaitTest.java` : même preuve sur
+- `morpheus-api/src/test/java/com/morpheus/api/remote/RemoteSchedulerAvailabilityUnderSqliteWaitTest.java` : même preuve sur
   le serveur distant, sauvegardes en vol.
-- `morpheus-api/src/test/java/com/morpheus/api/LocalAdmissionTest.java` : jamais plus de requêtes dans les
+- `morpheus-api/src/test/java/com/morpheus/api/local/LocalAdmissionTest.java` : jamais plus de requêtes dans les
   travailleurs que `DATABASE_WORKERS`, refus nommé avec `Retry-After` après l'attente bornée, place rendue par un
   gestionnaire qui échoue.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/api/PublicHttpRouteConvergenceTest.java` : chaque route de

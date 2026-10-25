@@ -1,5 +1,10 @@
 package com.morpheus.api;
 
+import com.morpheus.api.transport.ApiFailure;
+import com.morpheus.api.transport.MorpheusHttpQuery;
+import com.morpheus.api.transport.MorpheusHttpRequestDecoder;
+import com.morpheus.api.transport.MorpheusHttpRouteGuards;
+import com.morpheus.api.transport.MorpheusHttpRouteResponse;
 import com.morpheus.application.portfolio.PortfolioQueryService;
 import com.sun.net.httpserver.HttpExchange;
 
@@ -8,16 +13,16 @@ import java.util.Objects;
 import java.util.Set;
 
 /** Local portfolio route group. HTTP dispatch only; portfolio behavior stays in the API application service. */
-final class MorpheusPortfolioHttpRoutes {
+public final class MorpheusPortfolioHttpRoutes {
     private final MorpheusPortfolioApiService service;
     private final MorpheusHttpRequestDecoder requestDecoder;
 
-    MorpheusPortfolioHttpRoutes(MorpheusPortfolioApiService service, MorpheusHttpRequestDecoder requestDecoder) {
+    public MorpheusPortfolioHttpRoutes(MorpheusPortfolioApiService service, MorpheusHttpRequestDecoder requestDecoder) {
         this.service = Objects.requireNonNull(service, "service");
         this.requestDecoder = Objects.requireNonNull(requestDecoder, "requestDecoder");
     }
 
-    MorpheusHttpRouteResponse route(
+    public MorpheusHttpRouteResponse route(
             HttpExchange exchange,
             String method,
             List<String> segments,

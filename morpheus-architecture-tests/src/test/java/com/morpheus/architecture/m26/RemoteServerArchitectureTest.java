@@ -1,5 +1,6 @@
 package com.morpheus.architecture.m26;
 
+import com.morpheus.architecture.ProductionSources;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import org.junit.jupiter.api.Test;
 
@@ -34,10 +35,8 @@ class RemoteServerArchitectureTest {
     @Test
     void remoteBackupResponseNamesTheFileWhileTheLocalCliKeepsThePathname() throws IOException {
         Path root = repositoryRoot();
-        String remoteServer = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
-        String cli = Files.readString(root.resolve(
-                "morpheus-cli/src/main/java/com/morpheus/cli/MorpheusServerCli.java"));
+        String remoteServer = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServer"));
+        String cli = Files.readString(ProductionSources.mainSource("morpheus-cli", "MorpheusServerCli"));
         String openApi = Files.readString(root.resolve("docs/developer/reference/openapi/morpheus-v1-remote-m26.yaml"));
 
         assertTrue(remoteServer.contains("view.put(\"fileName\", fileNameOf(backup.path()))"),
@@ -60,8 +59,7 @@ class RemoteServerArchitectureTest {
      */
     @Test
     void theRemoteFacadeCallsTheDatabaseOnlyThroughItsDatabaseWorkers() throws IOException {
-        String source = Files.readString(repositoryRoot().resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
+        String source = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServer"));
         Matcher call = Pattern.compile("maintenance\\.\\w+\\(").matcher(source);
         int calls = 0;
         while (call.find()) {
@@ -84,11 +82,9 @@ class RemoteServerArchitectureTest {
     @Test
     void httpSurfacesNameServerSideLocationsWhileTheCliKeepsThem() throws IOException {
         Path root = repositoryRoot();
-        String projects = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusProjectRegistryApiService.java"));
-        String integrations = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/IntegrationStatusViews.java"));
-        String cli = Files.readString(root.resolve("morpheus-cli/src/main/java/com/morpheus/cli/MorpheusCli.java"));
+        String projects = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusProjectRegistryApiService"));
+        String integrations = Files.readString(ProductionSources.mainSource("morpheus-api", "IntegrationStatusViews"));
+        String cli = Files.readString(ProductionSources.mainSource("morpheus-cli", "MorpheusCli"));
         String integrationProjection = Files.readString(root.resolve(
                 "morpheus-application/src/main/java/com/morpheus/application/security/IntegrationStatusDisclosure.java"));
 
@@ -157,10 +153,8 @@ class RemoteServerArchitectureTest {
     @Test
     void leavingTheNonExpiringIdentityFormatStaysExplicitAndNeverRotatesTokens() throws IOException {
         Path root = repositoryRoot();
-        String identityFile = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteIdentityFile.java"));
-        String serverCli = Files.readString(root.resolve(
-                "morpheus-cli/src/main/java/com/morpheus/cli/MorpheusServerCli.java"));
+        String identityFile = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteIdentityFile"));
+        String serverCli = Files.readString(ProductionSources.mainSource("morpheus-cli", "MorpheusServerCli"));
         String guide = Files.readString(root.resolve("docs/user/TEAM_REMOTE_SERVER.md"));
 
         assertTrue(identityFile.contains("public static LegacyMigration migrateLegacyExpiry("),
@@ -208,11 +202,8 @@ class RemoteServerArchitectureTest {
 
     @Test
     void remoteRuntimeStateStaysExtractedAndPolicyFree() throws IOException {
-        Path root = repositoryRoot();
-        String server = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
-        String runtime = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteRuntimeState.java"));
+        String server = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServer"));
+        String runtime = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteRuntimeState"));
 
         assertTrue(server.contains("private final MorpheusRemoteRuntimeState runtime;"));
         assertFalse(server.contains("class RuntimeState"));
@@ -229,11 +220,8 @@ class RemoteServerArchitectureTest {
      */
     @Test
     void remoteStatusExposesPrivilegedOccupancyAndIsServedOutsideTheRequestBudget() throws IOException {
-        Path root = repositoryRoot();
-        String server = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
-        String runtime = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteRuntimeState.java"));
+        String server = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServer"));
+        String runtime = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteRuntimeState"));
 
         assertTrue(runtime.contains("activePrivilegedRequests"),
                 "remote status must expose how many privileged operations are in flight");
@@ -260,11 +248,8 @@ class RemoteServerArchitectureTest {
 
     @Test
     void remoteResponseRenderingStaysExtractedAndPolicyFree() throws IOException {
-        Path root = repositoryRoot();
-        String server = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
-        String responses = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteResponseWriter.java"));
+        String server = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServer"));
+        String responses = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteResponseWriter"));
 
         assertTrue(server.contains("private final MorpheusRemoteResponseWriter responses"));
         assertFalse(server.contains("CanonicalJsonSerializer"));
@@ -281,11 +266,8 @@ class RemoteServerArchitectureTest {
 
     @Test
     void remoteProxyTargetResolutionStaysExtractedAndTransportFree() throws IOException {
-        Path root = repositoryRoot();
-        String server = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
-        String resolver = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteProxyTargetResolver.java"));
+        String server = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServer"));
+        String resolver = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteProxyTargetResolver"));
 
         assertTrue(server.contains("private final MorpheusRemoteProxyTargetResolver proxyTargets;"));
         assertFalse(server.contains("private URI localTarget("));
@@ -304,11 +286,8 @@ class RemoteServerArchitectureTest {
 
     @Test
     void remoteProxyTransportStaysExtractedBoundedAndPolicyFree() throws IOException {
-        Path root = repositoryRoot();
-        String server = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
-        String transport = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteProxyTransport.java"));
+        String server = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServer"));
+        String transport = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteProxyTransport"));
 
         assertTrue(server.contains("private final MorpheusRemoteProxyTransport proxyTransport;"));
         assertFalse(server.contains("HttpClient"));

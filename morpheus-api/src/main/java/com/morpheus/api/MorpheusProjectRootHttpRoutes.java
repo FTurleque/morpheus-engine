@@ -1,5 +1,10 @@
 package com.morpheus.api;
 
+import com.morpheus.api.transport.ApiFailure;
+import com.morpheus.api.transport.MorpheusHttpQuery;
+import com.morpheus.api.transport.MorpheusHttpRequestDecoder;
+import com.morpheus.api.transport.MorpheusHttpRouteGuards;
+import com.morpheus.api.transport.MorpheusHttpRouteResponse;
 import com.sun.net.httpserver.HttpExchange;
 
 import java.util.List;
@@ -7,16 +12,16 @@ import java.util.Objects;
 import java.util.Set;
 
 /** Owns local HTTP dispatch for the project collection and project detail routes. */
-final class MorpheusProjectRootHttpRoutes {
+public final class MorpheusProjectRootHttpRoutes {
     private final MorpheusProjectRegistryApiService service;
     private final MorpheusHttpRequestDecoder requestDecoder;
 
-    MorpheusProjectRootHttpRoutes(MorpheusApiService service, MorpheusHttpRequestDecoder requestDecoder) {
+    public MorpheusProjectRootHttpRoutes(MorpheusApiService service, MorpheusHttpRequestDecoder requestDecoder) {
         this.service = Objects.requireNonNull(service, "service").projectRegistryService();
         this.requestDecoder = Objects.requireNonNull(requestDecoder, "requestDecoder");
     }
 
-    MorpheusHttpRouteResponse route(
+    public MorpheusHttpRouteResponse route(
             HttpExchange exchange,
             String method,
             List<String> segments,
@@ -36,8 +41,8 @@ final class MorpheusProjectRootHttpRoutes {
             return ok(service.listProjects());
         }
         if (method.equals("POST")) {
-            MorpheusHttpServer.ProjectRegistrationRequest request = requestDecoder.readRequiredJson(
-                    exchange, MorpheusHttpServer.ProjectRegistrationRequest.class);
+            ProjectRegistrationRequest request = requestDecoder.readRequiredJson(
+                    exchange, ProjectRegistrationRequest.class);
             MorpheusProjectRegistryApiService.RegistrationResult result = service.registerProject(request.workspace());
             return new MorpheusHttpRouteResponse(result.created() ? 201 : 200, result.project());
         }

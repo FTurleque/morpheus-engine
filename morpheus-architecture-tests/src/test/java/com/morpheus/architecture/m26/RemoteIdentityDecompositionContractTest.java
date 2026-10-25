@@ -1,5 +1,6 @@
 package com.morpheus.architecture.m26;
 
+import com.morpheus.architecture.ProductionSources;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -22,7 +23,6 @@ import org.junit.jupiter.api.Test;
  * rather than a convention (issue #289).</p>
  */
 class RemoteIdentityDecompositionContractTest {
-    private static final String PACKAGE = "morpheus-api/src/main/java/com/morpheus/api/";
 
     /** Filesystem verbs no in-memory component of the identity boundary may reach for. */
     private static final List<String> FILESYSTEM_VERBS =
@@ -159,10 +159,10 @@ class RemoteIdentityDecompositionContractTest {
         assertTrue(facade.contains("MAX_AUDIT_RECORDS = RemoteIdentityAudit.MAX_AUDIT_RECORDS"));
         assertTrue(facade.contains("TOKEN_BYTES = RemoteIdentityCredentialService.TOKEN_BYTES"));
 
-        assertEquals(256 * 1024, com.morpheus.api.MorpheusRemoteIdentityFile.MAX_FILE_BYTES);
-        assertEquals(256, com.morpheus.api.MorpheusRemoteIdentityFile.MAX_IDENTITIES);
-        assertEquals(512, com.morpheus.api.MorpheusRemoteIdentityFile.MAX_AUDIT_RECORDS);
-        assertEquals(32, com.morpheus.api.MorpheusRemoteIdentityFile.TOKEN_BYTES);
+        assertEquals(256 * 1024, com.morpheus.api.remote.MorpheusRemoteIdentityFile.MAX_FILE_BYTES);
+        assertEquals(256, com.morpheus.api.remote.MorpheusRemoteIdentityFile.MAX_IDENTITIES);
+        assertEquals(512, com.morpheus.api.remote.MorpheusRemoteIdentityFile.MAX_AUDIT_RECORDS);
+        assertEquals(32, com.morpheus.api.remote.MorpheusRemoteIdentityFile.TOKEN_BYTES);
     }
 
     private static void assertAbsent(String source, String component, List<String> forbidden) {
@@ -174,25 +174,13 @@ class RemoteIdentityDecompositionContractTest {
 
     private static Class<?> load(String simpleName) {
         try {
-            return Class.forName("com.morpheus.api." + simpleName);
+            return Class.forName("com.morpheus.api.remote." + simpleName);
         } catch (ClassNotFoundException missing) {
-            throw new AssertionError("com.morpheus.api." + simpleName + " must exist", missing);
+            throw new AssertionError("com.morpheus.api.remote." + simpleName + " must exist", missing);
         }
     }
 
     private static String read(String fileName) throws IOException {
-        return Files.readString(repositoryRoot().resolve(PACKAGE + fileName));
-    }
-
-    private static Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found");
+        return ProductionSources.readMain("morpheus-api", fileName.substring(0, fileName.length() - ".java".length()));
     }
 }

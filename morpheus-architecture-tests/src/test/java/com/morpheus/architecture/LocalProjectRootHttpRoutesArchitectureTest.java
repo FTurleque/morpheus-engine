@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -13,11 +12,8 @@ class LocalProjectRootHttpRoutesArchitectureTest {
 
     @Test
     void projectRootRoutesStayExtractedAndReuseSharedHttpInfrastructure() throws IOException {
-        Path root = repositoryRoot();
-        String server = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
-        String routes = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusProjectRootHttpRoutes.java"));
+        String server = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusHttpServer"));
+        String routes = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusProjectRootHttpRoutes"));
 
         assertServerDelegatesToProjectRootRoutes(server);
         assertProjectRootRoutesImplementRouting(routes);
@@ -43,7 +39,7 @@ class LocalProjectRootHttpRoutesArchitectureTest {
         assertTrue(routes.contains("method.equals(\"GET\")"));
         assertTrue(routes.contains("method.equals(\"POST\")"));
         assertTrue(routes.contains("requestDecoder.readRequiredJson("));
-        assertTrue(routes.contains("MorpheusHttpServer.ProjectRegistrationRequest.class"));
+        assertTrue(routes.contains("ProjectRegistrationRequest.class"));
         assertTrue(routes.contains("service.listProjects()"));
         assertTrue(routes.contains("service.registerProject(request.workspace())"));
         assertTrue(routes.contains("result.created() ? 201 : 200"));
@@ -62,17 +58,5 @@ class LocalProjectRootHttpRoutesArchitectureTest {
         assertFalse(routes.contains("MorpheusRemoteRole"));
         assertFalse(routes.contains("routeSync"));
         assertFalse(routes.contains("sync-status"));
-    }
-
-    private Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
     }
 }

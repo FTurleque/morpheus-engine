@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -13,11 +12,8 @@ class LocalProviderPluginHttpRoutesArchitectureTest {
 
     @Test
     void providerPluginRoutesStayExtractedAndSecurityBounded() throws IOException {
-        Path root = repositoryRoot();
-        String server = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
-        String routes = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusProviderPluginHttpRoutes.java"));
+        String server = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusHttpServer"));
+        String routes = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusProviderPluginHttpRoutes"));
 
         assertTrue(server.contains("MorpheusProviderPluginHttpRoutes providerPluginRoutes"));
         assertTrue(server.contains("providerPluginRoutes.route(method, segments, query)"));
@@ -36,17 +32,5 @@ class LocalProviderPluginHttpRoutesArchitectureTest {
         assertFalse(routes.contains("MorpheusHttpResponseWriter"));
         assertFalse(routes.contains("MorpheusRemoteRoutePolicy"));
         assertFalse(routes.contains("MorpheusRemoteRole"));
-    }
-
-    private Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
     }
 }

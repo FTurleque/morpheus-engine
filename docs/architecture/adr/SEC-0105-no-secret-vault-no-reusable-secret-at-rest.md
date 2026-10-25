@@ -157,7 +157,7 @@ fichier de mot de passe compatible avec les identifiants systemd.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m22/ProviderPluginTrustBoundaryContractTest.java`
   et `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/ExternalCodeTrustBoundaryArchitectureTest.java` :
   `MORPHEUS_SERVER_TLS_PASSWORD` jamais hérité par un processus externe.
-- `morpheus-api/src/test/java/com/morpheus/api/RemoteIdentityCredentialServiceTest.java`,
+- `morpheus-api/src/test/java/com/morpheus/api/remote/RemoteIdentityCredentialServiceTest.java`,
   `RemoteIdentityFileStoreTest.java`, `MorpheusRemoteIdentityFileTest.java` : empreinte seule, comparaison
   `MessageDigest.isEqual`, `toString()` masqué, fichier durci avant publication.
 - Revue : l'absence de tout coffre et de tout autre secret persisté.

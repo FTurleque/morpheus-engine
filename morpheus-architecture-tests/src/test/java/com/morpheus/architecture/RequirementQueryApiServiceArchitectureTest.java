@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -13,13 +12,9 @@ class RequirementQueryApiServiceArchitectureTest {
 
     @Test
     void activeRequirementQueriesStayExtractedFromApiFacade() throws IOException {
-        Path root = repositoryRoot();
-        String facade = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusApiService.java"));
-        String requirements = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRequirementQueryApiService.java"));
-        String routes = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRequirementsHttpRoutes.java"));
+        String facade = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusApiService"));
+        String requirements = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRequirementQueryApiService"));
+        String routes = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRequirementsHttpRoutes"));
 
         assertTrue(facade.contains("private final MorpheusRequirementQueryApiService requirementQueryService;"));
         assertTrue(facade.contains("return requirementQueryService.requirements(projectIdValue, query, pageRequest);"));
@@ -51,17 +46,5 @@ class RequirementQueryApiServiceArchitectureTest {
         assertTrue(routes.contains("service.requirement(projectId, segments.get(3))"));
         assertTrue(routes.contains("service.traceRequirement(projectId, segments.get(3), depth)"));
         assertFalse(routes.contains("private final MorpheusApiService service;"));
-    }
-
-    private Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
     }
 }

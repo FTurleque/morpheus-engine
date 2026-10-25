@@ -1,8 +1,16 @@
 package com.morpheus.api;
 
-import com.morpheus.api.MorpheusHttpServer.ApiError;
-import com.morpheus.api.MorpheusHttpServer.ApiErrorEnvelope;
-import com.morpheus.api.MorpheusHttpServer.ApiSuccess;
+import com.morpheus.api.transport.ApiError;
+import com.morpheus.api.transport.ApiErrorEnvelope;
+import com.morpheus.api.transport.ApiFailure;
+import com.morpheus.api.transport.ApiSuccess;
+import com.morpheus.api.transport.BoundaryFailureMessage;
+import com.morpheus.api.transport.MorpheusHttpAllowedMethods;
+import com.morpheus.api.transport.MorpheusHttpQuery;
+import com.morpheus.api.transport.MorpheusHttpRequestDecoder;
+import com.morpheus.api.transport.MorpheusHttpResponseWriter;
+import com.morpheus.api.transport.MorpheusHttpRouteTable;
+import com.morpheus.api.transport.UnforeseenFailureTrace;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.policy.PolicyConflictException;
 import com.morpheus.application.policy.PolicyIds;
@@ -28,8 +36,8 @@ final class MorpheusPolicyManagementHttpRoutes {
     private static final String ACTIVATIONS = "policy-activations";
     private static final String OVERRIDES = "policy-overrides";
     private static final String REMOVE = "remove";
-    private static final String ACTIVATION_CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + ACTIVATIONS;
-    private static final String REMOVE_OVERRIDE_CONTEXT = MorpheusHttpServer.API_PREFIX + "/" + OVERRIDES + "/" + REMOVE;
+    private static final String ACTIVATION_CONTEXT = MorpheusHttpRouteTable.API_PREFIX + "/" + ACTIVATIONS;
+    private static final String REMOVE_OVERRIDE_CONTEXT = MorpheusHttpRouteTable.API_PREFIX + "/" + OVERRIDES + "/" + REMOVE;
 
     private final Path databasePath;
     private final OperationalRecorder recorder;

@@ -1,6 +1,7 @@
 package com.morpheus.architecture.m21;
 
 import com.morpheus.application.product.UpdateTrustLevel;
+import com.morpheus.architecture.ProductionSources;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -21,8 +22,7 @@ class UpdateTrustBoundaryContractTest {
                 "morpheus-application/src/main/java/com/morpheus/application/product/UpdateCheckResult.java"));
         String discovery = Files.readString(root.resolve(
                 "morpheus-application/src/main/java/com/morpheus/application/product/UpdateDiscoveryService.java"));
-        String cli = Files.readString(root.resolve(
-                "morpheus-cli/src/main/java/com/morpheus/cli/MorpheusProductCli.java"));
+        String cli = Files.readString(ProductionSources.mainSource("morpheus-cli", "MorpheusProductCli"));
 
         assertEquals(List.of(UpdateTrustLevel.DISCOVERY_ONLY), List.of(UpdateTrustLevel.values()),
                 "adding a verified trust state requires an explicit verifier and an architecture review");

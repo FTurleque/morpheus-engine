@@ -1,5 +1,9 @@
 package com.morpheus.api;
 
+import com.morpheus.api.transport.MorpheusHttpQuery;
+import com.morpheus.api.transport.MorpheusHttpRequestDecoder;
+import com.morpheus.api.transport.MorpheusHttpRouteGuards;
+import com.morpheus.api.transport.MorpheusHttpRouteResponse;
 import com.sun.net.httpserver.HttpExchange;
 
 import java.util.List;
@@ -8,11 +12,11 @@ import java.util.Optional;
 import java.util.Set;
 
 /** Owns local HTTP dispatch for project synchronization and synchronization status. */
-final class MorpheusProjectSyncHttpRoutes {
+public final class MorpheusProjectSyncHttpRoutes {
     private final MorpheusProjectSyncApiService service;
     private final MorpheusHttpRequestDecoder requestDecoder;
 
-    MorpheusProjectSyncHttpRoutes(MorpheusApiService facade, MorpheusHttpRequestDecoder requestDecoder) {
+    public MorpheusProjectSyncHttpRoutes(MorpheusApiService facade, MorpheusHttpRequestDecoder requestDecoder) {
         this(Objects.requireNonNull(facade, "facade").projectSyncService(), requestDecoder);
     }
 
@@ -21,7 +25,7 @@ final class MorpheusProjectSyncHttpRoutes {
         this.requestDecoder = Objects.requireNonNull(requestDecoder, "requestDecoder");
     }
 
-    MorpheusHttpRouteResponse routeSync(
+    public MorpheusHttpRouteResponse routeSync(
             HttpExchange exchange,
             String method,
             List<String> segments,
@@ -30,14 +34,14 @@ final class MorpheusProjectSyncHttpRoutes {
         MorpheusHttpRouteGuards.requireExactSegments(segments, 3);
         MorpheusHttpRouteGuards.requireMethod(method, "POST");
         query.rejectUnknown(Set.of());
-        MorpheusHttpServer.SyncRequest request = requestDecoder.readOptionalJson(
+        SyncRequest request = requestDecoder.readOptionalJson(
                 exchange,
-                MorpheusHttpServer.SyncRequest.class,
-                new MorpheusHttpServer.SyncRequest(null));
+                SyncRequest.class,
+                new SyncRequest(null));
         return ok(service.sync(projectId, Optional.ofNullable(request.revision())));
     }
 
-    MorpheusHttpRouteResponse routeSyncStatus(
+    public MorpheusHttpRouteResponse routeSyncStatus(
             String method,
             List<String> segments,
             MorpheusHttpQuery query,

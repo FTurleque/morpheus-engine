@@ -1,5 +1,7 @@
 package com.morpheus.api;
 
+import com.morpheus.api.local.MorpheusHttpServer;
+import com.morpheus.api.transport.MorpheusHttpRouteTable;
 import com.morpheus.architecture.m21.PublicSurfaceManifest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -291,8 +293,8 @@ class PublicHttpRouteConvergenceTest {
                 Matcher pathKey = OPENAPI_PATH.matcher(line);
                 if (pathKey.matches()) {
                     path = pathKey.group(1).equals("/")
-                            ? MorpheusHttpServer.API_PREFIX
-                            : MorpheusHttpServer.API_PREFIX + pathKey.group(1);
+                            ? MorpheusHttpRouteTable.API_PREFIX
+                            : MorpheusHttpRouteTable.API_PREFIX + pathKey.group(1);
                     continue;
                 }
                 Matcher operation = OPENAPI_OPERATION.matcher(line);

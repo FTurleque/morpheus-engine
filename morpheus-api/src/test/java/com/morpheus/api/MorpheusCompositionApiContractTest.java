@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.api.local.MorpheusHttpServer;
 import com.morpheus.application.composition.CompositionCandidate;
 import com.morpheus.application.composition.CompositionConflict;
 import com.morpheus.application.composition.CompositionEntityType;

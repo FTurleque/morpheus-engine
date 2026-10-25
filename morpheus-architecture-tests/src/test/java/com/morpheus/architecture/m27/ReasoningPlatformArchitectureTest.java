@@ -1,5 +1,6 @@
 package com.morpheus.architecture.m27;
 
+import com.morpheus.architecture.ProductionSources;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import org.junit.jupiter.api.Test;
 
@@ -67,8 +68,7 @@ class ReasoningPlatformArchitectureTest {
 
     @Test
     void remoteFacadeRegistersReasoningAnalysisAsExplicitReadOnlyPost() throws IOException {
-        String source = Files.readString(repositoryRoot().resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteRoutePolicy.java"));
+        String source = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteRoutePolicy"));
         assertTrue(source.contains(
                 "route(\"reasoning/analyze\", Map.of(POST, MorpheusRemoteRole.READ))"));
         assertTrue(source.contains(

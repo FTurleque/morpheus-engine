@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * sent. The rules below keep a second reader from coming back under any of the three shapes it took.</p>
  */
 class HttpPathReadingArchitectureTest {
-    private static final String API_SOURCES = "morpheus-api/src/main/java/com/morpheus/api";
+    private static final String API_SOURCES = "morpheus-api/src/main/java";
 
     /** The classes that decode a form, where {@code +} is a space by definition, each with what it decodes. */
     private static final Map<String, String> FORM_DECODERS = Map.of(
@@ -78,7 +78,7 @@ class HttpPathReadingArchitectureTest {
     void everyNamedFormDecoderStillDecodesAForm() {
         for (String decoder : FORM_DECODERS.keySet()) {
             classes()
-                    .that().haveFullyQualifiedName("com.morpheus.api." + decoder)
+                    .that().haveSimpleName(decoder).and().resideInAPackage("com.morpheus.api..")
                     .should().dependOnClassesThat().haveFullyQualifiedName("java.net.URLDecoder")
                     .because("an exception that no longer applies is removed from FORM_DECODERS, not kept")
                     .check(classes);
@@ -159,20 +159,23 @@ class HttpPathReadingArchitectureTest {
         Files.writeString(nested.resolve("Nested.java"), "class Nested { String p = uri.getPath(); }");
         Files.writeString(nested.resolve("notes.txt"), "uri.getPath()");
 
-        assertEquals(Set.of("Top.java", "remote/deeper/Nested.java"), sourcesMentioning(directory, ".getPath()"));
+        assertEquals(Set.of("Top.java", "Nested.java"), sourcesMentioning(directory, ".getPath()"));
     }
 
     private static Set<String> sourcesMentioning(String text) throws IOException {
         return sourcesMentioning(repositoryRoot().resolve(API_SOURCES), text);
     }
 
-    /** The Java sources at or below {@code directory} that contain {@code text}, by their path under it. */
+    /**
+     * The Java sources at or below {@code directory} that contain {@code text}, by file name: a class keeps its entry
+     * in the tables above whatever package of the module it resides in.
+     */
     private static Set<String> sourcesMentioning(Path directory, String text) throws IOException {
         Set<String> mentioning = new TreeSet<>();
         try (Stream<Path> sources = Files.walk(directory)) {
             for (Path source : sources.filter(path -> path.toString().endsWith(".java")).toList()) {
                 if (Files.readString(source).contains(text)) {
-                    mentioning.add(directory.relativize(source).toString().replace('\\', '/'));
+                    mentioning.add(source.getFileName().toString());
                 }
             }
         }
@@ -188,7 +191,7 @@ class HttpPathReadingArchitectureTest {
     }
 
     private static String source(String name) throws IOException {
-        return Files.readString(repositoryRoot().resolve(API_SOURCES).resolve(name));
+        return ProductionSources.readMain("morpheus-api", name.substring(0, name.length() - ".java".length()));
     }
 
     private static Path repositoryRoot() {

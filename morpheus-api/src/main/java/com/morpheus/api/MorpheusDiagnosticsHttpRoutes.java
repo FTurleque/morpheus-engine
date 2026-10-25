@@ -1,14 +1,17 @@
 package com.morpheus.api;
 
+import com.morpheus.api.transport.MorpheusHttpQuery;
+import com.morpheus.api.transport.MorpheusHttpRouteGuards;
+import com.morpheus.api.transport.MorpheusHttpRouteResponse;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
 /** Owns local HTTP dispatch for project diagnostics reads. */
-final class MorpheusDiagnosticsHttpRoutes {
+public final class MorpheusDiagnosticsHttpRoutes {
     private final MorpheusDiagnosticsApiService service;
 
-    MorpheusDiagnosticsHttpRoutes(MorpheusApiService facade) {
+    public MorpheusDiagnosticsHttpRoutes(MorpheusApiService facade) {
         this(Objects.requireNonNull(facade, "facade").diagnosticsService());
     }
 
@@ -16,7 +19,7 @@ final class MorpheusDiagnosticsHttpRoutes {
         this.service = Objects.requireNonNull(service, "service");
     }
 
-    MorpheusHttpRouteResponse route(
+    public MorpheusHttpRouteResponse route(
             String method,
             List<String> segments,
             MorpheusHttpQuery query,

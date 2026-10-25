@@ -1,5 +1,10 @@
 package com.morpheus.api;
 
+import com.morpheus.api.transport.ApiFailure;
+import com.morpheus.api.transport.MorpheusHttpQuery;
+import com.morpheus.api.transport.MorpheusHttpRequestDecoder;
+import com.morpheus.api.transport.MorpheusHttpRouteGuards;
+import com.morpheus.api.transport.MorpheusHttpRouteResponse;
 import com.morpheus.application.query.PageRequest;
 import com.sun.net.httpserver.HttpExchange;
 
@@ -8,12 +13,12 @@ import java.util.Objects;
 import java.util.Set;
 
 /** Owns local HTTP dispatch for project requirement reads and augmented context. */
-final class MorpheusRequirementsHttpRoutes {
+public final class MorpheusRequirementsHttpRoutes {
     private final MorpheusRequirementQueryApiService service;
     private final MorpheusAugmentedContextApiService augmentedContextService;
     private final MorpheusHttpRequestDecoder requestDecoder;
 
-    MorpheusRequirementsHttpRoutes(
+    public MorpheusRequirementsHttpRoutes(
             MorpheusApiService facade,
             MorpheusAugmentedContextApiService augmentedContextService,
             MorpheusHttpRequestDecoder requestDecoder) {
@@ -29,7 +34,7 @@ final class MorpheusRequirementsHttpRoutes {
         this.requestDecoder = Objects.requireNonNull(requestDecoder, "requestDecoder");
     }
 
-    MorpheusHttpRouteResponse route(
+    public MorpheusHttpRouteResponse route(
             HttpExchange exchange,
             String method,
             List<String> segments,

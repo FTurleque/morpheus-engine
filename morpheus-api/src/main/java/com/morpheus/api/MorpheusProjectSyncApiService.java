@@ -1,5 +1,7 @@
 package com.morpheus.api;
 
+import com.morpheus.api.transport.ApiFailure;
+import com.morpheus.api.transport.BoundaryFailureMessage;
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.BoundedDiagnostics;
 import com.morpheus.application.ingestion.ObservedProjectSnapshotPublisher;
