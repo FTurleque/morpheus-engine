@@ -163,6 +163,7 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
             } catch (ProviderIngestionLimitException exception) {
                 throw exception;
             } catch (RuntimeException exception) {
+                requireAttributedToASource(exception);
                 state.currentFailed = true;
                 addDistinct(diagnostics, List.of(invalidSource("current", exception)));
             }
@@ -187,6 +188,7 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
             } catch (ProviderIngestionLimitException exception) {
                 throw exception;
             } catch (RuntimeException exception) {
+                requireAttributedToASource(exception);
                 state.changeFailed = true;
                 addDistinct(diagnostics, List.of(invalidSource("changes", exception)));
             }
@@ -220,12 +222,23 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
             } catch (ProviderIngestionLimitException exception) {
                 throw exception;
             } catch (RuntimeException exception) {
+                requireAttributedToASource(exception);
                 state.deltaFailed = true;
                 addDistinct(diagnostics, List.of(invalidSource("requirement-deltas", exception)));
             }
         }
 
         return state;
+    }
+
+    /**
+     * A failure of a file fails its group; any other failure is a defect or a failure of a collaborator such as the
+     * identity store, which no category status describes, and leaves the read.
+     */
+    private static void requireAttributedToASource(RuntimeException exception) {
+        if (!(exception instanceof OpenSpecSourceAttribution.AttributedFailure)) {
+            throw exception;
+        }
     }
 
     private ReadCategoryReport report(ReadCategory category, ProviderProbeResult probe, ReadState state) {

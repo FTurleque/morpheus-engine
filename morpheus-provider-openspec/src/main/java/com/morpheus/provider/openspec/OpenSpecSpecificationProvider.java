@@ -28,6 +28,8 @@ public final class OpenSpecSpecificationProvider implements SpecificationProvide
     public static final ProviderId ID = new ProviderId("openspec");
     public static final String PROVIDER_VERSION = "m1-v1";
     public static final String SUPPORTED_SCHEMA = "spec-driven";
+    /** The directories of a workspace this provider reads, relative to the workspace root. */
+    public static final List<Path> SOURCE_DIRECTORIES = List.of(Path.of("openspec"));
 
     private static final Pattern SCHEMA_PATTERN = Pattern.compile(
             "^schema:\\s*(?:"

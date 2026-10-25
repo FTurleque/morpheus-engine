@@ -29,6 +29,8 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OpenSpecSpecificationContentReaderTest {
@@ -469,6 +471,24 @@ class OpenSpecSpecificationContentReaderTest {
         assertEquals("UncheckedIOException", failure.details().get("exception"));
         assertNamesNoServerLocation(failure);
         assertEquals(ReadCategoryStatus.FAILED, status(result, ReadCategory.CURRENT_SPECIFICATIONS));
+    }
+
+    @Test
+    void aFailureThatIsNotTheFilesLeavesTheReadUnchangedAndFailsNoCategory() {
+        RuntimeException defect = new ArithmeticException("integer overflow");
+        RuntimeException collaborator = new RuntimeException("identity store unavailable");
+        for (RuntimeException failure : List.of(defect, collaborator)) {
+            EntityIdentityResolver failing = (providerId, entityType, externalId) -> {
+                throw failure;
+            };
+            for (Set<ReadCategory> categories : List.of(
+                    EnumSet.of(ReadCategory.CURRENT_SPECIFICATIONS),
+                    EnumSet.of(ReadCategory.CHANGES),
+                    EnumSet.of(ReadCategory.REQUIREMENT_DELTAS))) {
+                assertSame(failure, assertThrows(RuntimeException.class, () -> new OpenSpecSpecificationContentReader()
+                        .read(request(fixture("openspec-basic"), categories), failing)), categories.toString());
+            }
+        }
     }
 
     @Test
