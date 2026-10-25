@@ -27,6 +27,7 @@ import com.morpheus.mcp.MorpheusProductMcpTools;
 import com.morpheus.mcp.MorpheusProviderPluginMcpTools;
 import com.morpheus.mcp.MorpheusQueryMcpTools;
 import com.morpheus.mcp.MorpheusReasoningMcpTools;
+import com.morpheus.mcp.MorpheusRequirementMcpTools;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpServerFeatures;
@@ -38,6 +39,7 @@ import java.io.OutputStream;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -164,8 +166,16 @@ public final class MorpheusMcpServer {
         MorpheusMcpToolService service = new MorpheusMcpToolService(databasePath, recorder);
         List<McpServerFeatures.SyncToolSpecification> tools = new ArrayList<>();
 
+        Map<String, McpServerFeatures.SyncToolSpecification> catalogTools = new LinkedHashMap<>();
+        new MorpheusRequirementMcpTools(databasePath, recorder).specifications()
+                .forEach(specification -> catalogTools.put(specification.tool().name(), specification));
         for (MorpheusMcpToolCatalog.ToolDefinition definition : catalog.tools()) {
-            tools.add(tool(definition, service));
+            McpServerFeatures.SyncToolSpecification extracted = catalogTools.remove(definition.name());
+            tools.add(extracted != null ? extracted : tool(definition, service));
+        }
+        if (!catalogTools.isEmpty()) {
+            throw new IllegalStateException("tools served as catalogue tools but absent from the catalogue: "
+                    + catalogTools.keySet());
         }
         tools.addAll(new MorpheusProductMcpTools().specifications());
         tools.addAll(new MorpheusProviderPluginMcpTools().specifications());

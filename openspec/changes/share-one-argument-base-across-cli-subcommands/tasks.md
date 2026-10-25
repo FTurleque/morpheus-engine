@@ -3,6 +3,13 @@
 Implementation is a separate lot, started after this specification is reviewed. Nothing below is done by the pull request
 that introduces this change.
 
+**Where the targets are.** `give-each-cli-command-and-mcp-tool-a-capability-class` runs first. The capability classes
+of the CLI are in `com.morpheus.cli.command`, beside the shared types this change speaks of (`GlobalArgs`,
+`SimpleOptions`, `OptionValue`, `OptionOccurrence`). The parser and the error line of `MorpheusCli` are there too, once
+each: `CommandOptions` (the private parser `MorpheusCli.CommandOptions` of the counts below) and `CliCommandRun` (the
+error line, the exit-code mapping and `safeMessage` of `MorpheusCli`), which every command extracted from
+`MorpheusCli` uses. The rules of this change are written on `com.morpheus.cli..`, so the move does not change them.
+
 ## 1. Measure before changing
 
 - [ ] 1.0 Search `scripts/`, `.github/workflows/` and `distribution/` for a reader of the CLI's error line. Proof:

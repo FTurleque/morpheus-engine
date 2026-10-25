@@ -3,6 +3,7 @@ package com.morpheus.mcp;
 import com.morpheus.application.ingestion.NormalizedProjectContent;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.constraint.Constraint;
@@ -24,10 +25,13 @@ import com.morpheus.domain.specification.Specification;
 import com.morpheus.domain.specification.SpecificationId;
 import com.morpheus.domain.task.ImplementationTask;
 import com.morpheus.domain.task.TaskId;
+import com.morpheus.mcp.server.MorpheusMcpServer;
 import com.morpheus.store.sqlite.adapter.SqliteSnapshotBusinessContentStore;
 import com.morpheus.store.sqlite.adapter.SqliteSpecificationKnowledgeStore;
 import com.morpheus.store.sqlite.adapter.SqliteTraceabilityStore;
 import com.morpheus.store.sqlite.adapter.SqliteVersionedRequirementStore;
+import io.modelcontextprotocol.server.McpServerFeatures;
+import io.modelcontextprotocol.spec.McpSchema;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -51,7 +55,7 @@ class MorpheusMcpToolServiceTest {
     void executesEntireReadOnlyCatalogWithoutInventingUnavailableSemantics() {
         Path database = tempDirectory.resolve("morpheus.db");
         Fixture fixture = publish(database);
-        MorpheusMcpToolService service = new MorpheusMcpToolService(database, OperationalRecorder.noop());
+        ServedTools service = new ServedTools(database);
         String projectId = fixture.project.id().toString();
         String changeId = fixture.change.id().toString();
 
@@ -101,7 +105,7 @@ class MorpheusMcpToolServiceTest {
     void aBoundedSliceOfSpecificationsIsReturnedForAnOffsetAndALimit() {
         Path database = tempDirectory.resolve("morpheus.db");
         Fixture fixture = publish(database, 3);
-        MorpheusMcpToolService service = new MorpheusMcpToolService(database, OperationalRecorder.noop());
+        ServedTools service = new ServedTools(database);
         String projectId = fixture.project.id().toString();
         List<Specification> ordered = fixture.specifications.stream()
                 .sorted(Comparator.comparing(Specification::id))
@@ -189,6 +193,27 @@ class MorpheusMcpToolServiceTest {
                     .publishFull(content, Optional.of("m15-test"), Instant.parse("2026-07-26T10:00:00Z"));
         }
         return new Fixture(project, List.copyOf(specifications), specification, requirement, scenario, change, constraint, decision, task);
+    }
+
+    /** The tools as the server serves them, called the way the SDK calls them. */
+    private static final class ServedTools {
+        private final List<McpServerFeatures.SyncToolSpecification> specifications;
+
+        private ServedTools(Path database) {
+            this.specifications = MorpheusMcpServer.toolSpecifications(
+                    database,
+                    new ExternalReferenceResolverRegistry(List.of()),
+                    MorpheusMcpServer.unconfiguredTechnicalContext(),
+                    MorpheusMcpServer.deniedWriteCapability(),
+                    OperationalRecorder.noop());
+        }
+
+        String execute(String tool, Map<String, Object> arguments) {
+            McpSchema.CallToolResult result = McpToolCall.call(specifications, tool, arguments);
+            String text = McpToolCall.text(result);
+            assertFalse(result.isError(), () -> tool + " refused: " + text);
+            return text;
+        }
     }
 
     private void assertContains(String actual, String expected) {

@@ -36,14 +36,12 @@ class ServedToolsAreClaimedOnceTest {
     /** The tools {@code MorpheusMcpServer} wraps around {@code MorpheusMcpToolService}. */
     static final Set<String> SERVED_BY_THE_SERVER_CLASS = Set.of(
             "get_current_specification",
-            "find_requirements",
             "get_change",
             "list_changes",
             "get_constraints",
             "get_acceptance_criteria",
             "get_design_decisions",
             "get_implementation_tasks",
-            "trace_requirement",
             "get_change_context",
             "get_specification_context",
             "get_change_status",

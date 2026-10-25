@@ -4,6 +4,10 @@ Implementation is a separate lot, started after this specification is reviewed a
 `build-payload-maps-through-one-checked-builder` is delivered. Nothing below is done by the pull request that
 introduces this change.
 
+**Where the MCP copies are.** `give-each-cli-command-and-mcp-tool-a-capability-class` runs first: the projections of
+`MorpheusMcpToolService` are in one class, `morpheus-mcp/.../mcp/McpContentPayloads.java`, which the MCP capability
+classes call. The MCP side of this change replaces that class; the HTTP copies are where 1.1 lists them.
+
 ## 1. Measure before changing
 
 - [ ] 1.1 Re-list every method of `morpheus-api`, `morpheus-mcp` and `morpheus-cli` that takes one domain value and

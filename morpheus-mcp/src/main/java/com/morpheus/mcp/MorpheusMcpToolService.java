@@ -3,15 +3,11 @@ package com.morpheus.mcp;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.quality.ChangeCompletenessAssessment;
 import com.morpheus.application.quality.ChangeCompletenessService;
-import com.morpheus.application.quality.QualityFinding;
 import com.morpheus.application.query.BusinessContentQueryService;
 import com.morpheus.application.query.ChangeContextQueryService;
 import com.morpheus.application.query.PageRequest;
-import com.morpheus.application.query.RequirementQueryService;
-import com.morpheus.application.query.RequirementSearchQuery;
 import com.morpheus.application.query.SnapshotPage;
 import com.morpheus.application.query.SpecificationContextQueryService;
-import com.morpheus.application.query.TraceRequirementQueryService;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.query.compact.CompactQueryViewService;
 import com.morpheus.application.store.KnowledgeStoreException;
@@ -23,9 +19,6 @@ import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.constraint.Constraint;
 import com.morpheus.domain.decision.DesignDecision;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.domain.requirement.Requirement;
-import com.morpheus.domain.requirement.RequirementId;
-import com.morpheus.domain.scenario.Scenario;
 import com.morpheus.domain.specification.Specification;
 import com.morpheus.domain.specification.SpecificationId;
 import com.morpheus.domain.task.ImplementationTask;
@@ -34,7 +27,6 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -56,14 +48,12 @@ public final class MorpheusMcpToolService {
         try (MorpheusMcpRuntime runtime = new MorpheusMcpRuntime(databasePath, recorder)) {
             Object result = switch (toolName) {
                 case "get_current_specification" -> currentSpecification(runtime, arguments);
-                case "find_requirements" -> findRequirements(runtime, arguments);
                 case "get_change" -> getChange(runtime, arguments);
                 case "list_changes" -> listChanges(runtime, arguments);
                 case "get_constraints" -> constraints(runtime, arguments);
                 case "get_acceptance_criteria" -> acceptanceCriteria(runtime, arguments);
                 case "get_design_decisions" -> decisions(runtime, arguments);
                 case "get_implementation_tasks" -> tasks(runtime, arguments);
-                case "trace_requirement" -> traceRequirement(runtime, arguments);
                 case "get_change_context" -> changeContext(runtime, arguments);
                 case "get_specification_context" -> specificationContext(runtime, arguments);
                 case "get_change_status" -> changeStatus(runtime, arguments);
@@ -76,9 +66,9 @@ public final class MorpheusMcpToolService {
     }
 
     private Object currentSpecification(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
-        ProjectSpecificationId projectId = projectId(arguments);
+        ProjectSpecificationId projectId = McpCatalogTool.projectId(arguments);
         var snapshot = runtime.snapshots().activeSnapshot(projectId)
-                .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
+                .orElseThrow(() -> McpCatalogTool.notFound("project has no ACTIVE snapshot: " + projectId));
         var content = runtime.content().findSnapshotContent(snapshot.id())
                 .orElseThrow(() -> new KnowledgeStoreException(
                         "published snapshot has no business-content projection: " + snapshot.id()));
@@ -86,165 +76,141 @@ public final class MorpheusMcpToolService {
                 .map(binding -> binding.specificationVersionId().toString())
                 .orElse("unknown");
         long currentRequirementCount = runtime.requirements().listCurrentRequirementVersions(snapshot.id()).size();
-        PageRequest pageRequest = page(arguments);
+        PageRequest pageRequest = McpCatalogTool.page(arguments);
         List<Specification> specifications = content.specifications().stream()
                 .sorted(Comparator.comparing(Specification::id))
                 .toList();
-        return map(
+        return McpContentPayloads.map(
                 "projectId", projectId.toString(),
                 "snapshotId", snapshot.id().toString(),
                 "snapshotState", snapshot.state().name(),
                 "specificationVersionId", specificationVersionId,
                 "specifications", PagedEnvelope.slice(
-                        pageRequest.offset(), pageRequest.limit(), specifications, this::specification),
+                        pageRequest.offset(), pageRequest.limit(), specifications, McpContentPayloads::specification),
                 "requirementCount", currentRequirementCount,
                 "scenarioCount", content.scenarios().size(),
                 "changeCount", content.changes().size(),
                 "acceptanceCriterionCount", content.acceptanceCriteria().size());
     }
 
-    private Object findRequirements(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
-        ProjectSpecificationId projectId = projectId(arguments);
-        String queryText = McpArguments.optionalText(arguments, "query").orElse("");
-        PageRequest pageRequest = page(arguments);
-        var result = new RequirementQueryService(runtime.snapshots(), runtime.requirements())
-                .findActive(projectId, new RequirementSearchQuery(queryText), pageRequest)
-                .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
-        return PagedEnvelope.following(
-                map("snapshotId", result.snapshot().id().toString(), "query", queryText),
-                PagedEnvelope.page(result.pageRequest(), result.totalMatches(), result.hasMore(),
-                        result.items().stream().map(item -> requirement(item.entityVersion().content())).toList()));
-    }
-
     private Object getChange(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
-        ProjectSpecificationId projectId = projectId(arguments);
+        ProjectSpecificationId projectId = McpCatalogTool.projectId(arguments);
         ChangeId changeId = ChangeId.parse(McpArguments.requiredString(arguments, "changeId"));
         var result = business(runtime).activeChange(projectId, changeId)
-                .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
-        ChangeProposal change = result.item().orElseThrow(() -> notFound("change not found: " + changeId));
-        return map("snapshotId", result.snapshot().id().toString(), "change", change(change));
+                .orElseThrow(() -> McpCatalogTool.notFound("project has no ACTIVE snapshot: " + projectId));
+        ChangeProposal change = result.item().orElseThrow(() -> McpCatalogTool.notFound("change not found: " + changeId));
+        return McpContentPayloads.map("snapshotId", result.snapshot().id().toString(), "change", McpContentPayloads.change(change));
     }
 
     private Object listChanges(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
-        ProjectSpecificationId projectId = projectId(arguments);
-        SnapshotPage<ChangeProposal> result = business(runtime).listActiveChanges(projectId, page(arguments))
-                .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
-        return page(result, result.items().stream().map(this::change).toList());
+        ProjectSpecificationId projectId = McpCatalogTool.projectId(arguments);
+        SnapshotPage<ChangeProposal> result = business(runtime).listActiveChanges(projectId, McpCatalogTool.page(arguments))
+                .orElseThrow(() -> McpCatalogTool.notFound("project has no ACTIVE snapshot: " + projectId));
+        return McpContentPayloads.page(result, result.items().stream().map(McpContentPayloads::change).toList());
     }
 
     private Object constraints(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
-        ProjectSpecificationId projectId = projectId(arguments);
+        ProjectSpecificationId projectId = McpCatalogTool.projectId(arguments);
         ChangeId changeId = ChangeId.parse(McpArguments.requiredString(arguments, "changeId"));
         requireChange(runtime, projectId, changeId);
-        SnapshotPage<Constraint> result = business(runtime).activeConstraints(projectId, changeId, page(arguments))
-                .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
-        return page(result, result.items().stream().map(this::constraint).toList());
+        SnapshotPage<Constraint> result = business(runtime).activeConstraints(projectId, changeId, McpCatalogTool.page(arguments))
+                .orElseThrow(() -> McpCatalogTool.notFound("project has no ACTIVE snapshot: " + projectId));
+        return McpContentPayloads.page(result, result.items().stream().map(McpContentPayloads::constraint).toList());
     }
 
     private Object acceptanceCriteria(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
-        ProjectSpecificationId projectId = projectId(arguments);
+        ProjectSpecificationId projectId = McpCatalogTool.projectId(arguments);
         ChangeId changeId = ChangeId.parse(McpArguments.requiredString(arguments, "changeId"));
         requireChange(runtime, projectId, changeId);
         SnapshotPage<AcceptanceCriterion> result = business(runtime)
-                .activeAcceptanceCriteriaForChange(projectId, changeId, page(arguments))
-                .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
-        return page(result, result.items().stream().map(this::acceptanceCriterion).toList());
+                .activeAcceptanceCriteriaForChange(projectId, changeId, McpCatalogTool.page(arguments))
+                .orElseThrow(() -> McpCatalogTool.notFound("project has no ACTIVE snapshot: " + projectId));
+        return McpContentPayloads.page(result, result.items().stream().map(McpContentPayloads::acceptanceCriterion).toList());
     }
 
     private Object decisions(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
-        ProjectSpecificationId projectId = projectId(arguments);
+        ProjectSpecificationId projectId = McpCatalogTool.projectId(arguments);
         ChangeId changeId = ChangeId.parse(McpArguments.requiredString(arguments, "changeId"));
         requireChange(runtime, projectId, changeId);
-        SnapshotPage<DesignDecision> result = business(runtime).activeDesignDecisions(projectId, changeId, page(arguments))
-                .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
-        return page(result, result.items().stream().map(this::decision).toList());
+        SnapshotPage<DesignDecision> result = business(runtime).activeDesignDecisions(projectId, changeId, McpCatalogTool.page(arguments))
+                .orElseThrow(() -> McpCatalogTool.notFound("project has no ACTIVE snapshot: " + projectId));
+        return McpContentPayloads.page(result, result.items().stream().map(McpContentPayloads::decision).toList());
     }
 
     private Object tasks(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
-        ProjectSpecificationId projectId = projectId(arguments);
+        ProjectSpecificationId projectId = McpCatalogTool.projectId(arguments);
         ChangeId changeId = ChangeId.parse(McpArguments.requiredString(arguments, "changeId"));
         requireChange(runtime, projectId, changeId);
-        SnapshotPage<ImplementationTask> result = business(runtime).activeImplementationTasks(projectId, changeId, page(arguments))
-                .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
-        return page(result, result.items().stream().map(this::task).toList());
-    }
-
-    private Object traceRequirement(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
-        ProjectSpecificationId projectId = projectId(arguments);
-        RequirementId requirementId = RequirementId.parse(McpArguments.requiredString(arguments, "requirementId"));
-        int depth = McpArguments.optionalInt(arguments, "depth", MorpheusMcpToolCatalog.DEFAULT_DEPTH, 1, MorpheusMcpToolCatalog.MAX_DEPTH);
-        var result = new TraceRequirementQueryService(
-                runtime.snapshots(), runtime.requirements(), runtime.traceability(), runtime.externalReferences())
-                .active(projectId, requirementId, depth, java.util.Set.of())
-                .orElseThrow(() -> notFound("requirement or ACTIVE snapshot not found: " + requirementId));
-        return json.toJson(new CompactQueryViewService(runtime.content()).traceRequirement(result));
+        SnapshotPage<ImplementationTask> result = business(runtime).activeImplementationTasks(projectId, changeId, McpCatalogTool.page(arguments))
+                .orElseThrow(() -> McpCatalogTool.notFound("project has no ACTIVE snapshot: " + projectId));
+        return McpContentPayloads.page(result, result.items().stream().map(McpContentPayloads::task).toList());
     }
 
     private Object changeContext(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
-        ProjectSpecificationId projectId = projectId(arguments);
+        ProjectSpecificationId projectId = McpCatalogTool.projectId(arguments);
         ChangeId changeId = ChangeId.parse(McpArguments.requiredString(arguments, "changeId"));
         int depth = McpArguments.optionalInt(arguments, "depth", MorpheusMcpToolCatalog.DEFAULT_DEPTH, 1, MorpheusMcpToolCatalog.MAX_DEPTH);
         var result = new ChangeContextQueryService(
                 runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability(), runtime.externalReferences())
                 .active(projectId, changeId, depth, java.util.Set.of())
-                .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
+                .orElseThrow(() -> McpCatalogTool.notFound("project has no ACTIVE snapshot: " + projectId));
         if (result.change().isEmpty()) {
-            throw notFound("change not found: " + changeId);
+            throw McpCatalogTool.notFound("change not found: " + changeId);
         }
         return json.toJson(new CompactQueryViewService(runtime.content()).changeContext(result));
     }
 
     private Object specificationContext(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
-        ProjectSpecificationId projectId = projectId(arguments);
+        ProjectSpecificationId projectId = McpCatalogTool.projectId(arguments);
         SpecificationId specificationId = SpecificationId.parse(McpArguments.requiredString(arguments, "specificationId"));
         var result = new SpecificationContextQueryService(
                 runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability())
-                .active(projectId, specificationId, page(arguments))
-                .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
-        return map(
+                .active(projectId, specificationId, McpCatalogTool.page(arguments))
+                .orElseThrow(() -> McpCatalogTool.notFound("project has no ACTIVE snapshot: " + projectId));
+        return McpContentPayloads.map(
                 "snapshotId", result.snapshot().id().toString(),
-                "specification", specification(result.specification()),
-                "requirements", page(result.requirements(), result.requirements().items().stream().map(this::requirement).toList()),
-                "scenarios", result.scenarios().stream().map(this::scenario).toList(),
-                "changes", result.changes().stream().map(this::change).toList());
+                "specification", McpContentPayloads.specification(result.specification()),
+                "requirements", McpContentPayloads.page(result.requirements(), result.requirements().items().stream().map(McpContentPayloads::requirement).toList()),
+                "scenarios", result.scenarios().stream().map(McpContentPayloads::scenario).toList(),
+                "changes", result.changes().stream().map(McpContentPayloads::change).toList());
     }
 
     private Object changeStatus(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
-        ProjectSpecificationId projectId = projectId(arguments);
+        ProjectSpecificationId projectId = McpCatalogTool.projectId(arguments);
         ChangeId changeId = ChangeId.parse(McpArguments.requiredString(arguments, "changeId"));
         ChangeCompletenessAssessment assessment = completeness(runtime, projectId, changeId);
-        return map(
+        return McpContentPayloads.map(
                 "snapshotId", activeSnapshotId(runtime, projectId),
                 "changeId", changeId.toString(),
                 "status", "UNAVAILABLE_REQUIRES_EXPLICIT_LIFECYCLE_INPUT",
                 "lifecycleState", "UNAVAILABLE",
-                "observableFacts", lifecycleFacts(assessment),
+                "observableFacts", McpContentPayloads.lifecycleFacts(assessment),
                 "reason", "Published snapshot content does not persist an explicit ChangeLifecycle state; MORPHEUS does not infer it.");
     }
 
     private Object blockingConditions(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
-        ProjectSpecificationId projectId = projectId(arguments);
+        ProjectSpecificationId projectId = McpCatalogTool.projectId(arguments);
         ChangeId changeId = ChangeId.parse(McpArguments.requiredString(arguments, "changeId"));
         ChangeCompletenessAssessment assessment = completeness(runtime, projectId, changeId);
-        return map(
+        return McpContentPayloads.map(
                 "snapshotId", activeSnapshotId(runtime, projectId),
                 "changeId", changeId.toString(),
                 "currentRequirementCount", assessment.currentRequirementCount(),
                 "constraintCount", assessment.constraintCount(),
                 "designDecisionCount", assessment.designDecisionCount(),
                 "implementationTaskCount", assessment.implementationTaskCount(),
-                "observableFacts", lifecycleFacts(assessment),
+                "observableFacts", McpContentPayloads.lifecycleFacts(assessment),
                 "unavailableFacts", assessment.lifecycleFacts().unavailableFacts(),
-                "findings", assessment.findings().stream().map(this::finding).toList());
+                "findings", assessment.findings().stream().map(McpContentPayloads::finding).toList());
     }
 
     private Object syncStatus(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
-        ProjectSpecificationId projectId = projectId(arguments);
+        ProjectSpecificationId projectId = McpCatalogTool.projectId(arguments);
         long maxAgeMinutes = McpArguments.optionalInteger(arguments, "maxAgeMinutes", MorpheusMcpToolCatalog.DEFAULT_MAX_AGE_MINUTES,
                 1L, MorpheusMcpToolCatalog.MAX_MAX_AGE_MINUTES);
         SyncFreshness freshness = new SyncFreshnessService(runtime.syncState())
                 .assess(projectId, Instant.now(), Duration.ofMinutes(maxAgeMinutes));
-        return map(
+        return McpContentPayloads.map(
                 "projectId", projectId.toString(),
                 "state", freshness.state().name(),
                 "lastSuccessfulSyncAt", freshness.lastSuccessfulSyncAt().map(Instant::toString).orElse("unknown"),
@@ -263,9 +229,9 @@ public final class MorpheusMcpToolService {
     private com.morpheus.application.query.SnapshotItemResult<ChangeProposal> requireChange(
             MorpheusMcpRuntime runtime, ProjectSpecificationId projectId, ChangeId changeId) {
         var result = business(runtime).activeChange(projectId, changeId)
-                .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
+                .orElseThrow(() -> McpCatalogTool.notFound("project has no ACTIVE snapshot: " + projectId));
         if (result.item().isEmpty()) {
-            throw notFound("change not found: " + changeId);
+            throw McpCatalogTool.notFound("change not found: " + changeId);
         }
         return result;
     }
@@ -275,141 +241,17 @@ public final class MorpheusMcpToolService {
         var report = new ChangeCompletenessService(
                 runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability())
                 .assessActive(projectId)
-                .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId));
+                .orElseThrow(() -> McpCatalogTool.notFound("project has no ACTIVE snapshot: " + projectId));
         return report.changes().stream()
                 .filter(item -> item.change().id().equals(changeId))
                 .findFirst()
-                .orElseThrow(() -> notFound("change not found: " + changeId));
+                .orElseThrow(() -> McpCatalogTool.notFound("change not found: " + changeId));
     }
 
     private String activeSnapshotId(MorpheusMcpRuntime runtime, ProjectSpecificationId projectId) {
         return runtime.snapshots().activeSnapshot(projectId)
-                .orElseThrow(() -> notFound("project has no ACTIVE snapshot: " + projectId))
+                .orElseThrow(() -> McpCatalogTool.notFound("project has no ACTIVE snapshot: " + projectId))
                 .id().toString();
     }
 
-    private PageRequest page(Map<String, Object> arguments) {
-        return new PageRequest(
-                McpArguments.optionalInt(arguments, "offset", 0, 0, 1_000_000),
-                McpArguments.optionalInt(arguments, "limit", MorpheusMcpToolCatalog.DEFAULT_LIMIT, 1, MorpheusMcpToolCatalog.MAX_LIMIT));
-    }
-
-    private ProjectSpecificationId projectId(Map<String, Object> arguments) {
-        return ProjectSpecificationId.parse(McpArguments.requiredString(arguments, "projectId"));
-    }
-
-
-    private Object page(SnapshotPage<?> page, List<?> items) {
-        return PagedEnvelope.snapshotPage(page, items);
-    }
-
-    private Object specification(Specification item) {
-        return map(
-                "id", item.id().toString(),
-                "projectId", item.projectId().toString(),
-                "key", item.key(),
-                "title", item.title(),
-                "description", item.description().orElse(""));
-    }
-
-    private Object requirement(Requirement item) {
-        return map(
-                "id", item.id().toString(),
-                "specificationId", item.specificationId().toString(),
-                "key", item.key().orElse(""),
-                "title", item.title(),
-                "statement", item.statement());
-    }
-
-    private Object change(ChangeProposal item) {
-        return map(
-                "id", item.id().toString(),
-                "projectId", item.projectId().toString(),
-                "key", item.key().orElse(""),
-                "title", item.title(),
-                "intent", item.intent(),
-                "scope", item.scope(),
-                "outOfScope", item.outOfScope(),
-                "risks", item.risks());
-    }
-
-    private Object constraint(Constraint item) {
-        return map("id", item.id().toString(), "changeId", item.changeId().toString(), "statement", item.statement());
-    }
-
-    private Object acceptanceCriterion(AcceptanceCriterion item) {
-        return map(
-                "id", item.id().toString(),
-                "requirementId", item.requirementId().map(Object::toString).orElse(""),
-                "changeId", item.changeId().map(Object::toString).orElse(""),
-                "title", item.title(),
-                "condition", item.condition(),
-                "verificationStatus", item.verificationStatus().name(),
-                "verificationEvidenceIds", item.verificationEvidenceIds().stream().map(Object::toString).toList(),
-                "sourceEvidenceId", item.provenance().evidenceId().toString());
-    }
-
-    private Object decision(DesignDecision item) {
-        return map(
-                "id", item.id().toString(), "changeId", item.changeId().toString(),
-                "title", item.title(), "decision", item.decision());
-    }
-
-    private Object task(ImplementationTask item) {
-        return map(
-                "id", item.id().toString(), "changeId", item.changeId().toString(),
-                "key", item.key().orElse(""), "title", item.title(), "completed", item.completed());
-    }
-
-    private Object scenario(Scenario item) {
-        return map(
-                "id", item.id().toString(),
-                "requirementId", item.requirementId().map(Object::toString).orElse(""),
-                "title", item.title(),
-                "preconditions", item.preconditions(),
-                "action", item.action(),
-                "expectedOutcome", item.expectedOutcome());
-    }
-
-    private Object lifecycleFacts(ChangeCompletenessAssessment assessment) {
-        var facts = assessment.lifecycleFacts();
-        return map(
-                "requirementsIdentified", facts.requirementsIdentified().name(),
-                "criticalConstraintsKnown", facts.criticalConstraintsKnown().name(),
-                "acceptanceCriteriaDefined", facts.acceptanceCriteriaDefined().name(),
-                "designRequired", facts.designRequired().name(),
-                "designDecisionsAvailable", facts.designDecisionsAvailable().name(),
-                "planPresent", facts.planPresent().name(),
-                "knownBlocker", facts.knownBlocker().name(),
-                "blockingAcceptanceCriterionFailed", facts.blockingAcceptanceCriterionFailed().name(),
-                "blockingAcceptanceCriterionUnverified", facts.blockingAcceptanceCriterionUnverified().name());
-    }
-
-    private Object finding(QualityFinding finding) {
-        return map(
-                "code", finding.code().name(),
-                "severity", finding.severity().name(),
-                "evidenceKind", finding.evidenceKind().name(),
-                "subjectKind", finding.subject().kind().name(),
-                "subjectId", finding.subject().identity().toString(),
-                "message", finding.message(),
-                "details", finding.details(),
-                "confidence", finding.confidence().map(Object::toString).orElse(""),
-                "evidenceIds", finding.evidenceIds().stream().map(Object::toString).toList());
-    }
-
-    private Map<String, Object> map(Object... entries) {
-        if (entries.length % 2 != 0) {
-            throw new IllegalArgumentException("map entries must be key/value pairs");
-        }
-        Map<String, Object> result = new LinkedHashMap<>();
-        for (int index = 0; index < entries.length; index += 2) {
-            result.put((String) entries[index], Objects.requireNonNull(entries[index + 1], "map value"));
-        }
-        return Map.copyOf(result);
-    }
-
-    private KnowledgeStoreException notFound(String message) {
-        return new KnowledgeStoreException(message);
-    }
 }

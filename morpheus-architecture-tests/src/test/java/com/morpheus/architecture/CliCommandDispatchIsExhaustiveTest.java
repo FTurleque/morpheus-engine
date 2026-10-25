@@ -47,13 +47,11 @@ class CliCommandDispatchIsExhaustiveTest {
             "projects add",
             "sync",
             "sync-status",
-            "requirements find",
             "changes list",
             "changes get",
             "constraints list",
             "decisions list",
             "tasks list",
-            "trace-requirement",
             "change-context",
             "analyze-change",
             "quality");

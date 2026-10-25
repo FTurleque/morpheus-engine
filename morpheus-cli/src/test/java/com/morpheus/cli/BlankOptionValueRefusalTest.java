@@ -271,7 +271,7 @@ class BlankOptionValueRefusalTest {
 
     private static List<Invocation> invocations() {
         List<Invocation> invocations = new ArrayList<>();
-        // MorpheusCli.CommandOptions, and GlobalArgs for the three layout options.
+        // CommandOptions, and GlobalArgs for the three layout options.
         add(invocations, "--data-dir", "--data-dir", B, "paths");
         add(invocations, "--config-dir", "--data-dir", DATA, "--config-dir", B, "paths");
         add(invocations, "--db", "--data-dir", DATA, "--db", B, "paths");

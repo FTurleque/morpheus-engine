@@ -16,7 +16,7 @@ files: ["docs/user/CLI.md", "morpheus-cli/src/main/java/com/morpheus/cli/command
 
 La CLI est une surface publique scriptée : un pipeline ne lit souvent que son code de sortie, et `docs/user/CLI.md`
 prescrit de lever sur tout code non nul. Plusieurs familles de parseurs coexistent dans `morpheus-cli` (`SimpleOptions`,
-`MorpheusCli.CommandOptions`, des `Options` propres à un adaptateur, des parseurs fermés par `switch`, des parseurs ad hoc
+`CommandOptions`, des `Options` propres à un adaptateur, des parseurs fermés par `switch`, des parseurs ad hoc
 et les parseurs de lancement `ApiLaunchOptions`, `McpLaunchOptions`, `RemoteApiLaunchOptions`). Une famille qui
 traite une invocation fautive autrement qu'une autre fait qu'une option mal orthographiée, vide ou répétée produit un
 résultat calculé sur la mauvaise population, avec le code `0`, ou un fichier de base créé avant le refus.
