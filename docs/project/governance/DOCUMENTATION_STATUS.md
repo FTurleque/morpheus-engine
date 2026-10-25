@@ -143,7 +143,7 @@ MORPHEUS Security          OWASP Dependency-Check
 MORPHEUS CodeQL            security-extended
 Surefire written ratchet   >= 2600
 Surefire generated ratchet >= 1574
-Architecture ratchet       >= 762
+Architecture ratchet       >= 769
 Aggregate line ratchet     >= 90.0%
 Aggregate branch ratchet   >= 75.7%
 Per-module line ratchet    >= 69.1%

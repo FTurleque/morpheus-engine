@@ -25,7 +25,7 @@ Baseline active :
 ```text
 Tests written      >= 2600 PASS
 Tests generated    >= 1574 PASS
-Architecture       >= 762 PASS
+Architecture       >= 769 PASS
 Reactor            18/18 SUCCESS
 Windows            PASS
 Linux              PASS

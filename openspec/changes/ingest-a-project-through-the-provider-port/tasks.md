@@ -96,7 +96,9 @@
       OpenSpecChangeMetadataReader.<init>() in (MorpheusProjectSyncApiService.java:33)"; `Path.of("openspec")` in
       `MorpheusPathsCli`: "a transport names a directory a provider reads ... MorpheusPathsCli.java="openspec"".*
 - [x] 4.4 `AdapterCompositionRootArchitectureTest` unchanged and green: the list did not grow. Proof: the diff.
-- [ ] 4.5 Raise `architectureTestsMinimum` for the added executions (`coverage-ratchet`). Proof: the coherence tests.
+- [x] 4.5 Raise `architectureTestsMinimum` for the added executions (`coverage-ratchet`). Proof: the coherence tests.
+      *762 to 769: 779 architecture executions on Windows and Linux at the head of this change, ten under the
+      measure, as the previous raise.*
 
 ## 5. Verification
 

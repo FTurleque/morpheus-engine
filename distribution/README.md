@@ -170,7 +170,7 @@ Ratchets :
 ```text
 Surefire written     >= 2600
 Surefire generated   >= 1574
-architecture         >= 762
+architecture         >= 769
 aggregate line coverage    >= 90.0%
 aggregate branch coverage  >= 75.7%
 per-module line coverage   >= 69.1%
