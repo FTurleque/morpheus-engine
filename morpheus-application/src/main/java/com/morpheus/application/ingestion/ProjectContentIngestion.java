@@ -9,6 +9,7 @@ import com.morpheus.application.read.ReadCategoryStatus;
 import com.morpheus.application.read.SpecificationContentReader;
 import com.morpheus.domain.diagnostic.Diagnostic;
 import com.morpheus.domain.diagnostic.DiagnosticCode;
+import com.morpheus.domain.diagnostic.DiagnosticSeverity;
 import com.morpheus.domain.project.ProjectSpecificationId;
 
 import java.nio.file.Path;
@@ -24,10 +25,12 @@ import java.util.Set;
 /**
  * Reads the content of a project through the provider port, and keeps it only when a publication may store it.
  *
- * <p>The content is publishable when the provider returned it and no requested category was {@code FAILED} or
- * {@code PARTIAL}; a missing report counts as an unread category. A category the provider cannot carry
- * ({@code UNSUPPORTED}) does not make the read incomplete: the content is published, and a warning names the category
- * when the provider's own diagnostics do not.</p>
+ * <p>The content is publishable when the provider returned it and no requested category was {@code FAILED}, or
+ * {@code PARTIAL} because a source was rejected ({@link DiagnosticCode#INVALID_SOURCE} among the codes of its report);
+ * a missing report counts as an unread category. A category read partially for another reason, such as a requirement
+ * the provider could not normalize, is published with the diagnostics that name what was left out. A category the
+ * provider cannot carry ({@code UNSUPPORTED}) is published too, and a warning names it when the provider's own
+ * diagnostics do not.</p>
  */
 public final class ProjectContentIngestion {
     /** The categories a publication stores. */
@@ -65,19 +68,33 @@ public final class ProjectContentIngestion {
             if (!PUBLISHED_CATEGORIES.contains(category)) {
                 continue;
             }
-            Optional<ReadCategoryStatus> status = result.report(category).map(ReadCategoryReport::status);
-            if (status.isEmpty()) {
-                unread.add(new IncompleteProjectReadException.UnreadCategory(category, status));
-            } else if (status.get() == ReadCategoryStatus.FAILED || status.get() == ReadCategoryStatus.PARTIAL) {
-                unread.add(new IncompleteProjectReadException.UnreadCategory(category, status));
-            } else if (status.get() == ReadCategoryStatus.UNSUPPORTED) {
+            Optional<ReadCategoryReport> report = result.report(category);
+            if (report.isEmpty() || refuses(report.get())) {
+                unread.add(new IncompleteProjectReadException.UnreadCategory(
+                        category, report.map(ReadCategoryReport::status)));
+            } else if (report.get().status() == ReadCategoryStatus.UNSUPPORTED) {
                 unsupported.add(category);
             }
         }
         if (result.content().isEmpty() || !unread.isEmpty()) {
-            throw new IncompleteProjectReadException(result.providerId(), result.content().isPresent(), unread);
+            throw new IncompleteProjectReadException(
+                    result.providerId(), result.content().isPresent(), unread, errorsOf(result));
         }
         return namingUnsupported(result, result.content().get(), unsupported);
+    }
+
+    private static boolean refuses(ReadCategoryReport report) {
+        return report.status() == ReadCategoryStatus.FAILED
+                || report.status() == ReadCategoryStatus.PARTIAL
+                && report.diagnosticCodes().contains(DiagnosticCode.INVALID_SOURCE);
+    }
+
+    private static List<String> errorsOf(ProviderReadResult result) {
+        return result.diagnostics().stream()
+                .filter(diagnostic -> diagnostic.severity() == DiagnosticSeverity.ERROR)
+                .map(Diagnostic::message)
+                .distinct()
+                .toList();
     }
 
     private static NormalizedProjectContent namingUnsupported(

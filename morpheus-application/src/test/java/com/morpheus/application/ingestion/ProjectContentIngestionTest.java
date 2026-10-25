@@ -73,16 +73,51 @@ class ProjectContentIngestionTest {
     }
 
     @Test
-    void aPartialCategoryRefusesThePublication() {
+    void aCategoryPartialBecauseASourceWasRejectedRefusesThePublicationAndRelaysTheProviderErrors() {
         Map<ReadCategory, ReadCategoryStatus> statuses = allPublished(ReadCategoryStatus.READ);
-        statuses.put(ReadCategory.SCENARIOS, ReadCategoryStatus.PARTIAL);
+        statuses.put(ReadCategory.CHANGES, ReadCategoryStatus.PARTIAL);
+        List<Diagnostic> errors = List.of(
+                Diagnostic.error(DiagnosticCode.INVALID_SOURCE, "openspec/changes/a/proposal.md: no intent", Map.of()),
+                Diagnostic.warning(DiagnosticCode.PARTIAL_INGESTION, "a warning is not relayed", Map.of()));
 
         IncompleteProjectReadException refused = assertThrows(IncompleteProjectReadException.class,
-                () -> new ProjectContentIngestion(reader(Optional.of(content(List.of())), statuses, null))
+                () -> new ProjectContentIngestion(reader(Optional.of(content(List.of())), statuses,
+                        Map.of(ReadCategory.CHANGES, List.of(DiagnosticCode.PARTIAL_INGESTION, DiagnosticCode.INVALID_SOURCE)),
+                        errors, null))
                         .read(WORKSPACE, PROJECT, RESOLVER));
 
-        assertEquals("project read is incomplete, nothing was published: provider fake did not read SCENARIOS=PARTIAL",
-                refused.getMessage());
+        assertEquals("project read is incomplete, nothing was published: provider fake did not read CHANGES=PARTIAL; "
+                + "errors: openspec/changes/a/proposal.md: no intent", refused.getMessage());
+    }
+
+    @Test
+    void aCategoryPartialForAnotherReasonIsPublishedWithItsDiagnostics() {
+        Map<ReadCategory, ReadCategoryStatus> statuses = allPublished(ReadCategoryStatus.READ);
+        statuses.put(ReadCategory.REQUIREMENT_DELTAS, ReadCategoryStatus.PARTIAL);
+        Diagnostic skipped = Diagnostic.warning(DiagnosticCode.PARTIAL_INGESTION, "skipped requirement", Map.of());
+        NormalizedProjectContent content = content(List.of(skipped));
+
+        NormalizedProjectContent published = new ProjectContentIngestion(reader(Optional.of(content), statuses,
+                Map.of(ReadCategory.REQUIREMENT_DELTAS, List.of(DiagnosticCode.PARTIAL_INGESTION)), List.of(), null))
+                .read(WORKSPACE, PROJECT, RESOLVER);
+
+        assertSame(content, published);
+    }
+
+    @Test
+    void theRefusalRelaysAtMostFiveDistinctErrorsAndCountsTheRest() {
+        List<Diagnostic> errors = new ArrayList<>();
+        for (int index = 1; index <= 7; index++) {
+            errors.add(Diagnostic.error(DiagnosticCode.INVALID_SOURCE, "error " + index, Map.of()));
+        }
+        errors.add(Diagnostic.error(DiagnosticCode.INVALID_SOURCE, "error 1", Map.of("again", "yes")));
+
+        IncompleteProjectReadException refused = assertThrows(IncompleteProjectReadException.class,
+                () -> new ProjectContentIngestion(reader(Optional.empty(), allPublished(ReadCategoryStatus.ABSENT),
+                        Map.of(), errors, null)).read(WORKSPACE, PROJECT, RESOLVER));
+
+        assertEquals("project read is incomplete, nothing was published: provider fake returned no content; "
+                + "errors: error 1; error 2; error 3; error 4; error 5; and 2 more", refused.getMessage());
     }
 
     @Test
@@ -169,6 +204,15 @@ class ProjectContentIngestionTest {
             Optional<NormalizedProjectContent> content,
             Map<ReadCategory, ReadCategoryStatus> statuses,
             AtomicReference<ProviderReadRequest> asked) {
+        return reader(content, statuses, Map.of(), List.of(), asked);
+    }
+
+    private static SpecificationContentReader reader(
+            Optional<NormalizedProjectContent> content,
+            Map<ReadCategory, ReadCategoryStatus> statuses,
+            Map<ReadCategory, List<DiagnosticCode>> codes,
+            List<Diagnostic> diagnostics,
+            AtomicReference<ProviderReadRequest> asked) {
         return new SpecificationContentReader() {
             @Override
             public ProviderId providerId() {
@@ -181,8 +225,9 @@ class ProjectContentIngestionTest {
                     asked.set(request);
                 }
                 List<ReadCategoryReport> reports = new ArrayList<>();
-                statuses.forEach((category, status) -> reports.add(ReadCategoryReport.of(category, status, 0)));
-                return new ProviderReadResult(PROVIDER, content, reports, List.of());
+                statuses.forEach((category, status) -> reports.add(new ReadCategoryReport(
+                        category, status, 0, codes.getOrDefault(category, List.of()), Optional.empty())));
+                return new ProviderReadResult(PROVIDER, content, reports, diagnostics);
             }
         };
     }

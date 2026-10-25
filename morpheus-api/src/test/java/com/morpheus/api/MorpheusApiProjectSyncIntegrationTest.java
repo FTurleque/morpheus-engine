@@ -137,7 +137,7 @@ class MorpheusApiProjectSyncIntegrationTest {
     }
 
     @Test
-    void aSyncRefusedForInvalidContentIsABadRequestThatNamesTheFileRelativeToTheWorkspace() throws IOException {
+    void aSyncRefusedForInvalidContentIsTheDeclaredConflictThatNamesTheFileRelativeToTheWorkspace() throws IOException {
         Path database = tempDirectory.resolve("invalid-content.db");
         Path workspace = Files.createDirectories(tempDirectory.resolve("untitled-openspec"));
         Files.createDirectories(workspace.resolve("openspec/specs/broken"));
@@ -155,10 +155,62 @@ class MorpheusApiProjectSyncIntegrationTest {
 
             ApiTestSupport.Response refused = http.post(server, "/projects/" + projectId + "/sync");
 
-            assertEquals(400, refused.status(), refused.body());
+            assertEquals(409, refused.status(), refused.body());
+            assertTrue(refused.body().contains("\"code\":\"STATE_CONFLICT\""), refused.body());
+            assertTrue(refused.body().contains("provider openspec did not read CURRENT_SPECIFICATIONS=FAILED, "
+                    + "REQUIREMENTS=FAILED, SCENARIOS=FAILED"), refused.body());
             assertTrue(refused.body().contains(
                     "openspec/specs/broken/spec.md: OpenSpec specification has no title"), refused.body());
             assertFalse(refused.body().contains(workspace.toString()), refused.body());
+        }
+    }
+
+    @Test
+    void aSyncWhoseChangesCannotBeReadIsRefusedByNameAndLeavesTheActiveSnapshot() throws IOException {
+        Path database = tempDirectory.resolve("unreadable-changes.db");
+        Path workspace = http.copyFixture("openspec-basic", tempDirectory.resolve("unreadable-changes"));
+
+        try (MorpheusHttpServer server = MorpheusHttpServer.start(database, "127.0.0.1", 0)) {
+            ApiTestSupport.Response created = http.postJson(
+                    server, "/projects", "{\"workspace\":" + http.jsonString(workspace.toString()) + "}");
+            String projectId = http.field(created.body(), "projectId");
+            ApiTestSupport.Response published = http.post(server, "/projects/" + projectId + "/sync");
+            assertEquals(200, published.status(), published.body());
+            String activeSnapshotId = http.field(published.body(), "snapshotId");
+
+            Files.delete(workspace.resolve("openspec/changes/add-remember-me/proposal.md"));
+            ApiTestSupport.Response refused = http.post(server, "/projects/" + projectId + "/sync");
+
+            assertEquals(409, refused.status(), refused.body());
+            assertTrue(refused.body().contains("project read is incomplete, nothing was published: provider openspec "
+                    + "did not read CHANGES=FAILED, REQUIREMENT_DELTAS=FAILED, CONSTRAINTS=FAILED, "
+                    + "DESIGN_DECISIONS=FAILED, IMPLEMENTATION_TASKS=FAILED"), refused.body());
+            assertFalse(refused.body().contains(workspace.toString()), refused.body());
+            ApiTestSupport.Response project = http.get(server, "/projects/" + projectId);
+            assertTrue(project.body().contains(activeSnapshotId), project.body());
+        }
+    }
+
+    @Test
+    void aSyncOfAWorkspaceWithoutAnyChangePublishesItsSpecifications() throws IOException {
+        Path database = tempDirectory.resolve("no-change.db");
+        Path workspace = http.copyFixture("openspec-basic", tempDirectory.resolve("no-change"));
+        try (var paths = Files.walk(workspace.resolve("openspec/changes"))) {
+            for (Path path : paths.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                Files.delete(path);
+            }
+        }
+
+        try (MorpheusHttpServer server = MorpheusHttpServer.start(database, "127.0.0.1", 0)) {
+            ApiTestSupport.Response created = http.postJson(
+                    server, "/projects", "{\"workspace\":" + http.jsonString(workspace.toString()) + "}");
+            String projectId = http.field(created.body(), "projectId");
+
+            ApiTestSupport.Response sync = http.post(server, "/projects/" + projectId + "/sync");
+
+            assertEquals(200, sync.status(), sync.body());
+            assertTrue(sync.body().contains("\"published\":true"), sync.body());
+            assertTrue(sync.body().contains("\"requirementCount\":2"), sync.body());
         }
     }
 
@@ -264,8 +316,9 @@ class MorpheusApiProjectSyncIntegrationTest {
             List<String> keys = new ArrayList<>();
             data.propertyNames().forEach(keys::add);
             assertEquals(new TreeSet<>(publishedRequired("SyncResult")), new TreeSet<>(keys), body);
-            assertEquals(3, data.get("diagnostics").get("items").size(), body);
-            assertTrue(body.contains("\"diagnosticCount\":3"), body);
+            assertEquals(4, data.get("diagnostics").get("items").size(), body);
+            assertTrue(body.contains("\"diagnosticCount\":4"), body);
+            assertTrue(body.contains("\"message\":\"Requested content was only partially normalized\""), body);
             assertFalse(body.contains("TCP"), "the remote projection must drop a title that reads as a path: " + body);
             assertTrue(body.contains("\"code\":\"PARTIAL_INGESTION\""), body);
             assertTrue(body.contains("\"requirement\":\"Keep the audit trail\""), body);

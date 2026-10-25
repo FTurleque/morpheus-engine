@@ -1,22 +1,33 @@
 package com.morpheus.architecture;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
+import com.morpheus.application.identity.PersistentEntityIdentityResolver;
+import com.morpheus.application.ingestion.ProjectContentIngestion;
+import com.morpheus.application.ingestion.ProjectSnapshotImportResult;
+import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.read.ReadCategory;
 import com.morpheus.application.read.SpecificationContentReader;
 import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.project.ProjectSpecificationId;
+import com.morpheus.domain.snapshot.KnowledgeSnapshotState;
 import com.morpheus.provider.markdown.StructuredMarkdownSpecificationContentReader;
 import com.morpheus.provider.openspec.OpenSpecSpecificationContentReader;
 import com.morpheus.provider.synthetic.SyntheticSpecificationContentReader;
+import com.morpheus.store.memory.MemorySnapshotBusinessContentStore;
+import com.morpheus.store.memory.MemorySpecificationKnowledgeStore;
+import com.morpheus.store.memory.MemoryTraceabilityStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -53,6 +64,31 @@ class ProviderAntiLockInTest {
         assertTrue(markdown.changeCount() > 0);
         assertTrue(openSpec.changeCount() > 0);
         assertTrue(synthetic.changeCount() > 0);
+    }
+
+    @Test
+    void oneProviderNeutralPublicationPublishesEachOfTheThreeFormats() {
+        for (Map.Entry<SpecificationContentReader, String> provider : List.of(
+                Map.entry((SpecificationContentReader) new OpenSpecSpecificationContentReader(), "openspec-basic"),
+                Map.entry((SpecificationContentReader) new SyntheticSpecificationContentReader(), "synthetic-basic"),
+                Map.entry((SpecificationContentReader) new StructuredMarkdownSpecificationContentReader(),
+                        "openspec-basic"))) {
+            var snapshots = new MemorySpecificationKnowledgeStore();
+            ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+            var content = new ProjectContentIngestion(provider.getKey()).read(
+                    fixture(provider.getValue()), projectId, new PersistentEntityIdentityResolver(snapshots));
+
+            ProjectSnapshotImportResult published = new ProjectSnapshotImportService(
+                    snapshots,
+                    snapshots,
+                    new MemorySnapshotBusinessContentStore(snapshots, snapshots),
+                    new MemoryTraceabilityStore(snapshots))
+                    .publishFull(content, Optional.empty(), Instant.parse("2026-10-25T00:00:00Z"));
+
+            String name = provider.getKey().providerId().value();
+            assertEquals(KnowledgeSnapshotState.ACTIVE, published.snapshot().state(), name);
+            assertTrue(published.requirementCount() > 0, name);
+        }
     }
 
     @Test

@@ -23,6 +23,7 @@ import com.morpheus.cli.command.MorpheusPathsCli;
 import com.morpheus.cli.command.MorpheusPolicyCli;
 import com.morpheus.cli.command.MorpheusPortfolioCli;
 import com.morpheus.cli.command.MorpheusProductCli;
+import com.morpheus.cli.command.MorpheusProjectCli;
 import com.morpheus.cli.command.MorpheusProviderPluginCli;
 import com.morpheus.cli.command.MorpheusQualityCli;
 import com.morpheus.cli.command.MorpheusQueryCli;
@@ -215,8 +216,10 @@ public final class MorpheusMain {
                         () -> new MorpheusChangeCli(runtime.recorder()).run(args, out, err, environment, properties)),
                 new CliCapability(MorpheusRequirementCli::handles,
                         () -> new MorpheusRequirementCli(runtime.recorder())
-                                .run(args, out, err, environment, properties)));
-        IntSupplier claimant = () -> new MorpheusCli(runtime.recorder()).run(args, out, err, environment, properties);
+                                .run(args, out, err, environment, properties)),
+                new CliCapability(MorpheusProjectCli::handles,
+                        () -> new MorpheusProjectCli(runtime.recorder()).run(args, out, err, environment, properties)));
+        IntSupplier claimant = () -> new MorpheusCli().run(args, out, err, environment, properties);
         for (CliCapability capability : capabilities) {
             if (capability.claims().test(args)) {
                 claimant = capability.runner();

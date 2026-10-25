@@ -5,6 +5,7 @@ import com.morpheus.api.transport.BoundaryFailureMessage;
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.BoundedDiagnostics;
 import com.morpheus.application.ingestion.ObservedProjectSnapshotPublisher;
+import com.morpheus.application.ingestion.ProjectContentIngestion;
 import com.morpheus.application.ingestion.ProjectSnapshotImportResult;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.application.operability.OperationalRecorder;
@@ -16,13 +17,13 @@ import com.morpheus.application.sync.SyncFreshnessService;
 import com.morpheus.application.sync.SyncPlan;
 import com.morpheus.application.sync.SyncStateConflictException;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.provider.openspec.OpenSpecProjectContentReader;
+import com.morpheus.provider.openspec.OpenSpecSpecificationContentReader;
+import com.morpheus.provider.openspec.OpenSpecSpecificationProvider;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -53,7 +54,7 @@ public final class MorpheusProjectSyncApiService {
                     projectId,
                     normalizedRevision,
                     attemptedAt,
-                    List.of(Path.of("openspec")));
+                    OpenSpecSpecificationProvider.SOURCE_DIRECTORIES);
             IncrementalSyncService syncService = new IncrementalSyncService(runtime.syncState(), recorder);
             SyncPlan plan = syncService.prepare(scan, SyncPlan.Trigger.manual().forced(), attemptedAt);
             if (!scan.complete()) {
@@ -65,7 +66,7 @@ public final class MorpheusProjectSyncApiService {
             }
 
             try {
-                var normalized = new OpenSpecProjectContentReader().read(
+                var normalized = new ProjectContentIngestion(new OpenSpecSpecificationContentReader()).read(
                         workspace,
                         projectId,
                         new PersistentEntityIdentityResolver(runtime.identities()));

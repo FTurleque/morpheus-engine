@@ -2,6 +2,7 @@ package com.morpheus.architecture.m19;
 
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.NormalizedProjectContent;
+import com.morpheus.application.ingestion.ProjectContentIngestion;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.TraceabilityStore;
@@ -11,7 +12,7 @@ import com.morpheus.domain.traceability.TraceabilityEntityRef;
 import com.morpheus.domain.traceability.TraceabilityLink;
 import com.morpheus.domain.traceability.TraceabilityLinkId;
 import com.morpheus.domain.traceability.TraceabilityRelationType;
-import com.morpheus.provider.openspec.OpenSpecProjectContentReader;
+import com.morpheus.provider.openspec.OpenSpecSpecificationContentReader;
 import com.morpheus.store.memory.MemorySnapshotBusinessContentStore;
 import com.morpheus.store.memory.MemorySpecificationKnowledgeStore;
 import com.morpheus.store.memory.MemoryTraceabilityStore;
@@ -37,7 +38,7 @@ class FailedPublishSequenceContractTest {
         var business = new MemorySnapshotBusinessContentStore(snapshots, snapshots);
         var traceability = new MemoryTraceabilityStore(snapshots);
         var identities = new PersistentEntityIdentityResolver(snapshots);
-        var reader = new OpenSpecProjectContentReader();
+        var reader = new ProjectContentIngestion(new OpenSpecSpecificationContentReader());
         NormalizedProjectContent content = reader.read(fixture("openspec-basic"), projectId, identities);
 
         var publisher = new ProjectSnapshotImportService(snapshots, snapshots, business, traceability);

@@ -1,5 +1,11 @@
 package com.morpheus.cli.command;
 
+import com.morpheus.application.analysis.ChangeAnalysisService;
+import com.morpheus.application.analysis.ChangeAnalysisWarning;
+import com.morpheus.application.analysis.ProposedChangeSet;
+import com.morpheus.application.analysis.compact.CompactChangeAnalysisViewService;
+import com.morpheus.application.identity.PersistentEntityIdentityResolver;
+import com.morpheus.application.ingestion.ProjectContentIngestion;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.BusinessContentQueryService;
 import com.morpheus.application.query.ChangeContextQueryService;
@@ -11,18 +17,23 @@ import com.morpheus.domain.constraint.Constraint;
 import com.morpheus.domain.decision.DesignDecision;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.task.ImplementationTask;
+import com.morpheus.provider.openspec.OpenSpecSpecificationContentReader;
 
 import java.io.PrintStream;
+import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * The change family of the CLI: {@code changes list|get}, {@code constraints list}, {@code decisions list},
- * {@code tasks list} and {@code change-context}.
+ * {@code tasks list}, {@code change-context} and {@code analyze-change}, which reads the proposal from the workspace
+ * through the provider port.
  *
  * <p>{@code constraints evaluate} belongs to {@link MorpheusConstraintSemanticsCli}; every other path that starts with
  * {@code constraints} is this class's, so that {@code constraints} alone is answered here with the action it lacks.</p>
@@ -33,7 +44,8 @@ public final class MorpheusChangeCli {
     private static final String OPT_OFFSET = "offset";
     private static final String OPT_LIMIT = "limit";
     private static final String MSG_PROJECT_NO_ACTIVE_SNAPSHOT = "project has no ACTIVE snapshot: ";
-    private static final Set<String> COMMANDS = Set.of("changes", "constraints", "decisions", "tasks", "change-context");
+    private static final Set<String> COMMANDS = Set.of(
+            "changes", "constraints", "decisions", "tasks", "change-context", "analyze-change");
 
     private final OperationalRecorder recorder;
 
@@ -59,6 +71,7 @@ public final class MorpheusChangeCli {
                 case "constraints" -> constraints(commandTokens, run);
                 case "decisions" -> decisions(commandTokens, run);
                 case "tasks" -> tasks(commandTokens, run);
+                case "analyze-change" -> analyzeChange(commandTokens, run);
                 default -> changeContext(commandTokens, run);
             };
         });
@@ -183,6 +196,56 @@ public final class MorpheusChangeCli {
             }
             return CliExitCode.SUCCESS.code();
         }
+    }
+
+    private int analyzeChange(List<String> tokens, CliCommandRun run) {
+        CommandOptions options = CommandOptions.parse(tokens, Set.of());
+        options.rejectUnknown(Set.of(OPT_PROJECT, OPT_CHANGE, "depth"));
+        ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
+        ChangeId changeId = ChangeId.parse(options.required(OPT_CHANGE));
+        int depth = options.intValue("depth", 2, 1, 20);
+        try (CliRuntime runtime = CliRuntime.recovering(run.databasePath(), recorder)) {
+            Path workspace = ProjectWorkspace.of(runtime, projectId);
+            var normalized = new ProjectContentIngestion(new OpenSpecSpecificationContentReader()).read(
+                    workspace, projectId, new PersistentEntityIdentityResolver(runtime.identities()));
+            ProposedChangeSet proposal = ProposedChangeSet.from(normalized, changeId);
+            var result = new ChangeAnalysisService(
+                    runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability())
+                    .analyzeActive(proposal, depth)
+                    .orElseThrow(() -> CliFailure.notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
+            if (run.json()) {
+                run.printLine(new CompactChangeAnalysisViewService().toJson(result));
+            } else {
+                var summary = result.summary();
+                run.printLine("change=" + result.change().title());
+                run.printLine("requirements=" + summary.affectedRequirements()
+                        + " added=" + summary.addedRequirements()
+                        + " modified=" + summary.modifiedRequirements()
+                        + " removed=" + summary.removedRequirements());
+                run.printLine("dependencies=" + summary.dependencies() + " dependents=" + summary.dependents()
+                        + " warnings=" + summary.warnings());
+                analysisWarningLines(result.warnings()).forEach(run::printLine);
+            }
+            return CliExitCode.SUCCESS.code();
+        }
+    }
+
+    /**
+     * Names what the warning count counts. The count alone never said which warnings it held -- and it is never below
+     * one, since acceptance criteria are always reported unavailable -- while a truncated dependency traversal existed
+     * only as one of them: the text output lost the truncation the JSON output carried. One code per warning, in the
+     * result's order, then the distinct truncation reasons under the name the two sibling commands already print.
+     */
+    static List<String> analysisWarningLines(List<ChangeAnalysisWarning> warnings) {
+        List<String> lines = new ArrayList<>();
+        lines.add("warningCodes=" + warnings.stream().map(warning -> warning.code().name()).collect(Collectors.joining(",")));
+        warnings.stream()
+                .map(warning -> warning.details().get(ChangeAnalysisWarning.TRUNCATION_REASON))
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted()
+                .forEach(reason -> lines.add("truncationReason=" + reason));
+        return lines;
     }
 
     private static ChangeView changeView(ChangeProposal change) {
