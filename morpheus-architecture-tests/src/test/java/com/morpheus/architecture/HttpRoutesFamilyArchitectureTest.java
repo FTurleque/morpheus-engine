@@ -58,8 +58,8 @@ class HttpRoutesFamilyArchitectureTest {
      *
      * <p>Unlike the pilot's two banned types, this family declares compile-time constants that are not private:
      * {@code MorpheusRemoteHttpServer.MAX_CONCURRENT_REQUESTS} and {@code DEFAULT_MAX_CONCURRENT_REQUESTS} are
-     * public, three more of its limits are package-private, and {@code MorpheusRemoteIdentityFile} exposes four
-     * public ones. A router writing any of them carries the value and no reference to the class, so the rule alone
+     * public, and {@code MorpheusRemoteIdentityFile} exposes four public ones; a router reading one imports the
+     * package, which the second text scan refuses. A router writing any of them carries the value and no reference to the class, so the rule alone
      * would pass. {@code .claude/rules/architecture.md} keeps both holds in exactly that case.</p>
      *
      * <p>Broken before acceptance, 11/09/2026. E1, {@code MorpheusRemoteProxyTransport.class} written into

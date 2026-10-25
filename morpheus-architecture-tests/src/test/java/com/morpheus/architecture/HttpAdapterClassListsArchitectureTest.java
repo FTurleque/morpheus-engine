@@ -26,8 +26,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <ul>
  *   <li>a <strong>debt counter</strong> -- what a set of classes does today and is expected to stop doing, exact in
  *       both directions and shrinking only, under the decision record that says so;</li>
- *   <li>a <strong>table of facts</strong> -- each entry carries its own reason, and the table is exactly the classes
- *       the reason is true of.</li>
+ *   <li>a <strong>table of facts</strong> -- exactly the classes a stated fact is true of, each entry with its reason
+ *       or the whole table with one.</li>
  * </ul>
  *
  * <p>A new list of the adapter's classes fails here until it is given a kind; a list that disappears fails here too,
@@ -58,6 +58,7 @@ class HttpAdapterClassListsArchitectureTest {
                     + "(?:Set|List|Map)\\.(?:of|copyOf|ofEntries)\\(");
     private static final Pattern STRING_LITERAL = Pattern.compile("\"((?:[^\"\\\\]|\\\\.)*)\"");
     private static final Pattern NAME_PIECE = Pattern.compile("[A-Za-z_][A-Za-z0-9_]*");
+    private static final Pattern CLASS_LITERAL = Pattern.compile("\\b([A-Z][A-Za-z0-9_]*)\\.class\\b");
 
     @Test
     void everyListOfTheAdaptersClassesIsADebtCounterOrATableOfFacts() throws IOException {
@@ -84,18 +85,20 @@ class HttpAdapterClassListsArchitectureTest {
     }
 
     @Test
-    void theDetectionSeesANamedClassInAnyLiteralShapeAndIgnoresParenthesesInStrings() {
+    void theDetectionSeesANamedClassInAStringOrAClassLiteralAndIgnoresParenthesesInStrings() {
         String source = """
                 class Sample {
                     private static final Set<String> ROLES = Set.of("com.morpheus.api.Alpha", "Beta.java#x");
                     private static final List<String> VERBS = List.of("call(", "SecureRandom");
                     private static final Map<String, String> REASONS = Map.of("Gamma", "a reason (with Alpha)");
+                    private static final List<Class<?>> TYPES = List.of(Delta.class, String.class);
                 }
                 """;
 
-        Map<String, Set<String>> lists = listsNamingClasses(source, Set.of("Alpha", "Beta", "Gamma"));
+        Map<String, Set<String>> lists = listsNamingClasses(source, Set.of("Alpha", "Beta", "Gamma", "Delta"));
 
-        assertEquals(Map.of("ROLES", Set.of("Alpha", "Beta"), "REASONS", Set.of("Alpha", "Gamma")), lists);
+        assertEquals(Map.of("ROLES", Set.of("Alpha", "Beta"), "REASONS", Set.of("Alpha", "Gamma"),
+                "TYPES", Set.of("Delta")), lists);
     }
 
     private static Map<String, Set<String>> listsNamingClasses(String source, Set<String> classNames) {
@@ -104,6 +107,12 @@ class HttpAdapterClassListsArchitectureTest {
         while (declaration.find()) {
             String initializer = source.substring(declaration.end(), closingParenthesis(source, declaration.end()));
             Set<String> named = new TreeSet<>();
+            Matcher classLiteral = CLASS_LITERAL.matcher(initializer);
+            while (classLiteral.find()) {
+                if (classNames.contains(classLiteral.group(1))) {
+                    named.add(classLiteral.group(1));
+                }
+            }
             Matcher literal = STRING_LITERAL.matcher(initializer);
             while (literal.find()) {
                 Matcher piece = NAME_PIECE.matcher(literal.group(1));

@@ -83,7 +83,7 @@ méthodes `@Test`, et `architectureTestsMinimum` ne se baisse pas (`rules/testin
 
 **Généralisation par groupe de capacité**, jamais par famille entière :
 
-- les trois interdits vrais pour **tous** les routeurs (`MorpheusRemote*`, l'appel `sendResponseHeaders`,
+- les trois interdits vrais pour **tous** les routeurs (le paquet `com.morpheus.api.remote`, l'appel `sendResponseHeaders`,
   `MorpheusHttpPathParser`) vivent dans `HttpRoutesFamilyArchitectureTest`, règle **et** texte — n'y
   ajouter qu'un interdit vérifié sur chacun des `*HttpRoutes`. Le deuxième a visé **le type**
   `MorpheusHttpResponseWriter` jusqu'à DT-17 : vrai des treize routeurs que le serveur porte en champ, il

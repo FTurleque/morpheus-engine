@@ -12,25 +12,26 @@ rules: false
 
 ## Context
 
-`morpheus-api` a été un paquet unique de 84 classes. Chaque frontière interne y était une liste de noms dans un test
-d'architecture (les trois groupes de routeurs, les tables de `HttpPathReadingArchitectureTest`, `COMPOSITION_ROOTS`)
-ou un préfixe de nom (`MorpheusRemote`, le suffixe `HttpRoutes`), et aucune règle de cycle ne pouvait porter sur
-l'adaptateur. Ce que le paquet plat tenait vraiment, c'était le compilateur : 71 types sur 84 étaient
-package-private, donc invisibles des autres modules.
+`morpheus-api` porte des rôles distincts : deux serveurs, la plomberie de transport qu'ils partagent, trois groupes de
+routeurs qui ne lisent pas leur requête de la même façon, et les services de l'application. Une frontière entre ces
+rôles se dit dans un test d'architecture ; elle ne peut s'y dire par un paquet que si chaque rôle en est un, sinon il
+faut une liste de noms, un préfixe (`MorpheusRemote`) ou un suffixe (`HttpRoutes`), et aucune règle de cycle ne porte
+sur l'adaptateur. Un type de l'adaptateur qu'un autre paquet utilise doit être public : la frontière avec les autres
+modules ne peut alors pas être celle du compilateur.
 
-La mesure du changement OpenSpec `express-adapter-internal-roles-as-packages` (tâche 1 de `tasks.md`) a établi trois
-faits :
+Les contraintes, mesurées sur le code (tâche 1 du changement OpenSpec `express-adapter-internal-roles-as-packages`) :
 
-- une organisation sans cycle existe, à condition d'extraire de `MorpheusHttpServer` ses records imbriqués et
-  `API_PREFIX`, les seules arêtes qui remontaient des routeurs et de la plomberie vers le serveur local ;
-- un paquet parent qui contient à la fois les serveurs et les services forme un cycle avec chaque paquet de routeurs ;
-- les six types que `morpheus-cli` utilise vivent à deux niveaux : les deux serveurs et le fichier d'identités en
-  haut, `AllowedWorkspaceRoots`, `LoopbackHostPolicy` et `MorpheusRemoteRole` en bas. Aucun paquet d'entrée unique
-  ne peut les réunir sans cycle.
+- une organisation sans cycle existe pour les rôles ci-dessous, à condition que les enveloppes de réponse, les records
+  de requête et `API_PREFIX` ne soient pas portés par `MorpheusHttpServer` : les routeurs en dépendent ;
+- un paquet qui contiendrait à la fois un serveur et les services forme un cycle avec chaque paquet de routeurs, car le
+  serveur dépend des routeurs et les routeurs des services ;
+- les six types que `morpheus-cli` utilise appartiennent à trois rôles : `MorpheusRemoteHttpServer`,
+  `MorpheusRemoteIdentityFile` et `MorpheusRemoteRole` au serveur remote, `MorpheusHttpServer` et
+  `LoopbackHostPolicy` au serveur local, `AllowedWorkspaceRoots` aux services qui le lisent. Un paquet d'entrée qui les
+  réunirait dépendrait des services par le serveur remote et serait utilisé par eux : un cycle.
 
 Options considérées pour la frontière avec les autres modules : un paquet d'entrée (rejeté, il forme un cycle), deux
-paquets d'entrée (rejeté, il impose de garder les serveurs dans le parent, donc le cycle précédent), une liste fermée
-de types (retenu).
+paquets d'entrée (rejeté pour la même raison), une liste fermée de types (retenu).
 
 ## Decision
 
@@ -68,8 +69,10 @@ Une liste de noms de classes de l'adaptateur qui subsiste dans les tests d'archi
 
 - un **compteur de dette** : ce qu'un ensemble de classes fait aujourd'hui et doit cesser de faire, exact dans les
   deux sens, qui ne fait que rétrécir, sous l'ADR qui le dit (`COMPOSITION_ROOTS`, ADR-0109) ;
-- une **table de faits** : chaque entrée porte sa raison, et la table contient exactement les classes dont la raison
-  est vraie (les tables de `HttpPathReadingArchitectureTest`, la liste d'entrée du point 3).
+- une **table de faits** : la table contient exactement les classes dont un fait énoncé est vrai, chaque entrée
+  avec sa raison ou la table entière avec la sienne (les tables de `HttpPathReadingArchitectureTest`, dont chaque
+  entrée dit ce qu'elle fait du chemin ; la liste d'entrée du point 3, exactement les types qu'un autre module
+  utilise).
 
 Une liste qui serait un rôle n'existe pas : ses classes vont dans un paquet.
 
@@ -115,7 +118,7 @@ propre changement.
 ### Risques
 
 - Une règle peut être affaiblie dans un diff là où un modificateur ne pouvait pas l'être. La règle d'entrée a sa
-  moitié textuelle, et chaque règle a été vue en échec une fois.
+  moitié textuelle, et chaque règle a sa preuve d'échec dans la section suivante.
 
 ## Compliance and Enforcement
 

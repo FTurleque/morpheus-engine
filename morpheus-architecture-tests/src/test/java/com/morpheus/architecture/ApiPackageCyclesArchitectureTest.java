@@ -22,14 +22,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * the remote server above the local server, the local server above the routers, the routers above the services, the
  * transport plumbing below them all. A dependency back up that order closes a cycle and fails here, naming both
  * packages. A cycle that is accepted is named by the exact pair of types that closes it, with its reason, never by a
- * looser pattern; there is none today.</p>
+ * looser pattern; there is none, and this rule has no exception.</p>
  *
- * <p>A cycle rule over a single package holds over nothing, so the rule first asserts that the adapter has several
- * packages.</p>
+ * <p>A cycle rule over fewer packages holds over less, so the rule first asserts that every package of the layering
+ * exists.</p>
  */
 class ApiPackageCyclesArchitectureTest {
 
     private static final String API = "com.morpheus.api";
+
+    /** The packages the layering speaks of, from the top. */
+    private static final Set<String> LAYERED_PACKAGES = Set.of(API + ".remote", API + ".local",
+            API + ".routes.bodiless", API + ".routes.shareddecoder", API + ".routes.owncontext", API, API + ".transport");
 
     private static final JavaClasses PRODUCTION = new ClassFileImporter()
             .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
@@ -59,8 +63,8 @@ class ApiPackageCyclesArchitectureTest {
                 packages.add(javaClass.getPackageName());
             }
         }
-        assertTrue(packages.size() >= 2, () -> "a cycle rule over the packages of " + API + " holds over nothing "
-                + "when the adapter has fewer than two packages: " + packages);
+        assertTrue(packages.containsAll(LAYERED_PACKAGES), () -> "the cycle rule is written over the packages of "
+                + API + " " + LAYERED_PACKAGES + "; it holds over less than that when one is missing: " + packages);
 
         slices().assignedFrom(API_PACKAGES)
                 .should().beFreeOfCycles()

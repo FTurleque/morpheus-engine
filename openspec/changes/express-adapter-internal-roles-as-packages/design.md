@@ -61,8 +61,10 @@ root (that is `own-the-sqlite-connection-policy-in-one-place`).
 4. **The cross-module boundary becomes a rule before visibility is widened.** The types another module may use are
    a closed list, the six that `morpheus-cli` uses: `AllowedWorkspaceRoots`, `LoopbackHostPolicy`,
    `MorpheusHttpServer`, `MorpheusRemoteHttpServer`, `MorpheusRemoteIdentityFile`, `MorpheusRemoteRole`, with their
-   nested types. They sit at two levels of the layering, the servers and the identity file at the top and the three
-   values at the bottom, so no single package can hold them without a cycle. The list is a table of facts (decision
+   nested types. They belong to three roles - the remote server (`MorpheusRemoteHttpServer`,
+   `MorpheusRemoteIdentityFile`, `MorpheusRemoteRole`), the local server (`MorpheusHttpServer`, `LoopbackHostPolicy`)
+   and the services (`AllowedWorkspaceRoots`) - so a single entry package would depend on the services through the
+   remote server and be used by them: a cycle. The list is a table of facts (decision
    1): the public surface of the module, changed by a written decision only. `noClasses().that().resideOutsideOf(the
    adapter).should().dependOnClassesThat(are in the adapter and not one of the six)`, and beside it a scan of the
    sources of the dependent modules for any `com.morpheus.api` type outside the six: a public constant of a newly

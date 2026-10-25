@@ -185,8 +185,12 @@ same tree as `0b90cdcf`).
       and eleven tables of facts; no list of the adapter's classes is a role. Broken in both directions: an undeclared
       list naming `MorpheusQueryHttpRoutes` and a declaration whose list does not name the adapter's classes each
       failed, by name. The detection is replayed over a synthetic source.
-- [ ] 5.5 Re-take the count of 1.5. Proof: not lower, pull request by pull request. If it is lower, the split of the
+- [x] 5.5 Re-take the count of 1.5. Proof: not lower, pull request by pull request. If it is lower, the split of the
       tests is wrong, not the ratchet.
+
+      Done 2026-10-25: `morpheus-architecture-tests` runs 764 tests on `7d4069ae`, against 754 on the base (1.5); the
+      ten added are the locator (5), the entry rule (2), the cycle rule (1) and the gate over the remaining lists (2).
+      No pull request of the lot lowered it: the classification tests of 4.3 are replaced one for one.
 
 ## 6. Lot B - services and composition (after sprint 11's ADR and `own-the-sqlite-connection-policy-in-one-place`)
 
@@ -212,8 +216,15 @@ same tree as `0b90cdcf`).
 
 ## 8. Verification
 
-- [ ] 8.1 `./mvnw clean verify` and `./mvnw dependency:analyze` on Linux and Windows; changed-line coverage gate.
-- [ ] 8.2 `contracts/public-surfaces.tsv` and `docs/developer/reference/openapi/*.yaml` byte-identical to the base.
+- [x] 8.1 `./mvnw clean verify` and `./mvnw dependency:analyze` on Linux and Windows; changed-line coverage gate.
+- [x] 8.2 `contracts/public-surfaces.tsv` and `docs/developer/reference/openapi/*.yaml` byte-identical to the base.
       Proof: `git diff --stat`.
-- [ ] 8.3 Pull request description: the finding, the measures, what each rule replaced, and the justification of
+- [x] 8.3 Pull request description: the finding, the measures, what each rule replaced, and the justification of
       every change under `morpheus-architecture-tests/` (`rules/governance.md`).
+
+      Done 2026-10-25 on `7d4069ae`: `./mvnw clean verify` green on Windows and on Linux (WSL), 4 279 Surefire
+      executions on each; `dependency:analyze` clean; the changed-line gate against `develop` at 100 % of lines and
+      branches. The per-module population is unchanged (30 162 lines, 10 550 branches). The lot changes neither
+      `contracts/public-surfaces.tsv` nor `docs/developer/reference/openapi/` (`git diff origin/develop...HEAD`).
+      Every pull request of the lot carries its own description of the measure, the rules and the changes under
+      `morpheus-architecture-tests/`.
