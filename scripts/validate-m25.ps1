@@ -219,7 +219,7 @@ if (-not $SkipPortable) {
         'com/morpheus/cli/MorpheusPolicyCli.class',
         'com/morpheus/mcp/MorpheusPolicyMcpTools.class',
         'com/morpheus/api/MorpheusPolicyApiService.class',
-        'com/morpheus/api/MorpheusPolicyHttpRoutes.class',
+        'com/morpheus/api/routes/owncontext/MorpheusPolicyHttpRoutes.class',
         'db/migration/V015__policy_packs.sql')) {
         if ($entries -notcontains $entry) { throw "M25 packaged runtime is missing $entry" }
     }

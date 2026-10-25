@@ -81,7 +81,7 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
     'com/morpheus/cli/MorpheusPolicyCli.class' \
     'com/morpheus/mcp/MorpheusPolicyMcpTools.class' \
     'com/morpheus/api/MorpheusPolicyApiService.class' \
-    'com/morpheus/api/MorpheusPolicyHttpRoutes.class' \
+    'com/morpheus/api/routes/owncontext/MorpheusPolicyHttpRoutes.class' \
     'db/migration/V015__policy_packs.sql' \
     'com/morpheus/api/remote/MorpheusRemoteHttpServer.class' \
     'com/morpheus/api/remote/MorpheusRemoteIdentityFile.class' \

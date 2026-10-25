@@ -26,7 +26,7 @@ import java.util.Objects;
 import java.util.Set;
 
 /** Owns active change list, detail, subresource and contextual API views. */
-final class MorpheusChangeQueryApiService {
+public final class MorpheusChangeQueryApiService {
     private static final String FIELD_TITLE = "title";
 
     private final Path databasePath;
@@ -37,7 +37,7 @@ final class MorpheusChangeQueryApiService {
         this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
-    Object listChanges(String projectIdValue, PageRequest pageRequest) {
+    public Object listChanges(String projectIdValue, PageRequest pageRequest) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         Objects.requireNonNull(pageRequest, "pageRequest");
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
@@ -48,7 +48,7 @@ final class MorpheusChangeQueryApiService {
         }
     }
 
-    Object change(String projectIdValue, String changeIdValue) {
+    public Object change(String projectIdValue, String changeIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ChangeId changeId = ChangeId.parse(changeIdValue);
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
@@ -57,7 +57,7 @@ final class MorpheusChangeQueryApiService {
         }
     }
 
-    Object constraints(String projectIdValue, String changeIdValue, PageRequest pageRequest) {
+    public Object constraints(String projectIdValue, String changeIdValue, PageRequest pageRequest) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ChangeId changeId = ChangeId.parse(changeIdValue);
         Objects.requireNonNull(pageRequest, "pageRequest");
@@ -73,7 +73,7 @@ final class MorpheusChangeQueryApiService {
         return acceptanceCriteria(projectIdValue, changeIdValue, PageRequest.first(MorpheusApiService.MAX_LIMIT));
     }
 
-    Object acceptanceCriteria(String projectIdValue, String changeIdValue, PageRequest pageRequest) {
+    public Object acceptanceCriteria(String projectIdValue, String changeIdValue, PageRequest pageRequest) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ChangeId changeId = ChangeId.parse(changeIdValue);
         Objects.requireNonNull(pageRequest, "pageRequest");
@@ -86,7 +86,7 @@ final class MorpheusChangeQueryApiService {
         }
     }
 
-    Object designDecisions(String projectIdValue, String changeIdValue, PageRequest pageRequest) {
+    public Object designDecisions(String projectIdValue, String changeIdValue, PageRequest pageRequest) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ChangeId changeId = ChangeId.parse(changeIdValue);
         Objects.requireNonNull(pageRequest, "pageRequest");
@@ -98,7 +98,7 @@ final class MorpheusChangeQueryApiService {
         }
     }
 
-    Object implementationTasks(String projectIdValue, String changeIdValue, PageRequest pageRequest) {
+    public Object implementationTasks(String projectIdValue, String changeIdValue, PageRequest pageRequest) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ChangeId changeId = ChangeId.parse(changeIdValue);
         Objects.requireNonNull(pageRequest, "pageRequest");
@@ -110,7 +110,7 @@ final class MorpheusChangeQueryApiService {
         }
     }
 
-    Object changeContext(String projectIdValue, String changeIdValue, int depth) {
+    public Object changeContext(String projectIdValue, String changeIdValue, int depth) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ChangeId changeId = ChangeId.parse(changeIdValue);
         requireRange("depth", depth, 1, MorpheusApiService.MAX_DEPTH);

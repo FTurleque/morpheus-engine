@@ -123,7 +123,7 @@ Java qu'il publie ; un énuméré qui n'a pas d'équivalent Java est une exempti
   tient la lecture des segments par le décodeur.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/BoundaryResilienceContractTest.java` découvre
   les lecteurs de query string de `morpheus-api` et exige `MorpheusHttpQuery` ou `HttpQueryBudget` ;
-  `morpheus-api/src/test/java/com/morpheus/api/ExtensionRoutesRequestBoundaryParityTest.java` refuse une query hors
+  `morpheus-api/src/test/java/com/morpheus/api/routes/owncontext/ExtensionRoutesRequestBoundaryParityTest.java` refuse une query hors
   budget sur les routes à contexte propre.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/PublishedEnumsMatchJavaEnumsTest.java` compare
   les énumérés des contrats OpenAPI aux énumérés Java.

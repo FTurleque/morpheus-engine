@@ -61,8 +61,10 @@ root (that is `own-the-sqlite-connection-policy-in-one-place`).
 4. **The cross-module boundary becomes a rule before visibility is widened.** The types another module may use are
    a closed list, the six that `morpheus-cli` uses: `AllowedWorkspaceRoots`, `LoopbackHostPolicy`,
    `MorpheusHttpServer`, `MorpheusRemoteHttpServer`, `MorpheusRemoteIdentityFile`, `MorpheusRemoteRole`, with their
-   nested types. They sit at two levels of the layering, the servers and the identity file at the top and the three
-   values at the bottom, so no single package can hold them without a cycle. The list is a table of facts (decision
+   nested types. They belong to three roles - the remote server (`MorpheusRemoteHttpServer`,
+   `MorpheusRemoteIdentityFile`, `MorpheusRemoteRole`), the local server (`MorpheusHttpServer`, `LoopbackHostPolicy`)
+   and the services (`AllowedWorkspaceRoots`) - so a single entry package would depend on the services through the
+   remote server and be used by them: a cycle. The list is a table of facts (decision
    1): the public surface of the module, changed by a written decision only. `noClasses().that().resideOutsideOf(the
    adapter).should().dependOnClassesThat(are in the adapter and not one of the six)`, and beside it a scan of the
    sources of the dependent modules for any `com.morpheus.api` type outside the six: a public constant of a newly
@@ -149,7 +151,8 @@ router package. Each server goes to the package of its role with its bootstrap, 
 - **Is the split worth its cost at all without the composition list?** It is the question this proposal cannot
   answer for the maintainer. Recommendation: do decision 6 and decision 4 unconditionally, then decide on the measure
   of decision 2.
-- **One new ADR, or consolidated ADRs only?** Recommendation: one ADR for the three kinds of selection and the entry rule;
-  a consolidated ADR replacing ADR-0109 that points to it, and `.claude/rules/architecture.md` saying that placement is classification.
+- **One new ADR, or consolidated ADRs only?** One ADR, ADR-0147, for the kinds of selection, the entry types and the
+  adapter's cycle rule. ADR-0109 holds no statement about the adapter's packages and its decision does not change, so
+  no consolidated ADR replaces it; `.claude/rules/architecture.md` says that placement is classification.
 - **Does the gate module's test declared in `com.morpheus.api` follow `MorpheusHttpRouteTable`, or does the table join the
   entry types?** Recommendation: the test follows; the table is not something another module should build on.

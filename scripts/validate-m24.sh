@@ -112,7 +112,7 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
     'com/morpheus/cli/MorpheusQueryCli.class' \
     'com/morpheus/mcp/MorpheusQueryMcpTools.class' \
     'com/morpheus/api/MorpheusQueryApiService.class' \
-    'com/morpheus/api/MorpheusQueryHttpRoutes.class' \
+    'com/morpheus/api/routes/owncontext/MorpheusQueryHttpRoutes.class' \
     'db/migration/V014__saved_views.sql'; do
     grep -Fxq "$entry" "$OUTPUT/shaded-entries.txt" || { echo "M24 packaged runtime is missing $entry" >&2; exit 1; }
   done

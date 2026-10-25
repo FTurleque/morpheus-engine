@@ -73,8 +73,8 @@ And the two lists the finding cites are **not the same kind of list**:
   `Local*HttpRoutesArchitectureTest`, and every class that reads an `api` source by a literal path.
   `architectureTestsMinimum` does not go down (`config/m21-quality-ratchets.properties`, procedure `live-numbers`).
 - `scripts/validate-m23` to `m27` and `validate-r2`, `.ps1` and `.sh` together.
-- **A new ADR** (the highest number attributed on 2026-10-13 is `0110`; re-read the directory before assigning), and
-  a consolidated ADR replacing ADR-0109 (the row "not applicable" of its measure, the condition under which the list becomes a
+- **A new ADR**, ADR-0147, for the roles as packages, the entry types, the adapter's cycle rule and the kinds of
+  the lists that remain. ADR-0109 keeps its decision: its composition roots and the condition under which the list becomes a
   package rule), and `.claude/rules/architecture.md` (a classification by placement is a classification by name).
 - `.claude/rules/architecture.md`, `.claude/rules/security.md`, `.claude/CLAUDE.md` ("Points d'entree cles"),
   `.claude/skills/enforcement-choice/SKILL.md`, `docs/developer/` pages that name a class by path,

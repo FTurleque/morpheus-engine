@@ -54,8 +54,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * disappeared -- an empty list satisfies every rule written over it -- so the first was deleted and the second
  * renamed for the one thing still true of it.</p>
  *
- * <p>Every group is listed by name. A router added tomorrow belongs to no group until someone classifies it, and
- * {@link #everyRouterIsClassifiedIntoExactlyOneTransportGroup} refuses it until then.</p>
+ * <p>Every group is a package of {@code com.morpheus.api.routes}: {@code bodiless}, {@code shareddecoder},
+ * {@code owncontext}. Placing a router in one of them is classifying it. A router added in any other package
+ * belongs to no group, and {@link #everyRouterIsClassifiedIntoExactlyOneTransportGroup} refuses it until someone
+ * places it.</p>
  *
  * <p>{@code MorpheusHttpServer} appears in no ban, and no router mentions it: the envelopes the routers build are
  * types of {@code com.morpheus.api.transport}, the request records they decode into live beside them, and
@@ -68,26 +70,10 @@ class HttpRoutesTransportBoundaryArchitectureTest {
     private static final String TRANSPORT_PACKAGE = API_PACKAGE + ".transport";
     private static final String ROUTER_SUFFIX = "HttpRoutes";
 
-    private static final List<String> ROUTERS_WITHOUT_A_BODY = List.of(
-            "MorpheusCompositionHttpRoutes",
-            "MorpheusDiagnosticsHttpRoutes",
-            "MorpheusExternalReferenceHttpRoutes",
-            "MorpheusIntegrationStatusHttpRoutes",
-            "MorpheusProviderPluginHttpRoutes",
-            "MorpheusRootHttpRoutes",
-            "MorpheusSpecificationsHttpRoutes",
-            "MorpheusVersionsHttpRoutes");
-    private static final List<String> ROUTERS_THROUGH_THE_SHARED_DECODER = List.of(
-            "MorpheusChangesHttpRoutes",
-            "MorpheusPortfolioHttpRoutes",
-            "MorpheusProjectRootHttpRoutes",
-            "MorpheusProjectSyncHttpRoutes",
-            "MorpheusRequirementsHttpRoutes");
-    private static final List<String> ROUTERS_REGISTERING_THEIR_OWN_CONTEXT = List.of(
-            "MorpheusPolicyHttpRoutes",
-            "MorpheusPolicyManagementHttpRoutes",
-            "MorpheusQueryHttpRoutes",
-            "MorpheusReasoningHttpRoutes");
+    private static final String ROUTES_PACKAGE = API_PACKAGE + ".routes";
+    private static final String ROUTERS_WITHOUT_A_BODY = ROUTES_PACKAGE + ".bodiless";
+    private static final String ROUTERS_THROUGH_THE_SHARED_DECODER = ROUTES_PACKAGE + ".shareddecoder";
+    private static final String ROUTERS_REGISTERING_THEIR_OWN_CONTEXT = ROUTES_PACKAGE + ".owncontext";
 
     private static final String REQUEST_DECODER = TRANSPORT_PACKAGE + ".MorpheusHttpRequestDecoder";
     private static final DescribedPredicate<JavaCall<?>> ASKS_THE_DECODER_FOR_THE_PATH = DescribedPredicate.describe(
@@ -113,40 +99,45 @@ class HttpRoutesTransportBoundaryArchitectureTest {
     private final JavaClasses classes = new ClassFileImporter().importPackages("com.morpheus");
 
     /**
-     * Each group is a list, so a router outside every list escapes every rule below; and a listed router that no
-     * longer exists narrows its group's rule without {@code failOnEmptyShould} noticing, as long as one survives.
-     * Both are refused by name.
-     *
-     * <p>Broken before acceptance, 15/09/2026: an empty {@code MorpheusProbeHttpRoutes} added to {@code morpheus-api}
-     * failed this method, naming it, while {@code HttpRoutesFamilyArchitectureTest} passed -- the family rules see the
-     * new router, but no transport rule would have.</p>
+     * Each group is a package, so a router classified twice or classified without existing cannot be written. What can
+     * still go wrong is a router left outside every group package -- in the parent package, or in a package no rule
+     * names -- where it escapes every rule below. It is refused by name, with the package it resides in.
      */
     @Test
     void everyRouterIsClassifiedIntoExactlyOneTransportGroup() {
-        TreeSet<String> routers = new TreeSet<>();
+        Map<String, String> packageByRouter = new TreeMap<>();
+        List<String> defects = new ArrayList<>();
         for (JavaClass javaClass : classes) {
             if (javaClass.getSimpleName().endsWith(ROUTER_SUFFIX)) {
-                routers.add(javaClass.getSimpleName());
+                String previous = packageByRouter.put(javaClass.getSimpleName(), javaClass.getPackageName());
+                if (previous != null) {
+                    defects.add(javaClass.getSimpleName() + " is declared in " + previous + " and in "
+                            + javaClass.getPackageName());
+                }
             }
         }
-        List<String> defects = classificationDefects(routers, transportGroups());
-        assertTrue(defects.isEmpty(), () -> "every router must be classified into exactly one transport group of "
-                + "this test, by name: " + defects);
+        defects.addAll(classificationDefects(packageByRouter, transportGroups().keySet()));
+        assertTrue(defects.isEmpty(), () -> "every router must reside in exactly one transport group package of "
+                + "this test: " + defects);
+        for (String group : transportGroups().keySet()) {
+            assertTrue(packageByRouter.containsValue(group), () -> "the transport group " + group + " holds no "
+                    + "router: a rule over an empty group would hold over nothing");
+        }
     }
 
     @Test
-    void theClassificationRefusesAnUnclassifiedADoublyClassifiedAndAVanishedRouter() {
-        Map<String, List<String>> groups = new TreeMap<>(Map.of(
-                "without a body", List.of("AlphaHttpRoutes", "BetaHttpRoutes"),
-                "through the shared decoder", List.of("BetaHttpRoutes", "GoneHttpRoutes")));
+    void theClassificationRefusesARouterLeftInTheParentPackageAndOneInAnUnnamedPackage() {
+        Map<String, String> packageByRouter = new TreeMap<>(Map.of(
+                "AlphaHttpRoutes", ROUTERS_WITHOUT_A_BODY,
+                "BetaHttpRoutes", API_PACKAGE,
+                "GammaHttpRoutes", ROUTES_PACKAGE + ".unnamed"));
 
         assertEquals(List.of(
-                        "BetaHttpRoutes is classified in [through the shared decoder, without a body]",
-                        "GammaHttpRoutes is classified in no group",
-                        "GoneHttpRoutes is classified but no such router exists"),
-                classificationDefects(Set.of("AlphaHttpRoutes", "BetaHttpRoutes", "GammaHttpRoutes"), groups));
-        assertEquals(List.of(), classificationDefects(Set.of("AlphaHttpRoutes"),
-                Map.of("without a body", List.of("AlphaHttpRoutes"))));
+                        "BetaHttpRoutes resides in " + API_PACKAGE + ", which is no transport group",
+                        "GammaHttpRoutes resides in " + ROUTES_PACKAGE + ".unnamed, which is no transport group"),
+                classificationDefects(packageByRouter, transportGroups().keySet()));
+        assertEquals(List.of(), classificationDefects(Map.of("AlphaHttpRoutes", ROUTERS_WITHOUT_A_BODY),
+                transportGroups().keySet()));
     }
 
     /**
@@ -171,7 +162,7 @@ class HttpRoutesTransportBoundaryArchitectureTest {
     @Test
     void routersWithoutABodyTouchNeitherTheTransportNorJsonNorTheDecoder() throws IOException {
         noClasses()
-                .that(routersNamed(ROUTERS_WITHOUT_A_BODY))
+                .that(routersIn(ROUTERS_WITHOUT_A_BODY))
                 .should().dependOnClassesThat(resideInAnyPackage("com.sun.net.httpserver..", "tools.jackson..")
                         .or(name(REQUEST_DECODER)).or(name(RESPONSE_WRITER)))
                 .because("a router that reads no request body decides a route and returns a value; the exchange, "
@@ -198,7 +189,7 @@ class HttpRoutesTransportBoundaryArchitectureTest {
     @Test
     void routersThroughTheSharedDecoderTouchNeitherJacksonNorTheCanonicalSerializer() throws IOException {
         noClasses()
-                .that(routersNamed(ROUTERS_THROUGH_THE_SHARED_DECODER))
+                .that(routersIn(ROUTERS_THROUGH_THE_SHARED_DECODER))
                 .should().dependOnClassesThat(resideInAnyPackage("tools.jackson..")
                         .or(name(CANONICAL_JSON_SERIALIZER)).or(name(REQUEST_BODY_READER)).or(name(RESPONSE_WRITER)))
                 .because("a router that reads its body through MorpheusHttpRequestDecoder inherits its strict "
@@ -239,17 +230,17 @@ class HttpRoutesTransportBoundaryArchitectureTest {
     @Test
     void routersRegisteringTheirOwnContextReceiveBothBoundariesAndBuildNeither() throws IOException {
         classes()
-                .that(routersNamed(ROUTERS_REGISTERING_THEIR_OWN_CONTEXT))
+                .that(routersIn(ROUTERS_REGISTERING_THEIR_OWN_CONTEXT))
                 .should().dependOnClassesThat(name(REQUEST_DECODER))
                 .because("the request boundary of a router that registers its own context is the server's decoder")
                 .check(classes);
         classes()
-                .that(routersNamed(ROUTERS_REGISTERING_THEIR_OWN_CONTEXT))
+                .that(routersIn(ROUTERS_REGISTERING_THEIR_OWN_CONTEXT))
                 .should().dependOnClassesThat(name(RESPONSE_WRITER))
                 .because("the response boundary of a router that registers its own context is the server's writer")
                 .check(classes);
         noClasses()
-                .that(routersNamed(ROUTERS_REGISTERING_THEIR_OWN_CONTEXT))
+                .that(routersIn(ROUTERS_REGISTERING_THEIR_OWN_CONTEXT))
                 .should().dependOnClassesThat(resideInAnyPackage("tools.jackson..")
                         .or(name(REQUEST_BODY_READER)).or(name(CANONICAL_JSON_SERIALIZER)))
                 .because("a mapper, a body reader or a serializer of its own is a second boundary nothing keeps in "
@@ -342,59 +333,52 @@ class HttpRoutesTransportBoundaryArchitectureTest {
     @Test
     void onlyARouterThatRegistersItsOwnContextAsksTheDecoderForThePath() {
         noClasses()
-                .that().haveSimpleNameEndingWith("HttpRoutes")
-                .and(DescribedPredicate.not(routersNamed(ROUTERS_REGISTERING_THEIR_OWN_CONTEXT)))
+                .that().resideInAPackage(ROUTES_PACKAGE + "..")
+                .and(DescribedPredicate.not(routersIn(ROUTERS_REGISTERING_THEIR_OWN_CONTEXT)))
                 .should().callMethodWhere(ASKS_THE_DECODER_FOR_THE_PATH)
                 .because("the server already parsed the path of a router it holds; a second reading through the "
                         + "decoder is what the family ban on MorpheusHttpPathParser forbids")
                 .check(classes);
         classes()
-                .that(routersNamed(ROUTERS_REGISTERING_THEIR_OWN_CONTEXT))
+                .that(routersIn(ROUTERS_REGISTERING_THEIR_OWN_CONTEXT))
                 .should().callMethodWhere(ASKS_THE_DECODER_FOR_THE_PATH)
                 .because("a router that registers its own context is handed no segments; it obtains them from the "
                         + "decoder, never from a reading of its own")
                 .check(classes);
     }
 
-    private static Map<String, List<String>> transportGroups() {
-        return Map.of(
-                "without a body", ROUTERS_WITHOUT_A_BODY,
-                "through the shared decoder", ROUTERS_THROUGH_THE_SHARED_DECODER,
-                "registering their own context", ROUTERS_REGISTERING_THEIR_OWN_CONTEXT);
+    /** The transport groups, each a package, with the name the rules above speak of. */
+    private static Map<String, String> transportGroups() {
+        return new TreeMap<>(Map.of(
+                ROUTERS_WITHOUT_A_BODY, "without a body",
+                ROUTERS_THROUGH_THE_SHARED_DECODER, "through the shared decoder",
+                ROUTERS_REGISTERING_THEIR_OWN_CONTEXT, "registering their own context"));
     }
 
-    private static List<String> classificationDefects(Set<String> routers, Map<String, List<String>> groups) {
-        Map<String, TreeSet<String>> groupsByRouter = new TreeMap<>();
-        groups.forEach((group, members) -> members.forEach(
-                router -> groupsByRouter.computeIfAbsent(router, ignored -> new TreeSet<>()).add(group)));
-        TreeSet<String> named = new TreeSet<>(routers);
-        named.addAll(groupsByRouter.keySet());
-
+    private static List<String> classificationDefects(Map<String, String> packageByRouter, Set<String> groups) {
         List<String> defects = new ArrayList<>();
-        for (String router : named) {
-            TreeSet<String> memberships = groupsByRouter.getOrDefault(router, new TreeSet<>());
-            if (!routers.contains(router)) {
-                defects.add(router + " is classified but no such router exists");
-            } else if (memberships.isEmpty()) {
-                defects.add(router + " is classified in no group");
-            } else if (memberships.size() > 1) {
-                defects.add(router + " is classified in " + memberships);
+        new TreeMap<>(packageByRouter).forEach((router, packageName) -> {
+            if (!groups.contains(packageName)) {
+                defects.add(router + " resides in " + packageName + ", which is no transport group");
             }
-        }
+        });
         return defects;
     }
 
-    private static DescribedPredicate<JavaClass> routersNamed(List<String> routers) {
-        return DescribedPredicate.describe("routers " + routers,
-                javaClass -> javaClass.getPackageName().equals(API_PACKAGE)
-                        && routers.contains(javaClass.getSimpleName()));
+    private static DescribedPredicate<JavaClass> routersIn(String group) {
+        return DescribedPredicate.describe("routers of " + group,
+                javaClass -> javaClass.getPackageName().equals(group)
+                        && javaClass.getSimpleName().endsWith(ROUTER_SUFFIX));
     }
 
-    private static Map<String, Path> routerSources(List<String> routers) {
+    private Map<String, Path> routerSources(String group) {
         Map<String, Path> sources = new TreeMap<>();
-        for (String router : routers) {
-            sources.put(router, ProductionSources.mainSource("morpheus-api", router));
+        for (JavaClass javaClass : classes) {
+            if (routersIn(group).test(javaClass) && !javaClass.isNestedClass()) {
+                sources.put(javaClass.getSimpleName(), ProductionSources.mainSource("morpheus-api", javaClass.getSimpleName()));
+            }
         }
+        assertTrue(!sources.isEmpty(), () -> "no router source found for " + group);
         return sources;
     }
 

@@ -30,11 +30,11 @@ public final class MorpheusAugmentedContextApiService {
         this.provider = Objects.requireNonNull(provider, "provider");
     }
 
-    Object nexusStatus() {
+    public Object nexusStatus() {
         return IntegrationStatusViews.status(provider.status());
     }
 
-    Object requirement(String projectIdValue, String requirementIdValue, AugmentedContextRequest request) {
+    public Object requirement(String projectIdValue, String requirementIdValue, AugmentedContextRequest request) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         RequirementId requirementId = RequirementId.parse(requirementIdValue);
         TechnicalContextOptions options = options(request);
@@ -55,7 +55,7 @@ public final class MorpheusAugmentedContextApiService {
         }
     }
 
-    Object change(String projectIdValue, String changeIdValue, AugmentedContextRequest request) {
+    public Object change(String projectIdValue, String changeIdValue, AugmentedContextRequest request) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ChangeId changeId = ChangeId.parse(changeIdValue);
         TechnicalContextOptions options = options(request);

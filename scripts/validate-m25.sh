@@ -116,7 +116,7 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
     'com/morpheus/cli/MorpheusPolicyCli.class' \
     'com/morpheus/mcp/MorpheusPolicyMcpTools.class' \
     'com/morpheus/api/MorpheusPolicyApiService.class' \
-    'com/morpheus/api/MorpheusPolicyHttpRoutes.class' \
+    'com/morpheus/api/routes/owncontext/MorpheusPolicyHttpRoutes.class' \
     'db/migration/V015__policy_packs.sql'; do
     grep -Fxq "$entry" "$OUTPUT/shaded-entries.txt" || { echo "M25 packaged runtime is missing $entry" >&2; exit 1; }
   done

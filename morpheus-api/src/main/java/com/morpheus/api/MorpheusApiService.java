@@ -78,31 +78,31 @@ public final class MorpheusApiService {
         return projectRegistryService.project(projectIdValue);
     }
 
-    MorpheusProjectRegistryApiService projectRegistryService() {
+    public MorpheusProjectRegistryApiService projectRegistryService() {
         return projectRegistryService;
     }
 
-    MorpheusProjectSyncApiService projectSyncService() {
+    public MorpheusProjectSyncApiService projectSyncService() {
         return projectSyncService;
     }
 
-    MorpheusDiagnosticsApiService diagnosticsService() {
+    public MorpheusDiagnosticsApiService diagnosticsService() {
         return diagnosticsService;
     }
 
-    MorpheusHistoryApiService historyService() {
+    public MorpheusHistoryApiService historyService() {
         return historyService;
     }
 
-    MorpheusRequirementQueryApiService requirementQueryService() {
+    public MorpheusRequirementQueryApiService requirementQueryService() {
         return requirementQueryService;
     }
 
-    MorpheusSpecificationQueryApiService specificationQueryService() {
+    public MorpheusSpecificationQueryApiService specificationQueryService() {
         return specificationQueryService;
     }
 
-    MorpheusChangeQueryApiService changeQueryService() {
+    public MorpheusChangeQueryApiService changeQueryService() {
         return changeQueryService;
     }
 

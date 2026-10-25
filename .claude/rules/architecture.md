@@ -83,7 +83,7 @@ méthodes `@Test`, et `architectureTestsMinimum` ne se baisse pas (`rules/testin
 
 **Généralisation par groupe de capacité**, jamais par famille entière :
 
-- les trois interdits vrais pour **tous** les routeurs (`MorpheusRemote*`, l'appel `sendResponseHeaders`,
+- les trois interdits vrais pour **tous** les routeurs (le paquet `com.morpheus.api.remote`, l'appel `sendResponseHeaders`,
   `MorpheusHttpPathParser`) vivent dans `HttpRoutesFamilyArchitectureTest`, règle **et** texte — n'y
   ajouter qu'un interdit vérifié sur chacun des `*HttpRoutes`. Le deuxième a visé **le type**
   `MorpheusHttpResponseWriter` jusqu'à DT-17 : vrai des treize routeurs que le serveur porte en champ, il
@@ -92,9 +92,11 @@ méthodes `@Test`, et `architectureTestsMinimum` ne se baisse pas (`rules/testin
   et enforçait son contraire. Interdire **la mécanique** plutôt que le collaborateur dit ce que la méthode a
   toujours annoncé ; le writer, lui, s'interdit **par groupe** (voir ci-dessous) ;
 - la frontière transport/JSON se règle par capacité dans `HttpRoutesTransportBoundaryArchitectureTest`, en
-  **trois groupes listés par nom** — `ROUTERS_WITHOUT_A_BODY`, `ROUTERS_THROUGH_THE_SHARED_DECODER`,
-  `ROUTERS_REGISTERING_THEIR_OWN_CONTEXT` : un nouveau routeur est refusé tant que personne
-  ne l'a classé, et `theClassificationRefusesAnUnclassifiedADoublyClassifiedAndAVanishedRouter` le prouve.
+  **trois groupes qui sont trois paquets** de `com.morpheus.api.routes` — `bodiless`, `shareddecoder`,
+  `owncontext`, nommés par `ROUTERS_WITHOUT_A_BODY`, `ROUTERS_THROUGH_THE_SHARED_DECODER`,
+  `ROUTERS_REGISTERING_THEIR_OWN_CONTEXT`. Ranger un routeur, c'est le classer : un routeur rangé ailleurs (le paquet
+  parent, un paquet qu'aucune règle ne nomme) est refusé, et
+  `theClassificationRefusesARouterLeftInTheParentPackageAndOneInAnUnnamedPackage` le prouve.
   Le troisième groupe porte une **règle de dépendance**, pas une règle de configuration : ces routeurs
   *doivent* dépendre de `MorpheusHttpRequestDecoder` **et de `MorpheusHttpResponseWriter`**, et ne dépendent
   ni de `tools.jackson..`, ni d'`HttpRequestBodyReader`, ni de `CanonicalJsonSerializer` (les volets Jackson
@@ -184,6 +186,17 @@ Une source principale qui nomme une autre classe du runtime est refusée par le 
 inlinée. Les classes publiques du runtime le sont pour les stores : ce n'est pas une autorisation pour les autres
 modules.
 > `SqliteStorePackagesArchitectureTest`
+
+### `morpheus-api` : un rôle, un paquet, et six types pour les voisins (ADR-0147)
+`remote` > `local` > routeurs (`routes.bodiless`, `routes.shareddecoder`, `routes.owncontext`) > services du paquet
+parent > `transport` : une dépendance qui remonte cet ordre est un cycle, refusé par
+`ApiPackageCyclesArchitectureTest`. Une nouvelle classe va dans le paquet de son rôle, un nouveau routeur dans le
+paquet de son groupe. Les autres modules n'utilisent que `AllowedWorkspaceRoots`, `LoopbackHostPolicy`,
+`MorpheusHttpServer`, `MorpheusRemoteHttpServer`, `MorpheusRemoteIdentityFile` et `MorpheusRemoteRole`
+(`ApiEntryTypesArchitectureTest`, règle et texte) : un type public de l'adaptateur l'est pour ses propres paquets.
+Une liste de classes de l'adaptateur qui reste dans les tests est un compteur de dette ou une table de faits,
+déclarée dans `HttpAdapterClassListsArchitectureTest` ; une liste qui serait un rôle est un paquet.
+> `noClassOutsideTheAdapterDependsOnATypeOfTheAdapterBesideTheEntryTypes`, `thePackagesOfTheHttpAdapterFormNoCycle`, `everyListOfTheAdaptersClassesIsADebtCounterOrATableOfFacts`
 
 ### `morpheus-mcp-transport` ne dépend d'aucun autre paquet MORPHEUS
 Le transport STDIO borné est partagé par le serveur MCP et les clients MINOS/NEXUS.

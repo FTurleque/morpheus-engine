@@ -78,7 +78,7 @@ public final class ApiRuntime implements AutoCloseable {
         return operation.portfolios();
     }
 
-    PolicyPackStore policyPacks() {
+    public PolicyPackStore policyPacks() {
         return operation.policyPacks();
     }
 

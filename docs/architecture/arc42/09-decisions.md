@@ -49,6 +49,7 @@ Ce que MORPHEUS expose, comment il se livre, à qui il parle.
 | JDK HttpServer pour l'API locale | [ADR-0065](../adr/ARCH-0065-jdk-httpserver-local-api.md) |
 | Contrat HTTP `/api/v1` et erreurs JSON stables | [ADR-0066](../adr/ARCH-0066-versioned-http-api-contract.md) |
 | Les adaptateurs de transport sont des racines de composition nommées, et leur liste ne fait que rétrécir | [ADR-0109](../adr/ARCH-0109-transport-adapters-are-named-composition-roots.md) |
+| Un rôle de l'adaptateur HTTP est un paquet ; ce qui reste une liste de noms en déclare la sorte | [ADR-0147](../adr/ARCH-0147-un-role-d-adaptateur-est-un-paquet.md) |
 | MINOS et NEXUS sont des pairs optionnels, lancés à la demande par MCP STDIO | [ADR-0128](../adr/ARCH-0128-pairs-minos-et-nexus-par-mcp-stdio.md) |
 | Une ressource d'un pair MCP se désigne explicitement, sans heuristique ni mutation du pair | [ADR-0145](../adr/BE-0145-ressource-de-pair-mcp-designee-explicitement.md) |
 | Séparer l'intention MORPHEUS du contexte technique NEXUS | [ADR-0075](../adr/ARCH-0075-morpheus-intent-vs-nexus-technical-context.md) |

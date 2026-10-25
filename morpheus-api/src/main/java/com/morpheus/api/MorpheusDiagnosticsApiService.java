@@ -25,7 +25,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /** Owns project quality diagnostics and change completeness API views. */
-final class MorpheusDiagnosticsApiService {
+public final class MorpheusDiagnosticsApiService {
     private final Path databasePath;
     private final OperationalRecorder recorder;
 
@@ -34,7 +34,7 @@ final class MorpheusDiagnosticsApiService {
         this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
-    Object changeStatus(String projectIdValue, String changeIdValue) {
+    public Object changeStatus(String projectIdValue, String changeIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ChangeId changeId = ChangeId.parse(changeIdValue);
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
@@ -49,7 +49,7 @@ final class MorpheusDiagnosticsApiService {
         }
     }
 
-    Object blockingConditions(String projectIdValue, String changeIdValue) {
+    public Object blockingConditions(String projectIdValue, String changeIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ChangeId changeId = ChangeId.parse(changeIdValue);
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
@@ -67,7 +67,7 @@ final class MorpheusDiagnosticsApiService {
         }
     }
 
-    Object diagnostics(String projectIdValue) {
+    public Object diagnostics(String projectIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             activeSnapshot(runtime, projectId);

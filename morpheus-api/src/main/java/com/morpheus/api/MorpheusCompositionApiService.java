@@ -15,8 +15,8 @@ import java.util.function.Function;
 
 /** M18 read-only HTTP application facade for persisted multi-provider composition state. */
 public final class MorpheusCompositionApiService {
-    static final int DEFAULT_LIMIT = 50;
-    static final int MAX_LIMIT = 100;
+    public static final int DEFAULT_LIMIT = 50;
+    public static final int MAX_LIMIT = 100;
 
     private final Path databasePath;
     private final OperationalRecorder recorder;
@@ -26,11 +26,11 @@ public final class MorpheusCompositionApiService {
         this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
-    CompositionStateView status(String projectId) {
+    public CompositionStateView status(String projectId) {
         return state(projectId);
     }
 
-    Map<String, Object> conflicts(String projectId, int offset, int limit) {
+    public Map<String, Object> conflicts(String projectId, int offset, int limit) {
         if (offset < 0) {
             throw new IllegalArgumentException("offset must be non-negative");
         }

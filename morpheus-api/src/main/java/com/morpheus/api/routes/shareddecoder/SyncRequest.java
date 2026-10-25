@@ -1,4 +1,4 @@
-package com.morpheus.api;
+package com.morpheus.api.routes.shareddecoder;
 
 /** The body of a project synchronisation request. */
 record SyncRequest(String revision) {

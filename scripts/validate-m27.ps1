@@ -127,7 +127,7 @@ if (-not $SkipPortable) {
         'com/morpheus/application/reasoning/ReasoningAdapter.class',
         'com/morpheus/application/reasoning/EvidenceSynthesisReasoningAdapter.class',
         'com/morpheus/cli/MorpheusReasoningCli.class',
-        'com/morpheus/api/MorpheusReasoningHttpRoutes.class',
+        'com/morpheus/api/routes/owncontext/MorpheusReasoningHttpRoutes.class',
         'com/morpheus/mcp/MorpheusReasoningMcpTools.class')) {
         if ($entries -notcontains $entry) { throw "M27 packaged runtime is missing $entry" }
     }

@@ -1,5 +1,8 @@
-package com.morpheus.api;
+package com.morpheus.api.routes.shareddecoder;
 
+import com.morpheus.api.MorpheusApiService;
+import com.morpheus.api.MorpheusProjectRegistryApiService;
+import com.morpheus.api.routes.shareddecoder.ProjectRegistrationRequest;
 import com.morpheus.api.transport.ApiFailure;
 import com.morpheus.api.transport.MorpheusHttpQuery;
 import com.morpheus.api.transport.MorpheusHttpRequestDecoder;

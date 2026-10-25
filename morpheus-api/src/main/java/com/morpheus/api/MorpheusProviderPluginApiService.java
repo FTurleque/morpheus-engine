@@ -8,19 +8,19 @@ import com.morpheus.sdk.provider.ProviderPluginViews;
 import java.nio.file.Path;
 
 /** Provider-plugin API adapter. Executable probing always requires a trusted SHA-256 pin. */
-final class MorpheusProviderPluginApiService {
+public final class MorpheusProviderPluginApiService {
     private final ProviderPluginService service;
 
-    MorpheusProviderPluginApiService(OperationalRecorder recorder) {
+    public MorpheusProviderPluginApiService(OperationalRecorder recorder) {
         this.service = new ProviderPluginService(recorder);
     }
 
-    ProviderPluginViews.RemoteDiscoveryView discover(String directory) {
+    public ProviderPluginViews.RemoteDiscoveryView discover(String directory) {
         // The HTTP surface is relayed to remote callers verbatim, so it must not carry server filesystem paths.
         return ProviderPluginViews.remoteDiscovery(service.discover(Path.of(directory)));
     }
 
-    ProviderPluginViews.RemoteProbeView probe(
+    public ProviderPluginViews.RemoteProbeView probe(
             String directory, String pluginId, String workspace, String expectedSha256) {
         return ProviderPluginViews.remoteProbe(
                 service.probe(Path.of(directory), pluginId, Path.of(workspace), expectedSha256));
