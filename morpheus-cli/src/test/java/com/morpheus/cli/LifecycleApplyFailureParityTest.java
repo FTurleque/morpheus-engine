@@ -62,30 +62,37 @@ class LifecycleApplyFailureParityTest {
 
     @Test
     void anUnknownTargetStateIsRefusedByAllThreeSurfacesWithoutMutating() throws Exception {
-        assertRefusedEverywhere("unknown-target-state", "SIDEWAYS", 0, "parity-actor",
-                "--to is not a valid MORPHEUS lifecycle state: SIDEWAYS");
+        assertRefusedEverywhere("unknown-target-state", "SIDEWAYS", 0, "parity-actor", new Refusal(
+                "--to is not a valid MORPHEUS lifecycle state: SIDEWAYS",
+                "targetState is not a valid MORPHEUS lifecycle state: SIDEWAYS",
+                "/targetState"));
     }
 
     @Test
     void aNegativeExpectedRevisionIsRefusedByAllThreeSurfacesWithoutMutating() throws Exception {
-        assertRefusedEverywhere("negative-revision", "PROPOSED", -1, "parity-actor",
-                "--expected-revision must be between 0 and ");
+        assertRefusedEverywhere("negative-revision", "PROPOSED", -1, "parity-actor", new Refusal(
+                "--expected-revision must be between 0 and ",
+                "expectedRevision must be a non-negative integer",
+                "/expectedRevision"));
     }
 
     @Test
     void anAbsentActorIsRefusedByAllThreeSurfacesWithoutMutating() throws Exception {
-        assertRefusedEverywhere("absent-actor", "PROPOSED", 0, null, "--actor is required");
+        assertRefusedEverywhere("absent-actor", "PROPOSED", 0, null, new Refusal(
+                "--actor is required",
+                "actor is required and must be a non-blank string",
+                "'actor'"));
     }
 
     private void assertRefusedEverywhere(
-            String label, String targetState, long expectedRevision, String actor, String cliRefusal)
+            String label, String targetState, long expectedRevision, String actor, Refusal refusal)
             throws Exception {
         Path database = tempDirectory.resolve(label + ".db");
         Seed seed = seed(database);
 
-        assertCliRefuses(database, seed, targetState, expectedRevision, actor, cliRefusal);
-        assertHttpRefuses(database, seed, targetState, expectedRevision, actor);
-        assertMcpRefuses(database, seed, targetState, expectedRevision, actor);
+        assertCliRefuses(database, seed, targetState, expectedRevision, actor, refusal.cli());
+        assertHttpRefuses(database, seed, targetState, expectedRevision, actor, refusal.http());
+        assertMcpRefuses(database, seed, targetState, expectedRevision, actor, refusal.mcpField());
 
         try (var mutations = new SqliteChangeLifecycleMutationStore(database)) {
             ProjectSpecificationId projectId = ProjectSpecificationId.parse(seed.projectId());
@@ -133,7 +140,8 @@ class LifecycleApplyFailureParityTest {
     }
 
     private void assertHttpRefuses(
-            Path database, Seed seed, String targetState, long expectedRevision, String actor) throws Exception {
+            Path database, Seed seed, String targetState, long expectedRevision, String actor, String refusal)
+            throws Exception {
         try (MorpheusHttpServer server = MorpheusHttpServer.start(database, "127.0.0.1", 0)) {
             URI uri = URI.create(server.baseUri()
                     + "/projects/" + seed.projectId() + "/changes/" + seed.changeId() + "/lifecycle-transitions");
@@ -147,12 +155,18 @@ class LifecycleApplyFailureParityTest {
 
             assertEquals(400, response.statusCode(),
                     () -> "the HTTP adapter must refuse the command as a bad request: " + response.body());
-            assertTrue(response.body().contains("BAD_REQUEST"), response::body);
+            assertTrue(response.body().contains("\"code\":\"BAD_REQUEST\",\"message\":\"" + refusal + "\""),
+                    response::body);
         }
     }
 
+    /**
+     * The schema validator words its errors in the language of the JVM, so the field it names is asserted, not its
+     * sentence.
+     */
     private void assertMcpRefuses(
-            Path database, Seed seed, String targetState, long expectedRevision, String actor) throws Exception {
+            Path database, Seed seed, String targetState, long expectedRevision, String actor, String field)
+            throws Exception {
         try (McpStdioSession session = McpStdioSession.start(database)) {
             session.send("{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{"
                     + "\"protocolVersion\":\"2025-11-25\",\"capabilities\":{},"
@@ -172,9 +186,15 @@ class LifecycleApplyFailureParityTest {
                     + "\"name\":\"apply_change_lifecycle_transition\",\"arguments\":" + arguments + "}}");
             String answer = session.readLine(Duration.ofSeconds(20));
 
-            assertTrue(answer.contains("\"isError\":true"),
+            assertTrue(answer.contains("\"id\":2,") && answer.contains("\"isError\":true"),
                     () -> "the MCP tool must refuse the command as a tool error: " + answer);
+            assertTrue(answer.contains("input validation failed") && answer.contains(field),
+                    () -> "the MCP tool must refuse at its schema, naming " + field + ": " + answer);
         }
+    }
+
+    /** What each surface answers for one malformed command: the CLI's and HTTP's refusal, the field MCP names. */
+    private record Refusal(String cli, String http, String mcpField) {
     }
 
     private static String body(String targetState, long expectedRevision, String actor) {
