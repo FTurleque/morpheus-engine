@@ -7,7 +7,7 @@ rules: false
 
 # Une commande CLI et un outil MCP sont servis par une classe de capacité ; un dispatcher ne tient aucun cas d'usage
 
-- Statut : **Proposée**
+- Statut : **Acceptée**
 - Date : 2026-10-25
 
 ## Context
@@ -30,50 +30,43 @@ Options considérées pour dire où vit un comportement : une borne sur le nombr
 (`MorpheusCli` ne dépend que de classes `Morpheus*Cli` : rejetée, un nom tient lieu de rôle), une règle de dépendance
 sur des paquets (retenue).
 
+Ce que distribuer exige : pour la CLI, le runtime opérationnel que le lanceur transmet, la version du produit et
+la borne que l'aide imprime ; pour le serveur MCP, le recorder, la version du produit et les types d'intégration qu'il
+passe aux classes de capacité. `MorpheusCli` sert aussi `version` quand il est appelé directement, et son propre point
+d'entrée (`MorpheusCli.main`, ADR-0115) remet le runtime du processus à `MorpheusMain.run`. Le propriétaire d'un
+outil MCP se lit par la classe de la lambda de son gestionnaire : chaque classe déclare cette lambda dans une méthode
+privée de quelques lignes.
+
 ## Decision
 
 ### 1. Un rôle de l'adaptateur est un paquet
 
 | Paquet | Rôle |
 |---|---|
-| `com.morpheus.cli` | le lanceur, le dispatcher et la déclaration des chemins de commande |
-| `com.morpheus.cli.launch` | le câblage des serveurs que le lanceur démarre |
-| `com.morpheus.cli.command` | les classes de capacité de la CLI et ce qu'elles partagent : options, cadre d'exécution, runtime, disposition, codes de sortie |
+| `com.morpheus.cli` | lanceur, dispatcher, chemins de commande |
+| `com.morpheus.cli.launch` | câblage des serveurs que le lanceur démarre |
+| `com.morpheus.cli.command` | classes de capacité de la CLI et ce qu'elles partagent |
 | `com.morpheus.mcp.server` | le serveur, qui enregistre les outils |
-| `com.morpheus.mcp` | les classes de capacité du serveur, leur runtime et ce qu'elles partagent |
+| `com.morpheus.mcp` | classes de capacité du serveur et ce qu'elles partagent |
 
-Les paquets de chaque adaptateur sont sans cycle : `com.morpheus.cli` au-dessus de `launch`, `launch` au-dessus de
-`command` ; `com.morpheus.mcp.server` au-dessus de `com.morpheus.mcp`. Les autres modules n'utilisent de
-`morpheus-mcp` que `MorpheusMcpServer`.
+Les paquets sont sans cycle (`cli` au-dessus de `launch`, `launch` au-dessus de `command` ; `mcp.server` au-dessus
+de `mcp`) ; les autres modules n'utilisent de `morpheus-mcp` que `MorpheusMcpServer`.
 
 ### 2. Une commande et un outil sont servis par une classe de capacité
 
-Chaque chemin de commande déclaré par `CliCommandPaths` est revendiqué par exactement une classe de la chaîne de
-`MorpheusMain.run` ; chaque outil publié a pour gestionnaire une lambda déclarée par exactement une classe de
-`com.morpheus.mcp`. Une classe de capacité sert les commandes ou les outils d'une famille de
-`contracts/public-surfaces.tsv` (`requirement.*`, `change.*`, `specification.*`, …). `help` et la réponse
-`unknown command` restent au dispatcher.
+Chaque chemin de `CliCommandPaths` est revendiqué par une seule classe de la table de `MorpheusMain.run` ; chaque
+outil publié a pour gestionnaire une lambda déclarée par une seule classe de `com.morpheus.mcp`. Une classe sert une
+famille de `contracts/public-surfaces.tsv`. L'aide et `unknown command` restent à `MorpheusCli`, branche par défaut.
 
 ### 3. Un dispatcher ne tient aucun cas d'usage
 
-Une classe de `com.morpheus.cli` ou de `com.morpheus.mcp.server` ne nomme de `com.morpheus.application..`,
-`com.morpheus.provider..` et `com.morpheus.store..` que les types de la liste autorisée de son adaptateur : pour la
-CLI, le runtime opérationnel que le lanceur transmet, la version du produit et la borne que l'aide imprime ; pour le
-serveur MCP, le recorder, la version du produit et les types d'intégration qu'il passe aux classes de capacité. Chaque
-liste est exacte ; un nom qu'aucun dispatcher de l'adaptateur n'utilise en sort. Une commande écrite dans un
-dispatcher n'a donc rien à appeler.
-
-`MorpheusCli` est la branche par défaut de `MorpheusMain.run` : il sert l'aide, et `version` quand il est appelé
-directement. Son propre point d'entrée (`MorpheusCli.main`, ADR-0115) remet le runtime du processus à
-`MorpheusMain.run` et sert donc les mêmes commandes que le lanceur.
+Une classe de `com.morpheus.cli` ou de `com.morpheus.mcp.server` ne nomme de l'application, d'un provider ou d'un
+store que la liste autorisée de son adaptateur, exacte, réduite à ce que distribuer exige.
 
 ### 4. Ce que les familles partagent est écrit une fois
 
-Le parseur d'options (`CommandOptions`), le cadre d'exécution, la correspondance des échecs et la ligne d'erreur
-(`CliCommandRun`, `CliFailure`) des commandes extraites de `MorpheusCli` sont des collaborateurs de
-`com.morpheus.cli.command`. Les projections des outils du catalogue (`McpContentPayloads`), leur cadre d'appel et leurs
-lectures communes (`McpCatalogTool`) sont des collaborateurs de `com.morpheus.mcp`. Chaque classe MCP déclare elle-même la lambda du gestionnaire de ses outils, dans une méthode
-privée de quelques lignes : c'est par elle que se lit le propriétaire d'un outil.
+`CommandOptions`, `CliCommandRun` et `CliFailure` dans `com.morpheus.cli.command` ; `McpContentPayloads` et
+`McpCatalogTool` dans `com.morpheus.mcp`.
 
 ## Do's and Don'ts
 
