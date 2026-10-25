@@ -59,9 +59,13 @@ Les deux mécanismes n'enforcent pas la même proposition, et aucun ne domine l'
 
 Une règle « toute la famille » échoue dès la première exception légitime, et l'affaiblir pour la
 faire passer supprime l'invariant pour tous les autres membres. Le patron qui tient est dans
-`HttpRoutesTransportBoundaryArchitectureTest` : des groupes **listés par nom**, et un test de
-classification qui refuse un membre non classé, doublement classé ou disparu. Un nouveau membre
-est refusé tant que personne ne l'a rangé.
+`HttpRoutesTransportBoundaryArchitectureTest` : chaque groupe est **un paquet**
+(`com.morpheus.api.routes.bodiless`, `.shareddecoder`, `.owncontext`), et un test de classification
+refuse un membre rangé hors de ces paquets ou deux membres de même nom simple. Ranger, c'est classer :
+un membre doublement classé ou disparu ne peut plus s'écrire, et un nouveau membre est refusé tant
+que personne ne l'a rangé. Une liste de noms qui reste n'est jamais un rôle : elle est un compteur de
+dette ou une table de faits, déclarée comme telle dans `HttpAdapterClassListsArchitectureTest`
+(ADR-0147).
 
 `HttpRoutesFamilyArchitectureTest` porte à l'inverse les interdits vérifiés sur **chaque**
 membre : n'y ajouter qu'un interdit dont on a vérifié qu'il vaut pour tous.

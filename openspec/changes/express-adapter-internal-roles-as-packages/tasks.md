@@ -158,18 +158,33 @@ same tree as `0b90cdcf`).
       names; `HttpRoutesFamilyArchitectureTest` selects the routers by `com.morpheus.api.routes..` and its bijection
       with the sources counts only the routers of that package. Broken once: an empty `PlantedHttpRoutes` in
       `com.morpheus.api` failed both, each naming it. Reverted.
-- [ ] 4.4 For each pull request: a line per moved file in the table of old and new paths of
+- [x] 4.4 For each pull request: a line per moved file in the table of old and new paths of
       `docs/project/README.md`; dated records are not rewritten (`rules/documentation.md`).
+
+      Done in each pull request of 4.1 to 4.3: one row per role in the table of `docs/project/README.md`.
 
 ## 5. The rules the packages make possible
 
-- [ ] 5.1 The cycle rule over the packages of `com.morpheus.api`, with a guard that fails when the adapter has fewer
+- [x] 5.1 The cycle rule over the packages of `com.morpheus.api`, with a guard that fails when the adapter has fewer
       than two packages. Break it once: a planted back-edge. Revert.
-- [ ] 5.2 The classification rule: every `*HttpRoutes` resides in exactly one group package. Break it once: a router
+      Done 2026-10-25 (`ApiPackageCyclesArchitectureTest`): one slice per package of `com.morpheus.api`, the parent
+      included, and a guard that the adapter has at least two packages. Broken once: a class of `transport` that
+      depends on `MorpheusApiService` failed with the cycle `com.morpheus.api -> com.morpheus.api.transport ->
+      com.morpheus.api`. Reverted.
+- [x] 5.2 The classification rule: every `*HttpRoutes` resides in exactly one group package. Break it once: a router
       in the parent package. Revert.
-- [ ] 5.3 The remote ban by package. Break it once with a `RemoteIdentity*` class in a router - the case the prefix
+      Done in 4.3 (`HttpRoutesTransportBoundaryArchitectureTest`, see its note).
+- [x] 5.3 The remote ban by package. Break it once with a `RemoteIdentity*` class in a router - the case the prefix
       missed. Revert.
-- [ ] 5.4 The gate over the remaining lists (1.3): each is declared a debt counter or a table of facts.
+      Done 2026-10-25 (`HttpRoutesFamilyArchitectureTest`): routers may not depend on `com.morpheus.api.remote..`, and
+      the text scan refuses the package name beside `MorpheusRemote`. Broken once: a public
+      `com.morpheus.api.remote.RemotePlanted`, called from a router, failed the rule; the prefix rule would have
+      passed it. Reverted.
+- [x] 5.4 The gate over the remaining lists (1.3): each is declared a debt counter or a table of facts.
+      Done 2026-10-25 (`HttpAdapterClassListsArchitectureTest`): twelve lists, one debt counter (`COMPOSITION_ROOTS`)
+      and eleven tables of facts; no list of the adapter's classes is a role. Broken in both directions: an undeclared
+      list naming `MorpheusQueryHttpRoutes` and a declaration whose list does not name the adapter's classes each
+      failed, by name. The detection is replayed over a synthetic source.
 - [ ] 5.5 Re-take the count of 1.5. Proof: not lower, pull request by pull request. If it is lower, the split of the
       tests is wrong, not the ratchet.
 
@@ -183,12 +198,17 @@ same tree as `0b90cdcf`).
 
 ## 7. Documentation and decision records
 
-- [ ] 7.1 The ADR (next free number, re-read `docs/architecture/adr/*-[0-9][0-9][0-9][0-9]-*.md` and `archive/`; line in its `README.md`), with the
+- [x] 7.1 The ADR (next free number, re-read `docs/architecture/adr/*-[0-9][0-9][0-9][0-9]-*.md` and `archive/`; line in its `README.md`), with the
       measures of 1.1 to 1.4 and the breakages of 3.2 and 5.x.
-- [ ] 7.2 A consolidated ADR replacing ADR-0109 (the row "not applicable"); `.claude/rules/architecture.md` (placement is classification).
-- [ ] 7.3 `.claude/rules/architecture.md` - re-read the classes before rewriting the paragraph on router groups, as
+- [x] 7.2 A consolidated ADR replacing ADR-0109 (the row "not applicable"); `.claude/rules/architecture.md` (placement is classification).
+- [x] 7.3 `.claude/rules/architecture.md` - re-read the classes before rewriting the paragraph on router groups, as
       the paragraph itself asks; `.claude/rules/security.md`; `.claude/CLAUDE.md`;
       `.claude/skills/enforcement-choice/SKILL.md`; `docs/architecture/arc42/05-vue-blocs.md`.
+
+      7.1: ADR-0147. 7.2: no consolidated ADR. ADR-0109 holds no statement about the adapter's packages and its
+      decision is unchanged; only the fully-qualified names in `COMPOSITION_ROOTS` follow the classes. 7.3:
+      `.claude/rules/architecture.md`, `.claude/skills/enforcement-choice/SKILL.md`, `docs/architecture/arc42/05-vue-blocs.md`;
+      `.claude/rules/security.md` and `.claude/CLAUDE.md` name classes, not packages, and stay true.
 
 ## 8. Verification
 

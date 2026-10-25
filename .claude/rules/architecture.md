@@ -187,6 +187,17 @@ inlinée. Les classes publiques du runtime le sont pour les stores : ce n'est pa
 modules.
 > `SqliteStorePackagesArchitectureTest`
 
+### `morpheus-api` : un rôle, un paquet, et six types pour les voisins (ADR-0147)
+`remote` > `local` > routeurs (`routes.bodiless`, `routes.shareddecoder`, `routes.owncontext`) > services du paquet
+parent > `transport` : une dépendance qui remonte cet ordre est un cycle, refusé par
+`ApiPackageCyclesArchitectureTest`. Une nouvelle classe va dans le paquet de son rôle, un nouveau routeur dans le
+paquet de son groupe. Les autres modules n'utilisent que `AllowedWorkspaceRoots`, `LoopbackHostPolicy`,
+`MorpheusHttpServer`, `MorpheusRemoteHttpServer`, `MorpheusRemoteIdentityFile` et `MorpheusRemoteRole`
+(`ApiEntryTypesArchitectureTest`, règle et texte) : un type public de l'adaptateur l'est pour ses propres paquets.
+Une liste de classes de l'adaptateur qui reste dans les tests est un compteur de dette ou une table de faits,
+déclarée dans `HttpAdapterClassListsArchitectureTest` ; une liste qui serait un rôle est un paquet.
+> `noClassOutsideTheAdapterDependsOnATypeOfTheAdapterBesideTheEntryTypes`, `thePackagesOfTheHttpAdapterFormNoCycle`, `everyListOfTheAdaptersClassesIsADebtCounterOrATableOfFacts`
+
 ### `morpheus-mcp-transport` ne dépend d'aucun autre paquet MORPHEUS
 Le transport STDIO borné est partagé par le serveur MCP et les clients MINOS/NEXUS.
 > `theMcpTransportDependsOnNoOtherMorpheusPackage`

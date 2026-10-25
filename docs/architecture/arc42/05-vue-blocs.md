@@ -92,6 +92,12 @@ nombre se compte dans le POM, il ne s'écrit pas ici) :
 | Surfaces | `morpheus-cli`, `morpheus-mcp`, `morpheus-api` | CLI, MCP STDIO et HTTP |
 | Qualification | `morpheus-architecture-tests`, `morpheus-coverage-report` | Invariants et gates d'architecture ; rapport JaCoCo agrégé, mesure canonique de couverture et gate de l'échelle agrégée |
 
+À l'intérieur de `morpheus-api`, chaque rôle est un paquet ([ADR-0147](../adr/ARCH-0147-un-role-d-adaptateur-est-un-paquet.md)) :
+`remote` (serveur remote et modèle d'identité), `local` (serveur local et ses protections), les trois
+paquets de routeurs de `routes`, `transport` (plomberie partagée) et le paquet parent, qui porte les
+services de l'application. Ces paquets sont sans cycle, dans cet ordre, et les autres modules
+n'utilisent que six types de l'adaptateur.
+
 Les nombres de classes, paquetages et endpoints ne sont volontairement pas
 figés ici : ce sont des métriques volatiles et non des propriétés
 architecturales.

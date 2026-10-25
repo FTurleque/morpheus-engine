@@ -48,11 +48,13 @@ class HttpRoutesFamilyArchitectureTest {
 
     private static final String ROUTER_SUFFIX = "HttpRoutes";
     private static final String ROUTES_PACKAGE = "com.morpheus.api.routes";
+    private static final String REMOTE_PACKAGE = "com.morpheus.api.remote";
 
     private final JavaClasses classes = new ClassFileImporter().importPackages("com.morpheus");
 
     /**
-     * The rule sees every dependency on the ten {@code MorpheusRemote*} types; the text sees the ones javac inlines.
+     * The rule sees every dependency on the remote server and its identity model, the whole of
+     * {@code com.morpheus.api.remote}, whatever a class of it is called; the text sees the ones javac inlines.
      *
      * <p>Unlike the pilot's two banned types, this family declares compile-time constants that are not private:
      * {@code MorpheusRemoteHttpServer.MAX_CONCURRENT_REQUESTS} and {@code DEFAULT_MAX_CONCURRENT_REQUESTS} are
@@ -70,12 +72,13 @@ class HttpRoutesFamilyArchitectureTest {
     void noRouterReachesTheRemoteAuthorizationModel() throws IOException {
         noClasses()
                 .that().resideInAPackage(ROUTES_PACKAGE + "..")
-                .should().dependOnClassesThat().haveSimpleNameStartingWith("MorpheusRemote")
+                .should().dependOnClassesThat().resideInAPackage(REMOTE_PACKAGE + "..")
                 .because("routers serve the loopback server; the remote surface carries its own TLS, RBAC and "
                         + "audit obligations and must not be reachable from any route")
                 .check(classes);
 
         assertNoRouterSourceMentions("MorpheusRemote");
+        assertNoRouterSourceMentions(REMOTE_PACKAGE);
     }
 
     /**

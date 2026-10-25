@@ -149,7 +149,8 @@ router package. Each server goes to the package of its role with its bootstrap, 
 - **Is the split worth its cost at all without the composition list?** It is the question this proposal cannot
   answer for the maintainer. Recommendation: do decision 6 and decision 4 unconditionally, then decide on the measure
   of decision 2.
-- **One new ADR, or consolidated ADRs only?** Recommendation: one ADR for the three kinds of selection and the entry rule;
-  a consolidated ADR replacing ADR-0109 that points to it, and `.claude/rules/architecture.md` saying that placement is classification.
+- **One new ADR, or consolidated ADRs only?** One ADR, ADR-0147, for the kinds of selection, the entry types and the
+  adapter's cycle rule. ADR-0109 holds no statement about the adapter's packages and its decision does not change, so
+  no consolidated ADR replaces it; `.claude/rules/architecture.md` says that placement is classification.
 - **Does the gate module's test declared in `com.morpheus.api` follow `MorpheusHttpRouteTable`, or does the table join the
   entry types?** Recommendation: the test follows; the table is not something another module should build on.
