@@ -1,0 +1,6 @@
+args: changes remove --project 01900000-0000-7000-8000-000000000001
+exit: 2
+stdout:
+
+stderr:
+MORPHEUS error [2]: unknown command: changes remove

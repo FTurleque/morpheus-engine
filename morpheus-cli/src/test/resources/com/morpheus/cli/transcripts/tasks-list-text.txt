@@ -1,0 +1,14 @@
+args: tasks list --project <project> --change <change>
+exit: 0
+stdout:
+snapshotId=<id-1> total=8 hasMore=false
+<id-2>	todo	Define the persistent-session data model
+<id-3>	todo	Add explicit remember-me authentication input
+<id-4>	todo	Implement persistent credential issuance
+<id-5>	todo	Implement persistent credential restoration
+<id-6>	todo	Revoke persistent credential on explicit logout
+<id-7>	todo	Add acceptance tests for standard session behavior
+<id-8>	todo	Add acceptance tests for remember-me behavior
+<id-9>	todo	Add acceptance tests for logout revocation
+
+stderr:

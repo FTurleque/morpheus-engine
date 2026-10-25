@@ -1,0 +1,5 @@
+tool: list_changes
+arguments: {"projectId":"not-an-id"}
+isError: true
+text:
+Invalid UUID string: not-an-id

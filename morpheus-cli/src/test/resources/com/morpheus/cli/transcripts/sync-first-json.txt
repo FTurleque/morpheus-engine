@@ -1,0 +1,6 @@
+args: --json sync --project <project>
+exit: 0
+stdout:
+{"projectId":"<project>","snapshotId":"<id-1>","mode":"FULL_REBUILD","fullRebuildReason":"FORCED","sourceCount":10,"requirementCount":2,"traceabilityLinkCount":16,"diagnosticCount":0,"published":true,"diagnostics":{"items":[],"truncated":false,"truncationReason":null}}
+
+stderr:

@@ -1,0 +1,6 @@
+args: --json paths
+exit: 0
+stdout:
+{"dataDirectory":"<temp>/data-paths-json","configDirectory":"<temp>/data-paths-json/config","logsDirectory":"<temp>/data-paths-json/logs","databasePath":"<temp>/data-paths-json/morpheus.db"}
+
+stderr:

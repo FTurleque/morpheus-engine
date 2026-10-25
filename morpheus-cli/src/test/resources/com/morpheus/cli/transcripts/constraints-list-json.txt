@@ -1,0 +1,6 @@
+args: --json constraints list --project <project> --change <change>
+exit: 0
+stdout:
+{"snapshotId":"<id-1>","totalMatches":2,"hasMore":false,"items":[{"id":"<id-2>","changeId":"<change>","statement":"une session standard SHALL conserver le comportement courant par défaut ;"},{"id":"<id-3>","changeId":"<change>","statement":"aucune persistance SHALL être activée sans opt-in explicite."}]}
+
+stderr:

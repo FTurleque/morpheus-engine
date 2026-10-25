@@ -1,0 +1,5 @@
+tool: list_changes
+arguments: {"projectId":"01920000-0000-7000-8000-0000000000ff"}
+isError: true
+text:
+project has no ACTIVE snapshot: 01920000-0000-7000-8000-0000000000ff

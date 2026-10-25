@@ -1,0 +1,5 @@
+tool: get_sync_status
+arguments: {"projectId":"not-an-id"}
+isError: true
+text:
+Invalid UUID string: not-an-id

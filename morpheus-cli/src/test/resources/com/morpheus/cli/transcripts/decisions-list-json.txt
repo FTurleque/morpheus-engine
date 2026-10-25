@@ -1,0 +1,6 @@
+args: --json decisions list --project <project> --change <change>
+exit: 0
+stdout:
+{"snapshotId":"<id-1>","totalMatches":2,"hasMore":false,"items":[{"id":"<id-2>","changeId":"<change>","title":"Separate persistent credential","decision":"La persistance SHALL utiliser un artefact révocable distinct du cookie de session court afin de ne pas transformer toutes les sessions en sessions longues."},{"id":"<id-3>","changeId":"<change>","title":"Explicit opt-in","decision":"Aucune session ne devient persistante sans intention explicite de l'utilisateur."}]}
+
+stderr:

@@ -1,0 +1,8 @@
+args: requirements find --project <project> --query session
+exit: 0
+stdout:
+snapshotId=<id-1> total=2 hasMore=false
+<requirement>	auth-session/session-expiration	Session expiration
+<id-2>	auth-session/session-activity-refresh	Session activity refresh
+
+stderr:
