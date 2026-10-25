@@ -56,9 +56,7 @@
         "AUD-TRV-04",
         "AUD-SEC-04",
         "AUD-QUA-13",
-        "AUD-QUA-12",
-        "AUD-QUA-17",
-        "AUD-QUA-18"
+        "AUD-QUA-12"
       ]
     },
     {
@@ -70,8 +68,7 @@
         "AUD-PRF-18",
         "AUD-TRV-05",
         "AUD-PRF-03",
-        "AUD-PRF-09",
-        "AUD-PRF-19"
+        "AUD-PRF-09"
       ]
     },
     {
@@ -114,7 +111,7 @@
         "AUD-TST-08",
         "AUD-TST-09",
         "AUD-QUA-04",
-        "AUD-TST-18"
+        "AUD-TST-19"
       ]
     },
     {
@@ -143,8 +140,7 @@
         "AUD-QUA-11",
         "AUD-DEP-13",
         "AUD-DEP-14",
-        "AUD-ARC-07",
-        "AUD-ARC-15"
+        "AUD-ARC-07"
       ]
     },
     {
@@ -187,6 +183,23 @@
       "sortie": "Setup.exe et le launcher sont signés, et verify-release-provenance asserte présence et validité de la signature.",
       "constats": [
         "AUD-DEP-05"
+      ]
+    },
+    {
+      "numero": 15,
+      "titre": "Dérives apparues pendant les correctifs",
+      "pourquoi": "Ce sprint n'est pas du plan du 9 octobre : il rassemble les constats nés **après** l'audit, soit d'une scission quand la mesure du dépôt a montré que ma cause était fausse, soit d'un effet de bord d'un correctif, soit du changement de branche d'intégration du 18 octobre. Les ranger dans les sprints d'origine faisait croire que ceux-ci traînaient depuis le 9 octobre, ce qui est faux : ils sont soldés, et du travail neuf est apparu à côté. Deux d'entre eux sont déjà corrigés.",
+      "sortie": "Les huit voies nocturnes analysent la branche d'intégration réelle ; Dependabot et les quatorze validateurs aussi ; la version du produit et la version du schéma sont reliées par un gate ; le contrôle de frontière redevient antérieur à la lecture ; et le verrou du parallélisme est levé sur les trois modules qui le portent encore.",
+      "constats": [
+        "AUD-ARC-15",
+        "AUD-DEP-23",
+        "AUD-DEP-24",
+        "AUD-DEP-25",
+        "AUD-PRF-19",
+        "AUD-QUA-17",
+        "AUD-QUA-18",
+        "AUD-SEC-17",
+        "AUD-TST-18"
       ]
     }
   ]

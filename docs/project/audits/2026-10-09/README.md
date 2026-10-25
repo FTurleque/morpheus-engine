@@ -8,6 +8,138 @@
 
 ---
 
+## État au 21 octobre 2026 — le sprint 8, et deux errata de l'audit
+
+72 commits depuis la passe du 18 octobre (PR #517 à #535) : le **sprint 8** et la clôture du sprint 7.
+Statuts établis sur `6bdf4bbb`. Détail dans **`reverification-2026-10-21.md`**.
+
+**Quatre des six constats du sprint 8 sont corrigés**, deux restent partiels. Et cette passe corrige **deux
+erreurs de l'audit lui-même** — voir les errata ci-dessous.
+
+**106 constats : 46 corrigés · 7 partiels · 26 toujours valides · 4 caducs · 22 Info qui tiennent · 1 non
+vérifiable.** Un constat neuf, `AUD-TST-19`. Il reste **trois constats `Élevée`** : `AUD-ARC-01`,
+`AUD-ARC-02`, `AUD-PRF-04`.
+
+| Axe | 9 oct. | 13 oct. | 17 oct. | 18 oct. | **21 oct.** | |
+|---|---|---|---|---|---|---|
+| Sécurité | 75 | 100 | 100 | 96 | **96** | — |
+| Dépendances / exploitation | 36 | 68 | 87 | 75 | **84** | +9 |
+| Performance | 28 | 52 | 52 | 77 | **77** | — |
+| Tests | 54 | 69 | 69 | 66 | **75** | +9 |
+| Qualité | 46 | 56 | 66 | 63 | **71** | +8 |
+| Architecture | 26 | 35 | 46 | 46 | **46** | — |
+| **Moyenne** | **44** | **63** | **70** | **70** | **75** | **+5** |
+
+**Le meilleur niveau depuis le 9 octobre.** Charge restante : 38 à 110 jours sur 33 constats ouverts. Les
+sprints 2, 3 et 4 sont terminés, les sprints 1, 5, 6 et 7 gardent un reliquat chacun, le sprint 8 est
+largement entamé.
+
+**Premier erratum — `AUD-DEP-23` et `AUD-DEP-24` sont caducs.** Le 18 octobre j'ai levé un constat `Élevée`
+disant que les voies nocturnes analysaient une branche gelée. L'observation était exacte, la conclusion non :
+c'était la **fenêtre de promotion de la v1.2.1**, pas un changement de modèle. La PR #516 a refermé la
+fenêtre le 18 à 16h33, et depuis les dix-neuf PR du lot sont toutes allées sur `develop`. Le modèle décrit
+par `ROADMAP.md` n'a jamais changé. *La leçon : auditer pendant une fenêtre de release, c'est risquer de
+prendre l'état transitoire pour l'état permanent.*
+
+**Second erratum — `AUD-DEP-13` était corrigé depuis le 14 octobre.** Le `<version>1.0.4</version>` a disparu
+dans le commit qui soldait `AUD-DEP-14` ; j'ai vérifié l'un sans voir que le même commit fermait l'autre, et
+quatre passes l'ont reconduit sans le remesurer. *Un constat soldé en dommage collatéral d'un autre n'est
+signalé par rien.*
+
+**Ce qui est le plus solide dans ce lot.** `AUD-TST-03` : 457 `assertThrows` au résultat jeté avant, **0**
+après, recomptés indépendamment. `AUD-TST-06` : le gate ne compare pas à une liste recopiée mais à la table
+de routage de la CLI elle-même, que `MorpheusMain.run` consulte avant tout dispatch. `AUD-TST-08` : la
+frontière entre tests écrits et générés est **mesurée**, pas déclarée.
+
+**Un constat neuf, `AUD-TST-19`.** Le commit qui a re-basé les ratchets a mesuré 693 tests d'architecture et
+laissé le ratchet à 585 : **108 exécutions de jeu** sur la couche qui tient tous les autres invariants, quand
+les deux autres clés du même fichier n'en ont que 10.
+
+**Une aggravation, troisième fois : `AUD-QUA-02`.** 99 copies du localisateur de racine, contre 73 au
+9 octobre — dont 97 dans `morpheus-architecture-tests`. Tant que le socle n'existe pas, tout travail de test
+aggrave ce constat, y compris celui qui solde les autres.
+
+**Trois réserves.** *Aucun build n'a pu être exécuté* dans aucune des six passes : les ratchets et les
+plafonds de couverture ne sont pas revérifiables, seule leur mécanique l'est. *PowerShell est absent*, donc
+la moitié `.ps1` du dispositif n'est ici ni lancée ni testée — ce qui est aussi le fond de `AUD-TRV-07`.
+*L'API GitHub est refusée*, donc les identifiants de run et les durées restent des revendications. Seule
+exécution réelle : la suite Python, **322 tests, 0 échec, 21 sautés**.
+
+## État au 18 octobre 2026 — le sprint 7, et le changement de branche d'intégration
+
+33 commits depuis la passe du 17 octobre (PR #508 à #515), portant le **sprint 7 de performance** et un
+changement que personne n'avait annoncé à l'audit : **`main` a remplacé `develop` comme branche
+d'intégration**. Les statuts sont ceux de `29c942ae`, dont l'arbre est identique à `origin/main`. Détail
+dans **`reverification-2026-10-18.md`**, complément du soir compris.
+
+**Huit constats passent à corrigé**, dont `AUD-PRF-02`, l'un des deux derniers `Élevée` de l'axe
+Performance. **Quatre constats sont neufs**, tous nés du changement de branche ou de ses effets de bord :
+`AUD-DEP-23`, `AUD-DEP-24`, `AUD-DEP-25`, `AUD-SEC-17`.
+
+**105 constats : 41 corrigés · 5 partiels · 34 toujours valides · 2 caducs · 22 Info qui tiennent · 1 non
+vérifiable.** Il ne reste que **trois constats `Élevée`** : `AUD-ARC-01`, `AUD-ARC-02` et `AUD-PRF-04`.
+
+| Axe | 9 oct. | 13 oct. | 15 oct. | 17 oct. | **18 oct.** | |
+|---|---|---|---|---|---|---|
+| Sécurité | 75 | 100 | 100 | 100 | **96** | −4 |
+| Dépendances / exploitation | 36 | 68 | 73 | 87 | **75** | −12 |
+| Performance | 28 | 52 | 52 | 52 | **77** | **+25** |
+| Tests | 54 | 69 | 65 | 69 | **66** | −3 |
+| Qualité | 46 | 56 | 52 | 66 | **63** | −3 |
+| Architecture | 26 | 35 | 36 | 46 | **46** | — |
+| **Moyenne** | **44** | **63** | **63** | **70** | **70** | — |
+
+La moyenne ne bouge pas, et c'est l'information : **le sprint 7 paie exactement ce que les quatre constats
+neufs coûtent.** Le gain de 25 points sur Performance est le plus gros d'une passe sur un seul axe depuis le
+9 octobre.
+
+**Où en est le plan.** Les sprints **2, 3 et 4 sont terminés**. Les sprints 1, 5, 6 et 7 gardent **un
+reliquat chacun**, et ce sont les seuls restes du plan du 9 octobre dans la première moitié :
+
+| Sprint | Reliquat | Où il en est |
+|---|---|---|
+| 1 | `AUD-DEP-07` | **Bloqué en amont** — Dependency-Check 13.0.1 n'existe pas ; rien que le dépôt puisse faire |
+| 5 | `AUD-PRF-09` | Change OpenSpec ouvert, non archivé : en cours |
+| 6 | `AUD-PRF-04` | Partiel — la table HTTP est corrigée, les deux autres sont mises hors d'atteinte par une règle |
+| 7 | `AUD-PRF-14` | **Jamais commencé** — cité dans aucun change OpenSpec |
+
+Les sprints 8 à 14 n'ont pas commencé, conformément à l'ordre. Charge restante : 41 à 120 jours sur 39
+constats ouverts.
+
+**Correction de modélisation.** Les neuf constats nés *après* le 9 octobre — d'une scission, d'un effet de
+bord d'un correctif, ou du changement de branche — étaient rangés dans les sprints du plan d'origine, ce qui
+faisait croire que ceux-ci traînaient depuis le 9 octobre. C'était faux. Ils sont regroupés dans un
+**sprint 15, « Dérives apparues pendant les correctifs »** : 9 constats, 7 ouverts. Aucun n'est prérequis
+d'un constat du plan d'origine, la vérification a été faite avant de les déplacer.
+
+**Ce qu'il faut savoir du changement de branche.** Les sept PR du lot ont toutes atterri sur `main`, et
+`origin/HEAD` y pointe : `main` est la branche d'intégration, `develop` un miroir rattrapé à la main. Les
+huit voies nocturnes — Sonar, SpotBugs, PIT, budgets M19, répétition de release, validateurs sans voie —
+épinglent toutes `develop`. Pendant environ vingt-quatre heures elles ont **rendu vert sur du code périmé**,
+jusqu'à ce que la PR #515 synchronise les deux branches, une minute après que le relevé l'ait trouvé.
+Aujourd'hui les arbres sont identiques et le volet aigu est éteint, d'où la rétrogradation d'`AUD-DEP-23`
+d'Élevée à Moyenne. Mais rien ne garantit que `develop` suive : **un vert nocturne atteste l'état de
+`develop` au moment du run, pas celui de `main`.** Le reste du basculement n'est pas répercuté non plus —
+Dependabot vise toujours `develop`, donc une mise à jour de dépendance fusionnée là n'atteindra jamais
+`main`, silencieusement (`AUD-DEP-24`).
+
+**Deux verdicts contre-vérifiés, deux revendications qui ne tiennent pas.** Les deux `Élevée` de Performance
+ont été repris par une lecture indépendante : verdicts confirmés, et le comptage d'`AUD-PRF-02` est
+recalculable à l'identique. En revanche, `closures-2026-10-17.md` affirme que le filet d'`AUD-QUA-18` est
+« éprouvée par un test qui fuit la portée » — **ce test n'existe pas** ; et il justifie le maintien en
+séquentiel de trois modules par `java.home` et `Locale.setDefault`, alors que `java.home` n'est posé dans
+aucun des trois et que `morpheus-cli` ne porte ni l'un ni l'autre. Aucun verdict ne change, mais c'est la
+fiabilité du registre de clôture qui est en cause, et c'est le motif que cet audit suit depuis le début.
+
+**Trois réserves.** *Sécurité 96* au lieu de 100 vient d'`AUD-SEC-17`, un rétrécissement du contrôle avant
+lecture introduit par une optimisation : l'invariant « rien hors frontière n'entre dans l'inventaire » tient
+et il est testé ; l'invariant « aucun contenu n'est lu à travers un lien » ne tient plus. *Aucun build n'a
+pu être exécuté* dans aucune des cinq passes — Maven Central est refusé par le proxy, PowerShell est absent,
+l'API GitHub aussi. Tout est établi par lecture de code, sauf la suite Python de `scripts/tests`,
+réexécutée : **292 tests, 0 échec, 17 sautés**. Enfin, pour tout le sprint 7, *la structure algorithmique est
+vérifiable, la baisse de coût ne l'est pas* : elle n'est tenue que par des gates M19 qui ne tournent pas
+dans `clean verify`.
+
 ## État au 17 octobre 2026 — vérification des sept constats portés à « corrigé »
 
 54 commits depuis la passe du 15 octobre (PR #493 à #506), dont la promotion de **v1.2.1** sur `main` le
