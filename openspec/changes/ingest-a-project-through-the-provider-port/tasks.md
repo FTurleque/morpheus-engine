@@ -102,7 +102,9 @@
 
 ## 5. Verification
 
-- [ ] 5.1 `./mvnw clean verify`; convergence gates (`PublicHttpRouteConvergenceTest`) unchanged; changed-line coverage
+- [x] 5.1 `./mvnw clean verify`; convergence gates (`PublicHttpRouteConvergenceTest`) unchanged; changed-line coverage
       gate. Proof: green on both platforms through the required checks.
-- [ ] 5.2 Pull request description: the finding, why no new port, the table of 1.2, what a broken workspace now
+      *Locally at `c4616754`: `BUILD SUCCESS` on Windows and on Linux (WSL); changed lines 245/251 and changed
+      branches 70/77 against `develop`. `contracts/public-surfaces.tsv` and the OpenAPI are unchanged.*
+- [x] 5.2 Pull request description: the finding, why no new port, the table of 1.2, what a broken workspace now
       answers on each transport, and the governance files changed.
