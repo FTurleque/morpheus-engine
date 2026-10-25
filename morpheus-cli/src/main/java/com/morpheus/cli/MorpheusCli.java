@@ -23,11 +23,9 @@ import com.morpheus.application.quality.TaskQualityService;
 import com.morpheus.application.quality.compact.CompactQualityReportService;
 import com.morpheus.application.query.BusinessContentQueryService;
 import com.morpheus.application.query.ChangeContextQueryService;
-import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.query.SnapshotPage;
 import com.morpheus.application.query.compact.CompactQueryViewService;
 import com.morpheus.application.store.ProjectStoreEntry;
-import com.morpheus.application.store.RequirementVersionRecord;
 import com.morpheus.application.sync.IncrementalSyncService;
 import com.morpheus.application.sync.LocalSourceInventoryScanner;
 import com.morpheus.application.sync.SyncFreshness;
@@ -542,22 +540,8 @@ public final class MorpheusCli {
         return status == CoverageRatioStatus.MEASURED ? Double.toString(ratio) : status.name();
     }
 
-    private RequirementView requirementView(RequirementVersionRecord versionRecord) {
-        var requirement = versionRecord.entityVersion().content();
-        return new RequirementView(
-                requirement.id().toString(),
-                requirement.key(),
-                requirement.title(),
-                requirement.statement(),
-                requirement.specificationId().toString());
-    }
-
     private ChangeView changeView(ChangeProposal change) {
         return new ChangeView(change.id().toString(), change.key(), change.title(), change.intent(), change.scope(), change.outOfScope(), change.risks());
-    }
-
-    private PageRequest page(CommandOptions options) {
-        return new PageRequest(options.intValue(OPT_OFFSET, 0, 0, Integer.MAX_VALUE), options.intValue(OPT_LIMIT, 20, 1, PageRequest.MAX_LIMIT));
     }
 
     private Path projectWorkspace(CliRuntime runtime, ProjectSpecificationId projectId) {
@@ -646,7 +630,6 @@ public final class MorpheusCli {
             Optional<String> lastSuccessfulMode,
             Optional<String> pendingFullRebuildReason,
             int currentSourceCount) {}
-    private record RequirementView(String id, Optional<String> key, String title, String statement, String specificationId) {}
     private record ChangeView(
             String id,
             Optional<String> key,
