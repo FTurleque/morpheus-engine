@@ -1,0 +1,9 @@
+args: paths --bogus x
+exit: 0
+stdout:
+data=<temp>/data-paths-extra-option
+config=<temp>/data-paths-extra-option/config
+logs=<temp>/data-paths-extra-option/logs
+database=<temp>/data-paths-extra-option/morpheus.db
+
+stderr:

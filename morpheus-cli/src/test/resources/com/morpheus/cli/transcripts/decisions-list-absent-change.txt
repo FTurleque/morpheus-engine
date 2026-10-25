@@ -1,0 +1,6 @@
+args: --json decisions list --project <project> --change 01900000-0000-7000-8000-000000000001
+exit: 0
+stdout:
+{"snapshotId":"<id-1>","totalMatches":0,"hasMore":false,"items":[]}
+
+stderr:

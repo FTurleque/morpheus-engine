@@ -3,6 +3,13 @@
 Implementation is a separate lot, started after this specification is reviewed. Nothing below is done by the pull request
 that introduces this change.
 
+**Order.** The proposal places this lot after `project-shared-domain-types-to-one-public-shape` and
+`share-one-argument-base-across-cli-subcommands`. The lot runs before both, by the maintainer's decision of 2026-10-25:
+the extraction does not wait for sprint 9. What those two changes replace moves once and is not copied: the
+projections of `MorpheusMcpToolService` go into one collaborator of the MCP capability package, the parser
+`CommandOptions` and the error mapping of `MorpheusCli` into collaborators of the CLI capability package. Each change
+then replaces one class in place, and its `tasks.md` names that class.
+
 ## 1. Measure before changing
 
 - [x] 1.1 Re-count on the lot's base: lines, imports, dispatched commands and private records of `MorpheusCli`;
@@ -115,19 +122,30 @@ that introduces this change.
 - [x] 2.1 The missing tests of 1.2, on `experiments/m0/fixtures/`, with `morpheus-store-memory` or
       `morpheus-provider-synthetic` wherever the command allows it. Their own pull request, green on the base, no
       production line changed. A refusal is asserted by `assertThrows` or exit code **and** by its message.
-      *2026-10-25: `CliCommandTranscriptTest` (62 cases) and `McpToolTranscriptTest` (50 cases), green on
-      `b60a9286`. Each case records the whole answer in a transcript under `src/test/resources/.../transcripts/`: for
-      the CLI the exit code, standard output and standard error of `help`, `version`, an unknown command and every
-      command of 1.6, in text and in JSON, with an unknown option or an out-of-range value and an absent entity for
-      each; for MCP the text and `isError` of the fourteen tools, with an absent project, a malformed identifier and
-      a bound or an absent change, and the whole catalogue the server publishes (58 tools). Only what a run cannot
-      reproduce is replaced: generated identifiers, clock instants, the computed age, the temporary directory and its
-      separators, the product version. The traversals of `trace-requirement` / `trace_requirement` and
-      `change-context` / `get_change_context` order nodes and links by generated UUIDv7, which two runs do not order
-      alike within one millisecond (measured: four runs, two transcripts differed); those two JSON answers are
-      compared with generated identifiers named alike and every array sorted. Four runs of each test gave identical
+      *2026-10-25: `CliCommandTranscriptTest` (69 cases) and `McpToolTranscriptTest` (56 cases), green on
+      `b60a9286` on Windows and Linux. Each case records the whole answer in a transcript under
+      `src/test/resources/.../transcripts/`. For the CLI: the exit code, standard output and standard error of `help`,
+      `version`, an unknown command and every command of 1.6 in text and in JSON; an unknown option or an out-of-range
+      value for each; an absent project for each command that takes one, an absent change for `changes get`,
+      `constraints list`, `decisions list`, `tasks list` and `change-context`, an absent requirement for
+      `trace-requirement`. For MCP: the text and `isError` of the fourteen tools, each with an absent project and a
+      malformed identifier, every tool that takes a change with an absent change, an absent requirement and
+      specification, the page and depth bounds, and the whole catalogue the server publishes (58 tools). Only what a
+      run cannot reproduce is replaced: generated identifiers, clock instants, the computed age, the temporary
+      directory and its separators, the product version. The answers that list entities in the order of their
+      generated UUIDv7 (`requirements find`, `constraints list`, `decisions list`, `tasks list`, and the traversals of
+      `trace-requirement` / `trace_requirement` and `change-context` / `get_change_context`) are compared with generated
+      identifiers named alike and the entities as a set: item lines of a text listing, arrays of objects of a JSON
+      answer; arrays of values keep their order. Two identifiers generated in one millisecond are in no fixed order,
+      and the traversal transcripts were seen to differ between runs. Three runs of each test give identical
       transcripts. The CLI reaches its database through SQLite only and the MCP module depends on no provider, so
-      neither can use the memory store; the MCP fixture is built in the test with fixed identifiers.*
+      neither can use the memory store; the MCP fixture is built in the test with fixed identifiers, and its sync
+      state is the `UNKNOWN` one (no synchronisation is recorded), where the CLI cases record a `FRESH` one.*
+
+      *Two answers are recorded as they are, not as they should be: `paths` accepts and ignores an unknown option
+      (`paths --bogus x`, exit 0), and `constraints list`, `decisions list` and `tasks list` answer an absent change with
+      an empty page and exit 0, where the MCP tools refuse it (`change not found`). Changing either is a visible change,
+      outside this extraction.*
 - [x] 2.2 The exhaustiveness test of the dispatch against the help and against the tool catalogue. Proof: green on
       the base; red when a help line is added by hand without a claimant; revert.
       *2026-10-25: `CliCommandDispatchIsExhaustiveTest` (architecture suite) and `ServedToolsAreClaimedOnceTest`

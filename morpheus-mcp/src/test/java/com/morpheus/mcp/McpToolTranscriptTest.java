@@ -40,10 +40,12 @@ import io.modelcontextprotocol.spec.McpSchema;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
+import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -55,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -76,6 +79,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
  * store. The module does not depend on a provider, so the fixture is built here rather than read from
  * {@code experiments/m0/fixtures/}.</p>
  */
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class McpToolTranscriptTest {
     private static final String PROJECT = "01920000-0000-7000-8000-000000000101";
     private static final String SPECIFICATION = "01920000-0000-7000-8000-000000000102";
@@ -97,17 +101,18 @@ class McpToolTranscriptTest {
     /**
      * The traversals list their nodes and links by identifier, and two identifiers generated in the same millisecond
      * are in no fixed order (RFC 9562 UUIDv7 randomises the bits after the timestamp). These transcripts name every
-     * generated identifier alike and compare each array of the JSON as a set of elements.
+     * generated identifier alike and compare each array of objects as a set; arrays of values keep their order. Every
+     * other answer lists entities with the fixed identifiers of the fixture, in their order.
      */
     private static final Set<String> UNORDERED = Set.of("trace_requirement", "get_change_context");
 
-    @TempDir
-    static Path tempDir;
+    private Path tempDir;
 
-    private static List<McpServerFeatures.SyncToolSpecification> specifications;
+    private List<McpServerFeatures.SyncToolSpecification> specifications;
 
     @BeforeAll
-    static void publishTheFixture() {
+    void publishTheFixture(@TempDir Path directory) {
+        tempDir = directory;
         Path database = tempDir.resolve("transcripts.db").toAbsolutePath().normalize();
         publish(database);
         specifications = MorpheusMcpServer.toolSpecifications(
@@ -124,10 +129,33 @@ class McpToolTranscriptTest {
         assertFalse(cases.isEmpty(), "the transcript factory built no tool case");
         return Stream.concat(
                 Stream.of(DynamicTest.dynamicTest("catalogue", () -> compare("catalogue", catalogue()))),
-                cases.stream().map(item -> DynamicTest.dynamicTest(item.name(), item::verify)));
+                cases.stream().map(item -> DynamicTest.dynamicTest(item.name(), () -> verify(item))));
     }
 
     private static List<Case> cases() {
+        List<Case> cases = new ArrayList<>();
+        answeredArguments().forEach((tool, arguments) -> {
+            cases.add(new Case(tool, "answer", arguments));
+            cases.add(new Case(tool, "absent-project", withValue(arguments, "projectId", ABSENT)));
+            cases.add(new Case(tool, "malformed-project", withValue(arguments, "projectId", "not-an-id")));
+            if (arguments.containsKey("changeId")) {
+                cases.add(new Case(tool, "absent-change", withValue(arguments, "changeId", ABSENT)));
+            }
+        });
+        cases.add(new Case("find_requirements", "second-page",
+                Map.of("projectId", PROJECT, "query", "session", "offset", 1, "limit", 1)));
+        cases.add(new Case("trace_requirement", "absent-requirement",
+                Map.of("projectId", PROJECT, "requirementId", ABSENT)));
+        cases.add(new Case("trace_requirement", "depth-out-of-bounds",
+                Map.of("projectId", PROJECT, "requirementId", REQUIREMENT, "depth", 21)));
+        cases.add(new Case("get_specification_context", "absent-specification",
+                Map.of("projectId", PROJECT, "specificationId", ABSENT)));
+        cases.add(new Case("get_sync_status", "max-age-out-of-bounds", Map.of("projectId", PROJECT, "maxAgeMinutes", 0)));
+        return List.copyOf(cases);
+    }
+
+    /** The arguments each tool answers on the fixture. */
+    private static Map<String, Map<String, Object>> answeredArguments() {
         Map<String, Map<String, Object>> answered = new LinkedHashMap<>();
         answered.put("get_current_specification", Map.of("projectId", PROJECT));
         answered.put("find_requirements", Map.of("projectId", PROJECT, "query", "session"));
@@ -143,23 +171,7 @@ class McpToolTranscriptTest {
         answered.put("get_change_status", Map.of("projectId", PROJECT, "changeId", CHANGE));
         answered.put("get_blocking_conditions", Map.of("projectId", PROJECT, "changeId", CHANGE));
         answered.put("get_sync_status", Map.of("projectId", PROJECT));
-
-        List<Case> cases = new ArrayList<>();
-        answered.forEach((tool, arguments) -> {
-            cases.add(new Case(tool, "answer", arguments));
-            cases.add(new Case(tool, "absent-project", withValue(arguments, "projectId", ABSENT)));
-            cases.add(new Case(tool, "malformed-project", withValue(arguments, "projectId", "not-an-id")));
-        });
-        cases.add(new Case("find_requirements", "second-page",
-                Map.of("projectId", PROJECT, "query", "session", "offset", 1, "limit", 1)));
-        cases.add(new Case("get_change", "absent-change", Map.of("projectId", PROJECT, "changeId", ABSENT)));
-        cases.add(new Case("get_constraints", "absent-change", Map.of("projectId", PROJECT, "changeId", ABSENT)));
-        cases.add(new Case("trace_requirement", "depth-out-of-bounds",
-                Map.of("projectId", PROJECT, "requirementId", REQUIREMENT, "depth", 21)));
-        cases.add(new Case("get_change_context", "absent-change", Map.of("projectId", PROJECT, "changeId", ABSENT)));
-        cases.add(new Case("get_blocking_conditions", "absent-change", Map.of("projectId", PROJECT, "changeId", ABSENT)));
-        cases.add(new Case("get_sync_status", "max-age-out-of-bounds", Map.of("projectId", PROJECT, "maxAgeMinutes", 0)));
-        return List.copyOf(cases);
+        return answered;
     }
 
     private static Map<String, Object> withValue(Map<String, Object> arguments, String key, Object value) {
@@ -172,21 +184,21 @@ class McpToolTranscriptTest {
         String name() {
             return tool + "-" + variant;
         }
+    }
 
-        void verify() throws IOException {
-            McpSchema.CallToolResult result = McpToolCall.call(specifications, tool, arguments);
-            String transcript = String.join("\n",
-                    "tool: " + tool,
-                    "arguments: " + new CanonicalJsonSerializer().toJson(new java.util.TreeMap<>(arguments)),
-                    "isError: " + result.isError(),
-                    "text:",
-                    McpToolCall.text(result));
-            compare(name(), normalized(transcript, UNORDERED.contains(tool) && variant.equals("answer")));
-        }
+    private void verify(Case item) throws IOException {
+        McpSchema.CallToolResult result = McpToolCall.call(specifications, item.tool(), item.arguments());
+        String transcript = String.join("\n",
+                "tool: " + item.tool(),
+                "arguments: " + new CanonicalJsonSerializer().toJson(new TreeMap<>(item.arguments())),
+                "isError: " + result.isError(),
+                "text:",
+                McpToolCall.text(result));
+        compare(item.name(), normalized(transcript, UNORDERED.contains(item.tool()) && item.variant().equals("answer")));
     }
 
     /** Every tool the server publishes, by name, with its description and input schema in canonical JSON. */
-    private static String catalogue() {
+    private String catalogue() {
         List<McpSchema.Tool> tools = specifications.stream()
                 .map(McpServerFeatures.SyncToolSpecification::tool)
                 .sorted(Comparator.comparing(McpSchema.Tool::name))
@@ -199,7 +211,7 @@ class McpToolTranscriptTest {
                         McpJsonDefaults.getMapper().writeValueAsString(tool.inputSchema()), Object.class);
                 return "tool: " + tool.name() + "\ndescription: " + tool.description() + "\ninputSchema: " + json.toJson(schema);
             } catch (IOException failure) {
-                throw new java.io.UncheckedIOException(failure);
+                throw new UncheckedIOException(failure);
             }
         }).collect(Collectors.joining("\n\n", "", "\n"));
     }
@@ -209,7 +221,7 @@ class McpToolTranscriptTest {
         if (unordered) {
             result = UUID.matcher(result).replaceAll(match -> match.group().startsWith(FIXED_PREFIX) ? match.group() : "<id>");
             result = result.lines()
-                    .map(line -> line.startsWith("{") ? TranscriptJson.withSortedArrays(line) : line)
+                    .map(line -> line.startsWith("{") ? TranscriptJson.withObjectArraysSorted(line) : line)
                     .collect(Collectors.joining("\n"));
         }
         Map<String, String> generated = new LinkedHashMap<>();
@@ -239,6 +251,17 @@ class McpToolTranscriptTest {
     }
 
     private static void publish(Path database) {
+        try (SqliteSpecificationKnowledgeStore snapshots = new SqliteSpecificationKnowledgeStore(database);
+             SqliteVersionedRequirementStore requirements = new SqliteVersionedRequirementStore(database);
+             SqliteSnapshotBusinessContentStore businessContent = new SqliteSnapshotBusinessContentStore(database);
+             SqliteTraceabilityStore traceability = new SqliteTraceabilityStore(database)) {
+            new ProjectSnapshotImportService(snapshots, requirements, businessContent, traceability)
+                    .publishFull(fixtureContent(), Optional.of("mcp-transcript"), Instant.parse("2026-10-25T10:00:00Z"));
+        }
+    }
+
+    /** One specification with two requirements and a scenario, and one change with one entity of each kind. */
+    private static NormalizedProjectContent fixtureContent() {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(PROJECT);
         SpecificationId specificationId = SpecificationId.parse(SPECIFICATION);
         RequirementId requirementId = RequirementId.parse(REQUIREMENT);
@@ -269,37 +292,28 @@ class McpToolTranscriptTest {
                 changeId, projectId, Optional.of("add-remember-me"), "Add remember-me sessions",
                 "Keep a trusted session longer on request.", List.of("Persistent sessions"),
                 List.of("Single sign-on"), List.of("Stolen device"), provenance);
-        Constraint constraint = Constraint.withUnknownSemantics(
-                ConstraintId.parse(CONSTRAINT), changeId, "The default session behaviour must not change.", provenance);
-        DesignDecision decision = new DesignDecision(
-                DesignDecisionId.parse(DECISION), changeId, "Use a separate credential",
-                "Issue a persistent credential distinct from the session.", provenance);
-        ImplementationTask task = new ImplementationTask(
-                TaskId.parse(TASK), changeId, Optional.of("TASK-1"), "Define the persistent-session data model",
-                false, provenance);
-        AcceptanceCriterion criterion = new AcceptanceCriterion(
-                AcceptanceCriterionId.parse(CRITERION), Optional.of(requirementId), Optional.of(changeId),
-                "Remember-me survives a restart", "A remembered session is restored after a browser restart",
-                VerificationStatus.NOT_VERIFIED, List.of(), provenance);
-        NormalizedProjectContent content = new NormalizedProjectContent(
+        return new NormalizedProjectContent(
                 project,
                 List.of(specification),
                 List.of(requirement, other),
                 List.of(scenario),
                 List.of(change),
                 List.of(),
-                List.of(constraint),
-                List.of(decision),
-                List.of(task),
-                List.of(criterion),
+                List.of(Constraint.withUnknownSemantics(ConstraintId.parse(CONSTRAINT), changeId,
+                        "The default session behaviour must not change.", provenance)),
+                List.of(new DesignDecision(DesignDecisionId.parse(DECISION), changeId, "Use a separate credential",
+                        "Issue a persistent credential distinct from the session.", provenance)),
+                List.of(new ImplementationTask(TaskId.parse(TASK), changeId, Optional.of("TASK-1"),
+                        "Define the persistent-session data model", false, provenance)),
+                List.of(criterion(requirementId, changeId, provenance)),
                 List.of(evidence),
                 List.of());
-        try (SqliteSpecificationKnowledgeStore snapshots = new SqliteSpecificationKnowledgeStore(database);
-             SqliteVersionedRequirementStore requirements = new SqliteVersionedRequirementStore(database);
-             SqliteSnapshotBusinessContentStore businessContent = new SqliteSnapshotBusinessContentStore(database);
-             SqliteTraceabilityStore traceability = new SqliteTraceabilityStore(database)) {
-            new ProjectSnapshotImportService(snapshots, requirements, businessContent, traceability)
-                    .publishFull(content, Optional.of("mcp-transcript"), Instant.parse("2026-10-25T10:00:00Z"));
-        }
+    }
+
+    private static AcceptanceCriterion criterion(RequirementId requirementId, ChangeId changeId, Provenance provenance) {
+        return new AcceptanceCriterion(
+                AcceptanceCriterionId.parse(CRITERION), Optional.of(requirementId), Optional.of(changeId),
+                "Remember-me survives a restart", "A remembered session is restored after a browser restart",
+                VerificationStatus.NOT_VERIFIED, List.of(), provenance);
     }
 }

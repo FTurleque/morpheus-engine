@@ -1,8 +1,8 @@
 args: decisions list --project <project> --change <change>
 exit: 0
 stdout:
-snapshotId=<id-1> total=2 hasMore=false
-<id-2>	Separate persistent credential
-<id-3>	Explicit opt-in
+snapshotId=<id> total=2 hasMore=false
+<id>	Explicit opt-in
+<id>	Separate persistent credential
 
 stderr:
