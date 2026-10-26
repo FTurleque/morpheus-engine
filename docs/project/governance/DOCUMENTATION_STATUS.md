@@ -131,7 +131,7 @@ Maven Wrapper              3.10.0
 Maven modules              18
 MCP SDK                    2.0.1
 SQLite JDBC                3.53.4.0
-Jackson                    3.2.3
+Jackson                    3.2.4
 OWASP Dependency-Check     13.0.0
 ```
 
