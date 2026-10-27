@@ -60,7 +60,7 @@ class MorpheusConstraintSemanticsApiContractTest {
 
     private Seed seed(Path database) {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
-        Path fixture = http.fixture("synthetic-basic");
+        Path fixture = RepositoryRoot.fixture("synthetic-basic");
         try (ApiRuntime runtime = new ApiRuntime(database, OperationalRecorder.noop())) {
             var normalized = new SyntheticSpecificationContentReader()
                     .read(

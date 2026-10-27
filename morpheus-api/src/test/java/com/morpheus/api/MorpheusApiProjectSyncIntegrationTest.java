@@ -29,7 +29,7 @@ class MorpheusApiProjectSyncIntegrationTest {
     @Test
     void registersSyncsQueriesAndReopensEntireHeadlessSurface() {
         Path database = tempDirectory.resolve("morpheus.db");
-        Path fixture = http.fixture("openspec-basic");
+        Path fixture = RepositoryRoot.fixture("openspec-basic");
         String projectId;
         String requirementId;
 
@@ -331,13 +331,7 @@ class MorpheusApiProjectSyncIntegrationTest {
     }
 
     private static List<String> publishedRequired(String schema) throws IOException {
-        Path root = Path.of("").toAbsolutePath().normalize();
-        while (root != null && !Files.exists(root.resolve("contracts/public-surfaces.tsv"))) {
-            root = root.getParent();
-        }
-        if (root == null) {
-            throw new IllegalStateException("repository root (contracts/public-surfaces.tsv) not found");
-        }
+        Path root = RepositoryRoot.locate();
         List<String> lines = Files.readAllLines(root.resolve("docs/developer/reference/openapi/morpheus-v1.yaml"), StandardCharsets.UTF_8);
         int start = lines.indexOf("    " + schema + ":");
         assertTrue(start >= 0, "docs/developer/reference/openapi/morpheus-v1.yaml has no schema " + schema);

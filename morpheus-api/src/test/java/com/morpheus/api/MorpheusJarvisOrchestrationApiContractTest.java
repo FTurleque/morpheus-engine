@@ -18,7 +18,7 @@ class MorpheusJarvisOrchestrationApiContractTest {
     @Test
     void orchestrationStateKeepsLifecycleAndLegacyConstraintPolicyUnavailableUnlessCallerSuppliesLifecycle() {
         Path database = tempDirectory.resolve("m16-api-state.db");
-        Path fixture = http.fixture("openspec-basic");
+        Path fixture = RepositoryRoot.fixture("openspec-basic");
 
         try (MorpheusHttpServer server = MorpheusHttpServer.start(database, "127.0.0.1", 0)) {
             String registrationBody = "{\"workspace\":" + http.jsonString(fixture.toString()) + "}";
@@ -57,7 +57,7 @@ class MorpheusJarvisOrchestrationApiContractTest {
     @Test
     void transitionCheckKeepsUnknownDistinctFromBlockedAndRequiresInputWithoutMutation() {
         Path database = tempDirectory.resolve("m16-api-transition.db");
-        Path fixture = http.fixture("openspec-basic");
+        Path fixture = RepositoryRoot.fixture("openspec-basic");
 
         try (MorpheusHttpServer server = MorpheusHttpServer.start(database, "127.0.0.1", 0)) {
             String registrationBody = "{\"workspace\":" + http.jsonString(fixture.toString()) + "}";

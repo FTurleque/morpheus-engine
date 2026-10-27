@@ -28,7 +28,7 @@ class MorpheusSpecificationQueryApiServiceContractTest {
     @Test
     void preservesListDetailContextPaginationAndActiveSnapshotContracts() throws Exception {
         Path database = tempDirectory.resolve("specification-query-service.db");
-        Path fixture = http.fixture("openspec-basic");
+        Path fixture = RepositoryRoot.fixture("openspec-basic");
         MorpheusProjectRegistryApiService registry = new MorpheusProjectRegistryApiService(database, OperationalRecorder.noop(), Optional.empty());
         String projectId = ((Map<?, ?>) registry.registerProject(fixture.toString()).project()).get("projectId").toString();
         MorpheusSpecificationQueryApiService service = new MorpheusSpecificationQueryApiService(database, OperationalRecorder.noop());
