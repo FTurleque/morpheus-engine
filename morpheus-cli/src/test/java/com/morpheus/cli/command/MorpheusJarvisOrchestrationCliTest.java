@@ -15,11 +15,22 @@ import java.util.Map;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MorpheusJarvisOrchestrationCliTest {
     @TempDir
     Path tempDirectory;
+
+    @Test
+    void anUnknownActionIsRefusedBeforeItsOptionsAreRead() {
+        Invocation refused = invokeWithData(
+                tempDirectory.resolve("unknown-action-data"), "change-orchestration", "plan", "--bogus", "x");
+
+        assertEquals(2, refused.exitCode(), refused.stderr());
+        assertTrue(refused.stderr().contains("unknown command: change-orchestration plan"), refused.stderr());
+        assertFalse(refused.stderr().contains("--bogus"), refused.stderr());
+    }
 
     @Test
     void stateCommandKeepsLifecycleAndLegacyConstraintPolicyUnavailableUnlessExplicitlySupplied() {

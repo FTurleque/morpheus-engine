@@ -35,7 +35,7 @@ Ce qui change, commande par commande :
   (`unknown option: --bogus`, et non `unknown options: [bogus]`), un mot en trop aussi
   (`unexpected positional argument: x`, et non `unexpected positional arguments: [x]`), et `sync --force --force`
   répond `duplicate option: --force` (et non `duplicate flag: --force`). Un nombre entouré d'espaces
-  (`--limit " 5 "`) est accepté, comme par les autres commandes.
+  (`--limit " 5 "`) est accepté.
 - `policy`, `portfolio`, `query`, `views`, `export` : un mot en trop répond `unexpected positional argument: x`, et non
   `unknown token: x`.
 - `acceptance-criteria`, `constraints evaluate`, `composition`, `lifecycle`, `change-orchestration`,
