@@ -1,5 +1,5 @@
 ---
-id: ARCH-0148
+id: ARCH-9999
 title: "Le cœur applicatif touche le disque local par des classes nommées, et jamais le réseau"
 domain: architecture
 rules: false
@@ -8,7 +8,8 @@ rules: false
 # Le cœur applicatif touche le disque local par des classes nommées, et jamais le réseau
 
 - Statut : **Acceptée**
-- Date : 2026-10-25
+- Date : 2026-10-27
+- Remplace : ADR-0148
 
 ## Context
 
@@ -85,6 +86,23 @@ permet de tester la découverte sans réseau.
   racines de composition des transports ou un port de l'application qui le masque reste celui d'ADR-0109. Coût de C :
   celui de B, plus une extraction dans un seul service. Retenu.
 
+### Le résolveur des réglages de lancement des pairs MCP
+
+`MinosIntegrationSettings` et `NexusIntegrationSettings` décident si MORPHEUS lance du code tiers : le JAR, son pin
+SHA-256, le lanceur Java, le répertoire de travail, la borne de temps. Le constat AUD-QUA-09 de l'audit du 09/10/2026
+les relève identiques à 90 %, et la copie porte du code de sécurité (le lanceur en chemin absolu, ADR-0128) écrit deux
+fois et tenu égal par un test textuel. La résolution existe une fois, paramétrée par le pair, dans
+`security.PeerLaunchSettingsResolver`, à côté de `ExternalJarIntegrity` qui vérifie le pin : c'est la même question
+(quel fichier externe peut être lancé, et vérifié comment), et les deux intégrations dépendent déjà de ce paquet. Elle
+lit le disque (le JAR est-il un fichier, le chemin réel du lanceur, le `bin/java` du runtime) et l'environnement du
+processus (`java.home`). Mesuré le 27/10/2026 par `ApplicationTechnologyBoundaryArchitectureTest` : le résolveur
+atteint ces deux familles et aucune autre ; le type de résultat partagé, `security.PeerLaunchSettings`, n'en atteint
+aucune.
+
+Écartés : `morpheus-mcp-transport`, qui ne dépend d'aucun paquet MORPHEUS et recevrait la vérification du pin comme
+une fonction, ce qui cache la dépendance qu'un lecteur de ce code doit voir ; une copie par intégration tenue égale
+par un test de parité, qui garde deux implémentations d'un chemin de confiance ; un nouveau module pour une classe.
+
 ## Decision
 
 ### 1. SQL, JSON et processus sont refusés dans toute l'application
@@ -97,7 +115,7 @@ Aucune classe de `com.morpheus.application..` ne dépend de `java.sql`, de Jacks
 |---|---|---|
 | `UpdateDiscoveryService` | réseau, fils, fichier | **sort** : le transport passe derrière un port de `application.product`, implémenté dans `morpheus-cli` |
 | `SafeWorkspaceFileResolver`, `LocalSourceInventoryScanner`, `ScanWorkspaceBoundary`, `SourceFingerprint`, `ExternalJarIntegrity`, `RotatingOperationalLogFile` | fichier | reste |
-| `LocalWritePermissionHardener` | fichier, environnement | reste |
+| `LocalWritePermissionHardener`, `PeerLaunchSettingsResolver` | fichier, environnement | reste |
 | `LocalSourceWatcher`, `ProjectDiscoveryService`, `WorkspaceRootResolver` | fichier | reste tant que la classe existe |
 | `LocalOperationalRuntime`, `SensitiveValueRedactor`, `ProductMetadata` | environnement | reste |
 | `OperationalRuntime`, `RotatingOperationalLogFile` | flux standard | reste |
@@ -145,7 +163,8 @@ Ce qu'un transport tient de `SqliteOperationRuntime` et `SqliteServerMaintenance
 
 ### Négatives
 
-- Le cœur n'est pas purement hexagonal : dix classes d'accès fichier, dont trois sans appelant de production, et quatre lecteurs d'environnement y restent.
+- Le cœur n'est pas purement hexagonal : onze classes d'accès fichier, dont trois sans appelant de production, et cinq
+  lecteurs d'environnement y restent.
 - La règle ajoute des listes de noms, que l'audit voudrait moins nombreuses (AUD-ARC-06).
 
 ### Risques
@@ -169,6 +188,9 @@ Ce qu'un transport tient de `SqliteOperationRuntime` et `SqliteServerMaintenance
 - Revue : l'extraction du transport de découverte de mise à jour (changement OpenSpec
   `move-marked-technology-access-behind-application-ports`) déplace avec lui `UpdateTrustBoundaryContractTest`,
   `AuditHardeningWorkflowContractTest`, `ProductionIntegrityContractTest` et `SilentCatchArchitectureTest`.
+- `McpPeerSettingsResolutionArchitectureTest` : les types de réglages des intégrations MINOS et NEXUS ne dépendent ni
+  de l'API fichier ni de la vérification du pin, et les deux pairs résolvent une même table d'entrées à l'identique ;
+  `PeerLauncherArchitectureTest` tient le lanceur en chemin absolu sur le résolveur et sur le type de résultat partagé.
 
 ## References
 
@@ -177,7 +199,9 @@ Ce qu'un transport tient de `SqliteOperationRuntime` et `SqliteServerMaintenance
 - [ADR-0147](ARCH-0147-un-role-d-adaptateur-est-un-paquet.md) — rôles de l'adaptateur HTTP en paquets.
 - [ADR-0104](GEN-0104-two-coverage-scales-share-one-population.md) — population de couverture.
 - [ADR-0004](SEC-0004-local-first-no-llm-core.md) — cœur local-first.
+- [ADR-0128](ARCH-0128-pairs-minos-et-nexus-par-mcp-stdio.md) — pairs MINOS et NEXUS, lanceur en chemin absolu.
 - Changements OpenSpec `decide-what-technology-the-application-core-may-touch` et
   `move-marked-technology-access-behind-application-ports`.
-- Audit du 09/10/2026, constat AUD-ARC-01 : `docs/project/audits/2026-10-09/findings.md`.
+- Changement OpenSpec `resolve-both-mcp-peers-through-one-settings-resolver`.
+- Audit du 09/10/2026, constats AUD-ARC-01 et AUD-QUA-09 : `docs/project/audits/2026-10-09/findings.md`.
 - `.claude/rules/architecture.md`

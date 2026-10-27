@@ -26,10 +26,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Which technology the application layer may reach, and through which classes (ADR-0148).
+ * Which technology the application layer may reach, and through which classes (ADR-9999).
  *
  * <p>A family the application does not use is refused in every package. A family it uses is reachable only from the
- * classes ADR-0148 names for it, and each list is exactly the set of classes that reach the family, so a list can
+ * classes ADR-9999 names for it, and each list is exactly the set of classes that reach the family, so a list can
  * shrink and cannot grow in silence. {@code Path}, {@code LinkOption}, {@code IOException} and in-memory streams are
  * vocabulary, not access. The textual bans of {@code application.reasoning} and {@code application.policy} are
  * separate and stricter: they also refuse a mention.</p>
@@ -40,6 +40,7 @@ class ApplicationTechnologyBoundaryArchitectureTest {
     private static final String UPDATE_DISCOVERY = APPLICATION + ".product.UpdateDiscoveryService";
     private static final String HARDENER = APPLICATION + ".security.LocalWritePermissionHardener";
     private static final String ROTATING_LOG = APPLICATION + ".operability.RotatingOperationalLogFile";
+    private static final String PEER_SETTINGS = APPLICATION + ".security.PeerLaunchSettingsResolver";
 
     private static final List<Family> UNUSED_FAMILIES = List.of(
             Family.ofTypes("SQL", name -> name.startsWith("java.sql.") || name.startsWith("javax.sql.")),
@@ -66,6 +67,7 @@ class ApplicationTechnologyBoundaryArchitectureTest {
                             APPLICATION + ".sync.ScanWorkspaceBoundary",
                             APPLICATION + ".sync.SourceFingerprint",
                             APPLICATION + ".security.ExternalJarIntegrity",
+                            PEER_SETTINGS,
                             APPLICATION + ".sync.LocalSourceWatcher",
                             APPLICATION + ".discovery.ProjectDiscoveryService",
                             APPLICATION + ".discovery.WorkspaceRootResolver"),
@@ -79,7 +81,7 @@ class ApplicationTechnologyBoundaryArchitectureTest {
                     Set.of(UPDATE_DISCOVERY),
             Family.ofCalls("process environment", (owner, method, arity) -> owner.equals("java.lang.System")
                             && Set.of("getenv", "getProperty", "getProperties", "setProperty").contains(method)),
-                    Set.of(HARDENER,
+                    Set.of(HARDENER, PEER_SETTINGS,
                             APPLICATION + ".operability.LocalOperationalRuntime",
                             APPLICATION + ".operability.SensitiveValueRedactor",
                             APPLICATION + ".product.ProductMetadata"),
@@ -115,7 +117,7 @@ class ApplicationTechnologyBoundaryArchitectureTest {
         ArchRule rule = CompositeArchRule.of(UNUSED_FAMILIES.stream()
                 .map(family -> (ArchRule) classes().that().resideInAPackage(APPLICATION + "..")
                         .should(never(reach(family)))
-                        .because("ADR-0148, decision 1: the application uses no " + family.name()))
+                        .because("ADR-9999, decision 1: the application uses no " + family.name()))
                 .toList());
         rule.check(classes);
     }
@@ -127,7 +129,7 @@ class ApplicationTechnologyBoundaryArchitectureTest {
                 .map(entry -> (ArchRule) classes().that().resideInAPackage(APPLICATION + "..")
                         .and(DescribedPredicate.not(namedFor(entry.getValue(), entry.getKey())))
                         .should(never(reach(entry.getKey())))
-                        .because("ADR-0148, decision 2: " + entry.getKey().name() + " is reached only by the "
+                        .because("ADR-9999, decision 2: " + entry.getKey().name() + " is reached only by the "
                                 + "classes it names; adding one takes a consolidated ADR that replaces it"))
                 .toList());
         rule.check(classes);
@@ -141,7 +143,7 @@ class ApplicationTechnologyBoundaryArchitectureTest {
             named.put(family.name(), new TreeSet<>(names));
             reached.put(family.name(), classesReaching(family));
         });
-        assertEquals(named, reached, "ADR-0148 names exactly the classes that reach each family: remove a class "
+        assertEquals(named, reached, "ADR-9999 names exactly the classes that reach each family: remove a class "
                 + "that no longer reaches it, so each list only shrinks");
     }
 
@@ -183,7 +185,7 @@ class ApplicationTechnologyBoundaryArchitectureTest {
     }
 
     private static DescribedPredicate<JavaClass> namedFor(Set<String> names, Family family) {
-        return DescribedPredicate.describe("named by ADR-0148 for " + family.name(),
+        return DescribedPredicate.describe("named by ADR-9999 for " + family.name(),
                 javaClass -> names.contains(topLevelName(javaClass)));
     }
 
