@@ -26,7 +26,7 @@ class MorpheusProjectSyncApiServiceContractTest {
     @Test
     void preservesSyncStatusValidationAndWorkspaceConfinement() throws Exception {
         Path database = tempDirectory.resolve("sync-service.db");
-        Path fixture = http.fixture("openspec-basic");
+        Path fixture = RepositoryRoot.fixture("openspec-basic");
         MorpheusProjectRegistryApiService registry = new MorpheusProjectRegistryApiService(database, OperationalRecorder.noop(), Optional.empty());
         MorpheusProjectRegistryApiService.RegistrationResult registration = registry.registerProject(fixture.toString());
         String projectId = ((Map<?, ?>) registration.project()).get("projectId").toString();

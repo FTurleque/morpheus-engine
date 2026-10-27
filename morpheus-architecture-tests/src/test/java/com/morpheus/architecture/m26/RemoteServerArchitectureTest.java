@@ -1,6 +1,7 @@
 package com.morpheus.architecture.m26;
 
 import com.morpheus.architecture.ProductionSources;
+import com.morpheus.architecture.RepositoryRoot;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import org.junit.jupiter.api.Test;
 
@@ -34,7 +35,7 @@ class RemoteServerArchitectureTest {
      */
     @Test
     void remoteBackupResponseNamesTheFileWhileTheLocalCliKeepsThePathname() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String remoteServer = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServer"));
         String cli = Files.readString(ProductionSources.mainSource("morpheus-cli", "MorpheusServerCli"));
         String openApi = Files.readString(root.resolve("docs/developer/reference/openapi/morpheus-v1-remote-m26.yaml"));
@@ -81,7 +82,7 @@ class RemoteServerArchitectureTest {
      */
     @Test
     void httpSurfacesNameServerSideLocationsWhileTheCliKeepsThem() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String projects = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusProjectRegistryApiService"));
         String integrations = Files.readString(ProductionSources.mainSource("morpheus-api", "IntegrationStatusViews"));
         String cli = Files.readString(ProductionSources.mainSource("morpheus-cli", "MorpheusProjectCli"));
@@ -114,7 +115,7 @@ class RemoteServerArchitectureTest {
      */
     @Test
     void remoteBackupSchemaCeilingCannotRotBelowTheSupportedSchemaVersion() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String manager = Files.readString(root.resolve(
                 "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/runtime/SqliteSchemaManager.java"));
         Matcher declaration = Pattern.compile("SUPPORTED_SCHEMA_VERSION\\s*=\\s*(\\d+)").matcher(manager);
@@ -132,7 +133,7 @@ class RemoteServerArchitectureTest {
 
     @Test
     void remoteSurfaceManifestKeepsAdministrativeAndRemoteBoundariesExplicit() throws IOException {
-        String manifest = Files.readString(repositoryRoot().resolve("contracts/public-surfaces.tsv"));
+        String manifest = Files.readString(RepositoryRoot.locate().resolve("contracts/public-surfaces.tsv"));
 
         assertTrue(manifest.contains("server.status\tREAD\tEXPLICITLY_REMOTE_ONLY\tEXPLICITLY_NOT_EXPOSED\tGET /api/v1/server/status"));
         assertTrue(manifest.contains("server.identity.revoke\tWRITE\tserver identity revoke\tEXPLICITLY_NOT_EXPOSED\tEXPLICITLY_LOCAL_ONLY"));
@@ -152,7 +153,7 @@ class RemoteServerArchitectureTest {
      */
     @Test
     void leavingTheNonExpiringIdentityFormatStaysExplicitAndNeverRotatesTokens() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String identityFile = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteIdentityFile"));
         String serverCli = Files.readString(ProductionSources.mainSource("morpheus-cli", "MorpheusServerCli"));
         String guide = Files.readString(root.resolve("docs/user/TEAM_REMOTE_SERVER.md"));
@@ -179,7 +180,7 @@ class RemoteServerArchitectureTest {
 
     @Test
     void remoteOpenApiRequiresBearerAuthenticationAndPluginIntegrityPin() throws IOException {
-        String openApi = Files.readString(repositoryRoot().resolve("docs/developer/reference/openapi/morpheus-v1-remote-m26.yaml"));
+        String openApi = Files.readString(RepositoryRoot.locate().resolve("docs/developer/reference/openapi/morpheus-v1-remote-m26.yaml"));
 
         assertTrue(openApi.contains("scheme: bearer"));
         assertTrue(openApi.contains("/server/status:"));
@@ -191,7 +192,7 @@ class RemoteServerArchitectureTest {
 
     @Test
     void remoteOpenApiKeepsOfflineRestorePrivateAndPublicLimitsBounded() throws IOException {
-        String openApi = Files.readString(repositoryRoot().resolve("docs/developer/reference/openapi/morpheus-v1-remote-m26.yaml"));
+        String openApi = Files.readString(RepositoryRoot.locate().resolve("docs/developer/reference/openapi/morpheus-v1-remote-m26.yaml"));
 
         assertFalse(openApi.contains("/server/restore"));
         assertTrue(openApi.contains("maximum: 512"));
@@ -305,17 +306,5 @@ class RemoteServerArchitectureTest {
         assertFalse(transport.contains("MorpheusRemoteIdentityFile"));
         assertFalse(transport.contains("MorpheusRemoteRoutePolicy"));
         assertFalse(transport.contains("MorpheusRemoteProxyTargetResolver"));
-    }
-
-    private Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
     }
 }

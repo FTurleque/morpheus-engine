@@ -157,7 +157,7 @@ class HttpRoutesFamilyArchitectureTest {
                 imported.add(javaClass.getSimpleName());
             }
         }
-        assertSameRouters(routerSources(repositoryRoot()).keySet(), imported);
+        assertSameRouters(routerSources(RepositoryRoot.locate()).keySet(), imported);
     }
 
     /**
@@ -225,7 +225,7 @@ class HttpRoutesFamilyArchitectureTest {
     }
 
     private void assertNoRouterSourceMentions(String literal) throws IOException {
-        assertNoRouterSourceMentions(routerSources(repositoryRoot()), literal);
+        assertNoRouterSourceMentions(routerSources(RepositoryRoot.locate()), literal);
     }
 
     private static void assertNoRouterSourceMentions(Map<String, Path> routers, String literal) throws IOException {
@@ -256,17 +256,5 @@ class HttpRoutesFamilyArchitectureTest {
             }
         }
         return routers;
-    }
-
-    private Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
     }
 }

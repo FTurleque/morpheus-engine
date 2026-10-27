@@ -34,7 +34,7 @@ class MorpheusAugmentedContextApiContractTest {
     @Test
     void disabledNexusStillReturnsDeterministicRequirementAndChangeIntentWithoutMutatingActiveSnapshot() {
         Path database = tempDirectory.resolve("m13-api.db");
-        Path fixture = http.fixture("openspec-basic");
+        Path fixture = RepositoryRoot.fixture("openspec-basic");
 
         try (MorpheusHttpServer server = MorpheusHttpServer.start(database, "127.0.0.1", 0)) {
             ApiTestSupport.Response nexusStatus = http.get(server, "/integrations/nexus/status");
@@ -86,7 +86,7 @@ class MorpheusAugmentedContextApiContractTest {
     @Test
     void availableProviderReceivesBudgetSourcesConstraintsAndExplainWithoutMorpheusReranking() {
         Path database = tempDirectory.resolve("m13-pass-through.db");
-        Path fixture = http.fixture("openspec-basic");
+        Path fixture = RepositoryRoot.fixture("openspec-basic");
         AtomicReference<TechnicalContextRequest> captured = new AtomicReference<>();
         ExternalIntegrationStatusProvider minosDisabled = () -> new ExternalIntegrationStatus(
                 "MINOS", "DISABLED", false, "MINOS disabled for M13 test", Map.of());
@@ -180,7 +180,7 @@ class MorpheusAugmentedContextApiContractTest {
                     () -> new ExternalIntegrationStatus("MINOS", "DISABLED", false, "MINOS disabled", Map.of()),
                     launchedNexus(available))) {
                 String projectId = http.field(http.postJson(server, "/projects",
-                        "{\"workspace\":" + http.jsonString(http.fixture("openspec-basic").toString()) + "}").body(),
+                        "{\"workspace\":" + http.jsonString(RepositoryRoot.fixture("openspec-basic").toString()) + "}").body(),
                         "projectId");
                 http.post(server, "/projects/" + projectId + "/sync");
                 String requirementId = http.field(

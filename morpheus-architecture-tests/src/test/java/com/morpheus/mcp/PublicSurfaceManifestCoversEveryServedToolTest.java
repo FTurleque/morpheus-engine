@@ -2,6 +2,7 @@ package com.morpheus.mcp;
 
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
+import com.morpheus.architecture.RepositoryRoot;
 import com.morpheus.architecture.m21.PublicSurfaceManifest;
 import com.morpheus.mcp.server.MorpheusMcpServer;
 import org.junit.jupiter.api.Test;
@@ -62,7 +63,7 @@ class PublicSurfaceManifestCoversEveryServedToolTest {
     @Test
     void everyServedToolIsInTheManifestAndEveryNamedToolIsServed() throws IOException {
         Set<String> served = served();
-        List<String[]> rows = PublicSurfaceManifest.rows(repoRoot());
+        List<String[]> rows = PublicSurfaceManifest.rows(RepositoryRoot.locate());
 
         assertEquals(List.of(), problems(served, rows),
                 "contracts/public-surfaces.tsv must name every tool the server serves in its mcp column, and only those: "
@@ -73,7 +74,7 @@ class PublicSurfaceManifestCoversEveryServedToolTest {
     @Test
     void theGuardReadSomethingOnBothSides() throws IOException {
         Set<String> served = served();
-        List<String[]> rows = PublicSurfaceManifest.rows(repoRoot());
+        List<String[]> rows = PublicSurfaceManifest.rows(RepositoryRoot.locate());
 
         assertTrue(served.size() > 10, () -> "the server served " + served.size() + " tools: the wiring changed or the read is empty");
         assertTrue(rows.size() > 10, () -> "the manifest yielded " + rows.size() + " rows: the reader or the file changed");
@@ -135,7 +136,7 @@ class PublicSurfaceManifestCoversEveryServedToolTest {
     /** The vocabulary is a copy of the governance table; this holds the copy to it, and the manifest to the copy. */
     @Test
     void theSentinelVocabularyIsTheGovernanceOneAndEveryCellOfTheManifestUsesIt() throws IOException {
-        String governance = Files.readString(repoRoot().resolve(".claude/rules/governance.md"));
+        String governance = Files.readString(RepositoryRoot.locate().resolve(".claude/rules/governance.md"));
         Set<String> governed = new TreeSet<>();
         java.util.regex.Matcher named = java.util.regex.Pattern.compile("`(" + PublicSurfaceManifest.SENTINEL_PREFIX + "[A-Z_]+)`")
                 .matcher(governance);
@@ -145,7 +146,7 @@ class PublicSurfaceManifestCoversEveryServedToolTest {
         assertEquals(new TreeSet<>(PublicSurfaceManifest.SENTINELS), governed,
                 "the sentinel vocabulary and the governance table name different sentinels");
         Set<String> invented = new TreeSet<>();
-        for (String[] columns : PublicSurfaceManifest.rows(repoRoot())) {
+        for (String[] columns : PublicSurfaceManifest.rows(RepositoryRoot.locate())) {
             for (int column = PublicSurfaceManifest.CLI; column <= PublicSurfaceManifest.HTTP; column++) {
                 String cell = columns[column].trim();
                 if (cell.startsWith(PublicSurfaceManifest.SENTINEL_PREFIX) && !PublicSurfaceManifest.SENTINELS.contains(cell)) {
@@ -242,16 +243,5 @@ class PublicSurfaceManifestCoversEveryServedToolTest {
                 .stream()
                 .map(specification -> specification.tool().name())
                 .collect(Collectors.toUnmodifiableSet());
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve(PublicSurfaceManifest.MANIFEST))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new AssertionError("repository root with " + PublicSurfaceManifest.MANIFEST + " not found");
     }
 }

@@ -128,7 +128,7 @@ class MorpheusCliTest {
     @Test
     void registersOpenSpecWorkspaceSyncsAndQueriesThroughPersistentSqliteState() {
         Path data = tempDir.resolve("data");
-        Path fixture = fixture("openspec-basic");
+        Path fixture = RepositoryRoot.fixture("openspec-basic");
 
         Invocation add = invokeWithData(data, "projects", "add", "--workspace", fixture.toString());
         assertEquals(0, add.exitCode(), add.stderr());
@@ -184,9 +184,9 @@ class MorpheusCliTest {
     void aProjectWithoutRequirementsOrTasksHasNoCoverageMeasurement() throws Exception {
         Path workspace = tempDir.resolve("empty-workspace");
         Files.createDirectories(workspace.resolve("openspec/specs"));
-        Files.copy(fixture("openspec-basic").resolve("openspec/config.yaml"), workspace.resolve("openspec/config.yaml"));
+        Files.copy(RepositoryRoot.fixture("openspec-basic").resolve("openspec/config.yaml"), workspace.resolve("openspec/config.yaml"));
         Files.createDirectories(workspace.resolve("openspec/changes/describe-only"));
-        Files.copy(fixture("openspec-basic").resolve("openspec/changes/add-remember-me/proposal.md"),
+        Files.copy(RepositoryRoot.fixture("openspec-basic").resolve("openspec/changes/add-remember-me/proposal.md"),
                 workspace.resolve("openspec/changes/describe-only/proposal.md"));
         Path data = tempDir.resolve("empty-quality-data");
         Invocation add = invokeWithData(data, "projects", "add", "--workspace", workspace.toString());
@@ -218,7 +218,7 @@ class MorpheusCliTest {
     void aProjectWithRequirementsKeepsItsQualityFieldsAndGainsOnlyTheStatuses() {
         Path data = tempDir.resolve("measured-quality-data");
         String projectId = value(invokeWithData(
-                data, "projects", "add", "--workspace", fixture("openspec-basic").toString()).stdout(), "projectId");
+                data, "projects", "add", "--workspace", RepositoryRoot.fixture("openspec-basic").toString()).stdout(), "projectId");
         assertEquals(0, invokeWithData(data, "sync", "--project", projectId).exitCode());
 
         Invocation json = invokeWithData(data, "--json", "quality", "--project", projectId);
@@ -254,7 +254,7 @@ class MorpheusCliTest {
     void aTruncatedAnalysisNamesItsTruncationInTextAsInJsonAndStillSucceeds() {
         Path data = tempDir.resolve("truncation-data");
         String projectId = value(invokeWithData(
-                data, "projects", "add", "--workspace", fixture("openspec-basic").toString()).stdout(), "projectId");
+                data, "projects", "add", "--workspace", RepositoryRoot.fixture("openspec-basic").toString()).stdout(), "projectId");
         assertEquals(0, invokeWithData(data, "sync", "--project", projectId).exitCode());
         Invocation requirements = invokeWithData(data, "requirements", "find", "--project", projectId);
         String snapshotId = value(requirements.stdout(), "snapshotId").split(" ")[0];
@@ -289,7 +289,7 @@ class MorpheusCliTest {
     void aCompleteAnalysisNamesItsWarningsAndPrintsNoTruncation() {
         Path data = tempDir.resolve("complete-analysis-data");
         String projectId = value(invokeWithData(
-                data, "projects", "add", "--workspace", fixture("openspec-basic").toString()).stdout(), "projectId");
+                data, "projects", "add", "--workspace", RepositoryRoot.fixture("openspec-basic").toString()).stdout(), "projectId");
         assertEquals(0, invokeWithData(data, "sync", "--project", projectId).exitCode());
         String changeId = firstIdLine(invokeWithData(data, "changes", "list", "--project", projectId).stdout());
 
@@ -332,7 +332,7 @@ class MorpheusCliTest {
     @Test
     void firstSyncBootstrapsThenRepeatedSyncsStayIncrementalUntilForceIsRequested() {
         Path data = tempDir.resolve("data");
-        Path fixture = fixture("openspec-basic");
+        Path fixture = RepositoryRoot.fixture("openspec-basic");
 
         Invocation add = invokeWithData(data, "projects", "add", "--workspace", fixture.toString());
         assertEquals(0, add.exitCode(), add.stderr());
@@ -402,7 +402,7 @@ class MorpheusCliTest {
     }
 
     private Path copyOfFixture(String name) throws IOException {
-        Path source = fixture(name);
+        Path source = RepositoryRoot.fixture(name);
         Path copy = tempDir.resolve("workspace-" + name);
         try (var files = Files.walk(source)) {
             for (Path file : (Iterable<Path>) files::iterator) {
@@ -424,7 +424,7 @@ class MorpheusCliTest {
     @Test
     void anEmptyValueIsRefusedBeforeASyncPublishesAndBeforeTheLayoutResolves() {
         Path data = tempDir.resolve("blank-data");
-        Invocation add = invokeWithData(data, "projects", "add", "--workspace", fixture("openspec-basic").toString());
+        Invocation add = invokeWithData(data, "projects", "add", "--workspace", RepositoryRoot.fixture("openspec-basic").toString());
         assertEquals(0, add.exitCode(), add.stderr());
         String projectId = value(add.stdout(), "projectId");
 
@@ -451,7 +451,7 @@ class MorpheusCliTest {
     @Test
     void aQueryMadeOfAUnicodeSpaceIsRefusedInsteadOfSearchingWithoutText() {
         Path data = tempDir.resolve("unicode-space-query");
-        Invocation add = invokeWithData(data, "projects", "add", "--workspace", fixture("openspec-basic").toString());
+        Invocation add = invokeWithData(data, "projects", "add", "--workspace", RepositoryRoot.fixture("openspec-basic").toString());
         assertEquals(0, add.exitCode(), add.stderr());
         String projectId = value(add.stdout(), "projectId");
         assertEquals(0, invokeWithData(data, "sync", "--project", projectId).exitCode());
@@ -470,7 +470,7 @@ class MorpheusCliTest {
     void aSyncWhoseChangesCannotBeReadIsRefusedByNameAndLeavesTheActiveSnapshot() throws Exception {
         Path data = tempDir.resolve("unreadable-changes-data");
         Path workspace = tempDir.resolve("unreadable-changes");
-        Path source = fixture("openspec-basic");
+        Path source = RepositoryRoot.fixture("openspec-basic");
         try (var paths = Files.walk(source)) {
             for (Path path : paths.toList()) {
                 Path target = workspace.resolve(source.relativize(path).toString());
@@ -631,19 +631,6 @@ class MorpheusCliTest {
         properties.setProperty("os.name", osName);
         properties.setProperty("user.home", home.toString());
         return properties;
-    }
-
-    private Path fixture(String name) {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        Path fromRoot = current.resolve("experiments/m0/fixtures").resolve(name);
-        if (Files.isDirectory(fromRoot)) {
-            return fromRoot;
-        }
-        Path fromModule = current.resolve("../experiments/m0/fixtures").normalize().resolve(name);
-        if (Files.isDirectory(fromModule)) {
-            return fromModule;
-        }
-        throw new IllegalStateException("M0 fixture not found: " + name + " from " + current);
     }
 
     private String value(String output, String key) {

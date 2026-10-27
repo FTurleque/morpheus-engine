@@ -1,5 +1,6 @@
 package com.morpheus.architecture.d2;
 
+import com.morpheus.architecture.RepositoryRoot;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -44,7 +45,7 @@ class RepositoryCredentialHygieneTest {
 
     @Test
     void theRepositoryIgnoresIdentityFilesAndKeyMaterial() throws IOException {
-        List<String> ignored = Files.readAllLines(repositoryRoot().resolve(".gitignore")).stream()
+        List<String> ignored = Files.readAllLines(RepositoryRoot.locate().resolve(".gitignore")).stream()
                 .map(String::strip)
                 .toList();
 
@@ -57,7 +58,7 @@ class RepositoryCredentialHygieneTest {
 
     @Test
     void noTrackedFileIsAnIdentityFileOrKeyMaterial() throws IOException, InterruptedException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         List<String> tracked = trackedFiles(root);
         assertTrue(tracked.size() > 100, "too few tracked files listed (" + tracked.size()
                 + "): the rule would pass on nothing");
@@ -162,17 +163,5 @@ class RepositoryCredentialHygieneTest {
             }
         }
         return Optional.empty();
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 }

@@ -102,7 +102,7 @@ class HttpFailureDisclosureArchitectureTest {
 
     @Test
     void noSourceOfTheAdapterDeclaresAMessageHelperOfItsOwn() throws IOException {
-        Path sources = repositoryRoot().resolve("morpheus-api/src/main/java");
+        Path sources = RepositoryRoot.locate().resolve("morpheus-api/src/main/java");
         List<String> offenders = new ArrayList<>();
         int scanned = 0;
         try (Stream<Path> files = Files.walk(sources)) {
@@ -117,17 +117,5 @@ class HttpFailureDisclosureArchitectureTest {
         assertTrue(scanned > 20, "too few sources of the HTTP adapter scanned (" + scanned + ")");
         assertTrue(offenders.isEmpty(), () -> "a private safeMessage keeps every non-empty message, pathnames "
                 + "included; use BoundaryFailureMessage.safe: " + offenders);
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 }

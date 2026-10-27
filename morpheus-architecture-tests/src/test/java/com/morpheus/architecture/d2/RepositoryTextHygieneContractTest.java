@@ -1,5 +1,6 @@
 package com.morpheus.architecture.d2;
 
+import com.morpheus.architecture.RepositoryRoot;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -39,7 +40,7 @@ class RepositoryTextHygieneContractTest {
 
     @Test
     void everyWorkflowActionIsPinnedByACommitSha() throws IOException {
-        assertEquals(List.of(), unpinnedActions(repoRoot().resolve(".github/workflows")),
+        assertEquals(List.of(), unpinnedActions(RepositoryRoot.locate().resolve(".github/workflows")),
                 "every uses: of a workflow names a local action or a 40-character commit SHA, never a mutable tag");
     }
 
@@ -63,7 +64,7 @@ class RepositoryTextHygieneContractTest {
     @Test
     void everyPowerShellScriptIsAsciiUnlessItCarriesABom() throws IOException {
         List<String> scripts = new ArrayList<>();
-        assertEquals(List.of(), nonAsciiScripts(repoRoot(), scripts),
+        assertEquals(List.of(), nonAsciiScripts(RepositoryRoot.locate(), scripts),
                 "Windows PowerShell 5.1 reads a BOM-less script in the ANSI code page; keep .ps1 files ASCII");
         assertFalse(scripts.isEmpty(), "the walk found no PowerShell script at all");
     }
@@ -145,18 +146,5 @@ class RepositoryTextHygieneContractTest {
             }
         }
         return false;
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
-            return current;
-        }
-        Path parent = current.getParent();
-        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml"))
-                && Files.isDirectory(parent.resolve("distribution"))) {
-            return parent;
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found from " + current);
     }
 }

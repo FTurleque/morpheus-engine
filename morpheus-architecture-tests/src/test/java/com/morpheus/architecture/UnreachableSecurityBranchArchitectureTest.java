@@ -64,24 +64,12 @@ class UnreachableSecurityBranchArchitectureTest {
     }
 
     private static String read(String relative) throws IOException {
-        return Files.readString(repositoryRoot().resolve(relative));
+        return Files.readString(RepositoryRoot.locate().resolve(relative));
     }
 
     private static List<Path> javaSources(String relativeDirectory) throws IOException {
-        try (Stream<Path> files = Files.walk(repositoryRoot().resolve(relativeDirectory))) {
+        try (Stream<Path> files = Files.walk(RepositoryRoot.locate().resolve(relativeDirectory))) {
             return files.filter(path -> path.toString().endsWith(".java")).sorted().toList();
         }
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 }

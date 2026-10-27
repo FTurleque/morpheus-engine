@@ -39,7 +39,7 @@ class UserDocumentationSpeaksOfTheInstalledProductTest {
 
     @Test
     void noActiveUserPageCarriesDeveloperEvidence() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         List<Path> pages = activePages(root);
         assertFalse(pages.isEmpty(), "no active page found under " + USER_DOCUMENTATION
                 + "; the scan must not pass on an empty set");
@@ -61,7 +61,7 @@ class UserDocumentationSpeaksOfTheInstalledProductTest {
 
     @Test
     void everyDatedExemptionIsAReleaseNoteThatStillExists() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
 
         for (String exempt : DATED_RELEASE_NOTES) {
             assertTrue(Files.isRegularFile(root.resolve(exempt)),
@@ -139,17 +139,5 @@ class UserDocumentationSpeaksOfTheInstalledProductTest {
 
     private static String relative(Path root, Path page) {
         return root.relativize(page).toString().replace('\\', '/');
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 }

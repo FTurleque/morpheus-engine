@@ -4,9 +4,9 @@ import com.morpheus.architecture.ProductionSources;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.morpheus.architecture.RepositoryRoot;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
 import org.junit.jupiter.api.Test;
@@ -181,18 +181,6 @@ class ProviderPluginTrustBoundaryContractTest {
     }
 
     private static String read(String relative) throws IOException {
-        return Files.readString(repositoryRoot().resolve(relative));
-    }
-
-    private static Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found");
+        return Files.readString(RepositoryRoot.locate().resolve(relative));
     }
 }

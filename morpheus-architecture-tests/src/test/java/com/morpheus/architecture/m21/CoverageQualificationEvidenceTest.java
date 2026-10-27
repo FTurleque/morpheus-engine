@@ -3,6 +3,7 @@ package com.morpheus.architecture.m21;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.morpheus.architecture.RepositoryRoot;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -93,7 +94,7 @@ class CoverageQualificationEvidenceTest {
 
     @Test
     void everyCapEqualsTheLowestMeasurementOfItsScaleInTheKeptEvidence() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         List<String> problems = verify(root.resolve(EVIDENCE_DIRECTORY), readCaps(root));
         assertTrue(problems.isEmpty(), () -> "the coverage caps do not rest on kept evidence:\n  "
                 + String.join("\n  ", problems));
@@ -449,17 +450,5 @@ class CoverageQualificationEvidenceTest {
         Matcher matcher = Pattern.compile("private static final double " + name + " = ([0-9.]+)d;").matcher(source);
         assertTrue(matcher.find(), () -> gate + " must declare " + name + " as a private static final double literal");
         return Double.parseDouble(matcher.group(1));
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("config/m21-quality-ratchets.properties"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found");
     }
 }

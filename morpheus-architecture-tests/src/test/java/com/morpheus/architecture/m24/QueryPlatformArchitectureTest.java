@@ -1,5 +1,6 @@
 package com.morpheus.architecture.m24;
 
+import com.morpheus.architecture.RepositoryRoot;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import org.junit.jupiter.api.Test;
 
@@ -35,7 +36,7 @@ class QueryPlatformArchitectureTest {
 
     @Test
     void publicManifestAndOpenApiExposeTheSameM24IntentFamilies() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String manifest = Files.readString(root.resolve("contracts/public-surfaces.tsv"));
         String openApi = Files.readString(root.resolve("docs/developer/reference/openapi/morpheus-v1-query-m24.yaml"));
 
@@ -54,17 +55,5 @@ class QueryPlatformArchitectureTest {
         assertTrue(openApi.contains("maximum: 500"));
         assertTrue(openApi.contains("maxLength: 16384"));
         assertFalse(openApi.toLowerCase().contains("sql query"));
-    }
-
-    private Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 }

@@ -101,7 +101,7 @@ class BoundedWaitOwnershipTest {
                         + "is exactly the sentence that made these failures unreadable");
 
         for (Path owner : OWNERS) {
-            String text = Files.readString(repoRoot().resolve(owner));
+            String text = Files.readString(RepositoryRoot.locate().resolve(owner));
             assertTrue(text.contains("Last observed state: "),
                     () -> owner + " must report the last observed state on expiry");
             assertTrue(text.contains("Actually elapsed: "),
@@ -154,7 +154,7 @@ class BoundedWaitOwnershipTest {
      */
     @Test
     void theTwoOwnersStayInStep() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         List<String> cores = new ArrayList<>();
         for (Path owner : OWNERS) {
             String text = Files.readString(root.resolve(owner));
@@ -175,7 +175,7 @@ class BoundedWaitOwnershipTest {
         assertTrue(sources.size() > 200,
                 () -> "the scan must cover the whole test tree, found only " + sources.size() + " sources");
 
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         for (Path owner : OWNERS) {
             assertTrue(Files.isRegularFile(root.resolve(owner)),
                     () -> "owner " + owner + " must exist where this test expects it");
@@ -221,7 +221,7 @@ class BoundedWaitOwnershipTest {
     }
 
     private static List<Path> testSources() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         try (Stream<Path> tree = Files.walk(root)) {
             return tree.filter(Files::isRegularFile)
                     .filter(path -> path.getFileName().toString().endsWith(".java"))
@@ -230,18 +230,5 @@ class BoundedWaitOwnershipTest {
                     .sorted()
                     .toList();
         }
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
-            return current;
-        }
-        Path parent = current.getParent();
-        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml"))
-                && Files.isDirectory(parent.resolve("distribution"))) {
-            return parent;
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found from " + current);
     }
 }

@@ -23,7 +23,6 @@ import com.morpheus.store.sqlite.adapter.SqliteCompositionStateStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
@@ -41,7 +40,7 @@ class MultiProviderCompositionContractTest {
 
     @Test
     void twoRealProvidersComposeDeterministicallyAndPersistAcrossSqliteReopen() {
-        Path workspace = fixture("openspec-basic");
+        Path workspace = RepositoryRoot.fixture("openspec-basic");
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         ProviderReadRequest request = ProviderReadRequest.all(workspace, projectId);
         EntityIdentityResolver identities = new StableIdentityResolver();
@@ -102,7 +101,7 @@ class MultiProviderCompositionContractTest {
 
     @Test
     void unavailableOptionalProviderDoesNotFailAValidRequiredContribution() {
-        Path workspace = fixture("openspec-basic");
+        Path workspace = RepositoryRoot.fixture("openspec-basic");
         MultiProviderReadService service = new MultiProviderReadService(
                 List.of(new OpenSpecSpecificationContentReader()),
                 new MultiProviderCompositionService(),
@@ -124,7 +123,7 @@ class MultiProviderCompositionContractTest {
 
     @Test
     void unavailableRequiredProviderFailsExplicitly() {
-        Path workspace = fixture("openspec-basic");
+        Path workspace = RepositoryRoot.fixture("openspec-basic");
         MultiProviderReadService service = new MultiProviderReadService(
                 List.of(new OpenSpecSpecificationContentReader()),
                 new MultiProviderCompositionService(),
@@ -138,19 +137,6 @@ class MultiProviderCompositionContractTest {
                         new ProviderCompositionSource(new ProviderId("required-missing"), 90, true))));
 
         assertTrue(failure.getMessage().contains("required provider contribution is unavailable"));
-    }
-
-    private Path fixture(String name) {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        Path fromRoot = current.resolve("experiments/m0/fixtures").resolve(name);
-        if (Files.isDirectory(fromRoot)) {
-            return fromRoot;
-        }
-        Path fromModule = current.resolve("../experiments/m0/fixtures").normalize().resolve(name);
-        if (Files.isDirectory(fromModule)) {
-            return fromModule;
-        }
-        throw new IllegalStateException("fixture not found: " + name + " from " + current);
     }
 
     private static final class StableIdentityResolver implements EntityIdentityResolver {

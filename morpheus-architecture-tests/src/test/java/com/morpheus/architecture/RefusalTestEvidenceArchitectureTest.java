@@ -45,7 +45,7 @@ class RefusalTestEvidenceArchitectureTest {
 
     @Test
     void noTestExpectsAGenericRefusalWithoutReadingWhyTheProductRefused() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         Set<String> declared = declaredTypes(root);
         List<String> offenders = new ArrayList<>();
         for (Path source : testSources(root)) {
@@ -64,7 +64,7 @@ class RefusalTestEvidenceArchitectureTest {
 
     @Test
     void theScanReadsTheTestSourcesItJudges() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         List<Path> sources = testSources(root);
         assertFalse(sources.isEmpty(), "the scan must find test sources to be worth anything");
         assertTrue(sources.size() > 200,
@@ -446,18 +446,5 @@ class RefusalTestEvidenceArchitectureTest {
 
     private static String relative(Path root, Path source) {
         return root.relativize(source).toString().replace('\\', '/');
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
-            return current;
-        }
-        Path parent = current.getParent();
-        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml"))
-                && Files.isDirectory(parent.resolve("distribution"))) {
-            return parent;
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found from " + current);
     }
 }

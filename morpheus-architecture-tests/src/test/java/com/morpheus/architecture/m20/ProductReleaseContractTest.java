@@ -1,5 +1,6 @@
 package com.morpheus.architecture.m20;
 
+import com.morpheus.architecture.RepositoryRoot;
 import com.morpheus.cli.command.CliLayout;
 import org.junit.jupiter.api.Test;
 
@@ -19,7 +20,7 @@ class ProductReleaseContractTest {
 
     @Test
     void currentProductVersionIsOneDotTwoDotOneAcrossTheReactor() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         List<Path> poms;
         try (var paths = Files.walk(root)) {
             poms = paths
@@ -48,7 +49,7 @@ class ProductReleaseContractTest {
 
     @Test
     void windowsProductionLayoutSeparatesProgramFromPersistentState() {
-        Path root = repoRoot().resolve("target/m20-layout-test").toAbsolutePath().normalize();
+        Path root = RepositoryRoot.locate().resolve("target/m20-layout-test").toAbsolutePath().normalize();
         Properties windows = properties("Windows 10", root.resolve("home"));
         Path localAppData = root.resolve("LocalAppData");
 
@@ -69,7 +70,7 @@ class ProductReleaseContractTest {
 
     @Test
     void linuxProductionLayoutUsesXdgDataConfigAndStateRoots() {
-        Path root = repoRoot().resolve("target/m20-xdg-test").toAbsolutePath().normalize();
+        Path root = RepositoryRoot.locate().resolve("target/m20-xdg-test").toAbsolutePath().normalize();
         Properties linux = properties("Linux", root.resolve("home"));
         Path data = root.resolve("data");
         Path config = root.resolve("config");
@@ -91,7 +92,7 @@ class ProductReleaseContractTest {
 
     @Test
     void releaseScriptsEnforcePerUserInstallExactTagChecksumsAndVerifiedToolBootstrap() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String installer = Files.readString(root.resolve("distribution/windows/MORPHEUS.iss"));
         String windowsRelease = Files.readString(root.resolve("distribution/build-release.ps1"));
         String linuxRelease = Files.readString(root.resolve("distribution/build-release.sh"));
@@ -141,18 +142,6 @@ class ProductReleaseContractTest {
                         + "SLF4J pick one of the two, and what the embedded libraries log is lost again");
         assertTrue(windowsPortable.contains("--enable-native-access=ALL-UNNAMED"));
         assertTrue(linuxPortable.contains("--enable-native-access=ALL-UNNAMED"));
-    }
-
-    private Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
-            return current;
-        }
-        Path parent = current.getParent();
-        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml")) && Files.isDirectory(parent.resolve("distribution"))) {
-            return parent;
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found from " + current);
     }
 
     private Properties properties(String osName, Path home) {

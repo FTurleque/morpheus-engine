@@ -5,6 +5,7 @@ import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.cli.MorpheusMain;
+import com.morpheus.cli.RepositoryRoot;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.source.SourceLocator;
 import org.junit.jupiter.api.Test;
@@ -31,7 +32,7 @@ class MorpheusCompositionCliTest {
     void syncsTwoRealProvidersAndQueriesPersistedConflicts() {
         Path data = tempDirectory.resolve("composition-data");
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
-        register(data, projectId, fixture("openspec-basic"));
+        register(data, projectId, RepositoryRoot.fixture("openspec-basic"));
 
         Invocation sync = invokeWithData(
                 data, "--json", "composition", "sync", "--project", projectId.toString(), "--revision", "m18-test");
@@ -85,7 +86,7 @@ class MorpheusCompositionCliTest {
         Path workspace = tempDirectory.resolve("markdown-only");
         Path specification = workspace.resolve("morpheus/specification.md");
         Files.createDirectories(specification.getParent());
-        Files.copy(fixture("openspec-basic").resolve("morpheus/specification.md"), specification);
+        Files.copy(RepositoryRoot.fixture("openspec-basic").resolve("morpheus/specification.md"), specification);
         Path data = tempDirectory.resolve("markdown-only-data");
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         register(data, projectId, workspace);
@@ -103,7 +104,7 @@ class MorpheusCompositionCliTest {
     void anEmptyRevisionIsRefusedAndPublishesNothingWhileTheOmittedOneStillSyncs() {
         Path data = tempDirectory.resolve("blank-revision-data");
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
-        register(data, projectId, fixture("openspec-basic"));
+        register(data, projectId, RepositoryRoot.fixture("openspec-basic"));
         Invocation before = invokeWithData(data, "--json", "composition", "status", "--project", projectId.toString());
 
         Invocation refused = invokeWithData(
@@ -154,18 +155,6 @@ class MorpheusCompositionCliTest {
         properties.setProperty("os.name", System.getProperty("os.name", "Windows"));
         properties.setProperty("user.home", tempDirectory.resolve("home").toString());
         return properties;
-    }
-
-    private Path fixture(String name) {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            Path candidate = current.resolve("experiments/m0/fixtures").resolve(name);
-            if (Files.isDirectory(candidate)) {
-                return candidate;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("M0 fixture not found: " + name);
     }
 
     private record Invocation(int exitCode, String stdout, String stderr) {

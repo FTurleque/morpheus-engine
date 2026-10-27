@@ -39,7 +39,7 @@ class UpgradeGuideCoherenceTest {
 
     @Test
     void theLatestUpgradeGuideStatesTheSchemaVersionTheCodeSupports() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         Guide latest = latest(guides(root));
         int supported = supportedSchemaVersion(root);
 
@@ -57,7 +57,7 @@ class UpgradeGuideCoherenceTest {
 
     @Test
     void theLatestUpgradeGuideMakesTheBackupMandatoryBeforeInstallingAndSaysWhichProgramTakesIt() throws IOException {
-        Guide latest = latest(guides(repositoryRoot()));
+        Guide latest = latest(guides(RepositoryRoot.locate()));
         String guide = latest.content();
 
         int backup = guide.indexOf(BACKUP_HEADING);
@@ -82,7 +82,7 @@ class UpgradeGuideCoherenceTest {
 
     @Test
     void theLatestUpgradeGuideDescribesTheWayBackAndQuotesTheRefusalTheCodeGives() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         Guide latest = latest(guides(root));
         String guide = latest.content();
 
@@ -106,7 +106,7 @@ class UpgradeGuideCoherenceTest {
      */
     @Test
     void theGuideThatLeavesOneDotTwoDotZeroSaysThatReleaseDoesNotRefuseAMigratedDatabase() throws IOException {
-        String guide = Files.readString(repositoryRoot().resolve("docs/user/UPGRADE_1_2_1.md"));
+        String guide = Files.readString(RepositoryRoot.locate().resolve("docs/user/UPGRADE_1_2_1.md"));
 
         assertTrue(guide.contains("1.2.0 ne refuse pas une base migrée"),
                 "UPGRADE_1_2_1.md must say that 1.2.0 opens a migrated database without refusing it");
@@ -118,7 +118,7 @@ class UpgradeGuideCoherenceTest {
 
     @Test
     void anEarlierUpgradeGuideNamesItsReleaseAndPointsToTheLatestGuide() throws IOException {
-        List<Guide> guides = guides(repositoryRoot());
+        List<Guide> guides = guides(RepositoryRoot.locate());
         Guide latest = latest(guides);
         assertTrue(guides.size() >= 2, "expected the latest upgrade guide and at least one earlier guide");
 
@@ -184,17 +184,5 @@ class UpgradeGuideCoherenceTest {
         Matcher declaration = SCHEMA_VERSION_DECLARATION.matcher(Files.readString(root.resolve(SCHEMA_MANAGER)));
         assertTrue(declaration.find(), "SqliteSchemaManager must declare SUPPORTED_SCHEMA_VERSION");
         return Integer.parseInt(declaration.group(1));
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 }

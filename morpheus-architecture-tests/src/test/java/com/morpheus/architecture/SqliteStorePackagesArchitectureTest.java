@@ -92,7 +92,7 @@ class SqliteStorePackagesArchitectureTest {
 
     @Test
     void noMainSourceOutsideTheStoreNamesARuntimeClassBesideTheTwoNamedEntryPoints() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         List<String> offenders = new ArrayList<>();
         Set<String> entryPointsNamed = new TreeSet<>();
         int scanned = 0;
@@ -171,17 +171,5 @@ class SqliteStorePackagesArchitectureTest {
                     .sorted()
                     .toList();
         }
-    }
-
-    private static Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
     }
 }

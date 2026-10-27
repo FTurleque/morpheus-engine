@@ -46,21 +46,8 @@ final class ApiTestSupport {
                 .build());
     }
 
-    Path fixture(String name) {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        Path fromRoot = current.resolve("experiments/m0/fixtures").resolve(name);
-        if (Files.isDirectory(fromRoot)) {
-            return fromRoot;
-        }
-        Path fromModule = current.resolve("../experiments/m0/fixtures").normalize().resolve(name);
-        if (Files.isDirectory(fromModule)) {
-            return fromModule;
-        }
-        throw new IllegalStateException("M0 fixture not found: " + name + " from " + current);
-    }
-
     Path copyFixture(String name, Path destination) {
-        Path source = fixture(name);
+        Path source = RepositoryRoot.fixture(name);
         try (var paths = Files.walk(source)) {
             paths.forEach(path -> {
                 Path relative = source.relativize(path);

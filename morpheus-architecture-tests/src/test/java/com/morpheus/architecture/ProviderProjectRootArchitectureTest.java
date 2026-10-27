@@ -226,7 +226,7 @@ class ProviderProjectRootArchitectureTest {
 
     @Test
     void everyProviderPublishesItsProjectRootThroughTheSinglePoint() throws IOException {
-        Scan scan = Scan.of(repoRoot());
+        Scan scan = Scan.of(RepositoryRoot.locate());
 
         assertEquals(List.of(), scan.violations(),
                 "a provider publishes as project root the workspace root it received, written inline as "
@@ -491,7 +491,7 @@ class ProviderProjectRootArchitectureTest {
      */
     @Test
     void theRuleSeesEverySourceFileTheScanReads() throws IOException {
-        Set<String> scanned = Scan.of(repoRoot()).constructingSources();
+        Set<String> scanned = Scan.of(RepositoryRoot.locate()).constructingSources();
         Set<String> imported = new TreeSet<>();
         for (JavaClass javaClass : PRODUCTION) {
             if (constructsAProjectSpecification(javaClass)) {
@@ -512,7 +512,7 @@ class ProviderProjectRootArchitectureTest {
 
     @Test
     void everyClassThatConstructsAProjectSpecificationHasATestThatReadsTheRootItPublishes() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         assertEquals(List.of(), untestedReaders(root, Scan.of(root)),
                 "the behavioural tests are what hold the published root; a reader without one is held only by "
                         + "the spelling of its source");
@@ -1010,17 +1010,6 @@ class ProviderProjectRootArchitectureTest {
                     .sorted()
                     .toList();
         }
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("docs/architecture/adr"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found");
     }
 
     private interface Maker {

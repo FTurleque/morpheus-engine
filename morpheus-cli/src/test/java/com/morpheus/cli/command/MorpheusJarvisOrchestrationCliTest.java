@@ -3,13 +3,13 @@ package com.morpheus.cli.command;
 import com.morpheus.application.operability.OperationalLogMode;
 import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.cli.MorpheusMain;
+import com.morpheus.cli.RepositoryRoot;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Properties;
@@ -107,7 +107,7 @@ class MorpheusJarvisOrchestrationCliTest {
     }
 
     private Seed seed(Path data) {
-        Path fixture = fixture("openspec-basic");
+        Path fixture = RepositoryRoot.fixture("openspec-basic");
         Invocation add = invokeWithData(data, "projects", "add", "--workspace", fixture.toString());
         assertEquals(0, add.exitCode(), add.stderr());
         String projectId = value(add.stdout(), "projectId");
@@ -140,19 +140,6 @@ class MorpheusJarvisOrchestrationCliTest {
                     outBytes.toString(StandardCharsets.UTF_8).replace("\r\n", "\n"),
                     errBytes.toString(StandardCharsets.UTF_8).replace("\r\n", "\n"));
         }
-    }
-
-    private Path fixture(String name) {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        Path fromRoot = current.resolve("experiments/m0/fixtures").resolve(name);
-        if (Files.isDirectory(fromRoot)) {
-            return fromRoot;
-        }
-        Path fromModule = current.resolve("../experiments/m0/fixtures").normalize().resolve(name);
-        if (Files.isDirectory(fromModule)) {
-            return fromModule;
-        }
-        throw new IllegalStateException("M0 fixture not found: " + name + " from " + current);
     }
 
     private String value(String output, String key) {

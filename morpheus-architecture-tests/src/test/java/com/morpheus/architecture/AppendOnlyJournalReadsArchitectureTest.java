@@ -71,7 +71,7 @@ class AppendOnlyJournalReadsArchitectureTest {
 
     @Test
     void noStatementOfTheProductDeletesFromAJournal() throws IOException {
-        Path sources = repositoryRoot().resolve("morpheus-store-sqlite/src/main");
+        Path sources = RepositoryRoot.locate().resolve("morpheus-store-sqlite/src/main");
         List<String> offenders = new ArrayList<>();
         try (Stream<Path> files = Files.walk(sources)) {
             for (Path file : files.filter(Files::isRegularFile).sorted().toList()) {
@@ -91,17 +91,5 @@ class AppendOnlyJournalReadsArchitectureTest {
 
         assertEquals(List.of(), offenders,
                 "the journals are kept for the life of the database; deleting from one is a decision to record first");
-    }
-
-    private static Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
     }
 }

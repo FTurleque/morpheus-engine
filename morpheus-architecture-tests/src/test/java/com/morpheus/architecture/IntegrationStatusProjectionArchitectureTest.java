@@ -81,7 +81,7 @@ class IntegrationStatusProjectionArchitectureTest {
     @Test
     void theHttpViewIsATransformationOfTheSharedProjectionNotACopy() throws IOException {
         String views = Files.readString(ProductionSources.mainSource("morpheus-api", "IntegrationStatusViews"));
-        String projection = Files.readString(repoRoot().resolve(
+        String projection = Files.readString(RepositoryRoot.locate().resolve(
                 "morpheus-application/src/main/java/com/morpheus/application/security/IntegrationStatusDisclosure.java"));
 
         assertTrue(views.contains(PROJECTION + ".project("), "the status route must use the shared projection");
@@ -116,24 +116,11 @@ class IntegrationStatusProjectionArchitectureTest {
     }
 
     private static List<Path> sources(String module) throws IOException {
-        try (Stream<Path> tree = Files.walk(repoRoot().resolve(module + "/src/main/java"))) {
+        try (Stream<Path> tree = Files.walk(RepositoryRoot.locate().resolve(module + "/src/main/java"))) {
             return tree.filter(path -> path.toString().endsWith(".java"))
                     .filter(path -> !path.getFileName().toString().equals("IntegrationStatusViews.java"))
                     .sorted()
                     .toList();
         }
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
-            return current;
-        }
-        Path parent = current.getParent();
-        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml"))
-                && Files.isDirectory(parent.resolve("distribution"))) {
-            return parent;
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found from " + current);
     }
 }

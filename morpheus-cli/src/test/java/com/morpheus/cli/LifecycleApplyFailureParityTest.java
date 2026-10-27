@@ -24,7 +24,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
@@ -216,7 +215,7 @@ class LifecycleApplyFailureParityTest {
         try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath(), OperationalRecorder.noop())) {
             var normalized = new SyntheticSpecificationContentReader()
                     .read(
-                            ProviderReadRequest.all(fixture("synthetic-basic"), projectId),
+                            ProviderReadRequest.all(RepositoryRoot.fixture("synthetic-basic"), projectId),
                             new PersistentEntityIdentityResolver(runtime.identities()))
                     .content()
                     .orElseThrow();
@@ -232,18 +231,6 @@ class LifecycleApplyFailureParityTest {
         properties.setProperty("os.name", System.getProperty("os.name", "Windows"));
         properties.setProperty("user.home", tempDirectory.resolve("home").toString());
         return properties;
-    }
-
-    private Path fixture(String name) {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            Path candidate = current.resolve("experiments/m0/fixtures").resolve(name);
-            if (Files.isDirectory(candidate)) {
-                return candidate;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("M0 fixture not found: " + name);
     }
 
     private record Seed(String projectId, String changeId) {

@@ -115,7 +115,7 @@ class RepositoryDocumentationCoherenceTest {
      */
     @Test
     void everyRelativeMarkdownLinkResolvesFromThePageThatHoldsIt() throws Exception {
-        List<String> broken = brokenMarkdownLinks(repositoryRoot());
+        List<String> broken = brokenMarkdownLinks(RepositoryRoot.locate());
         assertTrue(broken.isEmpty(), () -> broken.size() + " relative Markdown link(s) do not resolve from their page:"
                 + System.lineSeparator() + String.join(System.lineSeparator(), broken));
     }
@@ -197,7 +197,7 @@ class RepositoryDocumentationCoherenceTest {
 
     @Test
     void contributingGuideMatchesPomVersionMcpSdkAndModuleList() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String pom = Files.readString(root.resolve("pom.xml"));
         String readme = Files.readString(root.resolve("CONTRIBUTING.md"));
 
@@ -215,7 +215,7 @@ class RepositoryDocumentationCoherenceTest {
 
     @Test
     void activeDocumentationDeclaresCurrentDevelopmentBaseline() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String version = firstGroup(PROJECT_VERSION, Files.readString(root.resolve("pom.xml")), "project version");
         for (Path page : activeStatusPages(root)) {
             String content = Files.readString(page);
@@ -226,7 +226,7 @@ class RepositoryDocumentationCoherenceTest {
 
     @Test
     void activeStatusPagesDoNotAdvertiseCompletedD2AsPending() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         List<String> obsoleteMarkers = List.of(
                 "D2 EN COURS",
                 "D2 — Repository Hardening en cours",
@@ -260,7 +260,7 @@ class RepositoryDocumentationCoherenceTest {
      */
     @Test
     void activeStackDocumentationAndD2ValidatorsFollowTheRootPomDependencyVersions() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String pom = Files.readString(root.resolve("pom.xml"));
         String sqlite = pomProperty(pom, "sqlite-jdbc.version");
         String dependencyCheck = pomProperty(pom, "dependency-check.maven.plugin.version");
@@ -296,7 +296,7 @@ class RepositoryDocumentationCoherenceTest {
      */
     @Test
     void theArc42StackTablesAreReconciledAsAWholeRatherThanRowByRow() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String pom = Files.readString(root.resolve("pom.xml"));
         Map<String, String> reconciled = new HashMap<>();
         for (String property : List.of(
@@ -335,7 +335,7 @@ class RepositoryDocumentationCoherenceTest {
 
     @Test
     void bothPlatformValidatorsConsumeSingleQualityRatchetConfiguration() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         Path ratchetFile = root.resolve("config/m21-quality-ratchets.properties");
         Map<String, String> ratchets = properties(ratchetFile);
         // Pinned so that moving a ratchet is a deliberate act with evidence, never a side effect. The presence
@@ -409,7 +409,7 @@ class RepositoryDocumentationCoherenceTest {
 
     @Test
     void activeRiskDocumentationMatchesExecutableQualityRatchetsAndResolvedAdrIndex() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         Map<String, String> ratchets = properties(root.resolve("config/m21-quality-ratchets.properties"));
         String expectedRatchets = """
                 Surefire written        >= %s
@@ -448,7 +448,7 @@ class RepositoryDocumentationCoherenceTest {
 
     @Test
     void operatorFacingQualityGateDocumentationMirrorsTheNormativeRatchets() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         Map<String, String> ratchets = properties(root.resolve("config/m21-quality-ratchets.properties"));
         String tests = ratchets.get("testsMinimum");
         String generated = ratchets.get("generatedTestsMinimum");
@@ -547,7 +547,7 @@ class RepositoryDocumentationCoherenceTest {
      */
     @Test
     void operatorFacingD2GateDocumentationMirrorsWhatTheD2ValidatorsEnforce() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String linux = Files.readString(root.resolve("scripts/validate-d2.sh"));
         String windows = Files.readString(root.resolve("scripts/validate-d2.ps1"));
 
@@ -568,7 +568,7 @@ class RepositoryDocumentationCoherenceTest {
 
     @Test
     void activeGovernanceDocumentationNeverPinsTheSqliteSchemaVersion() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String manager = Files.readString(root.resolve(
                 "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/runtime/SqliteSchemaManager.java"));
         Matcher declaration = SCHEMA_VERSION_DECLARATION.matcher(manager);
@@ -663,7 +663,7 @@ class RepositoryDocumentationCoherenceTest {
      */
     @Test
     void activeGovernanceSurfacesDoNotRestateAPerishableAdrOrModuleTotal() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         long numberedAdrs;
         try (var files = Files.list(root.resolve("docs/architecture/adr"))) {
             numberedAdrs = files.filter(path -> path.getFileName().toString().matches("[A-Z]+-\\d{4}-.*\\.md")).count();
@@ -686,7 +686,7 @@ class RepositoryDocumentationCoherenceTest {
      */
     @Test
     void theRemotePlatformGuideDerivesTheSchemaCeilingFromTheDeclaringConstant() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String guide = Files.readString(root.resolve("docs/developer/REMOTE_SERVER_PLATFORM.md"));
 
         int section = guide.indexOf("## Schéma SQLite");
@@ -710,7 +710,7 @@ class RepositoryDocumentationCoherenceTest {
      */
     @Test
     void theRemotePlatformGuideOnlyNamesFailureTypesThatExist() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String guide = Files.readString(root.resolve("docs/developer/REMOTE_SERVER_PLATFORM.md"));
         Path sqliteSources = root.resolve("morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite");
 
@@ -730,7 +730,7 @@ class RepositoryDocumentationCoherenceTest {
      */
     @Test
     void theSecurityAuditCommandDerivesTheSqliteSchemaVersionFromTheDeclaringConstant() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String command = Files.readString(root.resolve(".claude/commands/security-audit.md"));
 
         assertTrue(command.contains("SUPPORTED_SCHEMA_VERSION"),
@@ -743,7 +743,7 @@ class RepositoryDocumentationCoherenceTest {
 
     @Test
     void rootBuildEnforcerPinsQualifiedJavaAndDependencyConvergence() throws Exception {
-        String pom = Files.readString(repositoryRoot().resolve("pom.xml")).replace("\r\n", "\n");
+        String pom = Files.readString(RepositoryRoot.locate().resolve("pom.xml")).replace("\r\n", "\n");
         assertTrue(pom.contains("<requireJavaVersion>\n                                    <version>[21,22)</version>\n                                </requireJavaVersion>"),
                 "root Maven enforcer must reject JDKs newer than the qualified Java 21 line");
         assertTrue(pom.contains("<dependencyConvergence/>"),
@@ -752,7 +752,7 @@ class RepositoryDocumentationCoherenceTest {
 
     @Test
     void httpExtensionRoutesUseSharedTimedRequestBodyBoundary() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         Path api = root.resolve("morpheus-api/src/main/java");
         List<Path> routers;
         try (var files = Files.walk(api)) {
@@ -778,7 +778,7 @@ class RepositoryDocumentationCoherenceTest {
 
     @Test
     void repositoryPublishesSecurityPolicyAndSensitiveCodeOwnership() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String security = Files.readString(root.resolve("SECURITY.md"));
         String codeowners = Files.readString(root.resolve(".github/CODEOWNERS"));
 
@@ -794,7 +794,7 @@ class RepositoryDocumentationCoherenceTest {
 
     @Test
     void remoteAuthorizationAndCredentialDocumentationStayFailClosedAndExpiryAware() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String routePolicy = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteRoutePolicy"));
         String remoteServer = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServer"));
         String userGuide = Files.readString(root.resolve("docs/user/TEAM_REMOTE_SERVER.md"));
@@ -979,22 +979,6 @@ class RepositoryDocumentationCoherenceTest {
             result.put(line.substring(0, separator).trim(), line.substring(separator + 1).trim());
         }
         return Map.copyOf(result);
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            Path pom = current.resolve("pom.xml");
-            if (Files.isRegularFile(pom)) {
-                String content = Files.readString(pom);
-                if (content.contains("<artifactId>morpheus-engine</artifactId>")
-                        && content.contains("<modules>")) {
-                    return current;
-                }
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 
     private static String firstGroup(Pattern pattern, String text, String label) {
