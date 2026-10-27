@@ -72,7 +72,8 @@ class CliOptionParsingRefusesUnknownOptionsTest {
     private static final Pattern THROWS_TAIL = Pattern.compile("\\)\\s*(?:throws\\s+[\\w.,\\s<>]+)?$");
     private static final Pattern ANONYMOUS = Pattern.compile("\\bnew\\s+[\\w.<>]+$");
     private static final Pattern LAST_IDENTIFIER = Pattern.compile("(\\w+)$");
-    private static final Pattern TERMINAL_PARSE = Pattern.compile("\\bparse\\s*\\(\\s*(?:final\\s+)?List\\s*<\\s*String\\s*>");
+    private static final Pattern TERMINAL_PARSE = Pattern.compile(
+            "\\bparse\\s*\\(\\s*(?:final\\s+)?(?:java\\s*\\.\\s*util\\s*\\.\\s*)?List\\s*<\\s*String\\s*>");
     private static final Pattern OPTION_LABEL = Pattern.compile("\"--[^\"]*\"");
     private static final Pattern UNKNOWN_OPTION_REFUSAL =
             Pattern.compile("throw\\s+new\\s+[\\w.]+\\(\\s*\"unknown ([\\w-]+ )?options?\\b");
@@ -230,12 +231,14 @@ class CliOptionParsingRefusesUnknownOptionsTest {
         String nested = "final class A {\n    private static final class Options {\n"
                 + "        static Options parse(List<String> tokens) {\n"
                 + "            throw new IllegalArgumentException(\"unknown option: \" + tokens);\n        }\n    }\n}\n";
+        String qualified = nested.replace("parse(List<String> tokens)", "parse(java.util.List<String> tokens)")
+                .replace("final class A", "final class B");
         String shared = "public final class " + SHARED_PARSER + " {\n"
                 + "    public static " + SHARED_PARSER + " parse(List<String> tokens, Declared declared) {\n"
                 + "        return null;\n    }\n}\n";
 
-        assertEquals(Set.of("A.java#Options", SHARED_PARSER),
-                optionTokenParsers(Map.of("A.java", nested, SHARED_PARSER + ".java", shared)));
+        assertEquals(Set.of("A.java#Options", "B.java#Options", SHARED_PARSER),
+                optionTokenParsers(Map.of("A.java", nested, "B.java", qualified, SHARED_PARSER + ".java", shared)));
     }
 
     /**
