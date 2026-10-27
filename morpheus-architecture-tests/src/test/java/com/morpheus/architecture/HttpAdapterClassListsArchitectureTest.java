@@ -51,7 +51,8 @@ class HttpAdapterClassListsArchitectureTest {
             Map.entry("PublicHttpRouteConvergenceTest.REMOTE_ONLY", Kind.TABLE_OF_FACTS),
             Map.entry("PublishedEnumsMatchJavaEnumsTest.EXEMPT", Kind.TABLE_OF_FACTS),
             Map.entry("PublishedEnumsMatchJavaEnumsTest.TABLE", Kind.TABLE_OF_FACTS),
-            Map.entry("SilentCatchArchitectureTest.EXPLAINED", Kind.TABLE_OF_FACTS));
+            Map.entry("SilentCatchArchitectureTest.EXPLAINED", Kind.TABLE_OF_FACTS),
+            Map.entry("TextDigestOwnershipArchitectureTest.DIGEST_SITES", Kind.TABLE_OF_FACTS));
 
     private static final Pattern LIST_DECLARATION = Pattern.compile(
             "static final (?:Set|List|Map)<[^=;]*?>\\s+([A-Z][A-Z0-9_]*)\\s*=\\s*(?:new [\\w<>]+\\(\\s*)?"
