@@ -1,6 +1,7 @@
 package com.morpheus.provider.markdown;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
+import com.morpheus.application.foundation.TextDigest;
 import com.morpheus.application.files.SafeWorkspaceFileResolver;
 import com.morpheus.application.ingestion.NormalizedProjectContent;
 import com.morpheus.application.read.ProviderReadRequest;
@@ -40,12 +41,8 @@ import com.morpheus.domain.task.ImplementationTask;
 import com.morpheus.domain.task.TaskId;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -355,7 +352,7 @@ public final class StructuredMarkdownSpecificationContentReader implements Speci
                 id,
                 source,
                 Optional.of(new SourceRange(block.startLine(), block.endLine())),
-                Optional.of(sha256(block.raw())));
+                Optional.of(TextDigest.sha256(block.raw())));
     }
 
     private Evidence fileEvidence(
@@ -371,7 +368,7 @@ public final class StructuredMarkdownSpecificationContentReader implements Speci
                 id,
                 SourceLocator.file(relativePath),
                 Optional.of(new SourceRange(1, lines)),
-                Optional.of(sha256(text)));
+                Optional.of(TextDigest.sha256(text)));
     }
 
     private Provenance provenance(ParsedBlock parsed, SourceLocator source) {
@@ -460,15 +457,6 @@ public final class StructuredMarkdownSpecificationContentReader implements Speci
 
     private static Optional<String> optional(String value) {
         return Optional.ofNullable(value).map(String::trim).filter(item -> !item.isEmpty());
-    }
-
-    private static String sha256(String value) {
-        try {
-            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest(value.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 is unavailable", exception);
-        }
     }
 
     private record ParsedBlock(
