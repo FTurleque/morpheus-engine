@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.foundation.PayloadMap;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.quality.ChangeCompletenessAssessment;
 import com.morpheus.application.quality.ChangeCompletenessService;
@@ -60,7 +61,7 @@ public final class MorpheusChangeMcpTools {
         var result = McpCatalogTool.business(runtime).activeChange(projectId, changeId)
                 .orElseThrow(() -> McpCatalogTool.notFound(NO_ACTIVE_SNAPSHOT + projectId));
         ChangeProposal change = result.item().orElseThrow(() -> McpCatalogTool.notFound("change not found: " + changeId));
-        return McpContentPayloads.map("snapshotId", result.snapshot().id().toString(), "change", McpContentPayloads.change(change));
+        return PayloadMap.of("snapshotId", result.snapshot().id().toString(), "change", McpContentPayloads.change(change));
     }
 
     private static Object listChanges(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
@@ -120,7 +121,7 @@ public final class MorpheusChangeMcpTools {
         ProjectSpecificationId projectId = McpCatalogTool.projectId(arguments);
         ChangeId changeId = changeId(arguments);
         ChangeCompletenessAssessment assessment = completeness(runtime, projectId, changeId);
-        return McpContentPayloads.map(
+        return PayloadMap.of(
                 "snapshotId", activeSnapshotId(runtime, projectId),
                 "changeId", changeId.toString(),
                 "status", "UNAVAILABLE_REQUIRES_EXPLICIT_LIFECYCLE_INPUT",
@@ -133,7 +134,7 @@ public final class MorpheusChangeMcpTools {
         ProjectSpecificationId projectId = McpCatalogTool.projectId(arguments);
         ChangeId changeId = changeId(arguments);
         ChangeCompletenessAssessment assessment = completeness(runtime, projectId, changeId);
-        return McpContentPayloads.map(
+        return PayloadMap.of(
                 "snapshotId", activeSnapshotId(runtime, projectId),
                 "changeId", changeId.toString(),
                 "currentRequirementCount", assessment.currentRequirementCount(),

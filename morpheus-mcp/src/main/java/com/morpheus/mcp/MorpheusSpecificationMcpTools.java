@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.foundation.PayloadMap;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.query.SpecificationContextQueryService;
@@ -53,7 +54,7 @@ public final class MorpheusSpecificationMcpTools {
         List<Specification> specifications = content.specifications().stream()
                 .sorted(Comparator.comparing(Specification::id))
                 .toList();
-        return McpContentPayloads.map(
+        return PayloadMap.of(
                 "projectId", projectId.toString(),
                 "snapshotId", snapshot.id().toString(),
                 "snapshotState", snapshot.state().name(),
@@ -73,7 +74,7 @@ public final class MorpheusSpecificationMcpTools {
                 runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability())
                 .active(projectId, specificationId, McpCatalogTool.page(arguments))
                 .orElseThrow(() -> McpCatalogTool.notFound("project has no ACTIVE snapshot: " + projectId));
-        return McpContentPayloads.map(
+        return PayloadMap.of(
                 "snapshotId", result.snapshot().id().toString(),
                 "specification", McpContentPayloads.specification(result.specification()),
                 "requirements", McpContentPayloads.page(result.requirements(), result.requirements().items().stream().map(McpContentPayloads::requirement).toList()),

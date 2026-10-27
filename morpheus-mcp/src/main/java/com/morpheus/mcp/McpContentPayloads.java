@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.foundation.PayloadMap;
 import com.morpheus.application.quality.ChangeCompletenessAssessment;
 import com.morpheus.application.quality.QualityFinding;
 import com.morpheus.application.query.SnapshotPage;
@@ -12,10 +13,7 @@ import com.morpheus.domain.scenario.Scenario;
 import com.morpheus.domain.specification.Specification;
 import com.morpheus.domain.task.ImplementationTask;
 
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 
 /**
  * The public shape of each domain type the catalogue tools answer with, written once for all of them.
@@ -32,7 +30,7 @@ final class McpContentPayloads {
     }
 
     static Object specification(Specification item) {
-        return map(
+        return PayloadMap.of(
                 "id", item.id().toString(),
                 "projectId", item.projectId().toString(),
                 "key", item.key(),
@@ -41,7 +39,7 @@ final class McpContentPayloads {
     }
 
     static Object requirement(Requirement item) {
-        return map(
+        return PayloadMap.of(
                 "id", item.id().toString(),
                 "specificationId", item.specificationId().toString(),
                 "key", item.key().orElse(""),
@@ -50,7 +48,7 @@ final class McpContentPayloads {
     }
 
     static Object change(ChangeProposal item) {
-        return map(
+        return PayloadMap.of(
                 "id", item.id().toString(),
                 "projectId", item.projectId().toString(),
                 "key", item.key().orElse(""),
@@ -62,11 +60,11 @@ final class McpContentPayloads {
     }
 
     static Object constraint(Constraint item) {
-        return map("id", item.id().toString(), "changeId", item.changeId().toString(), "statement", item.statement());
+        return PayloadMap.of("id", item.id().toString(), "changeId", item.changeId().toString(), "statement", item.statement());
     }
 
     static Object acceptanceCriterion(AcceptanceCriterion item) {
-        return map(
+        return PayloadMap.of(
                 "id", item.id().toString(),
                 "requirementId", item.requirementId().map(Object::toString).orElse(""),
                 "changeId", item.changeId().map(Object::toString).orElse(""),
@@ -78,19 +76,19 @@ final class McpContentPayloads {
     }
 
     static Object decision(DesignDecision item) {
-        return map(
+        return PayloadMap.of(
                 "id", item.id().toString(), "changeId", item.changeId().toString(),
                 "title", item.title(), "decision", item.decision());
     }
 
     static Object task(ImplementationTask item) {
-        return map(
+        return PayloadMap.of(
                 "id", item.id().toString(), "changeId", item.changeId().toString(),
                 "key", item.key().orElse(""), "title", item.title(), "completed", item.completed());
     }
 
     static Object scenario(Scenario item) {
-        return map(
+        return PayloadMap.of(
                 "id", item.id().toString(),
                 "requirementId", item.requirementId().map(Object::toString).orElse(""),
                 "title", item.title(),
@@ -101,7 +99,7 @@ final class McpContentPayloads {
 
     static Object lifecycleFacts(ChangeCompletenessAssessment assessment) {
         var facts = assessment.lifecycleFacts();
-        return map(
+        return PayloadMap.of(
                 "requirementsIdentified", facts.requirementsIdentified().name(),
                 "criticalConstraintsKnown", facts.criticalConstraintsKnown().name(),
                 "acceptanceCriteriaDefined", facts.acceptanceCriteriaDefined().name(),
@@ -114,7 +112,7 @@ final class McpContentPayloads {
     }
 
     static Object finding(QualityFinding finding) {
-        return map(
+        return PayloadMap.of(
                 "code", finding.code().name(),
                 "severity", finding.severity().name(),
                 "evidenceKind", finding.evidenceKind().name(),
@@ -124,16 +122,5 @@ final class McpContentPayloads {
                 "details", finding.details(),
                 "confidence", finding.confidence().map(Object::toString).orElse(""),
                 "evidenceIds", finding.evidenceIds().stream().map(Object::toString).toList());
-    }
-
-    static Map<String, Object> map(Object... entries) {
-        if (entries.length % 2 != 0) {
-            throw new IllegalArgumentException("map entries must be key/value pairs");
-        }
-        Map<String, Object> result = new LinkedHashMap<>();
-        for (int index = 0; index < entries.length; index += 2) {
-            result.put((String) entries[index], Objects.requireNonNull(entries[index + 1], "map value"));
-        }
-        return Map.copyOf(result);
     }
 }
