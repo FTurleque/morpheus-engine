@@ -241,6 +241,14 @@ surface parity != same transport shape
 read surface != write capability
 ```
 
+Dans la CLI, chaque sous-commande partage le même socle d'arguments, dans `com.morpheus.cli.command` : `GlobalArgs`
+lit les options globales et le jeton de commande, `CommandOptions` analyse les options d'une sous-commande à partir de
+ce qu'elle déclare (options à une valeur, options répétées, drapeaux) et refuse de la même façon toute saisie mal
+formée, et `CliErrorLine` écrit la ligne d'erreur `MORPHEUS error [<code>]: <message>` et le texte d'un échec. Une
+sous-commande n'en garde pas de copie privée : `CliArgumentBaseArchitectureTest` et
+`CliOptionParsingRefusesUnknownOptionsTest` la refusent, et `CliOptionRefusalTableTest` exécute chaque saisie mal formée
+sur chaque sous-commande.
+
 ## 11. Persistance
 
 Backends :
