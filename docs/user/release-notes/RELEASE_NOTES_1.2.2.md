@@ -41,3 +41,5 @@ Ce qui change, commande par commande :
   `change-orchestration`, `augmented-context` : un mot en trop répond `unexpected positional argument: x` au lieu de `unknown option: x`.
 - `composition` : une action inconnue est refusée avant que ses options ne soient lues.
 - `augmented-context` : `--explain` donné deux fois répond `duplicate option: --explain` ; le second était ignoré.
+- `version`, `product-info`, `update-check` : une option inconnue répond `unknown option: --x` au lieu de
+  `unknown option for <commande>: --x`, et un mot en trop `unexpected positional argument: x`.

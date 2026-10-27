@@ -63,7 +63,7 @@ class MorpheusProductCliTest {
         Result result = run("version", "--verbose", "yes");
 
         assertEquals(CliExitCode.USAGE.code(), result.exitCode());
-        assertTrue(result.err().contains("unknown option for version: --verbose"), result.err());
+        assertTrue(result.err().contains("MORPHEUS usage error: unknown option: --verbose"), result.err());
     }
 
     private Result run(String... args) {

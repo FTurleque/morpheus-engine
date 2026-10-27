@@ -119,12 +119,12 @@ class CliOptionRefusalTableTest {
             sync | repeated-flag | 2 | MORPHEUS error [2]: duplicate option: --force
             paths | undeclared | 2 | MORPHEUS error [2]: unknown option: --bogus
             paths | positional | 2 | MORPHEUS error [2]: unexpected positional argument: stray
-            update-check | undeclared | 2 | MORPHEUS usage error: unknown option for update-check: --bogus
+            update-check | undeclared | 2 | MORPHEUS usage error: unknown option: --bogus
             update-check | duplicate | 2 | MORPHEUS usage error: duplicate option: --manifest
             update-check | missing-value | 2 | MORPHEUS usage error: --manifest requires a value
             update-check | dash-value | 2 | MORPHEUS usage error: --manifest requires a value
             update-check | blank-value | 2 | MORPHEUS usage error: --manifest requires a non-blank value; omit the option to leave it unset
-            update-check | positional | 2 | MORPHEUS usage error: unknown option for update-check: stray
+            update-check | positional | 2 | MORPHEUS usage error: unexpected positional argument: stray
             provider-plugins discover | undeclared | 2 | MORPHEUS provider-plugin usage error: unknown provider-plugins option: --bogus
             provider-plugins discover | duplicate | 2 | MORPHEUS provider-plugin usage error: duplicate option: --directory
             provider-plugins discover | missing-value | 2 | MORPHEUS provider-plugin usage error: --directory requires a value
