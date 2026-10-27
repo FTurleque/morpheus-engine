@@ -1,18 +1,16 @@
 package com.morpheus.store.sqlite.runtime;
 
+import com.morpheus.application.foundation.TextDigest;
 import com.morpheus.application.store.KnowledgeStoreException;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Instant;
-import java.util.HexFormat;
 import java.util.List;
 
 /** Minimal explicit SQL migration runner for the embedded SQLite adapter. */
@@ -110,7 +108,7 @@ final class SqliteSchemaManager {
                 "INSERT INTO schema_migrations(version, name, checksum, applied_at) VALUES (?, ?, ?, ?)")) {
             statement.setInt(1, migration.version());
             statement.setString(2, migration.name());
-            statement.setString(3, sha256(script));
+            statement.setString(3, TextDigest.sha256(script));
             statement.setString(4, Instant.now().toString());
             statement.executeUpdate();
         }
@@ -149,7 +147,8 @@ final class SqliteSchemaManager {
             if (migration.version() == version) {
                 String script = canonicalScript(migration);
                 return migration.name().equals(name)
-                        && (sha256(script).equals(checksum) || sha256(script.replace("\n", "\r\n")).equals(checksum));
+                        && (TextDigest.sha256(script).equals(checksum)
+                                || TextDigest.sha256(script.replace("\n", "\r\n")).equals(checksum));
             }
         }
         return false;
@@ -167,15 +166,6 @@ final class SqliteSchemaManager {
             return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException exception) {
             throw new KnowledgeStoreException("Cannot read SQLite migration resource: " + resourcePath, exception);
-        }
-    }
-
-    private static String sha256(String value) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 must be available", exception);
         }
     }
 

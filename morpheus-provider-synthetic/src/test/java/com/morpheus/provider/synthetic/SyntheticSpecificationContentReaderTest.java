@@ -19,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -234,6 +235,44 @@ class SyntheticSpecificationContentReaderTest {
         assertEquals(
                 first.acceptanceCriteria().getFirst().verificationEvidenceIds(),
                 second.acceptanceCriteria().getFirst().verificationEvidenceIds());
+    }
+
+    @Test
+    void anAccentedScenarioTitleYieldsTheKeyOfItsBaseLetters() throws Exception {
+        Path workspace = fixtureWithScenarioTitle("accented-title", "Conserver la facture émise");
+
+        var content = reader.read(ProviderReadRequest.all(workspace, ProjectSpecificationId.generate()),
+                new InMemoryResolver()).content().orElseThrow();
+
+        assertEquals("scenario:billing/invoice-retention/conserver-la-facture-emise",
+                content.scenarios().getFirst().provenance().externalId().orElseThrow());
+    }
+
+    @Test
+    void aScenarioTitleThatLeavesNoKeyIsRefusedByName() throws Exception {
+        Path workspace = fixtureWithScenarioTitle("keyless-title", "!! ?? !!");
+
+        var result = reader.read(ProviderReadRequest.all(workspace, ProjectSpecificationId.generate()),
+                new InMemoryResolver());
+
+        assertTrue(result.content().isEmpty());
+        assertEquals("Synthetic source read failed: Cannot derive a stable key from: !! ?? !!",
+                result.diagnostics().getFirst().message());
+    }
+
+    private Path fixtureWithScenarioTitle(String directory, String title) throws Exception {
+        Path source = RepositoryRoot.fixture("synthetic-basic");
+        Path workspace = Files.createDirectory(temp.resolve(directory));
+        for (String file : List.of("reviews/security-review.txt", "reviews/documentation.txt",
+                "tests/billing-retention.txt")) {
+            Files.createDirectories(workspace.resolve(file).getParent());
+            Files.copy(source.resolve(file), workspace.resolve(file));
+        }
+        String json = Files.readString(source.resolve(SyntheticSpecificationProvider.SOURCE_FILE));
+        String retitled = json.replace("\"title\": \"Retain invoice\"", "\"title\": \"" + title + "\"");
+        assertFalse(retitled.equals(json), "the fixture no longer names the scenario this test retitles");
+        Files.writeString(workspace.resolve(SyntheticSpecificationProvider.SOURCE_FILE), retitled);
+        return workspace;
     }
 
     private static final class InMemoryResolver implements EntityIdentityResolver {
