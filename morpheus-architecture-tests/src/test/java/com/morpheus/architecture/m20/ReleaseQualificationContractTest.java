@@ -3,6 +3,7 @@ package com.morpheus.architecture.m20;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.morpheus.architecture.RepositoryRoot;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,7 +31,7 @@ class ReleaseQualificationContractTest {
 
     @Test
     void theQualificationToolingShipsForBothSupportedPlatforms() {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         for (String script : QUALIFICATION_SCRIPTS) {
             assertTrue(Files.isRegularFile(root.resolve(script)),
                     () -> "release qualification must stay available on both platforms: " + script);
@@ -181,18 +182,6 @@ class ReleaseQualificationContractTest {
     }
 
     private static String read(String relative) throws IOException {
-        return Files.readString(repoRoot().resolve(relative));
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found");
+        return Files.readString(RepositoryRoot.locate().resolve(relative));
     }
 }
