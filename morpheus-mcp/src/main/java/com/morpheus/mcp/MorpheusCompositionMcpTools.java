@@ -2,6 +2,7 @@ package com.morpheus.mcp;
 
 import com.morpheus.application.composition.CompositionQueryService;
 import com.morpheus.application.composition.CompositionStateView;
+import com.morpheus.application.foundation.PayloadMap;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.store.KnowledgeStoreException;
@@ -74,7 +75,7 @@ public final class MorpheusCompositionMcpTools {
 
     private Object conflicts(CompositionStateView state, Map<String, Object> arguments) {
         return PagedEnvelope.following(
-                map("snapshotId", state.snapshotId(), "primaryProviderId", state.primaryProviderId()),
+                PayloadMap.of("snapshotId", state.snapshotId(), "primaryProviderId", state.primaryProviderId()),
                 PageArguments.slice(arguments, state::conflicts, Function.identity()));
     }
 
@@ -93,13 +94,5 @@ public final class MorpheusCompositionMcpTools {
         return Map.copyOf(schema);
     }
 
-
-    private Map<String, Object> map(Object... entries) {
-        Map<String, Object> result = new LinkedHashMap<>();
-        for (int index = 0; index < entries.length; index += 2) {
-            result.put((String) entries[index], Objects.requireNonNull(entries[index + 1], "map value"));
-        }
-        return Map.copyOf(result);
-    }
 
 }

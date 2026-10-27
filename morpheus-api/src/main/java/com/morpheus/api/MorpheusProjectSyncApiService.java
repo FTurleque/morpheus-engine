@@ -2,6 +2,7 @@ package com.morpheus.api;
 
 import com.morpheus.api.transport.ApiFailure;
 import com.morpheus.api.transport.BoundaryFailureMessage;
+import com.morpheus.application.foundation.PayloadMap;
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.BoundedDiagnostics;
 import com.morpheus.application.ingestion.ObservedProjectSnapshotPublisher;
@@ -79,7 +80,7 @@ public final class MorpheusProjectSyncApiService {
                         recorder)
                         .publishFull(normalized, normalizedRevision, Instant.now());
                 syncService.complete(plan, Instant.now());
-                return OrderedFields.map(
+                return PayloadMap.of(
                         "projectId", projectId.toString(),
                         "snapshotId", imported.snapshot().id().toString(),
                         "mode", plan.mode().name(),
@@ -107,7 +108,7 @@ public final class MorpheusProjectSyncApiService {
             requireProject(runtime, projectId);
             SyncFreshness freshness = new SyncFreshnessService(runtime.syncState())
                     .assess(projectId, Instant.now(), Duration.ofMinutes(maxAgeMinutes));
-            return OrderedFields.map(
+            return PayloadMap.of(
                     "projectId", projectId.toString(),
                     "state", freshness.state().name(),
                     "lastSuccessfulSyncAt", freshness.lastSuccessfulSyncAt().map(Instant::toString).orElse(UNKNOWN_VALUE),

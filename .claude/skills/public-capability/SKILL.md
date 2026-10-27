@@ -19,6 +19,11 @@ framework, ni réflexion, ni scan de classpath.
 Un consommateur de port doit rester provider-neutre : il fonctionne avec les trois providers
 (openspec, markdown, synthetic). C'est vérifié.
 
+Une réponse qui montre un type du domaine déjà montré par un autre transport le projette par
+`PublicPayloads` (`com.morpheus.application.payload`), jamais par une méthode de l'adaptateur. Un type qui devient
+visible sur un second transport entre dans `SharedDomainProjectionArchitectureTest.SHARED_TYPES`, reçoit sa
+projection dans `PublicPayloads` et son exposition dans `PublicPayloadConvergenceTest`.
+
 ## 1 bis. Déclarer la commande CLI
 
 Une commande s'écrit dans une classe de `com.morpheus.cli.command`, celle de sa famille du manifeste, branchée dans la

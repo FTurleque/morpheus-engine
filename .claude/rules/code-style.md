@@ -9,6 +9,10 @@ Aucun linter n'est configuré. La cohérence vient du code existant et des tests
 - Déléguer la version à `ProductMetadata.version()` / `ProductMetadata.current()` — jamais de littéral
 - Valider aux **frontières système** (entrée CLI, endpoint HTTP, outil MCP) et faire confiance au code interne
 - Rendre les échecs **explicites** : exception nommée (`SyncBaselineInconsistentException`) plutôt que retour silencieux
+- Construire une carte de réponse publique par `PayloadMap` (`com.morpheus.application.foundation`) : `of` refuse une
+  valeur absente, `admittingAbsentValues` la garde, et les deux refusent par leur nom un nombre impair d'arguments, une
+  clé qui n'est pas une `String` et une clé répétée. Une autre méthode `Object...` qui rend une `Map` est refusée
+  (`PayloadMapConstructionArchitectureTest`)
 - Nommer les états de rejet explicitement (`SCAN_INCOMPLETE`, `PLUGIN_SHA256_REQUIRED`, `existing-unmanaged-morpheus-entry`)
 - Préférer des **fabriques nommées** (`generate()`, `parse()`) à plusieurs constructeurs publics surchargés.
   Pour un **record** ce n'est pas une préférence : il n'a qu'un constructeur public, le canonique

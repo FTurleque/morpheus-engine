@@ -38,8 +38,10 @@ class SpecificationQueryApiServiceArchitectureTest {
         assertTrue(specifications.contains("content.specifications().stream()"));
         assertTrue(specifications.contains("new SpecificationContextQueryService("));
         assertTrue(specifications.contains("activeSpecification(projectId, specificationId)"));
-        assertTrue(specifications.contains("private Object specification(Specification item)"));
-        assertTrue(specifications.contains("private Object scenario(Scenario item)"));
+        assertTrue(specifications.contains("PublicPayloads::specification"));
+        assertTrue(specifications.contains("PublicPayloads::scenario"));
+        assertFalse(specifications.contains("private Object specification(Specification item)"));
+        assertFalse(specifications.contains("private Object scenario(Scenario item)"));
         assertFalse(specifications.contains("RequirementQueryService"));
         assertFalse(specifications.contains("TraceRequirementQueryService"));
         assertFalse(specifications.contains("ChangeContextQueryService"));

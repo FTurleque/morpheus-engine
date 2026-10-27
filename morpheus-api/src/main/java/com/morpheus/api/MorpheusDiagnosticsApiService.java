@@ -1,6 +1,7 @@
 package com.morpheus.api;
 
 import com.morpheus.api.transport.ApiFailure;
+import com.morpheus.application.foundation.PayloadMap;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.quality.AcceptanceQualityService;
 import com.morpheus.application.quality.ChangeCompletenessAssessment;
@@ -36,7 +37,7 @@ public final class MorpheusDiagnosticsApiService {
         ChangeId changeId = ChangeId.parse(changeIdValue);
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             ChangeCompletenessAssessment assessment = completeness(runtime, projectId, changeId);
-            return OrderedFields.map(
+            return PayloadMap.of(
                     "snapshotId", activeSnapshot(runtime, projectId).id().toString(),
                     "changeId", changeId.toString(),
                     "status", "UNAVAILABLE_REQUIRES_EXPLICIT_LIFECYCLE_INPUT",
@@ -51,7 +52,7 @@ public final class MorpheusDiagnosticsApiService {
         ChangeId changeId = ChangeId.parse(changeIdValue);
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             ChangeCompletenessAssessment assessment = completeness(runtime, projectId, changeId);
-            return OrderedFields.map(
+            return PayloadMap.of(
                     "snapshotId", activeSnapshot(runtime, projectId).id().toString(),
                     "changeId", changeId.toString(),
                     "currentRequirementCount", assessment.currentRequirementCount(),
@@ -110,7 +111,7 @@ public final class MorpheusDiagnosticsApiService {
 
     private Object lifecycleFacts(ChangeCompletenessAssessment assessment) {
         var facts = assessment.lifecycleFacts();
-        return OrderedFields.map(
+        return PayloadMap.of(
                 "requirementsIdentified", facts.requirementsIdentified().name(),
                 "criticalConstraintsKnown", facts.criticalConstraintsKnown().name(),
                 "acceptanceCriteriaDefined", facts.acceptanceCriteriaDefined().name(),
@@ -123,7 +124,7 @@ public final class MorpheusDiagnosticsApiService {
     }
 
     private Object finding(QualityFinding finding) {
-        return OrderedFields.map(
+        return PayloadMap.of(
                 "code", finding.code().name(),
                 "severity", finding.severity().name(),
                 "evidenceKind", finding.evidenceKind().name(),

@@ -2,7 +2,9 @@ package com.morpheus.api;
 
 import com.morpheus.api.transport.ApiFailure;
 import com.morpheus.api.transport.PagedEnvelope;
+import com.morpheus.application.foundation.PayloadMap;
 import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.payload.PublicPayloads;
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.query.RequirementQueryService;
 import com.morpheus.application.query.RequirementSearchQuery;
@@ -10,7 +12,6 @@ import com.morpheus.application.query.TraceRequirementQueryService;
 import com.morpheus.application.query.compact.CompactQueryViewService;
 import com.morpheus.application.store.RequirementVersionRecord;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.domain.requirement.Requirement;
 import com.morpheus.domain.requirement.RequirementId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 
@@ -38,9 +39,9 @@ public final class MorpheusRequirementQueryApiService {
                     .findActive(projectId, new RequirementSearchQuery(queryText), pageRequest)
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
             return PagedEnvelope.following(
-                    OrderedFields.map("snapshotId", result.snapshot().id().toString(), "query", queryText),
+                    PayloadMap.of("snapshotId", result.snapshot().id().toString(), "query", queryText),
                     PagedEnvelope.page(result.pageRequest(), result.totalMatches(), result.hasMore(),
-                            result.items().stream().map(this::requirementRecord).toList()));
+                            result.items().stream().map(record -> PublicPayloads.requirementVersion(record.entityVersion())).toList()));
         }
     }
 
@@ -51,7 +52,7 @@ public final class MorpheusRequirementQueryApiService {
             KnowledgeSnapshotMetadata snapshot = activeSnapshot(runtime, projectId);
             RequirementVersionRecord record = runtime.requirements().currentRequirement(snapshot.id(), requirementId.value())
                     .orElseThrow(() -> ApiFailure.notFound("requirement not found: " + requirementId));
-            return OrderedFields.map("snapshotId", snapshot.id().toString(), "requirement", requirementRecord(record));
+            return PayloadMap.of("snapshotId", snapshot.id().toString(), "requirement", PublicPayloads.requirementVersion(record.entityVersion()));
         }
     }
 
@@ -79,24 +80,6 @@ public final class MorpheusRequirementQueryApiService {
         requireProject(runtime, projectId);
         return runtime.snapshots().activeSnapshot(projectId)
                 .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
-    }
-
-    private Object requirementRecord(RequirementVersionRecord record) {
-        var version = record.entityVersion();
-        return OrderedFields.map(
-                "entityVersionId", version.id().toString(),
-                "specificationVersionId", version.specificationVersionId().toString(),
-                "temporalState", version.temporalState().name(),
-                "requirement", requirement(version.content()));
-    }
-
-    private Object requirement(Requirement item) {
-        return OrderedFields.map(
-                "id", item.id().toString(),
-                "specificationId", item.specificationId().toString(),
-                "key", item.key().orElse(""),
-                "title", item.title(),
-                "statement", item.statement());
     }
 
     private void requireRange(String name, long value, long minimum, long maximum) {
