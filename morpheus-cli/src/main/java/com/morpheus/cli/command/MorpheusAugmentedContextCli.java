@@ -16,7 +16,9 @@ import java.io.PrintStream;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
@@ -85,10 +87,13 @@ public final class MorpheusAugmentedContextCli {
             throw new IllegalArgumentException("augmented-context requires subject: requirement | change");
         }
         String subject = parsed.tokens().getFirst();
-        ContextOptions options = ContextOptions.parse(parsed.tokens().subList(1, parsed.tokens().size()));
-        options.validateSubject(subject);
+        CommandOptions options = CommandOptions.parse(parsed.tokens().subList(1, parsed.tokens().size()),
+                CommandOptions.Declared.values("project", "requirement", "change", "nexus-project", "budget")
+                        .andRepeated("source", "constraint").andFlags("explain"));
+        Map<String, String> constraints = constraints(options);
+        validateSubject(subject, options);
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required("project"));
-        TechnicalContextOptions technical = options.technical();
+        TechnicalContextOptions technical = technical(options, constraints);
 
         try (CliRuntime runtime = CliRuntime.recovering(parsed.layout().databasePath(), recorder)) {
             if (runtime.snapshots().findProject(projectId).isEmpty()) {
@@ -151,88 +156,55 @@ public final class MorpheusAugmentedContextCli {
         }
     }
 
-    private static final class ContextOptions {
-        private final Map<String, String> values = new LinkedHashMap<>();
-        private final Set<String> sources = new LinkedHashSet<>();
-        private final Map<String, String> constraints = new LinkedHashMap<>();
-        private boolean explain;
-
-        static ContextOptions parse(List<String> tokens) {
-            ContextOptions result = new ContextOptions();
-            for (int index = 0; index < tokens.size(); index++) {
-                String token = tokens.get(index);
-                switch (token) {
-                    case "--explain" -> result.explain = true;
-                    case "--source" -> result.sources.add(require(tokens, ++index, token).trim().toUpperCase(java.util.Locale.ROOT));
-                    case "--constraint" -> result.addConstraint(require(tokens, ++index, token));
-                    case "--project", "--requirement", "--change", "--nexus-project", "--budget" -> {
-                        String key = token.substring(2);
-                        if (result.values.putIfAbsent(key, require(tokens, ++index, token)) != null) {
-                            throw new IllegalArgumentException("duplicate option: " + token);
-                        }
-                    }
-                    default -> throw new IllegalArgumentException("unknown option: " + token);
+    private static void validateSubject(String subject, CommandOptions options) {
+        switch (subject) {
+            case "requirement" -> {
+                options.required("requirement");
+                if (options.given("change")) {
+                    throw new IllegalArgumentException("--change is not valid for augmented-context requirement");
                 }
             }
-            return result;
-        }
-
-        void validateSubject(String subject) {
-            switch (subject) {
-                case "requirement" -> {
-                    required("requirement");
-                    if (values.containsKey("change")) {
-                        throw new IllegalArgumentException("--change is not valid for augmented-context requirement");
-                    }
-                }
-                case "change" -> {
-                    required("change");
-                    if (values.containsKey("requirement")) {
-                        throw new IllegalArgumentException("--requirement is not valid for augmented-context change");
-                    }
-                }
-                default -> throw new IllegalArgumentException("unknown augmented-context subject: " + subject);
-            }
-        }
-
-        String required(String key) {
-            String value = values.get(key);
-            if (value == null) {
-                throw new IllegalArgumentException("--" + key + " is required");
-            }
-            return value.trim();
-        }
-
-        TechnicalContextOptions technical() {
-            int budget = TechnicalContextOptions.DEFAULT_TOKEN_BUDGET;
-            String raw = values.get("budget");
-            if (raw != null) {
-                try {
-                    budget = Integer.parseInt(raw.trim());
-                } catch (NumberFormatException failure) {
-                    throw new IllegalArgumentException("--budget must be an integer", failure);
+            case "change" -> {
+                options.required("change");
+                if (options.given("requirement")) {
+                    throw new IllegalArgumentException("--requirement is not valid for augmented-context change");
                 }
             }
-            return new TechnicalContextOptions(required("nexus-project"), budget, sources, constraints, explain);
+            default -> throw new IllegalArgumentException("unknown augmented-context subject: " + subject);
         }
+    }
 
-        private void addConstraint(String raw) {
-            int equals = raw.indexOf('=');
-            if (equals <= 0 || equals == raw.length() - 1) {
-                throw new IllegalArgumentException("--constraint must use key=value");
-            }
-            String key = raw.substring(0, equals).trim();
-            String value = raw.substring(equals + 1).trim();
-            if (constraints.putIfAbsent(key, value) != null) {
-                throw new IllegalArgumentException("duplicate constraint: " + key);
+    private static TechnicalContextOptions technical(CommandOptions options, Map<String, String> constraints) {
+        int budget = TechnicalContextOptions.DEFAULT_TOKEN_BUDGET;
+        Optional<String> raw = options.optional("budget");
+        if (raw.isPresent()) {
+            try {
+                budget = Integer.parseInt(raw.orElseThrow());
+            } catch (NumberFormatException failure) {
+                throw new IllegalArgumentException("--budget must be an integer", failure);
             }
         }
+        Set<String> sources = new LinkedHashSet<>();
+        options.all("source").forEach(source -> sources.add(source.trim().toUpperCase(Locale.ROOT)));
+        return new TechnicalContextOptions(
+                options.required("nexus-project"), budget, sources, constraints, options.flag("explain"));
+    }
 
-        private static String require(List<String> tokens, int index, String option) {
-            if (index >= tokens.size() || tokens.get(index).startsWith("--")) {
-                throw new IllegalArgumentException(option + " requires a value");
-            }
-            return OptionValue.nonBlank(option, tokens.get(index));
+    private static Map<String, String> constraints(CommandOptions options) {
+        Map<String, String> constraints = new LinkedHashMap<>();
+        options.all("constraint").forEach(constraint -> addConstraint(constraints, constraint));
+        return constraints;
+    }
+
+    private static void addConstraint(Map<String, String> constraints, String raw) {
+        int equals = raw.indexOf('=');
+        if (equals <= 0 || equals == raw.length() - 1) {
+            throw new IllegalArgumentException("--constraint must use key=value");
+        }
+        String key = raw.substring(0, equals).trim();
+        String value = raw.substring(equals + 1).trim();
+        if (constraints.putIfAbsent(key, value) != null) {
+            throw new IllegalArgumentException("duplicate constraint: " + key);
         }
     }
 }

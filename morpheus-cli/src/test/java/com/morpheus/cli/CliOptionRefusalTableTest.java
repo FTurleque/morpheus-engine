@@ -78,8 +78,8 @@ class CliOptionRefusalTableTest {
             augmented-context requirement | missing-value | 2 | MORPHEUS error [2]: --project requires a value
             augmented-context requirement | dash-value | 2 | MORPHEUS error [2]: --project requires a value
             augmented-context requirement | blank-value | 2 | MORPHEUS error [2]: --project requires a non-blank value; omit the option to leave it unset
-            augmented-context requirement | positional | 2 | MORPHEUS error [2]: unknown option: stray
-            augmented-context requirement | repeated-flag | 2 | MORPHEUS error [2]: --requirement is required
+            augmented-context requirement | positional | 2 | MORPHEUS error [2]: unexpected positional argument: stray
+            augmented-context requirement | repeated-flag | 2 | MORPHEUS error [2]: duplicate option: --explain
             external-references list | undeclared | 2 | MORPHEUS error [2]: unknown options: [bogus]
             external-references list | duplicate | 2 | MORPHEUS error [2]: duplicate option: --project
             external-references list | missing-value | 2 | MORPHEUS error [2]: --project requires a value

@@ -38,5 +38,6 @@ Ce qui change, commande par commande :
 - `policy`, `portfolio`, `query`, `views`, `export` : un mot en trop répond `unexpected positional argument: x` au lieu de `unknown token: x`, et une action
   inconnue est refusée avant que ses options ne soient lues.
 - `acceptance-criteria`, `constraints evaluate`, `composition`, `lifecycle`,
-  `change-orchestration` : un mot en trop répond `unexpected positional argument: x` au lieu de `unknown option: x`.
+  `change-orchestration`, `augmented-context` : un mot en trop répond `unexpected positional argument: x` au lieu de `unknown option: x`.
 - `composition` : une action inconnue est refusée avant que ses options ne soient lues.
+- `augmented-context` : `--explain` donné deux fois répond `duplicate option: --explain` ; le second était ignoré.
