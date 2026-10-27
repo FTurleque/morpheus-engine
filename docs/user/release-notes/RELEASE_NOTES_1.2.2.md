@@ -48,3 +48,5 @@ Ce qui change, commande par commande :
 - `reason` : une option inconnue répond `unknown option: --x` au lieu de `unknown reason option: --x` (ou de
   `--x requires a value` quand elle était la dernière), et un mot en trop `unexpected positional argument: x` au lieu
   de `x requires a value`.
+- `server` : une option inconnue répond `unknown option: --x` au lieu de `unknown server option: --x`, et un mot en
+  trop `unexpected positional argument: x` au lieu de `unexpected server argument: x`.

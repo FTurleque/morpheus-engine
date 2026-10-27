@@ -137,18 +137,18 @@ class CliOptionRefusalTableTest {
             reason analyze | dash-value | 2 | MORPHEUS usage error: --question requires a value
             reason analyze | blank-value | 2 | MORPHEUS usage error: --question requires a non-blank value; omit the option to leave it unset
             reason analyze | positional | 2 | MORPHEUS usage error: unexpected positional argument: stray
-            server identity list | undeclared | 2 | MORPHEUS server usage error: unknown server option: --bogus
+            server identity list | undeclared | 2 | MORPHEUS server usage error: unknown option: --bogus
             server identity list | duplicate | 2 | MORPHEUS server usage error: duplicate option: --auth-file
             server identity list | missing-value | 2 | MORPHEUS server usage error: --auth-file requires a value
             server identity list | dash-value | 2 | MORPHEUS server usage error: --auth-file requires a value
             server identity list | blank-value | 2 | MORPHEUS server usage error: --auth-file requires a non-blank value; omit the option to leave it unset
-            server identity list | positional | 2 | MORPHEUS server usage error: unexpected server argument: stray
-            server restore | undeclared | 2 | MORPHEUS server usage error: unknown server option: --bogus
+            server identity list | positional | 2 | MORPHEUS server usage error: unexpected positional argument: stray
+            server restore | undeclared | 2 | MORPHEUS server usage error: unknown option: --bogus
             server restore | duplicate | 2 | MORPHEUS server usage error: duplicate option: --file
             server restore | missing-value | 2 | MORPHEUS server usage error: --file requires a value
             server restore | dash-value | 2 | MORPHEUS server usage error: --file requires a value
             server restore | blank-value | 2 | MORPHEUS server usage error: --file requires a non-blank value; omit the option to leave it unset
-            server restore | positional | 2 | MORPHEUS server usage error: unexpected server argument: stray
+            server restore | positional | 2 | MORPHEUS server usage error: unexpected positional argument: stray
             server restore | repeated-flag | 2 | MORPHEUS server usage error: duplicate option: --confirm
             """;
 
