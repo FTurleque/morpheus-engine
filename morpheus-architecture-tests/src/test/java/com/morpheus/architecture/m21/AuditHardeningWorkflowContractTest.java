@@ -1,6 +1,7 @@
 package com.morpheus.architecture.m21;
 
 import com.morpheus.architecture.ProductionSources;
+import com.morpheus.architecture.RepositoryRoot;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -22,7 +23,7 @@ class AuditHardeningWorkflowContractTest {
 
     @Test
     void dependencyCheckTrustedRefreshCannotAgePastPullRequestCacheWindow() throws IOException {
-        String workflow = Files.readString(repoRoot().resolve(".github/workflows/security.yml"));
+        String workflow = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/security.yml"));
         Matcher cacheAge = CACHE_AGE.matcher(workflow);
 
         assertTrue(cacheAge.find(), "Dependency-Check cache-age policy must be explicit");
@@ -39,7 +40,7 @@ class AuditHardeningWorkflowContractTest {
 
     @Test
     void releaseWorkflowPublishesAttestedNonOverwritableAssetsFromMain() throws IOException {
-        String workflow = Files.readString(repoRoot().resolve(".github/workflows/release.yml"));
+        String workflow = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/release.yml"));
 
         assertTrue(RELEASE_TAG_TRIGGER.matcher(workflow).find(),
                 "Release workflow must trigger on version tags on every supported platform");
@@ -65,7 +66,7 @@ class AuditHardeningWorkflowContractTest {
 
     @Test
     void pullRequestCoverageGateIncludesChangedBranches() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String workflow = Files.readString(root.resolve(".github/workflows/ci.yml"));
         String checker = Files.readString(root.resolve("scripts/check-diff-coverage.py"));
 
@@ -79,7 +80,7 @@ class AuditHardeningWorkflowContractTest {
 
     @Test
     void sonarAnalysisNeverRunsOnPullRequestsAndStaysOutOfTheRequiredVerifyJob() throws IOException {
-        String workflow = Files.readString(repoRoot().resolve(".github/workflows/ci.yml"));
+        String workflow = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/ci.yml"));
 
         assertFalse(requiredVerifyJob(workflow).contains("SONAR_TOKEN"),
                 "the required exact-head job must never carry SONAR_TOKEN in its environment");
@@ -141,7 +142,7 @@ class AuditHardeningWorkflowContractTest {
      */
     @Test
     void developIsAnalysedOnABoundedCadenceInAWorkflowNoPullRequestCanReach() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String nightly = Files.readString(root.resolve(".github/workflows/nightly.yml"));
 
         // A trigger key, not the words: the workflow explains in prose why it has no pull_request trigger, and a
@@ -201,7 +202,7 @@ class AuditHardeningWorkflowContractTest {
 
     @Test
     void mcpTransportDoesNotLogRawPeerControlledThrowables() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String client = Files.readString(root.resolve(
                 "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioClientTransport.java"));
         String server = Files.readString(root.resolve(
@@ -226,7 +227,7 @@ class AuditHardeningWorkflowContractTest {
      */
     @Test
     void mcpServerTransportAnswersAnOversizedResponseInsteadOfFailingClosed() throws IOException {
-        String server = Files.readString(repoRoot().resolve(
+        String server = Files.readString(RepositoryRoot.locate().resolve(
                 "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioServerTransportProvider.java"));
 
         assertTrue(server.contains("\"MCP_RESPONSE_TOO_LARGE\""));
@@ -248,7 +249,7 @@ class AuditHardeningWorkflowContractTest {
      */
     @Test
     void mcpClientTransportRefusesAnOversizedOutboundFrameInsteadOfFailingClosed() throws IOException {
-        String client = Files.readString(repoRoot().resolve(
+        String client = Files.readString(RepositoryRoot.locate().resolve(
                 "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioClientTransport.java"));
 
         int encodeStart = client.indexOf("private OutboundFrame encode(");
@@ -279,7 +280,7 @@ class AuditHardeningWorkflowContractTest {
      */
     @Test
     void mcpTransportNamesNoServerCatalogTool() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String catalog = Files.readString(ProductionSources.mainSource("morpheus-mcp", "MorpheusMcpToolCatalog"));
         List<String> tools = Pattern.compile("tool\\(\"([a-z_]+)\"").matcher(catalog).results()
                 .map(match -> match.group(1))
@@ -301,7 +302,7 @@ class AuditHardeningWorkflowContractTest {
 
     @Test
     void remoteDiscoveryCannotRegressToChecksumOnlyOrClaimVerifiedTrust() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String manifest = Files.readString(root.resolve(
                 "morpheus-application/src/main/java/com/morpheus/application/product/UpdateManifest.java"));
         String discovery = Files.readString(root.resolve(
@@ -318,7 +319,7 @@ class AuditHardeningWorkflowContractTest {
 
     @Test
     void policyAdaptersCannotBypassBoundedQueryDefinitionCodec() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String codec = Files.readString(root.resolve(
                 "morpheus-application/src/main/java/com/morpheus/application/query/dsl/QueryDefinitionCodec.java"));
         String validator = Files.readString(root.resolve(
@@ -348,18 +349,5 @@ class AuditHardeningWorkflowContractTest {
                 adapter + " must decode persisted QUERY_ASSERTION payloads through QueryDefinitionCodec");
         assertFalse(source.contains("Base64.getUrlDecoder()"),
                 adapter + " must not implement an unbounded parallel query decoder");
-    }
-
-    private Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
-            return current;
-        }
-        Path parent = current.getParent();
-        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml"))
-                && Files.isDirectory(parent.resolve("distribution"))) {
-            return parent;
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found from " + current);
     }
 }

@@ -4,6 +4,7 @@ import com.morpheus.architecture.ProductionSources;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.morpheus.architecture.RepositoryRoot;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -13,7 +14,7 @@ import org.junit.jupiter.api.Test;
 class ProductVersionSourceOfTruthTest {
     @Test
     void activeRuntimeSourcesContainNoHistoricalVersionFallback() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         try (var files = Files.walk(root, 16)) {
             List<Path> offenders = files
                     .filter(Files::isRegularFile)
@@ -34,7 +35,7 @@ class ProductVersionSourceOfTruthTest {
 
     @Test
     void publicProductSurfacesDelegateToCanonicalMetadata() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         assertContains(ProductionSources.mainSource("morpheus-api", "MorpheusApiService"),
                 "ProductMetadata.version()");
         assertContains(ProductionSources.mainSource("morpheus-cli", "MorpheusProductCli"),
@@ -50,17 +51,5 @@ class ProductVersionSourceOfTruthTest {
 
     private static void assertContains(Path path, String expected) throws IOException {
         assertTrue(Files.readString(path).contains(expected), path + " must delegate product version to ProductMetadata");
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
-            return current;
-        }
-        Path parent = current.getParent();
-        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml")) && Files.isDirectory(parent.resolve("distribution"))) {
-            return parent;
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found from " + current);
     }
 }

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.morpheus.architecture.RepositoryRoot;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.file.Files;
@@ -97,7 +98,7 @@ class CoverageQualityGateTest {
 
     @Test
     void perModuleCoverageDoesNotRegressBelowQualifiedBaseline() throws Exception {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         Ratchets ratchets = Ratchets.load(root.resolve("config/m21-quality-ratchets.properties"));
         double minLineRatio = Math.max(D2_MIN_LINE_RATIO, ratchets.perModuleLineCoverageMinimum());
         double minBranchRatio = Math.max(D2_MIN_BRANCH_RATIO, ratchets.perModuleBranchCoverageMinimum());
@@ -151,7 +152,7 @@ class CoverageQualityGateTest {
 
     @Test
     void ratchetRejectsARegressionThatTheOldD2FloorWouldHaveAccepted() throws Exception {
-        Ratchets ratchets = Ratchets.load(repoRoot().resolve("config/m21-quality-ratchets.properties"));
+        Ratchets ratchets = Ratchets.load(RepositoryRoot.locate().resolve("config/m21-quality-ratchets.properties"));
         double minLineRatio = Math.max(D2_MIN_LINE_RATIO, ratchets.perModuleLineCoverageMinimum());
         double minBranchRatio = Math.max(D2_MIN_BRANCH_RATIO, ratchets.perModuleBranchCoverageMinimum());
         assertTrue(0.49d >= D2_MIN_LINE_RATIO);
@@ -489,18 +490,6 @@ class CoverageQualityGateTest {
             }
             throw new AssertionError(refusal.toString());
         }
-    }
-
-    private Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
-            return current;
-        }
-        Path parent = current.getParent();
-        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml")) && Files.isDirectory(parent.resolve("distribution"))) {
-            return parent;
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found from " + current);
     }
 
     private record Ratchets(double perModuleLineCoverageMinimum, double perModuleBranchCoverageMinimum) {

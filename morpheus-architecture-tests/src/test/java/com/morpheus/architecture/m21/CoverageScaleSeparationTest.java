@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.morpheus.architecture.RepositoryRoot;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -42,7 +43,7 @@ class CoverageScaleSeparationTest {
     @Test
     void theRatchetConfigurationDeclaresBothScalesAndNoSharedCoverageKey() throws IOException {
         Properties ratchets = new Properties();
-        try (var reader = Files.newBufferedReader(repoRoot().resolve("config/m21-quality-ratchets.properties"))) {
+        try (var reader = Files.newBufferedReader(RepositoryRoot.locate().resolve("config/m21-quality-ratchets.properties"))) {
             ratchets.load(reader);
         }
         for (String key : List.of("testsMinimum", "generatedTestsMinimum", "architectureTestsMinimum",
@@ -59,7 +60,7 @@ class CoverageScaleSeparationTest {
 
     @Test
     void neitherCoverageGateReadsTheOtherScaleKeysReportOrEvidence() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String perModuleGate = Files.readString(root.resolve(PER_MODULE_GATE));
         String aggregateGate = Files.readString(root.resolve(AGGREGATE_GATE));
 
@@ -76,7 +77,7 @@ class CoverageScaleSeparationTest {
 
     @Test
     void eachGateStampsItsOwnScaleOnTheFirstLineOfItsEvidence() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         assertTrue(Files.readString(root.resolve(PER_MODULE_GATE)).contains("\"coverageScope=per-module%n"),
                 "the per-module gate must open its evidence with the scope it measured");
         assertTrue(Files.readString(root.resolve(AGGREGATE_GATE)).contains("\"coverageScope=aggregate%n"),
@@ -85,7 +86,7 @@ class CoverageScaleSeparationTest {
 
     @Test
     void bothM21ValidatorsCheckTheScopeBeforeReadingAnyRatio() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         for (Map.Entry<String, String> validator : Map.of(
                 "scripts/validate-m21.sh", "lib/require-aggregate-coverage-evidence.sh",
                 "scripts/validate-m21.ps1", "lib\\Require-AggregateCoverageEvidence.ps1").entrySet()) {
@@ -112,7 +113,7 @@ class CoverageScaleSeparationTest {
      */
     @Test
     void theScopeGuardRefusesPerModuleEvidenceAndAcceptsAggregateEvidence(@TempDir Path workspace) throws Exception {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         Path perModule = workspace.resolve("per-module-" + AGGREGATE_EVIDENCE);
         Files.writeString(perModule, "coverageScope=per-module\nlineRatio=0.625013\nbranchRatio=0.537997\n");
         Path aggregate = workspace.resolve(AGGREGATE_EVIDENCE);
@@ -193,17 +194,5 @@ class CoverageScaleSeparationTest {
         public String toString() {
             return "the " + shell + " scope guard";
         }
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("config/m21-quality-ratchets.properties"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found");
     }
 }
