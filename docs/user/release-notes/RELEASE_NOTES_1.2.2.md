@@ -35,5 +35,5 @@ Ce qui change, commande par commande :
   (`unexpected positional argument: x` au lieu de `unexpected positional arguments: [x]`), et `sync --force --force`
   répond `duplicate option: --force` au lieu de `duplicate flag: --force`. Un nombre entouré d'espaces
   (`--limit " 5 "`) est accepté, comme par les autres commandes.
-- `policy`, `portfolio` : un mot en trop répond `unexpected positional argument: x` au lieu de `unknown token: x`, et une action
+- `policy`, `portfolio`, `query`, `views`, `export` : un mot en trop répond `unexpected positional argument: x` au lieu de `unknown token: x`, et une action
   inconnue est refusée avant que ses options ne soient lues.

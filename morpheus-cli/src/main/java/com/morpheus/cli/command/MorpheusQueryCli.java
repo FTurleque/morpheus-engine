@@ -28,6 +28,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * M24 CLI adapter. All query semantics remain centralized in application services.
@@ -95,7 +96,7 @@ public final class MorpheusQueryCli {
             Properties properties) {
         try {
             Parsed parsed = Parsed.parse(args, environment, properties);
-            SimpleOptions options = accepted(parsed);
+            CommandOptions options = accepted(parsed);
             try (CliRuntime runtime = CliRuntime.open(parsed.layout().databasePath(), recorder)) {
                 return switch (parsed.command()) {
                     case CMD_QUERY -> query(options, runtime, parsed.json(), out);
@@ -117,28 +118,28 @@ public final class MorpheusQueryCli {
 
     /**
      * Everything that can be refused without the store: the action, the parsing of the options, an export's format and
-     * page, and the options the action does not read. The checks keep the order they had in each command's own method,
-     * so a refusal names the same thing as before.
+     * page, and the options the action does not read. The action is resolved first, then its options are parsed against
+     * what it declares; an export of a query declares the paging options so that it refuses them with their own reason.
      */
-    private static SimpleOptions accepted(Parsed parsed) {
+    private static CommandOptions accepted(Parsed parsed) {
         return switch (parsed.command()) {
             case CMD_QUERY -> {
                 requireAction(parsed, "execute");
-                SimpleOptions options = SimpleOptions.parse(parsed.arguments());
-                options.rejectUnknown(EXECUTE_OPTIONS);
-                yield options;
+                yield CommandOptions.parse(parsed.arguments(), CommandOptions.Declared.values(EXECUTE_OPTIONS));
             }
             case CMD_VIEWS -> {
                 String action = parsed.action().orElseThrow(() -> new IllegalArgumentException("views requires an action"));
-                SimpleOptions options = SimpleOptions.parse(parsed.arguments());
-                options.rejectUnknown(allowed(VIEW_ACTION_OPTIONS, action, "unknown views action: "));
-                yield options;
+                yield CommandOptions.parse(parsed.arguments(),
+                        CommandOptions.Declared.values(allowed(VIEW_ACTION_OPTIONS, action, "unknown views action: ")));
             }
             case CMD_EXPORT -> {
                 String action = parsed.action().orElseThrow(() -> new IllegalArgumentException("export requires query or view"));
-                SimpleOptions options = SimpleOptions.parse(parsed.arguments());
+                Set<String> declared = new TreeSet<>(allowed(EXPORT_ACTION_OPTIONS, action, "unknown export action: "));
+                if (action.equals(CMD_QUERY)) {
+                    declared.addAll(List.of(OPT_OFFSET, OPT_LIMIT));
+                }
+                CommandOptions options = CommandOptions.parse(parsed.arguments(), CommandOptions.Declared.values(declared));
                 format(options);
-                Set<String> allowed = allowed(EXPORT_ACTION_OPTIONS, action, "unknown export action: ");
                 if (action.equals(CMD_QUERY)) {
                     for (String paging : List.of(OPT_OFFSET, OPT_LIMIT)) {
                         if (options.optional(paging).isPresent()) {
@@ -147,7 +148,6 @@ public final class MorpheusQueryCli {
                         }
                     }
                 }
-                options.rejectUnknown(allowed);
                 yield options;
             }
             default -> throw new IllegalStateException("M24 command parsed without a validation: " + parsed.command());
@@ -162,13 +162,13 @@ public final class MorpheusQueryCli {
         return allowed;
     }
 
-    private int query(SimpleOptions options, CliRuntime runtime, boolean jsonOutput, PrintStream out) {
+    private int query(CommandOptions options, CliRuntime runtime, boolean jsonOutput, PrintStream out) {
         QueryDefinition query = query(options, scope(options));
         write(QueryPublicViews.result(runtime.queries().execute(query)), jsonOutput, out);
         return CliExitCode.SUCCESS.code();
     }
 
-    private int views(Parsed parsed, SimpleOptions options, CliRuntime runtime, PrintStream out) {
+    private int views(Parsed parsed, CommandOptions options, CliRuntime runtime, PrintStream out) {
         String action = parsed.action().orElseThrow();
         Object result = switch (action) {
             case "create" -> {
@@ -194,7 +194,7 @@ public final class MorpheusQueryCli {
         return CliExitCode.SUCCESS.code();
     }
 
-    private int export(Parsed parsed, SimpleOptions options, CliRuntime runtime, PrintStream out) {
+    private int export(Parsed parsed, CommandOptions options, CliRuntime runtime, PrintStream out) {
         String action = parsed.action().orElseThrow();
         QueryExportFormat format = format(options);
         QueryDefinition definition = switch (action) {
@@ -216,11 +216,11 @@ public final class MorpheusQueryCli {
         return CliExitCode.SUCCESS.code();
     }
 
-    private QueryDefinition query(SimpleOptions options, QueryScope scope) {
+    private QueryDefinition query(CommandOptions options, QueryScope scope) {
         return query(options, scope, integer(options, OPT_OFFSET, 0), integer(options, OPT_LIMIT, DEFAULT_LIMIT));
     }
 
-    private QueryDefinition query(SimpleOptions options, QueryScope scope, int offset, int limit) {
+    private QueryDefinition query(CommandOptions options, QueryScope scope, int offset, int limit) {
         return parser.parse(
                 scope,
                 options.required(OPT_ENTITY),
@@ -231,7 +231,7 @@ public final class MorpheusQueryCli {
                 limit);
     }
 
-    private QueryScope scope(SimpleOptions options) {
+    private QueryScope scope(CommandOptions options) {
         Optional<String> project = options.optional(OPT_PROJECT);
         Optional<String> portfolio = options.optional(OPT_PORTFOLIO);
         if (project.isPresent() == portfolio.isPresent()) {
@@ -241,11 +241,11 @@ public final class MorpheusQueryCli {
                 .orElseGet(() -> new PortfolioQueryScope(PortfolioId.parse(portfolio.orElseThrow())));
     }
 
-    private SavedViewId savedView(SimpleOptions options) {
+    private SavedViewId savedView(CommandOptions options) {
         return SavedViewId.parse(options.required(OPT_ID));
     }
 
-    private static QueryExportFormat format(SimpleOptions options) {
+    private static QueryExportFormat format(CommandOptions options) {
         try {
             return QueryExportFormat.valueOf(options.required(OPT_FORMAT).replace('-', '_').toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException failure) {
@@ -253,7 +253,7 @@ public final class MorpheusQueryCli {
         }
     }
 
-    private static int integer(SimpleOptions options, String key, int fallback) {
+    private static int integer(CommandOptions options, String key, int fallback) {
         try {
             return options.optional(key).map(Integer::parseInt).orElse(fallback);
         } catch (NumberFormatException failure) {
@@ -261,7 +261,7 @@ public final class MorpheusQueryCli {
         }
     }
 
-    private static long positiveLong(SimpleOptions options, String key) {
+    private static long positiveLong(CommandOptions options, String key) {
         try {
             long value = Long.parseLong(options.required(key));
             if (value <= 0) {

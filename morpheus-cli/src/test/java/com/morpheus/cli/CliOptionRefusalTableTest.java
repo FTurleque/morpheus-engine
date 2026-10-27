@@ -103,7 +103,7 @@ class CliOptionRefusalTableTest {
             views get | missing-value | 2 | MORPHEUS error [2]: --id requires a value
             views get | dash-value | 2 | MORPHEUS error [2]: --id requires a value
             views get | blank-value | 2 | MORPHEUS error [2]: --id requires a non-blank value; omit the option to leave it unset
-            views get | positional | 2 | MORPHEUS error [2]: unknown token: stray
+            views get | positional | 2 | MORPHEUS error [2]: unexpected positional argument: stray
             changes list | undeclared | 2 | MORPHEUS error [2]: unknown option: --bogus
             changes list | duplicate | 2 | MORPHEUS error [2]: duplicate option: --project
             changes list | missing-value | 2 | MORPHEUS error [2]: --project requires a value

@@ -35,9 +35,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Every option of every CLI parser, given an empty or blank value, is refused with exit code 2 and named.
  *
- * <p>The table is the inventory of the adapter's value-taking options outside {@link SimpleOptions} (covered by
- * {@link SimpleOptionsTest}). Each invocation runs in its own case directory, which holds its data directory and any
- * file an option points to; a refused invocation must leave that directory absent, i.e. write nothing at all.</p>
+ * <p>The table is the inventory of the adapter's value-taking options outside the policy, portfolio and query
+ * commands, whose options reach the shared parser unchanged (covered by {@code CommandOptionsTest}). Each invocation
+ * runs in its own case directory, which holds its data directory and any file an option points to; a refused
+ * invocation must leave that directory absent, i.e. write nothing at all.</p>
  *
  * <p>The blanks cover both halves of {@link OptionValue}'s definition: the em space U+2003 is blank for
  * {@link String#isBlank()} but survives {@link String#trim()}, the control character U+0001 is emptied by
