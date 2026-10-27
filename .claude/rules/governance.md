@@ -58,6 +58,14 @@ Ce que les gates comparent réellement — des mécanismes à ne pas confondre :
 - **Lignes épinglées** : les tests `publicManifestAndOpenApiExposeSame*IntentFamilies` (M24, M25, M27) cherchent quelques
   lignes **exactes** du TSV et quelques clés de chemin de l'OpenAPI, choisies à la main. Ils épinglent une famille de
   capacités ; ils ne comparent pas les deux fichiers.
+- **Contenu, type par type** : `PublicPayloadConvergenceTest` publie `openspec-basic` (et `synthetic-basic`, seul
+  porteur de critères d'acceptation) dans une base temporaire, interroge les vraies surfaces HTTP, MCP et CLI, retire
+  l'enveloppe que chacune nomme et compare clé par clé, par `id`, chaque type partagé de
+  `SharedDomainProjectionArchitectureTest.SHARED_TYPES`. Ces formes sont écrites une fois, par `PublicPayloads`
+  (`com.morpheus.application.payload`), et une méthode d'adaptateur qui projette un type partagé est refusée. Hors
+  garde : les enveloppes elles-mêmes (page, membre de détail, contenu MCP), un type montré par un seul transport, une
+  forme construite dans une lambda que les fixtures n'atteignent pas. La CLI a ses propres formes de changement et de
+  critère d'acceptation : leurs écarts sont nommés (`CLI_OMITTED_KEYS`, `CLI_ABSENT_AS_NULL_KEYS`), pas égalisés.
 
 `MorpheusHttpRouteTable` est la seule liste des routes et de leurs méthodes : l'en-tête `Allow` local en est calculé,
 et `MorpheusRemoteRoutePolicy` refuse de se charger si ses rôles ne couvrent pas exactement ses routes et méthodes.

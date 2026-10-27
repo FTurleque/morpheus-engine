@@ -205,7 +205,7 @@ Une commande CLI va dans une classe de `com.morpheus.cli.command`, un outil MCP 
 `contracts/public-surfaces.tsv`. `MorpheusMain`, `MorpheusCli`, `CliCommandPaths` (`com.morpheus.cli`) et
 `MorpheusMcpServer` (`com.morpheus.mcp.server`) distribuent et ne nomment de l'application, d'un provider ou d'un
 store que la liste autorisée exacte de leur adaptateur ; `MorpheusCli` ne sert que l'aide (et `version` appelé directement).
-Le parseur (`CommandOptions`), le cadre d'exécution et la ligne d'erreur (`CliCommandRun`), les projections
+Le parseur (`CommandOptions`), le cadre d'exécution et la ligne d'erreur (`CliCommandRun`), les projections propres au MCP
 (`McpContentPayloads`) et le cadre des outils du catalogue (`McpCatalogTool`) existent une fois. Les paquets de chaque
 adaptateur sont sans cycle ; les autres modules n'utilisent de `morpheus-mcp` que `MorpheusMcpServer`.
 > `DispatchersHoldNoUseCaseArchitectureTest`, `CliCommandDispatchIsExhaustiveTest`, `ServedToolsAreClaimedOnceTest`, `CliAndMcpPackageCyclesArchitectureTest`, `McpEntryTypesArchitectureTest`

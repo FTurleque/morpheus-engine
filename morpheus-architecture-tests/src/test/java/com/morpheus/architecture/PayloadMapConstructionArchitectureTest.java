@@ -39,7 +39,7 @@ class PayloadMapConstructionArchitectureTest {
 
     static final String OWNER = "com.morpheus.application.foundation.PayloadMap";
 
-    private static final String FOUNDATION = "com.morpheus.application.foundation";
+    static final String FOUNDATION = "com.morpheus.application.foundation";
 
     private static final String OWNER_SOURCE = "morpheus-application/src/main/java/com/morpheus/application/foundation/"
             + "PayloadMap.java";
@@ -70,7 +70,7 @@ class PayloadMapConstructionArchitectureTest {
 
     @Test
     void noMainSourceOtherThanTheOwnerDeclaresAMethodThatTurnsAnArgumentArrayIntoAMap() throws IOException {
-        Path root = ProductionSources.repositoryRoot();
+        Path root = repositoryRoot();
         Set<String> offenders = new TreeSet<>();
         int scanned = 0;
         for (Path source : mainSources(root)) {
@@ -118,5 +118,11 @@ class PayloadMapConstructionArchitectureTest {
                     .sorted()
                     .toList();
         }
+    }
+
+    /** The working directory of this module's tests is the module; the repository root is its parent. */
+    private static Path repositoryRoot() {
+        Path module = Path.of("").toAbsolutePath().normalize();
+        return Files.isDirectory(module.resolve("experiments")) ? module : module.getParent();
     }
 }
