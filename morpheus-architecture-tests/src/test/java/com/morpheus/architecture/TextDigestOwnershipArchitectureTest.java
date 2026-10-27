@@ -177,7 +177,7 @@ class TextDigestOwnershipArchitectureTest {
     }
 
     private static List<Path> productSources() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         List<Path> sources = new ArrayList<>();
         try (Stream<Path> modules = Files.list(root)) {
             for (Path module : modules.filter(Files::isDirectory).sorted().toList()) {
@@ -193,18 +193,7 @@ class TextDigestOwnershipArchitectureTest {
     }
 
     private static String relative(Path source) {
-        return repositoryRoot().relativize(source).toString().replace('\\', '/');
+        return RepositoryRoot.locate().relativize(source).toString().replace('\\', '/');
     }
 
-    private static Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
-    }
 }

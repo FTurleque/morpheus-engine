@@ -70,7 +70,7 @@ class PayloadMapConstructionArchitectureTest {
 
     @Test
     void noMainSourceOtherThanTheOwnerDeclaresAMethodThatTurnsAnArgumentArrayIntoAMap() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         Set<String> offenders = new TreeSet<>();
         int scanned = 0;
         for (Path source : mainSources(root)) {
@@ -121,8 +121,4 @@ class PayloadMapConstructionArchitectureTest {
     }
 
     /** The working directory of this module's tests is the module; the repository root is its parent. */
-    private static Path repositoryRoot() {
-        Path module = Path.of("").toAbsolutePath().normalize();
-        return Files.isDirectory(module.resolve("experiments")) ? module : module.getParent();
-    }
 }

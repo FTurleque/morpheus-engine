@@ -389,7 +389,7 @@ class PublicPayloadConvergenceTest {
              var traceability = new SqliteTraceabilityStore(database);
              var identities = new SqliteEntityIdentityStore(database)) {
             NormalizedProjectContent normalized = new ProjectContentIngestion(new SyntheticSpecificationContentReader())
-                    .read(repositoryRoot().resolve("experiments/m0/fixtures/synthetic-basic"),
+                    .read(RepositoryRoot.fixture("synthetic-basic"),
                             projectId, new PersistentEntityIdentityResolver(identities));
             new ProjectSnapshotImportService(snapshots, requirements, content, traceability)
                     .publishFull(normalized, Optional.of("payload-convergence"), Instant.parse("2026-10-27T00:00:00Z"));
@@ -398,7 +398,7 @@ class PublicPayloadConvergenceTest {
     }
 
     private Path copyOfFixture(String name) throws IOException {
-        Path source = repositoryRoot().resolve("experiments/m0/fixtures").resolve(name);
+        Path source = RepositoryRoot.fixture(name);
         Path copy = temp.resolve("workspace-" + name);
         try (Stream<Path> files = Files.walk(source)) {
             for (Path file : (Iterable<Path>) files::iterator) {
@@ -414,10 +414,6 @@ class PublicPayloadConvergenceTest {
     }
 
     /** The working directory of this module's tests is the module; the repository root is its parent. */
-    private static Path repositoryRoot() {
-        Path module = Path.of("").toAbsolutePath().normalize();
-        return Files.isDirectory(module.resolve("experiments")) ? module : module.getParent();
-    }
 
     /** What one transport answered for an exposure: where it was asked, and the shapes once its envelope is removed. */
     record Answer(String source, List<JsonNode> shapes) {
