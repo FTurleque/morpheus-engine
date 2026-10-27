@@ -7,12 +7,12 @@ import com.morpheus.application.history.HistoricalRequirementQueryService;
 import com.morpheus.application.history.PublishedSnapshotHistoryService;
 import com.morpheus.application.history.RequirementSnapshotComparisonService;
 import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.payload.PublicPayloads;
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.application.store.RequirementVersionRecord;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.domain.requirement.Requirement;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 
@@ -61,7 +61,7 @@ public final class MorpheusHistoryApiService {
                     .requirements(snapshotId);
             return PagedEnvelope.following(
                     PayloadMap.of("snapshotId", snapshotId.toString()),
-                    PagedEnvelope.slice(pageRequest.offset(), pageRequest.limit(), records, this::requirementRecord));
+                    PagedEnvelope.slice(pageRequest.offset(), pageRequest.limit(), records, record -> PublicPayloads.requirementVersion(record.entityVersion())));
         }
     }
 
@@ -81,8 +81,8 @@ public final class MorpheusHistoryApiService {
                     "differences", comparison.differences().stream().map(difference -> PayloadMap.admittingAbsentValues(
                             "requirementId", difference.entityIdentity().toString(),
                             "kind", difference.kind().name(),
-                            "source", difference.source().map(this::requirementRecord).orElse(null),
-                            "target", difference.target().map(this::requirementRecord).orElse(null))).toList());
+                            "source", difference.source().map(record -> PublicPayloads.requirementVersion(record.entityVersion())).orElse(null),
+                            "target", difference.target().map(record -> PublicPayloads.requirementVersion(record.entityVersion())).orElse(null))).toList());
         }
     }
 
@@ -119,24 +119,6 @@ public final class MorpheusHistoryApiService {
                 "providerVersion", specificationVersion.providerVersion().orElse("unknown"),
                 "versionCreatedAt", specificationVersion.createdAt().toString(),
                 "predecessorSpecificationVersionId", specificationVersion.predecessor().map(Object::toString).orElse("none"));
-    }
-
-    private Object requirementRecord(RequirementVersionRecord record) {
-        var version = record.entityVersion();
-        return PayloadMap.of(
-                "entityVersionId", version.id().toString(),
-                "specificationVersionId", version.specificationVersionId().toString(),
-                "temporalState", version.temporalState().name(),
-                "requirement", requirement(version.content()));
-    }
-
-    private Object requirement(Requirement item) {
-        return PayloadMap.of(
-                "id", item.id().toString(),
-                "specificationId", item.specificationId().toString(),
-                "key", item.key().orElse(""),
-                "title", item.title(),
-                "statement", item.statement());
     }
 
     private KnowledgeStoreException state(String message) {

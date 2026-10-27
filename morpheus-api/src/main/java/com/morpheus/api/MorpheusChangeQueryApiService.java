@@ -4,6 +4,7 @@ import com.morpheus.api.transport.ApiFailure;
 import com.morpheus.api.transport.PagedEnvelope;
 import com.morpheus.application.foundation.PayloadMap;
 import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.payload.PublicPayloads;
 import com.morpheus.application.query.BusinessContentQueryService;
 import com.morpheus.application.query.ChangeContextQueryService;
 import com.morpheus.application.query.PageRequest;
@@ -25,8 +26,6 @@ import java.util.Set;
 
 /** Owns active change list, detail, subresource and contextual API views. */
 public final class MorpheusChangeQueryApiService {
-    private static final String FIELD_TITLE = "title";
-
     private final Path databasePath;
     private final OperationalRecorder recorder;
 
@@ -42,7 +41,7 @@ public final class MorpheusChangeQueryApiService {
             requireProject(runtime, projectId);
             SnapshotPage<ChangeProposal> result = business(runtime).listActiveChanges(projectId, pageRequest)
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
-            return page(result, result.items().stream().map(this::change).toList());
+            return page(result, result.items().stream().map(PublicPayloads::change).toList());
         }
     }
 
@@ -51,7 +50,7 @@ public final class MorpheusChangeQueryApiService {
         ChangeId changeId = ChangeId.parse(changeIdValue);
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             var result = requireChange(runtime, projectId, changeId);
-            return PayloadMap.of("snapshotId", result.snapshot().id().toString(), "change", change(result.item().orElseThrow()));
+            return PayloadMap.of("snapshotId", result.snapshot().id().toString(), "change", PublicPayloads.change(result.item().orElseThrow()));
         }
     }
 
@@ -63,7 +62,7 @@ public final class MorpheusChangeQueryApiService {
             requireChange(runtime, projectId, changeId);
             SnapshotPage<Constraint> result = business(runtime).activeConstraints(projectId, changeId, pageRequest)
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
-            return page(result, result.items().stream().map(this::constraint).toList());
+            return page(result, result.items().stream().map(PublicPayloads::constraint).toList());
         }
     }
 
@@ -80,7 +79,7 @@ public final class MorpheusChangeQueryApiService {
             SnapshotPage<AcceptanceCriterion> result = business(runtime)
                     .activeAcceptanceCriteriaForChange(projectId, changeId, pageRequest)
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
-            return page(result, result.items().stream().map(this::acceptanceCriterion).toList());
+            return page(result, result.items().stream().map(PublicPayloads::acceptanceCriterion).toList());
         }
     }
 
@@ -92,7 +91,7 @@ public final class MorpheusChangeQueryApiService {
             requireChange(runtime, projectId, changeId);
             SnapshotPage<DesignDecision> result = business(runtime).activeDesignDecisions(projectId, changeId, pageRequest)
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
-            return page(result, result.items().stream().map(this::decision).toList());
+            return page(result, result.items().stream().map(PublicPayloads::decision).toList());
         }
     }
 
@@ -104,7 +103,7 @@ public final class MorpheusChangeQueryApiService {
             requireChange(runtime, projectId, changeId);
             SnapshotPage<ImplementationTask> result = business(runtime).activeImplementationTasks(projectId, changeId, pageRequest)
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
-            return page(result, result.items().stream().map(this::task).toList());
+            return page(result, result.items().stream().map(PublicPayloads::task).toList());
         }
     }
 
@@ -152,51 +151,6 @@ public final class MorpheusChangeQueryApiService {
             throw ApiFailure.notFound("change not found: " + changeId);
         }
         return result;
-    }
-
-    private Object change(ChangeProposal item) {
-        return PayloadMap.of(
-                "id", item.id().toString(),
-                "projectId", item.projectId().toString(),
-                "key", item.key().orElse(""),
-                FIELD_TITLE, item.title(),
-                "intent", item.intent(),
-                "scope", item.scope(),
-                "outOfScope", item.outOfScope(),
-                "risks", item.risks());
-    }
-
-    private Object constraint(Constraint item) {
-        return PayloadMap.of("id", item.id().toString(), "changeId", item.changeId().toString(), "statement", item.statement());
-    }
-
-    private Object acceptanceCriterion(AcceptanceCriterion item) {
-        return PayloadMap.of(
-                "id", item.id().toString(),
-                "requirementId", item.requirementId().map(Object::toString).orElse(""),
-                "changeId", item.changeId().map(Object::toString).orElse(""),
-                FIELD_TITLE, item.title(),
-                "condition", item.condition(),
-                "verificationStatus", item.verificationStatus().name(),
-                "verificationEvidenceIds", item.verificationEvidenceIds().stream().map(Object::toString).toList(),
-                "sourceEvidenceId", item.provenance().evidenceId().toString());
-    }
-
-    private Object decision(DesignDecision item) {
-        return PayloadMap.of(
-                "id", item.id().toString(),
-                "changeId", item.changeId().toString(),
-                FIELD_TITLE, item.title(),
-                "decision", item.decision());
-    }
-
-    private Object task(ImplementationTask item) {
-        return PayloadMap.of(
-                "id", item.id().toString(),
-                "changeId", item.changeId().toString(),
-                "key", item.key().orElse(""),
-                FIELD_TITLE, item.title(),
-                "completed", item.completed());
     }
 
     private Object page(SnapshotPage<?> page, List<?> items) {
