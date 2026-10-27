@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 /** M26 local administrative CLI for remote identities and SQLite backup/restore. */
@@ -83,16 +84,16 @@ public final class MorpheusServerCli {
                     "server command must be identity create|list|revoke|rotate|role|migrate-legacy, "
                             + "backup create, backup verify, or restore");
         } catch (EntityNotFoundException failure) {
-            err.println("MORPHEUS server error: " + safeMessage(failure));
+            err.println("MORPHEUS server error: " + CliErrorLine.failureText(failure));
             return CliExitCode.NOT_FOUND.code();
         } catch (EntityStateException failure) {
-            err.println("MORPHEUS server error: " + safeMessage(failure));
+            err.println("MORPHEUS server error: " + CliErrorLine.failureText(failure));
             return CliExitCode.STATE_ERROR.code();
         } catch (IllegalArgumentException failure) {
-            err.println("MORPHEUS server usage error: " + safeMessage(failure));
+            err.println("MORPHEUS server usage error: " + CliErrorLine.failureText(failure));
             return CliExitCode.USAGE.code();
         } catch (RuntimeException failure) {
-            err.println("MORPHEUS server error: " + safeMessage(failure));
+            err.println("MORPHEUS server error: " + CliErrorLine.failureText(failure));
             return CliExitCode.INTERNAL_ERROR.code();
         }
     }
@@ -344,23 +345,17 @@ public final class MorpheusServerCli {
         return new Parsed(CliLayout.resolve(data, config, database, environment, properties), json, List.copyOf(command));
     }
 
+    /** The options of a server command from its word {@code start} on, the flags read as {@code "true"}. */
     private Map<String, String> options(List<String> command, int start, Set<String> allowed) {
+        Set<String> flags = new TreeSet<>(allowed);
+        flags.retainAll(Set.of(OPT_CONFIRM, OPT_DRY_RUN));
+        Set<String> values = new TreeSet<>(allowed);
+        values.removeAll(flags);
+        CommandOptions given = CommandOptions.parse(command.subList(start, command.size()),
+                new CommandOptions.Declared(values, Set.of(), flags));
         Map<String, String> result = new LinkedHashMap<>();
-        for (int index = start; index < command.size(); index++) {
-            String token = command.get(index);
-            if (!token.startsWith("--")) throw new IllegalArgumentException("unexpected server argument: " + token);
-            String name = token.substring(2);
-            if (!allowed.contains(name)) throw new IllegalArgumentException("unknown server option: --" + name);
-            if (name.equals(OPT_CONFIRM) || name.equals(OPT_DRY_RUN)) {
-                if (result.put(name, "true") != null) throw new IllegalArgumentException("duplicate option: --" + name);
-                continue;
-            }
-            if (index + 1 >= command.size()) throw new IllegalArgumentException(token + " requires a value");
-            String value = command.get(++index);
-            if (value.startsWith("--")) throw new IllegalArgumentException(token + " requires a value");
-            OptionValue.nonBlank(token, value);
-            if (result.put(name, value) != null) throw new IllegalArgumentException("duplicate option: " + token);
-        }
+        flags.stream().filter(given::flag).forEach(flag -> result.put(flag, "true"));
+        values.forEach(name -> given.asGiven(name).ifPresent(value -> result.put(name, value)));
         return result;
     }
 
@@ -388,18 +383,13 @@ public final class MorpheusServerCli {
     private static String required(Map<String, String> options, String name) {
         String value = options.get(name);
         if (value == null) throw new IllegalArgumentException("--" + name + " is required");
-        // A blank value never gets here: options() refuses it through OptionValue as it reads the arguments.
+        // A blank value never gets here: CommandOptions refuses it through OptionValue as it reads the arguments.
         return value.trim();
     }
 
     private static boolean isLayoutOption(String token) {
         return token.equals("--data-dir") || token.equals(OPT_CONFIG_DIR) || token.equals("--db")
                 || token.startsWith("--data-dir=") || token.startsWith("--config-dir=") || token.startsWith("--db=");
-    }
-
-    private static String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 
     private record Parsed(CliLayout layout, boolean json, List<String> command) {

@@ -13,7 +13,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.Set;
 
 /** The synchronisation-status family of the CLI: {@code sync-status}, the persisted freshness of one project. */
 public final class MorpheusSyncStatusCli {
@@ -43,8 +42,7 @@ public final class MorpheusSyncStatusCli {
     }
 
     private int syncStatus(List<String> tokens, CliCommandRun run) {
-        CommandOptions options = CommandOptions.parse(tokens, Set.of());
-        options.rejectUnknown(Set.of(OPT_PROJECT, "max-age-minutes"));
+        CommandOptions options = CommandOptions.parse(tokens, CommandOptions.Declared.values(OPT_PROJECT, "max-age-minutes"));
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         long maxAgeMinutes = options.longValue("max-age-minutes", 60L, 1L, 525600L);
         try (CliRuntime runtime = CliRuntime.recovering(run.databasePath(), recorder)) {

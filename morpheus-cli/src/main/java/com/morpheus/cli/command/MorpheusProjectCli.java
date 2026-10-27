@@ -65,11 +65,14 @@ public final class MorpheusProjectCli {
             throw CliFailure.usage("projects requires subcommand: list | add");
         }
         String subcommand = tokens.getFirst();
-        CommandOptions options = CommandOptions.parse(tokens.subList(1, tokens.size()), Set.of());
+        CommandOptions options = CommandOptions.parse(tokens.subList(1, tokens.size()), switch (subcommand) {
+            case "list" -> CommandOptions.Declared.nothing();
+            case "add" -> CommandOptions.Declared.values("workspace");
+            default -> throw CliFailure.usage("unknown projects subcommand: " + subcommand);
+        });
         try (CliRuntime runtime = CliRuntime.recovering(run.databasePath(), recorder)) {
             return switch (subcommand) {
                 case "list" -> {
-                    options.rejectUnknown(Set.of());
                     List<ProjectView> projects = runtime.snapshots().listProjects().stream()
                             .map(item -> new ProjectView(item.id().toString(), item.rootLocator().value()))
                             .toList();
@@ -83,7 +86,6 @@ public final class MorpheusProjectCli {
                     yield CliExitCode.SUCCESS.code();
                 }
                 case "add" -> {
-                    options.rejectUnknown(Set.of("workspace"));
                     Path workspace = ProjectWorkspace.existingDirectory(options.requiredPath("workspace"));
                     SourceLocator root = SourceLocator.file(workspace.toString());
                     Optional<ProjectStoreEntry> existing = runtime.snapshots().findProjectByRoot(root);
@@ -103,8 +105,8 @@ public final class MorpheusProjectCli {
     }
 
     private int sync(List<String> tokens, CliCommandRun run) {
-        CommandOptions options = CommandOptions.parse(tokens, Set.of(OPT_FORCE));
-        options.rejectUnknown(Set.of(OPT_PROJECT, "revision", OPT_FORCE));
+        CommandOptions options = CommandOptions.parse(tokens,
+                CommandOptions.Declared.values(OPT_PROJECT, "revision").andFlags(OPT_FORCE));
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         Optional<String> revision = options.optional("revision");
         boolean force = options.flag(OPT_FORCE);

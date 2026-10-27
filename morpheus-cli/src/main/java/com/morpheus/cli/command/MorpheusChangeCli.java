@@ -82,12 +82,15 @@ public final class MorpheusChangeCli {
             throw CliFailure.usage("changes requires subcommand: list | get");
         }
         String subcommand = tokens.getFirst();
-        CommandOptions options = CommandOptions.parse(tokens.subList(1, tokens.size()), Set.of());
+        CommandOptions options = CommandOptions.parse(tokens.subList(1, tokens.size()), switch (subcommand) {
+            case "list" -> CommandOptions.Declared.values(OPT_PROJECT, OPT_OFFSET, OPT_LIMIT);
+            case "get" -> CommandOptions.Declared.values(OPT_PROJECT, OPT_CHANGE);
+            default -> throw CliFailure.usage("unknown changes subcommand: " + subcommand);
+        });
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         try (CliRuntime runtime = CliRuntime.recovering(run.databasePath(), recorder)) {
             BusinessContentQueryService service = new BusinessContentQueryService(runtime.snapshots(), runtime.content());
             if (subcommand.equals("list")) {
-                options.rejectUnknown(Set.of(OPT_PROJECT, OPT_OFFSET, OPT_LIMIT));
                 SnapshotPage<ChangeProposal> page = service.listActiveChanges(projectId, options.page())
                         .orElseThrow(() -> CliFailure.notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
                 PageView<ChangeView> view = new PageView<>(
@@ -98,7 +101,6 @@ public final class MorpheusChangeCli {
                 return CliExitCode.SUCCESS.code();
             }
             if (subcommand.equals("get")) {
-                options.rejectUnknown(Set.of(OPT_PROJECT, OPT_CHANGE));
                 ChangeId changeId = ChangeId.parse(options.required(OPT_CHANGE));
                 var result = service.activeChange(projectId, changeId)
                         .orElseThrow(() -> CliFailure.notFound(MSG_PROJECT_NO_ACTIVE_SNAPSHOT + projectId));
@@ -160,16 +162,15 @@ public final class MorpheusChangeCli {
         if (tokens.isEmpty() || !tokens.getFirst().equals("list")) {
             throw CliFailure.usage(command + " requires subcommand: list");
         }
-        CommandOptions options = CommandOptions.parse(tokens.subList(1, tokens.size()), Set.of());
-        options.rejectUnknown(Set.of(OPT_PROJECT, OPT_CHANGE, OPT_OFFSET, OPT_LIMIT));
+        CommandOptions options = CommandOptions.parse(tokens.subList(1, tokens.size()),
+                CommandOptions.Declared.values(OPT_PROJECT, OPT_CHANGE, OPT_OFFSET, OPT_LIMIT));
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         ChangeId changeId = ChangeId.parse(options.required(OPT_CHANGE));
         return new Listing(options, projectId, changeId);
     }
 
     private int changeContext(List<String> tokens, CliCommandRun run) {
-        CommandOptions options = CommandOptions.parse(tokens, Set.of());
-        options.rejectUnknown(Set.of(OPT_PROJECT, OPT_CHANGE, "depth"));
+        CommandOptions options = CommandOptions.parse(tokens, CommandOptions.Declared.values(OPT_PROJECT, OPT_CHANGE, "depth"));
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         ChangeId changeId = ChangeId.parse(options.required(OPT_CHANGE));
         int depth = options.intValue("depth", 2, 1, 20);
@@ -199,8 +200,7 @@ public final class MorpheusChangeCli {
     }
 
     private int analyzeChange(List<String> tokens, CliCommandRun run) {
-        CommandOptions options = CommandOptions.parse(tokens, Set.of());
-        options.rejectUnknown(Set.of(OPT_PROJECT, OPT_CHANGE, "depth"));
+        CommandOptions options = CommandOptions.parse(tokens, CommandOptions.Declared.values(OPT_PROJECT, OPT_CHANGE, "depth"));
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         ChangeId changeId = ChangeId.parse(options.required(OPT_CHANGE));
         int depth = options.intValue("depth", 2, 1, 20);

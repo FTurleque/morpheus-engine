@@ -9,6 +9,7 @@ import com.morpheus.application.operability.OperationalLogMode;
 import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.query.dsl.QueryBudgets;
 import com.morpheus.cli.command.CliCommandRun;
+import com.morpheus.cli.command.CliErrorLine;
 import com.morpheus.cli.command.CliExitCode;
 import com.morpheus.cli.command.CliLayout;
 import com.morpheus.cli.command.MorpheusAcceptanceCriteriaCli;
@@ -362,10 +363,10 @@ public final class MorpheusMain {
                     new CliProjectWriteCapabilityResolver(options.layout().databasePath()),
                     runtime.recorder());
         } catch (IllegalArgumentException failure) {
-            err.println("MORPHEUS MCP usage error: " + safeMessage(failure));
+            err.println("MORPHEUS MCP usage error: " + CliErrorLine.failureText(failure));
             return CliExitCode.USAGE.code();
         } catch (RuntimeException failure) {
-            err.println("MORPHEUS MCP startup error: " + safeMessage(failure));
+            err.println("MORPHEUS MCP startup error: " + CliErrorLine.failureText(failure));
             return CliExitCode.INTERNAL_ERROR.code();
         }
     }
@@ -393,10 +394,10 @@ public final class MorpheusMain {
                 return waitUntilInterrupted();
             }
         } catch (IllegalArgumentException failure) {
-            err.println("MORPHEUS API usage error: " + safeMessage(failure));
+            err.println("MORPHEUS API usage error: " + CliErrorLine.failureText(failure));
             return CliExitCode.USAGE.code();
         } catch (RuntimeException failure) {
-            err.println("MORPHEUS API startup error: " + safeMessage(failure));
+            err.println("MORPHEUS API startup error: " + CliErrorLine.failureText(failure));
             return CliExitCode.INTERNAL_ERROR.code();
         }
     }
@@ -416,10 +417,10 @@ public final class MorpheusMain {
                 return waitUntilInterrupted();
             }
         } catch (IllegalArgumentException failure) {
-            err.println("MORPHEUS remote API usage error: " + safeMessage(failure));
+            err.println("MORPHEUS remote API usage error: " + CliErrorLine.failureText(failure));
             return CliExitCode.USAGE.code();
         } catch (RuntimeException failure) {
-            err.println("MORPHEUS remote API startup error: " + safeMessage(failure));
+            err.println("MORPHEUS remote API startup error: " + CliErrorLine.failureText(failure));
             return CliExitCode.INTERNAL_ERROR.code();
         }
     }
@@ -491,10 +492,5 @@ public final class MorpheusMain {
             return token.equals("help") || token.equals("--help") || token.equals("-h");
         }
         return true;
-    }
-
-    private static String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 }

@@ -9,13 +9,13 @@ import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import java.io.PrintStream;
 import java.net.URI;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /** Product-integrity commands that never require opening the MORPHEUS knowledge store. */
 public final class MorpheusProductCli {
+    private static final String OPT_MANIFEST = "manifest";
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
     private final OperationalRecorder recorder;
 
@@ -24,7 +24,7 @@ public final class MorpheusProductCli {
     }
 
     public static boolean handles(String[] args) {
-        String command = command(args);
+        String command = GlobalArgs.command(args);
         return command.equals("reason")
                 || command.equals("version")
                 || command.equals("--version")
@@ -36,7 +36,7 @@ public final class MorpheusProductCli {
         Objects.requireNonNull(args, "args");
         Objects.requireNonNull(out, "out");
         Objects.requireNonNull(err, "err");
-        if (command(args).equals("reason")) {
+        if (GlobalArgs.command(args).equals("reason")) {
             return new MorpheusReasoningCli(recorder).run(args, out, err);
         }
         try {
@@ -48,10 +48,10 @@ public final class MorpheusProductCli {
                 default -> throw new IllegalArgumentException("unknown product command: " + parsed.command());
             };
         } catch (IllegalArgumentException failure) {
-            err.println("MORPHEUS usage error: " + safeMessage(failure));
+            err.println("MORPHEUS usage error: " + CliErrorLine.failureText(failure));
             return CliExitCode.USAGE.code();
         } catch (RuntimeException failure) {
-            err.println("MORPHEUS product-integrity error: " + safeMessage(failure));
+            err.println("MORPHEUS product-integrity error: " + CliErrorLine.failureText(failure));
             return CliExitCode.STATE_ERROR.code();
         }
     }
@@ -80,7 +80,7 @@ public final class MorpheusProductCli {
     }
 
     private int updateCheck(Parsed parsed, PrintStream out) {
-        String manifest = parsed.option("manifest");
+        String manifest = parsed.option(OPT_MANIFEST);
         URI manifestUri = explicitUri(manifest);
         UpdateCheckResult result = new UpdateDiscoveryService().check(manifestUri);
         if (parsed.json()) {
@@ -101,69 +101,22 @@ public final class MorpheusProductCli {
     }
 
     private static Parsed parse(String[] args) {
-        boolean json = false;
-        String command = "";
-        List<String> tokens = new ArrayList<>(Arrays.asList(args));
-        java.util.Map<String, String> options = new java.util.LinkedHashMap<>();
-        java.util.Set<String> given = new java.util.HashSet<>();
-        for (int index = 0; index < tokens.size(); index++) {
-            String token = tokens.get(index);
-            if (token.equals("--json")) {
-                json = true;
-                continue;
-            }
-            if (token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db")) {
-                OptionOccurrence.once(given, token);
-                index = requireValue(tokens, index, token);
-                OptionValue.nonBlank(token, tokens.get(index));
-                continue;
-            }
-            if (command.isEmpty()) {
-                command = token;
-                continue;
-            }
-            if (token.equals("--manifest")) {
-                OptionOccurrence.once(given, token);
-                int valueIndex = requireValue(tokens, index, token);
-                options.put("manifest", OptionValue.nonBlank(token, tokens.get(valueIndex)));
-                index = valueIndex;
-                continue;
-            }
-            throw new IllegalArgumentException("unknown option for " + command + ": " + token);
-        }
-        if (command.isEmpty()) {
+        GlobalArgs.Parsed global = GlobalArgs.parse(args);
+        List<String> remaining = global.remaining();
+        if (remaining.isEmpty()) {
             throw new IllegalArgumentException("missing product command");
         }
-        if (command.equals("update-check") && !options.containsKey("manifest")) {
+        String command = remaining.getFirst();
+        CommandOptions options = CommandOptions.parse(
+                remaining.subList(1, remaining.size()), CommandOptions.Declared.values(OPT_MANIFEST));
+        if (command.equals("update-check") && !options.given(OPT_MANIFEST)) {
             throw new IllegalArgumentException("update-check requires --manifest URI_OR_PATH");
         }
-        if (!command.equals("update-check") && !options.isEmpty()) {
+        if (!command.equals("update-check") && options.given(OPT_MANIFEST)) {
             throw new IllegalArgumentException(command + " does not accept --manifest");
         }
-        return new Parsed(command, json, java.util.Map.copyOf(options));
-    }
-
-    private static int requireValue(List<String> tokens, int optionIndex, String option) {
-        int valueIndex = optionIndex + 1;
-        if (valueIndex >= tokens.size() || tokens.get(valueIndex).startsWith("--")) {
-            throw new IllegalArgumentException(option + " requires a value");
-        }
-        return valueIndex;
-    }
-
-    private static String command(String[] args) {
-        for (int index = 0; index < args.length; index++) {
-            String token = args[index];
-            if (token.equals("--json")) {
-                continue;
-            }
-            if (token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db")) {
-                index++;
-                continue;
-            }
-            return token;
-        }
-        return "";
+        return new Parsed(command, global.json(),
+                options.asGiven(OPT_MANIFEST).map(manifest -> Map.of(OPT_MANIFEST, manifest)).orElse(Map.of()));
     }
 
     private static URI explicitUri(String raw) {
@@ -178,18 +131,13 @@ public final class MorpheusProductCli {
         return Path.of(value).toAbsolutePath().normalize().toUri();
     }
 
-    private static String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
-
-    private record Parsed(String command, boolean json, java.util.Map<String, String> options) {
+    private record Parsed(String command, boolean json, Map<String, String> options) {
         String option(String name) {
             String value = options.get(name);
             if (value == null) {
                 throw new IllegalArgumentException("missing required option --" + name);
             }
-            // A blank value never gets here: parse() refuses it through OptionValue as it reads the arguments.
+            // A blank value never gets here: CommandOptions refuses it through OptionValue as it reads the arguments.
             return value;
         }
     }

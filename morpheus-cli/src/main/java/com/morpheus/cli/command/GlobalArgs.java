@@ -18,8 +18,18 @@ public final class GlobalArgs {
     private GlobalArgs() {
     }
 
-    /** Returns the first non-global-flag token, or {@code ""} if none is present. */
+    /**
+     * The token that selects a command: the first that is neither a global option nor the value of one, or {@code ""}
+     * if there is none. It refuses nothing; {@link #parse} does, once the command is chosen.
+     */
     static String command(String[] args) {
+        List<String> tokens = commandTokens(args);
+        return tokens.isEmpty() ? "" : tokens.getFirst();
+    }
+
+    /** Every token that is neither a global option nor the value of one, in order, refusing nothing. */
+    static List<String> commandTokens(String[] args) {
+        List<String> tokens = new ArrayList<>();
         int index = 0;
         while (index < args.length) {
             String token = args[index];
@@ -29,10 +39,10 @@ public final class GlobalArgs {
                 index++;
             }
             if (!"--json".equals(token) && !isValueFlag) {
-                return token;
+                tokens.add(token);
             }
         }
-        return "";
+        return List.copyOf(tokens);
     }
 
     public static Parsed parse(String[] args) {

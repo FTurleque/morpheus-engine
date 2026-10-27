@@ -296,7 +296,7 @@ class MorpheusServerCliTest {
         Result result = run("server", "identity", "list", "--principal", "alice");
 
         assertEquals(CliExitCode.USAGE.code(), result.exitCode());
-        assertTrue(result.err().contains("unknown server option: --principal"), result.err());
+        assertTrue(result.err().contains("MORPHEUS server usage error: unknown option: --principal"), result.err());
     }
 
     private Result run(String... rawArgs) {

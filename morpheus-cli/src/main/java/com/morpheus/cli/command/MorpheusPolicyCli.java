@@ -76,18 +76,17 @@ public final class MorpheusPolicyCli {
     }
 
     public static boolean handles(String[] args) {
-        return command(args).equals("policy");
+        return GlobalArgs.command(args).equals("policy");
     }
 
     public int run(String[] args, PrintStream out, PrintStream err, Map<String, String> environment, Properties properties) {
         try {
             Parsed parsed = Parsed.parse(args, environment, properties);
-            SimpleOptions options = SimpleOptions.parse(parsed.arguments());
             Set<String> allowed = ACTION_OPTIONS.get(parsed.action());
             if (allowed == null) {
                 throw new IllegalArgumentException("unknown policy action: " + parsed.action());
             }
-            options.rejectUnknown(allowed);
+            CommandOptions options = CommandOptions.parse(parsed.arguments(), CommandOptions.Declared.values(allowed));
             try (CliRuntime runtime = CliRuntime.open(parsed.layout().databasePath(), recorder)) {
                 Object result = execute(parsed.action(), options, runtime);
                 CliExitCode exitCode = CliExitCode.SUCCESS;
@@ -101,21 +100,17 @@ public final class MorpheusPolicyCli {
                 return exitCode.code();
             }
         } catch (EntityNotFoundException failure) {
-            err.println("MORPHEUS error [" + CliExitCode.NOT_FOUND.code() + "]: " + safeMessage(failure));
-            return CliExitCode.NOT_FOUND.code();
+            return CliErrorLine.report(err, CliExitCode.NOT_FOUND, failure);
         } catch (EntityStateException failure) {
-            err.println("MORPHEUS error [" + CliExitCode.STATE_ERROR.code() + "]: " + safeMessage(failure));
-            return CliExitCode.STATE_ERROR.code();
+            return CliErrorLine.report(err, CliExitCode.STATE_ERROR, failure);
         } catch (IllegalArgumentException failure) {
-            err.println("MORPHEUS error [" + CliExitCode.USAGE.code() + "]: " + safeMessage(failure));
-            return CliExitCode.USAGE.code();
+            return CliErrorLine.report(err, CliExitCode.USAGE, failure);
         } catch (RuntimeException failure) {
-            err.println("MORPHEUS error [" + CliExitCode.STATE_ERROR.code() + "]: " + safeMessage(failure));
-            return CliExitCode.STATE_ERROR.code();
+            return CliErrorLine.report(err, CliExitCode.STATE_ERROR, failure);
         }
     }
 
-    private Object execute(String action, SimpleOptions options, CliRuntime runtime) {
+    private Object execute(String action, CommandOptions options, CliRuntime runtime) {
         return switch (action) {
             case "pack-create" -> PolicyPublicViews.definition(runtime.registry().create(
                     options.required("name"), rules(options.required(OPT_RULES)),
@@ -232,11 +227,11 @@ public final class MorpheusPolicyCli {
         }
     }
 
-    private PolicyIds.PackId pack(SimpleOptions options) {
+    private PolicyIds.PackId pack(CommandOptions options) {
         return PolicyIds.PackId.parse(options.required("id"));
     }
 
-    private PolicyScope scope(SimpleOptions options) {
+    private PolicyScope scope(CommandOptions options) {
         Optional<String> project = options.optional(OPT_PROJECT);
         Optional<String> portfolio = options.optional(OPT_PORTFOLIO);
         if (project.isPresent() == portfolio.isPresent()) {
@@ -246,7 +241,7 @@ public final class MorpheusPolicyCli {
                 .orElseGet(() -> new PolicyScope.Portfolio(PortfolioId.parse(portfolio.orElseThrow())));
     }
 
-    private long revision(SimpleOptions options) {
+    private long revision(CommandOptions options) {
         long value = parseLong(options.required(OPT_EXPECTED_REVISION), OPT_EXPECTED_REVISION);
         if (value <= 0) {
             throw new IllegalArgumentException("--expected-revision must be positive");
@@ -254,7 +249,7 @@ public final class MorpheusPolicyCli {
         return value;
     }
 
-    private long revisionAllowZero(SimpleOptions options) {
+    private long revisionAllowZero(CommandOptions options) {
         long value = parseLong(options.required(OPT_EXPECTED_REVISION), OPT_EXPECTED_REVISION);
         if (value < 0) {
             throw new IllegalArgumentException("--expected-revision must be >= 0");
@@ -262,7 +257,7 @@ public final class MorpheusPolicyCli {
         return value;
     }
 
-    private int boundedInt(SimpleOptions options, String key, int defaultValue, int min, int max) {
+    private int boundedInt(CommandOptions options, String key, int defaultValue, int min, int max) {
         long value = options.optional(key).map(raw -> parseLong(raw, key)).orElse((long) defaultValue);
         if (value < min || value > max) {
             throw new IllegalArgumentException("--" + key + " must be between " + min + " and " + max);
@@ -276,15 +271,6 @@ public final class MorpheusPolicyCli {
         } catch (NumberFormatException failure) {
             throw new IllegalArgumentException("--" + key + " must be an integer", failure);
         }
-    }
-
-    private static String command(String[] args) {
-        return GlobalArgs.command(args);
-    }
-
-    private static String safeMessage(Throwable failure) {
-        return failure.getMessage() == null || failure.getMessage().isBlank()
-                ? failure.getClass().getSimpleName() : failure.getMessage();
     }
 
     private enum VoidMarker { INSTANCE }

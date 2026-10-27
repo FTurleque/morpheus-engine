@@ -50,7 +50,7 @@ import org.junit.jupiter.api.Test;
  *   {@code p.getMessage()}; or the parameter of a lambda filtering {@code Optional.ofNullable(p.getMessage())}. A
  *   variable merely named {@code message}, a message read from something that is not such a parameter, and a
  *   {@code getMessage()} in a method without such a parameter are not recognised.</li>
- *   <li><b>A named other question</b>, in {@link #OTHER_QUESTIONS}: an option's <em>name</em>, an environment variable
+ *   <li><b>A named other question</b>, in {@link #OTHER_QUESTIONS}: an environment variable
  *   or JVM property (empty means unset there, ADR-0130), a message printed by the reasoning output -- and two open
  *   residuals where the test reads a <em>part</em> of an option value, not the value: the elements of
  *   {@code --providers} and the provenance field of {@code --evidence}. Each entry holds the number of blank tests of
@@ -89,8 +89,6 @@ class CliOptionValueHasOneBlankDefinitionTest {
 
     /** Methods whose blank tests answer another question than "is this option value blank", with their count. */
     private static final Map<String, OtherQuestion> OTHER_QUESTIONS = Map.of(
-            "CommandOptions.java#consumeOption", new OtherQuestion(1,
-                    "the option's name: a token '--' followed by nothing is an empty option, not a blank value"),
             "MorpheusReasoningCli.java#analyze", new OtherQuestion(1,
                     "the message of an adapter execution, printed only when there is one"),
             "CliLayout.java#envPath", new OtherQuestion(1,

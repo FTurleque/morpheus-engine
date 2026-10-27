@@ -15,11 +15,9 @@ files: ["docs/user/CLI.md", "morpheus-cli/src/main/java/com/morpheus/cli/command
 ## Context
 
 La CLI est une surface publique scriptée : un pipeline ne lit souvent que son code de sortie, et `docs/user/CLI.md`
-prescrit de lever sur tout code non nul. Plusieurs familles de parseurs coexistent dans `morpheus-cli` (`SimpleOptions`,
-`CommandOptions`, des `Options` propres à un adaptateur, des parseurs fermés par `switch`, des parseurs ad hoc
-et les parseurs de lancement `ApiLaunchOptions`, `McpLaunchOptions`, `RemoteApiLaunchOptions`). Une famille qui
-traite une invocation fautive autrement qu'une autre fait qu'une option mal orthographiée, vide ou répétée produit un
-résultat calculé sur la mauvaise population, avec le code `0`, ou un fichier de base créé avant le refus.
+prescrit de lever sur tout code non nul. Des parseurs qui traitent une invocation fautive chacun à leur façon font
+qu'une option mal orthographiée, vide ou répétée produit un résultat calculé sur la mauvaise population, avec le code
+`0`, ou un fichier de base créé avant le refus.
 
 Le principe d'ADR-0124 (ce qui n'est pas observé est dit) s'applique au processus : une réponse ne se présente pas comme réussie quand l'appel était mal
 formé, ni comme mal formé quand c'est l'état qui refuse. Un code de sortie qui contredit ce qui a été observé est
@@ -50,11 +48,12 @@ inatteignable. La colonne `cli` de `contracts/public-surfaces.tsv` et l'aide emb
 
 ### 2. Une option inconnue est refusée
 
-Toute famille de parseurs refuse une option qu'elle ne connaît pas, code `2`, en la nommant (`unknown option: --x`).
-Un parseur ouvert, qui accepte toute clé puis la vérifie, appelle `rejectUnknown` dans le bloc qui englobe son `parse`
-(ou dans chaque branche quand ce bloc est un `switch`). Un `switch` d'options a une branche `default` qui lève ; seul un
-pré-parseur des options globales (`--json`, `--data-dir`, `--config-dir`, `--db`) sur le vecteur brut d'arguments
-transmet un jeton qu'il ne lit pas, pour le sous-parseur de la commande. Un parseur de lancement nomme l'argument inconnu.
+Une sous-commande déclare ses options à un seul parseur, `CommandOptions`, au moment où elle les analyse ; il refuse,
+code `2` et en nommant le jeton, un mot qui n'est pas une option, une option non déclarée (`unknown option: --x`), une
+répétition, une option sans valeur et une valeur blanche. Aucun parseur n'accepte toute clé pour la vérifier ensuite.
+Un `switch` d'options a une branche `default` qui lève ; seul un pré-parseur des options globales (`--json`,
+`--data-dir`, `--config-dir`, `--db`) sur le vecteur brut d'arguments transmet un jeton qu'il ne lit pas, pour le
+sous-parseur de la commande. Un parseur de lancement nomme l'argument inconnu.
 
 ### 3. Une valeur vide ou blanche est refusée, avec une seule définition du blanc
 
@@ -64,7 +63,7 @@ Une valeur est blanche si **chacun de ses points de code** est `<= ' '` (ce que 
 `Character.isWhitespace` (ce que `isBlank()` retient). Cette définition a une seule implémentation,
 `OptionValue.nonBlank`, et `OptionValue.path` pour une option qui désigne un chemin ; toutes les familles l'appellent
 au point d'entrée de leurs valeurs, y compris pour les options de disposition (`--data-dir`, `--config-dir`, `--db`),
-dans chacune de leurs orthographes. Un parseur ouvert la vérifie après le contrôle des clés, pour qu'une option
+dans chacune de leurs orthographes. Le parseur la vérifie après le contrôle de la clé, pour qu'une option
 inconnue passée vide reçoive le refus d'option inconnue. `nonBlank` rend la valeur telle que donnée. Le répertoire
 courant a une orthographe explicite, `.`.
 
@@ -82,8 +81,8 @@ vérifient quand même, pour que le même préfixe `morpheus --data-dir "$D"` é
 ### 5. Rien n'est créé avant que l'invocation soit acceptée
 
 Une commande reconnaît son action et refuse une option inconnue, vide ou répétée **avant** d'ouvrir le store ; un
-lanceur refuse avant d'ouvrir un port ou le transport STDIO. Les adaptateurs qui lisent leurs options par
-`SimpleOptions` déclarent pour cela les options de chaque action dans une table lue avant l'ouverture
+lanceur refuse avant d'ouvrir un port ou le transport STDIO. Les adaptateurs à plusieurs actions déclarent pour cela
+les options de chaque action dans une table lue avant l'ouverture
 (`MorpheusPortfolioCli.ACTION_OPTIONS`, `MorpheusPolicyCli.ACTION_OPTIONS`, `MorpheusQueryCli.EXECUTE_OPTIONS`,
 `VIEW_ACTION_OPTIONS`, `EXPORT_ACTION_OPTIONS`). Un refus d'usage précède donc une erreur d'ouverture du store. Les refus
 qui ont besoin de la valeur (option obligatoire absente, identifiant mal formé, entier invalide, portée absente ou
@@ -163,7 +162,6 @@ sont confiées à leur parseur de lancement. Un marqueur que la garde ne sait pa
 
 ### Risques
 
-- `projects`, `changes` et `change-orchestration` ouvrent encore le store avant de refuser une partie de leurs options.
 - Aucune garde ne découvre un futur parseur qui omettrait `OptionValue` ou `OptionOccurrence` : la preuve repose sur des
   tables d'invocations écrites à la main.
 - Les caractères invisibles qui ne sont blancs pour aucune des deux lectures (espace insécable, `U+200B`, `U+FEFF`)
@@ -180,12 +178,15 @@ sont confiées à leur parseur de lancement. Un marqueur que la garde ne sait pa
   `morpheus-architecture-tests/src/test/java/com/morpheus/cli/PublicSurfaceManifestCoversEveryServedCliCommandTest.java` :
   chemins déclarés, servis, documentés par l'aide et portés par le manifeste.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/CliOptionParsingRefusesUnknownOptionsTest.java` :
-  découvre les familles de parseurs par leur forme et exige le refus d'une option inconnue.
+  découvre les parseurs par leur forme, exige le refus d'une option inconnue, refuse un parseur qui accepte toute clé
+  et un parseur d'options propre à une sous-commande.
+- `morpheus-cli/src/test/java/com/morpheus/cli/CliOptionRefusalTableTest.java` : le même refus de chaque saisie mal
+  formée par chaque sous-commande, et les différences déclarées.
 - `morpheus-cli/src/test/java/com/morpheus/cli/MorpheusMainTest.java` (`eachLaunchParserNamesAnUnknownArgument`) :
   refus nommé par les trois parseurs de lancement.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/CliOptionValueHasOneBlankDefinitionTest.java` :
   un seul test du blanc dans `morpheus-cli`, par point de code et avec ses deux moitiés.
-- `morpheus-cli/src/test/java/com/morpheus/cli/command/OptionValueTest.java`, `SimpleOptionsTest.java`,
+- `morpheus-cli/src/test/java/com/morpheus/cli/command/OptionValueTest.java`, `CommandOptionsTest.java`,
   `BlankOptionValueRefusalTest.java` : refus du vide et du blanc sur chaque option de chaque parseur, rien d'écrit.
 - `morpheus-cli/src/test/java/com/morpheus/cli/DuplicateOptionRefusalTest.java` : refus de la répétition dans toutes les
   orthographes, accumulation de `--workspace-root`.
