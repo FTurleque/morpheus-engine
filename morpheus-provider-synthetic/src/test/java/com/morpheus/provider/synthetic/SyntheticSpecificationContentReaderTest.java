@@ -62,7 +62,7 @@ class SyntheticSpecificationContentReaderTest {
      */
     @Test
     void publishesTheWorkspaceItReceivedAsProjectRoot() {
-        Path workspace = fixture("synthetic-basic");
+        Path workspace = RepositoryRoot.fixture("synthetic-basic");
 
         var content = reader.read(
                 ProviderReadRequest.all(workspace.resolve("nested").resolve(".."), ProjectSpecificationId.generate()),
@@ -77,7 +77,7 @@ class SyntheticSpecificationContentReaderTest {
     void rejectsOversizedEvidenceWithoutPublishingContent() throws Exception {
         Path workspace = Files.createDirectory(temp.resolve("oversized-evidence"));
         Files.copy(
-                fixture("synthetic-basic").resolve(SyntheticSpecificationProvider.SOURCE_FILE),
+                RepositoryRoot.fixture("synthetic-basic").resolve(SyntheticSpecificationProvider.SOURCE_FILE),
                 workspace.resolve(SyntheticSpecificationProvider.SOURCE_FILE));
         Files.createDirectories(workspace.resolve("reviews"));
         Files.createDirectories(workspace.resolve("tests"));
@@ -95,7 +95,7 @@ class SyntheticSpecificationContentReaderTest {
 
     @Test
     void normalizesSyntheticFixtureThroughPublicReadContract() {
-        Path root = fixture("synthetic-basic");
+        Path root = RepositoryRoot.fixture("synthetic-basic");
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
 
         var result = reader.read(
@@ -185,7 +185,7 @@ class SyntheticSpecificationContentReaderTest {
     @Test
     void reportsImplementedAndUnsupportedCategoriesExplicitly() {
         var result = reader.read(
-                ProviderReadRequest.all(fixture("synthetic-basic"), ProjectSpecificationId.generate()),
+                ProviderReadRequest.all(RepositoryRoot.fixture("synthetic-basic"), ProjectSpecificationId.generate()),
                 new InMemoryResolver());
 
         assertEquals(ReadCategoryStatus.READ, result.report(ReadCategory.CURRENT_SPECIFICATIONS).orElseThrow().status());
@@ -203,7 +203,7 @@ class SyntheticSpecificationContentReaderTest {
     @Test
     void returnsOnlyRequestedCategoryReports() {
         var request = new ProviderReadRequest(
-                fixture("synthetic-basic"),
+                RepositoryRoot.fixture("synthetic-basic"),
                 ProjectSpecificationId.generate(),
                 EnumSet.of(ReadCategory.REQUIREMENTS, ReadCategory.CONSTRAINTS, ReadCategory.ACCEPTANCE_CRITERIA));
         var result = reader.read(request, new InMemoryResolver());
@@ -217,7 +217,7 @@ class SyntheticSpecificationContentReaderTest {
 
     @Test
     void reusesSyntheticIdentitiesAcrossRepeatedReads() {
-        Path root = fixture("synthetic-basic");
+        Path root = RepositoryRoot.fixture("synthetic-basic");
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         InMemoryResolver resolver = new InMemoryResolver();
         ProviderReadRequest request = ProviderReadRequest.all(root, projectId);
@@ -234,18 +234,6 @@ class SyntheticSpecificationContentReaderTest {
         assertEquals(
                 first.acceptanceCriteria().getFirst().verificationEvidenceIds(),
                 second.acceptanceCriteria().getFirst().verificationEvidenceIds());
-    }
-
-    private Path fixture(String name) {
-        Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
-        while (current != null) {
-            Path candidate = current.resolve("experiments/m0/fixtures").resolve(name);
-            if (Files.isDirectory(candidate)) {
-                return candidate;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("Cannot locate fixture " + name);
     }
 
     private static final class InMemoryResolver implements EntityIdentityResolver {
