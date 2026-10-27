@@ -71,7 +71,7 @@ class CliOptionRefusalTableTest {
             change-orchestration state | missing-value | 2 | MORPHEUS error [2]: --project requires a value
             change-orchestration state | dash-value | 2 | MORPHEUS error [2]: --project requires a value
             change-orchestration state | blank-value | 2 | MORPHEUS error [2]: --project requires a non-blank value; omit the option to leave it unset
-            change-orchestration state | positional | 2 | MORPHEUS error [2]: unknown option: stray
+            change-orchestration state | positional | 2 | MORPHEUS error [2]: unexpected positional argument: stray
             change-orchestration state | repeated-flag | 2 | MORPHEUS error [2]: duplicate option: --allow-backward
             augmented-context requirement | undeclared | 2 | MORPHEUS error [2]: unknown option: --bogus
             augmented-context requirement | duplicate | 2 | MORPHEUS error [2]: duplicate option: --project

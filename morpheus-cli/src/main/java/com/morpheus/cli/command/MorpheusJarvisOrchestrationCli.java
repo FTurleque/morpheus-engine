@@ -15,7 +15,6 @@ import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.project.ProjectSpecificationId;
 
 import java.io.PrintStream;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -49,7 +48,10 @@ public final class MorpheusJarvisOrchestrationCli {
                 throw new IllegalArgumentException("change-orchestration requires action: state | transition-check");
             }
             String action = parsed.tokens().getFirst();
-            Options options = Options.parse(parsed.tokens().subList(1, parsed.tokens().size()));
+            CommandOptions options = CommandOptions.parse(parsed.tokens().subList(1, parsed.tokens().size()),
+                    CommandOptions.Declared.values("project", "change", "lifecycle", "from", "to",
+                            "from-abandonment-reason", "abandonment-reason")
+                            .andFlags("allow-backward", "allow-completed-reopen"));
             ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required("project"));
             ChangeId changeId = ChangeId.parse(options.required("change"));
             try (CliRuntime runtime = CliRuntime.recovering(parsed.layout().databasePath(), recorder)) {
@@ -72,12 +74,12 @@ public final class MorpheusJarvisOrchestrationCli {
     private int state(
             CliRuntime runtime,
             Parsed parsed,
-            Options options,
+            CommandOptions options,
             ProjectSpecificationId projectId,
             ChangeId changeId,
             PrintStream out) {
-        options.rejectFlags("allow-backward", "allow-completed-reopen");
-        options.rejectKeys("from", "to", "from-abandonment-reason");
+        notValidForThisAction(options,
+                "allow-backward", "allow-completed-reopen", "from", "to", "from-abandonment-reason");
         ChangeLifecycleObservation observation = observation(options);
         ChangeOrchestrationState result = new ChangeOrchestrationStateService(
                         runtime.snapshots(),
@@ -94,11 +96,11 @@ public final class MorpheusJarvisOrchestrationCli {
     private int transition(
             CliRuntime runtime,
             Parsed parsed,
-            Options options,
+            CommandOptions options,
             ProjectSpecificationId projectId,
             ChangeId changeId,
             PrintStream out) {
-        options.rejectKeys("lifecycle");
+        notValidForThisAction(options, "lifecycle");
         ChangeLifecycleState from = lifecycleState(options.required("from"), "--from");
         ChangeLifecycleState target = lifecycleState(options.required("to"), "--to");
         Optional<ChangeAbandonmentReason> fromReason = abandonmentReason(
@@ -126,7 +128,7 @@ public final class MorpheusJarvisOrchestrationCli {
         return CliExitCode.SUCCESS.code();
     }
 
-    private ChangeLifecycleObservation observation(Options options) {
+    private ChangeLifecycleObservation observation(CommandOptions options) {
         Optional<String> lifecycle = options.optional("lifecycle");
         Optional<ChangeAbandonmentReason> reason = abandonmentReason(
                 options.optional("abandonment-reason"), "--abandonment-reason");
@@ -202,67 +204,11 @@ public final class MorpheusJarvisOrchestrationCli {
         }
     }
 
-    private static final class Options {
-        private final Map<String, String> values = new LinkedHashMap<>();
-        private final Map<String, Boolean> flags = new LinkedHashMap<>();
-
-        static Options parse(List<String> tokens) {
-            Options result = new Options();
-            for (int index = 0; index < tokens.size(); index++) {
-                String token = tokens.get(index);
-                switch (token) {
-                    case "--allow-backward", "--allow-completed-reopen" -> {
-                        String key = token.substring(2);
-                        if (result.flags.putIfAbsent(key, true) != null) {
-                            throw new IllegalArgumentException("duplicate option: " + token);
-                        }
-                    }
-                    case "--project", "--change", "--lifecycle", "--from", "--to",
-                         "--from-abandonment-reason", "--abandonment-reason" -> {
-                        String key = token.substring(2);
-                        if (result.values.putIfAbsent(key, require(tokens, ++index, token)) != null) {
-                            throw new IllegalArgumentException("duplicate option: " + token);
-                        }
-                    }
-                    default -> throw new IllegalArgumentException("unknown option: " + token);
-                }
+    private static void notValidForThisAction(CommandOptions options, String... keys) {
+        for (String key : keys) {
+            if (options.given(key)) {
+                throw new IllegalArgumentException("--" + key + " is not valid for this change-orchestration action");
             }
-            return result;
-        }
-
-        String required(String key) {
-            return optional(key).orElseThrow(() -> new IllegalArgumentException("--" + key + " is required"));
-        }
-
-        Optional<String> optional(String key) {
-            return Optional.ofNullable(values.get(key)).map(String::trim);
-        }
-
-        boolean flag(String key) {
-            return flags.getOrDefault(key, false);
-        }
-
-        void rejectKeys(String... keys) {
-            for (String key : keys) {
-                if (values.containsKey(key)) {
-                    throw new IllegalArgumentException("--" + key + " is not valid for this change-orchestration action");
-                }
-            }
-        }
-
-        void rejectFlags(String... keys) {
-            for (String key : keys) {
-                if (flags.containsKey(key)) {
-                    throw new IllegalArgumentException("--" + key + " is not valid for this change-orchestration action");
-                }
-            }
-        }
-
-        private static String require(List<String> tokens, int index, String option) {
-            if (index >= tokens.size() || tokens.get(index).startsWith("--")) {
-                throw new IllegalArgumentException(option + " requires a value");
-            }
-            return OptionValue.nonBlank(option, tokens.get(index));
         }
     }
 }
