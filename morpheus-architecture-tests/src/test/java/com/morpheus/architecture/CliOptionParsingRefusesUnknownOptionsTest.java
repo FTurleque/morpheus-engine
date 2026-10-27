@@ -1,7 +1,6 @@
 package com.morpheus.architecture;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -25,19 +24,17 @@ import org.junit.jupiter.api.Test;
 /**
  * An option the CLI does not read is refused, not ignored -- by every option parser of the module, not by one.
  *
- * <p>{@code SimpleOptions.parse} accepts any {@code --key value} pair; only {@code rejectUnknown} refuses the unknown
- * one, and calling it is optional. One adapter never called it, so {@code portfolio references --projet X} emptied the
- * optional project filter and returned every reference of the portfolio, exit code 0 (CLI-3). The first guard looked
- * for the literal {@code SimpleOptions.parse(} only, while the module has several parser families, each with its own
- * {@code rejectUnknown} (CLI-8). This guard <em>discovers</em> the parsers instead of naming them, with three rules:</p>
+ * <p>A parser that accepts any {@code --key value} pair and refuses the unknown ones only in a {@code rejectUnknown}
+ * its caller must remember to call is how {@code portfolio references --projet X} once emptied the optional project
+ * filter and returned every reference of the portfolio with exit code 0 (CLI-3). The module has one parser of option
+ * tokens, {@code CommandOptions}, which takes the options a sub-command declares when it parses, so there is no such
+ * call to forget. This guard <em>discovers</em> the parsers instead of naming them, with four rules:</p>
  *
  * <ol>
- *   <li><b>Permissive families.</b> A type that declares {@code void rejectUnknown(} is a parser that accepts any key.
- *   Every {@code <Family>.parse(} call must be followed, in the block that encloses it -- or in its arm, when that
- *   block is a {@code switch} body -- by a {@code rejectUnknown} call; when a {@code switch} dispatches before any such
- *   call, every arm that does not merely throw must make it. This imposes a shape: a guard placed after the
- *   {@code try}, the {@code if} or the lambda that holds the parse is refused, though it would run.
- *   Each family discovered must have at least one call site.</li>
+ *   <li><b>Permissive families.</b> A type that declares {@code void rejectUnknown(} is a parser that accepts any key;
+ *   the module has none, and one that appears is refused. The scan still checks the shape such a family imposes --
+ *   every {@code <Family>.parse(} call followed, in the block that encloses it or in its {@code switch} arm, by a
+ *   {@code rejectUnknown} call -- and the synthetic cases below hold that check.</li>
  *   <li><b>Option switches.</b> A {@code switch} with a {@code case "--..."} label decides which options exist. It must
  *   have a {@code default} arm that throws. Handing the token on instead ({@code remaining.add(token)}) is accepted
  *   only from a switch over the global options ({@code --json --data-dir --config-dir --db}) in a parser of the raw
@@ -45,22 +42,24 @@ import org.junit.jupiter.api.Test;
  *   <li><b>Terminal parsers.</b> A method named {@code parse} whose first parameter is a {@code List<String>} of
  *   option tokens either belongs to a family, or contains an option switch, or throws an {@code unknown ... option}
  *   refusal itself -- thrown, not merely mentioned.</li>
+ *   <li><b>One parser.</b> The types that declare a terminal parser are the shared parser, {@link #SHARED_PARSER}, and
+ *   the named exceptions of {@link #OTHER_OPTION_PARSERS}; a sub-command that nests a parser of its own is refused,
+ *   named by its file and its type.</li>
  * </ol>
  *
  * <p>Comments and string literals, text blocks included, are blanked before scanning, so a {@code rejectUnknown} in a
  * comment or in a message satisfies nothing. The rule is textual because the proposition is about a call that must
- * <em>follow</em> another in the same block, and about the shape of a {@code switch}; no dependency rule over compiled
- * classes expresses either ({@code .claude/rules/architecture.md}).</p>
+ * <em>follow</em> another in the same block, about the shape of a {@code switch} and about which type declares a
+ * method of a given shape in a source file; no dependency rule over compiled classes expresses them
+ * ({@code .claude/rules/architecture.md}).</p>
  *
- * <p>What it does not cover: the <em>argument</em> of {@code rejectUnknown} -- a call allowing every option would
- * satisfy rule 1 -- nor its receiver; a dispatch written as a chain of {@code if} is checked for the presence of one
- * call, not per branch. The exact allowed sets are held by the adapters' own tests. Three parsers of the raw argument
- * vector are not seen: {@code MorpheusProductCli.parse} and {@code MorpheusProviderPluginCli.parse} refuse at the end
- * of a chain of {@code if}, {@code MorpheusServerCli.options} checks an allowlist in a method not named {@code parse};
- * each adapter test has an unknown-option case instead. The launch parsers ({@code ApiLaunchOptions},
- * {@code McpLaunchOptions}, {@code RemoteApiLaunchOptions}) pass rule 2 on a {@code default} that is unreachable:
- * their real refusal collects unknown tokens and throws after the loop, which the rule does not see. Nor does it see
- * a method reference ({@code SimpleOptions::parse}) or a switch whose labels are constants.</p>
+ * <p>What it does not cover: a parser of option tokens whose method is not named {@code parse} or whose first
+ * parameter is not a {@code List<String>} -- the server's reading of the layout options, which accepts the
+ * {@code --x=value} spelling, is such a parser of the raw argument vector; the exact sets a sub-command declares,
+ * held by the adapters' own tests and by {@code CliOptionRefusalTableTest}. The launch parsers
+ * ({@code ApiLaunchOptions}, {@code McpLaunchOptions}, {@code RemoteApiLaunchOptions}) pass rule 2 on a {@code default}
+ * that is unreachable: their real refusal collects unknown tokens and throws after the loop, which the rule does not
+ * see. Nor does it see a method reference ({@code CommandOptions::parse}) or a switch whose labels are constants.</p>
  */
 class CliOptionParsingRefusesUnknownOptionsTest {
 
@@ -81,14 +80,17 @@ class CliOptionParsingRefusesUnknownOptionsTest {
     private static final Set<String> CONTROL = Set.of("if", "for", "while", "switch", "catch", "synchronized", "try");
     /** The options every command accepts ahead of its name; only a switch over these may hand a token on. */
     private static final Set<String> GLOBAL_OPTIONS = Set.of("\"--json\"", "\"--data-dir\"", "\"--config-dir\"", "\"--db\"");
+    /** The one parser of option tokens, to which a sub-command declares the options it accepts. */
+    static final String SHARED_PARSER = "CommandOptions";
+    /** Other types that parse a list of option tokens, with the reason they are not the shared parser. */
+    static final Map<String, String> OTHER_OPTION_PARSERS = Map.of();
 
     @Test
     void everyOptionParserOfTheCliRefusesAnUnknownOption() throws IOException {
         Scan scan = scan(cliSources());
 
-        assertFalse(scan.sitesByFamily().isEmpty(), "no parser family declares rejectUnknown: the rule would be vacuous");
-        scan.sitesByFamily().forEach((family, sites) ->
-                assertTrue(sites > 0, "the family " + family + " has no parse call site: the rule would be vacuous for it"));
+        assertEquals(Map.of(), scan.sitesByFamily(), "a parser of the CLI accepts any key and refuses later in"
+                + " rejectUnknown; declare the options to " + SHARED_PARSER + " when parsing instead");
         assertTrue(scan.optionSwitches() > 0, "the scan found no option switch: the rule would be vacuous");
         assertTrue(scan.terminalParsers() > 0, "the scan found no terminal parser: the rule would be vacuous");
         assertEquals(List.of(), scan.violations(), "an option parser of the CLI accepts a misspelled option silently");
@@ -207,6 +209,53 @@ class CliOptionParsingRefusesUnknownOptionsTest {
                 scan(Map.of("A.java", silent)).violations());
         assertEquals(1, scan(Map.of("A.java", mentioning)).violations().size(), "a mention is not a refusal");
         assertEquals(List.of(), scan(Map.of("A.java", refusing)).violations());
+    }
+
+    @Test
+    void theOptionTokensOfEverySubCommandAreParsedByTheSharedParserOrANamedException() throws IOException {
+        Set<String> parsers = optionTokenParsers(cliSources());
+
+        assertTrue(parsers.contains(SHARED_PARSER), "the scan did not find the shared parser: " + parsers);
+        Set<String> others = new TreeSet<>(parsers);
+        others.remove(SHARED_PARSER);
+        others.removeAll(OTHER_OPTION_PARSERS.keySet());
+        assertEquals(Set.of(), others, "a sub-command parses its option tokens itself; declare its options to "
+                + SHARED_PARSER + " instead");
+        assertTrue(parsers.containsAll(OTHER_OPTION_PARSERS.keySet()),
+                "a named exception is no longer an option parser; remove it from the list: " + OTHER_OPTION_PARSERS.keySet());
+    }
+
+    @Test
+    void aNestedParserOfASubCommandIsNamedWithItsFile() {
+        String nested = "final class A {\n    private static final class Options {\n"
+                + "        static Options parse(List<String> tokens) {\n"
+                + "            throw new IllegalArgumentException(\"unknown option: \" + tokens);\n        }\n    }\n}\n";
+        String shared = "public final class " + SHARED_PARSER + " {\n"
+                + "    public static " + SHARED_PARSER + " parse(List<String> tokens, Declared declared) {\n"
+                + "        return null;\n    }\n}\n";
+
+        assertEquals(Set.of("A.java#Options", SHARED_PARSER),
+                optionTokenParsers(Map.of("A.java", nested, SHARED_PARSER + ".java", shared)));
+    }
+
+    /**
+     * The types that declare a terminal parser ({@code parse} whose first parameter is a {@code List<String>}): a
+     * top-level type by its name, a nested one by its file and its name.
+     */
+    static Set<String> optionTokenParsers(Map<String, String> sources) {
+        Set<String> parsers = new TreeSet<>();
+        sources.forEach((name, text) -> {
+            Unit unit = Unit.of(name, text.replace("\r\n", "\n"));
+            for (Block method : unit.blocks()) {
+                if (method.kind() != Kind.METHOD || !TERMINAL_PARSE.matcher(unit.header(method)).find()) {
+                    continue;
+                }
+                Block owner = unit.innermost(method.open(), Kind.TYPE);
+                String ownerName = owner == null ? "?" : owner.name();
+                parsers.add(owner != null && unit.isTopLevel(owner) ? ownerName : unit.name() + "#" + ownerName);
+            }
+        });
+        return parsers;
     }
 
     private static Map<String, String> withSimpleOptions(String name, String text) {

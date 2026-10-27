@@ -2,6 +2,7 @@ package com.morpheus.cli;
 
 import com.morpheus.application.operability.OperationalLogMode;
 import com.morpheus.application.operability.OperationalRuntime;
+import com.morpheus.application.query.dsl.QueryBudgets;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
@@ -34,7 +35,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
  * data directory.</p>
  *
  * <p>The table is the contract the parsers keep: a cell that changes is a change of what a script sees on a malformed
- * call, and it is written in the release notes.</p>
+ * call, and it is written in the release notes. A sub-command that answers some input differently from the others
+ * does so by declaration, in {@link #DECLARED_DIFFERENCES}, where the difference is run too.</p>
  */
 class CliOptionRefusalTableTest {
     private static final String PROJECT = "01900000-0000-7000-8000-000000000001";
@@ -80,7 +82,7 @@ class CliOptionRefusalTableTest {
             augmented-context requirement | blank-value | 2 | MORPHEUS error [2]: --project requires a non-blank value; omit the option to leave it unset
             augmented-context requirement | positional | 2 | MORPHEUS error [2]: unexpected positional argument: stray
             augmented-context requirement | repeated-flag | 2 | MORPHEUS error [2]: duplicate option: --explain
-            external-references list | undeclared | 2 | MORPHEUS error [2]: unknown options: [bogus]
+            external-references list | undeclared | 2 | MORPHEUS error [2]: unknown option: --bogus
             external-references list | duplicate | 2 | MORPHEUS error [2]: duplicate option: --project
             external-references list | missing-value | 2 | MORPHEUS error [2]: --project requires a value
             external-references list | dash-value | 2 | MORPHEUS error [2]: --project requires a value
@@ -218,6 +220,53 @@ class CliOptionRefusalTableTest {
                     assertFalse(Files.exists(data), "a refused call wrote under its data directory: " + data);
                 }))));
         return GeneratedCases.nonEmpty("everyCellOfTheTableIsWhatTheSubCommandAnswers", tests.stream());
+    }
+
+    /**
+     * What a sub-command answers differently from the table, by declaration: each entry is a call, its exit code and
+     * its error line, and runs like a cell. {@code <data>} is the case's data directory.
+     */
+    private static final Map<String, Difference> DECLARED_DIFFERENCES = Map.of(
+            "server: the layout options are also read in the --x=value spelling",
+            new Difference(List.of("--data-dir=<data>", "server", "identity", "list", "--bogus", "x"),
+                    "2 | MORPHEUS server usage error: unknown option: --bogus"),
+            "augmented-context: an option of the other subject has its own refusal",
+            new Difference(List.of("--data-dir", "<data>", "augmented-context", "requirement", "--project", PROJECT,
+                    "--requirement", "r", "--change", "c"),
+                    "2 | MORPHEUS error [2]: --change is not valid for augmented-context requirement"),
+            "change-orchestration: an option of the other action has its own refusal",
+            new Difference(List.of("--data-dir", "<data>", "change-orchestration", "state", "--project", PROJECT,
+                    "--change", "c", "--from", "PROPOSED"),
+                    "2 | MORPHEUS error [2]: --from is not valid for this change-orchestration action"),
+            "export query: the paging options have their own refusal",
+            new Difference(List.of("--data-dir", "<data>", "export", "query", "--format", "json", "--offset", "1"),
+                    "2 | MORPHEUS error [2]: --offset is not accepted by export: an export is always complete, bounded"
+                            + " by " + QueryBudgets.MAX_EXPORT_ROWS + " rows and never by a page"),
+            "help: the words after the command are not read",
+            new Difference(List.of("--data-dir", "<data>", "help", "--bogus", "x"), "0 | "));
+
+    private record Difference(List<String> args, String expected) {
+    }
+
+    @TestFactory
+    Stream<DynamicTest> everyDeclaredDifferenceIsWhatTheSubCommandAnswers() {
+        return GeneratedCases.nonEmpty("everyDeclaredDifferenceIsWhatTheSubCommandAnswers",
+                new java.util.TreeMap<>(DECLARED_DIFFERENCES).entrySet().stream().map(entry -> DynamicTest.dynamicTest(
+                        entry.getKey(), () -> {
+                            Path data = temp.resolve("case-" + cases.incrementAndGet());
+                            String[] args = entry.getValue().args().stream()
+                                    .map(token -> token.replace("<data>", data.toString())).toArray(String[]::new);
+
+                            Result result = run(args);
+
+                            assertEquals(entry.getValue().expected(),
+                                    result.exitCode() + " | " + firstLine(result.err()), String.join(" ", args));
+                            assertFalse(Files.exists(data), "a refused call wrote under its data directory: " + data);
+                        })));
+    }
+
+    private static String firstLine(String text) {
+        return text.lines().findFirst().orElse("");
     }
 
     @Test

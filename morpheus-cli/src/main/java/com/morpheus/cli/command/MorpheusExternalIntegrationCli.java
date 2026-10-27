@@ -17,7 +17,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
-import java.util.Set;
 import java.util.TreeMap;
 
 /** Additive M12 CLI surface. Business resolution remains in application services. */
@@ -84,10 +83,10 @@ public final class MorpheusExternalIntegrationCli {
             throw new IllegalArgumentException("external-references requires subcommand: list | resolve");
         }
         String subcommand = parsed.tokens().getFirst();
-        Options options = Options.parse(parsed.tokens().subList(1, parsed.tokens().size()));
-        options.rejectUnknown(switch (subcommand) {
-            case "list" -> Set.of("project", "owner");
-            case "resolve" -> Set.of("project", "reference");
+        List<String> optionTokens = parsed.tokens().subList(1, parsed.tokens().size());
+        CommandOptions options = CommandOptions.parse(optionTokens, switch (subcommand) {
+            case "list" -> CommandOptions.Declared.values("project", "owner");
+            case "resolve" -> CommandOptions.Declared.values("project", "reference");
             default -> throw new IllegalArgumentException("unknown external-references subcommand: " + subcommand);
         });
         try (CliRuntime runtime = CliRuntime.recovering(parsed.layout().databasePath(), recorder)) {
@@ -108,7 +107,7 @@ public final class MorpheusExternalIntegrationCli {
     private int list(
             LiveExternalReferenceResolutionService service,
             ProjectSpecificationId projectId,
-            Options options,
+            CommandOptions options,
             boolean jsonOutput,
             PrintStream out) {
         DomainIdentity ownerId = DomainIdentity.parse(options.required("owner"));
@@ -129,7 +128,7 @@ public final class MorpheusExternalIntegrationCli {
     private int resolve(
             LiveExternalReferenceResolutionService service,
             ProjectSpecificationId projectId,
-            Options options,
+            CommandOptions options,
             boolean jsonOutput,
             PrintStream out) {
         ExternalReferenceId referenceId = ExternalReferenceId.parse(options.required("reference"));
@@ -189,49 +188,6 @@ public final class MorpheusExternalIntegrationCli {
                     global.dataDirectory(), global.configDirectory(), global.databasePath(), environment, properties);
             return new Parsed(
                     global.json(), layout, remaining.getFirst(), List.copyOf(remaining.subList(1, remaining.size())));
-        }
-    }
-
-    private static final class Options {
-        private final Map<String, String> values;
-
-        private Options(Map<String, String> values) {
-            this.values = Map.copyOf(values);
-        }
-
-        static Options parse(List<String> tokens) {
-            Map<String, String> values = new LinkedHashMap<>();
-            for (int index = 0; index < tokens.size(); index++) {
-                String token = tokens.get(index);
-                if (!token.startsWith("--")) {
-                    throw new IllegalArgumentException("unexpected positional argument: " + token);
-                }
-                String key = token.substring(2);
-                if (index + 1 >= tokens.size() || tokens.get(index + 1).startsWith("--")) {
-                    throw new IllegalArgumentException(token + " requires a value");
-                }
-                if (values.putIfAbsent(key, tokens.get(++index)) != null) {
-                    throw new IllegalArgumentException("duplicate option: --" + key);
-                }
-            }
-            return new Options(values);
-        }
-
-        String required(String key) {
-            String value = values.get(key);
-            if (value == null) {
-                throw new IllegalArgumentException("--" + key + " is required");
-            }
-            return OptionValue.nonBlank("--" + key, value).trim();
-        }
-
-        void rejectUnknown(Set<String> allowed) {
-            Set<String> unknown = new java.util.HashSet<>(values.keySet());
-            unknown.removeAll(allowed);
-            if (!unknown.isEmpty()) {
-                throw new IllegalArgumentException("unknown options: " + unknown);
-            }
-            new java.util.TreeMap<>(values).forEach((key, value) -> OptionValue.nonBlank("--" + key, value));
         }
     }
 }

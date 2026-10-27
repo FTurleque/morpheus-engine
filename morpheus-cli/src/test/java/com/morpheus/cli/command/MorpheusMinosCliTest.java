@@ -45,7 +45,7 @@ class MorpheusMinosCliTest {
         assertTrue(invocation.stdout().contains("\"system\":\"MINOS\""), invocation.stdout());
     }
 
-    /** The options used to be checked in list and resolve, after the project lookup had already failed. */
+    /** The options of list and resolve are declared before the project is looked up. */
     @Test
     void anOptionTheSubcommandDoesNotReadIsRefusedBeforeTheProjectIsLookedUp() {
         String data = tempDirectory.resolve("options").toString();
@@ -54,12 +54,12 @@ class MorpheusMinosCliTest {
         Invocation list = invoke("--data-dir", data, "external-references", "list", "--project", projectId,
                 "--owner", DomainIdentity.generate().toString(), "--reference", "x");
         assertEquals(2, list.exitCode(), list.stderr());
-        assertTrue(list.stderr().contains("unknown options: [reference]"), list.stderr());
+        assertTrue(list.stderr().contains("unknown option: --reference"), list.stderr());
 
         Invocation resolve = invoke("--data-dir", data, "external-references", "resolve", "--project", projectId,
                 "--reference", ExternalReferenceId.generate().toString(), "--owner", "x");
         assertEquals(2, resolve.exitCode(), resolve.stderr());
-        assertTrue(resolve.stderr().contains("unknown options: [owner]"), resolve.stderr());
+        assertTrue(resolve.stderr().contains("unknown option: --owner"), resolve.stderr());
 
         Invocation unknownSubcommand = invoke("--data-dir", data, "external-references", "purge", "--project", projectId);
         assertEquals(2, unknownSubcommand.exitCode(), unknownSubcommand.stderr());

@@ -52,6 +52,12 @@ public final class MorpheusJarvisOrchestrationCli {
                     CommandOptions.Declared.values("project", "change", "lifecycle", "from", "to",
                             "from-abandonment-reason", "abandonment-reason")
                             .andFlags("allow-backward", "allow-completed-reopen"));
+            switch (action) {
+                case "state" -> notValidForThisAction(options,
+                        "allow-backward", "allow-completed-reopen", "from", "to", "from-abandonment-reason");
+                case "transition-check" -> notValidForThisAction(options, "lifecycle");
+                default -> throw new IllegalArgumentException("unknown change-orchestration action: " + action);
+            }
             ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required("project"));
             ChangeId changeId = ChangeId.parse(options.required("change"));
             try (CliRuntime runtime = CliRuntime.recovering(parsed.layout().databasePath(), recorder)) {
@@ -78,8 +84,6 @@ public final class MorpheusJarvisOrchestrationCli {
             ProjectSpecificationId projectId,
             ChangeId changeId,
             PrintStream out) {
-        notValidForThisAction(options,
-                "allow-backward", "allow-completed-reopen", "from", "to", "from-abandonment-reason");
         ChangeLifecycleObservation observation = observation(options);
         ChangeOrchestrationState result = new ChangeOrchestrationStateService(
                         runtime.snapshots(),
@@ -100,7 +104,6 @@ public final class MorpheusJarvisOrchestrationCli {
             ProjectSpecificationId projectId,
             ChangeId changeId,
             PrintStream out) {
-        notValidForThisAction(options, "lifecycle");
         ChangeLifecycleState from = lifecycleState(options.required("from"), "--from");
         ChangeLifecycleState target = lifecycleState(options.required("to"), "--to");
         Optional<ChangeAbandonmentReason> fromReason = abandonmentReason(

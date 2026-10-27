@@ -50,3 +50,8 @@ Ce qui change, commande par commande :
   de `x requires a value`.
 - `server` : une option inconnue répond `unknown option: --x` au lieu de `unknown server option: --x`, et un mot en
   trop `unexpected positional argument: x` au lieu de `unexpected server argument: x`.
+- `change-orchestration` : une option de l'autre action (`--from` pour `state`, `--lifecycle` pour
+  `transition-check`) est refusée avant l'ouverture de la base, avec le code de sortie 2, même quand le projet
+  n'existe pas.
+- `external-references` : une option inconnue est nommée seule (`unknown option: --bogus` au lieu de
+  `unknown options: [bogus]`), et une sous-commande inconnue est refusée avant que ses options ne soient lues.
