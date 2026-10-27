@@ -80,12 +80,12 @@ public final class MorpheusPortfolioCli {
                 throw new IllegalArgumentException("portfolio requires an action");
             }
             String action = parsed.tokens().getFirst();
-            SimpleOptions options = SimpleOptions.parse(parsed.tokens().subList(1, parsed.tokens().size()));
             Set<String> allowed = ACTION_OPTIONS.get(action);
             if (allowed == null) {
                 throw new IllegalArgumentException("unknown portfolio action: " + action);
             }
-            options.rejectUnknown(allowed);
+            CommandOptions options = CommandOptions.parse(
+                    parsed.tokens().subList(1, parsed.tokens().size()), CommandOptions.Declared.values(allowed));
             try (CliRuntime runtime = CliRuntime.open(parsed.layout().databasePath(), recorder)) {
                 PortfolioStore store = runtime.portfolios();
                 PortfolioRegistryService registry = new PortfolioRegistryService(store);
@@ -160,11 +160,11 @@ public final class MorpheusPortfolioCli {
         }
     }
 
-    private static PortfolioId portfolio(SimpleOptions options) {
+    private static PortfolioId portfolio(CommandOptions options) {
         return PortfolioId.parse(options.required(OPT_PORTFOLIO));
     }
 
-    private static PortfolioEntityRef entity(SimpleOptions options, String prefix) {
+    private static PortfolioEntityRef entity(CommandOptions options, String prefix) {
         return new PortfolioEntityRef(
                 ProjectSpecificationId.parse(options.required(prefix + "-project")),
                 options.required(prefix + "-type"),
@@ -188,7 +188,7 @@ public final class MorpheusPortfolioCli {
                 .collect(Collectors.toUnmodifiableSet());
     }
 
-    private static int integer(SimpleOptions options, String key, int fallback) {
+    private static int integer(CommandOptions options, String key, int fallback) {
         return options.optional(key).map(Integer::parseInt).orElse(fallback);
     }
 

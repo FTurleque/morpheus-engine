@@ -97,7 +97,7 @@ class CliOptionRefusalTableTest {
             portfolio overview | missing-value | 2 | MORPHEUS error [2]: --portfolio requires a value
             portfolio overview | dash-value | 2 | MORPHEUS error [2]: --portfolio requires a value
             portfolio overview | blank-value | 2 | MORPHEUS error [2]: --portfolio requires a non-blank value; omit the option to leave it unset
-            portfolio overview | positional | 2 | MORPHEUS error [2]: unknown token: stray
+            portfolio overview | positional | 2 | MORPHEUS error [2]: unexpected positional argument: stray
             views get | undeclared | 2 | MORPHEUS error [2]: unknown option: --bogus
             views get | duplicate | 2 | MORPHEUS error [2]: duplicate option: --id
             views get | missing-value | 2 | MORPHEUS error [2]: --id requires a value
