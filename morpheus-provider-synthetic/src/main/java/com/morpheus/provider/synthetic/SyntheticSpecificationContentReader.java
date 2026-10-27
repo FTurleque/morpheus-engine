@@ -1,6 +1,8 @@
 package com.morpheus.provider.synthetic;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
+import com.morpheus.application.foundation.StableKey;
+import com.morpheus.application.foundation.TextDigest;
 import com.morpheus.application.files.SafeWorkspaceFileResolver;
 import com.morpheus.application.ingestion.NormalizedProjectContent;
 import com.morpheus.application.read.ProviderReadRequest;
@@ -35,12 +37,8 @@ import com.morpheus.domain.specification.Specification;
 import com.morpheus.domain.specification.SpecificationId;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -182,7 +180,7 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
             for (Object rawScenario : array(requirementSource, "scenarios")) {
                 Map<String, Object> scenarioSource = object(rawScenario, "scenario");
                 String scenarioTitle = string(scenarioSource, "title");
-                String scenarioExternalId = "scenario:" + requirementKey + "/" + slug(scenarioTitle);
+                String scenarioExternalId = "scenario:" + requirementKey + "/" + StableKey.fromTitle(scenarioTitle);
                 ScenarioSemantics semantics = semantics(strings(scenarioSource, "steps"));
                 Evidence scenarioEvidence = evidence(identities, scenarioExternalId, source, sourceText, sourceLines);
                 evidence.add(scenarioEvidence);
@@ -351,7 +349,7 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
                 evidenceId,
                 SourceLocator.file(relativePath),
                 Optional.of(new SourceRange(1, lines)),
-                Optional.of(sha256(text)));
+                Optional.of(TextDigest.sha256(text)));
     }
 
     private ReadCategoryReport report(
@@ -460,22 +458,7 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
                 evidenceId,
                 source,
                 Optional.of(new SourceRange(1, sourceLines)),
-                Optional.of(sha256(sourceText)));
-    }
-
-    private String sha256(String value) {
-        try {
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(digest);
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 is unavailable", exception);
-        }
-    }
-
-    private String slug(String value) {
-        return value.toLowerCase(Locale.ROOT)
-                .replaceAll("[^a-z0-9]+", "-")
-                .replaceAll("^-|-$", "");
+                Optional.of(TextDigest.sha256(sourceText)));
     }
 
     private Map<String, Object> object(Map<String, Object> source, String key) {
