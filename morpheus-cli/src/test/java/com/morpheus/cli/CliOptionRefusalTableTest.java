@@ -46,7 +46,7 @@ class CliOptionRefusalTableTest {
             acceptance-criteria list | missing-value | 2 | MORPHEUS error [2]: --project requires a value
             acceptance-criteria list | dash-value | 2 | MORPHEUS error [2]: --project requires a value
             acceptance-criteria list | blank-value | 2 | MORPHEUS error [2]: --project requires a non-blank value; omit the option to leave it unset
-            acceptance-criteria list | positional | 2 | MORPHEUS error [2]: unknown option: stray
+            acceptance-criteria list | positional | 2 | MORPHEUS error [2]: unexpected positional argument: stray
             constraints evaluate | undeclared | 2 | MORPHEUS error [2]: unknown option: --bogus
             constraints evaluate | duplicate | 2 | MORPHEUS error [2]: duplicate option: --project
             constraints evaluate | missing-value | 2 | MORPHEUS error [2]: --project requires a value

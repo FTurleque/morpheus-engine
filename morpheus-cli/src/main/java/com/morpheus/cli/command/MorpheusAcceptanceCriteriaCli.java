@@ -11,7 +11,6 @@ import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.requirement.RequirementId;
 
 import java.io.PrintStream;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -43,16 +42,15 @@ public final class MorpheusAcceptanceCriteriaCli {
             if (parsed.tokens().isEmpty() || !"list".equals(parsed.tokens().getFirst())) {
                 throw new IllegalArgumentException("acceptance-criteria requires action: list");
             }
-            Options options = Options.parse(parsed.tokens().subList(1, parsed.tokens().size()));
+            CommandOptions options = CommandOptions.parse(parsed.tokens().subList(1, parsed.tokens().size()),
+                    CommandOptions.Declared.values("project", "change", "requirement", "offset", "limit"));
             ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required("project"));
             Optional<ChangeId> changeId = options.optional("change").map(ChangeId::parse);
             Optional<RequirementId> requirementId = options.optional("requirement").map(RequirementId::parse);
             if (changeId.isPresent() && requirementId.isPresent()) {
                 throw new IllegalArgumentException("--change and --requirement are mutually exclusive");
             }
-            PageRequest pageRequest = new PageRequest(
-                    options.intValue("offset", 0, 0, Integer.MAX_VALUE),
-                    options.intValue("limit", 20, 1, PageRequest.MAX_LIMIT));
+            PageRequest pageRequest = options.page();
 
             try (CliRuntime runtime = CliRuntime.recovering(parsed.layout().databasePath(), recorder)) {
                 if (runtime.snapshots().findProject(projectId).isEmpty()) {
@@ -119,58 +117,6 @@ public final class MorpheusAcceptanceCriteriaCli {
                     CliLayout.resolve(global.dataDirectory(), global.configDirectory(), global.databasePath(),
                             environment, properties),
                     List.copyOf(remaining.subList(1, remaining.size())));
-        }
-    }
-
-    private static final class Options {
-        private final Map<String, String> values = new LinkedHashMap<>();
-
-        static Options parse(List<String> tokens) {
-            Options result = new Options();
-            for (int index = 0; index < tokens.size(); index++) {
-                String token = tokens.get(index);
-                switch (token) {
-                    case "--project", "--change", "--requirement", "--offset", "--limit" -> {
-                        String key = token.substring(2);
-                        if (result.values.putIfAbsent(key, require(tokens, ++index, token)) != null) {
-                            throw new IllegalArgumentException("duplicate option: " + token);
-                        }
-                    }
-                    default -> throw new IllegalArgumentException("unknown option: " + token);
-                }
-            }
-            return result;
-        }
-
-        String required(String key) {
-            return optional(key).orElseThrow(() -> new IllegalArgumentException("--" + key + " is required"));
-        }
-
-        Optional<String> optional(String key) {
-            return Optional.ofNullable(values.get(key)).map(String::trim);
-        }
-
-        int intValue(String key, int defaultValue, int min, int max) {
-            Optional<String> value = optional(key);
-            if (value.isEmpty()) {
-                return defaultValue;
-            }
-            try {
-                int parsed = Integer.parseInt(value.orElseThrow());
-                if (parsed < min || parsed > max) {
-                    throw new IllegalArgumentException("--" + key + " must be between " + min + " and " + max);
-                }
-                return parsed;
-            } catch (NumberFormatException failure) {
-                throw new IllegalArgumentException("--" + key + " must be an integer", failure);
-            }
-        }
-
-        private static String require(List<String> tokens, int index, String option) {
-            if (index >= tokens.size() || tokens.get(index).startsWith("--")) {
-                throw new IllegalArgumentException(option + " requires a value");
-            }
-            return OptionValue.nonBlank(option, tokens.get(index));
         }
     }
 
