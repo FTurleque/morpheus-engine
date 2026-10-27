@@ -82,12 +82,11 @@ public final class MorpheusPolicyCli {
     public int run(String[] args, PrintStream out, PrintStream err, Map<String, String> environment, Properties properties) {
         try {
             Parsed parsed = Parsed.parse(args, environment, properties);
-            SimpleOptions options = SimpleOptions.parse(parsed.arguments());
             Set<String> allowed = ACTION_OPTIONS.get(parsed.action());
             if (allowed == null) {
                 throw new IllegalArgumentException("unknown policy action: " + parsed.action());
             }
-            options.rejectUnknown(allowed);
+            CommandOptions options = CommandOptions.parse(parsed.arguments(), CommandOptions.Declared.values(allowed));
             try (CliRuntime runtime = CliRuntime.open(parsed.layout().databasePath(), recorder)) {
                 Object result = execute(parsed.action(), options, runtime);
                 CliExitCode exitCode = CliExitCode.SUCCESS;
@@ -111,7 +110,7 @@ public final class MorpheusPolicyCli {
         }
     }
 
-    private Object execute(String action, SimpleOptions options, CliRuntime runtime) {
+    private Object execute(String action, CommandOptions options, CliRuntime runtime) {
         return switch (action) {
             case "pack-create" -> PolicyPublicViews.definition(runtime.registry().create(
                     options.required("name"), rules(options.required(OPT_RULES)),
@@ -228,11 +227,11 @@ public final class MorpheusPolicyCli {
         }
     }
 
-    private PolicyIds.PackId pack(SimpleOptions options) {
+    private PolicyIds.PackId pack(CommandOptions options) {
         return PolicyIds.PackId.parse(options.required("id"));
     }
 
-    private PolicyScope scope(SimpleOptions options) {
+    private PolicyScope scope(CommandOptions options) {
         Optional<String> project = options.optional(OPT_PROJECT);
         Optional<String> portfolio = options.optional(OPT_PORTFOLIO);
         if (project.isPresent() == portfolio.isPresent()) {
@@ -242,7 +241,7 @@ public final class MorpheusPolicyCli {
                 .orElseGet(() -> new PolicyScope.Portfolio(PortfolioId.parse(portfolio.orElseThrow())));
     }
 
-    private long revision(SimpleOptions options) {
+    private long revision(CommandOptions options) {
         long value = parseLong(options.required(OPT_EXPECTED_REVISION), OPT_EXPECTED_REVISION);
         if (value <= 0) {
             throw new IllegalArgumentException("--expected-revision must be positive");
@@ -250,7 +249,7 @@ public final class MorpheusPolicyCli {
         return value;
     }
 
-    private long revisionAllowZero(SimpleOptions options) {
+    private long revisionAllowZero(CommandOptions options) {
         long value = parseLong(options.required(OPT_EXPECTED_REVISION), OPT_EXPECTED_REVISION);
         if (value < 0) {
             throw new IllegalArgumentException("--expected-revision must be >= 0");
@@ -258,7 +257,7 @@ public final class MorpheusPolicyCli {
         return value;
     }
 
-    private int boundedInt(SimpleOptions options, String key, int defaultValue, int min, int max) {
+    private int boundedInt(CommandOptions options, String key, int defaultValue, int min, int max) {
         long value = options.optional(key).map(raw -> parseLong(raw, key)).orElse((long) defaultValue);
         if (value < min || value > max) {
             throw new IllegalArgumentException("--" + key + " must be between " + min + " and " + max);

@@ -91,7 +91,7 @@ class CliOptionRefusalTableTest {
             policy pack get | missing-value | 2 | MORPHEUS error [2]: --id requires a value
             policy pack get | dash-value | 2 | MORPHEUS error [2]: --id requires a value
             policy pack get | blank-value | 2 | MORPHEUS error [2]: --id requires a non-blank value; omit the option to leave it unset
-            policy pack get | positional | 2 | MORPHEUS error [2]: unknown token: stray
+            policy pack get | positional | 2 | MORPHEUS error [2]: unexpected positional argument: stray
             portfolio overview | undeclared | 2 | MORPHEUS error [2]: unknown option: --bogus
             portfolio overview | duplicate | 2 | MORPHEUS error [2]: duplicate option: --portfolio
             portfolio overview | missing-value | 2 | MORPHEUS error [2]: --portfolio requires a value
