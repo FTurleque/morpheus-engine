@@ -1,5 +1,6 @@
 package com.morpheus.architecture.m28;
 
+import com.morpheus.architecture.RepositoryRoot;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -21,7 +22,7 @@ class McpClientIntegrationArchitectureTest {
      */
     @Test
     void exactlyOneWindowsInstallerPipelineExists() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         Path distribution = root.resolve("distribution");
         assertFalse(Files.exists(distribution.resolve("build-windows-installer.ps1")),
                 "the retired WiX/jpackage pipeline must not come back under its old name");
@@ -55,7 +56,7 @@ class McpClientIntegrationArchitectureTest {
 
     @Test
     void integrationManagerIsNativeOptInConservativeAndStateDriven() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String manager = Files.readString(root.resolve("integration/configure-mcp-clients.ps1"));
         String setupWrapper = Files.readString(root.resolve("integration/configure-mcp-clients-setup.ps1"));
 
@@ -97,7 +98,7 @@ class McpClientIntegrationArchitectureTest {
      */
     @Test
     void theSetupLifecycleVerificationRefusesToRunOverAnExistingInstallation() throws IOException {
-        String lifecycle = Files.readString(repoRoot().resolve("scripts/verify-windows-setup-lifecycle.ps1"));
+        String lifecycle = Files.readString(RepositoryRoot.locate().resolve("scripts/verify-windows-setup-lifecycle.ps1"));
         int guard = lifecycle.indexOf("if (Test-Path -LiteralPath $UninstallRegistryKey) {");
         int firstStart = lifecycle.indexOf("Start-Process");
 
@@ -118,7 +119,7 @@ class McpClientIntegrationArchitectureTest {
      */
     @Test
     void installerExposesDetectionDrivenClientPageAndConservativeUninstall() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String installer = Files.readString(root.resolve("distribution/windows/MORPHEUS.iss"));
 
         assertTrue(installer.contains("'Clients IA'"));
@@ -151,7 +152,7 @@ class McpClientIntegrationArchitectureTest {
      */
     @Test
     void installerActivatesThePayloadThroughTheTransactionalUpgradeEngine() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String installer = Files.readString(root.resolve("distribution/windows/MORPHEUS.iss"));
         String engine = Files.readString(root.resolve("distribution/windows/update-installation.ps1"));
         String builder = Files.readString(root.resolve("distribution/build-installer.ps1"));
@@ -193,7 +194,7 @@ class McpClientIntegrationArchitectureTest {
 
     @Test
     void portableDistributionsContainTheIntegrationLayer() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String windows = Files.readString(root.resolve("distribution/build-portable.ps1"));
         String linux = Files.readString(root.resolve("distribution/build-portable.sh"));
 
@@ -205,7 +206,7 @@ class McpClientIntegrationArchitectureTest {
 
     @Test
     void windowsValidationDispatcherDoesNotDependOnPowerShellBeingInPath() throws IOException {
-        String wrapper = Files.readString(repoRoot().resolve("scripts/validate.cmd"));
+        String wrapper = Files.readString(RepositoryRoot.locate().resolve("scripts/validate.cmd"));
 
         assertTrue(wrapper.contains("%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"));
         assertTrue(wrapper.contains("%SystemRoot%\\Sysnative\\WindowsPowerShell\\v1.0\\powershell.exe"));
@@ -217,7 +218,7 @@ class McpClientIntegrationArchitectureTest {
 
     @Test
     void validationAndUserDocumentationArePartOfTheContract() {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         assertTrue(Files.isRegularFile(root.resolve("scripts/validate.cmd")));
         assertTrue(Files.isRegularFile(root.resolve("scripts/validate.ps1")));
         assertTrue(Files.isRegularFile(root.resolve("scripts/README.md")));
@@ -240,7 +241,7 @@ class McpClientIntegrationArchitectureTest {
      */
     @Test
     void smokeModeLetsTheRealWizardSelectASandboxedClientWithoutTouchingProduction() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String installer = Files.readString(root.resolve("distribution/windows/MORPHEUS.iss"));
         String builder = Files.readString(root.resolve("distribution/build-installer.ps1"));
         String setupWrapper = Files.readString(root.resolve("integration/configure-mcp-clients-setup.ps1"));
@@ -284,17 +285,5 @@ class McpClientIntegrationArchitectureTest {
         assertTrue(smokeTest.contains("manually modified") || smokeTest.contains("modified managed entry"));
         assertTrue(smokeTest.contains("RealClaudeDesktopConfig"),
                 "the smoke test must assert the real machine's Claude Desktop configuration was never touched");
-    }
-
-    private Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
-            return current;
-        }
-        Path parent = current.getParent();
-        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml")) && Files.isDirectory(parent.resolve("distribution"))) {
-            return parent;
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found from " + current);
     }
 }
