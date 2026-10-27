@@ -131,12 +131,12 @@ class CliOptionRefusalTableTest {
             provider-plugins discover | dash-value | 2 | MORPHEUS provider-plugin usage error: --directory requires a value
             provider-plugins discover | blank-value | 2 | MORPHEUS provider-plugin usage error: --directory requires a non-blank value; omit the option to leave it unset
             provider-plugins discover | positional | 2 | MORPHEUS provider-plugin usage error: unexpected positional argument: stray
-            reason analyze | undeclared | 2 | MORPHEUS usage error: unknown reason option: --bogus
+            reason analyze | undeclared | 2 | MORPHEUS usage error: unknown option: --bogus
             reason analyze | duplicate | 2 | MORPHEUS usage error: duplicate option: --question
             reason analyze | missing-value | 2 | MORPHEUS usage error: --question requires a value
             reason analyze | dash-value | 2 | MORPHEUS usage error: --question requires a value
             reason analyze | blank-value | 2 | MORPHEUS usage error: --question requires a non-blank value; omit the option to leave it unset
-            reason analyze | positional | 2 | MORPHEUS usage error: stray requires a value
+            reason analyze | positional | 2 | MORPHEUS usage error: unexpected positional argument: stray
             server identity list | undeclared | 2 | MORPHEUS server usage error: unknown server option: --bogus
             server identity list | duplicate | 2 | MORPHEUS server usage error: duplicate option: --auth-file
             server identity list | missing-value | 2 | MORPHEUS server usage error: --auth-file requires a value

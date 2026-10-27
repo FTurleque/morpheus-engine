@@ -10,17 +10,18 @@ import com.morpheus.application.reasoning.ReasoningContracts;
 import com.morpheus.application.reasoning.ReasoningService;
 
 import java.io.PrintStream;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 
 /** Read-only M27 CLI. Evidence and adapter selection are always explicit. */
 final class MorpheusReasoningCli {
+    private static final String OPT_QUESTION = "question";
+    private static final String OPT_EVIDENCE = "evidence";
+    private static final String OPT_ADAPTER = "adapter";
+    private static final String OPT_PARAM = "param";
+    private static final String OPT_MAX_CLAIMS = "max-claims";
     private final ReasoningService service;
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
@@ -123,53 +124,23 @@ final class MorpheusReasoningCli {
     }
 
     private static Parsed parse(String[] args) {
-        boolean jsonOutput = false;
-        String command = "";
-        String action = "";
+        GlobalArgs.Parsed global = GlobalArgs.parse(args);
+        List<String> remaining = global.remaining();
+        String command = remaining.isEmpty() ? "" : remaining.getFirst();
+        String action = remaining.size() < 2 ? "" : remaining.get(1);
+        CommandOptions given = CommandOptions.parse(remaining.subList(Math.min(2, remaining.size()), remaining.size()),
+                CommandOptions.Declared.values(OPT_QUESTION, OPT_MAX_CLAIMS)
+                        .andRepeated(OPT_EVIDENCE, OPT_ADAPTER, OPT_PARAM));
+        boolean jsonOutput = global.json();
         Map<String, String> options = new LinkedHashMap<>();
+        given.asGiven(OPT_QUESTION).ifPresent(question -> options.put(OPT_QUESTION, question));
+        List<String> evidence = given.all(OPT_EVIDENCE);
+        List<String> adapters = given.all(OPT_ADAPTER);
         Map<String, String> parameters = new LinkedHashMap<>();
-        List<String> evidence = new ArrayList<>();
-        List<String> adapters = new ArrayList<>();
-        List<String> tokens = new ArrayList<>(Arrays.asList(args));
-        Set<String> given = new HashSet<>();
-        int maxClaims = ReasoningContracts.MAX_CLAIMS;
-
-        for (int index = 0; index < tokens.size(); index++) {
-            String token = tokens.get(index);
-            if (token.equals("--json")) {
-                jsonOutput = true;
-                continue;
-            }
-            if (token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db")) {
-                OptionOccurrence.once(given, token);
-                index = requireValue(tokens, index, token);
-                OptionValue.nonBlank(token, tokens.get(index));
-                continue;
-            }
-            if (command.isEmpty()) {
-                command = token;
-                continue;
-            }
-            if (action.isEmpty()) {
-                action = token;
-                continue;
-            }
-            int valueIndex = requireValue(tokens, index, token);
-            String value = tokens.get(valueIndex);
-            switch (token) {
-                case "--question" -> putOnce(options, "question", OptionValue.nonBlank(token, value));
-                case "--evidence" -> evidence.add(OptionValue.nonBlank(token, value));
-                case "--adapter" -> adapters.add(OptionValue.nonBlank(token, value));
-                case "--param" -> addAssignment(parameters, OptionValue.nonBlank(token, value), "--param");
-                case "--max-claims" -> {
-                    OptionOccurrence.once(given, token);
-                    maxClaims = parseInteger(
-                            OptionValue.nonBlank(token, value), "--max-claims", 1, ReasoningContracts.MAX_CLAIMS);
-                }
-                default -> throw new IllegalArgumentException("unknown reason option: " + token);
-            }
-            index = valueIndex;
-        }
+        given.all(OPT_PARAM).forEach(parameter -> addAssignment(parameters, parameter, "--param"));
+        int maxClaims = given.asGiven(OPT_MAX_CLAIMS)
+                .map(raw -> parseInteger(raw, "--max-claims", 1, ReasoningContracts.MAX_CLAIMS))
+                .orElse(ReasoningContracts.MAX_CLAIMS);
 
         if (!command.equals("reason")) {
             throw new IllegalArgumentException("expected reason command");
@@ -224,20 +195,6 @@ final class MorpheusReasoningCli {
         }
     }
 
-    private static void putOnce(Map<String, String> options, String key, String value) {
-        if (options.putIfAbsent(key, value) != null) {
-            throw new IllegalArgumentException("duplicate option: --" + key);
-        }
-    }
-
-    private static int requireValue(List<String> tokens, int optionIndex, String option) {
-        int valueIndex = optionIndex + 1;
-        if (valueIndex >= tokens.size() || tokens.get(valueIndex).startsWith("--")) {
-            throw new IllegalArgumentException(option + " requires a value");
-        }
-        return valueIndex;
-    }
-
     private static int parseInteger(String raw, String option, int minimum, int maximum) {
         try {
             int value = Integer.parseInt(raw);
@@ -279,7 +236,7 @@ final class MorpheusReasoningCli {
             if (value == null) {
                 throw new IllegalArgumentException("missing required option --" + name);
             }
-            // A blank value never gets here: parse() refuses it through OptionValue as it reads the arguments.
+            // A blank value never gets here: CommandOptions refuses it through OptionValue as it reads the arguments.
             return value;
         }
     }

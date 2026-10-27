@@ -45,3 +45,6 @@ Ce qui change, commande par commande :
   `unknown option for <commande>: --x`, et un mot en trop `unexpected positional argument: x`.
 - `provider-plugins` : une option inconnue répond `unknown option: --x` au lieu de
   `unknown provider-plugins option: --x`, et un mot en trop `unexpected positional argument: x`.
+- `reason` : une option inconnue répond `unknown option: --x` au lieu de `unknown reason option: --x` (ou de
+  `--x requires a value` quand elle était la dernière), et un mot en trop `unexpected positional argument: x` au lieu
+  de `x requires a value`.
