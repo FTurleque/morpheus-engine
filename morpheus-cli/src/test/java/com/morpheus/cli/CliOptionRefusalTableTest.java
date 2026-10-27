@@ -64,7 +64,7 @@ class CliOptionRefusalTableTest {
             lifecycle apply | missing-value | 2 | MORPHEUS error [2]: --project requires a value
             lifecycle apply | dash-value | 2 | MORPHEUS error [2]: --project requires a value
             lifecycle apply | blank-value | 2 | MORPHEUS error [2]: --project requires a non-blank value; omit the option to leave it unset
-            lifecycle apply | positional | 2 | MORPHEUS error [2]: unknown option: stray
+            lifecycle apply | positional | 2 | MORPHEUS error [2]: unexpected positional argument: stray
             lifecycle apply | repeated-flag | 2 | MORPHEUS error [2]: duplicate option: --confirm
             change-orchestration state | undeclared | 2 | MORPHEUS error [2]: unknown option: --bogus
             change-orchestration state | duplicate | 2 | MORPHEUS error [2]: duplicate option: --project

@@ -22,7 +22,6 @@ import com.morpheus.provider.openspec.OpenSpecSpecificationProvider;
 
 import java.io.PrintStream;
 import java.time.Instant;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -55,12 +54,14 @@ public final class MorpheusControlledLifecycleCli {
             if (parsed.tokens().isEmpty() || !"apply".equals(parsed.tokens().getFirst())) {
                 throw new IllegalArgumentException("lifecycle requires action: apply");
             }
-            Options options = Options.parse(parsed.tokens().subList(1, parsed.tokens().size()));
+            CommandOptions options = CommandOptions.parse(parsed.tokens().subList(1, parsed.tokens().size()),
+                    CommandOptions.Declared.values("project", "change", "expected-revision", "to", "idempotency-key",
+                            "actor", "abandonment-reason").andFlags("confirm"));
             ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required("project"));
             ChangeId changeId = ChangeId.parse(options.required("change"));
             ChangeLifecycleState target = lifecycleState(options.required("to"));
             Optional<ChangeAbandonmentReason> abandonmentReason = abandonmentReason(options.optional("abandonment-reason"));
-            long expectedRevision = options.longValue("expected-revision", 0, Long.MAX_VALUE);
+            long expectedRevision = options.requiredLong("expected-revision", 0, Long.MAX_VALUE);
             String actor = options.required("actor");
             ChangeLifecycleIdempotencyKey idempotencyKey =
                     new ChangeLifecycleIdempotencyKey(options.required("idempotency-key"));
@@ -155,66 +156,6 @@ public final class MorpheusControlledLifecycleCli {
                     CliLayout.resolve(global.dataDirectory(), global.configDirectory(), global.databasePath(),
                             environment, properties),
                     List.copyOf(remaining.subList(1, remaining.size())));
-        }
-    }
-
-    private static final class Options {
-        private final Map<String, String> values = new LinkedHashMap<>();
-        private boolean confirm;
-
-        static Options parse(List<String> tokens) {
-            Options result = new Options();
-            for (int index = 0; index < tokens.size(); index++) {
-                String token = tokens.get(index);
-                switch (token) {
-                    case "--project", "--change", "--expected-revision", "--to", "--idempotency-key", "--actor", "--abandonment-reason" -> {
-                        String key = token.substring(2);
-                        if (result.values.putIfAbsent(key, require(tokens, ++index, token)) != null) {
-                            throw new IllegalArgumentException("duplicate option: " + token);
-                        }
-                    }
-                    case "--confirm" -> {
-                        if (result.confirm) {
-                            throw new IllegalArgumentException("duplicate option: --confirm");
-                        }
-                        result.confirm = true;
-                    }
-                    default -> throw new IllegalArgumentException("unknown option: " + token);
-                }
-            }
-            return result;
-        }
-
-        String required(String key) {
-            return optional(key).orElseThrow(() -> new IllegalArgumentException("--" + key + " is required"));
-        }
-
-        Optional<String> optional(String key) {
-            return Optional.ofNullable(values.get(key)).map(String::trim);
-        }
-
-        boolean flag(String key) {
-            return "confirm".equals(key) && confirm;
-        }
-
-        long longValue(String key, long min, long max) {
-            String value = required(key);
-            try {
-                long parsed = Long.parseLong(value);
-                if (parsed < min || parsed > max) {
-                    throw new IllegalArgumentException("--" + key + " must be between " + min + " and " + max);
-                }
-                return parsed;
-            } catch (NumberFormatException failure) {
-                throw new IllegalArgumentException("--" + key + " must be an integer", failure);
-            }
-        }
-
-        private static String require(List<String> tokens, int index, String option) {
-            if (index >= tokens.size() || tokens.get(index).startsWith("--")) {
-                throw new IllegalArgumentException(option + " requires a value");
-            }
-            return OptionValue.nonBlank(option, tokens.get(index));
         }
     }
 }
