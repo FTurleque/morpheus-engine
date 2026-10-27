@@ -1,6 +1,7 @@
 package com.morpheus.mcp;
 
 import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.payload.PublicPayloads;
 import com.morpheus.application.query.SnapshotPage;
 import com.morpheus.domain.acceptance.AcceptanceCriterion;
 import com.morpheus.domain.change.ChangeId;
@@ -41,6 +42,6 @@ public final class MorpheusAcceptanceCriteriaMcpTools {
         SnapshotPage<AcceptanceCriterion> result = McpCatalogTool.business(runtime)
                 .activeAcceptanceCriteriaForChange(projectId, changeId, McpCatalogTool.page(arguments))
                 .orElseThrow(() -> McpCatalogTool.notFound("project has no ACTIVE snapshot: " + projectId));
-        return McpContentPayloads.page(result, result.items().stream().map(McpContentPayloads::acceptanceCriterion).toList());
+        return McpContentPayloads.page(result, result.items().stream().map(PublicPayloads::acceptanceCriterion).toList());
     }
 }

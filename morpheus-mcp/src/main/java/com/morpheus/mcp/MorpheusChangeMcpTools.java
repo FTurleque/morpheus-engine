@@ -2,6 +2,7 @@ package com.morpheus.mcp;
 
 import com.morpheus.application.foundation.PayloadMap;
 import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.payload.PublicPayloads;
 import com.morpheus.application.quality.ChangeCompletenessAssessment;
 import com.morpheus.application.quality.ChangeCompletenessService;
 import com.morpheus.application.query.ChangeContextQueryService;
@@ -61,7 +62,7 @@ public final class MorpheusChangeMcpTools {
         var result = McpCatalogTool.business(runtime).activeChange(projectId, changeId)
                 .orElseThrow(() -> McpCatalogTool.notFound(NO_ACTIVE_SNAPSHOT + projectId));
         ChangeProposal change = result.item().orElseThrow(() -> McpCatalogTool.notFound("change not found: " + changeId));
-        return PayloadMap.of("snapshotId", result.snapshot().id().toString(), "change", McpContentPayloads.change(change));
+        return PayloadMap.of("snapshotId", result.snapshot().id().toString(), "change", PublicPayloads.change(change));
     }
 
     private static Object listChanges(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
@@ -69,7 +70,7 @@ public final class MorpheusChangeMcpTools {
         SnapshotPage<ChangeProposal> result = McpCatalogTool.business(runtime)
                 .listActiveChanges(projectId, McpCatalogTool.page(arguments))
                 .orElseThrow(() -> McpCatalogTool.notFound(NO_ACTIVE_SNAPSHOT + projectId));
-        return McpContentPayloads.page(result, result.items().stream().map(McpContentPayloads::change).toList());
+        return McpContentPayloads.page(result, result.items().stream().map(PublicPayloads::change).toList());
     }
 
     private static Object constraints(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
@@ -79,7 +80,7 @@ public final class MorpheusChangeMcpTools {
         SnapshotPage<Constraint> result = McpCatalogTool.business(runtime)
                 .activeConstraints(projectId, changeId, McpCatalogTool.page(arguments))
                 .orElseThrow(() -> McpCatalogTool.notFound(NO_ACTIVE_SNAPSHOT + projectId));
-        return McpContentPayloads.page(result, result.items().stream().map(McpContentPayloads::constraint).toList());
+        return McpContentPayloads.page(result, result.items().stream().map(PublicPayloads::constraint).toList());
     }
 
     private static Object decisions(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
@@ -89,7 +90,7 @@ public final class MorpheusChangeMcpTools {
         SnapshotPage<DesignDecision> result = McpCatalogTool.business(runtime)
                 .activeDesignDecisions(projectId, changeId, McpCatalogTool.page(arguments))
                 .orElseThrow(() -> McpCatalogTool.notFound(NO_ACTIVE_SNAPSHOT + projectId));
-        return McpContentPayloads.page(result, result.items().stream().map(McpContentPayloads::decision).toList());
+        return McpContentPayloads.page(result, result.items().stream().map(PublicPayloads::decision).toList());
     }
 
     private static Object tasks(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
@@ -99,7 +100,7 @@ public final class MorpheusChangeMcpTools {
         SnapshotPage<ImplementationTask> result = McpCatalogTool.business(runtime)
                 .activeImplementationTasks(projectId, changeId, McpCatalogTool.page(arguments))
                 .orElseThrow(() -> McpCatalogTool.notFound(NO_ACTIVE_SNAPSHOT + projectId));
-        return McpContentPayloads.page(result, result.items().stream().map(McpContentPayloads::task).toList());
+        return McpContentPayloads.page(result, result.items().stream().map(PublicPayloads::task).toList());
     }
 
     private static Object changeContext(MorpheusMcpRuntime runtime, Map<String, Object> arguments) {
