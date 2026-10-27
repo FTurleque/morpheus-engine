@@ -3,4 +3,4 @@ exit: 2
 stdout:
 
 stderr:
-MORPHEUS error [2]: unknown options: [bogus]
+MORPHEUS error [2]: unknown option: --bogus

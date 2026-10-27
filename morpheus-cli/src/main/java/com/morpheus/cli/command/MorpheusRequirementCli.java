@@ -55,8 +55,8 @@ public final class MorpheusRequirementCli {
         if (tokens.isEmpty() || !tokens.getFirst().equals("find")) {
             throw CliFailure.usage("requirements requires subcommand: find");
         }
-        CommandOptions options = CommandOptions.parse(tokens.subList(1, tokens.size()), Set.of());
-        options.rejectUnknown(Set.of(OPT_PROJECT, "query", "offset", "limit"));
+        CommandOptions options = CommandOptions.parse(tokens.subList(1, tokens.size()),
+                CommandOptions.Declared.values(OPT_PROJECT, "query", "offset", "limit"));
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         PageRequest pageRequest = options.page();
         RequirementSearchQuery query = new RequirementSearchQuery(options.optional("query").orElse(""));
@@ -78,8 +78,7 @@ public final class MorpheusRequirementCli {
     }
 
     private int traceRequirement(List<String> tokens, CliCommandRun run) {
-        CommandOptions options = CommandOptions.parse(tokens, Set.of());
-        options.rejectUnknown(Set.of(OPT_PROJECT, "requirement", "depth"));
+        CommandOptions options = CommandOptions.parse(tokens, CommandOptions.Declared.values(OPT_PROJECT, "requirement", "depth"));
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         RequirementId requirementId = RequirementId.parse(options.required("requirement"));
         int depth = options.intValue("depth", 2, 1, 20);

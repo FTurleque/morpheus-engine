@@ -48,7 +48,7 @@ class MorpheusMainTest {
 
         Invocation forced = launch("--data-dir", data().toString(), "sync", "--project", projectId, "--force");
 
-        // A second --force would be rejected by CommandOptions as "duplicate flag", so SUCCESS proves single delivery.
+        // A second --force would be rejected by CommandOptions as a duplicate option, so SUCCESS proves single delivery.
         assertEquals(CliExitCode.SUCCESS.code(), forced.exitCode(), forced.stderr());
         assertTrue(forced.stdout().contains("mode=FULL_REBUILD"), forced.stdout());
         assertTrue(forced.stdout().contains("fullRebuildReason=FORCED"), forced.stdout());

@@ -104,21 +104,21 @@ class CliOptionRefusalTableTest {
             views get | dash-value | 2 | MORPHEUS error [2]: --id requires a value
             views get | blank-value | 2 | MORPHEUS error [2]: --id requires a non-blank value; omit the option to leave it unset
             views get | positional | 2 | MORPHEUS error [2]: unknown token: stray
-            changes list | undeclared | 2 | MORPHEUS error [2]: --project is required
+            changes list | undeclared | 2 | MORPHEUS error [2]: unknown option: --bogus
             changes list | duplicate | 2 | MORPHEUS error [2]: duplicate option: --project
             changes list | missing-value | 2 | MORPHEUS error [2]: --project requires a value
             changes list | dash-value | 2 | MORPHEUS error [2]: --project requires a value
             changes list | blank-value | 2 | MORPHEUS error [2]: --project requires a non-blank value; omit the option to leave it unset
-            changes list | positional | 2 | MORPHEUS error [2]: unexpected positional arguments: [stray]
-            sync | undeclared | 2 | MORPHEUS error [2]: unknown options: [bogus]
+            changes list | positional | 2 | MORPHEUS error [2]: unexpected positional argument: stray
+            sync | undeclared | 2 | MORPHEUS error [2]: unknown option: --bogus
             sync | duplicate | 2 | MORPHEUS error [2]: duplicate option: --project
             sync | missing-value | 2 | MORPHEUS error [2]: --project requires a value
             sync | dash-value | 2 | MORPHEUS error [2]: --project requires a value
             sync | blank-value | 2 | MORPHEUS error [2]: --project requires a non-blank value; omit the option to leave it unset
-            sync | positional | 2 | MORPHEUS error [2]: unexpected positional arguments: [stray]
-            sync | repeated-flag | 2 | MORPHEUS error [2]: duplicate flag: --force
-            paths | undeclared | 0
-            paths | positional | 0
+            sync | positional | 2 | MORPHEUS error [2]: unexpected positional argument: stray
+            sync | repeated-flag | 2 | MORPHEUS error [2]: duplicate option: --force
+            paths | undeclared | 2 | MORPHEUS error [2]: unknown option: --bogus
+            paths | positional | 2 | MORPHEUS error [2]: unexpected positional argument: stray
             update-check | undeclared | 2 | MORPHEUS usage error: unknown option for update-check: --bogus
             update-check | duplicate | 2 | MORPHEUS usage error: duplicate option: --manifest
             update-check | missing-value | 2 | MORPHEUS usage error: --manifest requires a value
