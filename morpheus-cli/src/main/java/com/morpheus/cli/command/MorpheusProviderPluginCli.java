@@ -10,9 +10,6 @@ import com.morpheus.sdk.provider.ProviderPluginViews;
 
 import java.io.PrintStream;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +18,7 @@ import java.util.Set;
 
 /** Explicit M22 provider-plugin discovery/probe commands. No plugin directory is scanned at startup. */
 public final class MorpheusProviderPluginCli {
+    private static final List<String> OPTIONS = List.of("directory", "plugin", "workspace", "sha256");
     private final ProviderPluginService service;
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
@@ -103,42 +101,14 @@ public final class MorpheusProviderPluginCli {
     }
 
     private static Parsed parse(String[] args) {
-        boolean json = false;
-        String command = "";
-        String action = "";
+        GlobalArgs.Parsed global = GlobalArgs.parse(args);
+        List<String> remaining = global.remaining();
+        String command = remaining.isEmpty() ? "" : remaining.getFirst();
+        String action = remaining.size() < 2 ? "" : remaining.get(1);
+        CommandOptions given = CommandOptions.parse(remaining.subList(Math.min(2, remaining.size()), remaining.size()),
+                CommandOptions.Declared.values(Set.copyOf(OPTIONS)));
         Map<String, String> options = new LinkedHashMap<>();
-        Set<String> given = new HashSet<>();
-        List<String> tokens = new ArrayList<>(Arrays.asList(args));
-        for (int index = 0; index < tokens.size(); index++) {
-            String token = tokens.get(index);
-            if (token.equals("--json")) {
-                json = true;
-                continue;
-            }
-            if (token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db")) {
-                OptionOccurrence.once(given, token);
-                index = requireValue(tokens, index, token);
-                OptionValue.nonBlank(token, tokens.get(index));
-                continue;
-            }
-            if (command.isEmpty()) {
-                command = token;
-                continue;
-            }
-            if (action.isEmpty()) {
-                action = token;
-                continue;
-            }
-            if (token.equals("--directory") || token.equals("--plugin")
-                    || token.equals("--workspace") || token.equals("--sha256")) {
-                OptionOccurrence.once(given, token);
-                int valueIndex = requireValue(tokens, index, token);
-                options.put(token.substring(2), OptionValue.nonBlank(token, tokens.get(valueIndex)));
-                index = valueIndex;
-                continue;
-            }
-            throw new IllegalArgumentException("unknown provider-plugins option: " + token);
-        }
+        OPTIONS.forEach(option -> given.asGiven(option).ifPresent(value -> options.put(option, value)));
         if (!command.equals("provider-plugins")) {
             throw new IllegalArgumentException("missing provider-plugins command");
         }
@@ -159,15 +129,7 @@ public final class MorpheusProviderPluginCli {
                 && (options.containsKey("plugin") || options.containsKey("workspace") || options.containsKey("sha256"))) {
             throw new IllegalArgumentException("discover accepts only --directory PATH");
         }
-        return new Parsed(json, action, Map.copyOf(options));
-    }
-
-    private static int requireValue(List<String> tokens, int optionIndex, String option) {
-        int valueIndex = optionIndex + 1;
-        if (valueIndex >= tokens.size() || tokens.get(valueIndex).startsWith("--")) {
-            throw new IllegalArgumentException(option + " requires a value");
-        }
-        return valueIndex;
+        return new Parsed(global.json(), action, Map.copyOf(options));
     }
 
     private record Parsed(boolean json, String action, Map<String, String> options) {
@@ -176,7 +138,7 @@ public final class MorpheusProviderPluginCli {
             if (value == null) {
                 throw new IllegalArgumentException("missing required option --" + name);
             }
-            // A blank value never gets here: parse() refuses it through OptionValue as it reads the arguments.
+            // A blank value never gets here: CommandOptions refuses it through OptionValue as it reads the arguments.
             return value;
         }
     }

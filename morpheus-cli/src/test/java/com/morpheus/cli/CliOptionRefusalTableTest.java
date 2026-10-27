@@ -125,12 +125,12 @@ class CliOptionRefusalTableTest {
             update-check | dash-value | 2 | MORPHEUS usage error: --manifest requires a value
             update-check | blank-value | 2 | MORPHEUS usage error: --manifest requires a non-blank value; omit the option to leave it unset
             update-check | positional | 2 | MORPHEUS usage error: unexpected positional argument: stray
-            provider-plugins discover | undeclared | 2 | MORPHEUS provider-plugin usage error: unknown provider-plugins option: --bogus
+            provider-plugins discover | undeclared | 2 | MORPHEUS provider-plugin usage error: unknown option: --bogus
             provider-plugins discover | duplicate | 2 | MORPHEUS provider-plugin usage error: duplicate option: --directory
             provider-plugins discover | missing-value | 2 | MORPHEUS provider-plugin usage error: --directory requires a value
             provider-plugins discover | dash-value | 2 | MORPHEUS provider-plugin usage error: --directory requires a value
             provider-plugins discover | blank-value | 2 | MORPHEUS provider-plugin usage error: --directory requires a non-blank value; omit the option to leave it unset
-            provider-plugins discover | positional | 2 | MORPHEUS provider-plugin usage error: unknown provider-plugins option: stray
+            provider-plugins discover | positional | 2 | MORPHEUS provider-plugin usage error: unexpected positional argument: stray
             reason analyze | undeclared | 2 | MORPHEUS usage error: unknown reason option: --bogus
             reason analyze | duplicate | 2 | MORPHEUS usage error: duplicate option: --question
             reason analyze | missing-value | 2 | MORPHEUS usage error: --question requires a value
