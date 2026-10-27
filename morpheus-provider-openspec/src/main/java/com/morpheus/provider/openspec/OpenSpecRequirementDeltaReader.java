@@ -1,5 +1,7 @@
 package com.morpheus.provider.openspec;
 
+import com.morpheus.application.foundation.StableKey;
+import com.morpheus.application.foundation.TextDigest;
 import com.morpheus.application.identity.EntityIdentityResolver;
 import com.morpheus.application.read.ProviderIngestionBudget;
 import com.morpheus.domain.change.ChangeId;
@@ -21,14 +23,9 @@ import com.morpheus.domain.scenario.ScenarioId;
 import com.morpheus.domain.source.SourceLocator;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.text.Normalizer;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -138,7 +135,7 @@ public final class OpenSpecRequirementDeltaReader {
             List<Evidence> evidence,
             List<Diagnostic> diagnostics,
             ProviderIngestionBudget.Session budget) {
-        List<String> lines = readAllLines(workspaceRoot, specificationFile, budget);
+        List<String> lines = OpenSpecSourceText.readAllLines(workspaceRoot, specificationFile, budget);
         String specificationKey = specificationKey(specsRoot, specificationFile);
         SourceLocator source = SourceLocator.file(workspaceRoot.relativize(specificationFile).toString());
         OpenSpecCodeFences fences = OpenSpecCodeFences.of(lines);
@@ -236,7 +233,7 @@ public final class OpenSpecRequirementDeltaReader {
         }
 
         String title = heading.group(1).trim();
-        String requirementKey = specificationKey + "/" + slug(title);
+        String requirementKey = specificationKey + "/" + StableKey.fromTitle(title);
         String requirementExternalId = "requirement:" + requirementKey;
         RequirementId requirementId = new RequirementId(identities.resolve(
                 OpenSpecSpecificationProvider.ID,
@@ -263,7 +260,7 @@ public final class OpenSpecRequirementDeltaReader {
             }
         }
 
-        String statementText = joinContent(lines, start + 1, firstScenario);
+        String statementText = OpenSpecSourceText.joinContent(lines, start + 1, firstScenario);
         Optional<String> statement = statementText.isBlank() ? Optional.empty() : Optional.of(statementText);
         int deltaEvidenceEnd = Math.max(start + 1, firstScenario);
         Evidence deltaEvidence = evidence(
@@ -343,7 +340,7 @@ public final class OpenSpecRequirementDeltaReader {
         String externalId = "scenario-delta:"
                 + changeKey + ":"
                 + kind.name().toLowerCase(Locale.ROOT) + ":"
-                + requirementKey + "/" + slug(title);
+                + requirementKey + "/" + StableKey.fromTitle(title);
         List<String> preconditions = new ArrayList<>();
         StringBuilder action = new StringBuilder();
         StringBuilder expectedOutcome = new StringBuilder();
@@ -514,53 +511,7 @@ public final class OpenSpecRequirementDeltaReader {
                 evidenceId,
                 source,
                 Optional.of(new SourceRange(normalizedStart, normalizedEnd)),
-                Optional.of(sha256(excerpt)));
-    }
-
-    private List<String> readAllLines(
-            Path workspaceRoot,
-            Path source,
-            ProviderIngestionBudget.Session budget) {
-        try {
-            return budget.readDocument(workspaceRoot.relativize(source))
-                    .lines()
-                    .toList();
-        } catch (IOException exception) {
-            throw new IllegalStateException(
-                    "Cannot read OpenSpec source: " + OpenSpecSourceAttribution.relayable(exception), exception);
-        }
-    }
-
-    private String joinContent(List<String> lines, int startInclusive, int endExclusive) {
-        List<String> content = new ArrayList<>();
-        for (int index = startInclusive; index < endExclusive; index++) {
-            String line = lines.get(index).trim();
-            if (!line.isEmpty() && !line.startsWith("#")) {
-                content.add(line);
-            }
-        }
-        return String.join(" ", content).trim();
-    }
-
-    private String slug(String value) {
-        String normalized = Normalizer.normalize(value, Normalizer.Form.NFD)
-                .replaceAll("\\p{M}+", "")
-                .toLowerCase(Locale.ROOT)
-                .replaceAll("[^a-z0-9]+", "-")
-                .replaceAll("^-+|-+$", "");
-        if (normalized.isBlank()) {
-            throw new IllegalArgumentException("Cannot derive a stable key from: " + value);
-        }
-        return normalized;
-    }
-
-    private String sha256(String value) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 must be available", exception);
-        }
+                Optional.of(TextDigest.sha256(excerpt)));
     }
 
     private void append(StringBuilder target, String value) {

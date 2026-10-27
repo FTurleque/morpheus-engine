@@ -1,5 +1,7 @@
 package com.morpheus.provider.openspec;
 
+import com.morpheus.application.foundation.StableKey;
+import com.morpheus.application.foundation.TextDigest;
 import com.morpheus.application.identity.EntityIdentityResolver;
 import com.morpheus.application.ingestion.NormalizedProjectContent;
 import com.morpheus.application.read.ProviderIngestionBudget;
@@ -24,16 +26,10 @@ import com.morpheus.domain.task.TaskId;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.text.Normalizer;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -185,7 +181,7 @@ public final class OpenSpecChangeMetadataReader {
             throw new IllegalArgumentException("OpenSpec change has no proposal.md: " + changeKey);
         }
 
-        List<String> proposalLines = readAllLines(workspaceRoot, proposalFile, budget);
+        List<String> proposalLines = OpenSpecSourceText.readAllLines(workspaceRoot, proposalFile, budget);
         SourceLocator proposalSource = locator(workspaceRoot, proposalFile);
         String changeExternalId = "change:" + changeKey;
         // Two proposal dialects (ADR-0028; docs/developer/OPENSPEC_PROVIDER.md): the original `# Proposal: <title>` and
@@ -258,7 +254,7 @@ public final class OpenSpecChangeMetadataReader {
         if (!Files.isRegularFile(designFile)) {
             return;
         }
-        List<String> lines = readAllLines(workspaceRoot, designFile, budget);
+        List<String> lines = OpenSpecSourceText.readAllLines(workspaceRoot, designFile, budget);
         SourceLocator source = locator(workspaceRoot, designFile);
         List<Integer> headings = headingIndexes(lines, DECISION_HEADING);
         for (int index = 0; index < headings.size(); index++) {
@@ -269,11 +265,11 @@ public final class OpenSpecChangeMetadataReader {
                 throw new IllegalStateException("design decision heading mismatch");
             }
             String title = matcher.group(1).trim();
-            String decision = joinContent(lines, start + 1, end);
+            String decision = OpenSpecSourceText.joinContent(lines, start + 1, end);
             if (decision.isBlank()) {
                 throw new IllegalArgumentException("OpenSpec design decision has no body: " + title);
             }
-            String externalId = "design-decision:" + changeKey + ":" + slug(title);
+            String externalId = "design-decision:" + changeKey + ":" + StableKey.fromTitle(title);
             Evidence itemEvidence = evidence(identities, externalId, source, lines, start + 1, end, budget);
             evidence.add(itemEvidence);
             decisions.add(new DesignDecision(
@@ -298,7 +294,7 @@ public final class OpenSpecChangeMetadataReader {
         if (!Files.isRegularFile(tasksFile)) {
             return;
         }
-        List<String> lines = readAllLines(workspaceRoot, tasksFile, budget);
+        List<String> lines = OpenSpecSourceText.readAllLines(workspaceRoot, tasksFile, budget);
         SourceLocator source = locator(workspaceRoot, tasksFile);
         int ordinal = 0;
         for (int index = 0; index < lines.size(); index++) {
@@ -353,7 +349,7 @@ public final class OpenSpecChangeMetadataReader {
             return Optional.empty();
         }
         int end = nextLevelTwoHeading(lines, start + 1);
-        String body = joinContent(lines, start + 1, end);
+        String body = OpenSpecSourceText.joinContent(lines, start + 1, end);
         return body.isBlank() ? Optional.empty() : Optional.of(body);
     }
 
@@ -405,17 +401,6 @@ public final class OpenSpecChangeMetadataReader {
         return indexes;
     }
 
-    private String joinContent(List<String> lines, int startInclusive, int endExclusive) {
-        List<String> content = new ArrayList<>();
-        for (int index = startInclusive; index < endExclusive; index++) {
-            String line = lines.get(index).trim();
-            if (!line.isEmpty() && !line.startsWith("#")) {
-                content.add(line);
-            }
-        }
-        return String.join(" ", content).trim();
-    }
-
     private SourceLocator locator(Path workspaceRoot, Path source) {
         return SourceLocator.file(workspaceRoot.relativize(source).toString());
     }
@@ -447,42 +432,7 @@ public final class OpenSpecChangeMetadataReader {
                 evidenceId,
                 source,
                 Optional.of(new SourceRange(startLine, normalizedEnd)),
-                Optional.of(sha256(excerpt)));
-    }
-
-    private List<String> readAllLines(
-            Path workspaceRoot,
-            Path source,
-            ProviderIngestionBudget.Session budget) {
-        try {
-            return budget.readDocument(workspaceRoot.relativize(source))
-                    .lines()
-                    .toList();
-        } catch (IOException exception) {
-            throw new IllegalStateException(
-                    "Cannot read OpenSpec source: " + OpenSpecSourceAttribution.relayable(exception), exception);
-        }
-    }
-
-    private String slug(String value) {
-        String normalized = Normalizer.normalize(value, Normalizer.Form.NFD)
-                .replaceAll("\\p{M}+", "")
-                .toLowerCase(Locale.ROOT)
-                .replaceAll("[^a-z0-9]+", "-")
-                .replaceAll("^-+|-+$", "");
-        if (normalized.isBlank()) {
-            throw new IllegalArgumentException("Cannot derive a stable key from: " + value);
-        }
-        return normalized;
-    }
-
-    private String sha256(String value) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 must be available", exception);
-        }
+                Optional.of(TextDigest.sha256(excerpt)));
     }
 
     private record LineItem(int lineNumber, String text) {
