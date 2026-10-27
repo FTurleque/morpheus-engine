@@ -272,10 +272,12 @@ jobs:
   # So this is a separate job, run after the scan and the upload of its evidence. It is not the scan job: that job's
   # name is a required check of the repository ruleset, and failing it on a scheduled run would put a red check of a
   # required name on the head of main. It is not a step of the update job either: a new `exit 1` there would make a
-  # refresh that failed into a refusal. It fails, and only fails, when the run did not renew the feed and the database
-  # it scanned has spent two thirds of its budget -- the threshold report-dependency-check-cache.sh already warns at, so
-  # the alert and the warning cannot disagree. With a daily schedule a single missed refresh leaves the database well
-  # inside that bound and the run stays green; a second consecutive miss crosses it, with about a day left.
+  # refresh that failed into a refusal. It fails when the run did not renew the feed and either the cause cannot clear
+  # by itself (the NVD refused NVD_API_KEY, or NVD_API_KEY is not configured: REFRESH_KEY_UNUSABLE, in the first run
+  # that sees it), or the database it scanned has spent two thirds of its budget (REFRESH_OVERDUE) -- the threshold
+  # report-dependency-check-cache.sh already warns at, so the alert and the warning cannot disagree. With a daily
+  # schedule a single refresh that failed with the key configured leaves the database well inside that bound and the
+  # run stays green; a second consecutive miss crosses it, with about a day left.
   #
   # When the scan job published no age (it failed before, was cancelled, or refused with STALE_DATABASE) the age is
   # unknown: no alert is raised, and the scan job's own conclusion stands.
@@ -303,6 +305,20 @@ jobs:
             echo "The trusted refresh happened in this run: no alert."
             exit 0
           fi
+
+          # Two causes never clear on their own: a key the NVD refuses and a key that is gone. NVD_API_KEY is the only
+          # writer of the trusted sentinel on this branch, so waiting for the next schedule renews nothing, and the
+          # two-thirds threshold below would only hand a person the last day of the budget. These raise the alert in
+          # the first run that sees them, with the whole budget still ahead. The cause strings are the ones the update
+          # step publishes. A refresh that failed with the key configured may be an NVD outage, a quota or a network
+          # cut, so it alone waits for the threshold.
+          case "${REFRESH_CAUSE:-}" in
+            'NVD_API_KEY was refused by the NVD'|'NVD_API_KEY is not configured')
+              remaining_hours="$(( (DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS * 3600 - age_seconds) / 3600 ))"
+              echo "::error::MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_KEY_UNUSABLE. This run did not renew the Dependency-Check database (${REFRESH_CAUSE}), and no later run will while that stays true: NVD_API_KEY is the only refresh source of a branch pinned to Dependency-Check ${DEPENDENCY_CHECK_PLUGIN_VERSION}. About ${remaining_hours}h remain before every scan, including every pull request, fails with STALE_DATABASE. Replace or restore NVD_API_KEY now. See the rotation procedure in docs/developer/COLD_START_RECOVERY.md and RT-13 in docs/architecture/risks/register.md."
+              exit 1
+              ;;
+          esac
 
           max_age_seconds="$((DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS * 60 * 60))"
           if (( age_seconds * 3 >= max_age_seconds * 2 )); then
