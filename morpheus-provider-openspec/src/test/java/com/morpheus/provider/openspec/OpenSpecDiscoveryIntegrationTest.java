@@ -30,7 +30,7 @@ class OpenSpecDiscoveryIntegrationTest {
                         ProviderCapability.READ_CHANGES),
                 Set.of(ProviderCapability.READ_DESIGN_DECISIONS));
 
-        Path fixture = fixture("openspec-basic");
+        Path fixture = RepositoryRoot.fixture("openspec-basic");
         var result = service.discover(fixture, request);
 
         assertEquals(fixture.toAbsolutePath().normalize(), result.requestedPath());
@@ -49,7 +49,7 @@ class OpenSpecDiscoveryIntegrationTest {
                 Set.of(ProviderCapability.READ_ACCEPTANCE_CRITERIA),
                 Set.of());
 
-        var result = service.discover(fixture("openspec-basic"), request);
+        var result = service.discover(RepositoryRoot.fixture("openspec-basic"), request);
 
         assertTrue(result.selectedProvider().isEmpty());
         assertTrue(result.diagnostics().stream()
@@ -63,7 +63,7 @@ class OpenSpecDiscoveryIntegrationTest {
                 Set.of(ProviderCapability.DISCOVER_PROJECT),
                 Set.of());
 
-        var result = service.discover(fixture("openspec-unsupported-schema"), request);
+        var result = service.discover(RepositoryRoot.fixture("openspec-unsupported-schema"), request);
 
         assertTrue(result.selectedProvider().isEmpty());
         assertEquals(SourceLocator.file("openspec/config.yaml"), result.sources().getFirst().locator());
@@ -121,20 +121,5 @@ class OpenSpecDiscoveryIntegrationTest {
                 List.of(new OpenSpecSpecificationProvider()),
                 new ProviderSelectionPolicy());
         return new ProjectDiscoveryService(registry);
-    }
-
-    private Path fixture(String name) {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        Path fromRoot = current.resolve("experiments/m0/fixtures").resolve(name);
-        if (Files.isDirectory(fromRoot)) {
-            return fromRoot;
-        }
-
-        Path fromModule = current.resolve("../experiments/m0/fixtures").normalize().resolve(name);
-        if (Files.isDirectory(fromModule)) {
-            return fromModule;
-        }
-
-        throw new IllegalStateException("M0 fixture not found: " + name + " from " + current);
     }
 }

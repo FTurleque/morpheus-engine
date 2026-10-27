@@ -29,7 +29,7 @@ class OpenSpecCurrentSpecificationReaderTest {
         StableTestIdentityResolver identities = new StableTestIdentityResolver();
 
         var content = new OpenSpecCurrentSpecificationReader().read(
-                fixture("openspec-basic"),
+                RepositoryRoot.fixture("openspec-basic"),
                 projectId,
                 identities);
 
@@ -148,7 +148,7 @@ class OpenSpecCurrentSpecificationReaderTest {
      */
     @Test
     void publishesTheWorkspaceItReceivedAsProjectRoot() {
-        Path workspace = fixture("openspec-basic");
+        Path workspace = RepositoryRoot.fixture("openspec-basic");
 
         var content = new OpenSpecCurrentSpecificationReader().read(
                 workspace.resolve("openspec").resolve(".."),
@@ -164,8 +164,8 @@ class OpenSpecCurrentSpecificationReaderTest {
         StableTestIdentityResolver identities = new StableTestIdentityResolver();
         OpenSpecCurrentSpecificationReader reader = new OpenSpecCurrentSpecificationReader();
 
-        var first = reader.read(fixture("openspec-basic"), projectId, identities);
-        var second = reader.read(fixture("openspec-basic"), projectId, identities);
+        var first = reader.read(RepositoryRoot.fixture("openspec-basic"), projectId, identities);
+        var second = reader.read(RepositoryRoot.fixture("openspec-basic"), projectId, identities);
 
         assertEquals(first.specifications().getFirst().id(), second.specifications().getFirst().id());
         assertEquals(first.requirements().getFirst().id(), second.requirements().getFirst().id());
@@ -210,21 +210,6 @@ class OpenSpecCurrentSpecificationReaderTest {
                         new StableTestIdentityResolver()));
         assertTrue(refused.getMessage().startsWith("OpenSpec traversal refuses symbolic link: "), refused.getMessage());
         assertTrue(refused.getMessage().endsWith("spec.md"), refused.getMessage());
-    }
-
-    private Path fixture(String name) {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        Path fromRoot = current.resolve("experiments/m0/fixtures").resolve(name);
-        if (Files.isDirectory(fromRoot)) {
-            return fromRoot;
-        }
-
-        Path fromModule = current.resolve("../experiments/m0/fixtures").normalize().resolve(name);
-        if (Files.isDirectory(fromModule)) {
-            return fromModule;
-        }
-
-        throw new IllegalStateException("M0 fixture not found: " + name + " from " + current);
     }
 
     private static final class StableTestIdentityResolver implements EntityIdentityResolver {

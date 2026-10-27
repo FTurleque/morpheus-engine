@@ -7,7 +7,6 @@ import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.provider.ProviderId;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
@@ -21,7 +20,7 @@ class OpenSpecChangeMetadataReaderTest {
     @Test
     void normalizesProposalConstraintsDecisionsTasksAndEvidenceFromM0Fixture() {
         var content = new OpenSpecChangeMetadataReader().read(
-                fixture("openspec-basic"),
+                RepositoryRoot.fixture("openspec-basic"),
                 ProjectSpecificationId.generate(),
                 new StableTestIdentityResolver());
 
@@ -58,7 +57,7 @@ class OpenSpecChangeMetadataReaderTest {
     @Test
     void aProposalWrittenFromTheCliTemplateTakesItsTitleFromTheDirectoryAndItsIntentFromWhy() {
         var content = new OpenSpecChangeMetadataReader().read(
-                fixture("openspec-upstream-cli"),
+                RepositoryRoot.fixture("openspec-upstream-cli"),
                 ProjectSpecificationId.generate(),
                 new StableTestIdentityResolver());
 
@@ -76,7 +75,7 @@ class OpenSpecChangeMetadataReaderTest {
     @Test
     void anonymousConstraintAndTaskKeysAreStructuralNotTextDerived() {
         var content = new OpenSpecChangeMetadataReader().read(
-                fixture("openspec-basic"),
+                RepositoryRoot.fixture("openspec-basic"),
                 ProjectSpecificationId.generate(),
                 new StableTestIdentityResolver());
 
@@ -96,7 +95,7 @@ class OpenSpecChangeMetadataReaderTest {
      */
     @Test
     void publishesTheWorkspaceItReceivedAsProjectRoot() {
-        Path workspace = fixture("openspec-basic");
+        Path workspace = RepositoryRoot.fixture("openspec-basic");
 
         var content = new OpenSpecChangeMetadataReader().read(
                 workspace.resolve("openspec").resolve(".."),
@@ -112,29 +111,14 @@ class OpenSpecChangeMetadataReaderTest {
         StableTestIdentityResolver identities = new StableTestIdentityResolver();
         OpenSpecChangeMetadataReader reader = new OpenSpecChangeMetadataReader();
 
-        var first = reader.read(fixture("openspec-basic"), projectId, identities);
-        var second = reader.read(fixture("openspec-basic"), projectId, identities);
+        var first = reader.read(RepositoryRoot.fixture("openspec-basic"), projectId, identities);
+        var second = reader.read(RepositoryRoot.fixture("openspec-basic"), projectId, identities);
 
         assertEquals(first.changes().getFirst().id(), second.changes().getFirst().id());
         assertEquals(first.constraints().getFirst().id(), second.constraints().getFirst().id());
         assertEquals(first.designDecisions().getFirst().id(), second.designDecisions().getFirst().id());
         assertEquals(first.tasks().getFirst().id(), second.tasks().getFirst().id());
         assertEquals(first.evidence().getFirst().id(), second.evidence().getFirst().id());
-    }
-
-    private Path fixture(String name) {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        Path fromRoot = current.resolve("experiments/m0/fixtures").resolve(name);
-        if (Files.isDirectory(fromRoot)) {
-            return fromRoot;
-        }
-
-        Path fromModule = current.resolve("../experiments/m0/fixtures").normalize().resolve(name);
-        if (Files.isDirectory(fromModule)) {
-            return fromModule;
-        }
-
-        throw new IllegalStateException("M0 fixture not found: " + name + " from " + current);
     }
 
     private static final class StableTestIdentityResolver implements EntityIdentityResolver {
