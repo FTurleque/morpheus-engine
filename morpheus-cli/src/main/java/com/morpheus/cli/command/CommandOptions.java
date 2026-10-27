@@ -4,84 +4,106 @@ import com.morpheus.application.query.PageRequest;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TreeMap;
 
 /**
- * The options of a command that answers {@code MORPHEUS error [code]: message}: {@code --key value} pairs and the
- * boolean flags the command names, then {@link #rejectUnknown} with the keys it reads.
+ * The one parser of a sub-command's option tokens. The sub-command declares what it accepts -- the options that take
+ * one value, those that take a value each time they are given, and the flags -- and nothing else is parsed.
+ *
+ * <p>Each token is refused, naming it, in this order: a token that is not an option ({@code unexpected positional
+ * argument}), an option that is not declared ({@code unknown option}), a single-valued option or a flag given twice
+ * ({@code duplicate option}), a value option with nothing after it or followed by another option
+ * ({@code requires a value}), and a blank value ({@link OptionValue}). The options cannot be read without having been
+ * declared: there is no parse that accepts every key and a check to remember afterwards.</p>
+ *
+ * <p>{@link #optional} and {@link #required} return the value trimmed; {@link #asGiven} returns it as typed, for a
+ * path or a text that keeps its spelling.</p>
  */
 public final class CommandOptions {
     private static final String OPT_OFFSET = "offset";
     private static final String OPT_LIMIT = "limit";
 
-    private final Map<String, String> values;
+    private final Map<String, List<String>> values;
     private final Set<String> flags;
 
-    private CommandOptions(Map<String, String> values, Set<String> flags) {
+    private CommandOptions(Map<String, List<String>> values, Set<String> flags) {
         this.values = Map.copyOf(values);
         this.flags = Set.copyOf(flags);
     }
 
-    public static CommandOptions parse(List<String> tokens, Set<String> allowedFlags) {
-        Map<String, String> values = new HashMap<>();
+    /** What a sub-command accepts: options with one value, options repeated with a value each time, and flags. */
+    public record Declared(Set<String> single, Set<String> repeated, Set<String> flags) {
+        public Declared {
+            single = Set.copyOf(single);
+            repeated = Set.copyOf(repeated);
+            flags = Set.copyOf(flags);
+            Set<String> all = new HashSet<>();
+            for (Set<String> kind : List.of(single, repeated, flags)) {
+                for (String name : kind) {
+                    if (!all.add(name)) {
+                        throw new IllegalArgumentException("option declared twice: --" + name);
+                    }
+                }
+            }
+        }
+
+        public static Declared nothing() {
+            return new Declared(Set.of(), Set.of(), Set.of());
+        }
+
+        public static Declared values(String... names) {
+            return values(Set.of(names));
+        }
+
+        public static Declared values(Set<String> names) {
+            return new Declared(names, Set.of(), Set.of());
+        }
+
+        public Declared andRepeated(String... names) {
+            return new Declared(single, Set.of(names), flags);
+        }
+
+        public Declared andFlags(String... names) {
+            return new Declared(single, repeated, Set.of(names));
+        }
+    }
+
+    public static CommandOptions parse(List<String> tokens, Declared declared) {
+        Map<String, List<String>> values = new LinkedHashMap<>();
         Set<String> flags = new HashSet<>();
-        List<String> positionals = new ArrayList<>();
         int index = 0;
         while (index < tokens.size()) {
             String token = tokens.get(index);
             index++;
             if (!token.startsWith("--")) {
-                positionals.add(token);
+                throw new IllegalArgumentException("unexpected positional argument: " + token);
+            }
+            String key = token.substring(2);
+            if (declared.flags().contains(key)) {
+                if (!flags.add(key)) {
+                    throw new IllegalArgumentException("duplicate option: " + token);
+                }
                 continue;
             }
-            index = consumeOption(token, tokens, index, allowedFlags, values, flags);
-        }
-        if (!positionals.isEmpty()) {
-            throw new IllegalArgumentException("unexpected positional arguments: " + positionals);
+            boolean single = declared.single().contains(key);
+            if (!single && !declared.repeated().contains(key)) {
+                throw new IllegalArgumentException("unknown option: " + token);
+            }
+            if (single && values.containsKey(key)) {
+                throw new IllegalArgumentException("duplicate option: " + token);
+            }
+            if (index >= tokens.size() || tokens.get(index).startsWith("--")) {
+                throw new IllegalArgumentException(token + " requires a value");
+            }
+            values.computeIfAbsent(key, name -> new ArrayList<>()).add(OptionValue.nonBlank(token, tokens.get(index)));
+            index++;
         }
         return new CommandOptions(values, flags);
-    }
-
-    private static int consumeOption(
-            String token,
-            List<String> tokens,
-            int index,
-            Set<String> allowedFlags,
-            Map<String, String> values,
-            Set<String> flags) {
-        String key = token.substring(2);
-        if (key.isBlank()) {
-            throw new IllegalArgumentException("invalid empty option");
-        }
-        if (allowedFlags.contains(key)) {
-            if (!flags.add(key)) {
-                throw new IllegalArgumentException("duplicate flag: --" + key);
-            }
-            return index;
-        }
-        if (index >= tokens.size() || tokens.get(index).startsWith("--")) {
-            throw new IllegalArgumentException("--" + key + " requires a value");
-        }
-        if (values.putIfAbsent(key, tokens.get(index)) != null) {
-            throw new IllegalArgumentException("duplicate option: --" + key);
-        }
-        return index + 1;
-    }
-
-    public void rejectUnknown(Set<String> allowed) {
-        Set<String> unknown = new HashSet<>(values.keySet());
-        unknown.addAll(flags);
-        unknown.removeAll(allowed);
-        if (!unknown.isEmpty()) {
-            throw new IllegalArgumentException("unknown options: " + unknown);
-        }
-        new TreeMap<>(values).forEach((key, value) -> OptionValue.nonBlank("--" + key, value));
     }
 
     public String required(String key) {
@@ -93,7 +115,21 @@ public final class CommandOptions {
     }
 
     public Optional<String> optional(String key) {
-        return Optional.ofNullable(values.get(key)).map(value -> OptionValue.nonBlank("--" + key, value).trim());
+        return asGiven(key).map(String::trim);
+    }
+
+    /** The value of a single-valued option, as typed. */
+    public Optional<String> asGiven(String key) {
+        return Optional.ofNullable(values.get(key)).map(List::getFirst);
+    }
+
+    /** Every value of a repeated option, as typed, in the order given. */
+    public List<String> all(String key) {
+        return List.copyOf(values.getOrDefault(key, List.of()));
+    }
+
+    public boolean given(String key) {
+        return values.containsKey(key) || flags.contains(key);
     }
 
     public boolean flag(String key) {
@@ -106,10 +142,17 @@ public final class CommandOptions {
     }
 
     public long longValue(String key, long defaultValue, long min, long max) {
-        String raw = values.get(key);
+        return optional(key).map(raw -> bounded(key, raw, min, max)).orElse(defaultValue);
+    }
+
+    public long requiredLong(String key, long min, long max) {
+        return bounded(key, required(key), min, max);
+    }
+
+    private static long bounded(String key, String raw, long min, long max) {
         long value;
         try {
-            value = raw == null ? defaultValue : Long.parseLong(OptionValue.nonBlank("--" + key, raw));
+            value = Long.parseLong(raw);
         } catch (NumberFormatException exception) {
             throw new IllegalArgumentException("--" + key + " must be an integer", exception);
         }

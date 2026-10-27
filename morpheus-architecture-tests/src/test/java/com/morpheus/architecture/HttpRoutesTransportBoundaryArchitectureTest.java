@@ -273,7 +273,7 @@ class HttpRoutesTransportBoundaryArchitectureTest {
      */
     @Test
     void everyApiJsonMapperIsStrictAboutUnknownPropertiesAndTrailingTokens() throws IOException {
-        Path sources = repositoryRoot().resolve("morpheus-api/src/main/java");
+        Path sources = RepositoryRoot.locate().resolve("morpheus-api/src/main/java");
         assertTrue(countMapperBuilders(sources) > 0, "no JsonMapper.builder() found under " + sources);
         List<String> lenient = lenientMappers(sources);
         assertTrue(lenient.isEmpty(), () -> "a morpheus-api JsonMapper must be built through JsonMapper.builder() "
@@ -448,17 +448,5 @@ class HttpRoutesTransportBoundaryArchitectureTest {
         try (var files = Files.walk(sourcesRoot)) {
             return files.filter(path -> path.getFileName().toString().endsWith(".java")).sorted().toList();
         }
-    }
-
-    private Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
     }
 }

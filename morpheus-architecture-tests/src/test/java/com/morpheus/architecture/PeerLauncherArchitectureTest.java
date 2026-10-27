@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -14,14 +13,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * An MCP peer is started from a launcher named in full, in both integrations.
  *
- * <p>MINOS and NEXUS were started with the bare command {@code java}, which the operating system looks up on the
- * search path of the MORPHEUS process: another {@code java} placed first on that path would have been started as the
- * peer. The behaviour is held by the tests of each integration; what is held here is that the two settings classes,
- * which may not share code, both keep the invariant where it cannot be skipped -- in the constructor -- and that
- * neither falls back to a bare command again. The assertions are textual because what they forbid is a literal a
- * launch would be given, which no rule on dependencies can name.</p>
+ * <p>A bare command {@code java} is looked up by the operating system on the search path of the MORPHEUS process:
+ * another {@code java} placed first on that path would be started as the peer. The behaviour is held by the tests of
+ * the resolver and of each integration; what is held here is that the one implementation of the launch settings,
+ * shared by both peers, keeps the invariant where it cannot be skipped -- in the constructor of the shared result,
+ * which each settings type builds in its own constructor -- and that neither it nor a settings type falls back to a
+ * bare command again. The assertions are textual because what they forbid is a literal a launch would be given, which
+ * no rule on dependencies can name.</p>
  */
 class PeerLauncherArchitectureTest {
+    private static final String SECURITY = "morpheus-application/src/main/java/com/morpheus/application/security/";
+    private static final String SHARED_SETTINGS = SECURITY + "PeerLaunchSettings.java";
+    private static final String RESOLVER = SECURITY + "PeerLaunchSettingsResolver.java";
     private static final List<String> SETTINGS = List.of(
             "morpheus-integration-minos/src/main/java/com/morpheus/integration/minos/MinosIntegrationSettings.java",
             "morpheus-integration-nexus/src/main/java/com/morpheus/integration/nexus/NexusIntegrationSettings.java");
@@ -29,42 +32,43 @@ class PeerLauncherArchitectureTest {
 
     @Test
     void bothIntegrationsRefuseALauncherTheSearchPathWouldResolve() throws IOException {
-        for (String settings : SETTINGS) {
-            String content = Files.readString(repositoryRoot().resolve(settings));
+        String shared = Files.readString(RepositoryRoot.locate().resolve(SHARED_SETTINGS));
+        String resolver = Files.readString(RepositoryRoot.locate().resolve(RESOLVER));
 
-            assertTrue(content.contains("javaCommand = requireAbsoluteLauncher("),
-                    () -> settings + " must refuse a launcher that is not absolute in its compact constructor");
-            assertTrue(content.contains("System.getProperty(\"java.home\")"),
-                    () -> settings + " must take its default launcher from the runtime MORPHEUS runs on");
-            assertTrue(content.contains(".toRealPath()"),
-                    () -> settings + " must launch and report the file a configured launcher resolves to");
+        assertTrue(shared.contains("javaCommand = requireAbsoluteLauncher("),
+                () -> SHARED_SETTINGS + " must refuse a launcher that is not absolute in its compact constructor");
+        assertTrue(resolver.contains("System.getProperty(\"java.home\")"),
+                () -> RESOLVER + " must take its default launcher from the runtime MORPHEUS runs on");
+        assertTrue(resolver.contains(".toRealPath()"),
+                () -> RESOLVER + " must launch and report the file a configured launcher resolves to");
+        for (String settings : SETTINGS) {
+            String content = Files.readString(RepositoryRoot.locate().resolve(settings));
+            assertTrue(content.contains("PeerLaunchSettings launch = new PeerLaunchSettings("),
+                    () -> settings + " must build its components through the shared settings in its compact "
+                            + "constructor, so that it cannot hold a launcher the shared settings refuse");
+        }
+        for (String file : implementationAndSettings()) {
+            String content = Files.readString(RepositoryRoot.locate().resolve(file));
             assertFalse(content.contains("orElse(\"java\")"),
-                    () -> settings + " must not fall back to a command the search path resolves");
+                    () -> file + " must not fall back to a command the search path resolves");
         }
     }
 
     @Test
     void theOnlyBareLauncherNamesAreTheTwoFilesLookedForUnderTheRuntime() throws IOException {
-        for (String settings : SETTINGS) {
-            String content = Files.readString(repositoryRoot().resolve(settings));
+        for (String file : implementationAndSettings()) {
+            String content = Files.readString(RepositoryRoot.locate().resolve(file));
             String withoutTheRuntimeLookup = content
                     .replace("bin.resolve(\"java.exe\")", "")
                     .replace("bin.resolve(\"java\")", "");
 
             assertFalse(BARE_JAVA_LITERAL.matcher(withoutTheRuntimeLookup).find(),
-                    () -> settings + " names a bare java command outside the lookup under java.home");
+                    () -> file + " names a bare java command outside the lookup under java.home");
         }
     }
 
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
+    private static List<String> implementationAndSettings() {
+        return List.of(SHARED_SETTINGS, RESOLVER, SETTINGS.get(0), SETTINGS.get(1));
     }
+
 }

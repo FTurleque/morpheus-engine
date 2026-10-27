@@ -1,13 +1,8 @@
----
-id: ARCH-0148
-title: "Le cœur applicatif touche le disque local par des classes nommées, et jamais le réseau"
-domain: architecture
-rules: false
----
+# ADR-0148 — Le cœur applicatif touche le disque local par des classes nommées, et jamais le réseau
 
-# Le cœur applicatif touche le disque local par des classes nommées, et jamais le réseau
+> **Archivée.** Cette décision est consolidée dans [ADR-0150](../ARCH-0150-ce-que-le-coeur-applicatif-peut-toucher.md), qui la reprend en entier et nomme en plus le résolveur des réglages de lancement des pairs MCP. Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
-- Statut : **Acceptée**
+- Statut : **Remplacée par ADR-0150**
 - Date : 2026-10-25
 
 ## Context
@@ -172,11 +167,11 @@ Ce qu'un transport tient de `SqliteOperationRuntime` et `SqliteServerMaintenance
 
 ## References
 
-- [ADR-0109](ARCH-0109-transport-adapters-are-named-composition-roots.md) — racines de composition nommées des
+- [ADR-0109](../ARCH-0109-transport-adapters-are-named-composition-roots.md) — racines de composition nommées des
   transports.
-- [ADR-0147](ARCH-0147-un-role-d-adaptateur-est-un-paquet.md) — rôles de l'adaptateur HTTP en paquets.
-- [ADR-0104](GEN-0104-two-coverage-scales-share-one-population.md) — population de couverture.
-- [ADR-0004](SEC-0004-local-first-no-llm-core.md) — cœur local-first.
+- [ADR-0147](../ARCH-0147-un-role-d-adaptateur-est-un-paquet.md) — rôles de l'adaptateur HTTP en paquets.
+- [ADR-0104](../GEN-0104-two-coverage-scales-share-one-population.md) — population de couverture.
+- [ADR-0004](../SEC-0004-local-first-no-llm-core.md) — cœur local-first.
 - Changements OpenSpec `decide-what-technology-the-application-core-may-touch` et
   `move-marked-technology-access-behind-application-ports`.
 - Audit du 09/10/2026, constat AUD-ARC-01 : `docs/project/audits/2026-10-09/findings.md`.

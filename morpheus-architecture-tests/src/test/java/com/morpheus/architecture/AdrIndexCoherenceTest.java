@@ -57,19 +57,19 @@ class AdrIndexCoherenceTest {
 
     @Test
     void everyDecisionRecordHasExactlyOneIndexRowAndEveryRowHasItsRecord() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         assertBijection(records(root, REGISTRY), indexRows(root));
     }
 
     @Test
     void theIndexAndTheRecordAgreeOnTheVerdictWhileTheRecordStaysFreeToQualifyIt() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         assertVerdictsAgree(records(root, REGISTRY), indexRows(root), declaredVerdicts(root));
     }
 
     @Test
     void noDecisionNumberIsAssignedTwiceAcrossTheRegistryAndTheArchive() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         List<String> fileNames = new ArrayList<>(recordFileNames(root, REGISTRY));
         recordFileNames(root, ARCHIVE).forEach(name -> fileNames.add("archive/" + name));
         assertNumbersAreUnique(fileNames);
@@ -77,7 +77,7 @@ class AdrIndexCoherenceTest {
 
     @Test
     void theRegistryHoldsDecisionsInForceAndTheArchiveHoldsRetiredOnes() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         List<String> verdicts = declaredVerdicts(root);
         assertTrue(verdicts.containsAll(RETIRED_VERDICTS),
                 () -> "the ADR index must declare the retired verdicts " + RETIRED_VERDICTS + ": " + verdicts);
@@ -86,7 +86,7 @@ class AdrIndexCoherenceTest {
 
     @Test
     void everyStatusUsesAVerdictTheIndexItselfDeclares() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         List<String> verdicts = declaredVerdicts(root);
         assertEquals(5, verdicts.size(), () -> "the ADR index must declare its status vocabulary: " + verdicts);
         assertClosedVocabulary(records(root, REGISTRY), indexRows(root), verdicts);
@@ -344,15 +344,4 @@ class AdrIndexCoherenceTest {
     }
 
     private record IndexRow(String file, String status) {}
-
-    private static Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isDirectory(current.resolve("docs/architecture/adr")) && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found");
-    }
 }

@@ -149,7 +149,7 @@ class NexusPeerLauncherResolutionTest {
 
         NexusIntegrationSettings settings = NexusIntegrationSettings.resolve(Map.of(), properties);
 
-        assertEquals("NEXUS runner JAR is not a file: " + missingJar
+        assertEquals("NEXUS JAR is not a file: " + missingJar
                         + "; NEXUS Java command must be an absolute path; invalid NEXUS timeout: soon",
                 settings.configurationError().orElseThrow());
     }

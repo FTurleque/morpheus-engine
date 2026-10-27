@@ -1,5 +1,6 @@
 package com.morpheus.architecture.m20;
 
+import com.morpheus.architecture.RepositoryRoot;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
@@ -12,7 +13,7 @@ class InnoSetupToolchainTrustArchitectureTest {
 
     @Test
     void installerCannotBypassPinnedSignedCompilerResolution() throws Exception {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String builder = Files.readString(root.resolve("distribution/build-installer.ps1"));
         String resolver = Files.readString(root.resolve("distribution/ensure-inno-setup.ps1"));
 
@@ -45,17 +46,5 @@ class InnoSetupToolchainTrustArchitectureTest {
         assertTrue(resolver.contains("Get-TrustedIsccPath -Path $iscc.FullName -Strict -PinnedBootstrap"));
         assertTrue(resolver.contains("Inno Setup bootstrap Authenticode signature is not valid"));
         assertTrue(resolver.contains("Unexpected Inno Setup signer"));
-    }
-
-    private Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
-            return current;
-        }
-        Path parent = current.getParent();
-        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml")) && Files.isDirectory(parent.resolve("distribution"))) {
-            return parent;
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found from " + current);
     }
 }

@@ -19,13 +19,18 @@ framework, ni réflexion, ni scan de classpath.
 Un consommateur de port doit rester provider-neutre : il fonctionne avec les trois providers
 (openspec, markdown, synthetic). C'est vérifié.
 
+Une réponse qui montre un type du domaine déjà montré par un autre transport le projette par
+`PublicPayloads` (`com.morpheus.application.payload`), jamais par une méthode de l'adaptateur. Un type qui devient
+visible sur un second transport entre dans `SharedDomainProjectionArchitectureTest.SHARED_TYPES`, reçoit sa
+projection dans `PublicPayloads` et son exposition dans `PublicPayloadConvergenceTest`.
+
 ## 1 bis. Déclarer la commande CLI
 
 Une commande s'écrit dans une classe de `com.morpheus.cli.command`, celle de sa famille du manifeste, branchée dans la
 chaîne de `MorpheusMain.run` par son `handles` ; un outil MCP dans une classe de `com.morpheus.mcp`, qui déclare la
 lambda de son gestionnaire et que `MorpheusMcpServer` enregistre. Jamais dans le dispatcher ni le serveur
-(ADR-0149, `DispatchersHoldNoUseCaseArchitectureTest`). Les options passent par `CommandOptions` ou `SimpleOptions`, la
-ligne d'erreur par `CliCommandRun`.
+(ADR-0149, `DispatchersHoldNoUseCaseArchitectureTest`). Les options sont déclarées à `CommandOptions`, la
+ligne d'erreur est écrite par `CliErrorLine`.
 
 Une commande ou une action de CLI s'ajoute dans `CliCommandPaths` (`morpheus-cli`) : `MorpheusMain.run` refuse comme
 commande inconnue tout chemin non déclaré, avant d'interroger une sous-commande. Un `case` ajouté au seul `switch` de la

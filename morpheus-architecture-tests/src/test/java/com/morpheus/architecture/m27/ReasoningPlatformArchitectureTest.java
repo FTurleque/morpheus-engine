@@ -1,6 +1,7 @@
 package com.morpheus.architecture.m27;
 
 import com.morpheus.architecture.ProductionSources;
+import com.morpheus.architecture.RepositoryRoot;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import org.junit.jupiter.api.Test;
 
@@ -28,7 +29,7 @@ class ReasoningPlatformArchitectureTest {
 
     @Test
     void reasoningCoreContainsNoTransportPersistenceOrProcessExecution() throws IOException {
-        Path sourceRoot = repositoryRoot().resolve(
+        Path sourceRoot = RepositoryRoot.locate().resolve(
                 "morpheus-application/src/main/java/com/morpheus/application/reasoning");
         StringBuilder source = new StringBuilder();
         try (var files = Files.walk(sourceRoot)) {
@@ -48,7 +49,7 @@ class ReasoningPlatformArchitectureTest {
 
     @Test
     void publicManifestAndOpenApiExposeSameReadOnlyM27IntentFamilies() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String manifest = Files.readString(root.resolve("contracts/public-surfaces.tsv"));
         String openApi = Files.readString(root.resolve("docs/developer/reference/openapi/morpheus-v1-reasoning-m27.yaml"));
 
@@ -83,17 +84,5 @@ class ReasoningPlatformArchitectureTest {
         } catch (IOException failure) {
             throw new IllegalStateException(failure);
         }
-    }
-
-    private Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
     }
 }

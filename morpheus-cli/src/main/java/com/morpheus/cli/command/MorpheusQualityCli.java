@@ -17,7 +17,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
-import java.util.Set;
 
 /** The quality family of the CLI: {@code quality}, the report of the ACTIVE snapshot of one project. */
 public final class MorpheusQualityCli {
@@ -46,8 +45,7 @@ public final class MorpheusQualityCli {
     }
 
     private int quality(List<String> tokens, CliCommandRun run) {
-        CommandOptions options = CommandOptions.parse(tokens, Set.of());
-        options.rejectUnknown(Set.of(OPT_PROJECT));
+        CommandOptions options = CommandOptions.parse(tokens, CommandOptions.Declared.values(OPT_PROJECT));
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required(OPT_PROJECT));
         try (CliRuntime runtime = CliRuntime.recovering(run.databasePath(), recorder)) {
             QualityReportService service = new QualityReportService(

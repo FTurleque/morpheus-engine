@@ -2,16 +2,17 @@ package com.morpheus.api;
 
 import com.morpheus.api.transport.ApiFailure;
 import com.morpheus.api.transport.PagedEnvelope;
+import com.morpheus.application.foundation.PayloadMap;
 import com.morpheus.application.history.HistoricalRequirementQueryService;
 import com.morpheus.application.history.PublishedSnapshotHistoryService;
 import com.morpheus.application.history.RequirementSnapshotComparisonService;
 import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.payload.PublicPayloads;
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.application.store.RequirementVersionRecord;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.domain.requirement.Requirement;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 
@@ -41,7 +42,7 @@ public final class MorpheusHistoryApiService {
             PublishedSnapshotHistoryService history = new PublishedSnapshotHistoryService(runtime.snapshots());
             List<KnowledgeSnapshotMetadata> lineage = history.lineage(projectId);
             return PagedEnvelope.following(
-                    OrderedFields.map("projectId", projectId.toString(), "retentionPolicy", history.retentionPolicy().name()),
+                    PayloadMap.of("projectId", projectId.toString(), "retentionPolicy", history.retentionPolicy().name()),
                     PagedEnvelope.slice(
                             pageRequest.offset(), pageRequest.limit(), lineage, snapshot -> version(runtime, snapshot)));
         }
@@ -59,8 +60,8 @@ public final class MorpheusHistoryApiService {
             List<RequirementVersionRecord> records = new HistoricalRequirementQueryService(runtime.snapshots(), runtime.requirements())
                     .requirements(snapshotId);
             return PagedEnvelope.following(
-                    OrderedFields.map("snapshotId", snapshotId.toString()),
-                    PagedEnvelope.slice(pageRequest.offset(), pageRequest.limit(), records, this::requirementRecord));
+                    PayloadMap.of("snapshotId", snapshotId.toString()),
+                    PagedEnvelope.slice(pageRequest.offset(), pageRequest.limit(), records, record -> PublicPayloads.requirementVersion(record.entityVersion())));
         }
     }
 
@@ -73,15 +74,15 @@ public final class MorpheusHistoryApiService {
             requireSnapshotProject(runtime, projectId, targetId);
             var comparison = new RequirementSnapshotComparisonService(runtime.snapshots(), runtime.requirements())
                     .compare(sourceId, targetId);
-            return OrderedFields.map(
+            return PayloadMap.of(
                     "projectId", projectId.toString(),
                     "sourceSnapshotId", comparison.sourceSnapshot().id().toString(),
                     "targetSnapshotId", comparison.targetSnapshot().id().toString(),
-                    "differences", comparison.differences().stream().map(difference -> OrderedFields.map(
+                    "differences", comparison.differences().stream().map(difference -> PayloadMap.admittingAbsentValues(
                             "requirementId", difference.entityIdentity().toString(),
                             "kind", difference.kind().name(),
-                            "source", difference.source().map(this::requirementRecord).orElse(null),
-                            "target", difference.target().map(this::requirementRecord).orElse(null))).toList());
+                            "source", difference.source().map(record -> PublicPayloads.requirementVersion(record.entityVersion())).orElse(null),
+                            "target", difference.target().map(record -> PublicPayloads.requirementVersion(record.entityVersion())).orElse(null))).toList());
         }
     }
 
@@ -107,7 +108,7 @@ public final class MorpheusHistoryApiService {
                 .orElseThrow(() -> state("published snapshot has no specification version binding: " + snapshot.id()));
         var specificationVersion = runtime.requirements().findSpecificationVersion(binding.specificationVersionId())
                 .orElseThrow(() -> state("specification version not found: " + binding.specificationVersionId()));
-        return OrderedFields.map(
+        return PayloadMap.of(
                 "snapshotId", snapshot.id().toString(),
                 "snapshotState", snapshot.state().name(),
                 "predecessorSnapshotId", snapshot.predecessorId().map(Object::toString).orElse("none"),
@@ -118,24 +119,6 @@ public final class MorpheusHistoryApiService {
                 "providerVersion", specificationVersion.providerVersion().orElse("unknown"),
                 "versionCreatedAt", specificationVersion.createdAt().toString(),
                 "predecessorSpecificationVersionId", specificationVersion.predecessor().map(Object::toString).orElse("none"));
-    }
-
-    private Object requirementRecord(RequirementVersionRecord record) {
-        var version = record.entityVersion();
-        return OrderedFields.map(
-                "entityVersionId", version.id().toString(),
-                "specificationVersionId", version.specificationVersionId().toString(),
-                "temporalState", version.temporalState().name(),
-                "requirement", requirement(version.content()));
-    }
-
-    private Object requirement(Requirement item) {
-        return OrderedFields.map(
-                "id", item.id().toString(),
-                "specificationId", item.specificationId().toString(),
-                "key", item.key().orElse(""),
-                "title", item.title(),
-                "statement", item.statement());
     }
 
     private KnowledgeStoreException state(String message) {

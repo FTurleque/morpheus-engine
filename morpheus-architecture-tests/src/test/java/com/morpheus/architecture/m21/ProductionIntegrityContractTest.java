@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.morpheus.application.product.ProductMetadata;
+import com.morpheus.architecture.RepositoryRoot;
 import com.morpheus.cli.command.CliExitCode;
 import com.morpheus.integration.mcp.BoundedStdioServerTransportProvider;
 import com.morpheus.integration.mcp.PeerOperationDeadline;
@@ -71,7 +72,7 @@ class ProductionIntegrityContractTest {
 
     @Test
     void publicSurfaceManifestIsCompleteExplicitAndBackedByAdapters() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         List<String[]> entries = PublicSurfaceManifest.rows(root);
         for (String[] columns : entries) {
             String line = String.join("\t", columns);
@@ -110,7 +111,7 @@ class ProductionIntegrityContractTest {
 
     @Test
     void updateDiscoveryHasNoImplicitStartupEntryPoint() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         Path productionRoot = root.resolve("morpheus-application/src/main/java").getParent().getParent().getParent().getParent();
         List<Path> constructionSites = new ArrayList<>();
         try (var files = Files.walk(root)) {
@@ -131,7 +132,7 @@ class ProductionIntegrityContractTest {
 
     @Test
     void documentationReferencesMachineContractInsteadOfRedefiningIt() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String publicSurfaces = Files.readString(root.resolve("docs/developer/reference/PUBLIC_SURFACES.md"));
         String integrity = Files.readString(root.resolve("docs/developer/PRODUCTION_INTEGRITY.md"));
         String userIntegrity = Files.readString(root.resolve("docs/user/PRODUCT_INTEGRITY.md"));
@@ -205,17 +206,5 @@ class ProductionIntegrityContractTest {
         private static String percentage(String decimal) {
             return String.format(Locale.ROOT, "%.1f", Double.parseDouble(decimal) * 100.0d);
         }
-    }
-
-    private Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
     }
 }

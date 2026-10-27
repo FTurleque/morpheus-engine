@@ -14,6 +14,7 @@ import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.cli.MorpheusMain;
+import com.morpheus.cli.RepositoryRoot;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.provider.synthetic.SyntheticSpecificationContentReader;
 import org.junit.jupiter.api.Test;
@@ -259,7 +260,7 @@ class MorpheusAugmentedContextCliTest {
         try (CliRuntime runtime = CliRuntime.recovering(databasePath(data), OperationalRecorder.noop())) {
             var normalized = new SyntheticSpecificationContentReader()
                     .read(
-                            ProviderReadRequest.all(fixture("synthetic-basic"), projectId),
+                            ProviderReadRequest.all(RepositoryRoot.fixture("synthetic-basic"), projectId),
                             new PersistentEntityIdentityResolver(runtime.identities()))
                     .content()
                     .orElseThrow();
@@ -313,18 +314,6 @@ class MorpheusAugmentedContextCliTest {
         properties.setProperty("os.name", System.getProperty("os.name", "Windows"));
         properties.setProperty("user.home", tempDirectory.resolve("home").toString());
         return properties;
-    }
-
-    private Path fixture(String name) {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            Path candidate = current.resolve("experiments/m0/fixtures").resolve(name);
-            if (Files.isDirectory(candidate)) {
-                return candidate;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("M0 fixture not found: " + name);
     }
 
     private static final class RecordingProvider implements TechnicalContextProvider, ExternalIntegrationStatusProvider {

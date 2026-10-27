@@ -2,6 +2,7 @@ package com.morpheus.api;
 
 import com.morpheus.api.local.MorpheusHttpServer;
 import com.morpheus.api.transport.MorpheusHttpRouteTable;
+import com.morpheus.architecture.RepositoryRoot;
 import com.morpheus.architecture.m21.PublicSurfaceManifest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -277,7 +278,7 @@ class PublicHttpRouteConvergenceTest {
     private static List<String> documentedRoutes() throws IOException {
         List<String> routes = new ArrayList<>();
         List<Path> documents;
-        try (Stream<Path> files = Files.list(repoRoot().resolve("docs/developer/reference/openapi"))) {
+        try (Stream<Path> files = Files.list(RepositoryRoot.locate().resolve("docs/developer/reference/openapi"))) {
             documents = files.filter(file -> file.getFileName().toString().endsWith(".yaml")).sorted().toList();
         }
         for (Path document : documents) {
@@ -309,7 +310,7 @@ class PublicHttpRouteConvergenceTest {
     /** Capability to route, for every manifest line whose {@code http} cell names a route rather than a sentinel. */
     private static Map<String, String> manifestRoutes() throws IOException {
         Map<String, String> routes = new TreeMap<>();
-        for (String[] row : PublicSurfaceManifest.rows(repoRoot())) {
+        for (String[] row : PublicSurfaceManifest.rows(RepositoryRoot.locate())) {
             String cell = row[PublicSurfaceManifest.HTTP].trim();
             if (!cell.startsWith(PublicSurfaceManifest.SENTINEL_PREFIX)) {
                 routes.put(row[PublicSurfaceManifest.CAPABILITY], cell);
@@ -326,16 +327,5 @@ class PublicHttpRouteConvergenceTest {
 
     private static String normalize(String route) {
         return PARAMETER.matcher(route).replaceAll("{}");
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve(PublicSurfaceManifest.MANIFEST))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new AssertionError("repository root with " + PublicSurfaceManifest.MANIFEST + " not found");
     }
 }

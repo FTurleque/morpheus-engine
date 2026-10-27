@@ -1,5 +1,6 @@
 package com.morpheus.architecture.m21;
 
+import com.morpheus.architecture.RepositoryRoot;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -13,7 +14,7 @@ class SonarQualityGateClassificationContractTest {
 
     @Test
     void trustedMainSonarJobDistinguishesARealGateFailureFromNotComputed() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String workflow = Files.readString(root.resolve(".github/workflows/ci.yml"));
         String classifier = Files.readString(root.resolve("scripts/classify-sonar-quality-gate.sh"));
 
@@ -47,7 +48,7 @@ class SonarQualityGateClassificationContractTest {
      */
     @Test
     void anUnreadableGateIsUnknownOnlyForABranchOtherThanMainThatTheCallerNames() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String classifier = Files.readString(root.resolve("scripts/classify-sonar-quality-gate.sh"));
         String nightly = Files.readString(root.resolve(".github/workflows/nightly.yml"));
         String trustedMain = Files.readString(root.resolve(".github/workflows/ci.yml"));
@@ -68,18 +69,5 @@ class SonarQualityGateClassificationContractTest {
                 "the nightly lane must still ask for a verdict: the exemption is not an upload-only mode");
         assertFalse(trustedMain.contains("SONAR_BRANCH_NAME"),
                 "the analysis of main names no branch, so a refusal to read its gate stays an error");
-    }
-
-    private Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
-            return current;
-        }
-        Path parent = current.getParent();
-        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml"))
-                && Files.isDirectory(parent.resolve("distribution"))) {
-            return parent;
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found from " + current);
     }
 }

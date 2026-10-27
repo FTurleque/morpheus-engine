@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.foundation.PayloadMap;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.sync.SyncFreshness;
 import com.morpheus.application.sync.SyncFreshnessService;
@@ -41,7 +42,7 @@ public final class MorpheusSyncStatusMcpTools {
                 1L, MorpheusMcpToolCatalog.MAX_MAX_AGE_MINUTES);
         SyncFreshness freshness = new SyncFreshnessService(runtime.syncState())
                 .assess(projectId, Instant.now(), Duration.ofMinutes(maxAgeMinutes));
-        return McpContentPayloads.map(
+        return PayloadMap.of(
                 "projectId", projectId.toString(),
                 "state", freshness.state().name(),
                 "lastSuccessfulSyncAt", freshness.lastSuccessfulSyncAt().map(Instant::toString).orElse("unknown"),

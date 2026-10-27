@@ -50,7 +50,7 @@ Ce que MORPHEUS expose, comment il se livre, à qui il parle.
 | Contrat HTTP `/api/v1` et erreurs JSON stables | [ADR-0066](../adr/ARCH-0066-versioned-http-api-contract.md) |
 | Les adaptateurs de transport sont des racines de composition nommées, et leur liste ne fait que rétrécir | [ADR-0109](../adr/ARCH-0109-transport-adapters-are-named-composition-roots.md) |
 | Un rôle de l'adaptateur HTTP est un paquet ; ce qui reste une liste de noms en déclare la sorte | [ADR-0147](../adr/ARCH-0147-un-role-d-adaptateur-est-un-paquet.md) |
-| Le cœur applicatif touche le disque local par des classes nommées, et jamais le réseau | [ADR-0148](../adr/ARCH-0148-ce-que-le-coeur-applicatif-peut-toucher.md) |
+| Le cœur applicatif touche le disque local par des classes nommées, et jamais le réseau | [ADR-0150](../adr/ARCH-0150-ce-que-le-coeur-applicatif-peut-toucher.md) |
 | Une commande CLI et un outil MCP sont servis par une classe de capacité ; un dispatcher ne tient aucun cas d'usage | [ADR-0149](../adr/ARCH-0149-une-commande-et-un-outil-sont-servis-par-une-classe-de-capacite.md) |
 | MINOS et NEXUS sont des pairs optionnels, lancés à la demande par MCP STDIO | [ADR-0128](../adr/ARCH-0128-pairs-minos-et-nexus-par-mcp-stdio.md) |
 | Une ressource d'un pair MCP se désigne explicitement, sans heuristique ni mutation du pair | [ADR-0145](../adr/BE-0145-ressource-de-pair-mcp-designee-explicitement.md) |

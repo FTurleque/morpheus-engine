@@ -65,14 +65,14 @@ class ReactorModuleDocumentationTest {
 
     @Test
     void everyCurrentPageThatListsTheReactorListsEveryModuleTheRootPomDeclares() throws Exception {
-        List<String> violations = incompleteReactorLists(repositoryRoot());
+        List<String> violations = incompleteReactorLists(RepositoryRoot.locate());
         assertTrue(violations.isEmpty(), () -> violations.size() + " module list(s) disagree with the root POM:"
                 + System.lineSeparator() + String.join(System.lineSeparator(), violations));
     }
 
     @Test
     void noCurrentPageStatesHowManyModulesOrProjectsTheReactorHas() throws Exception {
-        List<String> violations = statedReactorTotals(repositoryRoot());
+        List<String> violations = statedReactorTotals(RepositoryRoot.locate());
         assertTrue(violations.isEmpty(), () -> violations.size() + " stated reactor total(s) on current pages;"
                 + " count the <module> entries of pom.xml instead of writing the number:"
                 + System.lineSeparator() + String.join(System.lineSeparator(), violations));
@@ -466,20 +466,5 @@ class ReactorModuleDocumentationTest {
         Path file = root.resolve(page);
         Files.createDirectories(file.getParent());
         Files.writeString(file, content);
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            Path pom = current.resolve("pom.xml");
-            if (Files.isRegularFile(pom)) {
-                String content = Files.readString(pom);
-                if (content.contains("<artifactId>morpheus-engine</artifactId>") && content.contains("<modules>")) {
-                    return current;
-                }
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 }

@@ -84,7 +84,7 @@ class ApiEntryTypesArchitectureTest {
 
     @Test
     void noMainSourceOutsideTheAdapterNamesATypeOfTheAdapterBesideTheEntryTypes() throws IOException {
-        Path root = ProductionSources.repositoryRoot();
+        Path root = RepositoryRoot.locate();
         List<String> offenders = new ArrayList<>();
         Set<String> entryTypesNamed = new TreeSet<>();
         int scanned = 0;

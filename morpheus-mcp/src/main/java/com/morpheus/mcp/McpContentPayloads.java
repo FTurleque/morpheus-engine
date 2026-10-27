@@ -1,26 +1,16 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.foundation.PayloadMap;
 import com.morpheus.application.quality.ChangeCompletenessAssessment;
 import com.morpheus.application.quality.QualityFinding;
 import com.morpheus.application.query.SnapshotPage;
-import com.morpheus.domain.acceptance.AcceptanceCriterion;
-import com.morpheus.domain.change.ChangeProposal;
-import com.morpheus.domain.constraint.Constraint;
-import com.morpheus.domain.decision.DesignDecision;
-import com.morpheus.domain.requirement.Requirement;
-import com.morpheus.domain.scenario.Scenario;
-import com.morpheus.domain.specification.Specification;
-import com.morpheus.domain.task.ImplementationTask;
 
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 
 /**
- * The public shape of each domain type the catalogue tools answer with, written once for all of them.
+ * The page envelope and the readiness shapes the catalogue tools answer with, written once for all of them.
  *
- * <p>The HTTP adapter writes the same keys and values for the same types in its own services.</p>
+ * <p>A domain type the HTTP adapter also shows is projected by {@code PublicPayloads}, not here.</p>
  */
 final class McpContentPayloads {
 
@@ -31,77 +21,9 @@ final class McpContentPayloads {
         return PagedEnvelope.snapshotPage(page, items);
     }
 
-    static Object specification(Specification item) {
-        return map(
-                "id", item.id().toString(),
-                "projectId", item.projectId().toString(),
-                "key", item.key(),
-                "title", item.title(),
-                "description", item.description().orElse(""));
-    }
-
-    static Object requirement(Requirement item) {
-        return map(
-                "id", item.id().toString(),
-                "specificationId", item.specificationId().toString(),
-                "key", item.key().orElse(""),
-                "title", item.title(),
-                "statement", item.statement());
-    }
-
-    static Object change(ChangeProposal item) {
-        return map(
-                "id", item.id().toString(),
-                "projectId", item.projectId().toString(),
-                "key", item.key().orElse(""),
-                "title", item.title(),
-                "intent", item.intent(),
-                "scope", item.scope(),
-                "outOfScope", item.outOfScope(),
-                "risks", item.risks());
-    }
-
-    static Object constraint(Constraint item) {
-        return map("id", item.id().toString(), "changeId", item.changeId().toString(), "statement", item.statement());
-    }
-
-    static Object acceptanceCriterion(AcceptanceCriterion item) {
-        return map(
-                "id", item.id().toString(),
-                "requirementId", item.requirementId().map(Object::toString).orElse(""),
-                "changeId", item.changeId().map(Object::toString).orElse(""),
-                "title", item.title(),
-                "condition", item.condition(),
-                "verificationStatus", item.verificationStatus().name(),
-                "verificationEvidenceIds", item.verificationEvidenceIds().stream().map(Object::toString).toList(),
-                "sourceEvidenceId", item.provenance().evidenceId().toString());
-    }
-
-    static Object decision(DesignDecision item) {
-        return map(
-                "id", item.id().toString(), "changeId", item.changeId().toString(),
-                "title", item.title(), "decision", item.decision());
-    }
-
-    static Object task(ImplementationTask item) {
-        return map(
-                "id", item.id().toString(), "changeId", item.changeId().toString(),
-                "key", item.key().orElse(""), "title", item.title(), "completed", item.completed());
-    }
-
-    static Object scenario(Scenario item) {
-        return map(
-                "id", item.id().toString(),
-                "requirementId", item.requirementId().map(Object::toString).orElse(""),
-                "title", item.title(),
-                "preconditions", item.preconditions(),
-                "action", item.action(),
-                "expectedOutcome", item.expectedOutcome());
-    }
-
     static Object lifecycleFacts(ChangeCompletenessAssessment assessment) {
         var facts = assessment.lifecycleFacts();
-        return map(
+        return PayloadMap.of(
                 "requirementsIdentified", facts.requirementsIdentified().name(),
                 "criticalConstraintsKnown", facts.criticalConstraintsKnown().name(),
                 "acceptanceCriteriaDefined", facts.acceptanceCriteriaDefined().name(),
@@ -114,7 +36,7 @@ final class McpContentPayloads {
     }
 
     static Object finding(QualityFinding finding) {
-        return map(
+        return PayloadMap.of(
                 "code", finding.code().name(),
                 "severity", finding.severity().name(),
                 "evidenceKind", finding.evidenceKind().name(),
@@ -124,16 +46,5 @@ final class McpContentPayloads {
                 "details", finding.details(),
                 "confidence", finding.confidence().map(Object::toString).orElse(""),
                 "evidenceIds", finding.evidenceIds().stream().map(Object::toString).toList());
-    }
-
-    static Map<String, Object> map(Object... entries) {
-        if (entries.length % 2 != 0) {
-            throw new IllegalArgumentException("map entries must be key/value pairs");
-        }
-        Map<String, Object> result = new LinkedHashMap<>();
-        for (int index = 0; index < entries.length; index += 2) {
-            result.put((String) entries[index], Objects.requireNonNull(entries[index + 1], "map value"));
-        }
-        return Map.copyOf(result);
     }
 }

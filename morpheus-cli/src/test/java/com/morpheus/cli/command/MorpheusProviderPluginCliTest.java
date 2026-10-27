@@ -69,7 +69,7 @@ class MorpheusProviderPluginCliTest {
         Result result = run("provider-plugins", "discover", "--directory", tempDir.toString(), "--recursive", "yes");
 
         assertEquals(CliExitCode.USAGE.code(), result.exitCode());
-        assertTrue(result.err().contains("unknown provider-plugins option: --recursive"), result.err());
+        assertTrue(result.err().contains("MORPHEUS provider-plugin usage error: unknown option: --recursive"), result.err());
     }
 
     private Result run(String... args) {

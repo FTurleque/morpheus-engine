@@ -54,7 +54,7 @@ class MorpheusProjectRootHttpRoutesContractTest {
             assertTrue(detailQuery.body().contains("unknown query parameter: unexpected"), detailQuery.body());
 
             String registrationBody = "{\"workspace\":"
-                    + http.jsonString(http.fixture("openspec-basic").toString()) + "}";
+                    + http.jsonString(RepositoryRoot.fixture("openspec-basic").toString()) + "}";
             ApiTestSupport.Response created = http.postJson(server, "/projects", registrationBody);
             assertEquals(201, created.status(), created.body());
             String projectId = http.field(created.body(), "projectId");

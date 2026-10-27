@@ -44,7 +44,6 @@ import com.morpheus.store.sqlite.adapter.SqliteSpecificationKnowledgeStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
@@ -204,7 +203,7 @@ class ControlledLifecycleMutationContractTest {
     void writeCapabilityRequiresExplicitProviderCapabilityAndRejectsReadOnlyOpenSpec() {
         MemorySpecificationKnowledgeStore projects = new MemorySpecificationKnowledgeStore();
 
-        Path synthetic = fixturePath("synthetic-basic");
+        Path synthetic = RepositoryRoot.fixture("synthetic-basic");
         ProjectSpecificationId syntheticProject = ProjectSpecificationId.generate();
         projects.putProject(new ProjectStoreEntry(
                 syntheticProject, new SourceLocator("file", synthetic.toAbsolutePath().toString())));
@@ -217,7 +216,7 @@ class ControlledLifecycleMutationContractTest {
         assertTrue(allowed.writeAllowed());
         assertEquals(SyntheticSpecificationProvider.ID, allowed.providerId().orElseThrow());
 
-        Path openspec = fixturePath("openspec-basic");
+        Path openspec = RepositoryRoot.fixture("openspec-basic");
         ProjectSpecificationId openspecProject = ProjectSpecificationId.generate();
         projects.putProject(new ProjectStoreEntry(
                 openspecProject, new SourceLocator("file", openspec.toAbsolutePath().toString())));
@@ -327,18 +326,6 @@ class ControlledLifecycleMutationContractTest {
                 WRITE_PROVIDER,
                 "M17 persistence contract",
                 T0);
-    }
-
-    private Path fixturePath(String name) {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            Path candidate = current.resolve("experiments/m0/fixtures").resolve(name);
-            if (Files.isDirectory(candidate)) {
-                return candidate;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("fixture not found: " + name);
     }
 
     private record Fixture(

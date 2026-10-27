@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PartialRuntimeOwnershipContractTest {
     @Test
     void assemblersThatAcquireBeforeTheyFinishRegisterWithStartupOwnership() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         assertTrue(
                 Files.isRegularFile(root.resolve(
                         "morpheus-application/src/main/java/com/morpheus/application/operability/StartupOwnership.java")),
@@ -79,7 +79,7 @@ class PartialRuntimeOwnershipContractTest {
      */
     @Test
     void shutdownPathsThatOwnSeveralResourcesReleaseEveryOneOfThem() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         assertTrue(
                 Files.isRegularFile(root.resolve(
                         "morpheus-application/src/main/java/com/morpheus/application/operability/ExhaustiveShutdown.java")),
@@ -109,7 +109,7 @@ class PartialRuntimeOwnershipContractTest {
      */
     @Test
     void theMcpClientTransportDisposesItsSchedulersEvenWhenStoppingThePeerFails() throws IOException {
-        String transport = Files.readString(repositoryRoot().resolve(
+        String transport = Files.readString(RepositoryRoot.locate().resolve(
                 "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioClientTransport.java"));
 
         String statements = transport.replaceAll("\\s+", " ");
@@ -122,21 +122,5 @@ class PartialRuntimeOwnershipContractTest {
                         "try { destroyObservedProcessTree(process.get()); } finally { disposeSchedulers();"
                                 + " state.set(State.FAILED); }"),
                 "the fail-closed path must release the same threads on the same terms");
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            Path pom = current.resolve("pom.xml");
-            if (Files.isRegularFile(pom)) {
-                String content = Files.readString(pom);
-                // A module pom names morpheus-engine as its <parent>, so the module list is what marks the root.
-                if (content.contains("<artifactId>morpheus-engine</artifactId>") && content.contains("<modules>")) {
-                    return current;
-                }
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root");
     }
 }

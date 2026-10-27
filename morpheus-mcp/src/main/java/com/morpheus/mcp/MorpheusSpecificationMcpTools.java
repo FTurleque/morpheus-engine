@@ -1,6 +1,8 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.foundation.PayloadMap;
 import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.payload.PublicPayloads;
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.query.SpecificationContextQueryService;
 import com.morpheus.application.store.KnowledgeStoreException;
@@ -53,13 +55,13 @@ public final class MorpheusSpecificationMcpTools {
         List<Specification> specifications = content.specifications().stream()
                 .sorted(Comparator.comparing(Specification::id))
                 .toList();
-        return McpContentPayloads.map(
+        return PayloadMap.of(
                 "projectId", projectId.toString(),
                 "snapshotId", snapshot.id().toString(),
                 "snapshotState", snapshot.state().name(),
                 "specificationVersionId", specificationVersionId,
                 "specifications", PagedEnvelope.slice(
-                        pageRequest.offset(), pageRequest.limit(), specifications, McpContentPayloads::specification),
+                        pageRequest.offset(), pageRequest.limit(), specifications, PublicPayloads::specification),
                 "requirementCount", currentRequirementCount,
                 "scenarioCount", content.scenarios().size(),
                 "changeCount", content.changes().size(),
@@ -73,11 +75,11 @@ public final class MorpheusSpecificationMcpTools {
                 runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability())
                 .active(projectId, specificationId, McpCatalogTool.page(arguments))
                 .orElseThrow(() -> McpCatalogTool.notFound("project has no ACTIVE snapshot: " + projectId));
-        return McpContentPayloads.map(
+        return PayloadMap.of(
                 "snapshotId", result.snapshot().id().toString(),
-                "specification", McpContentPayloads.specification(result.specification()),
-                "requirements", McpContentPayloads.page(result.requirements(), result.requirements().items().stream().map(McpContentPayloads::requirement).toList()),
-                "scenarios", result.scenarios().stream().map(McpContentPayloads::scenario).toList(),
-                "changes", result.changes().stream().map(McpContentPayloads::change).toList());
+                "specification", PublicPayloads.specification(result.specification()),
+                "requirements", McpContentPayloads.page(result.requirements(), result.requirements().items().stream().map(PublicPayloads::requirement).toList()),
+                "scenarios", result.scenarios().stream().map(PublicPayloads::scenario).toList(),
+                "changes", result.changes().stream().map(PublicPayloads::change).toList());
     }
 }

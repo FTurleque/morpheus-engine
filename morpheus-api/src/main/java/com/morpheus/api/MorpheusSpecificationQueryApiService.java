@@ -2,16 +2,15 @@ package com.morpheus.api;
 
 import com.morpheus.api.transport.ApiFailure;
 import com.morpheus.api.transport.PagedEnvelope;
+import com.morpheus.application.foundation.PayloadMap;
 import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.payload.PublicPayloads;
 import com.morpheus.application.query.BusinessContentQueryService;
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.query.SnapshotPage;
 import com.morpheus.application.query.SpecificationContextQueryService;
 import com.morpheus.application.store.KnowledgeStoreException;
-import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.domain.requirement.Requirement;
-import com.morpheus.domain.scenario.Scenario;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 import com.morpheus.domain.specification.Specification;
 import com.morpheus.domain.specification.SpecificationId;
@@ -23,8 +22,6 @@ import java.util.Objects;
 
 /** Owns active specification list, detail and contextual API views. */
 public final class MorpheusSpecificationQueryApiService {
-    private static final String FIELD_TITLE = "title";
-
     private final Path databasePath;
     private final OperationalRecorder recorder;
 
@@ -44,8 +41,8 @@ public final class MorpheusSpecificationQueryApiService {
                     .sorted(Comparator.comparing(Specification::id))
                     .toList();
             return PagedEnvelope.following(
-                    OrderedFields.map("snapshotId", snapshot.id().toString()),
-                    PagedEnvelope.slice(pageRequest.offset(), pageRequest.limit(), specifications, this::specification));
+                    PayloadMap.of("snapshotId", snapshot.id().toString()),
+                    PagedEnvelope.slice(pageRequest.offset(), pageRequest.limit(), specifications, PublicPayloads::specification));
         }
     }
 
@@ -58,7 +55,7 @@ public final class MorpheusSpecificationQueryApiService {
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
             Specification item = result.item()
                     .orElseThrow(() -> ApiFailure.notFound("specification not found: " + specificationId));
-            return OrderedFields.map("snapshotId", result.snapshot().id().toString(), "specification", specification(item));
+            return PayloadMap.of("snapshotId", result.snapshot().id().toString(), "specification", PublicPayloads.specification(item));
         }
     }
 
@@ -80,13 +77,13 @@ public final class MorpheusSpecificationQueryApiService {
                     runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability())
                     .active(projectId, specificationId, pageRequest)
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
-            return OrderedFields.map(
+            return PayloadMap.of(
                     "snapshotId", result.snapshot().id().toString(),
-                    "specification", specification(result.specification()),
+                    "specification", PublicPayloads.specification(result.specification()),
                     "requirements", page(result.requirements(), result.requirements().items().stream()
-                            .map(this::requirement).toList()),
-                    "scenarios", result.scenarios().stream().map(this::scenario).toList(),
-                    "changes", result.changes().stream().map(this::change).toList());
+                            .map(PublicPayloads::requirement).toList()),
+                    "scenarios", result.scenarios().stream().map(PublicPayloads::scenario).toList(),
+                    "changes", result.changes().stream().map(PublicPayloads::change).toList());
         }
     }
 
@@ -104,46 +101,6 @@ public final class MorpheusSpecificationQueryApiService {
 
     private BusinessContentQueryService business(ApiRuntime runtime) {
         return new BusinessContentQueryService(runtime.snapshots(), runtime.content());
-    }
-
-    private Object requirement(Requirement item) {
-        return OrderedFields.map(
-                "id", item.id().toString(),
-                "specificationId", item.specificationId().toString(),
-                "key", item.key().orElse(""),
-                FIELD_TITLE, item.title(),
-                "statement", item.statement());
-    }
-
-    private Object specification(Specification item) {
-        return OrderedFields.map(
-                "id", item.id().toString(),
-                "projectId", item.projectId().toString(),
-                "key", item.key(),
-                FIELD_TITLE, item.title(),
-                "description", item.description().orElse(""));
-    }
-
-    private Object change(ChangeProposal item) {
-        return OrderedFields.map(
-                "id", item.id().toString(),
-                "projectId", item.projectId().toString(),
-                "key", item.key().orElse(""),
-                FIELD_TITLE, item.title(),
-                "intent", item.intent(),
-                "scope", item.scope(),
-                "outOfScope", item.outOfScope(),
-                "risks", item.risks());
-    }
-
-    private Object scenario(Scenario item) {
-        return OrderedFields.map(
-                "id", item.id().toString(),
-                "requirementId", item.requirementId().map(Object::toString).orElse(""),
-                FIELD_TITLE, item.title(),
-                "preconditions", item.preconditions(),
-                "action", item.action(),
-                "expectedOutcome", item.expectedOutcome());
     }
 
     private Object page(SnapshotPage<?> page, List<?> items) {

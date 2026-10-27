@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.application.foundation.PayloadMap;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.product.ProductMetadata;
 import com.morpheus.application.query.PageRequest;
@@ -55,11 +56,11 @@ public final class MorpheusApiService {
     }
 
     public Object health() {
-        return OrderedFields.map("status", "UP", "service", "morpheus", "apiVersion", ProductMetadata.API_VERSION);
+        return PayloadMap.of("status", "UP", "service", "morpheus", "apiVersion", ProductMetadata.API_VERSION);
     }
 
     public Object version() {
-        return OrderedFields.map("version", ProductMetadata.version());
+        return PayloadMap.of("version", ProductMetadata.version());
     }
 
     public Object listProjects() {

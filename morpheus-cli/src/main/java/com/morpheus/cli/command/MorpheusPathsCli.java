@@ -18,7 +18,10 @@ public final class MorpheusPathsCli {
             PrintStream err,
             Map<String, String> environment,
             Properties properties) {
-        return CliCommandRun.run(args, out, err, environment, properties, (tokens, run) -> paths(run));
+        return CliCommandRun.run(args, out, err, environment, properties, (tokens, run) -> {
+            CommandOptions.parse(tokens.subList(1, tokens.size()), CommandOptions.Declared.nothing());
+            return paths(run);
+        });
     }
 
     private static int paths(CliCommandRun run) {

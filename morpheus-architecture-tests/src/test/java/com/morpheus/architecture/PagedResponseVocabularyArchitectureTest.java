@@ -66,7 +66,7 @@ class PagedResponseVocabularyArchitectureTest {
     void noResponseSpellsThePageTotalAnotherWay() throws IOException {
         List<String> violations = new ArrayList<>();
         for (String module : MODULES) {
-            try (Stream<Path> sources = Files.walk(root().resolve(module).resolve("src/main/java"))) {
+            try (Stream<Path> sources = Files.walk(RepositoryRoot.locate().resolve(module).resolve("src/main/java"))) {
                 for (Path source : sources.filter(path -> path.toString().endsWith(".java")).sorted().toList()) {
                     String text = Files.readString(source);
                     for (String literal : REFUSED_SPELLINGS_OF_A_PAGE_TOTAL) {
@@ -91,7 +91,7 @@ class PagedResponseVocabularyArchitectureTest {
         List<Path> result = new ArrayList<>();
         for (String module : MODULES) {
             Path factory = factory(module);
-            try (Stream<Path> sources = Files.walk(root().resolve(module).resolve("src/main/java"))) {
+            try (Stream<Path> sources = Files.walk(RepositoryRoot.locate().resolve(module).resolve("src/main/java"))) {
                 sources.filter(path -> path.toString().endsWith(".java"))
                         .filter(path -> !path.equals(factory))
                         .sorted()
@@ -116,18 +116,6 @@ class PagedResponseVocabularyArchitectureTest {
     }
 
     private String relative(Path source) {
-        return root().relativize(source).toString().replace('\\', '/');
-    }
-
-    private Path root() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
+        return RepositoryRoot.locate().relativize(source).toString().replace('\\', '/');
     }
 }

@@ -176,6 +176,9 @@ Voir `rules/meta.md`.
 - JUnit 5 (Jupiter) exclusivement — le projet est sur `junit-bom` (voir `rules/build.md` pour la version exacte, elle évolue)
 - Utiliser `morpheus-store-memory` ou `morpheus-provider-synthetic` en test ; jamais SQLite en unitaire
 - Utiliser les fixtures de `experiments/m0/fixtures/` (`openspec-basic`, `synthetic-basic`)
+- Trouver la racine du dépôt et une fixture M0 par la classe `RepositoryRoot` du module de test (`locate()`,
+  `fixture(name)`) : jamais de remontée privée depuis le répertoire de travail, quel que soit son nom.
+  `RepositoryRootOwnershipTest` refuse la copie et garde identiques les propriétaires des modules
 - Vérifier la parité de persistance quand un store change : les tests `*PersistenceParityTest`
   exigent un comportement identique entre `store-memory` et `store-sqlite`
 - Construire `morpheus-provider-reference` **avant** les tests d'architecture — M22 charge son JAR depuis `target/`

@@ -33,10 +33,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * A value-taking option given twice is refused with exit code 2 and named, by every parser of the CLI; the second
  * value never silently replaces the first.
  *
- * <p>The families that already refused a repeat ({@link SimpleOptions}, {@code CommandOptions} and the
- * adapters' own {@code Options}) are covered by their own tests. This table covers the parsers that kept the last
- * value: {@link GlobalArgs} and its former copies, the server, product, provider-plugin and reasoning parsers, and the
- * three launchers. Where a parser recognises both spellings ({@code --x v} and {@code --x=v}), they are one option.</p>
+ * <p>The shared parser, {@code CommandOptions}, refuses a repeat and is covered by its own test. This table covers
+ * the layout options read by {@link GlobalArgs} ahead of every command and the server's own reading of them, a value
+ * option of the server, product, provider-plugin and reasoning commands, and the three launchers. Where a parser recognises both spellings ({@code --x v} and {@code --x=v}), they are one
+ * option.</p>
  */
 class DuplicateOptionRefusalTest {
     private static final List<String> LAYOUT = List.of("--data-dir", "--config-dir", "--db");

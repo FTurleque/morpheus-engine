@@ -3,6 +3,7 @@ package com.morpheus.architecture.d2;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.morpheus.architecture.RepositoryRoot;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -14,7 +15,7 @@ class DependencyCheckWorkflowContractTest {
 
     @Test
     void trustedUpdateUsesApiKeyWhenPresentAndFreshCacheWhenUpstreamAnonymousUpdateIsBroken() throws IOException {
-        String security = Files.readString(repoRoot().resolve(".github/workflows/security.yml"));
+        String security = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/security.yml"));
 
         int updateStart = security.indexOf("- name: Update Dependency-Check vulnerability database (trusted events)");
         int saveStart = security.indexOf("- name: Save trusted Dependency-Check database");
@@ -66,7 +67,7 @@ class DependencyCheckWorkflowContractTest {
      */
     @Test
     void databaseFreshnessAndFailureReasonsAreObservableBeforeAndWhenTheyStopTheBuild() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String security = Files.readString(root.resolve(".github/workflows/security.yml"));
         String report = Files.readString(root.resolve("scripts/report-dependency-check-cache.sh"));
         String classify = Files.readString(root.resolve("scripts/classify-dependency-check-failure.sh"));
@@ -159,7 +160,7 @@ class DependencyCheckWorkflowContractTest {
      */
     @Test
     void theProvenancePublishedOnAPullRequestIsReadFromTheSentinelNotFromALiteral() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String security = Files.readString(root.resolve(".github/workflows/security.yml"));
         String writer = Files.readString(root.resolve("scripts/write-dependency-check-sentinel.sh"));
         String reader = Files.readString(root.resolve("scripts/read-dependency-check-sentinel.sh"));
@@ -224,7 +225,7 @@ class DependencyCheckWorkflowContractTest {
      */
     @Test
     void aProvenanceThisBranchCannotHaveProducedIsWarnedAboutAndNeverRefused() throws IOException {
-        String security = Files.readString(repoRoot().resolve(".github/workflows/security.yml"));
+        String security = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/security.yml"));
         String freshnessStep = section(security,
                 "- name: Verify restored Dependency-Check database freshness",
                 "- name: Remove stale Dependency-Check update lock");
@@ -274,7 +275,7 @@ class DependencyCheckWorkflowContractTest {
      */
     @Test
     void aRefreshThatFailedIsNotARefreshAndIsAlsoNotByItselfARefusal() throws IOException {
-        String security = Files.readString(repoRoot().resolve(".github/workflows/security.yml"));
+        String security = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/security.yml"));
         String trustedUpdate = section(security,
                 "- name: Update Dependency-Check vulnerability database (trusted events)",
                 "- name: Save trusted Dependency-Check database");
@@ -332,7 +333,7 @@ class DependencyCheckWorkflowContractTest {
      */
     @Test
     void aFailedRefreshNamesTheKeyOnlyWhenTheLogSaysTheKeyWasRefused() throws IOException {
-        String security = Files.readString(repoRoot().resolve(".github/workflows/security.yml"));
+        String security = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/security.yml"));
         String trustedUpdate = section(security,
                 "- name: Update Dependency-Check vulnerability database (trusted events)",
                 "- name: Save trusted Dependency-Check database");
@@ -375,7 +376,7 @@ class DependencyCheckWorkflowContractTest {
      */
     @Test
     void everyDependencyCheckInvocationUsesTheVersionTheRootPomPins() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String pom = Files.readString(root.resolve("pom.xml"));
         String security = Files.readString(root.resolve(".github/workflows/security.yml"));
 
@@ -416,7 +417,7 @@ class DependencyCheckWorkflowContractTest {
      */
     @Test
     void theTrustedCacheIsKeyedOnTheSchemaVersionAndNeverFallsBackAcrossSchemas() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String pom = Files.readString(root.resolve("pom.xml"));
         String security = Files.readString(root.resolve(".github/workflows/security.yml"));
 
@@ -465,7 +466,7 @@ class DependencyCheckWorkflowContractTest {
      */
     @Test
     void freshnessIsReadFromARefreshSentinelAndNeverFromAFileModificationTime() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String security = Files.readString(root.resolve(".github/workflows/security.yml"));
         String writer = Files.readString(root.resolve("scripts/write-dependency-check-sentinel.sh"));
         String reader = Files.readString(root.resolve("scripts/read-dependency-check-sentinel.sh"));
@@ -527,7 +528,7 @@ class DependencyCheckWorkflowContractTest {
      */
     @Test
     void aRefreshThatDidNotHappenRaisesItsOwnAlertAfterTheScanAndNeverUnderARequiredName() throws IOException {
-        String security = Files.readString(repoRoot().resolve(".github/workflows/security.yml"));
+        String security = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/security.yml"));
         int alertStart = security.indexOf("\n  refresh-alert:");
         assertTrue(alertStart > 0, "the alert must be a job of its own");
         String scanJob = security.substring(security.indexOf("\n  dependency-check:"), alertStart);
@@ -564,8 +565,8 @@ class DependencyCheckWorkflowContractTest {
      */
     @Test
     void theAlertAndTheWarningShareOneThreshold() throws IOException {
-        String security = Files.readString(repoRoot().resolve(".github/workflows/security.yml"));
-        String report = Files.readString(repoRoot().resolve("scripts/report-dependency-check-cache.sh"));
+        String security = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/security.yml"));
+        String report = Files.readString(RepositoryRoot.locate().resolve("scripts/report-dependency-check-cache.sh"));
         String expression = "(( age_seconds * 3 >= max_age_seconds * 2 ))";
         assertTrue(report.contains(expression), "the warning must keep the two-thirds expression");
         assertTrue(security.contains(expression), "the alert must use the very same expression as the warning");
@@ -577,8 +578,8 @@ class DependencyCheckWorkflowContractTest {
      */
     @Test
     void everyDependencyCheckCodeTheWorkflowEmitsIsExplainedInTheRecoveryGuide() throws IOException {
-        String security = Files.readString(repoRoot().resolve(".github/workflows/security.yml"));
-        String guide = Files.readString(repoRoot().resolve("docs/developer/COLD_START_RECOVERY.md"));
+        String security = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/security.yml"));
+        String guide = Files.readString(RepositoryRoot.locate().resolve("docs/developer/COLD_START_RECOVERY.md"));
         Matcher codes = Pattern.compile("MORPHEUS_DEPENDENCY_CHECK_[A-Z]+=([A-Z_]+)").matcher(security);
         java.util.Set<String> values = new java.util.TreeSet<>();
         while (codes.find()) {
@@ -601,18 +602,5 @@ class DependencyCheckWorkflowContractTest {
         assertTrue(start >= 0 && end > start,
                 () -> "security.yml must keep the step \"" + from + "\" before the step \"" + to + "\"");
         return workflow.substring(start, end);
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
-            return current;
-        }
-        Path parent = current.getParent();
-        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml"))
-                && Files.isDirectory(parent.resolve("distribution"))) {
-            return parent;
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found from " + current);
     }
 }

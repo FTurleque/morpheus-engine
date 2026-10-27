@@ -1,6 +1,7 @@
 package com.morpheus.architecture.m21;
 
 import com.morpheus.architecture.ProductionSources;
+import com.morpheus.architecture.RepositoryRoot;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -18,7 +19,7 @@ class AuditRemediationContractTest {
 
     @Test
     void queryBudgetsAreAppliedToCurrentRequirementsAtTheStoreBoundary() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String query = read(root, "morpheus-application/src/main/java/com/morpheus/application/query/dsl/QueryExecutionService.java");
         String store = read(root, "morpheus-application/src/main/java/com/morpheus/application/store/VersionedRequirementStore.java");
         String sqlite = read(root, "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/adapter/SqliteVersionedRequirementStore.java");
@@ -39,7 +40,7 @@ class AuditRemediationContractTest {
 
     @Test
     void completeMaterializationRejectsBeforeOverBudgetSortOrProjection() throws IOException {
-        String query = read(repoRoot(),
+        String query = read(RepositoryRoot.locate(),
                 "morpheus-application/src/main/java/com/morpheus/application/query/dsl/QueryExecutionService.java");
 
         assertTrue(query.contains("materializeRowsBounded(query, maximumRows)"));
@@ -67,7 +68,7 @@ class AuditRemediationContractTest {
 
     @Test
     void aggregateCoverageIsCanonicalForMavenDiffGateArtifactsAndSonar() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String rootPom = read(root, "pom.xml");
         String coveragePom = read(root, "morpheus-coverage-report/pom.xml");
         String aggregateGate = read(root,
@@ -90,7 +91,7 @@ class AuditRemediationContractTest {
 
     @Test
     void activeDocumentationTracksBuildVersionsAndModuleCount() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String pom = read(root, "pom.xml");
         String readme = read(root, "CONTRIBUTING.md");
         String status = read(root, "docs/project/governance/DOCUMENTATION_STATUS.md");
@@ -127,17 +128,5 @@ class AuditRemediationContractTest {
             count++;
         }
         return count;
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("pom.xml"))
-                    && Files.isDirectory(current.resolve("morpheus-application"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found");
     }
 }

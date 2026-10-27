@@ -205,10 +205,12 @@ Une commande CLI va dans une classe de `com.morpheus.cli.command`, un outil MCP 
 `contracts/public-surfaces.tsv`. `MorpheusMain`, `MorpheusCli`, `CliCommandPaths` (`com.morpheus.cli`) et
 `MorpheusMcpServer` (`com.morpheus.mcp.server`) distribuent et ne nomment de l'application, d'un provider ou d'un
 store que la liste autorisée exacte de leur adaptateur ; `MorpheusCli` ne sert que l'aide (et `version` appelé directement).
-Le parseur (`CommandOptions`), le cadre d'exécution et la ligne d'erreur (`CliCommandRun`), les projections
-(`McpContentPayloads`) et le cadre des outils du catalogue (`McpCatalogTool`) existent une fois. Les paquets de chaque
-adaptateur sont sans cycle ; les autres modules n'utilisent de `morpheus-mcp` que `MorpheusMcpServer`.
-> `DispatchersHoldNoUseCaseArchitectureTest`, `CliCommandDispatchIsExhaustiveTest`, `ServedToolsAreClaimedOnceTest`, `CliAndMcpPackageCyclesArchitectureTest`, `McpEntryTypesArchitectureTest`
+Le parseur des options, auquel chaque sous-commande déclare ce qu'elle accepte (`CommandOptions`), le cadre d'exécution
+(`CliCommandRun`), la ligne d'erreur et le texte d'un échec (`CliErrorLine`), la lecture du jeton de commande
+(`GlobalArgs`), les projections propres au MCP (`McpContentPayloads`) et le cadre des outils du catalogue
+(`McpCatalogTool`) existent une fois. Les paquets de chaque adaptateur sont sans cycle ; les autres modules n'utilisent de
+`morpheus-mcp` que `MorpheusMcpServer`.
+> `DispatchersHoldNoUseCaseArchitectureTest`, `CliCommandDispatchIsExhaustiveTest`, `ServedToolsAreClaimedOnceTest`, `CliAndMcpPackageCyclesArchitectureTest`, `McpEntryTypesArchitectureTest`, `CliArgumentBaseArchitectureTest`, `CliOptionParsingRefusesUnknownOptionsTest`
 
 ### `morpheus-mcp-transport` ne dépend d'aucun autre paquet MORPHEUS
 Le transport STDIO borné est partagé par le serveur MCP et les clients MINOS/NEXUS.
@@ -224,13 +226,13 @@ Jamais Spring / Quarkus / Micronaut / Guice, jamais de réflexion, de classpath 
 ou d'annotations d'injection. Le câblage est explicite : dans `MorpheusMain` pour le processus, dans les racines
 de composition nommées d'ADR-0109 pour le runtime de chaque requête HTTP ou appel MCP.
 
-## Ce que l'application touche (ADR-0148)
+## Ce que l'application touche (ADR-0150)
 
 `com.morpheus.application..` ne dépend **jamais** de SQL (`java.sql`), d'une bibliothèque JSON (Jackson) ni de
 l'exécution de processus. L'accès fichier, le réseau sortant, l'environnement du processus, les flux standard, les
 fils d'exécution, l'horloge murale et la réflexion n'y sont atteints que par les classes que
 `ApplicationTechnologyBoundaryArchitectureTest` nomme pour chaque famille — la liste est exacte, elle rétrécit, et un
-nom ajouté exige un ADR consolidé qui remplace ADR-0148. Le test porte les listes de types et d'appels de chaque
+nom ajouté exige un ADR consolidé qui remplace ADR-0150. Le test porte les listes de types et d'appels de chaque
 famille : les lire là, pas ici. `Path` est du vocabulaire, pas un accès. Le seul nom marqué *sort* est le transport de
 `UpdateDiscoveryService` (`move-marked-technology-access-behind-application-ports`).
 

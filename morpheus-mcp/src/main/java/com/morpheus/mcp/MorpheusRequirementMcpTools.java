@@ -1,6 +1,8 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.foundation.PayloadMap;
 import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.payload.PublicPayloads;
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.query.RequirementQueryService;
 import com.morpheus.application.query.RequirementSearchQuery;
@@ -51,10 +53,10 @@ public final class MorpheusRequirementMcpTools {
                 .findActive(projectId, new RequirementSearchQuery(queryText), pageRequest)
                 .orElseThrow(() -> McpCatalogTool.notFound("project has no ACTIVE snapshot: " + projectId));
         return PagedEnvelope.following(
-                McpContentPayloads.map("snapshotId", result.snapshot().id().toString(), "query", queryText),
+                PayloadMap.of("snapshotId", result.snapshot().id().toString(), "query", queryText),
                 PagedEnvelope.page(result.pageRequest(), result.totalMatches(), result.hasMore(),
                         result.items().stream()
-                                .map(item -> McpContentPayloads.requirement(item.entityVersion().content()))
+                                .map(item -> PublicPayloads.requirement(item.entityVersion().content()))
                                 .toList()));
     }
 

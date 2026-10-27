@@ -163,7 +163,7 @@ class HttpPathReadingArchitectureTest {
     }
 
     private static Set<String> sourcesMentioning(String text) throws IOException {
-        return sourcesMentioning(repositoryRoot().resolve(API_SOURCES), text);
+        return sourcesMentioning(RepositoryRoot.locate().resolve(API_SOURCES), text);
     }
 
     /**
@@ -192,17 +192,5 @@ class HttpPathReadingArchitectureTest {
 
     private static String source(String name) throws IOException {
         return ProductionSources.readMain("morpheus-api", name.substring(0, name.length() - ".java".length()));
-    }
-
-    private static Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
     }
 }

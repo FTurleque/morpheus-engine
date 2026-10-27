@@ -12,7 +12,6 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Properties;
@@ -48,7 +47,7 @@ class MorpheusMainTest {
 
         Invocation forced = launch("--data-dir", data().toString(), "sync", "--project", projectId, "--force");
 
-        // A second --force would be rejected by CommandOptions as "duplicate flag", so SUCCESS proves single delivery.
+        // A second --force would be rejected by CommandOptions as a duplicate option, so SUCCESS proves single delivery.
         assertEquals(CliExitCode.SUCCESS.code(), forced.exitCode(), forced.stderr());
         assertTrue(forced.stdout().contains("mode=FULL_REBUILD"), forced.stdout());
         assertTrue(forced.stdout().contains("fullRebuildReason=FORCED"), forced.stdout());
@@ -221,26 +220,13 @@ class MorpheusMainTest {
     }
 
     private String registerFixtureProject() {
-        Invocation add = launch("--data-dir", data().toString(), "projects", "add", "--workspace", fixture().toString());
+        Invocation add = launch("--data-dir", data().toString(), "projects", "add", "--workspace", RepositoryRoot.fixture("openspec-basic").toString());
         assertEquals(CliExitCode.SUCCESS.code(), add.exitCode(), add.stderr());
         return add.stdout().lines()
                 .filter(line -> line.startsWith("projectId="))
                 .findFirst()
                 .map(line -> line.substring("projectId=".length()).trim())
                 .orElseThrow(() -> new AssertionError("missing projectId in output: " + add.stdout()));
-    }
-
-    private Path fixture() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        Path fromRoot = current.resolve("experiments/m0/fixtures/openspec-basic");
-        if (Files.isDirectory(fromRoot)) {
-            return fromRoot;
-        }
-        Path fromModule = current.resolve("../experiments/m0/fixtures").normalize().resolve("openspec-basic");
-        if (Files.isDirectory(fromModule)) {
-            return fromModule;
-        }
-        throw new IllegalStateException("M0 fixture not found from " + current);
     }
 
     private Invocation launch(String... args) {

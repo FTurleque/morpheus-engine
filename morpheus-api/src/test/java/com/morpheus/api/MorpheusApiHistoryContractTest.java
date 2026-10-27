@@ -25,7 +25,7 @@ class MorpheusApiHistoryContractTest {
     @Test
     void exposesOnlyPublishedLineageHistoricalRequirementsAndDeterministicComparison() {
         Path database = tempDirectory.resolve("morpheus.db");
-        Path fixture = http.fixture("openspec-basic");
+        Path fixture = RepositoryRoot.fixture("openspec-basic");
 
         try (MorpheusHttpServer server = MorpheusHttpServer.start(database, "127.0.0.1", 0)) {
             String registration = "{\"workspace\":" + http.jsonString(fixture.toString()) + "}";

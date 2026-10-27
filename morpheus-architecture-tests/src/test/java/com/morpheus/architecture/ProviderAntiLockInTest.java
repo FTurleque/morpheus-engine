@@ -46,9 +46,9 @@ class ProviderAntiLockInTest {
 
     @Test
     void oneProviderNeutralConsumerReadsAllThreeFormats() {
-        Summary openSpec = summarize(new OpenSpecSpecificationContentReader(), fixture("openspec-basic"));
-        Summary synthetic = summarize(new SyntheticSpecificationContentReader(), fixture("synthetic-basic"));
-        Summary markdown = summarize(new StructuredMarkdownSpecificationContentReader(), fixture("openspec-basic"));
+        Summary openSpec = summarize(new OpenSpecSpecificationContentReader(), RepositoryRoot.fixture("openspec-basic"));
+        Summary synthetic = summarize(new SyntheticSpecificationContentReader(), RepositoryRoot.fixture("synthetic-basic"));
+        Summary markdown = summarize(new StructuredMarkdownSpecificationContentReader(), RepositoryRoot.fixture("openspec-basic"));
 
         assertEquals(Set.of(ReadCategory.values()), openSpec.reportedCategories());
         assertEquals(Set.of(ReadCategory.values()), synthetic.reportedCategories());
@@ -76,7 +76,7 @@ class ProviderAntiLockInTest {
             var snapshots = new MemorySpecificationKnowledgeStore();
             ProjectSpecificationId projectId = ProjectSpecificationId.generate();
             var content = new ProjectContentIngestion(provider.getKey()).read(
-                    fixture(provider.getValue()), projectId, new PersistentEntityIdentityResolver(snapshots));
+                    RepositoryRoot.fixture(provider.getValue()), projectId, new PersistentEntityIdentityResolver(snapshots));
 
             ProjectSnapshotImportResult published = new ProjectSnapshotImportService(
                     snapshots,
@@ -125,7 +125,7 @@ class ProviderAntiLockInTest {
 
         InMemoryResolver resolver = new InMemoryResolver();
         var openSpec = new OpenSpecSpecificationContentReader().read(
-                ProviderReadRequest.all(fixture("openspec-basic"), ProjectSpecificationId.generate()),
+                ProviderReadRequest.all(RepositoryRoot.fixture("openspec-basic"), ProjectSpecificationId.generate()),
                 resolver).content().orElseThrow();
         var synthetic = new SyntheticSpecificationContentReader().read(
                 ProviderReadRequest.all(tempDir, ProjectSpecificationId.generate()),
@@ -156,18 +156,6 @@ class ProviderAntiLockInTest {
                 content.scenarios().size(),
                 content.changes().size(),
                 categories);
-    }
-
-    private Path fixture(String name) {
-        Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
-        while (current != null) {
-            Path candidate = current.resolve("experiments/m0/fixtures").resolve(name);
-            if (Files.isDirectory(candidate)) {
-                return candidate;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("Cannot locate fixture " + name);
     }
 
     private record Summary(

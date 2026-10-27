@@ -1,17 +1,14 @@
 package com.morpheus.application.lifecycle.mutation;
 
+import com.morpheus.application.foundation.TextDigest;
 import com.morpheus.application.lifecycle.ChangeLifecyclePolicy;
 import com.morpheus.application.orchestration.ChangeTransitionEvaluationService;
 import com.morpheus.application.orchestration.ChangeTransitionEvaluationState;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycle;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
-import java.util.HexFormat;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -163,11 +160,6 @@ public final class ControlledChangeLifecycleMutationService {
                 command.targetState().name(),
                 command.targetAbandonmentReason().map(Enum::name).orElse(""),
                 command.actor());
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(canonical.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 must be available", exception);
-        }
+        return TextDigest.sha256(canonical);
     }
 }
