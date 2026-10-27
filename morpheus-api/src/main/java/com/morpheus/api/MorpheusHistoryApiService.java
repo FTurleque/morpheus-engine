@@ -2,6 +2,7 @@ package com.morpheus.api;
 
 import com.morpheus.api.transport.ApiFailure;
 import com.morpheus.api.transport.PagedEnvelope;
+import com.morpheus.application.foundation.PayloadMap;
 import com.morpheus.application.history.HistoricalRequirementQueryService;
 import com.morpheus.application.history.PublishedSnapshotHistoryService;
 import com.morpheus.application.history.RequirementSnapshotComparisonService;
@@ -41,7 +42,7 @@ public final class MorpheusHistoryApiService {
             PublishedSnapshotHistoryService history = new PublishedSnapshotHistoryService(runtime.snapshots());
             List<KnowledgeSnapshotMetadata> lineage = history.lineage(projectId);
             return PagedEnvelope.following(
-                    OrderedFields.map("projectId", projectId.toString(), "retentionPolicy", history.retentionPolicy().name()),
+                    PayloadMap.of("projectId", projectId.toString(), "retentionPolicy", history.retentionPolicy().name()),
                     PagedEnvelope.slice(
                             pageRequest.offset(), pageRequest.limit(), lineage, snapshot -> version(runtime, snapshot)));
         }
@@ -59,7 +60,7 @@ public final class MorpheusHistoryApiService {
             List<RequirementVersionRecord> records = new HistoricalRequirementQueryService(runtime.snapshots(), runtime.requirements())
                     .requirements(snapshotId);
             return PagedEnvelope.following(
-                    OrderedFields.map("snapshotId", snapshotId.toString()),
+                    PayloadMap.of("snapshotId", snapshotId.toString()),
                     PagedEnvelope.slice(pageRequest.offset(), pageRequest.limit(), records, this::requirementRecord));
         }
     }
@@ -73,11 +74,11 @@ public final class MorpheusHistoryApiService {
             requireSnapshotProject(runtime, projectId, targetId);
             var comparison = new RequirementSnapshotComparisonService(runtime.snapshots(), runtime.requirements())
                     .compare(sourceId, targetId);
-            return OrderedFields.map(
+            return PayloadMap.of(
                     "projectId", projectId.toString(),
                     "sourceSnapshotId", comparison.sourceSnapshot().id().toString(),
                     "targetSnapshotId", comparison.targetSnapshot().id().toString(),
-                    "differences", comparison.differences().stream().map(difference -> OrderedFields.map(
+                    "differences", comparison.differences().stream().map(difference -> PayloadMap.admittingAbsentValues(
                             "requirementId", difference.entityIdentity().toString(),
                             "kind", difference.kind().name(),
                             "source", difference.source().map(this::requirementRecord).orElse(null),
@@ -107,7 +108,7 @@ public final class MorpheusHistoryApiService {
                 .orElseThrow(() -> state("published snapshot has no specification version binding: " + snapshot.id()));
         var specificationVersion = runtime.requirements().findSpecificationVersion(binding.specificationVersionId())
                 .orElseThrow(() -> state("specification version not found: " + binding.specificationVersionId()));
-        return OrderedFields.map(
+        return PayloadMap.of(
                 "snapshotId", snapshot.id().toString(),
                 "snapshotState", snapshot.state().name(),
                 "predecessorSnapshotId", snapshot.predecessorId().map(Object::toString).orElse("none"),
@@ -122,7 +123,7 @@ public final class MorpheusHistoryApiService {
 
     private Object requirementRecord(RequirementVersionRecord record) {
         var version = record.entityVersion();
-        return OrderedFields.map(
+        return PayloadMap.of(
                 "entityVersionId", version.id().toString(),
                 "specificationVersionId", version.specificationVersionId().toString(),
                 "temporalState", version.temporalState().name(),
@@ -130,7 +131,7 @@ public final class MorpheusHistoryApiService {
     }
 
     private Object requirement(Requirement item) {
-        return OrderedFields.map(
+        return PayloadMap.of(
                 "id", item.id().toString(),
                 "specificationId", item.specificationId().toString(),
                 "key", item.key().orElse(""),

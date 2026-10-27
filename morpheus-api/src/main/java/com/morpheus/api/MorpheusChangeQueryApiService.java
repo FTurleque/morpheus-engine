@@ -2,6 +2,7 @@ package com.morpheus.api;
 
 import com.morpheus.api.transport.ApiFailure;
 import com.morpheus.api.transport.PagedEnvelope;
+import com.morpheus.application.foundation.PayloadMap;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.BusinessContentQueryService;
 import com.morpheus.application.query.ChangeContextQueryService;
@@ -50,7 +51,7 @@ public final class MorpheusChangeQueryApiService {
         ChangeId changeId = ChangeId.parse(changeIdValue);
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             var result = requireChange(runtime, projectId, changeId);
-            return OrderedFields.map("snapshotId", result.snapshot().id().toString(), "change", change(result.item().orElseThrow()));
+            return PayloadMap.of("snapshotId", result.snapshot().id().toString(), "change", change(result.item().orElseThrow()));
         }
     }
 
@@ -154,7 +155,7 @@ public final class MorpheusChangeQueryApiService {
     }
 
     private Object change(ChangeProposal item) {
-        return OrderedFields.map(
+        return PayloadMap.of(
                 "id", item.id().toString(),
                 "projectId", item.projectId().toString(),
                 "key", item.key().orElse(""),
@@ -166,11 +167,11 @@ public final class MorpheusChangeQueryApiService {
     }
 
     private Object constraint(Constraint item) {
-        return OrderedFields.map("id", item.id().toString(), "changeId", item.changeId().toString(), "statement", item.statement());
+        return PayloadMap.of("id", item.id().toString(), "changeId", item.changeId().toString(), "statement", item.statement());
     }
 
     private Object acceptanceCriterion(AcceptanceCriterion item) {
-        return OrderedFields.map(
+        return PayloadMap.of(
                 "id", item.id().toString(),
                 "requirementId", item.requirementId().map(Object::toString).orElse(""),
                 "changeId", item.changeId().map(Object::toString).orElse(""),
@@ -182,7 +183,7 @@ public final class MorpheusChangeQueryApiService {
     }
 
     private Object decision(DesignDecision item) {
-        return OrderedFields.map(
+        return PayloadMap.of(
                 "id", item.id().toString(),
                 "changeId", item.changeId().toString(),
                 FIELD_TITLE, item.title(),
@@ -190,7 +191,7 @@ public final class MorpheusChangeQueryApiService {
     }
 
     private Object task(ImplementationTask item) {
-        return OrderedFields.map(
+        return PayloadMap.of(
                 "id", item.id().toString(),
                 "changeId", item.changeId().toString(),
                 "key", item.key().orElse(""),

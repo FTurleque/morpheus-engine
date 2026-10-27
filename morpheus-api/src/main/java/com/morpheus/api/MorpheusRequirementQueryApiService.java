@@ -2,6 +2,7 @@ package com.morpheus.api;
 
 import com.morpheus.api.transport.ApiFailure;
 import com.morpheus.api.transport.PagedEnvelope;
+import com.morpheus.application.foundation.PayloadMap;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.query.RequirementQueryService;
@@ -38,7 +39,7 @@ public final class MorpheusRequirementQueryApiService {
                     .findActive(projectId, new RequirementSearchQuery(queryText), pageRequest)
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
             return PagedEnvelope.following(
-                    OrderedFields.map("snapshotId", result.snapshot().id().toString(), "query", queryText),
+                    PayloadMap.of("snapshotId", result.snapshot().id().toString(), "query", queryText),
                     PagedEnvelope.page(result.pageRequest(), result.totalMatches(), result.hasMore(),
                             result.items().stream().map(this::requirementRecord).toList()));
         }
@@ -51,7 +52,7 @@ public final class MorpheusRequirementQueryApiService {
             KnowledgeSnapshotMetadata snapshot = activeSnapshot(runtime, projectId);
             RequirementVersionRecord record = runtime.requirements().currentRequirement(snapshot.id(), requirementId.value())
                     .orElseThrow(() -> ApiFailure.notFound("requirement not found: " + requirementId));
-            return OrderedFields.map("snapshotId", snapshot.id().toString(), "requirement", requirementRecord(record));
+            return PayloadMap.of("snapshotId", snapshot.id().toString(), "requirement", requirementRecord(record));
         }
     }
 
@@ -83,7 +84,7 @@ public final class MorpheusRequirementQueryApiService {
 
     private Object requirementRecord(RequirementVersionRecord record) {
         var version = record.entityVersion();
-        return OrderedFields.map(
+        return PayloadMap.of(
                 "entityVersionId", version.id().toString(),
                 "specificationVersionId", version.specificationVersionId().toString(),
                 "temporalState", version.temporalState().name(),
@@ -91,7 +92,7 @@ public final class MorpheusRequirementQueryApiService {
     }
 
     private Object requirement(Requirement item) {
-        return OrderedFields.map(
+        return PayloadMap.of(
                 "id", item.id().toString(),
                 "specificationId", item.specificationId().toString(),
                 "key", item.key().orElse(""),

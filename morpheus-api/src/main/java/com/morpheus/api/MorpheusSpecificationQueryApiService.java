@@ -2,6 +2,7 @@ package com.morpheus.api;
 
 import com.morpheus.api.transport.ApiFailure;
 import com.morpheus.api.transport.PagedEnvelope;
+import com.morpheus.application.foundation.PayloadMap;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.BusinessContentQueryService;
 import com.morpheus.application.query.PageRequest;
@@ -44,7 +45,7 @@ public final class MorpheusSpecificationQueryApiService {
                     .sorted(Comparator.comparing(Specification::id))
                     .toList();
             return PagedEnvelope.following(
-                    OrderedFields.map("snapshotId", snapshot.id().toString()),
+                    PayloadMap.of("snapshotId", snapshot.id().toString()),
                     PagedEnvelope.slice(pageRequest.offset(), pageRequest.limit(), specifications, this::specification));
         }
     }
@@ -58,7 +59,7 @@ public final class MorpheusSpecificationQueryApiService {
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
             Specification item = result.item()
                     .orElseThrow(() -> ApiFailure.notFound("specification not found: " + specificationId));
-            return OrderedFields.map("snapshotId", result.snapshot().id().toString(), "specification", specification(item));
+            return PayloadMap.of("snapshotId", result.snapshot().id().toString(), "specification", specification(item));
         }
     }
 
@@ -80,7 +81,7 @@ public final class MorpheusSpecificationQueryApiService {
                     runtime.snapshots(), runtime.content(), runtime.requirements(), runtime.traceability())
                     .active(projectId, specificationId, pageRequest)
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
-            return OrderedFields.map(
+            return PayloadMap.of(
                     "snapshotId", result.snapshot().id().toString(),
                     "specification", specification(result.specification()),
                     "requirements", page(result.requirements(), result.requirements().items().stream()
@@ -107,7 +108,7 @@ public final class MorpheusSpecificationQueryApiService {
     }
 
     private Object requirement(Requirement item) {
-        return OrderedFields.map(
+        return PayloadMap.of(
                 "id", item.id().toString(),
                 "specificationId", item.specificationId().toString(),
                 "key", item.key().orElse(""),
@@ -116,7 +117,7 @@ public final class MorpheusSpecificationQueryApiService {
     }
 
     private Object specification(Specification item) {
-        return OrderedFields.map(
+        return PayloadMap.of(
                 "id", item.id().toString(),
                 "projectId", item.projectId().toString(),
                 "key", item.key(),
@@ -125,7 +126,7 @@ public final class MorpheusSpecificationQueryApiService {
     }
 
     private Object change(ChangeProposal item) {
-        return OrderedFields.map(
+        return PayloadMap.of(
                 "id", item.id().toString(),
                 "projectId", item.projectId().toString(),
                 "key", item.key().orElse(""),
@@ -137,7 +138,7 @@ public final class MorpheusSpecificationQueryApiService {
     }
 
     private Object scenario(Scenario item) {
-        return OrderedFields.map(
+        return PayloadMap.of(
                 "id", item.id().toString(),
                 "requirementId", item.requirementId().map(Object::toString).orElse(""),
                 FIELD_TITLE, item.title(),
