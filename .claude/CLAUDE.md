@@ -79,7 +79,7 @@ ce qui est chargé, par quoi, et pourquoi.
 ## Architecture : ports & adapters
 
 `application` définit les **ports** et ne connaît **aucun** adaptateur. Ce n'est pas une couche sans technologie
-(ADR-9999) : ni SQL, ni JSON, ni processus ; l'accès fichier, réseau, à l'environnement, aux flux standard, aux fils d'exécution, à l'horloge et la réflexion
+(ADR-0150) : ni SQL, ni JSON, ni processus ; l'accès fichier, réseau, à l'environnement, aux flux standard, aux fils d'exécution, à l'horloge et la réflexion
 passent par des classes nommées dans `ApplicationTechnologyBoundaryArchitectureTest`, liste qui ne fait que rétrécir.
 Les adaptateurs dépendent vers l'intérieur. Les adaptateurs sont **frères** — ils ne s'appellent pas entre eux.
 

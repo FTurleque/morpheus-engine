@@ -55,7 +55,7 @@ done by the pull request that introduces this change.
       *`Files.isReadable` in `MinosIntegrationSettings.resolve`: `theSettingsTypesOfTheIntegrationsResolveNothingThemselves` fails naming the method. `Optional.of("java")` in the resolver: `theOnlyBareLauncherNamesAreTheTwoFilesLookedForUnderTheRuntime` fails naming the resolver. A bound on one side: see 2.3.*
 - [x] 3.6 Clarify ADR-0128 (the settings resolution is shared, and where it lives); add the resolver to the sprint 11 list if 1.4 requires it. Proof: the diffs;
       `AdrIndexCoherenceTest` green.
-      *ADR-0128 decisions 6 and 8 name the resolver and the shared constructor; ADR-0148 replaced by a consolidated ADR (provisional number 9999) that names `PeerLaunchSettingsResolver` for file access and process environment; `AdrIndexCoherenceTest` green.*
+      *ADR-0128 decisions 6 and 8 name the resolver and the shared constructor; ADR-0148 replaced by a consolidated ADR (ADR-0150) that names `PeerLaunchSettingsResolver` for file access and process environment; `AdrIndexCoherenceTest` green.*
 
 ## 4. Verification
 

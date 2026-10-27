@@ -53,7 +53,7 @@ Le lanceur Java d'un pair est un choix de sécurité : une commande nue (`java`)
    `morpheus.<pair>.home` / `MORPHEUS_<PAIR>_HOME`, `morpheus.<pair>.timeoutSeconds` /
    `MORPHEUS_<PAIR>_TIMEOUT_SECONDS`, avec `<pair>` valant `minos` ou `nexus`. Les noms sont les constantes de
    `MinosIntegrationSettings` et `NexusIntegrationSettings` ; la résolution, ses refus et ses bornes existent une
-   fois, paramétrés par le pair, dans `PeerLaunchSettingsResolver` (`morpheus-application`, ADR-9999).
+   fois, paramétrés par le pair, dans `PeerLaunchSettingsResolver` (`morpheus-application`, ADR-0150).
 7. **Timeout borné.** Le timeout de requête vaut `DEFAULT_TIMEOUT_SECONDS` par défaut et doit être compris entre 1 et
    `MAX_TIMEOUT_SECONDS` secondes ; une valeur hors bornes rend la configuration invalide. Une opération entière est
    bornée par `PeerOperationDeadline` (ADR-0106).
@@ -148,7 +148,7 @@ Le lanceur Java d'un pair est un choix de sécurité : une commande nue (`java`)
 - [ADR-0075](ARCH-0075-morpheus-intent-vs-nexus-technical-context.md) — intention MORPHEUS et contexte NEXUS.
 - [ADR-0106](BE-0106-inbound-bound-is-defensive-outbound-bound-is-a-defect.md) — bornes des opérations vers un pair.
 - [ADR-0129](SEC-0129-plugins-provider-code-de-confiance-hors-processus.md) — code externe de confiance, pin SHA-256.
-- [ADR-9999](ARCH-9999-ce-que-le-coeur-applicatif-peut-toucher.md) — classes nommées du cœur applicatif, dont le
+- [ADR-0150](ARCH-0150-ce-que-le-coeur-applicatif-peut-toucher.md) — classes nommées du cœur applicatif, dont le
   résolveur des réglages de lancement.
 - [ADR-0063](ARCH-0063-read-only-mcp-tool-contract.md) et [ADR-0066](ARCH-0066-versioned-http-api-contract.md) —
   contrats MCP et HTTP.

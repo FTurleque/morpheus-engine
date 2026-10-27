@@ -1,5 +1,5 @@
 ---
-id: ARCH-9999
+id: ARCH-0150
 title: "Le cœur applicatif touche le disque local par des classes nommées, et jamais le réseau"
 domain: architecture
 rules: false

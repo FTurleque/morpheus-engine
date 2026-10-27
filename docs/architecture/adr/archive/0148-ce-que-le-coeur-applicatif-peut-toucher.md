@@ -1,8 +1,8 @@
 # ADR-0148 — Le cœur applicatif touche le disque local par des classes nommées, et jamais le réseau
 
-> **Archivée.** Cette décision est consolidée dans [ADR-9999](../ARCH-9999-ce-que-le-coeur-applicatif-peut-toucher.md), qui la reprend en entier et nomme en plus le résolveur des réglages de lancement des pairs MCP. Ce texte n'est plus en vigueur et n'est pas tenu à jour.
+> **Archivée.** Cette décision est consolidée dans [ADR-0150](../ARCH-0150-ce-que-le-coeur-applicatif-peut-toucher.md), qui la reprend en entier et nomme en plus le résolveur des réglages de lancement des pairs MCP. Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
-- Statut : **Remplacée par ADR-9999**
+- Statut : **Remplacée par ADR-0150**
 - Date : 2026-10-25
 
 ## Context

@@ -26,10 +26,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Which technology the application layer may reach, and through which classes (ADR-9999).
+ * Which technology the application layer may reach, and through which classes (ADR-0150).
  *
  * <p>A family the application does not use is refused in every package. A family it uses is reachable only from the
- * classes ADR-9999 names for it, and each list is exactly the set of classes that reach the family, so a list can
+ * classes ADR-0150 names for it, and each list is exactly the set of classes that reach the family, so a list can
  * shrink and cannot grow in silence. {@code Path}, {@code LinkOption}, {@code IOException} and in-memory streams are
  * vocabulary, not access. The textual bans of {@code application.reasoning} and {@code application.policy} are
  * separate and stricter: they also refuse a mention.</p>
@@ -117,7 +117,7 @@ class ApplicationTechnologyBoundaryArchitectureTest {
         ArchRule rule = CompositeArchRule.of(UNUSED_FAMILIES.stream()
                 .map(family -> (ArchRule) classes().that().resideInAPackage(APPLICATION + "..")
                         .should(never(reach(family)))
-                        .because("ADR-9999, decision 1: the application uses no " + family.name()))
+                        .because("ADR-0150, decision 1: the application uses no " + family.name()))
                 .toList());
         rule.check(classes);
     }
@@ -129,7 +129,7 @@ class ApplicationTechnologyBoundaryArchitectureTest {
                 .map(entry -> (ArchRule) classes().that().resideInAPackage(APPLICATION + "..")
                         .and(DescribedPredicate.not(namedFor(entry.getValue(), entry.getKey())))
                         .should(never(reach(entry.getKey())))
-                        .because("ADR-9999, decision 2: " + entry.getKey().name() + " is reached only by the "
+                        .because("ADR-0150, decision 2: " + entry.getKey().name() + " is reached only by the "
                                 + "classes it names; adding one takes a consolidated ADR that replaces it"))
                 .toList());
         rule.check(classes);
@@ -143,7 +143,7 @@ class ApplicationTechnologyBoundaryArchitectureTest {
             named.put(family.name(), new TreeSet<>(names));
             reached.put(family.name(), classesReaching(family));
         });
-        assertEquals(named, reached, "ADR-9999 names exactly the classes that reach each family: remove a class "
+        assertEquals(named, reached, "ADR-0150 names exactly the classes that reach each family: remove a class "
                 + "that no longer reaches it, so each list only shrinks");
     }
 
@@ -185,7 +185,7 @@ class ApplicationTechnologyBoundaryArchitectureTest {
     }
 
     private static DescribedPredicate<JavaClass> namedFor(Set<String> names, Family family) {
-        return DescribedPredicate.describe("named by ADR-9999 for " + family.name(),
+        return DescribedPredicate.describe("named by ADR-0150 for " + family.name(),
                 javaClass -> names.contains(topLevelName(javaClass)));
     }
 
