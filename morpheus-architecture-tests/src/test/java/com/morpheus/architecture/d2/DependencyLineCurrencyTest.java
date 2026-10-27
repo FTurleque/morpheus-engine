@@ -1,5 +1,6 @@
 package com.morpheus.architecture.d2;
 
+import com.morpheus.architecture.RepositoryRoot;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -29,7 +30,7 @@ class DependencyLineCurrencyTest {
 
     @Test
     void reactorIsOnAPatchedReleaseOfTheLineThePomHolds() throws IOException {
-        String pom = Files.readString(repositoryRoot().resolve("pom.xml"));
+        String pom = Files.readString(RepositoryRoot.locate().resolve("pom.xml"));
         Matcher version = REACTOR_VERSION.matcher(pom);
         assertTrue(version.find(), "the root POM must pin reactor-bom.version as a three-part release");
         assertTrue(pom.contains(REACTOR_LINE_COMMENT),
@@ -44,7 +45,7 @@ class DependencyLineCurrencyTest {
 
     @Test
     void theUpdateBotProposesThePatchesOfTheHeldLineAndNothingElse() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         boolean lineIsHeld = Files.readString(root.resolve("pom.xml")).contains(REACTOR_LINE_COMMENT);
         Matcher ignore = REACTOR_IGNORE.matcher(Files.readString(root.resolve(".github/dependabot.yml")));
 
@@ -62,17 +63,5 @@ class DependencyLineCurrencyTest {
                 "the ignore entry must cover major and minor updates of the Reactor BOM: " + updateTypes);
         assertFalse(updateTypes.contains("version-update:semver-patch"),
                 "the ignore entry must leave the patches of the line open: " + updateTypes);
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 }
