@@ -3,6 +3,7 @@ package com.morpheus.cli;
 import com.morpheus.api.local.MorpheusHttpServer;
 import com.morpheus.application.operability.OperationalLogMode;
 import com.morpheus.application.operability.OperationalRuntime;
+import com.morpheus.architecture.RepositoryRoot;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -119,7 +120,7 @@ class SyncReceiptSaysWhatRanOnEverySurfaceTest {
     }
 
     private Path copyOfFixture(String name) throws IOException {
-        Path source = fixture(name);
+        Path source = RepositoryRoot.fixture(name);
         Path copy = temp.resolve("workspace-" + name);
         try (var files = Files.walk(source)) {
             for (Path file : (Iterable<Path>) files::iterator) {
@@ -140,18 +141,5 @@ class SyncReceiptSaysWhatRanOnEverySurfaceTest {
             specification = files.filter(path -> path.getFileName().toString().equals("spec.md")).findFirst().orElseThrow();
         }
         Files.writeString(specification, Files.readString(specification) + "\nA line added by the " + text + ".\n");
-    }
-
-    private static Path fixture(String name) {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        Path fromRoot = current.resolve("experiments/m0/fixtures").resolve(name);
-        if (Files.isDirectory(fromRoot)) {
-            return fromRoot;
-        }
-        Path fromModule = current.resolve("../experiments/m0/fixtures").normalize().resolve(name);
-        if (Files.isDirectory(fromModule)) {
-            return fromModule;
-        }
-        throw new IllegalStateException("M0 fixture not found: " + name + " from " + current);
     }
 }

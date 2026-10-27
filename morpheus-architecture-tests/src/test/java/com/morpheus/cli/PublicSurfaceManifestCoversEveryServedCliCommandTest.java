@@ -1,11 +1,11 @@
 package com.morpheus.cli;
 
+import com.morpheus.architecture.RepositoryRoot;
 import com.morpheus.architecture.m21.PublicSurfaceManifest;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -234,7 +234,7 @@ class PublicSurfaceManifestCoversEveryServedCliCommandTest {
     private static List<ManifestLine> manifestLines() throws IOException {
         List<ManifestLine> lines = new ArrayList<>();
         int number = 0;
-        for (String text : Files.readAllLines(repoRoot().resolve(PublicSurfaceManifest.MANIFEST))) {
+        for (String text : Files.readAllLines(RepositoryRoot.locate().resolve(PublicSurfaceManifest.MANIFEST))) {
             number++;
             for (String[] columns : PublicSurfaceManifest.rows(List.of(text))) {
                 lines.add(new ManifestLine(number, columns[PublicSurfaceManifest.CAPABILITY], columns[PublicSurfaceManifest.CLI]));
@@ -266,16 +266,5 @@ class PublicSurfaceManifestCoversEveryServedCliCommandTest {
             words.add(word);
         }
         return words.isEmpty() ? java.util.Optional.empty() : java.util.Optional.of(String.join(" ", words));
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve(PublicSurfaceManifest.MANIFEST))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new AssertionError("repository root with " + PublicSurfaceManifest.MANIFEST + " not found");
     }
 }
