@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.lang.reflect.RecordComponent;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -135,17 +134,6 @@ class SyncDiagnosticsContractTest {
     }
 
     private static String read() throws IOException {
-        return Files.readString(repoRoot().resolve("docs/developer/reference/openapi/morpheus-v1.yaml"));
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null && !Files.exists(current.resolve("contracts/public-surfaces.tsv"))) {
-            current = current.getParent();
-        }
-        if (current == null) {
-            throw new IllegalStateException("repository root (contracts/public-surfaces.tsv) not found");
-        }
-        return current;
+        return Files.readString(RepositoryRoot.locate().resolve("docs/developer/reference/openapi/morpheus-v1.yaml"));
     }
 }

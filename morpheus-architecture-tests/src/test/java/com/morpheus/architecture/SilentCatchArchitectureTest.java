@@ -84,7 +84,7 @@ class SilentCatchArchitectureTest {
 
     @Test
     void everySilentCatchOfTheProductIsNamedWithItsReason() throws IOException {
-        Map<String, Integer> found = silentCatches(mainSources(repositoryRoot()));
+        Map<String, Integer> found = silentCatches(mainSources(RepositoryRoot.locate()));
         assertTrue(found.values().stream().mapToInt(Integer::intValue).sum() > 5,
                 "too few silent catches found: the rule would pass on nothing - " + found);
 
@@ -106,7 +106,7 @@ class SilentCatchArchitectureTest {
 
     @Test
     void theModulesThatCannotCountAreHandedWhatDoes() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         for (String gateway : List.of(
                 "morpheus-integration-minos/src/main/java/com/morpheus/integration/minos/MinosMcpCodeGateway.java",
                 "morpheus-integration-nexus/src/main/java/com/morpheus/integration/nexus/NexusMcpContextGateway.java")) {
@@ -220,17 +220,5 @@ class SilentCatchArchitectureTest {
             }
         }
         return sources;
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 }

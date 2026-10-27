@@ -55,7 +55,7 @@ class ReleasedSchemaLevelsDeclarationTest {
 
     @Test
     void everyReleasedVersionDeclaresTheSchemaLevelItShippedInTheRepository() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         Map<String, Integer> declared = declaredLevels(root);
         Set<String> noted = releaseNotesVersions(root);
         String product = productVersion(root);
@@ -226,17 +226,5 @@ class ReleasedSchemaLevelsDeclarationTest {
         }
         assertFalse(levels.isEmpty(), "SqliteMigrationChecksumGoldenTest must pin the checksum of every migration");
         return levels;
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 }

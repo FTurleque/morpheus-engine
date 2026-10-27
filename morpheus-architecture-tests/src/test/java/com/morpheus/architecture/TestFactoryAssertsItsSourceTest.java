@@ -193,7 +193,7 @@ class TestFactoryAssertsItsSourceTest {
     }
 
     private static Map<String, String> testSources() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         Map<String, String> sources = new TreeMap<>();
         try (Stream<Path> modules = Files.list(root)) {
             for (Path module : modules.filter(path -> path.getFileName().toString().startsWith("morpheus-")).toList()) {
@@ -210,18 +210,5 @@ class TestFactoryAssertsItsSourceTest {
         }
         assertFalse(sources.isEmpty(), "no test source found under " + root);
         return sources;
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
-            return current;
-        }
-        Path parent = current.getParent();
-        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml"))
-                && Files.isDirectory(parent.resolve("distribution"))) {
-            return parent;
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found from " + current);
     }
 }

@@ -57,7 +57,7 @@ class SqliteStoreTestsDeriveTheSchemaVersionTest {
 
     @Test
     void noStoreTestComparesTheSchemaVersionOrTheLedgerCountWithALiteral() throws IOException {
-        Path tests = repositoryRoot().resolve("morpheus-store-sqlite/src/test/java");
+        Path tests = RepositoryRoot.locate().resolve("morpheus-store-sqlite/src/test/java");
         List<Path> sources;
         try (Stream<Path> files = Files.walk(tests)) {
             sources = files.filter(path -> path.toString().endsWith(".java")).sorted().toList();
@@ -88,20 +88,5 @@ class SqliteStoreTestsDeriveTheSchemaVersionTest {
         assertTrue(restatements.isEmpty(),
                 () -> "a store test must read SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION instead of restating it: "
                         + restatements);
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            Path pom = current.resolve("pom.xml");
-            if (Files.isRegularFile(pom)) {
-                String content = Files.readString(pom);
-                if (content.contains("<artifactId>morpheus-engine</artifactId>") && content.contains("<modules>")) {
-                    return current;
-                }
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 }

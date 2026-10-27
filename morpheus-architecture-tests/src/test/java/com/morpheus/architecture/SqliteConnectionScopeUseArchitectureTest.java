@@ -247,7 +247,7 @@ class SqliteConnectionScopeUseArchitectureTest {
     }
 
     private static List<Path> adapterSources() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         List<Path> sources = new java.util.ArrayList<>();
         for (String module : MODULES_THAT_BUILD_STORES) {
             try (Stream<Path> files = Files.walk(root.resolve(module).resolve("src/main/java"))) {
@@ -255,17 +255,5 @@ class SqliteConnectionScopeUseArchitectureTest {
             }
         }
         return sources;
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 }

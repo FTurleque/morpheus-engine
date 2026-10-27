@@ -51,7 +51,7 @@ class ProjectSnapshotImportContractTest {
         var traceability = new MemoryTraceabilityStore(snapshots);
         var reader = new ProjectContentIngestion(new OpenSpecSpecificationContentReader());
         var identities = new PersistentEntityIdentityResolver(snapshots);
-        NormalizedProjectContent content = reader.read(fixture("openspec-basic"), projectId, identities);
+        NormalizedProjectContent content = reader.read(RepositoryRoot.fixture("openspec-basic"), projectId, identities);
         var service = new ProjectSnapshotImportService(snapshots, snapshots, contentStore, traceability);
 
         ProjectSnapshotImportResult first = service.publishFull(content, Optional.of("rev-1"), T0);
@@ -60,7 +60,7 @@ class ProjectSnapshotImportContractTest {
         assertEquals(16, first.traceabilityLinkCount());
         assertEquals(first.snapshot().id(), snapshots.activeSnapshot(projectId).orElseThrow().id());
 
-        NormalizedProjectContent secondRead = reader.read(fixture("openspec-basic"), projectId, identities);
+        NormalizedProjectContent secondRead = reader.read(RepositoryRoot.fixture("openspec-basic"), projectId, identities);
         ProjectSnapshotImportResult second = service.publishFull(secondRead, Optional.of("rev-2"), T0.plusSeconds(60));
         assertNotEquals(first.snapshot().id(), second.snapshot().id());
         assertEquals(KnowledgeSnapshotState.RETIRED, snapshots.findSnapshot(first.snapshot().id()).orElseThrow().state());
@@ -77,7 +77,7 @@ class ProjectSnapshotImportContractTest {
         var traceability = new MemoryTraceabilityStore(snapshots);
         var identities = new PersistentEntityIdentityResolver(snapshots);
         NormalizedProjectContent valid = new ProjectContentIngestion(new OpenSpecSpecificationContentReader()).read(
-                fixture("openspec-basic"), projectId, identities);
+                RepositoryRoot.fixture("openspec-basic"), projectId, identities);
         var service = new ProjectSnapshotImportService(snapshots, snapshots, contentStore, traceability);
         ProjectSnapshotImportResult baseline = service.publishFull(valid, Optional.of("rev-1"), T0);
 
@@ -136,7 +136,7 @@ class ProjectSnapshotImportContractTest {
                 new MemorySnapshotBusinessContentStore(snapshots, snapshots),
                 new MemoryTraceabilityStore(snapshots));
         NormalizedProjectContent valid = new ProjectContentIngestion(new OpenSpecSpecificationContentReader()).read(
-                fixture("openspec-basic"), projectId, new PersistentEntityIdentityResolver(snapshots));
+                RepositoryRoot.fixture("openspec-basic"), projectId, new PersistentEntityIdentityResolver(snapshots));
         String absolute = tempDir.resolve("secret/spec.md").toAbsolutePath().toString();
         NormalizedProjectContent invalid = NormalizedProjectContent.withoutAcceptanceCriteria(
                 valid.project(), valid.specifications(), valid.requirements(), valid.scenarios(), valid.changes(),
@@ -164,7 +164,7 @@ class ProjectSnapshotImportContractTest {
                 new MemorySnapshotBusinessContentStore(snapshots, snapshots),
                 new MemoryTraceabilityStore(snapshots));
         NormalizedProjectContent valid = new ProjectContentIngestion(new OpenSpecSpecificationContentReader()).read(
-                fixture("openspec-basic"), projectId, new PersistentEntityIdentityResolver(snapshots));
+                RepositoryRoot.fixture("openspec-basic"), projectId, new PersistentEntityIdentityResolver(snapshots));
         List<Diagnostic> blocking = java.util.stream.IntStream.rangeClosed(1, 20)
                 .mapToObj(index -> Diagnostic.error(
                         DiagnosticCode.INVALID_SOURCE,
@@ -200,7 +200,7 @@ class ProjectSnapshotImportContractTest {
              var traceability = new SqliteTraceabilityStore(database);
              var identities = new SqliteEntityIdentityStore(database)) {
             NormalizedProjectContent normalized = new ProjectContentIngestion(new OpenSpecSpecificationContentReader()).read(
-                    fixture("openspec-basic"), projectId, new PersistentEntityIdentityResolver(identities));
+                    RepositoryRoot.fixture("openspec-basic"), projectId, new PersistentEntityIdentityResolver(identities));
             ProjectSnapshotImportResult imported = new ProjectSnapshotImportService(
                     snapshots, requirements, content, traceability)
                     .publishFull(normalized, Optional.of("sqlite-rev"), T0);
@@ -217,18 +217,5 @@ class ProjectSnapshotImportContractTest {
             assertEquals(2, requirements.listRequirementVersions(active.id()).size());
             assertEquals(1, content.findSnapshotContent(active.id()).orElseThrow().changes().size());
         }
-    }
-
-    private Path fixture(String name) {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        Path fromRoot = current.resolve("experiments/m0/fixtures").resolve(name);
-        if (Files.isDirectory(fromRoot)) {
-            return fromRoot;
-        }
-        Path fromModule = current.resolve("../experiments/m0/fixtures").normalize().resolve(name);
-        if (Files.isDirectory(fromModule)) {
-            return fromModule;
-        }
-        throw new IllegalStateException("M0 fixture not found: " + name + " from " + current);
     }
 }

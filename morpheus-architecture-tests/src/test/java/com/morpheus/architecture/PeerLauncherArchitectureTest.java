@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -30,7 +29,7 @@ class PeerLauncherArchitectureTest {
     @Test
     void bothIntegrationsRefuseALauncherTheSearchPathWouldResolve() throws IOException {
         for (String settings : SETTINGS) {
-            String content = Files.readString(repositoryRoot().resolve(settings));
+            String content = Files.readString(RepositoryRoot.locate().resolve(settings));
 
             assertTrue(content.contains("javaCommand = requireAbsoluteLauncher("),
                     () -> settings + " must refuse a launcher that is not absolute in its compact constructor");
@@ -46,7 +45,7 @@ class PeerLauncherArchitectureTest {
     @Test
     void theOnlyBareLauncherNamesAreTheTwoFilesLookedForUnderTheRuntime() throws IOException {
         for (String settings : SETTINGS) {
-            String content = Files.readString(repositoryRoot().resolve(settings));
+            String content = Files.readString(RepositoryRoot.locate().resolve(settings));
             String withoutTheRuntimeLookup = content
                     .replace("bin.resolve(\"java.exe\")", "")
                     .replace("bin.resolve(\"java\")", "");
@@ -54,17 +53,5 @@ class PeerLauncherArchitectureTest {
             assertFalse(BARE_JAVA_LITERAL.matcher(withoutTheRuntimeLookup).find(),
                     () -> settings + " names a bare java command outside the lookup under java.home");
         }
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 }

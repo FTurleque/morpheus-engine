@@ -140,7 +140,7 @@ class StaticOperationalRuntimeUsersArchitectureTest {
     }
 
     private static Set<String> sourcesMentioning(String sourceRoot, String mention) throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         Set<String> found = new TreeSet<>();
         try (Stream<Path> modules = Files.list(root)) {
             for (Path module : modules.filter(Files::isDirectory).sorted().toList()) {
@@ -160,17 +160,5 @@ class StaticOperationalRuntimeUsersArchitectureTest {
             }
         }
         return found;
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 }

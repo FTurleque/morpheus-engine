@@ -79,7 +79,7 @@ class GateReachabilityArchitectureTest {
 
     @Test
     void everyValidatorExistsOnBothPlatforms() throws IOException {
-        Path scripts = repositoryRoot().resolve("scripts");
+        Path scripts = RepositoryRoot.locate().resolve("scripts");
         Map<String, Set<String>> platformsByTarget = new TreeMap<>();
         for (Path file : list(scripts)) {
             Matcher matcher = VALIDATOR_FILE.matcher(file.getFileName().toString());
@@ -103,7 +103,7 @@ class GateReachabilityArchitectureTest {
 
     @Test
     void noValidatorSwitchesToANamedBranch() throws IOException {
-        Path scripts = repositoryRoot().resolve("scripts");
+        Path scripts = RepositoryRoot.locate().resolve("scripts");
         Pattern movesTheCheckout = Pattern.compile("\\bgit\\s+(?:switch|checkout)\\b");
         List<String> offenders = new ArrayList<>();
         int validators = 0;
@@ -126,7 +126,7 @@ class GateReachabilityArchitectureTest {
 
     @Test
     void everyTestClassOutsideSurefireSelectionIsNamedByAValidatorAWorkflowRuns() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         List<String> unselected = new ArrayList<>();
         int scanned = 0;
         for (String module : declaredModules(root)) {
@@ -186,7 +186,7 @@ class GateReachabilityArchitectureTest {
      */
     @Test
     void theReleaseRehearsalValidatorIsLaunchedByAWorkflowOnEachPlatform() throws IOException {
-        String lane = jobText(nightlyExecutableText(repositoryRoot()), REHEARSAL_JOB);
+        String lane = jobText(nightlyExecutableText(RepositoryRoot.locate()), REHEARSAL_JOB);
         assertTrue(lane.contains("ubuntu-latest") && lane.contains("windows-latest"),
                 "the release rehearsal must run on both platforms");
 
@@ -218,7 +218,7 @@ class GateReachabilityArchitectureTest {
      */
     @Test
     void theScriptTestsRunOnEachLegOfTheContinuousIntegrationWorkflow() throws IOException {
-        String job = jobText(executableText(repositoryRoot().resolve(".github/workflows/ci.yml")), CI_VERIFY_JOB);
+        String job = jobText(executableText(RepositoryRoot.locate().resolve(".github/workflows/ci.yml")), CI_VERIFY_JOB);
         assertTrue(job.contains("ubuntu-latest") && job.contains("windows-latest"),
                 "the verify job of ci.yml must run on both platforms");
 
@@ -243,7 +243,7 @@ class GateReachabilityArchitectureTest {
     /** A rehearsal that could publish would be a release nobody decided, and evidence nobody should trust. */
     @Test
     void aReleaseRehearsalCannotPublishAttestOrPassForAQualification() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String nightly = nightlyExecutableText(root);
         int jobs = nightly.indexOf("\njobs:");
         assertTrue(jobs > 0, "the nightly workflow must declare its jobs");
@@ -283,7 +283,7 @@ class GateReachabilityArchitectureTest {
 
     @Test
     void everyRootPomProfileIsNamedByAWorkflowOrExcusedWithAReason() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String pom = Files.readString(root.resolve("pom.xml"));
         Set<String> declared = new TreeSet<>();
         Matcher profiles = PROFILE_ID.matcher(pom);
@@ -313,7 +313,7 @@ class GateReachabilityArchitectureTest {
 
     @Test
     void currentDocumentationNamesOnlyResolvingCommands() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         List<Path> documents = new ArrayList<>();
         for (String file : CURRENT_DOCUMENT_FILES) {
             if (Files.isRegularFile(root.resolve(file))) {
@@ -366,7 +366,7 @@ class GateReachabilityArchitectureTest {
      */
     @Test
     void everyDatedRecordCitingARemovedWrapperSaysWhatReplacedIt() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         Set<String> targets = new TreeSet<>();
         for (Path file : list(root.resolve("scripts"))) {
             Matcher matcher = VALIDATOR_FILE.matcher(file.getFileName().toString());
@@ -544,20 +544,5 @@ class GateReachabilityArchitectureTest {
         try (Stream<Path> entries = Files.list(directory)) {
             return entries.sorted().toList();
         }
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            Path pom = current.resolve("pom.xml");
-            if (Files.isRegularFile(pom)) {
-                String content = Files.readString(pom);
-                if (content.contains("<artifactId>morpheus-engine</artifactId>") && content.contains("<modules>")) {
-                    return current;
-                }
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 }

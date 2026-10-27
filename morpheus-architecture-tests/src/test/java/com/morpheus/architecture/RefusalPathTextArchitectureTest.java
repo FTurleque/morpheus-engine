@@ -116,7 +116,7 @@ class RefusalPathTextArchitectureTest {
 
     @Test
     void aClassThatWritesARefusalPathThroughThePointDoesNotAlsoWriteItAsALocatorOrByThePlatform() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         Set<String> builders = new TreeSet<>();
         List<String> violations = new ArrayList<>();
 
@@ -144,7 +144,7 @@ class RefusalPathTextArchitectureTest {
 
     @Test
     void aBudgetCallIsNeverGivenALocatorAsTheTextOfItsRefusal() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         Set<String> modulesSeen = new TreeSet<>();
         List<String> violations = new ArrayList<>();
 
@@ -407,17 +407,6 @@ class RefusalPathTextArchitectureTest {
             }
         }
         return sources;
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("docs/architecture/adr"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found");
     }
 
     private record Forbidden(String description, Pattern pattern) {

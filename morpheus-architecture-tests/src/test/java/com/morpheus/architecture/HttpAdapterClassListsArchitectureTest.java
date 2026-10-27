@@ -66,7 +66,7 @@ class HttpAdapterClassListsArchitectureTest {
         assertTrue(adapterClasses.size() > 50, () -> "too few classes of morpheus-api seen: " + adapterClasses.size());
 
         Map<String, Set<String>> found = new TreeMap<>();
-        Path tests = ProductionSources.repositoryRoot().resolve("morpheus-architecture-tests/src/test/java");
+        Path tests = RepositoryRoot.locate().resolve("morpheus-architecture-tests/src/test/java");
         try (Stream<Path> tree = Files.walk(tests)) {
             for (Path source : tree.filter(path -> path.toString().endsWith(".java")).sorted().toList()) {
                 String testClass = source.getFileName().toString().replace(".java", "");
@@ -154,7 +154,7 @@ class HttpAdapterClassListsArchitectureTest {
 
     private static Set<String> adapterClassNames() throws IOException {
         Set<String> names = new TreeSet<>();
-        Path sources = ProductionSources.repositoryRoot().resolve("morpheus-api/src/main/java");
+        Path sources = RepositoryRoot.locate().resolve("morpheus-api/src/main/java");
         try (Stream<Path> tree = Files.walk(sources)) {
             tree.filter(path -> path.toString().endsWith(".java"))
                     .forEach(path -> names.add(path.getFileName().toString().replace(".java", "")));

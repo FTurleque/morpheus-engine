@@ -600,7 +600,7 @@ class CliOptionParsingRefusesUnknownOptionsTest {
     }
 
     static Map<String, String> cliSources() throws IOException {
-        Path directory = repoRoot().resolve("morpheus-cli/src/main/java");
+        Path directory = RepositoryRoot.locate().resolve("morpheus-cli/src/main/java");
         Map<String, String> sources = new TreeMap<>();
         try (Stream<Path> tree = Files.walk(directory)) {
             for (Path path : tree.filter(file -> file.toString().endsWith(".java")).sorted().toList()) {
@@ -608,18 +608,5 @@ class CliOptionParsingRefusesUnknownOptionsTest {
             }
         }
         return sources;
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
-            return current;
-        }
-        Path parent = current.getParent();
-        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml"))
-                && Files.isDirectory(parent.resolve("distribution"))) {
-            return parent;
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found from " + current);
     }
 }

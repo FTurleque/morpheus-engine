@@ -222,7 +222,7 @@ class BoundaryResilienceContractTest {
 
     private Map<String, String> mainSources(String module) throws IOException {
         Map<String, String> sources = new TreeMap<>();
-        try (Stream<Path> tree = Files.walk(repositoryRoot().resolve(module).resolve("src/main/java"))) {
+        try (Stream<Path> tree = Files.walk(RepositoryRoot.locate().resolve(module).resolve("src/main/java"))) {
             for (Path file : tree.filter(path -> path.toString().endsWith(".java")).toList()) {
                 sources.put(file.getFileName().toString(), Files.readString(file));
             }
@@ -295,18 +295,6 @@ class BoundaryResilienceContractTest {
     }
 
     private String read(Path relative) throws IOException {
-        return Files.readString(repositoryRoot().resolve(relative));
-    }
-
-    private Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
+        return Files.readString(RepositoryRoot.locate().resolve(relative));
     }
 }

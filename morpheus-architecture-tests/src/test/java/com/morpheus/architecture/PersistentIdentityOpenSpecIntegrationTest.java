@@ -7,7 +7,6 @@ import com.morpheus.store.sqlite.adapter.SqliteEntityIdentityStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -46,24 +45,9 @@ class PersistentIdentityOpenSpecIntegrationTest {
             ProjectSpecificationId projectId) {
         try (var store = new SqliteEntityIdentityStore(database)) {
             return reader.read(
-                    fixture("openspec-basic"),
+                    RepositoryRoot.fixture("openspec-basic"),
                     projectId,
                     new PersistentEntityIdentityResolver(store));
         }
-    }
-
-    private Path fixture(String name) {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        Path fromRoot = current.resolve("experiments/m0/fixtures").resolve(name);
-        if (Files.isDirectory(fromRoot)) {
-            return fromRoot;
-        }
-
-        Path fromModule = current.resolve("../experiments/m0/fixtures").normalize().resolve(name);
-        if (Files.isDirectory(fromModule)) {
-            return fromModule;
-        }
-
-        throw new IllegalStateException("M0 fixture not found: " + name + " from " + current);
     }
 }

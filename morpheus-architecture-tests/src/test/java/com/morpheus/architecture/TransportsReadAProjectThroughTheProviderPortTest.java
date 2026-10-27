@@ -60,7 +60,7 @@ class TransportsReadAProjectThroughTheProviderPortTest {
             for (String module : TRANSPORT_MODULES) {
                 for (Path source : mainSources(module)) {
                     if (codeOf(source).contains(literal)) {
-                        offenders.put(ProductionSources.repositoryRoot().relativize(source).toString(), literal);
+                        offenders.put(RepositoryRoot.locate().relativize(source).toString(), literal);
                     }
                 }
             }
@@ -83,7 +83,7 @@ class TransportsReadAProjectThroughTheProviderPortTest {
     }
 
     private static List<Path> mainSources(String module) {
-        Path root = ProductionSources.repositoryRoot().resolve(module).resolve("src/main/java");
+        Path root = RepositoryRoot.locate().resolve(module).resolve("src/main/java");
         try (Stream<Path> files = Files.walk(root)) {
             return files.filter(file -> file.toString().endsWith(".java")).sorted().toList();
         } catch (IOException failure) {

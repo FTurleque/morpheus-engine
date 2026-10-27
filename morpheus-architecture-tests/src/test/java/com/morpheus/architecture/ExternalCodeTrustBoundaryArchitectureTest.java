@@ -84,7 +84,7 @@ class ExternalCodeTrustBoundaryArchitectureTest {
     @Test
     void bothBoundariesRebuildTheChildEnvironmentFromEmptyRatherThanRemovingKnownBadKeys() throws IOException {
         for (Path source : List.of(PROBE_PROCESS, MCP_TRANSPORT)) {
-            String text = Files.readString(repositoryRoot().resolve(source));
+            String text = Files.readString(RepositoryRoot.locate().resolve(source));
             assertTrue(text.contains("environment.clear()"),
                     () -> source + " must clear the inherited environment before applying its allowlist");
             assertTrue(text.contains("SAFE_ENVIRONMENT_KEYS.contains("),
@@ -106,7 +106,7 @@ class ExternalCodeTrustBoundaryArchitectureTest {
      */
     @Test
     void noMcpLaunchPathTakesThePeerEnvironmentFromTheSdkParameters() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         for (Path source : List.of(
                 MCP_TRANSPORT,
                 Path.of("morpheus-integration-minos/src/main/java/com/morpheus/integration/minos/MinosMcpCodeGateway.java"),
@@ -132,7 +132,7 @@ class ExternalCodeTrustBoundaryArchitectureTest {
      */
     @Test
     void executablePluginActivationStaysPinnedStagedAndFailClosed() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String activator = Files.readString(root.resolve(
                 "morpheus-provider-sdk/src/main/java/com/morpheus/sdk/provider/ProviderPluginActivator.java"));
         String discovery = Files.readString(root.resolve(
@@ -159,7 +159,7 @@ class ExternalCodeTrustBoundaryArchitectureTest {
      */
     @Test
     void theVerifiedStagingCopyIsDeletedAtExitNamedWithoutThePinAndItsResidueIsStated() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String integrity = Files.readString(root.resolve(
                 "morpheus-application/src/main/java/com/morpheus/application/security/ExternalJarIntegrity.java"));
         String security = Files.readString(root.resolve("SECURITY.md"));
@@ -183,7 +183,7 @@ class ExternalCodeTrustBoundaryArchitectureTest {
      */
     @Test
     void everyExternalExecutionBoundaryStatesItIsNotAnOperatingSystemSandbox() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         for (Path source : List.of(PROBE_PROCESS, MCP_TRANSPORT)) {
             String text = Files.readString(root.resolve(source)).toLowerCase(Locale.ROOT);
             assertTrue(text.contains("not") && text.contains("sandbox"),
@@ -211,7 +211,7 @@ class ExternalCodeTrustBoundaryArchitectureTest {
     void noProductionSourceClaimsToSandboxExternalCode() throws IOException {
         Pattern claim = Pattern.compile("(?i)\\b(sandboxe[sd]?|sandboxing)\\b");
         List<Path> sources;
-        try (var walk = Files.walk(repositoryRoot())) {
+        try (var walk = Files.walk(RepositoryRoot.locate())) {
             sources = walk.filter(path -> path.toString().replace('\\', '/').contains("/src/main/java/"))
                     .filter(path -> path.toString().endsWith(".java"))
                     .toList();
@@ -231,7 +231,7 @@ class ExternalCodeTrustBoundaryArchitectureTest {
     }
 
     private Set<String> safeEnvironmentKeys(Path source) throws IOException {
-        String text = Files.readString(repositoryRoot().resolve(source));
+        String text = Files.readString(RepositoryRoot.locate().resolve(source));
         Matcher declaration = Pattern
                 .compile("SAFE_ENVIRONMENT_KEYS\\s*=\\s*Set\\.of\\((.*?)\\);", Pattern.DOTALL)
                 .matcher(text);
@@ -242,17 +242,5 @@ class ExternalCodeTrustBoundaryArchitectureTest {
             allowed.add(keys.group(1).toUpperCase(Locale.ROOT));
         }
         return allowed;
-    }
-
-    private Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
     }
 }

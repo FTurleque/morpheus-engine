@@ -84,7 +84,7 @@ class MultiResourceOwnershipContractTest {
      */
     @Test
     void theOperationRuntimeRegistersEveryStoreItOpensForRelease() throws IOException {
-        String runtime = Files.readString(repositoryRoot().resolve(
+        String runtime = Files.readString(RepositoryRoot.locate().resolve(
                 "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/runtime/SqliteOperationRuntime.java"));
 
         int acquisitions = countMatches(STORE_ACQUISITION, runtime);
@@ -128,8 +128,8 @@ class MultiResourceOwnershipContractTest {
      */
     @Test
     void everySqliteStoreInitializesThroughTheOwnedSharedPath() throws IOException {
-        Path stores = repositoryRoot().resolve("morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/adapter");
-        Path runtime = repositoryRoot().resolve("morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/runtime");
+        Path stores = RepositoryRoot.locate().resolve("morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/adapter");
+        Path runtime = RepositoryRoot.locate().resolve("morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/runtime");
         assertTrue(Files.isRegularFile(runtime.resolve("SqliteStoreConnection.java")),
                 "the shared owned initialization path must exist");
 
@@ -161,7 +161,7 @@ class MultiResourceOwnershipContractTest {
     /** The shared primitives must keep releasing on Error, which is the case the hand-written unwinds missed. */
     @Test
     void theSharedPrimitivesKeepReleasingWhenAnErrorUnwindsTheAssembly() throws IOException {
-        Path operability = repositoryRoot()
+        Path operability = RepositoryRoot.locate()
                 .resolve("morpheus-application/src/main/java/com/morpheus/application/operability");
         String startup = Files.readString(operability.resolve("StartupOwnership.java"));
         String shutdown = Files.readString(operability.resolve("ExhaustiveShutdown.java"));
@@ -225,12 +225,12 @@ class MultiResourceOwnershipContractTest {
         return count;
     }
 
-    private static String relative(Path source) throws IOException {
-        return repositoryRoot().relativize(source).toString().replace('\\', '/');
+    private static String relative(Path source) {
+        return RepositoryRoot.locate().relativize(source).toString().replace('\\', '/');
     }
 
     private static List<Path> mainSources() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         List<Path> sources = new ArrayList<>();
         try (Stream<Path> modules = Files.list(root)) {
             for (Path module : modules.filter(Files::isDirectory).sorted().toList()) {
@@ -245,21 +245,5 @@ class MultiResourceOwnershipContractTest {
         }
         assertFalse(sources.isEmpty(), "the scan must find the production sources it is meant to protect");
         return sources;
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            Path pom = current.resolve("pom.xml");
-            if (Files.isRegularFile(pom)) {
-                String content = Files.readString(pom);
-                if (content.contains("<artifactId>morpheus-engine</artifactId>")
-                        && content.contains("<modules>")) {
-                    return current;
-                }
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root");
     }
 }
