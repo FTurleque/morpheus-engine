@@ -2,6 +2,7 @@ package com.morpheus.architecture.m22;
 
 import com.morpheus.application.product.ProductMetadata;
 import com.morpheus.architecture.ProductionSources;
+import com.morpheus.architecture.RepositoryRoot;
 import com.morpheus.sdk.provider.ProviderPluginCandidate;
 import com.morpheus.sdk.provider.ProviderPluginDiscovery;
 import org.junit.jupiter.api.Test;
@@ -22,7 +23,7 @@ class ProviderPluginPlatformContractTest {
 
     @Test
     void externalReferenceJarIsDiscoveredAsMetadataWithoutActivation() throws Exception {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         Path referenceJar = root.resolve(
                 "morpheus-provider-reference/target/morpheus-provider-reference-"
                         + ProductMetadata.version()
@@ -42,7 +43,7 @@ class ProviderPluginPlatformContractTest {
 
     @Test
     void domainAndApplicationDoNotDependOnSdkOrReferencePlugin() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String domain = readTree(root.resolve("morpheus-domain/src/main/java"));
         String application = readTree(root.resolve("morpheus-application/src/main/java"));
         String domainPom = Files.readString(root.resolve("morpheus-domain/pom.xml"));
@@ -60,7 +61,7 @@ class ProviderPluginPlatformContractTest {
 
     @Test
     void referenceProviderIsNotEmbeddedAndExecutableSurfacesAreFailClosed() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String cliPom = Files.readString(root.resolve("morpheus-cli/pom.xml"));
         String surfaces = Files.readString(root.resolve("contracts/public-surfaces.tsv"));
         String main = Files.readString(ProductionSources.mainSource("morpheus-cli", "MorpheusMain"));
@@ -101,7 +102,7 @@ class ProviderPluginPlatformContractTest {
      */
     @Test
     void theRemoteProviderSurfaceIsAnAllowlistedProjectionRatherThanAFilteredInternalModel() throws IOException {
-        Path sdk = repoRoot().resolve("morpheus-provider-sdk/src/main/java/com/morpheus/sdk/provider");
+        Path sdk = RepositoryRoot.locate().resolve("morpheus-provider-sdk/src/main/java/com/morpheus/sdk/provider");
         String views = Files.readString(sdk.resolve("ProviderPluginViews.java"));
 
         assertTrue(Files.isRegularFile(sdk.resolve("RemoteTextPolicy.java")),
@@ -142,17 +143,5 @@ class ProviderPluginPlatformContractTest {
             }
         }
         return result.toString();
-    }
-
-    private Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
-            return current;
-        }
-        Path parent = current.getParent();
-        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml")) && Files.isDirectory(parent.resolve("distribution"))) {
-            return parent;
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found from " + current);
     }
 }
