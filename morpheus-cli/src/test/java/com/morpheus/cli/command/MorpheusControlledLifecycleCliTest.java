@@ -7,6 +7,7 @@ import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.cli.MorpheusMain;
+import com.morpheus.cli.RepositoryRoot;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.provider.synthetic.SyntheticSpecificationContentReader;
@@ -17,7 +18,6 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Map;
@@ -77,7 +77,7 @@ class MorpheusControlledLifecycleCliTest {
         CliLayout layout = CliLayout.resolve(
                 Optional.of(data), Optional.empty(), Optional.empty(), Map.of(), properties);
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
-        Path fixture = fixture("synthetic-basic");
+        Path fixture = RepositoryRoot.fixture("synthetic-basic");
         try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath(), OperationalRecorder.noop())) {
             var normalized = new SyntheticSpecificationContentReader()
                     .read(
@@ -121,18 +121,6 @@ class MorpheusControlledLifecycleCliTest {
         properties.setProperty("os.name", System.getProperty("os.name", "Windows"));
         properties.setProperty("user.home", tempDirectory.resolve("home").toString());
         return properties;
-    }
-
-    private Path fixture(String name) {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            Path candidate = current.resolve("experiments/m0/fixtures").resolve(name);
-            if (Files.isDirectory(candidate)) {
-                return candidate;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("M0 fixture not found: " + name);
     }
 
     private record Seed(Path data, Path database, String projectId, String changeId) {

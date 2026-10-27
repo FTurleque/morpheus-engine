@@ -13,7 +13,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
-import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -74,7 +73,7 @@ class CliCommandTranscriptTest {
     void copyTheFixture(@TempDir Path directory) throws IOException {
         tempDir = directory;
         workspace = tempDir.resolve("workspace");
-        Path source = fixture();
+        Path source = RepositoryRoot.fixture("openspec-basic");
         try (Stream<Path> files = Files.walk(source)) {
             for (Path file : (Iterable<Path>) files::iterator) {
                 Path target = workspace.resolve(source.relativize(file).toString());
@@ -367,18 +366,6 @@ class CliCommandTranscriptTest {
                 .toList();
         assertEquals(1, items.size(), "the fixture must name exactly one item here: " + invocation.stdout());
         return items.getFirst().split("\\t", 2)[0];
-    }
-
-    private static Path fixture() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        for (Path candidate : List.of(
-                current.resolve("experiments/m0/fixtures/openspec-basic"),
-                current.resolve("../experiments/m0/fixtures/openspec-basic").normalize())) {
-            if (Files.isDirectory(candidate)) {
-                return candidate;
-            }
-        }
-        throw new UncheckedIOException(new IOException("M0 fixture openspec-basic not found from " + current));
     }
 
     private record Invocation(int exitCode, String stdout, String standardError) {}
