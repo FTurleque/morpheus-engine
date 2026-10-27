@@ -58,7 +58,7 @@ class CliOptionRefusalTableTest {
             composition status | missing-value | 2 | MORPHEUS error [2]: --project requires a value
             composition status | dash-value | 2 | MORPHEUS error [2]: --project requires a value
             composition status | blank-value | 2 | MORPHEUS error [2]: --project requires a non-blank value; omit the option to leave it unset
-            composition status | positional | 2 | MORPHEUS error [2]: unknown option: stray
+            composition status | positional | 2 | MORPHEUS error [2]: unexpected positional argument: stray
             lifecycle apply | undeclared | 2 | MORPHEUS error [2]: unknown option: --bogus
             lifecycle apply | duplicate | 2 | MORPHEUS error [2]: duplicate option: --project
             lifecycle apply | missing-value | 2 | MORPHEUS error [2]: --project requires a value

@@ -37,4 +37,5 @@ Ce qui change, commande par commande :
   (`--limit " 5 "`) est accepté, comme par les autres commandes.
 - `policy`, `portfolio`, `query`, `views`, `export` : un mot en trop répond `unexpected positional argument: x` au lieu de `unknown token: x`, et une action
   inconnue est refusée avant que ses options ne soient lues.
-- `acceptance-criteria`, `constraints evaluate` : un mot en trop répond `unexpected positional argument: x` au lieu de `unknown option: x`.
+- `acceptance-criteria`, `constraints evaluate`, `composition` : un mot en trop répond `unexpected positional argument: x` au lieu de `unknown option: x`.
+- `composition` : une action inconnue est refusée avant que ses options ne soient lues.

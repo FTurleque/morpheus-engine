@@ -24,11 +24,9 @@ import java.io.PrintStream;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Properties;
 
 /** M18 CLI surface for explicit multi-provider synchronization and composition diagnostics. */
@@ -56,10 +54,10 @@ public final class MorpheusCompositionCli {
                 throw new IllegalArgumentException("composition requires action: sync | status | conflicts");
             }
             String action = parsed.tokens().getFirst();
-            Options options = Options.parse(parsed.tokens().subList(1, parsed.tokens().size()));
-            options.rejectUnknown(switch (action) {
-                case "sync" -> new String[]{"project", "revision"};
-                case "status", "conflicts" -> new String[]{"project"};
+            List<String> optionTokens = parsed.tokens().subList(1, parsed.tokens().size());
+            CommandOptions options = CommandOptions.parse(optionTokens, switch (action) {
+                case "sync" -> CommandOptions.Declared.values("project", "revision");
+                case "status", "conflicts" -> CommandOptions.Declared.values("project");
                 default -> throw new IllegalArgumentException("unknown composition action: " + action);
             });
             ProjectSpecificationId projectId = ProjectSpecificationId.parse(options.required("project"));
@@ -79,7 +77,7 @@ public final class MorpheusCompositionCli {
     private int sync(
             ProjectSpecificationId projectId,
             Parsed parsed,
-            Options options,
+            CommandOptions options,
             PrintStream out) {
         try (CliRuntime runtime = CliRuntime.recovering(parsed.layout().databasePath(), recorder)) {
             var project = runtime.snapshots().findProject(projectId)
@@ -171,51 +169,6 @@ public final class MorpheusCompositionCli {
                     CliLayout.resolve(global.dataDirectory(), global.configDirectory(), global.databasePath(),
                             environment, properties),
                     List.copyOf(remaining.subList(1, remaining.size())));
-        }
-    }
-
-    private static final class Options {
-        private final Map<String, String> values = new LinkedHashMap<>();
-
-        static Options parse(List<String> tokens) {
-            Options result = new Options();
-            for (int index = 0; index < tokens.size(); index++) {
-                String token = tokens.get(index);
-                if (!token.equals("--project") && !token.equals("--revision")) {
-                    throw new IllegalArgumentException("unknown option: " + token);
-                }
-                String key = token.substring(2);
-                if (result.values.putIfAbsent(key, require(tokens, ++index, token)) != null) {
-                    throw new IllegalArgumentException("duplicate option: " + token);
-                }
-            }
-            return result;
-        }
-
-        String required(String key) {
-            return optional(key).orElseThrow(() -> new IllegalArgumentException("--" + key + " is required"));
-        }
-
-        Optional<String> optional(String key) {
-            return Optional.ofNullable(values.get(key)).map(value -> OptionValue.nonBlank("--" + key, value).trim());
-        }
-
-        void rejectUnknown(String... allowed) {
-            List<String> accepted = List.of(allowed);
-            values.keySet().stream()
-                    .filter(key -> !accepted.contains(key))
-                    .findFirst()
-                    .ifPresent(key -> {
-                        throw new IllegalArgumentException("unknown option: --" + key);
-                    });
-            values.forEach((key, value) -> OptionValue.nonBlank("--" + key, value));
-        }
-
-        private static String require(List<String> tokens, int index, String option) {
-            if (index >= tokens.size() || tokens.get(index).startsWith("--")) {
-                throw new IllegalArgumentException(option + " requires a value");
-            }
-            return tokens.get(index);
         }
     }
 }
