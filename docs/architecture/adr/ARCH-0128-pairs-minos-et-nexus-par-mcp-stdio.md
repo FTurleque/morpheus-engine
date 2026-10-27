@@ -52,7 +52,8 @@ Le lanceur Java d'un pair est un choix de sécurité : une commande nue (`java`)
    `morpheus.<pair>.jar.sha256` / `MORPHEUS_<PAIR>_JAR_SHA256`, `morpheus.<pair>.java` / `MORPHEUS_<PAIR>_JAVA`,
    `morpheus.<pair>.home` / `MORPHEUS_<PAIR>_HOME`, `morpheus.<pair>.timeoutSeconds` /
    `MORPHEUS_<PAIR>_TIMEOUT_SECONDS`, avec `<pair>` valant `minos` ou `nexus`. Les noms sont les constantes de
-   `MinosIntegrationSettings` et `NexusIntegrationSettings`.
+   `MinosIntegrationSettings` et `NexusIntegrationSettings` ; la résolution, ses refus et ses bornes existent une
+   fois, paramétrés par le pair, dans `PeerLaunchSettingsResolver` (`morpheus-application`, ADR-9999).
 7. **Timeout borné.** Le timeout de requête vaut `DEFAULT_TIMEOUT_SECONDS` par défaut et doit être compris entre 1 et
    `MAX_TIMEOUT_SECONDS` secondes ; une valeur hors bornes rend la configuration invalide. Une opération entière est
    bornée par `PeerOperationDeadline` (ADR-0106).
@@ -61,8 +62,7 @@ Le lanceur Java d'un pair est un choix de sécurité : une commande nue (`java`)
    Une valeur configurée doit être le chemin absolu d'un fichier exécutable ; un nom nu ou un chemin relatif rend
    l'intégration invalide et rien n'est lancé. Sous Windows, le suffixe `.exe` peut être omis. Un lien symbolique est
    résolu, pas refusé : le fichier réel est celui qui est lancé et celui que le statut local affiche. L'invariant est
-   dans le constructeur compact de `MinosIntegrationSettings` et de `NexusIntegrationSettings`, qui le portent
-   chacun.
+   dans le constructeur compact de `PeerLaunchSettings`, que les deux types de réglages construisent dans le leur.
 9. **Environnement réduit.** Le pair ne reçoit pas l'environnement de MORPHEUS : `BoundedStdioClientTransport` le
    réduit à une allowlist de lancement (dont `PATH`), complétée des seules variables que MORPHEUS a explicitement
    configurées pour ce pair. Les variables sensibles, comme `MORPHEUS_SERVER_TLS_PASSWORD`, ne sont jamais
@@ -123,6 +123,9 @@ Le lanceur Java d'un pair est un choix de sécurité : une commande nue (`java`)
   adaptateurs ne dépendent pas l'un de l'autre.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/PeerLauncherArchitectureTest.java` : aucune des
   deux intégrations n'accepte un lanceur que le `PATH` résoudrait.
+- `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/McpPeerSettingsResolutionArchitectureTest.java` :
+  les deux types de réglages ne résolvent rien eux-mêmes, et les deux pairs résolvent une même table d'entrées à
+  l'identique ; `PeerLaunchSettingsResolverTest` (`morpheus-application`) couvre chaque refus pour les deux pairs.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/ExternalCodeTrustBoundaryArchitectureTest.java`
   (`noMcpLaunchPathTakesThePeerEnvironmentFromTheSdkParameters`) et
   `morpheus-mcp-transport/src/test/java/com/morpheus/integration/mcp/BoundedStdioClientTransportTest.java`
@@ -145,6 +148,8 @@ Le lanceur Java d'un pair est un choix de sécurité : une commande nue (`java`)
 - [ADR-0075](ARCH-0075-morpheus-intent-vs-nexus-technical-context.md) — intention MORPHEUS et contexte NEXUS.
 - [ADR-0106](BE-0106-inbound-bound-is-defensive-outbound-bound-is-a-defect.md) — bornes des opérations vers un pair.
 - [ADR-0129](SEC-0129-plugins-provider-code-de-confiance-hors-processus.md) — code externe de confiance, pin SHA-256.
+- [ADR-9999](ARCH-9999-ce-que-le-coeur-applicatif-peut-toucher.md) — classes nommées du cœur applicatif, dont le
+  résolveur des réglages de lancement.
 - [ADR-0063](ARCH-0063-read-only-mcp-tool-contract.md) et [ADR-0066](ARCH-0066-versioned-http-api-contract.md) —
   contrats MCP et HTTP.
 - [VALIDATION_M12](../../project/validation/VALIDATION_M12.md),
