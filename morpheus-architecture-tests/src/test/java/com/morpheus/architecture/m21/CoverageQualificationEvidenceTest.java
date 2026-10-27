@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.morpheus.architecture.RepositoryRoot;
 import java.io.IOException;
+import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -15,6 +16,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
@@ -51,21 +53,35 @@ class CoverageQualificationEvidenceTest {
     private static final int MINIMUM_RUNS_PER_PLATFORM = 2;
     private static final double RATIO_PRECISION = 1.0e-9d;
     private static final double SIX_DIGIT_ROUNDING = 5.1e-7d;
+    private static final String RATCHETS = "config/m21-quality-ratchets.properties";
+    private static final long HEADROOM_SPREADS = 3L;
+    // Widest spread of covered counts observed across the runs of one qualification, on either scale: 24 lines and
+    // 11 branches, 15/09/2026 at a1fc0a8d (CoverageQualityGateTest cites the runs).
+    private static final long REFERENCE_LINE_SPREAD = 24L;
+    private static final long REFERENCE_BRANCH_SPREAD = 11L;
 
     private enum Scale {
-        PER_MODULE("per-module", "PER_MODULE_QUALIFIED_LINE_RATIO", "PER_MODULE_QUALIFIED_BRANCH_RATIO", PER_MODULE_GATE),
-        AGGREGATE("aggregate", "AGGREGATE_QUALIFIED_LINE_RATIO", "AGGREGATE_QUALIFIED_BRANCH_RATIO", AGGREGATE_GATE);
+        PER_MODULE("per-module", "perModule", "PER_MODULE_QUALIFIED_LINE_RATIO", "PER_MODULE_QUALIFIED_BRANCH_RATIO",
+                PER_MODULE_GATE),
+        AGGREGATE("aggregate", "aggregate", "AGGREGATE_QUALIFIED_LINE_RATIO", "AGGREGATE_QUALIFIED_BRANCH_RATIO",
+                AGGREGATE_GATE);
 
         private final String name;
+        private final String ratchetPrefix;
         private final String lineConstant;
         private final String branchConstant;
         private final String gate;
 
-        Scale(String name, String lineConstant, String branchConstant, String gate) {
+        Scale(String name, String ratchetPrefix, String lineConstant, String branchConstant, String gate) {
             this.name = name;
+            this.ratchetPrefix = ratchetPrefix;
             this.lineConstant = lineConstant;
             this.branchConstant = branchConstant;
             this.gate = gate;
+        }
+
+        private String ratchetKey(String counter) {
+            return ratchetPrefix + counter + "CoverageMinimum";
         }
     }
 
@@ -98,6 +114,54 @@ class CoverageQualificationEvidenceTest {
         List<String> problems = verify(root.resolve(EVIDENCE_DIRECTORY), readCaps(root));
         assertTrue(problems.isEmpty(), () -> "the coverage caps do not rest on kept evidence:\n  "
                 + String.join("\n  ", problems));
+    }
+
+    @Test
+    void everyCoverageRatchetKeepsThreeTimesTheSpreadUnderTheLowestKeptMeasurement() throws IOException {
+        Path root = RepositoryRoot.locate();
+        List<String> problems = margins(root.resolve(EVIDENCE_DIRECTORY), readRatchets(root));
+        assertTrue(problems.isEmpty(), () -> "a coverage ratchet spends headroom no qualification granted:\n  "
+                + String.join("\n  ", problems));
+    }
+
+    @Test
+    void aRatchetAtExactlyThreeTimesTheSpreadIsAcceptedAndOneThousandthMoreIsRefused(@TempDir Path workspace)
+            throws IOException {
+        Path evidence = qualification(workspace, new double[] {0.60d, 0.70d, 0.65d, 0.75d});
+
+        assertEquals(List.of(), margins(evidence, ratchets(0.27d, 0.32d, 0.27d, 0.32d)));
+
+        List<String> problems = margins(evidence, ratchets(0.271d, 0.32d, 0.27d, 0.321d));
+        assertEquals(2, problems.size(), problems::toString);
+        assertTrue(problems.get(0).contains("perModuleLineCoverageMinimum") && problems.get(0).contains("32900")
+                && problems.get(0).contains("33000"), problems.get(0));
+        assertTrue(problems.get(1).contains("aggregateBranchCoverageMinimum") && problems.get(1).contains("13160")
+                && problems.get(1).contains("13200"), problems.get(1));
+    }
+
+    @Test
+    void aSpreadNarrowerThanTheReferenceIsSizedAgainstTheReference(@TempDir Path workspace) throws IOException {
+        Path evidence = workspace.resolve("narrow");
+        Files.createDirectories(evidence);
+        for (String file : List.of("per-module/Linux-1.txt", "per-module/Linux-2.txt", "per-module/Windows-1.txt",
+                "per-module/Windows-2.txt", "aggregate/Linux-1.txt", "aggregate/Linux-2.txt",
+                "aggregate/Windows-1.txt", "aggregate/Windows-2.txt")) {
+            Scale scale = file.startsWith("aggregate") ? Scale.AGGREGATE : Scale.PER_MODULE;
+            Files.createDirectories(evidence.resolve(scale.name));
+            Files.writeString(evidence.resolve(file), summaryText(scale, 0.60d, 0.65d));
+        }
+        Files.writeString(evidence.resolve(MANIFEST), MANIFEST_HEADER + "\n"
+                + String.join("\n", Stream.of(Scale.values()).flatMap(scale -> PLATFORMS.stream()
+                        .flatMap(platform -> Stream.of(1, 2).map(run -> String.join("\t", scale.name, platform,
+                                Integer.toString(run), COMMIT, scale.name + "/" + platform + "-" + run + ".txt"))))
+                        .toList()) + "\n");
+
+        List<String> problems = margins(evidence, ratchets(0.5993d, 0.65d, 0.60d, 0.65d));
+
+        assertTrue(problems.stream().anyMatch(problem -> problem.contains("perModuleLineCoverageMinimum")
+                && problem.contains("72") && problem.contains("reference")), problems::toString);
+        assertTrue(problems.stream().anyMatch(problem -> problem.contains("perModuleBranchCoverageMinimum")
+                && problem.contains("33")), problems::toString);
     }
 
     @Test
@@ -334,6 +398,82 @@ class CoverageQualificationEvidenceTest {
             }
         }
         return problems;
+    }
+
+    /**
+     * Headroom of each coverage ratchet under the lowest kept measurement of its scale, counted in covered lines or
+     * branches: the lowest kept count minus the count the ratchet demands of the same population. It must be at
+     * least three times the spread of that count across the kept runs, and never less than three times the
+     * reference spread: a qualification whose runs happen to agree closely does not license a ratchet closer to
+     * its cap.
+     */
+    private static List<String> margins(Path directory, Map<String, Double> ratchets) throws IOException {
+        List<String> problems = new ArrayList<>();
+        Map<Scale, List<Summary>> summaries = new LinkedHashMap<>();
+        for (Entry entry : readManifest(directory)) {
+            summaries.computeIfAbsent(entry.scale(), key -> new ArrayList<>())
+                    .add(new Summary(entry, parseSummary(directory.resolve(entry.file()))));
+        }
+        for (Scale scale : Scale.values()) {
+            List<Summary> kept = summaries.getOrDefault(scale, List.of());
+            if (kept.isEmpty()) {
+                problems.add(scale.name + " has no kept evidence to size its ratchets against");
+                continue;
+            }
+            margin(problems, scale.ratchetKey("Line"), ratchets.get(scale.ratchetKey("Line")), kept, "line",
+                    REFERENCE_LINE_SPREAD);
+            margin(problems, scale.ratchetKey("Branch"), ratchets.get(scale.ratchetKey("Branch")), kept, "branch",
+                    REFERENCE_BRANCH_SPREAD);
+        }
+        return problems;
+    }
+
+    private static void margin(List<String> problems, String key, double ratchet, List<Summary> kept, String counter,
+            long referenceSpread) {
+        List<Long> covered = kept.stream().map(summary -> Long.parseLong(summary.values().get(counter + "Covered")))
+                .sorted().toList();
+        long lowest = covered.get(0);
+        long keptSpread = covered.get(covered.size() - 1) - lowest;
+        Map<String, String> sample = kept.get(0).values();
+        long total = Long.parseLong(sample.get(counter + "Covered")) + Long.parseLong(sample.get(counter + "Missed"));
+        long spread = Math.max(keptSpread, referenceSpread);
+        long demanded = (long) Math.ceil(ratchet * total - SIX_DIGIT_ROUNDING);
+        long headroom = lowest - demanded;
+        if (headroom < HEADROOM_SPREADS * spread) {
+            String source = keptSpread >= referenceSpread ? "the kept runs' spread of " + keptSpread
+                    : "the reference spread of " + referenceSpread;
+            problems.add(key + "=" + ratchet + " leaves " + headroom + " covered " + counter + " units under the"
+                    + " lowest kept measurement (" + lowest + " of " + total + "); it needs "
+                    + HEADROOM_SPREADS * spread + ", " + HEADROOM_SPREADS + "x " + source
+                    + " -- a higher ratchet needs a requalified cap");
+        }
+    }
+
+    private static Map<String, Double> ratchets(double perModuleLine, double perModuleBranch, double aggregateLine,
+            double aggregateBranch) {
+        Map<String, Double> ratchets = new LinkedHashMap<>();
+        ratchets.put(Scale.PER_MODULE.ratchetKey("Line"), perModuleLine);
+        ratchets.put(Scale.PER_MODULE.ratchetKey("Branch"), perModuleBranch);
+        ratchets.put(Scale.AGGREGATE.ratchetKey("Line"), aggregateLine);
+        ratchets.put(Scale.AGGREGATE.ratchetKey("Branch"), aggregateBranch);
+        return ratchets;
+    }
+
+    private static Map<String, Double> readRatchets(Path root) throws IOException {
+        Properties properties = new Properties();
+        try (Reader reader = Files.newBufferedReader(root.resolve(RATCHETS))) {
+            properties.load(reader);
+        }
+        Map<String, Double> ratchets = new LinkedHashMap<>();
+        for (Scale scale : Scale.values()) {
+            for (String counter : List.of("Line", "Branch")) {
+                String key = scale.ratchetKey(counter);
+                String value = properties.getProperty(key);
+                assertTrue(value != null, () -> RATCHETS + " must declare " + key);
+                ratchets.put(key, Double.parseDouble(value.strip()));
+            }
+        }
+        return ratchets;
     }
 
     private static List<String> completeness(Scale scale, List<Entry> entries, List<Summary> kept) {
