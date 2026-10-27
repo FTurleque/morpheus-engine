@@ -79,7 +79,7 @@ class AggregateCoverageGateTest {
 
     @Test
     void aggregateCoverageIncludesCrossModuleExecutionAndMeetsRatchets() throws Exception {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         Path report = root.resolve("morpheus-coverage-report/target/site/jacoco-aggregate/jacoco.xml");
         assertTrue(Files.isRegularFile(report), "aggregate JaCoCo report is missing: " + report);
 
@@ -439,19 +439,6 @@ class AggregateCoverageGateTest {
         var builder = factory.newDocumentBuilder();
         builder.setEntityResolver((publicId, systemId) -> new InputSource(new StringReader("")));
         return builder.parse(report.toFile());
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("pom.xml"))
-                    && Files.isDirectory(current.resolve("morpheus-application"))
-                    && Files.isDirectory(current.resolve("distribution"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found");
     }
 
     private record Ratchets(double aggregateLineCoverageMinimum, double aggregateBranchCoverageMinimum) {
