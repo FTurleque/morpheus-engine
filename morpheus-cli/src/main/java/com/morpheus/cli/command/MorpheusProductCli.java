@@ -24,7 +24,7 @@ public final class MorpheusProductCli {
     }
 
     public static boolean handles(String[] args) {
-        String command = command(args);
+        String command = GlobalArgs.command(args);
         return command.equals("reason")
                 || command.equals("version")
                 || command.equals("--version")
@@ -36,7 +36,7 @@ public final class MorpheusProductCli {
         Objects.requireNonNull(args, "args");
         Objects.requireNonNull(out, "out");
         Objects.requireNonNull(err, "err");
-        if (command(args).equals("reason")) {
+        if (GlobalArgs.command(args).equals("reason")) {
             return new MorpheusReasoningCli(recorder).run(args, out, err);
         }
         try {
@@ -48,10 +48,10 @@ public final class MorpheusProductCli {
                 default -> throw new IllegalArgumentException("unknown product command: " + parsed.command());
             };
         } catch (IllegalArgumentException failure) {
-            err.println("MORPHEUS usage error: " + safeMessage(failure));
+            err.println("MORPHEUS usage error: " + CliErrorLine.failureText(failure));
             return CliExitCode.USAGE.code();
         } catch (RuntimeException failure) {
-            err.println("MORPHEUS product-integrity error: " + safeMessage(failure));
+            err.println("MORPHEUS product-integrity error: " + CliErrorLine.failureText(failure));
             return CliExitCode.STATE_ERROR.code();
         }
     }
@@ -151,21 +151,6 @@ public final class MorpheusProductCli {
         return valueIndex;
     }
 
-    private static String command(String[] args) {
-        for (int index = 0; index < args.length; index++) {
-            String token = args[index];
-            if (token.equals("--json")) {
-                continue;
-            }
-            if (token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db")) {
-                index++;
-                continue;
-            }
-            return token;
-        }
-        return "";
-    }
-
     private static URI explicitUri(String raw) {
         String value = Objects.requireNonNull(raw, "manifest").trim();
         if (value.matches("^[A-Za-z]:[\\\\/].*")) {
@@ -176,11 +161,6 @@ public final class MorpheusProductCli {
             return parsed;
         }
         return Path.of(value).toAbsolutePath().normalize().toUri();
-    }
-
-    private static String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 
     private record Parsed(String command, boolean json, java.util.Map<String, String> options) {

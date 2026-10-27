@@ -83,16 +83,16 @@ public final class MorpheusServerCli {
                     "server command must be identity create|list|revoke|rotate|role|migrate-legacy, "
                             + "backup create, backup verify, or restore");
         } catch (EntityNotFoundException failure) {
-            err.println("MORPHEUS server error: " + safeMessage(failure));
+            err.println("MORPHEUS server error: " + CliErrorLine.failureText(failure));
             return CliExitCode.NOT_FOUND.code();
         } catch (EntityStateException failure) {
-            err.println("MORPHEUS server error: " + safeMessage(failure));
+            err.println("MORPHEUS server error: " + CliErrorLine.failureText(failure));
             return CliExitCode.STATE_ERROR.code();
         } catch (IllegalArgumentException failure) {
-            err.println("MORPHEUS server usage error: " + safeMessage(failure));
+            err.println("MORPHEUS server usage error: " + CliErrorLine.failureText(failure));
             return CliExitCode.USAGE.code();
         } catch (RuntimeException failure) {
-            err.println("MORPHEUS server error: " + safeMessage(failure));
+            err.println("MORPHEUS server error: " + CliErrorLine.failureText(failure));
             return CliExitCode.INTERNAL_ERROR.code();
         }
     }
@@ -395,11 +395,6 @@ public final class MorpheusServerCli {
     private static boolean isLayoutOption(String token) {
         return token.equals("--data-dir") || token.equals(OPT_CONFIG_DIR) || token.equals("--db")
                 || token.startsWith("--data-dir=") || token.startsWith("--config-dir=") || token.startsWith("--db=");
-    }
-
-    private static String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 
     private record Parsed(CliLayout layout, boolean json, List<String> command) {

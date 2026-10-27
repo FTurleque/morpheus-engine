@@ -37,7 +37,7 @@ public final class MorpheusExternalIntegrationCli {
     }
 
     public static boolean handles(String[] args) {
-        String command = command(args);
+        String command = GlobalArgs.command(args);
         return "minos-status".equals(command) || "external-references".equals(command);
     }
 
@@ -55,11 +55,9 @@ public final class MorpheusExternalIntegrationCli {
                 default -> throw new IllegalArgumentException("unsupported external integration command: " + parsed.command());
             };
         } catch (IllegalArgumentException failure) {
-            error(err, CliExitCode.USAGE, failure.getMessage());
-            return CliExitCode.USAGE.code();
+            return CliErrorLine.report(err, CliExitCode.USAGE, failure);
         } catch (RuntimeException failure) {
-            error(err, CliExitCode.STATE_ERROR, safeMessage(failure));
-            return CliExitCode.STATE_ERROR.code();
+            return CliErrorLine.report(err, CliExitCode.STATE_ERROR, failure);
         }
     }
 
@@ -178,30 +176,6 @@ public final class MorpheusExternalIntegrationCli {
                 "attributes", resolved.attributes())).orElse(null));
         value.put("historyCount", reference.history().size());
         return value;
-    }
-
-    private void error(PrintStream err, CliExitCode code, String message) {
-        err.println("MORPHEUS error [" + code.code() + "]: " + message);
-    }
-
-    private static String safeMessage(Throwable failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
-
-    private static String command(String[] args) {
-        for (int index = 0; index < args.length; index++) {
-            String token = args[index];
-            if ("--json".equals(token)) {
-                continue;
-            }
-            if ("--data-dir".equals(token) || "--config-dir".equals(token) || "--db".equals(token)) {
-                index++;
-                continue;
-            }
-            return token;
-        }
-        return "";
     }
 
     private record Parsed(boolean json, CliLayout layout, String command, List<String> tokens) {

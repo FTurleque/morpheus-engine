@@ -9,7 +9,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Properties;
 import java.util.function.Function;
 
@@ -59,23 +58,23 @@ public final class CliCommandRun {
                     global.dataDirectory(), global.configDirectory(), global.databasePath(), environment, properties);
             return command.run(global.remaining(), new CliCommandRun(jsonOutput, layout, out));
         } catch (CliFailure failure) {
-            printError(err, jsonOutput, failure.exitCode(), failure.getMessage());
+            CliErrorLine.write(err, jsonOutput, failure.exitCode(), failure.getMessage());
             return failure.exitCode().code();
         } catch (IllegalArgumentException failure) {
-            printError(err, jsonOutput, CliExitCode.USAGE, safeMessage(failure));
+            CliErrorLine.write(err, jsonOutput, CliExitCode.USAGE, CliErrorLine.failureText(failure));
             return CliExitCode.USAGE.code();
         } catch (KnowledgeStoreException | IllegalStateException failure) {
-            printError(err, jsonOutput, CliExitCode.STATE_ERROR, safeMessage(failure));
+            CliErrorLine.write(err, jsonOutput, CliExitCode.STATE_ERROR, CliErrorLine.failureText(failure));
             return CliExitCode.STATE_ERROR.code();
         } catch (RuntimeException failure) {
-            printError(err, jsonOutput, CliExitCode.INTERNAL_ERROR, safeMessage(failure));
+            CliErrorLine.write(err, jsonOutput, CliExitCode.INTERNAL_ERROR, CliErrorLine.failureText(failure));
             return CliExitCode.INTERNAL_ERROR.code();
         }
     }
 
     /** Answers an invocation whose command path is not declared, the way every unknown command is answered. */
     public static int refuseUndeclared(String[] args, PrintStream err, String message) {
-        printError(err, Arrays.asList(args).contains("--json"), CliExitCode.USAGE, message);
+        CliErrorLine.write(err, Arrays.asList(args).contains("--json"), CliExitCode.USAGE, message);
         return CliExitCode.USAGE.code();
     }
 
@@ -119,19 +118,4 @@ public final class CliCommandRun {
         out.println(KEY_SNAPSHOT_ID + snapshotId + " total=" + totalMatches + " hasMore=" + hasMore);
         items.forEach(item -> out.println(human.apply(item)));
     }
-
-    private static void printError(PrintStream err, boolean jsonOutput, CliExitCode code, String message) {
-        if (jsonOutput) {
-            err.println(JSON.toJson(new ErrorView(code.code(), code.name(), message)));
-        } else {
-            err.println("MORPHEUS error [" + code.code() + "]: " + message);
-        }
-    }
-
-    private static String safeMessage(Throwable failure) {
-        return Optional.ofNullable(failure.getMessage()).filter(value -> !value.isBlank())
-                .orElse(failure.getClass().getSimpleName());
-    }
-
-    private record ErrorView(int exitCode, String code, String message) {}
 }

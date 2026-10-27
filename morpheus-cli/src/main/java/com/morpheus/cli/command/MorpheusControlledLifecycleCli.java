@@ -41,7 +41,7 @@ public final class MorpheusControlledLifecycleCli {
     }
 
     public static boolean handles(String[] args) {
-        return "lifecycle".equals(command(args));
+        return "lifecycle".equals(GlobalArgs.command(args));
     }
 
     public int run(
@@ -99,11 +99,9 @@ public final class MorpheusControlledLifecycleCli {
                         : CliExitCode.STATE_ERROR.code();
             }
         } catch (IllegalArgumentException failure) {
-            err.println("MORPHEUS error [" + CliExitCode.USAGE.code() + "]: " + safeMessage(failure));
-            return CliExitCode.USAGE.code();
+            return CliErrorLine.report(err, CliExitCode.USAGE, failure);
         } catch (RuntimeException failure) {
-            err.println("MORPHEUS error [" + CliExitCode.STATE_ERROR.code() + "]: " + safeMessage(failure));
-            return CliExitCode.STATE_ERROR.code();
+            return CliErrorLine.report(err, CliExitCode.STATE_ERROR, failure);
         }
     }
 
@@ -143,26 +141,6 @@ public final class MorpheusControlledLifecycleCli {
         } catch (IllegalArgumentException failure) {
             throw new IllegalArgumentException("--abandonment-reason is invalid: " + value.orElseThrow(), failure);
         }
-    }
-
-    private static String command(String[] args) {
-        for (int index = 0; index < args.length; index++) {
-            String token = args[index];
-            if ("--json".equals(token)) {
-                continue;
-            }
-            if ("--data-dir".equals(token) || "--config-dir".equals(token) || "--db".equals(token)) {
-                index++;
-                continue;
-            }
-            return token;
-        }
-        return "";
-    }
-
-    private static String safeMessage(Throwable failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 
     private record Parsed(boolean json, CliLayout layout, List<String> tokens) {

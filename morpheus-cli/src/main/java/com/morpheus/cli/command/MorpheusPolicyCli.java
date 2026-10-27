@@ -76,7 +76,7 @@ public final class MorpheusPolicyCli {
     }
 
     public static boolean handles(String[] args) {
-        return command(args).equals("policy");
+        return GlobalArgs.command(args).equals("policy");
     }
 
     public int run(String[] args, PrintStream out, PrintStream err, Map<String, String> environment, Properties properties) {
@@ -101,17 +101,13 @@ public final class MorpheusPolicyCli {
                 return exitCode.code();
             }
         } catch (EntityNotFoundException failure) {
-            err.println("MORPHEUS error [" + CliExitCode.NOT_FOUND.code() + "]: " + safeMessage(failure));
-            return CliExitCode.NOT_FOUND.code();
+            return CliErrorLine.report(err, CliExitCode.NOT_FOUND, failure);
         } catch (EntityStateException failure) {
-            err.println("MORPHEUS error [" + CliExitCode.STATE_ERROR.code() + "]: " + safeMessage(failure));
-            return CliExitCode.STATE_ERROR.code();
+            return CliErrorLine.report(err, CliExitCode.STATE_ERROR, failure);
         } catch (IllegalArgumentException failure) {
-            err.println("MORPHEUS error [" + CliExitCode.USAGE.code() + "]: " + safeMessage(failure));
-            return CliExitCode.USAGE.code();
+            return CliErrorLine.report(err, CliExitCode.USAGE, failure);
         } catch (RuntimeException failure) {
-            err.println("MORPHEUS error [" + CliExitCode.STATE_ERROR.code() + "]: " + safeMessage(failure));
-            return CliExitCode.STATE_ERROR.code();
+            return CliErrorLine.report(err, CliExitCode.STATE_ERROR, failure);
         }
     }
 
@@ -276,15 +272,6 @@ public final class MorpheusPolicyCli {
         } catch (NumberFormatException failure) {
             throw new IllegalArgumentException("--" + key + " must be an integer", failure);
         }
-    }
-
-    private static String command(String[] args) {
-        return GlobalArgs.command(args);
-    }
-
-    private static String safeMessage(Throwable failure) {
-        return failure.getMessage() == null || failure.getMessage().isBlank()
-                ? failure.getClass().getSimpleName() : failure.getMessage();
     }
 
     private enum VoidMarker { INSTANCE }

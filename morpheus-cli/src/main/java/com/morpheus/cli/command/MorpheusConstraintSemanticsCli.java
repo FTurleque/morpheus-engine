@@ -11,7 +11,6 @@ import com.morpheus.domain.constraint.ConstraintEvaluation;
 import com.morpheus.domain.project.ProjectSpecificationId;
 
 import java.io.PrintStream;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -31,7 +30,7 @@ public final class MorpheusConstraintSemanticsCli {
     }
 
     public static boolean handles(String[] args) {
-        List<String> tokens = commandTokens(args);
+        List<String> tokens = GlobalArgs.commandTokens(args);
         return tokens.size() >= 2
                 && "constraints".equals(tokens.get(0))
                 && "evaluate".equals(tokens.get(1));
@@ -68,11 +67,9 @@ public final class MorpheusConstraintSemanticsCli {
                 return CliExitCode.SUCCESS.code();
             }
         } catch (IllegalArgumentException failure) {
-            error(err, CliExitCode.USAGE, safeMessage(failure));
-            return CliExitCode.USAGE.code();
+            return CliErrorLine.report(err, CliExitCode.USAGE, failure);
         } catch (RuntimeException failure) {
-            error(err, CliExitCode.STATE_ERROR, safeMessage(failure));
-            return CliExitCode.STATE_ERROR.code();
+            return CliErrorLine.report(err, CliExitCode.STATE_ERROR, failure);
         }
     }
 
@@ -115,31 +112,6 @@ public final class MorpheusConstraintSemanticsCli {
         } catch (IllegalArgumentException failure) {
             throw new IllegalArgumentException("--target is not a valid MORPHEUS lifecycle state: " + value, failure);
         }
-    }
-
-    private void error(PrintStream err, CliExitCode code, String message) {
-        err.println("MORPHEUS error [" + code.code() + "]: " + message);
-    }
-
-    private static String safeMessage(Throwable failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
-
-    private static List<String> commandTokens(String[] args) {
-        List<String> remaining = new ArrayList<>();
-        for (int index = 0; index < args.length; index++) {
-            String token = args[index];
-            if ("--json".equals(token)) {
-                continue;
-            }
-            if ("--data-dir".equals(token) || "--config-dir".equals(token) || "--db".equals(token)) {
-                index++;
-                continue;
-            }
-            remaining.add(token);
-        }
-        return List.copyOf(remaining);
     }
 
     private record Parsed(boolean json, CliLayout layout, List<String> tokens) {

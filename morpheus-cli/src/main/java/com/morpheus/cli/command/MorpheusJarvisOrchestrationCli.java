@@ -34,7 +34,7 @@ public final class MorpheusJarvisOrchestrationCli {
     }
 
     public static boolean handles(String[] args) {
-        return "change-orchestration".equals(command(args));
+        return "change-orchestration".equals(GlobalArgs.command(args));
     }
 
     public int run(
@@ -63,11 +63,9 @@ public final class MorpheusJarvisOrchestrationCli {
                 };
             }
         } catch (IllegalArgumentException failure) {
-            error(err, CliExitCode.USAGE, failure.getMessage());
-            return CliExitCode.USAGE.code();
+            return CliErrorLine.report(err, CliExitCode.USAGE, failure);
         } catch (RuntimeException failure) {
-            error(err, CliExitCode.STATE_ERROR, safeMessage(failure));
-            return CliExitCode.STATE_ERROR.code();
+            return CliErrorLine.report(err, CliExitCode.STATE_ERROR, failure);
         }
     }
 
@@ -189,30 +187,6 @@ public final class MorpheusJarvisOrchestrationCli {
         } catch (IllegalArgumentException failure) {
             throw new IllegalArgumentException(option + " is not a valid MORPHEUS abandonment reason: " + value.orElseThrow(), failure);
         }
-    }
-
-    private void error(PrintStream err, CliExitCode code, String message) {
-        err.println("MORPHEUS error [" + code.code() + "]: " + message);
-    }
-
-    private static String safeMessage(Throwable failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
-
-    private static String command(String[] args) {
-        for (int index = 0; index < args.length; index++) {
-            String token = args[index];
-            if ("--json".equals(token)) {
-                continue;
-            }
-            if ("--data-dir".equals(token) || "--config-dir".equals(token) || "--db".equals(token)) {
-                index++;
-                continue;
-            }
-            return token;
-        }
-        return "";
     }
 
     private record Parsed(boolean json, CliLayout layout, List<String> tokens) {

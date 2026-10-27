@@ -29,7 +29,7 @@ public final class MorpheusProviderPluginCli {
     }
 
     public static boolean handles(String[] args) {
-        return command(args).equals("provider-plugins");
+        return GlobalArgs.command(args).equals("provider-plugins");
     }
 
     public int run(String[] args, PrintStream out, PrintStream err) {
@@ -44,10 +44,10 @@ public final class MorpheusProviderPluginCli {
                 default -> throw new IllegalArgumentException("unknown provider-plugins action: " + parsed.action());
             };
         } catch (IllegalArgumentException failure) {
-            err.println("MORPHEUS provider-plugin usage error: " + safeMessage(failure));
+            err.println("MORPHEUS provider-plugin usage error: " + CliErrorLine.failureText(failure));
             return CliExitCode.USAGE.code();
         } catch (RuntimeException failure) {
-            err.println("MORPHEUS provider-plugin error: " + safeMessage(failure));
+            err.println("MORPHEUS provider-plugin error: " + CliErrorLine.failureText(failure));
             return CliExitCode.STATE_ERROR.code();
         }
     }
@@ -168,26 +168,6 @@ public final class MorpheusProviderPluginCli {
             throw new IllegalArgumentException(option + " requires a value");
         }
         return valueIndex;
-    }
-
-    private static String command(String[] args) {
-        for (int index = 0; index < args.length; index++) {
-            String token = args[index];
-            if (token.equals("--json")) {
-                continue;
-            }
-            if (token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db")) {
-                index++;
-                continue;
-            }
-            return token;
-        }
-        return "";
-    }
-
-    private static String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 
     private record Parsed(boolean json, String action, Map<String, String> options) {

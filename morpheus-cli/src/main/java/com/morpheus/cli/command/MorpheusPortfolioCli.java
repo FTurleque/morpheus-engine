@@ -65,7 +65,7 @@ public final class MorpheusPortfolioCli {
     }
 
     public static boolean handles(String[] args) {
-        return OPT_PORTFOLIO.equals(command(args));
+        return OPT_PORTFOLIO.equals(GlobalArgs.command(args));
     }
 
     public int run(
@@ -142,17 +142,13 @@ public final class MorpheusPortfolioCli {
                 return CliExitCode.SUCCESS.code();
             }
         } catch (EntityNotFoundException failure) {
-            err.println("MORPHEUS error [" + CliExitCode.NOT_FOUND.code() + "]: " + safeMessage(failure));
-            return CliExitCode.NOT_FOUND.code();
+            return CliErrorLine.report(err, CliExitCode.NOT_FOUND, failure);
         } catch (EntityStateException failure) {
-            err.println("MORPHEUS error [" + CliExitCode.STATE_ERROR.code() + "]: " + safeMessage(failure));
-            return CliExitCode.STATE_ERROR.code();
+            return CliErrorLine.report(err, CliExitCode.STATE_ERROR, failure);
         } catch (IllegalArgumentException failure) {
-            err.println("MORPHEUS error [" + CliExitCode.USAGE.code() + "]: " + safeMessage(failure));
-            return CliExitCode.USAGE.code();
+            return CliErrorLine.report(err, CliExitCode.USAGE, failure);
         } catch (RuntimeException failure) {
-            err.println("MORPHEUS error [" + CliExitCode.STATE_ERROR.code() + "]: " + safeMessage(failure));
-            return CliExitCode.STATE_ERROR.code();
+            return CliErrorLine.report(err, CliExitCode.STATE_ERROR, failure);
         }
     }
 
@@ -194,15 +190,6 @@ public final class MorpheusPortfolioCli {
 
     private static int integer(SimpleOptions options, String key, int fallback) {
         return options.optional(key).map(Integer::parseInt).orElse(fallback);
-    }
-
-    private static String safeMessage(Throwable failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
-
-    private static String command(String[] args) {
-        return GlobalArgs.command(args);
     }
 
     private record Parsed(boolean json, CliLayout layout, List<String> tokens) {

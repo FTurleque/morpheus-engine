@@ -33,7 +33,7 @@ final class MorpheusReasoningCli {
     }
 
     static boolean handles(String[] args) {
-        return command(args).equals("reason");
+        return GlobalArgs.command(args).equals("reason");
     }
 
     int run(String[] args, PrintStream out, PrintStream err) {
@@ -49,10 +49,10 @@ final class MorpheusReasoningCli {
                 default -> throw new IllegalArgumentException("unknown reason action: " + parsed.action());
             };
         } catch (IllegalArgumentException failure) {
-            err.println("MORPHEUS usage error: " + safeMessage(failure));
+            err.println("MORPHEUS usage error: " + CliErrorLine.failureText(failure));
             return CliExitCode.USAGE.code();
         } catch (RuntimeException failure) {
-            err.println("MORPHEUS assisted-reasoning error: " + safeMessage(failure));
+            err.println("MORPHEUS assisted-reasoning error: " + CliErrorLine.failureText(failure));
             return CliExitCode.STATE_ERROR.code();
         }
     }
@@ -256,26 +256,6 @@ final class MorpheusReasoningCli {
         } catch (RuntimeException failure) {
             throw new IllegalArgumentException("invalid " + name + ": " + raw, failure);
         }
-    }
-
-    private static String command(String[] args) {
-        for (int index = 0; index < args.length; index++) {
-            String token = args[index];
-            if (token.equals("--json")) {
-                continue;
-            }
-            if (token.equals("--data-dir") || token.equals("--config-dir") || token.equals("--db")) {
-                index++;
-                continue;
-            }
-            return token;
-        }
-        return "";
-    }
-
-    private static String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 
     private record Parsed(
