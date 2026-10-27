@@ -238,26 +238,25 @@ class SyntheticSpecificationContentReaderTest {
     }
 
     @Test
-    void anAccentedScenarioTitleYieldsTheKeyOfItsBaseLetters() throws Exception {
+    void anAccentedScenarioTitleKeepsTheKeyItsPersistedIdentityWasDerivedFrom() throws Exception {
         Path workspace = fixtureWithScenarioTitle("accented-title", "Conserver la facture émise");
 
         var content = reader.read(ProviderReadRequest.all(workspace, ProjectSpecificationId.generate()),
                 new InMemoryResolver()).content().orElseThrow();
 
-        assertEquals("scenario:billing/invoice-retention/conserver-la-facture-emise",
+        assertEquals("scenario:billing/invoice-retention/conserver-la-facture-mise",
                 content.scenarios().getFirst().provenance().externalId().orElseThrow());
     }
 
     @Test
-    void aScenarioTitleThatLeavesNoKeyIsRefusedByName() throws Exception {
+    void aScenarioTitleThatLeavesNoKeyKeepsTheIdentityOfItsRequirementPrefix() throws Exception {
         Path workspace = fixtureWithScenarioTitle("keyless-title", "!! ?? !!");
 
-        var result = reader.read(ProviderReadRequest.all(workspace, ProjectSpecificationId.generate()),
-                new InMemoryResolver());
+        var content = reader.read(ProviderReadRequest.all(workspace, ProjectSpecificationId.generate()),
+                new InMemoryResolver()).content().orElseThrow();
 
-        assertTrue(result.content().isEmpty());
-        assertEquals("Synthetic source read failed: Cannot derive a stable key from: !! ?? !!",
-                result.diagnostics().getFirst().message());
+        assertEquals("scenario:billing/invoice-retention/",
+                content.scenarios().getFirst().provenance().externalId().orElseThrow());
     }
 
     private Path fixtureWithScenarioTitle(String directory, String title) throws Exception {

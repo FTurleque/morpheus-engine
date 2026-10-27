@@ -94,16 +94,15 @@ class PublicPayloadConvergenceTest {
             ImplementationTask.class.getSimpleName(), Set.of("key"),
             AcceptanceCriterion.class.getSimpleName(), Set.of("requirementId", "changeId"));
 
-    @TempDir
-    static Path temp;
-
+    private Path temp;
     private MorpheusHttpServer server;
     private List<McpServerFeatures.SyncToolSpecification> tools;
     private List<String> projectIds;
     private Path dataDirectory;
 
     @BeforeAll
-    void publishTheFixture() throws IOException {
+    void publishTheFixture(@TempDir Path directory) throws IOException {
+        temp = directory;
         dataDirectory = temp.resolve("data");
         Path workspace = copyOfFixture("openspec-basic");
         String openSpecProject = value(cli("projects", "add", "--workspace", workspace.toString()), "projectId");

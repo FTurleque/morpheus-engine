@@ -39,6 +39,10 @@ that introduces this change.
       suites unmodified.
 - [x] 3.4 The synthetic key, as 1.3 decided: adopt, or rename and document. Proof: the synthetic suites unmodified in
       the first case; the comment and a test on an accented and on an empty title in the second.
+      *Renamed and documented (`persistedScenarioKey`): 1.3 found no differing key in the repository's inputs, but
+      synthetic identities are persisted by installed products, where an accented or keyless title would change identity
+      or fail the read. Tests `anAccentedScenarioTitleKeepsTheKeyItsPersistedIdentityWasDerivedFrom` and
+      `aScenarioTitleThatLeavesNoKeyKeepsTheIdentityOfItsRequirementPrefix`.*
 - [x] 3.5 Break each rule once, then revert: a private `sha256` under another name in a provider; a private `slug` in
       a new OpenSpec class. Proof: the two named failures.
 

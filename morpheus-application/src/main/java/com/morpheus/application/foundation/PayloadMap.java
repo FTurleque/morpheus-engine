@@ -5,7 +5,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Builds the string-keyed map a public answer is serialised from, out of alternating keys and values.
+ * Builds the string-keyed map a public answer or an MCP tool schema is serialised from, out of alternating keys and
+ * values.
  *
  * <p>A malformed construction is refused by name: an odd number of arguments, a key that is not a {@code String}
  * (with its position and the type received) and a key given twice (with the key; neither value is kept). Whether an

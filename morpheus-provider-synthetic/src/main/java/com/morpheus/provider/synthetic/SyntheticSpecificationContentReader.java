@@ -1,7 +1,6 @@
 package com.morpheus.provider.synthetic;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
-import com.morpheus.application.foundation.StableKey;
 import com.morpheus.application.foundation.TextDigest;
 import com.morpheus.application.files.SafeWorkspaceFileResolver;
 import com.morpheus.application.ingestion.NormalizedProjectContent;
@@ -180,7 +179,7 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
             for (Object rawScenario : array(requirementSource, "scenarios")) {
                 Map<String, Object> scenarioSource = object(rawScenario, "scenario");
                 String scenarioTitle = string(scenarioSource, "title");
-                String scenarioExternalId = "scenario:" + requirementKey + "/" + StableKey.fromTitle(scenarioTitle);
+                String scenarioExternalId = "scenario:" + requirementKey + "/" + persistedScenarioKey(scenarioTitle);
                 ScenarioSemantics semantics = semantics(strings(scenarioSource, "steps"));
                 Evidence scenarioEvidence = evidence(identities, scenarioExternalId, source, sourceText, sourceLines);
                 evidence.add(scenarioEvidence);
@@ -459,6 +458,17 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
                 source,
                 Optional.of(new SourceRange(1, sourceLines)),
                 Optional.of(TextDigest.sha256(sourceText)));
+    }
+
+    /**
+     * The key segment of a synthetic scenario identity. It keeps the ASCII letters and digits of the title and drops
+     * every other character, accents included: synthetic identities are persisted, and a title that the shared
+     * {@code StableKey} folds differently would receive a new identity at its next ingestion.
+     */
+    private static String persistedScenarioKey(String title) {
+        return title.toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("^-|-$", "");
     }
 
     private Map<String, Object> object(Map<String, Object> source, String key) {

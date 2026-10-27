@@ -85,6 +85,8 @@ Le projet vend du déterminisme (ADR-0039, 0043, 0056, 0085, 0122, 0125). Concr�
 - Sérialiser en **JSON canonique** (`CanonicalJsonSerializer`) pour toute sortie comparable
 - Calculer le SHA-256 d'un texte par `TextDigest.sha256` et la clé stable d'un titre par `StableKey.fromTitle`
   (`com.morpheus.application.foundation`), jamais par une copie privée : les empreintes de provenance en sont faites.
+  La clé d'un scénario synthétique garde sa dérivation ASCII (`persistedScenarioKey`) : ses identités sont persistées et
+  un repli des accents leur en donnerait de nouvelles.
   Les classes qui demandent elles-mêmes un `MessageDigest` (fichier, flux, jeton) sont nommées avec leur raison dans
   `TextDigestOwnershipArchitectureTest`, liste qui ne fait que rétrécir
 - Ne jamais laisser un `HashMap`/`HashSet` déterminer un ordre observable
