@@ -43,13 +43,14 @@ class AdapterSiblingArchitectureTest {
     private static final String INTEGRATIONS = "com.morpheus.integration..";
     private static final String MINOS = "com.morpheus.integration.minos..";
     private static final String NEXUS = "com.morpheus.integration.nexus..";
+    private static final String TRANSPORT = "com.morpheus.transport..";
     private static final String MCP = "com.morpheus.mcp..";
     private static final String API = "com.morpheus.api..";
     private static final String CLI = "com.morpheus.cli..";
 
     private static final List<String> NAMED = List.of(
             DOMAIN, APPLICATION, SDK, PROVIDERS, OPENSPEC, MARKDOWN, SYNTHETIC, STORES, INTEGRATIONS, MINOS, NEXUS,
-            MCP, API, CLI);
+            TRANSPORT, MCP, API, CLI);
 
     @Test
     void domainAndApplicationDoNotDependOnTheProviderSdk() {
@@ -73,7 +74,7 @@ class AdapterSiblingArchitectureTest {
     void providersDoNotDependOnStoresTransportsOrIntegrations() {
         noClasses()
                 .that().resideInAPackage(PROVIDERS)
-                .should().dependOnClassesThat().resideInAnyPackage(STORES, INTEGRATIONS, MCP, API, CLI)
+                .should().dependOnClassesThat().resideInAnyPackage(STORES, INTEGRATIONS, TRANSPORT, MCP, API, CLI)
                 .because("adapters are siblings and depend inward only")
                 .check(PRODUCTION);
     }
@@ -90,7 +91,7 @@ class AdapterSiblingArchitectureTest {
     void storesDoNotDependOnProvidersTransportsOrIntegrations() {
         noClasses()
                 .that().resideInAPackage(STORES)
-                .should().dependOnClassesThat().resideInAnyPackage(PROVIDERS, SDK, INTEGRATIONS, MCP, API, CLI)
+                .should().dependOnClassesThat().resideInAnyPackage(PROVIDERS, SDK, INTEGRATIONS, TRANSPORT, MCP, API, CLI)
                 .because("adapters are siblings and depend inward only")
                 .check(PRODUCTION);
     }
