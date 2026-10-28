@@ -381,8 +381,10 @@ class RepositoryDocumentationCoherenceTest {
         // 693 architecture executions, none generated). Each key sits 10 under its measure, the margin of 09/10:
         // testsMinimum 3820 -> 2600 (declared executions only) and the new generatedTestsMinimum 1574. They sum to
         // 4174, which is not below the 3820 they bound together.
-        assertEquals("2600", ratchets.get("testsMinimum"));
-        assertEquals("1574", ratchets.get("generatedTestsMinimum"));
+        // 28/10/2026: both presence keys raised to ten under the measure of 19b0b996, identical on both platforms --
+        // 2831 declared and 1826 generated executions: testsMinimum 2600 -> 2821, generatedTestsMinimum 1574 -> 1816.
+        assertEquals("2821", ratchets.get("testsMinimum"));
+        assertEquals("1816", ratchets.get("generatedTestsMinimum"));
         // architectureTestsMinimum 762 -> 769 on 25/10/2026: 779 architecture executions measured on Windows and
         // Linux at the head of ingest-a-project-through-the-provider-port, ten under the measure.
         // 769 -> 813 on 28/10/2026: 823 architecture executions on both platforms, two CI runs each, at 61198c68.

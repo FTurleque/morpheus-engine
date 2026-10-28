@@ -56,8 +56,8 @@ M21 applique notamment :
 
 ```text
 clean verify
-Surefire written     >= 2600
-Surefire generated   >= 1574
+Surefire written     >= 2821
+Surefire generated   >= 1816
 architecture         >= 813
 aggregate line coverage    >= 91.2%
 aggregate branch coverage  >= 77.3%
