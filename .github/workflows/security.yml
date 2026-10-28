@@ -19,6 +19,11 @@ env:
   # as <dependency-check.data.version> and kept in step with it by DependencyCheckWorkflowContractTest.
   DEPENDENCY_CHECK_SCHEMA_VERSION: '5.6'
   DEPENDENCY_CHECK_PLUGIN_VERSION: '13.0.0'
+  # The second refresh source: the CVE JSON 2.0 feeds the NVD publishes, read by Dependency-Check's data-feed path.
+  # That path needs no key and never reaches the API client that upstream #8715 breaks, so the gate keeps a source
+  # when NVD_API_KEY is absent, refused or failing. Dependency-Check builds the feed index from the `.meta` files
+  # published next to each `.json.gz`.
+  NVD_DATAFEED_URL: 'https://nvd.nist.gov/feeds/json/cve/2.0/nvdcve-2.0-{0}.json.gz'
 
 concurrency:
   group: morpheus-security-${{ github.ref }}
@@ -88,7 +93,7 @@ jobs:
           status="$(sed -n 's/^status=//p' <<< "${facts}" | head -n 1)"
 
           if [[ "${status}" != 'OK' ]]; then
-            echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. No trusted Dependency-Check refresh could be established for this pull request (${status}). A cache restored without a trusted-refresh sentinel has an unknown age, and an unknown age is not a fresh one. This is an infrastructure failure, not a vulnerability finding. Expected right after the cache namespace or the sentinel format changes: no entry exists under the new key yet. It clears when a trusted event writes the first sentinel, and on this branch exactly one thing can do that: NVD_API_KEY being configured. Waiting for a schedule will NOT clear it -- the only writer is the API-key path, because Dependency-Check 13.0.0 cannot refresh anonymously (upstream #8715, fixed in the unreleased 13.0.1). Backporting this sentinel writer to a branch still pinned to 12.2.2, whose anonymous refresh works and which writes the same H2 schema, would also bootstrap it. See RT-13 in docs/architecture/risks/register.md. Do not widen DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS and do not add a fallback that accepts an undated database: either would discard the measurement this refusal exists to make."
+            echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. No trusted Dependency-Check refresh could be established for this pull request (${status}). A cache restored without a trusted-refresh sentinel has an unknown age, and an unknown age is not a fresh one. This is an infrastructure failure, not a vulnerability finding. Expected right after the cache namespace or the sentinel format changes: no entry exists under the new key yet. It clears when a trusted event (push, schedule or workflow_dispatch) writes the first sentinel: the refresh with NVD_API_KEY or, without a working key, the refresh from the NVD data feeds. If it persists after such a run, read the update step of that run. See RT-13 in docs/architecture/risks/register.md. Do not widen DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS and do not add a fallback that accepts an undated database: either would discard the measurement this refusal exists to make."
             exit 1
           fi
 
@@ -106,18 +111,16 @@ jobs:
           refreshed_by="$(sed -n 's/^refreshedBy=//p' <<< "${facts}" | head -n 1)"
           bash ./scripts/report-dependency-check-cache.sh "${age_seconds}" "${refreshed_by:-unknown}"
 
-          # A database this branch produced can only carry the API-key label: Dependency-Check 13.0.0 cannot
-          # refresh anonymously (upstream #8715). Any other provenance was written elsewhere -- most plausibly
-          # the branch still pinned to 12.2.2, whose anonymous refresh works and whose database uses the same
-          # H2 schema, which is the bootstrap the STALE_DATABASE message above points at. That case is
-          # legitimate, so this warns and never refuses: refusing would close the documented way out of a cold
-          # start, and the freshness budget bounds the deviation regardless. What it must not do is stay quiet,
-          # because a lost NVD_API_KEY reads exactly the same way and nothing else would say so before the
-          # budget expired three days later.
-          if [[ "${refreshed_by:-unknown}" != 'NVD API key refresh' ]]; then
+          # A database this branch produced carries one of two labels: the API-key refresh or the data-feed
+          # refresh. Any other provenance was written elsewhere -- most plausibly the branch still pinned to
+          # 12.2.2, whose anonymous refresh works and whose database uses the same H2 schema. That case is
+          # legitimate, so this warns and never refuses: the freshness budget bounds the deviation regardless.
+          # What it must not do is stay quiet, because a sentinel writer that stopped running on this branch
+          # reads exactly the same way and nothing else would say so before the budget expired three days later.
+          if [[ "${refreshed_by:-unknown}" != 'NVD API key refresh' && "${refreshed_by:-unknown}" != 'NVD data feed refresh' ]]; then
             plugin_version="$(sed -n 's/^pluginVersion=//p' <<< "${facts}" | head -n 1)"
             refreshed_on_ref="$(sed -n 's/^refreshedOnRef=//p' <<< "${facts}" | head -n 1)"
-            echo "::warning::Dependency-Check database was obtained via ${refreshed_by:-unknown}, not NVD API key refresh, on a branch pinned to Dependency-Check ${DEPENDENCY_CHECK_PLUGIN_VERSION}, which cannot refresh anonymously. The sentinel was written by Dependency-Check ${plugin_version:-unknown} on ${refreshed_on_ref:-unknown}. Expected while bootstrapping from the branch pinned to 12.2.2; otherwise NVD_API_KEY has stopped being read. See RT-13 in docs/architecture/risks/register.md."
+            echo "::warning::Dependency-Check database was obtained via ${refreshed_by:-unknown}, neither of the two refresh sources of a branch pinned to Dependency-Check ${DEPENDENCY_CHECK_PLUGIN_VERSION} (NVD API key refresh, NVD data feed refresh). The sentinel was written by Dependency-Check ${plugin_version:-unknown} on ${refreshed_on_ref:-unknown}. Expected while bootstrapping from the branch pinned to 12.2.2; otherwise the sentinel writer of this branch has stopped running. See RT-13 in docs/architecture/risks/register.md."
           fi
 
           if (( age_seconds < 0 || age_seconds > max_age_seconds )); then
@@ -155,7 +158,8 @@ jobs:
           # carries which one it was into every message, so they are never told apart by reading the workflow.
           #
           # What does not converge: a failed refresh writes no sentinel and leaves `updated=false`, so no cache
-          # is published and nothing later can mistake this run for a refresh.
+          # is published and nothing later can mistake this run for a refresh. Every way the key path does not
+          # refresh then goes to the data-feed refresh, the second source, before the cache fallback.
           #
           # The cause is read from the log, never assumed from the exit status: an NVD outage, a quota, a network
           # cut or an unreachable Maven repository fail the same command as a refused key, and naming the key for
@@ -179,23 +183,50 @@ jobs:
               bash ./scripts/report-dependency-check-cache.sh 0 "NVD API key refresh"
             elif grep -qF 'Invalid API Key' "${update_log}"; then
               refresh_skipped_because='NVD_API_KEY was refused by the NVD'
-              echo "::warning::MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESH_FAILED. The NVD refused NVD_API_KEY (the refresh log reports Invalid API Key); the NVD refuses an invalid or unactivated key exactly as it refuses a wrong one. Nothing here refreshed the feed, so this run falls back to the last trusted cache and its freshness budget keeps running from that cache's own refresh, not from now. Replace NVD_API_KEY: when the budget expires, every scan including every pull request fails with STALE_DATABASE. See RT-13 in docs/architecture/risks/register.md."
+              echo "::warning::MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESH_FAILED. The NVD refused NVD_API_KEY (the refresh log reports Invalid API Key); the NVD refuses an invalid or unactivated key exactly as it refuses a wrong one. The NVD API path refreshed nothing; the NVD data feed refresh is tried next. Replace NVD_API_KEY: until then the gate has one refresh source instead of two. See RT-13 in docs/architecture/risks/register.md."
             else
               refresh_skipped_because='the NVD refresh failed with NVD_API_KEY configured'
-              echo "::warning::MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESH_FAILED. The trusted Dependency-Check refresh did not complete, and its log does not report a refused key: the cause is in the log of this step (NVD outage, quota, network, Maven repository). Do not rotate the key on this evidence alone. Nothing here refreshed the feed, so this run falls back to the last trusted cache and its freshness budget keeps running from that cache's own refresh, not from now. See docs/developer/COLD_START_RECOVERY.md."
+              echo "::warning::MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESH_FAILED. The trusted Dependency-Check refresh did not complete, and its log does not report a refused key: the cause is in the log of this step (NVD outage, quota, network, Maven repository). Do not rotate the key on this evidence alone. The NVD API path refreshed nothing; the NVD data feed refresh is tried next. See docs/developer/COLD_START_RECOVERY.md."
             fi
           else
             # Dependency-Check 13.0.0 upstream bug #8715 treats its built-in blank nvd.api.key as a real key.
-            # Until a release containing upstream fix #8716 exists, never attempt the broken anonymous update.
+            # Until a release containing upstream fix #8716 exists, never attempt the broken anonymous API update:
+            # the data-feed refresh below is the key-less source.
             refresh_skipped_because='NVD_API_KEY is not configured'
-            echo "::warning::NVD_API_KEY is not configured; Dependency-Check 13.0.0 anonymous update is broken upstream. Reusing a fresh trusted cache."
+            echo "::warning::NVD_API_KEY is not configured; the NVD API refresh cannot run. Trying the NVD data feed refresh."
+          fi
+
+          # The second source. Whatever stopped the key path -- no key, a refused key, an NVD API outage -- the
+          # data feeds are fetched without a key and through another code path of Dependency-Check, so the gate
+          # does not depend on one secret. A successful feed refresh is a refresh like the other: it writes the
+          # sentinel, under its own label, and publishes the cache. Switching between the two sources makes
+          # Dependency-Check reload the whole feed once (it records the source it last checked); that costs time,
+          # never correctness.
+          if [[ -n "${refresh_skipped_because}" ]]; then
+            datafeed_log="${RUNNER_TEMP}/dependency-check-datafeed.log"
+            if ./mvnw \
+              -Pd2-security \
+              "-DdataDirectory=${data_dir}" \
+              "-DnvdDatafeedUrl=${NVD_DATAFEED_URL}" \
+              org.owasp:dependency-check-maven:13.0.0:update-only 2>&1 | tee "${datafeed_log}"; then
+              bash ./scripts/write-dependency-check-sentinel.sh \
+                "${data_dir}" "${DEPENDENCY_CHECK_PLUGIN_VERSION}" "${DEPENDENCY_CHECK_SCHEMA_VERSION}" "NVD data feed refresh"
+              echo "updated=true" >> "${GITHUB_OUTPUT}"
+              echo "refresh_age_seconds=0" >> "${GITHUB_OUTPUT}"
+              bash ./scripts/report-dependency-check-cache.sh 0 "NVD data feed refresh"
+              echo "::warning::MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESHED_FROM_DATA_FEED. The database was renewed from the NVD data feeds because the NVD API refresh did not run (${refresh_skipped_because}). The gate is fresh, but it now has one working source: restore NVD_API_KEY to get the second back. See RT-13 in docs/architecture/risks/register.md."
+              refresh_skipped_because=''
+            else
+              echo "::warning::MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESH_FAILED. The NVD data feed refresh did not complete either; its cause is in the log of this step. Nothing here refreshed the feed, so this run falls back to the last trusted cache and its freshness budget keeps running from that cache's own refresh, not from now. See docs/developer/COLD_START_RECOVERY.md."
+              refresh_skipped_because="${refresh_skipped_because}; the NVD data feed refresh failed"
+            fi
           fi
 
           if [[ -n "${refresh_skipped_because}" ]]; then
             facts="$(bash ./scripts/read-dependency-check-sentinel.sh "${data_dir}" "${DEPENDENCY_CHECK_SCHEMA_VERSION}")"
             status="$(sed -n 's/^status=//p' <<< "${facts}" | head -n 1)"
             if [[ "${status}" != 'OK' ]]; then
-              echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. No trusted Dependency-Check database is available (${status}): nothing here refreshed the feed (${refresh_skipped_because}), and the restored cache carries no trusted-refresh sentinel to date. Configure a working NVD_API_KEY or upgrade Dependency-Check once upstream fix #8716 is released."
+              echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. No trusted Dependency-Check database is available (${status}): nothing here refreshed the feed (${refresh_skipped_because}), and the restored cache carries no trusted-refresh sentinel to date. Both refresh sources failed in this run: read the update step log, and restore NVD_API_KEY if it is the cause."
               exit 1
             fi
             age_seconds="$(sed -n 's/^ageSeconds=//p' <<< "${facts}" | head -n 1)"
@@ -205,7 +236,7 @@ jobs:
             refreshed_by="$(sed -n 's/^refreshedBy=//p' <<< "${facts}" | head -n 1)"
             bash ./scripts/report-dependency-check-cache.sh "${age_seconds}" "${refreshed_by:-unknown}"
             if (( age_seconds < 0 || age_seconds > max_age_seconds )); then
-              echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. Trusted Dependency-Check database is stale (${age_seconds}s since its last trusted refresh; maximum ${max_age_seconds}s), and nothing here refreshed it (${refresh_skipped_because}). Configure a working NVD_API_KEY or upgrade Dependency-Check once upstream fix #8716 is released. This is an infrastructure failure, not a vulnerability finding."
+              echo "::error::MORPHEUS_DEPENDENCY_CHECK_FAILURE=STALE_DATABASE. Trusted Dependency-Check database is stale (${age_seconds}s since its last trusted refresh; maximum ${max_age_seconds}s), and nothing here refreshed it (${refresh_skipped_because}). Both refresh sources failed in this run: read the update step log, and restore NVD_API_KEY if it is the cause. This is an infrastructure failure, not a vulnerability finding."
               exit 1
             fi
             echo "Dependency-Check trusted cache fallback PASS (${age_seconds}s since its last trusted refresh; maximum ${max_age_seconds}s; ${refresh_skipped_because})."
@@ -272,12 +303,14 @@ jobs:
   # So this is a separate job, run after the scan and the upload of its evidence. It is not the scan job: that job's
   # name is a required check of the repository ruleset, and failing it on a scheduled run would put a red check of a
   # required name on the head of main. It is not a step of the update job either: a new `exit 1` there would make a
-  # refresh that failed into a refusal. It fails when the run did not renew the feed and either the cause cannot clear
-  # by itself (the NVD refused NVD_API_KEY, or NVD_API_KEY is not configured: REFRESH_KEY_UNUSABLE, in the first run
-  # that sees it), or the database it scanned has spent two thirds of its budget (REFRESH_OVERDUE) -- the threshold
-  # report-dependency-check-cache.sh already warns at, so the alert and the warning cannot disagree. With a daily
-  # schedule a single refresh that failed with the key configured leaves the database well inside that bound and the
-  # run stays green; a second consecutive miss crosses it, with about a day left.
+  # refresh that failed into a refusal. It fails when the run renewed the feed from neither source and either the key
+  # half of the cause cannot clear by itself (the NVD refused NVD_API_KEY, or NVD_API_KEY is not configured:
+  # REFRESH_KEY_UNUSABLE, in the first run that sees it), or the database it scanned has spent two thirds of its budget
+  # (REFRESH_OVERDUE) -- the threshold report-dependency-check-cache.sh already warns at, so the alert and the warning
+  # cannot disagree. With a daily schedule a single run in which both sources failed for a transient reason leaves the
+  # database well inside that bound and the run stays green; a second consecutive miss crosses it, with about a day
+  # left. A run renewed from the data feeds alone raises no alert: the gate is fresh, and the update step names the
+  # lost key in its REFRESHED_FROM_DATA_FEED annotation.
   #
   # When the scan job published no age (it failed before, was cancelled, or refused with STALE_DATABASE) the age is
   # unknown: no alert is raised, and the scan job's own conclusion stands.
@@ -306,16 +339,16 @@ jobs:
             exit 0
           fi
 
-          # Two causes never clear on their own: a key the NVD refuses and a key that is gone. NVD_API_KEY is the only
-          # writer of the trusted sentinel on this branch, so waiting for the next schedule renews nothing, and the
-          # two-thirds threshold below would only hand a person the last day of the budget. These raise the alert in
-          # the first run that sees them, with the whole budget still ahead. The cause strings are the ones the update
-          # step publishes. A refresh that failed with the key configured may be an NVD outage, a quota or a network
-          # cut, so it alone waits for the threshold.
+          # A run reaches this point only when both refresh sources failed. When the key path failed because the NVD
+          # refuses the key or the key is gone, that half never clears on its own, and the data feeds, the one source
+          # left, have just failed too: the two-thirds threshold below would only hand a person the last day of the
+          # budget, so these raise the alert in the first run that sees them. The cause strings are the ones the update
+          # step publishes, each followed by the data-feed failure. A key path that failed with the key configured may
+          # be an NVD outage, a quota or a network cut, so it alone waits for the threshold.
           case "${REFRESH_CAUSE:-}" in
-            'NVD_API_KEY was refused by the NVD'|'NVD_API_KEY is not configured')
+            'NVD_API_KEY was refused by the NVD; '*|'NVD_API_KEY is not configured; '*)
               remaining_hours="$(( (DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS * 3600 - age_seconds) / 3600 ))"
-              echo "::error::MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_KEY_UNUSABLE. This run did not renew the Dependency-Check database (${REFRESH_CAUSE}), and no later run will while that stays true: NVD_API_KEY is the only refresh source of a branch pinned to Dependency-Check ${DEPENDENCY_CHECK_PLUGIN_VERSION}. About ${remaining_hours}h remain before every scan, including every pull request, fails with STALE_DATABASE. Replace or restore NVD_API_KEY now. See the rotation procedure in docs/developer/COLD_START_RECOVERY.md and RT-13 in docs/architecture/risks/register.md."
+              echo "::error::MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_KEY_UNUSABLE. This run did not renew the Dependency-Check database (${REFRESH_CAUSE}): the NVD API path cannot work until NVD_API_KEY is restored, and the NVD data feeds, the other source of a branch pinned to Dependency-Check ${DEPENDENCY_CHECK_PLUGIN_VERSION}, failed in this run. About ${remaining_hours}h remain before every scan, including every pull request, fails with STALE_DATABASE. Replace or restore NVD_API_KEY now, and read the update step log for the data-feed failure. See the rotation procedure in docs/developer/COLD_START_RECOVERY.md and RT-13 in docs/architecture/risks/register.md."
               exit 1
               ;;
           esac
@@ -323,7 +356,7 @@ jobs:
           max_age_seconds="$((DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS * 60 * 60))"
           if (( age_seconds * 3 >= max_age_seconds * 2 )); then
             remaining_hours="$(( (max_age_seconds - age_seconds) / 3600 ))"
-            echo "::error::MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_OVERDUE. The Dependency-Check database is $((age_seconds / 3600))h old, about ${remaining_hours}h before every scan, including every pull request, starts failing with STALE_DATABASE, and this run did not renew it (${REFRESH_CAUSE:-cause unknown}). If the cause is that NVD_API_KEY was refused, replace it; if it is that the refresh failed with the key configured, do not rotate the key on this evidence alone, read the log of the update step. See docs/developer/COLD_START_RECOVERY.md and RT-13 in docs/architecture/risks/register.md."
+            echo "::error::MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_OVERDUE. The Dependency-Check database is $((age_seconds / 3600))h old, about ${remaining_hours}h before every scan, including every pull request, starts failing with STALE_DATABASE, and this run did not renew it (${REFRESH_CAUSE:-cause unknown}). Both refresh sources failed: read the log of the update step. If it shows NVD_API_KEY refused, replace the key; if the API refresh failed with the key configured, do not rotate the key on this evidence alone. See docs/developer/COLD_START_RECOVERY.md and RT-13 in docs/architecture/risks/register.md."
             exit 1
           fi
           echo "The database is ${age_seconds}s old, inside two thirds of its budget (${max_age_seconds}s): no alert."

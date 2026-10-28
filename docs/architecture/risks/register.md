@@ -18,19 +18,23 @@
 | RT-03 | Limites de `jdk.httpserver` sous forte charge | 2 | 2 | **4** | Concurrence remote bornée, timeouts/budgets et inventaires filesystem bornés ; **harnais de charge reproductible** (`MorpheusRemoteLoadProfileTest`) et **critères objectifs de remplacement** documentés — mesurer avant substitution | Lors de load tests représentatifs |
 | RT-04 | Breaking change MCP SDK / clients MCP | 2 | 2 | **4** | Version épinglée, tests de contrat, budgets de frames/queues, cancellation serveur, cleanup fail-closed et diagnostics redacted | À chaque upgrade MCP |
 | RT-05 | Provider externe malformé, bloquant ou non fiable | 2 | 2 | **4** | Discovery metadata-only sans symlink avec revalidation d'identité avant/après lecture, activation explicite, SHA-256 obligatoire en remote, staging vérifié, budgets d'ingestion et environnement enfant minimisé | À chaque évolution du Provider SDK |
-| RT-13 | Le gate CVE n'a qu'une source de rafraîchissement, `NVD_API_KEY` : Dependency-Check 13.0.0 ne rafraîchit pas anonymement (amont #8715) | 2 | 2 | **4** | Sentinelle de fraîcheur fail-closed (`STALE_DATABASE` à 72 h), alerte `REFRESH_KEY_UNUSABLE` dès le premier run qui voit la clé refusée ou absente, alerte `REFRESH_OVERDUE` aux deux tiers du budget, rotation annuelle documentée dans [COLD_START_RECOVERY](../../developer/COLD_START_RECOVERY.md) | À la publication d'une version de Dependency-Check qui contient le correctif #8716, et à chaque rotation de la clé |
+| RT-13 | Le gate CVE dépend du NVD pour rafraîchir sa base : ses deux sources, l'API avec `NVD_API_KEY` et les flux de données JSON 2.0, sont publiées par le même service | 1 | 2 | **2** | Deux sources indépendantes de la clé l'une de l'autre (les flux ne demandent pas de clé et ne passent pas par le client API que casse l'amont #8715), sentinelle de fraîcheur fail-closed (`STALE_DATABASE` à 72 h), annotation `REFRESHED_FROM_DATA_FEED` quand la clé ne sert plus, alerte `REFRESH_KEY_UNUSABLE` quand les flux échouent aussi, alerte `REFRESH_OVERDUE` aux deux tiers du budget, rotation annuelle documentée dans [COLD_START_RECOVERY](../../developer/COLD_START_RECOVERY.md) | À chaque changement de version de Dependency-Check ou du format des flux du NVD, et à chaque rotation de la clé |
 | RT-12 | Peer MCP externe MINOS/NEXUS compromis | 2 | 2 | **4** | JAR optionnel/pinnable, environnement hérité réduit à une allowlist, descendants observés et terminés, frames/queues bornées, stderr et exceptions peer redacted ; la frontière n'est pas une sandbox OS | À chaque évolution du transport MCP |
 | RT-06 | Diagnostic runtime limité par le logging silencieux | 2 | 2 | **4** | Health/metrics, erreurs structurées et diagnostics MCP sanitizés ; préserver stdout MCP | Permanent |
 | RT-09 | Drift documentaire entre sources historiques et HEAD | 2 | 2 | **4** | Hiérarchie des sources, séparation release publiée `1.2.0` / baseline active `1.2.1`, guides actifs réconciliés et contrats d'architecture sur les invariants CI | À chaque release/hardening |
 | RT-07 | Auth remote sans SSO/LDAP | 1 | 2 | **2** | Bearer auth + RBAC, mutations inter-processus sérialisées, live reload, audit secret-free roulant borné ; mot de passe TLS résolu tardivement en `char[]` et jamais retenu dans les options de lancement | Si besoin entreprise démontré |
 | RT-08 | macOS non qualifié | 2 | 1 | **2** | Support officiel Windows + Linux uniquement ; lane `macos-smoke` **advisory** (`continue-on-error`) de `nightly.yml`, sur cadence quotidienne bornée et non par pull request, qui exécute le reactor complet et publie les faits système observés — observation, pas qualification | Si support macOS décidé |
 
-### RT-13 — le gate CVE n'a qu'une source de rafraîchissement (constaté le 09/09/2026, ouvert)
+### RT-13 — le gate CVE dépend du NVD pour rafraîchir sa base (constaté le 09/09/2026, ouvert)
 
-> **Ouvert.** `NVD_API_KEY` est la seule source de rafraîchissement de la base Dependency-Check sur une branche
-> épinglée à 13.0.0, et donc le seul écrivain de la sentinelle de confiance : si la clé est refusée, révoquée ou
-> retirée, chaque scan, pull requests comprises, échoue en `STALE_DATABASE` 72 h après le dernier
-> rafraîchissement réussi. La conception fail-closed est voulue ; le risque est l'absence de second chemin.
+> **Ouvert, réduit.** La base Dependency-Check se rafraîchit par **deux sources** sur une branche épinglée à 13.0.0 :
+> l'API du NVD avec `NVD_API_KEY`, puis, chaque fois que celle-ci n'a pas rafraîchi la base (clé absente, refusée ou
+> panne de l'API), les flux de données CVE JSON 2.0 que le NVD publie
+> (`https://nvd.nist.gov/feeds/json/cve/2.0/nvdcve-2.0-{0}.json.gz`, variable `NVD_DATAFEED_URL` de `security.yml`).
+> Les flux ne demandent pas de clé et passent par le chemin *data feed* de Dependency-Check, qui n'atteint pas le
+> client API que casse l'amont [#8715](https://github.com/dependency-check/DependencyCheck/issues/8715). Une clé
+> perdue ne fait donc plus échouer le gate. Le risque qui reste est que les deux sources viennent du même service : une
+> panne du NVD plus longue que le budget de 72 h arrête chaque scan en `STALE_DATABASE`, ce qui est voulu.
 >
 > **État de la clé.** Posée le 17/09/2026, d'abord refusée par le NVD (run `35269719882` sur `develop`,
 > « Invalid API Key », puis chaque `schedule` de `main` jusqu'au run `35687241977` du 22/09/2026 04:32 UTC),
@@ -44,16 +48,26 @@
 > Prochaine rotation au plus tard le **22/09/2027** ; procédure, détenteur et vérification dans
 > [COLD_START_RECOVERY §2](../../developer/COLD_START_RECOVERY.md).
 >
-> **Surveillance.** Une clé refusée ou absente lève `MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_KEY_UNUSABLE` dès le
-> premier run de confiance qui le constate ; un rafraîchissement en échec avec la clé configurée lève
-> `MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_OVERDUE` aux deux tiers du budget. Les deux alertes font échouer le job
-> « Dependency-Check refresh alert », hors des checks requis.
+> **Second chemin.** Exécuté avec Dependency-Check 13.0.0, sans clé, le 28/10/2026 (`update-only` avec
+> `-DnvdDatafeedUrl`, voir le relevé d'audit du jour) ; `security.yml` l'essaie après chaque échec du chemin par clé et
+> écrit alors la sentinelle `via NVD data feed refresh`. `scripts/tests/test_trusted_update_step.py` exécute l'étape
+> sur chaque issue des deux sources.
 >
-> **Condition de clôture** : Dependency-Check 13.0.1 ou une version ultérieure contenant le correctif amont
-> [#8716](https://github.com/dependency-check/DependencyCheck/pull/8716) est publiée sur Maven Central et épinglée,
-> et le rafraîchissement anonyme redevient un secours de la clé. Au 28/10/2026, la dernière version publiée est
-> 13.0.0 (`maven-metadata.xml` de Maven Central, releases GitHub). Le texte ci-dessous est l'analyse du 09/09/2026,
-> conservée telle quelle.
+> **Surveillance.** Un run renouvelé par les seuls flux porte l'annotation
+> `MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESHED_FROM_DATA_FEED`, qui nomme la raison pour laquelle la clé n'a pas servi.
+> Quand les deux sources échouent, une clé refusée ou absente lève `MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_KEY_UNUSABLE`
+> dès le premier run qui le constate ; sinon `MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_OVERDUE` part aux deux tiers du
+> budget. Les deux alertes font échouer le job « Dependency-Check refresh alert », hors des checks requis.
+>
+> **Ce qu'une base neuve change.** Une base construite de zéro par Dependency-Check 13.0.0, mesurée le 28/10/2026
+> avec les flux, classe `cpe:/a:sqlite:sqlite` dans l'écosystème natif ; la base de longue date du CI ne le fait pas.
+> Deux identifications en dépendent. `morpheus-store-sqlite` n'est plus associé à tort à SQLite : sa règle de
+> suppression porte `base="true"` (`config/dependency-check-suppressions.xml`), pour qu'une base neuve ne fasse pas
+> échouer le scan par une règle inutilisée. Et `sqlite-jdbc` n'est plus associé au SQLite natif qu'il embarque : une
+> CVE publiée contre SQLite 3.53.x ne serait alors signalée que par son identification `sqlite_jdbc`. C'est un
+> écart de détection ouvert, qui suit l'histoire de la base et non la source qui la rafraîchit.
+>
+> Le texte ci-dessous est l'analyse du 09/09/2026, conservée telle quelle : elle date d'avant le second chemin.
 
 Ce risque n'est pas une hypothèse : c'est une panne **datée**, qui se déclenchera environ
 **72 heures après la promotion de 1.2.1 sur `main`**, et qu'aucune modification de workflow ne peut
@@ -340,7 +354,7 @@ Ces deux constats ont traversé quatre révisions d'audit sans être ré-examin�
 
 | Constat | Traitement |
 |---|---|
-| **A-02** — une mutation remote bloquée retenait ses slots sans être observable, et `server/status` était admis par le sémaphore qu'il décrit : un serveur à son plafond répondait `429` à la seule question utile | status servi sur une **voie bornée dédiée** (hors budget de requêtes, toujours authentifié et autorisé) ; status expose `activePrivilegedRequests`, `maxConcurrentPrivilegedRequests`, `oldestActivePrivilegedRequestMillis`, `throttledPrivilegedRequests` ; tests adversariaux de saturation, de refus et de libération de tous les slots. **Résiduel assumé** : une mutation réellement bloquée retient son slot jusqu'à sa fin réelle — aucune deadline n'est ajoutée, car un `504` sur un commit peut-être déjà durable serait pire |
+| **A-02** — une mutation remote bloquée retenait ses slots sans être observable, et `server/status` était admis par le sémaphore qu'il décrit : un serveur à son plafond répondait `429` à la seule question utile | status servi sur une **voie bornée dédiée** (hors budget de requêtes, toujours authentifié et autorisé) ; status expose `activePrivilegedRequests`, `maxConcurrentPrivilegedRequests`, `oldestActivePrivilegedRequestMillis`, `throttledPrivilegedRequests` ; tests adversariaux de saturation, de refus et de libération de tous les slots. **Délai amont** : la façade abandonne une écriture ou un appel ADMIN après 300 s (60 s pour une lecture) et répond `504 UPSTREAM_WRITE_TIMEOUT`, un résultat inconnu à relire avant tout nouvel essai ; le slot est rendu alors que l'opération locale peut continuer, et c'est le contrôle d'admission du serveur local qui borne ce travail ([TEAM_REMOTE_SERVER](../../user/TEAM_REMOTE_SERVER.md)) |
 | **A-03** — la contention SQLite n'avait aucun signal en production ; `SqliteFailureClassifier` n'avait **aucun appelant** hors tests | compteurs process-local `sqlite.transaction.{started,committed,rolled_back}`, `sqlite.contention.{busy_or_locked,connection_open}` et timing `sqlite.transaction.duration`, exposés par `GET /api/v1/metrics` ; tests de stress multi-écrivain (aucune perte d'update, aucun doublon d'identité, aucun lease abandonné). **Portée déclarée** : transactions explicites et ouvertures de connexion, pas les écritures mono-instruction en autocommit |
 | **A-04** — les deux frontières d'exécution externe (probe plugin, pair MCP) avaient des allowlists d'environnement identiques **par coïncidence**, sans contrat | `ExternalCodeTrustBoundaryArchitectureTest` : allowlists asserties identiques, aucun secret MORPHEUS ni variable d'injection JVM, environnement reconstruit depuis vide, pin + staging vérifié, et scan de **toute** source de production interdisant une revendication de sandbox |
 | **A-05** — couverture historique globale modeste | tests ciblés sur les zones à risque (disponibilité remote, contention SQLite, migration d'identités, parsing fail-closed du fichier d'identités, cycle de vie du secret TLS, charge HTTP) ; ratchets relevés uniquement dans la marge déjà qualifiée sur les deux plateformes |
@@ -443,7 +457,7 @@ Les constats techniques démontrés le 13 août 2026 ont reçu des mitigations e
 | `Error` hors rollback SQLite | rollback best-effort sur `Error`, erreur primaire réémise, cleanup/rollback en suppressed |
 | Audit d'identités pouvant remplir 256 KiB | fenêtre roulante atomique des 512 derniers événements sans secret |
 | Discovery plugin suivant les symlinks | `NOFOLLOW_LINKS`, répertoire et JAR symboliques refusés |
-| Probe plugin retournant 504 sans cancellation garantie | aucune deadline façade sur le probe tiers ; slot remote détenu jusqu'à la fin réelle |
+| Probe plugin retournant 504 sans cancellation garantie | délai façade des appels ADMIN (300 s) ; à son terme `504 UPSTREAM_WRITE_TIMEOUT`, qui dit que le probe a pu aboutir et continuer ; le worker du probe termine son propre sous-arbre avant de sortir |
 | Query/CLI ouvrant plusieurs connexions physiques | `SqliteConnectionScope` partagé par opération/runtime |
 | Version 1.2.0 réutilisée après release publiée | reactor, gates et builders actifs en `1.2.1`; tag/release `v1.2.0` historique inchangé |
 | SCA uniquement manuel | workflow `MORPHEUS Security` + Dependabot |

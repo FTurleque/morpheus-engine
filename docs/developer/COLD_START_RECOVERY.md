@@ -73,11 +73,12 @@ environnement GitHub**. Ce que liste `gh secret list` est donc exhaustif.
 
 ### `NVD_API_KEY` (RT-13, ouvert) — vérifier en premier après une longue absence
 
-`NVD_API_KEY` est configuré. `main` et `develop` rafraîchissent la base Dependency-Check avec la clé,
-y compris en 13.0.0, dont la mise à jour anonyme est cassée en amont : **la clé est la seule source de
-rafraîchissement de 13.0.0**, et il n'y a aucun repli si elle cesse de fonctionner. C'est le point de
-défaillance unique que suit RT-13 ; il se ferme quand une version de Dependency-Check qui contient le correctif
-amont #8716 est publiée et épinglée, ce qui rend au rafraîchissement anonyme son rôle de secours.
+`NVD_API_KEY` est configuré. La base Dependency-Check a **deux sources de rafraîchissement** : l'API du NVD avec
+la clé, puis, chaque fois que celle-ci n'a pas rafraîchi la base, les flux de données CVE JSON 2.0 du NVD
+(`NVD_DATAFEED_URL` dans `security.yml`), qui ne demandent pas de clé. La mise à jour anonyme par l'API reste
+cassée en amont en 13.0.0 (#8715) et n'est jamais tentée. Une clé perdue ne fait donc plus échouer le gate : elle
+le laisse avec une seule source, ce que le run dit (`REFRESHED_FROM_DATA_FEED`), et c'est à ce moment-là qu'il
+faut la remplacer. RT-13 suit ce qui reste : les deux sources viennent du même service.
 
 Pour vérifier qu'elle fonctionne toujours, ouvrir la dernière exécution de *MORPHEUS Security* et lire le
 résumé « Dependency-Check database freshness » :
@@ -85,12 +86,13 @@ résumé « Dependency-Check database freshness » :
 | Ce qu'on lit | Ce que ça veut dire |
 |---|---|
 | `Obtained via` = `NVD API key refresh`, âge 0 | La clé est lue et acceptée |
-| Annotation `MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESH_FAILED` | Le rafraîchissement par clé a échoué ; le run retombe sur le dernier cache, qui a au plus 72 h de vie |
-| Avertissement « obtained via … not NVD API key refresh » | La base vient d'ailleurs que de la clé sur une branche en 13.0.0 |
+| `Obtained via` = `NVD data feed refresh`, âge 0, annotation `MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESHED_FROM_DATA_FEED` | La clé n'a pas servi (le message dit pourquoi) et la base a été renouvelée par les flux : le gate est frais mais n'a plus qu'une source. Remplacer ou rétablir la clé |
+| Annotation `MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESH_FAILED` | Une source a échoué. Suivie de `REFRESHED_FROM_DATA_FEED`, les flux ont pris le relais ; répétée pour les flux, le run retombe sur le dernier cache, qui a au plus 72 h de vie |
+| Avertissement « obtained via … neither of the two refresh sources » | La base vient d'ailleurs que des deux sources d'une branche en 13.0.0 (par exemple d'une branche en 12.2.2) |
 | `STALE_DATABASE` | Le budget de 72 h est dépassé : plus aucun scan ne passe |
-| Le job rouge « Dependency-Check refresh alert », annotation `MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_KEY_UNUSABLE` | Le run n'a pas rafraîchi la base parce que le NVD a refusé la clé ou parce que le secret est absent. Aucune de ces deux causes ne se résorbe seule : l'alerte part dès le premier run qui la constate, avec presque tout le budget de 72 h devant soi, et le message dit combien d'heures il reste. Appliquer la rotation ci-dessous |
-| Le job rouge « Dependency-Check refresh alert », annotation `MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_OVERDUE` | Le rafraîchissement a échoué alors que la clé est configurée et acceptée (panne du NVD, quota, réseau), et la base a consommé les deux tiers de son budget (48 h sur 72 h) : il reste environ un jour avant `STALE_DATABASE`. Le message nomme la cause. Un seul rafraîchissement manqué de ce type laisse la base à environ 24 h et ne déclenche rien ; c'est le deuxième manqué consécutif qui franchit le seuil |
-| Avertissement `NVD_API_KEY is not configured` | Le secret a disparu : même conséquence qu'un rafraîchissement refusé, et la seule des trois causes qui ne porte pas de code `REFRESH_FAILED` ; l'alerte `REFRESH_KEY_UNUSABLE` la nomme dans le même run |
+| Le job rouge « Dependency-Check refresh alert », annotation `MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_KEY_UNUSABLE` | Aucune des deux sources n'a rafraîchi la base : le NVD a refusé la clé ou le secret est absent, et les flux ont échoué aussi. La moitié « clé » ne se résorbe pas seule : l'alerte part dès le premier run qui la constate, avec presque tout le budget de 72 h devant soi, et le message dit combien d'heures il reste. Appliquer la rotation ci-dessous, puis lire le journal de l'étape pour l'échec des flux |
+| Le job rouge « Dependency-Check refresh alert », annotation `MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_OVERDUE` | Aucune des deux sources n'a rafraîchi la base alors que la clé est configurée (panne du NVD, quota, réseau), et la base a consommé les deux tiers de son budget (48 h sur 72 h) : il reste environ un jour avant `STALE_DATABASE`. Le message nomme la cause. Un seul run manqué de ce type laisse la base à environ 24 h et ne déclenche rien ; c'est le deuxième manqué consécutif qui franchit le seuil |
+| Avertissement `NVD_API_KEY is not configured` | Le secret a disparu : le run passe directement aux flux. Suivi de `REFRESHED_FROM_DATA_FEED`, le gate reste frais ; sinon l'alerte `REFRESH_KEY_UNUSABLE` le nomme dans le même run |
 
 **Sur `main`, rien de ce tableau n'existe encore.** Son `security.yml` ne publie pas la section
 « Dependency-Check database freshness » et ne connaît ni `REFRESH_FAILED` ni `STALE_DATABASE` : il faut lire,
@@ -113,7 +115,7 @@ NVD a imprimé le 17/09/2026, et un refus formulé autrement tomberait dans la s
 
 #### Rotation de `NVD_API_KEY`
 
-Une rotation se fait sur alerte `REFRESH_KEY_UNUSABLE`, à l'échéance ci-dessous, ou dès qu'une fuite de la
+Une rotation se fait sur annotation `REFRESHED_FROM_DATA_FEED` qui nomme la clé, sur alerte `REFRESH_KEY_UNUSABLE`, à l'échéance ci-dessous, ou dès qu'une fuite de la
 clé est soupçonnée. Elle ne coupe rien : la base en cache reste valable pendant son budget, et la nouvelle
 clé est prouvée avant que l'ancienne cesse de servir.
 
@@ -132,7 +134,7 @@ clé est prouvée avant que l'ancienne cesse de servir.
 **Qui, quoi, comment.**
 
 - *Détenteur* : le compte du propriétaire du dépôt (`FTurleque`). Il n'existe ni secret d'organisation ni environnement GitHub ; c'est cette personne qui remplace la clé.
-- *Détection* : l'annotation `REFRESH_FAILED`, l'avertissement `NVD_API_KEY is not configured`, et les alertes `REFRESH_KEY_UNUSABLE` et `REFRESH_OVERDUE` — un job séparé de `security.yml`, lancé après le scan et le dépôt de ses preuves, sur `push` et sur `schedule` seulement, jamais sur une pull request. Son nom n'est pas un check requis : il ne bloque aucune pull request, il fait seulement échouer le run planifié. Un `schedule` exécutant le workflow de la branche par défaut, l'alerte quotidienne n'existe qu'une fois ce workflow sur `main` ; avant cela elle se déclenche sur les `push` de `develop`.
+- *Détection* : les annotations `REFRESH_FAILED` et `REFRESHED_FROM_DATA_FEED`, l'avertissement `NVD_API_KEY is not configured`, et les alertes `REFRESH_KEY_UNUSABLE` et `REFRESH_OVERDUE` — un job séparé de `security.yml`, lancé après le scan et le dépôt de ses preuves, sur `push` et sur `schedule` seulement, jamais sur une pull request. Son nom n'est pas un check requis : il ne bloque aucune pull request, il fait seulement échouer le run planifié. Un `schedule` exécutant le workflow de la branche par défaut, l'alerte quotidienne n'existe qu'une fois ce workflow sur `main` ; avant cela elle se déclenche sur les `push` de `develop`.
 - *Livraison* : l'alerte est un run en échec, donc elle compte sur la notification GitHub d'un workflow planifié en échec, adressée à la personne qui a modifié en dernier la ligne `cron` du fichier, selon ses réglages (Actions : workflows en échec). Ce réglage est hors du dépôt ; le mainteneur a confirmé le 16 octobre 2026 qu'il reçoit ces notifications (le nocturne en échec du 12 au 16 octobre lui a été remis). Un changement d'auteur de la ligne `cron` change le destinataire : le revérifier à ce moment-là.
 - *Échéance de la clé* : le NVD n'annonce aucune durée de vie sur sa page de demande (https://nvd.nist.gov/developers/request-an-api-key, rendue côté client, lue le 11/10/2026), donc rien n'oblige à remplacer une clé qui fonctionne. Le dépôt fixe sa propre échéance : **une rotation par an, la prochaine au plus tard le 22/09/2027**, un an après la pose de la clé en service. Elle borne la durée d'exposition d'une clé qui aurait fuité sans se faire remarquer, et elle oblige à rejouer la procédure tant que son détenteur s'en souvient. La détection ci-dessus reste le filet entre deux échéances.
 - *Vérification d'un remplacement* : la ligne `Obtained via` du résumé « Dependency-Check database freshness » vaut `NVD API key refresh` et l'âge `0`, et l'alerte ne se déclenche plus.
