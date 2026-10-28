@@ -40,7 +40,21 @@ class AggregateCoverageGateTest {
     private static final double D2_MIN_LINE_RATIO = 0.40d;
     private static final double D2_MIN_BRANCH_RATIO = 0.35d;
 
-    // Qualified exact-head baseline of the AGGREGATE scale: 90.3026% lines / 76.1089% branches.
+    // Qualified exact-head baseline of the AGGREGATE scale: 91.4837% lines / 77.7195% branches.
+    //
+    // Requalified on 28/10/2026 at 61198c68, the head of PR #570: its pull_request run (40604205899) and a
+    // workflow_dispatch run of the same branch (40604205079), both checking out that SHA. Read from each run's
+    // m21-integrity-<OS> artifact, aggregate-coverage-summary.txt, coverageScope=aggregate, populationModules=16,
+    // 29696 lines and 10112 branches on all four (kept in config/coverage-qualification/):
+    //     Windows  91.5275% / 91.5275% lines,  77.7690% / 77.7690% branches
+    //     Linux    91.4837% / 91.4871% lines,  77.7195% / 77.7393% branches   <- qualified on the lowest
+    // Spread across the four: 13 lines and 5 branches. Previous cap: 90.3026% / 76.1089% (09/10/2026, below),
+    // overtaken by 1.2 points on lines and 1.6 on branches.
+    // Both ratchets raised inside this cap, each the highest thousandth that keeps 3x the 24-line / 11-branch
+    // reference spread of 15/09: line 0.900 -> 0.912 leaves 84 lines (3.5x), branch 0.757 -> 0.773 leaves 42
+    // branches (3.8x). One more thousandth would drop either under 3x (54 lines, 32 branches).
+    // CoverageQualificationEvidenceTest computes this headroom from the kept evidence and refuses a ratchet that
+    // spends it.
     //
     // Requalified on 09/10/2026 at develop 8e3fda5a: the push run of develop (37925178678) and the pull_request
     // run of the promotion PR #274 (37925186306), which check out the same SHA. Read from each run's
@@ -74,8 +88,8 @@ class AggregateCoverageGateTest {
     // magnitude more than the observed run-to-run variation and small enough that a real regression is caught.
     //
     // Raising these two constants requires a fresh aggregate measurement on BOTH platforms, cited here.
-    private static final double AGGREGATE_QUALIFIED_LINE_RATIO = 0.903026d;
-    private static final double AGGREGATE_QUALIFIED_BRANCH_RATIO = 0.761089d;
+    private static final double AGGREGATE_QUALIFIED_LINE_RATIO = 0.914837d;
+    private static final double AGGREGATE_QUALIFIED_BRANCH_RATIO = 0.777195d;
 
     @Test
     void aggregateCoverageIncludesCrossModuleExecutionAndMeetsRatchets() throws Exception {

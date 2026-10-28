@@ -141,20 +141,7 @@ class CoverageQualificationEvidenceTest {
 
     @Test
     void aSpreadNarrowerThanTheReferenceIsSizedAgainstTheReference(@TempDir Path workspace) throws IOException {
-        Path evidence = workspace.resolve("narrow");
-        Files.createDirectories(evidence);
-        for (String file : List.of("per-module/Linux-1.txt", "per-module/Linux-2.txt", "per-module/Windows-1.txt",
-                "per-module/Windows-2.txt", "aggregate/Linux-1.txt", "aggregate/Linux-2.txt",
-                "aggregate/Windows-1.txt", "aggregate/Windows-2.txt")) {
-            Scale scale = file.startsWith("aggregate") ? Scale.AGGREGATE : Scale.PER_MODULE;
-            Files.createDirectories(evidence.resolve(scale.name));
-            Files.writeString(evidence.resolve(file), summaryText(scale, 0.60d, 0.65d));
-        }
-        Files.writeString(evidence.resolve(MANIFEST), MANIFEST_HEADER + "\n"
-                + String.join("\n", Stream.of(Scale.values()).flatMap(scale -> PLATFORMS.stream()
-                        .flatMap(platform -> Stream.of(1, 2).map(run -> String.join("\t", scale.name, platform,
-                                Integer.toString(run), COMMIT, scale.name + "/" + platform + "-" + run + ".txt"))))
-                        .toList()) + "\n");
+        Path evidence = qualification(workspace, new double[] {0.60d, 0.60d, 0.65d, 0.65d}, 0.0d);
 
         List<String> problems = margins(evidence, ratchets(0.5993d, 0.65d, 0.60d, 0.65d));
 
@@ -312,9 +299,14 @@ class CoverageQualificationEvidenceTest {
     /**
      * Writes a complete fabricated qualification: both scales, both platforms, two runs each, one commit, one
      * population. {@code ratios} are, in order, the Linux line, Windows line, Linux branch and Windows branch
-     * ratios shared by the two runs of a scale (run 2 sits 0.01 above run 1 on lines and branches).
+     * ratios shared by the two runs of a scale; run 2 sits {@code runStep} above run 1 on lines and branches,
+     * 0.01 unless a test asks otherwise.
      */
     private static Path qualification(Path workspace, double[] ratios) throws IOException {
+        return qualification(workspace, ratios, 0.01d);
+    }
+
+    private static Path qualification(Path workspace, double[] ratios, double runStep) throws IOException {
         List<String> manifest = new ArrayList<>();
         manifest.add(MANIFEST_HEADER);
         for (Scale scale : Scale.values()) {
@@ -323,8 +315,8 @@ class CoverageQualificationEvidenceTest {
                 for (int run = 1; run <= 2; run++) {
                     String platform = PLATFORMS.get(platformIndex);
                     String file = scale.name + "/" + platform + "-" + run + ".txt";
-                    double line = ratios[platformIndex] + (run - 1) * 0.01d;
-                    double branch = ratios[2 + platformIndex] + (run - 1) * 0.01d;
+                    double line = ratios[platformIndex] + (run - 1) * runStep;
+                    double branch = ratios[2 + platformIndex] + (run - 1) * runStep;
                     Files.writeString(workspace.resolve(file), summaryText(scale, line, branch));
                     manifest.add(String.join("\t", scale.name, platform, Integer.toString(run), COMMIT, file));
                 }

@@ -25,14 +25,14 @@ Baseline active :
 ```text
 Tests written      >= 2600 PASS
 Tests generated    >= 1574 PASS
-Architecture       >= 769 PASS
+Architecture       >= 813 PASS
 Reactor            18/18 SUCCESS
 Windows            PASS
 Linux              PASS
-JaCoCo aggregate lines      >= 90.0 %
-JaCoCo aggregate branches   >= 75.7 %
-JaCoCo per-module lines     >= 69.1 %
-JaCoCo per-module branches  >= 61.2 %
+JaCoCo aggregate lines      >= 91.2 %
+JaCoCo aggregate branches   >= 77.3 %
+JaCoCo per-module lines     >= 71.2 %
+JaCoCo per-module branches  >= 62.5 %
 Changed lines       >= 80 %
 Changed branches    >= 70 %
 ```
