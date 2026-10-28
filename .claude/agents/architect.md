@@ -42,7 +42,7 @@ Les adaptateurs sont **frères** : `api`, `cli`, `mcp`, `integration` ne s'impor
 | Package | Interdits supplémentaires | Test |
 |---|---|---|
 | `application.query.{dsl,saved,export}` | cli, mcp, api, store.memory, store.sqlite, provider.openspec, provider.markdown | `m24/QueryPlatformArchitectureTest` |
-| `application.policy..` | idem + **provider.sdk** | `m25/PolicyPlatformArchitectureTest` |
+| `application.policy..` | idem + **sdk.provider** | `m25/PolicyPlatformArchitectureTest` |
 | `application.reasoning..` | idem + **tout provider** + **application.lifecycle.mutation** | `m27/ReasoningPlatformArchitectureTest` |
 
 ### Isolation POM (m22/ProviderPluginPlatformContractTest)
