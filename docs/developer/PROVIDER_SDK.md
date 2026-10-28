@@ -333,11 +333,12 @@ discover_provider_plugins
 probe_provider_plugin
 ```
 
-Le paramètre optionnel `sha256` (CLI, API ou MCP) active une politique `trusted-only` pour cette
-activation. Le digest est lié au `pluginId` demandé et vérifié avant la création du `URLClassLoader` ;
-une valeur absente sur une surface qui l'exige, mal formée ou différente doit être traitée comme un refus et
-aucun code du plugin n'est exécuté. Le mode sans pin reste disponible uniquement pour les usages locaux
-historiques explicitement non approuvés.
+Le pin `sha256` est obligatoire pour toute activation : `ProviderPluginActivator` n'a qu'une méthode
+publique `activate` et `ProviderPluginService` qu'une méthode publique `probe`, et chacune prend le pin. Le
+digest est lié au `pluginId` demandé et vérifié avant la création du `URLClassLoader`, qui ne lit que la
+copie vérifiée du JAR. Un pin absent ou vide est refusé par son nom (« provider plugin activation requires a
+trusted SHA-256 pin »), un pin mal formé ou différent l'est aussi, et dans tous les cas aucun code du plugin
+n'est exécuté.
 
 Rotation : qualifier le nouveau JAR hors processus, calculer son SHA-256 depuis une source de confiance,
 remplacer le JAR et le pin ensemble, puis lancer `discover` et `probe --sha256`. Le nom du JAR et les

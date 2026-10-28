@@ -100,8 +100,16 @@ Supprimer une de ces chaînes casse le build.
 
 ## Plugins providers (M22) — fail-closed
 
-- L'activation d'un plugin **exige un pin SHA-256 de confiance**
-  → `ProviderPluginActivator` : *"provider plugin activation requires a trusted SHA-256 pin"*
+- L'activation d'un plugin **exige un pin SHA-256 de confiance** : `ProviderPluginActivator` n'a qu'une méthode
+  publique `activate` et `ProviderPluginService` qu'une méthode publique `probe`, chacune prend le pin, et aucune ne
+  survit en surcharge `@Deprecated` (`ProviderPluginTrustBoundaryContractTest#theOnlyPublicEntriesToPluginCodeTakeThePin`,
+  sur les classes compilées)
+- Un pin absent ou vide est refusé par ce point d'entrée, avant toute copie du JAR :
+  *"provider plugin activation requires a trusted SHA-256 pin"* ; un pin mal formé garde le refus de
+  `ExternalJarIntegrity.normalizeSha256` (`ProviderPluginActivatorTest`, et
+  `ProviderPluginPlatformContractTest` sur le JAR de référence)
+- Le `URLClassLoader` ne lit que la copie vérifiée (`stageVerifiedCopy`), jamais le JAR d'origine en repli
+  (`ExternalCodeTrustBoundaryArchitectureTest` refuse `orElse(candidate.jarPath())`)
 - La découverte est **métadonnées uniquement** : pas de classloading, pas de scan au démarrage
 - `ProviderPluginDiscovery` doit utiliser `LinkOption.NOFOLLOW_LINKS` + `Files.isSymbolicLink`
 - Ce qui est **refusé** : un répertoire de plugins qui est lui-même un lien symbolique (`PLUGIN_PATH_NOT_DIRECTORY`)

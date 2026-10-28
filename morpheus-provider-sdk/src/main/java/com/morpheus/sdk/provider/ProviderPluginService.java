@@ -38,17 +38,6 @@ public final class ProviderPluginService {
         return discovery.discover(Objects.requireNonNull(pluginDirectory, "pluginDirectory"));
     }
 
-    /**
-     * Unpinned executable activation is intentionally rejected. Public adapters must provide a trusted SHA-256 pin.
-     */
-    @Deprecated(forRemoval = true)
-    public ProviderPluginProbeOutcome probe(Path pluginDirectory, String pluginId, Path workspaceRoot) {
-        Objects.requireNonNull(pluginDirectory, "pluginDirectory");
-        Objects.requireNonNull(workspaceRoot, "workspaceRoot");
-        requireText(pluginId, "pluginId");
-        throw new IllegalArgumentException("provider plugin probe requires a trusted SHA-256 pin");
-    }
-
     public ProviderPluginProbeOutcome probe(
             Path pluginDirectory, String pluginId, Path workspaceRoot, String expectedSha256) {
         Objects.requireNonNull(pluginDirectory, "pluginDirectory");
