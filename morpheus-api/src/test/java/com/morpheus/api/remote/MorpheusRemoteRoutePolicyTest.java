@@ -4,6 +4,7 @@ import com.morpheus.api.local.MorpheusHttpServer;
 import com.morpheus.api.transport.MorpheusHttpRouteTable;
 import org.junit.jupiter.api.Test;
 
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -130,6 +131,29 @@ class MorpheusRemoteRoutePolicyTest {
                 () -> MorpheusRemoteRoutePolicy.authorize("PUT", "/api/v1/anything")).status());
         assertEquals(404, assertThrows(MorpheusRemoteRoutePolicy.RoutePolicyException.class,
                 () -> MorpheusRemoteRoutePolicy.authorize("DELETE", "/api/v1/anything")).status());
+    }
+
+    /**
+     * Only a READ route has an upstream deadline. A WRITE or ADMIN call holds its slot until the local server really
+     * answers: the residual risk accepted in docs/user/TEAM_REMOTE_SERVER.md, which prefers a 429 on a saturated
+     * privileged lane to a 504 for a commit that may already be durable.
+     */
+    @Test
+    void onEveryRouteOfTheTableOnlyTheReadRoleHasAnUpstreamDeadline() {
+        Set<MorpheusRemoteRole> rolesSeen = EnumSet.noneOf(MorpheusRemoteRole.class);
+        MorpheusHttpRouteTable.templates().forEach((template, methods) -> {
+            String path = MorpheusHttpRouteTable.API_PREFIX + (template.isEmpty() ? "" : "/" + template);
+            for (String method : methods) {
+                MorpheusRemoteRoutePolicy.Authorization authorization =
+                        MorpheusRemoteRoutePolicy.authorize(method, path);
+                assertEquals(authorization.role() == MorpheusRemoteRole.READ,
+                        authorization.usesBoundedUpstreamTimeout(),
+                        method + " " + path + " (" + authorization.role() + "): only READ is bounded upstream, "
+                                + "see the accepted residual risk in docs/user/TEAM_REMOTE_SERVER.md");
+                rolesSeen.add(authorization.role());
+            }
+        });
+        assertEquals(Set.of(MorpheusRemoteRole.values()), rolesSeen);
     }
 
     private static MorpheusRemoteRole requiredRole(String rawMethod, String rawPath) {
