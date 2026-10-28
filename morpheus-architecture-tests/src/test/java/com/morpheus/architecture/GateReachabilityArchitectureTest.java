@@ -61,6 +61,10 @@ class GateReachabilityArchitectureTest {
     private static final Map<String, String> RELEASE_REHEARSAL_VALIDATORS =
             Map.of("validate-m20.sh", "Linux", "validate-m20.ps1", "Windows");
 
+    /** The nightly job that hands each {@code .ps1} validator no other workflow launches to the dispatcher. */
+    private static final String WINDOWS_VALIDATORS_JOB = "windows-validators";
+    private static final Pattern WINDOWS_VALIDATOR_TARGETS = Pattern.compile("(?m)^\\s+target:\\s*\\[([^\\]]+)\\]");
+
     /** The job of the continuous-integration workflow that every pull request must pass, and its two legs. */
     private static final String CI_VERIFY_JOB = "verify";
     private static final List<String> CI_LEGS = List.of("Linux", "Windows");
@@ -99,6 +103,84 @@ class GateReachabilityArchitectureTest {
             }
         });
         assertTrue(lonely.isEmpty(), () -> "a validator must exist on both platforms or on neither: " + lonely);
+    }
+
+    /**
+     * Each variant of each validator is launched by a workflow: named by a step, reached through a validator a step
+     * names, or, for a {@code .ps1}, given as a target to the dispatcher by the Windows lane of the nightly workflow.
+     * A Linux lane alone left eight {@code .ps1} validators reachable only by hand, and the Windows half of a gate
+     * whose Linux half is a required check ran nowhere. The platform is proven for the Windows lane, which must run on
+     * {@code windows-latest}; for a validator a step names, it is the interpreter of that step, which this rule does
+     * not read.
+     */
+    @Test
+    void everyValidatorIsLaunchedByAWorkflow() throws IOException {
+        Path root = RepositoryRoot.locate();
+        String workflows = workflowsExecutableText(root);
+        Set<String> dispatched = windowsLaneValidators(root);
+
+        for (String extension : List.of("sh", "ps1")) {
+            Map<String, String> texts = validatorTexts(root, extension);
+            if (extension.equals("ps1")) {
+                Set<String> unknown = new TreeSet<>(dispatched);
+                unknown.removeAll(texts.keySet());
+                assertTrue(unknown.isEmpty(),
+                        () -> "the Windows validator lane names targets without a validator: " + unknown);
+            }
+            Set<String> launched = new TreeSet<>();
+            for (String name : texts.keySet()) {
+                if (fileNamePattern(name).matcher(workflows).find() || dispatched.contains(name)) {
+                    launched.add(name);
+                }
+            }
+            Set<String> unlaunched = new TreeSet<>(texts.keySet());
+            unlaunched.removeAll(closedUnderNaming(launched, texts));
+            assertTrue(unlaunched.isEmpty(),
+                    () -> "no workflow launches these validators, directly, through another validator, or through "
+                            + "the Windows lane of nightly.yml: " + unlaunched);
+        }
+    }
+
+    /** The {@code .ps1} validators the Windows lane of the nightly workflow hands to the dispatcher. */
+    private static Set<String> windowsLaneValidators(Path root) throws IOException {
+        String lane = jobText(nightlyExecutableText(root), WINDOWS_VALIDATORS_JOB);
+        assertTrue(lane.contains("runs-on: windows-latest"), "the Windows validator lane must run on windows-latest");
+        assertTrue(lane.contains("\\scripts\\validate.cmd $env:TARGET"),
+                "the Windows validator lane must hand its target to scripts\\validate.cmd");
+        assertFalse(lane.contains("continue-on-error"), "a red Windows validator must make its leg red");
+        Matcher matrix = WINDOWS_VALIDATOR_TARGETS.matcher(lane);
+        assertTrue(matrix.find(), "the Windows validator lane must declare its targets as one matrix list");
+        Set<String> dispatched = new TreeSet<>();
+        for (String target : matrix.group(1).split(",")) {
+            dispatched.add("validate-" + target.trim() + ".ps1");
+        }
+        return dispatched;
+    }
+
+    /** The executable text of every validator of one extension, by file name. */
+    private static Map<String, String> validatorTexts(Path root, String extension) throws IOException {
+        Map<String, String> texts = new TreeMap<>();
+        for (Path validator : validators(root, extension)) {
+            texts.put(validator.getFileName().toString(), executableText(validator));
+        }
+        assertTrue(texts.size() > 5, "too few ." + extension + " validators: the rule would pass on nothing");
+        return texts;
+    }
+
+    /** The launched validators plus every validator a launched one names, until nothing more is named. */
+    private static Set<String> closedUnderNaming(Set<String> launched, Map<String, String> texts) {
+        Set<String> reached = new TreeSet<>(launched);
+        List<String> pending = new ArrayList<>(launched);
+        while (!pending.isEmpty()) {
+            String launcher = pending.remove(pending.size() - 1);
+            for (String name : texts.keySet()) {
+                if (!reached.contains(name) && fileNamePattern(name).matcher(texts.get(launcher)).find()) {
+                    reached.add(name);
+                    pending.add(name);
+                }
+            }
+        }
+        return reached;
     }
 
     @Test
@@ -484,6 +566,11 @@ class GateReachabilityArchitectureTest {
             }
         }
         return result;
+    }
+
+    /** A validator named as a file, so that {@code validate-m2.ps1} is not found inside {@code validate-m28.ps1}. */
+    private static Pattern fileNamePattern(String fileName) {
+        return Pattern.compile("(?<![A-Za-z0-9_-])" + Pattern.quote(fileName) + "(?![A-Za-z0-9_-])");
     }
 
     private static String workflowsExecutableText(Path root) throws IOException {
