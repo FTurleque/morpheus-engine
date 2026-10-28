@@ -82,7 +82,7 @@ class IncrementalSyncPersistenceContractTest {
         try (var reopened = new SqliteSyncStateStore(database)) {
             assertEquals(before.state(), reopened.findSyncState(projectId).orElseThrow());
             assertEquals(before.inventory(), reopened.findCurrentInventory(projectId).orElseThrow());
-            assertEquals(before.archives(), reopened.listArchives(projectId));
+            assertEquals(before.archives(), JournalPages.allArchives(reopened, projectId));
             assertEquals(before.freshness(), new SyncFreshnessService(reopened)
                     .assess(projectId, T0.plusSeconds(20), Duration.ofMinutes(5)));
         }
@@ -172,7 +172,7 @@ class IncrementalSyncPersistenceContractTest {
                 second,
                 store.findSyncState(next.projectId()).orElseThrow(),
                 store.findCurrentInventory(next.projectId()).orElseThrow(),
-                store.listArchives(next.projectId()),
+                JournalPages.allArchives(store, next.projectId()),
                 new SyncFreshnessService(store).assess(next.projectId(), T0.plusSeconds(20), Duration.ofMinutes(5)));
     }
 

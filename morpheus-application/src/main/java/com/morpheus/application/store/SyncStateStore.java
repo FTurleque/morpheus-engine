@@ -1,6 +1,8 @@
 package com.morpheus.application.store;
 
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.sync.ProjectSyncState;
+import com.morpheus.application.sync.SourceArchivePage;
 import com.morpheus.application.sync.SourceArchiveRecord;
 import com.morpheus.application.sync.SourceInventory;
 import com.morpheus.application.sync.SyncStateConflictException;
@@ -17,7 +19,11 @@ public interface SyncStateStore {
 
     Optional<SourceInventory> findCurrentInventory(ProjectSpecificationId projectId);
 
-    List<SourceArchiveRecord> listArchives(ProjectSpecificationId projectId);
+    /**
+     * One page of the project's archives, in {@link SourceArchiveRecord}'s order, with the number of archives the
+     * project has. The journal only grows: the port offers no read of it whole.
+     */
+    SourceArchivePage listArchives(ProjectSpecificationId projectId, PageRequest pageRequest);
 
     /**
      * Records an attempt and returns the new revision. {@code expectedRevision} is the revision the caller read

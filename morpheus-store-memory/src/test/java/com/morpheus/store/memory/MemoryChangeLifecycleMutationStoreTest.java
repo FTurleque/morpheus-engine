@@ -3,6 +3,7 @@ package com.morpheus.store.memory;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationAttempt;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationPersistenceResult;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationPersistenceState;
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.domain.change.ChangeId;
@@ -16,6 +17,7 @@ import com.morpheus.domain.source.SourceLocator;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -47,7 +49,8 @@ class MemoryChangeLifecycleMutationStoreTest {
 
         assertEquals(ChangeLifecycleMutationPersistenceState.APPLIED, result.state());
         assertTrue(mutations.findState(projectId, changeId).isPresent());
-        assertEquals(1, mutations.listAudit(projectId, changeId).size());
+        assertEquals(List.of(result.audit().orElseThrow()),
+                mutations.listAudit(projectId, changeId, PageRequest.first(PageRequest.MAX_LIMIT)).items());
     }
 
     @Test

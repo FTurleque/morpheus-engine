@@ -1,9 +1,12 @@
 package com.morpheus.architecture;
 
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationAttempt;
+import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationAuditPage;
+import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationAuditRecord;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationCommand;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationPolicy;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationResultState;
+import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationStore;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleOperationalState;
 import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityObservation;
 import com.morpheus.application.lifecycle.mutation.ControlledChangeLifecycleMutationService;
@@ -12,6 +15,7 @@ import com.morpheus.application.orchestration.ChangeTransitionEvaluationService;
 import com.morpheus.application.orchestration.ChangeTransitionEvaluationState;
 import com.morpheus.application.provider.ProviderSelectionPolicy;
 import com.morpheus.application.provider.SpecificationProviderRegistry;
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.application.store.SnapshotBusinessContent;
 import com.morpheus.application.store.SnapshotSpecificationVersionBinding;
@@ -48,6 +52,7 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -76,7 +81,7 @@ class ControlledLifecycleMutationContractTest {
         assertEquals(ChangeTransitionEvaluationState.ALLOWED, evaluation.state());
         assertTrue(fixture.mutations().findState(fixture.projectId(), fixture.changeId()).isEmpty(),
                 "read-only evaluation must not create operational lifecycle state");
-        assertTrue(fixture.mutations().listAudit(fixture.projectId(), fixture.changeId()).isEmpty());
+        assertTrue(JournalPages.allAudit(fixture.mutations(), fixture.projectId(), fixture.changeId()).isEmpty());
 
         ChangeLifecycleMutationCommand command = command(
                 fixture.projectId(), fixture.changeId(), "m17-idempotent", 0, ChangeLifecycleState.PROPOSED, true);
@@ -84,7 +89,7 @@ class ControlledLifecycleMutationContractTest {
         assertEquals(ChangeLifecycleMutationResultState.APPLIED, applied.state());
         assertEquals(1, applied.lifecycleState().orElseThrow().revision().value());
         assertEquals(ChangeLifecycleState.PROPOSED, applied.lifecycleState().orElseThrow().lifecycle().state());
-        assertEquals(1, fixture.mutations().listAudit(fixture.projectId(), fixture.changeId()).size());
+        assertEquals(1, JournalPages.allAudit(fixture.mutations(), fixture.projectId(), fixture.changeId()).size());
 
         ChangeLifecycleMutationCommand retry = new ChangeLifecycleMutationCommand(
                 ChangeLifecycleMutationId.generate(),
@@ -99,7 +104,7 @@ class ControlledLifecycleMutationContractTest {
                 T0.plusSeconds(30));
         var retried = fixture.service().apply(retry, ChangeLifecycleMutationPolicy.strict());
         assertEquals(ChangeLifecycleMutationResultState.ALREADY_APPLIED, retried.state());
-        assertEquals(1, fixture.mutations().listAudit(fixture.projectId(), fixture.changeId()).size(),
+        assertEquals(1, JournalPages.allAudit(fixture.mutations(), fixture.projectId(), fixture.changeId()).size(),
                 "idempotent retry must not duplicate audit");
         assertEquals(1, retried.lifecycleState().orElseThrow().revision().value());
     }
@@ -130,7 +135,7 @@ class ControlledLifecycleMutationContractTest {
                 fixture.projectId(), fixture.changeId(), "m17-stale", 0, ChangeLifecycleState.SPECIFIED, true);
         assertEquals(ChangeLifecycleMutationResultState.CONFLICT,
                 fixture.service().apply(stale, ChangeLifecycleMutationPolicy.strict()).state());
-        assertEquals(1, fixture.mutations().listAudit(fixture.projectId(), fixture.changeId()).size());
+        assertEquals(1, JournalPages.allAudit(fixture.mutations(), fixture.projectId(), fixture.changeId()).size());
     }
 
     @Test
@@ -145,7 +150,7 @@ class ControlledLifecycleMutationContractTest {
                 fixture.projectId(), fixture.changeId(), "same-key", 0, ChangeLifecycleState.ABANDONED, true);
         var result = fixture.service().apply(different, ChangeLifecycleMutationPolicy.strict());
         assertEquals(ChangeLifecycleMutationResultState.CONFLICT, result.state());
-        assertEquals(1, fixture.mutations().listAudit(fixture.projectId(), fixture.changeId()).size());
+        assertEquals(1, JournalPages.allAudit(fixture.mutations(), fixture.projectId(), fixture.changeId()).size());
     }
 
     @Test
@@ -169,7 +174,7 @@ class ControlledLifecycleMutationContractTest {
                     projectId, changeId, "sqlite-stale", 0, ChangeLifecycleState.DRAFT, ChangeLifecycleState.PROPOSED);
             assertEquals(com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationPersistenceState.CONFLICT,
                     writerB.apply(stale).state());
-            assertEquals(1, writerB.listAudit(projectId, changeId).size());
+            assertEquals(1, JournalPages.allAudit(writerB, projectId, changeId).size());
 
             ChangeLifecycleMutationAttempt retry = new ChangeLifecycleMutationAttempt(
                     ChangeLifecycleMutationId.generate(),
@@ -187,16 +192,82 @@ class ControlledLifecycleMutationContractTest {
                     T0.plusSeconds(5));
             assertEquals(com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationPersistenceState.ALREADY_APPLIED,
                     writerB.apply(retry).state());
-            assertEquals(1, writerB.listAudit(projectId, changeId).size());
+            assertEquals(1, JournalPages.allAudit(writerB, projectId, changeId).size());
         }
 
         try (var reopened = new SqliteChangeLifecycleMutationStore(database)) {
             ChangeLifecycleOperationalState state = reopened.findState(projectId, changeId).orElseThrow();
             assertEquals(ChangeLifecycleState.PROPOSED, state.lifecycle().state());
             assertEquals(1, state.revision().value());
-            assertEquals(1, reopened.listAudit(projectId, changeId).size());
+            assertEquals(1, JournalPages.allAudit(reopened, projectId, changeId).size());
             assertTrue(reopened.findByIdempotencyKey(projectId, first.idempotencyKey()).isPresent());
         }
+    }
+
+    @Test
+    void bothStoresReturnTheAuditOfAChangeOnePageAtATimeInRevisionOrder() {
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+        ChangeId changeId = ChangeId.generate();
+        MemorySpecificationKnowledgeStore projects = new MemorySpecificationKnowledgeStore();
+        projects.putProject(new ProjectStoreEntry(projectId, SourceLocator.file("workspace-m17")));
+        List<List<ChangeLifecycleMutationAuditRecord>> memoryPages =
+                pagesOfThree(new MemoryChangeLifecycleMutationStore(projects), projectId, changeId);
+
+        Path database = tempDir.resolve("m17-audit-pages.db");
+        List<List<ChangeLifecycleMutationAuditRecord>> sqlitePages;
+        try (var snapshots = new SqliteSpecificationKnowledgeStore(database);
+             var mutations = new SqliteChangeLifecycleMutationStore(database)) {
+            snapshots.putProject(new ProjectStoreEntry(projectId, SourceLocator.file("workspace-m17")));
+            sqlitePages = pagesOfThree(mutations, projectId, changeId);
+        }
+
+        List<Long> revisions = memoryPages.stream().flatMap(List::stream)
+                .map(record -> record.toRevision().value()).toList();
+        assertEquals(List.of(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L), revisions,
+                "the pages put end to end are the audit in revision order, with no record read twice or skipped");
+        assertEquals(keys(memoryPages), keys(sqlitePages), "the SQLite store cuts the pages the memory store cuts");
+    }
+
+    private static List<List<String>> keys(List<List<ChangeLifecycleMutationAuditRecord>> pages) {
+        return pages.stream()
+                .map(page -> page.stream().map(record -> record.idempotencyKey().toString()).toList())
+                .toList();
+    }
+
+    private List<List<ChangeLifecycleMutationAuditRecord>> pagesOfThree(
+            ChangeLifecycleMutationStore store, ProjectSpecificationId projectId, ChangeId changeId) {
+        ChangeLifecycleState[] forward = {
+                ChangeLifecycleState.DRAFT, ChangeLifecycleState.PROPOSED, ChangeLifecycleState.SPECIFIED,
+                ChangeLifecycleState.DESIGNED, ChangeLifecycleState.PLANNED, ChangeLifecycleState.IMPLEMENTING,
+                ChangeLifecycleState.VERIFYING, ChangeLifecycleState.COMPLETED, ChangeLifecycleState.ARCHIVED};
+        for (int revision = 0; revision < forward.length - 1; revision++) {
+            ChangeLifecycleMutationAttempt attempt = new ChangeLifecycleMutationAttempt(
+                    ChangeLifecycleMutationId.generate(),
+                    new ChangeLifecycleIdempotencyKey("page-" + revision),
+                    "fingerprint-page-" + revision,
+                    projectId,
+                    changeId,
+                    forward[revision],
+                    forward[revision + 1],
+                    Optional.empty(),
+                    new ChangeLifecycleRevision(revision),
+                    "m17-test",
+                    WRITE_PROVIDER,
+                    "M17 persistence contract",
+                    T0.plusSeconds(revision));
+            assertEquals(com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationPersistenceState.APPLIED,
+                    store.apply(attempt).state());
+        }
+
+        List<List<ChangeLifecycleMutationAuditRecord>> pages = new ArrayList<>();
+        for (int offset = 0; offset < 12; offset += 3) {
+            ChangeLifecycleMutationAuditPage page = store.listAudit(projectId, changeId, new PageRequest(offset, 3));
+            assertEquals(8, page.totalMatches());
+            assertEquals(offset + 3 < 8, page.hasMore());
+            pages.add(page.items());
+        }
+        assertEquals(List.of(), pages.getLast(), "a page past the end is empty, not an error");
+        return pages;
     }
 
     @Test

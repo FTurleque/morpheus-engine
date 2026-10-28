@@ -238,6 +238,12 @@ class ReleasedSchemaUpgradeTest {
                     "SqliteSyncStateStore.findSyncState lost the source count");
             assertEquals(1, sync.findCurrentInventory(fixture.project).orElseThrow().entries().size(),
                     "SqliteSyncStateStore.findCurrentInventory lost the inventory entry");
+            var archives = sync.listArchives(fixture.project, PageRequest.first(1));
+            var rest = sync.listArchives(fixture.project, new PageRequest(1, 1));
+            assertEquals(2, archives.totalMatches(), "SqliteSyncStateStore.listArchives lost an archive");
+            assertEquals(List.of(T0, T0.plusMillis(500)),
+                    List.of(archives.items().getFirst().archivedAt(), rest.items().getFirst().archivedAt()),
+                    "SqliteSyncStateStore.listArchives: archives written before the order key are read in time order");
         }
     }
 
@@ -553,6 +559,19 @@ class ReleasedSchemaUpgradeTest {
                 insert.setString(1, project.toString());
                 insert.setString(2, SHA256);
                 insert.executeUpdate();
+            }
+            // Ordered by the text of archived_at, the later archive ('.500Z') comes first ('.' sorts before 'Z').
+            for (Instant archivedAt : List.of(T0.plusMillis(500), T0)) {
+                try (PreparedStatement insert = connection.prepareStatement("""
+                        INSERT INTO sync_source_archives(project_id, source_path, fingerprint_sha256, size_bytes,
+                                                         archived_at, reason, moved_to_path, source_revision)
+                        VALUES (?, 'specs/gone.md', ?, 120, ?, 'DELETED', NULL, 'rev-1')
+                        """)) {
+                    insert.setString(1, project.toString());
+                    insert.setString(2, SHA256);
+                    insert.setString(3, archivedAt.toString());
+                    insert.executeUpdate();
+                }
             }
         }
 

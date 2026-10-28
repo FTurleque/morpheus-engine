@@ -3,6 +3,7 @@ package com.morpheus.application.sync;
 import com.morpheus.application.operability.OperationalEventSink;
 import com.morpheus.application.operability.OperationalMetrics;
 import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.store.SyncStateStore;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import org.junit.jupiter.api.Test;
@@ -266,8 +267,8 @@ class SyncReliabilityFallbackTest {
         }
 
         @Override
-        public List<SourceArchiveRecord> listArchives(ProjectSpecificationId projectId) {
-            return List.of();
+        public SourceArchivePage listArchives(ProjectSpecificationId projectId, PageRequest pageRequest) {
+            return SourceArchivePage.of(List.of(), pageRequest);
         }
 
         @Override

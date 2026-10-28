@@ -1,5 +1,6 @@
 package com.morpheus.store.sqlite.adapter;
 
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.application.sync.ProjectSyncState;
@@ -48,7 +49,7 @@ class SqliteSyncStateStorePersistenceTest {
 
             assertEquals(Optional.empty(), store.findSyncState(unknown));
             assertEquals(Optional.empty(), store.findCurrentInventory(unknown));
-            assertEquals(List.of(), store.listArchives(unknown));
+            assertEquals(List.of(), store.listArchives(unknown, PageRequest.first(1)).items());
         }
     }
 
@@ -162,7 +163,7 @@ class SqliteSyncStateStorePersistenceTest {
         }
 
         try (SqliteSyncStateStore reopened = new SqliteSyncStateStore(database)) {
-            List<SourceArchiveRecord> archives = reopened.listArchives(projectId);
+            List<SourceArchiveRecord> archives = reopened.listArchives(projectId, PageRequest.first(PageRequest.MAX_LIMIT)).items();
             assertEquals(List.of(deleted, moved), archives,
                     "archives accumulate in observation order and are never replaced");
             assertEquals(Optional.of(new SourcePath("spec/new.md")), archives.get(1).movedTo());
@@ -230,7 +231,7 @@ class SqliteSyncStateStorePersistenceTest {
 
         assertThrows(KnowledgeStoreException.class, () -> store.findSyncState(projectId));
         assertThrows(KnowledgeStoreException.class, () -> store.findCurrentInventory(projectId));
-        assertThrows(KnowledgeStoreException.class, () -> store.listArchives(projectId));
+        assertThrows(KnowledgeStoreException.class, () -> store.listArchives(projectId, PageRequest.first(1)));
         assertThrows(KnowledgeStoreException.class, () -> attempt(store, projectId, ATTEMPTED, Optional.empty()));
     }
 
