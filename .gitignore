@@ -14,6 +14,8 @@
 *.db
 *.sqlite
 *.sqlite3
+# The databases published programs wrote are test fixtures, compared by checksum.
+!morpheus-store-sqlite/src/test/resources/published-databases/level-*/morpheus.db
 
 # Local distribution artifacts
 dist/
