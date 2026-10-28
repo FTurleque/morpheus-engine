@@ -141,7 +141,7 @@ Qualité continue :
 MORPHEUS CI                exact-head Windows + Ubuntu
 MORPHEUS Security          OWASP Dependency-Check
 MORPHEUS CodeQL            security-extended
-Surefire written ratchet   >= 2820
+Surefire written ratchet   >= 2821
 Surefire generated ratchet >= 1816
 Architecture ratchet       >= 813
 Aggregate line ratchet     >= 91.2%

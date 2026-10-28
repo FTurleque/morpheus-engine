@@ -12,7 +12,7 @@ Valeur constatée en lisant `config/m21-quality-ratchets.properties` (28/10/2026
 
 | Clé | Valeur constatée |
 |---|---|
-| `testsMinimum` | 2820 (exécutions de méthodes déclarées) |
+| `testsMinimum` | 2821 (exécutions de méthodes déclarées) |
 | `generatedTestsMinimum` | 1816 (exécutions générées par une fabrique) |
 | `architectureTestsMinimum` | 813 (exécutions déclarées du module d'architecture) |
 | `aggregateLineCoverageMinimum` | 0.912 (91.2%) |
