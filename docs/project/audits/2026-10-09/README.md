@@ -8,6 +8,92 @@
 
 ---
 
+## État au 28 octobre 2026 — les sprints 5, 7 et 8 terminés
+
+Sept PR fusionnées (#570 à #576) sur les sept constats encore ouverts des sprints 1, 5, 7 et 8. Statuts relus
+dans le code de `develop` à `6c6a97f6`. Détail dans **`reverification-2026-10-28.md`**.
+
+**Cinq constats se ferment** : `AUD-PRF-14` (une seule passe mesure et décode, chaque répertoire listé une fois),
+`AUD-TRV-07` (les huit validateurs `.ps1` ont une lane nocturne Windows, et une règle refuse un validateur qu'aucune
+voie ne lance), `AUD-TST-09` (plafonds de couverture requalifiés sur les deux plateformes, marge exécutée par un
+test), `AUD-TST-10` (upgrade testé depuis des bases écrites par v1.0.0, v1.1.0 et v1.2.1) et `AUD-TST-19` (les trois
+ratchets de présence à dix sous une mesure déterministe, raison écrite à côté des clés).
+
+**`AUD-PRF-09` est clos par décision** : le risque est accepté et documenté, le change OpenSpec archivé ; son statut
+reste « toujours valide » parce que le code n'a pas changé, et il compte comme soldé.
+
+**`AUD-DEP-07` reste partiel** : la trace RT-13 dit de nouveau l'état du gate et une clé refusée s'alerte au premier
+run, mais le gate CVE n'a toujours qu'une source de rafraîchissement tant que Dependency-Check 13.0.1 n'est pas
+publié.
+
+**Plan du 9 octobre : 54 soldés sur 73, 19 restants.** Les sprints 2, 3, 4, 5, 7 et 8 sont terminés. La PR #569
+(sprint 9), fusionnée le 28 octobre, n'est pas revérifiée par cette passe.
+
+---
+
+## État au 26 octobre 2026 — la grande restructuration, et le premier build vert de la mission
+
+67 commits et **25 pull requests** depuis la passe du 24 octobre (#540 à #564) : 907 fichiers,
++15 100 / −5 206. La plus grosse vague depuis l'audit. Statuts établis sur `4694b8b2`.
+Détail dans **`reverification-2026-10-26.md`**.
+
+**Pour la première fois, l'audit dispose d'une exécution réelle.** Les six passes précédentes ont
+travaillé sans compiler — Maven Central est injoignable depuis le conteneur d'audit. Le build a été
+lancé sur la machine du mainteneur : **`./mvnw clean verify` vert sur les 19 modules en 10 min 46,
+4 437 tests, 0 échec, 13 skips**, dont 779 exécutions de tests d'architecture. Les règles ArchUnit
+des trois nouveaux ADR passent, les gates de couverture passent, et la couverture est mesurée.
+
+**Trois constats se ferment**, tous en architecture, tous avec une règle exécutable à l'appui :
+`AUD-ARC-02` (**Élevée** — l'ingestion passe par un port, l'agrégat concret a disparu du dépôt),
+`AUD-ARC-06` (`morpheus-api` en sept paquets de rôle, racines de composition de 32 à 5) et
+`AUD-ARC-09` (`MorpheusCli` de 908 à 109 lignes, `MorpheusMcpToolService` supprimé). Trois ADR du
+25 octobre — ARCH-0147, ARCH-0148, ARCH-0149 — tranchent le sprint 11.
+
+**Quatre constats naissent de cette même restructuration** : l'élargissement de visibilité qu'elle a
+imposé dans `morpheus-store-sqlite` (`AUD-ARC-16`), un test de garde qui resterait vert si sa règle
+devenait aveugle (`AUD-TST-20`), la liste d'ADR-0148 recopiée à la main dans son gate (`AUD-ARC-17`)
+et deux dérives de la trace de suivi (`AUD-DEP-26`).
+
+**110 constats : 49 corrigés · 12 partiels · 22 toujours valides · 4 caducs · 22 Info qui tiennent ·
+1 non vérifiable.** Il reste **deux constats `Élevée`** : `AUD-ARC-01` et `AUD-PRF-04`, tous deux
+partiels.
+
+| Axe | 9 oct. | 17 oct. | 18 oct. | 21 oct. | **26 oct.** | |
+|---|---|---|---|---|---|---|
+| Sécurité | 75 | 100 | 96 | 96 | **96** | — |
+| Dépendances / exploitation | 36 | 87 | 75 | 84 | **83** | −1 |
+| Performance | 28 | 52 | 77 | 77 | **77** | — |
+| Tests | 54 | 69 | 66 | 75 | **70** | −5 |
+| Qualité | 46 | 66 | 63 | 71 | **70** | −1 |
+| Architecture | 26 | 46 | 46 | 46 | **55** | **+9** |
+| **Moyenne** | 44 | 70 | 70 | 75 | **75** | — |
+
+La moyenne ne bouge pas, et c'est le résultat honnête. L'architecture gagne neuf points, mais quatre
+constats neufs et une lecture plus exacte de la couverture reprennent ailleurs ce qui a été gagné.
+Un score stable après la plus grosse vague de la mission ne dit pas que rien n'a avancé : il dit que
+le travail a déplacé autant de dette qu'il en a soldé, et que la mesure le voit.
+
+**Ce que le build révèle sur la couverture.** Mesurée par module et par ses *propres* tests :
+`morpheus-application` **48,00 %** de lignes sur 11 076 instrumentées, `morpheus-store-memory`
+52,87 %, `morpheus-domain` 59,78 %, contre `morpheus-api` 94,24 % et `morpheus-cli` 88,19 %.
+L'agrégat affiche 91,33 %. L'écart de `AUD-TRV-02` n'est plus déduit de deux plafonds : il est
+mesuré, et sa cause est visible — le cœur métier n'atteint les chiffres de l'agrégat que parce que
+les tests des adaptateurs le traversent. Par ailleurs la couverture agrégée réelle (91,33 % / 77,49 %)
+**dépasse les plafonds qualifiés inscrits** le 9 octobre (90,30 % / 76,11 %), qui décrivent donc un
+état périmé.
+
+**Aggravations.** Les copies de `sha256` passent de 6 à 7 — la nouvelle est née du découpage de
+`morpheus-store-sqlite`. Les blocs de 12 lignes dupliqués dans `src/main` passent de 322 à 405.
+`AUD-QUA-02` baisse de 99 à 71 copies, sous son chiffre d'origine pour la première fois, mais la
+divergence double : 16 écritures distinctes du même localisateur contre 7, et 5 critères de détection
+incompatibles contre 2.
+
+**Errata.** Le « reste à faire » d'`AUD-DEP-05` demandait une section de vérification SHA-256 qui
+existe depuis le tag `v1.2.1`, antérieure au constat. Et `AUD-ARC-11` sous-comptait son propre
+sujet : huit classes de production atteignent la réflexion, pas trois.
+
+---
+
 ## État au 21 octobre 2026 — le sprint 8, et deux errata de l'audit
 
 72 commits depuis la passe du 18 octobre (PR #517 à #535) : le **sprint 8** et la clôture du sprint 7.
