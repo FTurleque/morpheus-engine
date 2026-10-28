@@ -110,7 +110,7 @@ class PartialRuntimeOwnershipContractTest {
     @Test
     void theMcpClientTransportDisposesItsSchedulersEvenWhenStoppingThePeerFails() throws IOException {
         String transport = Files.readString(RepositoryRoot.locate().resolve(
-                "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioClientTransport.java"));
+                "morpheus-mcp-transport/src/main/java/com/morpheus/transport/mcp/BoundedStdioClientTransport.java"));
 
         String statements = transport.replaceAll("\\s+", " ");
         assertTrue(

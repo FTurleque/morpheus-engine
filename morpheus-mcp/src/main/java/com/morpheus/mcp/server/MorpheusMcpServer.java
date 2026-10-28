@@ -7,7 +7,6 @@ import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.product.ProductMetadata;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
-import com.morpheus.integration.mcp.BoundedStdioServerTransportProvider;
 import com.morpheus.mcp.MorpheusAcceptanceCriteriaMcpTools;
 import com.morpheus.mcp.MorpheusAugmentedContextMcpTools;
 import com.morpheus.mcp.MorpheusChangeMcpTools;
@@ -27,6 +26,7 @@ import com.morpheus.mcp.MorpheusReasoningMcpTools;
 import com.morpheus.mcp.MorpheusRequirementMcpTools;
 import com.morpheus.mcp.MorpheusSpecificationMcpTools;
 import com.morpheus.mcp.MorpheusSyncStatusMcpTools;
+import com.morpheus.transport.mcp.BoundedStdioServerTransportProvider;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpServerFeatures;

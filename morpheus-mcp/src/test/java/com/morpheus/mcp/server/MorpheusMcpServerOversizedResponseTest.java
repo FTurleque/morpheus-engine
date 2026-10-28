@@ -11,12 +11,12 @@ import com.morpheus.domain.provider.ProviderId;
 import com.morpheus.domain.source.SourceLocator;
 import com.morpheus.domain.specification.Specification;
 import com.morpheus.domain.specification.SpecificationId;
-import com.morpheus.integration.mcp.BoundedStdioServerTransportProvider;
 import com.morpheus.mcp.MorpheusMcpToolCatalog;
 import com.morpheus.store.sqlite.adapter.SqliteSnapshotBusinessContentStore;
 import com.morpheus.store.sqlite.adapter.SqliteSpecificationKnowledgeStore;
 import com.morpheus.store.sqlite.adapter.SqliteTraceabilityStore;
 import com.morpheus.store.sqlite.adapter.SqliteVersionedRequirementStore;
+import com.morpheus.transport.mcp.BoundedStdioServerTransportProvider;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
