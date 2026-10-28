@@ -80,8 +80,8 @@ class ReflectionAndClassLoadingBoundaryArchitectureTest {
                     || name.equals("java.net.URLClassLoader"),
             true);
 
-    private static final Pattern REFLECTION_TEXT = Pattern.compile("\\bjava\\.lang\\.(?:reflect|invoke)\\b");
-    private static final Pattern LOADING_TEXT = Pattern.compile(
+    static final Pattern REFLECTION_TEXT = Pattern.compile("\\bjava\\.lang\\.(?:reflect|invoke)\\b");
+    static final Pattern LOADING_TEXT = Pattern.compile(
             "\\bServiceLoader\\b|\\b(?:URL|Secure)?ClassLoader\\b|\\bClass\\.forName\\b");
 
     private final JavaClasses classes = new ClassFileImporter()

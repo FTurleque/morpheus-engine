@@ -12,6 +12,9 @@ import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -41,6 +44,9 @@ class ApplicationTechnologyBoundaryArchitectureTest {
     private static final String HARDENER = APPLICATION + ".security.LocalWritePermissionHardener";
     private static final String ROTATING_LOG = APPLICATION + ".operability.RotatingOperationalLogFile";
     private static final String PEER_SETTINGS = APPLICATION + ".security.PeerLaunchSettingsResolver";
+    private static final Set<String> REFLECTION_AND_LOADING = Set.of(
+            APPLICATION + ".query.compact.CanonicalJsonSerializer",
+            APPLICATION + ".reasoning.ReasoningAdapterRegistry");
 
     private static final List<Family> UNUSED_FAMILIES = List.of(
             Family.ofTypes("SQL", name -> name.startsWith("java.sql.") || name.startsWith("javax.sql.")),
@@ -103,8 +109,7 @@ class ApplicationTechnologyBoundaryArchitectureTest {
                     || Set.of("java.util.ServiceLoader", "java.lang.ClassLoader", "java.net.URLClassLoader").contains(name),
                     (owner, method, arity) -> owner.equals("java.lang.Class") && method.equals("forName"),
                     Set.of()),
-                    Set.of(APPLICATION + ".query.compact.CanonicalJsonSerializer",
-                            APPLICATION + ".reasoning.ReasoningAdapterRegistry"));
+                    REFLECTION_AND_LOADING);
 
     private final JavaClasses classes = new ClassFileImporter()
             .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
@@ -143,6 +148,31 @@ class ApplicationTechnologyBoundaryArchitectureTest {
         });
         assertEquals(named, reached, "ADR-0150 names exactly the classes that reach each family: remove a class "
                 + "that no longer reaches it, so each list only shrinks");
+    }
+
+    /**
+     * The bytecode rule does not see a type that only names a lambda: {@code (InvocationHandler) (proxy, m, a) -> null}
+     * leaves it in the {@code invokedynamic} descriptor, not in a dependency. The text of the sources does.
+     */
+    @Test
+    void noApplicationSourceNamesReflectionOrLoadingUnlessItsClassIsNamed() throws IOException {
+        Path main = RepositoryRoot.locate().resolve("morpheus-application/src/main/java");
+        Set<String> unnamed = new TreeSet<>();
+        int scanned = 0;
+        try (Stream<Path> tree = Files.walk(main)) {
+            for (Path source : tree.filter(path -> path.toString().endsWith(".java")).sorted().toList()) {
+                scanned++;
+                String code = RefusalPathTextArchitectureTest.withoutComments(Files.readString(source));
+                String relative = main.relativize(source).toString().replace('\\', '/');
+                String className = relative.substring(0, relative.length() - ".java".length()).replace('/', '.');
+                boolean names = ReflectionAndClassLoadingBoundaryArchitectureTest.REFLECTION_TEXT.matcher(code).find()
+                        || ReflectionAndClassLoadingBoundaryArchitectureTest.LOADING_TEXT.matcher(code).find();
+                if (names && !REFLECTION_AND_LOADING.contains(className)) unnamed.add(className);
+            }
+        }
+        assertTrue(scanned > 100, "the scan must read the application sources, read " + scanned);
+        assertEquals(Set.of(), unnamed, "ADR-0150, decision 2: a source that names reflection or class loading "
+                + "belongs to a class named for that family");
     }
 
     @Test

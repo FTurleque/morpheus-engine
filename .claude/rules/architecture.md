@@ -244,8 +244,9 @@ annotation d'injection (`jakarta.inject`, `javax.inject`) : cette règle n'a auc
 `ClassLoader`, `Class.forName`) n'existent que dans les classes nommées pour eux, chacune avec sa raison et, pour un
 chargement, l'ADR qui le décide ; jamais pour câbler le produit ni pour construire un objet depuis une configuration.
 Les listes sont exactes et ne font que rétrécir : les lire dans `ReflectionAndClassLoadingBoundaryArchitectureTest`
-(hors `application`, règle sur le bytecode doublée d'un scan du texte des sources) et dans
-`ApplicationTechnologyBoundaryArchitectureTest` (dans `application`, ADR-0150), pas ici. Un accesseur de
+(hors `application`) et dans `ApplicationTechnologyBoundaryArchitectureTest` (dans `application`, ADR-0150), pas ici.
+Dans les deux, la règle sur le bytecode est doublée d'un scan du texte des sources : un type qui ne fait que typer une
+lambda reste dans le descripteur `invokedynamic`, où le bytecode ne le voit pas. Un accesseur de
 `java.lang.Class` (`getName`, `getSimpleName`, `getClassLoader`) n'est pas de la réflexion au sens de ces règles.
 Le câblage est explicite : dans `MorpheusMain` pour le processus, dans les racines de composition nommées d'ADR-0109
 pour le runtime de chaque requête HTTP ou appel MCP.
