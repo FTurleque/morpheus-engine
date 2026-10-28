@@ -1,0 +1,14 @@
+coverageScope=per-module
+reports=16
+lineCovered=21236
+lineMissed=8460
+lineRatio=0.715113
+branchCovered=6360
+branchMissed=3752
+branchRatio=0.628956
+qualifiedLineBaseline=0.694341
+qualifiedBranchBaseline=0.615727
+lineRatchet=0.691
+branchRatchet=0.612
+d2LineFloor=0.40
+d2BranchFloor=0.35

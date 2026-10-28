@@ -62,11 +62,11 @@ Le workflow `MORPHEUS CI` exécute le même gate exact-head sur Windows et Ubunt
 ```text
 baseline Surefire écrits       >= 2600
 baseline Surefire générés     >= 1574
-baseline architecture          >= 769
-JaCoCo aggregate line ratchet     >= 90.0%
-JaCoCo aggregate branch ratchet   >= 75.7%
-JaCoCo per-module line ratchet    >= 69.1%
-JaCoCo per-module branch ratchet  >= 61.2%
+baseline architecture          >= 813
+JaCoCo aggregate line ratchet     >= 91.2%
+JaCoCo aggregate branch ratchet   >= 77.3%
+JaCoCo per-module line ratchet    >= 71.2%
+JaCoCo per-module branch ratchet  >= 62.5%
 D2 absolute line floor         40%
 D2 absolute branch floor       35%
 maven dependency analyze       failOnWarning=true
@@ -94,11 +94,11 @@ Cette garde différentielle complète le ratchet global : elle évite qu'une nou
 
 ## Qualité et ratchet JaCoCo
 
-La baseline courante est verrouillée à **90,0% lignes / 75,7% branches** sur l'échelle agrégée et **69,1% lignes / 61,2% branches** par module. Les deux chiffres mesurent des populations de lignes différentes : les comparer entre eux n'a pas de sens, et comparer l'un au seuil de l'autre est précisément le défaut que la séparation des clés supprime.
+La baseline courante est verrouillée à **91,2% lignes / 77,3% branches** sur l'échelle agrégée et **71,2% lignes / 62,5% branches** par module. Les deux chiffres mesurent des populations de lignes différentes : les comparer entre eux n'a pas de sens, et comparer l'un au seuil de l'autre est précisément le défaut que la séparation des clés supprime.
 
 Règle d’évolution :
 
-1. une baisse sous 90,0% lignes ou 75,7% branches agrégées, ou sous 69,1% lignes ou 61,2% branches par module, fait échouer le gate M21 ;
+1. une baisse sous 91,2% lignes ou 77,3% branches agrégées, ou sous 71,2% lignes ou 62,5% branches par module, fait échouer le gate M21 ;
 2. les floors D2 40% / 35% restent des minima absolus et ne peuvent jamais affaiblir le ratchet ;
 3. une amélioration de couverture ne relève le ratchet qu’après qualification du même SHA exact sur Windows et Linux ;
 4. le ratchet n’est jamais abaissé automatiquement ; une baisse nécessite une décision d’audit explicite et motivée ;
@@ -109,10 +109,12 @@ Règle d’évolution :
 
 Ce sont deux gestes différents, et le premier ne donne aucun droit sur le second.
 
-- Un **ratchet** (`config/m21-quality-ratchets.properties`) se relève par décision, tant qu'il reste sous le plafond qualifié **de sa propre échelle** et garde la distance que la règle exige : une dispersion maximale observée entre plateformes, multipliée par trois, comptée en lignes et en branches — jamais en points de pourcentage. Une session qui ne dispose que d'une plateforme peut le faire.
+- Un **ratchet** (`config/m21-quality-ratchets.properties`) se relève par décision, tant qu'il reste sous le plafond qualifié **de sa propre échelle** et garde la distance que la règle exige. Cette distance se compte en lignes et en branches couvertes, jamais en points de pourcentage : la plus basse mesure conservée de l'échelle, moins ce que le ratchet exige de la même population, doit valoir au moins **trois fois la dispersion** des runs conservés, et jamais moins de trois fois la dispersion de référence (24 lignes, 11 branches). `CoverageQualificationEvidenceTest#everyCoverageRatchetKeepsThreeTimesTheSpreadUnderTheLowestKeptMeasurement` la calcule sur `config/coverage-qualification/` et refuse un ratchet qui la consomme, en nommant la clé et le compte manquant. Une session qui ne dispose que d'une plateforme peut relever un ratchet dans cette limite.
 - Un **plafond** (`PER_MODULE_QUALIFIED_*_RATIO` dans `CoverageQualityGateTest`, `AGGREGATE_QUALIFIED_*_RATIO` dans `AggregateCoverageGateTest`) ne se relève que par une requalification : une mesure exact-head de l'échelle sur Windows **et** sur Linux, au moins deux runs par plateforme, qualifiée sur la plus basse. Les résumés de ces runs remplacent ceux de `config/coverage-qualification/` dans le même changement, et `CoverageQualificationEvidenceTest` exige que chaque plafond soit égal au plus bas ratio de son échelle dans ces fichiers.
 
-Où lire ce qu'il reste : la preuve de chaque gate (`m21-per-module-coverage-summary.txt`, `m21-aggregate-coverage-summary.txt`, décrites ci-dessous) affiche côte à côte la mesure (`lineRatio`, `branchRatio`), le plafond (`qualifiedLineBaseline`, `qualifiedBranchBaseline`) et le ratchet actif (`lineRatchet`, `branchRatchet`). La distance se calcule sur ces valeurs et sur les compteurs de lignes et de branches du même fichier ; elle ne s'écrit pas dans cette page.
+Toute hausse d'un ratchet au-delà de cette limite passe donc par une **requalification** du plafond de son échelle, que seuls les runners CI des deux plateformes peuvent fournir : écrire des tests ne suffit pas. Quand les ratchets sont posés au plus haut millième admis, la marge restante est nulle, et le prochain objectif de couverture se planifie avec sa requalification.
+
+Où lire ce qu'il reste : la preuve de chaque gate (`m21-per-module-coverage-summary.txt`, `m21-aggregate-coverage-summary.txt`, décrites ci-dessous) affiche côte à côte la mesure (`lineRatio`, `branchRatio`), le plafond (`qualifiedLineBaseline`, `qualifiedBranchBaseline`) et le ratchet actif (`lineRatchet`, `branchRatchet`). La distance se calcule sur ces valeurs et sur les compteurs de lignes et de branches du même fichier ; elle ne s'écrit pas dans cette page. Dans les résumés **conservés** sous `config/coverage-qualification/`, ces quatre champs sont ceux du commit mesuré, gardés tels quels : ils précèdent la requalification qui s'appuie sur eux et ne disent rien du plafond ni du ratchet en vigueur, qu'aucun test ne lit là. Seuls les compteurs et les ratios y font preuve.
 
 Chaque gate écrit sa propre preuve, dont la première ligne déclare l'échelle mesurée : `CoverageQualityGateTest` écrit `morpheus-architecture-tests/target/m21-per-module-coverage-summary.txt` (`coverageScope=per-module`) et `AggregateCoverageGateTest` écrit `morpheus-architecture-tests/target/m21-aggregate-coverage-summary.txt` (`coverageScope=aggregate`). Les deux fichiers portent la couverture observée, la baseline qualifiée, le ratchet actif et les minima D2 ; la preuve agrégée nomme en outre les modules qu'elle a mesurés (`population=`). Les validateurs refusent de conclure sur une preuve dont l'échelle n'est pas celle qu'ils attendent.
 
@@ -263,7 +265,7 @@ morpheus-architecture-tests/.../ProductReleaseContractTest.java
 morpheus-architecture-tests/.../AuditHardeningWorkflowContractTest.java
 ```
 
-`ReleasedSchemaUpgradeTest` ouvre avec le store courant une base construite par les seules migrations de chaque niveau de schéma publié, garnie de lignes dans toutes les tables qu'une migration ultérieure lit ou réécrit, puis relit ces lignes par les opérations des stores. Les niveaux sont déclarés une fois dans `morpheus-store-sqlite/src/test/resources/released-schema-levels.properties` ; une release y déclare son niveau dans la version qui la suit, et `ReleasedSchemaLevelsDeclarationTest` fait échouer le build tant qu'une version publiée dont les notes existent n'a pas sa ligne. Les lignes sont écrites par le test, d'après les requêtes d'insertion des stores aux tags, et non par le programme publié.
+`ReleasedSchemaUpgradeTest` ouvre avec le store courant une base construite par les seules migrations de chaque niveau de schéma publié, garnie de lignes dans toutes les tables qu'une migration ultérieure lit ou réécrit, puis relit ces lignes par les opérations des stores. Les niveaux sont déclarés une fois dans `morpheus-store-sqlite/src/test/resources/released-schema-levels.properties` ; une release y déclare son niveau dans la version qui la suit, et `ReleasedSchemaLevelsDeclarationTest` fait échouer le build tant qu'une version publiée dont les notes existent n'a pas sa ligne. Ces lignes sont écrites par le test, d'après les requêtes d'insertion des stores aux tags. Une seconde fabrique part des bases que les programmes publiés ont eux-mêmes écrites, une par niveau, sous `morpheus-store-sqlite/src/test/resources/published-databases/` (le `README.md` du répertoire dit quel tag, quel commit et quelle commande a produit chacune) : elle les fait monter, retrouve chaque ligne écrite à l'identique, hors la valeur que V020 renomme, et relit identités et historique par les stores. `validate-r2` exige un cas par niveau déclaré pour chaque fabrique, compte lu dans la déclaration.
 
 Windows et Linux doivent qualifier exactement le même SHA pour considérer une baseline M21 comme durable.
 
