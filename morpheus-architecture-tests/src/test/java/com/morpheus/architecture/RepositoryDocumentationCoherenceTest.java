@@ -385,11 +385,16 @@ class RepositoryDocumentationCoherenceTest {
         assertEquals("1574", ratchets.get("generatedTestsMinimum"));
         // architectureTestsMinimum 762 -> 769 on 25/10/2026: 779 architecture executions measured on Windows and
         // Linux at the head of ingest-a-project-through-the-provider-port, ten under the measure.
-        assertEquals("769", ratchets.get("architectureTestsMinimum"));
-        assertEquals("0.691", ratchets.get("perModuleLineCoverageMinimum"));
-        assertEquals("0.612", ratchets.get("perModuleBranchCoverageMinimum"));
-        assertEquals("0.900", ratchets.get("aggregateLineCoverageMinimum"));
-        assertEquals("0.757", ratchets.get("aggregateBranchCoverageMinimum"));
+        // 769 -> 813 on 28/10/2026: 823 architecture executions on both platforms, two CI runs each, at 61198c68.
+        assertEquals("813", ratchets.get("architectureTestsMinimum"));
+        // 28/10/2026: both caps requalified on four exact-head measurements of 61198c68 (see each gate), every
+        // coverage key raised to the highest thousandth keeping 3x the 24-line / 11-branch reference spread:
+        // per-module 0.691 -> 0.712 (78 lines) and 0.612 -> 0.625 (36 branches), aggregate 0.900 -> 0.912
+        // (84 lines) and 0.757 -> 0.773 (42 branches).
+        assertEquals("0.712", ratchets.get("perModuleLineCoverageMinimum"));
+        assertEquals("0.625", ratchets.get("perModuleBranchCoverageMinimum"));
+        assertEquals("0.912", ratchets.get("aggregateLineCoverageMinimum"));
+        assertEquals("0.773", ratchets.get("aggregateBranchCoverageMinimum"));
 
         String linux = Files.readString(root.resolve("scripts/validate-m21.sh"));
         String windows = Files.readString(root.resolve("scripts/validate-m21.ps1"));
