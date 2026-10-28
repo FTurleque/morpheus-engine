@@ -5,6 +5,7 @@ import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.application.operability.OperationalLogMode;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.operability.OperationalRuntime;
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.cli.MorpheusMain;
 import com.morpheus.cli.RepositoryRoot;
@@ -51,8 +52,9 @@ class MorpheusControlledLifecycleCliTest {
         assertTrue(denied.stdout().contains("WRITE_CHANGE"), denied.stdout());
 
         try (var mutations = new SqliteChangeLifecycleMutationStore(seed.database())) {
-            assertTrue(mutations.listAudit(
-                    ProjectSpecificationId.parse(seed.projectId()), ChangeId.parse(seed.changeId())).isEmpty());
+            assertEquals(0, mutations.listAudit(
+                    ProjectSpecificationId.parse(seed.projectId()), ChangeId.parse(seed.changeId()),
+                    PageRequest.first(1)).totalMatches());
         }
     }
 

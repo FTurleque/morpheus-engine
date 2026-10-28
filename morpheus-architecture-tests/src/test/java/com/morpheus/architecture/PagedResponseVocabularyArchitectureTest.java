@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * ADR-0131: no paginated response of {@code morpheus-mcp} or {@code morpheus-api} invents a name. The intention
+ * ADR-0151: no paginated response of {@code morpheus-mcp} or {@code morpheus-api} invents a name. The intention
  * aims at text in map literals, not at a compiled dependency ({@code .claude/rules/architecture.md}), so every rule
  * here reads sources.
  */

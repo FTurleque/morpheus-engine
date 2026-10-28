@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The audit of a policy pack answers with a page, not a bare array (AUD-PRF-04, ADR-0131): a journal only grows, and a
+ * The audit of a policy pack answers with a page, not a bare array (AUD-PRF-04, ADR-0151): a journal only grows, and a
  * list cut without saying so is what ADR-0124 forbids.
  */
 class MorpheusPolicyAuditPagingHttpTest {

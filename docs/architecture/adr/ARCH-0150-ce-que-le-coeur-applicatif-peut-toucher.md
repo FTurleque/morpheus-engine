@@ -58,8 +58,7 @@ Les onze classes d'accès fichier (2 424 lignes) :
 | `discovery.ProjectDiscoveryService` | 102 | aucun | 0 |
 | `discovery.WorkspaceRootResolver` | 43 | `ProjectDiscoveryService` seulement | 0 |
 
-`java.time.Clock` est le port d'horloge, injecté par constructeur, et `UpdateDiscoveryService(HttpClient, Duration)`
-permet de tester la découverte sans réseau.
+`java.time.Clock` est le port d'horloge, injecté par constructeur.
 
 ### Options considérées
 
@@ -105,15 +104,17 @@ par un test de parité, qui garde deux implémentations d'un chemin de confiance
 
 ## Decision
 
-### 1. SQL, JSON et processus sont refusés dans toute l'application
+### 1. SQL, JSON, processus, réseau et fils d'exécution sont refusés dans toute l'application
 
-Aucune classe de `com.morpheus.application..` ne dépend de `java.sql`, de Jackson ni de l'exécution de processus.
+Aucune classe de `com.morpheus.application..` ne dépend de `java.sql`, de Jackson, de l'exécution de processus, du
+réseau sortant ni des fils d'exécution. La découverte de mise à jour lit son manifeste par le
+port `product.UpdateManifestSource`, implémenté par `UpdateManifestFetcher` dans `morpheus-cli` ; `UpdateDiscoveryService`
+garde le refus de `http:` avant toute I/O, la borne de taille, le délai et l'analyse du manifeste.
 
 ### 2. Une famille en usage est confinée à des classes nommées, chacune avec son sort
 
 | Classes nommées | Familles | Sort |
 |---|---|---|
-| `UpdateDiscoveryService` | réseau, fils, fichier | **sort** : le transport passe derrière un port de `application.product`, implémenté dans `morpheus-cli` |
 | `SafeWorkspaceFileResolver`, `LocalSourceInventoryScanner`, `ScanWorkspaceBoundary`, `SourceFingerprint`, `ExternalJarIntegrity`, `RotatingOperationalLogFile` | fichier | reste |
 | `LocalWritePermissionHardener`, `PeerLaunchSettingsResolver` | fichier, environnement | reste |
 | `LocalSourceWatcher`, `ProjectDiscoveryService`, `WorkspaceRootResolver` | fichier | reste tant que la classe existe |
@@ -145,7 +146,7 @@ Ce qu'un transport tient de `SqliteOperationRuntime` et `SqliteServerMaintenance
 
 ### Don't
 
-- Ne pas faire dépendre une classe de l'application de `java.sql`, de Jackson ni de `ProcessBuilder`.
+- Ne pas faire dépendre une classe de l'application de `java.sql`, de Jackson, de `ProcessBuilder` ni de `java.net.http`.
 - Ne pas ajouter de classe à la liste d'une famille confinée sans un ADR consolidé qui remplace celui-ci.
 - Ne pas présenter l'application comme une couche sans technologie : elle fait de l'accès local, par des classes
   nommées.
@@ -157,8 +158,8 @@ Ce qu'un transport tient de `SqliteOperationRuntime` et `SqliteServerMaintenance
 
 - Toute famille de technologie de l'application est écrite, et l'état présent est gelé : la décision porte sur ce qui
   existe, pas sur ce qui s'ajoute pendant qu'elle est en attente.
-- L'unique sortie réseau du cœur passe derrière un port, ce qui la rend testable sans client HTTP et la range dans le
-  module qui possède le processus.
+- La lecture du manifeste de mise à jour passe derrière un port, ce qui rend la découverte testable sans client HTTP
+  et range le transport dans le module qui possède le processus.
 - Les listes nommées sont le compteur d'une éventuelle option A, comme `COMPOSITION_ROOTS` l'est pour ADR-0109.
 
 ### Négatives
@@ -170,8 +171,8 @@ Ce qu'un transport tient de `SqliteOperationRuntime` et `SqliteServerMaintenance
 ### Risques
 
 - Les trois classes sans appelant de production restent nommées tant qu'aucune décision ne les retire.
-- Le transport extrait emporte avec lui des invariants de sécurité épinglés textuellement : une extraction qui
-  laisserait ces assertions sur un fichier vidé garderait les gates verts sans plus rien surveiller.
+- Les invariants de sécurité de la découverte sont épinglés textuellement sur la classe qui les porte : une assertion
+  qui lirait un fichier vidé de son code garderait les gates verts sans plus rien surveiller.
 
 ## Compliance and Enforcement
 
@@ -185,9 +186,11 @@ Ce qu'un transport tient de `SqliteOperationRuntime` et `SqliteServerMaintenance
   `SqliteStorePackagesArchitectureTest` (ADR-0109).
 - `m27/ReasoningPlatformArchitectureTest` et `m25/PolicyPlatformArchitectureTest` : interdits textuels inchangés.
 - `LayerDependencyTest` : l'application ne dépend d'aucun adaptateur.
-- Revue : l'extraction du transport de découverte de mise à jour (changement OpenSpec
-  `move-marked-technology-access-behind-application-ports`) déplace avec lui `UpdateTrustBoundaryContractTest`,
-  `AuditHardeningWorkflowContractTest`, `ProductionIntegrityContractTest` et `SilentCatchArchitectureTest`.
+- Découverte de mise à jour : `UpdateTrustBoundaryContractTest` et `AuditHardeningWorkflowContractTest` lisent la
+  classification de confiance et l'analyse du manifeste dans `UpdateDiscoveryService` ; `ProductionIntegrityContractTest`
+  exige que `MorpheusProductCli` soit le seul site de `new UpdateDiscoveryService(` ; `SilentCatchArchitectureTest`
+  nomme le `catch` de fermeture de `UpdateManifestFetcher.java` ; `UpdateManifestFetcherTest` (`morpheus-cli`) tient,
+  sur un vrai serveur TLS, la redirection refusée, le délai, la taille et l'interruption.
 - `McpPeerSettingsResolutionArchitectureTest` : les types de réglages des intégrations MINOS et NEXUS ne dépendent ni
   de l'API fichier ni de la vérification du pin, et les deux pairs résolvent une même table d'entrées à l'identique ;
   `PeerLauncherArchitectureTest` tient le lanceur en chemin absolu sur le résolveur et sur le type de résultat partagé.

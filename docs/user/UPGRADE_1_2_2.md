@@ -15,7 +15,7 @@ sauvegarde prise **avant** cette première ouverture.
 1.2.1 program files  -> remplacés par 1.2.2
 persistent data      -> conservées, base migrée à la première ouverture
 configuration        -> conservée
-SQLite schema        -> V020 (1.2.1) vers V022
+SQLite schema        -> V020 (1.2.1) vers V023
 retour à 1.2.1       -> uniquement par restauration d'une sauvegarde prise avant la mise à niveau
 ```
 
@@ -24,6 +24,7 @@ Migrations appliquées, dans l'ordre, en une seule transaction :
 ```text
 V021  policy audit order key
 V022  serve ordered reads from an index
+V023  source archive order key
 ```
 
 V021 ajoute à chaque enregistrement du journal d'audit des policies une clé d'ordre, calculée à partir de son instant,
@@ -32,6 +33,10 @@ et l'index qui permet de lire ce journal page par page. Les enregistrements eux-
 V022 ne change aucune donnée : elle retire onze index qui répètent le début d'un autre index de leur table, et remplace
 deux index pour que la lecture des exigences courantes d'un instantané et le listage des vues enregistrées d'un
 périmètre sortent de l'index dans l'ordre où ils sont rendus, sans tri temporaire.
+
+V023 fait pour les archives de synchronisation ce que V021 fait pour l'audit des policies : elle ajoute à chaque archive
+une clé d'ordre calculée à partir de son instant, et l'index qui permet de les lire page par page. Elle retire l'index
+sur l'instant en texte, qu'aucune lecture n'utilise. Les archives elles-mêmes ne sont pas modifiées.
 
 Elles sont appliquées automatiquement, vérifiées par checksum, et ne s'appliquent qu'une fois. Si l'une échoue, aucune
 n'est conservée : la base reste à son schéma de départ.
@@ -67,7 +72,7 @@ La sauvegarde n'est pas une précaution : c'est la seule façon de revenir à 1.
    une seconde copie hors du répertoire d'installation, sur un autre support si possible.
 
 **Pourquoi il ne faut pas attendre.** `server backup create` ouvre la base avant de la copier, et l'ouvrir la migre :
-une sauvegarde est toujours amenée au schéma du programme qui l'exécute. Créée avec 1.2.2, elle est déjà en V022, et
+une sauvegarde est toujours amenée au schéma du programme qui l'exécute. Créée avec 1.2.2, elle est déjà en V023, et
 `server restore` de 1.2.1 la refuse. Une sauvegarde prise après le premier démarrage de 1.2.2 protège les données ;
 elle ne permet pas de revenir en arrière.
 
@@ -99,7 +104,7 @@ morpheus --version
 morpheus --json product-info
 ```
 
-Une sauvegarde créée à partir de ce moment, puis vérifiée par `server backup verify`, annonce le schéma V022 dans son
+Une sauvegarde créée à partir de ce moment, puis vérifiée par `server backup verify`, annonce le schéma V023 dans son
 champ `schemaVersion`. C'est le signe que la migration a eu lieu.
 
 ## Retour à 1.2.1
@@ -107,13 +112,13 @@ champ `schemaVersion`. C'est le signe que la migration a eu lieu.
 Réinstaller les fichiers 1.2.1 ne suffit pas : le programme 1.2.1 refuse d'ouvrir une base plus récente que lui, avec
 
 ```text
-SQLite schema version 22 is newer than supported 20
+SQLite schema version 23 is newer than supported 20
 ```
 
 Il n'existe pas de migration descendante. Le retour se fait ainsi :
 
 1. arrêter tous les processus MORPHEUS 1.2.2 ;
-2. mettre de côté une copie de la base V022, pour diagnostic ;
+2. mettre de côté une copie de la base V023, pour diagnostic ;
 3. remettre le programme 1.2.1 ;
 4. restaurer, avec 1.2.1, la sauvegarde prise avant la mise à niveau :
 

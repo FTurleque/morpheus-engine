@@ -126,7 +126,7 @@ class AdapterSiblingArchitectureTest {
         noClasses()
                 .that().resideInAPackage(MCP)
                 .should().dependOnClassesThat().resideInAnyPackage(API, CLI)
-                .because("ADR-0131: morpheus-mcp and morpheus-api are sibling adapters, neither calls the other")
+                .because("ADR-0151: morpheus-mcp and morpheus-api are sibling adapters, neither calls the other")
                 .check(PRODUCTION);
     }
 

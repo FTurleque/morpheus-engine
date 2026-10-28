@@ -6,6 +6,7 @@ import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.application.operability.OperationalLogMode;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.operability.OperationalRuntime;
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.cli.command.CliExitCode;
 import com.morpheus.cli.command.CliLayout;
@@ -97,7 +98,7 @@ class LifecycleApplyFailureParityTest {
         try (var mutations = new SqliteChangeLifecycleMutationStore(database)) {
             ProjectSpecificationId projectId = ProjectSpecificationId.parse(seed.projectId());
             ChangeId changeId = ChangeId.parse(seed.changeId());
-            assertTrue(mutations.listAudit(projectId, changeId).isEmpty(),
+            assertEquals(0, mutations.listAudit(projectId, changeId, PageRequest.first(1)).totalMatches(),
                     () -> label + ": a refused command must leave no audit record on any surface");
             assertTrue(mutations.findState(projectId, changeId).isEmpty(),
                     () -> label + ": a refused command must leave no lifecycle state on any surface");

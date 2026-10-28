@@ -82,7 +82,9 @@ public final class MorpheusProductCli {
     private int updateCheck(Parsed parsed, PrintStream out) {
         String manifest = parsed.option(OPT_MANIFEST);
         URI manifestUri = explicitUri(manifest);
-        UpdateCheckResult result = new UpdateDiscoveryService().check(manifestUri);
+        UpdateDiscoveryService discovery =
+                new UpdateDiscoveryService(new UpdateManifestFetcher(), UpdateDiscoveryService.DEFAULT_TIMEOUT);
+        UpdateCheckResult result = discovery.check(manifestUri);
         if (parsed.json()) {
             out.println(json.toJson(result));
         } else {

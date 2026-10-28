@@ -1,6 +1,6 @@
 # ADR-0116 — Les journaux sont conservés pour la vie de la base et lus par pages
 
-> **Archivée.** Cette décision est consolidée dans [ADR-0131](../BE-0131-pagination-des-collections-et-journaux.md). Ce texte n'est plus en vigueur et n'est pas tenu à jour.
+> **Archivée.** Cette décision est consolidée dans [ADR-0131](0131-pagination-des-collections-et-journaux.md), elle-même remplacée par [ADR-0151](../BE-0151-pagination-des-collections-et-journaux.md). Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
 - Statut : **Remplacée par ADR-0131**
 - Date : 17 octobre 2026

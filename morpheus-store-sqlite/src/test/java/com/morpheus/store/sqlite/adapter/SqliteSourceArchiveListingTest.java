@@ -6,19 +6,22 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The archive listing asks the database for no order: the instant is stored as text that does not sort by time, so
- * the store orders after reading. An {@code ORDER BY} put back would be paid for and then replaced.
+ * The archive listing asks the database for one page in the order of the archive record: the instant is stored as text
+ * that does not sort by time, so the statement orders by the fixed-width key of that instant, then by the columns that
+ * break its ties, and bounds the page in the query.
  */
 class SqliteSourceArchiveListingTest {
 
     @Test
-    void theArchiveListingStatementCarriesNoOrderBy() {
-        assertFalse(SqliteSyncStateStore.LIST_ARCHIVES_SQL.toUpperCase().contains("ORDER BY"),
-                "SqliteSyncStateStore.LIST_ARCHIVES_SQL must not order: " + SqliteSyncStateStore.LIST_ARCHIVES_SQL);
+    void theArchiveListingStatementOrdersByTheKeyAndBoundsThePage() {
+        String sql = SqliteSyncStateStore.LIST_ARCHIVES_SQL;
+
+        assertTrue(sql.contains("ORDER BY archived_key, source_path, reason, fingerprint_sha256"),
+                "SqliteSyncStateStore.LIST_ARCHIVES_SQL must order as SourceArchiveRecord compares: " + sql);
+        assertTrue(sql.contains("LIMIT ? OFFSET ?"), "SqliteSyncStateStore.LIST_ARCHIVES_SQL must bound the page: " + sql);
     }
 
     @Test
@@ -27,10 +30,10 @@ class SqliteSourceArchiveListingTest {
         int statement = source.indexOf("static final String LIST_ARCHIVES_SQL");
         assertTrue(statement > 0, "LIST_ARCHIVES_SQL must be declared in SqliteSyncStateStore");
 
-        String above = source.substring(Math.max(0, statement - 400), statement);
+        String above = source.substring(Math.max(0, statement - 500), statement);
 
         assertTrue(above.contains("does not sort by time"),
-                "the comment above LIST_ARCHIVES_SQL must say why the statement has no ORDER BY");
+                "the comment above LIST_ARCHIVES_SQL must say why the statement orders by archived_key");
     }
 
     @Test

@@ -138,6 +138,6 @@ Java qu'il publie ; un énuméré qui n'a pas d'équivalent Java est une exempti
 - [ADR-0063](ARCH-0063-read-only-mcp-tool-contract.md) — contrat des outils MCP.
 - [ADR-0065](ARCH-0065-jdk-httpserver-local-api.md) — API locale sur `jdk.httpserver`.
 - [ADR-0081](DATA-0081-first-class-acceptance-verification-evidence.md) — critères d'acceptation de première classe.
-- [ADR-0131](BE-0131-pagination-des-collections-et-journaux.md) — pagination des collections et des journaux.
+- [ADR-0151](BE-0151-pagination-des-collections-et-journaux.md) — pagination des collections et des journaux.
 - [API HTTP](../../developer/API.md)
 - [Validation M11](../../project/validation/VALIDATION_M11.md)

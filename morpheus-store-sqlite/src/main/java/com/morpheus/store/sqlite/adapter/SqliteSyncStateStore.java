@@ -1,8 +1,10 @@
 package com.morpheus.store.sqlite.adapter;
 
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.SyncStateStore;
 import com.morpheus.application.sync.ProjectSyncState;
+import com.morpheus.application.sync.SourceArchivePage;
 import com.morpheus.application.sync.SourceArchiveRecord;
 import com.morpheus.application.sync.SourceFingerprint;
 import com.morpheus.application.sync.SourceInventory;
@@ -22,20 +24,26 @@ import java.sql.Statement;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
 /** SQLite adapter for M7 synchronization state, current inventory and immutable source archives. */
 public final class SqliteSyncStateStore implements SyncStateStore, AutoCloseable {
     /**
-     * No ORDER BY: archived_at holds Instant.toString(), whose text does not sort by time when the fraction varies in
-     * length. The order is SourceArchiveRecord.compareTo, applied after the read, as the memory store applies it.
+     * One page in the order of SourceArchiveRecord: instant, path, reason, fingerprint. archived_at holds
+     * Instant.toString(), whose text does not sort by time when the fraction varies in length, so the statement orders
+     * by archived_key, the same instant as a fixed-width text (migration 23), through
+     * idx_sync_source_archives_project_order. reason holds DELETED or MOVED, whose text order is their declaration order.
      */
     static final String LIST_ARCHIVES_SQL = """
             SELECT source_path, fingerprint_sha256, size_bytes, archived_at, reason, moved_to_path, source_revision
             FROM sync_source_archives
             WHERE project_id = ?
+            ORDER BY archived_key, source_path, reason, fingerprint_sha256
+            LIMIT ? OFFSET ?
             """;
+    static final String COUNT_ARCHIVES_SQL = "SELECT COUNT(*) FROM sync_source_archives WHERE project_id = ?";
     static final String READ_INVENTORY_ENTRIES_SQL = """
             SELECT source_path, fingerprint_sha256, size_bytes
             FROM sync_inventory_entries
@@ -104,11 +112,33 @@ public final class SqliteSyncStateStore implements SyncStateStore, AutoCloseable
     }
 
     @Override
-    public synchronized List<SourceArchiveRecord> listArchives(ProjectSpecificationId projectId) {
+    public synchronized SourceArchivePage listArchives(ProjectSpecificationId projectId, PageRequest pageRequest) {
         ensureOpen();
         Objects.requireNonNull(projectId, "projectId");
+        Objects.requireNonNull(pageRequest, "pageRequest");
+        try {
+            int total;
+            try (PreparedStatement count = connection.prepareStatement(COUNT_ARCHIVES_SQL)) {
+                count.setString(1, projectId.toString());
+                try (ResultSet result = count.executeQuery()) {
+                    result.next();
+                    total = result.getInt(1);
+                }
+            }
+            List<SourceArchiveRecord> records = readArchives(projectId, pageRequest);
+            return new SourceArchivePage(
+                    records, pageRequest, total, (long) pageRequest.offset() + records.size() < total);
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot read source archives for " + projectId, exception);
+        }
+    }
+
+    private List<SourceArchiveRecord> readArchives(ProjectSpecificationId projectId, PageRequest pageRequest)
+            throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(LIST_ARCHIVES_SQL)) {
             statement.setString(1, projectId.toString());
+            statement.setInt(2, pageRequest.limit());
+            statement.setInt(3, pageRequest.offset());
             List<SourceArchiveRecord> records = new ArrayList<>();
             try (ResultSet result = statement.executeQuery()) {
                 while (result.next()) {
@@ -124,9 +154,7 @@ public final class SqliteSyncStateStore implements SyncStateStore, AutoCloseable
                             optional(result.getString("source_revision"))));
                 }
             }
-            return records.stream().sorted().toList();
-        } catch (SQLException exception) {
-            throw new KnowledgeStoreException("Cannot read source archives for " + projectId, exception);
+            return records;
         }
     }
 
@@ -340,8 +368,8 @@ public final class SqliteSyncStateStore implements SyncStateStore, AutoCloseable
         try (PreparedStatement insert = connection.prepareStatement("""
                 INSERT OR IGNORE INTO sync_source_archives(
                     project_id, source_path, fingerprint_sha256, size_bytes,
-                    archived_at, reason, moved_to_path, source_revision)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    archived_at, reason, moved_to_path, source_revision, archived_key)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """)) {
             for (SourceArchiveRecord record : records) {
                 insert.setString(1, record.projectId().toString());
@@ -352,10 +380,19 @@ public final class SqliteSyncStateStore implements SyncStateStore, AutoCloseable
                 insert.setString(6, record.reason().name());
                 nullable(insert, 7, record.movedTo().map(SourcePath::toString));
                 nullable(insert, 8, record.sourceRevision());
+                insert.setString(9, archivedKey(record.archivedAt()));
                 insert.addBatch();
             }
             insert.executeBatch();
         }
+    }
+
+    /**
+     * The instant as the fixed-width text {@code archived_key} holds: epoch seconds on 13 digits, a dot, nanoseconds on
+     * 9 - the format of {@code policy_audit.at_key}.
+     */
+    static String archivedKey(Instant archivedAt) {
+        return String.format(Locale.ROOT, "%013d.%09d", archivedAt.getEpochSecond(), archivedAt.getNano());
     }
 
     private List<SourceInventory.Entry> readEntries(ProjectSpecificationId projectId) throws SQLException {

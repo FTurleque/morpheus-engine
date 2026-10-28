@@ -8,8 +8,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -44,7 +48,7 @@ class ProductIntegrityTest {
                 "sha256=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 ""));
 
-        UpdateCheckResult result = new UpdateDiscoveryService().check(manifest.toUri());
+        UpdateCheckResult result = FileManifestSource.discovery().check(manifest.toUri());
 
         assertEquals(ProductMetadata.version(), result.currentVersion());
         assertEquals(availableVersion, result.availableVersion());
@@ -67,7 +71,7 @@ class ProductIntegrityTest {
                 "attestationUri=" + attestation,
                 ""));
 
-        UpdateCheckResult result = new UpdateDiscoveryService().check(manifest.toUri());
+        UpdateCheckResult result = FileManifestSource.discovery().check(manifest.toUri());
 
         assertEquals(Optional.of(attestation), result.attestationUri());
         assertEquals(UpdateTrustLevel.DISCOVERY_ONLY, result.trustLevel());
@@ -83,7 +87,7 @@ class ProductIntegrityTest {
                 "sha256=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
                 ""));
 
-        UpdateCheckResult result = new UpdateDiscoveryService().check(manifest.toUri());
+        UpdateCheckResult result = FileManifestSource.discovery().check(manifest.toUri());
 
         assertFalse(result.updateAvailable());
     }
@@ -95,7 +99,7 @@ class ProductIntegrityTest {
 
         IllegalArgumentException failure = assertThrows(
                 IllegalArgumentException.class,
-                () -> new UpdateDiscoveryService().check(manifest.toUri()));
+                () -> FileManifestSource.discovery().check(manifest.toUri()));
         assertTrue(failure.getMessage().contains("exceeds " + UpdateDiscoveryService.MAX_MANIFEST_BYTES));
     }
 
@@ -103,7 +107,8 @@ class ProductIntegrityTest {
     void insecureHttpManifestIsRejectedBeforeAnyNetworkIo() {
         IllegalArgumentException failure = assertThrows(
                 IllegalArgumentException.class,
-                () -> new UpdateDiscoveryService().check(URI.create("http://example.invalid/update.properties")));
+                () -> FileManifestSource.refusingDiscovery()
+                        .check(URI.create("http://example.invalid/update.properties")));
         assertTrue(failure.getMessage().contains("insecure update manifest scheme"));
         assertTrue(failure.getMessage().contains("https"));
     }
@@ -112,9 +117,36 @@ class ProductIntegrityTest {
     void unsupportedManifestSchemesAreRejectedBeforeAnyIo() {
         IllegalArgumentException failure = assertThrows(
                 IllegalArgumentException.class,
-                () -> new UpdateDiscoveryService().check(URI.create("ftp://example.invalid/update.properties")));
+                () -> FileManifestSource.refusingDiscovery()
+                        .check(URI.create("ftp://example.invalid/update.properties")));
         assertTrue(failure.getMessage().contains("unsupported update manifest scheme"));
         assertTrue(failure.getMessage().contains("file or https"));
+    }
+
+    @Test
+    void theSourceIsHandedTheBoundsTheDiscoveryStates() {
+        Duration deadline = Duration.ofSeconds(3);
+        List<String> requests = new ArrayList<>();
+        UpdateDiscoveryService discovery = new UpdateDiscoveryService((uri, byteLimit, given) -> {
+            requests.add(uri + " " + byteLimit + " " + given);
+            return "x".repeat(byteLimit + 1).getBytes(StandardCharsets.UTF_8);
+        }, deadline);
+        URI manifest = URI.create("https://updates.example.invalid/stable.properties");
+
+        IllegalArgumentException failure =
+                assertThrows(IllegalArgumentException.class, () -> discovery.check(manifest));
+
+        assertEquals("update manifest exceeds " + UpdateDiscoveryService.MAX_MANIFEST_BYTES + " bytes: " + manifest,
+                failure.getMessage());
+        assertEquals(List.of(manifest + " " + UpdateDiscoveryService.MAX_MANIFEST_BYTES + " " + deadline), requests);
+    }
+
+    @Test
+    void aRelativeManifestAddressIsRefusedBeforeAnyIo() {
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class,
+                () -> FileManifestSource.refusingDiscovery().check(URI.create("update.properties")));
+        assertEquals("manifestUri must be absolute", failure.getMessage());
     }
 
     @Test

@@ -119,7 +119,7 @@ class ProductionIntegrityContractTest {
                     .filter(path -> path.toString().contains("src" + java.io.File.separator + "main" + java.io.File.separator + "java"))
                     .filter(path -> path.toString().endsWith(".java"))
                     .toList()) {
-                if (Files.readString(file).contains("new UpdateDiscoveryService()")) {
+                if (Files.readString(file).contains("new UpdateDiscoveryService(")) {
                     constructionSites.add(root.relativize(file));
                 }
             }

@@ -1,5 +1,5 @@
 ---
-id: BE-0131
+id: BE-0151
 title: "Une page parle un seul vocabulaire, et un journal est conservé et lu par pages"
 domain: backend
 rules: false
@@ -8,8 +8,8 @@ rules: false
 # Une page parle un seul vocabulaire, et un journal est conservé et lu par pages
 
 - Statut : **Acceptée**
-- Date : 2026-10-24
-- Remplace : ADR-0107, ADR-0116
+- Date : 2026-10-28
+- Remplace : ADR-0131
 
 ## Context
 
@@ -24,6 +24,42 @@ entière, une telle collection finit par dépasser le cadre MCP (`BoundedStdioSe
 réponse par `MCP_RESPONSE_TOO_LARGE` et conseille de paginer) ou la taille de réponse amont que le serveur remote
 accepte (`MorpheusRemoteHttpServer.MAX_PROXY_RESPONSE_BYTES`, `502 UPSTREAM_RESPONSE_TOO_LARGE`), sans recours.
 
+### Mise en œuvre de la décision
+
+- **Page embarquée.** `get_current_specification` rend ses spécifications sous `specifications: { offset, limit,
+  totalMatches, hasMore, items }` ; ses compteurs de collections non paginées (`requirementCount`, `scenarioCount`,
+  `changeCount`, `acceptanceCriterionCount`) restent à côté. Les identifiants d'une réponse sont par exemple
+  `snapshotId`, `query`, `primaryProviderId` ; les orthographes concurrentes du total sont `specificationCount`,
+  `totalCount`, `totalItems`, `totalResults`, `total` et `count`.
+- **Fabrique.** Les deux copies de `PagedEnvelope` sont des classes package-private : les deux adaptateurs sont frères
+  et ne s'appellent pas.
+- **Glissement.** Une page lue pendant qu'un élément s'ajoute peut glisser ; `totalMatches`, rendu à chaque page,
+  permet de le constater.
+- **Lignée d'un projet** (`GET /api/v1/projects/{projectId}/versions`) : une publication s'ajoute en fin et ne décale
+  aucune page lue. La projection (deux lectures de store par élément) est bornée par `limit` ; la lignée est parcourue
+  en entier pour connaître `totalMatches`.
+- **Audit des policies.** Il est servi par `get_policy_audit`, `GET /api/v1/policy-packs/{id}/audit` et
+  `policy audit`, avec le même vocabulaire et les mêmes bornes. `PolicyPackStore.listAudit(packId, PageRequest)` rend
+  une `PolicyAuditPage` ; le store SQLite ne construit que les enregistrements de la page, dans l'ordre de la colonne
+  `policy_audit.at_key` (l'instant en texte de largeur fixe) puis de l'identifiant, sur un index qui la suit.
+- **Les deux autres journaux.** `ChangeLifecycleMutationStore.listAudit(…, PageRequest)` rend une
+  `ChangeLifecycleMutationAuditPage`, ordonnée par révision puis identité de mutation ;
+  `SyncStateStore.listArchives(…, PageRequest)` rend une `SourceArchivePage`, ordonnée par instant, chemin, raison et
+  empreinte, suivant `sync_source_archives.archived_key`, au format de `at_key`, sur un index dans cet ordre. Aucune
+  surface publique ne lit ces deux journaux. Les archives sont toujours écrites : elles sont la trace qu'une source a
+  disparu.
+- **Outils MCP.** `PageArguments` lit et déclare ses bornes depuis les constantes de `MorpheusMcpToolCatalog`. Tout
+  outil servi par le câblage par défaut déclare `offset` et `limit`, ou figure dans une liste d'exemptions avec sa
+  raison : `ONE_RESULT`, `BOUNDED_IN_COUNT` ou `UNBOUNDED_ACKNOWLEDGED`. Une borne en nombre d'éléments ne promet rien
+  de la taille d'une réponse.
+- **Collections découpées en mémoire.** `list_policy_pack_versions` et `list_saved_view_versions` paginent par
+  `PagedEnvelope.slice` une liste déjà lue en entier : la borne limite la réponse, pas le coût de lecture. Sur HTTP
+  (`GET /api/v1/policy-packs/{id}/versions`, `GET /api/v1/saved-views/{id}/versions`) et sur la CLI
+  (`policy pack versions`, `views versions`), ces collections sont rendues entières. Les paginer partout est une
+  décision qui reste à prendre ; elle change un contrat public.
+- **Conservation.** L'opérateur dispose de la sauvegarde et de la restauration hors ligne. Une purge exige une taille
+  mesurée qui pose un problème réel, ou une obligation écrite, et une décision qui remplace celle-ci.
+
 Options écartées :
 
 - **Renommer à plat `specificationCount` en `totalMatches`** : cohérent, mais illisible au milieu des compteurs voisins.
@@ -36,70 +72,48 @@ Options écartées :
   en cause.
 - **Trier l'audit par `ORDER BY at, id`** : `at` est un instant en texte dont l'ordre lexicographique n'est pas l'ordre
   chronologique quand le nombre de décimales varie.
-- **Paginer les journaux sans lecteur** : il faudrait concevoir un ordre pour aucun appelant.
+- **Barrer les journaux sans lecteur au lieu de les paginer** : la lecture entière resterait sur le port, signature
+  courte qui attend son prochain appelant.
 - **Purger un journal** : une purge est une décision sur ce que le produit garde comme preuve, pas un correctif.
 
 ## Decision
 
 ### 1. Le vocabulaire d'une page
 
-Une page porte exactement cinq clés, dans cet ordre : `offset`, `limit`, `totalMatches`, `hasMore`, `items`. Le total
-d'une page s'appelle `totalMatches` sur tous les transports. Les identifiants de la réponse (`snapshotId`, `query`,
-`primaryProviderId`…) précèdent la page et ne réutilisent jamais une de ses clés. Aucune orthographe concurrente du
-total (`specificationCount`, `totalCount`, `totalItems`, `totalResults`, `total`, `count`) n'est employée.
+Une page porte exactement cinq clés, dans cet ordre : `offset`, `limit`, `totalMatches`, `hasMore`, `items`, sur tous
+les transports. Les identifiants de la réponse précèdent la page et ne réutilisent aucune de ses clés. Aucune
+orthographe concurrente du total n'est employée.
 
 ### 2. Une page embarquée est une valeur
 
-Quand une réponse **contient** une page, la page est l'objet porté par la clé qui nomme sa collection. Ainsi
-`get_current_specification` rend ses spécifications sous `specifications: { offset, limit, totalMatches, hasMore,
-items }`, et ses compteurs de collections non paginées (`requirementCount`, `scenarioCount`, `changeCount`,
-`acceptanceCriterionCount`) restent à côté. La page embarquée ne répète pas les identifiants de l'objet englobant.
+Une page contenue dans une réponse est l'objet porté par la clé qui nomme sa collection ; elle ne répète pas les
+identifiants de l'objet englobant.
 
 ### 3. Une fabrique par adaptateur
 
-La fabrique `PagedEnvelope` existe une fois dans `morpheus-mcp` et une fois dans `morpheus-api`, en classe
-package-private de même code au nom de package près. Les deux adaptateurs sont frères et ne s'appellent pas ; la
-fabrique n'entre pas dans `morpheus-application`. Aucune source de production de ces deux modules n'écrit
-`"totalMatches"` ou `"hasMore"` hors de sa fabrique.
+`PagedEnvelope` existe une fois dans `morpheus-mcp` et une fois dans `morpheus-api`, de même code au nom de package
+près, et jamais dans `morpheus-application`. Aucune autre source de production de ces deux modules n'écrit
+`"totalMatches"` ou `"hasMore"`.
 
 ### 4. Une collection en ajout seul est restituée par page, dans un ordre total
 
-L'ordre d'une page est total et stable ; aucun curseur n'est offert. Une page lue pendant qu'un élément s'ajoute peut
-glisser, et `totalMatches`, rendu à chaque page, permet de le constater. Les arguments de page sont validés avant la
-lecture de la collection.
+L'ordre d'une page est total et stable, sans curseur ; les arguments de page sont validés avant la lecture.
 
-- **La lignée des versions d'un projet** (`GET /api/v1/projects/{projectId}/versions`) est rendue par page, du plus
-  ancien au plus récent : une publication s'ajoute en fin et ne décale aucune page lue. La projection (deux lectures de
-  store par élément) est bornée par `limit` ; la lignée est parcourue en entier pour connaître `totalMatches`.
-- **L'audit de configuration des policies est paginé au store**, sur les trois transports qui le servent
-  (`get_policy_audit`, `GET /api/v1/policy-packs/{id}/audit`, `policy audit`), avec le même vocabulaire et les mêmes
-  bornes. `PolicyPackStore.listAudit(packId, PageRequest)` rend une `PolicyAuditPage` ; le port n'a pas de lecture du
-  journal entier. Le store SQLite ne construit que les enregistrements de la page, dans l'ordre de la colonne
-  `policy_audit.at_key` (l'instant en texte de largeur fixe) puis de l'identifiant, sur un index qui la suit.
-- **Un outil MCP sur une collection croissante prend une page.** `PageArguments` lit et déclare ses bornes depuis les
-  constantes de `MorpheusMcpToolCatalog` : le schéma publie exactement les bornes que le handler applique, et
-  `PageArguments.MAX_LIMIT` est égal à `PageRequest.MAX_LIMIT`. Tout outil servi par le câblage par défaut déclare
-  `offset` et `limit`, ou figure dans une liste d'exemptions avec sa raison (`ONE_RESULT`, `BOUNDED_IN_COUNT`,
-  `UNBOUNDED_ACKNOWLEDGED`). Une borne en nombre d'éléments ne promet rien de la taille d'une réponse.
+- La lignée des versions d'un projet est rendue par page, du plus ancien au plus récent.
+- Les trois journaux sont paginés au store, dans un ordre qu'un index suit. Aucun port de journal n'offre de lecture
+  entière.
+- Un outil MCP sur une collection croissante prend une page, et son schéma publie exactement les bornes que son handler
+  applique ; `PageArguments.MAX_LIMIT` est égal à `PageRequest.MAX_LIMIT`. Sinon, il est exempté avec sa raison.
 
 ### 5. Les collections encore découpées en mémoire
 
-Les versions d'un pack de policies et les révisions d'une vue enregistrée sont paginées sur MCP seulement
-(`list_policy_pack_versions`, `list_saved_view_versions`), par `PagedEnvelope.slice` sur une liste déjà lue en entier :
-la borne limite la réponse, pas le coût de lecture. Sur HTTP (`GET /api/v1/policy-packs/{id}/versions`,
-`GET /api/v1/saved-views/{id}/versions`) et sur la CLI (`policy pack versions`, `views versions`), elles sont rendues
-entières. Les paginer partout est une décision qui reste à prendre ; elle change un contrat public.
+Les versions d'un pack de policies et les révisions d'une vue enregistrée sont paginées sur MCP seulement ; HTTP et la
+CLI les rendent entières.
 
 ### 6. Un journal est conservé pour la vie de la base
 
 Aucune instruction du produit ne supprime de `policy_audit`, de `change_lifecycle_mutation_audit` ni de
-`sync_source_archives`. L'opérateur dispose de la sauvegarde et de la restauration hors ligne. Une purge exigerait une
-taille mesurée qui pose un problème réel, ou une obligation écrite, et une décision qui remplace celle-ci.
-
-Les deux journaux sans lecteur, `ChangeLifecycleMutationStore.listAudit` et `SyncStateStore.listArchives`, rendent
-toutes les lignes d'un change ou d'un projet. Aucune classe de production ne les appelle ; la surface qui en aura besoin
-les borne d'abord. Les archives de synchronisation continuent d'être écrites : elles sont la trace qu'une source a
-disparu.
+`sync_source_archives`.
 
 ## Do's and Don'ts
 
@@ -118,8 +132,8 @@ disparu.
 - Ne pas écrire `"totalMatches"` ou `"hasMore"` à la main hors des fabriques, ni une orthographe concurrente du total.
 - Ne pas déplacer la fabrique de page dans `morpheus-application`.
 - Ne pas trier l'audit des policies sur le texte de `at`.
-- Ne pas appeler `ChangeLifecycleMutationStore.listAudit` ni `SyncStateStore.listArchives` depuis le code de
-  production sans les borner d'abord.
+- Ne pas déclarer sur un port de journal, ni sur un store qui l'implémente, une méthode qui rend une collection
+  d'enregistrements du journal.
 - Ne pas supprimer d'un journal, ni introduire une purge sans décision qui remplace celle-ci.
 
 ## Consequences
@@ -128,7 +142,7 @@ disparu.
 
 - Un client lit le même vocabulaire de page sur MCP et HTTP, et l'audit des policies sur les trois transports.
 - Une collection croissante reste lisible sur MCP au-delà du cadre, en suivant le conseil du transport.
-- La lecture de l'audit ne matérialise que la page demandée.
+- La lecture d'un journal ne matérialise que la page demandée.
 
 ### Négatives
 
@@ -161,15 +175,18 @@ disparu.
   `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/adapter/SqlitePolicyAuditPageTest.java` : page de l'audit sur
   HTTP, requête de page sans tri.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/AppendOnlyJournalReadsArchitectureTest.java` :
-  aucune lecture de production des deux journaux sans lecteur, aucune instruction qui supprime d'un journal.
+  aucun port de journal ni store qui l'implémente ne rend un journal entier, aucune instruction qui supprime d'un
+  journal.
+- `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/SourceArchiveOrderParityTest.java` et
+  `ControlledLifecycleMutationContractTest.java` : mêmes pages sur les deux stores.
 
 ## References
 
-- [ADR-0137](ARCH-0137-lectures-et-recherche-sur-le-snapshot-publie.md) — requête lexicale déterministe
+- [ADR-0137](ARCH-0137-lectures-et-recherche-sur-le-snapshot-publie.md) — requête lexicale déterministe, lectures
+  métier sur le snapshot publié
 - [ADR-0106](BE-0106-inbound-bound-is-defensive-outbound-bound-is-a-defect.md) — borne entrante défensive, borne
   sortante comme défaut
 - [ADR-0124](ARCH-0124-qualite-findings-et-faits-tri-etat.md) — une réponse dit ce qu'elle n'a pas pu observer
 - [ADR-0110](DATA-0110-a-copy-is-kept-before-the-schema-advances.md) — une copie est gardée avant que le schéma avance
-- [ADR-0137](ARCH-0137-lectures-et-recherche-sur-le-snapshot-publie.md) — lectures métier sur le snapshot publié
 - [ADR-0123](ARCH-0123-vues-compactes-et-json-canonique.md) — vues compactes et JSON canonique
 - `contracts/public-surfaces.tsv`

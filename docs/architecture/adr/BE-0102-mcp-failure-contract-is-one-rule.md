@@ -210,5 +210,5 @@ composition reste explicite, et un résultat en erreur reste un refus, jamais un
 - [ADR-0093](ARCH-0093-provider-neutral-policy-packs-governance-automation.md) — `UNKNOWN` n'est jamais `BLOCKED`.
 - [ADR-0124](ARCH-0124-qualite-findings-et-faits-tri-etat.md) — ce qui n'est pas observé est dit.
 - [ADR-0129](SEC-0129-plugins-provider-code-de-confiance-hors-processus.md) — frontière du code externe.
-- [ADR-0131](BE-0131-pagination-des-collections-et-journaux.md) — pagination des collections.
+- [ADR-0151](BE-0151-pagination-des-collections-et-journaux.md) — pagination des collections.
 - `contracts/public-surfaces.tsv`

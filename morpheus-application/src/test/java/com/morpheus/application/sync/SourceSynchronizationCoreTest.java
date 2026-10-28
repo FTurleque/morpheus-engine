@@ -1,6 +1,7 @@
 package com.morpheus.application.sync;
 
 import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.store.SyncStateStore;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import org.junit.jupiter.api.Test;
@@ -195,7 +196,7 @@ class SourceSynchronizationCoreTest {
         assertEquals(2, plan.archiveActions().size());
 
         service.complete(plan, T0.plusSeconds(12));
-        assertEquals(2, store.listArchives(projectId).size());
+        assertEquals(2, store.listArchives(projectId, PageRequest.first(1)).totalMatches());
         assertEquals(T0.plusSeconds(12), store.findSyncState(projectId).orElseThrow().lastObservedChangeAt().orElseThrow());
     }
 
@@ -359,8 +360,8 @@ class SourceSynchronizationCoreTest {
         }
 
         @Override
-        public List<SourceArchiveRecord> listArchives(ProjectSpecificationId projectId) {
-            return archives.getOrDefault(projectId, List.of()).stream().sorted().toList();
+        public SourceArchivePage listArchives(ProjectSpecificationId projectId, PageRequest pageRequest) {
+            return SourceArchivePage.of(archives.getOrDefault(projectId, List.of()).stream().sorted().toList(), pageRequest);
         }
 
         @Override

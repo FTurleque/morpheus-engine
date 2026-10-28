@@ -1,7 +1,7 @@
 # MORPHEUS — constats d'audit
-Audit du **9 octobre 2026** sur `20cf2e0`, revérifié les 13, 15, 17, 18 et 21 octobre, le **26 octobre 2026** sur `4694b8b2`, puis le **28 octobre 2026** sur `6c6a97f6` (`origin/develop`) pour les sprints 1, 5, 7 et 8, et sur `fbf58cac` pour le sprint 9, `AUD-ARC-16` et trois constats neufs. Chaque constat porte son statut et la preuve qui l'établit.
+Audit du **9 octobre 2026** sur `20cf2e0`, revérifié les 13, 15, 17, 18 et 21 octobre, le **26 octobre 2026** sur `4694b8b2`, puis le **28 octobre 2026** sur `6c6a97f6` (`origin/develop`) pour les sprints 1, 5, 7 et 8, sur `fbf58cac` pour le sprint 9, `AUD-ARC-16` et trois constats neufs, et sur `aace25fc` (branche `fix/audit-arc-01-prf-04`) pour `AUD-ARC-01`, `AUD-PRF-04` et `AUD-TST-20`. Chaque constat porte son statut et la preuve qui l'établit.
 
-**113 constats** — 62 corrigé, 7 partiel, 17 toujours valide, 4 caduc, 22 tient, 1 non vérifiable ici.
+**113 constats** — 65 corrigé, 5 partiel, 16 toujours valide, 4 caduc, 22 tient, 1 non vérifiable ici.
 
 > **Passe du 26 octobre** : 67 commits et 25 PR de plus (#540 à #564), 907 fichiers, +15 100 / −5 206. C'est la plus grosse vague depuis l'audit : restructuration de `morpheus-store-sqlite` en `adapter/` et `runtime/`, découpage de `morpheus-api` en sept paquets de rôle, de `morpheus-cli` en `command/` et `launch/`, table de dispatch CLI, ingestion derrière un port, et trois ADR qui tranchent le sprint 11 — ARCH-0147, ARCH-0148, ARCH-0149. **Trois constats se ferment**, dont `AUD-ARC-02`, un Élevée : `AUD-ARC-06` et `AUD-ARC-09` tombent avec de vraies règles ArchUnit à l'appui. **Quatre constats naissent** de cette même restructuration.
 
@@ -14,21 +14,19 @@ Audit du **9 octobre 2026** sur `20cf2e0`, revérifié les 13, 15, 17, 18 et 21 
 ### AUD-ARC-01 — morpheus-application, la couche qui définit les ports, fait de l'I/O fichier et du HTTP sortant en direct
 | | |
 |---|---|
-| **Statut sur `develop`** | **PARTIEL** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Élevée |
 | **Axe** | Architecture |
 | **Effort** | L |
 | **Sprint** | 11 — Trancher l'architecture |
 | **Débloque** | AUD-ARC-02, AUD-ARC-03, AUD-ARC-06, AUD-PRF-05 |
-| **Vérifié le** | 2026-10-26 sur `2026-10-26` |
+| **Vérifié le** | 2026-10-28 sur `aace25fc` |
 
-**Constat de vérification** — La moitie « frontiere ecrite et gatee » est faite, et bien faite : un vrai gate ArchUnit, trois interdits absolus tenus, une liste fermee et non croissante. La moitie « le reseau sort du coeur » ne l'est pas : le code de UpdateDiscoveryService est inchange a la ligne pres, sans port ni adaptateur. L'ADR dit « sort », le gate dit « reste, a cette seule classe » : les deux coexistent et rien ne date le depart.
+**Constat de vérification** — Le reseau est sorti du coeur : la decouverte de mise a jour lit son manifeste par un port de l'application, et son transport vit dans l'adaptateur qui l'appelle. Le gate technologique refuse la famille reseau et la famille des fils d'execution dans tout com.morpheus.application, sans exception nommee. La moitie « coeur pur » du constat d'origine reste ecartee par la decision d'ADR-0150 (confinement nomme de l'acces fichier, de l'environnement, des flux standard, de l'horloge et de la reflexion), pas corrigee : c'est un choix ecrit et gate, conforme a l'action, qui demandait de trancher.
 
 ```
-ADR-0148 accepte le 25/10/2026 (docs/architecture/adr/ARCH-0148-ce-que-le-coeur-applicatif-peut-toucher.md) tranche le constat en retenant le confinement, pas le coeur pur. Le gate annonce existe et c'est de l'ArchUnit sur bytecode : morpheus-architecture-tests/.../ApplicationTechnologyBoundaryArchitectureTest.java, 231 lignes, 4 tests, mecanique :205-229 combinant getDirectDependenciesFromSelf, getCodeUnitCallsFromSelf et getFieldAccessesFromSelf. Les trois interdits absolus sont tenus : `grep -rln 'java\.sql|javax\.sql|com\.fasterxml|tools\.jackson|ProcessBuilder|Runtime\.getRuntime|ProcessHandle' morpheus-application/src/main/java` -> 0 fichier, gates :42-47 et :115-123. La liste fermee de onze classes a acces fichier est exacte et verrouillee dans les deux sens (:58-77, :126-137, :140-150). MAIS le reseau n'est pas sorti : UpdateDiscoveryService.java:8-10 importe toujours java.net.http.{HttpClient,HttpRequest,HttpResponse}, :40 porte le champ, :43-47 le construit ; aucune interface dans application/product/ ; l'appelant MorpheusProductCli.java:85 fait `new UpdateDiscoveryService()`. Le gate :50-56 ne refuse pas le reseau, il le confine a cette classe. Change OpenSpec move-marked-technology-access-behind-application-ports toujours ouvert ; dette DT-18 inscrite (docs/architecture/risks/register.md:188).
+`git grep -l java.net.http -- morpheus-application/src/main` -> 0 fichier. Port : morpheus-application/.../product/UpdateManifestSource.java:20 (`byte[] read(URI, int byteLimit, Duration deadline)`). Implementation : morpheus-cli/.../command/UpdateManifestFetcher.java:9-11 (java.net.http), :31-32 (HttpClient, Redirect.NEVER), cablage explicite MorpheusProductCli.java:86 `new UpdateDiscoveryService(new UpdateManifestFetcher(), UpdateDiscoveryService.DEFAULT_TIMEOUT)`. Les refus de schema (`http:`, autre schema, adresse relative) restent dans UpdateDiscoveryService avant tout appel au port ; ProductIntegrityTest les exerce sur une source qui fait echouer le test si elle est appelee. Gate : ApplicationTechnologyBoundaryArchitectureTest:45 UNUSED_FAMILIES porte le reseau sortant et les fils, :62 CONFINED_FAMILIES ne nomme plus UpdateDiscoveryService ; cassure prouvee (constante java.net.http reintroduite -> aFamilyTheApplicationDoesNotUseIsRefusedInEveryPackage rouge). Assertions par chemin repointees : ProductionIntegrityContractTest (`new UpdateDiscoveryService(`), SilentCatchArchitectureTest (`UpdateManifestFetcher.java#IOException`) ; UpdateTrustBoundaryContractTest et AuditHardeningWorkflowContractTest gardent leurs chaines, restees dans le service. Change OpenSpec move-marked-technology-access-behind-application-ports execute ; DT-18 soldee (docs/architecture/risks/register.md). ADR-0150 clarifie, .claude/rules/architecture.md et CLAUDE.md alignes.
 ```
-
-**Ce qui reste** — Le transport HTTP de UpdateDiscoveryService reste entierement dans morpheus-application (:8-10, :40, :43-47), sans port ni adaptateur ; change OpenSpec move-marked-technology-access-behind-application-ports non implemente, DT-18 ouvert. L'extraction devra emporter UpdateTrustBoundaryContractTest, AuditHardeningWorkflowContractTest, ProductionIntegrityContractTest et SilentCatchArchitectureTest, qui lisent ce fichier par chemin. Dix classes d'acces fichier et quatre lecteurs d'environnement restent dans le coeur par decision : le constat au sens « coeur pur » est ecarte, pas corrige.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -275,22 +273,22 @@ morpheus-application/src/main/java/com/morpheus/application/analysis/ChangeAnaly
 ### AUD-PRF-04 — Trois tables en croissance monotone lues sans LIMIT ni pagination, dont une exposée en HTTP et en MCP
 | | |
 |---|---|
-| **Statut sur `develop`** | **PARTIEL** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Élevée |
 | **Axe** | Performance |
 | **Effort** | M |
 | **Sprint** | 6 — Borner les coûts qui croissent avec les données |
 | **Après** | AUD-TST-01 |
 | **Débloque** | AUD-PRF-13 |
-| **Vérifié le** | 2026-10-26 sur `2026-10-26` |
+| **Vérifié le** | 2026-10-28 sur `aace25fc` |
 
-**Constat de vérification** — Une table sur trois est bornee au store. Les deux autres rendent toujours l'integralite des lignes, la troisieme triant encore en Java apres chargement complet. Le risque est tenu par l'absence d'appelant et par une regle ArchUnit, pas par le code des requetes. Point neuf et genant : le test de garde de cette regle (:61-70) compte tout appel dont le proprietaire est assignable aux deux ports, pas seulement listAudit et listArchives — il resterait vert meme si la regle ne voyait plus aucun des deux appels qu'elle refuse.
+**Constat de vérification** — Les trois journaux sont lus par pages bornees au store, et aucun port de journal n'offre plus de lecture entiere : la cloture par une regle d'appel, qui laissait la methode non bornee sur le port en attendant son prochain appelant, est remplacee par la pagination que demandait l'action. Les archives ont une cle d'ordre stockee, au format de celle de policy_audit, qui rend l'ordre du temps la ou le texte d'Instant.toString() ne le rend pas ; le tri Java a disparu. La retention reste une decision ecrite : les journaux sont gardes pour la vie de la base (ADR-0151).
 
 ```
-LIMIT dans morpheus-store-sqlite/src/main/java : 1 -> 2. Table 1, policy_audit : PAGINEE — adapter/SqlitePolicyPackStore.java:47-52 AUDIT_PAGE_SQL avec LIMIT ? OFFSET ?, listAudit :575-603, total :580-587, appelant PolicyPackService.java:235, surface publique mise a jour (contracts/public-surfaces.tsv:44). Table 2, change_lifecycle_mutation_audit : NON paginee — adapter/SqliteChangeLifecycleMutationStore.java:96-101, pas de LIMIT, boucle :106-108. Table 3, sync_source_archives : NON paginee et triee en memoire — adapter/SqliteSyncStateStore.java:34-38 sans ORDER BY ni LIMIT, listArchives :107-131 avec records.stream().sorted() a :127. Zero appelant de production pour les deux methodes non bornees, et une regle ArchUnit les refuse (AppendOnlyJournalReadsArchitectureTest:48-59). La restructuration adapter/runtime n'a touche aucune de ces trois classes : diff vide hors package et import.
+Ports : ChangeLifecycleMutationStore.java:22 `listAudit(projectId, changeId, PageRequest)` -> ChangeLifecycleMutationAuditPage ; SyncStateStore.java:26 `listArchives(projectId, PageRequest)` -> SourceArchivePage ; PolicyPackStore.java:78 inchange. `LIMIT ?` dans morpheus-store-sqlite/src/main : 2 -> 4 fichiers (SqliteChangeLifecycleMutationStore, SqliteSyncStateStore en plus). SqliteSyncStateStore : plus de `sorted()`. Migration V023__source_archive_order_key.sql (SqliteSchemaManager.java:46) : colonne archived_key remplie pour l'existant, index idx_sync_source_archives_project_order(project_id, archived_key, source_path, reason, fingerprint_sha256). SqliteQueryPlanGuardTest exige la recherche par cet index sans arbre temporaire de tri. Parite : SourceArchiveOrderParityTest#bothStoresCutTheSamePagesAcrossInstantsWhoseTextSortsAgainstTime, ControlledLifecycleMutationContractTest#bothStoresReturnTheAuditOfAChangeOnePageAtATimeInRevisionOrder ; migration : SqliteSourceArchiveOrderKeyMigrationTest, ReleasedSchemaUpgradeTest. Regle : AppendOnlyJournalReadsArchitectureTest:103 noJournalStoreOffersAWholeJournal (aucune methode publique des trois ports ni de leurs stores ne rend une collection d'enregistrements de journal ; une page de journal prend un PageRequest), rouge sur 9c027eeb (6 violations), cassure prouvee. Aucune surface publique ne change. ADR-0131 consolide dans ADR-0151 ; change OpenSpec page-the-two-remaining-journals.
 ```
 
-**Ce qui reste** — SqliteChangeLifecycleMutationStore.listAudit (:89, SQL :96-101) et SqliteSyncStateStore.listArchives (:107, SQL :34-38) non bornees, la seconde triant en memoire a :127. Cout par page de policy_audit lineaire : COUNT(*) a :581 parcourt tout le pack a chaque page et OFFSET saute N entrees. Le test de garde de la regle ArchUnit ne mesure pas ce que son nom annonce. La preuve a 100 000 lignes (M19QueryPerformanceGate:172) reste hors clean verify.
+**Ce qui reste** — Hors du constat : le comptage du total d'une page (COUNT(*)) et l'OFFSET parcourent l'index jusqu'a la page, un cout ecrit dans ADR-0151 et non cache ; la preuve a grand volume reste dans la voie nocturne M19, hors clean verify, par construction.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -1383,14 +1381,22 @@ config/m21-quality-ratchets.properties:12-16 : architectureTestsMinimum=813, dix
 ### AUD-TST-20 — Le test censé prouver que la règle anti-lecture-non-bornée voit ce qu'elle refuse reste vert même si la règle devient aveugle  *(constat neuf, 26/10)*
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Tests · Architecture |
 | **Effort** | S |
 | **Sprint** | 15 — Dérives apparues pendant les correctifs |
 | **Fusionne / issu de** | AUD-PRF-04 |
 | **Origine** | **Né le 26 octobre**, pendant les correctifs — hors du plan du 9 octobre |
-| **Vérifié le** | 2026-10-26 sur `2026-10-26` |
+| **Vérifié le** | 2026-10-28 sur `aace25fc` |
+
+**Constat de vérification** — Le test de garde mesure ce que son nom annonce : il compare la liste exacte des methodes que la regle juge, au lieu de compter tout appel aux ports. Une fixture permanente casse la regle dans les deux sens a chaque execution.
+
+```
+AppendOnlyJournalReadsArchitectureTest:108 theRuleJudgesThePagedReadOfEachJournalOnItsPortAndOnBothStores compare la liste exacte des 9 methodes jugees (les lectures paginees des 3 ports et de leurs stores memoire et SQLite) ; :131 theRuleRefusesAPortThatOffersAWholeJournalOrAPageWithoutABound, fixture de test qui viole la regle dans les deux sens. Cassure : `default List<SourceArchiveRecord> listEveryArchive(...)` ajoutee a SyncStateStore -> regle rouge (1 violation nommee) et garde rouge (10e methode jugee), puis retiree.
+```
+
+<details><summary>Constat d'origine (26 octobre)</summary>
 
 **Preuve**
 
@@ -1401,6 +1407,8 @@ AppendOnlyJournalReadsArchitectureTest:48-59 porte la règle ArchUnit qui refuse
 **Impact** — Un test de garde existe précisément parce qu'une règle ArchUnit qui ne voit plus son sujet passe en vert : elle ne refuse rien, donc elle ne trouve rien à refuser. Celui-ci ne remplit pas cet office. Si un renommage, un changement de signature ou un déplacement de paquet faisait que la règle ne voie plus listAudit ni listArchives, les deux tests resteraient verts et le dépôt croirait tenir une frontière qu'il ne tient plus. C'est la seule protection du constat Élevée AUD-PRF-04, dont les deux requêtes ne sont toujours pas bornées au store.
 
 **Action** — Restreindre le compteur de theRuleSeesTheCallsItIsMeantToRefuse aux deux noms de méthode exacts, listAudit et listArchives, et asserter que chacun est vu au moins une fois — pas seulement que l'ensemble est non vide. Puis casser la règle une fois pour vérifier que le test rougit, et consigner la preuve d'échec dans la description de la PR, comme le dépôt le fait déjà pour ses autres gates.
+
+</details>
 
 ### AUD-PRF-03 — Serveur HTTP local sans contrôle d'admission : threads virtuels illimités, une connexion SQLite physique par requête, journal PERSIST
 | | |

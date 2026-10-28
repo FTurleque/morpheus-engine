@@ -10,7 +10,7 @@ import java.util.Map;
 import java.util.function.Function;
 
 /**
- * The only place {@code morpheus-api} spells a paginated response (ADR-0131): {@code offset}, {@code limit},
+ * The only place {@code morpheus-api} spells a paginated response (ADR-0151): {@code offset}, {@code limit},
  * {@code totalMatches}, {@code hasMore}, {@code items}. A page either follows a response's own identifiers, or is
  * the value of the key that names its collection. {@code morpheus-mcp} holds an identical copy because sibling
  * adapters may not share code; {@code PagedResponseVocabularyArchitectureTest} keeps the two copies and their

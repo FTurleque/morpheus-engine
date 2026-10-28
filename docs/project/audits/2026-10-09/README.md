@@ -8,6 +8,31 @@
 
 ---
 
+## État au 28 octobre 2026 — plus aucun constat `Élevée` ouvert
+
+Branche `fix/audit-arc-01-prf-04`, sur `aace25fc`, après un `./mvnw clean verify` vert sur les 19 modules (4 692 tests, 0 échec, 13 ignorés). Les deux derniers
+constats `Élevée` sont corrigés, et avec eux le test de garde qui ne gardait rien.
+
+**`AUD-ARC-01` est corrigé.** La découverte de mise à jour lit son manifeste par un port de l'application,
+`UpdateManifestSource` ; son transport `java.net.http` vit dans `morpheus-cli`, seul appelant. Le gate technologique
+refuse le réseau sortant et les fils d'exécution dans tout `com.morpheus.application`, sans exception nommée. La voie
+« cœur pur » du constat d'origine reste écartée par ADR-0150 : c'est un choix écrit et gaté, que l'action demandait de
+trancher, pas une correction qui manque. DT-18 est soldée.
+
+**`AUD-PRF-04` est corrigé.** L'audit des mutations de cycle de vie et les archives de synchronisation sont lus par
+pages bornées au store, comme l'audit des policies, et aucun port de journal n'offre plus de lecture entière. Les
+archives ont une clé d'ordre stockée (migration V023) ; le tri en mémoire a disparu. ADR-0131 est consolidé dans
+ADR-0151, puisque la clôture par une règle d'appel qu'il retenait pour ces deux journaux est remplacée.
+
+**`AUD-TST-20` est corrigé** (sprint 15) : le test de garde compare la liste exacte des méthodes que la règle juge,
+et une fixture la casse dans les deux sens à chaque exécution.
+
+**Plan du 9 octobre : 63 soldés sur 73, 10 restants.** Les sprints 1 à 9 sont terminés. **113 constats :
+65 corrigés · 5 partiels · 16 toujours valides · 4 caducs · 22 Info qui tiennent · 1 non vérifiable.** Aucun constat
+`Élevée` n'est ouvert.
+
+---
+
 ## État au 28 octobre 2026 — contre-vérification : le sprint 9 terminé
 
 Une passe indépendante, sur `5c3ce4dd` (PR #577), avec un build de contrôle : `./mvnw clean verify` vert sur les

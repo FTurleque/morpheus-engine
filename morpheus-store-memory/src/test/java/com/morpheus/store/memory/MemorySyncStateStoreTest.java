@@ -1,8 +1,10 @@
 package com.morpheus.store.memory;
 
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.application.sync.ProjectSyncState;
+import com.morpheus.application.sync.SourceArchivePage;
 import com.morpheus.application.sync.SourceArchiveRecord;
 import com.morpheus.application.sync.SourceFingerprint;
 import com.morpheus.application.sync.SourceInventory;
@@ -16,10 +18,12 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -52,7 +56,8 @@ class MemorySyncStateStoreTest {
 
         assertEquals(Optional.empty(), store.findSyncState(unknown));
         assertEquals(Optional.empty(), store.findCurrentInventory(unknown));
-        assertEquals(List.of(), store.listArchives(unknown));
+        assertEquals(List.of(), store.listArchives(unknown, PageRequest.first(1)).items());
+        assertEquals(0, store.listArchives(unknown, PageRequest.first(1)).totalMatches());
     }
 
     @Test
@@ -127,8 +132,33 @@ class MemorySyncStateStoreTest {
                 SyncPlan.SyncMode.INCREMENTAL, COMPLETED, COMPLETED.plusSeconds(5),
                 Optional.empty(), List.of(deleted));
 
-        assertEquals(List.of(deleted, moved), store.listArchives(projectId),
+        assertEquals(List.of(deleted, moved), store.listArchives(projectId, PageRequest.first(PageRequest.MAX_LIMIT)).items(),
                 "archives are ordered evidence, and re-observing one must not duplicate it");
+    }
+
+    @Test
+    void archivesAreReadOnePageAtATimeWithTheirTotal() {
+        List<SourceArchiveRecord> written = new ArrayList<>();
+        for (int index = 0; index < 5; index++) {
+            written.add(new SourceArchiveRecord(
+                    projectId, entry("spec/gone-" + index + ".md", "gone-" + index), COMPLETED.plusMillis(index),
+                    SourceArchiveRecord.ArchiveReason.DELETED, Optional.empty(), Optional.of("revision-1")));
+        }
+        commit(store,
+                inventory("revision-1", entry("spec/a.md", "alpha")),
+                SyncPlan.SyncMode.FULL_REBUILD, ATTEMPTED, COMPLETED, Optional.empty(), written.reversed());
+
+        SourceArchivePage first = store.listArchives(projectId, new PageRequest(0, 2));
+        SourceArchivePage last = store.listArchives(projectId, new PageRequest(4, 2));
+        SourceArchivePage beyond = store.listArchives(projectId, new PageRequest(9, 2));
+
+        assertEquals(written.subList(0, 2), first.items());
+        assertEquals(5, first.totalMatches());
+        assertTrue(first.hasMore());
+        assertEquals(written.subList(4, 5), last.items(), "the last page holds what is left");
+        assertFalse(last.hasMore());
+        assertEquals(List.of(), beyond.items(), "a page past the end is empty, not an error");
+        assertEquals(5, beyond.totalMatches());
     }
 
     @Test

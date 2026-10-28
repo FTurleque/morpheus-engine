@@ -134,7 +134,7 @@ findSnapshot(snapshotId, query, pageRequest)
 appliquée **après** filtrage et tri déterministe. `SnapshotPage` porte le snapshot, les éléments, la requête de page,
 `totalMatches` et `hasMore` ; `RequirementSearchPage` porte `items`, la requête de page, `totalMatches` et `hasMore`,
 et refuse à la construction un `hasMore` incohérent avec les bornes et le total. Le vocabulaire de page exposé par les
-transports suit ADR-0131.
+transports suit ADR-0151.
 
 ### 10. Déterminisme et parité
 
@@ -238,7 +238,7 @@ La même politique de snapshot gouverne l'analyse de changement (ADR-0138) et le
 - [ADR-0143](DATA-0143-snapshots-versionnes-et-concurrence-bornee.md) — snapshots versionnés et activation atomique.
 - [ADR-0123](ARCH-0123-vues-compactes-et-json-canonique.md) — vues compactes et JSON canonique.
 - [ADR-0124](ARCH-0124-qualite-findings-et-faits-tri-etat.md) — qualité, findings et faits tri-état.
-- [ADR-0131](BE-0131-pagination-des-collections-et-journaux.md) — pagination des collections et journaux.
+- [ADR-0151](BE-0151-pagination-des-collections-et-journaux.md) — pagination des collections et journaux.
 - [ADR-0138](ARCH-0138-analyse-de-changement-derivee-et-bornee.md) — analyse de changement.
 - `contracts/public-surfaces.tsv` (ligne `requirement.find`) — surfaces CLI, MCP et HTTP de la recherche.
 - Preuves : [VALIDATION_M4](../../project/validation/VALIDATION_M4.md),
