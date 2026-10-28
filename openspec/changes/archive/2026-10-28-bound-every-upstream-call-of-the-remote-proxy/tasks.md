@@ -2,6 +2,17 @@
 
 **2026-10-17: closed without a change, by decision of the maintainer.** The absence of a deadline on proxied writes stays the accepted residual risk documented in `docs/user/TEAM_REMOTE_SERVER.md`. Nothing below is to be done unless that decision is reopened.
 
+**2026-10-28: archived as closed by decision; its requirements are not adopted and no main spec receives them.**
+
+- The decision is held by `MorpheusRemoteRoutePolicyTest#onEveryRouteOfTheTableOnlyTheReadRoleHasAnUpstreamDeadline`:
+  on every route and method of `MorpheusHttpRouteTable`, the upstream deadline applies exactly when the role is READ,
+  and the failure message names `docs/user/TEAM_REMOTE_SERVER.md`. A deadline added to the writes fails it, so the
+  decision is reopened in the open, not by accident.
+- No ADR: the choice fails the third question of `.claude/rules/adr.md`. Adding a write deadline later breaks no
+  persisted data, no published contract (the OpenAPI files declare no error status per operation, task 1.3) and no
+  security guarantee; it is an additive change behind a new code. The admission and 429 behaviour the choice relies
+  on is already decided by ADR-0094.
+
 **Stopped on 2026-10-13 before any change, on a decision that is the maintainer's.** Read again for the
 implementation, the finding is half wrong and its other half reverses a position the product documents as chosen:
 
