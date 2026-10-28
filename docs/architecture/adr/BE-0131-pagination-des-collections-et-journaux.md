@@ -36,7 +36,8 @@ Options écartées :
   en cause.
 - **Trier l'audit par `ORDER BY at, id`** : `at` est un instant en texte dont l'ordre lexicographique n'est pas l'ordre
   chronologique quand le nombre de décimales varie.
-- **Paginer les journaux sans lecteur** : il faudrait concevoir un ordre pour aucun appelant.
+- **Barrer les journaux sans lecteur au lieu de les paginer** : la lecture entière resterait sur le port, signature
+  courte qui attend son prochain appelant.
 - **Purger un journal** : une purge est une décision sur ce que le produit garde comme preuve, pas un correctif.
 
 ## Decision
@@ -76,6 +77,10 @@ lecture de la collection.
   bornes. `PolicyPackStore.listAudit(packId, PageRequest)` rend une `PolicyAuditPage` ; le port n'a pas de lecture du
   journal entier. Le store SQLite ne construit que les enregistrements de la page, dans l'ordre de la colonne
   `policy_audit.at_key` (l'instant en texte de largeur fixe) puis de l'identifiant, sur un index qui la suit.
+- **Les deux autres journaux sont paginés au store.** `ChangeLifecycleMutationStore.listAudit(…, PageRequest)` rend une
+  `ChangeLifecycleMutationAuditPage` (révision, puis identité de mutation) ; `SyncStateStore.listArchives(…, PageRequest)`
+  rend une `SourceArchivePage` (instant, chemin, raison, empreinte), suivant `sync_source_archives.archived_key`, au
+  format de `at_key`, sur un index dans cet ordre. Aucun port de journal n'offre de lecture entière.
 - **Un outil MCP sur une collection croissante prend une page.** `PageArguments` lit et déclare ses bornes depuis les
   constantes de `MorpheusMcpToolCatalog` : le schéma publie exactement les bornes que le handler applique, et
   `PageArguments.MAX_LIMIT` est égal à `PageRequest.MAX_LIMIT`. Tout outil servi par le câblage par défaut déclare
@@ -96,10 +101,8 @@ Aucune instruction du produit ne supprime de `policy_audit`, de `change_lifecycl
 `sync_source_archives`. L'opérateur dispose de la sauvegarde et de la restauration hors ligne. Une purge exigerait une
 taille mesurée qui pose un problème réel, ou une obligation écrite, et une décision qui remplace celle-ci.
 
-Les deux journaux sans lecteur, `ChangeLifecycleMutationStore.listAudit` et `SyncStateStore.listArchives`, rendent
-toutes les lignes d'un change ou d'un projet. Aucune classe de production ne les appelle ; la surface qui en aura besoin
-les borne d'abord. Les archives de synchronisation continuent d'être écrites : elles sont la trace qu'une source a
-disparu.
+Aucune surface publique ne lit l'audit des mutations de cycle de vie ni les archives de synchronisation. Les archives
+continuent d'être écrites : elles sont la trace qu'une source a disparu.
 
 ## Do's and Don'ts
 
@@ -118,8 +121,8 @@ disparu.
 - Ne pas écrire `"totalMatches"` ou `"hasMore"` à la main hors des fabriques, ni une orthographe concurrente du total.
 - Ne pas déplacer la fabrique de page dans `morpheus-application`.
 - Ne pas trier l'audit des policies sur le texte de `at`.
-- Ne pas appeler `ChangeLifecycleMutationStore.listAudit` ni `SyncStateStore.listArchives` depuis le code de
-  production sans les borner d'abord.
+- Ne pas déclarer sur un port de journal, ni sur un store qui l'implémente, une méthode qui rend une collection
+  d'enregistrements du journal.
 - Ne pas supprimer d'un journal, ni introduire une purge sans décision qui remplace celle-ci.
 
 ## Consequences
@@ -128,7 +131,7 @@ disparu.
 
 - Un client lit le même vocabulaire de page sur MCP et HTTP, et l'audit des policies sur les trois transports.
 - Une collection croissante reste lisible sur MCP au-delà du cadre, en suivant le conseil du transport.
-- La lecture de l'audit ne matérialise que la page demandée.
+- La lecture d'un journal ne matérialise que la page demandée.
 
 ### Négatives
 
@@ -161,7 +164,10 @@ disparu.
   `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/adapter/SqlitePolicyAuditPageTest.java` : page de l'audit sur
   HTTP, requête de page sans tri.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/AppendOnlyJournalReadsArchitectureTest.java` :
-  aucune lecture de production des deux journaux sans lecteur, aucune instruction qui supprime d'un journal.
+  aucun port de journal ni store qui l'implémente ne rend un journal entier, aucune instruction qui supprime d'un
+  journal.
+- `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/SourceArchiveOrderParityTest.java` et
+  `ControlledLifecycleMutationContractTest.java` : mêmes pages sur les deux stores.
 
 ## References
 
