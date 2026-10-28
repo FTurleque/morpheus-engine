@@ -1,7 +1,7 @@
 # MORPHEUS — constats d'audit
 Audit du **9 octobre 2026** sur `20cf2e0`, revérifié les 13, 15, 17, 18 et 21 octobre, le **26 octobre 2026** sur `4694b8b2`, puis le **28 octobre 2026** sur `6c6a97f6` (`origin/develop`) pour les sprints 1, 5, 7 et 8. Chaque constat porte son statut et la preuve qui l'établit.
 
-**110 constats** — 54 corrigé, 8 partiel, 21 toujours valide, 4 caduc, 22 tient, 1 non vérifiable ici.
+**110 constats** — 56 corrigé, 7 partiel, 20 toujours valide, 4 caduc, 22 tient, 1 non vérifiable ici.
 
 > **Passe du 26 octobre** : 67 commits et 25 PR de plus (#540 à #564), 907 fichiers, +15 100 / −5 206. C'est la plus grosse vague depuis l'audit : restructuration de `morpheus-store-sqlite` en `adapter/` et `runtime/`, découpage de `morpheus-api` en sept paquets de rôle, de `morpheus-cli` en `command/` et `launch/`, table de dispatch CLI, ingestion derrière un port, et trois ADR qui tranchent le sprint 11 — ARCH-0147, ARCH-0148, ARCH-0149. **Trois constats se ferment**, dont `AUD-ARC-02`, un Élevée : `AUD-ARC-06` et `AUD-ARC-09` tombent avec de vraies règles ArchUnit à l'appui. **Quatre constats naissent** de cette même restructuration.
 
@@ -1537,20 +1537,20 @@ morpheus-application/src/main/java/com/morpheus/application/sync/WorkspacePathBo
 ### AUD-PRF-09 — Le proxy remote n'impose aucun délai de lecture amont sur les routes WRITE et ADMIN
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Performance |
 | **Effort** | S |
 | **Sprint** | 5 — Écarter le risque d'indisponibilité |
-| **Vérifié le** | 2026-10-28 sur `6c6a97f6` |
+| **Vérifié le** | 2026-10-28 sur la branche `fix/finish-sprints-1-5` |
 
-**Constat de vérification** — Clos par decision, sans changement de comportement. Les ecritures et le probe proxifies gardent leur permis jusqu'a la reponse reelle : un 504 mentirait pour un commit peut-etre durable. Le risque est documente pour l'utilisateur, et un test empeche que la repartition par role change sans que ce choix soit relu.
+**Constat de vérification** — Chaque appel amont de la facade remote a un delai : 60 s pour une lecture, 300 s pour une ecriture ou un appel ADMIN. Une ecriture expiree repond 504 UPSTREAM_WRITE_TIMEOUT, qui dit que l'operation a pu aboutir et qu'il faut relire l'etat avant de reessayer ; ses permis sont rendus, l'operation locale peut continuer.
 
 ```
-Code inchange : morpheus-api/src/main/java/com/morpheus/api/remote/MorpheusRemoteProxyTransport.java:23 READ_ONLY_UPSTREAM_TIMEOUT 60 s et :77 `if (boundedUpstreamTimeout) request.timeout(...)` ; MorpheusRemoteRoutePolicy.java:216 usesBoundedUpstreamTimeout vrai pour READ seulement. PR #572 (0b7d2029) : le change OpenSpec bound-every-upstream-call-of-the-remote-proxy est archive (openspec/changes/archive/2026-10-28-bound-every-upstream-call-of-the-remote-proxy/), tasks.md consigne la decision du mainteneur du 17/10/2026 ; MorpheusRemoteRoutePolicyTest.java:122-138 epingle la repartition par role et renvoie au risque accepte de docs/user/TEAM_REMOTE_SERVER.md:322-326.
+morpheus-api/src/main/java/com/morpheus/api/remote/MorpheusRemoteProxyTransport.java:240 record UpstreamDeadline, :242 READ 60 s, :250 WRITE 300 s (cinq fois le budget de 60 s d'une publication complete, M19FullPublishPerformanceGate), :268 UPSTREAM_WRITE_TIMEOUT ; MorpheusRemoteRoutePolicy.java:213 upstreamDeadline() remplace usesBoundedUpstreamTimeout(). MorpheusRemoteRoutePolicyTest#onEveryRouteOfTheTableEveryRoleHasTheUpstreamDeadlineOfItsRole ; MorpheusRemoteProxyResponseBudgetTest : une ecriture qui ne recoit jamais de reponse finit a son delai en resultat inconnu, autant d'ecritures bloquees que le plafond privilegie finissent et le plafond admet la suivante, une reponse trop grande a une ecriture est refusee par son nom. Reproduction rouge sur 5c3ce4dd, cassure jouee (delai d'ecriture retire : les deux tests d'ecriture echouent). Decision du 17/10/2026 rouverte par le mainteneur le 28/10/2026 : openspec/changes/bound-every-write-of-the-remote-proxy/, docs/user/TEAM_REMOTE_SERVER.md.
 ```
 
-**Ce qui reste** — Aucun delai de lecture amont pour les roles WRITE et ADMIN, par decision du mainteneur du 17/10/2026 : risque accepte, documente dans docs/user/TEAM_REMOTE_SERVER.md. Ne compte plus dans le reliquat du sprint 5.
+**Ce qui reste** — Rien.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -1794,21 +1794,21 @@ Aggravation relevee en relecture : D2RepositoryHardeningArchitectureTest.java:11
 ### AUD-DEP-07 — Le gate CVE a un point de défaillance unique : Dependency-Check 13.0.0 ne peut pas rafraîchir la base NVD sans NVD_API_KEY
 | | |
 |---|---|
-| **Statut sur `develop`** | **PARTIEL** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Blocage** | **Amont** — attend une publication tierce, aucune action du dépôt ne le ferme |
 | **Sévérité** | Moyenne |
 | **Axe** | Dépendances |
 | **Effort** | M |
 | **Sprint** | 1 — Remettre le dispositif en marche |
-| **Vérifié le** | 2026-10-28 sur `6c6a97f6` |
+| **Vérifié le** | 2026-10-28 sur la branche `fix/finish-sprints-1-5` |
 
-**Constat de vérification** — La trace de suivi dit de nouveau l'etat du gate : RT-13 est ouvert, et les messages du workflow qui y renvoient renvoient a un risque vivant. Une cle refusee ou absente se signale au premier run, avec presque tout le budget de 72 h devant soi, au lieu d'attendre ses deux tiers. Le fond ne change pas : le gate CVE n'a qu'une source de rafraichissement, et rien que le depot puisse faire ne l'en libere.
+**Constat de vérification** — Le gate CVE a deux sources de rafraichissement : une cle perdue ne l'arrete plus, elle le laisse avec une source, et le run le dit. Une base neuve classe SQLite dans l'ecosysteme natif : la regle de suppression de morpheus-store-sqlite porte base="true" pour ne pas faire echouer le scan quand elle ne sert pas.
 
 ```
-.github/workflows/security.yml:21 DEPENDENCY_CHECK_PLUGIN_VERSION reste '13.0.0' : 13.0.1 n'est toujours pas publie (amont #8715, correctif #8716). PR #571 (283e4499) : alerte REFRESH_KEY_UNUSABLE des le premier run qui voit la cle refusee ou absente (:318), en plus de REFRESH_OVERDUE aux deux tiers du budget (:326) ; les messages renvoient a la procedure de rotation de docs/developer/COLD_START_RECOVERY.md:74-93. docs/architecture/risks/register.md:21 et :28 : RT-13 « constate le 09/09/2026, ouvert », avec sa condition de revue (publication d'une version qui contient #8716, et chaque rotation de la cle). Contrat tenu par DependencyCheckWorkflowContractTest et scripts/tests/test_refresh_alert_step.py.
+.github/workflows/security.yml:26 NVD_DATAFEED_URL 'https://nvd.nist.gov/feeds/json/cve/2.0/nvdcve-2.0-{0}.json.gz' ; l'etape de mise a jour essaie la cle, puis, des que le chemin par cle n'a pas rafraichi (cle absente, refusee ou panne de l'API), `update-only -DnvdDatafeedUrl=${NVD_DATAFEED_URL}`, sans lire la cle ; un succes ecrit la sentinelle `via NVD data feed refresh`, publie le cache et annonce REFRESHED_FROM_DATA_FEED (:217). Mesure du 28/10/2026 sur Windows, sans NVD_API_KEY : `update-only` Dependency-Check 13.0.0 par les flux, BUILD SUCCESS en 10 min 45, aucune trace `Invalid API Key`, base de 246 212 vulnerabilites ; puis les deux scans `aggregate -DautoUpdate=false` (d2-security, d2-security-tests) BUILD SUCCESS sur cette base, depot Maven local vide. Tenu par DependencyCheckWorkflowContractTest#theDataFeedRefreshIsTheSecondSourceWheneverTheKeyPathDidNotRefresh, D2RepositoryHardeningArchitectureTest (chaque update-only dans l'etape de confiance) et scripts/tests/test_trusted_update_step.py (sept scenarios, l'etape executee contre un faux Maven Wrapper).
 ```
 
-**Ce qui reste** — Point de defaillance unique : NVD_API_KEY reste le seul ecrivain de la sentinelle tant que Dependency-Check 13.0.0 est epingle. Bloque en amont : se leve a la publication d'une version qui contient le correctif #8716.
+**Ce qui reste** — Hors du constat, suivi dans RT-13 : les deux sources viennent du NVD, et une base neuve n'associe plus sqlite-jdbc au SQLite natif qu'il embarque (seule l'identification sqlite_jdbc reste).
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 

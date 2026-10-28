@@ -1,7 +1,7 @@
 # Sprints de correction
-État au **28 octobre 2026** sur `6c6a97f6` (`origin/develop`) pour les sprints 1, 5, 7 et 8, au **26 octobre 2026** sur `4694b8b2` pour les autres, après un `./mvnw clean verify` vert sur les 19 modules. L'ordre et le découpage sont ceux du 9 octobre ; seuls les statuts ont été réétablis, constat par constat, sur le code.
+État au **28 octobre 2026** sur `6c6a97f6` (`origin/develop`) pour les sprints 7 et 8 et sur la branche `fix/finish-sprints-1-5` pour les sprints 1 et 5, au **26 octobre 2026** sur `4694b8b2` pour les autres, après un `./mvnw clean verify` vert sur les 19 modules. L'ordre et le découpage sont ceux du 9 octobre ; seuls les statuts ont été réétablis, constat par constat, sur le code.
 
-**Plan du 9 octobre : 73 constats, 54 soldés, 19 restants.** Les sprints 2, 3, 4, 5, 7 et 8 sont terminés ; le sprint 1 garde `AUD-DEP-07`, bloqué en amont, et le sprint 6 `AUD-PRF-04`. Le **sprint 12** n'a plus qu'un constat ouvert sur trois, et le **sprint 11** trois sur quatre : les trois ADR du 25 octobre l'ont tranché sur le papier, mais seul `AUD-ARC-02` est refermé dans le code. Les sprints 9, 13 et 14 n'ont pas commencé.
+**Plan du 9 octobre : 73 constats, 55 soldés, 18 restants.** Les sprints 1, 2, 3, 4, 5, 7 et 8 sont terminés ; le sprint 6 garde `AUD-PRF-04`. Le **sprint 12** n'a plus qu'un constat ouvert sur trois, et le **sprint 11** trois sur quatre : les trois ADR du 25 octobre l'ont tranché sur le papier, mais seul `AUD-ARC-02` est refermé dans le code. Les sprints 9, 13 et 14 n'ont pas commencé.
 
 **Sprint 15 — dérives : 13 constats, 9 restants.** Ce sprint n'est pas du plan d'origine : il rassemble les constats nés *après* l'audit, d'une scission, d'un effet de bord d'un correctif ou du changement de branche d'intégration. Les ranger dans les sprints d'origine faisait croire que ceux-ci traînaient depuis le 9 octobre ; ils sont soldés, et du travail neuf est apparu à côté.
 
@@ -9,7 +9,7 @@
 
 | Sprint | Objet | Constats | Soldés | Restants | Charge restante |
 |---|---|---|---|---|---|
-| **1** | Remettre le dispositif en marche | 8 | 7 | 1 | 1 à 3 j |
+| **1** ✓ | Remettre le dispositif en marche | 8 | 8 | 0 | — |
 | **2** ✓ | Débloquer la release 1.2.1 | 6 | 6 | 0 | — |
 | **3** ✓ | Fermer les écarts de sécurité | 8 | 8 | 0 | — |
 | **4** ✓ | Rendre le produit observable | 5 | 5 | 0 | — |
@@ -24,15 +24,15 @@
 | **13** | Couverture et pagination | 2 | 0 | 2 | 6 à 16 j |
 | **14** | Signer la distribution | 1 | 0 | 1 | 1 à 3 j |
 | **15** | Dérives apparues pendant les correctifs | 13 | 4 | 9 | 4.5 à 15 j |
-| | **Total** | **86** | **58** | **28** | **31.75 à 92 j** |
+| | **Total** | **86** | **59** | **27** | **30.75 à 89 j** |
 
-Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j · L 3 à 8 j). Un constat `partiel` compte pour son effort entier : ce qui reste d'un constat partiellement traité n'est pas proportionnel à ce qui en a été fait. Un constat clos par décision du mainteneur (`AUD-PRF-09`, risque accepté et documenté) compte comme soldé : son statut reste « toujours valide », parce que le code n'a pas changé.
+Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j · L 3 à 8 j). Un constat `partiel` compte pour son effort entier : ce qui reste d'un constat partiellement traité n'est pas proportionnel à ce qui en a été fait.
 
 ---
 
-## Sprint 1 — Remettre le dispositif en marche
+## Sprint 1 — Remettre le dispositif en marche  ·  **terminé**
 
-8 constats · 7 corrigé · 1 partiel
+8 constats · 8 corrigé
 
 *Pourquoi ici* — Rien ne se corrige de façon mesurable tant que les gates ne tournent pas. Ce sprint ne touche aucun code applicatif.
 
@@ -42,7 +42,7 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 |---|---|---|---|---|
 | `AUD-TST-01` | corrigé | Élevée | S | Les cinq budgets de performance M19 ne sont exécutés par aucun pipeline ni par clean verify |
 | `AUD-DEP-06` | corrigé | Moyenne | S | validate-d2 ne lit pas le fichier de ratchets et code en dur un plancher de 820/258 tests, contrairement à ce que la règle du dépôt affirme |
-| `AUD-DEP-07` | partiel | Moyenne | M | Le gate CVE a un point de défaillance unique : Dependency-Check 13.0.0 ne peut pas rafraîchir la base NVD sans NVD_API_KEY |
+| `AUD-DEP-07` | corrigé | Moyenne | M | Le gate CVE a un point de défaillance unique : Dependency-Check 13.0.0 ne peut pas rafraîchir la base NVD sans NVD_API_KEY |
 | `AUD-TRV-01` | corrigé | Moyenne | M | Les quatre validateurs M15 à M18 sont inexécutables, sans équivalent .sh, et les commandes documentées pour les rejouer n'existent pas |
 | `AUD-TST-02` | corrigé | Moyenne | S | Le gate de couverture par module accepte un rapport JaCoCo périmé : aucun contrôle de fraîcheur |
 | `AUD-QUA-14` | corrigé | Faible | S | SpotBugs et PIT sont épinglés, configurés et documentés mais lancés par aucun workflow |
@@ -103,7 +103,7 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 
 ## Sprint 5 — Écarter le risque d'indisponibilité  ·  **terminé**
 
-4 constats · 2 corrigé · 1 clos par décision · 1 caduc
+4 constats · 3 corrigé · 1 caduc
 
 *Pourquoi ici* — Le chemin vers l'indisponibilité du serveur entier, et la politique de connexion qui le sous-tend.
 
@@ -114,7 +114,7 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 | `AUD-PRF-18` | caduc | Élevée | M | Épinglage des threads virtuels : 94 méthodes public synchronized faisant du JDBC bloquant, atteintes depuis les serveurs HTTP, sur une baseline Java 21 |
 | `AUD-TRV-05` | corrigé | Élevée | M | La politique de connexion SQLite est une propriété de chaque site de composition, pas du module : 12 sites, 3 ouvertures de scope |
 | `AUD-PRF-03` | corrigé | Moyenne | M | Serveur HTTP local sans contrôle d'admission : threads virtuels illimités, une connexion SQLite physique par requête, journal PERSIST |
-| `AUD-PRF-09` | clos par décision | Moyenne | S | Le proxy remote n'impose aucun délai de lecture amont sur les routes WRITE et ADMIN |
+| `AUD-PRF-09` | corrigé | Moyenne | S | Le proxy remote n'impose aucun délai de lecture amont sur les routes WRITE et ADMIN |
 
 ## Sprint 6 — Borner les coûts qui croissent avec les données
 
