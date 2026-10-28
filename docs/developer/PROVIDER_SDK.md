@@ -326,12 +326,8 @@ morpheus --json provider-plugins discover --directory <plugins>
 morpheus --json provider-plugins probe --directory <plugins> --plugin <pluginId> --workspace <workspace> --sha256 <digest>
 ```
 
-MCP :
-
-```text
-discover_provider_plugins
-probe_provider_plugin
-```
+MCP : `discover_provider_plugins`, servi seulement quand l'opérateur configure un répertoire de plugins au
+lancement du serveur MCP, et limité à ce répertoire. Le probe exécute du code tiers : il n'est jamais exposé au MCP.
 
 Le pin `sha256` est obligatoire pour toute activation : `ProviderPluginActivator` n'a qu'une méthode
 publique `activate` et `ProviderPluginService` qu'une méthode publique `probe`, et chacune prend le pin. Le
