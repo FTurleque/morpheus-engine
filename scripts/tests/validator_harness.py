@@ -37,7 +37,24 @@ WINDOWS = os.name == "nt"
 # The fabricated build and the fabricated ratchet file agree: every validator compares the one with the other.
 # FABRICATED_TESTS counts the executions of declared test methods; the executions a factory generates are counted apart.
 FABRICATED_TESTS = 5000
-FABRICATED_GENERATED_TESTS = 300
+# validate-r2 requires one case per distinct released schema level from each factory of the upgrade suite. The levels
+# are read here from the declaration itself; the fabricated suite holds a guard method and two factories.
+RELEASED_LEVELS_FILE = "morpheus-store-sqlite/src/test/resources/released-schema-levels.properties"
+
+
+def released_schema_levels(path: Path = REPOSITORY / RELEASED_LEVELS_FILE) -> list[int]:
+    levels = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith(("#", "!")):
+            levels.add(int(line.replace(":", "=").split("=", 1)[1].strip()))
+    return sorted(levels)
+
+
+UPGRADE_FACTORIES = ("releasedLevels()", "publishedDatabases()")
+UPGRADE_GENERATED_TESTS = len(UPGRADE_FACTORIES) * len(released_schema_levels())
+# Every generated execution of the fabricated build: the upgrade factories' and those of the CLI suite.
+FABRICATED_GENERATED_TESTS = 300 + UPGRADE_GENERATED_TESTS
 FABRICATED_TOTAL_TESTS = FABRICATED_TESTS + FABRICATED_GENERATED_TESTS
 FABRICATED_ARCHITECTURE_TESTS = 1000
 FABRICATED_LINE_RATIO = "0.950000"
@@ -258,6 +275,9 @@ class FabricatedCheckout:
                          "docs/developer/reference/openapi/morpheus-v1-reasoning-m27.yaml"):
             (root / contract).parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(REPOSITORY / contract, root / contract)
+        # The real declaration of released schema levels: validate-r2 reads the number of cases it requires there.
+        (root / RELEASED_LEVELS_FILE).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(REPOSITORY / RELEASED_LEVELS_FILE, root / RELEASED_LEVELS_FILE)
         # The real release scripts: validate-r2 compares the default version they carry with the reactor's.
         for release in ("distribution/build-release.sh", "distribution/build-release.ps1"):
             (root / release).parent.mkdir(parents=True, exist_ok=True)
@@ -286,9 +306,10 @@ class FabricatedCheckout:
 
         version = product_version()
         cls._surefire(root, "morpheus-architecture-tests", "fabricated.ArchitectureTest", FABRICATED_ARCHITECTURE_TESTS)
-        cls._surefire(root, "morpheus-store-sqlite", UPGRADE_SUITE, UPGRADE_TESTS)
+        cls._upgrade_suite(root, len(released_schema_levels()))
         cls._surefire(root, "morpheus-domain", "fabricated.DomainTest", DOMAIN_TESTS)
-        cls._invocations(root, GENERATED_MODULE, GENERATED_SUITE, [f"factory()[{n}]" for n in range(1, FABRICATED_GENERATED_TESTS + 1)])
+        cls._invocations(root, GENERATED_MODULE, GENERATED_SUITE,
+                         [f"factory()[{n}]" for n in range(1, FABRICATED_GENERATED_TESTS - UPGRADE_GENERATED_TESTS + 1)])
         _write(root / COVERAGE_EVIDENCE, cls.coverage_evidence("aggregate"))
         _write(root / SBOM_JSON, '{"bomFormat":"CycloneDX"}\n')
         _write(root / SBOM_XML, "<bom/>\n")
@@ -301,6 +322,12 @@ class FabricatedCheckout:
                '<?xml version="1.0" encoding="UTF-8"?>\n'
                f'<testsuite name="{suite}" time="0.001" tests="{tests}" errors="{errors}" skipped="0" '
                f'failures="{failures}" flakes="0"/>\n')
+
+    @classmethod
+    def _upgrade_suite(cls, root: Path, cases_per_factory: int) -> None:
+        """The upgrade suite: its guard method, and ``cases_per_factory`` invocations of each factory."""
+        names = [f"{factory}[{n}]" for factory in UPGRADE_FACTORIES for n in range(1, cases_per_factory + 1)]
+        cls._invocations(root, "morpheus-store-sqlite", UPGRADE_SUITE, names, declared=UPGRADE_TESTS)
 
     @staticmethod
     def _invocations(root: Path, module: str, suite: str, names: list[str], declared: int = 0) -> None:
@@ -342,9 +369,16 @@ class FabricatedCheckout:
         self._invocations(self.root, module, suite, names, declared)
 
     def generated_tests(self, count: int, names: str = "factory()[{n}]", declared: int = 0) -> None:
-        """The suite of the test factories reports ``count`` invocations named after ``names``, and ``declared`` methods."""
+        """The build reports ``count`` generated invocations: the upgrade factories' and, named after ``names``, the
+        rest in the suite of the test factories, beside its ``declared`` methods."""
         self._invocations(self.root, GENERATED_MODULE, GENERATED_SUITE,
-                          [names.format(n=n) for n in range(1, count + 1)], declared)
+                          [names.format(n=n) for n in range(1, count - UPGRADE_GENERATED_TESTS + 1)], declared)
+
+    def upgrade_cases(self, cases_per_factory: int) -> None:
+        """Each upgrade factory reports ``cases_per_factory`` invocations; the generated total is unchanged."""
+        self._upgrade_suite(self.root, cases_per_factory)
+        self.generated_tests(FABRICATED_GENERATED_TESTS - len(UPGRADE_FACTORIES) * cases_per_factory
+                             + UPGRADE_GENERATED_TESTS)
 
     def architecture_suite(self, declared: int, generated: int) -> None:
         """The architecture module's suite: ``declared`` methods and ``generated`` invocations of a factory."""

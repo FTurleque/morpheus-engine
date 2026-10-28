@@ -24,6 +24,7 @@ import com.morpheus.store.sqlite.adapter.SqliteSpecificationKnowledgeStore;
 import com.morpheus.store.sqlite.adapter.SqliteSyncStateStore;
 import com.morpheus.store.sqlite.adapter.SqliteVersionedRequirementStore;
 import org.junit.jupiter.api.DynamicTest;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -45,10 +46,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.SortedSet;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -60,13 +63,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * back through the operations of the stores that own them, and one write per constrained family proves the upgraded
  * database is still writable.</p>
  *
- * <p>The limit of the proof: the rows are written by this test, in the shape of the insert statements of the stores at
- * the tags ({@code v1.0.0}, {@code v1.1.0}, {@code v1.2.0}, {@code v1.2.1}); the released program did not write them.
- * The single-migration tests ({@code SqliteSchemaMigrationTest} and its neighbours) replay one migration on a current
- * schema and cover what a baseline cannot, a duplicate sequence or a legacy value.</p>
+ * <p>Those rows are written by this test, in the shape of the insert statements of the stores at the tags
+ * ({@code v1.0.0}, {@code v1.1.0}, {@code v1.2.0}, {@code v1.2.1}), so every family a later migration touches is
+ * populated at every level. The second factory starts from what the released program itself wrote: one database per
+ * level under {@code published-databases/}, produced by the CLI of the tag that shipped the level
+ * ({@link PublishedDatabaseUpgrade}). The single-migration tests ({@code SqliteSchemaMigrationTest} and its neighbours)
+ * replay one migration on a current schema and cover what neither baseline holds, a duplicate sequence.</p>
  *
- * <p>A released level above {@link #ROW_SHAPES_KNOWN_THROUGH} is refused by name: the rows of that level have to be
- * written from the insert statements of its tag before the level is accepted.</p>
+ * <p>A released level above {@link #ROW_SHAPES_KNOWN_THROUGH}, or without its published database, is refused by name:
+ * its rows have to be written from the insert statements of its tag, and its database produced by its CLI, before the
+ * level is accepted.</p>
  */
 class ReleasedSchemaUpgradeTest {
     static final int ROW_SHAPES_KNOWN_THROUGH = 20;
@@ -86,10 +92,39 @@ class ReleasedSchemaUpgradeTest {
                 "released schema level " + level, () -> upgradeFrom(level)));
     }
 
+    @TestFactory
+    Stream<DynamicTest> aDatabaseThatEveryPublishedProgramWroteIsUpgradedWithoutLosingWhatItHeld() {
+        SortedSet<Integer> levels = ReleasedSchemaLevels.distinctLevels();
+        assertFalse(levels.isEmpty(), "released-schema-levels.properties declares no schema level: nothing would be upgraded");
+        return levels.stream().map(level -> DynamicTest.dynamicTest(
+                "database written at released schema level " + level,
+                () -> PublishedDatabaseUpgrade.upgradeAndVerify(level, tempDir.resolve("published-" + level))));
+    }
+
+    @Test
+    void aLevelAboveTheLastReleasedOneIsRefusedUntilItsReleaseProvidesItsRowsAndItsDatabase() {
+        int lastReleased = ReleasedSchemaLevels.distinctLevels().last();
+        // Through SUPPORTED_SCHEMA_VERSION + 1, so the range is never empty: the levels no release has shipped yet,
+        // and one the runtime does not know.
+        List<Integer> unreleased = IntStream.rangeClosed(lastReleased + 1, SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION + 1)
+                .boxed().toList();
+        for (int level : unreleased) {
+            if (level > ROW_SHAPES_KNOWN_THROUGH) {
+                AssertionError refused = assertThrows(AssertionError.class, () -> requireRowShapesKnown(level));
+                assertTrue(refused.getMessage().contains("released level " + level + " has no row shapes"),
+                        refused.getMessage());
+            }
+            IllegalStateException missing = assertThrows(IllegalStateException.class,
+                    () -> PublishedDatabases.provenance(level));
+            assertTrue(missing.getMessage().contains("level-" + level + "/"), missing.getMessage());
+        }
+        assertTrue(ROW_SHAPES_KNOWN_THROUGH <= lastReleased,
+                "row shapes are known through level " + ROW_SHAPES_KNOWN_THROUGH + ", above the last released level "
+                        + lastReleased + ": a level no release shipped would be accepted");
+    }
+
     private void upgradeFrom(int level) throws Exception {
-        assertTrue(level <= ROW_SHAPES_KNOWN_THROUGH,
-                "released level " + level + " has no row shapes: write them from the insert statements of its tag "
-                        + "before declaring it (known through level " + ROW_SHAPES_KNOWN_THROUGH + ")");
+        requireRowShapesKnown(level);
         assertTrue(level <= SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION,
                 "released level " + level + " is above SUPPORTED_SCHEMA_VERSION "
                         + SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION);
@@ -128,6 +163,12 @@ class ReleasedSchemaUpgradeTest {
                     "SELECT COUNT(*) FROM knowledge_snapshots WHERE project_id = ?", fixture.project.toString()),
                     "a second opening must not duplicate the snapshots");
         }
+    }
+
+    static void requireRowShapesKnown(int level) {
+        assertTrue(level <= ROW_SHAPES_KNOWN_THROUGH,
+                "released level " + level + " has no row shapes: write them from the insert statements of its tag "
+                        + "before declaring it (known through level " + ROW_SHAPES_KNOWN_THROUGH + ")");
     }
 
     private static void assertLedgerIsCompleteAndHistoryUnchanged(

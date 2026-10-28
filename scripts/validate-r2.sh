@@ -49,7 +49,10 @@ MORPHEUS_M27_SKIP_PORTABLE="$SKIP_PORTABLE" \
 
 UPGRADE_REPORT="$REPO/morpheus-store-sqlite/target/surefire-reports/TEST-com.morpheus.store.sqlite.runtime.ReleasedSchemaUpgradeTest.xml"
 [[ -f "$UPGRADE_REPORT" ]] || { echo "R2 upgrade report is missing: $UPGRADE_REPORT" >&2; exit 1; }
-morpheus_python - "$UPGRADE_REPORT" <<'PY'
+RELEASED_LEVELS="$REPO/morpheus-store-sqlite/src/test/resources/released-schema-levels.properties"
+[[ -f "$RELEASED_LEVELS" ]] || { echo "R2 released schema levels are missing: $RELEASED_LEVELS" >&2; exit 1; }
+morpheus_python - "$UPGRADE_REPORT" "$RELEASED_LEVELS" <<'PY'
+import re
 import sys
 import xml.etree.ElementTree as ET
 
@@ -59,7 +62,30 @@ failures = int(suite.attrib.get('failures', 0))
 errors = int(suite.attrib.get('errors', 0))
 if tests < 1 or failures or errors:
     raise SystemExit(f'R2 upgrade compatibility test failed: tests={tests} failures={failures} errors={errors}')
-print('SQLite upgrade from every released schema level: PASS')
+
+# One case per distinct level the declaration names, read from the declaration: a level dropped from it, or a
+# factory that stopped iterating over it, must not leave the gate green.
+levels = set()
+with open(sys.argv[2], encoding='utf-8') as declaration:
+    for line in declaration:
+        line = line.strip()
+        if line and not line.startswith(('#', '!')):
+            levels.add(int(re.split(r'[=:]', line, maxsplit=1)[1].strip()))
+if not levels:
+    raise SystemExit('R2 released schema levels declare no level')
+expected = list(range(1, len(levels) + 1))
+factories = {}
+for case in suite.iter('testcase'):
+    generated = re.fullmatch(r'(.+\(\))\[(\d+)\]', case.attrib.get('name', ''))
+    if generated:
+        factories.setdefault(generated.group(1), []).append(int(generated.group(2)))
+if not factories:
+    raise SystemExit('R2 upgrade compatibility test generated no case per released schema level')
+for factory, cases in sorted(factories.items()):
+    if sorted(cases) != expected:
+        raise SystemExit(f'R2 upgrade compatibility test {factory} ran {len(cases)} cases, expected one per '
+                         f'released schema level {sorted(levels)}')
+print(f'SQLite upgrade from every released schema level: PASS ({len(levels)} levels x {len(factories)} factories)')
 PY
 
 PACKAGED_M25_M26=SKIPPED

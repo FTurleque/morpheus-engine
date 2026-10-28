@@ -99,8 +99,11 @@ git ls-tree --name-only v<version> morpheus-store-sqlite/src/main/resources/db/m
 
 Ajouter la ligne `<version>=<numéro de la dernière migration listée>`. `ReleasedSchemaLevelsDeclarationTest` fait échouer
 le build de la version suivante tant que la ligne manque ; `ReleasedSchemaUpgradeTest` éprouve ensuite la montée de
-version depuis ce niveau. Si le niveau est nouveau, le test refuse de l'accepter tant que les lignes de sa base ne sont
-pas écrites d'après les requêtes d'insertion des stores au tag.
+version depuis ce niveau. Si le niveau est nouveau, le test refuse de l'accepter tant que deux choses manquent : les
+lignes de sa base, écrites d'après les requêtes d'insertion des stores au tag, et une base écrite par la CLI du tag
+elle-même, rangée sous `morpheus-store-sqlite/src/test/resources/published-databases/level-<niveau>/` avec son
+`provenance.properties` — la procédure est dans le `README.md` de ce répertoire. `validate-r2` exige ensuite du rapport
+de ce test un cas par niveau déclaré, pour chacune de ses fabriques.
 
 ## Enregistrement de la preuve
 
