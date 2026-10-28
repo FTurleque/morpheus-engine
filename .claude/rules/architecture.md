@@ -137,7 +137,7 @@ com.minos..  com.nexus..  com.jarvis..
 ```
 
 ### `com.morpheus.application..` — **exactement les mêmes interdits**
-L'application ne dépend d'**aucun** adaptateur. Pas de `store`, pas de `provider`, pas de `provider.sdk`.
+L'application ne dépend d'**aucun** adaptateur. Pas de `store`, pas de `provider`, pas de `sdk.provider`.
 > `applicationMustNotDependOnAdapters` — *"application services define use cases and ports without depending on adapters"*
 
 ### `com.morpheus.api..` est un **frère** de cli/mcp, pas leur parent
@@ -156,13 +156,22 @@ Interdits : `cli..`, `mcp..`, `api..`, `store..`, **et l'implémentation `com.mi
 | Package | Interdits supplémentaires |
 |---|---|
 | `application.query.{dsl,saved,export}` | cli, mcp, api, store.memory, store.sqlite, provider.openspec, provider.markdown |
-| `application.policy..` | idem **+ `provider.sdk`** |
+| `application.policy..` | idem **+ `sdk.provider`** |
 | `application.reasoning..` | idem + **tout `provider..`** + **`application.lifecycle.mutation..`** |
 
 ### `domain` et `application` ignorent le SDK plugin — **jusque dans les POMs**
 `morpheus-domain/pom.xml` et `morpheus-application/pom.xml` ne doivent contenir
 ni `morpheus-provider-sdk` ni `morpheus-provider-reference`.
 > `ProviderPluginPlatformContractTest#domainAndApplicationDoNotDependOnSdkOrReferencePlugin`
+
+### `com.morpheus.sdk..` (le SDK provider) ne dépend d'**aucun** adaptateur
+Interdits depuis `morpheus-provider-sdk` : `store..`, `provider..` (plugin de référence compris), `integration..`,
+`mcp..`, `api..`, `cli..`. Le SDK est publié aux auteurs de plugins et ne dépend que du domaine, de l'application et du
+JDK (ADR-0129). La règle de bytecode a un jumeau textuel : une constante de compilation d'un adaptateur ne laisserait
+aucune dépendance. `morpheus-provider-testkit` partage le paquet mais n'est pas dans l'ensemble importé : sa frontière
+est son POM. Les familles que `AdapterSiblingArchitectureTest` juge sont déclarées dans `SUBJECTS` et comparées à ses
+règles.
+> `AdapterSiblingArchitectureTest#theProviderSdkDependsOnNoAdapter`, `#noProviderSdkSourceNamesAnAdapterPackage`, `#everyDeclaredSubjectIsTheSubjectOfARuleAndNoOther`
 
 ### `api` / `mcp` → stores et providers concrets : seulement par les racines nommées (ADR-0109)
 Les serveurs HTTP et MCP construisent le runtime de chaque requête à partir de `store-sqlite` (et le provider OpenSpec

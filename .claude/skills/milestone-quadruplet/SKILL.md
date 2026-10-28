@@ -51,7 +51,7 @@ donnent l'échelle de rigueur attendue :
 | Package | Interdits supplémentaires |
 |---|---|
 | `application.query.{dsl,saved,export}` | cli, mcp, api, store.memory, store.sqlite, provider.openspec, provider.markdown |
-| `application.policy..` | idem **+ `provider.sdk`** |
+| `application.policy..` | idem **+ `sdk.provider`** |
 | `application.reasoning..` | idem + **tout `provider..`** + **`application.lifecycle.mutation..`** |
 
 Un **noyau pur** porte en plus des interdits textuels : pas de transport, pas de persistance, pas
