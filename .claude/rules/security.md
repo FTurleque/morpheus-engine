@@ -104,10 +104,11 @@ Supprimer une de ces chaînes casse le build.
   publique `activate` et `ProviderPluginService` qu'une méthode publique `probe`, chacune prend le pin, et aucune ne
   survit en surcharge `@Deprecated` (`ProviderPluginTrustBoundaryContractTest#theOnlyPublicEntriesToPluginCodeTakeThePin`,
   sur les classes compilées)
-- Un pin absent ou vide est refusé par ce point d'entrée, avant toute copie du JAR :
-  *"provider plugin activation requires a trusted SHA-256 pin"* ; un pin mal formé garde le refus de
-  `ExternalJarIntegrity.normalizeSha256` (`ProviderPluginActivatorTest`, et
-  `ProviderPluginPlatformContractTest` sur le JAR de référence)
+- Un pin absent ou vide est refusé par nom, avant toute copie du JAR : *"provider plugin activation requires a
+  trusted SHA-256 pin"* à l'activation, *"provider plugin probe requires a trusted SHA-256 pin"* au probe, avant toute
+  lecture du répertoire ; un pin mal formé garde le refus de `ExternalJarIntegrity.normalizeSha256`
+  (`ProviderPluginActivatorTest`, `ProviderPluginServicePinTest`, et `ProviderPluginPlatformContractTest` sur le JAR de
+  référence)
 - Le `URLClassLoader` ne lit que la copie vérifiée (`stageVerifiedCopy`), jamais le JAR d'origine en repli
   (`ExternalCodeTrustBoundaryArchitectureTest` refuse `orElse(candidate.jarPath())`)
 - La découverte est **métadonnées uniquement** : pas de classloading, pas de scan au démarrage

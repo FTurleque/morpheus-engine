@@ -38,7 +38,8 @@ Ne doit **PAS** contenir : `token + "|"`
 ## 4. Plugins providers (fail-closed)
 - `ProviderPluginActivator` : une seule méthode publique `activate`, qui prend le pin et refuse un pin absent par
   `"provider plugin activation requires a trusted SHA-256 pin"` (`ProviderPluginActivatorTest`) ; `ProviderPluginService` :
-  une seule méthode publique `probe`, avec pin ; aucune surcharge `@Deprecated`
+  une seule méthode publique `probe`, qui refuse un pin absent par `"provider plugin probe requires a trusted SHA-256
+  pin"` (`ProviderPluginServicePinTest`) ; aucune surcharge `@Deprecated`
   (`ProviderPluginTrustBoundaryContractTest#theOnlyPublicEntriesToPluginCodeTakeThePin`)
 - `ProviderPluginActivator` ne contient **pas** `orElse(candidate.jarPath())` : le classloader ne lit que la copie vérifiée
 - `ProviderPluginDiscovery` → `LinkOption.NOFOLLOW_LINKS` + `Files.isSymbolicLink`

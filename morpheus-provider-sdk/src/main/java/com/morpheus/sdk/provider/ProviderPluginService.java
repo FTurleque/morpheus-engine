@@ -43,6 +43,9 @@ public final class ProviderPluginService {
         Objects.requireNonNull(pluginDirectory, "pluginDirectory");
         Objects.requireNonNull(workspaceRoot, "workspaceRoot");
         String requestedPluginId = requireText(pluginId, "pluginId");
+        if (expectedSha256 == null || expectedSha256.isBlank()) {
+            throw new IllegalArgumentException("provider plugin probe requires a trusted SHA-256 pin");
+        }
         String trustedSha256 = ExternalJarIntegrity.normalizeSha256(expectedSha256);
         ProviderPluginDiscoveryResult result = discovery.discover(pluginDirectory);
         Outcomes outcomes = new Outcomes(requestedPluginId, result.diagnostics());
