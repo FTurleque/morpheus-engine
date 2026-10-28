@@ -27,6 +27,7 @@ import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import javax.net.ssl.KeyManagerFactory;
@@ -106,6 +107,35 @@ class UpdateDiscoveryServiceStalledBodyTest {
                 "a stalled body must fail near the configured deadline, not after the full server stall: " + elapsed);
         assertTrue(failure.getMessage() != null && failure.getMessage().contains(manifestUri.toString()),
                 "the failure must name the manifest URI it was reading: " + failure.getMessage());
+        assertTrue(failure.getMessage().startsWith("update manifest body did not complete within " + SERVICE_TIMEOUT),
+                "an expired deadline must be refused by its own name: " + failure.getMessage());
+    }
+
+    @Test
+    void aRedirectIsNotFollowedAndIsRefusedByItsStatus() throws Exception {
+        Path keyStore = createKeyStore(tempDir.resolve("update-test-6.p12"));
+        AtomicInteger targetHits = new AtomicInteger();
+        server = startServer(keyStore, exchange -> {
+            if ("/target".equals(exchange.getRequestURI().getPath())) {
+                targetHits.incrementAndGet();
+                byte[] validManifest = validManifestBytes();
+                exchange.sendResponseHeaders(200, validManifest.length);
+                exchange.getResponseBody().write(validManifest);
+                exchange.close();
+                return;
+            }
+            exchange.getResponseHeaders().add("Location", "/target");
+            exchange.sendResponseHeaders(302, -1);
+            exchange.close();
+        });
+
+        UpdateDiscoveryService service = new UpdateDiscoveryService(trustedClient(keyStore), SERVICE_TIMEOUT);
+        URI manifestUri = URI.create("https://localhost:" + server.getAddress().getPort() + "/moved");
+
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
+                () -> service.check(manifestUri));
+        assertEquals("update manifest request failed with HTTP 302: " + manifestUri, failure.getMessage());
+        assertEquals(0, targetHits.get(), "the redirect target must never be requested");
     }
 
     @Test
@@ -166,7 +196,8 @@ class UpdateDiscoveryServiceStalledBodyTest {
 
         IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
                 () -> service.check(manifestUri));
-        assertTrue(failure.getMessage().contains("exceeds"), failure.getMessage());
+        assertEquals("update manifest exceeds " + UpdateDiscoveryService.MAX_MANIFEST_BYTES + " bytes: " + manifestUri,
+                failure.getMessage());
     }
 
     @Test
@@ -242,6 +273,7 @@ class UpdateDiscoveryServiceStalledBodyTest {
         assertNotNull(observed.get(), "an interrupted read must surface a failure rather than silently succeed");
         assertTrue(observed.get() instanceof IllegalStateException,
                 "interruption must be reported the same way as an interrupted request: " + observed.get());
+        assertEquals("update manifest request interrupted: " + manifestUri, observed.get().getMessage());
     }
 
     @Test

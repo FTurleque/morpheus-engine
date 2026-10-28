@@ -118,6 +118,23 @@ class ProductIntegrityTest {
     }
 
     @Test
+    void aMissingFileManifestIsRefusedByName() {
+        URI missing = tempDir.resolve("absent.properties").toUri();
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class,
+                () -> new UpdateDiscoveryService().check(missing));
+        assertEquals("cannot read update manifest: " + missing, failure.getMessage());
+    }
+
+    @Test
+    void aRelativeManifestAddressIsRefusedBeforeAnyIo() {
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class,
+                () -> new UpdateDiscoveryService().check(URI.create("update.properties")));
+        assertEquals("manifestUri must be absolute", failure.getMessage());
+    }
+
+    @Test
     void sha256IsValidated() {
         IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> new UpdateManifest(
                 "1.0.1", "stable", URI.create("https://example.invalid/morpheus.zip"), "not-a-sha", Optional.empty()));
