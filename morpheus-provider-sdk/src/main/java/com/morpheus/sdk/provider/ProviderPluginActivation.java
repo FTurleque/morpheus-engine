@@ -10,7 +10,7 @@ import java.nio.file.Path;
 import java.util.Objects;
 
 /** Explicitly activated plugin/provider pair. Closing the handle releases its classloader and trusted staging copy. */
-public final class ProviderPluginActivation implements AutoCloseable {
+final class ProviderPluginActivation implements AutoCloseable {
     private final ProviderPluginCandidate candidate;
     private final MorpheusProviderPlugin plugin;
     private final SpecificationProvider provider;

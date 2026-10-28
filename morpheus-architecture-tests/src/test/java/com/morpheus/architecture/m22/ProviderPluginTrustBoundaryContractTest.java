@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.morpheus.architecture.RepositoryRoot;
-import com.morpheus.sdk.provider.ProviderPluginActivator;
 import com.morpheus.sdk.provider.ProviderPluginService;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaMethod;
@@ -75,21 +74,33 @@ class ProviderPluginTrustBoundaryContractTest {
     }
 
     /**
-     * There is one way into third-party provider code per host class, and it takes the pin.
+     * The only public way into third-party provider code is the probe, and it takes the pin.
      *
      * <p>The property is one of the declared API, read on the compiled classes: an overload without a pin -- even
-     * one that only throws today -- is a second entry whose body can change without any gate reading it again.</p>
+     * one that only throws today -- is a second entry whose body can change without any gate reading it again. The
+     * activator and its handle are not public, so no host activates plugin code in its own process: plugin code runs
+     * in the probe worker, the child process of ADR-0129.</p>
      */
     @Test
-    void theOnlyPublicEntriesToPluginCodeTakeThePin() {
-        JavaClass activator = new ClassFileImporter().importClass(ProviderPluginActivator.class);
-        JavaClass service = new ClassFileImporter().importClass(ProviderPluginService.class);
+    void theOnlyPublicEntryToPluginCodeIsThePinnedProbe() {
+        var sdk = new ClassFileImporter().importPackages("com.morpheus.sdk.provider");
+        JavaClass activator = sdk.get("com.morpheus.sdk.provider.ProviderPluginActivator");
+        JavaClass activation = sdk.get("com.morpheus.sdk.provider.ProviderPluginActivation");
+        JavaClass service = sdk.get(ProviderPluginService.class);
 
+        for (JavaClass hidden : List.of(activator, activation)) {
+            assertFalse(hidden.getModifiers().contains(JavaModifier.PUBLIC),
+                    () -> hidden.getSimpleName() + " must not be public: a public activator loads plugin code in the "
+                            + "caller's process, outside the probe worker");
+        }
         assertEquals(
                 List.of("com.morpheus.sdk.provider.ProviderPluginActivator.activate("
                         + "com.morpheus.sdk.provider.ProviderPluginCandidate, java.lang.String)"),
-                publicMethodsNamed(activator, "activate"),
-                "activation must have exactly one public entry, and it must take the trusted SHA-256 pin");
+                activator.getMethods().stream()
+                        .filter(method -> method.getName().equals("activate"))
+                        .map(JavaMethod::getFullName)
+                        .toList(),
+                "activation must have exactly one entry, and it must take the trusted SHA-256 pin");
         assertEquals(
                 List.of("com.morpheus.sdk.provider.ProviderPluginService.probe("
                         + "java.nio.file.Path, java.lang.String, java.nio.file.Path, java.lang.String)"),

@@ -59,8 +59,15 @@ probe, the `PLUGIN_SHA256_REQUIRED` refusal of the remote route.
 - The two disclosure tests keep quoting a sentence as sample text; if the message of decision 2 differs in wording, the
   samples are updated so that they still quote something the product can say.
 
-## Open Questions
+## Decision 5: the activator and its handle are not public
 
-- **Should `ProviderPluginActivator` be public at all?** Its only production caller is in its own package.
-  **Recommendation**: leave visibility alone here; `UnreferencedPublicMethodArchitectureTest` excludes the SDK on
-  purpose, and narrowing the SDK's host-side surface is a separate decision about what the SDK publishes.
+`ProviderPluginActivator` and `ProviderPluginActivation` are package-private, and `activate` is package-private.
+Their only production callers are in their own package (`ProviderPluginService`, `ProviderPluginProbeWorker`). A
+public activator let any host load plugin code in its own process, outside the probe worker that ADR-0129 makes the
+place where plugin code runs; plugin authors implement `MorpheusProviderPlugin` and never call it, so the API the SDK
+publishes to them does not change. `ProviderPluginService.probe` is the only public entry to plugin code, and it
+refuses a missing pin by name before it reads the plugin directory.
+
+`ProviderPluginTrustBoundaryContractTest#theOnlyPublicEntryToPluginCodeIsThePinnedProbe` reads the compiled classes:
+neither type is public, and `activate` has one overload, which takes the pin. `ProviderPluginPlatformContractTest`
+proves the refusal on the reference JAR through the probe. Decided by the maintainer on 2026-10-29.

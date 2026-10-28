@@ -15,15 +15,20 @@ import java.util.Objects;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 
-/** Explicit activation of one compatible candidate in a dedicated classloader. */
-public final class ProviderPluginActivator {
+/**
+ * Explicit activation of one compatible candidate in a dedicated classloader.
+ *
+ * <p>Not public: plugin code runs only in the probe worker, the child process of SEC-0129. A host reaches it through
+ * {@link ProviderPluginService#probe}, never by activating a plugin in its own process.</p>
+ */
+final class ProviderPluginActivator {
 
     /**
      * Activates a compatible candidate after mandatory SHA-256 pin verification. An owner-hardened verified staging
      * copy is created and that immutable copy is the only JAR exposed to URLClassLoader/ServiceLoader, closing the
      * verification-to-load TOCTOU window on the original path. A missing pin is refused before the JAR is read.
      */
-    public ProviderPluginActivation activate(ProviderPluginCandidate candidate, String expectedSha256) {
+    ProviderPluginActivation activate(ProviderPluginCandidate candidate, String expectedSha256) {
         Objects.requireNonNull(candidate, "candidate");
         if (expectedSha256 == null || expectedSha256.isBlank()) {
             throw new IllegalArgumentException("provider plugin activation requires a trusted SHA-256 pin");

@@ -3,9 +3,10 @@ package com.morpheus.architecture.m22;
 import com.morpheus.application.product.ProductMetadata;
 import com.morpheus.architecture.ProductionSources;
 import com.morpheus.architecture.RepositoryRoot;
-import com.morpheus.sdk.provider.ProviderPluginActivator;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.sdk.provider.ProviderPluginCandidate;
 import com.morpheus.sdk.provider.ProviderPluginDiscovery;
+import com.morpheus.sdk.provider.ProviderPluginService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -78,11 +79,14 @@ class ProviderPluginPlatformContractTest {
         assertTrue(httpRoutes.contains("if (!probeEnabled)"));
         assertTrue(httpRoutes.contains("provider-plugin probe is remote-only"));
         ProviderPluginCandidate reference = referenceCandidate();
+        Path pluginDirectory = reference.jarPath().getParent();
+        String pluginId = reference.metadata().orElseThrow().pluginId();
+        ProviderPluginService service = new ProviderPluginService(OperationalRecorder.noop());
         for (String missingPin : Arrays.asList(null, "", "   ")) {
             IllegalArgumentException refusal = assertThrows(IllegalArgumentException.class,
-                    () -> new ProviderPluginActivator().activate(reference, missingPin),
-                    "the reference plugin must not be activated without a trusted SHA-256 pin");
-            assertEquals("provider plugin activation requires a trusted SHA-256 pin", refusal.getMessage());
+                    () -> service.probe(pluginDirectory, pluginId, tempDirectory, missingPin),
+                    "the reference plugin must not be probed without a trusted SHA-256 pin");
+            assertEquals("provider plugin probe requires a trusted SHA-256 pin", refusal.getMessage());
         }
     }
 

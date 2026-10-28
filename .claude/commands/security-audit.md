@@ -36,11 +36,11 @@ Ne doit **PAS** contenir : `token + "|"`
 `RemoteApiLaunchOptions.java` : `MORPHEUS_SERVER_TLS_PASSWORD` présent, `--tls-password` **absent**.
 
 ## 4. Plugins providers (fail-closed)
-- `ProviderPluginActivator` : une seule méthode publique `activate`, qui prend le pin et refuse un pin absent par
-  `"provider plugin activation requires a trusted SHA-256 pin"` (`ProviderPluginActivatorTest`) ; `ProviderPluginService` :
-  une seule méthode publique `probe`, qui refuse un pin absent par `"provider plugin probe requires a trusted SHA-256
-  pin"` (`ProviderPluginServicePinTest`) ; aucune surcharge `@Deprecated`
-  (`ProviderPluginTrustBoundaryContractTest#theOnlyPublicEntriesToPluginCodeTakeThePin`)
+- `ProviderPluginService` : une seule méthode publique `probe`, seule entrée publique vers du code de plugin, qui
+  refuse un pin absent par `"provider plugin probe requires a trusted SHA-256 pin"` (`ProviderPluginServicePinTest`) ;
+  `ProviderPluginActivator` et `ProviderPluginActivation` ne sont pas publics, `activate` prend le pin et refuse un pin
+  absent par `"provider plugin activation requires a trusted SHA-256 pin"` (`ProviderPluginActivatorTest`) ; aucune
+  surcharge `@Deprecated` (`ProviderPluginTrustBoundaryContractTest#theOnlyPublicEntryToPluginCodeIsThePinnedProbe`)
 - `ProviderPluginActivator` ne contient **pas** `orElse(candidate.jarPath())` : le classloader ne lit que la copie vérifiée
 - `ProviderPluginDiscovery` → `LinkOption.NOFOLLOW_LINKS` + `Files.isSymbolicLink`
 - `MorpheusHttpServer` → `providerPluginProbeEnabled` + `"provider-plugin probe is remote-only"`

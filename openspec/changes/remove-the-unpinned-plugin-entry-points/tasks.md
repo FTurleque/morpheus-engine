@@ -41,6 +41,11 @@
       intent "no way to reach plugin code without a pin"; text for the two expressions - intent "this expression must
       not appear here". Proof: green.
       Done. Mapping: `ExternalCodeTrustBoundaryArchitectureTest:141` -> text `assertFalse(orElse(candidate.jarPath()))` and `assertFalse(@Deprecated)`; `ProviderPluginTrustBoundaryContractTest:55` -> text `Path stagedJar = ExternalJarIntegrity.stageVerifiedCopy(candidate.jarPath(), trustedSha256);` (the load target is the staging result) plus the structural method of 2.2, which also refuses `@Deprecated` on the bytecode; `ProviderPluginPlatformContractTest:92` -> behaviour: the real reference JAR, activated with a `null`, empty and blank pin, is refused with the named message.
+- [x] 3.5 Design, decision 5: the activator and its handle are package-private; the probe is the only public entry to
+      plugin code and refuses a missing pin by name. Proof: the shape test reads both types as non-public.
+      Done: `ProviderPluginTrustBoundaryContractTest#theOnlyPublicEntryToPluginCodeIsThePinnedProbe` (2.2 renamed for what
+      it asserts); `ProviderPluginPlatformContractTest` refuses the reference JAR through `ProviderPluginService.probe`;
+      `ProviderPluginServicePinTest` red then green on the probe refusal.
 
 ## 4. Break each gate once, then revert (`.claude/skills/enforcement-choice`)
 

@@ -329,11 +329,12 @@ morpheus --json provider-plugins probe --directory <plugins> --plugin <pluginId>
 MCP : `discover_provider_plugins`, servi seulement quand l'opérateur configure un répertoire de plugins au
 lancement du serveur MCP, et limité à ce répertoire. Le probe exécute du code tiers : il n'est jamais exposé au MCP.
 
-Le pin `sha256` est obligatoire pour toute activation : `ProviderPluginActivator` n'a qu'une méthode
-publique `activate` et `ProviderPluginService` qu'une méthode publique `probe`, et chacune prend le pin. Le
+Le pin `sha256` est obligatoire pour toute activation : la seule entrée publique vers du code de plugin est
+`ProviderPluginService.probe`, qui prend le pin ; `ProviderPluginActivator` n'est pas public et n'active un
+plugin que dans le worker du probe, jamais dans le processus de l'hôte. Le
 digest est lié au `pluginId` demandé et vérifié avant la création du `URLClassLoader`, qui ne lit que la
-copie vérifiée du JAR. Un pin absent ou vide est refusé par son nom (« provider plugin activation requires a
-trusted SHA-256 pin »), un pin mal formé ou différent l'est aussi, et dans tous les cas aucun code du plugin
+copie vérifiée du JAR. Un pin absent ou vide est refusé par son nom (« provider plugin probe requires a trusted
+SHA-256 pin »), un pin mal formé ou différent l'est aussi, et dans tous les cas aucun code du plugin
 n'est exécuté.
 
 Rotation : qualifier le nouveau JAR hors processus, calculer son SHA-256 depuis une source de confiance,

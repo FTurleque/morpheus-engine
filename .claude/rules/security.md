@@ -100,10 +100,11 @@ Supprimer une de ces chaînes casse le build.
 
 ## Plugins providers (M22) — fail-closed
 
-- L'activation d'un plugin **exige un pin SHA-256 de confiance** : `ProviderPluginActivator` n'a qu'une méthode
-  publique `activate` et `ProviderPluginService` qu'une méthode publique `probe`, chacune prend le pin, et aucune ne
-  survit en surcharge `@Deprecated` (`ProviderPluginTrustBoundaryContractTest#theOnlyPublicEntriesToPluginCodeTakeThePin`,
-  sur les classes compilées)
+- L'activation d'un plugin **exige un pin SHA-256 de confiance**. La seule entrée publique vers du code de plugin
+  est `ProviderPluginService.probe`, qui prend le pin ; `ProviderPluginActivator` et `ProviderPluginActivation` ne
+  sont pas publics, donc aucun hôte n'active un plugin dans son propre processus : le code du plugin ne tourne que dans
+  le worker du probe. `activate` n'a qu'une surcharge, avec pin, et aucune ne survit en `@Deprecated`
+  (`ProviderPluginTrustBoundaryContractTest#theOnlyPublicEntryToPluginCodeIsThePinnedProbe`, sur les classes compilées)
 - Un pin absent ou vide est refusé par nom, avant toute copie du JAR : *"provider plugin activation requires a
   trusted SHA-256 pin"* à l'activation, *"provider plugin probe requires a trusted SHA-256 pin"* au probe, avant toute
   lecture du répertoire ; un pin mal formé garde le refus de `ExternalJarIntegrity.normalizeSha256`
