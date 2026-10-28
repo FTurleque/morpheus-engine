@@ -99,7 +99,7 @@ class ControlledLifecycleMutationRejectionContractTest {
         assertEquals(ChangeLifecycleMutationResultState.REJECTED, result.state());
         assertTrue(result.reason().contains("BLOCKED"), result.reason());
         assertTrue(mutations.findState(projectId, changeId).isEmpty());
-        assertTrue(mutations.listAudit(projectId, changeId).isEmpty());
+        assertTrue(JournalPages.allAudit(mutations, projectId, changeId).isEmpty());
     }
 
     @Test

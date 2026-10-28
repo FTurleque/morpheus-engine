@@ -1,9 +1,11 @@
 package com.morpheus.store.memory;
 
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.SpecificationKnowledgeStore;
 import com.morpheus.application.store.SyncStateStore;
 import com.morpheus.application.sync.ProjectSyncState;
+import com.morpheus.application.sync.SourceArchivePage;
 import com.morpheus.application.sync.SourceArchiveRecord;
 import com.morpheus.application.sync.SourceInventory;
 import com.morpheus.application.sync.SyncPlan;
@@ -42,9 +44,10 @@ public final class MemorySyncStateStore implements SyncStateStore {
     }
 
     @Override
-    public synchronized List<SourceArchiveRecord> listArchives(ProjectSpecificationId projectId) {
+    public synchronized SourceArchivePage listArchives(ProjectSpecificationId projectId, PageRequest pageRequest) {
         Objects.requireNonNull(projectId, "projectId");
-        return archives.getOrDefault(projectId, List.of()).stream().sorted().toList();
+        Objects.requireNonNull(pageRequest, "pageRequest");
+        return SourceArchivePage.of(archives.getOrDefault(projectId, List.of()), pageRequest);
     }
 
     @Override

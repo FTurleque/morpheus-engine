@@ -111,7 +111,8 @@ class SqliteSchemaMigrationTest {
             assertTrue(indexExists(connection, "idx_snapshot_acceptance_change"));
             assertTrue(indexExists(connection, "idx_snapshot_acceptance_status"));
             assertFalse(indexExists(connection, "idx_sync_inventory_entries_project"));
-            assertTrue(indexExists(connection, "idx_sync_source_archives_project_time"));
+            assertFalse(indexExists(connection, "idx_sync_source_archives_project_time"));
+            assertTrue(indexExists(connection, "idx_sync_source_archives_project_order"));
             assertTrue(indexExists(connection, "idx_change_lifecycle_audit_change"));
             assertTrue(indexExists(connection, "composition_conflict_unique"));
             assertTrue(indexExists(connection, "idx_portfolio_memberships_project"));

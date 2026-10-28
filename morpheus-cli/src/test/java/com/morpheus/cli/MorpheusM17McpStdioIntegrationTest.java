@@ -3,6 +3,7 @@ package com.morpheus.cli;
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.cli.command.CliLayout;
 import com.morpheus.cli.command.CliRuntime;
@@ -20,6 +21,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MorpheusM17McpStdioIntegrationTest {
@@ -52,8 +54,9 @@ class MorpheusM17McpStdioIntegrationTest {
         }
 
         try (var mutations = new SqliteChangeLifecycleMutationStore(database)) {
-            assertTrue(mutations.listAudit(
-                    ProjectSpecificationId.parse(seed.projectId()), ChangeId.parse(seed.changeId())).isEmpty(),
+            assertEquals(0, mutations.listAudit(
+                    ProjectSpecificationId.parse(seed.projectId()), ChangeId.parse(seed.changeId()),
+                    PageRequest.first(1)).totalMatches(),
                     "denied MCP write must not create audit or state");
         }
     }

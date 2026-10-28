@@ -3,11 +3,13 @@ package com.morpheus.store.sqlite.adapter;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.operability.SuppressedFailureFamily;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationAttempt;
+import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationAuditPage;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationAuditRecord;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationPersistenceResult;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationPersistenceState;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationStore;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleOperationalState;
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.lifecycle.ChangeAbandonmentReason;
@@ -36,6 +38,16 @@ import java.util.Optional;
 
 /** SQLite implementation of M17 operational lifecycle CAS, idempotency and append-only audit. */
 public final class SqliteChangeLifecycleMutationStore implements ChangeLifecycleMutationStore, AutoCloseable {
+    static final String AUDIT_PAGE_SQL = """
+            SELECT *
+            FROM change_lifecycle_mutation_audit
+            WHERE project_id = ? AND change_id = ?
+            ORDER BY to_revision, mutation_id
+            LIMIT ? OFFSET ?
+            """;
+    static final String AUDIT_COUNT_SQL =
+            "SELECT COUNT(*) FROM change_lifecycle_mutation_audit WHERE project_id = ? AND change_id = ?";
+
     private final Connection connection;
     private final OperationalRecorder recorder;
     private boolean closed;
@@ -86,28 +98,44 @@ public final class SqliteChangeLifecycleMutationStore implements ChangeLifecycle
         }
     }
 
+    /**
+     * One page of the change's audit, by revision then mutation identity, through
+     * {@code idx_change_lifecycle_audit_change}: the revision is an integer, and the lowercase text of a UUIDv7 sorts
+     * as the identity compares.
+     */
     @Override
-    public synchronized List<ChangeLifecycleMutationAuditRecord> listAudit(
+    public synchronized ChangeLifecycleMutationAuditPage listAudit(
             ProjectSpecificationId projectId,
-            ChangeId changeId) {
+            ChangeId changeId,
+            PageRequest pageRequest) {
         ensureOpen();
         Objects.requireNonNull(projectId, "projectId");
         Objects.requireNonNull(changeId, "changeId");
-        try (PreparedStatement statement = connection.prepareStatement("""
-                SELECT *
-                FROM change_lifecycle_mutation_audit
-                WHERE project_id = ? AND change_id = ?
-                ORDER BY to_revision, mutation_id
-                """)) {
-            statement.setString(1, projectId.toString());
-            statement.setString(2, changeId.toString());
-            List<ChangeLifecycleMutationAuditRecord> records = new ArrayList<>();
-            try (ResultSet result = statement.executeQuery()) {
-                while (result.next()) {
-                    records.add(readAudit(result));
+        Objects.requireNonNull(pageRequest, "pageRequest");
+        try {
+            int total;
+            try (PreparedStatement count = connection.prepareStatement(AUDIT_COUNT_SQL)) {
+                count.setString(1, projectId.toString());
+                count.setString(2, changeId.toString());
+                try (ResultSet result = count.executeQuery()) {
+                    result.next();
+                    total = result.getInt(1);
                 }
             }
-            return List.copyOf(records);
+            try (PreparedStatement statement = connection.prepareStatement(AUDIT_PAGE_SQL)) {
+                statement.setString(1, projectId.toString());
+                statement.setString(2, changeId.toString());
+                statement.setInt(3, pageRequest.limit());
+                statement.setInt(4, pageRequest.offset());
+                List<ChangeLifecycleMutationAuditRecord> records = new ArrayList<>();
+                try (ResultSet result = statement.executeQuery()) {
+                    while (result.next()) {
+                        records.add(readAudit(result));
+                    }
+                }
+                return new ChangeLifecycleMutationAuditPage(
+                        records, pageRequest, total, (long) pageRequest.offset() + records.size() < total);
+            }
         } catch (SQLException exception) {
             throw new KnowledgeStoreException("Cannot list lifecycle mutation audit for " + changeId, exception);
         }

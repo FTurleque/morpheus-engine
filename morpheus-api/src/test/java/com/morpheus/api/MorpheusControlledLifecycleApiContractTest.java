@@ -7,6 +7,7 @@ import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.application.operability.OperationalLogMode;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.operability.OperationalRuntime;
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
@@ -69,7 +70,8 @@ class MorpheusControlledLifecycleApiContractTest {
 
         try (var mutations = new SqliteChangeLifecycleMutationStore(database)) {
             assertEquals(1, mutations.listAudit(
-                    ProjectSpecificationId.parse(seed.projectId()), ChangeId.parse(seed.changeId())).size());
+                    ProjectSpecificationId.parse(seed.projectId()), ChangeId.parse(seed.changeId()),
+                    PageRequest.first(1)).totalMatches());
             assertEquals(1, mutations.findState(
                     ProjectSpecificationId.parse(seed.projectId()), ChangeId.parse(seed.changeId())).orElseThrow()
                     .revision().value());
@@ -85,8 +87,9 @@ class MorpheusControlledLifecycleApiContractTest {
             assertTrue(denied.body().contains("\"state\":\"NOT_AUTHORIZED\""), denied.body());
         }
         try (var mutations = new SqliteChangeLifecycleMutationStore(deniedDatabase)) {
-            assertTrue(mutations.listAudit(
-                    ProjectSpecificationId.parse(deniedSeed.projectId()), ChangeId.parse(deniedSeed.changeId())).isEmpty());
+            assertEquals(0, mutations.listAudit(
+                    ProjectSpecificationId.parse(deniedSeed.projectId()), ChangeId.parse(deniedSeed.changeId()),
+                    PageRequest.first(1)).totalMatches());
         }
     }
 
@@ -113,9 +116,10 @@ class MorpheusControlledLifecycleApiContractTest {
         }
 
         try (var mutations = new SqliteChangeLifecycleMutationStore(database)) {
-            assertTrue(mutations.listAudit(
-                            ProjectSpecificationId.parse(seed.projectId()), ChangeId.parse(seed.changeId()))
-                    .isEmpty(), "a refused request must leave no audit record");
+            assertEquals(0, mutations.listAudit(
+                            ProjectSpecificationId.parse(seed.projectId()), ChangeId.parse(seed.changeId()),
+                            PageRequest.first(1))
+                    .totalMatches(), "a refused request must leave no audit record");
         }
     }
 
