@@ -1,9 +1,9 @@
 # Sprints de correction
-État au **28 octobre 2026** sur `6c6a97f6` (`origin/develop`) pour les sprints 7 et 8, sur la branche `fix/finish-sprints-1-5` pour les sprints 1 et 5, sur `fbf58cac` pour le sprint 9, `AUD-ARC-16` et les trois constats neufs du sprint 15, au **26 octobre 2026** sur `4694b8b2` pour les autres, après un `./mvnw clean verify` vert sur les 19 modules. L'ordre et le découpage sont ceux du 9 octobre ; seuls les statuts ont été réétablis, constat par constat, sur le code.
+État au **28 octobre 2026** sur `6c6a97f6` (`origin/develop`) pour les sprints 7 et 8, sur la branche `fix/finish-sprints-1-5` pour les sprints 1 et 5, sur `fbf58cac` pour le sprint 9, `AUD-ARC-16` et les trois constats neufs du sprint 15, sur `aace25fc` (branche `fix/audit-arc-01-prf-04`) pour `AUD-ARC-01`, `AUD-PRF-04` et `AUD-TST-20`, au **26 octobre 2026** sur `4694b8b2` pour les autres, après un `./mvnw clean verify` vert sur les 19 modules. L'ordre et le découpage sont ceux du 9 octobre ; seuls les statuts ont été réétablis, constat par constat, sur le code.
 
-**Plan du 9 octobre : 73 constats, 61 soldés, 12 restants.** Les sprints 1, 2, 3, 4, 5, 7, 8 et 9 sont terminés ; le sprint 6 garde `AUD-PRF-04`. Le **sprint 12** n'a plus qu'un constat ouvert sur trois, et le **sprint 11** trois sur quatre : les trois ADR du 25 octobre l'ont tranché sur le papier, mais seul `AUD-ARC-02` est refermé dans le code. Les sprints 13 et 14 n'ont pas commencé.
+**Plan du 9 octobre : 73 constats, 63 soldés, 10 restants.** Les sprints 1 à 9 sont terminés. Le **sprint 12** n'a plus qu'un constat ouvert sur trois, et le **sprint 11** deux sur quatre : `AUD-ARC-01` et `AUD-ARC-02` sont refermés dans le code, `AUD-ARC-03` et `AUD-ARC-13` restent. Les sprints 13 et 14 n'ont pas commencé.
 
-**Sprint 15 — dérives : 16 constats, 12 restants.** Ce sprint n'est pas du plan d'origine : il rassemble les constats nés *après* l'audit, d'une scission, d'un effet de bord d'un correctif ou du changement de branche d'intégration. Les ranger dans les sprints d'origine faisait croire que ceux-ci traînaient depuis le 9 octobre ; ils sont soldés, et du travail neuf est apparu à côté.
+**Sprint 15 — dérives : 16 constats, 11 restants.** Ce sprint n'est pas du plan d'origine : il rassemble les constats nés *après* l'audit, d'une scission, d'un effet de bord d'un correctif ou du changement de branche d'intégration. Les ranger dans les sprints d'origine faisait croire que ceux-ci traînaient depuis le 9 octobre ; ils sont soldés, et du travail neuf est apparu à côté.
 
 ## Avancement
 
@@ -14,17 +14,17 @@
 | **3** ✓ | Fermer les écarts de sécurité | 8 | 8 | 0 | — |
 | **4** ✓ | Rendre le produit observable | 5 | 5 | 0 | — |
 | **5** ✓ | Écarter le risque d'indisponibilité | 4 | 4 | 0 | — |
-| **6** | Borner les coûts qui croissent avec les données | 4 | 3 | 1 | 1 à 3 j |
+| **6** ✓ | Borner les coûts qui croissent avec les données | 4 | 4 | 0 | — |
 | **7** ✓ | Le SQL de détail | 7 | 7 | 0 | — |
 | **8** ✓ | Fiabiliser les tests | 8 | 8 | 0 | — |
 | **9** ✓ | Supprimer la duplication du socle | 6 | 6 | 0 | — |
 | **10** | Dire la vérité dans les règles | 7 | 3 | 4 | 1.75 à 6 j |
-| **11** | Trancher l'architecture | 4 | 1 | 3 | 9 à 24 j |
+| **11** | Trancher l'architecture | 4 | 2 | 2 | 6 à 16 j |
 | **12** | Restructurer les adaptateurs | 3 | 2 | 1 | 3 à 8 j |
 | **13** | Couverture et pagination | 2 | 0 | 2 | 6 à 16 j |
 | **14** | Signer la distribution | 1 | 0 | 1 | 1 à 3 j |
-| **15** | Dérives apparues pendant les correctifs | 16 | 4 | 12 | 6.75 à 22 j |
-| | **Total** | **89** | **65** | **24** | **28.5 à 82 j** |
+| **15** | Dérives apparues pendant les correctifs | 16 | 5 | 11 | 6.5 à 21 j |
+| | **Total** | **89** | **68** | **21** | **24.25 à 70 j** |
 
 Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j · L 3 à 8 j). Un constat `partiel` compte pour son effort entier : ce qui reste d'un constat partiellement traité n'est pas proportionnel à ce qui en a été fait.
 
@@ -116,9 +116,9 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 | `AUD-PRF-03` | corrigé | Moyenne | M | Serveur HTTP local sans contrôle d'admission : threads virtuels illimités, une connexion SQLite physique par requête, journal PERSIST |
 | `AUD-PRF-09` | corrigé | Moyenne | S | Le proxy remote n'impose aucun délai de lecture amont sur les routes WRITE et ADMIN |
 
-## Sprint 6 — Borner les coûts qui croissent avec les données
+## Sprint 6 — Borner les coûts qui croissent avec les données  ·  **terminé**
 
-4 constats · 3 corrigé · 1 partiel
+4 constats · 4 corrigé
 
 *Pourquoi ici* — Les quatre chemins dont le coût croît avec le volume, mesurables seulement après le sprint 1.
 
@@ -128,7 +128,7 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 |---|---|---|---|---|
 | `AUD-PRF-01` | corrigé | Élevée | M | N+1 SQL dans la lecture du contenu métier d'un snapshot : 7 requêtes filles par ligne parente |
 | `AUD-PRF-02` | corrigé | Élevée | M | ChangeAnalysisService refait un BFS complet par nœud déjà découvert par la traversée |
-| `AUD-PRF-04` | partiel | Élevée | M | Trois tables en croissance monotone lues sans LIMIT ni pagination, dont une exposée en HTTP et en MCP |
+| `AUD-PRF-04` | corrigé | Élevée | M | Trois tables en croissance monotone lues sans LIMIT ni pagination, dont une exposée en HTTP et en MCP |
 | `AUD-PRF-06` | corrigé | Moyenne | M | Écriture N+1 des liens de traçabilité : trois à quatre prepareStatement par lien, sans batch, dans une transaction unique |
 
 ## Sprint 7 — Le SQL de détail  ·  **terminé**
@@ -205,7 +205,7 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 
 ## Sprint 11 — Trancher l'architecture
 
-4 constats · 1 corrigé · 1 partiel · 2 toujours valide
+4 constats · 2 corrigé · 2 toujours valide
 
 *Pourquoi ici* — Chantier de fond. Un ADR d'abord : c'est la décision dont dépendent les sprints 12 et 13.
 
@@ -213,7 +213,7 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 
 | Constat | Statut | Sév. | Eff. | Objet |
 |---|---|---|---|---|
-| `AUD-ARC-01` | partiel | Élevée | L | morpheus-application, la couche qui définit les ports, fait de l'I/O fichier et du HTTP sortant en direct |
+| `AUD-ARC-01` | corrigé | Élevée | L | morpheus-application, la couche qui définit les ports, fait de l'I/O fichier et du HTTP sortant en direct |
 | `AUD-ARC-02` | corrigé | Élevée | M | Le chemin d'ingestion principal n'a aucun port : api et cli instancient directement le lecteur OpenSpec concret |
 | `AUD-ARC-03` | toujours valide | Moyenne | L | morpheus-application contient une composante fortement connexe de 17 paquets sur 36 |
 | `AUD-ARC-13` | toujours valide | Faible | L | Domaine sans aucun type polymorphe : 59 records et 25 enums, zéro interface, pour 9,4 fois moins de lignes que l'application |
@@ -259,7 +259,7 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 
 ## Sprint 15 — Dérives apparues pendant les correctifs
 
-16 constats · 2 corrigé · 3 partiel · 9 toujours valide · 2 caduc
+16 constats · 3 corrigé · 3 partiel · 8 toujours valide · 2 caduc
 
 *Pourquoi ici* — Ce sprint n'est pas du plan du 9 octobre : il rassemble les constats nés **après** l'audit, soit d'une scission quand la mesure du dépôt a montré que ma cause était fausse, soit d'un effet de bord d'un correctif, soit du changement de branche d'intégration du 18 octobre. Les ranger dans les sprints d'origine faisait croire que ceux-ci traînaient depuis le 9 octobre, ce qui est faux : ils sont soldés, et du travail neuf est apparu à côté. La passe du 26 octobre en ajoute quatre, tous nés de la grande restructuration des adaptateurs : l'élargissement de visibilité qu'elle a imposé, un test de garde qui ne garde rien, la liste d'ADR-0148 recopiée à la main dans son gate, et deux dérives de la trace de suivi. La contre-vérification du 28 octobre en ajoute trois : deux frontières d'espace de travail aux garanties opposées, et deux duplications que le sprint 9 a laissées hors de son périmètre.
 
@@ -276,7 +276,7 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 | `AUD-SEC-17` | toujours valide | Moyenne | S | L'optimisation de la frontière du workspace a rétréci le contrôle avant lecture : un fichier peut être lu et empreinté avant d'être refusé |
 | `AUD-SEC-18` | toujours valide | Moyenne | M | Deux frontières d'espace de travail coexistent dans morpheus-application avec des garanties opposées, et rien n'écrit laquelle est le contrat |
 | `AUD-TST-18` | corrigé | Moyenne | S | Le validateur de release R3 ne peut pas passer : il exige 17 POM dans le reacteur, le depot en compte 19 |
-| `AUD-TST-20` | toujours valide | Moyenne | S | Le test censé prouver que la règle anti-lecture-non-bornée voit ce qu'elle refuse reste vert même si la règle devient aveugle |
+| `AUD-TST-20` | corrigé | Moyenne | S | Le test censé prouver que la règle anti-lecture-non-bornée voit ce qu'elle refuse reste vert même si la règle devient aveugle |
 | `AUD-ARC-15` | toujours valide | Faible | S | Les 94 méthodes public synchronized de morpheus-store-sqlite n'ont aucune raison d'être documentée |
 | `AUD-ARC-17` | toujours valide | Faible | S | La liste de onze classes d'ADR-0148 et les constantes du gate qui la tient sont deux listes recopiées à la main, que rien ne compare |
 | `AUD-DEP-26` | toujours valide | Faible | S | La trace de suivi ne décrit plus l'état réelle des gates : un risque clos qui sert encore de renvoi, un guide d'upgrade pour une version que le réacteur ignore |
