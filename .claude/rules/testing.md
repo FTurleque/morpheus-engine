@@ -8,17 +8,17 @@ sources différentes du repo (`rules/testing.md`, `rules/governance.md`, `docs/R
 citaient chacune un chiffre différent au 31/08/2026. **Avant toute décision de gouvernance
 ou de coverage, relire le fichier properties, pas cette page.**
 
-Valeur constatée en lisant `config/m21-quality-ratchets.properties` (25/10/2026) :
+Valeur constatée en lisant `config/m21-quality-ratchets.properties` (28/10/2026) :
 
 | Clé | Valeur constatée |
 |---|---|
 | `testsMinimum` | 2600 (exécutions de méthodes déclarées) |
 | `generatedTestsMinimum` | 1574 (exécutions générées par une fabrique) |
-| `architectureTestsMinimum` | 769 (exécutions déclarées du module d'architecture) |
-| `aggregateLineCoverageMinimum` | 0.900 (90.0%) |
-| `aggregateBranchCoverageMinimum` | 0.757 (75.7%) |
-| `perModuleLineCoverageMinimum` | 0.691 (69.1%) |
-| `perModuleBranchCoverageMinimum` | 0.612 (61.2%) |
+| `architectureTestsMinimum` | 813 (exécutions déclarées du module d'architecture) |
+| `aggregateLineCoverageMinimum` | 0.912 (91.2%) |
+| `aggregateBranchCoverageMinimum` | 0.773 (77.3%) |
+| `perModuleLineCoverageMinimum` | 0.712 (71.2%) |
+| `perModuleBranchCoverageMinimum` | 0.625 (62.5%) |
 
 ## Deux mesures de présence : déclarées et générées
 
@@ -159,6 +159,29 @@ Dispersion : 16 lignes / 8 branches par module, 15 / 6 en agrégé, toutes deux 
 fois : par module `0.691` (**97 lignes**) et `0.612` (**38 branches**), agrégé `0.900` (**88 lignes**) et
 `0.757` (**42 branches**). Les ratchets de présence montent avec eux, `3820 / 585` pour 3 830 / 590
 exécutions identiques sur les quatre runs, la marge de 10 / 5 du 08/09.
+
+Le 28/10/2026, les **deux** plafonds sont requalifiés à `61198c68`, tête de la PR #570 (run `40604205899`
+`pull_request` et run `40604205079` `workflow_dispatch` de la même branche, mêmes populations sur les quatre :
+29 696 lignes, 10 112 branches) :
+
+```text
+par module  Windows  71,5147 % / 71,5113 % lignes   62,9055 % / 62,8956 % branches
+            Linux    71,4642 % / 71,4709 % lignes   62,8560 % / 62,8758 % branches   <- plafond
+agrégée     Windows  91,5275 % / 91,5275 % lignes   77,7690 % / 77,7690 % branches
+            Linux    91,4837 % / 91,4871 % lignes   77,7195 % / 77,7393 % branches   <- plafond
+```
+
+Dispersion : 15 lignes / 5 branches par module, 13 / 5 en agrégé, dans la référence 24 / 11. Chaque clé monte au plus
+haut millième qui en garde trois fois : par module `0.712` (**78 lignes**) et `0.625` (**36 branches**), agrégé `0.912`
+(**84 lignes**) et `0.773` (**42 branches**). `architectureTestsMinimum` passe à `813`, dix sous les 823 exécutions
+identiques des quatre runs.
+
+**Cette marge est exécutable** : `CoverageQualificationEvidenceTest#everyCoverageRatchetKeepsThreeTimesTheSpreadUnderTheLowestKeptMeasurement`
+la calcule sur `config/coverage-qualification/` — plus basse mesure conservée moins ce qu'exige le ratchet, en lignes
+et en branches — et refuse un ratchet qui garde moins de trois fois la plus grande des deux dispersions, celle des runs
+conservés ou la référence 24 / 11. Au plus haut millième admis, la marge restante est nulle : la hausse suivante passe
+par une requalification. Les champs `lineRatchet`, `branchRatchet` et `qualified*Baseline` des résumés conservés sont
+ceux du commit mesuré ; aucun test ne les lit.
 
 Une session qui ne dispose que d'une plateforme ne peut relever que le ratchet, dans la marge
 déjà qualifiée ; elle ne touche pas au plafond.

@@ -58,11 +58,11 @@ M21 applique notamment :
 clean verify
 Surefire written     >= 2600
 Surefire generated   >= 1574
-architecture         >= 769
-aggregate line coverage    >= 90.0%
-aggregate branch coverage  >= 75.7%
-per-module line coverage   >= 69.1%
-per-module branch coverage >= 61.2%
+architecture         >= 813
+aggregate line coverage    >= 91.2%
+aggregate branch coverage  >= 77.3%
+per-module line coverage   >= 71.2%
+per-module branch coverage >= 62.5%
 CycloneDX SBOM
 provenance
 portable smoke

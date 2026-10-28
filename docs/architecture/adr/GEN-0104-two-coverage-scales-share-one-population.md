@@ -107,8 +107,8 @@ Git garde l'ensemble précédent.
 
 Le ratchet se place **sous** le plafond, avec une marge d'au moins trois fois la dispersion maximale observée entre
 plateformes, comptée séparément en lignes et en branches : un ratchet collé à la mesure transformerait une variation
-ordinaire en échec de build. Cette marge est une convention, pas une règle exécutée : la dispersion de référence n'est
-dans aucun artefact conservé.
+ordinaire en échec de build. La dispersion retenue est la plus grande de celle des runs conservés et de la référence
+du 15/09/2026 (24 lignes, 11 branches) ; une hausse au-delà passe par une requalification.
 
 Une session qui ne dispose que d'une plateforme peut relever un ratchet dans la marge déjà qualifiée ; elle ne touche
 pas au plafond. Une hausse ne concerne que l'échelle réellement mesurée : aligner les deux sur une valeur moyenne
@@ -156,9 +156,8 @@ deux gates et leur preuve dans `config/coverage-qualification/`. Cet ADR fixe **
 
 ### Risques
 
-- La marge entre ratchet et plafond n'est pas exécutée : un ratchet relevé dans les derniers millièmes d'un plafond
-  rendrait le build sensible à une variation ordinaire. Elle devient une règle exécutable le jour où ce cas se
-  présente.
+- Au plus haut millième admis, la marge restante est nulle : la hausse suivante attend une requalification, que seuls
+  les runners CI des deux plateformes fournissent.
 
 ## Compliance and Enforcement
 
@@ -170,10 +169,10 @@ deux gates et leur preuve dans `config/coverage-qualification/`. Cet ADR fixe **
 - `morpheus-coverage-report/src/test/java/com/morpheus/coverage/AggregateCoverageGateTest.java` : échelle agrégée,
   population dérivée et nommée dans la preuve, module absent ou étranger refusé, refus `stale`.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m21/CoverageQualificationEvidenceTest.java` :
-  chaque plafond égal au plus bas ratio de sa preuve conservée, qualification complète ou refusée.
+  chaque plafond égal au plus bas ratio de sa preuve conservée, qualification complète ou refusée, et chaque ratchet à
+  au moins trois fois la dispersion sous la plus basse mesure conservée, en lignes et en branches.
 - `scripts/lib/Require-AggregateCoverageEvidence.ps1` et `scripts/lib/require-aggregate-coverage-evidence.sh` : garde
   partagé des validateurs sur la portée de la preuve.
-- Revue : marge entre ratchet et plafond.
 
 ## References
 
