@@ -1,11 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.4.xsd">
-    <suppress>
+    <suppress base="true">
         <notes><![CDATA[
         False-positive CPE association: the internal Maven module
         io.github.fturleque:morpheus-store-sqlite:1.2.1 is MORPHEUS code, not
         SQLite 1.2.1. The actual runtime driver is independently scanned as
         org.xerial:sqlite-jdbc:3.53.4.0.
+        base="true" exempts this rule from failBuildOnUnusedSuppressionRule, and
+        only this rule: whether the association happens depends on the history of
+        the vulnerability database. The long-lived CI database makes it; a database
+        built from scratch, by the NVD API or by the NVD data feeds, files
+        cpe:/a:sqlite:sqlite under the native ecosystem and does not (measured with
+        Dependency-Check 13.0.0 on 2026-10-28). The rule must therefore not fail
+        the scan when it matches nothing. See RT-13 in
+        docs/architecture/risks/register.md.
         ]]></notes>
         <packageUrl regex="true">^pkg:maven/io\.github\.fturleque/morpheus-store-sqlite@1\.2\.1$</packageUrl>
         <cpe>cpe:/a:sqlite:sqlite</cpe>

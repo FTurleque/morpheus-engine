@@ -209,12 +209,11 @@ final class MorpheusRemoteRoutePolicy {
             return template.equals(route);
         }
 
-        /**
-         * A read is bounded upstream; a write or an administration call is not, because the local server cannot
-         * cancel one cooperatively once it has started.
-         */
-        boolean usesBoundedUpstreamTimeout() {
-            return role == MorpheusRemoteRole.READ;
+        /** The reads' deadline for the READ role; the writes' deadline for WRITE and ADMIN. */
+        MorpheusRemoteProxyTransport.UpstreamDeadline upstreamDeadline() {
+            return role == MorpheusRemoteRole.READ
+                    ? MorpheusRemoteProxyTransport.UpstreamDeadline.READ
+                    : MorpheusRemoteProxyTransport.UpstreamDeadline.WRITE;
         }
     }
 

@@ -268,12 +268,17 @@ class MorpheusRemoteHttpServerTest {
     }
 
     @Test
-    void remoteProxyTimeoutExcludesOperationsWithoutCooperativeCancellation() {
-        assertTrue(MorpheusRemoteRoutePolicy.authorize("GET", "/api/v1/health").usesBoundedUpstreamTimeout());
-        assertTrue(MorpheusRemoteRoutePolicy.authorize("POST", "/api/v1/reasoning/analyze").usesBoundedUpstreamTimeout());
-        assertFalse(MorpheusRemoteRoutePolicy.authorize("POST", "/api/v1/provider-plugins/probe").usesBoundedUpstreamTimeout());
-        assertFalse(MorpheusRemoteRoutePolicy.authorize("POST", "/api/v1/projects/p1/sync").usesBoundedUpstreamTimeout());
-        assertFalse(MorpheusRemoteRoutePolicy.authorize("POST", "/api/v1/projects").usesBoundedUpstreamTimeout());
+    void remoteProxyGivesOperationsWithoutCooperativeCancellationTheWritesDeadline() {
+        assertEquals(MorpheusRemoteProxyTransport.UpstreamDeadline.READ,
+                MorpheusRemoteRoutePolicy.authorize("GET", "/api/v1/health").upstreamDeadline());
+        assertEquals(MorpheusRemoteProxyTransport.UpstreamDeadline.READ,
+                MorpheusRemoteRoutePolicy.authorize("POST", "/api/v1/reasoning/analyze").upstreamDeadline());
+        assertEquals(MorpheusRemoteProxyTransport.UpstreamDeadline.WRITE,
+                MorpheusRemoteRoutePolicy.authorize("POST", "/api/v1/provider-plugins/probe").upstreamDeadline());
+        assertEquals(MorpheusRemoteProxyTransport.UpstreamDeadline.WRITE,
+                MorpheusRemoteRoutePolicy.authorize("POST", "/api/v1/projects/p1/sync").upstreamDeadline());
+        assertEquals(MorpheusRemoteProxyTransport.UpstreamDeadline.WRITE,
+                MorpheusRemoteRoutePolicy.authorize("POST", "/api/v1/projects").upstreamDeadline());
     }
 
     private void assertAuthFileNeverPersistsRawTokens(

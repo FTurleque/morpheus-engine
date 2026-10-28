@@ -57,3 +57,14 @@ Ce qui reste propre à une commande : `server` lit aussi les options de disposit
 `augmented-context` et `change-orchestration` refusent une option de l'autre sujet ou de l'autre action par un message
 qui le dit (`--change is not valid for augmented-context requirement`) ; `export query` refuse `--offset` et `--limit`
 en disant qu'un export n'est jamais paginé ; `help` ne lit pas les mots qui le suivent.
+
+### Serveur distant : toute requête relayée a une échéance
+
+Le serveur distant attend la réponse du traitement interne 60 secondes pour une route READ et 300 secondes pour une
+route WRITE ou ADMIN, probe de plugin compris. En 1.2.1, une écriture ou une opération ADMIN n'avait aucune échéance :
+une réponse qui ne venait jamais retenait sa place sur la voie privilégiée jusqu'au redémarrage du serveur.
+
+Une écriture expirée reçoit `504 UPSTREAM_WRITE_TIMEOUT`, distinct du `504 UPSTREAM_TIMEOUT` d'une lecture expirée.
+Son résultat est **inconnu** : l'opération peut avoir abouti, ou aboutir encore. Un client relit l'état concerné avant
+de la rejouer ; il ne la rejoue jamais aveuglément comme une lecture. Voir le guide du serveur d'équipe, section
+concurrence.

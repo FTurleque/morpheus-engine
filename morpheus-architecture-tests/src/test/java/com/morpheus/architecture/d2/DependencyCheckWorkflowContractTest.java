@@ -206,12 +206,10 @@ class DependencyCheckWorkflowContractTest {
     /**
      * A provenance this branch cannot have produced is a deviation worth naming and never worth refusing.
      *
-     * <p>Pinned to Dependency-Check 13.0.0, whose anonymous refresh is broken upstream (#8715), the only
-     * provenance a refresh performed here can carry is the API-key label. Anything else was written somewhere
-     * else, and there are exactly two ways that happens. One is legitimate and documented: the branch still
-     * pinned to 12.2.2 refreshes anonymously and writes the same H2 schema, and the STALE_DATABASE message in
-     * this workflow names that backport as a way out of a cold start. The other is that {@code NVD_API_KEY}
-     * stopped being read after the promotion and nobody knows it yet.</p>
+     * <p>Pinned to Dependency-Check 13.0.0, a refresh performed here carries one of two labels: the API-key
+     * refresh or the data-feed refresh. Anything else was written somewhere else, and there are exactly two ways
+     * that happens. One is legitimate: the branch still pinned to 12.2.2 refreshes anonymously and writes the same
+     * H2 schema. The other is that the sentinel writer of this branch stopped running and nobody knows it yet.</p>
      *
      * <p>The two are indistinguishable from the sentinel alone, so the step warns and lets the scan proceed.
      * Refusing would close the documented bootstrap and discard a database that is perfectly readable and
@@ -231,10 +229,12 @@ class DependencyCheckWorkflowContractTest {
                 "- name: Remove stale Dependency-Check update lock");
 
         int deviation = freshnessStep.indexOf(
-                "if [[ \"${refreshed_by:-unknown}\" != 'NVD API key refresh' ]]; then");
+                "if [[ \"${refreshed_by:-unknown}\" != 'NVD API key refresh' "
+                        + "&& \"${refreshed_by:-unknown}\" != 'NVD data feed refresh' ]]; then");
         assertTrue(deviation >= 0,
-                "the pull-request step must compare the provenance it publishes against the only label a "
-                        + "refresh performed on this branch can produce");
+                "the pull-request step must compare the provenance it publishes against the two labels a "
+                        + "refresh performed on this branch can produce, the API-key refresh and the data-feed "
+                        + "refresh");
 
         String warning = freshnessStep.substring(deviation, freshnessStep.indexOf("\n          fi", deviation));
         assertTrue(warning.contains("::warning::Dependency-Check database was obtained via"),
@@ -246,9 +246,8 @@ class DependencyCheckWorkflowContractTest {
         assertTrue(warning.contains("RT-13"),
                 "the annotation must point at the risk it is the standing evidence for");
         assertFalse(warning.contains("exit "),
-                "a provenance from elsewhere must never stop the scan: refusing would close the 12.2.2 "
-                        + "bootstrap this workflow names as a way out of a cold start, and would discard a "
-                        + "readable database still inside its freshness budget");
+                "a provenance from elsewhere must never stop the scan: refusing would discard a readable "
+                        + "database still inside its freshness budget, which already bounds the deviation");
     }
     /**
      * A refresh that failed is not a refresh -- and it is also not, by itself, a reason to refuse the scan.
@@ -573,11 +572,12 @@ class DependencyCheckWorkflowContractTest {
     }
 
     /**
-     * A key the NVD refuses and a key that is gone never clear on their own: NVD_API_KEY is the only refresh source of
-     * a branch pinned to 13.0.0, so waiting for the two-thirds threshold only hands a person the last day of the
-     * budget. The alert names them in the first run that sees them. It matches the causes by the very strings the
-     * update step publishes, so a cause reworded in one place and not the other fails here rather than silently
-     * falling back to the threshold. The third cause, a refresh that failed with the key configured, is the one an NVD
+     * The alert job only sees runs in which both refresh sources failed. A key the NVD refuses and a key that is gone
+     * never clear on their own, and the data feeds, the one source left, have just failed too: waiting for the
+     * two-thirds threshold only hands a person the last day of the budget, so the alert names them in the first run
+     * that sees them. It matches the causes by the very strings the update step publishes, each followed by the
+     * data-feed failure, so a cause reworded in one place and not the other fails here rather than silently falling
+     * back to the threshold. The third cause, a key path that failed with the key configured, is the one an NVD
      * outage produces, and it alone waits for the threshold.
      */
     @Test
@@ -598,14 +598,19 @@ class DependencyCheckWorkflowContractTest {
         for (String cause : new String[] {"NVD_API_KEY was refused by the NVD", "NVD_API_KEY is not configured"}) {
             assertTrue(update.contains("refresh_skipped_because='" + cause + "'"),
                     () -> "the update step must publish the cause the alert matches: " + cause);
-            assertTrue(caseLine.contains("'" + cause + "'"),
-                    () -> "the immediate alert must match the published cause: " + cause);
+            assertTrue(caseLine.contains("'" + cause + "; '*"),
+                    () -> "the immediate alert must match the published cause, followed by the data-feed failure: "
+                            + cause);
         }
         String transientCause = "the NVD refresh failed with NVD_API_KEY configured";
         assertTrue(update.contains("refresh_skipped_because='" + transientCause + "'"),
                 "the update step must keep naming the cause an NVD outage produces");
         assertFalse(caseLine.contains(transientCause),
                 "a refresh that failed with the key configured may be an outage and must wait for the threshold");
+        assertTrue(update.contains(
+                        "refresh_skipped_because=\"${refresh_skipped_because}; the NVD data feed refresh failed\""),
+                "the cause the alert reads must say that the data feeds failed too, since the alert only fires "
+                        + "when neither source renewed the database");
     }
 
     /**
@@ -630,6 +635,66 @@ class DependencyCheckWorkflowContractTest {
         }
         assertTrue(unexplained.isEmpty(),
                 () -> "docs/developer/COLD_START_RECOVERY.md does not mention " + unexplained);
+    }
+
+    /**
+     * The gate has two refresh sources, so no single secret can stop it.
+     *
+     * <p>Pinned to Dependency-Check 13.0.0, the anonymous NVD API refresh is broken upstream (#8715), which left
+     * {@code NVD_API_KEY} as the only possible writer of the trusted sentinel through the API: a refused, revoked or
+     * removed key would stop every scan 72 hours later (AUD-DEP-07, RT-13). The data-feed path of the same analyzer
+     * reads the CVE JSON 2.0 feeds the NVD publishes, needs no key, and never reaches the API client the upstream
+     * defect breaks.</p>
+     *
+     * <p>What is pinned: the data-feed refresh runs whenever the key path did not refresh -- whatever the cause --
+     * and before the cache fallback; it never reads the key; a success is a refresh like the other, with the
+     * sentinel under its own label and {@code updated=true}, and it says that the gate is down to one source; a
+     * failure writes nothing.</p>
+     */
+    @Test
+    void theDataFeedRefreshIsTheSecondSourceWheneverTheKeyPathDidNotRefresh() throws IOException {
+        // A Windows checkout carries CRLF; the branch boundary below is located by its line structure.
+        String security = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/security.yml"))
+                .replace("\r\n", "\n");
+        assertTrue(security.contains(
+                        "NVD_DATAFEED_URL: 'https://nvd.nist.gov/feeds/json/cve/2.0/nvdcve-2.0-{0}.json.gz'"),
+                "the second source must be the CVE JSON 2.0 feeds the NVD itself publishes, declared once");
+
+        String trustedUpdate = section(security,
+                "- name: Update Dependency-Check vulnerability database (trusted events)",
+                "- name: Save trusted Dependency-Check database");
+        String guard = "if [[ -n \"${refresh_skipped_because}\" ]]; then";
+        int noKey = trustedUpdate.indexOf("refresh_skipped_because='NVD_API_KEY is not configured'");
+        int dataFeed = trustedUpdate.indexOf("\"-DnvdDatafeedUrl=${NVD_DATAFEED_URL}\"");
+        int fallback = trustedUpdate.lastIndexOf(guard);
+        assertTrue(noKey >= 0 && dataFeed > noKey && fallback > dataFeed,
+                "the data-feed refresh must come after every way the key path can fail and before the cache "
+                        + "fallback");
+
+        String dataFeedBlock = trustedUpdate.substring(trustedUpdate.lastIndexOf(guard, dataFeed), fallback);
+        assertTrue(dataFeedBlock.contains("org.owasp:dependency-check-maven:13.0.0:update-only 2>&1 | tee "
+                        + "\"${datafeed_log}\"; then"),
+                "the data-feed refresh must be a condition on its own log, like the key path");
+        assertFalse(dataFeedBlock.contains("nvdApiKey"),
+                "the data-feed refresh must never read the key: it exists for the runs where the key cannot work");
+
+        int failed = dataFeedBlock.indexOf("\n            else\n");
+        assertTrue(failed > 0, "a failed data-feed refresh must have its own branch");
+        String onSuccess = dataFeedBlock.substring(0, failed);
+        String onFailure = dataFeedBlock.substring(failed);
+        assertTrue(onSuccess.contains("\"${DEPENDENCY_CHECK_SCHEMA_VERSION}\" \"NVD data feed refresh\"")
+                        && onSuccess.contains("echo \"updated=true\"")
+                        && onSuccess.contains("refresh_skipped_because=''"),
+                "a data-feed refresh that succeeded is a refresh: sentinel under its own label, cache published, "
+                        + "no fallback");
+        assertTrue(onSuccess.contains("MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESHED_FROM_DATA_FEED")
+                        && onSuccess.contains("${refresh_skipped_because}"),
+                "a run renewed from the data feeds alone must say why the key path did not run, because the gate "
+                        + "then has one working source");
+        assertFalse(onFailure.contains("write-dependency-check-sentinel.sh") || onFailure.contains("updated=true"),
+                "a data-feed refresh that failed must neither date the database nor publish a cache");
+        assertTrue(onFailure.contains("MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESH_FAILED"),
+                "a data-feed refresh that failed keeps the failed-refresh reason code");
     }
 
     private static String section(String workflow, String from, String to) {

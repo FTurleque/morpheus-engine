@@ -481,11 +481,7 @@ class D2RepositoryHardeningArchitectureTest {
                 "Dependency-Check database updates must be restricted to trusted events");
         assertTrue(trustedUpdateStep.contains("${{ secrets.NVD_API_KEY }}"),
                 "trusted Dependency-Check updates must use the configured NVD API key when available");
-        int firstUpdateOnly = security.indexOf("dependency-check-maven:13.0.0:update-only");
-        assertTrue(firstUpdateOnly >= trustedUpdateIndex && firstUpdateOnly < saveIndex,
-                "Dependency-Check update-only must remain inside the trusted-event update step");
-        assertTrue(security.indexOf("dependency-check-maven:13.0.0:update-only", firstUpdateOnly + 1) < 0,
-                "pull requests must consume the trusted cache and must not run a second anonymous NVD update");
+        assertEveryUpdateOnlyIsInside(security, trustedUpdateIndex, saveIndex);
 
         String saveStep = security.substring(saveIndex, scanIndex);
         assertTrue(saveStep.contains("if: github.event_name != 'pull_request'"),
@@ -498,6 +494,22 @@ class D2RepositoryHardeningArchitectureTest {
         assertTrue(dependabot.contains("package-ecosystem: maven"));
         assertTrue(dependabot.contains("package-ecosystem: github-actions"));
         assertTrue(dependabot.contains("target-branch: develop"));
+    }
+
+    /**
+     * Every Dependency-Check update-only -- the API-key refresh and the data-feed refresh -- lies inside the
+     * trusted-event update step: pull requests consume the trusted cache and never refresh it.
+     */
+    private static void assertEveryUpdateOnlyIsInside(String security, int stepStart, int stepEnd) {
+        String goal = "dependency-check-maven:13.0.0:update-only";
+        int count = 0;
+        for (int at = security.indexOf(goal); at >= 0; at = security.indexOf(goal, at + 1)) {
+            count++;
+            assertTrue(at >= stepStart && at < stepEnd,
+                    "every Dependency-Check update-only must remain inside the trusted-event update step: pull "
+                            + "requests consume the trusted cache and never refresh it");
+        }
+        assertTrue(count >= 1, "the trusted-event update step must refresh the Dependency-Check database");
     }
 
     /**

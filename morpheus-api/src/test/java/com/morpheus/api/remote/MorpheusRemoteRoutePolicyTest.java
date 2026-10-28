@@ -118,15 +118,15 @@ class MorpheusRemoteRoutePolicyTest {
     }
 
     @Test
-    void onlyAnAuthorizedReadIsBoundedUpstreamAndAnUnknownPathIsNeverClassified() {
-        assertTrue(MorpheusRemoteRoutePolicy.authorize("GET", "/api/v1/health").usesBoundedUpstreamTimeout());
-        assertTrue(MorpheusRemoteRoutePolicy.authorize(
-                "POST", "/api/v1/projects/project-1/changes/change-1/transition-check").usesBoundedUpstreamTimeout());
-        assertFalse(MorpheusRemoteRoutePolicy.authorize(
-                "POST", "/api/v1/projects/project-1/changes/change-1/lifecycle-transitions")
-                .usesBoundedUpstreamTimeout());
-        assertFalse(MorpheusRemoteRoutePolicy.authorize(
-                "POST", "/api/v1/provider-plugins/probe").usesBoundedUpstreamTimeout());
+    void anAuthorizedCallCarriesTheDeadlineOfItsRoleAndAnUnknownPathIsNeverClassified() {
+        assertEquals(MorpheusRemoteProxyTransport.UpstreamDeadline.READ,
+                MorpheusRemoteRoutePolicy.authorize("GET", "/api/v1/health").upstreamDeadline());
+        assertEquals(MorpheusRemoteProxyTransport.UpstreamDeadline.READ, MorpheusRemoteRoutePolicy.authorize(
+                "POST", "/api/v1/projects/project-1/changes/change-1/transition-check").upstreamDeadline());
+        assertEquals(MorpheusRemoteProxyTransport.UpstreamDeadline.WRITE, MorpheusRemoteRoutePolicy.authorize(
+                "POST", "/api/v1/projects/project-1/changes/change-1/lifecycle-transitions").upstreamDeadline());
+        assertEquals(MorpheusRemoteProxyTransport.UpstreamDeadline.WRITE, MorpheusRemoteRoutePolicy.authorize(
+                "POST", "/api/v1/provider-plugins/probe").upstreamDeadline());
         assertEquals(404, assertThrows(MorpheusRemoteRoutePolicy.RoutePolicyException.class,
                 () -> MorpheusRemoteRoutePolicy.authorize("PUT", "/api/v1/anything")).status());
         assertEquals(404, assertThrows(MorpheusRemoteRoutePolicy.RoutePolicyException.class,
@@ -134,22 +134,25 @@ class MorpheusRemoteRoutePolicyTest {
     }
 
     /**
-     * Only a READ route has an upstream deadline. A WRITE or ADMIN call holds its slot until the local server really
-     * answers: the residual risk accepted in docs/user/TEAM_REMOTE_SERVER.md, which prefers a 429 on a saturated
-     * privileged lane to a 504 for a commit that may already be durable.
+     * Every route of the table has an upstream deadline: the reads' for the READ role, the writes' for WRITE and
+     * ADMIN. A call without one would hold its thread and, for a mutation, its privileged permit for as long as the
+     * local server does not answer; docs/user/TEAM_REMOTE_SERVER.md states both durations and what an expiry means.
      */
     @Test
-    void onEveryRouteOfTheTableOnlyTheReadRoleHasAnUpstreamDeadline() {
+    void onEveryRouteOfTheTableEveryRoleHasTheUpstreamDeadlineOfItsRole() {
+        Map<MorpheusRemoteRole, MorpheusRemoteProxyTransport.UpstreamDeadline> expected = Map.of(
+                MorpheusRemoteRole.READ, MorpheusRemoteProxyTransport.UpstreamDeadline.READ,
+                MorpheusRemoteRole.WRITE, MorpheusRemoteProxyTransport.UpstreamDeadline.WRITE,
+                MorpheusRemoteRole.ADMIN, MorpheusRemoteProxyTransport.UpstreamDeadline.WRITE);
         Set<MorpheusRemoteRole> rolesSeen = EnumSet.noneOf(MorpheusRemoteRole.class);
         MorpheusHttpRouteTable.templates().forEach((template, methods) -> {
             String path = MorpheusHttpRouteTable.API_PREFIX + (template.isEmpty() ? "" : "/" + template);
             for (String method : methods) {
                 MorpheusRemoteRoutePolicy.Authorization authorization =
                         MorpheusRemoteRoutePolicy.authorize(method, path);
-                assertEquals(authorization.role() == MorpheusRemoteRole.READ,
-                        authorization.usesBoundedUpstreamTimeout(),
-                        method + " " + path + " (" + authorization.role() + "): only READ is bounded upstream, "
-                                + "see the accepted residual risk in docs/user/TEAM_REMOTE_SERVER.md");
+                assertEquals(expected.get(authorization.role()), authorization.upstreamDeadline(),
+                        method + " " + path + " (" + authorization.role() + "): every role has its upstream "
+                                + "deadline, see docs/user/TEAM_REMOTE_SERVER.md");
                 rolesSeen.add(authorization.role());
             }
         });
@@ -195,9 +198,9 @@ class MorpheusRemoteRoutePolicyTest {
                 MorpheusRemoteRoutePolicy.authorize("PUT", "/api/v1/saved-views/view-1");
         assertTrue(view.names("saved-views/{viewId}"));
         assertEquals(MorpheusRemoteRole.WRITE, view.role());
-        assertFalse(view.usesBoundedUpstreamTimeout());
-        assertTrue(MorpheusRemoteRoutePolicy.authorize("GET", "/api/v1/saved-views/view-1")
-                .usesBoundedUpstreamTimeout());
+        assertEquals(MorpheusRemoteProxyTransport.UpstreamDeadline.WRITE, view.upstreamDeadline());
+        assertEquals(MorpheusRemoteProxyTransport.UpstreamDeadline.READ,
+                MorpheusRemoteRoutePolicy.authorize("GET", "/api/v1/saved-views/view-1").upstreamDeadline());
 
         assertEquals(404, assertThrows(MorpheusRemoteRoutePolicy.RoutePolicyException.class,
                 () -> MorpheusRemoteRoutePolicy.authorize("GET", "/api/v1/server%2Fstatus")).status());

@@ -8,10 +8,12 @@
 
 ---
 
-## État au 28 octobre 2026 — les sprints 5, 7 et 8 terminés
+## État au 28 octobre 2026 — les sprints 1, 5, 7 et 8 terminés
 
-Sept PR fusionnées (#570 à #576) sur les sept constats encore ouverts des sprints 1, 5, 7 et 8. Statuts relus
-dans le code de `develop` à `6c6a97f6`. Détail dans **`reverification-2026-10-28.md`**.
+Sept PR fusionnées (#570 à #576) sur les sept constats encore ouverts des sprints 1, 5, 7 et 8, statuts relus
+dans le code de `develop` à `6c6a97f6` ; puis la branche `fix/finish-sprints-1-5` sur les deux qui restaient,
+`AUD-DEP-07` et `AUD-PRF-09`. Détail dans **`reverification-2026-10-28.md`** et
+**`reverification-2026-10-28-sprints-1-5.md`**.
 
 **Cinq constats se ferment** : `AUD-PRF-14` (une seule passe mesure et décode, chaque répertoire listé une fois),
 `AUD-TRV-07` (les huit validateurs `.ps1` ont une lane nocturne Windows, et une règle refuse un validateur qu'aucune
@@ -19,14 +21,14 @@ voie ne lance), `AUD-TST-09` (plafonds de couverture requalifiés sur les deux p
 test), `AUD-TST-10` (upgrade testé depuis des bases écrites par v1.0.0, v1.1.0 et v1.2.1) et `AUD-TST-19` (les trois
 ratchets de présence à dix sous une mesure déterministe, raison écrite à côté des clés).
 
-**`AUD-PRF-09` est clos par décision** : le risque est accepté et documenté, le change OpenSpec archivé ; son statut
-reste « toujours valide » parce que le code n'a pas changé, et il compte comme soldé.
+**`AUD-PRF-09` est corrigé** : la décision du 17 octobre est rouverte par le mainteneur. Chaque appel amont de la
+façade remote a un délai (60 s en lecture, 300 s en écriture et ADMIN), et une écriture expirée répond un résultat
+inconnu, `504 UPSTREAM_WRITE_TIMEOUT`.
 
-**`AUD-DEP-07` reste partiel** : la trace RT-13 dit de nouveau l'état du gate et une clé refusée s'alerte au premier
-run, mais le gate CVE n'a toujours qu'une source de rafraîchissement tant que Dependency-Check 13.0.1 n'est pas
-publié.
+**`AUD-DEP-07` est corrigé** : le gate CVE a une seconde source de rafraîchissement, les flux de données JSON 2.0 du
+NVD, sans clé, qui prend le relais dès que le chemin par `NVD_API_KEY` n'a pas rafraîchi la base.
 
-**Plan du 9 octobre : 54 soldés sur 73, 19 restants.** Les sprints 2, 3, 4, 5, 7 et 8 sont terminés. La PR #569
+**Plan du 9 octobre : 55 soldés sur 73, 18 restants.** Les sprints 1, 2, 3, 4, 5, 7 et 8 sont terminés. La PR #569
 (sprint 9), fusionnée le 28 octobre, n'est pas revérifiée par cette passe.
 
 ---

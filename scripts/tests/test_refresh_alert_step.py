@@ -20,8 +20,12 @@ WORKFLOW = Path(__file__).resolve().parents[2] / ".github" / "workflows" / "secu
 # A step of a workflow is run here, not a file of scripts/.
 SCRIPTS_UNDER_TEST = ()
 HOUR = 3600
+# The update step publishes a cause only when both sources failed: the key-path cause, then the data-feed failure.
+DATA_FEED_FAILED = "; the NVD data feed refresh failed"
 # The cause an NVD outage, a quota or a network cut produces: the only one that waits for the threshold.
-OUTAGE = "the NVD refresh failed with NVD_API_KEY configured"
+OUTAGE = "the NVD refresh failed with NVD_API_KEY configured" + DATA_FEED_FAILED
+KEY_REFUSED = "NVD_API_KEY was refused by the NVD" + DATA_FEED_FAILED
+KEY_MISSING = "NVD_API_KEY is not configured" + DATA_FEED_FAILED
 
 
 def alert_job() -> str:
@@ -69,25 +73,30 @@ class RefreshAlertStepTest(unittest.TestCase):
         self.assertIn("about 22h before", result.stdout)
 
     def test_a_refused_key_raises_the_alert_in_the_first_run_that_sees_it(self) -> None:
-        result = self.run_step(1, cause="NVD_API_KEY was refused by the NVD")
+        result = self.run_step(1, cause=KEY_REFUSED)
         self.assertEqual(1, result.returncode)
         self.assertIn("MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_KEY_UNUSABLE", result.stdout)
-        self.assertIn("NVD_API_KEY was refused by the NVD", result.stdout)
+        self.assertIn(KEY_REFUSED, result.stdout)
         self.assertIn("About 71h remain", result.stdout)
         self.assertNotIn("REFRESH_OVERDUE", result.stdout)
 
     def test_a_missing_key_is_alerted_like_a_refused_one(self) -> None:
-        result = self.run_step(1, cause="NVD_API_KEY is not configured")
+        result = self.run_step(1, cause=KEY_MISSING)
         self.assertEqual(1, result.returncode)
         self.assertIn("MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_KEY_UNUSABLE", result.stdout)
-        self.assertIn("NVD_API_KEY is not configured", result.stdout)
+        self.assertIn(KEY_MISSING, result.stdout)
+
+    def test_a_key_cause_without_the_data_feed_failure_is_not_matched_as_unusable(self) -> None:
+        result = self.run_step(1, cause="NVD_API_KEY is not configured")
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertNotIn("REFRESH_KEY_UNUSABLE", result.stdout)
 
     def test_the_threshold_is_two_thirds_of_the_budget_and_inclusive(self) -> None:
         self.assertEqual(1, self.run_step(48).returncode, "48h of 72h is exactly two thirds and alerts")
         self.assertEqual(0, self.run_step(48 - 1 / 3600).returncode, "one second under two thirds stays green")
 
     def test_a_run_that_refreshed_raises_nothing_whatever_the_age_says(self) -> None:
-        result = self.run_step(50, refreshed="true", cause="NVD_API_KEY was refused by the NVD")
+        result = self.run_step(50, refreshed="true", cause=KEY_REFUSED)
         self.assertEqual(0, result.returncode)
         self.assertNotIn("MORPHEUS_DEPENDENCY_CHECK_ALERT", result.stdout)
 

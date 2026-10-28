@@ -109,11 +109,34 @@ class MorpheusRemoteProxyTransportTest {
                         new StubExchange("GET"),
                         URI.create("http://127.0.0.1:1/api/v1/health"),
                         new byte[0],
-                        true));
+                        MorpheusRemoteProxyTransport.UpstreamDeadline.READ));
 
         assertEquals(429, failure.status());
         assertEquals("RESPONSE_BUDGET_EXHAUSTED", failure.code());
         assertEquals(1L, runtime.statusAt("127.0.0.1", 8443, Instant.EPOCH).get("throttledRequests"));
+    }
+
+    /**
+     * The two deadlines are declared side by side. The writes' is five times the frozen budget of a full publish on
+     * the large fixture, sixty seconds at the 95th percentile, the only duration the repository states for the
+     * longest work a write can trigger.
+     */
+    @Test
+    void theReadsAndTheWritesDeadlinesAreDeclaredSideBySide() {
+        assertEquals(Duration.ofSeconds(60), MorpheusRemoteProxyTransport.UpstreamDeadline.READ.timeout());
+        assertTrue(MorpheusRemoteProxyTransport.UpstreamDeadline.READ.readOnly());
+        assertEquals(Duration.ofSeconds(300), MorpheusRemoteProxyTransport.UpstreamDeadline.WRITE.timeout());
+        assertFalse(MorpheusRemoteProxyTransport.UpstreamDeadline.WRITE.readOnly());
+    }
+
+    @Test
+    void anUpstreamDeadlineMustBePositive() {
+        IllegalArgumentException zero = assertThrows(IllegalArgumentException.class,
+                () -> new MorpheusRemoteProxyTransport.UpstreamDeadline(Duration.ZERO, false));
+        assertEquals("upstream timeout must be positive", zero.getMessage());
+        IllegalArgumentException negative = assertThrows(IllegalArgumentException.class,
+                () -> new MorpheusRemoteProxyTransport.UpstreamDeadline(Duration.ofSeconds(-1), true));
+        assertEquals("upstream timeout must be positive", negative.getMessage());
     }
 
     @Test

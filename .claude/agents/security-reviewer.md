@@ -34,7 +34,7 @@ ou la ligne de code exacte qui impose l'invariant.
 ### 3. Serveur remote (M26)
 Doit contenir : `HttpsServer` · `PKCS12` · `TLSv1.3` · `TLSv1.2` · `MorpheusRemoteRole.ADMIN`
 · `TOO_MANY_REQUESTS` · `X-Frame-Options` · `Content-Security-Policy` · `PLUGIN_SHA256_REQUIRED`
-· `usesBoundedUpstreamTimeout` · `String upstreamMethod = exchange.getRequestMethod();`
+· `route.upstreamDeadline()` · `String upstreamMethod = exchange.getRequestMethod();`
 
 Ne doit **jamais** contenir : `Access-Control-Allow-Origin` (pas de CORS)
 · `request.header("Authorization"` (jamais de forward du header amont)

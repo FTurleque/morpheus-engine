@@ -214,10 +214,10 @@ class RemoteServerArchitectureTest {
     }
 
     /**
-     * A remote mutation has no upstream deadline, so a blocked one holds its slots until it really ends. That is
-     * only tolerable while an operator can see it: the privileged gauge and the age of the oldest privileged
-     * operation are the difference between a busy facade and a stuck one, and they must not rot back into an
-     * aggregate request count that also moves with ordinary read traffic.
+     * A remote mutation holds its privileged slot for as long as the facade waits for it, up to the writes'
+     * upstream deadline. An operator must be able to see that: the privileged gauge and the age of the oldest
+     * privileged operation are the difference between a busy facade and a slow one, and they must not rot back into
+     * an aggregate request count that also moves with ordinary read traffic.
      */
     @Test
     void remoteStatusExposesPrivilegedOccupancyAndIsServedOutsideTheRequestBudget() throws IOException {
@@ -301,6 +301,8 @@ class RemoteServerArchitectureTest {
         assertTrue(transport.contains("UPSTREAM_LENGTH_REQUIRED"));
         assertTrue(transport.contains("UPSTREAM_RESPONSE_TOO_LARGE"));
         assertTrue(transport.contains("UPSTREAM_TIMEOUT"));
+        assertTrue(transport.contains("UPSTREAM_WRITE_TIMEOUT"),
+                "a write that outlives its upstream deadline must be told apart from a read that does");
         assertTrue(transport.contains("copyBounded("));
         assertFalse(transport.contains("MorpheusRemoteRole"));
         assertFalse(transport.contains("MorpheusRemoteIdentityFile"));
