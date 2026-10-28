@@ -189,12 +189,13 @@ Les éléments suivants ne doivent pas être déclarés terminés sans preuve ex
 
 ```text
 #185  qualifier le workflow de release attestée lors d'une vraie v1.2.1+ release
+RT-13 adopter Dependency-Check 13.0.1+ (correctif amont #8716) dès sa publication : NVD_API_KEY reste la seule source de rafraîchissement
 ```
 
 ## Suivis clos
 
 ```text
-#287  NVD_API_KEY configuré et accepté en 12.2.2 (main, run 35701902846) et 13.0.0 (develop, run 35744008694) — RT-13 clos le 22/09/2026
+#287  NVD_API_KEY configuré et accepté en 12.2.2 (main, run 35701902846) et 13.0.0 (develop, run 35744008694) — la clé est en service ; RT-13 reste ouvert tant qu'elle est la seule source de rafraîchissement
 ```
 
 ## État fonctionnel

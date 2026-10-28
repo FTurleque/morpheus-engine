@@ -18,32 +18,42 @@
 | RT-03 | Limites de `jdk.httpserver` sous forte charge | 2 | 2 | **4** | Concurrence remote bornée, timeouts/budgets et inventaires filesystem bornés ; **harnais de charge reproductible** (`MorpheusRemoteLoadProfileTest`) et **critères objectifs de remplacement** documentés — mesurer avant substitution | Lors de load tests représentatifs |
 | RT-04 | Breaking change MCP SDK / clients MCP | 2 | 2 | **4** | Version épinglée, tests de contrat, budgets de frames/queues, cancellation serveur, cleanup fail-closed et diagnostics redacted | À chaque upgrade MCP |
 | RT-05 | Provider externe malformé, bloquant ou non fiable | 2 | 2 | **4** | Discovery metadata-only sans symlink avec revalidation d'identité avant/après lecture, activation explicite, SHA-256 obligatoire en remote, staging vérifié, budgets d'ingestion et environnement enfant minimisé | À chaque évolution du Provider SDK |
+| RT-13 | Le gate CVE n'a qu'une source de rafraîchissement, `NVD_API_KEY` : Dependency-Check 13.0.0 ne rafraîchit pas anonymement (amont #8715) | 2 | 2 | **4** | Sentinelle de fraîcheur fail-closed (`STALE_DATABASE` à 72 h), alerte `REFRESH_KEY_UNUSABLE` dès le premier run qui voit la clé refusée ou absente, alerte `REFRESH_OVERDUE` aux deux tiers du budget, rotation annuelle documentée dans [COLD_START_RECOVERY](../../developer/COLD_START_RECOVERY.md) | À la publication d'une version de Dependency-Check qui contient le correctif #8716, et à chaque rotation de la clé |
 | RT-12 | Peer MCP externe MINOS/NEXUS compromis | 2 | 2 | **4** | JAR optionnel/pinnable, environnement hérité réduit à une allowlist, descendants observés et terminés, frames/queues bornées, stderr et exceptions peer redacted ; la frontière n'est pas une sandbox OS | À chaque évolution du transport MCP |
 | RT-06 | Diagnostic runtime limité par le logging silencieux | 2 | 2 | **4** | Health/metrics, erreurs structurées et diagnostics MCP sanitizés ; préserver stdout MCP | Permanent |
 | RT-09 | Drift documentaire entre sources historiques et HEAD | 2 | 2 | **4** | Hiérarchie des sources, séparation release publiée `1.2.0` / baseline active `1.2.1`, guides actifs réconciliés et contrats d'architecture sur les invariants CI | À chaque release/hardening |
 | RT-07 | Auth remote sans SSO/LDAP | 1 | 2 | **2** | Bearer auth + RBAC, mutations inter-processus sérialisées, live reload, audit secret-free roulant borné ; mot de passe TLS résolu tardivement en `char[]` et jamais retenu dans les options de lancement | Si besoin entreprise démontré |
 | RT-08 | macOS non qualifié | 2 | 1 | **2** | Support officiel Windows + Linux uniquement ; lane `macos-smoke` **advisory** (`continue-on-error`) de `nightly.yml`, sur cadence quotidienne bornée et non par pull request, qui exécute le reactor complet et publie les faits système observés — observation, pas qualification | Si support macOS décidé |
 
-### RT-13 — la base Dependency-Check n'avait plus de source de rafraîchissement (constaté le 09/09/2026, clos le 22/09/2026)
+### RT-13 — le gate CVE n'a qu'une source de rafraîchissement (constaté le 09/09/2026, ouvert)
 
-> **Clos le 22/09/2026.** Sortie n° 1 retenue : `NVD_API_KEY` est configuré. Posé le 17/09/2026, il a d'abord
-> été refusé par le NVD (run `35269719882` sur `develop`, 17/09/2026, « Invalid API Key », puis chaque
-> `schedule` de `main` jusqu'au run `35687241977` du 22/09/2026 04:32 UTC), avant d'être remplacé le
-> 22/09/2026 à 07:40 UTC. Il est accepté depuis, par les deux versions épinglées :
+> **Ouvert.** `NVD_API_KEY` est la seule source de rafraîchissement de la base Dependency-Check sur une branche
+> épinglée à 13.0.0, et donc le seul écrivain de la sentinelle de confiance : si la clé est refusée, révoquée ou
+> retirée, chaque scan, pull requests comprises, échoue en `STALE_DATABASE` 72 h après le dernier
+> rafraîchissement réussi. La conception fail-closed est voulue ; le risque est l'absence de second chemin.
+>
+> **État de la clé.** Posée le 17/09/2026, d'abord refusée par le NVD (run `35269719882` sur `develop`,
+> « Invalid API Key », puis chaque `schedule` de `main` jusqu'au run `35687241977` du 22/09/2026 04:32 UTC),
+> remplacée le 22/09/2026 à 07:40 UTC et acceptée depuis :
 >
 > | Branche | Dependency-Check | Run | Constat |
 > |---|---|---|---|
-> | `main` | 12.2.2 | `35701902846` (`workflow_dispatch`, 22/09/2026) | `Wrote trusted Dependency-Check refresh sentinel (schema 5.6, plugin 12.2.2, via NVD API key refresh)` — `main` ne publie pas encore la ligne `Obtained via`, la preuve est la ligne du rédacteur de sentinelle |
+> | `main` | 12.2.2 | `35701902846` (`workflow_dispatch`, 22/09/2026) | `Wrote trusted Dependency-Check refresh sentinel (schema 5.6, plugin 12.2.2, via NVD API key refresh)` |
 > | `develop` | 13.0.0 | `35744008694` (`push`, merge de #345, 22/09/2026) | sentinelle écrite `via NVD API key refresh`, `obtained via NVD API key refresh: 0h 00m old`, aucune annotation `REFRESH_FAILED` |
 >
-> La panne annoncée ci-dessous — plus aucun rafraîchissement 72 h après la promotion — ne se produit donc
-> pas : les deux versions épinglées rafraîchissent par la clé.
+> Prochaine rotation au plus tard le **22/09/2027** ; procédure, détenteur et vérification dans
+> [COLD_START_RECOVERY §2](../../developer/COLD_START_RECOVERY.md).
 >
-> **Condition de réouverture** : un résumé de *MORPHEUS Security* publie un « Obtained via » autre que
-> `NVD API key refresh` sur une branche épinglée à 13.0.0 ou au-delà, une annotation
-> `MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESH_FAILED` apparaît, une alerte
-> `MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_OVERDUE` est levée, ou `gh secret list` ne retourne plus
-> `NVD_API_KEY`. Le texte ci-dessous est l'analyse du 09/09/2026, conservée telle quelle.
+> **Surveillance.** Une clé refusée ou absente lève `MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_KEY_UNUSABLE` dès le
+> premier run de confiance qui le constate ; un rafraîchissement en échec avec la clé configurée lève
+> `MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_OVERDUE` aux deux tiers du budget. Les deux alertes font échouer le job
+> « Dependency-Check refresh alert », hors des checks requis.
+>
+> **Condition de clôture** : Dependency-Check 13.0.1 ou une version ultérieure contenant le correctif amont
+> [#8716](https://github.com/dependency-check/DependencyCheck/pull/8716) est publiée sur Maven Central et épinglée,
+> et le rafraîchissement anonyme redevient un secours de la clé. Au 28/10/2026, la dernière version publiée est
+> 13.0.0 (`maven-metadata.xml` de Maven Central, releases GitHub). Le texte ci-dessous est l'analyse du 09/09/2026,
+> conservée telle quelle.
 
 Ce risque n'est pas une hypothèse : c'est une panne **datée**, qui se déclenchera environ
 **72 heures après la promotion de 1.2.1 sur `main`**, et qu'aucune modification de workflow ne peut
@@ -143,10 +153,10 @@ pour raccourcir cette fenêtre.
 
 Trois sorties possibles, par ordre de préférence :
 
-1. **Configurer `NVD_API_KEY`** (clé gratuite auprès du NIST) — **retenue, voir la clôture ci-dessus**. C'est la seule qui restaure un vrai
-   rafraîchissement et la seule qui clôt RT-13.
-2. Attendre la publication de **13.0.1** et bumper le pin — remet la mise à jour anonyme en service, mais la
-   date de publication n'est pas maîtrisée.
+1. **Configurer `NVD_API_KEY`** (clé gratuite auprès du NIST) — **retenue, en service depuis le 22/09/2026**.
+   Elle restaure un vrai rafraîchissement mais reste une source unique : elle ne clôt pas RT-13.
+2. Attendre la publication de **13.0.1** et bumper le pin — remet la mise à jour anonyme en service comme
+   secours de la clé, et clôt RT-13 ; la date de publication n'est pas maîtrisée.
 3. Revenir à **12.2.2**. Réévalué le 09/09/2026 avec les deux vérifications qu'exige un tel retour, et
    **écarté sur la première** :
    - *Aucune déficience corrigée par 13.0.0 ?* **Faux.** 13.0.0 contient
