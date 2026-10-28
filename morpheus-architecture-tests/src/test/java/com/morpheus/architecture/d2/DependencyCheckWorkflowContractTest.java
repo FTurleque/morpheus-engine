@@ -573,6 +573,42 @@ class DependencyCheckWorkflowContractTest {
     }
 
     /**
+     * A key the NVD refuses and a key that is gone never clear on their own: NVD_API_KEY is the only refresh source of
+     * a branch pinned to 13.0.0, so waiting for the two-thirds threshold only hands a person the last day of the
+     * budget. The alert names them in the first run that sees them. It matches the causes by the very strings the
+     * update step publishes, so a cause reworded in one place and not the other fails here rather than silently
+     * falling back to the threshold. The third cause, a refresh that failed with the key configured, is the one an NVD
+     * outage produces, and it alone waits for the threshold.
+     */
+    @Test
+    void aCauseThatCannotClearByItselfRaisesTheAlertInTheFirstRunThatSeesIt() throws IOException {
+        String security = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/security.yml"));
+        String update = section(security, "- name: Update Dependency-Check vulnerability database (trusted events)",
+                "- name: Save trusted Dependency-Check database");
+        String alertJob = security.substring(security.indexOf("\n  refresh-alert:"));
+
+        int immediate = alertJob.indexOf("MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_KEY_UNUSABLE");
+        int threshold = alertJob.indexOf("(( age_seconds * 3 >= max_age_seconds * 2 ))");
+        assertTrue(immediate > 0, "a cause that cannot clear by itself must carry an alert code of its own");
+        assertTrue(threshold > immediate, "the immediate alert must be decided before the two-thirds threshold");
+
+        int caseStart = alertJob.indexOf("case \"${REFRESH_CAUSE:-}\" in");
+        assertTrue(caseStart > 0 && caseStart < immediate, "the immediate alert must be selected by the published cause");
+        String caseLine = alertJob.substring(caseStart, immediate);
+        for (String cause : new String[] {"NVD_API_KEY was refused by the NVD", "NVD_API_KEY is not configured"}) {
+            assertTrue(update.contains("refresh_skipped_because='" + cause + "'"),
+                    () -> "the update step must publish the cause the alert matches: " + cause);
+            assertTrue(caseLine.contains("'" + cause + "'"),
+                    () -> "the immediate alert must match the published cause: " + cause);
+        }
+        String transientCause = "the NVD refresh failed with NVD_API_KEY configured";
+        assertTrue(update.contains("refresh_skipped_because='" + transientCause + "'"),
+                "the update step must keep naming the cause an NVD outage produces");
+        assertFalse(caseLine.contains(transientCause),
+                "a refresh that failed with the key configured may be an outage and must wait for the threshold");
+    }
+
+    /**
      * Every code the workflow emits is explained where a maintainer lands when it fires. The codes are read from the
      * workflow, so this test holds no list that could go stale.
      */

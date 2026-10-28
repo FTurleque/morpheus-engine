@@ -12,8 +12,9 @@ from __future__ import annotations
 import unittest
 import xml.etree.ElementTree as ET
 
-from validator_harness import (FABRICATED_TESTS, FABRICATED_TOTAL_TESTS, REPOSITORY, FabricatedCheckout, PlayedScenarios, Run, require_bash,
-                               require_powershell)
+from validator_harness import (FABRICATED_GENERATED_TESTS, FABRICATED_TESTS, FABRICATED_TOTAL_TESTS, RELEASED_LEVELS_FILE,
+                               REPOSITORY, UPGRADE_FACTORIES, UPGRADE_GENERATED_TESTS, FabricatedCheckout,
+                               PlayedScenarios, Run, released_schema_levels, require_bash, require_powershell)
 
 UPGRADE_MODULE = "morpheus-store-sqlite"
 MIGRATION = "morpheus-store-sqlite/src/main/resources/db/migration/V002__fabricated.sql"
@@ -214,6 +215,7 @@ class R2Cases:
     def given_no_upgrade_report(checkout, validate):
         checkout.remove(f"{UPGRADE_MODULE}/target/surefire-reports/TEST-com.morpheus.store.sqlite.runtime.ReleasedSchemaUpgradeTest.xml")
         checkout.total_tests(FABRICATED_TESTS + 1)
+        checkout.generated_tests(FABRICATED_GENERATED_TESTS + UPGRADE_GENERATED_TESTS)
 
     def test_a_missing_upgrade_report_is_refused_by_name(self) -> None:
         self.refused("no_upgrade_report", "R2 upgrade report is missing", "ReleasedSchemaUpgradeTest")
@@ -223,10 +225,39 @@ class R2Cases:
     def given_an_upgrade_report_that_ran_nothing(checkout, validate):
         checkout.surefire(UPGRADE_MODULE, 0)
         checkout.total_tests(FABRICATED_TESTS + 1)
+        checkout.generated_tests(FABRICATED_GENERATED_TESTS + UPGRADE_GENERATED_TESTS)
 
     def test_an_upgrade_suite_that_ran_no_test_is_refused(self) -> None:
         self.refused("an_upgrade_report_that_ran_nothing", "R2 upgrade compatibility test failed: tests=0")
         self.no_summary_of("an_upgrade_report_that_ran_nothing", "r2")
+
+    def test_the_upgrade_suite_is_accepted_with_one_case_per_declared_level_from_each_factory(self) -> None:
+        _, run = self.played("a_complete_checkout")
+
+        levels = len(released_schema_levels())
+        self.assertTrue(run.says(f"SQLite upgrade from every released schema level: PASS ({levels} levels x "
+                                 f"{len(UPGRADE_FACTORIES)} factories)"), run.output)
+
+    @staticmethod
+    def given_an_upgrade_factory_that_skipped_a_level(checkout, validate):
+        checkout.upgrade_cases(len(released_schema_levels()) - 1)
+
+    def test_an_upgrade_factory_that_ran_one_level_less_than_declared_is_refused(self) -> None:
+        self.refused("an_upgrade_factory_that_skipped_a_level",
+                     f"ran {len(released_schema_levels()) - 1} cases, expected one per released schema level")
+        self.no_summary_of("an_upgrade_factory_that_skipped_a_level", "r2")
+
+    @staticmethod
+    def given_a_released_level_declared_after_the_build(checkout, validate):
+        declaration = checkout.root / RELEASED_LEVELS_FILE
+        added = f"9.9.9={max(released_schema_levels()) + 1}"
+        checkout.write(RELEASED_LEVELS_FILE, declaration.read_text(encoding="utf-8") + added + chr(10))
+        checkout.commit("a released level the build did not run")
+
+    def test_the_number_of_cases_required_is_read_from_the_declaration_not_copied(self) -> None:
+        self.refused("a_released_level_declared_after_the_build",
+                     f"ran {len(released_schema_levels())} cases, expected one per released schema level")
+        self.no_summary_of("a_released_level_declared_after_the_build", "r2")
 
     @staticmethod
     def given_a_release_script_with_another_default(checkout, validate):

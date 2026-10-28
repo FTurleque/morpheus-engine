@@ -19,12 +19,12 @@ import com.morpheus.domain.project.ProjectSpecification;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.provenance.Provenance;
 import com.morpheus.domain.provider.ProviderCapability;
+import com.morpheus.domain.provider.ProviderProbeResult;
 import com.morpheus.domain.provider.ProviderProbeStatus;
 import com.morpheus.domain.source.SourceLocator;
 import com.morpheus.domain.task.ImplementationTask;
 import com.morpheus.domain.task.TaskId;
 
-import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -81,9 +81,12 @@ public final class OpenSpecChangeMetadataReader {
             Path workspaceRoot,
             ProjectSpecificationId projectId,
             EntityIdentityResolver identityResolver,
-            ProviderIngestionBudget.Session budget) {
+            ProviderIngestionBudget.Session budget,
+            ProviderProbeResult probe,
+            List<Path> changeRoots) {
         List<RuntimeException> rejected = new ArrayList<>();
-        NormalizedProjectContent content = read(workspaceRoot, projectId, identityResolver, budget, rejected::add);
+        NormalizedProjectContent content = normalize(
+                workspaceRoot, projectId, identityResolver, budget, probe, changeRoots, rejected::add);
         return new ContainedRead(content, rejected);
     }
 
@@ -112,6 +115,25 @@ public final class OpenSpecChangeMetadataReader {
         if (!probe.capabilities().contains(ProviderCapability.READ_CHANGES)) {
             throw new IllegalArgumentException("OpenSpec workspace has no readable changes: " + root);
         }
+        return normalize(
+                root, projectId, identityResolver, budget, probe,
+                OpenSpecWorkspaceListing.changeRoots(root, budget), rejectChange);
+    }
+
+    /** Normalizes the given change roots of a workspace whose probe and enumeration the caller has already charged. */
+    private NormalizedProjectContent normalize(
+            Path workspaceRoot,
+            ProjectSpecificationId projectId,
+            EntityIdentityResolver identityResolver,
+            ProviderIngestionBudget.Session budget,
+            ProviderProbeResult probe,
+            List<Path> changeRoots,
+            Consumer<RuntimeException> rejectChange) {
+        Path root = Objects.requireNonNull(workspaceRoot, "workspaceRoot").toAbsolutePath().normalize();
+        Objects.requireNonNull(projectId, "projectId");
+        Objects.requireNonNull(identityResolver, "identityResolver");
+        Objects.requireNonNull(budget, "budget");
+        Objects.requireNonNull(probe, "probe");
 
         List<ChangeProposal> changes = new ArrayList<>();
         List<Constraint> constraints = new ArrayList<>();
@@ -119,7 +141,7 @@ public final class OpenSpecChangeMetadataReader {
         List<ImplementationTask> tasks = new ArrayList<>();
         List<Evidence> evidence = new ArrayList<>();
 
-        for (Path changeRoot : listChangeRoots(root.resolve("openspec/changes"), budget)) {
+        for (Path changeRoot : changeRoots) {
             List<ChangeProposal> changeProposals = new ArrayList<>();
             List<Constraint> changeConstraints = new ArrayList<>();
             List<DesignDecision> changeDecisions = new ArrayList<>();
@@ -313,25 +335,6 @@ public final class OpenSpecChangeMetadataReader {
                     matcher.group(2).trim(),
                     !matcher.group(1).isBlank(),
                     provenance(externalId, source, itemEvidence.id())));
-        }
-    }
-
-    private List<Path> listChangeRoots(
-            Path changesRoot,
-            ProviderIngestionBudget.Session budget) {
-        if (!Files.isDirectory(changesRoot)) {
-            return List.of();
-        }
-        try (var paths = Files.list(changesRoot)) {
-            List<Path> roots = paths
-                    .filter(Files::isDirectory)
-                    .filter(path -> !path.getFileName().toString().equals("archive"))
-                    .limit(budget.remainingFiles() + 1)
-                    .toList();
-            budget.requireAdditionalFiles(roots.size(), "openspec/changes");
-            return roots.stream().sorted().toList();
-        } catch (IOException exception) {
-            throw new IllegalStateException("Cannot enumerate OpenSpec changes", exception);
         }
     }
 
