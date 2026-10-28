@@ -10,7 +10,9 @@ que le début : il reste court.
 - **Couches** : `domain` et `application` ne connaissent aucun adaptateur ; les adaptateurs sont frères. `api` et `mcp`
   n'atteignent un store ou un provider concret que par les racines nommées d'ADR-0109 : tout autre `new` ou import est
   CRITICAL.
-- **Sans framework** : ni Spring/Guice, ni réflexion, ni classpath scanning, ni annotation d'injection.
+- **Sans framework** : ni Spring/Guice, ni annotation d'injection ; réflexion et chargement de classes ou de services
+  seulement dans les classes que nomme `ReflectionAndClassLoadingBoundaryArchitectureTest` (ou, dans `application`,
+  `ApplicationTechnologyBoundaryArchitectureTest`) : un nom ajouté à ces listes se justifie.
 - **Style** : records dans le domaine, validation dans le constructeur compact, un seul constructeur public par record
   (fabriques nommées), pas de commentaire « quoi » ni de ticket, pas de code mort ni de shim.
 - **Déterminisme** : collection retournée ordonnée explicitement, jamais un `HashMap`/`HashSet` qui fixe un ordre

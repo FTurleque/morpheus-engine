@@ -222,9 +222,18 @@ autre cycle échoue. La même règle sur `application` est reportée (167 cycles
 > `domainPackagesAreFreeOfCyclesBesideTheTwoNamedOnes`
 
 ### Pas de framework, pas de magie
-Jamais Spring / Quarkus / Micronaut / Guice, jamais de réflexion, de classpath scanning
-ou d'annotations d'injection. Le câblage est explicite : dans `MorpheusMain` pour le processus, dans les racines
-de composition nommées d'ADR-0109 pour le runtime de chaque requête HTTP ou appel MCP.
+Aucune classe du produit ne dépend d'un framework d'injection (Spring, Quarkus, Micronaut, Guice, CDI) ni d'une
+annotation d'injection (`jakarta.inject`, `javax.inject`) : cette règle n'a aucune exception. La réflexion
+(`java.lang.reflect`, `java.lang.invoke`) et le chargement de services ou de classes (`ServiceLoader`, un
+`ClassLoader`, `Class.forName`) n'existent que dans les classes nommées pour eux, chacune avec sa raison et, pour un
+chargement, l'ADR qui le décide ; jamais pour câbler le produit ni pour construire un objet depuis une configuration.
+Les listes sont exactes et ne font que rétrécir : les lire dans `ReflectionAndClassLoadingBoundaryArchitectureTest`
+(hors `application`, règle sur le bytecode doublée d'un scan du texte des sources) et dans
+`ApplicationTechnologyBoundaryArchitectureTest` (dans `application`, ADR-0150), pas ici. Un accesseur de
+`java.lang.Class` (`getName`, `getSimpleName`, `getClassLoader`) n'est pas de la réflexion au sens de ces règles.
+Le câblage est explicite : dans `MorpheusMain` pour le processus, dans les racines de composition nommées d'ADR-0109
+pour le runtime de chaque requête HTTP ou appel MCP.
+> `reflectionIsReachedOnlyByTheClassesNamedForIt`, `serviceAndClassLoadingAreReachedOnlyByTheClassesNamedForThem`, `everyNamedClassStillReachesItsFamily`, `noProductClassDependsOnAnInjectionFramework`
 
 ## Ce que l'application touche (ADR-0150)
 
