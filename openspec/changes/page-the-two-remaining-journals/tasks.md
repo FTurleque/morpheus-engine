@@ -48,7 +48,8 @@
 ## 6. Documentation
 
 - [x] 6.1 ADR-0131, the upgrade guide and the developer pages say the three journals are paged.
-      *2026-10-28: ADR-0131 sections 4 and 6, Do's and Don'ts and compliance; `docs/user/UPGRADE_1_2_2.md` and `docs/user/README.md` name V023.*
+      *2026-10-28: ADR-0131 sections 4 and 6, Do's and Don'ts and compliance; `docs/user/UPGRADE_1_2_2.md` and `docs/user/README.md` name V023. The edit changed ADR-0131's decision in part, so it is consolidated in ADR-0151, which replaces it;
+      ADR-0131 is archived.*
 
 ## 7. Verify
 

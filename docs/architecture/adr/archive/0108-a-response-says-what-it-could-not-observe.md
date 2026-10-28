@@ -197,4 +197,4 @@ décision de policy portée par le code de sortie, refus d'état distincts d'un 
 - [ADR-0119](../BE-0119-cycle-de-vie-des-changements-et-transition-tri-etat.md) — transition tri-état
 - [ADR-0124](../ARCH-0124-qualite-findings-et-faits-tri-etat.md) — qualité, findings et faits tri-état
 - [ADR-0130](../BE-0130-contrat-des-options-de-la-cli.md) — contrat des options et des codes de sortie de la CLI
-- [ADR-0131](../BE-0131-pagination-des-collections-et-journaux.md) — pagination des collections et des journaux
+- [ADR-0131](0131-pagination-des-collections-et-journaux.md) — pagination des collections et des journaux

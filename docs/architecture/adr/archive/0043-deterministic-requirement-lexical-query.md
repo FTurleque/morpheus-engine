@@ -127,6 +127,6 @@ et requêtes sur les autres familles métier.
 - [ADR-0120](0120-snapshots-versionnes-et-activation-atomique.md) — snapshots versionnés et activation atomique.
 - [ADR-0034](0034-versioned-requirement-persistence.md) — persistance versionnée des exigences.
 - [ADR-0036](../DATA-0036-published-history-comparison-and-logical-rollback.md) — historique publié et rollback logique.
-- [ADR-0131](../BE-0131-pagination-des-collections-et-journaux.md) — pagination des collections et journaux.
+- [ADR-0131](0131-pagination-des-collections-et-journaux.md) — pagination des collections et journaux.
 - [VALIDATION_M5](../../../project/validation/VALIDATION_M5.md) — preuve du jalon M5.
 - `contracts/public-surfaces.tsv` (ligne `requirement.find`) — surfaces CLI, MCP et HTTP de la recherche.

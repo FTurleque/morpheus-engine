@@ -1,6 +1,6 @@
 # ADR-0107 — Un seul vocabulaire pour une réponse paginée, et une page embarquée est une valeur
 
-> **Archivée.** Cette décision est consolidée dans [ADR-0131](../BE-0131-pagination-des-collections-et-journaux.md). Ce texte n'est plus en vigueur et n'est pas tenu à jour.
+> **Archivée.** Cette décision est consolidée dans [ADR-0131](0131-pagination-des-collections-et-journaux.md), elle-même remplacée par [ADR-0151](../BE-0151-pagination-des-collections-et-journaux.md). Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
 - Statut : **Remplacée par ADR-0131**
 - Date : 23 septembre 2026

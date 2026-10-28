@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  * The maximum page size of the MCP catalog and the one the application enforces are two constants in two modules,
  * and the text says they are one number.
  *
- * <p>The Javadoc of {@link PageArguments} and ADR-0131 (Decision, point 4)
+ * <p>The Javadoc of {@link PageArguments} and ADR-0151 (Decision, point 4)
  * write that the maximum of {@code limit} is the catalog's and is also {@code PageRequest}'s. Nothing made it so:
  * each is a literal {@code 100}. This test holds the equality of the <em>maximum</em>, and it matters in one
  * direction more than the other. {@code McpCatalogTool.page} builds a {@code PageRequest} from a
@@ -51,7 +51,7 @@ class PageBoundsAgreementTest {
         assertEquals(PageRequest.MAX_LIMIT, MorpheusMcpToolCatalog.MAX_LIMIT,
                 "MorpheusMcpToolCatalog.MAX_LIMIT and PageRequest.MAX_LIMIT have parted. Two things are now false."
                         + " The sentence that the maximum limit of the MCP paged tools is the catalog's and is also"
-                        + " PageRequest's (Javadoc of PageArguments; ADR-0131, Decision, point 4)."
+                        + " PageRequest's (Javadoc of PageArguments; ADR-0151, Decision, point 4)."
                         + " And, if the catalog maximum is the larger, every catalog tool served by"
                         + " McpCatalogTool.page: its schema accepts a limit that its PageRequest refuses, so"
                         + " rewriting the sentence is not enough. Bring the constants back together.");

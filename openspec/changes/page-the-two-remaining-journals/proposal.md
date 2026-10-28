@@ -56,4 +56,4 @@ its index and its proof. The archives reuse that shape.
 - **No public surface changes**: neither method has a caller in production code, before or after.
 - A schema version: `docs/user/UPGRADE_1_2_2.md` names it; `SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION` is read, never
   copied.
-- `docs/architecture/adr/BE-0131-pagination-des-collections-et-journaux.md` says the three journals are paged.
+- `docs/architecture/adr/BE-0151-pagination-des-collections-et-journaux.md` says the three journals are paged.

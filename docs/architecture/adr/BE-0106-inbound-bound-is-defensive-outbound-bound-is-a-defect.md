@@ -82,7 +82,7 @@ avec la capacité.
 Aucun nom d'outil du catalogue serveur n'apparaît dans `morpheus-mcp-transport`.
 
 `get_current_specification` est paginé par `offset` et `limit`, aux mêmes bornes que les autres outils de lecture
-paginés ; la forme de sa page est décidée par ADR-0131 (§2). La page est ordonnée par identifiant de spécification et chaque
+paginés ; la forme de sa page est décidée par ADR-0151 (§2). La page est ordonnée par identifiant de spécification et chaque
 spécification garde sa `description`. Une page d'une seule spécification dont la description dépasse à elle seule la
 borne reste refusée par `MCP_RESPONSE_TOO_LARGE`, et la session survit.
 
@@ -255,6 +255,6 @@ configuré par l'opérateur (`resolve_external_reference`, `get_augmented_requir
 - [ADR-0102](BE-0102-mcp-failure-contract-is-one-rule.md) — contrat d'échec MCP.
 - [ADR-0128](ARCH-0128-pairs-minos-et-nexus-par-mcp-stdio.md) — pairs MINOS et NEXUS par MCP STDIO.
 - [ADR-0129](SEC-0129-plugins-provider-code-de-confiance-hors-processus.md) — code externe de confiance.
-- [ADR-0131](BE-0131-pagination-des-collections-et-journaux.md) — vocabulaire de page.
+- [ADR-0151](BE-0151-pagination-des-collections-et-journaux.md) — vocabulaire de page.
 - `SECURITY.md` — descendants d'un pair MCP.
 - `contracts/public-surfaces.tsv` — manifeste de convergence.

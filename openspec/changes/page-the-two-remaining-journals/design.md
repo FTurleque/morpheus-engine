@@ -21,7 +21,7 @@
 no unbounded journal read on any port; memory and SQLite return the same pages.
 
 **Non-Goals**: a reader of either journal on a public surface; a cursor; a purge; the cost of `COUNT(*)` and `OFFSET`
-on a deep page, which the policy audit already carries and ADR-0131 records.
+on a deep page, which the policy audit already carries and ADR-0151 records.
 
 ## Decisions
 

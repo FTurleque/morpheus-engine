@@ -33,7 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The three tools that read a collection which only ever grows take a page (ADR-0131).
+ * The three tools that read a collection which only ever grows take a page (ADR-0151).
  *
  * <p>{@code get_policy_audit}, {@code list_policy_pack_versions} and {@code list_saved_view_versions} rendered their
  * whole collection under a schema that forbade {@code offset} and {@code limit}. Past 1 MiB the transport answers

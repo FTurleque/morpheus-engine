@@ -90,7 +90,7 @@ Lecture, analyse, qualité, synchronisation et plateformes métier.
 | Findings de qualité explicables et faits tri-état | [ADR-0124](../adr/ARCH-0124-qualite-findings-et-faits-tri-etat.md) |
 | Détecter les changements de source par inventaire SHA-256, reconstruire en entier en cas de doute | [ADR-0125](../adr/DATA-0125-detection-de-changement-des-sources.md) |
 | Publication complète d'un snapshot, en CLI comme en HTTP | [ADR-0144](../adr/DATA-0144-publication-complete-cli-et-http.md) |
-| Une page parle un seul vocabulaire, et un journal est conservé et lu par pages | [ADR-0131](../adr/BE-0131-pagination-des-collections-et-journaux.md) |
+| Une page parle un seul vocabulaire, et un journal est conservé et lu par pages | [ADR-0151](../adr/BE-0151-pagination-des-collections-et-journaux.md) |
 
 ---
 

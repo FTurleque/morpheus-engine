@@ -118,7 +118,6 @@ nouvel ADR qui remplace les précédents. Le cycle de vie complet est dans `.cla
 | [ADR-0128](ARCH-0128-pairs-minos-et-nexus-par-mcp-stdio.md) | MINOS et NEXUS sont des pairs optionnels, lancés à la demande par MCP STDIO | **Acceptée** |
 | [ADR-0129](SEC-0129-plugins-provider-code-de-confiance-hors-processus.md) | Un plugin provider est du code de confiance, sondé hors du processus MORPHEUS | **Acceptée** |
 | [ADR-0130](BE-0130-contrat-des-options-de-la-cli.md) | Une invocation de la CLI est validée avant tout effet, et son code de sortie dit ce qui a été observé | **Acceptée** |
-| [ADR-0131](BE-0131-pagination-des-collections-et-journaux.md) | Une page parle un seul vocabulaire, et un journal est conservé et lu par pages | **Acceptée** |
 | [ADR-0132](GEN-0132-tenir-le-registre-d-adr-au-format-archgate.md) | Tenir le registre d'ADR au format Archgate, à l'emplacement arc42 | **Acceptée** |
 | [ADR-0133](GEN-0133-toolchain-java-21-et-maven-wrapper.md) | Toolchain de build : Java 21 et Maven par Wrapper épinglé | **Acceptée** |
 | [ADR-0134](GEN-0134-distribution-native-autonome.md) | Distribution native autonome, sans image de conteneur | **Acceptée** |
@@ -137,6 +136,7 @@ nouvel ADR qui remplace les précédents. Le cycle de vie complet est dans `.cla
 | [ADR-0147](ARCH-0147-un-role-d-adaptateur-est-un-paquet.md) | Un rôle de l'adaptateur HTTP est un paquet ; ce qui reste une liste de noms en déclare la sorte | **Acceptée** |
 | [ADR-0149](ARCH-0149-une-commande-et-un-outil-sont-servis-par-une-classe-de-capacite.md) | Une commande CLI et un outil MCP sont servis par une classe de capacité ; un dispatcher ne tient aucun cas d'usage | **Acceptée** |
 | [ADR-0150](ARCH-0150-ce-que-le-coeur-applicatif-peut-toucher.md) | Le cœur applicatif touche le disque local par des classes nommées, et jamais le réseau | **Acceptée** |
+| [ADR-0151](BE-0151-pagination-des-collections-et-journaux.md) | Une page parle un seul vocabulaire, et un journal est conservé et lu par pages | **Acceptée** |
 
 Les preuves de qualification de chaque jalon sont dans [`../../project/validation/`](../../project/validation/README.md).
 
