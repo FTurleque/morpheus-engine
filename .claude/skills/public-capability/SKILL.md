@@ -14,7 +14,8 @@ deux casse le build. Ce qui suit est l'ordre qui évite d'y revenir trois fois.
 `morpheus-application` **définit les ports** et ne connaît **aucun** adaptateur. Les adaptateurs
 (`provider`, `store`, `cli`, `mcp`, `api`, `integration`) dépendent vers l'intérieur et sont
 **frères** — ils ne s'appellent pas entre eux. Le câblage est explicite dans `MorpheusMain` : ni
-framework, ni réflexion, ni scan de classpath.
+framework ni annotation d'injection, et ni réflexion ni chargement de classes ou de services hors des classes que
+`ReflectionAndClassLoadingBoundaryArchitectureTest` et `ApplicationTechnologyBoundaryArchitectureTest` nomment.
 
 Un consommateur de port doit rester provider-neutre : il fonctionne avec les trois providers
 (openspec, markdown, synthetic). C'est vérifié.
