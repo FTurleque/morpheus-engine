@@ -59,7 +59,7 @@ class SilentCatchArchitectureTest {
                             + "identity that cannot be resolved is not trusted, and the refusal that follows is named")),
             Map.entry("TimedBoundedInputReader.java#IOException", new Explained(1,
                     "closing the request body after a read that already timed out or failed; that failure is raised")),
-            Map.entry("UpdateDiscoveryService.java#IOException", new Explained(1,
+            Map.entry("UpdateManifestFetcher.java#IOException", new Explained(1,
                     "closing the manifest stream after a timeout or an interruption that is raised just after")),
             Map.entry("LocalSourceWatcher.java#IOException", new Explained(1,
                     "closing the watch service when the constructor fails; the constructor's failure propagates")),

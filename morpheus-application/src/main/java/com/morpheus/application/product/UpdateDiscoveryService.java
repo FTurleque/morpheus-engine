@@ -2,27 +2,15 @@ package com.morpheus.application.product;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
 
 /**
@@ -30,25 +18,19 @@ import java.util.regex.Pattern;
  * concrete manifest URI. The service never downloads or installs the advertised artifact. Remote manifests require
  * HTTPS, advertise only HTTPS artifacts, and must provide an HTTPS provenance-attestation reference. Presence of that
  * reference is a discovery contract, not cryptographic verification. Local manifests use the file scheme and remain
- * available for explicit diagnostics and test fixtures.
+ * available for explicit diagnostics and test fixtures. The bytes are read by an {@link UpdateManifestSource}, within
+ * the size and the deadline this service states, and only once the address is accepted.
  */
 public final class UpdateDiscoveryService {
     public static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(10);
     public static final int MAX_MANIFEST_BYTES = 64 * 1024;
     private static final Pattern NUMERIC_IDENTIFIER_PATTERN = Pattern.compile("\\d+");
 
-    private final HttpClient httpClient;
+    private final UpdateManifestSource source;
     private final Duration timeout;
 
-    public UpdateDiscoveryService() {
-        this(HttpClient.newBuilder()
-                .connectTimeout(DEFAULT_TIMEOUT)
-                .followRedirects(HttpClient.Redirect.NEVER)
-                .build(), DEFAULT_TIMEOUT);
-    }
-
-    UpdateDiscoveryService(HttpClient httpClient, Duration timeout) {
-        this.httpClient = Objects.requireNonNull(httpClient, "httpClient");
+    public UpdateDiscoveryService(UpdateManifestSource source, Duration timeout) {
+        this.source = Objects.requireNonNull(source, "source");
         this.timeout = Objects.requireNonNull(timeout, "timeout");
         if (timeout.isZero() || timeout.isNegative()) {
             throw new IllegalArgumentException("timeout must be positive");
@@ -78,8 +60,8 @@ public final class UpdateDiscoveryService {
     UpdateManifest readManifest(URI manifestUri) {
         String scheme = manifestUri.getScheme().toLowerCase(Locale.ROOT);
         Properties properties = switch (scheme) {
-            case "file" -> readFile(manifestUri);
-            case "https" -> readHttp(manifestUri);
+            case "file", "https" -> parseBoundedManifest(
+                    source.read(manifestUri, MAX_MANIFEST_BYTES, timeout), manifestUri);
             case "http" -> throw new IllegalArgumentException(
                     "insecure update manifest scheme: http (expected file or https)");
             default -> throw new IllegalArgumentException(
@@ -95,78 +77,7 @@ public final class UpdateDiscoveryService {
         return manifest;
     }
 
-    private Properties readFile(URI uri) {
-        try (InputStream input = Files.newInputStream(Path.of(uri))) {
-            return parseBoundedManifest(input.readNBytes(MAX_MANIFEST_BYTES + 1), uri);
-        } catch (IOException failure) {
-            throw new IllegalArgumentException("cannot read update manifest: " + uri, failure);
-        }
-    }
-
-    private Properties readHttp(URI uri) {
-        HttpRequest request = HttpRequest.newBuilder(uri)
-                .GET()
-                .timeout(timeout)
-                .header("Accept", "text/plain, text/x-java-properties")
-                .build();
-        try {
-            HttpResponse<InputStream> response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                response.body().close();
-                throw new IllegalArgumentException(
-                        "update manifest request failed with HTTP " + response.statusCode() + ": " + uri);
-            }
-            try (InputStream body = response.body()) {
-                return parseBoundedManifest(readBodyWithDeadline(body, uri), uri);
-            }
-        } catch (InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("update manifest request interrupted: " + uri, interrupted);
-        } catch (IOException failure) {
-            throw new IllegalArgumentException("cannot fetch update manifest: " + uri, failure);
-        }
-    }
-
-    /**
-     * {@link HttpRequest.Builder#timeout(Duration)} only bounds the time to receive the response headers when
-     * the body is consumed through {@link HttpResponse.BodyHandlers#ofInputStream()}: a server that answers
-     * quickly and then stalls or trickles the body can otherwise block this thread past that deadline
-     * indefinitely. The read runs on its own thread with a wall-clock deadline of {@link #timeout}; on timeout
-     * the underlying stream is closed to unblock the read (interrupting a thread parked in socket I/O does not
-     * reliably do so) before the deadline is reported as a failure.
-     */
-    private byte[] readBodyWithDeadline(InputStream body, URI uri) throws IOException, InterruptedException {
-        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
-            Future<byte[]> read = executor.submit(() -> body.readNBytes(MAX_MANIFEST_BYTES + 1));
-            try {
-                return read.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
-            } catch (TimeoutException timedOut) {
-                read.cancel(true);
-                closeQuietly(body);
-                throw new IllegalArgumentException(
-                        "update manifest body did not complete within " + timeout + ": " + uri, timedOut);
-            } catch (InterruptedException interrupted) {
-                read.cancel(true);
-                closeQuietly(body);
-                throw interrupted;
-            } catch (ExecutionException executionFailure) {
-                // body.readNBytes(int) only declares IOException; whatever actually failed the read is
-                // preserved as the cause either way, and readHttp's own IOException handler already turns
-                // this into a clean IllegalArgumentException naming the manifest URI.
-                throw new IOException("cannot fetch update manifest: " + uri, executionFailure.getCause());
-            }
-        }
-    }
-
-    private static void closeQuietly(InputStream input) {
-        try {
-            input.close();
-        } catch (IOException ignored) {
-            // Best-effort cleanup after a timed-out or interrupted read.
-        }
-    }
-
-    private static Properties parseBoundedManifest(byte[] payload, URI source) throws IOException {
+    private static Properties parseBoundedManifest(byte[] payload, URI source) {
         if (payload.length > MAX_MANIFEST_BYTES) {
             throw new IllegalArgumentException(
                     "update manifest exceeds " + MAX_MANIFEST_BYTES + " bytes: " + source);
@@ -174,6 +85,8 @@ public final class UpdateDiscoveryService {
         Properties properties = new Properties();
         try (InputStreamReader reader = new InputStreamReader(new ByteArrayInputStream(payload), StandardCharsets.UTF_8)) {
             properties.load(reader);
+        } catch (IOException failure) {
+            throw new IllegalArgumentException("cannot read update manifest: " + source, failure);
         }
         return properties;
     }

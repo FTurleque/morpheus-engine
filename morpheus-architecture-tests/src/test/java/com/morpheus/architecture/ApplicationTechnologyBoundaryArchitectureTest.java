@@ -28,16 +28,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Which technology the application layer may reach, and through which classes (ADR-0150).
  *
- * <p>A family the application does not use is refused in every package. A family it uses is reachable only from the
- * classes ADR-0150 names for it, and each list is exactly the set of classes that reach the family, so a list can
- * shrink and cannot grow in silence. {@code Path}, {@code LinkOption}, {@code IOException} and in-memory streams are
+ * <p>A family the application does not use is refused in every package. Outbound network and threads are among them:
+ * the transport of update discovery is an adapter of {@code morpheus-cli} behind a port of {@code application.product}.
+ * A family it uses is reachable only from the classes ADR-0150 names for it, and each list is exactly the set of
+ * classes that reach the family, so a list can shrink and cannot grow in silence. {@code Path}, {@code LinkOption}, {@code IOException} and in-memory streams are
  * vocabulary, not access. The textual bans of {@code application.reasoning} and {@code application.policy} are
  * separate and stricter: they also refuse a mention.</p>
  */
 class ApplicationTechnologyBoundaryArchitectureTest {
     private static final String APPLICATION = "com.morpheus.application";
 
-    private static final String UPDATE_DISCOVERY = APPLICATION + ".product.UpdateDiscoveryService";
     private static final String HARDENER = APPLICATION + ".security.LocalWritePermissionHardener";
     private static final String ROTATING_LOG = APPLICATION + ".operability.RotatingOperationalLogFile";
     private static final String PEER_SETTINGS = APPLICATION + ".security.PeerLaunchSettingsResolver";
@@ -46,14 +46,20 @@ class ApplicationTechnologyBoundaryArchitectureTest {
             Family.ofTypes("SQL", name -> name.startsWith("java.sql.") || name.startsWith("javax.sql.")),
             Family.ofTypes("JSON library", name -> name.startsWith("tools.jackson.") || name.startsWith("com.fasterxml.")),
             Family.ofTypes("process execution", name -> Set.of("java.lang.ProcessBuilder", "java.lang.Process",
-                    "java.lang.ProcessHandle", "java.lang.Runtime").contains(name)));
+                    "java.lang.ProcessHandle", "java.lang.Runtime").contains(name)),
+            Family.ofTypes("outbound network", name -> name.startsWith("java.net.http.") || name.startsWith("javax.net.")
+                    || Set.of("java.net.URL", "java.net.URLConnection", "java.net.HttpURLConnection",
+                    "java.net.Socket", "java.net.ServerSocket", "java.net.DatagramSocket",
+                    "java.net.InetAddress").contains(name)),
+            new Family("threads", name -> Set.of("java.util.concurrent.Executors", "java.util.concurrent.ExecutorService",
+                    "java.util.concurrent.ScheduledExecutorService", "java.util.concurrent.ThreadPoolExecutor",
+                    "java.util.concurrent.ForkJoinPool", "java.util.concurrent.CompletableFuture",
+                    "java.lang.Thread$Builder", "java.util.Timer").contains(name),
+                    (owner, method, arity) -> owner.equals("java.lang.Thread")
+                            && Set.of("<init>", "ofVirtual", "ofPlatform", "startVirtualThread").contains(method),
+                    Set.of()));
 
     private static final Map<Family, Set<String>> CONFINED_FAMILIES = Map.of(
-            Family.ofTypes("outbound network", name -> name.startsWith("java.net.http.") || name.startsWith("javax.net.")
-                            || Set.of("java.net.URL", "java.net.URLConnection", "java.net.HttpURLConnection",
-                            "java.net.Socket", "java.net.ServerSocket", "java.net.DatagramSocket",
-                            "java.net.InetAddress").contains(name)),
-                    Set.of(UPDATE_DISCOVERY),
             Family.ofTypes("file access", name -> Set.of("java.nio.file.Files", "java.nio.file.FileSystems",
                             "java.nio.file.FileSystem", "java.nio.file.WatchService", "java.nio.file.WatchKey",
                             "java.nio.file.DirectoryStream", "java.io.File", "java.io.FileInputStream",
@@ -61,7 +67,7 @@ class ApplicationTechnologyBoundaryArchitectureTest {
                             "java.io.RandomAccessFile").contains(name)
                             || name.startsWith("java.nio.file.attribute.") || name.startsWith("java.nio.file.spi.")
                             || name.startsWith("java.nio.channels.")),
-                    Set.of(UPDATE_DISCOVERY, HARDENER, ROTATING_LOG,
+                    Set.of(HARDENER, ROTATING_LOG,
                             APPLICATION + ".files.SafeWorkspaceFileResolver",
                             APPLICATION + ".sync.LocalSourceInventoryScanner",
                             APPLICATION + ".sync.ScanWorkspaceBoundary",
@@ -71,14 +77,6 @@ class ApplicationTechnologyBoundaryArchitectureTest {
                             APPLICATION + ".sync.LocalSourceWatcher",
                             APPLICATION + ".discovery.ProjectDiscoveryService",
                             APPLICATION + ".discovery.WorkspaceRootResolver"),
-            new Family("threads", name -> Set.of("java.util.concurrent.Executors", "java.util.concurrent.ExecutorService",
-                    "java.util.concurrent.ScheduledExecutorService", "java.util.concurrent.ThreadPoolExecutor",
-                    "java.util.concurrent.ForkJoinPool", "java.util.concurrent.CompletableFuture",
-                    "java.lang.Thread$Builder", "java.util.Timer").contains(name),
-                    (owner, method, arity) -> owner.equals("java.lang.Thread")
-                            && Set.of("<init>", "ofVirtual", "ofPlatform", "startVirtualThread").contains(method),
-                    Set.of()),
-                    Set.of(UPDATE_DISCOVERY),
             Family.ofCalls("process environment", (owner, method, arity) -> owner.equals("java.lang.System")
                             && Set.of("getenv", "getProperty", "getProperties", "setProperty").contains(method)),
                     Set.of(HARDENER, PEER_SETTINGS,

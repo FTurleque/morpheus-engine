@@ -1,4 +1,7 @@
-package com.morpheus.application.product;
+package com.morpheus.cli.command;
+
+import com.morpheus.application.product.UpdateCheckResult;
+import com.morpheus.application.product.UpdateDiscoveryService;
 
 import com.sun.net.httpserver.HttpsConfigurator;
 import com.sun.net.httpserver.HttpsServer;
@@ -40,10 +43,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * {@code HttpRequest.Builder#timeout(Duration)} only bounds the time to receive response headers when the body is
  * consumed through {@code HttpResponse.BodyHandlers#ofInputStream()}. A server that answers quickly and then
- * stalls mid-body used to block {@link UpdateDiscoveryService#check(URI)} indefinitely; these tests exercise a
- * real TLS server that reproduces exactly that shape.
+ * stalls mid-body would block {@link UpdateDiscoveryService#check(URI)} indefinitely; these tests exercise a
+ * real TLS server that reproduces exactly that shape, through the client configuration {@code update-check} uses.
  */
-class UpdateDiscoveryServiceStalledBodyTest {
+class UpdateManifestFetcherTest {
     private static final String KEYSTORE_PASSWORD = "changeit";
     private static final String CERTIFICATE_ALIAS = "morpheus-update-test";
     private static final Duration SERVICE_TIMEOUT = Duration.ofSeconds(1);
@@ -96,7 +99,8 @@ class UpdateDiscoveryServiceStalledBodyTest {
             }
         });
 
-        UpdateDiscoveryService service = new UpdateDiscoveryService(trustedClient(keyStore), SERVICE_TIMEOUT);
+        UpdateDiscoveryService service =
+                new UpdateDiscoveryService(new UpdateManifestFetcher(trustedClient(keyStore)), SERVICE_TIMEOUT);
         URI manifestUri = URI.create("https://localhost:" + server.getAddress().getPort() + "/manifest");
 
         long start = System.nanoTime();
@@ -129,7 +133,8 @@ class UpdateDiscoveryServiceStalledBodyTest {
             exchange.close();
         });
 
-        UpdateDiscoveryService service = new UpdateDiscoveryService(trustedClient(keyStore), SERVICE_TIMEOUT);
+        UpdateDiscoveryService service =
+                new UpdateDiscoveryService(new UpdateManifestFetcher(trustedClient(keyStore)), SERVICE_TIMEOUT);
         URI manifestUri = URI.create("https://localhost:" + server.getAddress().getPort() + "/moved");
 
         IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
@@ -166,9 +171,9 @@ class UpdateDiscoveryServiceStalledBodyTest {
 
         // One client for both requests: what is under test is that this client released the reader thread and
         // the connection the stalled request held. Two clients would prove nothing.
-        HttpClient client = trustedClient(keyStore);
-        UpdateDiscoveryService stalling = new UpdateDiscoveryService(client, SERVICE_TIMEOUT);
-        UpdateDiscoveryService recovering = new UpdateDiscoveryService(client, RECOVERY_TIMEOUT);
+        UpdateManifestFetcher fetcher = new UpdateManifestFetcher(trustedClient(keyStore));
+        UpdateDiscoveryService stalling = new UpdateDiscoveryService(fetcher, SERVICE_TIMEOUT);
+        UpdateDiscoveryService recovering = new UpdateDiscoveryService(fetcher, RECOVERY_TIMEOUT);
         int port = server.getAddress().getPort();
 
         URI stalledUri = URI.create("https://localhost:" + port + "/stall");
@@ -191,7 +196,8 @@ class UpdateDiscoveryServiceStalledBodyTest {
             exchange.close();
         });
 
-        UpdateDiscoveryService service = new UpdateDiscoveryService(trustedClient(keyStore), SERVICE_TIMEOUT);
+        UpdateDiscoveryService service =
+                new UpdateDiscoveryService(new UpdateManifestFetcher(trustedClient(keyStore)), SERVICE_TIMEOUT);
         URI manifestUri = URI.create("https://localhost:" + server.getAddress().getPort() + "/manifest");
 
         IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
@@ -210,7 +216,8 @@ class UpdateDiscoveryServiceStalledBodyTest {
             exchange.close();
         });
 
-        UpdateDiscoveryService service = new UpdateDiscoveryService(trustedClient(keyStore), SERVICE_TIMEOUT);
+        UpdateDiscoveryService service =
+                new UpdateDiscoveryService(new UpdateManifestFetcher(trustedClient(keyStore)), SERVICE_TIMEOUT);
         UpdateCheckResult result = service.check(
                 URI.create("https://localhost:" + server.getAddress().getPort() + "/manifest"));
 
@@ -252,7 +259,7 @@ class UpdateDiscoveryServiceStalledBodyTest {
         });
 
         UpdateDiscoveryService service = new UpdateDiscoveryService(
-                trustedClient(keyStore), Duration.ofSeconds(30));
+                new UpdateManifestFetcher(trustedClient(keyStore)), Duration.ofSeconds(30));
         URI manifestUri = URI.create("https://localhost:" + server.getAddress().getPort() + "/manifest");
         AtomicReference<Throwable> observed = new AtomicReference<>();
         Thread caller = new Thread(() -> {
@@ -281,11 +288,19 @@ class UpdateDiscoveryServiceStalledBodyTest {
         Path manifestFile = tempDir.resolve("manifest.properties");
         Files.write(manifestFile, validManifestFileBytes());
 
-        UpdateDiscoveryService service = new UpdateDiscoveryService(
-                HttpClient.newHttpClient(), SERVICE_TIMEOUT);
+        UpdateDiscoveryService service = new UpdateDiscoveryService(new UpdateManifestFetcher(), SERVICE_TIMEOUT);
         UpdateCheckResult result = service.check(manifestFile.toUri());
 
         assertEquals("9.9.9", result.availableVersion());
+    }
+
+    @Test
+    void aMissingFileManifestIsRefusedByName() {
+        URI missing = tempDir.resolve("absent.properties").toUri();
+        UpdateDiscoveryService service = new UpdateDiscoveryService(new UpdateManifestFetcher(), SERVICE_TIMEOUT);
+
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> service.check(missing));
+        assertEquals("cannot read update manifest: " + missing, failure.getMessage());
     }
 
     private static byte[] validManifestFileBytes() {
@@ -357,8 +372,12 @@ class UpdateDiscoveryServiceStalledBodyTest {
         return context;
     }
 
-    /** A client that trusts exactly the certificate the test server was given, and nothing else. */
-    private static HttpClient trustedClient(Path keyStore) throws Exception {
+    /**
+     * A client that trusts exactly the certificate the test server was given, and nothing else. It asks to follow
+     * redirects: the fetcher applies its own connect timeout and redirect policy over it, so the redirect test
+     * exercises the policy of {@code update-check}.
+     */
+    private static HttpClient.Builder trustedClient(Path keyStore) throws Exception {
         KeyStore server = KeyStore.getInstance("PKCS12");
         try (InputStream input = Files.newInputStream(keyStore)) {
             server.load(input, KEYSTORE_PASSWORD.toCharArray());
@@ -379,7 +398,6 @@ class UpdateDiscoveryServiceStalledBodyTest {
 
         return HttpClient.newBuilder()
                 .sslContext(context)
-                .connectTimeout(Duration.ofSeconds(5))
-                .build();
+                .followRedirects(HttpClient.Redirect.ALWAYS);
     }
 }

@@ -64,7 +64,7 @@ class UpdateManifestTrustTest {
                 "attestationUri=https://github.com/example/morpheus/attestations/123",
                 ""));
 
-        UpdateManifest manifest = new UpdateDiscoveryService().readManifest(valid.toUri());
+        UpdateManifest manifest = FileManifestSource.discovery().readManifest(valid.toUri());
         assertEquals(
                 URI.create("https://github.com/example/morpheus/attestations/123"),
                 manifest.attestationUri().orElseThrow());
@@ -80,7 +80,7 @@ class UpdateManifestTrustTest {
 
         IllegalArgumentException failure = assertThrows(
                 IllegalArgumentException.class,
-                () -> new UpdateDiscoveryService().readManifest(invalid.toUri()));
+                () -> FileManifestSource.discovery().readManifest(invalid.toUri()));
         assertTrue(failure.getMessage().contains("invalid update manifest URI property: attestationUri"));
     }
 }
