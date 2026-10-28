@@ -13,6 +13,7 @@ import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.evidence.SourceRange;
 import com.morpheus.domain.provenance.Provenance;
 import com.morpheus.domain.provider.ProviderCapability;
+import com.morpheus.domain.provider.ProviderProbeResult;
 import com.morpheus.domain.provider.ProviderProbeStatus;
 import com.morpheus.domain.requirement.RequirementDelta;
 import com.morpheus.domain.requirement.RequirementDeltaId;
@@ -22,8 +23,6 @@ import com.morpheus.domain.scenario.Scenario;
 import com.morpheus.domain.scenario.ScenarioId;
 import com.morpheus.domain.source.SourceLocator;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -80,6 +79,21 @@ public final class OpenSpecRequirementDeltaReader {
         if (!probe.capabilities().contains(ProviderCapability.READ_CHANGES)) {
             throw new IllegalArgumentException("OpenSpec workspace has no readable changes: " + root);
         }
+        return read(root, identityResolver, budget, probe, OpenSpecWorkspaceListing.changeRoots(root, budget));
+    }
+
+    /** Reads the deltas of the given change roots; the caller has already run and charged the probe and enumeration. */
+    ReadResult read(
+            Path workspaceRoot,
+            EntityIdentityResolver identityResolver,
+            ProviderIngestionBudget.Session budget,
+            ProviderProbeResult probe,
+            List<Path> changeRoots) {
+        Path root = Objects.requireNonNull(workspaceRoot, "workspaceRoot").toAbsolutePath().normalize();
+        Objects.requireNonNull(identityResolver, "identityResolver");
+        Objects.requireNonNull(budget, "budget");
+        Objects.requireNonNull(probe, "probe");
+        Objects.requireNonNull(changeRoots, "changeRoots");
 
         List<RequirementDelta> deltas = new ArrayList<>();
         List<Evidence> evidence = new ArrayList<>();
@@ -87,14 +101,15 @@ public final class OpenSpecRequirementDeltaReader {
         int skippedRequirements = 0;
         int unclosedCodeFences = 0;
 
-        for (Path changeRoot : listChangeRoots(root.resolve("openspec/changes"), budget)) {
+        for (Path changeRoot : changeRoots) {
             String changeKey = changeRoot.getFileName().toString();
             ChangeId changeId = new ChangeId(identityResolver.resolve(
                     OpenSpecSpecificationProvider.ID,
                     "change",
                     "change:" + changeKey));
             Path specsRoot = changeRoot.resolve("specs");
-            for (Path specificationFile : listSpecificationFiles(specsRoot, budget)) {
+            for (Path specificationFile : OpenSpecWorkspaceListing.specificationFiles(
+                    specsRoot, budget, "openspec/requirement-deltas")) {
                 FileOutcome outcome = OpenSpecSourceAttribution.attribute(root, specificationFile, () -> normalizeDeltaFile(
                         root,
                         changeKey,
@@ -432,44 +447,6 @@ public final class OpenSpecRequirementDeltaReader {
                         subjectKey, subject,
                         "line", Integer.toString(lineIndex + 1)),
                 Optional.of(source.value()));
-    }
-
-    private List<Path> listChangeRoots(
-            Path changesRoot,
-            ProviderIngestionBudget.Session budget) {
-        if (!Files.isDirectory(changesRoot)) {
-            return List.of();
-        }
-        try (var paths = Files.list(changesRoot)) {
-            List<Path> roots = paths
-                    .filter(Files::isDirectory)
-                    .filter(path -> !path.getFileName().toString().equals("archive"))
-                    .limit(budget.remainingFiles() + 1)
-                    .toList();
-            budget.requireAdditionalFiles(roots.size(), "openspec/requirement-deltas");
-            return roots.stream().sorted().toList();
-        } catch (IOException exception) {
-            throw new IllegalStateException("Cannot enumerate OpenSpec changes", exception);
-        }
-    }
-
-    private List<Path> listSpecificationFiles(
-            Path specsRoot,
-            ProviderIngestionBudget.Session budget) {
-        if (!Files.isDirectory(specsRoot)) {
-            return List.of();
-        }
-        try (var paths = OpenSpecBoundedTraversal.walk(specsRoot)) {
-            List<Path> files = paths
-                    .filter(Files::isRegularFile)
-                    .filter(path -> path.getFileName().toString().equals("spec.md"))
-                    .limit(budget.remainingFiles() + 1)
-                    .toList();
-            budget.requireAdditionalFiles(files.size(), "openspec/requirement-deltas");
-            return files.stream().sorted().toList();
-        } catch (IOException exception) {
-            throw new IllegalStateException("Cannot enumerate OpenSpec requirement delta specifications", exception);
-        }
     }
 
     private String specificationKey(Path specsRoot, Path specificationFile) {

@@ -16,6 +16,7 @@ import com.morpheus.domain.project.ProjectSpecification;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.provenance.Provenance;
 import com.morpheus.domain.provider.ProviderCapability;
+import com.morpheus.domain.provider.ProviderProbeResult;
 import com.morpheus.domain.provider.ProviderProbeStatus;
 import com.morpheus.domain.requirement.Requirement;
 import com.morpheus.domain.requirement.RequirementId;
@@ -25,8 +26,6 @@ import com.morpheus.domain.source.SourceLocator;
 import com.morpheus.domain.specification.Specification;
 import com.morpheus.domain.specification.SpecificationId;
 
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -86,9 +85,24 @@ public final class OpenSpecCurrentSpecificationReader {
         if (!probe.capabilities().contains(ProviderCapability.READ_CURRENT_SPECIFICATIONS)) {
             throw new IllegalArgumentException("OpenSpec workspace has no readable current specifications: " + root);
         }
+        return read(root, projectId, identityResolver, budget, probe);
+    }
+
+    /** Reads the current specifications of a workspace whose probe the caller has already run and charged. */
+    NormalizedProjectContent read(
+            Path workspaceRoot,
+            ProjectSpecificationId projectId,
+            EntityIdentityResolver identityResolver,
+            ProviderIngestionBudget.Session budget,
+            ProviderProbeResult probe) {
+        Path root = Objects.requireNonNull(workspaceRoot, "workspaceRoot").toAbsolutePath().normalize();
+        Objects.requireNonNull(projectId, "projectId");
+        Objects.requireNonNull(identityResolver, "identityResolver");
+        Objects.requireNonNull(budget, "budget");
+        Objects.requireNonNull(probe, "probe");
 
         Path specsRoot = root.resolve("openspec/specs");
-        List<Path> specificationFiles = listSpecificationFiles(specsRoot, budget);
+        List<Path> specificationFiles = OpenSpecWorkspaceListing.specificationFiles(specsRoot, budget, "openspec/current");
         List<Specification> specifications = new ArrayList<>();
         List<Requirement> requirements = new ArrayList<>();
         List<Scenario> scenarios = new ArrayList<>();
@@ -415,22 +429,6 @@ public final class OpenSpecCurrentSpecificationReader {
                 source,
                 Optional.of(new SourceRange(startLine, normalizedEndLine)),
                 Optional.of(TextDigest.sha256(excerpt)));
-    }
-
-    private List<Path> listSpecificationFiles(
-            Path specsRoot,
-            ProviderIngestionBudget.Session budget) {
-        try (var paths = OpenSpecBoundedTraversal.walk(specsRoot)) {
-            List<Path> files = paths
-                    .filter(Files::isRegularFile)
-                    .filter(path -> path.getFileName().toString().equals("spec.md"))
-                    .limit(budget.remainingFiles() + 1)
-                    .toList();
-            budget.requireAdditionalFiles(files.size(), "openspec/current");
-            return files.stream().sorted().toList();
-        } catch (IOException exception) {
-            throw new IllegalStateException("Cannot enumerate OpenSpec specifications", exception);
-        }
     }
 
     private String specificationKey(Path specsRoot, Path specificationFile) {

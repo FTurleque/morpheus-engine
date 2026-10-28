@@ -3,6 +3,7 @@ package com.morpheus.application.read;
 import com.morpheus.application.files.SafeWorkspaceFileResolver;
 import com.morpheus.application.files.WorkspaceFileTooLargeException;
 import com.morpheus.application.files.WorkspaceRelativePathText;
+import com.morpheus.application.files.WorkspaceUtf8Document;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -125,9 +126,9 @@ public record ProviderIngestionBudget(
             }
             long effectiveItemMaximum = Math.min(itemMaximum, evidenceRemaining);
             int readMaximum = (int) Math.min(Integer.MAX_VALUE, Math.min(effectiveItemMaximum, aggregateRemaining));
-            String text;
+            WorkspaceUtf8Document document;
             try {
-                text = files.readUtf8(relativePath, readMaximum);
+                document = files.readUtf8Document(relativePath, readMaximum);
             } catch (WorkspaceFileTooLargeException failure) {
                 if (aggregateRemaining <= effectiveItemMaximum) {
                     throw exceeded("aggregate bytes", source, budget.maxAggregateBytes + 1, budget.maxAggregateBytes);
@@ -141,10 +142,10 @@ public record ProviderIngestionBudget(
                 long maximum = metric.equals("evidence bytes") ? budget.maxEvidenceBytes : budget.maxDocumentBytes;
                 throw exceeded(metric, source, maximum + 1, maximum);
             }
-            long bytes = utf8Bytes(text);
-            long lines = text.lines().count();
-            // The bounded read already enforces the three byte budgets; they are checked again on the decoded text so
-            // that a budget never rests on another class keeping its contract. The line budget only this read checks.
+            long bytes = document.utf8Bytes();
+            long lines = document.lines();
+            // The bounded read already enforces the three byte budgets; they are checked again on the size the decoding
+            // measured, so that a budget never rests on the read bound alone. The line budget only this read checks.
             budget.requireDocumentBytes(bytes, source);
             budget.requireAggregateBytes(Math.addExact(aggregateBytes, bytes), source);
             budget.requireLines(Math.addExact(lineCount, lines), source);
@@ -155,7 +156,7 @@ public record ProviderIngestionBudget(
             aggregateBytes += bytes;
             lineCount += lines;
             if (evidence) evidenceBytes += bytes;
-            return text;
+            return document.text();
         }
 
         public void addBlocks(long count, String source) {

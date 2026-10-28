@@ -76,9 +76,18 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
     public ProviderReadResult read(ProviderReadRequest request, EntityIdentityResolver identityResolver) {
         Objects.requireNonNull(request, "request");
         Objects.requireNonNull(identityResolver, "identityResolver");
+        return read(request, identityResolver, OpenSpecIngestionBudgets.open(request.workspaceRoot()));
+    }
+
+    ProviderReadResult read(
+            ProviderReadRequest request,
+            EntityIdentityResolver identityResolver,
+            ProviderIngestionBudget.Session budget) {
+        Objects.requireNonNull(request, "request");
+        Objects.requireNonNull(identityResolver, "identityResolver");
+        Objects.requireNonNull(budget, "budget");
 
         Path root = request.workspaceRoot();
-        ProviderIngestionBudget.Session budget = OpenSpecIngestionBudgets.open(root);
         ProviderProbeResult probe = provider.probe(root, budget);
         List<Diagnostic> diagnostics = new ArrayList<>(probe.diagnostics());
 
@@ -151,7 +160,7 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
         if (needCurrent && probe.capabilities().contains(ProviderCapability.READ_CURRENT_SPECIFICATIONS)) {
             try {
                 NormalizedProjectContent current = currentReader.read(
-                        request.workspaceRoot(), request.projectId(), identityResolver, budget);
+                        request.workspaceRoot(), request.projectId(), identityResolver, budget, probe);
                 state.specifications.addAll(current.specifications());
                 state.requirements.addAll(current.requirements());
                 state.scenarios.addAll(current.scenarios());
@@ -169,10 +178,14 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
             }
         }
 
-        if (needChanges && probe.capabilities().contains(ProviderCapability.READ_CHANGES)) {
+        boolean changesReadable = needChanges && probe.capabilities().contains(ProviderCapability.READ_CHANGES);
+        List<Path> changeRoots = changesReadable
+                ? OpenSpecWorkspaceListing.changeRoots(request.workspaceRoot(), budget)
+                : List.of();
+        if (changesReadable) {
             try {
                 OpenSpecChangeMetadataReader.ContainedRead read = changeReader.readContained(
-                        request.workspaceRoot(), request.projectId(), identityResolver, budget);
+                        request.workspaceRoot(), request.projectId(), identityResolver, budget, probe, changeRoots);
                 NormalizedProjectContent changes = read.content();
                 state.changes.addAll(changes.changes());
                 state.constraints.addAll(changes.constraints());
@@ -199,7 +212,7 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
                 && probe.capabilities().contains(ProviderCapability.READ_CHANGES)) {
             try {
                 OpenSpecRequirementDeltaReader.ReadResult deltas = deltaReader.read(
-                        request.workspaceRoot(), identityResolver, budget);
+                        request.workspaceRoot(), identityResolver, budget, probe, changeRoots);
                 // A delta of a rejected change would reference a change that is not published.
                 Set<ChangeId> readChanges = new HashSet<>();
                 state.changes.forEach(change -> readChanges.add(change.id()));

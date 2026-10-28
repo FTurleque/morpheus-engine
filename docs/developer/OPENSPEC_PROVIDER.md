@@ -15,6 +15,7 @@ Lecteurs concernés, tous dans `com.morpheus.provider.openspec` :
 | `OpenSpecCurrentSpecificationReader` | groupe `current` : `openspec/specs/**/spec.md` |
 | `OpenSpecChangeMetadataReader` | groupe `changes` : `proposal.md`, contraintes, décisions de conception, tâches |
 | `OpenSpecRequirementDeltaReader` | groupe `requirement-deltas` : `openspec/changes/<change>/specs/**/spec.md` |
+| `OpenSpecWorkspaceListing` | énumération des racines de changement et des `spec.md`, vérifiée contre le budget |
 | `OpenSpecCodeFences` | masque des blocs de code, partagé par les lecteurs courant et de deltas |
 | `OpenSpecSourceAttribution` | rattachement d'un échec au fichier qui l'a causé |
 | `OpenSpecSpecificationProvider.SOURCE_DIRECTORIES` | les répertoires que lit le provider, que `sync` passe au scan des sources |
@@ -57,7 +58,7 @@ Le lecteur de contenu lit trois groupes indépendamment, pour qu'un groupe en é
   | `EXTERNAL_REFERENCES` | l'ingestion des références externes depuis OpenSpec n'est pas définie |
   | `ARCHIVES` | la normalisation des archives relève de la projection temporelle |
 
-- Le répertoire `openspec/changes/archive/` n'est jamais lu comme un changement : `listChangeRoots` l'exclut.
+- Le répertoire `openspec/changes/archive/` n'est jamais lu comme un changement : `OpenSpecWorkspaceListing.changeRoots` l'exclut.
 
 La fixture `experiments/m0/fixtures/openspec-partial` illustre une lecture partielle : `CURRENT_SPECIFICATIONS` et
 `REQUIREMENTS` sont `READ`, `SCENARIOS` est `PARTIAL`, `CHANGES` est `ABSENT`, et un `PARTIAL_INGESTION` est émis ; les
@@ -197,6 +198,12 @@ aucun diagnostic ; leur sortie est figée par un test.
   chaque catégorie non lue et relaie les premières erreurs du lecteur.
 
 ## Noms dans les diagnostics et budget de preuve
+
+- Une lecture facture chaque fichier une fois. Le lecteur de contenu lance la sonde et énumère `openspec/changes` une
+  seule fois, puis remet la sonde aux trois lecteurs et les racines de changement aux lecteurs de changements et de
+  deltas, qui ne les recalculent pas. Un lecteur appelé seul lance sa propre sonde et sa propre énumération.
+- Le nombre d'octets et de lignes d'un document est mesuré pendant son décodage
+  (`SafeWorkspaceFileResolver.readUtf8Document`), sans second parcours du texte.
 
 - Le texte d'un refus nomme le fichier tel qu'il est (`WorkspaceRelativePathText`) ; le locator enregistré dans les
   deltas, les spécifications et les preuves est `SourceLocator.file(...)`, qui réécrit `\` en `/`. Les deux s'accordent
