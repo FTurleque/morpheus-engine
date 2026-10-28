@@ -88,7 +88,8 @@ nombre se compte dans le POM, il ne s'écrit pas ici) :
 | Provider SDK | `morpheus-provider-sdk`, `morpheus-provider-testkit`, `morpheus-provider-reference` | Contrats d'extension, qualification et plugin de référence |
 | Providers | `morpheus-provider-openspec`, `morpheus-provider-markdown`, `morpheus-provider-synthetic` | Adaptation des sources vers les contrats MORPHEUS |
 | Stores | `morpheus-store-memory`, `morpheus-store-sqlite` | Persistance derrière les ports applicatifs |
-| Intégrations | `morpheus-mcp-transport`, `morpheus-integration-minos`, `morpheus-integration-nexus` | Transport MCP STDIO borné partagé et passerelles optionnelles vers les moteurs externes |
+| Transport partagé | `morpheus-mcp-transport` | Transport MCP STDIO borné (paquet `com.morpheus.transport.mcp`), utilisé par le serveur MCP et par les deux intégrations ; il ne dépend d'aucun autre paquet MORPHEUS |
+| Intégrations | `morpheus-integration-minos`, `morpheus-integration-nexus` | Passerelles optionnelles vers les moteurs externes, par le transport partagé |
 | Surfaces | `morpheus-cli`, `morpheus-mcp`, `morpheus-api` | CLI, MCP STDIO et HTTP |
 | Qualification | `morpheus-architecture-tests`, `morpheus-coverage-report` | Invariants et gates d'architecture ; rapport JaCoCo agrégé, mesure canonique de couverture et gate de l'échelle agrégée |
 
