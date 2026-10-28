@@ -8,6 +8,71 @@
 
 ---
 
+## État au 28 octobre 2026, au soir — dix-sept constats revérifiés, quatre constats neufs
+
+Une troisième passe du 28 octobre, faite sur `9c027eeb` (PR #579) sans réseau ni build Linux, est consignée dans
+**`contre-verification-2026-10-28-soir.md`**. Le registre la relit dans le code de `65a97b06` (`develop`, après la
+PR #580).
+
+**Ce que le document établit, et que le registre retient.** Les clôtures d'`AUD-DEP-07` et d'`AUD-PRF-09` tiennent ;
+le registre les porte corrigées. La règle `base="true"` du fichier de suppressions Dependency-Check n'ajoute aucune
+règle et n'élargit aucune portée : le pilote `sqlite-jdbc` reste scanné. `AUD-ARC-16` reste partiel.
+
+**Une réparation dont le texte est perdu.** Le document annonce que vingt constats portaient encore le texte du
+26 octobre et qu'il les a restaurés ; ces textes ne sont ni dans Git ni dans le document. `AUD-ARC-01`, `AUD-PRF-04`
+et `AUD-TST-20` sont revérifiés sur `aace25fc` par la PR #580. Les dix-sept autres sont revérifiés dans le code de
+`65a97b06`, citation par citation, sans reprendre les verdicts du document :
+
+- cinq tiennent tels quels, seule leur date de vérification change : `AUD-ARC-07`, `AUD-ARC-15`, `AUD-DEP-05`,
+  `AUD-QUA-17`, `AUD-SEC-17` ;
+- dix gardent leur statut sur un texte réécrit : `AUD-ARC-03` (361 fichiers, 38 paquets, la même composante de 17),
+  `AUD-ARC-08` (citations), `AUD-ARC-11` (sept classes réflexives, pas huit), `AUD-ARC-13` (rapport de taille 10,0),
+  `AUD-ARC-17` (la liste a suivi ADR-0150, et rien ne la compare toujours au gate), `AUD-DEP-25` (V023, trois
+  migrations après le tag `v1.2.1`), `AUD-PRF-05`, `AUD-PRF-19` (la route de sauvegarde passe par les travailleurs de
+  base, le reste est ouvert), `AUD-QUA-11` et `AUD-TRV-03` (1 858 assertions `contains` pour 61 constructeurs de règle) ;
+- `AUD-DEP-26` passe à **partiel** : RT-13 est rouvert et les six messages de `security.yml` qui y renvoient visent
+  une entrée ouverte ; `UPGRADE_1_2_2.md` reste actif pour une version que le POM ne porte pas ;
+- `AUD-TRV-02` reste **toujours valide**, là où le document le passait à partiel : `morpheus-application` est couvert
+  à 49,22 % de ses lignes par ses propres tests (48,00 % le 26 octobre), l'écart des deux échelles reste de 20 points
+  dans les preuves conservées, et aucune part de l'action n'est faite.
+
+**Quatre constats naissent**, au sprint 15 :
+- `AUD-TRV-08` (Moyenne, S) : sur dix parcours de l'arbre du dépôt depuis sa racine dans `morpheus-architecture-tests`,
+  huit n'écartent pas `.claude/`, soit onze méthodes de test dans huit classes ; une copie sous `.claude/worktrees`
+  fausse leur verdict dans les deux sens ;
+- `AUD-DEP-27` (Moyenne, M) : sur une base NVD reconstruite, `sqlite-jdbc` n'est plus associé au SQLite natif qu'il
+  embarque ; RT-13 le consigne, aucun test ni constat ne le suit ;
+- `AUD-TST-21` (Faible, S) : le fichier de suppressions Dependency-Check n'est tenu par aucune assertion ;
+- `AUD-PRF-20` (Faible, S) : l'attente d'un créneau de réponse par une écriture du proxy remote n'a pas de délai
+  propre ; la borne composée, environ 420 s pour un seul tour de file, n'est écrite nulle part.
+
+**Ce que le registre ne reprend pas du document** :
+- « il reste deux Élevée, `AUD-ARC-01` et `AUD-PRF-04` » : les deux sont corrigés par la PR #580, et aucun constat
+  `Élevée` n'est ouvert ;
+- le passage d'`AUD-TRV-02` à partiel, pour la raison ci-dessus ;
+- le symptôme chiffré d'`AUD-TRV-08` (57 POM au lieu de 19, 2 724 fichiers Java sous `.claude/worktrees`, deux
+  échecs) : non reproduit, ces copies n'existent plus ; le registre inscrit le motif, qu'il a mesuré ;
+- les mesures qui demandent une base NVD, le rafraîchissement réel par les flux et la classification sur base
+  neuve : non reproduites ici ;
+- ses notes par axe, calculées sur `9c027eeb` avant la PR #580. Le registre ne les recalcule pas ; ce sont les notes du
+  document :
+
+| Axe | 28 oct. matin | 28 oct. soir | |
+|---|---|---|---|
+| Sécurité | 92 | 88 | −4 |
+| Dépendances | 87 | 86 | −1 |
+| Qualité | 88 | 84 | −4 |
+| Performance | 78 | 81 | +3 |
+| Tests | 83 | 78 | −5 |
+| Architecture | 59 | 59 | — |
+| **Moyenne** | **81** | **79** | **−2** |
+
+**Plan du 9 octobre : 63 soldés sur 73, 10 restants.** Sprint 15 : 20 constats, 15 restants. **117 constats :
+65 corrigés · 6 partiels · 19 toujours valides · 4 caducs · 22 Info qui tiennent · 1 non vérifiable.** Aucun constat
+`Élevée` n'est ouvert.
+
+---
+
 ## État au 28 octobre 2026 — plus aucun constat `Élevée` ouvert
 
 Branche `fix/audit-arc-01-prf-04`, sur `aace25fc`, après un `./mvnw clean verify` vert sur les 19 modules (4 692 tests, 0 échec, 13 ignorés). Les deux derniers
