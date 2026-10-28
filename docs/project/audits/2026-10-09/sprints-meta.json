@@ -188,8 +188,8 @@
     {
       "numero": 15,
       "titre": "Dérives apparues pendant les correctifs",
-      "pourquoi": "Ce sprint n'est pas du plan du 9 octobre : il rassemble les constats nés **après** l'audit, soit d'une scission quand la mesure du dépôt a montré que ma cause était fausse, soit d'un effet de bord d'un correctif, soit du changement de branche d'intégration du 18 octobre. Les ranger dans les sprints d'origine faisait croire que ceux-ci traînaient depuis le 9 octobre, ce qui est faux : ils sont soldés, et du travail neuf est apparu à côté. Deux d'entre eux sont déjà corrigés.",
-      "sortie": "Les huit voies nocturnes analysent la branche d'intégration réelle ; Dependabot et les quatorze validateurs aussi ; la version du produit et la version du schéma sont reliées par un gate ; le contrôle de frontière redevient antérieur à la lecture ; et le verrou du parallélisme est levé sur les trois modules qui le portent encore.",
+      "pourquoi": "Ce sprint n'est pas du plan du 9 octobre : il rassemble les constats nés **après** l'audit, soit d'une scission quand la mesure du dépôt a montré que ma cause était fausse, soit d'un effet de bord d'un correctif, soit du changement de branche d'intégration du 18 octobre. Les ranger dans les sprints d'origine faisait croire que ceux-ci traînaient depuis le 9 octobre, ce qui est faux : ils sont soldés, et du travail neuf est apparu à côté. La passe du 26 octobre en ajoute quatre, tous nés de la grande restructuration des adaptateurs : l'élargissement de visibilité qu'elle a imposé, un test de garde qui ne garde rien, la liste d'ADR-0148 recopiée à la main dans son gate, et deux dérives de la trace de suivi.",
+      "sortie": "Aucun constat né pendant les correctifs ne reste ouvert, et chacun a soit une règle exécutable qui l'empêche de revenir, soit une décision écrite qui l'assume.",
       "constats": [
         "AUD-ARC-15",
         "AUD-DEP-23",
@@ -199,7 +199,11 @@
         "AUD-QUA-17",
         "AUD-QUA-18",
         "AUD-SEC-17",
-        "AUD-TST-18"
+        "AUD-TST-18",
+        "AUD-ARC-16",
+        "AUD-ARC-17",
+        "AUD-TST-20",
+        "AUD-DEP-26"
       ]
     }
   ]
