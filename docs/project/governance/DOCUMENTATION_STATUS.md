@@ -143,11 +143,11 @@ MORPHEUS Security          OWASP Dependency-Check
 MORPHEUS CodeQL            security-extended
 Surefire written ratchet   >= 2600
 Surefire generated ratchet >= 1574
-Architecture ratchet       >= 769
-Aggregate line ratchet     >= 90.0%
-Aggregate branch ratchet   >= 75.7%
-Per-module line ratchet    >= 69.1%
-Per-module branch ratchet  >= 61.2%
+Architecture ratchet       >= 813
+Aggregate line ratchet     >= 91.2%
+Aggregate branch ratchet   >= 77.3%
+Per-module line ratchet    >= 71.2%
+Per-module branch ratchet  >= 62.5%
 PR changed line coverage   >= 80%
 PR changed branch coverage >= 70%
 JaCoCo canonical report    morpheus-coverage-report/target/site/jacoco-aggregate/jacoco.xml
@@ -189,12 +189,13 @@ Les éléments suivants ne doivent pas être déclarés terminés sans preuve ex
 
 ```text
 #185  qualifier le workflow de release attestée lors d'une vraie v1.2.1+ release
+RT-13 adopter Dependency-Check 13.0.1+ (correctif amont #8716) dès sa publication : NVD_API_KEY reste la seule source de rafraîchissement
 ```
 
 ## Suivis clos
 
 ```text
-#287  NVD_API_KEY configuré et accepté en 12.2.2 (main, run 35701902846) et 13.0.0 (develop, run 35744008694) — RT-13 clos le 22/09/2026
+#287  NVD_API_KEY configuré et accepté en 12.2.2 (main, run 35701902846) et 13.0.0 (develop, run 35744008694) — la clé est en service ; RT-13 reste ouvert tant qu'elle est la seule source de rafraîchissement
 ```
 
 ## État fonctionnel

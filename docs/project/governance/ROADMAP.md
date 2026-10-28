@@ -82,13 +82,13 @@ MORPHEUS Security                OWASP Dependency-Check
 MORPHEUS CodeQL                  security-extended
 diff coverage PR lines           >= 80%
 diff coverage PR branches        >= 70%
-aggregate line ratchet           >= 90.0%
-aggregate branch ratchet         >= 75.7%
-per-module line ratchet          >= 69.1%
-per-module branch ratchet        >= 61.2%
+aggregate line ratchet           >= 91.2%
+aggregate branch ratchet         >= 77.3%
+per-module line ratchet          >= 71.2%
+per-module branch ratchet        >= 62.5%
 Surefire written ratchet         >= 2600
 Surefire generated ratchet       >= 1574
-architecture ratchet             >= 769
+architecture ratchet             >= 813
 SBOM / provenance                required
 ```
 

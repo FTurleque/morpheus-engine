@@ -100,7 +100,33 @@ if (-not (Test-Path -LiteralPath $upgradeReport)) { throw "R2 upgrade report is 
 if ([int]$upgrade.testsuite.tests -lt 1 -or [int]$upgrade.testsuite.failures -ne 0 -or [int]$upgrade.testsuite.errors -ne 0) {
     throw "R2 upgrade compatibility test failed: tests=$($upgrade.testsuite.tests) failures=$($upgrade.testsuite.failures) errors=$($upgrade.testsuite.errors)"
 }
-Write-Host 'SQLite upgrade from every released schema level: PASS'
+# One case per distinct level the declaration names, read from the declaration: a level dropped from it, or a
+# factory that stopped iterating over it, must not leave the gate green.
+$releasedLevels = Join-Path $repo 'morpheus-store-sqlite\src\test\resources\released-schema-levels.properties'
+if (-not (Test-Path -LiteralPath $releasedLevels)) { throw "R2 released schema levels are missing: $releasedLevels" }
+$levels = @(Get-Content -LiteralPath $releasedLevels |
+    ForEach-Object { $_.Trim() } |
+    Where-Object { $_ -and -not $_.StartsWith('#') -and -not $_.StartsWith('!') } |
+    ForEach-Object { [int](($_ -split '[=:]', 2)[1].Trim()) } |
+    Sort-Object -Unique)
+if ($levels.Count -eq 0) { throw 'R2 released schema levels declare no level' }
+$expectedCases = (1..$levels.Count) -join ','
+$factories = [ordered]@{}
+foreach ($case in @($upgrade.testsuite.testcase)) {
+    if ($null -ne $case -and $case.name -match '^(.+\(\))\[(\d+)\]$') {
+        if (-not $factories.Contains($matches[1])) { $factories[$matches[1]] = @() }
+        $factories[$matches[1]] += [int]$matches[2]
+    }
+}
+if ($factories.Count -eq 0) { throw 'R2 upgrade compatibility test generated no case per released schema level' }
+foreach ($factory in $factories.Keys) {
+    $cases = @($factories[$factory] | Sort-Object -Unique)
+    if (($cases -join ',') -ne $expectedCases -or $factories[$factory].Count -ne $cases.Count) {
+        $ran = $factories[$factory].Count
+        throw "R2 upgrade compatibility test $factory ran $ran cases, expected one per released schema level $($levels -join ',')"
+    }
+}
+Write-Host "SQLite upgrade from every released schema level: PASS ($($levels.Count) levels x $($factories.Count) factories)"
 
 $packagedM25M26 = 'SKIPPED'
 if (-not $SkipPortable) {
