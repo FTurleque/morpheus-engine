@@ -20,7 +20,6 @@ import java.util.concurrent.Semaphore;
 /** Bounded loopback HTTP transport used by the remote HTTPS facade after authorization and target resolution. */
 final class MorpheusRemoteProxyTransport {
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
-    private static final Duration READ_ONLY_UPSTREAM_TIMEOUT = Duration.ofSeconds(60);
 
     private final MorpheusInternalCapability internalCapability;
     private final MorpheusRemoteRuntimeState runtime;
@@ -67,71 +66,34 @@ final class MorpheusRemoteProxyTransport {
             HttpExchange exchange,
             URI target,
             byte[] requestBody,
-            boolean boundedUpstreamTimeout) throws IOException {
+            UpstreamDeadline deadline) throws IOException {
         Objects.requireNonNull(exchange, "exchange");
         Objects.requireNonNull(target, "target");
         Objects.requireNonNull(requestBody, "requestBody");
-
-        HttpRequest.Builder request = HttpRequest.newBuilder(target);
-        internalCapability.authorize(request);
-        if (boundedUpstreamTimeout) request.timeout(READ_ONLY_UPSTREAM_TIMEOUT);
-
-        String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
-        if (contentType != null) request.header("Content-Type", contentType);
-        String accept = exchange.getRequestHeaders().getFirst("Accept");
-        if (accept != null) request.header("Accept", accept);
+        Objects.requireNonNull(deadline, "deadline");
 
         String upstreamMethod = exchange.getRequestMethod();
-        request.method(upstreamMethod, requestBody.length == 0
-                ? HttpRequest.BodyPublishers.noBody()
-                : HttpRequest.BodyPublishers.ofByteArray(requestBody));
+        HttpRequest request = upstreamRequest(exchange, target, requestBody, upstreamMethod, deadline.timeout());
 
         // A read is refused before the call: nothing has happened upstream yet, so failing fast costs the
         // caller a retry and nothing else.
-        if (boundedUpstreamTimeout && !responseSlots.tryAcquire()) {
+        if (deadline.readOnly() && !responseSlots.tryAcquire()) {
             runtime.recordThrottledRequest();
             throw new TransportException(
                     429,
                     "RESPONSE_BUDGET_EXHAUSTED",
                     "remote proxy response memory budget is saturated");
         }
-        boolean budgetHeld = boundedUpstreamTimeout;
+        boolean budgetHeld = deadline.readOnly();
         try {
-            HttpResponse<InputStream> response = client.send(
-                    request.build(), HttpResponse.BodyHandlers.ofInputStream());
+            HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
             if (!budgetHeld) {
                 awaitResponseBudget(response);
                 budgetHeld = true;
             }
-            try (InputStream upstream = response.body()) {
-                String responseType = response.headers().firstValue("Content-Type")
-                        .orElse("application/json; charset=utf-8");
-                exchange.getResponseHeaders().set("Content-Type", responseType);
-                response.headers().firstValue("Allow")
-                        .ifPresent(value -> exchange.getResponseHeaders().set("Allow", value));
-
-                if (isBodyless(upstreamMethod, response.statusCode())) {
-                    response.headers().firstValue("Content-Length")
-                            .ifPresent(value -> exchange.getResponseHeaders().set("Content-Length", value));
-                    bounded.write(progress -> {
-                        exchange.sendResponseHeaders(response.statusCode(), -1);
-                        progress.made();
-                    });
-                    return;
-                }
-
-                long declaredLength = requireBoundedLength(
-                        response.headers().firstValueAsLong("Content-Length"), maxResponseBytes);
-                bounded.write(progress -> {
-                    exchange.sendResponseHeaders(response.statusCode(), declaredLength);
-                    copyBounded(upstream, exchange.getResponseBody(), declaredLength, maxResponseBytes, progress);
-                });
-            }
+            relay(exchange, upstreamMethod, response);
         } catch (HttpTimeoutException timeout) {
-            throw new TransportException(
-                    504,
-                    "UPSTREAM_TIMEOUT",
-                    "local MORPHEUS read-only operation exceeded its timeout");
+            throw deadline.expired();
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             throw new TransportException(
@@ -145,14 +107,61 @@ final class MorpheusRemoteProxyTransport {
         }
     }
 
+    private HttpRequest upstreamRequest(
+            HttpExchange exchange, URI target, byte[] requestBody, String upstreamMethod, Duration timeout) {
+        HttpRequest.Builder request = HttpRequest.newBuilder(target);
+        internalCapability.authorize(request);
+        request.timeout(timeout);
+
+        String contentType = exchange.getRequestHeaders().getFirst("Content-Type");
+        if (contentType != null) request.header("Content-Type", contentType);
+        String accept = exchange.getRequestHeaders().getFirst("Accept");
+        if (accept != null) request.header("Accept", accept);
+
+        request.method(upstreamMethod, requestBody.length == 0
+                ? HttpRequest.BodyPublishers.noBody()
+                : HttpRequest.BodyPublishers.ofByteArray(requestBody));
+        return request.build();
+    }
+
+    /** Writes the upstream response downstream, within the size bound and the response deadlines. */
+    private void relay(HttpExchange exchange, String upstreamMethod, HttpResponse<InputStream> response)
+            throws IOException {
+        try (InputStream upstream = response.body()) {
+            String responseType = response.headers().firstValue("Content-Type")
+                    .orElse("application/json; charset=utf-8");
+            exchange.getResponseHeaders().set("Content-Type", responseType);
+            response.headers().firstValue("Allow")
+                    .ifPresent(value -> exchange.getResponseHeaders().set("Allow", value));
+
+            if (isBodyless(upstreamMethod, response.statusCode())) {
+                response.headers().firstValue("Content-Length")
+                        .ifPresent(value -> exchange.getResponseHeaders().set("Content-Length", value));
+                bounded.write(progress -> {
+                    exchange.sendResponseHeaders(response.statusCode(), -1);
+                    progress.made();
+                });
+                return;
+            }
+
+            long declaredLength = requireBoundedLength(
+                    response.headers().firstValueAsLong("Content-Length"), maxResponseBytes);
+            bounded.write(progress -> {
+                exchange.sendResponseHeaders(response.statusCode(), declaredLength);
+                copyBounded(upstream, exchange.getResponseBody(), declaredLength, maxResponseBytes, progress);
+            });
+        }
+    }
+
     /**
-     * Takes the response budget for a mutation, once the upstream has answered.
+     * Takes the response budget for a call that may change state, once the upstream has answered.
      *
-     * <p>Both halves of that matter. Holding the budget across the wait is what let blocked mutations shut the
-     * facade: a mutation has no upstream deadline — deliberately, because a deadline over a commit that is
-     * already durable would report 504 for work that happened — so it would hold a slot forever, and there are
-     * eight for a server that admits sixteen concurrent mutations. Refusing here instead of waiting would be the
-     * same lie in another form: the commit has already happened by the time these headers exist.</p>
+     * <p>Both halves of that matter. Held across the upstream wait, the budget would be kept for up to the writes'
+     * deadline by calls that have no response bytes yet: there are eight slots for a server that admits sixteen
+     * concurrent mutations, so eight slow mutations would refuse every read for minutes. Refusing here instead of
+     * waiting would lie: the commit has already happened by the time these headers exist. The wait itself ends,
+     * because every holder of a slot writes its response under the deadlines of {@link TimedBoundedResponseWriter}
+     * and gives the slot back.</p>
      */
     private void awaitResponseBudget(HttpResponse<InputStream> response) throws InterruptedException, IOException {
         try {
@@ -211,6 +220,54 @@ final class MorpheusRemoteProxyTransport {
         }
         if (total != declaredLength) {
             throw new IOException("local MORPHEUS response length changed while proxying");
+        }
+    }
+
+    /**
+     * How long the facade waits for the local server's answer to one call, and what an expiry tells the caller.
+     *
+     * <p>{@code readOnly} says whether the call can have changed anything. A read is refused for want of response
+     * budget before it is sent, and its expiry is {@code UPSTREAM_TIMEOUT}: retrying it is safe. A call that may
+     * change state takes its budget once answered, and its expiry is {@code UPSTREAM_WRITE_TIMEOUT}: the local
+     * server cannot cancel an operation it has started, so the outcome is unknown and is never reported as a
+     * failure.</p>
+     *
+     * <p>On expiry the facade gives up, answers 504, and the request gives back its request slot and its privileged
+     * permit, while the local operation may still be running and holding the database. The privileged ceiling
+     * therefore bounds the calls the facade is waiting for, not the work in progress; the admission control of the
+     * local server bounds that work.</p>
+     */
+    record UpstreamDeadline(Duration timeout, boolean readOnly) {
+        /** A read: sixty seconds. */
+        static final UpstreamDeadline READ = new UpstreamDeadline(Duration.ofSeconds(60), true);
+
+        /**
+         * A write or an administration call: three hundred seconds. The only duration the repository states for the
+         * longest work a write can trigger is the frozen budget of a full publish on the large fixture, sixty
+         * seconds at the 95th percentile ({@code M19FullPublishPerformanceGate}); three hundred seconds gives it
+         * five times over. Sixty seconds, the reads' deadline, would leave a publish at its budget no margin.
+         */
+        static final UpstreamDeadline WRITE = new UpstreamDeadline(Duration.ofSeconds(300), false);
+
+        UpstreamDeadline {
+            Objects.requireNonNull(timeout, "timeout");
+            if (timeout.isZero() || timeout.isNegative()) {
+                throw new IllegalArgumentException("upstream timeout must be positive");
+            }
+        }
+
+        private TransportException expired() {
+            if (readOnly) {
+                return new TransportException(
+                        504,
+                        "UPSTREAM_TIMEOUT",
+                        "local MORPHEUS read-only operation exceeded its timeout");
+            }
+            return new TransportException(
+                    504,
+                    "UPSTREAM_WRITE_TIMEOUT",
+                    "local MORPHEUS operation exceeded the remote facade's timeout; it may have completed: "
+                            + "read its state before retrying");
         }
     }
 

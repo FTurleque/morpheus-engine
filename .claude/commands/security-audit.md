@@ -25,7 +25,7 @@ Vérifier l'existence de `morpheus-api/src/test/java/com/morpheus/api/JacksonSec
 
 Doit contenir : `HttpsServer` · `PKCS12` · `TLSv1.3` · `TLSv1.2` · `MorpheusRemoteRole.ADMIN`
 · `TOO_MANY_REQUESTS` · `X-Frame-Options` · `Content-Security-Policy` · `PLUGIN_SHA256_REQUIRED`
-· `usesBoundedUpstreamTimeout` · `String upstreamMethod = exchange.getRequestMethod();`
+· `route.upstreamDeadline()` · `String upstreamMethod = exchange.getRequestMethod();`
 
 Ne doit **PAS** contenir : `Access-Control-Allow-Origin` · `request.header("Authorization"` · `providerProbe ? "GET"`
 

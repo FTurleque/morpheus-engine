@@ -118,7 +118,7 @@ Supprimer une de ces chaînes casse le build.
   nom ne porte aucune partie du pin ; le résidu après `SIGKILL`/crash est documenté dans `SECURITY.md`, **jamais**
   balayé au démarrage (impossible de le distinguer de la copie vivante d'une autre instance)
 - Le probe (exécution de code tiers) est :
-  - **remote-only** + **ADMIN** (`PLUGIN_SHA256_REQUIRED`, `usesBoundedUpstreamTimeout`)
+  - **remote-only** + **ADMIN** (`PLUGIN_SHA256_REQUIRED`), avec l'échéance amont des écritures (`upstreamDeadline()`)
   - **jamais model-facing** → `EXPLICITLY_NOT_EXPOSED` côté MCP
   - refusé en local : *"provider-plugin probe is remote-only"*
 - `morpheus-cli/pom.xml` ne doit **jamais** embarquer `morpheus-provider-reference`

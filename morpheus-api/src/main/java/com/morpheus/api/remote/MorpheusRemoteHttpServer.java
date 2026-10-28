@@ -474,7 +474,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                     exchange,
                     target,
                     requestBody,
-                    route.usesBoundedUpstreamTimeout());
+                    route.upstreamDeadline());
         } catch (MorpheusRemoteProxyTransport.TransportException failure) {
             throw new RemoteFailure(failure.status(), failure.code(), failure.getMessage());
         }

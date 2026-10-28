@@ -148,7 +148,7 @@ class HttpPathReadingArchitectureTest {
         assertTrue(server.contains("route.names(\"server/status\")")
                         && server.contains("route.names(\"server/backups\")")
                         && server.contains("route.names(\"provider-plugins/probe\")")
-                        && server.contains("route.usesBoundedUpstreamTimeout()"),
+                        && server.contains("route.upstreamDeadline()"),
                 "the routes the remote server treats itself are named by the authorization of the request");
     }
 
