@@ -33,7 +33,7 @@ void applicationMustNotDependOnAdapters() {
             .should().dependOnClassesThat().resideInAnyPackage(
                     "com.morpheus.provider..", "com.morpheus.store..", "com.morpheus.cli..",
                     "com.morpheus.mcp..", "com.morpheus.api..", "com.morpheus.integration..",
-                    "com.minos..", "com.nexus..", "com.jarvis..")
+                    "com.morpheus.transport..", "com.minos..", "com.nexus..", "com.jarvis..")
             .because("application services define use cases and ports without depending on adapters")
             .check(classes);
 }
@@ -43,6 +43,11 @@ void applicationMustNotDependOnAdapters() {
 `LayerDependencyTest.java` (règles transverses) ou dans un `*ArchitectureTest` dédié au
 milestone (règles de sous-plateforme, ex. `m24/QueryPlatformArchitectureTest`). Ne jamais
 se contenter d'une convention non testée — si ArchUnit ne la vérifie pas, elle n'existe pas.
+
+Une règle choisit des classes **par paquet**, jamais par module. Un nouveau module déclare son paquet racine dans
+`ModulePackageCorrespondenceTest`, qui lit les `<module>` du POM racine et refuse un module sans entrée, un paquet hors
+de la racine de son module et une imbrication non déclarée ; une racine qui ne suit pas le nom du module y porte sa
+raison (`morpheus-mcp-transport` livre `com.morpheus.transport.mcp`, `morpheus-provider-sdk` `com.morpheus.sdk.provider`).
 
 ## Règle ArchUnit ou assertion textuelle
 
@@ -132,7 +137,7 @@ méthodes `@Test`, et `architectureTestsMinimum` ne se baisse pas (`rules/testin
 
 ### `com.morpheus.domain..` ne doit dépendre de rien de tout ça
 ```
-provider..  store..  cli..  mcp..  api..  integration..
+provider..  store..  cli..  mcp..  api..  integration..  transport..
 com.minos..  com.nexus..  com.jarvis..
 ```
 
@@ -141,7 +146,7 @@ L'application ne dépend d'**aucun** adaptateur. Pas de `store`, pas de `provide
 > `applicationMustNotDependOnAdapters` — *"application services define use cases and ports without depending on adapters"*
 
 ### `com.morpheus.api..` est un **frère** de cli/mcp, pas leur parent
-Interdits depuis `api` : `cli..`, `mcp..`, `integration..`, `com.minos..`, `com.nexus..`, `com.jarvis..`
+Interdits depuis `api` : `cli..`, `mcp..`, `integration..`, `transport..`, `com.minos..`, `com.nexus..`, `com.jarvis..`
 > L'adaptateur HTTP réutilise les contrats *application*, jamais un autre adaptateur.
 
 ### `integration.minos` / `integration.nexus`
@@ -166,7 +171,7 @@ ni `morpheus-provider-sdk` ni `morpheus-provider-reference`.
 
 ### `com.morpheus.sdk..` (le SDK provider) ne dépend d'**aucun** adaptateur
 Interdits depuis `morpheus-provider-sdk` : `store..`, `provider..` (plugin de référence compris), `integration..`,
-`mcp..`, `api..`, `cli..`. Le SDK est publié aux auteurs de plugins et ne dépend que du domaine, de l'application et du
+`transport..`, `mcp..`, `api..`, `cli..`. Le SDK est publié aux auteurs de plugins et ne dépend que du domaine, de l'application et du
 JDK (ADR-0129). La règle de bytecode a un jumeau textuel : une constante de compilation d'un adaptateur ne laisserait
 aucune dépendance. `morpheus-provider-testkit` partage le paquet mais n'est pas dans l'ensemble importé : sa frontière
 est son POM. Les familles que `AdapterSiblingArchitectureTest` juge sont déclarées dans `SUBJECTS` et comparées à ses
@@ -221,9 +226,11 @@ Le parseur des options, auquel chaque sous-commande déclare ce qu'elle accepte 
 `morpheus-mcp` que `MorpheusMcpServer`.
 > `DispatchersHoldNoUseCaseArchitectureTest`, `CliCommandDispatchIsExhaustiveTest`, `ServedToolsAreClaimedOnceTest`, `CliAndMcpPackageCyclesArchitectureTest`, `McpEntryTypesArchitectureTest`, `CliArgumentBaseArchitectureTest`, `CliOptionParsingRefusesUnknownOptionsTest`
 
-### `morpheus-mcp-transport` ne dépend d'aucun autre paquet MORPHEUS
-Le transport STDIO borné est partagé par le serveur MCP et les clients MINOS/NEXUS.
-> `theMcpTransportDependsOnNoOtherMorpheusPackage`
+### `com.morpheus.transport.mcp` ne dépend d'aucun autre paquet MORPHEUS
+Le transport STDIO borné, livré par le module `morpheus-mcp-transport`, est partagé par le serveur MCP et les clients
+MINOS/NEXUS. Son paquet n'est ni sous `com.morpheus.integration..` ni sous `com.morpheus.mcp..` : une règle qui doit
+l'interdire le nomme (`com.morpheus.transport..`).
+> `theMcpTransportDependsOnNoOtherMorpheusPackage`, `theSharedMcpTransportResidesOutsideTheIntegrationsAndTheMcpAdapter`
 
 ### Les paquets du domaine sont sans cycle, à deux exceptions nommées
 `ProviderProbeResult → SourceLocator` et `RequirementDelta → Scenario`, nommées par la paire de types exacte ; tout

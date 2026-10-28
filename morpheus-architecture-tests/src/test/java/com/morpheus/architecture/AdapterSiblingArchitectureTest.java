@@ -53,13 +53,14 @@ class AdapterSiblingArchitectureTest {
     private static final String INTEGRATIONS = "com.morpheus.integration..";
     private static final String MINOS = "com.morpheus.integration.minos..";
     private static final String NEXUS = "com.morpheus.integration.nexus..";
+    private static final String TRANSPORT = "com.morpheus.transport..";
     private static final String MCP = "com.morpheus.mcp..";
     private static final String API = "com.morpheus.api..";
     private static final String CLI = "com.morpheus.cli..";
 
     private static final List<String> NAMED = List.of(
             DOMAIN, APPLICATION, SDK, PROVIDERS, OPENSPEC, MARKDOWN, SYNTHETIC, STORES, INTEGRATIONS, MINOS, NEXUS,
-            MCP, API, CLI);
+            TRANSPORT, MCP, API, CLI);
 
     private static final List<String> SUBJECTS = List.of(
             DOMAIN, APPLICATION, SDK, PROVIDERS, OPENSPEC, MARKDOWN, SYNTHETIC, STORES, MINOS, NEXUS, MCP);
@@ -73,18 +74,19 @@ class AdapterSiblingArchitectureTest {
             List.of(SDK), "ADR-0028: the built-in providers do not depend on the SDK");
 
     private static final SiblingRule SDK_DEPENDS_ON_NO_ADAPTER = inward(List.of(SDK),
-            List.of(STORES, PROVIDERS, INTEGRATIONS, MCP, API, CLI),
+            List.of(STORES, PROVIDERS, INTEGRATIONS, TRANSPORT, MCP, API, CLI),
             "ADR-0129: the provider SDK is compiled against by plugin authors and depends inward only, on the "
                     + "provider-neutral contracts of MORPHEUS; an adapter it reached would be published with it");
 
     private static final SiblingRule PROVIDERS_DEPEND_INWARD = inward(List.of(PROVIDERS),
-            List.of(STORES, INTEGRATIONS, MCP, API, CLI), "adapters are siblings and depend inward only");
+            List.of(STORES, INTEGRATIONS, TRANSPORT, MCP, API, CLI), "adapters are siblings and depend inward only");
 
     private static final SiblingRule PROVIDERS_ARE_SIBLINGS = siblings(PROVIDERS,
             "adapters are siblings: a provider never reads through another provider");
 
     private static final SiblingRule STORES_DEPEND_INWARD = inward(List.of(STORES),
-            List.of(PROVIDERS, SDK, INTEGRATIONS, MCP, API, CLI), "adapters are siblings and depend inward only");
+            List.of(PROVIDERS, SDK, INTEGRATIONS, TRANSPORT, MCP, API, CLI),
+            "adapters are siblings and depend inward only");
 
     private static final SiblingRule STORES_ARE_SIBLINGS = siblings(STORES,
             "adapters are siblings: the memory and SQLite stores implement the same ports independently");

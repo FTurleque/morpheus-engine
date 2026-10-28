@@ -44,7 +44,7 @@ class BoundaryResilienceContractTest {
     private static final Pattern SPLIT_ON_AMPERSAND = Pattern.compile(
             "\\.split\\(\\s*\"[^\"]*&|splitAsStream|StringTokenizer\\(|Pattern\\.compile\\(\"[^\"]*&");
     private static final Path MCP_TRANSPORT = Path.of(
-            "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioClientTransport.java");
+            "morpheus-mcp-transport/src/main/java/com/morpheus/transport/mcp/BoundedStdioClientTransport.java");
 
     /**
      * Every response the remote facade writes is written under a deadline.

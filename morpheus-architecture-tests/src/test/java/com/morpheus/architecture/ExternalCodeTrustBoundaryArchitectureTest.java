@@ -32,7 +32,7 @@ class ExternalCodeTrustBoundaryArchitectureTest {
     private static final Path PROBE_PROCESS = Path.of(
             "morpheus-provider-sdk/src/main/java/com/morpheus/sdk/provider/ProviderPluginProbeProcess.java");
     private static final Path MCP_TRANSPORT = Path.of(
-            "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioClientTransport.java");
+            "morpheus-mcp-transport/src/main/java/com/morpheus/transport/mcp/BoundedStdioClientTransport.java");
 
     /**
      * Both child-process boundaries inherit exactly the same environment.

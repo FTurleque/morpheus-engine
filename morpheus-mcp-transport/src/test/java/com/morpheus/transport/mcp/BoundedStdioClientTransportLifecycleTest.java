@@ -1,0 +1,319 @@
+package com.morpheus.transport.mcp;
+
+import io.modelcontextprotocol.json.McpJsonDefaults;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.io.TempDir;
+import reactor.core.publisher.Mono;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Locale;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * One transport, one peer -- proved from the peers' side.
+ *
+ * <p>The transport used to record its peer in a plain reference that {@code connect()} overwrote. Nothing
+ * refused a second connect, so a retry, a double subscription or two threads racing each started a process, and
+ * the surviving reference named only the last of them. The others kept running under the MORPHEUS account with
+ * nothing left in the process able to name them, which is precisely the state the process-tree cleanup exists to
+ * prevent. Every test here counts launches recorded by the peers themselves, because a transport that started
+ * two peers and kept one reference is indistinguishable from a correct one when asked from the inside.</p>
+ */
+class BoundedStdioClientTransportLifecycleTest {
+
+    /** How long a racer that lost the lifecycle claim is given to start a peer, if it were going to. */
+    private static final long LOST_RACER_SETTLE_MILLIS = 200L;
+
+    @TempDir
+    Path tempDir;
+
+    @Test
+    @Timeout(30)
+    void aSecondSequentialConnectIsRefusedAndStartsNoSecondPeer() throws Exception {
+        Path launches = tempDir.resolve("sequential-launches.txt");
+        BoundedStdioClientTransport transport = recordingTransport(launches);
+        try {
+            transport.connect(message -> message).block();
+            awaitLaunches(launches, 1);
+
+            Mono<Void> secondConnect = transport.connect(message -> message);
+            IllegalStateException refused = assertThrows(IllegalStateException.class, secondConnect::block);
+            assertTrue(refused.getMessage().contains("cannot connect twice"), refused.getMessage());
+
+            assertEquals(1, recordedLaunches(launches).size(), "a refused connect must not start a peer");
+            assertEquals(BoundedStdioClientTransport.State.CONNECTED, transport.state());
+        } finally {
+            transport.closeGracefully().block();
+            destroyRecorded(launches);
+        }
+    }
+
+    @Test
+    @Timeout(60)
+    void concurrentConnectsResolveToExactlyOnePeer() throws Exception {
+        Path launches = tempDir.resolve("concurrent-launches.txt");
+        BoundedStdioClientTransport transport = recordingTransport(launches);
+        int racers = 8;
+        CountDownLatch ready = new CountDownLatch(racers);
+        CountDownLatch go = new CountDownLatch(1);
+        AtomicInteger connected = new AtomicInteger();
+
+        try (ExecutorService callers = Executors.newFixedThreadPool(racers)) {
+            List<Future<?>> attempts = new ArrayList<>();
+            for (int index = 0; index < racers; index++) {
+                attempts.add(callers.submit(() -> {
+                    ready.countDown();
+                    go.await();
+                    try {
+                        transport.connect(message -> message).block();
+                        connected.incrementAndGet();
+                    } catch (IllegalStateException refused) {
+                        assertTrue(refused.getMessage().contains("cannot connect twice")
+                                        || refused.getMessage().contains("closed while connecting"),
+                                refused.getMessage());
+                    }
+                    return null;
+                }));
+            }
+            assertTrue(ready.await(10, TimeUnit.SECONDS));
+            go.countDown();
+            for (Future<?> attempt : attempts) {
+                attempt.get(30, TimeUnit.SECONDS);
+            }
+
+            assertEquals(1, connected.get(), "exactly one caller may win the lifecycle");
+            awaitLaunches(launches, 1);
+            settleLostRacers();
+            assertEquals(1, recordedLaunches(launches).size(), "a race must never produce a second peer");
+        } finally {
+            transport.closeGracefully().block();
+            destroyRecorded(launches);
+        }
+    }
+
+    @Test
+    @Timeout(30)
+    void connectAfterCloseIsRefusedRatherThanStartingAPeerWhoseTeardownAlreadyRan() throws Exception {
+        Path launches = tempDir.resolve("after-close-launches.txt");
+        BoundedStdioClientTransport transport = recordingTransport(launches);
+        transport.connect(message -> message).block();
+        awaitLaunches(launches, 1);
+        transport.closeGracefully().block();
+
+        Mono<Void> afterClose = transport.connect(message -> message);
+        IllegalStateException refused = assertThrows(IllegalStateException.class, afterClose::block);
+
+        assertTrue(refused.getMessage().contains("cannot connect twice"), refused.getMessage());
+        assertEquals(BoundedStdioClientTransport.State.CLOSED, transport.state());
+        assertEquals(1, recordedLaunches(launches).size());
+        assertNoRecordedPeerSurvives(launches);
+    }
+
+    @Test
+    @Timeout(30)
+    void concurrentClosesTearDownOnceAndLeaveNoPeerBehind() throws Exception {
+        Path launches = tempDir.resolve("concurrent-close-launches.txt");
+        BoundedStdioClientTransport transport = recordingTransport(launches);
+        transport.connect(message -> message).block();
+        awaitLaunches(launches, 1);
+
+        int closers = 6;
+        CountDownLatch go = new CountDownLatch(1);
+        try (ExecutorService callers = Executors.newFixedThreadPool(closers)) {
+            List<Future<?>> closes = new ArrayList<>();
+            for (int index = 0; index < closers; index++) {
+                closes.add(callers.submit(() -> {
+                    go.await();
+                    transport.closeGracefully().block();
+                    return null;
+                }));
+            }
+            go.countDown();
+            for (Future<?> close : closes) {
+                close.get(20, TimeUnit.SECONDS);
+            }
+        }
+
+        assertEquals(BoundedStdioClientTransport.State.CLOSED, transport.state());
+        assertNoRecordedPeerSurvives(launches);
+        assertNoTransportThreadsSurvive();
+    }
+
+    /**
+     * A close observed as complete really is complete.
+     *
+     * <p>Returning early from a concurrent close would be the easy way to make it idempotent, and it would tell
+     * the second caller the peer is gone while it is still being destroyed. Every close returns only once the
+     * peer really has been terminated.</p>
+     */
+    @Test
+    @Timeout(30)
+    void aSecondCloseDoesNotReturnBeforeTheFirstOneHasFinished() throws Exception {
+        Path launches = tempDir.resolve("close-ordering-launches.txt");
+        BoundedStdioClientTransport transport = recordingTransport(launches);
+        transport.connect(message -> message).block();
+        awaitLaunches(launches, 1);
+        long peerPid = recordedLaunches(launches).getFirst();
+
+        transport.closeGracefully().block();
+        transport.closeGracefully().block();
+
+        assertFalse(isAlive(peerPid), "the peer must be gone by the time any close reports success");
+    }
+
+    @Test
+    @Timeout(30)
+    void aFailedConnectEndsInATerminalStateThatCannotBeReconnected() throws InterruptedException {
+        McpPeerLaunch missingCommand =
+                new McpPeerLaunch("morpheus-command-that-does-not-exist-20260904", List.of(), Map.of());
+        BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
+                missingCommand, McpJsonDefaults.getMapper(), 1024, failure -> { });
+
+        Mono<Void> firstConnect = transport.connect(message -> message);
+        IllegalStateException unstarted = assertThrows(IllegalStateException.class, firstConnect::block);
+        assertTrue(unstarted.getMessage().contains("failed to start MCP process"), unstarted.getMessage());
+        assertEquals(BoundedStdioClientTransport.State.FAILED, transport.state());
+
+        Mono<Void> secondConnect = transport.connect(message -> message);
+        IllegalStateException refused = assertThrows(IllegalStateException.class, secondConnect::block);
+        assertTrue(refused.getMessage().contains("cannot connect twice"), refused.getMessage());
+
+        // Closing a transport that never started must still be safe, and must not undo the terminal state.
+        transport.closeGracefully().block();
+        assertEquals(BoundedStdioClientTransport.State.FAILED, transport.state());
+        assertNoTransportThreadsSurvive();
+    }
+
+    private BoundedStdioClientTransport recordingTransport(Path launches) {
+        return new BoundedStdioClientTransport(
+                peerLaunch(FixtureLaunchRecordingMcpPeer.class, launches.toString()),
+                McpJsonDefaults.getMapper(),
+                4096, failure -> { });
+    }
+
+    private void awaitLaunches(Path launches, int expected) throws InterruptedException {
+        BoundedWait.until(
+                "the peer to record " + expected + " launch(es)",
+                Duration.ofSeconds(20),
+                BoundedWait.FILE_PUBLICATION_POLL,
+                () -> recordedLaunches(launches).size() >= expected,
+                () -> "recorded launches=" + recordedLaunches(launches));
+    }
+
+    private List<Long> recordedLaunches(Path launches) {
+        if (!Files.isRegularFile(launches)) return List.of();
+        try {
+            List<Long> pids = new ArrayList<>();
+            for (String line : Files.readAllLines(launches, StandardCharsets.UTF_8)) {
+                String trimmed = line.trim();
+                if (!trimmed.isEmpty()) pids.add(Long.parseLong(trimmed));
+            }
+            return List.copyOf(pids);
+        } catch (IOException | NumberFormatException stillBeingWritten) {
+            return List.of();
+        }
+    }
+
+    private void assertNoRecordedPeerSurvives(Path launches) throws InterruptedException {
+        for (long pid : recordedLaunches(launches)) {
+            BoundedWait.until(
+                    "recorded peer " + pid + " to be terminated with its transport",
+                    Duration.ofSeconds(10),
+                    BoundedWait.PROCESS_TRANSITION_POLL,
+                    () -> !isAlive(pid),
+                    () -> "peer " + pid + " alive=" + isAlive(pid));
+        }
+    }
+
+    /**
+     * The four threads a transport owns must go with it.
+     *
+     * <p>They are named after their role precisely so this can be asserted rather than assumed; an anonymous
+     * pool thread left behind by a half-torn-down transport is invisible until the process runs out of them.</p>
+     */
+    private void assertNoTransportThreadsSurvive() throws InterruptedException {
+        // Waiting through BoundedWait rather than asserting on a boolean is the whole point: a surviving thread
+        // now names itself in the failure, where "no transport scheduler thread may outlive its transport"
+        // reported only that one did.
+        BoundedWait.until(
+                "every transport scheduler thread to end with its transport",
+                Duration.ofSeconds(10),
+                BoundedWait.PROCESS_TRANSITION_POLL,
+                () -> survivingTransportThreads().isEmpty(),
+                () -> "surviving transport threads=" + survivingTransportThreads());
+    }
+
+    private List<String> survivingTransportThreads() {
+        return Thread.getAllStackTraces().keySet().stream()
+                .filter(thread -> thread.isAlive() && thread.getName().startsWith("morpheus-mcp-"))
+                .map(Thread::getName)
+                .sorted()
+                .toList();
+    }
+
+    private void destroyRecorded(Path launches) {
+        for (long pid : recordedLaunches(launches)) {
+            ProcessHandle.of(pid).filter(ProcessHandle::isAlive).ifPresent(ProcessHandle::destroyForcibly);
+        }
+    }
+
+    /**
+     * Gives a racer that lost the lifecycle claim time to have started a peer, if it were going to.
+     *
+     * <p>java:S2925, category three of three: a fixed stabilisation delay, and the only one in this class.
+     * It is not a bounded wait and must not become one -- {@link BoundedWait} waits for a condition to become
+     * true, and the assertion here is that a condition never becomes true. Nothing can signal the absence of
+     * an event, so there is no observable condition to poll and no deadline that would make the delay
+     * unnecessary. This is the category where the residual risk actually sits: a runner slow enough that a
+     * losing racer needs more than {@value #LOST_RACER_SETTLE_MILLIS}ms to start a peer would let this pass
+     * while the peer starts afterwards. The bound is stated here rather than left as a bare literal so that
+     * raising it is a visible decision.</p>
+     */
+    @SuppressWarnings("java:S2925")
+    private void settleLostRacers() throws InterruptedException {
+        TimeUnit.MILLISECONDS.sleep(LOST_RACER_SETTLE_MILLIS);
+    }
+
+    private boolean isAlive(long pid) {
+        return ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false);
+    }
+
+    private McpPeerLaunch peerLaunch(Class<?> mainClass, String... extraArguments) {
+        List<String> arguments = new ArrayList<>(peerArguments(mainClass));
+        arguments.addAll(List.of(extraArguments));
+        return new McpPeerLaunch(javaExecutable(), arguments, Map.of());
+    }
+
+    private String javaExecutable() {
+        return Path.of(
+                System.getProperty("java.home"),
+                "bin",
+                System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win") ? "java.exe" : "java")
+                .toString();
+    }
+
+    private List<String> peerArguments(Class<?> mainClass) {
+        String testClasspath = System.getProperty(
+                "surefire.test.class.path",
+                System.getProperty("java.class.path"));
+        return List.of("-cp", testClasspath, mainClass.getName());
+    }
+}

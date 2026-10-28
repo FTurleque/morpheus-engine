@@ -27,9 +27,8 @@
       the working tree clean afterwards.
 - [x] 2.3 If the transport already lives in its own package (`give-the-shared-mcp-transport-its-own-package`), add that
       package to the targets and to `NAMED`. Proof: the vacancy check passes.
-      Result (2026-10-28): the transport still lives in `com.morpheus.integration.mcp` (module
-      `morpheus-mcp-transport`), covered by `INTEGRATIONS`; nothing to add. Whichever of this change and
-      `give-the-shared-mcp-transport-its-own-package` lands second adds the new package.
+      Result (2026-10-28): both changes land in one pull request; the integration adds `TRANSPORT`
+      (`com.morpheus.transport..`) to the targets of `SDK_DEPENDS_ON_NO_ADAPTER`, which `NAMED` already lists.
 
 ## 3. The subjects compared to the rules
 

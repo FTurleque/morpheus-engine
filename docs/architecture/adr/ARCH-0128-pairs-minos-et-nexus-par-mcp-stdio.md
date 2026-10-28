@@ -128,7 +128,7 @@ Le lanceur Java d'un pair est un choix de sécurité : une commande nue (`java`)
   l'identique ; `PeerLaunchSettingsResolverTest` (`morpheus-application`) couvre chaque refus pour les deux pairs.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/ExternalCodeTrustBoundaryArchitectureTest.java`
   (`noMcpLaunchPathTakesThePeerEnvironmentFromTheSdkParameters`) et
-  `morpheus-mcp-transport/src/test/java/com/morpheus/integration/mcp/BoundedStdioClientTransportTest.java`
+  `morpheus-mcp-transport/src/test/java/com/morpheus/transport/mcp/BoundedStdioClientTransportTest.java`
   (`aPeerLaunchedWithoutExplicitEnvironmentReceivesOnlyTheLaunchAllowlist`) : environnement réduit à l'allowlist.
 - `MinosMcpTransportIntegrationTest`, `MinosIntegrationSettingsTest`, `MinosPeerLauncherResolutionTest`,
   `MinosMcpOperationDeadlineTest` (`morpheus-integration-minos/src/test/java/com/morpheus/integration/minos/`) et leurs
