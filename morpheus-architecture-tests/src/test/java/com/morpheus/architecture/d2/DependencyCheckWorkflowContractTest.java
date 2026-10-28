@@ -653,7 +653,9 @@ class DependencyCheckWorkflowContractTest {
      */
     @Test
     void theDataFeedRefreshIsTheSecondSourceWheneverTheKeyPathDidNotRefresh() throws IOException {
-        String security = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/security.yml"));
+        // A Windows checkout carries CRLF; the branch boundary below is located by its line structure.
+        String security = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/security.yml"))
+                .replace("\r\n", "\n");
         assertTrue(security.contains(
                         "NVD_DATAFEED_URL: 'https://nvd.nist.gov/feeds/json/cve/2.0/nvdcve-2.0-{0}.json.gz'"),
                 "the second source must be the CVE JSON 2.0 feeds the NVD itself publishes, declared once");
