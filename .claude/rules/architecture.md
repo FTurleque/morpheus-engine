@@ -228,13 +228,14 @@ de composition nommées d'ADR-0109 pour le runtime de chaque requête HTTP ou ap
 
 ## Ce que l'application touche (ADR-0150)
 
-`com.morpheus.application..` ne dépend **jamais** de SQL (`java.sql`), d'une bibliothèque JSON (Jackson) ni de
-l'exécution de processus. L'accès fichier, le réseau sortant, l'environnement du processus, les flux standard, les
-fils d'exécution, l'horloge murale et la réflexion n'y sont atteints que par les classes que
+`com.morpheus.application..` ne dépend **jamais** de SQL (`java.sql`), d'une bibliothèque JSON (Jackson), de
+l'exécution de processus, du réseau sortant ni des fils d'exécution. L'accès fichier, l'environnement du processus,
+les flux standard, l'horloge murale et la réflexion n'y sont atteints que par les classes que
 `ApplicationTechnologyBoundaryArchitectureTest` nomme pour chaque famille — la liste est exacte, elle rétrécit, et un
 nom ajouté exige un ADR consolidé qui remplace ADR-0150. Le test porte les listes de types et d'appels de chaque
-famille : les lire là, pas ici. `Path` est du vocabulaire, pas un accès. Le seul nom marqué *sort* est le transport de
-`UpdateDiscoveryService` (`move-marked-technology-access-behind-application-ports`).
+famille : les lire là, pas ici. `Path` est du vocabulaire, pas un accès. Aucun nom n'est marqué *sort* : la découverte
+de mise à jour lit son manifeste par le port `product.UpdateManifestSource`, que `UpdateManifestFetcher`
+(`morpheus-cli`) implémente, et garde dans `UpdateDiscoveryService` le refus de `http:`, les bornes et l'analyse.
 
 > `ApplicationTechnologyBoundaryArchitectureTest` — `aFamilyTheApplicationDoesNotUseIsRefusedInEveryPackage`, `aConfinedFamilyIsReachedOnlyByTheClassesNamedForIt`, `everyNamedClassStillReachesItsFamily`
 
