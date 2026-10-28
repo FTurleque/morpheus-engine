@@ -188,7 +188,7 @@
     {
       "numero": 15,
       "titre": "Dérives apparues pendant les correctifs",
-      "pourquoi": "Ce sprint n'est pas du plan du 9 octobre : il rassemble les constats nés **après** l'audit, soit d'une scission quand la mesure du dépôt a montré que ma cause était fausse, soit d'un effet de bord d'un correctif, soit du changement de branche d'intégration du 18 octobre. Les ranger dans les sprints d'origine faisait croire que ceux-ci traînaient depuis le 9 octobre, ce qui est faux : ils sont soldés, et du travail neuf est apparu à côté. La passe du 26 octobre en ajoute quatre, tous nés de la grande restructuration des adaptateurs : l'élargissement de visibilité qu'elle a imposé, un test de garde qui ne garde rien, la liste d'ADR-0148 recopiée à la main dans son gate, et deux dérives de la trace de suivi.",
+      "pourquoi": "Ce sprint n'est pas du plan du 9 octobre : il rassemble les constats nés **après** l'audit, soit d'une scission quand la mesure du dépôt a montré que ma cause était fausse, soit d'un effet de bord d'un correctif, soit du changement de branche d'intégration du 18 octobre. Les ranger dans les sprints d'origine faisait croire que ceux-ci traînaient depuis le 9 octobre, ce qui est faux : ils sont soldés, et du travail neuf est apparu à côté. La passe du 26 octobre en ajoute quatre, tous nés de la grande restructuration des adaptateurs : l'élargissement de visibilité qu'elle a imposé, un test de garde qui ne garde rien, la liste d'ADR-0148 recopiée à la main dans son gate, et deux dérives de la trace de suivi. La contre-vérification du 28 octobre en ajoute trois : deux frontières d'espace de travail aux garanties opposées, et deux duplications que le sprint 9 a laissées hors de son périmètre.",
       "sortie": "Aucun constat né pendant les correctifs ne reste ouvert, et chacun a soit une règle exécutable qui l'empêche de revenir, soit une décision écrite qui l'assume.",
       "constats": [
         "AUD-ARC-15",
@@ -203,7 +203,10 @@
         "AUD-ARC-16",
         "AUD-ARC-17",
         "AUD-TST-20",
-        "AUD-DEP-26"
+        "AUD-DEP-26",
+        "AUD-SEC-18",
+        "AUD-QUA-19",
+        "AUD-QUA-20"
       ]
     }
   ]

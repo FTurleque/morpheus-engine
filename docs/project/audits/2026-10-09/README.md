@@ -8,6 +8,59 @@
 
 ---
 
+## État au 28 octobre 2026 — contre-vérification : le sprint 9 terminé
+
+Une passe indépendante, sur `5c3ce4dd` (PR #577), avec un build de contrôle : `./mvnw clean verify` vert sur les
+19 modules, 4 669 tests, 0 échec. Elle couvre le sprint 9, que les notes précédentes laissaient hors de leur
+périmètre, et relit leurs sept verdicts. Détail dans **`contre-verification-2026-10-28.md`**. Le registre en est
+reconstruit sur `fbf58cac`, chaque constat repris de la contre-vérification relu dans le code.
+
+**Le sprint 9 est terminé** : `AUD-QUA-02`, `AUD-QUA-06`, `AUD-QUA-07`, `AUD-QUA-08`, `AUD-QUA-09` et `AUD-ARC-10`
+sont corrigés. Chaque helper du socle a un propriétaire, et les règles qui refusent une copie cherchent une forme —
+une signature, un appel compilé, un fichier de test qui remonte depuis le répertoire courant — et non un nom.
+
+**`AUD-ARC-16` passe à partiel, pas à caduc.** La contre-vérification le déclare caduc : la garde d'exactitude que
+l'action demandait en premier existait déjà le 26 octobre (`SqliteStorePackagesArchitectureTest:81`, `:109`). C'est
+exact, mais l'action demandait aussi, dans ses deux voies, d'écrire que l'élargissement de visibilité est le prix du
+découpage et que la liste des types publics de `runtime/` ne peut que rétrécir. Aucun ADR ne le dit.
+
+**Trois constats naissent**, au sprint 15 : `AUD-SEC-18` (deux frontières d'espace de travail aux garanties
+opposées, sans décision écrite), `AUD-QUA-19` (sept copies de `safeMessage` hors du CLI, que la règle du sprint 9
+ne voit pas) et `AUD-QUA-20` (les passerelles MINOS et NEXUS portent l'essentiel de la duplication qui reste entre
+les deux modules d'intégration).
+
+**Quatre citations corrigées** : `AUD-TST-10` (le contrôle par palier de `validate-r2` s'ajoute à `tests >= 1`, et
+six paliers ne sont le départ d'aucun test d'upgrade), `AUD-PRF-14`, `AUD-TST-19` et `AUD-TST-09` (32 champs de
+plafond périmés et non lus dans les preuves conservées).
+
+**Ce que la reconstruction n'a pas repris de la contre-vérification** :
+- la correction de citation d'`AUD-PRF-09` est sans objet : le registre cite le test par son nom ;
+- l'intitulé d'`AUD-TST-09` n'est plus littéralement vrai : l'écart de branche agrégé est de 0,4195 point, au-delà
+  des 0,41 de l'intitulé ;
+- « 78 des 89 blocs » d'`AUD-QUA-20` n'est pas reproduit ; la mesure inscrite est la sienne, 151 des 195 fenêtres
+  de douze lignes communes aux deux modules ;
+- quelques comptes d'avant ne sont pas reproduits à l'identique (342 appels de `RepositoryRoot`, 352 relus ;
+  11 fichiers de `PublicPayloads`, 10 relus) : aucun ne change un statut.
+
+**Plan du 9 octobre : 61 soldés sur 73, 12 restants.** Les sprints 1 à 5 et 7 à 9 sont terminés. **113 constats :
+62 corrigés · 7 partiels · 17 toujours valides · 4 caducs · 22 Info qui tiennent · 1 non vérifiable.** Il reste deux
+constats `Élevée` : `AUD-ARC-01` et `AUD-PRF-04`, tous deux partiels.
+
+| Axe | 26 oct. | **28 oct.** | |
+|---|---|---|---|
+| Sécurité | 96 | **92** | −4 |
+| Qualité | 70 | **88** | **+18** |
+| Dépendances / exploitation | 83 | **87** | +4 |
+| Tests | 70 | **83** | +13 |
+| Performance | 77 | **78** | +1 |
+| Architecture | 55 | **59** | +4 |
+| **Moyenne** | **75** | **81** | **+6** |
+
+Notes de la contre-vérification, qui comptait `AUD-ARC-16` comme caduc ; le registre le garde ouvert, sans que la
+note d'architecture soit recalculée.
+
+---
+
 ## État au 28 octobre 2026 — les sprints 1, 5, 7 et 8 terminés
 
 Sept PR fusionnées (#570 à #576) sur les sept constats encore ouverts des sprints 1, 5, 7 et 8, statuts relus
