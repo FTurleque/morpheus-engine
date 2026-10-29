@@ -1,6 +1,5 @@
 package com.morpheus.application.orchestration;
 
-import com.morpheus.application.constraint.ConstraintPolicyEvaluationService;
 import com.morpheus.application.lifecycle.ChangeLifecycleBlocker;
 import com.morpheus.application.lifecycle.ChangeLifecyclePolicy;
 import com.morpheus.application.lifecycle.ChangeLifecycleStateMachine;
@@ -29,7 +28,6 @@ import java.util.Optional;
 public final class ChangeTransitionEvaluationService {
     private final ChangeLifecycleQualityService lifecycleQuality;
     private final SnapshotBusinessContentStore contentStore;
-    private final ConstraintPolicyEvaluationService constraintPolicy;
 
     public ChangeTransitionEvaluationService(
             SpecificationKnowledgeStore snapshotStore,
@@ -47,7 +45,6 @@ public final class ChangeTransitionEvaluationService {
                 snapshotStore,
                 completeness,
                 new ChangeLifecycleStateMachine());
-        this.constraintPolicy = new ConstraintPolicyEvaluationService();
     }
 
     public Optional<ChangeTransitionEvaluation> evaluateActive(
@@ -175,7 +172,7 @@ public final class ChangeTransitionEvaluationService {
         return content.constraints().stream()
                 .filter(item -> item.changeId().equals(assessment.source().changeId()))
                 .sorted(Comparator.comparing(item -> item.id().toString()))
-                .map(item -> constraintPolicy.evaluate(item, assessment.targetState()))
+                .map(item -> item.evaluateFor(assessment.targetState()))
                 .toList();
     }
 

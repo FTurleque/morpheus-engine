@@ -1,10 +1,5 @@
-package com.morpheus.application.store;
+package com.morpheus.application.policy;
 
-import com.morpheus.application.policy.PolicyAuditPage;
-import com.morpheus.application.policy.PolicyConfiguration;
-import com.morpheus.application.policy.PolicyIds;
-import com.morpheus.application.policy.PolicyPack;
-import com.morpheus.application.policy.PolicyScope;
 import com.morpheus.application.query.PageRequest;
 
 import java.util.List;

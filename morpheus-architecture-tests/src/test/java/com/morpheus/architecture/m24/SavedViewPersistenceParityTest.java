@@ -15,7 +15,7 @@ import com.morpheus.application.query.saved.SavedViewDefinition;
 import com.morpheus.application.query.saved.SavedViewId;
 import com.morpheus.application.query.saved.SavedViewStatus;
 import com.morpheus.application.query.saved.SavedViewVersion;
-import com.morpheus.application.store.SavedViewStore;
+import com.morpheus.application.query.saved.SavedViewStore;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.store.memory.MemorySavedViewStore;
 import com.morpheus.store.sqlite.adapter.SqliteSavedViewStore;

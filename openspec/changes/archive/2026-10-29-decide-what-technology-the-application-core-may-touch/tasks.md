@@ -85,7 +85,7 @@ under every option; whether a transport holds the runtime type or only a port ma
       name `UpdateCheckResult` added to the network list fails the third alone; a planted record holding only a
       `Path` fails nothing. The textual bans of `reasoning` and `policy` are not in the diff (3.3).
 - [x] 3.3 Confirm the textual bans of `reasoning` and `policy` are untouched. Proof: their tests in the diff, absent.
-- [ ] 3.4 Raise `architectureTestsMinimum` for the added executions (`coverage-ratchet`; count executions, not
+- [x] 3.4 Raise `architectureTestsMinimum` for the added executions (`coverage-ratchet`; count executions, not
       `@Test` annotations). Proof: `RepositoryDocumentationCoherenceTest` and `ProductionIntegrityContractTest` name
       the destinations; all are updated in the same change.
 
@@ -94,6 +94,10 @@ under every option; whether a transport holds the runtime type or only a port ma
       gate, against `architectureTestsMinimum=585`. The repository raises presence ratchets on Surefire counts read on
       both platforms at one exact head (18/10/2026: 693 on both); a one-platform local count is not that evidence.
       Left to the next presence requalification.
+
+      2026-10-29, **raised**: `architectureTestsMinimum=836`, ten under 846 declared executions counted identically on
+      Linux and Windows at `63e6f1cb` (`config/m21-quality-ratchets.properties`); the count includes the four
+      executions of this gate.
 
 ## 4. The descriptions
 
@@ -107,6 +111,9 @@ under every option; whether a transport holds the runtime type or only a port ma
 
 ## 5. Verification
 
-- [ ] 5.1 `./mvnw clean verify`. Proof: green on both platforms through the required checks.
-- [ ] 5.2 Pull request description: the finding, the measured table, the option chosen, why a governance file
+- [x] 5.1 `./mvnw clean verify`. Proof: green on both platforms through the required checks.
+      *Pull request 550, merged 2026-10-25 (`e1b01d28`): required checks green on Linux and Windows.*
+- [x] 5.2 Pull request description: the finding, the measured table, the option chosen, why a governance file
       (architecture test, ratchet) changes.
+      *Pull request 550: the finding, the measured table, option C chosen by the maintainer, the new architecture test
+      and why `architectureTestsMinimum` was not raised.*

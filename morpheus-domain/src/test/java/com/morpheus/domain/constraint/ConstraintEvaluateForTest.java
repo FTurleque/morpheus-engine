@@ -1,14 +1,7 @@
-package com.morpheus.application.constraint;
+package com.morpheus.domain.constraint;
 
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
-import com.morpheus.domain.constraint.Constraint;
-import com.morpheus.domain.constraint.ConstraintApplicability;
-import com.morpheus.domain.constraint.ConstraintBlockingPolicy;
-import com.morpheus.domain.constraint.ConstraintEvaluationState;
-import com.morpheus.domain.constraint.ConstraintSatisfaction;
-import com.morpheus.domain.constraint.ConstraintSeverity;
-import com.morpheus.domain.constraint.ConstraintId;
 import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.provenance.Provenance;
 import com.morpheus.domain.provider.ProviderId;
@@ -20,44 +13,47 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class ConstraintPolicyEvaluationServiceTest {
-    private final ConstraintPolicyEvaluationService service = new ConstraintPolicyEvaluationService();
+class ConstraintEvaluateForTest {
 
     @Test
     void unknownApplicabilityNeverBecomesBlocked() {
-        var evaluation = service.evaluate(legacyConstraint(), ChangeLifecycleState.VERIFYING);
+        var evaluation = legacyConstraint().evaluateFor(ChangeLifecycleState.VERIFYING);
 
         assertEquals(ConstraintEvaluationState.UNKNOWN, evaluation.state());
     }
 
     @Test
     void warningViolationDoesNotBlockWhenPolicyIsNonBlocking() {
-        var evaluation = service.evaluate(explicit(
+        Constraint constraint = explicit(
                 ConstraintSeverity.WARNING,
                 ConstraintSatisfaction.VIOLATED,
-                ConstraintBlockingPolicy.nonBlocking()), ChangeLifecycleState.VERIFYING);
+                ConstraintBlockingPolicy.nonBlocking());
+
+        var evaluation = constraint.evaluateFor(ChangeLifecycleState.VERIFYING);
 
         assertEquals(ConstraintEvaluationState.NON_BLOCKING, evaluation.state());
     }
 
     @Test
     void criticalSeverityDoesNotBlockOutsideExplicitTarget() {
-        var evaluation = service.evaluate(explicit(
+        Constraint constraint = explicit(
                 ConstraintSeverity.CRITICAL,
                 ConstraintSatisfaction.VIOLATED,
-                ConstraintBlockingPolicy.blockWhenViolated(List.of(ChangeLifecycleState.COMPLETED))),
-                ChangeLifecycleState.VERIFYING);
+                ConstraintBlockingPolicy.blockWhenViolated(List.of(ChangeLifecycleState.COMPLETED)));
+
+        var evaluation = constraint.evaluateFor(ChangeLifecycleState.VERIFYING);
 
         assertEquals(ConstraintEvaluationState.NON_BLOCKING, evaluation.state());
     }
 
     @Test
     void targetedSatisfiedConstraintDoesNotBlock() {
-        var evaluation = service.evaluate(explicit(
+        Constraint constraint = explicit(
                 ConstraintSeverity.CRITICAL,
                 ConstraintSatisfaction.SATISFIED,
-                ConstraintBlockingPolicy.blockWhenViolated(List.of(ChangeLifecycleState.VERIFYING))),
-                ChangeLifecycleState.VERIFYING);
+                ConstraintBlockingPolicy.blockWhenViolated(List.of(ChangeLifecycleState.VERIFYING)));
+
+        var evaluation = constraint.evaluateFor(ChangeLifecycleState.VERIFYING);
 
         assertEquals(ConstraintEvaluationState.NON_BLOCKING, evaluation.state());
     }
@@ -75,7 +71,7 @@ class ConstraintPolicyEvaluationServiceTest {
                 List.of(),
                 provenance());
 
-        var evaluation = service.evaluate(constraint, ChangeLifecycleState.VERIFYING);
+        var evaluation = constraint.evaluateFor(ChangeLifecycleState.VERIFYING);
 
         assertEquals(ConstraintEvaluationState.UNKNOWN, evaluation.state());
     }
@@ -87,7 +83,7 @@ class ConstraintPolicyEvaluationServiceTest {
                 ConstraintSatisfaction.VIOLATED,
                 ConstraintBlockingPolicy.blockWhenViolated(List.of(ChangeLifecycleState.VERIFYING)));
 
-        var evaluation = service.evaluate(constraint, ChangeLifecycleState.VERIFYING);
+        var evaluation = constraint.evaluateFor(ChangeLifecycleState.VERIFYING);
 
         assertEquals(ConstraintEvaluationState.BLOCKING, evaluation.state());
         assertEquals(constraint.supportingEvidenceIds(), evaluation.supportingEvidenceIds());

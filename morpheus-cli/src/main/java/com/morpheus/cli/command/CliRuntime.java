@@ -15,7 +15,7 @@ import com.morpheus.application.store.ExternalReferenceStore;
 import com.morpheus.application.store.PortfolioStore;
 import com.morpheus.application.store.SnapshotBusinessContentStore;
 import com.morpheus.application.store.SpecificationKnowledgeStore;
-import com.morpheus.application.store.SyncStateStore;
+import com.morpheus.application.sync.SyncStateStore;
 import com.morpheus.application.store.TraceabilityStore;
 import com.morpheus.application.store.VersionedRequirementStore;
 import com.morpheus.store.sqlite.runtime.SqliteOperationRuntime;
