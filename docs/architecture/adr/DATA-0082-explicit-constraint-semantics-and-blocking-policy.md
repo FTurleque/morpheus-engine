@@ -105,8 +105,8 @@ Une contrainte n'est donc jamais bloquante « par texte » ou « par sévérité
 
 ### Évaluation
 
-`ConstraintPolicyEvaluationService` produit un `ConstraintEvaluation` pour un contexte de transition, dans cet ordre
-déterministe :
+`Constraint.evaluateFor` (domaine) produit un `ConstraintEvaluation` pour un état cible, dans cet ordre déterministe ;
+les services de l'application le demandent au domaine et ne le réécrivent pas :
 
 ```text
 NOT_APPLICABLE                           -> NOT_APPLICABLE
@@ -219,10 +219,14 @@ lorsque ce fait est requis pour décider.
 
 - `morpheus-domain/src/test/java/com/morpheus/domain/constraint/ConstraintSemanticsTest.java` : invariants de la
   politique (cibles exigées ou interdites selon le mode) et preuve de support exigée pour `SATISFIED`/`VIOLATED`.
-- `morpheus-application/src/test/java/com/morpheus/application/constraint/ConstraintPolicyEvaluationServiceTest.java` :
+- `morpheus-domain/src/test/java/com/morpheus/domain/constraint/ConstraintEvaluateForTest.java` :
   `unknownApplicabilityNeverBecomesBlocked`, `warningViolationDoesNotBlockWhenPolicyIsNonBlocking`,
   `criticalSeverityDoesNotBlockOutsideExplicitTarget`, `targetedSatisfiedConstraintDoesNotBlock`,
   `targetedUnknownSatisfactionRemainsUnknown`, `targetedViolatedConstraintBlocksWithEvidenceAndReason`.
+- `morpheus-domain/src/test/java/com/morpheus/domain/constraint/ConstraintBlockingDecisionTest.java` : état et raison de
+  chaque combinaison valide, `UNKNOWN` jamais bloquant, accord entre l'évaluation et l'état d'orchestration.
+- `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/ConstraintDecisionInTheDomainArchitectureTest.java` :
+  aucune classe de l'application ne lit une constante d'applicabilité, de mode de blocage ou de satisfaction.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/ConstraintSemanticsPersistenceContractTest.java` :
   parité mémoire/SQLite et réouverture SQLite.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/JarvisOrchestrationContractTest.java` :

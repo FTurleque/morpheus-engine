@@ -38,10 +38,14 @@ one class as leaving. Otherwise withdraw this change.
 
 ## 4. Verification and record
 
-- [ ] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green on both platforms through the required
+- [x] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green on both platforms through the required
       checks.
+      *Pull request 580, merged 2026-10-28: `exact-head` green on Linux (with the changed-line coverage gate) and
+      Windows.*
 - [x] 4.2 Clarify the ADR: where each class lives (what moved and when goes to the pull request). Update `.claude/rules/architecture.md` if it named the
       class. Proof: the diff.
       *2026-10-28: ADR-0150 decision 1 refuses network and threads and names the port and the fetcher; the table of decision 2 loses its row marked "sort"; compliance names the tests that follow the transport. `.claude/rules/architecture.md`, `.claude/CLAUDE.md`, DT-18 closed in `docs/architecture/risks/register.md` and `arc42/11-risques-dette.md`. `archgate check`: 10/10, no briefing warning.*
-- [ ] 4.3 Pull request description: the finding, the record's decision, the table of 1.2, and that no command changed
+- [x] 4.3 Pull request description: the finding, the record's decision, the table of 1.2, and that no command changed
       its output.
+      *Pull request 580: the finding, ADR-0150's decision, the table of the assertions read by path, and "No command
+      changes its output".*

@@ -255,7 +255,7 @@ class SqliteSyncStateStorePersistenceTest {
     }
 
     private static long attempt(
-            com.morpheus.application.store.SyncStateStore target,
+            com.morpheus.application.sync.SyncStateStore target,
             ProjectSpecificationId project,
             Instant attemptedAt,
             Optional<SyncPlan.FullRebuildReason> reason) {
@@ -263,7 +263,7 @@ class SqliteSyncStateStorePersistenceTest {
     }
 
     private static long commit(
-            com.morpheus.application.store.SyncStateStore target,
+            com.morpheus.application.sync.SyncStateStore target,
             SourceInventory inventory,
             SyncPlan.SyncMode mode,
             Instant attemptedAt,
@@ -276,7 +276,7 @@ class SqliteSyncStateStorePersistenceTest {
     }
 
     private static long currentRevision(
-            com.morpheus.application.store.SyncStateStore target, ProjectSpecificationId project) {
+            com.morpheus.application.sync.SyncStateStore target, ProjectSpecificationId project) {
         return target.findSyncState(project).map(ProjectSyncState::revision).orElse(0L);
     }
 }

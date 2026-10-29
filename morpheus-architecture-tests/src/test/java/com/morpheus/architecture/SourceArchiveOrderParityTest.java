@@ -2,7 +2,7 @@ package com.morpheus.architecture;
 
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.store.ProjectStoreEntry;
-import com.morpheus.application.store.SyncStateStore;
+import com.morpheus.application.sync.SyncStateStore;
 import com.morpheus.application.sync.ProjectSyncState;
 import com.morpheus.application.sync.SourceArchivePage;
 import com.morpheus.application.sync.SourceArchiveRecord.ArchiveReason;

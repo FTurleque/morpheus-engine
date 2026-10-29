@@ -18,9 +18,6 @@ import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycle;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.constraint.Constraint;
-import com.morpheus.domain.constraint.ConstraintApplicability;
-import com.morpheus.domain.constraint.ConstraintBlockingMode;
-import com.morpheus.domain.constraint.ConstraintSatisfaction;
 import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.reference.ExternalReference;
@@ -129,8 +126,8 @@ public final class ChangeOrchestrationStateService {
             return new ChangeOrchestrationState.AvailabilityView(
                     "AVAILABLE", "No constraint is attached to this change", 0);
         }
-        long blocking = constraints.stream().filter(this::currentlyBlockingByExplicitPolicy).count();
-        long unknown = constraints.stream().filter(item -> !blockingKnowledgeKnown(item)).count();
+        long blocking = constraints.stream().filter(Constraint::isViolatedExplicitBlockingPolicy).count();
+        long unknown = constraints.stream().filter(item -> !item.hasKnownBlocking()).count();
         if (unknown == 0) {
             return new ChangeOrchestrationState.AvailabilityView(
                     "AVAILABLE",
@@ -147,28 +144,6 @@ public final class ChangeOrchestrationStateService {
                 "UNKNOWN",
                 "Constraint blocking semantics are not explicit for this change; UNKNOWN is not treated as blocking",
                 0);
-    }
-
-    private boolean blockingKnowledgeKnown(Constraint constraint) {
-        if (constraint.applicability() == ConstraintApplicability.NOT_APPLICABLE) {
-            return true;
-        }
-        if (constraint.applicability() == ConstraintApplicability.UNKNOWN) {
-            return false;
-        }
-        if (constraint.blockingPolicy().mode() == ConstraintBlockingMode.UNKNOWN) {
-            return false;
-        }
-        if (constraint.blockingPolicy().mode() == ConstraintBlockingMode.NON_BLOCKING) {
-            return true;
-        }
-        return constraint.satisfaction() != ConstraintSatisfaction.UNKNOWN;
-    }
-
-    private boolean currentlyBlockingByExplicitPolicy(Constraint constraint) {
-        return constraint.applicability() == ConstraintApplicability.APPLICABLE
-                && constraint.blockingPolicy().mode() == ConstraintBlockingMode.BLOCK_WHEN_VIOLATED
-                && constraint.satisfaction() == ConstraintSatisfaction.VIOLATED;
     }
 
     private List<ChangeTransitionEvaluation> transitionEvaluations(

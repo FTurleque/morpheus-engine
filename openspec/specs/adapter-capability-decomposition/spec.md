@@ -76,7 +76,7 @@ test written and passing before the move MUST prove it without being edited by t
 
 ### Requirement: An extraction SHALL NOT add a composition root
 
-An MCP capability class MUST NOT depend on a concrete store or provider: the named composition roots of ADR-0109 MUST
+An MCP capability class MUST NOT depend on a concrete store or provider: the named composition roots of ADR-0152 MUST
 NOT gain a name by an extraction. A CLI capability class MUST reach a provider only through a type that implements
 the provider port.
 

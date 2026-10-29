@@ -4,7 +4,7 @@ import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationAuditP
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationAuditRecord;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationStore;
 import com.morpheus.application.query.PageRequest;
-import com.morpheus.application.store.SyncStateStore;
+import com.morpheus.application.sync.SyncStateStore;
 import com.morpheus.application.sync.SourceArchivePage;
 import com.morpheus.application.sync.SourceArchiveRecord;
 import com.morpheus.domain.change.ChangeId;

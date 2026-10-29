@@ -172,7 +172,7 @@ SavedViewConflictException
 Port :
 
 ```text
-com.morpheus.application.store.SavedViewStore
+com.morpheus.application.query.saved.SavedViewStore
 ```
 
 Adapters :

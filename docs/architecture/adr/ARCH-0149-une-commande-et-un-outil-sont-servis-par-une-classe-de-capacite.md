@@ -22,7 +22,7 @@ Les contraintes, mesurées sur le code :
 
 - `MorpheusMain` est la classe principale que nomment la distribution (`jpackage`) et le JAR ombré : elle ne quitte pas
   `com.morpheus.cli` ;
-- `MorpheusMcpRuntime` est une racine de composition nommée d'ADR-0109 : elle ne change pas de nom, donc reste dans
+- `MorpheusMcpRuntime` est une racine de composition nommée d'ADR-0152 : elle ne change pas de nom, donc reste dans
   `com.morpheus.mcp` ;
 
 Options considérées pour dire où vit un comportement : une borne sur le nombre de méthodes de commande d'une classe
@@ -125,7 +125,7 @@ store que la liste autorisée de son adaptateur, exacte, réduite à ce que dist
 ## References
 
 - [ADR-0147](ARCH-0147-un-role-d-adaptateur-est-un-paquet.md) — un rôle de l'adaptateur HTTP est un paquet.
-- [ADR-0109](ARCH-0109-transport-adapters-are-named-composition-roots.md) — racines de composition nommées.
+- [ADR-0152](ARCH-0152-racines-de-composition-nommees-et-cycles-de-paquets-qui-ne-font-que-diminuer.md) — racines de composition nommées.
 - [ADR-0130](BE-0130-contrat-des-options-de-la-cli.md) — contrat des options de la CLI.
 - [ADR-0115](ARCH-0115-the-operational-runtime-is-a-value-the-launcher-hands-on.md) — les deux points d'entrée de
   la CLI.

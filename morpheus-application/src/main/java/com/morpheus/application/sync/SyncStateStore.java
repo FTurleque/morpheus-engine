@@ -1,12 +1,6 @@
-package com.morpheus.application.store;
+package com.morpheus.application.sync;
 
 import com.morpheus.application.query.PageRequest;
-import com.morpheus.application.sync.ProjectSyncState;
-import com.morpheus.application.sync.SourceArchivePage;
-import com.morpheus.application.sync.SourceArchiveRecord;
-import com.morpheus.application.sync.SourceInventory;
-import com.morpheus.application.sync.SyncStateConflictException;
-import com.morpheus.application.sync.SyncPlan;
 import com.morpheus.domain.project.ProjectSpecificationId;
 
 import java.time.Instant;
