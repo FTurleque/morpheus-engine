@@ -36,6 +36,7 @@ import org.junit.jupiter.api.Test;
  * module or a new dependency edge between test modules. {@link #theOwnersStayInStep()} is what keeps the copies
  * from drifting the way the private locators did.</p>
  */
+@CoherenceCheck
 class RepositoryRootOwnershipTest {
 
     /** The owner of each test module that reads repository files. */

@@ -3,6 +3,7 @@ package com.morpheus.architecture.m21;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.morpheus.architecture.CoherenceCheck;
 import com.morpheus.architecture.RepositoryRoot;
 import java.io.IOException;
 import java.io.Reader;
@@ -39,6 +40,7 @@ import org.junit.jupiter.api.io.TempDir;
  * exercised against fabricated
  * sets, so that a verifier that accepts anything fails here.</p>
  */
+@CoherenceCheck
 class CoverageQualificationEvidenceTest {
     private static final String COMMIT = "1111111111111111111111111111111111111111";
     private static final String OTHER_COMMIT = "2222222222222222222222222222222222222222";

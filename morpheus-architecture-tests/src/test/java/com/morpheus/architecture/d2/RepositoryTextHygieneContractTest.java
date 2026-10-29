@@ -1,5 +1,6 @@
 package com.morpheus.architecture.d2;
 
+import com.morpheus.architecture.CoherenceCheck;
 import com.morpheus.architecture.RepositoryRoot;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -31,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
  * Windows PowerShell 5.1 decodes a BOM-less file in the ANSI code page, and one non-ASCII byte was enough to stop
  * both hooks from parsing for a whole revision. Only the post-edit hook warned about it, and only locally.</p>
  */
+@CoherenceCheck
 class RepositoryTextHygieneContractTest {
 
     private static final Pattern USES = Pattern.compile("(?m)^\\s*(?:-\\s*)?uses:\\s*(\\S+)");
