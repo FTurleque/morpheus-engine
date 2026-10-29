@@ -8,6 +8,58 @@
 
 ---
 
+## État dans la nuit du 28 au 29 octobre 2026 — plus aucun constat Élevée
+
+La PR #580 vise les **deux derniers constats de sévérité Élevée**. Statuts établis sur `65a97b06`, chacun
+rouvert dans le code avant d'être accepté. Détail dans **`contre-verification-2026-10-28-nuit.md`**.
+
+**Les deux tiennent. Il n'y a plus aucun constat `Élevée` ouvert** — il y en avait onze le 9 octobre.
+
+**`AUD-ARC-01`** : le réseau est entièrement sorti de `morpheus-application`. Recensement complet, imports et
+usages pleinement qualifiés : 6 occurrences restantes, toutes `java.net.URI`, un type-valeur. Le transport vit
+derrière le port `UpdateManifestSource`, implémenté dans `morpheus-cli`. Deux choses au-delà du verdict : le
+gate ne **confine** plus la famille réseau, il la **refuse** dans tout le paquet ; et la liste des classes à
+accès fichier **rétrécit enfin**, de 12 à 11. La décision de sécurité — refus du schéma `http:`, borne de
+taille, délai — est restée du bon côté de la frontière.
+
+**`AUD-PRF-04`** : les trois journaux sont bornés en SQL, sans tri en mémoire. Le cas intéressant est
+`sync_source_archives`, dont l'ordre stable n'allait pas de soi — l'horodatage texte ne trie pas par temps
+quand la fraction change de longueur —, d'où une migration V023 qui ajoute une clé d'ordre, la remplit pour
+l'existant et crée son index. Un gate lance `EXPLAIN QUERY PLAN` par le vrai pilote et refuse un balayage de
+table ou un arbre temporaire.
+
+**`AUD-TST-20`** se ferme aussi, et le piège qu'il décrivait a été évité : l'ancienne règle, devenue sans
+sujet après la pagination, a été retirée plutôt que laissée à passer sur l'ensemble vide.
+
+**Build vert** : `./mvnw clean verify` sur les 19 modules en 10 min 51 — **4 692 tests, 0 échec, 13 skips**.
+
+**Un constat naît**, `AUD-ARC-18` : le transport sorti du cœur est arrivé dans `morpheus-cli`, qui n'a aucun
+gate de confinement technologique — `UpdateManifestFetcher` y apporte réseau, accès fichier et fils
+d'exécution d'un coup. Ce n'est pas une violation d'ADR-0150, dont la portée est la couche applicative : c'est
+une zone non couverte, et c'est le prix du déplacement, que l'ADR n'écrit pas.
+
+**Deux constats gagnent une preuve en situation.** `AUD-TRV-08` : le build est vert seulement parce que
+`.claude/worktrees` est vide ; `.gitignore` ne le couvre toujours pas et la PR a même aggravé l'un des deux
+gates concernés. `AUD-ARC-17` : la section « Mesure » d'ARCH-0150 n'a pas suivi son propre amendement — elle
+liste encore la classe qui vient d'en sortir et en omet une autre.
+
+**118 constats : 65 corrigés · 6 partiels · 20 toujours valides · 4 caducs · 22 Info qui tiennent ·
+1 non vérifiable.** **Les neuf premiers sprints du plan sont soldés.**
+
+Notes par axe de la contre-vérification de nuit, que le registre reproduit sans les recalculer :
+
+| Axe | 9 oct. | 26 oct. | 28 soir | **28-29 nuit** | |
+|---|---|---|---|---|---|
+| Performance | 28 | 77 | 81 | **91** | **+10** |
+| Sécurité | 75 | 96 | 88 | **88** | — |
+| Dépendances / exploitation | 36 | 83 | 86 | **86** | — |
+| Qualité | 46 | 70 | 84 | **84** | — |
+| Tests | 54 | 70 | 78 | **82** | +4 |
+| Architecture | 26 | 55 | 59 | **72** | **+13** |
+| **Moyenne** | 44 | 75 | 79 | **84** | **+5** |
+
+---
+
 ## État au 28 octobre 2026, au soir — dix-sept constats revérifiés, quatre constats neufs
 
 Une troisième passe du 28 octobre, faite sur `9c027eeb` (PR #579) sans réseau ni build Linux, est consignée dans
