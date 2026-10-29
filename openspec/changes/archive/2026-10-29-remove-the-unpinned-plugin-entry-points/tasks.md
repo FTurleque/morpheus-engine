@@ -70,14 +70,16 @@
 
 ## 6. Verification
 
-- [ ] 6.1 `./mvnw clean verify` and `./mvnw dependency:analyze`. Proof: green, zero warning, both platforms through the
+- [x] 6.1 `./mvnw clean verify` and `./mvnw dependency:analyze`. Proof: green, zero warning, both platforms through the
       required checks; the M22 and trust-boundary gates named individually in the pull request.
       Open: not run locally (the lot ran the SDK suite, the three gates, `UnreferencedPublicMethodArchitectureTest`,
       `RepositoryDocumentationCoherenceTest`, `RefusalTestEvidenceArchitectureTest`, `SilentCatchArchitectureTest`,
       `D2RepositoryHardeningArchitectureTest` and `dependency:analyze` on the touched modules, all green); left to CI.
+      **2026-10-29**: PR #583, merged as `b0368076`: `MORPHEUS CI / exact-head` green on `ubuntu-latest` and `windows-latest` at the merged head `e0e40750`; changed-line coverage 94.12 % lines / 90 % branches.
 - [x] 6.2 Presence ratchets: one test removed, several added; `testsMinimum` and `architectureTestsMinimum` are read
       from `config/m21-quality-ratchets.properties` and never lowered.
       Done: one SDK test removed, three added; one architecture test method added, none removed; no ratchet touched.
-- [ ] 6.3 Pull request description: the finding, the mapping from each former assertion to its replacement, the three
+- [x] 6.3 Pull request description: the finding, the mapping from each former assertion to its replacement, the three
       breaks, the justification for a change under `morpheus-architecture-tests/`.
       Open: no pull request opened by the lot; the mapping and the breaks are written in 3.4 and 4.x.
+      **2026-10-29**: written in the description of PR #583, which carries the four sprint 10 lots.

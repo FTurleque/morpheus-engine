@@ -96,15 +96,19 @@
 
 ## 6. Verification
 
-- [ ] 6.1 `./mvnw clean verify` and `./mvnw dependency:analyze`. Proof: green, zero warning, both platforms through the
+- [x] 6.1 `./mvnw clean verify` and `./mvnw dependency:analyze`. Proof: green, zero warning, both platforms through the
       required checks. **2026-10-28**: `dependency:analyze` green locally; `clean verify` is run once on the merged
       sprint 10 branch and by the required checks.
-- [ ] 6.2 The real-process tests of the transport and the two peer integrations (they start child JVMs by class).
+      **2026-10-29**: PR #583, merged as `b0368076`: `MORPHEUS CI / exact-head` green on `ubuntu-latest` and `windows-latest` at the merged head `e0e40750`; changed-line coverage 94.12 % lines / 90 % branches.
+- [x] 6.2 The real-process tests of the transport and the two peer integrations (they start child JVMs by class).
       Proof: green on both platforms; no orphan JVM left behind. **2026-10-28**: green on Windows, no JVM of the
       worktree left; Linux through the required checks.
-- [ ] 6.3 Coverage evidence of both scales: the population is the same modules. Proof: `population=` unchanged in the
+      **2026-10-29**: PR #583, merged as `b0368076`: `MORPHEUS CI / exact-head` green on `ubuntu-latest` and `windows-latest` at the merged head `e0e40750`; changed-line coverage 94.12 % lines / 90 % branches.
+- [x] 6.3 Coverage evidence of both scales: the population is the same modules. Proof: `population=` unchanged in the
       aggregate evidence. `architectureTestsMinimum` never lowered. **2026-10-28**: no module added or removed, six
       architecture tests added; the evidence comes from the integration's `clean verify`.
-- [ ] 6.4 Pull request description: the finding, the tables of 1.2 and 1.4, the answer to 0.1, the breaks of 4.x, the
+      **2026-10-29**: PR #583, merged as `b0368076`: `MORPHEUS CI / exact-head` green on `ubuntu-latest` and `windows-latest` at the merged head `e0e40750`; changed-line coverage 94.12 % lines / 90 % branches. `architectureTestsMinimum` stays at 813, not lowered.
+- [x] 6.4 Pull request description: the finding, the tables of 1.2 and 1.4, the answer to 0.1, the breaks of 4.x, the
       justification for a change under `morpheus-architecture-tests/`. **2026-10-28**: the material is in this file
       for the integrator's description.
+      **2026-10-29**: written in the description of PR #583, which carries the four sprint 10 lots.

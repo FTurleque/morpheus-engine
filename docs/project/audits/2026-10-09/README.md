@@ -8,6 +8,20 @@
 
 ---
 
+## État au 29 octobre 2026 — sprint 10 soldé
+
+La PR #583, fusionnée sur `develop` en `b0368076`, ferme les quatre constats ouverts du sprint 10, chacun revérifié
+dans le code fusionné : `AUD-ARC-07` (le transport MCP partagé vit dans `com.morpheus.transport.mcp`, et
+`ModulePackageCorrespondenceTest` exige de chaque module le préfixe de paquet qui lui correspond), `AUD-ARC-08`
+(`com.morpheus.sdk` est sujet d'une règle, et les sujets annoncés sont comparés aux règles), `AUD-ARC-11` (la
+réflexion et le chargement de classes n'existent que dans des classes nommées, règle sur le bytecode doublée d'un
+scan du texte) et `AUD-QUA-11` (shims retirés, activateur non public, le probe épinglé seule entrée publique vers du
+code de plugin).
+
+**118 constats : 69 corrigés · 5 partiels · 17 toujours valides · 4 caducs · 22 Info qui tiennent ·
+1 non vérifiable.** **Les dix premiers sprints du plan sont soldés** ; il reste 6 constats du plan du 9 octobre et
+16 du sprint 15.
+
 ## État dans la nuit du 28 au 29 octobre 2026 — plus aucun constat Élevée
 
 La PR #580 vise les **deux derniers constats de sévérité Élevée**. Statuts établis sur `65a97b06`, chacun

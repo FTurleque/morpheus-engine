@@ -87,9 +87,12 @@
 
 ## 5. Verification
 
-- [ ] 5.1 `./mvnw clean verify`. Proof: green through the required checks, both platforms.
+- [x] 5.1 `./mvnw clean verify`. Proof: green through the required checks, both platforms.
       *Left to the integrator of the sprint 10 lot.*
-- [ ] 5.2 `architectureTestsMinimum` raised if the lot chooses to, never lowered.
+      **2026-10-29**: PR #583, merged as `b0368076`: `MORPHEUS CI / exact-head` green on `ubuntu-latest` and `windows-latest` at the merged head `e0e40750`; changed-line coverage 94.12 % lines / 90 % branches.
+- [x] 5.2 `architectureTestsMinimum` raised if the lot chooses to, never lowered.
       *Not raised here: six declared executions are added; the integrator decides on the measured total.*
-- [ ] 5.3 Pull request description: the finding, the measured lists of 1.1 and 1.2 beside the audit's count, the
+      **2026-10-29**: not raised (813, never lowered); 845 declared executions measured on Windows only, the raise waits for identical Linux and Windows runs.
+- [x] 5.3 Pull request description: the finding, the measured lists of 1.1 and 1.2 beside the audit's count, the
       breaks, the justification for a change under `morpheus-architecture-tests/`.
+      **2026-10-29**: written in the description of PR #583, which carries the four sprint 10 lots.
