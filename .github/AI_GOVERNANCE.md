@@ -60,7 +60,7 @@ ce paramétrage : elle reste entière.
 
 ## Ce que les tests vérifient
 
-`RepositoryDocumentationCoherenceTest` scanne `.claude/CLAUDE.md`, ce document,
+`GovernanceSurfaceCoherenceTest` scanne `.claude/CLAUDE.md`, ce document,
 `.claude/commands/`, `.claude/agents/`, `.claude/rules/` et `.claude/skills/` à la recherche
 de chiffres périssables (version de schéma SQLite, totaux d'ADR ou de modules). La liste de ces
 surfaces **refuse** une surface absente au lieu de scanner moins : une surface se retire en
