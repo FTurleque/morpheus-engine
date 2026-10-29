@@ -12,7 +12,6 @@ import com.morpheus.application.query.ConstraintEvaluationQueryService;
 import com.morpheus.application.query.dsl.QueryExecutionService;
 import com.morpheus.application.composition.CompositionStateStore;
 import com.morpheus.application.store.ExternalReferenceStore;
-import com.morpheus.application.store.PolicyPackStore;
 import com.morpheus.application.store.PortfolioStore;
 import com.morpheus.application.store.SnapshotBusinessContentStore;
 import com.morpheus.application.store.SpecificationKnowledgeStore;

@@ -167,7 +167,7 @@ Ce qu'un transport tient de `SqliteOperationRuntime` et `SqliteServerMaintenance
 
 ## References
 
-- [ADR-0109](../ARCH-0109-transport-adapters-are-named-composition-roots.md) — racines de composition nommées des
+- [ADR-0109](0109-transport-adapters-are-named-composition-roots.md) — racines de composition nommées des
   transports.
 - [ADR-0147](../ARCH-0147-un-role-d-adaptateur-est-un-paquet.md) — rôles de l'adaptateur HTTP en paquets.
 - [ADR-0104](0104-two-coverage-scales-share-one-population.md) — population de couverture.

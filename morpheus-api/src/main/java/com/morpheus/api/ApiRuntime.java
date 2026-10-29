@@ -10,11 +10,11 @@ import com.morpheus.application.query.dsl.QueryExecutionService;
 import com.morpheus.application.query.export.QueryExportService;
 import com.morpheus.application.query.saved.SavedViewService;
 import com.morpheus.application.store.ExternalReferenceStore;
-import com.morpheus.application.store.PolicyPackStore;
+import com.morpheus.application.policy.PolicyPackStore;
 import com.morpheus.application.store.PortfolioStore;
 import com.morpheus.application.store.SnapshotBusinessContentStore;
 import com.morpheus.application.store.SpecificationKnowledgeStore;
-import com.morpheus.application.store.SyncStateStore;
+import com.morpheus.application.sync.SyncStateStore;
 import com.morpheus.application.store.TraceabilityStore;
 import com.morpheus.application.store.VersionedRequirementStore;
 import com.morpheus.store.sqlite.runtime.SqliteOperationRuntime;
@@ -27,7 +27,7 @@ import java.util.Objects;
  *
  * <p>Every store an operation asks for shares one physical, thread-confined SQLite connection and one schema check,
  * and is built the first time it is asked for. The accessors answer application ports: a service that reads through
- * this runtime depends on no SQLite type, which is what keeps it out of the composition roots of ADR-0109.</p>
+ * this runtime depends on no SQLite type, which is what keeps it out of the composition roots of ADR-0152.</p>
  */
 public final class ApiRuntime implements AutoCloseable {
     private final SqliteOperationRuntime operation;

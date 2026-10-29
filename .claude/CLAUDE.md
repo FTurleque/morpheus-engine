@@ -100,10 +100,10 @@ Les adaptateurs dépendent vers l'intérieur. Les adaptateurs sont **frères** �
                           └─────────────┘
 ```
 
-Exception écrite et bornée (ADR-0109) : `api` et `mcp` construisent le runtime de chaque requête HTTP ou appel
+Exception écrite et bornée (ADR-0152) : `api` et `mcp` construisent le runtime de chaque requête HTTP ou appel
 d'outil MCP à partir de `store-sqlite` (et, pour la synchronisation HTTP, du provider OpenSpec), **uniquement** par
 les racines de composition nommées dans `AdapterCompositionRootArchitectureTest`. Cette liste ne fait que rétrécir ;
-une nouvelle classe qui veut un store concret passe par une racine existante, ou par un ADR consolidé qui remplace ADR-0109 et la nomme.
+une nouvelle classe qui veut un store concret passe par une racine existante, ou par un ADR consolidé qui remplace ADR-0152 et la nomme.
 
 ## Commandes
 
@@ -130,7 +130,7 @@ Gates actifs : **M19** (perf, lane nocturne — pas dans `clean verify`) · **M2
 
 | Fichier | Rôle |
 |---|---|
-| `morpheus-cli/.../MorpheusMain.java` | Câblage du processus (les runtimes par requête : racines nommées d'ADR-0109) |
+| `morpheus-cli/.../MorpheusMain.java` | Câblage du processus (les runtimes par requête : racines nommées d'ADR-0152) |
 | `morpheus-cli/.../command/` | Classes de capacité de la CLI, une par famille du manifeste (ADR-0149) |
 | `morpheus-mcp/.../server/MorpheusMcpServer.java` | Serveur MCP STDIO ; ses outils sont les classes de capacité de `com.morpheus.mcp` |
 | `morpheus-api/.../MorpheusHttpServer.java` | Serveur local (loopback obligatoire) |

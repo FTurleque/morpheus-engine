@@ -68,7 +68,7 @@ lui-même, pas pour ses voisins. Un type ne s'ajoute à la liste que par un ADR.
 Une liste de noms de classes de l'adaptateur qui subsiste dans les tests d'architecture est de l'une de deux sortes :
 
 - un **compteur de dette** : ce qu'un ensemble de classes fait aujourd'hui et doit cesser de faire, exact dans les
-  deux sens, qui ne fait que rétrécir, sous l'ADR qui le dit (`COMPOSITION_ROOTS`, ADR-0109) ;
+  deux sens, qui ne fait que rétrécir, sous l'ADR qui le dit (`COMPOSITION_ROOTS`, ADR-0152) ;
 - une **table de faits** : la table contient exactement les classes dont un fait énoncé est vrai, chaque entrée
   avec sa raison ou la table entière avec la sienne (les tables de `HttpPathReadingArchitectureTest`, dont chaque
   entrée dit ce qu'elle fait du chemin ; la liste d'entrée du point 3, exactement les types qu'un autre module
@@ -138,7 +138,7 @@ propre changement.
 
 ## References
 
-- [ADR-0109](ARCH-0109-transport-adapters-are-named-composition-roots.md) — racines de composition nommées.
+- [ADR-0152](ARCH-0152-racines-de-composition-nommees-et-cycles-de-paquets-qui-ne-font-que-diminuer.md) — racines de composition nommées.
 - [ADR-0065](ARCH-0065-jdk-httpserver-local-api.md) — API HTTP sur `jdk.httpserver`.
 - Changement OpenSpec `express-adapter-internal-roles-as-packages` : mesures (tâche 1) et notes des tâches 2 à 5.
 - `.claude/rules/architecture.md`

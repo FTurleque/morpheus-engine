@@ -1,6 +1,5 @@
 package com.morpheus.application.quality;
 
-import com.morpheus.application.constraint.ConstraintPolicyEvaluationService;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.RequirementVersionRecord;
 import com.morpheus.application.store.SnapshotBusinessContent;
@@ -11,9 +10,7 @@ import com.morpheus.application.store.VersionedRequirementStore;
 import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.constraint.Constraint;
-import com.morpheus.domain.constraint.ConstraintApplicability;
 import com.morpheus.domain.constraint.ConstraintEvaluationState;
-import com.morpheus.domain.constraint.ConstraintSeverity;
 import com.morpheus.domain.diagnostic.DiagnosticSeverity;
 import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.project.ProjectSpecificationId;
@@ -42,7 +39,6 @@ public final class ChangeCompletenessService {
     private final SnapshotBusinessContentStore contentStore;
     private final VersionedRequirementStore requirementStore;
     private final TraceabilityStore traceabilityStore;
-    private final ConstraintPolicyEvaluationService constraintPolicy = new ConstraintPolicyEvaluationService();
 
     public ChangeCompletenessService(
             SpecificationKnowledgeStore snapshotStore,
@@ -125,8 +121,7 @@ public final class ChangeCompletenessService {
         QualityFactValue criticalConstraintsKnown;
         if (changeConstraints.isEmpty()) {
             criticalConstraintsKnown = QualityFactValue.UNAVAILABLE;
-        } else if (changeConstraints.stream().allMatch(item -> item.applicability() != ConstraintApplicability.UNKNOWN
-                && item.severity() != ConstraintSeverity.UNKNOWN)) {
+        } else if (changeConstraints.stream().allMatch(Constraint::hasKnownApplicabilityAndSeverity)) {
             criticalConstraintsKnown = QualityFactValue.TRUE;
         } else {
             criticalConstraintsKnown = QualityFactValue.UNAVAILABLE;
@@ -139,7 +134,7 @@ public final class ChangeCompletenessService {
                 : currentRequirementCount > 0 ? QualityFactValue.FALSE : QualityFactValue.UNAVAILABLE;
 
         var implementationEvaluations = changeConstraints.stream()
-                .map(item -> constraintPolicy.evaluate(item, ChangeLifecycleState.IMPLEMENTING))
+                .map(item -> item.evaluateFor(ChangeLifecycleState.IMPLEMENTING))
                 .toList();
         QualityFactValue knownBlocker;
         if (implementationEvaluations.stream().anyMatch(item -> item.state() == ConstraintEvaluationState.BLOCKING)) {

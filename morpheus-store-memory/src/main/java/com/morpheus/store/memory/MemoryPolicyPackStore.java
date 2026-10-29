@@ -10,7 +10,7 @@ import com.morpheus.application.policy.PolicyScope;
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.store.EntityNotFoundException;
 import com.morpheus.application.store.EntityStateException;
-import com.morpheus.application.store.PolicyPackStore;
+import com.morpheus.application.policy.PolicyPackStore;
 
 import java.util.ArrayList;
 import java.util.List;

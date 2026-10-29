@@ -14,7 +14,7 @@ import com.morpheus.application.query.saved.SavedViewStatus;
 import com.morpheus.application.query.saved.SavedViewVersion;
 import com.morpheus.application.store.EntityNotFoundException;
 import com.morpheus.application.store.KnowledgeStoreException;
-import com.morpheus.application.store.SavedViewStore;
+import com.morpheus.application.query.saved.SavedViewStore;
 import com.morpheus.store.sqlite.runtime.SqliteStoreConnection;
 import com.morpheus.store.sqlite.runtime.SqliteTransactionRunner;
 

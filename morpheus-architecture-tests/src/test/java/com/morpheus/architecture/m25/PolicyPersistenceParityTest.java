@@ -7,7 +7,7 @@ import com.morpheus.application.policy.PolicyPackService;
 import com.morpheus.application.policy.PolicyRule;
 import com.morpheus.application.policy.PolicyScope;
 import com.morpheus.application.query.PageRequest;
-import com.morpheus.application.store.PolicyPackStore;
+import com.morpheus.application.policy.PolicyPackStore;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.identity.DomainIdentity;

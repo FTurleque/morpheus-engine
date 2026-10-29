@@ -44,6 +44,9 @@ class ReasoningPlatformArchitectureTest {
         assertFalse(lower.contains("processbuilder"));
         assertFalse(lower.contains("runtime.getruntime"));
         assertFalse(lower.contains("com.morpheus.application.store"));
+        assertFalse(lower.contains("policypackstore"));
+        assertFalse(lower.contains("savedviewstore"));
+        assertFalse(lower.contains("syncstatestore"));
         assertFalse(lower.contains("com.morpheus.application.lifecycle.mutation"));
     }
 

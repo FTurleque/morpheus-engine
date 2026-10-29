@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.store.ProjectStoreEntry;
-import com.morpheus.application.store.SyncStateStore;
+import com.morpheus.application.sync.SyncStateStore;
 import com.morpheus.application.sync.IncrementalSyncService;
 import com.morpheus.application.sync.ProjectSyncState;
 import com.morpheus.application.sync.SourceFingerprint;
