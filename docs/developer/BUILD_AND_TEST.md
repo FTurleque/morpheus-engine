@@ -60,9 +60,9 @@ Linux :
 Le workflow `MORPHEUS CI` exécute le même gate exact-head sur Windows et Ubuntu pour les pull requests ainsi que sur les pushes `main` et `develop`.
 
 ```text
-baseline Surefire écrits       >= 2821
-baseline Surefire générés     >= 1816
-baseline architecture          >= 813
+baseline Surefire écrits       >= 2876
+baseline Surefire générés     >= 1819
+baseline architecture          >= 836
 JaCoCo aggregate line ratchet     >= 91.2%
 JaCoCo aggregate branch ratchet   >= 77.3%
 JaCoCo per-module line ratchet    >= 71.2%

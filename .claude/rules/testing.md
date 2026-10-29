@@ -8,13 +8,13 @@ sources différentes du repo (`rules/testing.md`, `rules/governance.md`, `docs/R
 citaient chacune un chiffre différent au 31/08/2026. **Avant toute décision de gouvernance
 ou de coverage, relire le fichier properties, pas cette page.**
 
-Valeur constatée en lisant `config/m21-quality-ratchets.properties` (28/10/2026) :
+Valeur constatée en lisant `config/m21-quality-ratchets.properties` (29/10/2026) :
 
 | Clé | Valeur constatée |
 |---|---|
-| `testsMinimum` | 2821 (exécutions de méthodes déclarées) |
-| `generatedTestsMinimum` | 1816 (exécutions générées par une fabrique) |
-| `architectureTestsMinimum` | 813 (exécutions déclarées du module d'architecture) |
+| `testsMinimum` | 2876 (exécutions de méthodes déclarées) |
+| `generatedTestsMinimum` | 1819 (exécutions générées par une fabrique) |
+| `architectureTestsMinimum` | 836 (exécutions déclarées du module d'architecture) |
 | `aggregateLineCoverageMinimum` | 0.912 (91.2%) |
 | `aggregateBranchCoverageMinimum` | 0.773 (77.3%) |
 | `perModuleLineCoverageMinimum` | 0.712 (71.2%) |
@@ -175,6 +175,10 @@ Dispersion : 15 lignes / 5 branches par module, 13 / 5 en agrégé, dans la réf
 haut millième qui en garde trois fois : par module `0.712` (**78 lignes**) et `0.625` (**36 branches**), agrégé `0.912`
 (**84 lignes**) et `0.773` (**42 branches**). `architectureTestsMinimum` passe à `813`, dix sous les 823 exécutions
 identiques des quatre runs.
+
+Le 29/10/2026, les trois ratchets de présence montent, sans toucher à la couverture : `2876 / 1819 / 836`, dix
+sous les 2 886 / 1 829 / 846 exécutions identiques des quatre runs de `develop` à `63e6f1cb` (run `40875102300`
+`push`, run `40870856270` `pull_request` de la PR #584, mêmes sources), Linux et Windows.
 
 **Cette marge est exécutable** : `CoverageQualificationEvidenceTest#everyCoverageRatchetKeepsThreeTimesTheSpreadUnderTheLowestKeptMeasurement`
 la calcule sur `config/coverage-qualification/` — plus basse mesure conservée moins ce qu'exige le ratchet, en lignes
