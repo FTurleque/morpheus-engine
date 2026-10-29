@@ -32,7 +32,7 @@ couvre légèrement moins de lignes à nombre de tests identique.
 `CoverageScaleSeparationTest` fait échouer le build si un gate lit une clé, un rapport ou une
 preuve de l'autre échelle. **Ne jamais comparer un ratio par module à un seuil agrégé, ni
 l'inverse.** Le *pourquoi* est dans
-`docs/architecture/adr/GEN-0104-two-coverage-scales-share-one-population.md` : la lire avant de toucher à une
+`docs/architecture/adr/GEN-0152-deux-echelles-de-couverture-et-le-credit-emprunte.md` : la lire avant de toucher à une
 clé, à un plafond ou à la population mesurée.
 
 Conséquence pratique quand on écrit des tests pour faire monter l'échelle par module : un
@@ -40,12 +40,28 @@ rapport par module ne crédite que les tests **du module qui porte la ligne**. U
 `morpheus-application` exercé uniquement par des tests de `morpheus-api` y lit comme non
 couvert, et un test ajouté sous `morpheus-architecture-tests` n'y déplace rien du tout.
 
+## Le maximum du crédit emprunté se baisse, il ne se relève pas
+
+`borrowedLineCreditMaximum` / `borrowedBranchCreditMaximum` bornent le total de ce que les modules
+doivent aux tests des autres (`BorrowedCoverageGateTest`). La direction est l'inverse d'un ratchet :
+
+- la mesure qualifiée est la plus **haute** des runs exact-head Windows et Linux, citée dans le
+  gate avec son SHA et ses runs ;
+- le maximum se place **au-dessus**, d'au plus trois fois la dispersion de référence, en lignes et
+  en branches séparément ; le gate refuse un maximum sous la mesure qualifiée (une plateforme ne
+  pourrait pas le tenir) et un maximum au-delà de cette marge ;
+- le **baisser** dans cette fenêtre est une décision ; baisser la mesure qualifiée exige une
+  nouvelle mesure des deux plateformes. Le relever pour faire passer un build est interdit : le
+  remède est un test dans le module que la preuve nomme.
+
+Ces deux clés ne se calculent jamais à partir d'un ratchet de couverture, et inversement.
+
 ## Calculer la marge en lignes et en branches, jamais en points
 
 Un ratchet collé à la mesure transforme une variation ordinaire de runner en échec de build. La
 marge se calcule sur les populations réelles de lignes et de branches, pas en points de
 pourcentage : les deux clés ne se resserrent pas au même rythme, et la branche est la plus
-serrée des deux. Rien n'oblige à les faire bouger ensemble — ADR-0104 interdit seulement de les
+serrée des deux. Rien n'oblige à les faire bouger ensemble — ADR-0152 interdit seulement de les
 aligner sur une moyenne.
 
 ## Obtenir la moitié Linux d'une preuve

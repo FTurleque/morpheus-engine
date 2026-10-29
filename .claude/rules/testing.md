@@ -59,7 +59,16 @@ Deux gates mesurent la couverture et ne mesurent **pas la même grandeur**. Jusq
 
 **Même population, attribution différente.** Les deux échelles portent sur les mêmes modules — tout module du réacteur qui porte une classe sous `src/main/java`, **outillage de vérification compris** (`morpheus-store-memory`, `morpheus-provider-synthetic`, `morpheus-provider-testkit`, `morpheus-provider-reference`) — et ne diffèrent que par les exécutions autorisées à créditer une ligne. `AggregateCoverageGateTest` dérive cette population du POM racine, refuse un rapport agrégé qui en mesure une autre, et la nomme dans sa preuve (`population=`). Garder l'outillage dans le dénominateur est un choix : mesuré le 11/09/2026, il déplace le ratio agrégé de 0,15 point, et l'en retirer laisserait `AGGREGATE_QUALIFIED_*` plafonner une population sur laquelle il n'a jamais été mesuré.
 
-La décision et ses raisons — séparation des échelles, population commune, maintien de l'outillage, exigences d'une hausse de plafond — sont consignées dans **ADR-0104** (`docs/architecture/adr/GEN-0104-two-coverage-scales-share-one-population.md`). La lire avant de toucher à une clé, à un plafond qualifié ou à la population.
+La décision et ses raisons — séparation des échelles, population commune, maintien de l'outillage, exigences d'une hausse de plafond, crédit emprunté — sont consignées dans **ADR-0152** (`docs/architecture/adr/GEN-0152-deux-echelles-de-couverture-et-le-credit-emprunte.md`). La lire avant de toucher à une clé, à un plafond qualifié, à la population ou au maximum du crédit emprunté.
+
+### Le crédit emprunté : une troisième grandeur, pas une échelle
+
+Pour chaque module de la population, `BorrowedCoverageGateTest` (`morpheus-coverage-report`) compte les lignes et les branches que le rapport agrégé couvre et que le rapport propre du module ne couvre pas : ce que sa couverture doit aux tests qui vivent ailleurs. Il écrit `target/m21-borrowed-coverage-summary.txt` (`coverageScope=borrowed-credit`, une ligne par module) et tient deux propriétés :
+
+- la liste **exacte** des classes entièrement empruntées (lignes exécutables, aucune couverte par le module, au moins une par l'agrégé) : une classe non listée échoue en se nommant, une classe listée qui a gagné un test de son module échoue jusqu'à ce que son entrée parte. La liste ne fait que rétrécir ;
+- un **maximum** du total, `borrowedLineCreditMaximum` / `borrowedBranchCreditMaximum`. C'est l'inverse d'un ratchet : il ne fait que **baisser**, il est qualifié sur la plus **haute** mesure exact-head des deux plateformes, et le gate refuse un maximum sous cette mesure comme un maximum à plus de trois fois la dispersion de référence au-dessus.
+
+Ce n'est pas une échelle : aucun seuil de couverture n'en est dérivé, et elle n'est dérivée d'aucun. `CoverageScaleSeparationTest` refuse qu'un gate lise les clés ou la preuve d'une autre grandeur. Faire baisser le crédit, c'est écrire un test **dans le module qui porte la ligne** ; un test sous `morpheus-architecture-tests` le fait monter.
 
 Chaque gate applique **deux** niveaux :
 
@@ -121,7 +130,7 @@ ratchet collé à la mesure transformerait une variation ordinaire en échec de 
 `0.620 / 0.535`, laisse **146 lignes et 30 branches** de marge sur l'échelle par module — soit 6,1 fois la
 variation inter-plateforme en lignes, mais seulement 2,8 fois en branches. **C'est la branche qui est serrée,
 pas la ligne** : un relèvement ultérieur dans ce plafond doit traiter les deux clés séparément, et rien
-n'oblige à les faire bouger ensemble (ADR-0104 §5 interdit seulement de les aligner sur une moyenne). L'échelle agrégée compte une autre population
+n'oblige à les faire bouger ensemble (ADR-0152 interdit seulement de les aligner sur une moyenne). L'échelle agrégée compte une autre population
 de lignes et sa marge se lit dans `AggregateCoverageGateTest`.
 
 Le 22/09/2026 la seule clé ligne passe de `0.640` à `0.642`, dans le même plafond et sans mesure nouvelle :
@@ -201,7 +210,7 @@ Voir `rules/meta.md`.
 
 - Écrire un test de reproduction qui échoue **avant** de corriger un bug
 - JUnit 5 (Jupiter) exclusivement — le projet est sur `junit-bom` (voir `rules/build.md` pour la version exacte, elle évolue)
-- Utiliser `morpheus-store-memory` ou `morpheus-provider-synthetic` en test ; jamais SQLite en unitaire
+- Utiliser `morpheus-store-memory` ou `morpheus-provider-synthetic` en test ; jamais SQLite en unitaire. Exception : dans `morpheus-application`, dont ces deux modules dépendent, une dépendance de test serait un cycle du réacteur — ses tests implémentent à la main les ports qu'ils lisent, chaque double réduit à ce que son test lit
 - Utiliser les fixtures de `experiments/m0/fixtures/` (`openspec-basic`, `synthetic-basic`)
 - Trouver la racine du dépôt et une fixture M0 par la classe `RepositoryRoot` du module de test (`locate()`,
   `fixture(name)`) : jamais de remontée privée depuis le répertoire de travail, quel que soit son nom.

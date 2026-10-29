@@ -118,6 +118,16 @@ Où lire ce qu'il reste : la preuve de chaque gate (`m21-per-module-coverage-sum
 
 Chaque gate écrit sa propre preuve, dont la première ligne déclare l'échelle mesurée : `CoverageQualityGateTest` écrit `morpheus-architecture-tests/target/m21-per-module-coverage-summary.txt` (`coverageScope=per-module`) et `AggregateCoverageGateTest` écrit `morpheus-architecture-tests/target/m21-aggregate-coverage-summary.txt` (`coverageScope=aggregate`). Les deux fichiers portent la couverture observée, la baseline qualifiée, le ratchet actif et les minima D2 ; la preuve agrégée nomme en outre les modules qu'elle a mesurés (`population=`). Les validateurs refusent de conclure sur une preuve dont l'échelle n'est pas celle qu'ils attendent.
 
+### Le crédit emprunté aux tests des autres modules
+
+Les deux échelles comptent les mêmes lignes et les mêmes branches pour chaque module ; ce qui les sépare est ce que la couverture d'un module doit aux tests qui vivent ailleurs. `BorrowedCoverageGateTest` (`morpheus-coverage-report`, phase `verify`, après le rapport agrégé) le compte par module, en lignes et en branches, et l'écrit dans `morpheus-architecture-tests/target/m21-borrowed-coverage-summary.txt`, dont la première ligne est `coverageScope=borrowed-credit` : ce n'est ni une échelle ni une preuve de couverture, et les validateurs refusent d'y conclure. Le gate échoue :
+
+- quand une classe n'est couverte que par les tests d'autres modules sans figurer dans sa liste exacte, ou quand une classe listée a gagné un test de son propre module et que son entrée n'est pas retirée ;
+- quand le total dépasse `borrowedLineCreditMaximum` / `borrowedBranchCreditMaximum` (`config/m21-quality-ratchets.properties`), en nommant les modules dont le crédit a crû. Ce maximum ne fait que baisser ; il est qualifié sur la plus **haute** mesure des deux plateformes ;
+- quand les deux rapports d'un module ne comptent pas les mêmes lignes ou branches, quand le rapport propre couvre plus que l'agrégé, ou quand un rapport manque ou est périmé.
+
+Le remède est un test dans le module qui porte la ligne. `morpheus-application` ne peut pas dépendre de `morpheus-store-memory` ni de `morpheus-provider-synthetic`, qui dépendent de lui : ses tests implémentent à la main les ports qu'ils lisent. La décision est [ADR-0152](../architecture/adr/GEN-0152-deux-echelles-de-couverture-et-le-credit-emprunte.md).
+
 ## Frontière HTTP des corps de requête
 
 Toutes les routes HTTP locales lisent leur corps par `MorpheusHttpRequestDecoder`, celui du serveur : les treize routeurs construits par `MorpheusHttpServer` le reçoivent à la construction, les contextes Query/Saved Views/Export, Policy, Policy Management et Reasoning le reçoivent à `register(...)`. Le décodeur lit par la primitive partagée `HttpRequestBodyReader`, qui délègue à `TimedBoundedInputReader`. La politique active est :
