@@ -4,7 +4,6 @@ import com.morpheus.application.operability.OperationalEventSink;
 import com.morpheus.application.operability.OperationalMetrics;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.PageRequest;
-import com.morpheus.application.store.SyncStateStore;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import org.junit.jupiter.api.Test;
 

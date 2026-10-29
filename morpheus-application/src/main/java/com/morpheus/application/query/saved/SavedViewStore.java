@@ -1,10 +1,6 @@
-package com.morpheus.application.store;
+package com.morpheus.application.query.saved;
 
 import com.morpheus.application.query.dsl.QueryScope;
-import com.morpheus.application.query.saved.SavedViewDefinition;
-import com.morpheus.application.query.saved.SavedViewEntry;
-import com.morpheus.application.query.saved.SavedViewId;
-import com.morpheus.application.query.saved.SavedViewVersion;
 
 import java.time.Instant;
 import java.util.List;
