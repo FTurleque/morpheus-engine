@@ -56,7 +56,7 @@ JDBC (`org.xerial:sqlite-jdbc`), dont la version est verrouillée dans le `pom.x
 `sqlite-jdbc.version`) et suivie par la maintenance normale. Le driver peut être remplacé sans modifier le domaine.
 
 SQLite n'est visible ni dans le domaine, ni dans les services applicatifs, ni dans les DTO publics, ni dans les
-contrats MCP et API. Les stores concrets sont construits par les racines de composition (ADR-0109).
+contrats MCP et API. Les stores concrets sont construits par les racines de composition (ADR-0152).
 
 ```text
 Graph model = yes
@@ -175,7 +175,7 @@ Critères de réouverture :
 - [ADR-0133](GEN-0133-toolchain-java-21-et-maven-wrapper.md) — baseline Java 21.
 - [ADR-0021](DATA-0021-sqlite-schema-migrations-foundation.md) — fondation des migrations SQLite.
 - [ADR-0110](DATA-0110-a-copy-is-kept-before-the-schema-advances.md) — copie conservée avant migration.
-- [ADR-0109](ARCH-0109-transport-adapters-are-named-composition-roots.md) — racines de composition nommées.
+- [ADR-0152](ARCH-0152-racines-de-composition-nommees-et-cycles-de-paquets-qui-ne-font-que-diminuer.md) — racines de composition nommées.
 - [VALIDATION_M0](../../project/validation/VALIDATION_M0.md) — preuve du jalon M0.
 - [Registre des risques](../risks/register.md) — l'unique backend persistant y est tenu pour une position, pas
   une dette.

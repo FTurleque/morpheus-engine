@@ -54,7 +54,7 @@ class ReflectionAndClassLoadingBoundaryArchitectureTest {
     private static final Map<String, String> REFLECTION = Map.of(
             SQLITE_RUNTIME + ".SqliteConnectionScope",
             "a dynamic proxy of java.sql.Connection lets every store of an operation share one physical connection "
-                    + "without closing it (ADR-0109)",
+                    + "without closing it (ADR-0152)",
             SQLITE_RUNTIME + ".SqliteDatabaseLease",
             "a dynamic proxy of java.sql.Connection releases the database lease only once the driver close succeeded",
             SQLITE_RUNTIME + ".SqliteContentionMetrics",
@@ -126,7 +126,7 @@ class ReflectionAndClassLoadingBoundaryArchitectureTest {
     void noProductClassDependsOnAnInjectionFramework() {
         noClasses().that().resideInAPackage(PRODUCT + "..")
                 .should().dependOnClassesThat().resideInAnyPackage(INJECTION_FRAMEWORKS.toArray(String[]::new))
-                .because("MORPHEUS is wired explicitly, in MorpheusMain and in the composition roots of ADR-0109, "
+                .because("MORPHEUS is wired explicitly, in MorpheusMain and in the composition roots of ADR-0152, "
                         + "never by a framework or an injection annotation")
                 .check(classes);
     }
