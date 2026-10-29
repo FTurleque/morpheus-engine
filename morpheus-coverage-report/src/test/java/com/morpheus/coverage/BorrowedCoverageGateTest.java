@@ -98,135 +98,12 @@ class BorrowedCoverageGateTest {
             """;
 
     /**
-     * The wholly borrowed classes, exact: one {@code module class} per line, the class named by its source file.
-     * A class enters this list only by measurement, and leaves it in the change that gives it a test of its own.
-     * Measured identical on Linux and Windows, so no entry depends on the platform.
+     * The wholly borrowed classes, exact: one {@code module class} per line, the class named by its source file. A
+     * class enters this list only by measurement, and leaves it in the change that gives it a test of its own. It is
+     * a resource rather than a constant so that naming a class here is not mistaken for using it by the textual
+     * rules that scan test sources.
      */
-    private static final String WHOLLY_BORROWED = """
-            morpheus-application com.morpheus.application.composition.CompositionProviderState
-            morpheus-application com.morpheus.application.composition.CompositionSnapshotState
-            morpheus-application com.morpheus.application.composition.CompositionStateView
-            morpheus-application com.morpheus.application.composition.MultiProviderReadService
-            morpheus-application com.morpheus.application.composition.ObservedProviderContributionLoader
-            morpheus-application com.morpheus.application.composition.ProviderCompositionSource
-            morpheus-application com.morpheus.application.context.AugmentedContextResult
-            morpheus-application com.morpheus.application.context.AugmentedContextService
-            morpheus-application com.morpheus.application.context.AugmentedSnapshotView
-            morpheus-application com.morpheus.application.context.DisabledTechnicalContextProvider
-            morpheus-application com.morpheus.application.context.MorpheusIntentContext
-            morpheus-application com.morpheus.application.context.TechnicalContextBundle
-            morpheus-application com.morpheus.application.context.TechnicalContextItem
-            morpheus-application com.morpheus.application.context.TechnicalContextRequest
-            morpheus-application com.morpheus.application.delta.AppliedRequirementDelta
-            morpheus-application com.morpheus.application.delta.RequirementDeltaApplicationException
-            morpheus-application com.morpheus.application.delta.RequirementDeltaApplicationPlan
-            morpheus-application com.morpheus.application.delta.RequirementDeltaApplicationResult
-            morpheus-application com.morpheus.application.delta.RequirementDeltaApplicationService
-            morpheus-application com.morpheus.application.delta.RequirementDeltaPromotionResult
-            morpheus-application com.morpheus.application.delta.RequirementDeltaPromotionService
-            morpheus-application com.morpheus.application.delta.RequirementPromotionEvidence
-            morpheus-application com.morpheus.application.history.HistoricalRequirementQueryService
-            morpheus-application com.morpheus.application.history.PublishedHistoryException
-            morpheus-application com.morpheus.application.history.PublishedHistoryRetentionPolicy
-            morpheus-application com.morpheus.application.history.PublishedSnapshotHistoryService
-            morpheus-application com.morpheus.application.history.RequirementLogicalRollbackPlan
-            morpheus-application com.morpheus.application.history.RequirementLogicalRollbackRequest
-            morpheus-application com.morpheus.application.history.RequirementLogicalRollbackService
-            morpheus-application com.morpheus.application.history.RequirementSnapshotChangeKind
-            morpheus-application com.morpheus.application.history.RequirementSnapshotComparison
-            morpheus-application com.morpheus.application.history.RequirementSnapshotComparisonService
-            morpheus-application com.morpheus.application.history.RequirementSnapshotDifference
-            morpheus-application com.morpheus.application.ingestion.ObservedProjectSnapshotPublisher
-            morpheus-application com.morpheus.application.ingestion.ProjectSnapshotImportResult
-            morpheus-application com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationCommand
-            morpheus-application com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationPersistenceResult
-            morpheus-application com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationPersistenceState
-            morpheus-application com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationPolicy
-            morpheus-application com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityObservation
-            morpheus-application com.morpheus.application.lifecycle.mutation.ControlledChangeLifecycleMutationService
-            morpheus-application com.morpheus.application.lifecycle.mutation.RegisteredProjectWriteCapabilityResolver
-            morpheus-application com.morpheus.application.operability.LocalOperabilityService
-            morpheus-application com.morpheus.application.operability.LocalOperationalRuntime
-            morpheus-application com.morpheus.application.operability.OperationalRuntime
-            morpheus-application com.morpheus.application.policy.PolicyAuditPage
-            morpheus-application com.morpheus.application.policy.PolicyConflictException
-            morpheus-application com.morpheus.application.portfolio.PortfolioOverview
-            morpheus-application com.morpheus.application.portfolio.PortfolioQueryService
-            morpheus-application com.morpheus.application.portfolio.PortfolioReferenceConflict
-            morpheus-application com.morpheus.application.portfolio.PortfolioRegistryService
-            morpheus-application com.morpheus.application.portfolio.PortfolioTraversalDirection
-            morpheus-application com.morpheus.application.portfolio.PortfolioTraversalService
-            morpheus-application com.morpheus.application.quality.DecisionJustificationStatus
-            morpheus-application com.morpheus.application.quality.DesignDecisionQualityAssessment
-            morpheus-application com.morpheus.application.quality.ExternalReferenceQualityAssessment
-            morpheus-application com.morpheus.application.query.BusinessContentQueryService
-            morpheus-application com.morpheus.application.query.ChangeContextQueryService
-            morpheus-application com.morpheus.application.query.ChangeContextResult
-            morpheus-application com.morpheus.application.query.RequirementQueryService
-            morpheus-application com.morpheus.application.query.RequirementSearchPage
-            morpheus-application com.morpheus.application.query.RequirementSearchQuery
-            morpheus-application com.morpheus.application.query.SnapshotItemResult
-            morpheus-application com.morpheus.application.query.SpecificationContextQueryService
-            morpheus-application com.morpheus.application.query.SpecificationContextResult
-            morpheus-application com.morpheus.application.query.TraceRequirementQueryService
-            morpheus-application com.morpheus.application.query.compact.CompactChangeContextView
-            morpheus-application com.morpheus.application.query.compact.CompactQueryViewService
-            morpheus-application com.morpheus.application.query.compact.CompactRequirementSearchView
-            morpheus-application com.morpheus.application.query.compact.CompactTraceRequirementView
-            morpheus-application com.morpheus.application.query.compact.CompactWarningCode
-            morpheus-application com.morpheus.application.query.saved.SavedViewConflictException
-            morpheus-application com.morpheus.application.query.saved.SavedViewService
-            morpheus-application com.morpheus.application.query.saved.SavedViewVersion
-            morpheus-application com.morpheus.application.reference.LiveExternalReferenceResolutionResult
-            morpheus-application com.morpheus.application.reference.LiveExternalReferenceResolutionService
-            morpheus-application com.morpheus.application.snapshot.RuntimeSnapshotRecovery
-            morpheus-application com.morpheus.application.snapshot.SnapshotRecoveryPolicy
-            morpheus-application com.morpheus.application.snapshot.SnapshotRecoveryService
-            morpheus-application com.morpheus.application.snapshot.SnapshotValidationException
-            morpheus-application com.morpheus.application.snapshot.SnapshotValidationResult
-            morpheus-application com.morpheus.application.store.EntityStateException
-            morpheus-application com.morpheus.application.store.SnapshotConflictException
-            morpheus-application com.morpheus.application.sync.SyncStateConflictException
-            morpheus-application com.morpheus.application.temporal.CurrentRequirementQueryService
-            morpheus-application com.morpheus.application.traceability.ExternalTraceabilityAvailability
-            morpheus-application com.morpheus.application.traceability.ExternalTraceabilityView
-            morpheus-application com.morpheus.application.traceability.TraceRequirementResult
-            morpheus-application com.morpheus.application.traceability.TraceRequirementService
-            morpheus-domain com.morpheus.domain.change.ChangeProposal
-            morpheus-domain com.morpheus.domain.decision.DesignDecision
-            morpheus-domain com.morpheus.domain.decision.DesignDecisionId
-            morpheus-domain com.morpheus.domain.diagnostic.Diagnostic
-            morpheus-domain com.morpheus.domain.diagnostic.DiagnosticCode
-            morpheus-domain com.morpheus.domain.diagnostic.DiagnosticSeverity
-            morpheus-domain com.morpheus.domain.evidence.Evidence
-            morpheus-domain com.morpheus.domain.evidence.SourceRange
-            morpheus-domain com.morpheus.domain.project.ProjectSpecification
-            morpheus-domain com.morpheus.domain.provider.ProviderProbeResult
-            morpheus-domain com.morpheus.domain.provider.ProviderProbeStatus
-            morpheus-domain com.morpheus.domain.reference.ExternalReference
-            morpheus-domain com.morpheus.domain.reference.ExternalReferenceResolutionEvent
-            morpheus-domain com.morpheus.domain.reference.ExternalReferenceResolutionReason
-            morpheus-domain com.morpheus.domain.reference.ExternalReferenceResolutionState
-            morpheus-domain com.morpheus.domain.reference.ExternalReferenceTarget
-            morpheus-domain com.morpheus.domain.reference.ResolvedExternalTarget
-            morpheus-domain com.morpheus.domain.requirement.Requirement
-            morpheus-domain com.morpheus.domain.requirement.RequirementDelta
-            morpheus-domain com.morpheus.domain.requirement.RequirementDeltaKind
-            morpheus-domain com.morpheus.domain.scenario.Scenario
-            morpheus-domain com.morpheus.domain.scenario.ScenarioId
-            morpheus-domain com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata
-            morpheus-domain com.morpheus.domain.snapshot.KnowledgeSnapshotState
-            morpheus-domain com.morpheus.domain.specification.Specification
-            morpheus-domain com.morpheus.domain.specification.SpecificationId
-            morpheus-domain com.morpheus.domain.task.ImplementationTask
-            morpheus-domain com.morpheus.domain.task.TaskId
-            morpheus-integration-minos com.morpheus.integration.minos.MinosIntegrationRuntime
-            morpheus-integration-nexus com.morpheus.integration.nexus.NexusIntegrationRuntime
-            morpheus-store-memory com.morpheus.store.memory.MemoryCompositionStateStore
-            morpheus-store-memory com.morpheus.store.memory.MemoryExternalReferenceStore
-            morpheus-store-memory com.morpheus.store.memory.MemorySnapshotBusinessContentStore
-            morpheus-store-memory com.morpheus.store.memory.MemoryTraceabilityStore
-            """;
+    private static final String WHOLLY_BORROWED = "morpheus-coverage-report/src/test/resources/wholly-borrowed-classes.txt";
 
     @Test
     void borrowedCreditIsMeasuredPerModuleAndStaysUnderItsMaximumWithEveryWhollyBorrowedClassNamed() throws Exception {
@@ -242,13 +119,13 @@ class BorrowedCoverageGateTest {
         Files.createDirectories(root.resolve(EVIDENCE).getParent());
         Files.writeString(root.resolve(EVIDENCE), measurement.evidence(maximum));
 
-        assertListedExactly(measurement.whollyBorrowed(), listed(WHOLLY_BORROWED));
+        assertListedExactly(measurement.whollyBorrowed(), listed(root.resolve(WHOLLY_BORROWED)));
         assertWithinMaximum(measurement, maximum, qualifiedByModule());
     }
 
     @Test
-    void theListIsSortedAndCarriesNoDuplicate() {
-        List<String> entries = WHOLLY_BORROWED.lines().map(String::strip).filter(line -> !line.isEmpty()).toList();
+    void theListIsSortedAndCarriesNoDuplicate() throws IOException {
+        List<String> entries = entries(RepositoryRoot.locate().resolve(WHOLLY_BORROWED));
         assertEquals(new ArrayList<>(new TreeSet<>(entries)), entries,
                 "the wholly borrowed list must be sorted and hold each class once, so that a diff reads as a change");
     }
@@ -507,7 +384,7 @@ class BorrowedCoverageGateTest {
         }
         for (String entry : outlived) {
             refusal.append(System.lineSeparator()).append("  listed, but no longer wholly borrowed: ").append(entry)
-                    .append(" -- remove its entry from WHOLLY_BORROWED");
+                    .append(" -- remove its entry from ").append(WHOLLY_BORROWED);
         }
         throw new AssertionError(refusal.toString());
     }
@@ -544,10 +421,13 @@ class BorrowedCoverageGateTest {
                 + " over the qualified measurement " + qualified + ": a maximum is only lowered");
     }
 
-    private static Set<String> listed(String block) {
-        Set<String> entries = new TreeSet<>();
-        block.lines().map(String::strip).filter(line -> !line.isEmpty()).forEach(entries::add);
-        return entries;
+    private static Set<String> listed(Path list) throws IOException {
+        return new TreeSet<>(entries(list));
+    }
+
+    private static List<String> entries(Path list) throws IOException {
+        return Files.readAllLines(list).stream().map(String::strip)
+                .filter(line -> !line.isEmpty() && !line.startsWith("#")).toList();
     }
 
     private static Map<String, long[]> qualifiedByModule() {
