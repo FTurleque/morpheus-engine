@@ -137,7 +137,6 @@ nouvel ADR qui remplace les précédents. Le cycle de vie complet est dans `.cla
 | [ADR-0149](ARCH-0149-une-commande-et-un-outil-sont-servis-par-une-classe-de-capacite.md) | Une commande CLI et un outil MCP sont servis par une classe de capacité ; un dispatcher ne tient aucun cas d'usage | **Acceptée** |
 | [ADR-0150](ARCH-0150-ce-que-le-coeur-applicatif-peut-toucher.md) | Le cœur applicatif touche le disque local par des classes nommées, et jamais le réseau | **Acceptée** |
 | [ADR-0151](BE-0151-pagination-des-collections-et-journaux.md) | Une page parle un seul vocabulaire, et un journal est conservé et lu par pages | **Acceptée** |
-| [ADR-0153](SEC-0153-signature-authenticode-de-la-distribution-windows.md) | Les binaires Windows sont signés sur demande, par un seul point d'entrée, avec une identité que seul le workflow de release atteint | **Proposée** |
 
 Les preuves de qualification de chaque jalon sont dans [`../../project/validation/`](../../project/validation/README.md).
 

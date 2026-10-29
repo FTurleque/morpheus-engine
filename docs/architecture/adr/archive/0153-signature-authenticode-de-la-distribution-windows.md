@@ -1,13 +1,8 @@
----
-id: SEC-0153
-title: "Les binaires Windows sont signés sur demande, par un seul point d'entrée, avec une identité que seul le workflow de release atteint"
-domain: security
-rules: false
----
+# ADR-0153 — Les binaires Windows sont signés sur demande, par un seul point d'entrée, avec une identité que seul le workflow de release atteint
 
-# Les binaires Windows sont signés sur demande, par un seul point d'entrée, avec une identité que seul le workflow de release atteint
+> **Archivée.** Cette proposition est rejetée : MORPHEUS n'a accès à aucun certificat de signature sans coût (la voie gratuite pour l'open source exige une licence approuvée par l'OSI), et aucune release n'est signée. Le mécanisme livré avec elle reste tenu par ses tests et par `.claude/rules/security.md`, pas par ce texte, qui n'est pas tenu à jour.
 
-- Statut : **Proposée**
+- Statut : **Rejetée**
 - Date : 2026-10-29
 
 ## Context
