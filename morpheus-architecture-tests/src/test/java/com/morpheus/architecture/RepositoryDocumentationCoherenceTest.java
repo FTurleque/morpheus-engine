@@ -383,14 +383,12 @@ class RepositoryDocumentationCoherenceTest {
         // 4174, which is not below the 3820 they bound together.
         // 28/10/2026: both presence keys raised to ten under the measure of 19b0b996, identical on both platforms --
         // 2831 declared and 1826 generated executions: testsMinimum 2600 -> 2821, generatedTestsMinimum 1574 -> 1816.
-        // 29/10/2026: 2886 declared and 1829 generated executions at 63e6f1cb, identical on both platforms over two CI
-        // runs each: testsMinimum 2821 -> 2876, generatedTestsMinimum 1816 -> 1819.
+        // 29/10/2026, 63e6f1cb, both platforms: 2886 declared, 1829 generated -> testsMinimum 2876, generated 1819.
         assertEquals("2876", ratchets.get("testsMinimum"));
         assertEquals("1819", ratchets.get("generatedTestsMinimum"));
         // architectureTestsMinimum 762 -> 769 on 25/10/2026: 779 architecture executions measured on Windows and
         // Linux at the head of ingest-a-project-through-the-provider-port, ten under the measure.
-        // 769 -> 813 on 28/10/2026: 823 architecture executions on both platforms, two CI runs each, at 61198c68.
-        // 813 -> 836 on 29/10/2026: 846 architecture executions on both platforms, two CI runs each, at 63e6f1cb.
+        // 769 -> 813 on 28/10/2026 at 61198c68; 813 -> 836 on 29/10/2026: 846 executions at 63e6f1cb, both platforms.
         assertEquals("836", ratchets.get("architectureTestsMinimum"));
         // 28/10/2026: both caps requalified on four exact-head measurements of 61198c68 (see each gate), every
         // coverage key raised to the highest thousandth keeping 3x the 24-line / 11-branch reference spread:
