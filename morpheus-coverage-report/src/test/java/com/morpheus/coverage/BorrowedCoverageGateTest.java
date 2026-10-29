@@ -62,7 +62,7 @@ class BorrowedCoverageGateTest {
     // m21-integrity-<OS> artifact, every per-module jacoco.xml against its group of the aggregate jacoco.xml,
     // populationModules=16, 29 829 lines and 10 182 branches on all four:
     //     Linux    5966 / 5966 lines   1506 / 1506 branches   <- qualified on the highest
-    //     Windows  5964 / 5964 lines   1505 / 1505 branches
+    //     Windows  5964 / 5965 lines   1505 / 1506 branches
     // Spread across the four: 2 lines and 1 branch, inside the 24-line / 11-branch reference spread of 15/09/2026
     // that the coverage ratchets are sized against. The maximum sits at most three times that reference above the
     // qualified measurement: one more line or branch of maximum needs a new measurement on both platforms.
@@ -75,12 +75,12 @@ class BorrowedCoverageGateTest {
     private static final long MAXIMUM_MARGIN_BRANCHES = 3L * 11L;
 
     /**
-     * The borrowed credit of each module in the qualified measurement, lines then branches. It is not a
-     * threshold: when the total exceeds its maximum, the refusal names the modules whose credit grew past it.
+     * The borrowed credit of each module, the highest of the four qualifying runs, lines then branches. It is not
+     * a threshold: when the total exceeds its maximum, the refusal names the modules whose credit grew past it.
      */
     private static final String QUALIFIED_BY_MODULE = """
             morpheus-api 13 19
-            morpheus-application 4804 1150
+            morpheus-application 4804 1152
             morpheus-cli 0 1
             morpheus-domain 343 63
             morpheus-integration-minos 16 2
