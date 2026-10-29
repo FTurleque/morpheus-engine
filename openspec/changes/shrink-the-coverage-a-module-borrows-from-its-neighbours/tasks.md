@@ -43,7 +43,7 @@ that introduces this change.
 - [x] 3.1 Replace ADR-0104 by a consolidated ADR: the third quantity, its definition in counts, the direction of its maximum, its
       qualification on the highest measurement of both platforms, and the interdiction to derive a coverage threshold
       from it. Check the highest number attributed before assigning the next one (`live-numbers`).
-      Done: GEN-0152 replaces ADR-0104 (archived with its banner); 0151 was the highest number in the registry and the archive.
+      Done: GEN-0154 replaces ADR-0104 (archived with its banner); 0151 was the highest number on `develop`, and the parallel sprints 11 and 14 claimed 0152 and 0153.
 - [x] 3.2 The list of wholly borrowed classes, exact, with the platform-dependent group only if 1.2 found a member.
       Mechanism: an assertion on the reports, since the property is about measured execution and no rule on bytecode
       can state it. Proof: 2.1 passes.

@@ -126,7 +126,7 @@ Les deux échelles comptent les mêmes lignes et les mêmes branches pour chaque
 - quand le total dépasse `borrowedLineCreditMaximum` / `borrowedBranchCreditMaximum` (`config/m21-quality-ratchets.properties`), en nommant les modules dont le crédit a crû. Ce maximum ne fait que baisser ; il est qualifié sur la plus **haute** mesure des deux plateformes ;
 - quand les deux rapports d'un module ne comptent pas les mêmes lignes ou branches, quand le rapport propre couvre plus que l'agrégé, ou quand un rapport manque ou est périmé.
 
-Le remède est un test dans le module qui porte la ligne. `morpheus-application` ne peut pas dépendre de `morpheus-store-memory` ni de `morpheus-provider-synthetic`, qui dépendent de lui : ses tests implémentent à la main les ports qu'ils lisent. La décision est [ADR-0152](../architecture/adr/GEN-0152-deux-echelles-de-couverture-et-le-credit-emprunte.md).
+Le remède est un test dans le module qui porte la ligne. `morpheus-application` ne peut pas dépendre de `morpheus-store-memory` ni de `morpheus-provider-synthetic`, qui dépendent de lui : ses tests implémentent à la main les ports qu'ils lisent. La décision est [ADR-0154](../architecture/adr/GEN-0154-deux-echelles-de-couverture-et-le-credit-emprunte.md).
 
 ## Frontière HTTP des corps de requête
 

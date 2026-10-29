@@ -431,23 +431,10 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
             case REQUIREMENT_ID -> "requirement_id";
             case ENTITY_IDENTITY -> "entity_identity_id";
         };
-        return """
-                WITH matches AS (
-                    SELECT * FROM requirement_versions
-                    WHERE %s
-                )
-                SELECT (SELECT COUNT(*) FROM matches) AS page_total, page.*
-                FROM (SELECT 1) AS anchor
-                LEFT JOIN (
-                    SELECT * FROM matches
-                    ORDER BY %s
-                    LIMIT ? OFFSET ?
-                ) AS page ON 1 = 1
-                ORDER BY %s
-                """.formatted(
-                filter,
-                signedOrder("", key),
-                signedOrder("page.", key));
+        return "WITH matches AS (SELECT * FROM requirement_versions WHERE " + filter + ") "
+                + "SELECT (SELECT COUNT(*) FROM matches) AS page_total, page.* FROM (SELECT 1) AS anchor "
+                + "LEFT JOIN (SELECT * FROM matches ORDER BY " + signedOrder("", key) + " LIMIT ? OFFSET ?) AS page "
+                + "ON 1 = 1 ORDER BY " + signedOrder("page.", key);
     }
 
     private static String signedOrder(String qualifier, String key) {

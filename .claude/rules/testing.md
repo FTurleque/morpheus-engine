@@ -59,7 +59,7 @@ Deux gates mesurent la couverture et ne mesurent **pas la même grandeur**. Jusq
 
 **Même population, attribution différente.** Les deux échelles portent sur les mêmes modules — tout module du réacteur qui porte une classe sous `src/main/java`, **outillage de vérification compris** (`morpheus-store-memory`, `morpheus-provider-synthetic`, `morpheus-provider-testkit`, `morpheus-provider-reference`) — et ne diffèrent que par les exécutions autorisées à créditer une ligne. `AggregateCoverageGateTest` dérive cette population du POM racine, refuse un rapport agrégé qui en mesure une autre, et la nomme dans sa preuve (`population=`). Garder l'outillage dans le dénominateur est un choix : mesuré le 11/09/2026, il déplace le ratio agrégé de 0,15 point, et l'en retirer laisserait `AGGREGATE_QUALIFIED_*` plafonner une population sur laquelle il n'a jamais été mesuré.
 
-La décision et ses raisons — séparation des échelles, population commune, maintien de l'outillage, exigences d'une hausse de plafond, crédit emprunté — sont consignées dans **ADR-0152** (`docs/architecture/adr/GEN-0152-deux-echelles-de-couverture-et-le-credit-emprunte.md`). La lire avant de toucher à une clé, à un plafond qualifié, à la population ou au maximum du crédit emprunté.
+La décision et ses raisons — séparation des échelles, population commune, maintien de l'outillage, exigences d'une hausse de plafond, crédit emprunté — sont consignées dans **ADR-0154** (`docs/architecture/adr/GEN-0154-deux-echelles-de-couverture-et-le-credit-emprunte.md`). La lire avant de toucher à une clé, à un plafond qualifié, à la population ou au maximum du crédit emprunté.
 
 ### Le crédit emprunté : une troisième grandeur, pas une échelle
 
@@ -130,7 +130,7 @@ ratchet collé à la mesure transformerait une variation ordinaire en échec de 
 `0.620 / 0.535`, laisse **146 lignes et 30 branches** de marge sur l'échelle par module — soit 6,1 fois la
 variation inter-plateforme en lignes, mais seulement 2,8 fois en branches. **C'est la branche qui est serrée,
 pas la ligne** : un relèvement ultérieur dans ce plafond doit traiter les deux clés séparément, et rien
-n'oblige à les faire bouger ensemble (ADR-0152 interdit seulement de les aligner sur une moyenne). L'échelle agrégée compte une autre population
+n'oblige à les faire bouger ensemble (ADR-0154 interdit seulement de les aligner sur une moyenne). L'échelle agrégée compte une autre population
 de lignes et sa marge se lit dans `AggregateCoverageGateTest`.
 
 Le 22/09/2026 la seule clé ligne passe de `0.640` à `0.642`, dans le même plafond et sans mesure nouvelle :

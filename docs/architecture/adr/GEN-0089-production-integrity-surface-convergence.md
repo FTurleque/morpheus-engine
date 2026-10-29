@@ -45,7 +45,7 @@ La CI requise, son workflow générique et son rapport aux validateurs locaux re
 ### 2. Couverture mesurée et bornée
 
 JaCoCo instrumente les modules Java. Les seuils de couverture, leurs deux échelles et leurs plafonds qualifiés relèvent
-d'ADR-0152 ; leurs valeurs vivent dans `config/m21-quality-ratchets.properties` et ne se recopient pas ici. Un seuil ne
+d'ADR-0154 ; leurs valeurs vivent dans `config/m21-quality-ratchets.properties` et ne se recopient pas ici. Un seuil ne
 constitue pas une affirmation de couverture suffisante par domaine.
 
 ### 3. Présence des tests : deux mesures
@@ -226,7 +226,7 @@ local-first remains default
 
 ## References
 
-- [ADR-0152](GEN-0152-deux-echelles-de-couverture-et-le-credit-emprunte.md) — deux échelles de couverture, une population.
+- [ADR-0154](GEN-0154-deux-echelles-de-couverture-et-le-credit-emprunte.md) — deux échelles de couverture, une population.
 - [ADR-0133](GEN-0133-toolchain-java-21-et-maven-wrapper.md) — toolchain de build et CI requise.
 - [ADR-0130](BE-0130-contrat-des-options-de-la-cli.md) — contrat des options de la CLI.
 - [ADR-0088](GEN-0088-product-release-installation-and-persistent-data-separation.md) — release, installation et

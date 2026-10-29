@@ -32,7 +32,7 @@ couvre légèrement moins de lignes à nombre de tests identique.
 `CoverageScaleSeparationTest` fait échouer le build si un gate lit une clé, un rapport ou une
 preuve de l'autre échelle. **Ne jamais comparer un ratio par module à un seuil agrégé, ni
 l'inverse.** Le *pourquoi* est dans
-`docs/architecture/adr/GEN-0152-deux-echelles-de-couverture-et-le-credit-emprunte.md` : la lire avant de toucher à une
+`docs/architecture/adr/GEN-0154-deux-echelles-de-couverture-et-le-credit-emprunte.md` : la lire avant de toucher à une
 clé, à un plafond ou à la population mesurée.
 
 Conséquence pratique quand on écrit des tests pour faire monter l'échelle par module : un
@@ -61,7 +61,7 @@ Ces deux clés ne se calculent jamais à partir d'un ratchet de couverture, et i
 Un ratchet collé à la mesure transforme une variation ordinaire de runner en échec de build. La
 marge se calcule sur les populations réelles de lignes et de branches, pas en points de
 pourcentage : les deux clés ne se resserrent pas au même rythme, et la branche est la plus
-serrée des deux. Rien n'oblige à les faire bouger ensemble — ADR-0152 interdit seulement de les
+serrée des deux. Rien n'oblige à les faire bouger ensemble — ADR-0154 interdit seulement de les
 aligner sur une moyenne.
 
 ## Obtenir la moitié Linux d'une preuve

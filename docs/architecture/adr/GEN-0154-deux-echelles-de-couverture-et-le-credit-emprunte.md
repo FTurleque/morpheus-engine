@@ -1,5 +1,5 @@
 ---
-id: GEN-0152
+id: GEN-0154
 title: "Deux échelles de couverture sur une population commune, et le crédit qu'un module emprunte à ses voisins"
 domain: general
 rules: false

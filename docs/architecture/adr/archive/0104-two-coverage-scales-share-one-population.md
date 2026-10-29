@@ -1,8 +1,8 @@
 # ADR-0104 — Deux échelles de couverture, une population commune : elles ne diffèrent que par l'attribution
 
-> **Archivée.** Cette décision est consolidée dans [ADR-0152](../GEN-0152-deux-echelles-de-couverture-et-le-credit-emprunte.md), qui la reprend en entier et y ajoute le crédit qu'un module emprunte aux tests de ses voisins. Ce texte n'est plus en vigueur et n'est pas tenu à jour.
+> **Archivée.** Cette décision est consolidée dans [ADR-0154](../GEN-0154-deux-echelles-de-couverture-et-le-credit-emprunte.md), qui la reprend en entier et y ajoute le crédit qu'un module emprunte aux tests de ses voisins. Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
-- Statut : **Remplacée par ADR-0152**
+- Statut : **Remplacée par ADR-0154**
 - Date : 2026-09-11
 
 ## Context
