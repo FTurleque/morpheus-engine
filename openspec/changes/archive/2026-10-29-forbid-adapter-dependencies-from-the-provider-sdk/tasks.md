@@ -48,12 +48,14 @@
 
 ## 5. Verification
 
-- [ ] 5.1 `./mvnw clean verify`; `morpheus-provider-reference` built before the architecture tests. Proof: green on
+- [x] 5.1 `./mvnw clean verify`; `morpheus-provider-reference` built before the architecture tests. Proof: green on
       both platforms through the required checks.
+      **2026-10-29**: PR #583, merged as `b0368076`: `MORPHEUS CI / exact-head` green on `ubuntu-latest` and `windows-latest` at the merged head `e0e40750`; changed-line coverage 94.12 % lines / 90 % branches.
 - [x] 5.2 `architectureTestsMinimum`: read `config/m21-quality-ratchets.properties`, raise it if the lot chooses to
       (`.claude/skills/coverage-ratchet`), never lower it. Proof: `RepositoryDocumentationCoherenceTest` and
       `ProductionIntegrityContractTest` green.
       Result (2026-10-28): the module gains three `@Test` methods (13 in the class, 10 before); the ratchet is left
       at its value, its raise belongs to the qualification of the merged sprint.
-- [ ] 5.3 Pull request description: the finding, the table of 1.1, the two breaks, and the justification required for a
+- [x] 5.3 Pull request description: the finding, the table of 1.1, the two breaks, and the justification required for a
       change under `morpheus-architecture-tests/`.
+      **2026-10-29**: written in the description of PR #583, which carries the four sprint 10 lots.

@@ -1,7 +1,7 @@
 # MORPHEUS — constats d'audit
 Audit du **9 octobre 2026** sur `20cf2e0`, revérifié dix fois depuis, et dans la **nuit du 28 au 29 octobre 2026** sur `65a97b06` (`origin/develop`). Chaque constat porte son statut et la preuve qui l'établit.
 
-**118 constats** — 65 corrigé, 6 partiel, 20 toujours valide, 4 caduc, 22 tient, 1 non vérifiable ici.
+**118 constats** — 69 corrigé, 5 partiel, 17 toujours valide, 4 caduc, 22 tient, 1 non vérifiable ici.
 
 > **Plus aucun constat `Élevée` n'est ouvert.** La PR #580 ferme les deux derniers, `AUD-ARC-01` et `AUD-PRF-04`, et chacun a été rouvert dans le code avant d'être accepté. Il y en avait onze le 9 octobre.
 
@@ -442,20 +442,20 @@ morpheus-api est passe de 80 classes dans un paquet plat a 90 classes en sept pa
 ### AUD-ARC-07 — Le module morpheus-mcp-transport livre le paquet com.morpheus.integration.mcp, donc le transport partagé est réglé comme une intégration
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Architecture |
 | **Effort** | M |
 | **Sprint** | 10 — Dire la vérité dans les règles |
-| **Vérifié le** | 2026-10-28 sur `65a97b06` |
+| **Vérifié le** | 2026-10-29 sur `b0368076` |
 
-**Constat de vérification** — Rien n'a bouge : le transport MCP partage reste range comme une integration et reste pris dans les interdits ecrits sur com.morpheus.integration... Les deux actions attendues, renommage du paquet et test module/paquet, sont absentes. C'est precisement l'absence de ce test qui laisse l'ecart vivre.
+**Constat de vérification** — Le transport partage vit dans son propre paquet, `com.morpheus.transport.mcp`, et n'est plus regle comme une integration. Le test qui manquait existe et va au-dela du constat : il exige de chaque module du reacteur qu'il livre le prefixe de paquet qui lui correspond.
 
 ```
-morpheus-mcp-transport/src/main/java livre toujours un seul paquet, com/morpheus/integration/mcp — inchange. Les regles qui l'englobent par com.morpheus.integration.. sont toujours la : AdapterSiblingArchitectureTest.java:43 (INTEGRATIONS), cible :76 et :93 ; AdapterCompositionRootArchitectureTest.java:76 le designe par resideInAPackage("com.morpheus.integration.mcp.."). Aucun test module<->prefixe de paquet sur les 18 modules : ReactorModuleDocumentationTest ne compare que les pages de documentation a la liste <module> du POM racine (:37-38, :59).
+`find morpheus-mcp-transport/src/main/java -name '*.java'` ne donne qu'un paquet, `com/morpheus/transport/mcp` ; `grep -rl 'com.morpheus.integration.mcp' --include=*.java .` (hors `target/`) -> aucune occurrence. morpheus-architecture-tests/src/test/java/com/morpheus/architecture/ModulePackageCorrespondenceTest.java:77-142 : chaque module a sources de production declare sa racine de paquet, chaque paquet de production est sous la racine de son module, aucune racine n'est dans celle d'un autre module sans declaration, et `theSharedMcpTransportResidesOutsideTheIntegrationsAndTheMcpAdapter`. morpheus-architecture-tests/src/test/java/com/morpheus/architecture/AdapterSiblingArchitectureTest.java:56 `TRANSPORT = "com.morpheus.transport.."`, cible des regles des providers, des stores et du SDK. Fusionne par la PR #583.
 ```
 
-**Ce qui reste** — Paquet com.morpheus.integration.mcp inchange ; aucun test ne verifie qu'un module livre le prefixe de paquet qui lui correspond.
+**Ce qui reste** — Rien.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -474,20 +474,20 @@ morpheus-mcp-transport/src/main/java livre toujours un seul paquet, com/morpheus
 ### AUD-ARC-08 — com.morpheus.sdk n'est sujet d'aucune règle ArchUnit, contrairement à ce qu'annonce le javadoc du test qui le nomme
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Architecture |
 | **Effort** | S |
 | **Sprint** | 10 — Dire la vérité dans les règles |
-| **Vérifié le** | 2026-10-28 sur `65a97b06` |
+| **Vérifié le** | 2026-10-29 sur `b0368076` |
 
-**Constat de vérification** — Le javadoc annonce toujours le SDK comme sujet, et aucune règle ne le prend pour sujet : rien n'empêche com.morpheus.sdk.. de dépendre d'un store, d'un provider, de l'API ou de la CLI. Aucune des trois actions n'est faite.
+**Constat de vérification** — `com.morpheus.sdk` est sujet d'une regle, et le javadoc de la classe ne peut plus annoncer un sujet qu'aucune regle ne prend : la liste des sujets est comparee aux regles elles-memes.
 
 ```
-AdapterSiblingArchitectureTest.java:17-18, javadoc inchange (« with the provider SDK, the providers, the stores, ... as subjects »). Sujets reels : :57 domain+application, :66 openspec/markdown/synthetic, :75 providers, :92 stores, :109 MINOS, :118 NEXUS, :127 MCP. SDK (defini :37) n'apparait qu'en cible, :58, :67, :93, :110, :119. Dans tout morpheus-architecture-tests, les seules autres mentions sont m22/ProviderPluginPlatformContractTest.java:52 et :54, deux assertFalse(...contains("com.morpheus.sdk.provider")) dont le sujet est domain et application. Change OpenSpec forbid-adapter-dependencies-from-the-provider-sdk : 0 tache cochee sur 16.
+morpheus-architecture-tests/src/test/java/com/morpheus/architecture/AdapterSiblingArchitectureTest.java:119 `theProviderSdkDependsOnNoAdapter` (regle ArchUnit, sujet `com.morpheus.sdk..`), :124 `noProviderSdkSourceNamesAnAdapterPackage` (doublon textuel, qui voit une constante inlinee), :184 `everyDeclaredSubjectIsTheSubjectOfARuleAndNoOther` : chaque sujet que le javadoc annonce est le sujet d'une regle, et d'une seule. Les deux regles ont ete cassees une fois avant d'etre acceptees. Fusionne par la PR #583.
 ```
 
-**Ce qui reste** — Aucune règle ArchUnit à sujet com.morpheus.sdk.. ; aucune preuve d'échec ; javadoc d'AdapterSiblingArchitectureTest:17-18 toujours inexact.
+**Ce qui reste** — Rien.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -570,20 +570,20 @@ Au parent de a8a6096cd puis a fbf58cac, methodes d'adaptateur a un parametre de 
 ### AUD-ARC-11 — Interdiction absolue de la réflexion dans les règles du dépôt, contredite par trois classes de production
 | | |
 |---|---|
-| **Statut sur `develop`** | **PARTIEL** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Architecture |
 | **Effort** | S |
 | **Sprint** | 10 — Dire la vérité dans les règles |
-| **Vérifié le** | 2026-10-28 sur `65a97b06` |
+| **Vérifié le** | 2026-10-29 sur `b0368076` |
 
-**Constat de vérification** — La réflexion est bornée par une règle ArchUnit à liste exacte, mais dans morpheus-application seulement : deux classes y sont nommées par ADR-0150. Hors de ce périmètre, cinq classes de production atteignent Proxy, InvocationHandler, URLClassLoader ou ServiceLoader sans qu'aucune règle ne les borne, et la règle du dépôt reste un interdit absolu que le code contredit. Le compte est de sept classes, pas de huit comme l'écrivait la passe du 26 octobre, qui en listait sept.
+**Constat de vérification** — La regle dit ce que le build tient : aucune exception pour l'injection, et pour la reflexion et le chargement une liste exacte de classes, chacune avec sa raison, qui ne fait que retrecir. Les usages de `morpheus-store-sqlite` et du SDK, que le constat laissait sans regle, sont dans cette liste.
 
 ```
-Recherche sur */src/main/java (java.lang.reflect, Proxy.newProxyInstance, InvocationHandler, MethodHandles, ServiceLoader, ClassLoader, Class.forName, getDeclaredMethod/Field, RecordComponent) : 7 classes. store/sqlite/runtime/SqliteConnectionScope.java:5-7, :153, :238, :261, :275 ; store/sqlite/runtime/SqliteDatabaseLease.java:12-15, :121, :127 ; store/sqlite/runtime/SqliteContentionMetrics.java:8-9, :71 ; application/query/compact/CanonicalJsonSerializer.java:3-5, :156 ; application/reasoning/ReasoningAdapterRegistry.java:11, :63 ; sdk/provider/ProviderPluginActivator.java:9, :17, :52, :62 ; sdk/provider/ProviderPluginActivation.java:7, :19. Regle : ApplicationTechnologyBoundaryArchitectureTest.java:101-107 famille « reflection and class loading » confinee a CanonicalJsonSerializer et ReasoningAdapterRegistry, tenue par aConfinedFamilyIsReachedOnlyByTheClassesNamedForIt (:124) et everyNamedClassStillReachesItsFamily (:137) ; importPackages(APPLICATION) (:111) borne la portee a com.morpheus.application. ADR-0150 (table de la decision 2) nomme les deux memes classes et renvoie le reste au change name-every-use-of-reflection : 0 tache cochee sur 18. .claude/rules/architecture.md:225 « jamais de réflexion, de classpath scanning » inchange.
+.claude/rules/architecture.md:240-248 `Pas de framework, pas de magie` : l'interdit absolu ne vise plus que les frameworks et annotations d'injection ; la reflexion et le chargement de classes n'existent que dans les classes nommees. morpheus-architecture-tests/src/test/java/com/morpheus/architecture/ReflectionAndClassLoadingBoundaryArchitectureTest.java:92-156 (hors `application`) : reflexion et chargement confines aux classes nommees, chaque classe nommee les atteint encore, aucune dependance a un framework d'injection, et un scan du texte des sources qui voit un type de reflexion visible seulement dans un descripteur `invokedynamic`. ApplicationTechnologyBoundaryArchitectureTest.java:47 `REFLECTION_AND_LOADING`, :158 `noApplicationSourceNamesReflectionOrLoadingUnlessItsClassIsNamed` (meme doublon textuel pour `application`, ADR-0150). Fusionne par la PR #583.
 ```
 
-**Ce qui reste** — .claude/rules/architecture.md:225 : l'interdit absolu n'est pas réécrit pour nommer les usages légitimes. Aucune règle ne borne java.lang.reflect.., java.lang.invoke.., ServiceLoader ni ClassLoader pour com.morpheus.store.. ni com.morpheus.sdk.. : SqliteConnectionScope, SqliteDatabaseLease, SqliteContentionMetrics, ProviderPluginActivator et ProviderPluginActivation restent à nommer ou à refuser.
+**Ce qui reste** — Rien.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -2270,20 +2270,20 @@ La correction d'AUD-ARC-01 déplace le transport HTTP de `UpdateDiscoveryService
 ### AUD-QUA-11 — Deux shims de compatibilité @Deprecated(forRemoval = true) vivent depuis deux mois sans plan de retrait
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Qualité |
 | **Effort** | S |
 | **Sprint** | 10 — Dire la vérité dans les règles |
-| **Vérifié le** | 2026-10-28 sur `65a97b06` |
+| **Vérifié le** | 2026-10-29 sur `b0368076` |
 
-**Constat de vérification** — Les deux shims sont là, inchangés, deux mois et demi après leur introduction. La proposition OpenSpec qui tranche pour leur suppression n'a aucune tâche cochée.
+**Constat de vérification** — Les deux shims sont retires, sans fenetre de depreciation : aucun appelant hors du reacteur. Au-dela du constat, l'activateur n'est plus public : la seule entree publique vers du code de plugin est le probe epingle, qui refuse un pin absent avant de lire le repertoire des plugins.
 
 ```
-@Deprecated(forRemoval = true) dans tout le depot (*.java) : 2, morpheus-provider-sdk/.../ProviderPluginActivator.java:23 et ProviderPluginService.java:44. Introduction : 6163788c et cbd2ffc9, tous deux du 2026-08-13, soit 2 mois et 15 jours au 2026-10-28. Le test qui les epingle : ProviderPluginActivatorTest.java:73 (activate(candidate) sans pin). openspec/changes/remove-the-unpinned-plugin-entry-points/tasks.md:25, tache 3.1 non cochee ; 0 tache cochee sur 20. Aucun ADR ni echeance gatee.
+`grep -rn '@Deprecated\|forRemoval' morpheus-provider-sdk/src/main/java` -> aucune occurrence. morpheus-provider-sdk/.../ProviderPluginActivator.java:24 `final class` (package-private), :31 `activate` prend le pin et refuse un pin absent par son nom ; ProviderPluginActivation.java:13 `final class` (package-private) ; ProviderPluginService.java:41 seule methode publique `probe`, :47 `provider plugin probe requires a trusted SHA-256 pin`. morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m22/ProviderPluginTrustBoundaryContractTest.java:85 `theOnlyPublicEntryToPluginCodeIsThePinnedProbe` lit les classes compilees. Fusionne par la PR #583.
 ```
 
-**Ce qui reste** — 2 shims @Deprecated(forRemoval = true) âgés de 2 mois et 15 jours ; change remove-the-unpinned-plugin-entry-points à 0 tâche cochée ; aucune échéance gatée.
+**Ce qui reste** — Rien.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 

@@ -77,8 +77,9 @@ Les onze classes d'accès fichier (2 424 lignes) :
   il est la matière d'un cas d'usage local-first, ces classes sont la frontière de sécurité de l'espace de travail et
   des fichiers sensibles, et aucun défaut observé ne se corrige en les déplaçant. Les trois classes sans appelant
   restent nommées tant qu'elles existent : leur retrait relève du code inatteignable. Un port d'horloge propre au
-  projet serait un second nom pour `java.time.Clock`. La réflexion est nommée usage par usage par le changement
-  `name-every-use-of-reflection`. Les interdits textuels de `reasoning` et `policy` ne migrent pas vers une règle de
+  projet serait un second nom pour `java.time.Clock`. La réflexion est nommée usage par usage, ici par
+  `ApplicationTechnologyBoundaryArchitectureTest`, hors de l'application par
+  `ReflectionAndClassLoadingBoundaryArchitectureTest`. Les interdits textuels de `reasoning` et `policy` ne migrent pas vers une règle de
   dépendance : ils refusent une mention, et interdisent `com.morpheus.application.store`,
   `com.morpheus.application.lifecycle.mutation`, `ScriptEngine`, `SELECT * FROM`, `executeQuery(`. SQL étant refusé,
   le runtime SQLite d'une opération ne peut pas entrer dans l'application ; le choix entre tenir son type dans les

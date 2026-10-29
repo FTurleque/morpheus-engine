@@ -1,7 +1,7 @@
 # Sprints de correction
-État au **28 octobre 2026** sur `6c6a97f6` (`origin/develop`) pour les sprints 7 et 8, sur la branche `fix/finish-sprints-1-5` pour les sprints 1 et 5, sur `fbf58cac` pour le sprint 9, `AUD-ARC-16` et les trois constats neufs du sprint 15, sur `aace25fc` (branche `fix/audit-arc-01-prf-04`) pour `AUD-ARC-01`, `AUD-PRF-04` et `AUD-TST-20`, le 28 octobre au soir sur `65a97b06` (`develop`) pour les dix-sept constats revérifiés à la suite de la contre-vérification du soir et les quatre constats neufs du sprint 15, dans la **nuit du 28 au 29 octobre** sur `65a97b06` pour les dix constats de la contre-vérification de nuit et `AUD-ARC-18`, au **26 octobre 2026** sur `4694b8b2` pour les autres, après un `./mvnw clean verify` vert sur les 19 modules. L'ordre et le découpage sont ceux du 9 octobre ; seuls les statuts ont été réétablis, constat par constat, sur le code.
+État au **28 octobre 2026** sur `6c6a97f6` (`origin/develop`) pour les sprints 7 et 8, sur la branche `fix/finish-sprints-1-5` pour les sprints 1 et 5, sur `fbf58cac` pour le sprint 9, `AUD-ARC-16` et les trois constats neufs du sprint 15, sur `aace25fc` (branche `fix/audit-arc-01-prf-04`) pour `AUD-ARC-01`, `AUD-PRF-04` et `AUD-TST-20`, le 28 octobre au soir sur `65a97b06` (`develop`) pour les dix-sept constats revérifiés à la suite de la contre-vérification du soir et les quatre constats neufs du sprint 15, dans la **nuit du 28 au 29 octobre** sur `65a97b06` pour les dix constats de la contre-vérification de nuit et `AUD-ARC-18`, le **29 octobre** sur `b0368076` (`develop`) pour les quatre constats du sprint 10 fermés par la PR #583, au **26 octobre 2026** sur `4694b8b2` pour les autres, après un `./mvnw clean verify` vert sur les 19 modules. L'ordre et le découpage sont ceux du 9 octobre ; seuls les statuts ont été réétablis, constat par constat, sur le code.
 
-**Plan du 9 octobre : 73 constats, 63 soldés, 10 restants.** Les sprints 1 à 9 sont terminés. Le **sprint 12** n'a plus qu'un constat ouvert sur trois, et le **sprint 11** deux sur quatre : `AUD-ARC-01` et `AUD-ARC-02` sont refermés dans le code, `AUD-ARC-03` et `AUD-ARC-13` restent. Les sprints 13 et 14 n'ont pas commencé.
+**Plan du 9 octobre : 73 constats, 67 soldés, 6 restants.** Les sprints 1 à 10 sont terminés. Le **sprint 12** n'a plus qu'un constat ouvert sur trois, et le **sprint 11** deux sur quatre : `AUD-ARC-01` et `AUD-ARC-02` sont refermés dans le code, `AUD-ARC-03` et `AUD-ARC-13` restent. Les sprints 13 et 14 n'ont pas commencé.
 
 **Sprint 15 — dérives : 21 constats, 16 restants.** Ce sprint n'est pas du plan d'origine : il rassemble les constats nés *après* l'audit, d'une scission, d'un effet de bord d'un correctif ou du changement de branche d'intégration. Les ranger dans les sprints d'origine faisait croire que ceux-ci traînaient depuis le 9 octobre ; ils sont soldés, et du travail neuf est apparu à côté.
 
@@ -18,13 +18,13 @@
 | **7** ✓ | Le SQL de détail | 7 | 7 | 0 | — |
 | **8** ✓ | Fiabiliser les tests | 8 | 8 | 0 | — |
 | **9** ✓ | Supprimer la duplication du socle | 6 | 6 | 0 | — |
-| **10** | Dire la vérité dans les règles | 7 | 3 | 4 | 1.75 à 6 j |
+| **10** ✓ | Dire la vérité dans les règles | 7 | 7 | 0 | — |
 | **11** | Trancher l'architecture | 4 | 2 | 2 | 6 à 16 j |
 | **12** | Restructurer les adaptateurs | 3 | 2 | 1 | 3 à 8 j |
 | **13** | Couverture et pagination | 2 | 0 | 2 | 6 à 16 j |
 | **14** | Signer la distribution | 1 | 0 | 1 | 1 à 3 j |
 | **15** | Dérives apparues pendant les correctifs | 21 | 5 | 16 | 9.25 à 30 j |
-| | **Total** | **94** | **68** | **26** | **27 à 79 j** |
+| | **Total** | **94** | **72** | **22** | **25.25 à 73 j** |
 
 Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j · L 3 à 8 j). Un constat `partiel` compte pour son effort entier : ce qui reste d'un constat partiellement traité n'est pas proportionnel à ce qui en a été fait.
 
@@ -187,7 +187,7 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 
 ## Sprint 10 — Dire la vérité dans les règles
 
-7 constats · 3 corrigé · 1 partiel · 3 toujours valide
+7 constats · 7 corrigé
 
 *Pourquoi ici* — Sept règles du dépôt sont fausses au sens où elles sont écrites, ou absentes là où un javadoc les annonce.
 
@@ -195,13 +195,13 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 
 | Constat | Statut | Sév. | Eff. | Objet |
 |---|---|---|---|---|
-| `AUD-ARC-07` | toujours valide | Moyenne | M | Le module morpheus-mcp-transport livre le paquet com.morpheus.integration.mcp, donc le transport partagé est réglé comme une intégration |
-| `AUD-ARC-08` | toujours valide | Moyenne | S | com.morpheus.sdk n'est sujet d'aucune règle ArchUnit, contrairement à ce qu'annonce le javadoc du test qui le nomme |
-| `AUD-ARC-11` | partiel | Moyenne | S | Interdiction absolue de la réflexion dans les règles du dépôt, contredite par trois classes de production |
+| `AUD-ARC-07` | corrigé | Moyenne | M | Le module morpheus-mcp-transport livre le paquet com.morpheus.integration.mcp, donc le transport partagé est réglé comme une intégration |
+| `AUD-ARC-08` | corrigé | Moyenne | S | com.morpheus.sdk n'est sujet d'aucune règle ArchUnit, contrairement à ce qu'annonce le javadoc du test qui le nomme |
+| `AUD-ARC-11` | corrigé | Moyenne | S | Interdiction absolue de la réflexion dans les règles du dépôt, contredite par trois classes de production |
 | `AUD-ARC-14` | corrigé | Faible | M | Huit constructeurs de compatibilité rétroactive alors que les règles du dépôt les interdisent |
 | `AUD-DEP-13` | corrigé | Faible | S | Version littérale 1.0.4 en dur dans un POM de module, contre la règle du dépôt |
 | `AUD-DEP-14` | corrigé | Faible | S | sqlite-jdbc et slf4j-nop sont versionnés par propriété dans le module au lieu du dependencyManagement racine |
-| `AUD-QUA-11` | toujours valide | Faible | S | Deux shims de compatibilité @Deprecated(forRemoval = true) vivent depuis deux mois sans plan de retrait |
+| `AUD-QUA-11` | corrigé | Faible | S | Deux shims de compatibilité @Deprecated(forRemoval = true) vivent depuis deux mois sans plan de retrait |
 
 ## Sprint 11 — Trancher l'architecture
 
