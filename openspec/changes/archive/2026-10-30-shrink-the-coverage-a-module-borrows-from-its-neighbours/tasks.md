@@ -56,9 +56,10 @@ that introduces this change.
       key and file names must not appear in that gate*. Add the borrowed-credit evidence to the scope guard test of
       the M21 validators, both platforms. Proof: both tests pass; the validators are unchanged.
       Done: theBorrowedCreditGateReadsNoCoverageKeyAndNeitherCoverageGateReadsIt; the scope guard test refuses coverageScope=borrowed-credit on Windows (PowerShell guard) -- the validators are unchanged.
-- [ ] 3.5 Add the evidence file to the `m21-integrity-<OS>` artifact in `ci.yml`. Proof: the artifact of the pull
+- [x] 3.5 Add the evidence file to the `m21-integrity-<OS>` artifact in `ci.yml`. Proof: the artifact of the pull
       request's own runs, both platforms.
-      Not done here: ci.yml lists m21-borrowed-coverage-summary.txt in m21-integrity-<OS>; the proof is the artifact of the pull request's own runs.
+      Done: `m21-borrowed-coverage-summary.txt` is in `m21-integrity-Linux` and `m21-integrity-Windows` of run
+      40971886851 (pull request 591, head `50d3aab4`), first line `coverageScope=borrowed-credit` on both.
 - [x] 3.6 Tests in `morpheus-application/src/test`, in the order of 1.5, against hand-written doubles of the ports and
       with no change to `morpheus-application/pom.xml`. Each failure case by `assertThrows` and an assertion on the
       message. Leave `WorkspacePathBoundary` and `ObservedProjectSnapshotPublisher` where sprint 11's decision on
@@ -83,10 +84,12 @@ that introduces this change.
       `morpheus-application`) and `.claude/skills/coverage-ratchet/SKILL.md` (a maximum is lowered, not raised).
       No figure in any of them.
       Done: RepositoryDocumentationCoherenceTest named one dated link to the archived ADR, recomputed; ProductionIntegrityContractTest green. BUILD_AND_TEST, the testing rule and the coverage-ratchet skill carry no figure of the quantity.
-- [ ] 4.4 Linux and Windows: the evidence of the pull request's two runs. Proof: the borrowed credit of
+- [x] 4.4 Linux and Windows: the evidence of the pull request's two runs. Proof: the borrowed credit of
       `morpheus-application` before (1.1) and after, per platform - the measurement a later lowering of the maximum
       cites. The maximum is not lowered in this pull request.
-      Not done here: needs the pull request's two-platform runs.
-- [ ] 4.5 Pull request description: the finding, the two corrections (the reactor cycle, the ceiling), the table of
+      Done, run 40971886851 (head `50d3aab4`). Total, lines / branches: Linux 3998 / 1098, Windows 3997 / 1098,
+      against 5966 / 1506 before (1.1). `morpheus-application`: Linux 2930 / 765, Windows 2930 / 767, against
+      4804 / 1150 and 4804 / 1152 before. The maximum stays at 6038 / 1539.
+- [x] 4.5 Pull request description: the finding, the two corrections (the reactor cycle, the ceiling), the table of
       1.1, and the justification the governance rules require for the ratchet file and the architecture tests.
-      Not done here: written with the pull request.
+      Done: pull request 591.
