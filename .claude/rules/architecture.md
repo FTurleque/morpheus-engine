@@ -78,7 +78,10 @@ Trois obligations avant d'accepter une règle migrée :
 1. **Vérifier que la classe visée est dans l'ensemble importé.** `morpheus-provider-testkit` n'y est
    pas (`morpheus-provider-reference` y est, ADR-0028) — relire
    le `pom.xml` de `morpheus-architecture-tests` plutôt que cette ligne. Le garde-fou `archRule.failOnEmptyShould` est actif et
-   fait échouer une règle qui ne retient aucune classe — **ne pas le désactiver**.
+   fait échouer une règle qui ne retient aucune classe — **ne pas le désactiver**. `AnEmptyArchitectureRuleFailsTest`
+   le prouve en évaluant une règle vide, et refuse `allowEmptyShould` dans le code des tests du module ainsi que tout
+   réglage de `failOnEmptyShould` autre que `true` dans un `archunit.properties`, un POM, `.mvn/`, `scripts/` ou un
+   workflow. Une règle légitimement vide se réécrit ou se supprime : le scan n'a pas de liste d'exemptions.
 2. **Vérifier qu'un littéral n'est pas un préfixe de famille.** `contains("MorpheusRemote")` interdit
    toute une famille de types, pas un seul.
 3. **Casser la règle pour prouver qu'elle tient** : introduire la violation, constater l'échec,
@@ -86,6 +89,30 @@ Trois obligations avant d'accepter une règle migrée :
 
 Découper par **intention**, jamais par classe de test : regrouper fait descendre le compte de
 méthodes `@Test`, et `architectureTestsMinimum` ne se baisse pas (`rules/testing.md`).
+
+### Un interdit textuel de type écrit son intention
+
+Un interdit textuel de type (`assertFalse(source.contains("UnType"))`) porte son intention **en message** :
+`assertFalse(source.contains("UnType"), "<la mention, ou la dépendance qu'elle représente>")`. Son échec se lit alors
+comme une phrase au lieu de `expected: <false> but was: <true>`. Les interdits sans message forment la **famille non
+expliquée**, définie par l'expression que tient `EnforcementMechanismAccountingTest` (pas par une commande recopiée
+ici) : son compte doit **égaler** `UNEXPLAINED_TYPE_BAN_CEILING`. Un membre ajouté fait échouer le build ; un membre
+retiré aussi, tant que le plafond n'est pas baissé dans le même changement. Aucune raison connue ne justifie de le
+relever. Un membre sort de la famille par un message, ou par une règle ArchUnit qui le double quand le type interdit ne
+déclare aucune constante inlinable.
+
+La part textuelle de l'enforcement n'est **pas** plafonnée, et ce refus est délibéré : un ratio se fait baisser en
+supprimant un contrôle de documentation ou en ajoutant une règle qui ne voit rien de neuf, et la plupart des
+assertions textuelles visent des fichiers où le texte est la seule prise. Ce que le module publie de sa propre
+composition se lit dans `morpheus-architecture-tests/target/enforcement-composition-summary.txt`, dont la première
+ligne nomme la méthode ; aucun document ne recopie ces comptes.
+
+Une classe de test du module qui n'évalue aucune règle sur le bytecode, ne lit aucune source de production et ne
+charge aucune classe de production porte `@CoherenceCheck` (tag JUnit `coherence`), et aucune autre ne le porte :
+`CoherenceCheckMarkerTest` dérive la propriété de la source de chaque classe, en suivant les classes de la suite
+qu'elle nomme, et refuse un désaccord dans les deux sens. Une telle classe **reste** dans le module et dans son paquet
+de milestone : sortir les contrôles de cohérence du module ferait baisser `architectureTestsMinimum`.
+`./mvnw test -pl morpheus-architecture-tests -Dgroups=coherence` les lance seules.
 
 **Généralisation par groupe de capacité**, jamais par famille entière :
 
