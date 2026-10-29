@@ -65,7 +65,7 @@ Les onze classes d'accès fichier (2 424 lignes) :
 - **A — un cœur pur.** Toutes les familles en usage sortent de l'application : un port y est déclaré, un adaptateur
   l'implémente. Coût : les onze classes et les quatre lecteurs d'environnement, environ 2 400 lignes, dont cinq classes
   épinglées par des assertions de sécurité textuelles qui doivent les suivre ; un foyer à trouver (un nouveau module
-  change la population de couverture d'ADR-0104, le classpath importé et la livraison ; un store ou un provider est le
+  change la population de couverture d'ADR-0152, le classpath importé et la livraison ; un store ou un provider est le
   mauvais propriétaire d'une frontière d'espace de travail) ; et `Path` reste dans les ports, donc « pur » voudrait dire
   « sans accès », pas « sans `java.nio.file` ».
 - **B — une couche de service autorisée à faire de l'I/O locale.** Toutes les familles en usage restent, confinées aux
@@ -201,7 +201,7 @@ Ce qu'un transport tient de `SqliteOperationRuntime` et `SqliteServerMaintenance
 - [ADR-0109](ARCH-0109-transport-adapters-are-named-composition-roots.md) — racines de composition nommées des
   transports.
 - [ADR-0147](ARCH-0147-un-role-d-adaptateur-est-un-paquet.md) — rôles de l'adaptateur HTTP en paquets.
-- [ADR-0104](GEN-0104-two-coverage-scales-share-one-population.md) — population de couverture.
+- [ADR-0152](GEN-0152-deux-echelles-de-couverture-et-le-credit-emprunte.md) — population de couverture.
 - [ADR-0004](SEC-0004-local-first-no-llm-core.md) — cœur local-first.
 - [ADR-0128](ARCH-0128-pairs-minos-et-nexus-par-mcp-stdio.md) — pairs MINOS et NEXUS, lanceur en chemin absolu.
 - Changements OpenSpec `decide-what-technology-the-application-core-may-touch` et
