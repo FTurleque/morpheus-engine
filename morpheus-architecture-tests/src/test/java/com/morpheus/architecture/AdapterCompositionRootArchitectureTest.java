@@ -73,9 +73,9 @@ class AdapterCompositionRootArchitectureTest {
     @Test
     void theMcpTransportDependsOnNoOtherMorpheusPackage() {
         noClasses()
-                .that().resideInAPackage("com.morpheus.integration.mcp..")
+                .that().resideInAPackage("com.morpheus.transport.mcp..")
                 .should().dependOnClassesThat(resideInAPackage("com.morpheus..")
-                        .and(resideOutsideOfPackage("com.morpheus.integration.mcp..")))
+                        .and(resideOutsideOfPackage("com.morpheus.transport.mcp..")))
                 .because("the bounded STDIO transport is shared by the MCP server and the MINOS and NEXUS clients and "
                         + "knows no MORPHEUS type (ADR-0109, decision 2)")
                 .check(classes);

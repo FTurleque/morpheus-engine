@@ -1,10 +1,16 @@
 package com.morpheus.architecture.m22;
 
 import com.morpheus.architecture.ProductionSources;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.morpheus.architecture.RepositoryRoot;
+import com.morpheus.sdk.provider.ProviderPluginService;
+import com.tngtech.archunit.core.domain.JavaClass;
+import com.tngtech.archunit.core.domain.JavaMethod;
+import com.tngtech.archunit.core.domain.JavaModifier;
+import com.tngtech.archunit.core.importer.ClassFileImporter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
@@ -52,12 +58,11 @@ class ProviderPluginTrustBoundaryContractTest {
         String worker = read(SDK + "ProviderPluginProbeWorker.java");
         String probe = read(SDK + "ProviderPluginProbeProcess.java");
 
-        assertTrue(activator.contains("provider plugin activation requires a trusted SHA-256 pin"),
-                "unpinned executable activation must stay fail-closed");
         assertTrue(activator.contains("ExternalJarIntegrity.normalizeSha256(expectedSha256)"));
-        assertTrue(activator.contains("ExternalJarIntegrity.stageVerifiedCopy(candidate.jarPath(), expected)"),
+        assertTrue(activator.contains(
+                        "Path stagedJar = ExternalJarIntegrity.stageVerifiedCopy(candidate.jarPath(), trustedSha256);"),
                 "the verified copy must be what is loaded, closing the verify-to-load window on the original path");
-        assertTrue(activator.contains("new java.net.URL[] {loadJar.toUri().toURL()}"),
+        assertTrue(activator.contains("new java.net.URL[] {stagedJar.toUri().toURL()}"),
                 "the classloader must only ever see the staged copy");
 
         assertTrue(probe.contains("command(candidate, workspaceRoot, trustedSha256, resultFile)"),
@@ -66,6 +71,60 @@ class ProviderPluginTrustBoundaryContractTest {
                 "the child must verify the pin itself instead of trusting the parent's word");
         assertTrue(worker.contains("expected: JAR WORKSPACE SHA256 RESULT_FILE"),
                 "the pin must stay a required argument of the worker");
+    }
+
+    /**
+     * The only public way into third-party provider code is the probe, and it takes the pin.
+     *
+     * <p>The property is one of the declared API, read on the compiled classes: an overload without a pin -- even
+     * one that only throws today -- is a second entry whose body can change without any gate reading it again. The
+     * activator and its handle are not public, so no host activates plugin code in its own process: plugin code runs
+     * in the probe worker, the child process of ADR-0129.</p>
+     */
+    @Test
+    void theOnlyPublicEntryToPluginCodeIsThePinnedProbe() {
+        var sdk = new ClassFileImporter().importPackages("com.morpheus.sdk.provider");
+        JavaClass activator = sdk.get("com.morpheus.sdk.provider.ProviderPluginActivator");
+        JavaClass activation = sdk.get("com.morpheus.sdk.provider.ProviderPluginActivation");
+        JavaClass service = sdk.get(ProviderPluginService.class);
+
+        for (JavaClass hidden : List.of(activator, activation)) {
+            assertFalse(hidden.getModifiers().contains(JavaModifier.PUBLIC),
+                    () -> hidden.getSimpleName() + " must not be public: a public activator loads plugin code in the "
+                            + "caller's process, outside the probe worker");
+        }
+        assertEquals(
+                List.of("com.morpheus.sdk.provider.ProviderPluginActivator.activate("
+                        + "com.morpheus.sdk.provider.ProviderPluginCandidate, java.lang.String)"),
+                activator.getMethods().stream()
+                        .filter(method -> method.getName().equals("activate"))
+                        .map(JavaMethod::getFullName)
+                        .toList(),
+                "activation must have exactly one entry, and it must take the trusted SHA-256 pin");
+        assertEquals(
+                List.of("com.morpheus.sdk.provider.ProviderPluginService.probe("
+                        + "java.nio.file.Path, java.lang.String, java.nio.file.Path, java.lang.String)"),
+                publicMethodsNamed(service, "probe"),
+                "the probe must have exactly one public entry, and it must take the trusted SHA-256 pin");
+        for (JavaClass entry : List.of(activator, service)) {
+            assertEquals(
+                    List.of(),
+                    entry.getMethods().stream()
+                            .filter(method -> method.isAnnotatedWith(Deprecated.class))
+                            .map(JavaMethod::getFullName)
+                            .sorted()
+                            .toList(),
+                    () -> entry.getSimpleName() + " must not keep a deprecated entry waiting for its removal");
+        }
+    }
+
+    private static List<String> publicMethodsNamed(JavaClass owner, String name) {
+        return owner.getMethods().stream()
+                .filter(method -> method.getName().equals(name))
+                .filter(method -> method.getModifiers().contains(JavaModifier.PUBLIC))
+                .map(JavaMethod::getFullName)
+                .sorted()
+                .toList();
     }
 
     @Test

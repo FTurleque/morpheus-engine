@@ -32,7 +32,7 @@ class ExternalCodeTrustBoundaryArchitectureTest {
     private static final Path PROBE_PROCESS = Path.of(
             "morpheus-provider-sdk/src/main/java/com/morpheus/sdk/provider/ProviderPluginProbeProcess.java");
     private static final Path MCP_TRANSPORT = Path.of(
-            "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioClientTransport.java");
+            "morpheus-mcp-transport/src/main/java/com/morpheus/transport/mcp/BoundedStdioClientTransport.java");
 
     /**
      * Both child-process boundaries inherit exactly the same environment.
@@ -138,8 +138,10 @@ class ExternalCodeTrustBoundaryArchitectureTest {
         String discovery = Files.readString(root.resolve(
                 "morpheus-provider-sdk/src/main/java/com/morpheus/sdk/provider/ProviderPluginDiscovery.java"));
 
-        assertTrue(activator.contains("provider plugin activation requires a trusted SHA-256 pin"),
-                "unpinned executable activation must keep failing closed");
+        assertFalse(activator.contains("orElse(candidate.jarPath())"),
+                "the classloader must never fall back to the unverified original JAR");
+        assertFalse(activator.contains("@Deprecated"),
+                "no entry to plugin code may survive as a deprecated overload whose body no gate reads");
         assertTrue(activator.contains("ExternalJarIntegrity.stageVerifiedCopy("),
                 "the classloader must only ever see the verified staging copy");
         assertTrue(activator.contains("releaseLoaderAndStaging("),

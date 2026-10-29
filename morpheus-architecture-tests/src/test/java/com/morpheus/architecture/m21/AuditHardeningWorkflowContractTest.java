@@ -204,11 +204,11 @@ class AuditHardeningWorkflowContractTest {
     void mcpTransportDoesNotLogRawPeerControlledThrowables() throws IOException {
         Path root = RepositoryRoot.locate();
         String client = Files.readString(root.resolve(
-                "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioClientTransport.java"));
+                "morpheus-mcp-transport/src/main/java/com/morpheus/transport/mcp/BoundedStdioClientTransport.java"));
         String server = Files.readString(root.resolve(
-                "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioServerTransportProvider.java"));
+                "morpheus-mcp-transport/src/main/java/com/morpheus/transport/mcp/BoundedStdioServerTransportProvider.java"));
         String redactor = Files.readString(root.resolve(
-                "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/McpDiagnosticRedactor.java"));
+                "morpheus-mcp-transport/src/main/java/com/morpheus/transport/mcp/McpDiagnosticRedactor.java"));
 
         assertTrue(client.contains("McpDiagnosticRedactor.describe(failure)"));
         assertTrue(server.contains("McpDiagnosticRedactor.describe(failure)"));
@@ -228,7 +228,7 @@ class AuditHardeningWorkflowContractTest {
     @Test
     void mcpServerTransportAnswersAnOversizedResponseInsteadOfFailingClosed() throws IOException {
         String server = Files.readString(RepositoryRoot.locate().resolve(
-                "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioServerTransportProvider.java"));
+                "morpheus-mcp-transport/src/main/java/com/morpheus/transport/mcp/BoundedStdioServerTransportProvider.java"));
 
         assertTrue(server.contains("\"MCP_RESPONSE_TOO_LARGE\""));
         int encodeStart = server.indexOf("private OutboundFrame encode(");
@@ -250,7 +250,7 @@ class AuditHardeningWorkflowContractTest {
     @Test
     void mcpClientTransportRefusesAnOversizedOutboundFrameInsteadOfFailingClosed() throws IOException {
         String client = Files.readString(RepositoryRoot.locate().resolve(
-                "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioClientTransport.java"));
+                "morpheus-mcp-transport/src/main/java/com/morpheus/transport/mcp/BoundedStdioClientTransport.java"));
 
         int encodeStart = client.indexOf("private OutboundFrame encode(");
         int encodeEnd = client.indexOf("private void failClosed(", encodeStart);

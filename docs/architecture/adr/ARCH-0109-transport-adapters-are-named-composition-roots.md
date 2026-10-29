@@ -81,8 +81,9 @@ n'ont qu'un câblage pour les trois transports.
 
 ### 3. `morpheus-mcp-transport` ne dépend d'aucun autre paquet MORPHEUS
 
-Le transport STDIO borné (`com.morpheus.integration.mcp`) est partagé par le serveur MCP et par les clients MINOS et
-NEXUS : il ne connaît aucun type MORPHEUS.
+Le transport STDIO borné, paquet `com.morpheus.transport.mcp`, est partagé par le serveur MCP et par les clients
+MINOS et NEXUS : il ne connaît aucun type MORPHEUS. Son paquet n'est ni sous `com.morpheus.integration..` ni sous
+`com.morpheus.mcp..` : une règle écrite pour les intégrations ou pour l'adaptateur MCP ne l'atteint qu'en le nommant.
 
 ### 4. Les paquets du domaine sont sans cycle, à deux exceptions nommées ; l'application n'a pas de règle de cycle
 
@@ -110,7 +111,8 @@ refonte des paquets, ce qui sort de la portée d'une décision d'architecture.
 - Ne pas construire plusieurs stores SQLite hors de `SqliteOperationRuntime`.
 - Ne pas exposer un type `Sqlite…Store` depuis un runtime de transport.
 - Ne pas imbriquer deux portées de connexion sur un même thread.
-- Ne pas faire dépendre `com.morpheus.integration.mcp` d'un autre paquet `com.morpheus..`.
+- Ne pas faire dépendre `com.morpheus.transport.mcp` d'un autre paquet `com.morpheus..`, ni le ranger sous le paquet
+  des intégrations ou de l'adaptateur MCP.
 - Ne pas introduire de cycle entre paquets du domaine.
 
 ## Consequences
@@ -147,6 +149,9 @@ refonte des paquets, ce qui sort de la portée d'une décision d'architecture.
   (`theOperationRuntimeRegistersEveryStoreItOpensForRelease`).
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/LayerDependencyTest.java` : `application` ne
   dépend d'aucun adaptateur, `api` reste frère de `cli` et `mcp`.
+- `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/ModulePackageCorrespondenceTest.java` :
+  `theSharedMcpTransportResidesOutsideTheIntegrationsAndTheMcpAdapter`, et la table qui donne à chaque module son
+  paquet racine.
 
 ## References
 

@@ -117,7 +117,7 @@ class SilentCatchArchitectureTest {
                     () -> gateway + " must count a process of the peer that could not be listed or signalled");
         }
         assertFalse(Files.readString(root.resolve(
-                        "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioClientTransport.java"))
+                        "morpheus-mcp-transport/src/main/java/com/morpheus/transport/mcp/BoundedStdioClientTransport.java"))
                         .contains("System.Logger.Level.DEBUG"),
                 "a failed signal logged at DEBUG is dropped by the default handler of the JDK: the transport reports "
                         + "it to the observer its gateway hands it");

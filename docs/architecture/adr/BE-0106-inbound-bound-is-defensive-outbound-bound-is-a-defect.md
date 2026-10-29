@@ -213,18 +213,18 @@ configuré par l'opérateur (`resolve_external_reference`, `get_augmented_requir
 
 ## Compliance and Enforcement
 
-- `morpheus-mcp-transport/src/test/java/com/morpheus/integration/mcp/BoundedStdioServerTransportProviderFrameBoundTest.java` :
+- `morpheus-mcp-transport/src/test/java/com/morpheus/transport/mcp/BoundedStdioServerTransportProviderFrameBoundTest.java` :
   réponse hors borne remplacée au même `id` et session qui sert la requête suivante, orientation fournie qui atteint
   le client, notification hors borne refusée sans fermer la session, substitut trop gros qui échoue fermé, trame
   entrante hors borne qui échoue fermé ;
   `theOversizedResponseErrorDoesNotNameAToolTheTransportCannotKnow`.
-- `morpheus-mcp-transport/src/test/java/com/morpheus/integration/mcp/BoundedStdioClientTransportTest.java` :
+- `morpheus-mcp-transport/src/test/java/com/morpheus/transport/mcp/BoundedStdioClientTransportTest.java` :
   `anOversizedOutboundRequestIsRefusedWithoutKillingThePeer`, `anInboundFrameOverTheBoundStillFailsClosed`.
-- `morpheus-mcp-transport/src/test/java/com/morpheus/integration/mcp/BoundedStdioClientTransportHandlePruningTest.java` :
+- `morpheus-mcp-transport/src/test/java/com/morpheus/transport/mcp/BoundedStdioClientTransportHandlePruningTest.java` :
   règle d'élagage des poignées.
-- `morpheus-mcp-transport/src/test/java/com/morpheus/integration/mcp/BoundedStdioServerTransportProviderHandlerDeadlineTest.java` :
+- `morpheus-mcp-transport/src/test/java/com/morpheus/transport/mcp/BoundedStdioServerTransportProviderHandlerDeadlineTest.java` :
   handler sans fin qui ferme la session, handler dans sa borne servi, valeur par défaut épinglée.
-- `morpheus-mcp-transport/src/test/java/com/morpheus/integration/mcp/PeerOperationDeadlineTest.java` : abandon à
+- `morpheus-mcp-transport/src/test/java/com/morpheus/transport/mcp/PeerOperationDeadlineTest.java` : abandon à
   l'échéance, désarmement, formule, refus hors enveloppe.
 - `morpheus-integration-minos/src/test/java/com/morpheus/integration/minos/MinosMcpOperationDeadlineTest.java` et
   `morpheus-integration-nexus/src/test/java/com/morpheus/integration/nexus/NexusMcpOperationDeadlineTest.java` : un

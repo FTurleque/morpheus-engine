@@ -57,6 +57,13 @@ by hand.
 
 6. **No ADR.** Nothing is decided that an ADR does not already hold; the test's `because` clauses cite ADR-0129,
    ADR-0095 and ADR-0109.
+7. **Measured on 2026-10-28: the application keeps its own rule, and the rule has a textual twin.** ADR-0150
+   already confines "reflection and class loading" in `application` to `CanonicalJsonSerializer` and
+   `ReasoningAdapterRegistry`; the new rules cover `com.morpheus..` outside `application` and check that the ADR-0150
+   family is still there, so no name is held twice. A lambda whose only tie to `java.lang.reflect` is its target type
+   leaves no dependency ArchUnit reports (task 3.2), so decision 1 is corrected: a scan of the main sources outside
+   `application` refuses a mention of `java.lang.reflect`, `java.lang.invoke`, `ServiceLoader`, a class loader or
+   `Class.forName` in a class that is on neither list.
 
 ## Risks / Trade-offs
 

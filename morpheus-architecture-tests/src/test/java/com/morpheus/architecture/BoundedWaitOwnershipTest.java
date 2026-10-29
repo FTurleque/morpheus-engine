@@ -37,7 +37,7 @@ class BoundedWaitOwnershipTest {
     /** The per-module owners. Deliberately two, not one: see {@link #theTwoOwnersStayInStep()}. */
     private static final List<Path> OWNERS = List.of(
             ProductionSources.relativeTestSource("morpheus-api", "BoundedWait"),
-            Path.of("morpheus-mcp-transport/src/test/java/com/morpheus/integration/mcp/BoundedWait.java"));
+            Path.of("morpheus-mcp-transport/src/test/java/com/morpheus/transport/mcp/BoundedWait.java"));
 
     /**
      * A method declaration whose name opens with {@code await}: an indented line carrying at least one

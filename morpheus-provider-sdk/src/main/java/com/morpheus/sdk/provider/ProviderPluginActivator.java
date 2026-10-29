@@ -12,45 +12,43 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 
-/** Explicit activation of one compatible candidate in a dedicated classloader. */
-public final class ProviderPluginActivator {
-
-    /** Unpinned executable activation is retained only for compatibility and always fails closed. */
-    @Deprecated(forRemoval = true)
-    public ProviderPluginActivation activate(ProviderPluginCandidate candidate) {
-        Objects.requireNonNull(candidate, "candidate");
-        throw new IllegalArgumentException("provider plugin activation requires a trusted SHA-256 pin");
-    }
+/**
+ * Explicit activation of one compatible candidate in a dedicated classloader.
+ *
+ * <p>Not public: plugin code runs only in the probe worker, the child process of SEC-0129. A host reaches it through
+ * {@link ProviderPluginService#probe}, never by activating a plugin in its own process.</p>
+ */
+final class ProviderPluginActivator {
 
     /**
-     * Activates a compatible candidate after mandatory SHA-256 pin verification. When a pin is supplied,
-     * an owner-hardened verified staging copy is created and that immutable copy is the only JAR exposed to
-     * URLClassLoader/ServiceLoader, closing the verification-to-load TOCTOU window on the original path.
+     * Activates a compatible candidate after mandatory SHA-256 pin verification. An owner-hardened verified staging
+     * copy is created and that immutable copy is the only JAR exposed to URLClassLoader/ServiceLoader, closing the
+     * verification-to-load TOCTOU window on the original path. A missing pin is refused before the JAR is read.
      */
-    public ProviderPluginActivation activate(ProviderPluginCandidate candidate, String expectedSha256) {
-        return activate(candidate, Optional.of(ExternalJarIntegrity.normalizeSha256(expectedSha256)));
+    ProviderPluginActivation activate(ProviderPluginCandidate candidate, String expectedSha256) {
+        Objects.requireNonNull(candidate, "candidate");
+        if (expectedSha256 == null || expectedSha256.isBlank()) {
+            throw new IllegalArgumentException("provider plugin activation requires a trusted SHA-256 pin");
+        }
+        return activatePinned(candidate, ExternalJarIntegrity.normalizeSha256(expectedSha256));
     }
 
-    private ProviderPluginActivation activate(ProviderPluginCandidate candidate, Optional<String> expectedSha256) {
-        Objects.requireNonNull(candidate, "candidate");
+    private ProviderPluginActivation activatePinned(ProviderPluginCandidate candidate, String trustedSha256) {
         if (!candidate.compatible()) {
             throw new IllegalArgumentException("provider plugin candidate is not compatible: " + candidate.jarPath());
         }
         ProviderPluginMetadata manifestMetadata = candidate.metadata()
                 .orElseThrow(() -> new IllegalArgumentException("compatible candidate has no metadata"));
 
-        Optional<Path> stagedJar = expectedSha256
-                .map(expected -> ExternalJarIntegrity.stageVerifiedCopy(candidate.jarPath(), expected));
-        Path loadJar = stagedJar.orElse(candidate.jarPath());
+        Path stagedJar = ExternalJarIntegrity.stageVerifiedCopy(candidate.jarPath(), trustedSha256);
 
         URLClassLoader loader;
         try {
             loader = new URLClassLoader(
-                    new java.net.URL[] {loadJar.toUri().toURL()},
+                    new java.net.URL[] {stagedJar.toUri().toURL()},
                     MorpheusProviderPlugin.class.getClassLoader());
         } catch (MalformedURLException failure) {
             deleteStagedSuppressing(stagedJar, failure);
@@ -106,7 +104,7 @@ public final class ProviderPluginActivator {
         }
     }
 
-    private static void releaseLoaderAndStaging(URLClassLoader loader, Optional<Path> stagedJar, Throwable primary) {
+    private static void releaseLoaderAndStaging(URLClassLoader loader, Path stagedJar, Throwable primary) {
         try {
             loader.close();
         } catch (IOException | RuntimeException closeFailure) {
@@ -115,10 +113,9 @@ public final class ProviderPluginActivator {
         deleteStagedSuppressing(stagedJar, primary);
     }
 
-    private static void deleteStagedSuppressing(Optional<Path> stagedJar, Throwable primary) {
-        if (stagedJar.isEmpty()) return;
+    private static void deleteStagedSuppressing(Path stagedJar, Throwable primary) {
         try {
-            Files.deleteIfExists(stagedJar.orElseThrow());
+            Files.deleteIfExists(stagedJar);
         } catch (IOException deleteFailure) {
             primary.addSuppressed(deleteFailure);
         }

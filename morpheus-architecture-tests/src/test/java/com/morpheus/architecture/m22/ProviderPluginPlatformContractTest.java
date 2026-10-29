@@ -3,8 +3,10 @@ package com.morpheus.architecture.m22;
 import com.morpheus.application.product.ProductMetadata;
 import com.morpheus.architecture.ProductionSources;
 import com.morpheus.architecture.RepositoryRoot;
+import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.sdk.provider.ProviderPluginCandidate;
 import com.morpheus.sdk.provider.ProviderPluginDiscovery;
+import com.morpheus.sdk.provider.ProviderPluginService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -12,9 +14,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProviderPluginPlatformContractTest {
@@ -23,21 +27,7 @@ class ProviderPluginPlatformContractTest {
 
     @Test
     void externalReferenceJarIsDiscoveredAsMetadataWithoutActivation() throws Exception {
-        Path root = RepositoryRoot.locate();
-        Path referenceJar = root.resolve(
-                "morpheus-provider-reference/target/morpheus-provider-reference-"
-                        + ProductMetadata.version()
-                        + ".jar");
-        assertTrue(Files.isRegularFile(referenceJar), "reference provider JAR must be built before architecture tests");
-
-        Path pluginDirectory = Files.createDirectory(tempDirectory.resolve("plugins"));
-        Path pluginJar = pluginDirectory.resolve("reference-provider.jar");
-        Files.copy(referenceJar, pluginJar, StandardCopyOption.REPLACE_EXISTING);
-
-        var discovery = new ProviderPluginDiscovery().discover(pluginDirectory);
-        assertEquals(1, discovery.candidates().size());
-        ProviderPluginCandidate candidate = discovery.candidates().getFirst();
-        assertTrue(candidate.compatible(), candidate.diagnostics().toString());
+        ProviderPluginCandidate candidate = referenceCandidate();
         assertEquals("reference-provider-plugin", candidate.metadata().orElseThrow().pluginId());
     }
 
@@ -68,7 +58,6 @@ class ProviderPluginPlatformContractTest {
         String mcp = Files.readString(ProductionSources.mainSource("morpheus-mcp", "MorpheusProviderPluginMcpTools"));
         String http = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusHttpServer"));
         String httpRoutes = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusProviderPluginHttpRoutes"));
-        String activator = Files.readString(root.resolve("morpheus-provider-sdk/src/main/java/com/morpheus/sdk/provider/ProviderPluginActivator.java"));
 
         assertFalse(cliPom.contains("morpheus-provider-reference"), "reference plugin must remain external to launcher runtime");
         assertTrue(surfaces.contains("provider.plugins.discover\tREAD\tprovider-plugins discover\tEXPLICITLY_NOT_EXPOSED\tGET /api/v1/provider-plugins/discover"));
@@ -89,7 +78,34 @@ class ProviderPluginPlatformContractTest {
                         + "this server serves its metrics");
         assertTrue(httpRoutes.contains("if (!probeEnabled)"));
         assertTrue(httpRoutes.contains("provider-plugin probe is remote-only"));
-        assertTrue(activator.contains("provider plugin activation requires a trusted SHA-256 pin"));
+        ProviderPluginCandidate reference = referenceCandidate();
+        Path pluginDirectory = reference.jarPath().getParent();
+        String pluginId = reference.metadata().orElseThrow().pluginId();
+        ProviderPluginService service = new ProviderPluginService(OperationalRecorder.noop());
+        for (String missingPin : Arrays.asList(null, "", "   ")) {
+            IllegalArgumentException refusal = assertThrows(IllegalArgumentException.class,
+                    () -> service.probe(pluginDirectory, pluginId, tempDirectory, missingPin),
+                    "the reference plugin must not be probed without a trusted SHA-256 pin");
+            assertEquals("provider plugin probe requires a trusted SHA-256 pin", refusal.getMessage());
+        }
+    }
+
+    private ProviderPluginCandidate referenceCandidate() throws IOException {
+        Path referenceJar = RepositoryRoot.locate().resolve(
+                "morpheus-provider-reference/target/morpheus-provider-reference-"
+                        + ProductMetadata.version()
+                        + ".jar");
+        assertTrue(Files.isRegularFile(referenceJar), "reference provider JAR must be built before architecture tests");
+
+        Path pluginDirectory = Files.createDirectories(tempDirectory.resolve("plugins"));
+        Path pluginJar = pluginDirectory.resolve("reference-provider.jar");
+        Files.copy(referenceJar, pluginJar, StandardCopyOption.REPLACE_EXISTING);
+
+        var discovery = new ProviderPluginDiscovery().discover(pluginDirectory);
+        assertEquals(1, discovery.candidates().size());
+        ProviderPluginCandidate candidate = discovery.candidates().getFirst();
+        assertTrue(candidate.compatible(), candidate.diagnostics().toString());
+        return candidate;
     }
 
     /**

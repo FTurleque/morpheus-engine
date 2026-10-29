@@ -22,10 +22,11 @@ about the plugin API, not a repair of a false sentence); a rule on what plugins 
 
 ## Decisions
 
-1. **An ArchUnit rule, not a textual assertion.** Intent in one sentence: *the provider SDK has no dependency on an
-   adapter*. "No dependency" is the bytecode proposition (`.claude/rules/architecture.md`). No textual twin: the forbidden targets are
-   packages, not names, and none of the SDK's possible targets is reached through an inlined constant alone - the lot
-   checks this claim rather than trusts it (task 1.3).
+1. **An ArchUnit rule, with a textual twin.** Intent in one sentence: *the provider SDK has no dependency on an
+   adapter*. "No dependency" is the bytecode proposition (`.claude/rules/architecture.md`). Task 1.3 measured that
+   adapters declare compile-time constants (`SqliteConnectionScope.NESTED_REFUSAL` among others) that an SDK class
+   could read without leaving a bytecode dependency, so the rule keeps a twin that refuses the adapter package
+   prefixes in the SDK's main sources (`.claude/skills/enforcement-choice`: constants present, keep the text).
 
 2. **Targets: `STORES`, `PROVIDERS`, `INTEGRATIONS`, `MCP`, `API`, `CLI`.** These are the constants the class already
    declares. `PROVIDERS` includes the reference plugin: the SDK must not know an implementation of itself.

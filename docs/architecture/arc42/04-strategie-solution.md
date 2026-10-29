@@ -45,8 +45,10 @@ Adapters / stores
   morpheus-store-memory
   morpheus-store-sqlite
 
-Adapters / integrations
+Shared transport
   morpheus-mcp-transport
+
+Adapters / integrations
   morpheus-integration-minos
   morpheus-integration-nexus
 
