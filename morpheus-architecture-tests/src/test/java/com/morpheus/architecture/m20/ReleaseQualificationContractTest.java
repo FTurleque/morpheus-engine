@@ -66,7 +66,32 @@ class ReleaseQualificationContractTest {
                     () -> script + " must verify provenance publicly rather than trust the pipeline");
             assertTrue(content.contains("attestation bundle is empty"),
                     () -> script + " must require the preserved attestation bundles");
+            assertTrue(content.contains("authenticode-signing.properties")
+                            || content.contains("Read-MorpheusSigningDeclaration"),
+                    () -> script + " must read the one signing declaration");
+            assertTrue(content.contains("the Windows manifest states no signature status for"),
+                    () -> script + " must require the Windows manifest to state the signature of each binary");
         }
+
+        String windows = read("scripts/verify-release-provenance.ps1");
+        String verification = read("scripts/lib/MorpheusAuthenticode.ps1");
+        assertTrue(windows.contains("lib\\MorpheusAuthenticode.ps1"),
+                "the Windows variant verifies through the verification the rehearsal proves");
+        for (String refusal : List.of("AUTHENTICODE_SIGNATURE_MISSING", "AUTHENTICODE_SIGNATURE_INVALID",
+                "AUTHENTICODE_SIGNATURE_NOT_TRUSTED", "AUTHENTICODE_SIGNER_UNEXPECTED", "AUTHENTICODE_TIMESTAMP_MISSING",
+                "AUTHENTICODE_PUBLISHER_NOT_DECLARED")) {
+            assertTrue(verification.contains(refusal), () -> "the Windows variant must refuse by name: " + refusal);
+        }
+        assertTrue(windows.contains("signature statement mismatch for"),
+                "the Windows variant compares the manifest's statement with the published binary");
+        assertTrue(windows.contains("AUTHENTICODE_NOT_REQUIRED_YET") && windows.contains("unsigned by declared baseline"),
+                "an unsigned release says why it is unsigned, and never passes the signature check in silence");
+
+        String shell = read("scripts/verify-release-provenance.sh");
+        assertTrue(shell.contains("AUTHENTICODE_NOT_VERIFIED_ON_THIS_PLATFORM"),
+                "the shell variant says by name that it did not verify the signature");
+        assertTrue(shell.contains("RELEASE QUALIFICATION INCOMPLETE") && !shell.contains("RELEASE QUALIFICATION PASS"),
+                "a variant that did not verify the signature cannot end with the full pass sentence");
     }
 
     /**

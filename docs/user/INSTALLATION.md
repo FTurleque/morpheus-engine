@@ -211,4 +211,26 @@ Linux :
 sha256sum -c morpheus-1.2.1-linux-x64.tar.gz.sha256
 ```
 
+## Signature de l'éditeur (Windows)
+
+L'installeur et le lanceur de MORPHEUS 1.2.1 **ne sont pas signés** par un certificat d'éditeur. Au lancement de
+l'installeur, Windows le présente comme provenant d'un **éditeur inconnu**, et SmartScreen peut demander une
+confirmation supplémentaire (« Informations complémentaires », puis « Exécuter quand même »). Ce n'est pas le signe d'un
+fichier altéré : c'est ce que Windows affiche pour tout exécutable non signé.
+
+Pour une release non signée, la vérification disponible est la somme SHA-256 publiée avec chaque fichier (section
+suivante), complétée par l'attestation de provenance décrite dans [PRODUCT_INTEGRITY.md](PRODUCT_INTEGRITY.md).
+
+Les releases seront signées à partir d'une version que les notes de version annonceront ; les versions antérieures
+restent telles qu'elles ont été publiées et ne seront pas re-signées. Une fois une release signée, l'onglet
+« Signatures numériques » des propriétés du fichier (clic droit, Propriétés) affiche le nom de l'éditeur et la date
+d'horodatage, et PowerShell donne le même résultat :
+
+```powershell
+Get-AuthenticodeSignature .\MORPHEUS-<version>-windows-x64-setup.exe | Format-List Status, SignerCertificate
+```
+
+Même signé, un installeur nouvellement publié peut encore déclencher l'avertissement de réputation de SmartScreen : la
+réputation d'un éditeur s'acquiert dans la durée, quel que soit le type de certificat.
+
 La preuve de publication des douze assets de 1.2.1 (provenance, sommes de contrôle, inventaire) est conservée dans [`../project/validation/VALIDATION_RELEASE_1.2.1.md`](../project/validation/VALIDATION_RELEASE_1.2.1.md).

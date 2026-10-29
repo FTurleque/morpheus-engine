@@ -105,8 +105,14 @@ La découverte d’update à URI fournie par le client est **volontairement abse
 Le SHA-256 annoncé par le manifeste permet de contrôler la forme d’une valeur d’intégrité attendue et de la transporter avec les métadonnées de découverte. Il ne constitue pas une preuve d’identité de l’éditeur :
 
 ```text
-checksum != provenance
+checksum != provenance != signature de l'éditeur
 ```
+
+Les trois répondent à trois questions différentes. La somme SHA-256 dit que le fichier téléchargé est celui qui a été
+publié. L'attestation de provenance dit que ce fichier a été construit par le workflow de release, depuis le commit
+tagué. La signature Authenticode d'un binaire Windows dit quel éditeur, validé par une autorité de certification, l'a
+signé — c'est elle que Windows lit au lancement. Les binaires Windows de MORPHEUS 1.2.1 ne portent pas encore de
+signature d'éditeur ; voir [INSTALLATION.md](INSTALLATION.md), section « Signature de l'éditeur ».
 
 Les releases produites par le workflow `MORPHEUS Release` reçoivent une attestation GitHub de provenance liée au workflow et au commit tagué. Le champ `attestationUri` rend cette preuve explicitement référençable par le contrat de découverte distant et elle est désormais conservée dans `UpdateCheckResult`.
 

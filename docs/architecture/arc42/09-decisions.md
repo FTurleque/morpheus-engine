@@ -107,6 +107,7 @@ Serveur distant, données, journaux, budgets et gouvernance.
 | Durée de vie bornée d'une réponse sur la façade remote | [ADR-0099](../adr/SEC-0099-bounded-response-lifetime-on-the-remote-facade.md) |
 | L'audit d'identités est une preuve, pas une autorité | [ADR-0100](../adr/SEC-0100-identity-audit-is-evidence-not-authority.md) |
 | Pas de coffre de secrets : MORPHEUS ne stocke aucun secret réutilisable, et le seul qu'il lit vient de l'environnement | [ADR-0105](../adr/SEC-0105-no-secret-vault-no-reusable-secret-at-rest.md) |
+| Les binaires Windows sont signés sur demande, par un seul point d'entrée, avec une identité que seul le workflow de release atteint | [ADR-0153](../adr/SEC-0153-signature-authenticode-de-la-distribution-windows.md) |
 | Une borne entrante est défensive, une borne sortante est un défaut interne | [ADR-0106](../adr/BE-0106-inbound-bound-is-defensive-outbound-bound-is-a-defect.md) |
 | Une copie de la base est conservée avant que son schéma n'avance, et sans elle la migration n'a pas lieu | [ADR-0110](../adr/DATA-0110-a-copy-is-kept-before-the-schema-advances.md) |
 | Journal opérationnel : un seul binding SLF4J, un fichier borné à la demande | [ADR-0146](../adr/BE-0146-journal-operationnel-slf4j-et-fichier-borne.md) |

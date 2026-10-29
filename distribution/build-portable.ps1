@@ -1,10 +1,16 @@
 param(
     [string]$Version = "1.2.1",
-    [string]$OutputDirectory = "dist"
+    [string]$OutputDirectory = "dist",
+    # none: nothing is signed. test: the run's ephemeral identity. release: the declared publisher's identity.
+    # Chosen by the caller, never inferred from a credential being present or absent.
+    [ValidateSet("none", "test", "release")][string]$SigningState = "none"
 )
 
 $ErrorActionPreference = "Stop"
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+. (Join-Path $repo "scripts\lib\MorpheusAuthenticode.ps1")
+$signingEntryPoint = Join-Path $PSScriptRoot "windows\sign-windows-binary.ps1"
+Write-Host "Windows signing state: $SigningState"
 $dist = Join-Path $repo $OutputDirectory
 $work = Join-Path $dist ".m20-windows"
 $jpackageInput = Join-Path $work "input"
@@ -208,6 +214,26 @@ if ($LASTEXITCODE -ne 0) { throw "jpackage app-image failed with exit code $LAST
 $launcher = Join-Path $appImageRoot "morpheus\morpheus.exe"
 if (-not (Test-Path $launcher)) { throw "Packaged launcher not found: $launcher" }
 
+# The executables of the image outside the embedded runtime are signed here, right after jpackage and before anything
+# is derived from the image: the archive, the installer payload, the checksums, the manifest and the attestation then
+# all describe the signed bytes. The runtime's binaries are third-party and left as they came.
+$imageExecutables = Get-MorpheusImageExecutables -ImageRoot (Join-Path $appImageRoot "morpheus")
+if ($imageExecutables.Product.Count -eq 0) { throw "Packaging proof failed; the image holds no executable outside the runtime" }
+if ($SigningState -eq "none") {
+    Write-Host "Windows signing: not requested; the image executables are left unsigned ($($imageExecutables.Product.Count))"
+} else {
+    $env:MORPHEUS_WINDOWS_SIGNING_STATE = $SigningState
+    foreach ($executable in $imageExecutables.Product) {
+        & $signingEntryPoint -Path $executable
+        if ($LASTEXITCODE -ne 0) { throw "WINDOWS_SIGNING_FAILED: $executable could not be signed (exit $LASTEXITCODE)" }
+    }
+    $unsignedExecutables = @($imageExecutables.Product | Where-Object { (Get-MorpheusSignatureStatement -Path $_)["status"] -ne "signed" })
+    if ($unsignedExecutables.Count -ne 0) {
+        throw "WINDOWS_SIGNING_FAILED: a signing build left image executables unsigned: $($unsignedExecutables -join ', ')"
+    }
+    Write-Host "Windows signing of the image executables ($SigningState): PASS ($($imageExecutables.Product.Count) signed, runtime untouched)"
+}
+
 # The isolated provider probe starts its child from the MORPHEUS runtime alone -- java.home/bin/java -- and never
 # from PATH, so the distribution has to carry that launcher. jpackage's default jlink options include
 # --strip-native-commands, which removed it: discovery worked in the packaged build and the probe could not run at
@@ -328,6 +354,20 @@ New-Item $dist -ItemType Directory -Force | Out-Null
 $archive = Join-Path $dist "morpheus-$Version-windows-x64.zip"
 Compress-PortableArchiveWithRetry -SourceDirectory (Join-Path $appImageRoot "morpheus") -DestinationArchive $archive
 if (-not (Test-Path $archive)) { throw "Portable Windows archive is missing after archive creation: $archive" }
+if ($SigningState -ne "none") {
+    # Read back from the archive, not from the image: a signing step moved after the archive leaves this archive's
+    # launcher unsigned while the image on disk is signed.
+    $archiveCheck = Join-Path $work "archive-signature-check"
+    Remove-Item $archiveCheck -Recurse -Force -ErrorAction SilentlyContinue
+    Expand-Archive -LiteralPath $archive -DestinationPath $archiveCheck -Force
+    $archived = Get-MorpheusImageExecutables -ImageRoot (Join-Path $archiveCheck "morpheus")
+    $unsignedArchived = @($archived.Product | Where-Object { (Get-MorpheusSignatureStatement -Path $_)["status"] -ne "signed" })
+    Remove-Item $archiveCheck -Recurse -Force -ErrorAction SilentlyContinue
+    if ($archived.Product.Count -eq 0 -or $unsignedArchived.Count -ne 0) {
+        throw "WINDOWS_SIGNING_FAILED: the archive $archive carries an unsigned executable outside the runtime"
+    }
+    Write-Host "Windows archive executables signed ($SigningState): PASS ($($archived.Product.Count))"
+}
 
 Write-Host "Portable Windows distribution: $archive"
 Write-Host "The archive contains MORPHEUS $Version, its Java runtime, provider SDK, MCP/API, optional MINOS/NEXUS client adapters, M14-M28 contracts and the opt-in MCP client integration manager. External provider plugins, MINOS, NEXUS and JARVIS are not embedded or required; lifecycle writes still require an explicit WRITE_CHANGE-capable provider."

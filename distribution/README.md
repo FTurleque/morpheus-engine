@@ -89,6 +89,42 @@ uninstall conservateur
 état persistant conservé par défaut
 ```
 
+## Signature Authenticode Windows
+
+Un build Windows signe seulement quand son appelant le demande, par `-SigningState` (`build-portable.ps1`,
+`build-installer.ps1`, `build-release.ps1`) :
+
+```text
+none     rien n'est signé ; c'est la valeur par défaut, et le build l'imprime
+test     identité créée pour une exécution (répétition : validate-m20.ps1 -TestSigning), jamais approuvée
+release  identité de l'éditeur déclaré, horodatée par l'autorité déclarée
+```
+
+Un build ne signe pas parce qu'une clé est présente et ne saute pas la signature parce qu'elle manque. Un build à qui
+l'on demande de signer et qui ne peut pas signer un fichier attendu échoue (`WINDOWS_SIGNING_FAILED`, ou
+`WINDOWS_SIGNING_TIMESTAMP_FAILED`) ; il ne produit jamais un artefact non signé à la place.
+
+Ordre de signature :
+
+1. `build-portable.ps1` signe chaque exécutable de l'image hors du runtime embarqué (le lanceur `morpheus.exe`) juste
+   après `jpackage`, avant l'archive portable, puis relit la signature dans l'archive produite ;
+2. `build-installer.ps1` construit la charge utile depuis cette image signée et le vérifie, puis le compilateur
+   Inno Setup signe l'installeur et le désinstalleur (`#ifdef SignBuild` dans `MORPHEUS.iss`, `SignedUninstaller=yes`) ;
+3. `build-release.ps1` écrit dans le manifeste Windows la signature lue sur chaque binaire produit.
+
+Les binaires du runtime embarqué restent tels que le JDK les livre. L'installeur de smoke n'est jamais signé avec
+l'identité de release (`WINDOWS_SIGNING_REFUSED`).
+
+`distribution/windows/sign-windows-binary.ps1` est le seul appelant d'un outil de signature. Il reçoit un chemin de
+fichier et rien d'autre ; l'état et l'identité lui arrivent par l'environnement du processus, jamais par un argument :
+le compilateur journalise en entier la commande de l'outil, qui ne contient qu'un chemin de script et un fichier.
+
+`distribution/windows/authenticode-signing.properties` déclare l'éditeur attendu (sujet exact du certificat), la
+première version signée et l'autorité d'horodatage. Les trois champs sont vides tant que le certificat n'existe pas :
+les releases sont alors construites non signées, le manifeste le déclare (`"status": "unsigned"`) et la qualification
+le dit. À partir de la version de base déclarée, `build-release.ps1` refuse un état autre que `release`
+(`WINDOWS_SIGNING_REQUIRED`). L'état `release` échoue tant que le fournisseur de signature n'est pas configuré.
+
 ## Build actif 1.2.1
 
 Portable Windows :

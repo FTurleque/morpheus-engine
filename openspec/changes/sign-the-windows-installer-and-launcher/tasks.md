@@ -29,19 +29,19 @@ Section 1 is the maintainer's and should start first: identity validation has a 
 
 ## 2. Measure before changing
 
-- [ ] 2.1 Reuse the table of the other change's task 2.1 (every PE file of the image with its signature status). Proof:
+- [x] 2.1 Reuse the table of the other change's task 2.1 (every PE file of the image with its signature status). Proof:
       the list of executables outside the runtime — the population this change signs. If it holds more than the
       launcher, say so in the pull request.
-- [ ] 2.2 On the pinned compiler, confirm how a signing tool is defined from the command line and that the installer
+- [x] 2.2 On the pinned compiler, confirm how a signing tool is defined from the command line and that the installer
       **and** the uninstaller come out signed when the directive is set. **Unverified premise**: the option was read
       in the documentation of the current release, not run on the pinned version. Proof: a compile with a throwaway
       self-signed certificate, the two files' signature status, and the exact option form.
 - [ ] 2.3 Confirm that a self-signed code-signing certificate can be created in, used from and removed from the
       personal certificate store of a hosted Windows runner without elevation prompts and without touching a trust
       store. Proof: a dispatched run on a branch; the store listed before and after.
-- [ ] 2.4 Measure what the compiler and the build print when they sign: does any line show the tool's full command?
+- [x] 2.4 Measure what the compiler and the build print when they sign: does any line show the tool's full command?
       Proof: the log excerpt. It decides how strict the "no echo" proof of 3.3 must be.
-- [ ] 2.5 Read what `AuditHardeningWorkflowContractTest`, `D2RepositoryHardeningArchitectureTest`,
+- [x] 2.5 Read what `AuditHardeningWorkflowContractTest`, `D2RepositoryHardeningArchitectureTest`,
       `ProductReleaseContractTest`, `InnoSetupToolchainTrustArchitectureTest` and `GateReachabilityArchitectureTest`
       pin in `release.yml`, `nightly.yml`, `MORPHEUS.iss` and the build scripts. Proof: the assertions that must pass
       unmodified, in particular `aReleaseRehearsalCannotPublishAttestOrPassForAQualification`.
@@ -51,27 +51,27 @@ Section 1 is the maintainer's and should start first: identity validation has a 
 - [ ] 3.1 Extend the rehearsal's proofs in `validate-m20.ps1` behind the test-signing request: the four files of the
       sixth requirement must be signed by the run's identity, and the two launchers byte-identical. Proof: red on
       `HEAD` — every file is unsigned.
-- [ ] 3.2 Workflow contract rules in `AuditHardeningWorkflowContractTest`, textual by nature (`.claude/rules/architecture.md`; intent: "these
+- [x] 3.2 Workflow contract rules in `AuditHardeningWorkflowContractTest`, textual by nature (`.claude/rules/architecture.md`; intent: "these
       names must not appear in a workflow a pull request or a schedule can reach"): no workflow with a `pull_request`
       trigger and no job of `nightly.yml` names the signing environment, the signing credential or the release state;
       no `run:` block of any workflow contains a secret expression. Proof: the last rule is measured on `HEAD` first —
       on 2026-10-13 the five secret expressions of the workflows were all `env:` mappings (re-measure); if a step
       violates it by then, that is a finding to report, not a rule to relax silently.
-- [ ] 3.3 A script test under `scripts/tests/`: the signing entry point, run with a marker in place of the credential,
+- [x] 3.3 A script test under `scripts/tests/`: the signing entry point, run with a marker in place of the credential,
       prints the marker nowhere; given an unknown state it refuses; asked for the release state without a credential
       it fails with `WINDOWS_SIGNING_FAILED`. Proof: red before the entry point exists.
-- [ ] 3.4 A contract test on the installer definition and the build scripts: the tool handed to the compiler holds no
+- [x] 3.4 A contract test on the installer definition and the build scripts: the tool handed to the compiler holds no
       credential expression; the smoke branch cannot be combined with the release state; the launcher is signed before
       `Compress-PortableArchiveWithRetry` and before the payload ZIP. Proof: red, then green after 4.x.
 
 ## 4. The signing path, with the test identity
 
-- [ ] 4.1 The signing entry point under `distribution/windows/` (one file path in, a named failure out; states `test`
+- [x] 4.1 The signing entry point under `distribution/windows/` (one file path in, a named failure out; states `test`
       and `release`; the provider part isolated behind it). ASCII only. Proof: 3.3 green for the test state.
-- [ ] 4.2 `build-portable.ps1`: sign the executables outside the runtime after `jpackage` and before the packaging
+- [x] 4.2 `build-portable.ps1`: sign the executables outside the runtime after `jpackage` and before the packaging
       proofs; add a proof line that fails when a signing build leaves one unsigned. Proof: 3.4; a local test-signed
       build.
-- [ ] 4.3 `MORPHEUS.iss` and `build-installer.ps1`: the signing directive compiled in only for a signing build, the
+- [x] 4.3 `MORPHEUS.iss` and `build-installer.ps1`: the signing directive compiled in only for a signing build, the
       tool defined from the script with no secret, the smoke refusal. Proof: 2.2's measurement repeated through the
       real scripts; `InnoSetupToolchainTrustArchitectureTest` green unmodified.
 - [ ] 4.4 `build-release.ps1`: the signing state as a parameter, printed; `WINDOWS_SIGNING_REQUIRED` when the version
@@ -91,16 +91,16 @@ Section 1 is the maintainer's and should start first: identity validation has a 
 
 ## 5. Documentation, rules and the decision record
 
-- [ ] 5.1 `distribution/README.md`: the three states, what is signed and in what order, that releases are unsigned
+- [x] 5.1 `distribution/README.md`: the three states, what is signed and in what order, that releases are unsigned
       until the baseline. `docs/project/validation/RELEASE_QUALIFICATION.md`: the pipeline guarantees block and the
       rehearsal's "not exercised" list. Proof: `RepositoryDocumentationCoherenceTest` and
       `ReleaseQualificationContractTest` green.
-- [ ] 5.2 `.claude/rules/security.md`: the signing credential beside `NVD_API_KEY` and the TLS password (environment
+- [x] 5.2 `.claude/rules/security.md`: the signing credential beside `NVD_API_KEY` and the TLS password (environment
       or federated identity, never an argument, never a pull request); the entry point as the only caller of a
       signing tool. `SECURITY.md`: what a signature does and does not guarantee.
-- [ ] 5.3 `docs/architecture/risks/register.md`: the unsigned-distribution entry of the other change gains this
+- [x] 5.3 `docs/architecture/risks/register.md`: the unsigned-distribution entry of the other change gains this
       mitigation; a second entry for certificate renewal (a lapse fails the next release at the signing step).
-- [ ] 5.4 Draft the ADR (signing policy) with the `adr-author` procedure: next free number re-measured with a `glob`
+- [x] 5.4 Draft the ADR (signing policy) with the `adr-author` procedure: next free number re-measured with a `glob`
       on `docs/architecture/adr/*-[0-9][0-9][0-9][0-9]-*.md` and `archive/` (`live-numbers`), status *proposed* until the maintainer's decisions of
       section 1 are in it; index line in `docs/architecture/adr/README.md` (`AdrIndexCoherenceTest`). The dated
       pointer in ADR-0089 is added when the ADR is accepted.
@@ -129,12 +129,12 @@ Section 1 is the maintainer's and should start first: identity validation has a 
 
 ## 7. Verification of the lot that needs no certificate
 
-- [ ] 7.1 `./mvnw test -pl morpheus-architecture-tests` after building `morpheus-provider-reference`. Proof: green.
+- [x] 7.1 `./mvnw test -pl morpheus-architecture-tests` after building `morpheus-provider-reference`. Proof: green.
 - [ ] 7.2 `scripts\validate.cmd m20 -Version <current>` with and without the test-signing request on Windows;
       `bash scripts/validate-m20.sh <current>` on Linux; `scripts\validate-m28.ps1 -Version <current>` to confirm the
       pull-request lane still builds unsigned. Proof: the summaries read from `validation-output/`.
 - [ ] 7.3 Two consecutive dispatched runs of the `release-rehearsal` lane. Proof: the run links, the duration against
       the lane's timeout.
-- [ ] 7.4 Parse every edited `.ps1` under Windows PowerShell 5.1 and check it is ASCII (`rules/tooling.md`).
+- [x] 7.4 Parse every edited `.ps1` under Windows PowerShell 5.1 and check it is ASCII (`rules/tooling.md`).
 - [ ] 7.5 Pull request description: the finding, the measurements, where the audit's remedy was not followed and why,
       the decisions still open, and the justification for each governance file touched.
