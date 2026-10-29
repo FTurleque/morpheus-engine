@@ -57,7 +57,7 @@ Si une valeur lue ici contredit une valeur écrite dans `.claude/`, dans `README
 - Ne pas recopier un nombre depuis une exécution antérieure de cette skill : il devient faux au
   prochain milestone.
 - Ne pas écrire un total périssable dans une page de gouvernance.
-  `RepositoryDocumentationCoherenceTest` refuse cette formulation sur ces surfaces : c'est
+  `GovernanceSurfaceCoherenceTest` refuse cette formulation sur ces surfaces : c'est
   l'instruction de compter qui y a sa place, pas le résultat du comptage.
 - Ne pas confondre une **mesure datée** et une **affirmation courante**. Une preuve horodatée ne
   se met pas à jour : la réécrire falsifie un enregistrement au lieu de rafraîchir une règle.
