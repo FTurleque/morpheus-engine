@@ -1,6 +1,9 @@
 package com.morpheus.application.query;
 
 import com.morpheus.application.store.KnowledgeStoreException;
+import com.morpheus.application.store.RequirementPage;
+import com.morpheus.application.store.RequirementPageCriteria;
+import com.morpheus.application.store.RequirementPageOrder;
 import com.morpheus.application.store.RequirementVersionRecord;
 import com.morpheus.application.store.SnapshotBusinessContent;
 import com.morpheus.application.store.SnapshotBusinessContentStore;
@@ -20,15 +23,20 @@ import com.morpheus.domain.traceability.TraceabilityEntityRef;
 import com.morpheus.domain.traceability.TraceabilityRelationType;
 
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-/** Aggregates bounded specification context from one ACTIVE snapshot without inventing relationships. */
+/**
+ * Aggregates bounded specification context from one ACTIVE snapshot without inventing relationships.
+ *
+ * <p>The requirements are a page the store cuts. The changes are those that affect any CURRENT requirement of the
+ * specification, on the page or not: they are found from the changes' side, by following each change's
+ * {@code AFFECTS} links to the requirement they name, so the specification's whole requirement population is never
+ * loaded to build one page.</p>
+ */
 public final class SpecificationContextQueryService {
-    private static final Comparator<Requirement> REQUIREMENT_ORDER = Comparator.comparing(Requirement::id);
     private static final Comparator<Scenario> SCENARIO_ORDER = Comparator.comparing(Scenario::id);
     private static final Comparator<ChangeProposal> CHANGE_ORDER = Comparator.comparing(ChangeProposal::id);
 
@@ -71,19 +79,18 @@ public final class SpecificationContextQueryService {
                 .findFirst()
                 .orElseThrow(() -> new KnowledgeStoreException("specification not found: " + specificationId));
 
-        List<Requirement> allRequirements = requirementStore.listCurrentRequirementVersions(snapshot.id()).stream()
-                .map(RequirementVersionRecord::entityVersion)
-                .map(version -> version.content())
-                .filter(requirement -> requirement.specificationId().equals(specificationId))
-                .sorted(REQUIREMENT_ORDER)
+        RequirementPage page = requirementStore.pageCurrentRequirementVersions(
+                snapshot.id(),
+                RequirementPageCriteria.ofSpecification(specificationId),
+                RequirementPageOrder.REQUIREMENT_ID,
+                pageRequest.offset(),
+                pageRequest.limit());
+        List<Requirement> selectedRequirements = page.items().stream()
+                .map(record -> record.entityVersion().content())
                 .toList();
-
-        int totalMatches = allRequirements.size();
-        int from = Math.min(pageRequest.offset(), totalMatches);
-        int to = (int) Math.min((long) from + pageRequest.limit(), totalMatches);
-        List<Requirement> selectedRequirements = allRequirements.subList(from, to);
         SnapshotPage<Requirement> requirementPage = new SnapshotPage<>(
-                snapshot, selectedRequirements, pageRequest, totalMatches, to < totalMatches);
+                snapshot, selectedRequirements, pageRequest, page.totalMatches(),
+                page.hasMoreAfter(pageRequest.offset()));
 
         Set<RequirementId> selectedIds = selectedRequirements.stream()
                 .map(Requirement::id)
@@ -93,21 +100,25 @@ public final class SpecificationContextQueryService {
                 .sorted(SCENARIO_ORDER)
                 .toList();
 
-        Set<com.morpheus.domain.identity.DomainIdentity> affectedChangeIdentities = new HashSet<>();
-        for (Requirement requirement : allRequirements) {
-            TraceabilityEntityRef requirementRef = new TraceabilityEntityRef(
-                    TraceabilityEntityKind.REQUIREMENT, requirement.id().value());
-            traceabilityStore.incoming(snapshot.id(), requirementRef, Set.of(TraceabilityRelationType.AFFECTS)).stream()
-                    .map(link -> link.source())
-                    .filter(source -> source.kind() == TraceabilityEntityKind.CHANGE)
-                    .map(TraceabilityEntityRef::identity)
-                    .forEach(affectedChangeIdentities::add);
-        }
         List<ChangeProposal> changes = content.changes().stream()
-                .filter(change -> affectedChangeIdentities.contains(change.id().value()))
+                .filter(change -> affectsTheSpecification(snapshot, change, specificationId))
                 .sorted(CHANGE_ORDER)
                 .toList();
 
         return new SpecificationContextResult(snapshot, specification, requirementPage, scenarios, changes);
+    }
+
+    private boolean affectsTheSpecification(
+            KnowledgeSnapshotMetadata snapshot,
+            ChangeProposal change,
+            SpecificationId specificationId) {
+        TraceabilityEntityRef changeRef = new TraceabilityEntityRef(TraceabilityEntityKind.CHANGE, change.id().value());
+        return traceabilityStore.outgoing(snapshot.id(), changeRef, Set.of(TraceabilityRelationType.AFFECTS)).stream()
+                .map(link -> link.target())
+                .filter(target -> target.kind() == TraceabilityEntityKind.REQUIREMENT)
+                .map(target -> requirementStore.currentRequirement(snapshot.id(), target.identity()))
+                .flatMap(Optional::stream)
+                .map(RequirementVersionRecord::entityVersion)
+                .anyMatch(version -> version.content().specificationId().equals(specificationId));
     }
 }
