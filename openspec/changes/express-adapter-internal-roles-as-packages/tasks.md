@@ -194,11 +194,22 @@ same tree as `0b90cdcf`).
 
 ## 6. Lot B - services and composition (after sprint 11's ADR and `own-the-sqlite-connection-policy-in-one-place`)
 
-- [ ] 6.1 Re-measure the composition roots and say whether each remaining one composes and does nothing else.
+- [x] 6.1 Re-measure the composition roots and say whether each remaining one composes and does nothing else.
+      Done 2026-10-29 on `6b3f6304`: `COMPOSITION_ROOTS` names five classes. Two compose and do nothing else:
+      `com.morpheus.api.ApiRuntime` and `com.morpheus.mcp.MorpheusMcpRuntime` wrap `SqliteOperationRuntime` and hand
+      out application ports (the MCP runtime also recovers interrupted publications at start-up, a maintenance call on
+      the same store). Three do more: `MorpheusProjectSyncApiService` serves `sync` and `syncStatus` and builds the
+      OpenSpec provider itself; `MorpheusRemoteHttpServer` serves requests (546 lines) and reaches
+      `SqliteServerMaintenance`; `MorpheusRemoteHttpServerBootstrap` builds the TLS context and starts the server. A
+      package rule "composition only" would therefore not hold today: the list stays.
 - [ ] 6.2 If they do: the composition package, the package rule in both directions, and a consolidated ADR replacing ADR-0109
       that replaces "add a name" by "add a class to the package". If they do not: the list stays, and the ADR says
       what is still missing.
 - [ ] 6.3 The package of the `*ApiService` classes. Break the rule that separates it from the routers once.
+
+      Open: lot B waits for sprint 11's decision on ADR-0109 (the runtime question), which the session of sprint 11 is
+      taking in parallel. 6.1 says the list stays; writing what ADR-0109 still misses, and moving the `*ApiService`
+      classes to their own package, both touch files that lot changes. Neither is done here.
 
 ## 7. Documentation and decision records
 

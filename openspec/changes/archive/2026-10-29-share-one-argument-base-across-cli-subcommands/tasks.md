@@ -24,7 +24,7 @@ error line, the exit-code mapping and `safeMessage` of `MorpheusCli`), which eve
       parsers diverged; this reading only established that their text does.
 - [x] 1.3 List the methods of `com.morpheus.cli` whose signature matches one of the three members and whose purpose is
       another. Proof: the list, expected short; it becomes the named exceptions of 2.1.
-- [ ] 1.4 Read both coverage scales, the changed-line thresholds and the presence ratchets from the last validation
+- [x] 1.4 Read both coverage scales, the changed-line thresholds and the presence ratchets from the last validation
       summary. Proof: the figures and their source.
 
 ## 2. Reproduce before fixing
@@ -59,15 +59,15 @@ error line, the exit-code mapping and `safeMessage` of `MorpheusCli`), which eve
 
 ## 4. Verification
 
-- [ ] 4.1 `./mvnw clean verify` and `./mvnw dependency:analyze`. Proof: green, no warning. If 1.0 finds a validator
+- [x] 4.1 `./mvnw clean verify` and `./mvnw dependency:analyze`. Proof: green, no warning. If 1.0 finds a validator
       or a workflow that reads the error line, that validator is run on both platforms with the current version read
       from `ProductMetadata`.
-- [ ] 4.2 Both coverage scales and the changed-line gate on Linux and Windows. Proof: the figures next to 1.4; tests are
+- [x] 4.2 Both coverage scales and the changed-line gate on Linux and Windows. Proof: the figures next to 1.4; tests are
       written if a ratio falls, no ratchet is lowered.
 - [x] 4.3 Documentation: `docs/developer/` page of the CLI adapter, one paragraph on the shared base; a release note
       under `docs/user/release-notes/` only if 3.4 aligned a refusal, in user terms. Proof: the diff and
       `RepositoryDocumentationCoherenceTest`.
-- [ ] 4.4 Pull request description, per lot: the finding, the tables of 1.1 and 1.2, every refusal that changed, the
+- [x] 4.4 Pull request description, per lot: the finding, the tables of 1.1 and 1.2, every refusal that changed, the
       justification of the architecture tests.
 
 ## Proofs of the checked tasks (2026-10-27, from `2fcf7415`)
@@ -95,3 +95,16 @@ error line, the exit-code mapping and `safeMessage` of `MorpheusCli`), which eve
   third first passed a parser declared on `java.util.List<String>`, and its pattern was widened.
 - 4.3: `docs/developer/ARCHITECTURE.md` §10, `docs/user/release-notes/RELEASE_NOTES_1.2.2.md`;
   `RepositoryDocumentationCoherenceTest` green.
+
+## Proofs of the verification tasks (2026-10-29)
+
+- 1.4, 4.2: the ratchets in force (`config/m21-quality-ratchets.properties`) are the reference, and the figures are
+  those of the CI of FTurleque/morpheus-engine#569, which merged the lot (run `40595425653`, head `3f82ba65`, `exact-head` green on Linux and Windows): per module 71,4675 % lines / 62,8659 % branches on Linux and 71,5012 % / 62,8758 % on
+  Windows; aggregate 91,4837 % / 77,7195 % on Linux and 91,5174 % / 77,7492 % on Windows; changed lines 95,87 %
+  (604 / 630) and changed branches 88,95 % against 80 % and 70 %; 4 653 Surefire executions (2 827 written, 1 826
+  generated), 820 in the architecture module. No ratio fell under its ratchet; no ratchet was lowered.
+- 4.1: the same CI ran `clean verify`, whose `verify` phase runs `dependency:analyze-only` with `failOnWarning`;
+  `./mvnw clean verify` is green again on Windows on `claude/sprint-12-enforcement-078721`. No validator reads the
+  error line (1.0), so none is added.
+- 4.4: the description of FTurleque/morpheus-engine#569 (the finding, every refusal that changed, the new and
+  modified architecture tests); the tables of 1.1 and 1.2 are the proofs above.
