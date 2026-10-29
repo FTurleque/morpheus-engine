@@ -221,10 +221,10 @@ fichier altéré : c'est ce que Windows affiche pour tout exécutable non signé
 Pour une release non signée, la vérification disponible est la somme SHA-256 publiée avec chaque fichier (section
 suivante), complétée par l'attestation de provenance décrite dans [PRODUCT_INTEGRITY.md](PRODUCT_INTEGRITY.md).
 
-Les releases seront signées à partir d'une version que les notes de version annonceront ; les versions antérieures
-restent telles qu'elles ont été publiées et ne seront pas re-signées. Une fois une release signée, l'onglet
-« Signatures numériques » des propriétés du fichier (clic droit, Propriétés) affiche le nom de l'éditeur et la date
-d'horodatage, et PowerShell donne le même résultat :
+Aucune signature d'éditeur n'est prévue pour les releases de MORPHEUS. Si une release venait à être signée, ses
+notes de version le diraient, et les versions antérieures resteraient telles qu'elles ont été publiées. L'état d'un
+fichier se lit dans l'onglet « Signatures numériques » de ses propriétés (clic droit, Propriétés), qui n'existe que pour
+un fichier signé, ou avec PowerShell :
 
 ```powershell
 Get-AuthenticodeSignature .\MORPHEUS-<version>-windows-x64-setup.exe | Format-List Status, SignerCertificate
