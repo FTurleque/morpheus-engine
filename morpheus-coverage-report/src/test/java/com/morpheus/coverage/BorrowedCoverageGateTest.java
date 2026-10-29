@@ -103,18 +103,6 @@ class BorrowedCoverageGateTest {
      * Measured identical on Linux and Windows, so no entry depends on the platform.
      */
     private static final String WHOLLY_BORROWED = """
-            morpheus-application com.morpheus.application.analysis.ChangeAnalysisResult
-            morpheus-application com.morpheus.application.analysis.ChangeAnalysisService
-            morpheus-application com.morpheus.application.analysis.ChangeAnalysisSummary
-            morpheus-application com.morpheus.application.analysis.ChangeAnalysisWarning
-            morpheus-application com.morpheus.application.analysis.ChangeAnalysisWarningCode
-            morpheus-application com.morpheus.application.analysis.ChangeDependencyImpact
-            morpheus-application com.morpheus.application.analysis.DependencyImpactDirection
-            morpheus-application com.morpheus.application.analysis.ProposedChangeSet
-            morpheus-application com.morpheus.application.analysis.RequirementChangeField
-            morpheus-application com.morpheus.application.analysis.RequirementChangeImpact
-            morpheus-application com.morpheus.application.analysis.compact.CompactChangeAnalysisView
-            morpheus-application com.morpheus.application.analysis.compact.CompactChangeAnalysisViewService
             morpheus-application com.morpheus.application.composition.CompositionProviderState
             morpheus-application com.morpheus.application.composition.CompositionSnapshotState
             morpheus-application com.morpheus.application.composition.CompositionStateView
@@ -160,41 +148,17 @@ class BorrowedCoverageGateTest {
             morpheus-application com.morpheus.application.operability.LocalOperabilityService
             morpheus-application com.morpheus.application.operability.LocalOperationalRuntime
             morpheus-application com.morpheus.application.operability.OperationalRuntime
-            morpheus-application com.morpheus.application.orchestration.ChangeLifecycleObservation
-            morpheus-application com.morpheus.application.orchestration.ChangeLifecycleObservationSource
-            morpheus-application com.morpheus.application.orchestration.ChangeOrchestrationState
-            morpheus-application com.morpheus.application.orchestration.ChangeOrchestrationStateService
-            morpheus-application com.morpheus.application.orchestration.ChangeTransitionEvaluation
-            morpheus-application com.morpheus.application.orchestration.ConstraintEvaluationView
             morpheus-application com.morpheus.application.policy.PolicyAuditPage
             morpheus-application com.morpheus.application.policy.PolicyConflictException
-            morpheus-application com.morpheus.application.policy.PolicyPack
-            morpheus-application com.morpheus.application.policy.PolicyPackCodec
-            morpheus-application com.morpheus.application.policy.PolicyPublicViews
             morpheus-application com.morpheus.application.portfolio.PortfolioOverview
             morpheus-application com.morpheus.application.portfolio.PortfolioQueryService
             morpheus-application com.morpheus.application.portfolio.PortfolioReferenceConflict
             morpheus-application com.morpheus.application.portfolio.PortfolioRegistryService
             morpheus-application com.morpheus.application.portfolio.PortfolioTraversalDirection
             morpheus-application com.morpheus.application.portfolio.PortfolioTraversalService
-            morpheus-application com.morpheus.application.quality.ChangeCompletenessAssessment
-            morpheus-application com.morpheus.application.quality.ChangeCompletenessReport
-            morpheus-application com.morpheus.application.quality.ChangeLifecycleFactAssessment
-            morpheus-application com.morpheus.application.quality.ChangeLifecycleQualityAssessment
-            morpheus-application com.morpheus.application.quality.CoverageRatioStatus
             morpheus-application com.morpheus.application.quality.DecisionJustificationStatus
-            morpheus-application com.morpheus.application.quality.DecisionReferenceQualityReport
             morpheus-application com.morpheus.application.quality.DesignDecisionQualityAssessment
             morpheus-application com.morpheus.application.quality.ExternalReferenceQualityAssessment
-            morpheus-application com.morpheus.application.quality.LifecycleFactSource
-            morpheus-application com.morpheus.application.quality.LifecycleQualityAggregationStatus
-            morpheus-application com.morpheus.application.quality.QualityFactValue
-            morpheus-application com.morpheus.application.quality.QualityReport
-            morpheus-application com.morpheus.application.quality.QualityReportMetrics
-            morpheus-application com.morpheus.application.quality.RequirementTraceabilityCoverage
-            morpheus-application com.morpheus.application.quality.TaskRequirementCoverage
-            morpheus-application com.morpheus.application.quality.compact.CompactQualityReportService
-            morpheus-application com.morpheus.application.quality.compact.CompactQualityReportView
             morpheus-application com.morpheus.application.query.BusinessContentQueryService
             morpheus-application com.morpheus.application.query.ChangeContextQueryService
             morpheus-application com.morpheus.application.query.ChangeContextResult
@@ -206,7 +170,6 @@ class BorrowedCoverageGateTest {
             morpheus-application com.morpheus.application.query.SpecificationContextResult
             morpheus-application com.morpheus.application.query.TraceRequirementQueryService
             morpheus-application com.morpheus.application.query.compact.CompactChangeContextView
-            morpheus-application com.morpheus.application.query.compact.CompactQueryTypes
             morpheus-application com.morpheus.application.query.compact.CompactQueryViewService
             morpheus-application com.morpheus.application.query.compact.CompactRequirementSearchView
             morpheus-application com.morpheus.application.query.compact.CompactTraceRequirementView
@@ -225,16 +188,10 @@ class BorrowedCoverageGateTest {
             morpheus-application com.morpheus.application.store.SnapshotConflictException
             morpheus-application com.morpheus.application.sync.SyncStateConflictException
             morpheus-application com.morpheus.application.temporal.CurrentRequirementQueryService
-            morpheus-application com.morpheus.application.traceability.ExplainedTraversal
             morpheus-application com.morpheus.application.traceability.ExternalTraceabilityAvailability
             morpheus-application com.morpheus.application.traceability.ExternalTraceabilityView
             morpheus-application com.morpheus.application.traceability.TraceRequirementResult
             morpheus-application com.morpheus.application.traceability.TraceRequirementService
-            morpheus-application com.morpheus.application.traceability.TraceabilityPath
-            morpheus-application com.morpheus.application.traceability.TraceabilityPathStep
-            morpheus-application com.morpheus.application.traceability.TraceabilitySubgraph
-            morpheus-application com.morpheus.application.traceability.TraceabilityTraversalDirection
-            morpheus-application com.morpheus.application.traceability.TraceabilityTraversalService
             morpheus-domain com.morpheus.domain.change.ChangeProposal
             morpheus-domain com.morpheus.domain.decision.DesignDecision
             morpheus-domain com.morpheus.domain.decision.DesignDecisionId
