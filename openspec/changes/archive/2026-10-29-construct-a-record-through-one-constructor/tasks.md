@@ -2,12 +2,13 @@
 
 ## 0. Decide before starting
 
-- [ ] 0.1 The maintainer answers the first open question of the design (SDK API version). Proof: the answer recorded
+- [x] 0.1 The maintainer answers the first open question of the design (SDK API version). Proof: the answer recorded
       in this file; it fixes whether `Constraint` and `NormalizedProjectContent` are converted or listed.
       **2026-10-13 - not answered.** The lot was run on the instruction to convert: both records are converted to
       named factories, nothing is on the exception list, and `sdk.apiVersion` is **not** changed. The source
       incompatibility for plugin authors is stated in the release notes. The question stays open: if the answer is
       "a new API version", it is a follow-up to this lot, not a reason to restore a constructor.
+      **2026-10-29 - answered: no new `sdk.apiVersion`; `ProviderSdk.API_VERSION` stays `1`.** The break shipped in 1.2.1 (tag `v1.2.1`) under version 1 and its release notes state it under "Ruptures". Raising the version now refuses every plugin built for 1.2.1, the reference plugin's shape included, and protects no plugin built against 1.2.0 from the release that already broke it; such a plugin declares `morpheus.minVersion=1.2.1` instead. Both records stay converted, nothing is on the exception list. A later binary break of a type the SDK exposes raises `API_VERSION` in the same change: `docs/developer/PROVIDER_SDK.md`, section 6.
 
 ## 1. Measure before changing
 
@@ -109,21 +110,25 @@
 
 ## 5. Verification
 
-- [ ] 5.1 `./mvnw clean verify` and `./mvnw dependency:analyze`. Proof: green, zero warning, both platforms through
+- [x] 5.1 `./mvnw clean verify` and `./mvnw dependency:analyze`. Proof: green, zero warning, both platforms through
       the required checks; the changed-line coverage gate passes.
       **2026-10-13 - left to the required checks.** What was run locally, on Windows, offline:
       `./mvnw -o verify -Djacoco.skip=true -pl '!morpheus-coverage-report'` - every module's tests and its
       `dependency:analyze-only` execution pass; the one failure is `CoverageQualityGateTest`, which refuses to
       conclude without the JaCoCo reports that run skipped. No `clean verify`, no Linux run, no coverage measured.
-- [ ] 5.2 The M22 gates (they load the reference plugin's JAR from `target/`). Proof: green.
+      **2026-10-29**: merged by PR #489 (`f9d8dda7`, 2026-10-15). On `develop` at `63e6f1cb`, `MORPHEUS CI` is green on `ubuntu-latest` and `windows-latest` in run `40875102300` (`push`) and run `40870856270` (`pull_request` of PR #584, same sources): 0 failure, 0 error. `dependency:analyze` runs inside every module's build there (`failOnWarning`).
+- [x] 5.2 The M22 gates (they load the reference plugin's JAR from `target/`). Proof: green.
       **2026-10-13.** Green inside the run of 5.1 (the architecture module ran 674 tests, one failure, the coverage
       gate above); not run through `validate-m22`. Left unchecked until the required checks say so.
-- [ ] 5.3 Presence ratchets: tests removed with a constructor they alone exercised lower the count of executions;
+      **2026-10-29**: merged by PR #489 (`f9d8dda7`, 2026-10-15). On `develop` at `63e6f1cb`, `MORPHEUS CI` is green on `ubuntu-latest` and `windows-latest` in run `40875102300` (`push`) and run `40870856270` (`pull_request` of PR #584, same sources): 0 failure, 0 error. The M22 gates run inside it: 846 architecture executions, the plugin trust-boundary suites included.
+- [x] 5.3 Presence ratchets: tests removed with a constructor they alone exercised lower the count of executions;
       read `config/m21-quality-ratchets.properties` and confirm the margin holds. A ratchet is never lowered - a test
       is rewritten rather than deleted when the margin would not hold.
       **2026-10-13.** One test removed (1.2), five added (two factory tests, three methods of the gate). The run
       of 5.1 counted 4 060 executions for `testsMinimum=3820` and 674 in the architecture module for
       `architectureTestsMinimum=585`; no ratchet is touched. A local count, to be confirmed by the M21 validator.
-- [ ] 5.4 Pull request description: the finding, the two tables, the factories and what each assumes, the answer to
+      **2026-10-29**: the four runs of 5.1 count 2886 declared, 1829 generated and 846 architecture executions, identical on both platforms; the three presence keys rise to ten under them (`2876 / 1819 / 836`), none lowered.
+- [x] 5.4 Pull request description: the finding, the two tables, the factories and what each assumes, the answer to
       0.1, the justification for a change under `morpheus-architecture-tests/`.
       **2026-10-13 - not done:** no pull request is opened by this lot.
+      **2026-10-29**: the description of PR #489 carries the finding, the table of constructors and factories, the open 0.1 and the justification of `RecordSingleConstructorArchitectureTest`; the answer to 0.1 is in the pull request that closes this change.

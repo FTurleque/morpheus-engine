@@ -147,6 +147,12 @@ La comparaison respecte l’ordre SemVer utile au contrat, y compris l’ordre n
 
 Un plugin incompatible reste visible avec ses diagnostics mais n’est pas activé.
 
+`sdk.apiVersion` vaut `1` depuis M22, y compris pour 1.2.1, qui a retiré des constructeurs publics de `Constraint` et
+de `NormalizedProjectContent` au profit de fabriques nommées. Un plugin qui appelle ces fabriques déclare
+`morpheus.minVersion=1.2.1`. Un plugin compilé contre 1.2.0 qui appelle un constructeur retiré passe le contrôle de
+compatibilité puis échoue au chargement (`NoSuchMethodError`) : il se reconstruit contre 1.2.1. Une rupture binaire
+ultérieure d’un type que le SDK expose fait monter `ProviderSdk.API_VERSION` dans le même changement.
+
 ## 7. Activation et isolation
 
 `ProviderPluginActivator` crée un `URLClassLoader` dédié au JAR, avec le classloader MORPHEUS/SDK comme parent. Le service est ensuite résolu explicitement via `ServiceLoader`.
