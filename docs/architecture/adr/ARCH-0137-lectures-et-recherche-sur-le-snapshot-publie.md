@@ -125,8 +125,11 @@ findSnapshot(snapshotId, query, pageRequest)
   adressé.
 - **Ordre** : le résultat global, avant pagination, est ordonné uniquement par `RequirementId`. Il n'existe ni score
   ni classement global : `lexical filtering != ranking NEXUS`.
-- **Backend** : la recherche réutilise `SpecificationKnowledgeStore` et `VersionedRequirementStore`, sans table
-  SQLite ni index dédié.
+- **Backend** : la page est découpée par le port, `VersionedRequirementStore.pageCurrentRequirementVersions`, qui
+  rend les éléments et leur total lus dans le même état. Les critères (`RequirementPageCriteria`, dont la
+  normalisation) et l'ordre (`RequirementPageOrder`) sont définis dans `morpheus-application` ; chaque store livré les
+  évalue lui-même, SQLite par une fonction SQL qui appelle cette normalisation, jamais par `lower()` ni `LIKE`. Ni
+  table ni index dédié.
 
 ### 9. Pagination
 
@@ -139,8 +142,8 @@ transports suit ADR-0151.
 ### 10. Déterminisme et parité
 
 Toute collection rendue est triée explicitement par identité (`RequirementId`, `ConstraintId`, `DesignDecisionId`,
-`TaskId`, `TraceabilityLinkId`). La logique de lecture est entièrement dans `morpheus-application`, au-dessus des
-ports `SpecificationKnowledgeStore`, `SnapshotBusinessContentStore`, `VersionedRequirementStore`,
+`TaskId`, `TraceabilityLinkId`), dans l'ordre de `UUID.compareTo`. La logique de lecture est définie dans
+`morpheus-application`, au-dessus des ports `SpecificationKnowledgeStore`, `SnapshotBusinessContentStore`, `VersionedRequirementStore`,
 `TraceabilityStore` et `ExternalReferenceStore` : le store mémoire et le store SQLite rendent le même résultat, y
 compris après fermeture et réouverture de la base.
 

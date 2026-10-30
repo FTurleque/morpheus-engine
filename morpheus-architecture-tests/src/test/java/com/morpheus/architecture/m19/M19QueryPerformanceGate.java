@@ -54,6 +54,7 @@ class M19QueryPerformanceGate {
     private static final long QUERY_BUDGET_NANOS = 1_000_000_000L;
     private static final int WARMUP_ITERATIONS = 1;
     private static final int MEASURED_ITERATIONS = 5;
+    private static final int QUERY_PAGE = 50;
     private static final Instant T0 = Instant.parse("2026-07-26T18:00:00Z");
 
     @TempDir
@@ -100,31 +101,56 @@ class M19QueryPerformanceGate {
             snapshots.activateSnapshot(snapshotId, Optional.empty());
 
             RequirementQueryService service = new RequirementQueryService(snapshots, requirements);
-            RequirementSearchQuery query = new RequirementSearchQuery("common-marker");
-            PageRequest page = new PageRequest(0, 50);
-            List<RequirementId> expectedOrder = service.findActive(projectId, query, page)
-                    .orElseThrow()
-                    .items().stream()
-                    .map(record -> record.entityVersion().content().id())
-                    .toList();
-
-            for (int index = 0; index < WARMUP_ITERATIONS; index++) {
-                assertPage(service.findActive(projectId, query, page).orElseThrow(), expectedOrder);
-            }
-
-            List<Long> samples = new ArrayList<>(MEASURED_ITERATIONS);
-            for (int index = 0; index < MEASURED_ITERATIONS; index++) {
-                long started = System.nanoTime();
-                RequirementSearchPage result = service.findActive(projectId, query, page).orElseThrow();
-                samples.add(System.nanoTime() - started);
-                assertPage(result, expectedOrder);
-            }
-
-            long p95 = M19LargeFixtureSupport.percentile95Nanos(samples);
-            System.out.println("M19_METRIC requirement_query_p95_ms=" + p95 / 1_000_000L);
-            assertTrue(p95 <= QUERY_BUDGET_NANOS,
-                    () -> "requirement query p95 exceeded frozen 1000ms budget: " + p95 / 1_000_000L + " ms");
+            int requirementCount = M19LargeFixtureSupport.GATE_REQUIREMENTS;
+            measure("requirement_query_p95_ms", service, projectId, new RequirementSearchQuery("common-marker"),
+                    new PageRequest(0, QUERY_PAGE), requirementCount, QUERY_PAGE, true);
+            measure("requirement_query_last_page_p95_ms", service, projectId,
+                    new RequirementSearchQuery("common-marker"),
+                    new PageRequest(requirementCount - QUERY_PAGE, QUERY_PAGE), requirementCount, QUERY_PAGE, false);
+            measure("requirement_query_no_match_p95_ms", service, projectId,
+                    new RequirementSearchQuery("absent-marker"),
+                    new PageRequest(0, QUERY_PAGE), 0, 0, false);
         }
+    }
+
+    /*
+     * Three reads share the requirement query budget: the first page of the matches, the last page, which reads a
+     * page deep in the ordered matches, and a query that matches nothing, which evaluates the predicate over every
+     * CURRENT row and keeps none of them.
+     */
+    private void measure(
+            String metric,
+            RequirementQueryService service,
+            ProjectSpecificationId projectId,
+            RequirementSearchQuery query,
+            PageRequest page,
+            int expectedTotal,
+            int expectedItems,
+            boolean expectedHasMore) {
+        List<RequirementId> expectedOrder = service.findActive(projectId, query, page)
+                .orElseThrow()
+                .items().stream()
+                .map(record -> record.entityVersion().content().id())
+                .toList();
+        assertEquals(expectedOrder.stream().sorted().toList(), expectedOrder, metric + ": the page is in requirement order");
+
+        for (int index = 0; index < WARMUP_ITERATIONS; index++) {
+            assertPage(service.findActive(projectId, query, page).orElseThrow(),
+                    expectedOrder, expectedTotal, expectedItems, expectedHasMore);
+        }
+
+        List<Long> samples = new ArrayList<>(MEASURED_ITERATIONS);
+        for (int index = 0; index < MEASURED_ITERATIONS; index++) {
+            long started = System.nanoTime();
+            RequirementSearchPage result = service.findActive(projectId, query, page).orElseThrow();
+            samples.add(System.nanoTime() - started);
+            assertPage(result, expectedOrder, expectedTotal, expectedItems, expectedHasMore);
+        }
+
+        long p95 = M19LargeFixtureSupport.percentile95Nanos(samples);
+        System.out.println("M19_METRIC " + metric + "=" + p95 / 1_000_000L);
+        assertTrue(p95 <= QUERY_BUDGET_NANOS,
+                () -> metric + ": requirement query p95 exceeded frozen 1000ms budget: " + p95 / 1_000_000L + " ms");
     }
 
     private RequirementVersionRecord requirementRecord(
@@ -230,10 +256,15 @@ class M19QueryPerformanceGate {
         }
     }
 
-    private void assertPage(RequirementSearchPage result, List<RequirementId> expectedOrder) {
-        assertEquals(M19LargeFixtureSupport.GATE_REQUIREMENTS, result.totalMatches());
-        assertEquals(50, result.items().size());
-        assertTrue(result.hasMore());
+    private void assertPage(
+            RequirementSearchPage result,
+            List<RequirementId> expectedOrder,
+            int expectedTotal,
+            int expectedItems,
+            boolean expectedHasMore) {
+        assertEquals(expectedTotal, result.totalMatches());
+        assertEquals(expectedItems, result.items().size());
+        assertEquals(expectedHasMore, result.hasMore());
         assertEquals(expectedOrder, result.items().stream()
                 .map(record -> record.entityVersion().content().id())
                 .toList());

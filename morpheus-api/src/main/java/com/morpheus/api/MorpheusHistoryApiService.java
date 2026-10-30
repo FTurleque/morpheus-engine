@@ -11,7 +11,7 @@ import com.morpheus.application.payload.PublicPayloads;
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.ProjectStoreEntry;
-import com.morpheus.application.store.RequirementVersionRecord;
+import com.morpheus.application.store.RequirementPage;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
@@ -57,11 +57,12 @@ public final class MorpheusHistoryApiService {
         Objects.requireNonNull(pageRequest, "pageRequest");
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             requireSnapshotProject(runtime, projectId, snapshotId);
-            List<RequirementVersionRecord> records = new HistoricalRequirementQueryService(runtime.snapshots(), runtime.requirements())
-                    .requirements(snapshotId);
+            RequirementPage page = new HistoricalRequirementQueryService(runtime.snapshots(), runtime.requirements())
+                    .requirements(snapshotId, pageRequest.offset(), pageRequest.limit());
             return PagedEnvelope.following(
                     PayloadMap.of("snapshotId", snapshotId.toString()),
-                    PagedEnvelope.slice(pageRequest.offset(), pageRequest.limit(), records, record -> PublicPayloads.requirementVersion(record.entityVersion())));
+                    PagedEnvelope.page(pageRequest, page.totalMatches(), page.hasMoreAfter(pageRequest.offset()),
+                            page.items().stream().map(record -> PublicPayloads.requirementVersion(record.entityVersion())).toList()));
         }
     }
 

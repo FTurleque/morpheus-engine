@@ -1,5 +1,8 @@
 package com.morpheus.application.history;
 
+import com.morpheus.application.store.RequirementPage;
+import com.morpheus.application.store.RequirementPageCriteria;
+import com.morpheus.application.store.RequirementPageOrder;
 import com.morpheus.application.store.RequirementVersionRecord;
 import com.morpheus.application.store.SpecificationKnowledgeStore;
 import com.morpheus.application.store.VersionedRequirementStore;
@@ -8,7 +11,6 @@ import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotState;
 
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -24,12 +26,11 @@ public final class HistoricalRequirementQueryService {
         this.requirementStore = Objects.requireNonNull(requirementStore, "requirementStore");
     }
 
-    public List<RequirementVersionRecord> requirements(KnowledgeSnapshotId snapshotId) {
+    /** One page of the CURRENT requirements of a published snapshot, in entity identity order, with their total. */
+    public RequirementPage requirements(KnowledgeSnapshotId snapshotId, int offset, int limit) {
         requirePublished(snapshotId);
-        return requirementStore.listCurrentRequirementVersions(snapshotId).stream()
-                .sorted((left, right) -> left.entityVersion().entityIdentity()
-                        .compareTo(right.entityVersion().entityIdentity()))
-                .toList();
+        return requirementStore.pageCurrentRequirementVersions(
+                snapshotId, RequirementPageCriteria.all(), RequirementPageOrder.ENTITY_IDENTITY, offset, limit);
     }
 
     public Optional<RequirementVersionRecord> requirement(

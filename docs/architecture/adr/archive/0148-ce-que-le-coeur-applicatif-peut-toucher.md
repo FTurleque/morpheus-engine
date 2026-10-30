@@ -170,7 +170,7 @@ Ce qu'un transport tient de `SqliteOperationRuntime` et `SqliteServerMaintenance
 - [ADR-0109](0109-transport-adapters-are-named-composition-roots.md) — racines de composition nommées des
   transports.
 - [ADR-0147](../ARCH-0147-un-role-d-adaptateur-est-un-paquet.md) — rôles de l'adaptateur HTTP en paquets.
-- [ADR-0104](../GEN-0104-two-coverage-scales-share-one-population.md) — population de couverture.
+- [ADR-0104](0104-two-coverage-scales-share-one-population.md) — population de couverture.
 - [ADR-0004](../SEC-0004-local-first-no-llm-core.md) — cœur local-first.
 - Changements OpenSpec `decide-what-technology-the-application-core-may-touch` et
   `move-marked-technology-access-behind-application-ports`.
