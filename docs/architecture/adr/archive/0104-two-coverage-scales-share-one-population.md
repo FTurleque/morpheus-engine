@@ -1,13 +1,8 @@
----
-id: GEN-0104
-title: "Deux échelles de couverture, une population commune : elles ne diffèrent que par l'attribution"
-domain: general
-rules: false
----
+# ADR-0104 — Deux échelles de couverture, une population commune : elles ne diffèrent que par l'attribution
 
-# Deux échelles de couverture, une population commune : elles ne diffèrent que par l'attribution
+> **Archivée.** Cette décision est consolidée dans [ADR-0154](../GEN-0154-deux-echelles-de-couverture-et-le-credit-emprunte.md), qui la reprend en entier et y ajoute le crédit qu'un module emprunte aux tests de ses voisins. Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
-- Statut : **Acceptée**
+- Statut : **Remplacée par ADR-0154**
 - Date : 2026-09-11
 
 ## Context
@@ -176,9 +171,9 @@ deux gates et leur preuve dans `config/coverage-qualification/`. Cet ADR fixe **
 
 ## References
 
-- [ADR-0089](GEN-0089-production-integrity-surface-convergence.md) — intégrité de production.
-- [ADR-0085](GEN-0085-predeclared-performance-budgets-and-deterministic-large-fixtures.md) — déterminisme des gates.
+- [ADR-0089](../GEN-0089-production-integrity-surface-convergence.md) — intégrité de production.
+- [ADR-0085](../GEN-0085-predeclared-performance-budgets-and-deterministic-large-fixtures.md) — déterminisme des gates.
 - `.claude/rules/architecture.md` (« Règle ArchUnit ou assertion textuelle ») et la skill `enforcement-choice` — assertion
   textuelle et règle ArchUnit, et l'exigence de casser une règle avant de l'accepter.
 - `config/m21-quality-ratchets.properties`, `config/coverage-qualification/`, `.claude/rules/testing.md`.
-- [VALIDATION_M21](../../project/validation/VALIDATION_M21.md).
+- [VALIDATION_M21](../../../project/validation/VALIDATION_M21.md).

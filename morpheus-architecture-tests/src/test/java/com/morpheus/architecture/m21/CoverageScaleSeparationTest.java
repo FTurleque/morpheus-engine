@@ -41,6 +41,12 @@ class CoverageScaleSeparationTest {
     private static final String PER_MODULE_EVIDENCE = "m21-per-module-coverage-summary.txt";
     private static final String AGGREGATE_EVIDENCE = "m21-aggregate-coverage-summary.txt";
     private static final String AGGREGATE_REPORT = "target/site/jacoco-aggregate/jacoco.xml";
+    private static final String BORROWED_GATE =
+            "morpheus-coverage-report/src/test/java/com/morpheus/coverage/BorrowedCoverageGateTest.java";
+    private static final String BORROWED_EVIDENCE = "m21-borrowed-coverage-summary.txt";
+    private static final List<String> BORROWED_KEYS = List.of("borrowedLineCreditMaximum", "borrowedBranchCreditMaximum");
+    private static final List<String> COVERAGE_KEYS = List.of("perModuleLineCoverageMinimum",
+            "perModuleBranchCoverageMinimum", "aggregateLineCoverageMinimum", "aggregateBranchCoverageMinimum");
 
     @Test
     void theRatchetConfigurationDeclaresBothScalesAndNoSharedCoverageKey() throws IOException {
@@ -50,7 +56,8 @@ class CoverageScaleSeparationTest {
         }
         for (String key : List.of("testsMinimum", "generatedTestsMinimum", "architectureTestsMinimum",
                 "perModuleLineCoverageMinimum", "perModuleBranchCoverageMinimum",
-                "aggregateLineCoverageMinimum", "aggregateBranchCoverageMinimum")) {
+                "aggregateLineCoverageMinimum", "aggregateBranchCoverageMinimum",
+                "borrowedLineCreditMaximum", "borrowedBranchCreditMaximum")) {
             assertNotNull(ratchets.getProperty(key), () -> "missing M21 quality ratchet: " + key);
         }
         for (String legacy : List.of("lineCoverageMinimum", "branchCoverageMinimum")) {
@@ -77,6 +84,27 @@ class CoverageScaleSeparationTest {
                 PER_MODULE_EVIDENCE);
     }
 
+    /**
+     * The borrowed credit is the difference between the two scales, counted per module. Measuring it needs both
+     * reports, so it is a gate of its own; and it is not a scale: it governs no coverage threshold and no coverage
+     * threshold governs it. The intent is "these key and file names must not appear in that gate", which only the
+     * text of the three sources can state.
+     */
+    @Test
+    void theBorrowedCreditGateReadsNoCoverageKeyAndNeitherCoverageGateReadsIt() throws IOException {
+        Path root = RepositoryRoot.locate();
+        String borrowedGate = Files.readString(root.resolve(BORROWED_GATE));
+        assertReads(borrowedGate, BORROWED_GATE, BORROWED_KEYS.toArray(String[]::new));
+        assertReads(borrowedGate, BORROWED_GATE, BORROWED_EVIDENCE, AGGREGATE_REPORT);
+        assertIgnores(borrowedGate, BORROWED_GATE, COVERAGE_KEYS.toArray(String[]::new));
+        assertIgnores(borrowedGate, BORROWED_GATE, PER_MODULE_EVIDENCE, AGGREGATE_EVIDENCE);
+        for (String coverageGate : List.of(PER_MODULE_GATE, AGGREGATE_GATE)) {
+            String source = Files.readString(root.resolve(coverageGate));
+            assertIgnores(source, coverageGate, BORROWED_KEYS.toArray(String[]::new));
+            assertIgnores(source, coverageGate, BORROWED_EVIDENCE);
+        }
+    }
+
     @Test
     void eachGateStampsItsOwnScaleOnTheFirstLineOfItsEvidence() throws IOException {
         Path root = RepositoryRoot.locate();
@@ -84,6 +112,8 @@ class CoverageScaleSeparationTest {
                 "the per-module gate must open its evidence with the scope it measured");
         assertTrue(Files.readString(root.resolve(AGGREGATE_GATE)).contains("\"coverageScope=aggregate%n"),
                 "the aggregate gate must open its evidence with the scope it measured");
+        assertTrue(Files.readString(root.resolve(BORROWED_GATE)).contains("\"coverageScope=borrowed-credit\")"),
+                "the borrowed credit gate must open its evidence with a scope that is neither coverage scale");
     }
 
     @Test
@@ -123,6 +153,8 @@ class CoverageScaleSeparationTest {
         Path unlabelled = workspace.resolve("unlabelled-" + AGGREGATE_EVIDENCE);
         Files.writeString(unlabelled, "lineRatio=0.857700\nbranchRatio=0.685500\n");
         Path absent = workspace.resolve("absent-" + AGGREGATE_EVIDENCE);
+        Path borrowed = workspace.resolve("borrowed-" + AGGREGATE_EVIDENCE);
+        Files.writeString(borrowed, "coverageScope=borrowed-credit\nborrowedLines=5966\nborrowedBranches=1506\n");
 
         List<Guard> guards = availableGuards(root);
         assertFalse(guards.isEmpty(), "no shell is available to execute the M21 coverage scope guard");
@@ -132,6 +164,8 @@ class CoverageScaleSeparationTest {
             assertNotEquals(0, guard.run(unlabelled),
                     () -> guard + " concluded from evidence that never declared its scale");
             assertNotEquals(0, guard.run(absent), () -> guard + " concluded from absent evidence");
+            assertNotEquals(0, guard.run(borrowed),
+                    () -> guard + " concluded from the borrowed credit evidence, which is not a coverage proof");
             assertEquals(0, guard.run(aggregate), () -> guard + " rejected valid aggregate evidence");
         }
     }
@@ -145,7 +179,7 @@ class CoverageScaleSeparationTest {
     private static void assertIgnores(String source, String page, String... tokens) {
         for (String token : tokens) {
             assertFalse(source.contains(token),
-                    () -> page + " reaches for " + token + ", which belongs to the other coverage scale");
+                    () -> page + " reaches for " + token + ", which belongs to another coverage quantity");
         }
     }
 

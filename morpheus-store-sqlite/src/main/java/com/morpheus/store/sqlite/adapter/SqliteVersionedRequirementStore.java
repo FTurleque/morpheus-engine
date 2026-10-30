@@ -1,6 +1,9 @@
 package com.morpheus.store.sqlite.adapter;
 
 import com.morpheus.application.store.KnowledgeStoreException;
+import com.morpheus.application.store.RequirementPage;
+import com.morpheus.application.store.RequirementPageCriteria;
+import com.morpheus.application.store.RequirementPageOrder;
 import com.morpheus.application.store.RequirementVersionRecord;
 import com.morpheus.application.store.SnapshotSpecificationVersionBinding;
 import com.morpheus.application.store.VersionedRequirementStore;
@@ -22,6 +25,8 @@ import com.morpheus.domain.version.SpecificationVersionId;
 import com.morpheus.store.sqlite.runtime.SqliteFailureClassifier;
 import com.morpheus.store.sqlite.runtime.SqliteStoreConnection;
 import com.morpheus.store.sqlite.runtime.SqliteTransactionRunner;
+import org.sqlite.Function;
+import org.sqlite.SQLiteConnection;
 
 import java.nio.file.Path;
 import java.sql.Connection;
@@ -48,6 +53,15 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
             ORDER BY entity_version_id
             LIMIT ?
             """;
+    static final String COUNT_CURRENT_SQL = """
+            SELECT COUNT(*) FROM requirement_versions
+            WHERE snapshot_id = ? AND temporal_state = 'CURRENT'
+            """;
+    /**
+     * The SQL function that computes {@link RequirementPageCriteria#corpus}, so a term is matched by the
+     * application's own normalization and never by SQLite's ASCII-only folding or its {@code LIKE} wildcards.
+     */
+    static final String CORPUS_FUNCTION = "morpheus_requirement_corpus";
     private static final int SEQUENCE_ALLOCATION_MAX_ATTEMPTS = 24;
     private static final long SEQUENCE_ALLOCATION_INITIAL_BACKOFF_MILLIS = 10L;
     private static final long SEQUENCE_ALLOCATION_MAX_BACKOFF_MILLIS = 250L;
@@ -329,6 +343,123 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
         } catch (SQLException exception) {
             throw new KnowledgeStoreException("Cannot list bounded CURRENT requirement versions for snapshot "
                     + snapshotId, exception);
+        }
+    }
+
+    @Override
+    public synchronized RequirementPage pageCurrentRequirementVersions(
+            KnowledgeSnapshotId snapshotId,
+            RequirementPageCriteria criteria,
+            RequirementPageOrder order,
+            int offset,
+            int limit) {
+        ensureOpen();
+        Objects.requireNonNull(snapshotId, "snapshotId");
+        Objects.requireNonNull(criteria, "criteria");
+        Objects.requireNonNull(order, "order");
+        VersionedRequirementStore.requireValidPage(offset, limit);
+        try {
+            registerCorpusFunction(connection);
+            try (PreparedStatement statement = connection.prepareStatement(
+                    pageSql(criteria.specificationId().isPresent(), criteria.terms().size(), order))) {
+                int parameter = 1;
+                statement.setString(parameter++, snapshotId.toString());
+                if (criteria.specificationId().isPresent()) {
+                    statement.setString(parameter++, criteria.specificationId().get().toString());
+                }
+                for (String term : criteria.terms()) {
+                    statement.setString(parameter++, term);
+                }
+                statement.setInt(parameter++, limit);
+                statement.setInt(parameter, offset);
+                return readPage(statement);
+            }
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot read a page of CURRENT requirement versions for snapshot "
+                    + snapshotId, exception);
+        }
+    }
+
+    @Override
+    public synchronized int countCurrentRequirementVersions(KnowledgeSnapshotId snapshotId) {
+        ensureOpen();
+        Objects.requireNonNull(snapshotId, "snapshotId");
+        try (PreparedStatement statement = connection.prepareStatement(COUNT_CURRENT_SQL)) {
+            statement.setString(1, snapshotId.toString());
+            try (ResultSet result = statement.executeQuery()) {
+                result.next();
+                return result.getInt(1);
+            }
+        } catch (SQLException exception) {
+            throw new KnowledgeStoreException("Cannot count CURRENT requirement versions for snapshot "
+                    + snapshotId, exception);
+        }
+    }
+
+    /** The empty page is one row carrying the total and no version: its version columns are null. */
+    private RequirementPage readPage(PreparedStatement statement) throws SQLException {
+        try (ResultSet result = statement.executeQuery()) {
+            List<RequirementVersionRecord> items = new ArrayList<>();
+            int total = 0;
+            while (result.next()) {
+                total = result.getInt("page_total");
+                if (result.getString("entity_version_id") != null) {
+                    items.add(mapRequirementVersion(result));
+                }
+            }
+            return new RequirementPage(items, total);
+        }
+    }
+
+    /**
+     * One statement reads the total and the page, so both describe the same state of the snapshot: the left join
+     * keeps one row carrying the total when the page is empty. Identities are compared the way
+     * {@link java.util.UUID#compareTo} compares them, on signed halves: a text whose first digit is {@code 8} or
+     * above holds a negative most significant half and comes first. The least significant half of an RFC 9562
+     * identity always carries its variant in the top bits, so its text order is already its signed order.
+     */
+    static String pageSql(boolean bySpecification, int terms, RequirementPageOrder order) {
+        StringBuilder filter = new StringBuilder("snapshot_id = ? AND temporal_state = 'CURRENT'");
+        if (bySpecification) {
+            filter.append(" AND specification_id = ?");
+        }
+        for (int index = 0; index < terms; index++) {
+            filter.append(" AND instr(").append(CORPUS_FUNCTION)
+                    .append("(requirement_key, title, statement), ?) > 0");
+        }
+        String key = switch (order) {
+            case REQUIREMENT_ID -> "requirement_id";
+            case ENTITY_IDENTITY -> "entity_identity_id";
+        };
+        return "WITH matches AS (SELECT * FROM requirement_versions WHERE " + filter + ") "
+                + "SELECT (SELECT COUNT(*) FROM matches) AS page_total, page.* FROM (SELECT 1) AS anchor "
+                + "LEFT JOIN (SELECT * FROM matches ORDER BY " + signedOrder("", key) + " LIMIT ? OFFSET ?) AS page "
+                + "ON 1 = 1 ORDER BY " + signedOrder("page.", key);
+    }
+
+    private static String signedOrder(String qualifier, String key) {
+        return signed(qualifier + key) + ", " + signed(qualifier + "entity_version_id");
+    }
+
+    private static String signed(String column) {
+        return "CASE WHEN " + column + " >= '8' THEN 0 ELSE 1 END, " + column;
+    }
+
+    /**
+     * Registers {@link #CORPUS_FUNCTION} on the physical connection behind {@code connection}. It is registered before
+     * every read that calls it: a scoped connection can be replaced after a failed cleanup, and a function lives on
+     * the physical connection it was registered on.
+     */
+    static void registerCorpusFunction(Connection connection) throws SQLException {
+        Function.create(connection.unwrap(SQLiteConnection.class), CORPUS_FUNCTION, new CorpusFunction(), 3,
+                Function.FLAG_DETERMINISTIC);
+    }
+
+    private static final class CorpusFunction extends Function {
+        @Override
+        protected void xFunc() throws SQLException {
+            result(RequirementPageCriteria.corpus(
+                    Optional.ofNullable(value_text(0)), value_text(1), value_text(2)));
         }
     }
 

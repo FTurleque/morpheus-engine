@@ -50,7 +50,7 @@ public final class MorpheusSpecificationMcpTools {
         String specificationVersionId = runtime.requirements().findSnapshotVersion(snapshot.id())
                 .map(binding -> binding.specificationVersionId().toString())
                 .orElse("unknown");
-        long currentRequirementCount = runtime.requirements().listCurrentRequirementVersions(snapshot.id()).size();
+        long currentRequirementCount = runtime.requirements().countCurrentRequirementVersions(snapshot.id());
         PageRequest pageRequest = McpCatalogTool.page(arguments);
         List<Specification> specifications = content.specifications().stream()
                 .sorted(Comparator.comparing(Specification::id))
