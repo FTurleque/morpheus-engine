@@ -65,8 +65,8 @@ baseline Surefire générés     >= 1819
 baseline architecture          >= 836
 JaCoCo aggregate line ratchet     >= 91.2%
 JaCoCo aggregate branch ratchet   >= 77.3%
-JaCoCo per-module line ratchet    >= 71.2%
-JaCoCo per-module branch ratchet  >= 62.5%
+JaCoCo per-module line ratchet    >= 89.9%
+JaCoCo per-module branch ratchet  >= 77.1%
 D2 absolute line floor         40%
 D2 absolute branch floor       35%
 maven dependency analyze       failOnWarning=true
@@ -94,11 +94,11 @@ Cette garde différentielle complète le ratchet global : elle évite qu'une nou
 
 ## Qualité et ratchet JaCoCo
 
-La baseline courante est verrouillée à **91,2% lignes / 77,3% branches** sur l'échelle agrégée et **71,2% lignes / 62,5% branches** par module. Les deux chiffres mesurent des populations de lignes différentes : les comparer entre eux n'a pas de sens, et comparer l'un au seuil de l'autre est précisément le défaut que la séparation des clés supprime.
+La baseline courante est verrouillée à **91,2% lignes / 77,3% branches** sur l'échelle agrégée et **89,9% lignes / 77,1% branches** par module. Les deux chiffres mesurent des populations de lignes différentes : les comparer entre eux n'a pas de sens, et comparer l'un au seuil de l'autre est précisément le défaut que la séparation des clés supprime.
 
 Règle d’évolution :
 
-1. une baisse sous 91,2% lignes ou 77,3% branches agrégées, ou sous 71,2% lignes ou 62,5% branches par module, fait échouer le gate M21 ;
+1. une baisse sous 91,2% lignes ou 77,3% branches agrégées, ou sous 89,9% lignes ou 77,1% branches par module, fait échouer le gate M21 ;
 2. les floors D2 40% / 35% restent des minima absolus et ne peuvent jamais affaiblir le ratchet ;
 3. une amélioration de couverture ne relève le ratchet qu’après qualification du même SHA exact sur Windows et Linux ;
 4. le ratchet n’est jamais abaissé automatiquement ; une baisse nécessite une décision d’audit explicite et motivée ;

@@ -35,11 +35,11 @@ class QueryPublicViewsTest {
 
         assertEquals(new QueryPublicViews.ScopeView("PROJECT", projectId.toString()), view.query().scope());
         assertEquals("REQUIREMENT", view.query().entityType());
-        QueryPublicViews.FilterView or = view.query().filter().orElseThrow();
-        assertEquals("OR", or.kind());
+        QueryPublicViews.FilterView disjunction = view.query().filter().orElseThrow();
+        assertEquals("OR", disjunction.kind());
         assertEquals(new QueryPublicViews.FilterView("PREDICATE", Optional.of("key"), Optional.of("EQ"), List.of("A"),
-                List.of()), or.children().getFirst());
-        assertEquals("NOT", or.children().get(1).kind());
+                List.of()), disjunction.children().getFirst());
+        assertEquals("NOT", disjunction.children().get(1).kind());
         assertEquals(List.of(new QueryPublicViews.SortView("key", "DESC")), view.query().sort());
         assertEquals(new QueryPublicViews.PageView(2, 5), view.query().page());
         assertEquals(List.of("key"), view.columns());

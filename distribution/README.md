@@ -209,8 +209,8 @@ Surefire generated   >= 1819
 architecture         >= 836
 aggregate line coverage    >= 91.2%
 aggregate branch coverage  >= 77.3%
-per-module line coverage   >= 71.2%
-per-module branch coverage >= 62.5%
+per-module line coverage   >= 89.9%
+per-module branch coverage >= 77.1%
 changed-line         >= 80%
 changed-branch       >= 70%
 ```

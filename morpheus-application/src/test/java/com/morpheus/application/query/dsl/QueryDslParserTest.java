@@ -49,10 +49,10 @@ class QueryDslParserTest {
         QueryFilter filter = parser.filter(
                 "or(key in [A-1, \"B 2\"], providerId exists, title eq \"say \\\"hi\\\"\\n\\t\\r\\\\\")");
 
-        QueryOr or = assertInstanceOf(QueryOr.class, filter);
-        assertEquals(new QueryPredicate("key", QueryOperator.IN, List.of("A-1", "B 2")), or.children().getFirst());
-        assertEquals(QueryPredicate.exists("providerId"), or.children().get(1));
-        assertEquals(QueryPredicate.unary("title", QueryOperator.EQ, "say \"hi\"\n\t\r\\".trim()), or.children().get(2));
+        QueryOr disjunction = assertInstanceOf(QueryOr.class, filter);
+        assertEquals(new QueryPredicate("key", QueryOperator.IN, List.of("A-1", "B 2")), disjunction.children().getFirst());
+        assertEquals(QueryPredicate.exists("providerId"), disjunction.children().get(1));
+        assertEquals(QueryPredicate.unary("title", QueryOperator.EQ, "say \"hi\"\n\t\r\\"), disjunction.children().get(2));
     }
 
     @Test
