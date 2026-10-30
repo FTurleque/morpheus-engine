@@ -150,8 +150,11 @@ class LocalDiagnosticsHttpRoutesArchitectureTest {
     void identifiersJavacCanInlineStayTextuallyForbidden() throws IOException {
         String routes = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusDiagnosticsHttpRoutes"));
 
-        assertFalse(routes.contains("MorpheusHttpResponseWriter"));
-        assertFalse(routes.contains("MorpheusRemoteRoutePolicy"));
-        assertFalse(routes.contains("MorpheusRemoteRole"));
+        assertFalse(routes.contains("MorpheusHttpResponseWriter"),
+                "the diagnostics router names no response writer, whose constant javac would inline unseen");
+        assertFalse(routes.contains("MorpheusRemoteRoutePolicy"),
+                "the diagnostics router names no remote route policy, whose constants javac would inline unseen");
+        assertFalse(routes.contains("MorpheusRemoteRole"),
+                "the diagnostics router names no remote role: the RBAC boundary is kept on the text");
     }
 }

@@ -33,13 +33,5 @@ class LocalVersionsHttpRoutesArchitectureTest {
         assertTrue(routes.contains("query.rejectUnknown(Set.of(\"offset\", \"limit\"))"));
         assertTrue(routes.contains("unknown versions route"));
         assertFalse(routes.contains("private final MorpheusApiService service;"));
-        assertFalse(routes.contains("HttpExchange"));
-        assertFalse(routes.contains("HttpServer"));
-        assertFalse(routes.contains("JsonMapper"));
-        assertFalse(routes.contains("MorpheusHttpRequestDecoder"));
-        assertFalse(routes.contains("MorpheusHttpResponseWriter"));
-        assertFalse(routes.contains("MorpheusHttpPathParser"));
-        assertFalse(routes.contains("MorpheusRemoteRoutePolicy"));
-        assertFalse(routes.contains("MorpheusRemoteRole"));
     }
 }

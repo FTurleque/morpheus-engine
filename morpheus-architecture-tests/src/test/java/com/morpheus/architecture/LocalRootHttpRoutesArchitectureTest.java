@@ -47,11 +47,5 @@ class LocalRootHttpRoutesArchitectureTest {
 
     private void assertRootRoutesDoNotLeakOtherHttpConcerns(String routes) {
         assertFalse(routes.contains("com.sun.net.httpserver"));
-        assertFalse(routes.contains("MorpheusHttpRequestDecoder"));
-        assertFalse(routes.contains("MorpheusHttpResponseWriter"));
-        assertFalse(routes.contains("MorpheusRemoteRoutePolicy"));
-        assertFalse(routes.contains("MorpheusRemoteRole"));
-        assertFalse(routes.contains("MorpheusProjectRootHttpRoutes"));
-        assertFalse(routes.contains("MorpheusProjectSyncHttpRoutes"));
     }
 }

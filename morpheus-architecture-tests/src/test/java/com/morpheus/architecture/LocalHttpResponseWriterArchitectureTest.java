@@ -17,7 +17,9 @@ class LocalHttpResponseWriterArchitectureTest {
 
         assertTrue(server.contains("private final MorpheusHttpResponseWriter responseWriter"));
         assertTrue(server.contains("responseWriter.send(exchange, status, body)"));
-        assertFalse(server.contains("CanonicalJsonSerializer"));
+        assertFalse(server.contains("CanonicalJsonSerializer"),
+                "the local server names no canonical serializer: MorpheusHttpResponseWriter serializes every "
+                + "response");
         assertFalse(server.contains("com.sun.net.httpserver.Headers"));
         assertFalse(server.contains("headers.set(\"Content-Type\""));
         assertFalse(server.contains("headers.set(\"Cache-Control\""));
@@ -34,7 +36,5 @@ class LocalHttpResponseWriterArchitectureTest {
                 "the loopback server speaks plain HTTP and must not claim transport security");
         assertTrue(writer.contains("exchange.sendResponseHeaders(status, bytes.length)"));
         assertTrue(writer.contains("exchange.getResponseBody().write(bytes)"));
-        assertFalse(writer.contains("MorpheusApiService"));
-        assertFalse(writer.contains("MorpheusRemoteRoutePolicy"));
     }
 }

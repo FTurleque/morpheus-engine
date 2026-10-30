@@ -30,12 +30,5 @@ class LocalIntegrationStatusHttpRoutesArchitectureTest {
         assertTrue(routes.contains("externalReferenceService.minosStatus()"));
         assertTrue(routes.contains("augmentedContextService.nexusStatus()"));
         assertTrue(routes.contains("unknown integration: "));
-        assertFalse(routes.contains("HttpExchange"));
-        assertFalse(routes.contains("HttpServer"));
-        assertFalse(routes.contains("JsonMapper"));
-        assertFalse(routes.contains("MorpheusHttpResponseWriter"));
-        assertFalse(routes.contains("MorpheusHttpPathParser"));
-        assertFalse(routes.contains("MorpheusRemoteRoutePolicy"));
-        assertFalse(routes.contains("MorpheusRemoteRole"));
     }
 }

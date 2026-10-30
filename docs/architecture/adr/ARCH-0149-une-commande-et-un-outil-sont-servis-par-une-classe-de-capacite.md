@@ -124,7 +124,7 @@ store que la liste autorisée de son adaptateur, exacte, réduite à ce que dist
 
 ## References
 
-- [ADR-0147](ARCH-0147-un-role-d-adaptateur-est-un-paquet.md) — un rôle de l'adaptateur HTTP est un paquet.
+- [ADR-0155](ARCH-0155-un-role-est-un-paquet-et-une-liste-de-classes-declare-sa-sorte.md) — un rôle de l'adaptateur HTTP est un paquet.
 - [ADR-0156](ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md) — racines de composition nommées.
 - [ADR-0130](BE-0130-contrat-des-options-de-la-cli.md) — contrat des options de la CLI.
 - [ADR-0115](ARCH-0115-the-operational-runtime-is-a-value-the-launcher-hands-on.md) — les deux points d'entrée de

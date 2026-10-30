@@ -81,6 +81,7 @@ class HttpRoutesTransportBoundaryArchitectureTest {
             call -> call.getTargetOwner().getName().equals(TRANSPORT_PACKAGE + ".MorpheusHttpRequestDecoder")
                     && call.getName().startsWith("pathSegments"));
     private static final String REQUEST_BODY_READER = TRANSPORT_PACKAGE + ".HttpRequestBodyReader";
+    private static final String JDK_HTTP_SERVER = "com.sun.net.httpserver.HttpServer";
     private static final String RESPONSE_WRITER = TRANSPORT_PACKAGE + ".MorpheusHttpResponseWriter";
     private static final String CANONICAL_JSON_SERIALIZER =
             "com.morpheus.application.query.compact.CanonicalJsonSerializer";
@@ -185,13 +186,19 @@ class HttpRoutesTransportBoundaryArchitectureTest {
      * {@code MorpheusPortfolioHttpRoutes}: the rule failed, and so did {@code LocalPortfolioHttpRoutesArchitectureTest}.
      * {@code CanonicalJsonSerializer.DEFAULT_MAX_UTF8_BYTES} read in {@code MorpheusRequirementsHttpRoutes}: the rule
      * passed and only this text scan failed; no router suite caught it.</p>
+     *
+     * <p>These routers carry the exchange, never the JDK server: registering a context is what the third group does.
+     * {@code jdk.httpserver} declares no compile-time constant, so the rule alone covers it. Broken before acceptance,
+     * 30/10/2026: a {@code com.sun.net.httpserver.HttpServer} parameter added to {@code MorpheusPortfolioHttpRoutes}
+     * failed this rule.</p>
      */
     @Test
     void routersThroughTheSharedDecoderTouchNeitherJacksonNorTheCanonicalSerializer() throws IOException {
         noClasses()
                 .that(routersIn(ROUTERS_THROUGH_THE_SHARED_DECODER))
                 .should().dependOnClassesThat(resideInAnyPackage("tools.jackson..")
-                        .or(name(CANONICAL_JSON_SERIALIZER)).or(name(REQUEST_BODY_READER)).or(name(RESPONSE_WRITER)))
+                        .or(name(CANONICAL_JSON_SERIALIZER)).or(name(REQUEST_BODY_READER)).or(name(RESPONSE_WRITER))
+                        .or(name(JDK_HTTP_SERVER)))
                 .because("a router that reads its body through MorpheusHttpRequestDecoder inherits its strict "
                         + "mapper; a mapper, reader or serializer of its own is a second configuration nothing keeps "
                         + "in step")
@@ -347,6 +354,26 @@ class HttpRoutesTransportBoundaryArchitectureTest {
                 .check(classes);
     }
 
+    /**
+     * No router depends on a router of another group: a group is a way of reading a request, and a router that called
+     * into another group's router would serve its route by the other group's reading.
+     *
+     * <p>The routers declare no public compile-time constant a router of another group could inline, so the rule
+     * alone covers it. Broken before acceptance, 30/10/2026: a {@code MorpheusProjectSyncHttpRoutes} field added to
+     * {@code MorpheusRootHttpRoutes} failed this method.</p>
+     */
+    @Test
+    void noRouterDependsOnARouterOfAnotherGroup() {
+        for (String group : transportGroups().keySet()) {
+            noClasses()
+                    .that(routersIn(group))
+                    .should().dependOnClassesThat(routersOfAnotherGroupThan(group))
+                    .because("each transport group reads its requests its own way; a router that reaches a router of "
+                            + "another group serves a route by that group's reading")
+                    .check(classes);
+        }
+    }
+
     /** The transport groups, each a package, with the name the rules above speak of. */
     private static Map<String, String> transportGroups() {
         return new TreeMap<>(Map.of(
@@ -368,6 +395,13 @@ class HttpRoutesTransportBoundaryArchitectureTest {
     private static DescribedPredicate<JavaClass> routersIn(String group) {
         return DescribedPredicate.describe("routers of " + group,
                 javaClass -> javaClass.getPackageName().equals(group)
+                        && javaClass.getSimpleName().endsWith(ROUTER_SUFFIX));
+    }
+
+    private static DescribedPredicate<JavaClass> routersOfAnotherGroupThan(String group) {
+        return DescribedPredicate.describe("routers of another group than " + group,
+                javaClass -> javaClass.getPackageName().startsWith(ROUTES_PACKAGE + ".")
+                        && !javaClass.getPackageName().equals(group)
                         && javaClass.getSimpleName().endsWith(ROUTER_SUFFIX));
     }
 

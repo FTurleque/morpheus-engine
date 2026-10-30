@@ -26,18 +26,19 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Three boundaries hold for every HTTP router, so they are stated once over the family instead of once per router.
+ * Four boundaries hold for every HTTP router, so they are stated once over the family instead of once per router.
  *
  * <p>{@code .claude/rules/architecture.md} generalises the textual pilot by capability group, never over the whole
  * family,
  * and this is the first group. Most of what a router may touch depends on whether it reads a request body -- nine
  * of the seventeen legitimately carry {@code HttpExchange} and a decoder -- so it is not a family property and is
- * not stated here. These three are: no {@code *HttpRoutes} class reaches the remote authorization model, writes a
- * response itself, or parses a path itself.</p>
+ * not stated here. These four are: no {@code *HttpRoutes} class reaches the remote authorization model, reaches the
+ * local server that holds it, writes a response itself, or parses a path itself.</p>
  *
- * <p>The gain is reach, not volume. Thirteen routers carried these bans as per-class text. Four -- policy,
- * policy-management, query and reasoning -- carried none, and a router added tomorrow would carry none until
- * someone wrote its test. Nothing is removed: the per-class assertions stay where they are.</p>
+ * <p>The gain is reach: a rule over the package sees every router, the one added tomorrow included, where a per-router suite sees
+ * only the router it names. The per-router suites keep what is true of their router alone - the wiring it receives
+ * and the calls it makes - and the bans of a type that hold over a whole group or the whole family are stated here and
+ * in {@code HttpRoutesTransportBoundaryArchitectureTest}, once.</p>
  *
  * <p>Each guard was broken before it was accepted (executions E0-E5 of 11/09/2026). The two halves that do not
  * need a classpath -- the source scan and the router bijection -- replay their refusal on every build over synthetic
@@ -49,6 +50,7 @@ class HttpRoutesFamilyArchitectureTest {
     private static final String ROUTER_SUFFIX = "HttpRoutes";
     private static final String ROUTES_PACKAGE = "com.morpheus.api.routes";
     private static final String REMOTE_PACKAGE = "com.morpheus.api.remote";
+    private static final String LOCAL_PACKAGE = "com.morpheus.api.local";
 
     private final JavaClasses classes = new ClassFileImporter().importPackages("com.morpheus");
 
@@ -93,10 +95,8 @@ class HttpRoutesFamilyArchitectureTest {
      * rule named the right intention and enforced its opposite.</p>
      *
      * <p>Banning the mechanics states what the method was always called: a router does not write a response itself.
-     * Delegating to the server's writer is not writing it. The thirteen keep a stricter guard than this one -- each
-     * carries {@code assertFalse(routes.contains("MorpheusHttpResponseWriter"))} in its own suite, and
-     * {@code HttpRoutesTransportBoundaryArchitectureTest} bans the writer over both groups the server holds -- so
-     * nothing that was true before is no longer checked.</p>
+     * Delegating to the server's writer is not writing it. The thirteen the server holds keep a stricter guard than
+     * this one: {@code HttpRoutesTransportBoundaryArchitectureTest} bans the writer over both of their groups.</p>
      *
      * <p>Rule and text both. A call is not a compile-time constant, so javac inlines nothing and the rule is the
      * load-bearing half; the text scan reaches the modules the ArchUnit classpath excludes, and its refusal is
@@ -120,6 +120,31 @@ class HttpRoutesFamilyArchitectureTest {
                 .check(classes);
 
         assertNoRouterSourceMentions("sendResponseHeaders");
+    }
+
+    /**
+     * No router depends on the local server or its protections: the server holds the routers, so a router reaching
+     * back to it closes a cycle and lets the server's state leak into a route.
+     *
+     * <p>Rule and text both. {@code MorpheusHttpServer} declares public compile-time constants ({@code DEFAULT_HOST},
+     * {@code DEFAULT_PORT}, {@code MAX_REQUEST_BODY_BYTES}): a router reading one carries the value and no reference to
+     * the class, so the rule alone would pass, and reading it from the routers' packages spells the local package,
+     * which the text scan refuses.</p>
+     *
+     * <p>Broken before acceptance, 30/10/2026. A {@code MorpheusHttpServer} field in {@code MorpheusChangesHttpRoutes}
+     * failed the rule. {@code MorpheusHttpServer.DEFAULT_PORT} read in {@code MorpheusVersionsHttpRoutes} passed the
+     * rule, javac having written the value, and failed the text scan alone.</p>
+     */
+    @Test
+    void noRouterReachesTheLocalServer() throws IOException {
+        noClasses()
+                .that().resideInAPackage(ROUTES_PACKAGE + "..")
+                .should().dependOnClassesThat().resideInAPackage(LOCAL_PACKAGE + "..")
+                .because("the local server holds the routers; a router that reaches back to it, or to one of its "
+                        + "protections, makes the route depend on the server that dispatches it")
+                .check(classes);
+
+        assertNoRouterSourceMentions(LOCAL_PACKAGE);
     }
 
     /**

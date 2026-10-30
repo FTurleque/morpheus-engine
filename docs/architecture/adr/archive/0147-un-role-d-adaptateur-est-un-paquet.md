@@ -1,13 +1,8 @@
----
-id: ARCH-0147
-title: "Un rôle de l'adaptateur HTTP est un paquet ; ce qui reste une liste de noms en déclare la sorte"
-domain: architecture
-rules: false
----
+# ADR-0147 — Un rôle de l'adaptateur HTTP est un paquet ; ce qui reste une liste de noms en déclare la sorte
 
-# Un rôle de l'adaptateur HTTP est un paquet ; ce qui reste une liste de noms en déclare la sorte
+> **Archivée.** Cette décision est consolidée dans [ADR-0155](../ARCH-0155-un-role-est-un-paquet-et-une-liste-de-classes-declare-sa-sorte.md), qui la reprend en entier, étend la déclaration de sorte à toute liste de classes de production d'un test d'architecture et range les services dans le paquet parent de l'adaptateur. Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
-- Statut : **Acceptée**
+- Statut : **Remplacée par ADR-0155**
 - Date : 2026-10-25
 
 ## Context
@@ -138,7 +133,7 @@ propre changement.
 
 ## References
 
-- [ADR-0156](ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md) — racines de composition nommées.
-- [ADR-0065](ARCH-0065-jdk-httpserver-local-api.md) — API HTTP sur `jdk.httpserver`.
+- [ADR-0156](../ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md) — racines de composition nommées.
+- [ADR-0065](../ARCH-0065-jdk-httpserver-local-api.md) — API HTTP sur `jdk.httpserver`.
 - Changement OpenSpec `express-adapter-internal-roles-as-packages` : mesures (tâche 1) et notes des tâches 2 à 5.
 - `.claude/rules/architecture.md`

@@ -97,9 +97,9 @@ Un interdit textuel de type (`assertFalse(source.contains("UnType"))`) porte son
 comme une phrase au lieu de `expected: <false> but was: <true>`. Les interdits sans message forment la **famille non
 expliquée**, définie par l'expression que tient `EnforcementMechanismAccountingTest` (pas par une commande recopiée
 ici) : son compte doit **égaler** `UNEXPLAINED_TYPE_BAN_CEILING`. Un membre ajouté fait échouer le build ; un membre
-retiré aussi, tant que le plafond n'est pas baissé dans le même changement. Aucune raison connue ne justifie de le
-relever. Un membre sort de la famille par un message, ou par une règle ArchUnit qui le double quand le type interdit ne
-déclare aucune constante inlinable.
+retiré aussi, tant que le plafond n'est pas baissé dans le même changement. La famille est vide et le plafond vaut 0 :
+un interdit de type dont la cible ne déclare aucune constante inlinable s'écrit en règle ArchUnit, les autres portent
+leur message. Aucune raison connue ne justifie de relever le plafond.
 
 La part textuelle de l'enforcement n'est **pas** plafonnée, et ce refus est délibéré : un ratio se fait baisser en
 supprimant un contrôle de documentation ou en ajoutant une règle qui ne voit rien de neuf, et la plupart des
@@ -116,9 +116,11 @@ de milestone : sortir les contrôles de cohérence du module ferait baisser `arc
 
 **Généralisation par groupe de capacité**, jamais par famille entière :
 
-- les trois interdits vrais pour **tous** les routeurs (le paquet `com.morpheus.api.remote`, l'appel `sendResponseHeaders`,
-  `MorpheusHttpPathParser`) vivent dans `HttpRoutesFamilyArchitectureTest`, règle **et** texte — n'y
-  ajouter qu'un interdit vérifié sur chacun des `*HttpRoutes`. Le deuxième a visé **le type**
+- les quatre interdits vrais pour **tous** les routeurs (les paquets `com.morpheus.api.remote` et
+  `com.morpheus.api.local`, l'appel `sendResponseHeaders`, `MorpheusHttpPathParser`) vivent dans
+  `HttpRoutesFamilyArchitectureTest`, règle **et** texte — n'y ajouter qu'un interdit vérifié sur chacun des
+  `*HttpRoutes`. Une suite propre à un routeur ne répète aucun interdit de type qu'une règle de famille ou de groupe
+  tient déjà. L'interdit sur `sendResponseHeaders` a visé **le type**
   `MorpheusHttpResponseWriter` jusqu'à DT-17 : vrai des treize routeurs que le serveur porte en champ, il
   était faux des quatre autres, qui écrivaient déjà leur réponse et ne pouvaient satisfaire un interdit sur
   le writer partagé qu'en gardant une copie privée de ses huit lignes — la règle nommait la bonne intention
@@ -229,16 +231,19 @@ inlinée. Les classes publiques du runtime le sont pour les stores : ce n'est pa
 modules.
 > `SqliteStorePackagesArchitectureTest`
 
-### `morpheus-api` : un rôle, un paquet, et six types pour les voisins (ADR-0147)
+### `morpheus-api` : un rôle, un paquet, et six types pour les voisins (ADR-0155)
 `remote` > `local` > routeurs (`routes.bodiless`, `routes.shareddecoder`, `routes.owncontext`) > services du paquet
 parent > `transport` : une dépendance qui remonte cet ordre est un cycle, refusé par
-`ApiPackageCyclesArchitectureTest`. Une nouvelle classe va dans le paquet de son rôle, un nouveau routeur dans le
-paquet de son groupe. Les autres modules n'utilisent que `AllowedWorkspaceRoots`, `LoopbackHostPolicy`,
+`ApiPackageCyclesArchitectureTest` ; la plomberie, les services et les routeurs ont en plus leur règle d'ordre, qui
+n'attend pas qu'un cycle se ferme (`ApiServicesAndTransportPackagesArchitectureTest`,
+`HttpRoutesFamilyArchitectureTest#noRouterReachesTheLocalServer`). Une nouvelle classe va dans le paquet de son rôle,
+un nouveau service `*ApiService` dans `com.morpheus.api`, un nouveau routeur dans le paquet de son groupe. Les autres modules n'utilisent que `AllowedWorkspaceRoots`, `LoopbackHostPolicy`,
 `MorpheusHttpServer`, `MorpheusRemoteHttpServer`, `MorpheusRemoteIdentityFile` et `MorpheusRemoteRole`
 (`ApiEntryTypesArchitectureTest`, règle et texte) : un type public de l'adaptateur l'est pour ses propres paquets.
-Une liste de classes de l'adaptateur qui reste dans les tests est un compteur de dette ou une table de faits,
-déclarée dans `HttpAdapterClassListsArchitectureTest` ; une liste qui serait un rôle est un paquet.
-> `noClassOutsideTheAdapterDependsOnATypeOfTheAdapterBesideTheEntryTypes`, `thePackagesOfTheHttpAdapterFormNoCycle`, `everyListOfTheAdaptersClassesIsADebtCounterOrATableOfFacts`
+Toute liste d'un test d'architecture qui nomme une classe de production, quel que soit son module, est un compteur de
+dette ou une table de faits, déclarée dans `ProductionClassListsArchitectureTest` ; une liste qui serait un rôle est un
+paquet.
+> `noClassOutsideTheAdapterDependsOnATypeOfTheAdapterBesideTheEntryTypes`, `thePackagesOfTheHttpAdapterFormNoCycle`, `everyListOfProductionClassesIsADebtCounterOrATableOfFacts`
 
 ### `morpheus-cli` et `morpheus-mcp` : une commande, un outil, une classe de capacité (ADR-0149)
 Une commande CLI va dans une classe de `com.morpheus.cli.command`, un outil MCP dans une classe de

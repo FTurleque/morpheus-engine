@@ -1,7 +1,6 @@
 # Tasks
 
-Implementation is a separate lot, started after this specification is reviewed. Nothing below is done by the pull request
-that introduces this change. Lot A (tasks 1 to 5) does not wait for sprint 11; lot B (task 6) does.
+Lot A (tasks 1 to 5) did not wait for sprint 11; lot B (task 6) waited for its ADR (ADR-0152).
 
 ## 1. Measure before changing
 
@@ -202,14 +201,29 @@ same tree as `0b90cdcf`).
       OpenSpec provider itself; `MorpheusRemoteHttpServer` serves requests (546 lines) and reaches
       `SqliteServerMaintenance`; `MorpheusRemoteHttpServerBootstrap` builds the TLS context and starts the server. A
       package rule "composition only" would therefore not hold today: the list stays.
-- [ ] 6.2 If they do: the composition package, the package rule in both directions, and a consolidated ADR replacing ADR-0109
+- [x] 6.2 If they do: the composition package, the package rule in both directions, and a consolidated ADR replacing ADR-0109
       that replaces "add a name" by "add a class to the package". If they do not: the list stays, and the ADR says
       what is still missing.
-- [ ] 6.3 The package of the `*ApiService` classes. Break the rule that separates it from the routers once.
 
-      Open: lot B waits for sprint 11's decision on ADR-0109 (the runtime question), which the session of sprint 11 is
-      taking in parallel. 6.1 says the list stays; writing what ADR-0109 still misses, and moving the `*ApiService`
-      classes to their own package, both touch files that lot changes. Neither is done here.
+      Done 2026-10-30 on `11bb1ccf`: they do not (6.1), and ADR-0152, which replaces ADR-0109, already answers the
+      question. Its decision 1 keeps `COMPOSITION_ROOTS` as a named list that only shrinks, and its context says what
+      is missing for a composition package: bringing the wiring back into `morpheus-cli`, which moves classes, POMs and
+      the servers' bootstraps with no observed defect to motivate it. No further ADR. ADR-0155 declares the list a
+      debt counter under ADR-0152, and `ProductionClassListsArchitectureTest` holds that declaration.
+- [x] 6.3 The package of the `*ApiService` classes. Break the rule that separates it from the routers once.
+
+      Done 2026-10-30: the package of the services is the parent package `com.morpheus.api`, which already holds them
+      with `ApiRuntime` and their request records. Moving them to a sub-package would leave the parent with
+      `ApiRuntime`, `AllowedWorkspaceRoots` (an entry type) and three records, with no common role, and would move the
+      composition root `MorpheusProjectSyncApiService`. `ApiServicesAndTransportPackagesArchitectureTest` states the
+      role: the services depend on no router, neither server, no `com.sun.net.httpserver` type and not the response
+      writer (rule, plus a scan for the packages above them, which sees an inlined constant of a server); the
+      transport plumbing depends on no other package of the adapter (rule and scan); every `*ApiService` class
+      resides in `com.morpheus.api`. Broken once each and reverted: a `MorpheusHttpResponseWriter` field in
+      `MorpheusSpecificationQueryApiService` failed the services rule, `MorpheusRemoteHttpServer.MAX_CONCURRENT_REQUESTS`
+      read in `MorpheusDiagnosticsApiService` failed its scan alone, a `MorpheusApiService` parameter in
+      `MorpheusHttpQuery` failed the transport rule, and a `PlantedApiService` in `com.morpheus.api.transport` failed
+      the classification, named with its package. ADR-0155 replaces ADR-0147 with the services in its table of roles.
 
 ## 7. Documentation and decision records
 
