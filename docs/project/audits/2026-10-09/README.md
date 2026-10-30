@@ -8,6 +8,56 @@
 
 ---
 
+## État au 30 octobre 2026 — la vague ne déplace pas la note
+
+Revérification sur `11bb1ccf` (`origin/develop`, PR #588), soit **65 commits et 346 fichiers** (+11 611 / −1 895)
+depuis `65a97b06`. Build vert : `./mvnw clean verify` sur les 19 modules en **10 min 55 — 4 797 tests, 0 échec,
+13 ignorés** (105 tests de plus). Détail dans **`reverification-2026-10-30.md`**.
+
+**La vague a fait beaucoup, et la moyenne n'a pas bougé : 84.** Trois mouvements s'annulent. Les quatre clôtures du
+sprint 10 sont **confirmées**, et pour la bonne raison — chacune tient par une règle compilée ou une suppression de
+code, aucune par une réécriture de texte. Quatre constats de fond passent de *toujours valide* à **partiel** :
+`AUD-ARC-03` (cycles de paquets de l'application : **17 → 9** composantes), `AUD-ARC-13` (la décision descend dans
+`Constraint`, le paquet `application.constraint` disparaît), `AUD-TRV-02` (l'écart de couverture est pour la
+première fois mesuré, nommé classe par classe et borné par un cliquet descendant) et `AUD-PRF-05` (page et total en
+une seule instruction SQL). Un `partiel` pèse son poids entier : le barème ne récompense pas la moitié d'un chemin.
+Et **deux constats neufs** s'ouvrent, qui coûtent exactement ce que le sprint 10 avait rapporté.
+
+Ces quatre progrès gardent chacun leur réserve, inscrite au constat : la règle sur les cycles tolère **21 arêtes
+nommées** et n'est pas `beFreeOfCycles()` ; le domaine reste à **0 interface et 0 type scellé** ; l'écart de
+couverture n'a **pas bougé d'un centième** (20,0195 points), seule sa mesure est neuve ; et la pagination SQL
+s'ordonne par une expression `CASE` **qu'aucun index ne sert**, que le garde-fou de plan de requête excuse par son
+nom.
+
+**Deux aggravations.** `AUD-TRV-03` repasse de *partiel* à *toujours valide* : le dépôt a gagné **57 assertions
+textuelles** (1 859 → 1 916) et **perdu 2 règles** `noClasses()` (44 → 42) — le travers s'accentue pendant qu'on le
+corrige ailleurs. Et `AUD-ARC-17` est plus large qu'on ne le croyait : la table « Mesure » d'`ARCH-0150` attribue
+encore à `UpdateDiscoveryService` les familles **réseau** et **fils d'exécution**, que la **Décision 1 du même ADR**
+déclare inutilisées — le document contredit sa propre décision, et décrit l'état d'avant le correctif d'`AUD-ARC-01`.
+
+**Deux constats neufs.** `AUD-DEP-28` (Moyenne) : le dépôt déclare **deux niveaux de schéma pour la version 1.2.1**
+(20 dans le fichier de déclaration, 23 dans le code), et le test censé le voir ne peut structurellement pas
+l'attraper — sa seule comparaison est un plafond. `AUD-QUA-21` (Faible) : un `design.md` OpenSpec vivant affirme au
+présent un nom de paquet que le renommage a supprimé.
+
+**À l'actif du dépôt** : la vague a renuméroté plusieurs ADR et renommé un paquet dans 34 fichiers sans qu'**aucun
+garde-fou ne devienne muet**. C'est exactement l'opération qui casse silencieusement des assertions textuelles.
+
+**120 constats : 69 corrigés · 9 partiels · 15 toujours valides · 4 caducs · 22 Info qui tiennent ·
+1 non vérifiable.** Les **24 constats actifs** sont 14 `Moyenne` et 10 `Faible` — **aucun `Critique` ni `Élevée`**.
+Les dix premiers sprints du plan restent soldés ; il reste 6 constats du plan du 9 octobre et 18 du sprint 15.
+Charge restante estimée : **25,75 à 75 jours**. Les 24 contrôles de cohérence passent.
+
+| Axe | 28 oct (nuit) | 30 oct |
+|---|---|---|
+| Performance | 91 | **91** |
+| Sécurité | 88 | **88** |
+| Architecture | 84 | **84** |
+| Qualité | 85 | **84** |
+| Dépendances | 86 | **82** |
+| Tests | 82 | **78** |
+| **Moyenne** | **84** | **84** |
+
 ## État au 29 octobre 2026 — sprint 10 soldé
 
 La PR #583, fusionnée sur `develop` en `b0368076`, ferme les quatre constats ouverts du sprint 10, chacun revérifié
