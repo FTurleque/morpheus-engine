@@ -1,7 +1,7 @@
 # MORPHEUS — constats d'audit
-Audit du **9 octobre 2026** sur `20cf2e0`, revérifié onze fois depuis, et le **30 octobre 2026** sur `11bb1ccf` (`origin/develop`, PR #588). Chaque constat porte son statut et la preuve qui l'établit.
+Audit du **9 octobre 2026** sur `20cf2e0`, revérifié onze fois depuis, et le **30 octobre 2026** sur `11bb1ccf` (`origin/develop`, PR #588) ; `AUD-ARC-03` et `AUD-ARC-13` le même jour sur `c8ec9e4e` (branche `claude/sprint-11-final-9391a2`). Chaque constat porte son statut et la preuve qui l'établit.
 
-**120 constats** — 69 corrigé, 9 partiel, 15 toujours valide, 4 caduc, 22 tient, 1 non vérifiable ici.
+**120 constats** — 71 corrigé, 7 partiel, 15 toujours valide, 4 caduc, 22 tient, 1 non vérifiable ici.
 
 > **Plus aucun constat `Élevée` n'est ouvert.** La PR #580 ferme les deux derniers, `AUD-ARC-01` et `AUD-PRF-04`, et chacun a été rouvert dans le code avant d'être accepté. Il y en avait onze le 9 octobre.
 
@@ -376,22 +376,20 @@ morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSchemaManage
 ### AUD-ARC-03 — morpheus-application contient une composante fortement connexe de 17 paquets sur 36
 | | |
 |---|---|
-| **Statut sur `develop`** | **PARTIEL** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Architecture |
 | **Effort** | L |
 | **Sprint** | 11 — Trancher l'architecture |
 | **Après** | AUD-ARC-01 |
 | **Débloque** | AUD-ARC-13 |
-| **Vérifié le** | 2026-10-30 sur `11bb1ccf` |
+| **Vérifié le** | 2026-10-30 sur `c8ec9e4e` (branche `claude/sprint-11-final-9391a2`) |
 
-**Constat de vérification** — Passe de TOUJOURS_VALIDE a PARTIEL. Le cycle a ete reduit de moitie et il est desormais tenu par une regle compilee qui empeche son retour — c'est la moitie du chemin. L'autre moitie est que la regle entérine 21 aretes : elle fige l'etat actuel autant qu'elle le protege.
+**Constat de vérification** — Passe de PARTIEL à CORRIGE. Les 21 arêtes ne sont pas tolérées autrement : elles n'existent plus, et la règle est celle que l'action demandait, sans exception nommée.
 
 ```
-Verifie sur 11bb1ccf. Progres reel et mesurable : les composantes fortement connexes de `com.morpheus.application` tombent de **17 a 9**, et `ApplicationPackageCyclesArchitectureTest.java` est une vraie regle ArchUnit, pas une assertion textuelle. Mais c'est une regle **a exceptions nommees** : `DEPENDENCIES_ON_A_CYCLE` enumere 21 aretes tolerees et `CYCLIC_COMPONENTS` deux composantes acceptees (9 et 3 tranches). Ce n'est pas `beFreeOfCycles()`.
+Vérifié le 30/10/2026 sur c8ec9e4e (branche claude/sprint-11-final-9391a2, base 11bb1ccf). Graphe des tranches de premier niveau de com.morpheus.application recalculé sur le bytecode (jdeps -verbose:class, Tarjan) : avant, 28 tranches, 21 dépendances sur un cycle, deux composantes ({context, ingestion, operability, query, read, reference, security, snapshot, traceability} et {lifecycle, orchestration, quality}) ; après, 28 tranches, 0 dépendance sur un cycle, aucune composante. Quatre déplacements suffisent, aucun format persisté ni surface publique ne nomme ces paquets : NormalizedProjectContent ingestion -> read, IntegrationStatusDisclosure security -> context, LocalWritePermissionHardener security -> files, les six types de transition du cycle de vie application.lifecycle -> com.morpheus.domain.change.lifecycle. ApplicationPackageCyclesArchitectureTest#theApplicationPackagesAreFreeOfCycles est slices().matching("com.morpheus.application.(*)..").should().beFreeOfCycles(), sans liste : DEPENDENCIES_ON_A_CYCLE et CYCLIC_COMPONENTS sont supprimés. theCycleRuleRefusesTwoPackagesThatDependOnEachOther prouve la règle sur deux paquets de test cycliques, theCycleRuleSeesEveryFirstLevelPackageOfTheApplicationSources compare les tranches importées aux paquets des sources. Règle cassée une fois (dépendance security -> context ajoutée) : échec « Cycle detected: Slice context -> ... ». ADR-0156 remplace ADR-0152 (archivé) ; ./mvnw clean verify vert.
 ```
-
-**Ce qui reste** — 21 aretes de cycle tolerees par nom et 2 composantes cycliques acceptees ; la regle n'est pas `beFreeOfCycles()`.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -2153,21 +2151,19 @@ Ouvert et verifie directement sur 11bb1ccf : fichier de declaration lu, `pom.xml
 ### AUD-ARC-13 — Domaine sans aucun type polymorphe : 59 records et 25 enums, zéro interface, pour 9,4 fois moins de lignes que l'application
 | | |
 |---|---|
-| **Statut sur `develop`** | **PARTIEL** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Architecture |
 | **Effort** | L |
 | **Sprint** | 11 — Trancher l'architecture |
 | **Après** | AUD-ARC-03 |
-| **Vérifié le** | 2026-10-30 sur `11bb1ccf` |
+| **Vérifié le** | 2026-10-30 sur `c8ec9e4e` (branche `claude/sprint-11-final-9391a2`) |
 
-**Constat de vérification** — Passe de TOUJOURS_VALIDE a PARTIEL. Un cas exemplaire a ete traite jusqu'au bout, regle comprise. Le travers de fond — un domaine fait de donnees sans polymorphisme — n'est pas entame : le ratio bouge de 3 %.
+**Constat de vérification** — Passe de PARTIEL à CORRIGE au sens de l'action du constat (« au cas par cas », mesuré par les arêtes de la composante) : trois décisions sur une valeur du domaine y vivent désormais, chacune tenue par une règle, et le domaine porte sa première famille scellée. Les autres familles à enum (évaluation tri-état d'une contrainte, delta d'exigence) restent des records : leur forme est persistée en SQLite et sérialisée en JSON canonique, ADR-0156 le consigne en conséquence négative.
 
 ```
-Verifie sur 11bb1ccf. La decision est descendue dans le domaine : `morpheus-domain/.../constraint/Constraint.java` gagne 87 lignes (`evaluateFor`, `hasKnownBlocking`, `isViolatedExplicitBlockingPolicy`), le paquet `com.morpheus.application.constraint` est supprime, et `ConstraintDecisionInTheDomainArchitectureTest` — vraie regle, **sans exception nommee** — interdit a toute classe de l'application de lire les constantes de l'enum. Mais la mesure de fond bouge peu : 60 records, 25 enums, **0 interface, 0 scelle** ; le rapport passe de 9,99x a 9,69x.
+Vérifié le 30/10/2026 sur c8ec9e4e (branche claude/sprint-11-final-9391a2, base 11bb1ccf). Deux décisions de plus descendent sur leur type, sur le patron d'ADR-0082 : la transition d'un cycle de vie (ChangeLifecycleStateMachine supprimée, ChangeLifecycleTransitionRequest.decide() dans morpheus-domain) et l'état de résolution d'une référence externe (ExternalReference.resolvedAs, withoutResolver, notFound, isResolved, hasBeenResolved ; ExternalReferenceResolutionState.traceabilityResolution). Le résultat d'une transition devient l'interface scellée ChangeLifecycleTransitionDecision, permits Allowed et Blocked. Règles sans exception nommée, chacune cassée une fois puis rétablie (LifecycleTransitionDecisionInTheDomainArchitectureTest) : aucune classe de l'application ne lit une constante de ChangeLifecycleBlocker, seul le domaine construit une décision, la famille est scellée et vaut {Allowed, Blocked}, aucune classe hors du domaine n'appelle ExternalReference.transition. Mesure (déclarations de types et lignes de src/main/java) : domaine 60 records, 25 enums, 0 interface, 0 scellé, 2 692 lignes -> 65 records, 26 enums, 1 interface scellée, 3 059 lignes ; application 26 090 -> 25 769 lignes ; rapport 9,69x -> 8,42x. La mesure que l'action fixait, les arêtes de la composante, passe de 21 à 0 (AUD-ARC-03).
 ```
-
-**Ce qui reste** — 60 records, 25 enums, 0 interface et 0 type scelle dans le domaine ; rapport 9,69x.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
