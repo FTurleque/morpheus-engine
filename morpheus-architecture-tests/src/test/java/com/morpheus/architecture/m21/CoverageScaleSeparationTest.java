@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.morpheus.architecture.CoherenceCheck;
 import com.morpheus.architecture.RepositoryRoot;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -31,6 +32,7 @@ import org.junit.jupiter.api.io.TempDir;
  * what this suite makes executable: a gate that reaches for the other scale's key, report or evidence file, or
  * a validator that concludes from whatever evidence it happens to find, fails here.</p>
  */
+@CoherenceCheck
 class CoverageScaleSeparationTest {
     private static final String PER_MODULE_GATE =
             "morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m21/CoverageQualityGateTest.java";

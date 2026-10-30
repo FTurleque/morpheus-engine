@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@code assertThat}, a {@code long} literal or an argument split across statements, and says so rather than claiming
  * more.</p>
  */
+@CoherenceCheck
 class SqliteStoreTestsDeriveTheSchemaVersionTest {
     private static final Pattern LITERAL_AGAINST_SCHEMA_STATE = Pattern.compile(
             "assertEquals\\(\\s*(\\d[\\d_]*)\\s*,\\s*([^;]*?(?:currentVersion\\(|getInt\\(\"count\"\\))[^;]*?)\\)\\s*;");

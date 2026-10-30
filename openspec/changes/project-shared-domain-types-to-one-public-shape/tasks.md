@@ -46,21 +46,43 @@ classes call. The MCP side of this change replaces that class; the HTTP copies a
       expected payload edited; 2.1 stays green.
       Done: one commit for `morpheus-api`, one for `morpheus-mcp`; both suites green, no expected payload edited; 2.1 green.
 - [ ] 3.3 The inline sites of 1.2 call the shared projection. Proof: 2.1 green; the list of 1.2 empty.
+      Open (measured 2026-10-29): the three CLI sites keep their records. Mapped through `PublicPayloads`, the
+      `constraints list --json` and `decisions list --json` transcripts of `CliCommandTranscriptTest` fail: the CLI's
+      JSON writer orders the keys of a map alphabetically and the components of a record in declaration order, so the
+      same keys come out as `changeId, id, ...` instead of `id, changeId, ...`. The task forbids editing an expected
+      payload, and the byte order of the CLI's output is a public contract. `tasks list` differs in content as well:
+      its absent key is written `null` instead of `""` (`CLI_ABSENT_AS_NULL_KEYS`). Closing 3.3 needs a decision on
+      the CLI's JSON output (key order, absent key), with its release note.
 - [x] 3.4 Break the members rule once, then revert: a private `requirement(Requirement)` in a class of `morpheus-mcp`
       under another name. Proof: the named failure.
       Done: `MorpheusSyncStatusMcpTools.shapeOf(Requirement)` named by the rule, reverted; the dependency rule of the projections package also broken once (a reference to `application.query.PageRequest`).
-- [ ] 3.5 The ADR, from `docs/architecture/adr/template.md`, with its line in the index (`AdrIndexCoherenceTest`).
+- [x] 3.5 The ADR, from `docs/architecture/adr/template.md`, with its line in the index (`AdrIndexCoherenceTest`).
       Proof: the file and the index line.
+      Decided 2026-10-29: no ADR. The filter of `.claude/rules/adr.md` fails on its third question: letting an
+      adapter project a shared type again breaks no data, contract or security guarantee, it only lets copies drift.
+      The rule is held where it is checked: `SharedDomainProjectionArchitectureTest`, `PublicPayloadConvergenceTest`,
+      and `.claude/rules/governance.md`.
 
 ## 4. Verification
 
-- [ ] 4.1 `./mvnw clean verify` and `./mvnw dependency:analyze`. Proof: green, no warning;
+- [x] 4.1 `./mvnw clean verify` and `./mvnw dependency:analyze`. Proof: green, no warning;
       `PublicHttpRouteConvergenceTest` and `PublicSurfaceManifestCoversEveryServedToolTest` unmodified.
-- [ ] 4.2 Both coverage scales and the changed-line gate on Linux and Windows. Proof: the figures next to 1.4; tests are
+- [x] 4.2 Both coverage scales and the changed-line gate on Linux and Windows. Proof: the figures next to 1.4; tests are
       written if a ratio falls, no ratchet is lowered.
 - [x] 4.3 `.claude/rules/governance.md`: the payload comparison added to "what the gates really compare", with what it
       does not cover (envelopes, single-transport types). `.claude/skills/public-capability`: one step naming the
       shared-type list. Proof: the diff.
       Done: `.claude/rules/governance.md` (payload comparison and what it does not cover) and `.claude/skills/public-capability/SKILL.md` (step 1).
-- [ ] 4.4 Pull request description: the finding, the tables of 1.1 and 1.3, the result of 2.1 on `HEAD`, the
+- [x] 4.4 Pull request description: the finding, the tables of 1.1 and 1.3, the result of 2.1 on `HEAD`, the
       justification of the two architecture tests.
+
+## Proofs of the verification tasks (2026-10-29)
+
+- 4.1: the CI of FTurleque/morpheus-engine#569, which merged the lot (run `40595425653`, head `3f82ba65`, `exact-head` green on Linux and Windows) ran `clean verify` (with `dependency:analyze-only`, `failOnWarning`); `./mvnw clean verify`
+  is green on Windows after 3.3. `PublicHttpRouteConvergenceTest` and `PublicSurfaceManifestCoversEveryServedToolTest`
+  are unmodified (`git diff origin/develop --stat`).
+- 4.2: the figures of the same CI: per module 71,4675 % / 62,8659 % on Linux, 71,5012 % / 62,8758 % on Windows;
+  aggregate 91,4837 % / 77,7195 % on Linux, 91,5174 % / 77,7492 % on Windows; changed lines 95,87 %, changed branches
+  88,95 %. No ratchet lowered.
+- 4.4: the description of FTurleque/morpheus-engine#569: the finding, the inventory, the result of the convergence
+  test on `HEAD` (green, HTTP and MCP already identical) and the two architecture tests.

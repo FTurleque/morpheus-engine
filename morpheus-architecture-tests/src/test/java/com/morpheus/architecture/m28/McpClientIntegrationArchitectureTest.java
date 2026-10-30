@@ -1,5 +1,6 @@
 package com.morpheus.architecture.m28;
 
+import com.morpheus.architecture.CoherenceCheck;
 import com.morpheus.architecture.RepositoryRoot;
 import org.junit.jupiter.api.Test;
 
@@ -11,6 +12,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@CoherenceCheck
 class McpClientIntegrationArchitectureTest {
 
     /**
