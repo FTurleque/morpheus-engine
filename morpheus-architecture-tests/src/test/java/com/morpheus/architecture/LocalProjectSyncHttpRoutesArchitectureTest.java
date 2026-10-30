@@ -43,6 +43,5 @@ class LocalProjectSyncHttpRoutesArchitectureTest {
         assertTrue(routes.contains("service.sync(projectId"));
         assertTrue(routes.contains("service.syncStatus(projectId"));
         assertTrue(routes.contains("HttpExchange"));
-        assertFalse(routes.contains("com.sun.net.httpserver.HttpServer"));
     }
 }

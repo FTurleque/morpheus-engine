@@ -1,5 +1,8 @@
 package com.morpheus.architecture;
 
+import com.morpheus.application.query.RequirementQueryService;
+import com.morpheus.application.query.RequirementSearchQuery;
+import com.morpheus.application.query.TraceRequirementQueryService;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
@@ -8,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.belongToAnyOf;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.simpleNameEndingWith;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -29,9 +33,6 @@ class RequirementQueryApiServiceArchitectureTest {
         assertTrue(facade.contains("return requirementQueryService.requirements(projectIdValue, query, pageRequest);"));
         assertTrue(facade.contains("return requirementQueryService.requirement(projectIdValue, requirementIdValue);"));
         assertTrue(facade.contains("return requirementQueryService.traceRequirement(projectIdValue, requirementIdValue, depth);"));
-        assertFalse(facade.contains("new RequirementQueryService("));
-        assertFalse(facade.contains("new RequirementSearchQuery("));
-        assertFalse(facade.contains("new TraceRequirementQueryService("));
         assertFalse(facade.contains("currentRequirement(snapshot.id(), requirementId.value())"));
         assertFalse(facade.contains("private Object requirementRecord(RequirementVersionRecord record)"));
 
@@ -71,6 +72,28 @@ class RequirementQueryApiServiceArchitectureTest {
                         .or(simpleNameEndingWith("LocalSourceInventoryScanner")))
                 .because("each API service serves one capability through its own application services; reaching "
                         + "another capability's service brings a second owner for the same answer")
+                .check(PRODUCTION);
+    }
+
+    /**
+     * The facade holds none of the application services that serve the requirement queries: {@code
+     * RequirementQueryService}, {@code RequirementSearchQuery}, {@code TraceRequirementQueryService}. They are {@code
+     * MorpheusRequirementQueryApiService}'s, and the facade delegates to it.
+     *
+     * <p>None of these types declares a compile-time constant, so the rule alone covers them, and it sees a dependency
+     * of any kind where the text saw a construction only. Broken before acceptance, 30/10/2026: a {@code
+     * RequirementSearchQuery} field added to {@code MorpheusApiService} failed this rule.</p>
+     */
+    @Test
+    void theFacadeHoldsNoRequirementQueryService() {
+        noClasses()
+                .that().haveSimpleName("MorpheusApiService")
+                .should().dependOnClassesThat(belongToAnyOf(
+                        RequirementQueryService.class,
+                        RequirementSearchQuery.class,
+                        TraceRequirementQueryService.class))
+                .because("the facade delegates the requirement queries to MorpheusRequirementQueryApiService; "
+                        + "a service of its own would answer beside that owner")
                 .check(PRODUCTION);
     }
 }

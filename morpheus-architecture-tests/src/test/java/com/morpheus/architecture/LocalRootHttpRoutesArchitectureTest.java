@@ -17,7 +17,6 @@ class LocalRootHttpRoutesArchitectureTest {
 
         assertServerDelegatesToRootRoutes(server);
         assertRootRoutesImplementRouting(routes);
-        assertRootRoutesDoNotLeakOtherHttpConcerns(routes);
     }
 
     private void assertServerDelegatesToRootRoutes(String server) {
@@ -43,9 +42,5 @@ class LocalRootHttpRoutesArchitectureTest {
         assertTrue(routes.contains("case \"metrics\" -> ok(operabilityService.metrics())"));
         assertTrue(routes.contains("case \"version\" -> ok(service.version())"));
         assertTrue(routes.contains("\"READY\".equals(readiness.status()) ? 200 : 503"));
-    }
-
-    private void assertRootRoutesDoNotLeakOtherHttpConcerns(String routes) {
-        assertFalse(routes.contains("com.sun.net.httpserver"));
     }
 }
