@@ -54,47 +54,47 @@ class BorrowedCoverageGateTest {
     private static final String LINE_MAXIMUM_KEY = "borrowedLineCreditMaximum";
     private static final String BRANCH_MAXIMUM_KEY = "borrowedBranchCreditMaximum";
 
-    // Qualified measurement of the total borrowed credit: 5966 lines / 1506 branches, the HIGHEST of four
-    // exact-head runs, never the lowest -- a maximum one platform cannot meet would fail that platform's builds.
+    // Qualified measurement of the total borrowed credit: 1293 lines / 540 branches, the HIGHEST of each dimension
+    // across both platforms, never the lowest -- a maximum one platform cannot meet would fail that platform's builds.
     //
-    // Measured on 29/10/2026 at develop 6b3f6304 (push run 40961140381) and at 4b02a8e3 (pull_request run
-    // 40955178602, the pull request whose merge 6b3f6304 is: the two trees are identical). Read from each run's
-    // m21-integrity-<OS> artifact, every per-module jacoco.xml against its group of the aggregate jacoco.xml,
-    // populationModules=16, 29 829 lines and 10 182 branches on all four:
-    //     Linux    5966 / 5966 lines   1506 / 1506 branches   <- qualified on the highest
-    //     Windows  5964 / 5965 lines   1505 / 1506 branches
-    // Spread across the four: 2 lines and 1 branch, inside the 24-line / 11-branch reference spread of 15/09/2026
-    // that the coverage ratchets are sized against. The maximum sits at most three times that reference above the
-    // qualified measurement: one more line or branch of maximum needs a new measurement on both platforms.
+    // Measured on 30/10/2026 at 67964ed2, exact head, one clean verify per platform: Windows 10 (JDK 21.0.12) and
+    // Linux (WSL Ubuntu, OpenJDK 21). Read from each build's m21-borrowed-coverage-summary.txt, every per-module
+    // jacoco.xml against its group of the aggregate jacoco.xml, populationModules=16, 29 911 lines and 10 206
+    // branches on both:
+    //     Linux    1293 lines   538 branches
+    //     Windows  1292 lines   540 branches   <- lines qualified on Linux, branches on Windows
+    // Spread: 1 line and 2 branches, inside the 24-line / 11-branch reference spread of 15/09/2026 that the coverage
+    // ratchets are sized against. The maximum sits at most three times that reference above the qualified
+    // measurement: one more line or branch of maximum needs a new measurement on both platforms.
     //
     // Lowering the maximum inside that window is a decision; lowering the qualified measurement needs a fresh
     // exact-head measurement of Linux AND Windows, cited here.
-    private static final long QUALIFIED_BORROWED_LINES = 5966L;
-    private static final long QUALIFIED_BORROWED_BRANCHES = 1506L;
+    private static final long QUALIFIED_BORROWED_LINES = 1293L;
+    private static final long QUALIFIED_BORROWED_BRANCHES = 540L;
     private static final long MAXIMUM_MARGIN_LINES = 3L * 24L;
     private static final long MAXIMUM_MARGIN_BRANCHES = 3L * 11L;
 
     /**
-     * The borrowed credit of each module, the highest of the four qualifying runs, lines then branches. It is not
+     * The borrowed credit of each module, the highest of the two qualifying runs, lines then branches. It is not
      * a threshold: when the total exceeds its maximum, the refusal names the modules whose credit grew past it.
      */
     private static final String QUALIFIED_BY_MODULE = """
             morpheus-api 13 19
-            morpheus-application 4804 1152
+            morpheus-application 667 302
             morpheus-cli 0 1
-            morpheus-domain 343 63
-            morpheus-integration-minos 16 2
-            morpheus-integration-nexus 8 0
+            morpheus-domain 44 9
+            morpheus-integration-minos 0 0
+            morpheus-integration-nexus 0 0
             morpheus-mcp 0 0
-            morpheus-mcp-transport 6 3
+            morpheus-mcp-transport 6 2
             morpheus-provider-markdown 0 0
             morpheus-provider-openspec 3 8
             morpheus-provider-reference 0 0
             morpheus-provider-sdk 1 0
             morpheus-provider-synthetic 5 4
             morpheus-provider-testkit 0 0
-            morpheus-store-memory 286 124
-            morpheus-store-sqlite 481 132
+            morpheus-store-memory 133 70
+            morpheus-store-sqlite 421 125
             """;
 
     /**
