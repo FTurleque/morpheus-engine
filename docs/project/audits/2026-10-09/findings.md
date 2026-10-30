@@ -1821,15 +1821,15 @@ pom.xml:237-253 cyclonedx-maven-plugin `makeAggregateBom` liee a `verify`, sorti
 | **Effort** | M |
 | **Sprint** | 14 — Signer la distribution |
 | **Après** | AUD-DEP-12 |
-| **Vérifié le** | 2026-10-30 sur `11bb1ccf` |
+| **Vérifié le** | 2026-10-30 sur `1eda4bf8` |
 
-**Constat de vérification** — Passe de TOUJOURS_VALIDE a PARTIEL. Le depot a fait tout ce qu'il pouvait faire sans certificat : la mecanique, le contrat et la documentation du defaut existent. Ce qui manque n'est pas du code, c'est un certificat. L'ADR rejete est la trace honnete de ce blocage plutot qu'un oubli.
+**Constat de vérification** — Reste PARTIEL. Tout ce que le depot peut faire sans certificat est fait : mecanique, contrat, documentation de l'avertissement et de la verification d'origine. Aucune voie gratuite n'est ouverte a MORPHEUS sous sa licence actuelle ; ADR-0153 reste rejete pour le motif qu'il donne, et aucun ADR nouveau n'est justifie.
 
 ```
-Verifie sur 11bb1ccf. Un appareil de signature reel a ete construit — script `distribution/windows/sign-windows-binary.ps1`, declaration `authenticode-signing.properties`, contrat `m20/WindowsReleaseSigningContractTest`, documentation SmartScreen — mais **aucun artefact n'est signe**. Les trois champs de declaration sont vides ; la branche `'release'` du script se termine inconditionnellement par `Stop-Signing 'WINDOWS_SIGNING_FAILED'` (`:103`) ; `.github/workflows/release.yml:150` construit sans `-SigningState`, donc en etat `none` ; et `docs/architecture/adr/archive/0153-....md:3` porte **« Rejetee »**, faute de certificat de signature de code.
+Verifie sur 1eda4bf8. L'appareil de signature est en place -- script `distribution/windows/sign-windows-binary.ps1`, declaration `authenticode-signing.properties`, contrat `m20/WindowsReleaseSigningContractTest` -- mais **aucun artefact n'est signe** : les trois champs de declaration sont vides, la branche `'release'` du script s'arrete sur `WINDOWS_SIGNING_FAILED` faute de fournisseur, `release.yml` construit sans `-SigningState`, et ADR-0153 est archive **Rejetee**. Le releve `docs/project/research/signature-authenticode-gratuite-2026-10-30.md` compare les voies gratuites sur sources primaires : SignPath Foundation (gratuit) exige une licence OSI sans composant proprietaire, or `LICENSE` est proprietaire ; Azure Artifact Signing coute 9,99 $/mois et n'accepte une personne physique qu'aux Etats-Unis et au Canada ; Certum Open Source coute 69 EUR HT sur carte a puce, incompatible avec un runner heberge ; le Microsoft Store exige qu'un `.exe` soit deja signe. La partie sans certificat de l'action est faite : `docs/user/INSTALLATION.md`, section Signature de l'editeur, decrit l'avertissement SmartScreen et la verification d'origine (somme SHA-256 puis `gh attestation verify`, ou `--bundle` avec l'attestation publiee).
 ```
 
-**Ce qui reste** — Aucun binaire publie n'est signe ; trois champs de declaration vides ; `release.yml:150` construit en etat `none`.
+**Ce qui reste** — Aucun binaire publie n'est signe ; trois champs de declaration vides ; `release.yml` construit en etat `none`.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
