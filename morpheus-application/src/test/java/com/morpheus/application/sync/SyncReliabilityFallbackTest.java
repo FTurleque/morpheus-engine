@@ -145,6 +145,52 @@ class SyncReliabilityFallbackTest {
     }
 
     @Test
+    void aWriterOvertakenOnItsFirstCommitIsRefusedWithoutRetryNorInconsistentMarker() {
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+        StubStore store = new StubStore(Optional.empty(), Optional.empty());
+        IncrementalSyncService service = new IncrementalSyncService(store, OperationalRecorder.noop());
+        SyncPlan plan = service.prepare(
+                SourceInventoryScanResult.complete(inventory(projectId, "r1", T0, "content")),
+                SyncPlan.Trigger.manual().forced(),
+                T0.plusSeconds(1));
+        store.conflictOnCommitAttempt = 1;
+
+        SyncStateConflictException overtaken = assertThrows(
+                SyncStateConflictException.class, () -> service.complete(plan, T0.plusSeconds(2)));
+
+        assertEquals(store.expectedRevisionAtConflict, overtaken.expectedRevision());
+        assertEquals(store.expectedRevisionAtConflict + 7, overtaken.currentRevision());
+        assertEquals("stale synchronization state revision for " + projectId + ": expected "
+                + overtaken.expectedRevision() + " but current is " + overtaken.currentRevision(),
+                overtaken.getMessage());
+        assertEquals(1, store.commitAttempts, "a stale writer does not retry over a newer state");
+        assertEquals(Optional.of(SyncPlan.FullRebuildReason.FORCED),
+                store.state.flatMap(ProjectSyncState::pendingFullRebuildReason),
+                "the recorded attempt keeps its reason: a stale writer does not mark the baseline inconsistent");
+    }
+
+    @Test
+    void aWriterOvertakenOnItsRetryIsRefusedWithoutInconsistentMarker() {
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+        StubStore store = new StubStore(Optional.empty(), Optional.empty());
+        IncrementalSyncService service = new IncrementalSyncService(store, OperationalRecorder.noop());
+        SyncPlan plan = service.prepare(
+                SourceInventoryScanResult.complete(inventory(projectId, "r1", T0, "content")),
+                SyncPlan.Trigger.manual().forced(),
+                T0.plusSeconds(1));
+        store.failBeforeCommit = 1;
+        store.conflictOnCommitAttempt = 2;
+
+        SyncStateConflictException overtaken = assertThrows(
+                SyncStateConflictException.class, () -> service.complete(plan, T0.plusSeconds(2)));
+
+        assertEquals(store.expectedRevisionAtConflict, overtaken.expectedRevision());
+        assertEquals(2, store.commitAttempts);
+        assertEquals(Optional.of(SyncPlan.FullRebuildReason.FORCED),
+                store.state.flatMap(ProjectSyncState::pendingFullRebuildReason));
+    }
+
+    @Test
     void failPreservesScanIncompleteReason() {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         StubStore store = new StubStore(Optional.empty(), Optional.empty());
@@ -233,6 +279,8 @@ class SyncReliabilityFallbackTest {
         private boolean throwAfterCommit;
         private int commitAttempts;
         private boolean failReads;
+        private int conflictOnCommitAttempt;
+        private long expectedRevisionAtConflict = -1;
 
         private StubStore(Optional<ProjectSyncState> state, Optional<SourceInventory> inventory) {
             this.state = state;
@@ -300,6 +348,11 @@ class SyncReliabilityFallbackTest {
                 Optional<Instant> lastObservedChangeAt,
                 List<SourceArchiveRecord> newArchives) {
             commitAttempts++;
+            if (commitAttempts == conflictOnCommitAttempt) {
+                expectedRevisionAtConflict = expectedRevision;
+                throw new SyncStateConflictException(
+                        inventory.projectId().toString(), expectedRevision, expectedRevision + 7);
+            }
             if (failBeforeCommit > 0) {
                 failBeforeCommit--;
                 throw new IllegalStateException("synthetic pre-commit failure");
