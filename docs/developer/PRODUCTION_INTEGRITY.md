@@ -31,8 +31,8 @@ Windows            PASS
 Linux              PASS
 JaCoCo aggregate lines      >= 91.2 %
 JaCoCo aggregate branches   >= 77.3 %
-JaCoCo per-module lines     >= 71.2 %
-JaCoCo per-module branches  >= 62.5 %
+JaCoCo per-module lines     >= 89.9 %
+JaCoCo per-module branches  >= 77.1 %
 Changed lines       >= 80 %
 Changed branches    >= 70 %
 ```

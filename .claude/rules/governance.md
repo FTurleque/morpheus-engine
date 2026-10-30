@@ -131,8 +131,8 @@ La couverture y est déclarée
 **deux fois**, une paire de clés par échelle de mesure (`aggregate*` et `perModule*`) — citer
 un seuil sans nommer son échelle n'a pas de sens. Valeurs constatées le 29/10/2026 :
 présence `2876 / 1819 / 836` (déclarés / générés / architecture), couverture `91,2% / 77,3%` agrégée et
-`71,2% / 62,5%` par module (les quatre de couverture relevées le 28/10/2026, dans les deux plafonds requalifiés le même
-jour sur `61198c68`).
+`89,9% / 77,1%` par module (l'agrégée relevée le 28/10/2026 dans son plafond requalifié sur `61198c68`, la par module
+le 30/10/2026 dans son plafond requalifié sur `d3580dc9`).
 Ces nombres sont des
 **ratchets** — ils ne descendent pas, mais ils **montent** au fil des milestones, donc
 toute valeur recopiée ici (y compris dans une version antérieure de cette page) peut être

@@ -13,6 +13,10 @@ import com.morpheus.application.store.TraceabilityStore;
 import com.morpheus.application.store.VersionedRequirementStore;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.ChangeProposal;
+import com.morpheus.domain.constraint.Constraint;
+import com.morpheus.domain.constraint.ConstraintId;
+import com.morpheus.domain.decision.DesignDecision;
+import com.morpheus.domain.decision.DesignDecisionId;
 import com.morpheus.domain.evidence.Evidence;
 import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.identity.DomainIdentity;
@@ -28,6 +32,8 @@ import com.morpheus.domain.scenario.Scenario;
 import com.morpheus.domain.scenario.ScenarioId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
+import com.morpheus.domain.task.ImplementationTask;
+import com.morpheus.domain.task.TaskId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotState;
 import com.morpheus.domain.source.SourceLocator;
 import com.morpheus.domain.specification.Specification;
@@ -197,6 +203,31 @@ class ChangeAnalysisServiceTest {
         KnowledgeStoreException withoutContent = assertThrows(KnowledgeStoreException.class,
                 () -> service.analyzeSnapshot(snapshotId, proposal, 1));
         assertTrue(withoutContent.getMessage().contains("has no business-content projection"), withoutContent::getMessage);
+    }
+
+    @Test
+    void theCompactViewProjectsTheConstraintsDecisionsAndTasksOfTheChange() {
+        publish(KnowledgeSnapshotState.ACTIVE);
+        Constraint constraint = Constraint.withUnknownSemantics(ConstraintId.generate(), changeId, "Keep it local",
+                provenance());
+        DesignDecision decision = new DesignDecision(DesignDecisionId.generate(), changeId, "Port", "Use a port",
+                provenance());
+        ImplementationTask task = new ImplementationTask(TaskId.generate(), changeId, Optional.of("1.1"), "Task", true,
+                provenance());
+        ChangeProposal change = new ChangeProposal(changeId, projectId, Optional.of("change"), "Change", "Intent",
+                List.of(), List.of(), List.of(), provenance());
+
+        CompactChangeAnalysisView view = new CompactChangeAnalysisViewService().toView(service.analyzeActive(
+                new ProposedChangeSet(change, List.of(), List.of(constraint), List.of(decision), List.of(task)), 1)
+                .orElseThrow());
+
+        assertEquals(constraint.id().toString(), view.constraints().getFirst().id());
+        assertEquals("Keep it local", view.constraints().getFirst().statement());
+        assertEquals(changeId.toString(), view.designDecisions().getFirst().changeId());
+        assertEquals("Use a port", view.designDecisions().getFirst().decision());
+        assertEquals(Optional.of("1.1"), view.implementationTasks().getFirst().key());
+        assertTrue(view.implementationTasks().getFirst().completed());
+        assertEquals("openspec", view.implementationTasks().getFirst().provenance().providerId());
     }
 
     @Test

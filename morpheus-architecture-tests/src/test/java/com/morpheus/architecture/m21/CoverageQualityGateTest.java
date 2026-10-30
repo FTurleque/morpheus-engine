@@ -36,7 +36,21 @@ class CoverageQualityGateTest {
     private static final double D2_MIN_LINE_RATIO = 0.40d;
     private static final double D2_MIN_BRANCH_RATIO = 0.35d;
 
-    // Qualified exact-head baseline of the PER-MODULE scale: 71.4642% lines / 62.8560% branches.
+    // Qualified exact-head baseline of the PER-MODULE scale: 90.2012% lines / 77.4564% branches.
+    //
+    // Requalified on 30/10/2026 at d3580dc9, the head of PR #597: its pull_request run (41107774651) and a
+    // workflow_dispatch run of the same branch (41107784162), both checking out that SHA. Read from each run's
+    // m21-integrity-<OS> artifact, per-module-coverage-summary.txt, coverageScope=per-module, reports=16, 29922 lines
+    // and 10198 branches on all four (kept in config/coverage-qualification/):
+    //     Windows  90.2480% / 90.2480% lines,  77.4760% / 77.4858% branches
+    //     Linux    90.2012% / 90.2045% lines,  77.4564% / 77.4564% branches   <- qualified on the lowest
+    // Spread across the four: 14 lines and 3 branches, inside the 24 / 11 of 15/09, which stays the one margins
+    // are sized against. Previous cap: 71.4642% / 62.8560% (28/10/2026, below), overtaken by 18.7 points on lines
+    // and 14.6 on branches through the tests that morpheus-application and morpheus-domain gained in their own
+    // modules (AUD-TRV-02).
+    // Both keys raised inside this cap, each the highest thousandth that keeps 3x the 24 / 11 spread:
+    // line 0.712 -> 0.899 leaves 90 lines (3.8x), branch 0.625 -> 0.771 leaves 36 branches (3.3x). One more
+    // thousandth would drop either under 3x (60 lines, 26 branches).
     //
     // Requalified on 28/10/2026 at 61198c68, the head of PR #570: its pull_request run (40604205899) and a
     // workflow_dispatch run of the same branch (40604205079), both checking out that SHA. Read from each run's
@@ -107,8 +121,8 @@ class CoverageQualityGateTest {
     // branches (3.1x). One more thousandth on either key would drop it under 3x (65 lines, 24 branches).
     //
     // Raising these two constants requires a fresh per-module measurement on BOTH platforms, cited here.
-    private static final double PER_MODULE_QUALIFIED_LINE_RATIO = 0.714642d;
-    private static final double PER_MODULE_QUALIFIED_BRANCH_RATIO = 0.628560d;
+    private static final double PER_MODULE_QUALIFIED_LINE_RATIO = 0.902012d;
+    private static final double PER_MODULE_QUALIFIED_BRANCH_RATIO = 0.774564d;
 
     @Test
     void perModuleCoverageDoesNotRegressBelowQualifiedBaseline() throws Exception {

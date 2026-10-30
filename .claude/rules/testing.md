@@ -8,7 +8,7 @@ sources différentes du repo (`rules/testing.md`, `rules/governance.md`, `docs/R
 citaient chacune un chiffre différent au 31/08/2026. **Avant toute décision de gouvernance
 ou de coverage, relire le fichier properties, pas cette page.**
 
-Valeur constatée en lisant `config/m21-quality-ratchets.properties` (29/10/2026) :
+Valeur constatée en lisant `config/m21-quality-ratchets.properties` (30/10/2026) :
 
 | Clé | Valeur constatée |
 |---|---|
@@ -17,8 +17,8 @@ Valeur constatée en lisant `config/m21-quality-ratchets.properties` (29/10/2026
 | `architectureTestsMinimum` | 836 (exécutions déclarées du module d'architecture) |
 | `aggregateLineCoverageMinimum` | 0.912 (91.2%) |
 | `aggregateBranchCoverageMinimum` | 0.773 (77.3%) |
-| `perModuleLineCoverageMinimum` | 0.712 (71.2%) |
-| `perModuleBranchCoverageMinimum` | 0.625 (62.5%) |
+| `perModuleLineCoverageMinimum` | 0.899 (89.9%) |
+| `perModuleBranchCoverageMinimum` | 0.771 (77.1%) |
 
 ## Deux mesures de présence : déclarées et générées
 
@@ -188,6 +188,18 @@ identiques des quatre runs.
 Le 29/10/2026, les trois ratchets de présence montent, sans toucher à la couverture : `2876 / 1819 / 836`, dix
 sous les 2 886 / 1 829 / 846 exécutions identiques des quatre runs de `develop` à `63e6f1cb` (run `40875102300`
 `push`, run `40870856270` `pull_request` de la PR #584, mêmes sources), Linux et Windows.
+
+Le 30/10/2026, le seul plafond **par module** est requalifié à `d3580dc9`, tête de la PR #597 (run `41107774651`
+`pull_request` et run `41107784162` `workflow_dispatch`, mêmes populations sur les quatre : 29 922 lignes, 10 198
+branches), après les tests que `morpheus-application` a gagnés dans son propre module (AUD-TRV-02) :
+
+```text
+par module  Windows  90,2480 % / 90,2480 % lignes   77,4760 % / 77,4858 % branches
+            Linux    90,2012 % / 90,2045 % lignes   77,4564 % / 77,4564 % branches   <- plafond
+```
+
+Dispersion : 14 lignes / 3 branches, dans la référence 24 / 11. Ligne `0.899` (**90 lignes**), branche `0.771`
+(**36 branches**). L'échelle agrégée n'est pas requalifiée : sa clé et son plafond restent ceux du 28/10.
 
 **Cette marge est exécutable** : `CoverageQualificationEvidenceTest#everyCoverageRatchetKeepsThreeTimesTheSpreadUnderTheLowestKeptMeasurement`
 la calcule sur `config/coverage-qualification/` — plus basse mesure conservée moins ce qu'exige le ratchet, en lignes

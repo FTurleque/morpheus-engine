@@ -54,39 +54,39 @@ class BorrowedCoverageGateTest {
     private static final String LINE_MAXIMUM_KEY = "borrowedLineCreditMaximum";
     private static final String BRANCH_MAXIMUM_KEY = "borrowedBranchCreditMaximum";
 
-    // Qualified measurement of the total borrowed credit: 1293 lines / 540 branches, the HIGHEST of each dimension
+    // Qualified measurement of the total borrowed credit: 801 lines / 380 branches, the HIGHEST of each dimension
     // across both platforms, never the lowest -- a maximum one platform cannot meet would fail that platform's builds.
     //
-    // Measured on 30/10/2026 at 67964ed2, exact head, one clean verify per platform: Windows 10 (JDK 21.0.12) and
-    // Linux (WSL Ubuntu, OpenJDK 21). Read from each build's m21-borrowed-coverage-summary.txt, every per-module
-    // jacoco.xml against its group of the aggregate jacoco.xml, populationModules=16, 29 911 lines and 10 206
-    // branches on both:
-    //     Linux    1293 lines   538 branches
-    //     Windows  1292 lines   540 branches   <- lines qualified on Linux, branches on Windows
-    // Spread: 1 line and 2 branches, inside the 24-line / 11-branch reference spread of 15/09/2026 that the coverage
+    // Measured on 30/10/2026 at d3580dc9, the head of PR #597: its pull_request run (41107774651) and a
+    // workflow_dispatch run of the same branch (41107784162), both checking out that SHA. Read from each run's
+    // m21-integrity-<OS> artifact, m21-borrowed-coverage-summary.txt, populationModules=16, 29 922 lines and
+    // 10 198 branches on all four:
+    //     Linux    800 / 801 lines   379 / 380 branches   <- lines qualified on Linux
+    //     Windows  800 / 800 lines   380 / 380 branches   <- branches qualified on either
+    // Spread: 1 line and 1 branch, inside the 24-line / 11-branch reference spread of 15/09/2026 that the coverage
     // ratchets are sized against. The maximum sits at most three times that reference above the qualified
     // measurement: one more line or branch of maximum needs a new measurement on both platforms.
     //
     // Lowering the maximum inside that window is a decision; lowering the qualified measurement needs a fresh
     // exact-head measurement of Linux AND Windows, cited here.
-    private static final long QUALIFIED_BORROWED_LINES = 1293L;
-    private static final long QUALIFIED_BORROWED_BRANCHES = 540L;
+    private static final long QUALIFIED_BORROWED_LINES = 801L;
+    private static final long QUALIFIED_BORROWED_BRANCHES = 380L;
     private static final long MAXIMUM_MARGIN_LINES = 3L * 24L;
     private static final long MAXIMUM_MARGIN_BRANCHES = 3L * 11L;
 
     /**
-     * The borrowed credit of each module, the highest of the two qualifying runs, lines then branches. It is not
+     * The borrowed credit of each module, the highest of the qualifying runs, lines then branches. It is not
      * a threshold: when the total exceeds its maximum, the refusal names the modules whose credit grew past it.
      */
     private static final String QUALIFIED_BY_MODULE = """
             morpheus-api 13 19
-            morpheus-application 667 302
+            morpheus-application 175 136
             morpheus-cli 0 1
-            morpheus-domain 44 9
+            morpheus-domain 44 16
             morpheus-integration-minos 0 0
             morpheus-integration-nexus 0 0
             morpheus-mcp 0 0
-            morpheus-mcp-transport 6 2
+            morpheus-mcp-transport 6 3
             morpheus-provider-markdown 0 0
             morpheus-provider-openspec 3 8
             morpheus-provider-reference 0 0

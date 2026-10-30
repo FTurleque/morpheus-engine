@@ -72,8 +72,8 @@ MCP SDK                    2.1.0
 OWASP Dependency-Check     13.0.0
 JaCoCo aggregate line ratchet     >= 91.2%
 JaCoCo aggregate branch ratchet   >= 77.3%
-JaCoCo per-module line ratchet    >= 71.2%
-JaCoCo per-module branch ratchet  >= 62.5%
+JaCoCo per-module line ratchet    >= 89.9%
+JaCoCo per-module branch ratchet  >= 77.1%
 Surefire written floor     >= 2876
 Surefire generated floor   >= 1819
 Architecture floor         >= 836
