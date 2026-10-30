@@ -53,11 +53,14 @@ A second pass on 2026-10-13 measured what the first inferred, and the measure co
 
 ## 4. Verification
 
-- [ ] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green.
+- [x] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green.
       *2026-10-13: not run. The worktree this was done in shares its local repository with others and does not run the full reactor; the exact-head CI run is the proof. What ran, offline, on the changed tree: the whole test suites of `morpheus-store-sqlite` (201), `morpheus-mcp` (150), `morpheus-api` (403) and `morpheus-cli` (1741) with their upstream modules, no failure; and every class of `morpheus-architecture-tests` (661 executions), two failures, neither from this change - `CoverageQualityGateTest` refuses to conclude without the reports of a full `clean verify`, and `M19PerformanceGate` is 4.3.*
+      *2026-10-30: `clean verify` and the changed-line gate green in `docs/project/audits/2026-10-09/reverification-2026-10-15.md`, on a tree that contains the change.*
 - [x] 4.2 The persistence parity tests and the store tests of the pre-migration copy. Proof: green unmodified.
       *2026-10-13: `PortfolioPersistenceParityTest` (4), `SavedViewPersistenceParityTest` (2), `PolicyPersistenceParityTest` (11) and `SqlitePreMigrationCopyTest` (13), green and unmodified.*
-- [ ] 4.3 M19: `scripts\validate.cmd m19`. Proof: budgets unchanged - fewer connections should not cost.
+- [x] 4.3 M19: `scripts\validate.cmd m19`. Proof: budgets unchanged - fewer connections should not cost.
       *2026-10-13: the validator was not run - it starts with a full `clean verify`. The five gates were run directly, without the validator's `-Xmx768m`. `M19QueryPerformanceGate`, `M19TraceabilityPerformanceGate`, `M19CompositionPerformanceGate` and `M19FullPublishPerformanceGate` pass. `M19PerformanceGate` does not conclude here: it asserts the 768 MiB heap the validator sets, which this run did not set; its two timings, which read no SQLite store, were 25.4 s then 16.9 s for the inventory scan against a 20 s budget on a machine busy with other builds. None of the five gates opens the query or policy runtime, so they say nothing about this change's cost either way: the nightly lane is the proof.*
-- [ ] 4.4 Pull request description: the finding, the table of 1.1, the numbers of 1.2 before and after.
+      *2026-10-30: `validate-m19` PASS on Windows on 2026-10-15 and 2026-10-17, budgets unchanged (`docs/project/roadmap/M19_PERFORMANCE_BUDGETS.md`); on Linux and Windows in nightly run `40998947309`.*
+- [x] 4.4 Pull request description: the finding, the table of 1.1, the numbers of 1.2 before and after.
       *2026-10-13: no pull request was opened by this pass. The numbers of 1.2 are in the note of 1.2 and in ADR-0109.*
+      *2026-10-30: spread over PRs #482, #490 and #496: the table of 1.1, the counts before and after, the roots and scope openings.*

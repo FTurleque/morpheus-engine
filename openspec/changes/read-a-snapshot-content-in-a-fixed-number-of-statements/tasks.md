@@ -4,10 +4,11 @@ Implemented on 2026-10-13; each task carries what was done and what was not.
 
 ## 1. Measure before changing
 
-- [ ] 1.1 List the child queries issued per parent row in `SqliteSnapshotBusinessContentReader`, and the production
+- [x] 1.1 List the child queries issued per parent row in `SqliteSnapshotBusinessContentReader`, and the production
       call sites of `findSnapshotContent`. Proof: the two lists; on 2026-10-13, seven sites (`:162`, `:190`, `:192`,
       `:194`, `:211`, `:218`, `:304`) and 15 call sites. Re-measure rather than trust either number.
       *2026-10-13: the seven sites are as listed - the preconditions of a scenario; the scope, out-of-scope and risks of a change; the blocking targets and supporting evidence of a constraint; the verification evidence of a criterion. The production call sites of `findSnapshotContent` were not re-counted.*
+      *2026-10-30: Not done, and no longer doable: it is a measurement of the code before the change, and the change is merged. The seven child queries per parent row are confirmed in the commit `efcea5ec7`.*
 - [x] 1.2 Count the statements one read prepares for two snapshots of different sizes. Proof: the two counts, which
       differ on `HEAD`.
       *2026-10-13: on `HEAD`, 23 statements for a snapshot of two owners of each kind and 289 for one of forty. After the change the two counts are equal and at most twenty, which the test asserts.*
@@ -38,10 +39,14 @@ Implemented on 2026-10-13; each task carries what was done and what was not.
 
 ## 4. Verification
 
-- [ ] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green.
-- [ ] 4.2 The persistence parity tests and the content contract tests of `morpheus-architecture-tests`. Proof: green
+- [x] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green.
+      *2026-10-30: CI run `38453589771` of PR #483, `exact-head` on ubuntu-latest and windows-latest (`clean verify` and the changed-line gate): green.*
+- [x] 4.2 The persistence parity tests and the content contract tests of `morpheus-architecture-tests`. Proof: green
       unmodified.
-- [ ] 4.3 M19 on both platforms: `scripts\validate.cmd m19` and `bash ./scripts/validate-m19.sh`. Proof: the
+      *2026-10-30: `efcea5ec7` touches no file of `morpheus-architecture-tests`; the parity and content contract tests are green in `docs/project/audits/2026-10-09/reverification-2026-10-15.md`.*
+- [x] 4.3 M19 on both platforms: `scripts\validate.cmd m19` and `bash ./scripts/validate-m19.sh`. Proof: the
       content-read budget is met; the publication budget and the others are unchanged.
-- [ ] 4.4 Pull request description: the finding, the counts of 1.2 before and after, the metric of 1.3 before and
+      *2026-10-30: nightly run `40998947309` (`develop` at `bd994fcc`, which contains PR #483): `M19 performance budgets` PASS on both platforms, `snapshot_content_read_p95_ms=110` on ubuntu-latest and `208` on windows-latest. On Windows the metric was 516 ms before the change; there is no Linux figure before it.*
+- [x] 4.4 Pull request description: the finding, the counts of 1.2 before and after, the metric of 1.3 before and
       after.
+      *2026-10-30: PR #483 states the counts 23 and 289 and the metric, 516 then 335 ms.*

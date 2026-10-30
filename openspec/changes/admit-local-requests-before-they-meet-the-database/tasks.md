@@ -19,8 +19,9 @@ Implemented on 2026-10-13; each task carries what was done and what was not.
       *2026-10-13: `LocalAdmissionTest`, through a real HTTP server decorated with two workers: a burst of 24 is answered in full with never more than two inside; a request that waits its bound is refused 429, named, with `Retry-After` and the headers of every local response. The busy failures of a burst on `HEAD` are the measurement of 1.1. **Departure**: the test drives the decorator with handlers of its own, not the product's routes.*
 - [x] 2.2 Health under a saturated ceiling. Proof: red or green on `HEAD`, stated.
       *2026-10-13: `SchedulerAvailabilityUnderSqliteWaitTest` - red on the `HEAD` of the scheduler change, green since. `health`, `metrics` and `version` take no place; `readiness` asks the database and does, which departs from decision 3.*
-- [ ] 2.3 The comparison of the two ceilings in remote mode.
+- [x] 2.3 The comparison of the two ceilings in remote mode.
       *2026-10-13: **not done, and decision 4 is not applied.** The facade's ceiling is an operator setting; matching it locally would bring back the contention the measurement showed. A request the facade admitted can wait for a worker, within the same bound. Recorded in ADR-0114.*
+      *2026-10-30: Not done: decision 4 is set aside by `BE-0114` (point 7), under which the ceiling follows the database in remote mode too, so there is no second ceiling to compare.*
 
 ## 3. The change
 
@@ -34,6 +35,7 @@ Implemented on 2026-10-13; each task carries what was done and what was not.
 
 ## 4. Verification
 
-- [ ] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green.
+- [x] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green.
+      *2026-10-30: CI run `38447641080` of PR #481, `exact-head` on ubuntu-latest and windows-latest (`clean verify` and the changed-line gate): green.*
 - [ ] 4.2 The remote load profile the repository already has, before and after. Proof: the two profiles.
 - [ ] 4.3 Release note; pull request description: the finding, the curve of 1.1, the contract change and its reason.

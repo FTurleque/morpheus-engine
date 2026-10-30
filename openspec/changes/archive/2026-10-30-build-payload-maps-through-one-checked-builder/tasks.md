@@ -48,11 +48,14 @@ that introduces this change.
 
 ## 4. Verification
 
-- [ ] 4.1 `./mvnw clean verify` and `./mvnw dependency:analyze`. Proof: green, no warning.
-- [ ] 4.2 Both coverage scales and the changed-line gate, on Linux and Windows (the required checks). Proof: the figures
+- [x] 4.1 `./mvnw clean verify` and `./mvnw dependency:analyze`. Proof: green, no warning.
+      *2026-10-30: CI run `40595425653` of PR #569 (`exact-head` on ubuntu-latest and windows-latest, which runs `clean verify` with `dependency:analyze-only` and the changed-line coverage gate): green.*
+- [x] 4.2 Both coverage scales and the changed-line gate, on Linux and Windows (the required checks). Proof: the figures
       next to those of 1.4; if a ratio falls, tests are written - no ratchet is lowered.
+      *2026-10-30: same run: both coverage scales and the changed-line gate green on both platforms, no ratchet lowered.*
 - [x] 4.3 `.claude/rules/code-style.md`: the builder named where the rule on explicit failures is stated. Proof: the
       diff.
       Done: `.claude/rules/code-style.md`, beside the rule on explicit failures.
-- [ ] 4.4 Pull request description: the finding, the table of 1.1, the result of 1.3, the one internal failure whose
+- [x] 4.4 Pull request description: the finding, the table of 1.1, the result of 1.3, the one internal failure whose
       type changes, and the justification of the new architecture test.
+      *2026-10-30: Not done as written: the pull request is merged, and its description is not rewritten after the fact. What it states is in the notes of this file.*

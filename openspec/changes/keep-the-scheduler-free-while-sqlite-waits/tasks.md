@@ -32,13 +32,16 @@ Implemented on 2026-10-13; each task carries what was done and what was not.
 
 ## 4. Verification
 
-- [ ] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green.
-- [ ] 4.2 M19, mandatory here: `scripts\validate.cmd m19`. Proof: budgets unchanged, or the ADR says which moved and why.
+- [x] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green.
+      *2026-10-30: CI run `38429045659` of PR #477, `exact-head` on ubuntu-latest and windows-latest (`clean verify` and the changed-line gate): green.*
+- [x] 4.2 M19, mandatory here: `scripts\validate.cmd m19`. Proof: budgets unchanged, or the ADR says which moved and why.
       *2026-10-13: **not run.** The change is in `morpheus-api` and touches no store code; the M19 gates drive the stores directly, not the HTTP server.*
+      *2026-10-30: `validate-m19` PASS on Windows on 2026-10-15 and 2026-10-17, budgets unchanged (`docs/project/roadmap/M19_PERFORMANCE_BUDGETS.md`); PASS on both platforms in nightly run `40998947309`.*
 - [x] 4.3 The packaged runtime, if the scheduler is configured by a system property: the launcher passes it. Proof: the
       launcher's configuration and a run.
       *2026-10-13: not applicable - the scheduler is not configured, no system property is added.*
-- [ ] 4.4 Pull request description: the finding, the correction about native pinning, the measurement.
+- [x] 4.4 Pull request description: the finding, the correction about native pinning, the measurement.
+      *2026-10-30: PR #477 states the finding, the correction about native pinning and the measurement, 13,033 ms then 7 ms.*
 
 ## 5. The remote facade (AUD-PRF-19, added 2026-10-17)
 
