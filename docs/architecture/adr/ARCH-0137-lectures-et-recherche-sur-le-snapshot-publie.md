@@ -132,7 +132,7 @@ findSnapshot(snapshotId, query, pageRequest)
   normalisation) et l'ordre (`RequirementPageOrder`) sont définis dans `morpheus-application` ; chaque store livré les
   évalue lui-même, SQLite par une fonction SQL qui appelle cette normalisation, jamais par `lower()` ni `LIKE`. Aucun
   index ni table de recherche : le prédicat lexical filtre les lignes `CURRENT` du snapshot, atteintes dans l'ordre de
-  la page par un index d'ordre, et son coût est borné par leur nombre. Seul l'ordre a ses index.
+  la page par un index d'ordre, et son coût est borné par leur nombre.
 
 ### 9. Pagination
 
