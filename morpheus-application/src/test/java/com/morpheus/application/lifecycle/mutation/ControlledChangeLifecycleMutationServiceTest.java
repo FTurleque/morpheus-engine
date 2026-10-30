@@ -1,6 +1,6 @@
 package com.morpheus.application.lifecycle.mutation;
 
-import com.morpheus.application.lifecycle.ChangeLifecyclePolicy;
+import com.morpheus.domain.change.lifecycle.ChangeLifecyclePolicy;
 import com.morpheus.application.orchestration.ChangeTransitionEvaluationService;
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.store.ProjectStoreEntry;

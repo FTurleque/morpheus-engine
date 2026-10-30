@@ -1,7 +1,7 @@
 package com.morpheus.application.composition;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
-import com.morpheus.application.ingestion.NormalizedProjectContent;
+import com.morpheus.application.read.NormalizedProjectContent;
 import com.morpheus.application.operability.OperationalEventSink;
 import com.morpheus.application.operability.OperationalExecution;
 import com.morpheus.application.operability.OperationalMetrics;

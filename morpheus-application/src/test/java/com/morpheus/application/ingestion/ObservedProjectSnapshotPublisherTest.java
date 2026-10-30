@@ -4,6 +4,7 @@ import com.morpheus.application.operability.OperationalEvent;
 import com.morpheus.application.operability.OperationalEventCode;
 import com.morpheus.application.operability.OperationalMetrics;
 import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.read.NormalizedProjectContent;
 import com.morpheus.application.store.InMemorySnapshotStores;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.domain.diagnostic.Diagnostic;
