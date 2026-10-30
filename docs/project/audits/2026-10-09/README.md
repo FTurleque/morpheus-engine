@@ -8,32 +8,6 @@
 
 ---
 
-## Sprint 13 soldé en partie — 30 octobre 2026, après la revérification
-
-Sur la branche `claude/sprint-13-final-83a18a` (`67964ed2`), `./mvnw clean verify` vert sur Windows et sous Linux.
-
-- **`AUD-PRF-05` passe à corrigé.** La migration V024 donne à chaque ordre de page d'exigences ses clés et son index ;
-  la page est ancrée sur la ligne de son snapshot, si bien qu'aucun plan ne trie ni ne parcourt une table, et
-  `SqliteQueryPlanGuardTest` n'excuse plus aucune forme de page. Le coût du prédicat lexical est borné par une
-  décision écrite dans ARCH-0137, qui écartait déjà FTS.
-- **`AUD-TRV-02` reste partiel.** 117 des 118 classes dont la couverture était entièrement empruntée ont leurs tests
-  propres ; la dernière, `LocalOperationalRuntime`, l'est par règle. L'écart entre les échelles passe de **13,36 à
-  4,32 points** en lignes, le crédit emprunté de **3 996 à 1 293 lignes**, et son maximum descend à 1 365 / 573. Le
-  ratchet par module (0,712) reste loin sous la mesure (88,27 %) : le gain n'est pas encore verrouillé.
-
-**120 constats : 70 corrigés · 8 partiels · 15 toujours valides · 4 caducs · 22 Info qui tiennent · 1 non
-vérifiable.** Restent 5 constats du plan du 9 octobre et 18 du sprint 15, charge estimée **22,75 à 67 jours**.
-
-| Axe | 30 oct | Après sprint 13 |
-|---|---|---|
-| Performance | 91 | **95** |
-| Sécurité | 88 | **88** |
-| Architecture | 84 | **84** |
-| Qualité | 84 | **84** |
-| Dépendances | 82 | **82** |
-| Tests | 78 | **78** |
-| **Moyenne** | **84** | **85** |
-
 ## État au 30 octobre 2026 — la vague ne déplace pas la note
 
 Revérification sur `11bb1ccf` (`origin/develop`, PR #588), soit **65 commits et 346 fichiers** (+11 611 / −1 895)

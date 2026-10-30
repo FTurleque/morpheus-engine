@@ -1,7 +1,7 @@
 # MORPHEUS — constats d'audit
 Audit du **9 octobre 2026** sur `20cf2e0`, revérifié onze fois depuis, et le **30 octobre 2026** sur `11bb1ccf` (`origin/develop`, PR #588). Chaque constat porte son statut et la preuve qui l'établit.
 
-**120 constats** — 70 corrigé, 8 partiel, 15 toujours valide, 4 caduc, 22 tient, 1 non vérifiable ici.
+**120 constats** — 69 corrigé, 9 partiel, 15 toujours valide, 4 caduc, 22 tient, 1 non vérifiable ici.
 
 > **Plus aucun constat `Élevée` n'est ouvert.** La PR #580 ferme les deux derniers, `AUD-ARC-01` et `AUD-PRF-04`, et chacun a été rouvert dans le code avant d'être accepté. Il y en avait onze le 9 octobre.
 
