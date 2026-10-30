@@ -102,4 +102,24 @@ The residue is **not** guaranteed away. A JVM killed by `SIGKILL`/`TerminateProc
 
 Repository CI includes dependency convergence checks, OWASP Dependency-Check, CodeQL, CycloneDX SBOM generation, exact-head qualification, and Linux/Windows release provenance. GitHub Actions used by release workflows are pinned to immutable commit SHAs.
 
+### Windows publisher signature
+
+The Windows installer, the uninstaller it deploys and the launcher are signed with Authenticode only when the build is
+asked to, through one entry point (`distribution/windows/sign-windows-binary.ps1`) that receives a file path and reads
+the signing identity from the process environment, never from an argument. The release signing identity is reachable
+only from the release workflow on a version tag; no workflow a pull request or a schedule can trigger names it. The
+nightly rehearsal signs with a self-signed identity created for the run and removed with it, and never adds it to a
+trust store.
+
+The expected publisher and the first signed version are declared once, in
+`distribution/windows/authenticode-signing.properties`. Until they are, releases are built unsigned and their
+manifest says so: Windows presents them as coming from an unknown publisher, and the published SHA-256 and provenance
+attestation are the available checks. The release qualification (`scripts/verify-release-provenance.ps1`) refuses a
+Windows binary whose signature is invalid, untrusted, issued to another subject than the declared publisher or not
+timestamped, at any version, and an unsigned one from the declared version on.
+
+What a signature guarantees: that the publisher named by a certificate authority signed these exact bytes, and that
+they were not modified since. What it does not: that the code is free of defects, that SmartScreen raises no prompt for
+a new release, or anything about releases published before the declared version, which stay as published.
+
 A release should not be considered provenance-qualified until the actual tagged release workflow has completed successfully and its expected checksums and attestation bundles have been published.

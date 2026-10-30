@@ -9,7 +9,12 @@ param(
     # MORPHEUS.iss; the production build (no -SmokeMode) compiles that branch out entirely (see MORPHEUS.iss,
     # #ifdef SmokeMode). Exists purely so scripts/verify-windows-setup-mcp-smoke.ps1 can drive the real wizard
     # code path against sandboxed client configuration files instead of the real ones.
-    [switch]$SmokeMode
+    [switch]$SmokeMode,
+
+    # none: nothing is signed. test: the run's ephemeral identity. release: the declared publisher's identity. The
+    # compiler signs the installer and the uninstaller; the launcher was signed by build-portable.ps1 before the
+    # payload below is made from the image.
+    [ValidateSet('none', 'test', 'release')][string]$SigningState = 'none'
 )
 
 Set-StrictMode -Version Latest
@@ -20,6 +25,15 @@ $dist = Join-Path $repo $OutputDirectory
 $portableWork = Join-Path $dist '.m20-windows'
 $appImage = Join-Path $portableWork 'image\morpheus'
 $iss = Join-Path $PSScriptRoot 'windows\MORPHEUS.iss'
+$signingEntryPoint = Join-Path $PSScriptRoot 'windows\sign-windows-binary.ps1'
+. (Join-Path $repo 'scripts\lib\MorpheusAuthenticode.ps1')
+
+# The smoke installer exists to drive the wizard against sandboxed client files; it is never a release artifact, so it
+# is never signed with the release identity.
+if ($SmokeMode -and $SigningState -eq 'release') {
+    throw 'WINDOWS_SIGNING_REFUSED: the smoke installer is never signed with the release identity'
+}
+Write-Host "Windows signing state: $SigningState"
 
 function Resolve-Iscc {
     # All discovery and trust validation live in one place. In particular, this caller must never bypass the
@@ -60,7 +74,7 @@ function Write-And-VerifySha256([string]$Path) {
 }
 
 if (-not $SkipPortable) {
-    & (Join-Path $PSScriptRoot 'build-portable.ps1') -Version $Version -OutputDirectory $OutputDirectory
+    & (Join-Path $PSScriptRoot 'build-portable.ps1') -Version $Version -OutputDirectory $OutputDirectory -SigningState $SigningState
     if ($LASTEXITCODE -ne 0) { throw "Portable Windows build failed with exit code $LASTEXITCODE" }
 }
 
@@ -92,6 +106,27 @@ $isccArgs = @(
     "/DPayloadZip=$payloadZip",
     "/DUpdateInstallationScript=$updateInstallationScript"
 )
+if ($SigningState -ne 'none') {
+    # The launcher of the payload is the launcher of the archive: both are made from the image build-portable.ps1
+    # signed. A payload made from an unsigned image would install an unsigned launcher from a signed installer.
+    $payloadCheck = Join-Path $portableWork 'payload-signature-check'
+    Remove-Item -LiteralPath $payloadCheck -Recurse -Force -ErrorAction SilentlyContinue
+    Expand-Archive -LiteralPath $payloadZip -DestinationPath $payloadCheck -Force
+    $payloadExecutables = Get-MorpheusImageExecutables -ImageRoot $payloadCheck
+    $unsignedPayload = @($payloadExecutables.Product | Where-Object { (Get-MorpheusSignatureStatement -Path $_)['status'] -ne 'signed' })
+    Remove-Item -LiteralPath $payloadCheck -Recurse -Force -ErrorAction SilentlyContinue
+    if ($payloadExecutables.Product.Count -eq 0 -or $unsignedPayload.Count -ne 0) {
+        throw "WINDOWS_SIGNING_FAILED: the installer payload $payloadZip carries an unsigned executable outside the runtime"
+    }
+
+    # The tool handed to the compiler is the entry point and the compiler's file placeholder ($f), quoted by the
+    # compiler's own placeholder ($q): no credential, no secret expression, nothing a process listing should not show.
+    # The entry point reads the state, and the identity it selects, from the environment this process passes on.
+    $env:MORPHEUS_WINDOWS_SIGNING_STATE = $SigningState
+    $powershellHost = Join-Path $PSHOME 'powershell.exe'
+    $isccArgs += '/DSignBuild=1'
+    $isccArgs += ('/Smorpheus=$q' + $powershellHost + '$q -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $q' + $signingEntryPoint + '$q -Path $f')
+}
 $outputSuffix = 'setup'
 if ($SmokeMode) {
     $isccArgs += '/DSmokeMode=1'
@@ -108,6 +143,16 @@ if ($LASTEXITCODE -ne 0) { throw "Inno Setup build failed with exit code $LASTEX
 $setup = Join-Path $dist "MORPHEUS-$Version-windows-x64-$outputSuffix.exe"
 if (-not (Test-Path -LiteralPath $setup)) {
     throw "Windows setup was not produced: $setup"
+}
+
+if ($SigningState -ne 'none') {
+    if ((Get-MorpheusSignatureStatement -Path $setup)['status'] -ne 'signed') {
+        throw "WINDOWS_SIGNING_FAILED: the compiler produced an unsigned installer: $setup"
+    }
+    Write-Host "Windows setup signed ($SigningState): PASS"
+}
+else {
+    Write-Host 'Windows setup: unsigned (signing not requested)'
 }
 
 $checksum = Write-And-VerifySha256 -Path $setup

@@ -314,7 +314,7 @@ jobs:
         run: |
           $version = python scripts/check-release-rehearsal-assets.py version pom.xml
           if ($LASTEXITCODE -ne 0) { throw 'Cannot read the product version from pom.xml' }
-          .\scripts\validate-m20.ps1 -Version $version
+          .\scripts\validate-m20.ps1 -Version $version -TestSigning
           if ($LASTEXITCODE -ne 0) { throw "M20 release rehearsal failed with exit code $LASTEXITCODE" }
 
       # The comparison looks at names and sizes only, so the legs send a listing, not the binaries.

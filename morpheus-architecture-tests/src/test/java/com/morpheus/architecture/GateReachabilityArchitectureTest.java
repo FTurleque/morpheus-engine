@@ -75,7 +75,9 @@ class GateReachabilityArchitectureTest {
     /** What only a real release may do or say. */
     private static final List<String> REHEARSAL_MUST_NOT = List.of(
             "git push", "gh release", "actions/attest", "id-token: write", "attestations: write", "contents: write",
-            "RELEASE QUALIFICATION PASS");
+            "RELEASE QUALIFICATION PASS",
+            // A rehearsal that trusted its own test identity would prove a "valid" signature nothing else trusts.
+            "Import-Certificate", "certutil -addstore", "Cert:\\LocalMachine\\Root", "Cert:\\CurrentUser\\Root");
 
     /** Documentation that states what to run now. Dated records (validation proofs, execution plans, ADRs) are not here. */
     private static final List<String> CURRENT_DOCUMENT_FILES =
@@ -358,8 +360,8 @@ class GateReachabilityArchitectureTest {
         rehearsal.forEach((name, text) -> {
             for (String forbidden : REHEARSAL_MUST_NOT) {
                 assertFalse(text.contains(forbidden),
-                        () -> name + " contains '" + forbidden + "': a rehearsal builds, it does not publish, attest "
-                                + "or claim a qualification");
+                        () -> name + " contains '" + forbidden + "': a rehearsal builds, it does not publish, attest, "
+                                + "claim a qualification or trust the identity it test-signs with");
             }
         });
     }

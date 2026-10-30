@@ -151,6 +151,28 @@ Supprimer une de ces chaînes casse le build.
   désigne un défaut de l'appelant, jamais un état de la base — un appelant qui traduit un échec d'ouverture doit le
   laisser passer
 
+## Signature Authenticode Windows
+
+- Le credential de signature Windows suit la règle de `NVD_API_KEY` et du mot de passe TLS : il arrive par une
+  **variable d'environnement** ou une identité fédérée, **jamais** par un argument, une directive du compilateur Inno
+  Setup ou un log. Le compilateur journalise en entier la commande de son outil de signature : elle ne contient qu'un
+  chemin de script et `$f`.
+- `distribution/windows/sign-windows-binary.ps1` est le **seul** appelant d'un outil de signature
+  (`Set-AuthenticodeSignature`, `signtool`…) ; il ne prend qu'un chemin de fichier
+  (`WindowsReleaseSigningContractTest`).
+- L'identité de release n'est nommée que par `release.yml` (environnement protégé, tags de version) : aucun workflow
+  qu'une pull request ou une planification peut lancer ne nomme son environnement, ses variables
+  `MORPHEUS_WINDOWS_SIGNING_*` ni l'état `release`. Aucun bloc `run:` d'un workflow ne développe une expression
+  `secrets.` : un secret se mappe sous `env:` de l'étape.
+- La signature est **demandée** (`-SigningState none|test|release`), jamais déduite de la présence d'un credential ; un
+  build qui doit signer et ne le peut pas échoue (`WINDOWS_SIGNING_FAILED`).
+- `distribution/windows/authenticode-signing.properties` est la **seule** source de l'éditeur attendu, de la première
+  version signée et de l'autorité d'horodatage. Aucun script de qualification ou de répétition ne porte un nom d'éditeur
+  MORPHEUS. La qualification vérifie l'identité (sujet exact), pas seulement la validité.
+- La répétition signe avec une identité auto-signée créée pour l'exécution et retirée de **tous** les magasins
+  (`New-SelfSignedCertificate` en dépose aussi une copie parmi les autorités intermédiaires) ; elle n'ajoute jamais de
+  certificat à un magasin racine (`GateReachabilityArchitectureTest`).
+
 ## Chaîne d'approvisionnement CI
 
 - Toutes les actions GitHub sont **pinnées par SHA 40 caractères**, génération Node 24+

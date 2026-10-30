@@ -27,7 +27,17 @@ inventaire                SBOM CycloneDX du commit tagué, produit par le build 
 attributions              LICENSE + THIRD-PARTY-NOTICES à la racine de chaque image, packaging refusé sinon
 cross-job                 download-artifact avec digest-mismatch: error
 écrasement                refusé : gh release view avant gh release create
+signature Windows         état demandé par l'appelant (none, test, release), imprimé ; un build qui doit signer et
+                          ne le peut pas échoue (WINDOWS_SIGNING_FAILED) ; à partir de la version de base déclarée,
+                          un build de release non signé est refusé avant packaging (WINDOWS_SIGNING_REQUIRED)
 ```
+
+Le lanceur est signé par `distribution/build-portable.ps1` juste après `jpackage`, avant l'archive, la charge utile de
+l'installeur, les checksums, le manifeste et l'attestation ; l'installeur et le désinstalleur sont signés par le
+compilateur Inno Setup, au travers du seul point d'entrée `distribution/windows/sign-windows-binary.ps1`. Le manifeste
+Windows déclare pour chaque asset `signature.status` (`signed` avec `signer`, ou `unsigned`), lu sur le binaire produit.
+Tant que `distribution/windows/authenticode-signing.properties` ne déclare ni éditeur ni version de base, les releases
+sont construites non signées : `release.yml` ne porte aucune identité de signature.
 
 ## Répétition nocturne — ce qu'elle exerce, ce qu'elle ne prouve pas
 
@@ -49,7 +59,16 @@ tag atteignable depuis main        vérifié seulement sur un vrai tag
 attestation de provenance          actions/attest n'est jamais lancé par une répétition
 publication                        aucune release, aucun asset, aucun tag sur origin
 relecture publique                 verify-release-provenance ne lit qu'une release publiée
+signature Authenticode de release  aucune identité de release, aucun service de signature n'est atteint
 ```
+
+Sur Windows, la répétition exerce en revanche le chemin de signature (`validate-m20.ps1 -TestSigning`) : une identité
+auto-signée est créée dans le magasin personnel du runner, signe le lanceur, l'installeur et le désinstalleur par le
+même point d'entrée et dans le même ordre qu'une release, puis est retirée de tous les magasins, échec compris ; aucun
+magasin racine n'est modifié et aucune autorité d'horodatage n'est contactée. La répétition prouve aussi que la
+vérification de la qualification refuse ces binaires, refuse un installeur non signé, une signature valide d'un autre
+éditeur et un binaire modifié après signature, et accepte un témoin positif (le compilateur Inno Setup épinglé contre
+son propre éditeur).
 
 Une répétition verte ne ferme ni #185 ni `DT-11`, et sa sortie ne se consigne jamais comme preuve de qualification.
 
@@ -70,7 +89,7 @@ bash scripts/verify-release-provenance.sh v1.2.1
 scripts\verify-release-provenance.ps1 -Tag v1.2.1
 ```
 
-Les deux exécutent les mêmes sept contrôles et échouent fermé sur chacun :
+Les deux exécutent les mêmes huit contrôles et échouent fermé sur chacun :
 
 | # | Contrôle | Échec si |
 |---|---|---|
@@ -81,6 +100,19 @@ Les deux exécutent les mêmes sept contrôles et échouent fermé sur chacun :
 | 5 | Provenance | `gh attestation verify` échoue pour l'archive Linux, le SBOM, le ZIP Windows ou l'installeur |
 | 6 | Bundles d'attestation | un `.attestation.jsonl` est absent ou vide |
 | 7 | Inventaire | le SBOM publié décrit une autre version que le tag, une archive n'embarque pas `THIRD-PARTY-NOTICES`, ou une archive attribue un composant que le SBOM ne liste pas |
+| 8 | Signature Authenticode | l'installeur ou un exécutable de l'archive Windows hors runtime porte une signature invalide, non approuvée, d'un autre éditeur que celui déclaré ou sans horodatage ; il n'est pas signé alors que sa version atteint la version de base déclarée ; ou le manifeste Windows déclare autre chose que ce que porte le binaire |
+
+Le contrôle 8 lit l'éditeur attendu et la version de base dans `distribution/windows/authenticode-signing.properties`,
+jamais ailleurs. Sous la version de base, une release non signée est rapportée « unsigned by declared baseline » ; sans
+version de base, `AUTHENTICODE_NOT_REQUIRED_YET`. Dans les deux cas aucune ligne `PASS` de signature n'est imprimée, et
+un binaire qui porte une signature est vérifié en entier : une mauvaise signature n'est jamais excusée par la version de
+base. Les binaires du runtime embarqué sont comptés (signés, non signés) sans peser sur le verdict.
+
+**Seule la variante Windows vérifie la signature.** La décision qui compte est celle de Windows
+(`Get-AuthenticodeSignature`). La variante shell lit la même déclaration et exige que le manifeste Windows déclare la
+signature de chaque binaire, puis imprime `AUTHENTICODE_NOT_VERIFIED_ON_THIS_PLATFORM` et termine par
+`RELEASE QUALIFICATION INCOMPLETE`, jamais par la phrase de réussite complète. Une release dont la version atteint la
+version de base ne se consigne qu'avec la sortie de la variante Windows.
 
 Prérequis : `gh` authentifié sur le dépôt, `git`, et — pour la variante shell — `sha256sum` et un
 interpréteur Python 3 (résolu par `scripts/lib/python.sh`).
