@@ -1,6 +1,6 @@
 package com.morpheus.cli.command;
 
-import com.morpheus.application.lifecycle.ChangeLifecyclePolicy;
+import com.morpheus.domain.change.lifecycle.ChangeLifecyclePolicy;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.orchestration.ChangeLifecycleObservation;
 import com.morpheus.application.orchestration.ChangeOrchestrationState;

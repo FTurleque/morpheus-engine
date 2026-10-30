@@ -1,6 +1,6 @@
 package com.morpheus.architecture.m19;
 
-import com.morpheus.application.ingestion.NormalizedProjectContent;
+import com.morpheus.application.read.NormalizedProjectContent;
 import com.morpheus.application.ingestion.ProjectSnapshotImportResult;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.application.store.SnapshotBusinessContent;

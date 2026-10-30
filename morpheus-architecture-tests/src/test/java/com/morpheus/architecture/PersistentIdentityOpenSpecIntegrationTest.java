@@ -39,7 +39,7 @@ class PersistentIdentityOpenSpecIntegrationTest {
                 second.evidence().stream().map(item -> item.id()).toList());
     }
 
-    private com.morpheus.application.ingestion.NormalizedProjectContent read(
+    private com.morpheus.application.read.NormalizedProjectContent read(
             OpenSpecCurrentSpecificationReader reader,
             Path database,
             ProjectSpecificationId projectId) {

@@ -1,6 +1,6 @@
 package com.morpheus.store.sqlite.runtime;
 
-import com.morpheus.application.security.LocalWritePermissionHardener;
+import com.morpheus.application.files.LocalWritePermissionHardener;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;

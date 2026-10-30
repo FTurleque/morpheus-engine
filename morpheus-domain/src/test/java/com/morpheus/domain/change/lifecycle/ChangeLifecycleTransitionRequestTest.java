@@ -1,9 +1,6 @@
-package com.morpheus.application.lifecycle;
+package com.morpheus.domain.change.lifecycle;
 
 import com.morpheus.domain.change.ChangeId;
-import com.morpheus.domain.change.lifecycle.ChangeAbandonmentReason;
-import com.morpheus.domain.change.lifecycle.ChangeLifecycle;
-import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.provenance.Provenance;
 import com.morpheus.domain.provider.ProviderId;
@@ -22,8 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class ChangeLifecycleStateMachineTest {
-    private final ChangeLifecycleStateMachine machine = new ChangeLifecycleStateMachine();
+class ChangeLifecycleTransitionRequestTest {
 
     @Test
     void acceptsTheNominalLifecycle() {
@@ -41,7 +37,7 @@ class ChangeLifecycleStateMachineTest {
                 ChangeLifecycleState.VERIFYING,
                 ChangeLifecycleState.COMPLETED,
                 ChangeLifecycleState.ARCHIVED}) {
-            var decision = machine.evaluate(ChangeLifecycleTransitionRequest.to(lifecycle, target, facts, policy));
+            var decision = ChangeLifecycleTransitionRequest.to(lifecycle, target, facts, policy).decide();
             assertTrue(decision.allowed(), lifecycle.state() + " -> " + target);
             lifecycle = decision.target().orElseThrow();
         }
@@ -124,55 +120,55 @@ class ChangeLifecycleStateMachineTest {
     @Test
     void backwardRevisionRequiresExplicitPolicy() {
         ChangeLifecycle source = ChangeLifecycle.of(ChangeId.generate(), ChangeLifecycleState.VERIFYING);
-        var denied = machine.evaluate(ChangeLifecycleTransitionRequest.to(
+        var denied = ChangeLifecycleTransitionRequest.to(
                 source,
                 ChangeLifecycleState.IMPLEMENTING,
                 ChangeLifecycleFacts.permissive(),
-                ChangeLifecyclePolicy.forwardOnly()));
+                ChangeLifecyclePolicy.forwardOnly()).decide();
         assertEquals(java.util.List.of(ChangeLifecycleBlocker.BACKWARD_TRANSITION_DISABLED), denied.blockers());
 
-        var allowed = machine.evaluate(ChangeLifecycleTransitionRequest.to(
+        var allowed = ChangeLifecycleTransitionRequest.to(
                 source,
                 ChangeLifecycleState.IMPLEMENTING,
                 ChangeLifecycleFacts.permissive(),
-                ChangeLifecyclePolicy.revisionsAllowed()));
+                ChangeLifecyclePolicy.revisionsAllowed()).decide();
         assertTrue(allowed.allowed());
     }
 
     @Test
     void completedReopenRequiresItsExceptionalPermission() {
         ChangeLifecycle source = ChangeLifecycle.of(ChangeId.generate(), ChangeLifecycleState.COMPLETED);
-        var denied = machine.evaluate(ChangeLifecycleTransitionRequest.to(
+        var denied = ChangeLifecycleTransitionRequest.to(
                 source,
                 ChangeLifecycleState.VERIFYING,
                 ChangeLifecycleFacts.permissive(),
-                ChangeLifecyclePolicy.revisionsAllowed()));
+                ChangeLifecyclePolicy.revisionsAllowed()).decide();
         assertEquals(java.util.List.of(ChangeLifecycleBlocker.COMPLETED_REOPEN_DISABLED), denied.blockers());
 
-        var allowed = machine.evaluate(ChangeLifecycleTransitionRequest.to(
+        var allowed = ChangeLifecycleTransitionRequest.to(
                 source,
                 ChangeLifecycleState.VERIFYING,
                 ChangeLifecycleFacts.permissive(),
-                ChangeLifecyclePolicy.revisionsAndCompletedReopenAllowed()));
+                ChangeLifecyclePolicy.revisionsAndCompletedReopenAllowed()).decide();
         assertTrue(allowed.allowed());
     }
 
     @Test
     void abandonmentRequiresReasonAndPreservesIt() {
         ChangeLifecycle source = ChangeLifecycle.of(ChangeId.generate(), ChangeLifecycleState.IMPLEMENTING);
-        var missingReason = machine.evaluate(ChangeLifecycleTransitionRequest.to(
+        var missingReason = ChangeLifecycleTransitionRequest.to(
                 source,
                 ChangeLifecycleState.ABANDONED,
                 ChangeLifecycleFacts.permissive(),
-                ChangeLifecyclePolicy.forwardOnly()));
+                ChangeLifecyclePolicy.forwardOnly()).decide();
         assertEquals(java.util.List.of(ChangeLifecycleBlocker.ABANDONMENT_REASON_REQUIRED), missingReason.blockers());
 
-        var withReason = machine.evaluate(new ChangeLifecycleTransitionRequest(
+        var withReason = new ChangeLifecycleTransitionRequest(
                 source,
                 ChangeLifecycleState.ABANDONED,
                 ChangeLifecycleFacts.permissive(),
                 ChangeLifecyclePolicy.forwardOnly(),
-                Optional.of(ChangeAbandonmentReason.NOT_FEASIBLE)));
+                Optional.of(ChangeAbandonmentReason.NOT_FEASIBLE)).decide();
         assertTrue(withReason.allowed());
         assertEquals(ChangeAbandonmentReason.NOT_FEASIBLE,
                 withReason.target().orElseThrow().abandonmentReason().orElseThrow());
@@ -182,11 +178,11 @@ class ChangeLifecycleStateMachineTest {
     void abandonedChangeCanReopenAsProposed() {
         ChangeLifecycle source = ChangeLifecycle.abandoned(ChangeId.generate(), ChangeAbandonmentReason.OBSOLETE);
 
-        var decision = machine.evaluate(ChangeLifecycleTransitionRequest.to(
+        var decision = ChangeLifecycleTransitionRequest.to(
                 source,
                 ChangeLifecycleState.PROPOSED,
                 ChangeLifecycleFacts.permissive(),
-                ChangeLifecyclePolicy.forwardOnly()));
+                ChangeLifecyclePolicy.forwardOnly()).decide();
 
         assertTrue(decision.allowed());
         assertEquals(ChangeLifecycleState.PROPOSED, decision.target().orElseThrow().state());
@@ -197,11 +193,11 @@ class ChangeLifecycleStateMachineTest {
     void archivedChangeDoesNotReopenImplicitly() {
         ChangeLifecycle source = ChangeLifecycle.of(ChangeId.generate(), ChangeLifecycleState.ARCHIVED);
 
-        var decision = machine.evaluate(ChangeLifecycleTransitionRequest.to(
+        var decision = ChangeLifecycleTransitionRequest.to(
                 source,
                 ChangeLifecycleState.PROPOSED,
                 ChangeLifecycleFacts.permissive(),
-                ChangeLifecyclePolicy.revisionsAndCompletedReopenAllowed()));
+                ChangeLifecyclePolicy.revisionsAndCompletedReopenAllowed()).decide();
 
         assertFalse(decision.allowed());
         assertEquals(java.util.List.of(ChangeLifecycleBlocker.ARCHIVED_REOPEN_NOT_ALLOWED), decision.blockers());
@@ -211,11 +207,11 @@ class ChangeLifecycleStateMachineTest {
     void completedLifecycleAndCompletedTaskDoNotPromoteTemporalState() {
         ChangeId changeId = ChangeId.generate();
         ChangeLifecycle verifying = ChangeLifecycle.of(changeId, ChangeLifecycleState.VERIFYING);
-        var completion = machine.evaluate(ChangeLifecycleTransitionRequest.to(
+        var completion = ChangeLifecycleTransitionRequest.to(
                 verifying,
                 ChangeLifecycleState.COMPLETED,
                 ChangeLifecycleFacts.permissive(),
-                ChangeLifecyclePolicy.forwardOnly()));
+                ChangeLifecyclePolicy.forwardOnly()).decide();
         ChangeLifecycle completed = completion.target().orElseThrow();
 
         EntityVersion<ChangeLifecycle> occurrence = new EntityVersion<>(
@@ -243,11 +239,11 @@ class ChangeLifecycleStateMachineTest {
             ChangeLifecycleState from,
             ChangeLifecycleState to,
             ChangeLifecycleFacts facts) {
-        return machine.evaluate(ChangeLifecycleTransitionRequest.to(
+        return ChangeLifecycleTransitionRequest.to(
                 ChangeLifecycle.of(ChangeId.generate(), from),
                 to,
                 facts,
-                ChangeLifecyclePolicy.forwardOnly()));
+                ChangeLifecyclePolicy.forwardOnly()).decide();
     }
 
     private Provenance provenance() {

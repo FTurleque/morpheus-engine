@@ -87,7 +87,7 @@ class RemoteServerArchitectureTest {
         String integrations = Files.readString(ProductionSources.mainSource("morpheus-api", "IntegrationStatusViews"));
         String cli = Files.readString(ProductionSources.mainSource("morpheus-cli", "MorpheusProjectCli"));
         String integrationProjection = Files.readString(root.resolve(
-                "morpheus-application/src/main/java/com/morpheus/application/security/IntegrationStatusDisclosure.java"));
+                "morpheus-application/src/main/java/com/morpheus/application/context/IntegrationStatusDisclosure.java"));
 
         assertTrue(projects.contains("result.put(\"workspaceName\", workspaceName(entry.rootLocator()))"),
                 "the HTTP project view must name the workspace");

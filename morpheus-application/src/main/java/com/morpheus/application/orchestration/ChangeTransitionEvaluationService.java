@@ -1,8 +1,8 @@
 package com.morpheus.application.orchestration;
 
-import com.morpheus.application.lifecycle.ChangeLifecycleBlocker;
-import com.morpheus.application.lifecycle.ChangeLifecyclePolicy;
-import com.morpheus.application.lifecycle.ChangeLifecycleStateMachine;
+import com.morpheus.domain.change.lifecycle.ChangeLifecycleBlocker;
+import com.morpheus.domain.change.lifecycle.ChangeLifecyclePolicy;
+import com.morpheus.domain.change.lifecycle.ChangeLifecycleTransitionDecision;
 import com.morpheus.application.quality.ChangeCompletenessService;
 import com.morpheus.application.quality.ChangeLifecycleQualityAssessment;
 import com.morpheus.application.quality.ChangeLifecycleQualityService;
@@ -41,10 +41,7 @@ public final class ChangeTransitionEvaluationService {
                 contentStore,
                 Objects.requireNonNull(requirementStore, "requirementStore"),
                 Objects.requireNonNull(traceabilityStore, "traceabilityStore"));
-        this.lifecycleQuality = new ChangeLifecycleQualityService(
-                snapshotStore,
-                completeness,
-                new ChangeLifecycleStateMachine());
+        this.lifecycleQuality = new ChangeLifecycleQualityService(snapshotStore, completeness);
     }
 
     public Optional<ChangeTransitionEvaluation> evaluateActive(
@@ -81,11 +78,8 @@ public final class ChangeTransitionEvaluationService {
                 .toList();
 
         if (!blocking.isEmpty()) {
-            List<ChangeLifecycleBlocker> blockers = new ArrayList<>();
-            assessment.decision().ifPresent(decision -> blockers.addAll(decision.blockers()));
-            if (!blockers.contains(ChangeLifecycleBlocker.BLOCKING_CONSTRAINT)) {
-                blockers.add(ChangeLifecycleBlocker.BLOCKING_CONSTRAINT);
-            }
+            List<ChangeLifecycleBlocker> blockers =
+                    ChangeLifecycleTransitionDecision.blockedByAConstraint(assessment.decision()).blockers();
             String ids = blocking.stream()
                     .map(item -> item.constraintId().toString())
                     .sorted()
@@ -122,7 +116,7 @@ public final class ChangeTransitionEvaluationService {
 
         var decision = assessment.decision().orElseThrow();
         if (!decision.allowed()) {
-            ChangeTransitionEvaluationState state = decision.blockers().contains(ChangeLifecycleBlocker.ABANDONMENT_REASON_REQUIRED)
+            ChangeTransitionEvaluationState state = decision.awaitsAnAbandonmentReason()
                     ? ChangeTransitionEvaluationState.REQUIRES_INPUT
                     : ChangeTransitionEvaluationState.BLOCKED;
             String reason = state == ChangeTransitionEvaluationState.REQUIRES_INPUT

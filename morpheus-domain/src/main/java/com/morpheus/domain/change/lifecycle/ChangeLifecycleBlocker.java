@@ -1,4 +1,4 @@
-package com.morpheus.application.lifecycle;
+package com.morpheus.domain.change.lifecycle;
 
 /** Machine-readable reason preventing a lifecycle transition. */
 public enum ChangeLifecycleBlocker {

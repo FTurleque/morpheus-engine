@@ -1,6 +1,6 @@
 package com.morpheus.store.sqlite.runtime;
 
-import com.morpheus.application.security.LocalWritePermissionHardener;
+import com.morpheus.application.files.LocalWritePermissionHardener;
 
 import java.nio.file.Files;
 import java.nio.file.LinkOption;

@@ -2,7 +2,6 @@ package com.morpheus.application.traceability;
 
 import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.reference.ExternalReference;
-import com.morpheus.domain.reference.ExternalReferenceResolutionState;
 import com.morpheus.domain.traceability.TraceabilityConfidence;
 import com.morpheus.domain.traceability.TraceabilityEntityKind;
 import com.morpheus.domain.traceability.TraceabilityEntityRef;
@@ -10,7 +9,6 @@ import com.morpheus.domain.traceability.TraceabilityLink;
 import com.morpheus.domain.traceability.TraceabilityLinkId;
 import com.morpheus.domain.traceability.TraceabilityLinkOrigin;
 import com.morpheus.domain.traceability.TraceabilityRelationType;
-import com.morpheus.domain.traceability.TraceabilityResolutionState;
 
 import java.time.Instant;
 import java.util.EnumSet;
@@ -57,17 +55,9 @@ public final class ExternalTraceabilityLinkFactory {
                 relationType,
                 new TraceabilityEntityRef(TraceabilityEntityKind.EXTERNAL_REFERENCE, reference.id().value()),
                 origin,
-                resolutionAtObservation(reference.resolutionState()),
+                reference.resolutionState().traceabilityResolution(),
                 confidence,
                 evidenceIds,
                 observedAt);
-    }
-
-    public TraceabilityResolutionState resolutionAtObservation(ExternalReferenceResolutionState state) {
-        return switch (Objects.requireNonNull(state, "state")) {
-            case UNVALIDATED, UNRESOLVED -> TraceabilityResolutionState.UNRESOLVED;
-            case RESOLVED -> TraceabilityResolutionState.RESOLVED;
-            case STALE -> TraceabilityResolutionState.PARTIALLY_RESOLVED;
-        };
     }
 }

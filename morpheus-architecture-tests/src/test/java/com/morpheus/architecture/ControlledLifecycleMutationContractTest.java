@@ -74,7 +74,7 @@ class ControlledLifecycleMutationContractTest {
                         fixture.projectId(),
                         ChangeLifecycle.of(fixture.changeId(), ChangeLifecycleState.DRAFT),
                         ChangeLifecycleState.PROPOSED,
-                        com.morpheus.application.lifecycle.ChangeLifecyclePolicy.forwardOnly(),
+                        com.morpheus.domain.change.lifecycle.ChangeLifecyclePolicy.forwardOnly(),
                         Optional.empty())
                 .orElseThrow();
 
@@ -349,7 +349,7 @@ class ControlledLifecycleMutationContractTest {
                 transitions,
                 mutations,
                 id -> ChangeWriteCapabilityObservation.allowed(WRITE_PROVIDER, "explicit WRITE_CHANGE fixture"),
-                com.morpheus.application.lifecycle.ChangeLifecyclePolicy.forwardOnly(),
+                com.morpheus.domain.change.lifecycle.ChangeLifecyclePolicy.forwardOnly(),
                 Clock.fixed(T0, ZoneOffset.UTC));
         return new Fixture(projectId, changeId, transitions, mutations, service);
     }

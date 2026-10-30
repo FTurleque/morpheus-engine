@@ -23,7 +23,7 @@ de reprendre un programme antérieur. Trois faits rendent cette copie indispensa
 - **Le programme antérieur ne protège pas toujours.** Une version publiée antérieure au refus d'un schéma plus récent
   que le programme ouvre une base migrée par une version ultérieure sans la refuser.
 
-Les stores s'ouvrent par opération (ADR-0152), pas une fois au démarrage : la première ouverture d'une base ancienne
+Les stores s'ouvrent par opération (ADR-0156), pas une fois au démarrage : la première ouverture d'une base ancienne
 peut survenir pendant un appel HTTP ou un outil MCP.
 
 Alternatives écartées :
@@ -135,5 +135,5 @@ Le mécanisme vit dans `morpheus-store-sqlite` : `SqlitePreMigrationCopy`, appel
   bornée.
 - [ADR-0088](GEN-0088-product-release-installation-and-persistent-data-separation.md) — séparation programme /
   données persistantes.
-- [ADR-0152](ARCH-0152-racines-de-composition-nommees-et-cycles-de-paquets-qui-ne-font-que-diminuer.md) — racines de composition nommées.
+- [ADR-0156](ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md) — racines de composition nommées.
 - [Guide de mise à niveau 1.2.1](../../user/UPGRADE_1_2_1.md).

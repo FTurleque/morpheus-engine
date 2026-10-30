@@ -1,6 +1,6 @@
 # ADR-0109 — Les adaptateurs de transport sont des racines de composition nommées, et leur liste ne fait que rétrécir
 
-> **Archivée.** Cette décision est consolidée dans [ADR-0152](../ARCH-0152-racines-de-composition-nommees-et-cycles-de-paquets-qui-ne-font-que-diminuer.md), qui la reprend en entier et remplace le report de la règle de cycles de l'application par une liste nommée qui ne fait que rétrécir. Ce texte n'est plus en vigueur et n'est pas tenu à jour.
+> **Archivée.** Cette décision est consolidée dans [ADR-0152](0152-racines-de-composition-nommees-et-cycles-de-paquets-qui-ne-font-que-diminuer.md), qui la reprend en entier et remplace le report de la règle de cycles de l'application par une liste nommée qui ne fait que rétrécir. Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
 - Statut : **Remplacée par ADR-0152**
 - Date : 2026-10-08

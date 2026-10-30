@@ -28,7 +28,7 @@ Options considérées pour l'identifiant :
 - `ADR-NNNN` pour tous : numéro conservé, mais `id` et nom de fichier hors de la convention Archgate ;
 - préfixe du domaine et numérotation par domaine (`ARCH-001`) : convention Archgate stricte, au prix d'une
   renumérotation de tout le registre et de toutes ses citations ;
-- préfixe du domaine et numéro unique conservé (`ARCH-0152`) : convention `{ID}-{slug}.md`, numéros inchangés.
+- préfixe du domaine et numéro unique conservé (`ARCH-0156`) : convention `{ID}-{slug}.md`, numéros inchangés.
 
 ## Decision
 

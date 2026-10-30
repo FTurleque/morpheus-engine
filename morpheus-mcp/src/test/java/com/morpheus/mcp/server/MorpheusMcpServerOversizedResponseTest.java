@@ -1,6 +1,6 @@
 package com.morpheus.mcp.server;
 
-import com.morpheus.application.ingestion.NormalizedProjectContent;
+import com.morpheus.application.read.NormalizedProjectContent;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.domain.evidence.Evidence;
 import com.morpheus.domain.evidence.EvidenceId;

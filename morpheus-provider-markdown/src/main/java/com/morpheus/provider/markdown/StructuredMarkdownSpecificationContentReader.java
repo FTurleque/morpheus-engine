@@ -3,7 +3,7 @@ package com.morpheus.provider.markdown;
 import com.morpheus.application.identity.EntityIdentityResolver;
 import com.morpheus.application.foundation.TextDigest;
 import com.morpheus.application.files.SafeWorkspaceFileResolver;
-import com.morpheus.application.ingestion.NormalizedProjectContent;
+import com.morpheus.application.read.NormalizedProjectContent;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.read.ProviderReadResult;
 import com.morpheus.application.read.ProviderIngestionBudget;

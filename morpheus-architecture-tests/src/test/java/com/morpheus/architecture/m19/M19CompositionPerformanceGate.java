@@ -5,7 +5,7 @@ import com.morpheus.application.composition.CompositionSnapshotState;
 import com.morpheus.application.composition.MultiProviderCompositionResult;
 import com.morpheus.application.composition.MultiProviderCompositionService;
 import com.morpheus.application.composition.ProviderContribution;
-import com.morpheus.application.ingestion.NormalizedProjectContent;
+import com.morpheus.application.read.NormalizedProjectContent;
 import com.morpheus.application.read.ProviderReadResult;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.domain.evidence.Evidence;
