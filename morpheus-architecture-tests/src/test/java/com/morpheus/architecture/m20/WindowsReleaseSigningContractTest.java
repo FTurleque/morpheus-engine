@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.morpheus.architecture.CoherenceCheck;
 import com.morpheus.architecture.RepositoryRoot;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -24,6 +25,7 @@ import org.junit.jupiter.api.Test;
  * <p>Every rule here reads text: a workflow, an Inno Setup definition and PowerShell scripts are not on the
  * classpath, so the text is the only hold on them. The intent of each rule is one sentence in its message.</p>
  */
+@CoherenceCheck
 class WindowsReleaseSigningContractTest {
     private static final String DECLARATION = "distribution/windows/authenticode-signing.properties";
     private static final String ENTRY_POINT = "distribution/windows/sign-windows-binary.ps1";
