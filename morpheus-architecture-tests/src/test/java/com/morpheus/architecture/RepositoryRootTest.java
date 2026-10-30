@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+@CoherenceCheck
 class RepositoryRootTest {
 
     private static final String REACTOR_POM = "<project>\n  <modules>\n    <module>child</module>\n  </modules>\n</project>\n";

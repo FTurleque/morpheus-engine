@@ -1,13 +1,8 @@
----
-id: ARCH-0109
-title: "Les adaptateurs de transport sont des racines de composition nommées, et leur liste ne fait que rétrécir"
-domain: architecture
-rules: false
----
+# ADR-0109 — Les adaptateurs de transport sont des racines de composition nommées, et leur liste ne fait que rétrécir
 
-# Les adaptateurs de transport sont des racines de composition nommées, et leur liste ne fait que rétrécir
+> **Archivée.** Cette décision est consolidée dans [ADR-0152](../ARCH-0152-racines-de-composition-nommees-et-cycles-de-paquets-qui-ne-font-que-diminuer.md), qui la reprend en entier et remplace le report de la règle de cycles de l'application par une liste nommée qui ne fait que rétrécir. Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
-- Statut : **Acceptée**
+- Statut : **Remplacée par ADR-0152**
 - Date : 2026-10-08
 
 ## Context
@@ -155,8 +150,8 @@ refonte des paquets, ce qui sort de la portée d'une décision d'architecture.
 
 ## References
 
-- [ADR-0003](DATA-0003-specification-knowledge-store.md) — port de stockage de connaissance.
-- [ADR-0133](GEN-0133-toolchain-java-21-et-maven-wrapper.md) — build Maven multi-module.
-- [ADR-0062](ARCH-0062-official-java-mcp-sdk-and-native-stdio.md) — SDK MCP natif.
-- [ADR-0065](ARCH-0065-jdk-httpserver-local-api.md) — API HTTP sur `jdk.httpserver`.
+- [ADR-0003](../DATA-0003-specification-knowledge-store.md) — port de stockage de connaissance.
+- [ADR-0133](../GEN-0133-toolchain-java-21-et-maven-wrapper.md) — build Maven multi-module.
+- [ADR-0062](../ARCH-0062-official-java-mcp-sdk-and-native-stdio.md) — SDK MCP natif.
+- [ADR-0065](../ARCH-0065-jdk-httpserver-local-api.md) — API HTTP sur `jdk.httpserver`.
 - `.claude/rules/architecture.md`

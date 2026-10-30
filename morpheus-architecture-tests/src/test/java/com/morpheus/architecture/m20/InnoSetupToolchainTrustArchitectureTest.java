@@ -1,5 +1,6 @@
 package com.morpheus.architecture.m20;
 
+import com.morpheus.architecture.CoherenceCheck;
 import com.morpheus.architecture.RepositoryRoot;
 import org.junit.jupiter.api.Test;
 
@@ -9,6 +10,7 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@CoherenceCheck
 class InnoSetupToolchainTrustArchitectureTest {
 
     @Test

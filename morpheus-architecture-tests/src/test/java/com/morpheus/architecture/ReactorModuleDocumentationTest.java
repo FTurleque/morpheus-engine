@@ -33,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * corpora so that a rule
  * which reads nothing fails instead of passing.</p>
  */
+@CoherenceCheck
 class ReactorModuleDocumentationTest {
     private static final Pattern MODULE_BLOCK = Pattern.compile("<modules>(.*?)</modules>", Pattern.DOTALL);
     private static final Pattern MODULE = Pattern.compile("<module>([^<]+)</module>");

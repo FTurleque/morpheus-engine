@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * a property of the text of the test sources, which ArchUnit does not import, so the rule reads them. Comments and the
  * contents of literals are blanked first, so a Javadoc or a fixture that names an annotation is not a factory.</p>
  */
+@CoherenceCheck
 class TestFactoryAssertsItsSourceTest {
 
     private static final Pattern FACTORY = Pattern.compile("@TestFactory\\b");
@@ -59,7 +60,7 @@ class TestFactoryAssertsItsSourceTest {
     void noGeneratingTestAllowsZeroInvocations() throws IOException {
         List<String> violations = new ArrayList<>();
         testSources().forEach((file, source) -> {
-            if (ZERO_INVOCATIONS_ALLOWED.matcher(code(source)).find()) {
+            if (ZERO_INVOCATIONS_ALLOWED.matcher(TestSourceText.code(source)).find()) {
                 violations.add(file);
             }
         });
@@ -122,7 +123,7 @@ class TestFactoryAssertsItsSourceTest {
 
     /** The methods that carry {@code @TestFactory}, each with the body that follows its own declaration. */
     private static List<Factory> factories(String source) {
-        String code = code(source);
+        String code = TestSourceText.code(source);
         List<Factory> factories = new ArrayList<>();
         Matcher annotation = FACTORY.matcher(code);
         while (annotation.find()) {
@@ -150,46 +151,6 @@ class TestFactoryAssertsItsSourceTest {
     }
 
     private record Factory(String name, String body) {
-    }
-
-    /** The source with the content of comments, string literals, text blocks and character literals blanked out. */
-    private static String code(String source) {
-        StringBuilder result = new StringBuilder(source.length());
-        int index = 0;
-        while (index < source.length()) {
-            if (source.startsWith("//", index)) {
-                index = blank(source, result, index, source.indexOf('\n', index), "\n");
-            } else if (source.startsWith("/*", index)) {
-                index = blank(source, result, index, source.indexOf("*/", index), "*/");
-            } else if (source.startsWith("\"\"\"", index)) {
-                index = blankLiteral(source, result, index, "\"\"\"");
-            } else if (source.charAt(index) == '"' || source.charAt(index) == '\'') {
-                index = blankLiteral(source, result, index, String.valueOf(source.charAt(index)));
-            } else {
-                result.append(source.charAt(index++));
-            }
-        }
-        return result.toString();
-    }
-
-    private static int blank(String source, StringBuilder result, int from, int end, String terminator) {
-        int stop = end < 0 ? source.length() : (terminator.equals("\n") ? end : end + terminator.length());
-        for (int index = from; index < stop; index++) {
-            result.append(source.charAt(index) == '\n' ? '\n' : ' ');
-        }
-        return stop;
-    }
-
-    private static int blankLiteral(String source, StringBuilder result, int from, String delimiter) {
-        int index = from + delimiter.length();
-        while (index < source.length() && !source.startsWith(delimiter, index)) {
-            index += source.charAt(index) == '\\' ? 2 : 1;
-        }
-        int stop = Math.min(source.length(), index + delimiter.length());
-        for (int position = from; position < stop; position++) {
-            result.append(source.charAt(position) == '\n' ? '\n' : ' ');
-        }
-        return stop;
     }
 
     private static Map<String, String> testSources() throws IOException {

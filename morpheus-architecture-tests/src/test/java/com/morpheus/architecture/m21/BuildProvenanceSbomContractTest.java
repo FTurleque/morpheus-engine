@@ -1,5 +1,6 @@
 package com.morpheus.architecture.m21;
 
+import com.morpheus.architecture.CoherenceCheck;
 import com.morpheus.architecture.RepositoryRoot;
 import org.junit.jupiter.api.Test;
 
@@ -19,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * being written. The script refuses by name instead. The assertions are textual: the targets are a {@code .sh} and a
  * {@code .ps1}, where text is the only hold.</p>
  */
+@CoherenceCheck
 class BuildProvenanceSbomContractTest {
     private static final String REFUSAL = "BUILD_PROVENANCE_SBOM_MISSING";
     private static final List<String> VARIANTS =

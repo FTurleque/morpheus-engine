@@ -103,7 +103,6 @@ nouvel ADR qui remplace les précédents. Le cycle de vie complet est dans `.cla
 | [ADR-0104](GEN-0104-two-coverage-scales-share-one-population.md) | Deux échelles de couverture, une population commune : elles ne diffèrent que par l'attribution | **Acceptée** |
 | [ADR-0105](SEC-0105-no-secret-vault-no-reusable-secret-at-rest.md) | Pas de coffre de secrets : MORPHEUS ne stocke aucun secret réutilisable, et le seul qu'il lit vient de l'environnement | **Acceptée** |
 | [ADR-0106](BE-0106-inbound-bound-is-defensive-outbound-bound-is-a-defect.md) | Une borne entrante est défensive, une borne sortante est un défaut interne | **Acceptée** |
-| [ADR-0109](ARCH-0109-transport-adapters-are-named-composition-roots.md) | Les adaptateurs de transport sont des racines de composition nommées, et leur liste ne fait que rétrécir | **Acceptée** |
 | [ADR-0110](DATA-0110-a-copy-is-kept-before-the-schema-advances.md) | Une copie de la base est conservée avant que son schéma n'avance, et sans elle la migration n'a pas lieu | **Acceptée** |
 | [ADR-0113](SEC-0113-the-remote-server-records-who-was-authorized-to-do-what.md) | Le serveur distant consigne qui a été autorisé à faire quoi | **Acceptée** |
 | [ADR-0114](BE-0114-database-work-runs-on-a-bounded-pool-of-platform-threads.md) | Le travail sur la base s'exécute sur un pool borné de threads plateforme | **Acceptée** |
@@ -137,6 +136,7 @@ nouvel ADR qui remplace les précédents. Le cycle de vie complet est dans `.cla
 | [ADR-0149](ARCH-0149-une-commande-et-un-outil-sont-servis-par-une-classe-de-capacite.md) | Une commande CLI et un outil MCP sont servis par une classe de capacité ; un dispatcher ne tient aucun cas d'usage | **Acceptée** |
 | [ADR-0150](ARCH-0150-ce-que-le-coeur-applicatif-peut-toucher.md) | Le cœur applicatif touche le disque local par des classes nommées, et jamais le réseau | **Acceptée** |
 | [ADR-0151](BE-0151-pagination-des-collections-et-journaux.md) | Une page parle un seul vocabulaire, et un journal est conservé et lu par pages | **Acceptée** |
+| [ADR-0152](ARCH-0152-racines-de-composition-nommees-et-cycles-de-paquets-qui-ne-font-que-diminuer.md) | Les transports sont des racines de composition nommées, et les cycles de paquets ne font que diminuer | **Acceptée** |
 
 Les preuves de qualification de chaque jalon sont dans [`../../project/validation/`](../../project/validation/README.md).
 

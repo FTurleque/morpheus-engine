@@ -78,7 +78,10 @@ Trois obligations avant d'accepter une règle migrée :
 1. **Vérifier que la classe visée est dans l'ensemble importé.** `morpheus-provider-testkit` n'y est
    pas (`morpheus-provider-reference` y est, ADR-0028) — relire
    le `pom.xml` de `morpheus-architecture-tests` plutôt que cette ligne. Le garde-fou `archRule.failOnEmptyShould` est actif et
-   fait échouer une règle qui ne retient aucune classe — **ne pas le désactiver**.
+   fait échouer une règle qui ne retient aucune classe — **ne pas le désactiver**. `AnEmptyArchitectureRuleFailsTest`
+   le prouve en évaluant une règle vide, et refuse `allowEmptyShould` dans le code des tests du module ainsi que tout
+   réglage de `failOnEmptyShould` autre que `true` dans un `archunit.properties`, un POM, `.mvn/`, `scripts/` ou un
+   workflow. Une règle légitimement vide se réécrit ou se supprime : le scan n'a pas de liste d'exemptions.
 2. **Vérifier qu'un littéral n'est pas un préfixe de famille.** `contains("MorpheusRemote")` interdit
    toute une famille de types, pas un seul.
 3. **Casser la règle pour prouver qu'elle tient** : introduire la violation, constater l'échec,
@@ -86,6 +89,30 @@ Trois obligations avant d'accepter une règle migrée :
 
 Découper par **intention**, jamais par classe de test : regrouper fait descendre le compte de
 méthodes `@Test`, et `architectureTestsMinimum` ne se baisse pas (`rules/testing.md`).
+
+### Un interdit textuel de type écrit son intention
+
+Un interdit textuel de type (`assertFalse(source.contains("UnType"))`) porte son intention **en message** :
+`assertFalse(source.contains("UnType"), "<la mention, ou la dépendance qu'elle représente>")`. Son échec se lit alors
+comme une phrase au lieu de `expected: <false> but was: <true>`. Les interdits sans message forment la **famille non
+expliquée**, définie par l'expression que tient `EnforcementMechanismAccountingTest` (pas par une commande recopiée
+ici) : son compte doit **égaler** `UNEXPLAINED_TYPE_BAN_CEILING`. Un membre ajouté fait échouer le build ; un membre
+retiré aussi, tant que le plafond n'est pas baissé dans le même changement. Aucune raison connue ne justifie de le
+relever. Un membre sort de la famille par un message, ou par une règle ArchUnit qui le double quand le type interdit ne
+déclare aucune constante inlinable.
+
+La part textuelle de l'enforcement n'est **pas** plafonnée, et ce refus est délibéré : un ratio se fait baisser en
+supprimant un contrôle de documentation ou en ajoutant une règle qui ne voit rien de neuf, et la plupart des
+assertions textuelles visent des fichiers où le texte est la seule prise. Ce que le module publie de sa propre
+composition se lit dans `morpheus-architecture-tests/target/enforcement-composition-summary.txt`, dont la première
+ligne nomme la méthode ; aucun document ne recopie ces comptes.
+
+Une classe de test du module qui n'évalue aucune règle sur le bytecode, ne lit aucune source de production et ne
+charge aucune classe de production porte `@CoherenceCheck` (tag JUnit `coherence`), et aucune autre ne le porte :
+`CoherenceCheckMarkerTest` dérive la propriété de la source de chaque classe, en suivant les classes de la suite
+qu'elle nomme, et refuse un désaccord dans les deux sens. Une telle classe **reste** dans le module et dans son paquet
+de milestone : sortir les contrôles de cohérence du module ferait baisser `architectureTestsMinimum`.
+`./mvnw test -pl morpheus-architecture-tests -Dgroups=coherence` les lance seules.
 
 **Généralisation par groupe de capacité**, jamais par famille entière :
 
@@ -178,10 +205,10 @@ est son POM. Les familles que `AdapterSiblingArchitectureTest` juge sont déclar
 règles.
 > `AdapterSiblingArchitectureTest#theProviderSdkDependsOnNoAdapter`, `#noProviderSdkSourceNamesAnAdapterPackage`, `#everyDeclaredSubjectIsTheSubjectOfARuleAndNoOther`
 
-### `api` / `mcp` → stores et providers concrets : seulement par les racines nommées (ADR-0109)
+### `api` / `mcp` → stores et providers concrets : seulement par les racines nommées (ADR-0152)
 Les serveurs HTTP et MCP construisent le runtime de chaque requête à partir de `store-sqlite` (et le provider OpenSpec
 pour la synchronisation HTTP). Seules les classes de `AdapterCompositionRootArchitectureTest.COMPOSITION_ROOTS` y ont
-droit ; la liste est exactement l'ensemble mesuré et ne fait que rétrécir. En ajouter une exige de remplacer ADR-0109 par un ADR consolidé qui la nomme.
+droit ; la liste est exactement l'ensemble mesuré et ne fait que rétrécir. En ajouter une exige de remplacer ADR-0152 par un ADR consolidé qui la nomme.
 > `onlyTheNamedCompositionRootsReachAConcreteStoreOrProvider`, `everyNamedCompositionRootStillReachesAConcreteStoreOrProvider`
 
 Les stores d'une opération sont construits par **une seule classe**, `SqliteOperationRuntime`, qui ouvre la
@@ -190,7 +217,7 @@ transports. Chaque transport a **un** type de runtime qui l'enveloppe (`ApiRunti
 et ne rend que des ports de l'application — c'est ce qui garde les services hors de `COMPOSITION_ROOTS`. Une autre
 classe qui construit un store est refusée, sauf si elle est **nommée** dans `SqliteConnectionScopeUseArchitectureTest`
 avec son opération à store unique ; le texte (sans commentaires, ouverture avant la première construction) et le
-bytecode (appel de `SqliteConnectionScope.open`, pas une simple dépendance) le tiennent (ADR-0109).
+bytecode (appel de `SqliteConnectionScope.open`, pas une simple dépendance) le tiennent (ADR-0152).
 
 ### `store-sqlite` : `adapter` et `runtime`, et le runtime reste interne
 `com.morpheus.store.sqlite.adapter` ne contient que des implémentations de ports de l'application, plus les deux
@@ -234,8 +261,24 @@ l'interdire le nomme (`com.morpheus.transport..`).
 
 ### Les paquets du domaine sont sans cycle, à deux exceptions nommées
 `ProviderProbeResult → SourceLocator` et `RequirementDelta → Scenario`, nommées par la paire de types exacte ; tout
-autre cycle échoue. La même règle sur `application` est reportée (167 cycles mesurés le 08/10/2026, ADR-0109).
+autre cycle échoue (ADR-0152).
 > `domainPackagesAreFreeOfCyclesBesideTheTwoNamedOnes`
+
+### Les cycles de paquets de l'application ne font que diminuer
+Les dépendances entre tranches de premier niveau de `com.morpheus.application` qui appartiennent à un cycle sont
+exactement `ApplicationPackageCyclesArchitectureTest.DEPENDENCIES_ON_A_CYCLE`, et les composantes fortement connexes
+exactement `CYCLIC_COMPONENTS` : lire ces deux listes, pas un compte recopié ici. Une dépendance qui ferme ou étend un
+cycle échoue sous son nom, un nom qui n'est plus sur un cycle échoue jusqu'à son retrait, et aucun nombre de cycles
+n'est un seuil (ADR-0152). `application.store` ne participe à aucun cycle : un port se déclare dans le paquet de la
+capacité dont il emploie les types (`PolicyPackStore` dans `policy`, `SavedViewStore` dans `query.saved`,
+`SyncStateStore` dans `sync`).
+> `noDependencyBetweenApplicationPackagesLiesOnACycleBesideTheNamedOnes`, `everyNamedDependencyStillLiesOnACycle`, `theStorePortsPackageTakesPartInNoCycle`
+
+### Une décision sur une seule valeur du domaine est écrite sur son type
+Le blocage d'une contrainte (`Constraint.evaluateFor`, `hasKnownBlocking`, `isViolatedExplicitBlockingPolicy`) est
+décidé par le domaine ; aucune classe de l'application ne lit une constante de `ConstraintApplicability`,
+`ConstraintBlockingMode` ou `ConstraintSatisfaction`, `switch` compris (ADR-0082).
+> `ConstraintDecisionInTheDomainArchitectureTest#noApplicationClassReadsAConstantOfAConstraintsBlockingInputs`
 
 ### Pas de framework, pas de magie
 Aucune classe du produit ne dépend d'un framework d'injection (Spring, Quarkus, Micronaut, Guice, CDI) ni d'une
@@ -248,7 +291,7 @@ Les listes sont exactes et ne font que rétrécir : les lire dans `ReflectionAnd
 Dans les deux, la règle sur le bytecode est doublée d'un scan du texte des sources : un type qui ne fait que typer une
 lambda reste dans le descripteur `invokedynamic`, où le bytecode ne le voit pas. Un accesseur de
 `java.lang.Class` (`getName`, `getSimpleName`, `getClassLoader`) n'est pas de la réflexion au sens de ces règles.
-Le câblage est explicite : dans `MorpheusMain` pour le processus, dans les racines de composition nommées d'ADR-0109
+Le câblage est explicite : dans `MorpheusMain` pour le processus, dans les racines de composition nommées d'ADR-0152
 pour le runtime de chaque requête HTTP ou appel MCP.
 > `reflectionIsReachedOnlyByTheClassesNamedForIt`, `serviceAndClassLoadingAreReachedOnlyByTheClassesNamedForThem`, `everyNamedClassStillReachesItsFamily`, `noProductClassDependsOnAnInjectionFramework`
 

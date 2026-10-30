@@ -33,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * not empty, since a rule that matches nothing passes too ({@code archRule.failOnEmptyShould} does not apply to
  * filesystem rules).</p>
  */
+@CoherenceCheck
 class GateReachabilityArchitectureTest {
     private static final Pattern VALIDATOR_FILE = Pattern.compile("validate-(.+)\\.(ps1|sh)");
     private static final Pattern SUREFIRE_DEFAULT_NAME = Pattern.compile("Test.*|.*Test|.*Tests|.*TestCase");

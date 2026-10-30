@@ -49,7 +49,7 @@ com.morpheus.application.policy
 Port :
 
 ```text
-com.morpheus.application.store.PolicyPackStore
+com.morpheus.application.policy.PolicyPackStore
 ```
 
 Adapters :
