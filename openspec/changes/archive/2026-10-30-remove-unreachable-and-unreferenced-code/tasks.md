@@ -4,10 +4,11 @@ Implemented on 2026-10-12 by pull request 455.
 
 ## 1. Decide and measure
 
-- [ ] 1.1 Maintainer: confirm the deletion of the six `snapshot*` methods of `BusinessContentQueryService`, or name the
+- [x] 1.1 Maintainer: confirm the deletion of the six `snapshot*` methods of `BusinessContentQueryService`, or name the
       surface they were meant for. Default: delete. Proof: the answer, in the pull request.
       *The default was applied: the six are deleted. The maintainer's answer is still asked for in the pull request; if
       they were meant for a surface, they come back with their consumer and their manifest line.*
+      *2026-10-30: the maintainer confirmed the deletion; the six stay deleted.*
 - [x] 1.2 Run the bytecode rule in report-only form and record what it finds beyond the sixteen (record accessors,
       entry points, methods called only from another module's tests). Proof: the list, classified; it decides the scope
       and the excused entries of decision 4.
