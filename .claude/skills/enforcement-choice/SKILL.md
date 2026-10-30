@@ -74,8 +74,8 @@ faire passer supprime l'invariant pour tous les autres membres. Le patron qui ti
 refuse un membre rangé hors de ces paquets ou deux membres de même nom simple. Ranger, c'est classer :
 un membre doublement classé ou disparu ne peut plus s'écrire, et un nouveau membre est refusé tant
 que personne ne l'a rangé. Une liste de noms qui reste n'est jamais un rôle : elle est un compteur de
-dette ou une table de faits, déclarée comme telle dans `HttpAdapterClassListsArchitectureTest`
-(ADR-0147).
+dette ou une table de faits, déclarée comme telle dans `ProductionClassListsArchitectureTest`, quel
+que soit le module dont elle nomme les classes (ADR-0155).
 
 `HttpRoutesFamilyArchitectureTest` porte à l'inverse les interdits vérifiés sur **chaque**
 membre : n'y ajouter qu'un interdit dont on a vérifié qu'il vaut pour tous.

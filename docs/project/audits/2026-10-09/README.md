@@ -8,6 +8,40 @@
 
 ---
 
+## État au 30 octobre 2026 — sprints 12 et 13
+
+Sur `11d1c30a` (branche `claude/sprint-12-final-aed805`), `AUD-TRV-03` passe de *toujours valide* à **partiel** :
+aucune liste de noms n'est plus un rôle, toute liste de classes de production d'un test d'architecture déclare sa sorte
+(ADR-0155, qui remplace ADR-0147), et la famille des interdits de type sans message est vide, sous un plafond de 0.
+L'enforcement reste majoritairement textuel : 1 733 assertions `contains` pour 72 règles `noClasses()`.
+
+Sur `67964ed2` (branche `claude/sprint-13-final-83a18a`), `AUD-PRF-05` passe de *partiel* à **corrigé** : l'ordre de
+la page est servi par un index et le garde-fou de plan de requête n'excuse plus aucune forme de page. `AUD-TRV-02` reste
+**partiel**, mais 117 des 118 classes de `morpheus-application` couvertes seulement par d'autres modules ont leurs
+propres tests, et l'écart entre les deux échelles passe de 13,36 à 4,32 points en lignes. Le gain n'est pas verrouillé :
+le ratchet par module (0,712) et son plafond qualifié restent loin sous la mesure (88,27 %).
+
+**120 constats : 72 corrigés · 7 partiels · 14 toujours valides · 4 caducs · 22 Info qui tiennent · 1 non
+vérifiable.** Les **21 constats actifs** sont 12 `Moyenne` et 9 `Faible`. Performance **95** (91), moyenne **86**
+(85) ; les cinq autres axes sont inchangés. Le plan du 9 octobre garde 3 constats, un par sprint de 12 à 14 ; charge
+restante estimée : **16,75 à 51 jours**.
+
+## État au 30 octobre 2026 — sprint 11 soldé
+
+Sur `c8ec9e4e` (branche `claude/sprint-11-final-9391a2`, base `11bb1ccf`), `AUD-ARC-03` et `AUD-ARC-13` passent de
+*partiel* à **corrigé**. Les paquets de premier niveau de `morpheus-application` n'ont plus aucun cycle : 21 dépendances
+sur un cycle et deux composantes avant, aucune après, par quatre déplacements de types vers le paquet le plus bas qui
+les emploie ou vers le domaine. La règle est `beFreeOfCycles()` sans liste d'exceptions (ADR-0156, qui remplace
+ADR-0152). La transition d'un cycle de vie et l'état de résolution d'une référence externe sont décidés sur leur type
+du domaine, sous des règles sans exception, et le domaine porte sa première famille scellée
+(`ChangeLifecycleTransitionDecision`). Domaine : 65 records, 26 enums, 1 interface scellée, 3 059 lignes ; rapport de
+lignes application/domaine 8,42× (9,69× sur `11bb1ccf`).
+
+**120 constats : 71 corrigés · 7 partiels · 15 toujours valides · 4 caducs · 22 Info qui tiennent · 1 non
+vérifiable.** Les **22 constats actifs** sont 13 `Moyenne` et 9 `Faible`. Architecture **89** (84), moyenne **85**
+(84) ; les cinq autres axes sont inchangés. Le plan du 9 octobre garde 4 constats, dans les sprints 12 à 14 ; charge
+restante estimée : **19,75 à 59 jours**.
+
 ## État au 30 octobre 2026 — la vague ne déplace pas la note
 
 Revérification sur `11bb1ccf` (`origin/develop`, PR #588), soit **65 commits et 346 fichiers** (+11 611 / −1 895)

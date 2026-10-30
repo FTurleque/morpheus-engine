@@ -4,7 +4,7 @@ import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.operability.StartupOwnership;
 import com.morpheus.application.operability.SuppressedFailureFamily;
-import com.morpheus.application.security.LocalWritePermissionHardener;
+import com.morpheus.application.files.LocalWritePermissionHardener;
 import com.morpheus.application.store.KnowledgeStoreException;
 
 import java.io.Closeable;
@@ -182,7 +182,7 @@ final class SqliteDatabaseLease {
      * Opens the lock channel and hands it to the caller only once hardening has succeeded.
      *
      * <p>Hardening runs after the channel exists and refuses fail-closed on a permissive ancestor, which is a
-     * {@link com.morpheus.application.security.LocalWritePermissionHardener.LocalWritePermissionException} --
+     * {@link com.morpheus.application.files.LocalWritePermissionHardener.LocalWritePermissionException} --
      * unchecked, so the {@code IOException} handler never saw it and the descriptor stayed open for the life of
      * the process. Ownership is explicit until the channel is returned.</p>
      */

@@ -27,7 +27,7 @@ import java.util.Objects;
  *
  * <p>Every store an operation asks for shares one physical, thread-confined SQLite connection and one schema check,
  * and is built the first time it is asked for. The accessors answer application ports: a service that reads through
- * this runtime depends on no SQLite type, which is what keeps it out of the composition roots of ADR-0152.</p>
+ * this runtime depends on no SQLite type, which is what keeps it out of the composition roots of ADR-0156.</p>
  */
 public final class ApiRuntime implements AutoCloseable {
     private final SqliteOperationRuntime operation;

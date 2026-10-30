@@ -27,13 +27,5 @@ class LocalCompositionHttpRoutesArchitectureTest {
         assertTrue(routes.contains("compositionService.conflicts(projectId, offset, limit)"));
         assertTrue(routes.contains("query.rejectUnknown(Set.of(\"offset\", \"limit\"))"));
         assertTrue(routes.contains("unknown composition route"));
-        assertFalse(routes.contains("HttpExchange"));
-        assertFalse(routes.contains("HttpServer"));
-        assertFalse(routes.contains("JsonMapper"));
-        assertFalse(routes.contains("MorpheusHttpRequestDecoder"));
-        assertFalse(routes.contains("MorpheusHttpResponseWriter"));
-        assertFalse(routes.contains("MorpheusHttpPathParser"));
-        assertFalse(routes.contains("MorpheusRemoteRoutePolicy"));
-        assertFalse(routes.contains("MorpheusRemoteRole"));
     }
 }

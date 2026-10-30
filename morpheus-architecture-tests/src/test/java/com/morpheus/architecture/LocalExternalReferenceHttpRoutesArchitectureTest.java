@@ -26,13 +26,5 @@ class LocalExternalReferenceHttpRoutesArchitectureTest {
         assertTrue(routes.contains("query.required(\"ownerId\")"));
         assertTrue(routes.contains("service.resolve(projectId, segments.get(3))"));
         assertTrue(routes.contains("unknown external-references route"));
-        assertFalse(routes.contains("HttpExchange"));
-        assertFalse(routes.contains("HttpServer"));
-        assertFalse(routes.contains("JsonMapper"));
-        assertFalse(routes.contains("MorpheusHttpRequestDecoder"));
-        assertFalse(routes.contains("MorpheusHttpResponseWriter"));
-        assertFalse(routes.contains("MorpheusHttpPathParser"));
-        assertFalse(routes.contains("MorpheusRemoteRoutePolicy"));
-        assertFalse(routes.contains("MorpheusRemoteRole"));
     }
 }

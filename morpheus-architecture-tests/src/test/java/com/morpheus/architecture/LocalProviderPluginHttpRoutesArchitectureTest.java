@@ -26,11 +26,5 @@ class LocalProviderPluginHttpRoutesArchitectureTest {
         assertTrue(routes.contains("MorpheusHttpRouteGuards.requireMethod(method, \"POST\")"));
         assertTrue(routes.contains("query.rejectUnknown(Set.of(\"directory\", \"pluginId\", \"workspace\", \"sha256\"))"));
         assertTrue(routes.contains("provider-plugin probe is remote-only"));
-        assertFalse(routes.contains("HttpExchange"));
-        assertFalse(routes.contains("HttpServer"));
-        assertFalse(routes.contains("JsonMapper"));
-        assertFalse(routes.contains("MorpheusHttpResponseWriter"));
-        assertFalse(routes.contains("MorpheusRemoteRoutePolicy"));
-        assertFalse(routes.contains("MorpheusRemoteRole"));
     }
 }

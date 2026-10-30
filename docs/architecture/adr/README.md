@@ -131,12 +131,12 @@ nouvel ADR qui remplace les précédents. Le cycle de vie complet est dans `.cla
 | [ADR-0144](DATA-0144-publication-complete-cli-et-http.md) | Publication complète d'un snapshot, en CLI comme en HTTP | **Acceptée** |
 | [ADR-0145](BE-0145-ressource-de-pair-mcp-designee-explicitement.md) | Une ressource d'un pair MCP se désigne explicitement, sans heuristique ni mutation du pair | **Acceptée** |
 | [ADR-0146](BE-0146-journal-operationnel-slf4j-et-fichier-borne.md) | Journal opérationnel : un seul binding SLF4J, un fichier borné à la demande | **Acceptée** |
-| [ADR-0147](ARCH-0147-un-role-d-adaptateur-est-un-paquet.md) | Un rôle de l'adaptateur HTTP est un paquet ; ce qui reste une liste de noms en déclare la sorte | **Acceptée** |
 | [ADR-0149](ARCH-0149-une-commande-et-un-outil-sont-servis-par-une-classe-de-capacite.md) | Une commande CLI et un outil MCP sont servis par une classe de capacité ; un dispatcher ne tient aucun cas d'usage | **Acceptée** |
 | [ADR-0150](ARCH-0150-ce-que-le-coeur-applicatif-peut-toucher.md) | Le cœur applicatif touche le disque local par des classes nommées, et jamais le réseau | **Acceptée** |
 | [ADR-0151](BE-0151-pagination-des-collections-et-journaux.md) | Une page parle un seul vocabulaire, et un journal est conservé et lu par pages | **Acceptée** |
-| [ADR-0152](ARCH-0152-racines-de-composition-nommees-et-cycles-de-paquets-qui-ne-font-que-diminuer.md) | Les transports sont des racines de composition nommées, et les cycles de paquets ne font que diminuer | **Acceptée** |
+| [ADR-0156](ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md) | Les transports sont des racines de composition nommées, les paquets sont sans cycle, et une décision sur une valeur du domaine est écrite sur son type | **Acceptée** |
 | [ADR-0154](GEN-0154-deux-echelles-de-couverture-et-le-credit-emprunte.md) | Deux échelles de couverture sur une population commune, et le crédit qu'un module emprunte à ses voisins | **Acceptée** |
+| [ADR-0155](ARCH-0155-un-role-est-un-paquet-et-une-liste-de-classes-declare-sa-sorte.md) | Un rôle de l'adaptateur HTTP est un paquet, et toute liste de classes de production d'un test d'architecture déclare sa sorte | **Acceptée** |
 
 Les preuves de qualification de chaque jalon sont dans [`../../project/validation/`](../../project/validation/README.md).
 

@@ -37,11 +37,5 @@ class LocalRequirementsHttpRoutesArchitectureTest {
         assertTrue(routes.contains("unknown requirements route"));
         assertFalse(routes.contains("private final MorpheusApiService service;"));
         assertTrue(routes.contains("HttpExchange"));
-        assertFalse(routes.contains("HttpServer"));
-        assertFalse(routes.contains("JsonMapper"));
-        assertFalse(routes.contains("MorpheusHttpResponseWriter"));
-        assertFalse(routes.contains("MorpheusHttpPathParser"));
-        assertFalse(routes.contains("MorpheusRemoteRoutePolicy"));
-        assertFalse(routes.contains("MorpheusRemoteRole"));
     }
 }

@@ -7,7 +7,7 @@ import com.morpheus.application.context.TechnicalContextOptions;
 import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.operability.OperationalExecution;
 import com.morpheus.application.operability.OperationalRecorder;
-import com.morpheus.application.security.IntegrationStatusDisclosure;
+import com.morpheus.application.context.IntegrationStatusDisclosure;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.requirement.RequirementId;

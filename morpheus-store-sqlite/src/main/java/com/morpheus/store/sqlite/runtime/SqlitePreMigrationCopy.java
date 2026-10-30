@@ -1,6 +1,6 @@
 package com.morpheus.store.sqlite.runtime;
 
-import com.morpheus.application.security.LocalWritePermissionHardener;
+import com.morpheus.application.files.LocalWritePermissionHardener;
 import com.morpheus.application.store.KnowledgeStoreException;
 
 import java.io.IOException;

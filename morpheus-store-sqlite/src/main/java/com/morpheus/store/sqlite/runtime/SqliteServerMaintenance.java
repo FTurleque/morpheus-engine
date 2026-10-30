@@ -1,7 +1,7 @@
 package com.morpheus.store.sqlite.runtime;
 
 import com.morpheus.application.operability.StartupOwnership;
-import com.morpheus.application.security.LocalWritePermissionHardener;
+import com.morpheus.application.files.LocalWritePermissionHardener;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.store.sqlite.adapter.SqliteSpecificationKnowledgeStore;
 

@@ -1,7 +1,7 @@
 package com.morpheus.api;
 
 import com.morpheus.application.reference.ExternalIntegrationStatus;
-import com.morpheus.application.security.IntegrationStatusDisclosure;
+import com.morpheus.application.context.IntegrationStatusDisclosure;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

@@ -2,7 +2,7 @@ package com.morpheus.api.remote;
 
 import com.morpheus.application.files.SafeWorkspaceFileResolver;
 import com.morpheus.application.files.WorkspaceFileTooLargeException;
-import com.morpheus.application.security.LocalWritePermissionHardener;
+import com.morpheus.application.files.LocalWritePermissionHardener;
 import com.morpheus.application.store.EntityNotFoundException;
 
 import java.io.IOException;

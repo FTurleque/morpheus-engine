@@ -1,14 +1,23 @@
 package com.morpheus.architecture;
 
+import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.core.importer.ImportOption;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
 
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.simpleNameEndingWith;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ChangeQueryApiServiceArchitectureTest {
+
+    private static final JavaClasses PRODUCTION = new ClassFileImporter()
+            .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+            .importPackages("com.morpheus.api");
 
     @Test
     void activeChangeQueriesStayExtractedFromApiFacade() throws IOException {
@@ -40,14 +49,6 @@ class ChangeQueryApiServiceArchitectureTest {
         assertTrue(changes.contains("activeAcceptanceCriteriaForChange(projectId, changeId, pageRequest)"));
         assertTrue(changes.contains("activeDesignDecisions(projectId, changeId, pageRequest)"));
         assertTrue(changes.contains("activeImplementationTasks(projectId, changeId, pageRequest)"));
-        assertFalse(changes.contains("SpecificationContextQueryService"));
-        assertFalse(changes.contains("RequirementQueryService"));
-        assertFalse(changes.contains("TraceRequirementQueryService"));
-        assertFalse(changes.contains("QualityReportService"));
-        assertFalse(changes.contains("PublishedSnapshotHistoryService"));
-        assertFalse(changes.contains("LocalSourceInventoryScanner"));
-        assertFalse(changes.contains("MorpheusHttpResponseWriter"));
-        assertFalse(changes.contains("MorpheusRemote"));
 
         assertTrue(routes.contains("private final MorpheusChangeQueryApiService service;"));
         assertTrue(routes.contains("private final MorpheusDiagnosticsApiService diagnosticsService;"));
@@ -59,5 +60,29 @@ class ChangeQueryApiServiceArchitectureTest {
         assertTrue(routes.contains("diagnosticsService.changeStatus(projectId, changeId)"));
         assertTrue(routes.contains("diagnosticsService.blockingConditions(projectId, changeId)"));
         assertFalse(routes.contains("private final MorpheusApiService service;"));
+    }
+
+    /**
+     * {@code MorpheusChangeQueryApiService} serves the change queries and depends on none of the application services
+     * another API service owns: {@code SpecificationContextQueryService}, {@code *RequirementQueryService},
+     * {@code *QualityReportService}, {@code PublishedSnapshotHistoryService}, {@code LocalSourceInventoryScanner}. A
+     * name ending in a banned name is banned with it, as the text ban it replaces matched it.
+     *
+     * <p>None of these services declares a compile-time constant, so the rule alone covers them. Broken before
+     * acceptance, 30/10/2026: a {@code SpecificationContextQueryService} field added to
+     * {@code MorpheusChangeQueryApiService} failed this rule.</p>
+     */
+    @Test
+    void theChangeQueryServiceDependsOnNoOtherQueryCapability() {
+        noClasses()
+                .that().haveSimpleName("MorpheusChangeQueryApiService")
+                .should().dependOnClassesThat(simpleNameEndingWith("SpecificationContextQueryService")
+                        .or(simpleNameEndingWith("RequirementQueryService"))
+                        .or(simpleNameEndingWith("QualityReportService"))
+                        .or(simpleNameEndingWith("PublishedSnapshotHistoryService"))
+                        .or(simpleNameEndingWith("LocalSourceInventoryScanner")))
+                .because("each API service serves one capability through its own application services; reaching "
+                        + "another capability's service brings a second owner for the same answer")
+                .check(PRODUCTION);
     }
 }

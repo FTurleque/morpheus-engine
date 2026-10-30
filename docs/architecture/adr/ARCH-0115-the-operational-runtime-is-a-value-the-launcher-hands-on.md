@@ -18,7 +18,7 @@ et après, ce qui ne tient que si rien d'autre ne s'exécute pendant ce temps, e
 rend ces assertions non déterministes.
 
 Le chemin du store SQLite pose la même question à un endroit sans instance : l'exécuteur de transactions est statique
-et reçoit une `Connection` nue, depuis de nombreux stores construits en de nombreux endroits. Avec ADR-0152, une
+et reçoit une `Connection` nue, depuis de nombreux stores construits en de nombreux endroits. Avec ADR-0156, une
 opération ouvre une portée de connexion (`SqliteConnectionScope`) avant ses stores : la connexion a un propriétaire,
 qui peut porter le recorder.
 
@@ -157,7 +157,7 @@ Options écartées :
 
 ## References
 
-- [ADR-0152](ARCH-0152-racines-de-composition-nommees-et-cycles-de-paquets-qui-ne-font-que-diminuer.md) — racines de composition nommées, une
+- [ADR-0156](ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md) — racines de composition nommées, une
   portée de connexion par opération.
 - [ADR-0146](BE-0146-journal-operationnel-slf4j-et-fichier-borne.md) — un seul binding de journalisation, journal
   opérationnel borné.
