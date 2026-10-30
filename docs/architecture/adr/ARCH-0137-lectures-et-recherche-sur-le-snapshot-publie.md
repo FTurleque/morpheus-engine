@@ -27,8 +27,10 @@ lecture qui rendrait vide un snapshot publié dont la projection métier manque 
 absence métier.
 
 Une recherche lexicale déterministe suffit au produit ; la recherche sémantique n'est pas requise (ADR-0004).
-`find_requirements` doit être produit sans second index ni table dédiée, et sans confondre filtrage lexical et
-classement de pertinence, qui est le rôle de NEXUS.
+`find_requirements` doit être produit sans index ni table de recherche, et sans confondre filtrage lexical et
+classement de pertinence, qui est le rôle de NEXUS. Un index de recherche plein texte (FTS) couvrirait tous les
+snapshots de la base, alors que la seule dimension sélective d'une recherche est son snapshot, et le total d'une page
+exige d'évaluer chaque correspondance de toute façon.
 
 Options écartées :
 
@@ -128,8 +130,9 @@ findSnapshot(snapshotId, query, pageRequest)
 - **Backend** : la page est découpée par le port, `VersionedRequirementStore.pageCurrentRequirementVersions`, qui
   rend les éléments et leur total lus dans le même état. Les critères (`RequirementPageCriteria`, dont la
   normalisation) et l'ordre (`RequirementPageOrder`) sont définis dans `morpheus-application` ; chaque store livré les
-  évalue lui-même, SQLite par une fonction SQL qui appelle cette normalisation, jamais par `lower()` ni `LIKE`. Ni
-  table ni index dédié.
+  évalue lui-même, SQLite par une fonction SQL qui appelle cette normalisation, jamais par `lower()` ni `LIKE`. Aucun
+  index ni table de recherche : le prédicat lexical filtre les lignes `CURRENT` du snapshot, atteintes dans l'ordre de
+  la page par un index d'ordre, et son coût est borné par leur nombre.
 
 ### 9. Pagination
 
@@ -206,6 +209,8 @@ La même politique de snapshot gouverne l'analyse de changement (ADR-0138) et le
 
 ## Compliance and Enforcement
 
+- `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/adapter/SqliteQueryPlanGuardTest.java` : chaque
+  forme de page d'exigences est servie par son index d'ordre, sans parcours de table ni tri temporaire, et sans excuse.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/TraceRequirementFinalValidationTest.java` :
   parité mémoire/SQLite, isolation de l'`ACTIVE`, `RETIRED` lisible, `READY` et snapshots techniques refusés, filtres
   de relation, exigence absente, réouverture SQLite avec références `UNRESOLVED` et `BROKEN_REFERENCE`.

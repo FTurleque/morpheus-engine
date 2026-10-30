@@ -128,6 +128,66 @@ class SqliteRequirementPageTest {
     }
 
     @Test
+    void theRowsADatabaseHeldBeforeTheOrderKeysAreReadInThePageOrderOnceMigrated() throws Exception {
+        Path database = tempDir.resolve("v23-upgrade.db");
+        List<RequirementVersionRecord> current;
+        try (var snapshots = new SqliteSpecificationKnowledgeStore(database);
+             var requirements = new SqliteVersionedRequirementStore(database)) {
+            current = seed(snapshots, requirements);
+        }
+        String url = "jdbc:sqlite:" + database.toAbsolutePath();
+        try (Connection connection = DriverManager.getConnection(url);
+             var statement = connection.createStatement()) {
+            // step back over V024 only: the rows stay, written as an earlier version wrote them
+            statement.execute("DROP INDEX idx_requirement_versions_current_by_requirement");
+            statement.execute("DROP INDEX idx_requirement_versions_current_by_identity");
+            statement.execute("ALTER TABLE requirement_versions DROP COLUMN requirement_order_key");
+            statement.execute("ALTER TABLE requirement_versions DROP COLUMN identity_order_key");
+            statement.execute("ALTER TABLE requirement_versions DROP COLUMN version_order_key");
+            statement.execute("DELETE FROM schema_migrations WHERE version = 24");
+        }
+
+        try (var requirements = new SqliteVersionedRequirementStore(database)) {
+            assertEquals(new RequirementPage(List.of(current.get(2), current.get(0), current.get(1)), 3),
+                    requirements.pageCurrentRequirementVersions(SNAPSHOT, RequirementPageCriteria.all(),
+                            RequirementPageOrder.ENTITY_IDENTITY, 0, 10),
+                    "the migration keys the rows it finds, so they are read in the signed order of their identities");
+            assertEquals(new RequirementPage(List.of(current.get(0)), 3),
+                    requirements.pageCurrentRequirementVersions(SNAPSHOT, RequirementPageCriteria.all(),
+                            RequirementPageOrder.REQUIREMENT_ID, 1, 1));
+        }
+        try (Connection connection = DriverManager.getConnection(url);
+             var statement = connection.createStatement();
+             ResultSet rows = statement.executeQuery("SELECT requirement_id, requirement_order_key, entity_version_id, "
+                     + "version_order_key FROM requirement_versions ORDER BY entity_version_id")) {
+            int seen = 0;
+            while (rows.next()) {
+                assertEquals(signedKey(rows.getString("requirement_id")), rows.getString("requirement_order_key"));
+                assertEquals(signedKey(rows.getString("entity_version_id")), rows.getString("version_order_key"));
+                seen++;
+            }
+            assertEquals(4, seen, "every row is keyed, the proposed one included");
+        }
+    }
+
+    @Test
+    void aSnapshotWithoutARowReadsAsAnEmptyPageOfNone() {
+        Path database = tempDir.resolve("unknown-snapshot.db");
+        try (var snapshots = new SqliteSpecificationKnowledgeStore(database);
+             var requirements = new SqliteVersionedRequirementStore(database)) {
+            seed(snapshots, requirements);
+
+            assertEquals(new RequirementPage(List.of(), 0), requirements.pageCurrentRequirementVersions(
+                    new KnowledgeSnapshotId(identity("0", 77)), RequirementPageCriteria.all(),
+                    RequirementPageOrder.REQUIREMENT_ID, 0, 10));
+        }
+    }
+
+    private static String signedKey(String identity) {
+        return (identity.compareTo("8") >= 0 ? "0" : "1") + identity;
+    }
+
+    @Test
     void aClosedStoreRefusesThePageAndTheCount() {
         Path database = tempDir.resolve("closed.db");
         SqliteVersionedRequirementStore requirements = new SqliteVersionedRequirementStore(database);

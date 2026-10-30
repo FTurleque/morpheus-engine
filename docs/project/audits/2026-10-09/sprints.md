@@ -1,7 +1,7 @@
 # Sprints de correction
-État au **30 octobre 2026** sur `11bb1ccf` (`origin/develop`, PR #588), après un `./mvnw clean verify` vert sur les 19 modules (4 797 tests, 0 échec) ; le même jour sur `c8ec9e4e` (branche `claude/sprint-11-final-9391a2`) pour `AUD-ARC-03` et `AUD-ARC-13`. L'ordre et le découpage sont ceux du 9 octobre ; seuls les statuts ont été réétablis, constat par constat, sur le code.
+État au **30 octobre 2026** sur `11bb1ccf` (`origin/develop`, PR #588), après un `./mvnw clean verify` vert sur les 19 modules (4 797 tests, 0 échec) ; le même jour sur `c8ec9e4e` (branche `claude/sprint-11-final-9391a2`) pour `AUD-ARC-03` et `AUD-ARC-13`, sur `11d1c30a` (branche `claude/sprint-12-final-aed805`) pour `AUD-TRV-03`, sur `67964ed2` (branche `claude/sprint-13-final-83a18a`) pour `AUD-PRF-05` et `AUD-TRV-02`. L'ordre et le découpage sont ceux du 9 octobre ; seuls les statuts ont été réétablis, constat par constat, sur le code.
 
-**Plan du 9 octobre : 73 constats, 69 soldés, 4 restants.** Les **dix premiers sprints du plan sont désormais soldés** : la vague des sprints 10 à 14 a fermé les quatre derniers constats du sprint 10, tous confirmés par une règle compilée et non par une réécriture de texte. Le **sprint 11** est soldé à son tour : les paquets de l'application n'ont plus aucun cycle, sous une règle `beFreeOfCycles()` sans exception, et deux décisions de plus vivent sur leur type du domaine, dont la première famille scellée. Restent les sprints 12, 13 et 14, qui ne gardent que quatre constats de fond. `AUD-TRV-08`, né du dispositif et non du produit, est rangé dans les dérives.
+**Plan du 9 octobre : 73 constats, 70 soldés, 3 restants.** Les **dix premiers sprints du plan sont désormais soldés** : la vague des sprints 10 à 14 a fermé les quatre derniers constats du sprint 10, tous confirmés par une règle compilée et non par une réécriture de texte. Le **sprint 11** est soldé à son tour : les paquets de l'application n'ont plus aucun cycle, sous une règle `beFreeOfCycles()` sans exception, et deux décisions de plus vivent sur leur type du domaine, dont la première famille scellée. Le **sprint 13** ferme `AUD-PRF-05` : la page de recherche est ordonnée par un index et le garde-fou de plan de requête n'excuse plus aucune forme de page. Restent les sprints 12, 13 et 14, un constat chacun : `AUD-TRV-03` et `AUD-TRV-02` sont partiels, `AUD-DEP-05` attend un certificat de signature. `AUD-TRV-08`, né du dispositif et non du produit, est rangé dans les dérives.
 
 **Sprint 15 — dérives : 23 constats, 18 restants.** Ce sprint n'est pas du plan d'origine : il rassemble les constats nés *après* l'audit, d'une scission, d'un effet de bord d'un correctif ou du changement de branche d'intégration. Les ranger dans les sprints d'origine faisait croire que ceux-ci traînaient depuis le 9 octobre ; ils sont soldés, et du travail neuf est apparu à côté.
 
@@ -21,10 +21,10 @@
 | **10** ✓ | Dire la vérité dans les règles | 7 | 7 | 0 | — |
 | **11** ✓ | Trancher l'architecture | 4 | 4 | 0 | — |
 | **12** | Restructurer les adaptateurs | 3 | 2 | 1 | 3 à 8 j |
-| **13** | Couverture et pagination | 2 | 0 | 2 | 6 à 16 j |
+| **13** | Couverture et pagination | 2 | 1 | 1 | 3 à 8 j |
 | **14** | Signer la distribution | 1 | 0 | 1 | 1 à 3 j |
 | **15** | Dérives apparues pendant les correctifs | 23 | 5 | 18 | 9.75 à 32 j |
-| | **Total** | **96** | **74** | **22** | **19.75 à 59 j** |
+| | **Total** | **96** | **75** | **21** | **16.75 à 51 j** |
 
 Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j · L 3 à 8 j). Un constat `partiel` compte pour son effort entier : ce qui reste d'un constat partiellement traité n'est pas proportionnel à ce qui en a été fait.
 
@@ -234,7 +234,7 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 
 ## Sprint 13 — Couverture et pagination
 
-2 constats · 2 partiel
+2 constats · 1 corrigé · 1 partiel
 
 *Pourquoi ici* — Les deux chantiers longs qui ne deviennent mesurables qu'après les sprints 1 et 11.
 
@@ -242,7 +242,7 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 
 | Constat | Statut | Sév. | Eff. | Objet |
 |---|---|---|---|---|
-| `AUD-PRF-05` | partiel | Moyenne | L | Pagination de la recherche de requirements appliquée en mémoire après chargement intégral du snapshot |
+| `AUD-PRF-05` | corrigé | Moyenne | L | Pagination de la recherche de requirements appliquée en mémoire après chargement intégral du snapshot |
 | `AUD-TRV-02` | partiel | Moyenne | L | Écart de 20,9 points entre les deux échelles de couverture : morpheus-application n'est pas testable sans ses modules voisins |
 
 ## Sprint 14 — Signer la distribution

@@ -1,7 +1,7 @@
 # MORPHEUS — constats d'audit
-Audit du **9 octobre 2026** sur `20cf2e0`, revérifié onze fois depuis, et le **30 octobre 2026** sur `11bb1ccf` (`origin/develop`, PR #588) ; `AUD-ARC-03` et `AUD-ARC-13` le même jour sur `c8ec9e4e` (branche `claude/sprint-11-final-9391a2`). Chaque constat porte son statut et la preuve qui l'établit.
+Audit du **9 octobre 2026** sur `20cf2e0`, revérifié onze fois depuis, et le **30 octobre 2026** sur `11bb1ccf` (`origin/develop`, PR #588) ; `AUD-ARC-03` et `AUD-ARC-13` le même jour sur `c8ec9e4e` (branche `claude/sprint-11-final-9391a2`), `AUD-TRV-03` sur `11d1c30a` (branche `claude/sprint-12-final-aed805`), `AUD-PRF-05` et `AUD-TRV-02` sur `67964ed2` (branche `claude/sprint-13-final-83a18a`). Chaque constat porte son statut et la preuve qui l'établit.
 
-**120 constats** — 71 corrigé, 8 partiel, 14 toujours valide, 4 caduc, 22 tient, 1 non vérifiable ici.
+**120 constats** — 72 corrigé, 7 partiel, 14 toujours valide, 4 caduc, 22 tient, 1 non vérifiable ici.
 
 > **Plus aucun constat `Élevée` n'est ouvert.** La PR #580 ferme les deux derniers, `AUD-ARC-01` et `AUD-PRF-04`, et chacun a été rouvert dans le code avant d'être accepté. Il y en avait onze le 9 octobre.
 
@@ -1093,15 +1093,15 @@ SafeWorkspaceFileResolver (morpheus-application/.../files/SafeWorkspaceFileResol
 | **Sprint** | 13 — Couverture et pagination |
 | **Après** | AUD-TST-01 |
 | **Fusionne / issu de** | AUD-TST-07, AUD-QUA-10 |
-| **Vérifié le** | 2026-10-30 sur `11bb1ccf` |
+| **Vérifié le** | 2026-10-30 sur `67964ed2` |
 
-**Constat de vérification** — Passe de TOUJOURS_VALIDE a PARTIEL. L'ecart lui-meme n'a pas bouge d'un centieme, mais il est pour la premiere fois **mesure, nomme classe par classe et borne par un cliquet descendant**. Rendre un travers visible et irreversible n'est pas le corriger ; c'est la condition pour le corriger.
+**Constat de vérification** — Reste PARTIEL, mais le fond du constat a change. `morpheus-application` est testable sans ses voisins : 117 des 118 classes qui n'etaient couvertes que par d'autres modules ont des tests propres, la seule restante l'est par regle, et le credit emprunte est divise par trois sous un maximum abaisse en consequence. L'ecart entre les echelles passe de 13,36 a 4,32 points en lignes. Ce qui manque est le verrou de ce gain sur l'echelle par module : le ratchet `perModuleLineCoverageMinimum` (0,712) et son plafond qualifie (0,714642) restent tres en dessous de la mesure (88,27 %), et la requalification exige une preuve dual-plateforme conservee dans `config/coverage-qualification/`.
 
 ```
-Verifie sur 11bb1ccf. **Les huit chiffres du constat sont inchanges** et l'ecart reste de **20,0195 points**. Ce qui est neuf est le mecanisme : `morpheus-coverage-report/.../BorrowedCoverageGateTest.java` (+649) et `wholly-borrowed-classes.txt` nomment **123 classes** dont la couverture est entierement empruntee a d'autres modules — **89 d'entre elles dans `morpheus-application`** — et deux ratchets descendants (`borrowedLineCreditMaximum=6038`, `borrowedBranchCreditMaximum=1539`) bornent desormais ce credit en valeur absolue. En peripherie : classes de l'application sans test propre 30 -> **25**, et les lignes concernees 1 394 -> **837** ; rapport test/source application 0,46 -> 0,55, domaine 0,38 -> 0,53.
+Verifie sur 67964ed2 (branche claude/sprint-13-final-83a18a), un `./mvnw clean verify` exact-head par plateforme : Windows 10 (JDK 21.0.12) et Linux (WSL Ubuntu, OpenJDK 21), populationModules=16, 29 911 lignes et 10 206 branches. Avant, artefacts `m21-integrity-<OS>` du run 41037568461 (push `develop` 11bb1ccf) : par module 78,4616 % lignes / 67,5289 % branches (Linux), agrege 91,8199 % / 78,2481 %, ecart 13,36 points en lignes et 10,72 en branches ; credit emprunte 3 996 lignes / 1 094 branches (Linux), 3 996 / 1 096 (Windows) ; 123 classes entierement empruntees. Apres : par module 88,2652 % / 75,1029 % (Linux), 88,2953 % / 75,0833 % (Windows) ; agrege 92,5880 % / 80,3743 % (Linux), 92,6148 % / 80,3743 % (Windows) ; ecart 4,32 points en lignes et 5,27 en branches. Credit emprunte 1 293 / 538 (Linux), 1 292 / 540 (Windows) ; `morpheus-application` 2 930 -> 667 lignes empruntees, couvert a 87,4 % par ses propres tests (9 887 / 11 316, Linux) contre 65,7 % ; `morpheus-domain` 341 -> 44. `wholly-borrowed-classes.txt` passe de 123 entrees a 1 : `LocalOperationalRuntime`, qu'aucun test ne peut lire (`StaticOperationalRuntimeUsersArchitectureTest`). `BorrowedCoverageGateTest` qualifie 1 293 / 540 (le plus haut de chaque dimension) et `config/m21-quality-ratchets.properties` baisse les maximums a 1 365 / 573. 57 fichiers de test ajoutes ou etendus dans `morpheus-application`, `morpheus-domain`, `morpheus-store-memory`, `morpheus-integration-minos` et `morpheus-integration-nexus`, sur des doubles de ports ecrits a la main.
 ```
 
-**Ce qui reste** — Ecart de 20,0195 points inchange ; 123 classes a couverture entierement empruntee, dont 89 dans `morpheus-application` ; 25 classes de l'application sans test propre (837 lignes).
+**Ce qui reste** — Ratchets et plafonds par module non requalifies : `perModuleLineCoverageMinimum=0.712` / `perModuleBranchCoverageMinimum=0.625` sous une mesure de 88,27 % / 75,08 %, si bien qu'une regression de 16 points passerait le gate. Ecart residuel de 4,32 points en lignes, credit emprunte 1 293 lignes dont 667 dans `morpheus-application` et 421 dans `morpheus-store-sqlite`. Seuil de non-regression par module non fait.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -1493,21 +1493,19 @@ morpheus-api/src/main/java/com/morpheus/api/MorpheusLocalHttpServerBootstrap.jav
 ### AUD-PRF-05 — Pagination de la recherche de requirements appliquée en mémoire après chargement intégral du snapshot
 | | |
 |---|---|
-| **Statut sur `develop`** | **PARTIEL** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Performance |
 | **Effort** | L |
 | **Sprint** | 13 — Couverture et pagination |
 | **Après** | AUD-ARC-01, AUD-TST-01 |
-| **Vérifié le** | 2026-10-30 sur `11bb1ccf` |
+| **Vérifié le** | 2026-10-30 sur `67964ed2` |
 
-**Constat de vérification** — Passe de TOUJOURS_VALIDE a PARTIEL. Le aller-retour applicatif a disparu et une regle empeche un store livre de revenir en arriere : c'est le gros du cout reseau. Ce qui reste est le cout serveur — un tri et un filtre que le moteur ne peut servir par index — et le garde-fou cense le signaler a ete elargi pour les laisser passer.
+**Constat de vérification** — Passe de PARTIEL a CORRIGE. Les trois restes du 30 octobre sont traites : l'ordre est servi par un index, le garde-fou n'excuse plus aucune forme de page, et le cout du predicat lexical est borne par une decision ecrite plutot que par un index, ARCH-0137 ayant deja ecarte FTS. Le gain est net quand la page n'a pas de critere ; avec un critere, le total evalue encore chaque ligne `CURRENT` du snapshot, ce que la decision assume. Le budget M19 de 1 s reste dans la voie nocturne, hors `clean verify`.
 
 ```
-Verifie sur 11bb1ccf. La pagination est descendue dans SQL : `VersionedRequirementStore.pageCurrentRequirementVersions(...)` existe, `ShippedRequirementStoresPageThemselvesArchitectureTest` force les stores livres a l'implementer, et le `pageSql` SQLite construit la page et le total en **une seule instruction**. Mais l'ordre est une expression `CASE WHEN col >= '8' THEN 0 ELSE 1 END, col`, **qu'aucun index ne sert** ; le predicat lexical reste `instr(morpheus_corpus(...), ?)`, non sargable ; et `SqliteQueryPlanGuardTest` excuse les trois formes **par leur nom**.
+Verifie sur 67964ed2 (branche claude/sprint-13-final-83a18a, `./mvnw clean verify` vert sur Windows et sous Linux WSL). `morpheus-store-sqlite/src/main/resources/db/migration/V024__requirement_page_order_keys.sql` ajoute a `requirement_versions` trois colonnes virtuelles (`requirement_order_key`, `identity_order_key`, `version_order_key` : l'ordre signe de `UUID.compareTo` ecrit en texte de collation binaire) et deux index partiels `CURRENT` (`idx_requirement_versions_current_by_requirement`, `idx_requirement_versions_current_by_identity`) ; `SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION` passe a 24. `SqliteVersionedRequirementStore.pageSql` ordonne par ces cles et ancre la page sur la ligne de son snapshot, trouvee par cle primaire : le planificateur garde l'ordre de la page, le plan ne porte plus ni `USE TEMP B-TREE` ni `SCAN` de table. `SqliteQueryPlanGuardTest` ne porte plus aucune excuse pour les trois formes de page et exige l'index d'ordre dans le plan. Predicat lexical : decision ecrite dans ARCH-0137 (section 8 et Context) - aucun index de recherche, FTS ecarte parce qu'il couvrirait tous les snapshots alors que la dimension selective est le snapshot ; le predicat filtre les lignes `CURRENT` du snapshot atteintes par l'index d'ordre et son cout est borne par leur nombre. Banc local (Windows, 10 000 exigences par snapshot, page de 50, meilleur de 20 executions) : sans critere 33,7 -> 1,3 ms a l'offset 0 et 105,0 -> 3,1 ms a l'offset 5 000 ; par specification 52,7 -> 27,7 ms ; par terme 113,5 -> 89,5 ms. `SqliteRequirementPageTest` prouve l'ordre apres migration d'une base V023 deja peuplee.
 ```
-
-**Ce qui reste** — Ordre par expression `CASE` non servi par index ; predicat lexical `instr(...)` non sargable ; `SqliteQueryPlanGuardTest` excuse les trois formes par nom.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
