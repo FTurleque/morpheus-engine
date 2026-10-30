@@ -45,7 +45,8 @@ class SqliteMigrationChecksumGoldenTest {
             entry(20, "1c84d7951c59d07aaefdc7f6a753b5f31d5f3c8278ee3078027d69bbc753a3ae"),
             entry(21, "b69273860da54cfe5c0dae40cd5ebc74f1de5a2a24e819e2643545384c873da8"),
             entry(22, "d85b7967248a97444ab5bddcd5bf0d53a60e0ecca0078b938f96c5ba69a5b0e2"),
-            entry(23, "5f5b7a4e624bfef1ac1be13e952f85f31afd169527a0be80c3ef7011b7b1d01b"));
+            entry(23, "5f5b7a4e624bfef1ac1be13e952f85f31afd169527a0be80c3ef7011b7b1d01b"),
+            entry(24, "5c4d9327240ddd97a8f13a962427ee9a26dba6ce129c6a5eb30c6b2a220915d5"));
 
     @TempDir
     Path tempDir;

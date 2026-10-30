@@ -371,7 +371,8 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
                     statement.setString(parameter++, term);
                 }
                 statement.setInt(parameter++, limit);
-                statement.setInt(parameter, offset);
+                statement.setInt(parameter++, offset);
+                statement.setString(parameter, snapshotId.toString());
                 return readPage(statement);
             }
         } catch (SQLException exception) {
@@ -396,7 +397,10 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
         }
     }
 
-    /** The empty page is one row carrying the total and no version: its version columns are null. */
+    /**
+     * The empty page is one row carrying the total and no version, its version columns null, or no row at all when
+     * the snapshot has none.
+     */
     private RequirementPage readPage(PreparedStatement statement) throws SQLException {
         try (ResultSet result = statement.executeQuery()) {
             List<RequirementVersionRecord> items = new ArrayList<>();
@@ -412,11 +416,14 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
     }
 
     /**
-     * One statement reads the total and the page, so both describe the same state of the snapshot: the left join
-     * keeps one row carrying the total when the page is empty. Identities are compared the way
-     * {@link java.util.UUID#compareTo} compares them, on signed halves: a text whose first digit is {@code 8} or
-     * above holds a negative most significant half and comes first. The least significant half of an RFC 9562
-     * identity always carries its variant in the top bits, so its text order is already its signed order.
+     * One statement reads the total and the page, so both describe the same state of the snapshot. The page is
+     * left-joined to the row of its snapshot, found by primary key: the join keeps one row carrying the total when
+     * the page is empty, and a snapshot without a row has no requirement, so no row reads as an empty page of none.
+     * That single outer row lets the planner keep the order of the page, which walks an index in its order and stops
+     * after its limit. Its keys are the order {@link java.util.UUID#compareTo} gives the identities, as a text of binary
+     * collation: the virtual columns of {@code V024__requirement_page_order_keys.sql} put a text whose first digit is
+     * {@code 8} or above, a negative most significant half, first. The criteria filter the rows the page walks; the
+     * total evaluates them on every CURRENT row of the snapshot, reached by the same index.
      */
     static String pageSql(boolean bySpecification, int terms, RequirementPageOrder order) {
         StringBuilder filter = new StringBuilder("snapshot_id = ? AND temporal_state = 'CURRENT'");
@@ -428,21 +435,13 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
                     .append("(requirement_key, title, statement), ?) > 0");
         }
         String key = switch (order) {
-            case REQUIREMENT_ID -> "requirement_id";
-            case ENTITY_IDENTITY -> "entity_identity_id";
+            case REQUIREMENT_ID -> "requirement_order_key";
+            case ENTITY_IDENTITY -> "identity_order_key";
         };
-        return "WITH matches AS (SELECT * FROM requirement_versions WHERE " + filter + ") "
-                + "SELECT (SELECT COUNT(*) FROM matches) AS page_total, page.* FROM (SELECT 1) AS anchor "
-                + "LEFT JOIN (SELECT * FROM matches ORDER BY " + signedOrder("", key) + " LIMIT ? OFFSET ?) AS page "
-                + "ON 1 = 1 ORDER BY " + signedOrder("page.", key);
-    }
-
-    private static String signedOrder(String qualifier, String key) {
-        return signed(qualifier + key) + ", " + signed(qualifier + "entity_version_id");
-    }
-
-    private static String signed(String column) {
-        return "CASE WHEN " + column + " >= '8' THEN 0 ELSE 1 END, " + column;
+        return "WITH matches AS NOT MATERIALIZED (SELECT * FROM requirement_versions WHERE " + filter + ") "
+                + "SELECT (SELECT COUNT(*) FROM matches) AS page_total, page.* FROM knowledge_snapshots AS anchor "
+                + "LEFT JOIN (SELECT * FROM matches ORDER BY " + key + ", version_order_key LIMIT ? OFFSET ?) AS page "
+                + "ON 1 = 1 WHERE anchor.id = ? ORDER BY page." + key + ", page.version_order_key";
     }
 
     /**

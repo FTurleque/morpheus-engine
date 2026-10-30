@@ -55,22 +55,18 @@ class SqliteQueryPlanGuardTest {
             "the endpoint index returns links grouped by relation type, so the order by link id sorts the links of one "
                     + "endpoint kept by the filter";
 
-    private static final String REQUIREMENT_PAGE_SORTS_ITS_MATCHES =
-            "the total counts every CURRENT row of the snapshot the criteria keep, so the page orders the matches it "
-                    + "found; no index serves the signed order of an identity";
-
     private static final List<Guarded> GUARDED = List.of(
             Guarded.served("requirement-versions.current", SqliteVersionedRequirementStore.LIST_CURRENT_SQL),
             Guarded.served("requirement-versions.count-current", SqliteVersionedRequirementStore.COUNT_CURRENT_SQL),
-            new Guarded("requirement-versions.page-by-terms",
+            Guarded.searching("requirement-versions.page-by-terms",
                     SqliteVersionedRequirementStore.pageSql(false, 2, RequirementPageOrder.REQUIREMENT_ID),
-                    REQUIREMENT_PAGE_SORTS_ITS_MATCHES, "snapshot_id=?"),
-            new Guarded("requirement-versions.page-of-a-specification",
+                    "idx_requirement_versions_current_by_requirement"),
+            Guarded.searching("requirement-versions.page-of-a-specification",
                     SqliteVersionedRequirementStore.pageSql(true, 0, RequirementPageOrder.REQUIREMENT_ID),
-                    REQUIREMENT_PAGE_SORTS_ITS_MATCHES, "snapshot_id=?"),
-            new Guarded("requirement-versions.page-by-entity-identity",
+                    "idx_requirement_versions_current_by_requirement"),
+            Guarded.searching("requirement-versions.page-by-entity-identity",
                     SqliteVersionedRequirementStore.pageSql(false, 0, RequirementPageOrder.ENTITY_IDENTITY),
-                    REQUIREMENT_PAGE_SORTS_ITS_MATCHES, "snapshot_id=?"),
+                    "idx_requirement_versions_current_by_identity"),
             Guarded.served("requirement-versions.current-bounded", SqliteVersionedRequirementStore.LIST_CURRENT_BOUNDED_SQL),
             Guarded.served("saved-views.list-by-scope", SqliteSavedViewStore.LIST_BY_SCOPE_SQL),
             Guarded.served("saved-views.insert-within-budget", SqliteSavedViewStore.INSERT_WITHIN_BUDGET_SQL),
