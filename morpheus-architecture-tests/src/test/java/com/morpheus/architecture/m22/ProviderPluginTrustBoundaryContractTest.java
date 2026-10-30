@@ -1,6 +1,10 @@
 package com.morpheus.architecture.m22;
 
+import com.morpheus.architecture.ClassesOfASource;
 import com.morpheus.architecture.ProductionSources;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.assignableTo;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.belongToAnyOf;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -15,6 +19,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Locale;
+import java.util.ServiceLoader;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -127,6 +132,15 @@ class ProviderPluginTrustBoundaryContractTest {
                 .toList();
     }
 
+    /**
+     * Discovery stays metadata-only: it reads the plugin directory and the JAR manifests, and nothing else.
+     *
+     * <p>A class loader of any kind, {@code ServiceLoader}, {@code ProcessBuilder} and {@code Process} declare no
+     * compile-time constant, so the rule alone covers them, and it sees a dependency of any kind where the text saw
+     * only {@code new URLClassLoader}, {@code ServiceLoader.load(} and {@code new ProcessBuilder}. Broken before
+     * acceptance, 30/10/2026: a {@code URLClassLoader} field added to {@code ProviderPluginDiscovery} failed the rule,
+     * and so did a {@code ProcessBuilder} one.</p>
+     */
     @Test
     void discoveryStaysMetadataOnly() throws IOException {
         String discovery = read(SDK + "ProviderPluginDiscovery.java");
@@ -137,9 +151,13 @@ class ProviderPluginTrustBoundaryContractTest {
                 "a linked ancestor must be resolved and declared, so the operator sees which tree was scanned");
         assertTrue(discovery.contains("This class never creates a ClassLoader or ServiceLoader"),
                 "the metadata-only contract must stay stated where it is implemented");
-        assertFalse(discovery.contains("new URLClassLoader"), "discovery must never load a class");
-        assertFalse(discovery.contains("ServiceLoader.load("), "discovery must never resolve a service");
-        assertFalse(discovery.contains("new ProcessBuilder"), "discovery must never start a process");
+        noClasses()
+                .that(ClassesOfASource.declaredIn("ProviderPluginDiscovery"))
+                .should().dependOnClassesThat(assignableTo(ClassLoader.class)
+                        .or(belongToAnyOf(ServiceLoader.class, ProcessBuilder.class, Process.class)))
+                .because("discovery reads metadata only: it never loads a class, resolves a service or starts a "
+                        + "process; only the pinned probe runs plugin code")
+                .check(new ClassFileImporter().importPackages("com.morpheus.sdk.provider"));
     }
 
     @Test

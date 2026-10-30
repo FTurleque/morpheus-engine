@@ -78,7 +78,6 @@ class ProductionClassListsArchitectureTest {
             Map.entry("ReflectionAndClassLoadingBoundaryArchitectureTest.REFLECTION", Kind.DEBT_COUNTER),
             Map.entry("RefusalPathTextArchitectureTest.FORBIDDEN", Kind.TABLE_OF_FACTS),
             Map.entry("RefusalPathTextArchitectureTest.KNOWN_REFUSAL_BUILDERS", Kind.TABLE_OF_FACTS),
-            Map.entry("RemoteIdentityDecompositionContractTest.FILESYSTEM_VERBS", Kind.TABLE_OF_FACTS),
             Map.entry("SharedDomainProjectionArchitectureTest.ADAPTER_SHAPES_DIFFERING_FROM_THE_SHARED_ONE", Kind.DEBT_COUNTER),
             Map.entry("SharedDomainProjectionArchitectureTest.SHARED_TYPES", Kind.TABLE_OF_FACTS),
             Map.entry("ShippedRequirementStoresPageThemselvesArchitectureTest.SHIPPED_STORES", Kind.TABLE_OF_FACTS),

@@ -1,5 +1,6 @@
 package com.morpheus.architecture;
 
+import com.morpheus.application.query.SpecificationContextQueryService;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
@@ -8,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.belongToAnyOf;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.simpleNameEndingWith;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -35,7 +37,6 @@ class SpecificationQueryApiServiceArchitectureTest {
         assertTrue(facade.contains("return specificationQueryService.listSpecifications(projectIdValue, pageRequest);"));
         assertTrue(facade.contains("return specificationQueryService.specification(projectIdValue, specificationIdValue);"));
         assertTrue(facade.contains("return specificationQueryService.specificationContext(projectIdValue, specificationIdValue, pageRequest);"));
-        assertFalse(facade.contains("new SpecificationContextQueryService("));
         assertFalse(facade.contains("content.specifications().stream()"));
         assertFalse(facade.contains("activeSpecification(projectId, specificationId)"));
         assertFalse(facade.contains("private Object specification(Specification item)"));
@@ -84,6 +85,26 @@ class SpecificationQueryApiServiceArchitectureTest {
                         .or(simpleNameEndingWith("LocalSourceInventoryScanner")))
                 .because("each API service serves one capability through its own application services; reaching "
                         + "another capability's service brings a second owner for the same answer")
+                .check(PRODUCTION);
+    }
+
+    /**
+     * The facade holds none of the application services that serve the specification queries: {@code
+     * SpecificationContextQueryService}. They are {@code MorpheusSpecificationQueryApiService}'s, and the facade
+     * delegates to it.
+     *
+     * <p>None of these types declares a compile-time constant, so the rule alone covers them, and it sees a dependency
+     * of any kind where the text saw a construction only. Broken before acceptance, 30/10/2026: a {@code
+     * SpecificationContextQueryService} field added to {@code MorpheusApiService} failed this rule.</p>
+     */
+    @Test
+    void theFacadeHoldsNoSpecificationQueryService() {
+        noClasses()
+                .that().haveSimpleName("MorpheusApiService")
+                .should().dependOnClassesThat(belongToAnyOf(
+                        SpecificationContextQueryService.class))
+                .because("the facade delegates the specification queries to MorpheusSpecificationQueryApiService; "
+                        + "a service of its own would answer beside that owner")
                 .check(PRODUCTION);
     }
 }

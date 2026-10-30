@@ -1,12 +1,16 @@
 package com.morpheus.architecture;
 
+import com.sun.net.httpserver.HttpServer;
+import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.domain.JavaMethodCall;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.concurrent.Executors;
 
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.simpleNameContaining;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
@@ -19,17 +23,23 @@ class RemoteHttpServerBootstrapArchitectureTest {
             .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
             .importPackages("com.morpheus.api");
 
+    /** The calls that create a JDK server or the executor serving it: the bootstrap's, never the server's. */
+    private static final DescribedPredicate<JavaMethodCall> STARTS_A_SERVER_OR_ITS_EXECUTOR =
+            DescribedPredicate.describe(
+            "creates a JDK HTTP server or an executor",
+            call -> call.getTargetOwner().getName().equals(Executors.class.getName())
+                    || call.getName().equals("create") && call.getTargetOwner().isAssignableTo(HttpServer.class)
+                    || call.getName().equals("startRemote")
+                    && call.getTargetOwner().getName().equals("com.morpheus.api.local.MorpheusHttpServer"));
+
     @Test
     void remoteServerKeepsRequestPolicyWhileBootstrapOwnsTlsAndRuntimeStartup() throws IOException {
         String server = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServer"));
         String bootstrap = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServerBootstrap"));
 
         assertTrue(server.contains("return MorpheusRemoteHttpServerBootstrap.start("));
-        assertFalse(server.contains("HttpsServer.create("));
-        assertFalse(server.contains("Executors.newVirtualThreadPerTaskExecutor()"));
         assertFalse(server.contains("acquireServerLease("));
         assertFalse(server.contains("MorpheusInternalCapability.generate()"));
-        assertFalse(server.contains("MorpheusHttpServer.startRemote("));
         assertFalse(server.contains("buildSslContext("));
         assertFalse(server.contains("requireHost("));
 
@@ -107,8 +117,11 @@ class RemoteHttpServerBootstrapArchitectureTest {
      * {@code HttpsConfigurator}, {@code SSLContext}, {@code LocalWritePermissionHardener},
      * {@code SafeWorkspaceFileResolver}, as the text ban it replaces matched the name.
      *
+     * <p>The server creates neither the JDK server, nor its executor, nor the local upstream it proxies to.</p>
+     *
      * <p>None of these types declares a compile-time constant, so the rule alone covers them. Broken before acceptance,
-     * 30/10/2026: a {@code HttpsConfigurator} field added to {@code MorpheusRemoteHttpServer} failed this rule.</p>
+     * 30/10/2026: a {@code HttpsConfigurator} field added to {@code MorpheusRemoteHttpServer} failed this rule, and so
+     * did an {@code HttpsServer.create} call added to it.</p>
      */
     @Test
     void theRemoteServerLeavesTlsAndItsFilesToTheBootstrap() {
@@ -118,6 +131,7 @@ class RemoteHttpServerBootstrapArchitectureTest {
                         .or(simpleNameContaining("SSLContext"))
                         .or(simpleNameContaining("LocalWritePermissionHardener"))
                         .or(simpleNameContaining("SafeWorkspaceFileResolver")))
+                .orShould().callMethodWhere(STARTS_A_SERVER_OR_ITS_EXECUTOR)
                 .because("TLS set-up and file hardening happen once, at start-up, in the bootstrap; the server serves "
                 + "requests")
                 .check(PRODUCTION);

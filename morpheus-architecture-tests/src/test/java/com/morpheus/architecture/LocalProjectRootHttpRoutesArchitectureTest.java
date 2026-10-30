@@ -50,7 +50,6 @@ class LocalProjectRootHttpRoutesArchitectureTest {
     }
 
     private void assertProjectRootRoutesDoNotLeakSharedHttpInfrastructure(String routes) {
-        assertFalse(routes.contains("com.sun.net.httpserver.HttpServer"));
         assertFalse(routes.contains("routeSync"));
         assertFalse(routes.contains("sync-status"));
     }
