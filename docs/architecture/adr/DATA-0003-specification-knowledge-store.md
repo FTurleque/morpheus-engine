@@ -67,7 +67,7 @@ les providers. Il n'a pas à offrir les performances d'un backend de production,
 fonctionnelle pour les opérations couvertes. Le backend persistant est SQLite (ADR-0018).
 
 **Qui dépend d'un store concret.** Aucune classe de `morpheus-application` ni de `morpheus-domain` ne dépend d'un
-store concret. Dans `morpheus-api` et `morpheus-mcp`, seules les racines de composition nommées d'ADR-0152 construisent
+store concret. Dans `morpheus-api` et `morpheus-mcp`, seules les racines de composition nommées d'ADR-0156 construisent
 le runtime d'une requête à partir de `morpheus-store-sqlite`. La CLI est la racine de composition du processus :
 `CliRuntime` et les classes de câblage de `morpheus-cli` construisent les stores concrets. Les stores d'une opération
 sont construits par `SqliteOperationRuntime`, sur les trois transports.
@@ -79,7 +79,7 @@ sont construits par `SqliteOperationRuntime`, sur les trois transports.
 - Ajouter toute nouvelle capacité de persistance comme port dans `com.morpheus.application.store`, défini depuis un
   cas d'usage.
 - Implémenter chaque port dans `morpheus-store-memory` et dans `morpheus-store-sqlite`, avec la même sémantique.
-- Construire les stores concrets dans une racine de composition : la CLI, ou une racine nommée d'ADR-0152.
+- Construire les stores concrets dans une racine de composition : la CLI, ou une racine nommée d'ADR-0156.
 
 ### Don't
 
@@ -87,7 +87,7 @@ sont construits par `SqliteOperationRuntime`, sur les trois transports.
   identifiant physique du backend.
 - Ne pas faire dépendre `morpheus-domain` ni `morpheus-application` d'un paquet `com.morpheus.store..`.
 - Ne pas construire de store concret dans une classe de `morpheus-api` ou de `morpheus-mcp` hors des racines nommées
-  d'ADR-0152.
+  d'ADR-0156.
 - Ne pas offrir une API générique `query(String)` à la place d'une capacité explicite.
 
 ## Consequences
@@ -131,6 +131,6 @@ sont construits par `SqliteOperationRuntime`, sur les trois transports.
 
 - [ADR-0135](ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — domaine possédé par MORPHEUS.
 - [ADR-0018](DATA-0018-sqlite-initial-persistent-store.md) — SQLite comme backend persistant.
-- [ADR-0152](ARCH-0152-racines-de-composition-nommees-et-cycles-de-paquets-qui-ne-font-que-diminuer.md) — racines de composition nommées.
+- [ADR-0156](ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md) — racines de composition nommées.
 - [ADR-0114](BE-0114-database-work-runs-on-a-bounded-pool-of-platform-threads.md) — travail sur la base.
 - [Validation M0](../../project/validation/VALIDATION_M0.md)

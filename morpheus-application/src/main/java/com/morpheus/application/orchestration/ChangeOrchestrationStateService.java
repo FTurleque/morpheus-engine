@@ -1,6 +1,6 @@
 package com.morpheus.application.orchestration;
 
-import com.morpheus.application.lifecycle.ChangeLifecyclePolicy;
+import com.morpheus.domain.change.lifecycle.ChangeLifecyclePolicy;
 import com.morpheus.application.quality.ChangeCompletenessAssessment;
 import com.morpheus.application.quality.ChangeCompletenessService;
 import com.morpheus.application.quality.ChangeLifecycleFactAssessment;
@@ -21,7 +21,6 @@ import com.morpheus.domain.constraint.Constraint;
 import com.morpheus.domain.evidence.EvidenceId;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.reference.ExternalReference;
-import com.morpheus.domain.reference.ExternalReferenceResolutionState;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 import com.morpheus.domain.traceability.TraceabilityEntityKind;
 import com.morpheus.domain.traceability.TraceabilityEntityRef;
@@ -185,7 +184,7 @@ public final class ChangeOrchestrationStateService {
                 .forEach(result::add);
 
         externalReferenceStore.findByOwner(snapshot.id(), changeId.value()).stream()
-                .filter(reference -> reference.resolutionState() != ExternalReferenceResolutionState.RESOLVED)
+                .filter(reference -> !reference.isResolved())
                 .map(this::externalReference)
                 .forEach(result::add);
 

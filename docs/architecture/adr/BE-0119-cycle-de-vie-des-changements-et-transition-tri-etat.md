@@ -82,11 +82,11 @@ cycle de vie.
 
 ### Machine d'état
 
-`ChangeLifecycleStateMachine` (paquet `com.morpheus.application.lifecycle`) répond à « la transition est-elle
-possible ? » et « pourquoi est-elle bloquée ? » à partir d'une `ChangeLifecycleTransitionRequest` : cycle source, état
-cible, `ChangeLifecycleFacts`, `ChangeLifecyclePolicy` et raison d'abandon éventuelle. Elle rend une
-`ChangeLifecycleTransitionDecision` autorisée, ou bloquée avec des `ChangeLifecycleBlocker` nommés. Elle ne modifie
-aucune source et n'est pas un orchestrateur.
+`ChangeLifecycleTransitionRequest.decide()` (paquet `com.morpheus.domain.change.lifecycle`) répond à « la transition
+est-elle possible ? » et « pourquoi est-elle bloquée ? » à partir de la demande : cycle source, état cible,
+`ChangeLifecycleFacts`, `ChangeLifecyclePolicy` et raison d'abandon éventuelle. Elle rend une
+`ChangeLifecycleTransitionDecision`, famille scellée : `Allowed` vers un cycle cible, ou `Blocked` avec des
+`ChangeLifecycleBlocker` nommés. Elle ne modifie aucune source et n'est pas un orchestrateur.
 
 Préconditions des transitions nominales :
 
@@ -142,8 +142,8 @@ Les raisons d'abandon source et cible sont transmises séparément par l'appelan
 | `UNKNOWN` | au moins un fait requis vaut `UNAVAILABLE`, ou la sémantique bloquante d'une contrainte est inconnue |
 | `REQUIRES_INPUT` | une information que l'appelant doit fournir manque, comme la raison d'un abandon |
 
-Quand tous les faits requis sont connus, la décision délègue à `ChangeLifecycleStateMachine` au lieu de dupliquer ses
-règles. `UNAVAILABLE` n'est jamais converti en `false` et `UNKNOWN` n'est jamais converti en `BLOCKED` ni en `ALLOWED`.
+Quand tous les faits requis sont connus, la décision délègue à `ChangeLifecycleTransitionRequest.decide()` au lieu de dupliquer
+ses règles. `UNAVAILABLE` n'est jamais converti en `false` et `UNKNOWN` n'est jamais converti en `BLOCKED` ni en `ALLOWED`.
 La sémantique des contraintes bloquantes relève d'ADR-0082 ; les faits de complétude, d'ADR-0124. L'évaluation ne
 persiste rien. Une écriture de transition passe par le chemin contrôlé d'ADR-0083 : une décision `ALLOWED` ne vaut
 jamais mutation, et une mutation n'est tenue pour réussie que confirmée par la source ou une preuve adaptée.
@@ -165,7 +165,7 @@ l'appelant. Les champs de la vue et leur comportement sont spécifiés par
 
 - Exprimer tout état de cycle de vie par une des dix valeurs de `ChangeLifecycleState`.
 - Exiger une `ChangeAbandonmentReason` pour `ABANDONED`, et la refuser pour tout autre état.
-- Faire passer toute décision de transition par `ChangeLifecycleStateMachine`.
+- Faire passer toute décision de transition par `ChangeLifecycleTransitionRequest.decide()`.
 - Nommer chaque blocage par un `ChangeLifecycleBlocker`.
 - Activer explicitement `allowBackwardTransitions`, et `allowCompletedReopen` pour rouvrir un changement terminé.
 - Rendre `UNKNOWN` dès qu'un fait requis ou la sémantique d'une contrainte est indisponible.
@@ -211,7 +211,7 @@ l'appelant. Les champs de la vue et leur comportement sont spécifiés par
 
 - `morpheus-domain/src/test/java/com/morpheus/domain/change/lifecycle/ChangeLifecycleTest.java` : exactement dix
   états, raison d'abandon exigée pour `ABANDONED` et refusée ailleurs, identité logique stable.
-- `morpheus-application/src/test/java/com/morpheus/application/lifecycle/ChangeLifecycleStateMachineTest.java` : cycle
+- `morpheus-domain/src/test/java/com/morpheus/domain/change/lifecycle/ChangeLifecycleTransitionRequestTest.java` : cycle
   nominal, préconditions, design facultatif, bloqueur connu, critères bloquants, retours arrière gouvernés par
   politique, réouverture exceptionnelle, abandon avec raison, réouverture depuis `ABANDONED`, `ARCHIVED` jamais rouvert,
   `TemporalState` non promu par `COMPLETED` ni par une tâche terminée.

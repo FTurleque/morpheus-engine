@@ -76,7 +76,7 @@ that names the transport's package.
 
 ### Requirement: The rule page and the decision record SHALL name the package the rule judges
 
-The repository rule on the transport and ADR-0152 MUST name the transport's package as the sources declare it.
+The repository rule on the transport and ADR-0156 MUST name the transport's package as the sources declare it.
 
 #### Scenario: A reader looking for the transport finds it
 

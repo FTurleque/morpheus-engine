@@ -205,10 +205,10 @@ est son POM. Les familles que `AdapterSiblingArchitectureTest` juge sont déclar
 règles.
 > `AdapterSiblingArchitectureTest#theProviderSdkDependsOnNoAdapter`, `#noProviderSdkSourceNamesAnAdapterPackage`, `#everyDeclaredSubjectIsTheSubjectOfARuleAndNoOther`
 
-### `api` / `mcp` → stores et providers concrets : seulement par les racines nommées (ADR-0152)
+### `api` / `mcp` → stores et providers concrets : seulement par les racines nommées (ADR-0156)
 Les serveurs HTTP et MCP construisent le runtime de chaque requête à partir de `store-sqlite` (et le provider OpenSpec
 pour la synchronisation HTTP). Seules les classes de `AdapterCompositionRootArchitectureTest.COMPOSITION_ROOTS` y ont
-droit ; la liste est exactement l'ensemble mesuré et ne fait que rétrécir. En ajouter une exige de remplacer ADR-0152 par un ADR consolidé qui la nomme.
+droit ; la liste est exactement l'ensemble mesuré et ne fait que rétrécir. En ajouter une exige de remplacer ADR-0156 par un ADR consolidé qui la nomme.
 > `onlyTheNamedCompositionRootsReachAConcreteStoreOrProvider`, `everyNamedCompositionRootStillReachesAConcreteStoreOrProvider`
 
 Les stores d'une opération sont construits par **une seule classe**, `SqliteOperationRuntime`, qui ouvre la
@@ -217,7 +217,7 @@ transports. Chaque transport a **un** type de runtime qui l'enveloppe (`ApiRunti
 et ne rend que des ports de l'application — c'est ce qui garde les services hors de `COMPOSITION_ROOTS`. Une autre
 classe qui construit un store est refusée, sauf si elle est **nommée** dans `SqliteConnectionScopeUseArchitectureTest`
 avec son opération à store unique ; le texte (sans commentaires, ouverture avant la première construction) et le
-bytecode (appel de `SqliteConnectionScope.open`, pas une simple dépendance) le tiennent (ADR-0152).
+bytecode (appel de `SqliteConnectionScope.open`, pas une simple dépendance) le tiennent (ADR-0156).
 
 ### `store-sqlite` : `adapter` et `runtime`, et le runtime reste interne
 `com.morpheus.store.sqlite.adapter` ne contient que des implémentations de ports de l'application, plus les deux
@@ -261,24 +261,27 @@ l'interdire le nomme (`com.morpheus.transport..`).
 
 ### Les paquets du domaine sont sans cycle, à deux exceptions nommées
 `ProviderProbeResult → SourceLocator` et `RequirementDelta → Scenario`, nommées par la paire de types exacte ; tout
-autre cycle échoue (ADR-0152).
+autre cycle échoue (ADR-0156).
 > `domainPackagesAreFreeOfCyclesBesideTheTwoNamedOnes`
 
-### Les cycles de paquets de l'application ne font que diminuer
-Les dépendances entre tranches de premier niveau de `com.morpheus.application` qui appartiennent à un cycle sont
-exactement `ApplicationPackageCyclesArchitectureTest.DEPENDENCIES_ON_A_CYCLE`, et les composantes fortement connexes
-exactement `CYCLIC_COMPONENTS` : lire ces deux listes, pas un compte recopié ici. Une dépendance qui ferme ou étend un
-cycle échoue sous son nom, un nom qui n'est plus sur un cycle échoue jusqu'à son retrait, et aucun nombre de cycles
-n'est un seuil (ADR-0152). `application.store` ne participe à aucun cycle : un port se déclare dans le paquet de la
-capacité dont il emploie les types (`PolicyPackStore` dans `policy`, `SavedViewStore` dans `query.saved`,
-`SyncStateStore` dans `sync`).
-> `noDependencyBetweenApplicationPackagesLiesOnACycleBesideTheNamedOnes`, `everyNamedDependencyStillLiesOnACycle`, `theStorePortsPackageTakesPartInNoCycle`
+### Les paquets de l'application sont sans cycle
+`slices().matching("com.morpheus.application.(*)..").should().beFreeOfCycles()`, sans liste d'exceptions (ADR-0156).
+Un type employé par deux paquets vit dans le plus bas des deux, ou dans le domaine s'il ne parle que du domaine ; un
+port se déclare dans le paquet de la capacité dont il emploie les types (`PolicyPackStore` dans `policy`,
+`SavedViewStore` dans `query.saved`, `SyncStateStore` dans `sync`). La règle tranche au premier niveau : `query.dsl` et
+`query.saved` sont une seule tranche.
+> `theApplicationPackagesAreFreeOfCycles`, `theCycleRuleSeesEveryFirstLevelPackageOfTheApplicationSources`, `theCycleRuleRefusesTwoPackagesThatDependOnEachOther`
 
 ### Une décision sur une seule valeur du domaine est écrite sur son type
 Le blocage d'une contrainte (`Constraint.evaluateFor`, `hasKnownBlocking`, `isViolatedExplicitBlockingPolicy`) est
 décidé par le domaine ; aucune classe de l'application ne lit une constante de `ConstraintApplicability`,
 `ConstraintBlockingMode` ou `ConstraintSatisfaction`, `switch` compris (ADR-0082).
-> `ConstraintDecisionInTheDomainArchitectureTest#noApplicationClassReadsAConstantOfAConstraintsBlockingInputs`
+La transition d'un cycle de vie est décidée par `ChangeLifecycleTransitionRequest.decide()`, dont le résultat est la
+famille scellée `ChangeLifecycleTransitionDecision` (`Allowed`, `Blocked`) : aucune classe de l'application ne lit une
+constante de `ChangeLifecycleBlocker`, et seul le domaine construit une décision. L'état de résolution d'une référence
+externe est déplacé par `ExternalReference` (`resolvedAs`, `withoutResolver`, `notFound`) : aucune classe hors du
+domaine n'appelle `ExternalReference.transition` (ADR-0156). Ces règles n'ont aucune exception.
+> `ConstraintDecisionInTheDomainArchitectureTest#noApplicationClassReadsAConstantOfAConstraintsBlockingInputs`, `LifecycleTransitionDecisionInTheDomainArchitectureTest`
 
 ### Pas de framework, pas de magie
 Aucune classe du produit ne dépend d'un framework d'injection (Spring, Quarkus, Micronaut, Guice, CDI) ni d'une
@@ -291,7 +294,7 @@ Les listes sont exactes et ne font que rétrécir : les lire dans `ReflectionAnd
 Dans les deux, la règle sur le bytecode est doublée d'un scan du texte des sources : un type qui ne fait que typer une
 lambda reste dans le descripteur `invokedynamic`, où le bytecode ne le voit pas. Un accesseur de
 `java.lang.Class` (`getName`, `getSimpleName`, `getClassLoader`) n'est pas de la réflexion au sens de ces règles.
-Le câblage est explicite : dans `MorpheusMain` pour le processus, dans les racines de composition nommées d'ADR-0152
+Le câblage est explicite : dans `MorpheusMain` pour le processus, dans les racines de composition nommées d'ADR-0156
 pour le runtime de chaque requête HTTP ou appel MCP.
 > `reflectionIsReachedOnlyByTheClassesNamedForIt`, `serviceAndClassLoadingAreReachedOnlyByTheClassesNamedForThem`, `everyNamedClassStillReachesItsFamily`, `noProductClassDependsOnAnInjectionFramework`
 

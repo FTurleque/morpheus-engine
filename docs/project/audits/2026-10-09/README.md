@@ -8,6 +8,22 @@
 
 ---
 
+## État au 30 octobre 2026 — sprint 11 soldé
+
+Sur `c8ec9e4e` (branche `claude/sprint-11-final-9391a2`, base `11bb1ccf`), `AUD-ARC-03` et `AUD-ARC-13` passent de
+*partiel* à **corrigé**. Les paquets de premier niveau de `morpheus-application` n'ont plus aucun cycle : 21 dépendances
+sur un cycle et deux composantes avant, aucune après, par quatre déplacements de types vers le paquet le plus bas qui
+les emploie ou vers le domaine. La règle est `beFreeOfCycles()` sans liste d'exceptions (ADR-0156, qui remplace
+ADR-0152). La transition d'un cycle de vie et l'état de résolution d'une référence externe sont décidés sur leur type
+du domaine, sous des règles sans exception, et le domaine porte sa première famille scellée
+(`ChangeLifecycleTransitionDecision`). Domaine : 65 records, 26 enums, 1 interface scellée, 3 059 lignes ; rapport de
+lignes application/domaine 8,42× (9,69× sur `11bb1ccf`).
+
+**120 constats : 71 corrigés · 7 partiels · 15 toujours valides · 4 caducs · 22 Info qui tiennent · 1 non
+vérifiable.** Les **22 constats actifs** sont 13 `Moyenne` et 9 `Faible`. Architecture **89** (84), moyenne **85**
+(84) ; les cinq autres axes sont inchangés. Le plan du 9 octobre garde 4 constats, dans les sprints 12 à 14 ; charge
+restante estimée : **19,75 à 59 jours**.
+
 ## État au 30 octobre 2026 — la vague ne déplace pas la note
 
 Revérification sur `11bb1ccf` (`origin/develop`, PR #588), soit **65 commits et 346 fichiers** (+11 611 / −1 895)

@@ -1,4 +1,4 @@
-package com.morpheus.application.lifecycle;
+package com.morpheus.domain.change.lifecycle;
 
 /** Explicit policy for lifecycle revisions; no backward transition is implicit. */
 public record ChangeLifecyclePolicy(

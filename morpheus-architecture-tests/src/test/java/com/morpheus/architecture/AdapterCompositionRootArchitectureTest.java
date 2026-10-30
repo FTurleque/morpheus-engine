@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * The HTTP and MCP adapters are composition roots of their own runtime, through a named set of classes that may only
- * shrink (ADR-0152).
+ * shrink (ADR-0156).
  *
  * <p>Measured with ArchUnit on 8 October 2026: 32 classes of {@code com.morpheus.api} and {@code com.morpheus.mcp}
  * depend directly on {@code com.morpheus.store..} or {@code com.morpheus.provider..}. They are the named roots below.
@@ -40,7 +40,7 @@ class AdapterCompositionRootArchitectureTest {
     private static final String[] TRANSPORT_ADAPTERS = {"com.morpheus.api..", "com.morpheus.mcp.."};
     private static final String[] CONCRETE_ADAPTERS = {"com.morpheus.store..", "com.morpheus.provider.."};
 
-    /** The classes allowed to build a runtime from concrete stores and providers (ADR-0152, decision 1). */
+    /** The classes allowed to build a runtime from concrete stores and providers (ADR-0156, decision 1). */
     static final Set<String> COMPOSITION_ROOTS = Set.of(
             "com.morpheus.api.ApiRuntime",
             "com.morpheus.api.MorpheusProjectSyncApiService",
@@ -58,7 +58,7 @@ class AdapterCompositionRootArchitectureTest {
                 .that().resideInAnyPackage(TRANSPORT_ADAPTERS)
                 .and(DescribedPredicate.not(namedCompositionRoot()))
                 .should().dependOnClassesThat().resideInAnyPackage(CONCRETE_ADAPTERS)
-                .because("only the composition roots named by ADR-0152 may build a runtime from a concrete store or "
+                .because("only the composition roots named by ADR-0156 may build a runtime from a concrete store or "
                         + "provider; every other transport class depends on application ports")
                 .check(classes);
     }
@@ -77,7 +77,7 @@ class AdapterCompositionRootArchitectureTest {
                 .should().dependOnClassesThat(resideInAPackage("com.morpheus..")
                         .and(resideOutsideOfPackage("com.morpheus.transport.mcp..")))
                 .because("the bounded STDIO transport is shared by the MCP server and the MINOS and NEXUS clients and "
-                        + "knows no MORPHEUS type (ADR-0152, decision 3)")
+                        + "knows no MORPHEUS type (ADR-0156, decision 3)")
                 .check(classes);
     }
 
@@ -98,7 +98,7 @@ class AdapterCompositionRootArchitectureTest {
                 .ignoreDependency(
                         JavaClass.Predicates.type(RequirementDelta.class),
                         JavaClass.Predicates.type(Scenario.class))
-                .because("domain packages form no cycle beside the two named by ADR-0152, decision 4")
+                .because("domain packages form no cycle beside the two named by ADR-0156, decision 4")
                 .check(classes);
     }
 
@@ -114,7 +114,7 @@ class AdapterCompositionRootArchitectureTest {
     }
 
     private static DescribedPredicate<JavaClass> namedCompositionRoot() {
-        return DescribedPredicate.describe("a composition root named by ADR-0152",
+        return DescribedPredicate.describe("a composition root named by ADR-0156",
                 javaClass -> COMPOSITION_ROOTS.contains(topLevelName(javaClass)));
     }
 

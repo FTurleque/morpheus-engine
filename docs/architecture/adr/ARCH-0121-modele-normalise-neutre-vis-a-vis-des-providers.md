@@ -185,7 +185,7 @@ Un provider compose des lecteurs séparés plutôt qu'un parser monolithique. Po
 
 ## Compliance and Enforcement
 
-- `morpheus-application/src/test/java/com/morpheus/application/ingestion/NormalizedProjectContentTest.java` : rejets
+- `morpheus-application/src/test/java/com/morpheus/application/read/NormalizedProjectContentTest.java` : rejets
   d'une sous-entité, d'un delta ou d'un scénario vers une entité inconnue et d'une provenance vers une preuve absente ;
   acceptation d'un `MODIFIED` qui partage l'identité logique de sa baseline.
 - Constructeurs compacts de `NormalizedProjectContent` et `RequirementDelta` : énoncé exigé hors `REMOVED`, scénarios

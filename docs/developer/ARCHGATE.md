@@ -27,7 +27,7 @@ Quand une règle Archgate et un test divergent, le test a raison et la règle se
 docs/architecture/
   rules.d.ts                 généré dans le parent du dossier d'ADR, ignoré par Git
   adr/
-    {ID}-{slug}.md           ADR en vigueur, {ID} = préfixe du domaine + numéro (ARCH-0152)
+    {ID}-{slug}.md           ADR en vigueur, {ID} = préfixe du domaine + numéro (ARCH-0156)
     {ID}-{slug}.rules.ts     règle compagnon, quand l'en-tête de l'ADR porte rules: true
     README.md                index ; sans en-tête, Archgate le signale comme non lu
     archive/                 ADR retirés, avec leur bandeau ; non lu par Archgate

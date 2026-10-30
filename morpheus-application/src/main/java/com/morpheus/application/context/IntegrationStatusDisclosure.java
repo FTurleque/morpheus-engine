@@ -1,7 +1,6 @@
-package com.morpheus.application.security;
+package com.morpheus.application.context;
 
-import com.morpheus.application.context.AugmentedContextResult;
-import com.morpheus.application.context.TechnicalContextObservation;
+import com.morpheus.application.security.ServerLocationDisclosure;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
 
 import java.util.LinkedHashMap;

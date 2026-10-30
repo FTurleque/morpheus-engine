@@ -41,7 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ApplicationTechnologyBoundaryArchitectureTest {
     private static final String APPLICATION = "com.morpheus.application";
 
-    private static final String HARDENER = APPLICATION + ".security.LocalWritePermissionHardener";
+    private static final String HARDENER = APPLICATION + ".files.LocalWritePermissionHardener";
     private static final String ROTATING_LOG = APPLICATION + ".operability.RotatingOperationalLogFile";
     private static final String PEER_SETTINGS = APPLICATION + ".security.PeerLaunchSettingsResolver";
     private static final Set<String> REFLECTION_AND_LOADING = Set.of(

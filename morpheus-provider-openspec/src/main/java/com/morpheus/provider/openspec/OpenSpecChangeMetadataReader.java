@@ -3,7 +3,7 @@ package com.morpheus.provider.openspec;
 import com.morpheus.application.foundation.StableKey;
 import com.morpheus.application.foundation.TextDigest;
 import com.morpheus.application.identity.EntityIdentityResolver;
-import com.morpheus.application.ingestion.NormalizedProjectContent;
+import com.morpheus.application.read.NormalizedProjectContent;
 import com.morpheus.application.read.ProviderIngestionBudget;
 import com.morpheus.application.read.ProviderProjectRoot;
 import com.morpheus.domain.change.ChangeId;

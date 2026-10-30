@@ -83,7 +83,7 @@ Les onze classes d'accès fichier (2 424 lignes) :
   dépendance : ils refusent une mention, et interdisent `com.morpheus.application.store`,
   `com.morpheus.application.lifecycle.mutation`, `ScriptEngine`, `SELECT * FROM`, `executeQuery(`. SQL étant refusé,
   le runtime SQLite d'une opération ne peut pas entrer dans l'application ; le choix entre tenir son type dans les
-  racines de composition des transports ou un port de l'application qui le masque reste celui d'ADR-0152. Coût de C :
+  racines de composition des transports ou un port de l'application qui le masque reste celui d'ADR-0156. Coût de C :
   celui de B, plus une extraction dans un seul service. Retenu.
 
 ### Le résolveur des réglages de lancement des pairs MCP
@@ -134,7 +134,7 @@ Ils refusent aussi une mention, et davantage qu'une famille.
 
 ### 4. Le runtime SQLite reste hors de l'application
 
-Ce qu'un transport tient de `SqliteOperationRuntime` et `SqliteServerMaintenance` relève d'ADR-0152.
+Ce qu'un transport tient de `SqliteOperationRuntime` et `SqliteServerMaintenance` relève d'ADR-0156.
 
 ## Do's and Don'ts
 
@@ -161,7 +161,7 @@ Ce qu'un transport tient de `SqliteOperationRuntime` et `SqliteServerMaintenance
   existe, pas sur ce qui s'ajoute pendant qu'elle est en attente.
 - La lecture du manifeste de mise à jour passe derrière un port, ce qui rend la découverte testable sans client HTTP
   et range le transport dans le module qui possède le processus.
-- Les listes nommées sont le compteur d'une éventuelle option A, comme `COMPOSITION_ROOTS` l'est pour ADR-0152.
+- Les listes nommées sont le compteur d'une éventuelle option A, comme `COMPOSITION_ROOTS` l'est pour ADR-0156.
 
 ### Négatives
 
@@ -184,7 +184,7 @@ Ce qu'un transport tient de `SqliteOperationRuntime` et `SqliteServerMaintenance
   sens), `aPathUsedAsAValueIsNotAnAccess` (le vocabulaire).
 - Décision 4 : la famille SQL de `aFamilyTheApplicationDoesNotUseIsRefusedInEveryPackage` interdit le runtime SQLite
   dans l'application ; ce que les transports en tiennent est tenu par `AdapterCompositionRootArchitectureTest` et
-  `SqliteStorePackagesArchitectureTest` (ADR-0152).
+  `SqliteStorePackagesArchitectureTest` (ADR-0156).
 - `m27/ReasoningPlatformArchitectureTest` et `m25/PolicyPlatformArchitectureTest` : interdits textuels inchangés.
 - `LayerDependencyTest` : l'application ne dépend d'aucun adaptateur.
 - Découverte de mise à jour : `UpdateTrustBoundaryContractTest` et `AuditHardeningWorkflowContractTest` lisent la
@@ -198,7 +198,7 @@ Ce qu'un transport tient de `SqliteOperationRuntime` et `SqliteServerMaintenance
 
 ## References
 
-- [ADR-0152](ARCH-0152-racines-de-composition-nommees-et-cycles-de-paquets-qui-ne-font-que-diminuer.md) — racines de composition nommées des
+- [ADR-0156](ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md) — racines de composition nommées des
   transports.
 - [ADR-0147](ARCH-0147-un-role-d-adaptateur-est-un-paquet.md) — rôles de l'adaptateur HTTP en paquets.
 - [ADR-0154](GEN-0154-deux-echelles-de-couverture-et-le-credit-emprunte.md) — population de couverture.

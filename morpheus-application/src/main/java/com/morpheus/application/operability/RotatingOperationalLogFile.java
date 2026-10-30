@@ -1,7 +1,7 @@
 package com.morpheus.application.operability;
 
-import com.morpheus.application.security.LocalWritePermissionHardener;
-import com.morpheus.application.security.LocalWritePermissionHardener.LocalWritePermissionException;
+import com.morpheus.application.files.LocalWritePermissionHardener;
+import com.morpheus.application.files.LocalWritePermissionHardener.LocalWritePermissionException;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

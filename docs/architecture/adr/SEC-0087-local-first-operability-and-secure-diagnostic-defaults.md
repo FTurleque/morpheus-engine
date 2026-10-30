@@ -103,7 +103,7 @@ MORPHEUS operability != JARVIS orchestration
   redaction des chemins sur les formes Windows, UNC et POSIX.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m19/LocalOperabilityContractTest.java` :
   liveness et readiness distincts, readiness qui sonde réellement le store local.
-- `morpheus-application/src/test/java/com/morpheus/application/security/LocalWritePermissionHardenerTest.java` :
+- `morpheus-application/src/test/java/com/morpheus/application/files/LocalWritePermissionHardenerTest.java` :
   durcissement owner-only là où le système de fichiers le permet, refus d'une cible symbolique.
 - `LocalSourceInventorySecurityTest`, `IntermediateSymlinkBoundaryTest`, `ScanWorkspaceBoundaryTest`
   (`morpheus-application`) : répertoires générés et de métadonnées ignorés, liens symboliques non suivis, racine
