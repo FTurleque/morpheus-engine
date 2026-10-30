@@ -200,7 +200,7 @@ Ce qu'un transport tient de `SqliteOperationRuntime` et `SqliteServerMaintenance
 
 - [ADR-0152](ARCH-0152-racines-de-composition-nommees-et-cycles-de-paquets-qui-ne-font-que-diminuer.md) — racines de composition nommées des
   transports.
-- [ADR-0147](ARCH-0147-un-role-d-adaptateur-est-un-paquet.md) — rôles de l'adaptateur HTTP en paquets.
+- [ADR-0155](ARCH-0155-un-role-est-un-paquet-et-une-liste-de-classes-declare-sa-sorte.md) — rôles de l'adaptateur HTTP en paquets.
 - [ADR-0154](GEN-0154-deux-echelles-de-couverture-et-le-credit-emprunte.md) — population de couverture.
 - [ADR-0004](SEC-0004-local-first-no-llm-core.md) — cœur local-first.
 - [ADR-0128](ARCH-0128-pairs-minos-et-nexus-par-mcp-stdio.md) — pairs MINOS et NEXUS, lanceur en chemin absolu.

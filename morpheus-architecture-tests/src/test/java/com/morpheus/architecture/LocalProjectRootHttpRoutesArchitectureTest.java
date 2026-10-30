@@ -51,11 +51,6 @@ class LocalProjectRootHttpRoutesArchitectureTest {
 
     private void assertProjectRootRoutesDoNotLeakSharedHttpInfrastructure(String routes) {
         assertFalse(routes.contains("com.sun.net.httpserver.HttpServer"));
-        assertFalse(routes.contains("JsonMapper"));
-        assertFalse(routes.contains("MorpheusHttpResponseWriter"));
-        assertFalse(routes.contains("MorpheusHttpPathParser"));
-        assertFalse(routes.contains("MorpheusRemoteRoutePolicy"));
-        assertFalse(routes.contains("MorpheusRemoteRole"));
         assertFalse(routes.contains("routeSync"));
         assertFalse(routes.contains("sync-status"));
     }

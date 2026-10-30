@@ -1,14 +1,23 @@
 package com.morpheus.architecture;
 
+import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.core.importer.ImportOption;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
 
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.simpleNameContaining;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RemoteHttpServerBootstrapArchitectureTest {
+
+    private static final JavaClasses PRODUCTION = new ClassFileImporter()
+            .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+            .importPackages("com.morpheus.api");
 
     @Test
     void remoteServerKeepsRequestPolicyWhileBootstrapOwnsTlsAndRuntimeStartup() throws IOException {
@@ -17,10 +26,6 @@ class RemoteHttpServerBootstrapArchitectureTest {
 
         assertTrue(server.contains("return MorpheusRemoteHttpServerBootstrap.start("));
         assertFalse(server.contains("HttpsServer.create("));
-        assertFalse(server.contains("HttpsConfigurator"));
-        assertFalse(server.contains("SSLContext"));
-        assertFalse(server.contains("LocalWritePermissionHardener"));
-        assertFalse(server.contains("SafeWorkspaceFileResolver"));
         assertFalse(server.contains("Executors.newVirtualThreadPerTaskExecutor()"));
         assertFalse(server.contains("acquireServerLease("));
         assertFalse(server.contains("MorpheusInternalCapability.generate()"));
@@ -49,7 +54,6 @@ class RemoteHttpServerBootstrapArchitectureTest {
         assertFalse(bootstrap.contains("authenticate(HttpExchange"));
         assertFalse(bootstrap.contains("requiredRole("));
         assertFalse(bootstrap.contains("proxy(HttpExchange"));
-        assertFalse(bootstrap.contains("MorpheusRemoteResponseWriter"));
         assertFalse(bootstrap.contains("createBackup("));
     }
 
@@ -95,5 +99,46 @@ class RemoteHttpServerBootstrapArchitectureTest {
                 "the bootstrap must wipe its own copy once the SSLContext exists");
         assertTrue(bootstrap.contains("java.util.Arrays.fill(encoded, (byte) 0);"),
                 "the bootstrap must wipe the decoded keystore bytes");
+    }
+
+    /**
+     * {@code MorpheusRemoteHttpServer} applies the request policy and leaves TLS and the hardening of its files to
+     * {@code MorpheusRemoteHttpServerBootstrap}. The rule bans a dependency on any class whose simple name contains
+     * {@code HttpsConfigurator}, {@code SSLContext}, {@code LocalWritePermissionHardener},
+     * {@code SafeWorkspaceFileResolver}, as the text ban it replaces matched the name.
+     *
+     * <p>None of these types declares a compile-time constant, so the rule alone covers them. Broken before acceptance,
+     * 30/10/2026: a {@code HttpsConfigurator} field added to {@code MorpheusRemoteHttpServer} failed this rule.</p>
+     */
+    @Test
+    void theRemoteServerLeavesTlsAndItsFilesToTheBootstrap() {
+        noClasses()
+                .that(ClassesOfASource.declaredIn("MorpheusRemoteHttpServer"))
+                .should().dependOnClassesThat(simpleNameContaining("HttpsConfigurator")
+                        .or(simpleNameContaining("SSLContext"))
+                        .or(simpleNameContaining("LocalWritePermissionHardener"))
+                        .or(simpleNameContaining("SafeWorkspaceFileResolver")))
+                .because("TLS set-up and file hardening happen once, at start-up, in the bootstrap; the server serves "
+                + "requests")
+                .check(PRODUCTION);
+    }
+
+    /**
+     * {@code MorpheusRemoteHttpServerBootstrap} starts the remote server and writes no response. The rule bans a
+     * dependency on any class whose simple name contains {@code MorpheusRemoteResponseWriter}, as the text ban it
+     * replaces matched the name.
+     *
+     * <p>None of these types declares a compile-time constant, so the rule alone covers them. Broken before acceptance,
+     * 30/10/2026: a {@code MorpheusRemoteResponseWriter} field added to {@code MorpheusRemoteHttpServerBootstrap}
+     * failed this rule.</p>
+     */
+    @Test
+    void theRemoteBootstrapWritesNoResponse() {
+        noClasses()
+                .that(ClassesOfASource.declaredIn("MorpheusRemoteHttpServerBootstrap"))
+                .should().dependOnClassesThat(simpleNameContaining("MorpheusRemoteResponseWriter"))
+                .because("every remote response goes through the server and its writer; a bootstrap that wrote one would "
+                + "bypass the request policy")
+                .check(PRODUCTION);
     }
 }

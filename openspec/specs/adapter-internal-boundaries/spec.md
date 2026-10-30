@@ -1,11 +1,10 @@
-# Spec Delta
+# adapter-internal-boundaries Specification
 
 ## Purpose
-
 Define how a boundary between the classes of one transport adapter is stated, which selections of classes may still
 be a list of names, and what a relocation of classes must leave as strict as it found it.
 
-## ADDED Requirements
+## Requirements
 
 ### Requirement: A role inside the HTTP adapter SHALL be a package, and a rule about that role SHALL select by package
 
@@ -22,6 +21,11 @@ reside in. It MUST NOT select them by a suffix or a prefix of their simple name,
 
 - **WHEN** a class named `*HttpRoutes` is added to `morpheus-api` outside the packages that classify routers
 - **THEN** the architecture suite fails and names the class, before any transport rule is evaluated on it
+
+#### Scenario: An application service outside the services package
+
+- **WHEN** a class named `*ApiService` is added to `morpheus-api` outside `com.morpheus.api`
+- **THEN** the architecture suite fails and names the class with the package it resides in
 
 #### Scenario: A router declared outside the imported classes
 
@@ -73,8 +77,8 @@ property without being named MUST fail the suite, and a named class that no long
 
 #### Scenario: A list of class names of an undeclared kind
 
-- **WHEN** a gate declares a list of production class names of `morpheus-api`, `morpheus-mcp` or `morpheus-cli` that
-  is declared neither a debt counter nor a table of facts
+- **WHEN** a gate declares a list that names a class of any production module, declared neither a debt counter nor
+  a table of facts
 - **THEN** the suite fails and names the gate and the list
 
 #### Scenario: A composition root added by a relocation

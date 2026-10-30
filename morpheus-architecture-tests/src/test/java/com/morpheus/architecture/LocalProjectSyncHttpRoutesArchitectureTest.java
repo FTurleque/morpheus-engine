@@ -44,10 +44,5 @@ class LocalProjectSyncHttpRoutesArchitectureTest {
         assertTrue(routes.contains("service.syncStatus(projectId"));
         assertTrue(routes.contains("HttpExchange"));
         assertFalse(routes.contains("com.sun.net.httpserver.HttpServer"));
-        assertFalse(routes.contains("JsonMapper"));
-        assertFalse(routes.contains("MorpheusHttpResponseWriter"));
-        assertFalse(routes.contains("MorpheusHttpPathParser"));
-        assertFalse(routes.contains("MorpheusRemoteRoutePolicy"));
-        assertFalse(routes.contains("MorpheusRemoteRole"));
     }
 }

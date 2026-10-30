@@ -1,13 +1,22 @@
 package com.morpheus.architecture;
 
+import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.core.importer.ImportOption;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
 
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.simpleNameEndingWith;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DiagnosticsApiServiceArchitectureTest {
+
+    private static final JavaClasses PRODUCTION = new ClassFileImporter()
+            .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+            .importPackages("com.morpheus.api");
 
     @Test
     void qualityDiagnosticsStayExtractedFromApiFacade() throws Exception {
@@ -30,9 +39,25 @@ class DiagnosticsApiServiceArchitectureTest {
         assertTrue(diagnostics.contains("private ChangeCompletenessAssessment completeness("));
         assertTrue(diagnostics.contains("private Object lifecycleFacts("));
         assertTrue(diagnostics.contains("private Object finding(QualityFinding"));
-        assertFalse(diagnostics.contains("RequirementQueryService"));
-        assertFalse(diagnostics.contains("LocalSourceInventoryScanner"));
-        assertFalse(diagnostics.contains("MorpheusHttpResponseWriter"));
-        assertFalse(diagnostics.contains("MorpheusRemote"));
+    }
+
+    /**
+     * {@code MorpheusDiagnosticsApiService} serves the quality diagnostics and depends on none of the application
+     * services another API service owns: {@code *RequirementQueryService}, {@code LocalSourceInventoryScanner}. A name
+     * ending in a banned name is banned with it, as the text ban it replaces matched it.
+     *
+     * <p>None of these services declares a compile-time constant, so the rule alone covers them. Broken before
+     * acceptance, 30/10/2026: a {@code RequirementQueryService} field added to {@code MorpheusDiagnosticsApiService}
+     * failed this rule.</p>
+     */
+    @Test
+    void theDiagnosticsServiceDependsOnNoQueryOrInventoryCapability() {
+        noClasses()
+                .that().haveSimpleName("MorpheusDiagnosticsApiService")
+                .should().dependOnClassesThat(simpleNameEndingWith("RequirementQueryService")
+                        .or(simpleNameEndingWith("LocalSourceInventoryScanner")))
+                .because("each API service serves one capability through its own application services; reaching "
+                        + "another capability's service brings a second owner for the same answer")
+                .check(PRODUCTION);
     }
 }

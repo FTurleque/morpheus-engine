@@ -44,10 +44,11 @@ import static org.junit.jupiter.api.Assertions.fail;
 class EnforcementMechanismAccountingTest {
 
     /**
-     * The textual bans of a type that state no intent, measured on {@code develop} at {@code 6b3f6304} on 29/10/2026.
-     * Lowered with every member removed; never raised.
+     * The textual bans of a type that state no intent: none. A ban of a type whose target declares no compile-time
+     * constant is a rule on the bytecode, and one whose target declares such a constant, or whose intent is the
+     * mention itself, carries that intent as its message. Never raised.
      */
-    static final int UNEXPLAINED_TYPE_BAN_CEILING = 196;
+    static final int UNEXPLAINED_TYPE_BAN_CEILING = 0;
 
     static final String PROOF_FILE = "morpheus-architecture-tests/target/enforcement-composition-summary.txt";
 

@@ -27,12 +27,5 @@ class LocalPortfolioHttpRoutesArchitectureTest {
         assertTrue(routes.contains("MorpheusHttpRouteGuards.requireExactSegments("));
         assertTrue(routes.contains("MorpheusHttpRouteResponse route("));
         assertTrue(routes.contains("MorpheusHttpQuery query"));
-        assertFalse(routes.contains("JsonMapper"));
-        assertFalse(routes.contains("CanonicalJsonSerializer"));
-        assertFalse(routes.contains("MorpheusHttpResponseWriter"));
-        assertFalse(routes.contains("MorpheusHttpPathParser"));
-        assertFalse(routes.contains("MorpheusRemoteRoutePolicy"));
-        assertFalse(routes.contains("MorpheusRemoteRole"));
-        assertFalse(routes.contains("HttpServer"));
     }
 }
