@@ -71,22 +71,6 @@ of the answer.
   one page at a time
 - **THEN** every page is answered and none is refused as too large
 
-### Requirement: A whole journal SHALL NOT be readable from production code
-
-No class of the product's main sources MUST call a store read that returns every record of the lifecycle mutation
-audit or every archive record of a project, as long as that read takes no bound.
-
-#### Scenario: A surface that reads a whole journal is refused
-
-- **WHEN** a service or an adapter calls the unbounded lifecycle audit list or the unbounded archive list
-- **THEN** the architecture suite fails and names the calling class and the method
-
-#### Scenario: The rule holds something
-
-- **WHEN** the rule is evaluated
-- **THEN** it has inspected the classes of the application layer and of the three transport adapters, and fails
-  rather than passes if it inspected none
-
 ### Requirement: A journal SHALL NOT be deleted from without a recorded decision
 
 No statement of the product's sources MUST delete rows from the policy audit, the lifecycle mutation audit or the
@@ -103,3 +87,56 @@ question.
 - **WHEN** the decision record is read
 - **THEN** it names the three journals, says each is kept for the life of the database, and says which of them the
   product reads
+
+### Requirement: The lifecycle mutation audit and the source archives SHALL be read from the store one page at a time
+
+A lifecycle mutation store MUST return the audit of a change, and a synchronisation state store the archives of a
+project, as a page: the records between an offset and a limit, in the journal's total order, with the journal's total.
+Neither store MUST offer a whole journal, and the SQLite store MUST NOT build more records than the page holds.
+
+#### Scenario: Each journal has a total order
+
+- **WHEN** a page of either journal is read
+- **THEN** lifecycle audit records come by revision then mutation identity, and archives by instant, path, reason, then
+  fingerprint, and the SQLite store sorts nothing after the read
+
+#### Scenario: A page of a long journal
+
+- **WHEN** a change has more lifecycle audit records, or a project more archives, than a page and the first page is
+  read
+- **THEN** the store returns exactly the first records of the order up to the limit, the total, and whether more follow
+
+#### Scenario: Archive pages put end to end are the journal in time order
+
+- **WHEN** every page of a project's archives is read in turn, on archives whose instants have fractions of different
+  lengths on either side of a page boundary and several archives share one instant
+- **THEN** the pages concatenated are the archives in the order of the archive record, with no record repeated or
+  missing, and the memory and SQLite stores return the same pages
+
+#### Scenario: An offset past the end
+
+- **WHEN** a page is asked at an offset greater than the number of records
+- **THEN** the store returns no record and the same total
+
+#### Scenario: Existing archives are read in the same order
+
+- **WHEN** a database whose archives were written before the order key existed is opened
+- **THEN** its archive pages put end to end are the records it held, in time order, and the stored text of each
+  instant is unchanged
+
+### Requirement: No journal store port SHALL offer a whole journal
+
+No method declared by a journal store port, or by a class implementing one, MUST return a collection of journal
+records; a method that returns a page of journal records MUST take a page request.
+
+#### Scenario: An unbounded journal read added to a port is refused
+
+- **WHEN** a method that returns every policy audit record, lifecycle audit record or archive record is declared on a
+  journal store port or one of its implementations
+- **THEN** the architecture suite fails and names the method
+
+#### Scenario: The rule sees what it judges
+
+- **WHEN** the rule is evaluated
+- **THEN** it has judged the paged read of each of the three journals on its port and on both stores, and fails rather
+  than passes if it judged none of them
