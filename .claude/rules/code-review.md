@@ -8,7 +8,7 @@ que le début : il reste court.
 ## À faire respecter
 
 - **Couches** : `domain` et `application` ne connaissent aucun adaptateur ; les adaptateurs sont frères. `api` et `mcp`
-  n'atteignent un store ou un provider concret que par les racines nommées d'ADR-0152 : tout autre `new` ou import est
+  n'atteignent un store ou un provider concret que par les racines nommées d'ADR-0156 : tout autre `new` ou import est
   CRITICAL.
 - **Sans framework** : ni Spring/Guice, ni annotation d'injection ; réflexion et chargement de classes ou de services
   seulement dans les classes que nomme `ReflectionAndClassLoadingBoundaryArchitectureTest` (ou, dans `application`,

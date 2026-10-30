@@ -1,4 +1,4 @@
-package com.morpheus.application.lifecycle;
+package com.morpheus.domain.change.lifecycle;
 
 /** Explicit facts used to validate a change lifecycle transition. */
 public record ChangeLifecycleFacts(

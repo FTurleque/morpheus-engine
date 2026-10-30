@@ -1,7 +1,7 @@
 package com.morpheus.sdk.provider.testkit;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
-import com.morpheus.application.ingestion.NormalizedProjectContent;
+import com.morpheus.application.read.NormalizedProjectContent;
 import com.morpheus.application.provider.SpecificationProvider;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.read.ProviderReadResult;

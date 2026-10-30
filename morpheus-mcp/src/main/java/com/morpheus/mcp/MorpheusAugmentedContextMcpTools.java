@@ -6,7 +6,7 @@ import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.operability.OperationalExecution;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
-import com.morpheus.application.security.IntegrationStatusDisclosure;
+import com.morpheus.application.context.IntegrationStatusDisclosure;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.project.ProjectSpecificationId;

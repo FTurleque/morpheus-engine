@@ -3,8 +3,7 @@ package com.morpheus.architecture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.morpheus.application.lifecycle.ChangeLifecyclePolicy;
-import com.morpheus.application.lifecycle.ChangeLifecycleStateMachine;
+import com.morpheus.domain.change.lifecycle.ChangeLifecyclePolicy;
 import com.morpheus.application.quality.ChangeCompletenessAssessment;
 import com.morpheus.application.quality.ChangeCompletenessService;
 import com.morpheus.application.quality.ChangeLifecycleQualityAssessment;
@@ -150,7 +149,7 @@ class ChangeCompletenessAbsentObservationContractTest {
     }
 
     private ChangeLifecycleQualityService lifecycle() {
-        return new ChangeLifecycleQualityService(scenario.core, completeness(), new ChangeLifecycleStateMachine());
+        return new ChangeLifecycleQualityService(scenario.core, completeness());
     }
 
     private static final class Scenario {

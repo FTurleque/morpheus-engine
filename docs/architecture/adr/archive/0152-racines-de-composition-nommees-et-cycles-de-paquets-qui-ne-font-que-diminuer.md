@@ -1,13 +1,8 @@
----
-id: ARCH-0152
-title: "Les transports sont des racines de composition nommées, et les cycles de paquets ne font que diminuer"
-domain: architecture
-rules: false
----
+# ADR-0152 — Les transports sont des racines de composition nommées, et les cycles de paquets ne font que diminuer
 
-# Les transports sont des racines de composition nommées, et les cycles de paquets ne font que diminuer
+> **Archivée.** Cette décision est consolidée dans [ADR-0156](../ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md), qui la reprend en entier, remplace la liste des dépendances de l'application tolérées sur un cycle par une règle sans exception, et y ajoute les décisions écrites sur une valeur du domaine. Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
-- Statut : **Acceptée**
+- Statut : **Remplacée par ADR-0156**
 - Date : 2026-10-29
 - Remplace : ADR-0109
 
@@ -153,10 +148,10 @@ compte dans `config/*ratchets*.properties` (un nombre qu'on tient en échangeant
 
 ## References
 
-- [ADR-0003](DATA-0003-specification-knowledge-store.md) — port de stockage de connaissance.
-- [ADR-0133](GEN-0133-toolchain-java-21-et-maven-wrapper.md) — build Maven multi-module.
-- [ADR-0062](ARCH-0062-official-java-mcp-sdk-and-native-stdio.md) — SDK MCP natif.
-- [ADR-0065](ARCH-0065-jdk-httpserver-local-api.md) — API HTTP sur `jdk.httpserver`.
-- [ADR-0150](ARCH-0150-ce-que-le-coeur-applicatif-peut-toucher.md) — ce que le cœur applicatif peut toucher.
+- [ADR-0003](../DATA-0003-specification-knowledge-store.md) — port de stockage de connaissance.
+- [ADR-0133](../GEN-0133-toolchain-java-21-et-maven-wrapper.md) — build Maven multi-module.
+- [ADR-0062](../ARCH-0062-official-java-mcp-sdk-and-native-stdio.md) — SDK MCP natif.
+- [ADR-0065](../ARCH-0065-jdk-httpserver-local-api.md) — API HTTP sur `jdk.httpserver`.
+- [ADR-0150](../ARCH-0150-ce-que-le-coeur-applicatif-peut-toucher.md) — ce que le cœur applicatif peut toucher.
 - `openspec/changes/archive/2026-10-29-let-application-package-cycles-only-decrease/` et `openspec/specs/application-package-cycles/spec.md`.
 - `.claude/rules/architecture.md`

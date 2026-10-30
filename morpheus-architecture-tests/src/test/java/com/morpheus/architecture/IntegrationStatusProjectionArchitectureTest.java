@@ -82,7 +82,7 @@ class IntegrationStatusProjectionArchitectureTest {
     void theHttpViewIsATransformationOfTheSharedProjectionNotACopy() throws IOException {
         String views = Files.readString(ProductionSources.mainSource("morpheus-api", "IntegrationStatusViews"));
         String projection = Files.readString(RepositoryRoot.locate().resolve(
-                "morpheus-application/src/main/java/com/morpheus/application/security/IntegrationStatusDisclosure.java"));
+                "morpheus-application/src/main/java/com/morpheus/application/context/IntegrationStatusDisclosure.java"));
 
         assertTrue(views.contains(PROJECTION + ".project("), "the status route must use the shared projection");
         assertFalse(views.contains("namesAServerLocation"), "the HTTP view must not carry its own copy of the predicate");

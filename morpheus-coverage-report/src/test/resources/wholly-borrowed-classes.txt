@@ -102,12 +102,6 @@ morpheus-domain com.morpheus.domain.evidence.SourceRange
 morpheus-domain com.morpheus.domain.project.ProjectSpecification
 morpheus-domain com.morpheus.domain.provider.ProviderProbeResult
 morpheus-domain com.morpheus.domain.provider.ProviderProbeStatus
-morpheus-domain com.morpheus.domain.reference.ExternalReference
-morpheus-domain com.morpheus.domain.reference.ExternalReferenceResolutionEvent
-morpheus-domain com.morpheus.domain.reference.ExternalReferenceResolutionReason
-morpheus-domain com.morpheus.domain.reference.ExternalReferenceResolutionState
-morpheus-domain com.morpheus.domain.reference.ExternalReferenceTarget
-morpheus-domain com.morpheus.domain.reference.ResolvedExternalTarget
 morpheus-domain com.morpheus.domain.requirement.Requirement
 morpheus-domain com.morpheus.domain.requirement.RequirementDelta
 morpheus-domain com.morpheus.domain.requirement.RequirementDeltaKind
@@ -117,8 +111,6 @@ morpheus-domain com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata
 morpheus-domain com.morpheus.domain.snapshot.KnowledgeSnapshotState
 morpheus-domain com.morpheus.domain.specification.Specification
 morpheus-domain com.morpheus.domain.specification.SpecificationId
-morpheus-domain com.morpheus.domain.task.ImplementationTask
-morpheus-domain com.morpheus.domain.task.TaskId
 morpheus-integration-minos com.morpheus.integration.minos.MinosIntegrationRuntime
 morpheus-integration-nexus com.morpheus.integration.nexus.NexusIntegrationRuntime
 morpheus-store-memory com.morpheus.store.memory.MemoryCompositionStateStore

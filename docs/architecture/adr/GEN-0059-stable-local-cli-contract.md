@@ -92,7 +92,7 @@ sauvegardes et base sous ce répertoire, ce qui permet un mode portable. `CliLay
 ### Persistance
 
 Toutes les opérations d'une invocation ouvrent la base sur **le même chemin**. Chaque ressource est fermée
-explicitement à la fin de l'invocation. La construction des stores d'une opération suit ADR-0152.
+explicitement à la fin de l'invocation. La construction des stores d'une opération suit ADR-0156.
 
 ### Frontières
 
@@ -156,7 +156,7 @@ n'utilise pas de framework CLI externe.
 
 - [ADR-0130](BE-0130-contrat-des-options-de-la-cli.md) — contrat des options et des codes de sortie de la CLI.
 - [ADR-0088](GEN-0088-product-release-installation-and-persistent-data-separation.md) — emplacements par défaut.
-- [ADR-0152](ARCH-0152-racines-de-composition-nommees-et-cycles-de-paquets-qui-ne-font-que-diminuer.md) — racines de composition et runtime.
+- [ADR-0156](ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md) — racines de composition et runtime.
 - [ADR-0123](ARCH-0123-vues-compactes-et-json-canonique.md) — vues compactes et JSON canonique.
 - [ADR-0137](ARCH-0137-lectures-et-recherche-sur-le-snapshot-publie.md) — requête lexicale déterministe et lectures
   métier sur le snapshot publié.

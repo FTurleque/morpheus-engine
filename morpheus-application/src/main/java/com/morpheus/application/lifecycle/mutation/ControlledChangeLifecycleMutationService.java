@@ -1,7 +1,7 @@
 package com.morpheus.application.lifecycle.mutation;
 
 import com.morpheus.application.foundation.TextDigest;
-import com.morpheus.application.lifecycle.ChangeLifecyclePolicy;
+import com.morpheus.domain.change.lifecycle.ChangeLifecyclePolicy;
 import com.morpheus.application.orchestration.ChangeTransitionEvaluationService;
 import com.morpheus.application.orchestration.ChangeTransitionEvaluationState;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycle;

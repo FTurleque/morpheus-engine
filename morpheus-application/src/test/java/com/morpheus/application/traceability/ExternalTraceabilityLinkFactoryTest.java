@@ -69,22 +69,6 @@ class ExternalTraceabilityLinkFactoryTest {
     }
 
     @Test
-    void externalReferenceStateMapsToLinkResolutionWithoutSynthesizingHeuristic() {
-        assertEquals(
-                TraceabilityResolutionState.UNRESOLVED,
-                factory.resolutionAtObservation(ExternalReferenceResolutionState.UNVALIDATED));
-        assertEquals(
-                TraceabilityResolutionState.UNRESOLVED,
-                factory.resolutionAtObservation(ExternalReferenceResolutionState.UNRESOLVED));
-        assertEquals(
-                TraceabilityResolutionState.RESOLVED,
-                factory.resolutionAtObservation(ExternalReferenceResolutionState.RESOLVED));
-        assertEquals(
-                TraceabilityResolutionState.PARTIALLY_RESOLVED,
-                factory.resolutionAtObservation(ExternalReferenceResolutionState.STALE));
-    }
-
-    @Test
     void ownerMismatchAndNonExternalRelationAreRejected() {
         DomainIdentity owner = DomainIdentity.generate();
         TraceabilityEntityRef wrongSource = new TraceabilityEntityRef(

@@ -48,7 +48,7 @@ Ce que MORPHEUS expose, comment il se livre, à qui il parle.
 | Le contrat d'échec MCP est une règle unique, pas une convention par outil | [ADR-0102](../adr/BE-0102-mcp-failure-contract-is-one-rule.md) |
 | JDK HttpServer pour l'API locale | [ADR-0065](../adr/ARCH-0065-jdk-httpserver-local-api.md) |
 | Contrat HTTP `/api/v1` et erreurs JSON stables | [ADR-0066](../adr/ARCH-0066-versioned-http-api-contract.md) |
-| Les transports sont des racines de composition nommées, et les cycles de paquets ne font que diminuer | [ADR-0152](../adr/ARCH-0152-racines-de-composition-nommees-et-cycles-de-paquets-qui-ne-font-que-diminuer.md) |
+| Les transports sont des racines de composition nommées, les paquets sont sans cycle, et une décision sur une valeur du domaine est écrite sur son type | [ADR-0156](../adr/ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md) |
 | Un rôle de l'adaptateur HTTP est un paquet, et toute liste de classes de production d'un test d'architecture déclare sa sorte | [ADR-0155](../adr/ARCH-0155-un-role-est-un-paquet-et-une-liste-de-classes-declare-sa-sorte.md) |
 | Le cœur applicatif touche le disque local par des classes nommées, et jamais le réseau | [ADR-0150](../adr/ARCH-0150-ce-que-le-coeur-applicatif-peut-toucher.md) |
 | Une commande CLI et un outil MCP sont servis par une classe de capacité ; un dispatcher ne tient aucun cas d'usage | [ADR-0149](../adr/ARCH-0149-une-commande-et-un-outil-sont-servis-par-une-classe-de-capacite.md) |

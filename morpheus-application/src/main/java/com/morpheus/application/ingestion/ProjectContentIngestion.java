@@ -1,5 +1,6 @@
 package com.morpheus.application.ingestion;
 
+import com.morpheus.application.read.NormalizedProjectContent;
 import com.morpheus.application.identity.EntityIdentityResolver;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.read.ProviderReadResult;

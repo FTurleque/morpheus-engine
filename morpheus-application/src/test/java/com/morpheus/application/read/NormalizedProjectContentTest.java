@@ -1,4 +1,4 @@
-package com.morpheus.application.ingestion;
+package com.morpheus.application.read;
 
 import com.morpheus.domain.acceptance.AcceptanceCriterion;
 import com.morpheus.domain.acceptance.AcceptanceCriterionId;

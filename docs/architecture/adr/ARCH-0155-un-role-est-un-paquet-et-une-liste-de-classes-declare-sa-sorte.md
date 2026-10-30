@@ -37,7 +37,7 @@ paquets d'entrée (rejeté pour la même raison), une liste fermée de types (re
 Les services de l'application restent dans le paquet parent `com.morpheus.api`, avec `ApiRuntime` et les records de
 requête qu'ils lisent. Les en sortir vers un sous-paquet laisserait le parent porter `ApiRuntime`,
 `AllowedWorkspaceRoots` (un type d'entrée) et trois records, sans rôle commun, et déplacerait la racine de composition
-`MorpheusProjectSyncApiService`, que nomme `COMPOSITION_ROOTS` (ADR-0152). Le paquet parent est déjà un rôle : il suffit
+`MorpheusProjectSyncApiService`, que nomme `COMPOSITION_ROOTS` (ADR-0156). Le paquet parent est déjà un rôle : il suffit
 qu'une règle le sépare des routeurs et des serveurs, et qu'une classe `*ApiService` ne puisse résider ailleurs.
 
 Les listes de noms de classes ne se trouvent pas que dans les tests de `morpheus-api` : les tests d'architecture en
@@ -144,7 +144,7 @@ Une liste qui serait un rôle n'existe pas : ses classes vont dans un paquet.
 
 ## References
 
-- [ADR-0152](ARCH-0152-racines-de-composition-nommees-et-cycles-de-paquets-qui-ne-font-que-diminuer.md) — racines de composition nommées, `COMPOSITION_ROOTS`.
+- [ADR-0156](ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md) — racines de composition nommées, `COMPOSITION_ROOTS`.
 - [ADR-0149](ARCH-0149-une-commande-et-un-outil-sont-servis-par-une-classe-de-capacite.md) — classes de capacité de `morpheus-cli` et `morpheus-mcp`.
 - [ADR-0065](ARCH-0065-jdk-httpserver-local-api.md) — API HTTP sur `jdk.httpserver`.
 - Spécification OpenSpec `openspec/specs/adapter-internal-boundaries/spec.md`.

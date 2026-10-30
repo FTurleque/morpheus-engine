@@ -1,17 +1,37 @@
-package com.morpheus.application.lifecycle;
+package com.morpheus.domain.change.lifecycle;
 
-import com.morpheus.domain.change.lifecycle.ChangeAbandonmentReason;
-import com.morpheus.domain.change.lifecycle.ChangeLifecycle;
-import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-/** Deterministic business lifecycle validator. */
-public final class ChangeLifecycleStateMachine {
+/** A requested lifecycle transition, with the facts and the policy it is decided on. */
+public record ChangeLifecycleTransitionRequest(
+        ChangeLifecycle source,
+        ChangeLifecycleState targetState,
+        ChangeLifecycleFacts facts,
+        ChangeLifecyclePolicy policy,
+        Optional<ChangeAbandonmentReason> abandonmentReason) {
+
+    public ChangeLifecycleTransitionRequest {
+        Objects.requireNonNull(source, "source");
+        Objects.requireNonNull(targetState, "targetState");
+        Objects.requireNonNull(facts, "facts");
+        Objects.requireNonNull(policy, "policy");
+        abandonmentReason = Objects.requireNonNull(abandonmentReason, "abandonmentReason");
+    }
+
+    public static ChangeLifecycleTransitionRequest to(
+            ChangeLifecycle source,
+            ChangeLifecycleState targetState,
+            ChangeLifecycleFacts facts,
+            ChangeLifecyclePolicy policy) {
+        return new ChangeLifecycleTransitionRequest(source, targetState, facts, policy, Optional.empty());
+    }
+
     private static final Set<ChangeLifecycleState> ABANDONABLE_STATES = EnumSet.of(
             ChangeLifecycleState.DRAFT,
             ChangeLifecycleState.PROPOSED,
@@ -21,13 +41,13 @@ public final class ChangeLifecycleStateMachine {
             ChangeLifecycleState.IMPLEMENTING,
             ChangeLifecycleState.VERIFYING);
 
-    public ChangeLifecycleTransitionDecision evaluate(ChangeLifecycleTransitionRequest request) {
-        ChangeLifecycle source = request.source();
+    /** Decides the transition by MORPHEUS lifecycle rules: the nominal path, then the canonical backward steps. */
+    public ChangeLifecycleTransitionDecision decide() {
         ChangeLifecycleState from = source.state();
-        ChangeLifecycleState to = request.targetState();
+        ChangeLifecycleState to = targetState;
 
         if (from == to) return deny(ChangeLifecycleBlocker.INVALID_TRANSITION);
-        if (to == ChangeLifecycleState.ABANDONED) return abandon(source, request.abandonmentReason());
+        if (to == ChangeLifecycleState.ABANDONED) return abandon(source, abandonmentReason);
         if (from == ChangeLifecycleState.ABANDONED) {
             return to == ChangeLifecycleState.PROPOSED
                     ? allow(source, to)
@@ -37,16 +57,16 @@ public final class ChangeLifecycleStateMachine {
             return deny(ChangeLifecycleBlocker.ARCHIVED_REOPEN_NOT_ALLOWED);
         }
 
-        ChangeLifecycleTransitionDecision nominal = nominal(request);
+        ChangeLifecycleTransitionDecision nominal = nominal(this);
         if (nominal != null) return nominal;
 
-        ChangeLifecycleTransitionDecision backward = backward(request);
+        ChangeLifecycleTransitionDecision backward = backward(this);
         if (backward != null) return backward;
 
         return deny(ChangeLifecycleBlocker.INVALID_TRANSITION);
     }
 
-    private ChangeLifecycleTransitionDecision nominal(ChangeLifecycleTransitionRequest request) {
+    private static ChangeLifecycleTransitionDecision nominal(ChangeLifecycleTransitionRequest request) {
         ChangeLifecycle source = request.source();
         ChangeLifecycleFacts facts = request.facts();
         ChangeLifecycleState from = source.state();
@@ -59,7 +79,7 @@ public final class ChangeLifecycleStateMachine {
             if (!facts.requirementsIdentified()) blockers.add(ChangeLifecycleBlocker.MISSING_REQUIREMENTS);
             if (!facts.criticalConstraintsKnown()) blockers.add(ChangeLifecycleBlocker.UNKNOWN_CRITICAL_CONSTRAINTS);
             if (!facts.acceptanceCriteriaDefined()) blockers.add(ChangeLifecycleBlocker.MISSING_ACCEPTANCE_CRITERIA);
-            return decide(source, to, blockers);
+            return allowedUnlessBlocked(source, to, blockers);
         }
 
         if (from == ChangeLifecycleState.SPECIFIED && to == ChangeLifecycleState.DESIGNED) {
@@ -72,7 +92,7 @@ public final class ChangeLifecycleStateMachine {
             List<ChangeLifecycleBlocker> blockers = new ArrayList<>();
             if (facts.designRequired()) blockers.add(ChangeLifecycleBlocker.DESIGN_REQUIRED);
             if (!facts.planPresent()) blockers.add(ChangeLifecycleBlocker.MISSING_PLAN);
-            return decide(source, to, blockers);
+            return allowedUnlessBlocked(source, to, blockers);
         }
 
         if (from == ChangeLifecycleState.DESIGNED && to == ChangeLifecycleState.PLANNED) {
@@ -93,14 +113,14 @@ public final class ChangeLifecycleStateMachine {
             if (facts.blockingAcceptanceCriterionUnverified()) {
                 blockers.add(ChangeLifecycleBlocker.BLOCKING_ACCEPTANCE_CRITERION_UNVERIFIED);
             }
-            return decide(source, to, blockers);
+            return allowedUnlessBlocked(source, to, blockers);
         }
 
         if (from == ChangeLifecycleState.COMPLETED && to == ChangeLifecycleState.ARCHIVED) return allow(source, to);
         return null;
     }
 
-    private ChangeLifecycleTransitionDecision backward(ChangeLifecycleTransitionRequest request) {
+    private static ChangeLifecycleTransitionDecision backward(ChangeLifecycleTransitionRequest request) {
         ChangeLifecycleState from = request.source().state();
         ChangeLifecycleState to = request.targetState();
         boolean canonical =
@@ -122,29 +142,29 @@ public final class ChangeLifecycleStateMachine {
         return allow(request.source(), to);
     }
 
-    private ChangeLifecycleTransitionDecision abandon(
+    private static ChangeLifecycleTransitionDecision abandon(
             ChangeLifecycle source,
             Optional<ChangeAbandonmentReason> reason) {
         if (!ABANDONABLE_STATES.contains(source.state())) return deny(ChangeLifecycleBlocker.INVALID_TRANSITION);
         if (reason.isEmpty()) return deny(ChangeLifecycleBlocker.ABANDONMENT_REASON_REQUIRED);
-        return ChangeLifecycleTransitionDecision.allowed(
+        return new ChangeLifecycleTransitionDecision.Allowed(
                 ChangeLifecycle.abandoned(source.changeId(), reason.orElseThrow()));
     }
 
-    private ChangeLifecycleTransitionDecision decide(
+    private static ChangeLifecycleTransitionDecision allowedUnlessBlocked(
             ChangeLifecycle source,
             ChangeLifecycleState target,
             List<ChangeLifecycleBlocker> blockers) {
         return blockers.isEmpty()
                 ? allow(source, target)
-                : ChangeLifecycleTransitionDecision.blocked(blockers);
+                : new ChangeLifecycleTransitionDecision.Blocked(blockers);
     }
 
-    private ChangeLifecycleTransitionDecision allow(ChangeLifecycle source, ChangeLifecycleState target) {
-        return ChangeLifecycleTransitionDecision.allowed(ChangeLifecycle.of(source.changeId(), target));
+    private static ChangeLifecycleTransitionDecision allow(ChangeLifecycle source, ChangeLifecycleState target) {
+        return new ChangeLifecycleTransitionDecision.Allowed(ChangeLifecycle.of(source.changeId(), target));
     }
 
-    private ChangeLifecycleTransitionDecision deny(ChangeLifecycleBlocker blocker) {
-        return ChangeLifecycleTransitionDecision.blocked(List.of(blocker));
+    private static ChangeLifecycleTransitionDecision deny(ChangeLifecycleBlocker blocker) {
+        return new ChangeLifecycleTransitionDecision.Blocked(List.of(blocker));
     }
 }
