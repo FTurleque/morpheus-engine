@@ -220,7 +220,7 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 
 ## Sprint 12 — Restructurer les adaptateurs
 
-3 constats · 2 corrigé · 1 toujours valide
+3 constats · 2 corrigé · 1 partiel
 
 *Pourquoi ici* — Rendre les frontières internes exprimables par la structure, pour que les gates cessent de maintenir des listes de noms.
 
@@ -230,7 +230,7 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 |---|---|---|---|---|
 | `AUD-ARC-06` | corrigé | Moyenne | M | morpheus-api : 80 classes dans un unique paquet plat, aucune frontière intra-module exprimable |
 | `AUD-ARC-09` | corrigé | Moyenne | L | Découpage incohérent d'un adaptateur à l'autre : api décomposé par capacité, mcp et cli gardent un monolithe historique à côté |
-| `AUD-TRV-03` | toujours valide | Moyenne | L | L'enforcement repose majoritairement sur des assertions textuelles et non sur la structure du code |
+| `AUD-TRV-03` | partiel | Moyenne | L | L'enforcement repose majoritairement sur des assertions textuelles et non sur la structure du code |
 
 ## Sprint 13 — Couverture et pagination
 

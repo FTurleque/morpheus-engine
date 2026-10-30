@@ -1,7 +1,7 @@
 # MORPHEUS — constats d'audit
 Audit du **9 octobre 2026** sur `20cf2e0`, revérifié onze fois depuis, et le **30 octobre 2026** sur `11bb1ccf` (`origin/develop`, PR #588). Chaque constat porte son statut et la preuve qui l'établit.
 
-**120 constats** — 69 corrigé, 9 partiel, 15 toujours valide, 4 caduc, 22 tient, 1 non vérifiable ici.
+**120 constats** — 69 corrigé, 10 partiel, 14 toujours valide, 4 caduc, 22 tient, 1 non vérifiable ici.
 
 > **Plus aucun constat `Élevée` n'est ouvert.** La PR #580 ferme les deux derniers, `AUD-ARC-01` et `AUD-PRF-04`, et chacun a été rouvert dans le code avant d'être accepté. Il y en avait onze le 9 octobre.
 
@@ -1122,22 +1122,22 @@ Plafonds qualifies lus dans les gates : morpheus-architecture-tests/.../m21/Cove
 ### AUD-TRV-03 — L'enforcement repose majoritairement sur des assertions textuelles et non sur la structure du code
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **PARTIEL** |
 | **Sévérité** | Moyenne |
 | **Axe** | Tests · Architecture |
 | **Effort** | L |
 | **Sprint** | 12 — Restructurer les adaptateurs |
 | **Après** | AUD-ARC-06 |
 | **Fusionne / issu de** | AUD-TST-04, AUD-ARC-12 |
-| **Vérifié le** | 2026-10-30 sur `11bb1ccf` |
+| **Vérifié le** | 2026-10-30 sur `11d1c30a` |
 
-**Constat de vérification** — Repasse de PARTIEL a TOUJOURS_VALIDE. La vague des sprints 10 a 14 a ajoute beaucoup de garde-fous, mais majoritairement textuels : le depot a gagne 57 assertions `contains` et perdu 2 regles ArchUnit. Le travers que le constat decrit ne se resorbe pas, il s'accentue.
+**Constat de vérification** — Passe de TOUJOURS_VALIDE a PARTIEL. Les deux premieres parties du critere de sortie tiennent : aucune liste de noms n'est un role, et toute liste de classes de production, dans n'importe quel module, declare sa sorte ; la famille des interdits de type sans intention est vide et son plafond vaut 0. La troisieme ne tient pas : l'enforcement reste majoritairement textuel (1 733 assertions `contains` contre 72 `noClasses()`), et la part textuelle n'est bornee que pour cette famille, par decision (`.claude/rules/architecture.md`).
 
 ```
-Recompte sur 11bb1ccf, et le mouvement est dans le mauvais sens. Assertions textuelles `contains` : 1 859 -> **1 916** (+57). `Files.readString` dans les tests d'architecture : 431 -> **449** (+18). Vraies regles `noClasses()` : 44 -> **42** (-2). Le rapport regle/texte passe de 30,5:1 a 28,6:1, et il ne s'ameliore en apparence que parce que le denominateur a grossi. Listes de noms sans genre declare : 9 -> **11**. `ARCH-0147` §4 reste borne a `morpheus-api`.
+Recompte sur 11d1c30a (branche du sprint 12, base 11bb1ccf), meme methode de part et d'autre, sur morpheus-architecture-tests/src/test/java : assertions `assert(True|False)(... .contains(` dans une meme instruction **1 914 -> 1 733** (-181 ; l'audit du 30/10 en comptait 1 916 par sa propre methode) ; `Files.readString` **449 -> 450** (+1) ; `noClasses()` **42 -> 72** (+30), appels `.check(` 76 -> 106. Listes `static final` qui nomment une classe de production : 47, dont 34 sans sorte declaree (les 11 de l'audit en font partie) -> **0** : `ProductionClassListsArchitectureTest.KINDS` declare les 47, 8 compteurs de dette et 39 tables de faits, et refuse une liste nouvelle de n'importe quel module comme une declaration orpheline (casse dans les deux sens le 30/10). Aucune n'est un role. Famille non expliquee (`UNEXPLAINED_TYPE_BAN_CEILING`) **196 -> 0** : 180 interdits textuels de type retires au profit de regles ArchUnit de paquet, de groupe ou de classe (la cible ne declare aucune constante inlinable ; 80 dans les treize suites de routeurs, tenus par les regles de groupe et de famille), 16 gardes en texte avec message (cible a constante inlinable, frontiere RBAC tenue sur le texte, ou intention de mention : `InetSocketAddress` dans `MorpheusHttpServer`, ou la regle refuse une lecture legitime de l'adresse liee). Chaque regle nouvelle cassee une fois par une violation plantee puis retiree : les 30 regles `noClasses()` ajoutees, la classification des services, l'extension de la regle du groupe `shareddecoder` et le gate des listes ; trois lectures de constante inlinee ne sont vues que par la moitie textuelle. `ARCH-0147` est remplace par `ARCH-0155`, dont le point 4 vaut pour toute liste de classes de production, et dont le tableau des roles range les services `*ApiService` dans `com.morpheus.api` (`ApiServicesAndTransportPackagesArchitectureTest`).
 ```
 
-**Ce qui reste** — 1 916 assertions `contains` contre 42 regles `noClasses()` ; 449 lectures de source dans les tests d'architecture ; 11 listes de noms sans genre declare ; `ARCH-0147` §4 toujours borne a `morpheus-api`.
+**Ce qui reste** — 1 733 assertions `contains` et 450 `Files.readString` ; la part textuelle hors famille des interdits de type n'est pas bornee (refus delibere des regles du depot, qui jugent un ratio contournable) ; les interdits de dependance ecrits sous une autre forme (`assertTrue(!...)`, prefixe de paquet, helper prenant un litteral) ne sont pas inventories ; la detection des listes est textuelle et ne voit qu'un `Set`, `List` ou `Map` `static final` initialise par `of`, `copyOf` ou `ofEntries`.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
