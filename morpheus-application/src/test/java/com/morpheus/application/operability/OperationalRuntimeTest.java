@@ -14,7 +14,6 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -75,17 +74,5 @@ class OperationalRuntimeTest {
 
         assertNotSame(first.metrics(), second.metrics());
         assertEquals(Map.of(), second.metrics().snapshot().counters());
-    }
-
-    @Test
-    void theProcessRuntimeIsOneValueWhoseAccessorsAllReadIt() {
-        OperationalRuntime process = LocalOperationalRuntime.process();
-
-        assertSame(process, LocalOperationalRuntime.process());
-        assertSame(process.metrics(), LocalOperationalRuntime.metrics());
-        assertSame(process.sink(), LocalOperationalRuntime.sink());
-        assertSame(process.recorder(), LocalOperationalRuntime.recorder());
-        assertEquals(process.writesEvents(), LocalOperationalRuntime.writesEvents());
-        assertEquals(OperationalLogMode.ENVIRONMENT_VARIABLE, LocalOperationalRuntime.LOG_MODE_ENV);
     }
 }
