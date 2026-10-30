@@ -99,5 +99,6 @@ pull request that introduces this change. **No task here needs a certificate.**
       Linux; then one dispatched run of the `release-rehearsal` lane on the branch. Proof: both summaries read from
       `validation-output/`, the run link.
 - [x] 6.3 Test every edited hook-adjacent `.ps1` for parse errors under Windows PowerShell 5.1 (`rules/tooling.md`).
-- [ ] 6.4 Pull request description: the finding, the measurements of section 2, the decisions of `design.md`, what is
+- [x] 6.4 Pull request description: the finding, the measurements of section 2, the decisions of `design.md`, what is
       still not covered (the release's own signature), and the justification for each governance file touched.
+      *2026-10-30: the body of PR #588 covers this change too: the measurements of section 2, the decisions and what stays uncovered.*

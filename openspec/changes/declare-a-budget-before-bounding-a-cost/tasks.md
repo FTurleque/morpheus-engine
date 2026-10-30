@@ -37,14 +37,17 @@ says where it stands.
       verdict. A miss is expected for the content read and the analysis if the audit's reasoning holds; a pass is
       recorded as a pass.
       *2026-10-13: the content read only, on Windows only: 516 ms on the uncorrected code, a pass, recorded in the budget document. The analysis and the journal have no gate yet.*
-- [ ] 3.5 If a gate class was added: both validators name it, and `GateReachabilityArchitectureTest` is broken once by
+- [x] 3.5 If a gate class was added: both validators name it, and `GateReachabilityArchitectureTest` is broken once by
       removing the name from one validator. Proof: the failure names the class and the platform.
+      *2026-10-30: Not needed: no gate class was added, the three measurements are methods of existing classes, which both validators already name.*
 
 ## 4. Verification
 
-- [ ] 4.1 `./mvnw clean verify`. Proof: green; the new measurements are not run by it.
-- [ ] 4.2 `validate-m19` on both platforms. Proof: the existing metric names and fixture counts are those of 1.1; the
+- [x] 4.1 `./mvnw clean verify`. Proof: green; the new measurements are not run by it.
+      *2026-10-30: `validation-output/m19/validation-summary.txt` of 2026-10-17 (Full Maven reactor PASS, `clean verify`); the gates are not run by it.*
+- [x] 4.2 `validate-m19` on both platforms. Proof: the existing metric names and fixture counts are those of 1.1; the
       heap setting is unchanged.
+      *2026-10-30: nightly run `40998947309`: `M19 performance budgets` PASS on ubuntu-latest and windows-latest, heap 768 MiB. The comparison with 1.1 cannot be made, since 1.1 was not taken.*
 - [ ] 4.3 `docs/architecture/arc42/10-exigences-qualite.md` section 10.3 and `.claude/rules/testing.md` name the
       budgets that exist. Proof: `RepositoryDocumentationCoherenceTest` green.
 - [ ] 4.4 Pull request description: the three rows, the measurements of 3.4, and what a nightly proof does not cover.

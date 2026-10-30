@@ -60,13 +60,14 @@ AUD-PRF-09 without a change. Each task carries what was done and what was not.
 
 ## 4. Verification
 
-- [ ] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green.
+- [x] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green.
       *2026-10-28: **not run.** Run in WSL Ubuntu, JDK 21, on `5c3ce4dd` plus this change:
       `./mvnw -pl morpheus-api -am test` green (`morpheus-api`: 242 tests, 0 failure); after `install -DskipTests`,
       `./mvnw test -pl morpheus-architecture-tests`: 825 run, one failure,
       `CoverageQualityGateTest#perModuleCoverageDoesNotRegressBelowQualifiedBaseline`, which refuses a reactor that has
       not just run `clean verify` (7 of 16 per-module reports present). The full `clean verify` and the changed-line
       coverage gate are left to the CI of the pull request.*
+      *2026-10-30: CI run `40722930060` of PR #578, `exact-head` on ubuntu-latest and windows-latest (`clean verify` and the changed-line gate): green.*
 - [x] 4.2 Release note; pull request description: the finding, the durations, the new code.
       *2026-10-28: `docs/user/release-notes/RELEASE_NOTES_1.2.2.md`. The pull request description is the
       maintainer's.*

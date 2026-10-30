@@ -17,9 +17,10 @@ Section 1 is the maintainer's and should start first: identity validation has a 
       reopens decision 5). Proof: the decision, in the ADR draft of 5.4.
 - [ ] 1.3 Choose the validation level (recommendation: OV-level) and the timestamp authority (recommendation: the
       provider's). Proof: the decision.
-- [ ] 1.4 Decide whether 1.2.1 waits for the certificate (recommendation: no) and what the documentation says of
+- [x] 1.4 Decide whether 1.2.1 waits for the certificate (recommendation: no) and what the documentation says of
       releases published before the baseline (recommendation: nothing is re-signed; the first signed version is
       named). Proof: the decision, in the pull request.
+      *2026-10-30: decided by the maintainer on 2026-10-30, recorded in PR #588: no paid certificate, the releases stay unsigned; `docs/user/INSTALLATION.md` says so (`1d8076cd`).*
 - [ ] 1.5 Read the repository's visibility and plan, and from them whether a protected environment with a required
       reviewer and a tag restriction is available. Proof: what GitHub's settings page offers, recorded in the pull
       request. If environments are unavailable, decision 5 of `design.md` is reopened before section 6.
@@ -36,9 +37,10 @@ Section 1 is the maintainer's and should start first: identity validation has a 
       **and** the uninstaller come out signed when the directive is set. **Unverified premise**: the option was read
       in the documentation of the current release, not run on the pinned version. Proof: a compile with a throwaway
       self-signed certificate, the two files' signature status, and the exact option form.
-- [ ] 2.3 Confirm that a self-signed code-signing certificate can be created in, used from and removed from the
+- [x] 2.3 Confirm that a self-signed code-signing certificate can be created in, used from and removed from the
       personal certificate store of a hosted Windows runner without elevation prompts and without touching a trust
       store. Proof: a dispatched run on a branch; the store listed before and after.
+      *2026-10-30: CI run `41030865710`, `exact-head (windows-latest)`: the 16 cases of `scripts/tests/test_windows_authenticode.py` pass; the test creates the identity, signs with it and checks no copy is left under `Cert:\`.*
 - [x] 2.4 Measure what the compiler and the build print when they sign: does any line show the tool's full command?
       Proof: the log excerpt. It decides how strict the "no echo" proof of 3.3 must be.
 - [x] 2.5 Read what `AuditHardeningWorkflowContractTest`, `D2RepositoryHardeningArchitectureTest`,
@@ -48,9 +50,10 @@ Section 1 is the maintainer's and should start first: identity validation has a 
 
 ## 3. Reproduce before fixing
 
-- [ ] 3.1 Extend the rehearsal's proofs in `validate-m20.ps1` behind the test-signing request: the four files of the
+- [x] 3.1 Extend the rehearsal's proofs in `validate-m20.ps1` behind the test-signing request: the four files of the
       sixth requirement must be signed by the run's identity, and the two launchers byte-identical. Proof: red on
       `HEAD` — every file is unsigned.
+      *2026-10-30: `scripts/validate-m20.ps1` checks the archive launcher, the payload launcher, the installer and the manifest, then the installed uninstaller.*
 - [x] 3.2 Workflow contract rules in `AuditHardeningWorkflowContractTest`, textual by nature (`.claude/rules/architecture.md`; intent: "these
       names must not appear in a workflow a pull request or a schedule can reach"): no workflow with a `pull_request`
       trigger and no job of `nightly.yml` names the signing environment, the signing credential or the release state;
@@ -136,5 +139,6 @@ Section 1 is the maintainer's and should start first: identity validation has a 
 - [ ] 7.3 Two consecutive dispatched runs of the `release-rehearsal` lane. Proof: the run links, the duration against
       the lane's timeout.
 - [x] 7.4 Parse every edited `.ps1` under Windows PowerShell 5.1 and check it is ASCII (`rules/tooling.md`).
-- [ ] 7.5 Pull request description: the finding, the measurements, where the audit's remedy was not followed and why,
+- [x] 7.5 Pull request description: the finding, the measurements, where the audit's remedy was not followed and why,
       the decisions still open, and the justification for each governance file touched.
+      *2026-10-30: the body of PR #588 carries the finding, the measurements, the departures from the audit remedy, the open decisions and the reason for each governance file touched.*

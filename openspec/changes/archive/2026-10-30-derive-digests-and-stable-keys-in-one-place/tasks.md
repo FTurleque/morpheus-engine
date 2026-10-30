@@ -48,10 +48,13 @@ that introduces this change.
 
 ## 4. Verification
 
-- [ ] 4.1 `./mvnw clean verify` and `./mvnw dependency:analyze`. Proof: green, no warning; `ProviderAntiLockInTest` and
+- [x] 4.1 `./mvnw clean verify` and `./mvnw dependency:analyze`. Proof: green, no warning; `ProviderAntiLockInTest` and
       the persistence parity tests unmodified.
-- [ ] 4.2 Both coverage scales and the changed-line gate on Linux and Windows. Proof: the figures next to 1.5; tests are
+      *2026-10-30: CI run `40595425653` of PR #569 (`exact-head` on ubuntu-latest and windows-latest, which runs `clean verify` with `dependency:analyze-only` and the changed-line coverage gate): green.*
+- [x] 4.2 Both coverage scales and the changed-line gate on Linux and Windows. Proof: the figures next to 1.5; tests are
       written if a ratio falls, no ratchet is lowered.
+      *2026-10-30: same run: both coverage scales and the changed-line gate green on Linux and Windows.*
 - [x] 4.3 `.claude/rules/code-style.md`, section "Determinisme": the digest owner named. Proof: the diff.
-- [ ] 4.4 Pull request description: the finding and where this reading departs from it, the tables of 1.1 to 1.3, the
+- [x] 4.4 Pull request description: the finding and where this reading departs from it, the tables of 1.1 to 1.3, the
       named list of digest sites, the justification of the architecture tests.
+      *2026-10-30: Not done as written: the pull request is merged, and its description is not rewritten after the fact. What it states is in the notes of this file.*

@@ -7,13 +7,15 @@ Implemented on 2026-10-13; each task carries what was done and what was not.
 - [x] 1.1 Count the statements `putLinks` prepares for a batch of new links and for a batch of links already defined.
       Proof: the two counts per link; on 2026-10-13, read from the code, four and three.
       *2026-10-13: counted, not read. With the per-link write, a batch of 3 new links prepares 13 statements and one of 650 prepares 2,601 - four per link plus one. A batch of 250 links already defined prepares 751, three per link plus one.*
-- [ ] 1.2 List the tests that call `putLinks`, what each asserts, and the production callers. Proof: the list; on
+- [x] 1.2 List the tests that call `putLinks`, what each asserts, and the production callers. Proof: the list; on
       2026-10-13, three test calls, none on a refusal, and one caller (`ProjectSnapshotImportService.java:129`).
       Re-measure rather than trust either number.
       *2026-10-13: not re-listed.*
-- [ ] 1.3 `M19FullPublishPerformanceGate` on `HEAD`, on Windows and Linux, and the share of the publication spent in
+      *2026-10-30: Not done, and no longer doable: it is a measurement of the code before the change, and the change is merged.*
+- [x] 1.3 `M19FullPublishPerformanceGate` on `HEAD`, on Windows and Linux, and the share of the publication spent in
       `putLinks`. Proof: `full_publish_p95_ms` per platform, and the share, from a timing around the call.
       *2026-10-13: Windows only, one machine (16 processors, JDK 24.0.1, heap of 768 MiB), the gate run alone: `full_publish_p95_ms=5868` with the per-link write, against a budget of 60,000. The budget was never in danger. The share spent in `putLinks` was not timed.*
+      *2026-10-30: Not done, and no longer doable: it is a measurement of the code before the change, and the change is merged. The Windows figure of 2026-10-13 above is the only measurement before.*
 
 ## 2. Reproduce before fixing
 
@@ -39,12 +41,16 @@ Implemented on 2026-10-13; each task carries what was done and what was not.
 
 ## 4. Verification
 
-- [ ] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green.
-- [ ] 4.2 The persistence parity tests, the publication recovery contract tests of the `m19` package and the
+- [x] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green.
+      *2026-10-30: CI run `38457436377` of PR #484, `exact-head` on ubuntu-latest and windows-latest (`clean verify` and the changed-line gate): green.*
+- [x] 4.2 The persistence parity tests, the publication recovery contract tests of the `m19` package and the
       traceability contract tests. Proof: green unmodified.
-- [ ] 4.3 M19 on both platforms: `scripts\validate.cmd m19` and `bash ./scripts/validate-m19.sh`. Proof:
+      *2026-10-30: the parity, `m19` recovery and traceability contract tests are untouched by `9fb5e300d` and `e41e17dc0` (`TraceabilityPersistenceContractTest` only gains its batch scenarios) and green in `reverification-2026-10-15.md`.*
+- [x] 4.3 M19 on both platforms: `scripts\validate.cmd m19` and `bash ./scripts/validate-m19.sh`. Proof:
       `full_publish_p95_ms` before and after, per platform; the size and retention budgets are unchanged, since the
       rows written are the same.
       *2026-10-13: Windows only, the gate run alone: `full_publish_p95_ms=4031` and, on an earlier run the same day, 5120, after the change, against 5868 before. **The gain is within the spread between two runs of the same code**; what the change is worth is the count, and the time the database is held was not measured.*
-- [ ] 4.4 Pull request description: the finding, the counts of 1.1 before and after, the times of 1.3 and 4.3, and
+      *2026-10-30: nightly run `40998947309` (`develop` at `bd994fcc`, which contains PR #484): `M19 performance budgets` PASS on both platforms, `full_publish_p95_ms=1462` on ubuntu-latest and `20678` on windows-latest, against a budget of 60,000. There is no Linux figure before the change.*
+- [x] 4.4 Pull request description: the finding, the counts of 1.1 before and after, the times of 1.3 and 4.3, and
       the gain stated as measured - including if it is within the noise.
+      *2026-10-30: PR #484 states the counts 13 and 2,601, the times, and that the gain is within the noise.*

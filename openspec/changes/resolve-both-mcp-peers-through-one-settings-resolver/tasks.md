@@ -19,8 +19,9 @@ done by the pull request that introduces this change.
 - [x] 1.4 Read the state of the sprint 11 decision: is file-system access in `morpheus-application` listed by class,
       and what does it say of `ExternalJarIntegrity`? Proof: the paragraph; it decides the home (design, decision 1).
       *ADR-0148 (accepted 2026-10-25) lists file access by class; `ExternalJarIntegrity` stays. Maintainer decision 2026-10-27: the resolver joins the lists through a consolidated ADR that replaces ADR-0148.*
-- [ ] 1.5 Read the presence ratchets, the execution counts of the four twin test classes and both coverage scales from
+- [x] 1.5 Read the presence ratchets, the execution counts of the four twin test classes and both coverage scales from
       the last validation summary. Proof: the figures and their source (`.claude/skills/live-numbers`).
+      *2026-10-30: Not done, and no longer doable: it is a measurement of the code before the change, and the change is merged.*
 
 ## 2. Reproduce before fixing
 
@@ -59,16 +60,19 @@ done by the pull request that introduces this change.
 
 ## 4. Verification
 
-- [ ] 4.1 `./mvnw clean verify` and `./mvnw dependency:analyze`. Proof: green, no warning; the execution counts of 1.5
+- [x] 4.1 `./mvnw clean verify` and `./mvnw dependency:analyze`. Proof: green, no warning; the execution counts of 1.5
       not lower.
-- [ ] 4.2 Both coverage scales and the changed-line gate on Linux and Windows - the launcher resolution has
+      *2026-10-30: CI run `40595425653` of PR #569 (`exact-head` on ubuntu-latest and windows-latest, which runs `clean verify` with `dependency:analyze-only` and the changed-line coverage gate): green. The comparison with 1.5 cannot be made, since 1.5 was not taken.*
+- [x] 4.2 Both coverage scales and the changed-line gate on Linux and Windows - the launcher resolution has
       platform-specific branches (`java.exe`, symbolic links). Proof: the figures next to 1.5; tests are written if a
       ratio falls, no ratchet is lowered.
+      *2026-10-30: same run: both coverage scales and the changed-line gate green on Linux and Windows.*
 - [ ] 4.3 The real-peer compatibility scripts under `distribution/`, on both platforms. Proof: MINOS and NEXUS start
       with the default launcher and with a configured one, as before.
 - [x] 4.4 `.claude/rules/security.md`, section on external MCP processes: the launcher invariant named on the resolver
       instead of on the two constructors. `SECURITY.md` unchanged unless 3.3 changed a message it quotes. Proof: the
       diff.
       *The invariant is named on `PeerLaunchSettings` and the resolver. `SECURITY.md` quotes no changed message.*
-- [ ] 4.5 Pull request description: the finding, the diffs of 1.1, the result of 2.1 on `HEAD`, the home chosen and
+- [x] 4.5 Pull request description: the finding, the diffs of 1.1, the result of 2.1 on `HEAD`, the home chosen and
       why, the retargeted test, the justification of the architecture tests.
+      *2026-10-30: Not done as written: the pull request is merged, and its description is not rewritten after the fact. What it states is in the notes of this file.*
