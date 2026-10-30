@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
  * the way {@code CoverageScaleSeparationTest} does, because a helper that compiles perfectly well and simply
  * should not exist cannot be caught any other way.</p>
  */
+@CoherenceCheck
 class BoundedWaitOwnershipTest {
 
     /** The per-module owners. Deliberately two, not one: see {@link #theTwoOwnersStayInStep()}. */

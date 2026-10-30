@@ -3,6 +3,7 @@ package com.morpheus.architecture.m20;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.morpheus.architecture.CoherenceCheck;
 import com.morpheus.architecture.RepositoryRoot;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.Test;
  * manufacturing the evidence that would close it: it reads, verifies and fails closed, and it never creates a
  * tag, a release or an asset.</p>
  */
+@CoherenceCheck
 class ReleaseQualificationContractTest {
     private static final List<String> QUALIFICATION_SCRIPTS =
             List.of("scripts/verify-release-provenance.sh", "scripts/verify-release-provenance.ps1");

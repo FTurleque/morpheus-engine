@@ -40,11 +40,21 @@ Les deux mécanismes n'enforcent pas la même proposition, et aucun ne domine l'
 1. **Vérifier que la classe visée est dans l'ensemble importé.** Plusieurs modules du réacteur
    n'y sont pas. Le garde-fou `archRule.failOnEmptyShould` est actif et fait échouer une règle
    qui ne retient aucune classe — **ne pas le désactiver** : sans lui, une règle pointée hors
-   classpath passe à vide.
+   classpath passe à vide. `AnEmptyArchitectureRuleFailsTest` échoue si quelqu'un le désactive :
+   globalement (`archunit.properties`, propriété système) ou pour une règle (`allowEmptyShould`).
 2. **Vérifier qu'un littéral n'est pas un préfixe de famille.** Un `contains` sur un préfixe
    interdit toute une famille de types, pas un seul.
 3. **Casser la règle pour prouver qu'elle tient** : introduire la violation, constater l'échec,
    revenir en arrière. Une règle vide passe aussi.
+
+## Un interdit textuel de type porte son intention en message
+
+`assertFalse(source.contains("UnType"), "<la mention, ou la dépendance qu'elle représente>")`, jamais la forme à
+un seul argument. Les interdits sans message forment une famille que `EnforcementMechanismAccountingTest` compte et
+qui **ne fait que rétrécir** : un membre ajouté casse le build, un membre retiré exige de baisser
+`UNEXPLAINED_TYPE_BAN_CEILING` dans le même changement. La composition de l'enforcement du module (règles, assertions
+textuelles, familles) se lit dans `morpheus-architecture-tests/target/enforcement-composition-summary.txt`, jamais
+dans un chiffre recopié. Une classe qui ne lit que des documents porte `@CoherenceCheck` et reste dans le module.
 
 ## Ce qui reste textuel par nature — ne pas le migrer
 

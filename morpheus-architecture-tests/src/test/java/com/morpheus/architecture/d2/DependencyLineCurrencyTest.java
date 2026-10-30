@@ -1,5 +1,6 @@
 package com.morpheus.architecture.d2;
 
+import com.morpheus.architecture.CoherenceCheck;
 import com.morpheus.architecture.RepositoryRoot;
 import org.junit.jupiter.api.Test;
 
@@ -21,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * refused whole, patches included. The bot is told to ignore changes of line for that one artifact, and this holds the
  * instruction and its reason together -- one without the other is the defect.</p>
  */
+@CoherenceCheck
 class DependencyLineCurrencyTest {
     private static final String REACTOR_LINE_COMMENT = "Keep the transport on that compatible train.";
     private static final Pattern REACTOR_VERSION =

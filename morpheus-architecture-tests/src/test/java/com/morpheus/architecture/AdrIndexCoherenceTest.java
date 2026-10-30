@@ -39,6 +39,7 @@ import org.junit.jupiter.api.Test;
  * unique across both: an archived record keeps its number forever, so reusing it would make an old citation point
  * at a new decision. A superseded record names its successor, and that successor must exist.</p>
  */
+@CoherenceCheck
 class AdrIndexCoherenceTest {
     private static final Pattern INDEX_ROW =
             Pattern.compile("^\\|\\s*\\[ADR-(\\d{4})\\]\\(([^)]+)\\)\\s*\\|(.*?)\\|\\s*\\*\\*(.+?)\\*\\*\\s*\\|\\s*$",
