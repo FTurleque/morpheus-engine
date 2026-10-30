@@ -1,5 +1,6 @@
 package com.morpheus.application.read;
 
+import com.morpheus.application.analysis.ProposedChangeSet;
 import com.morpheus.domain.acceptance.AcceptanceCriterion;
 import com.morpheus.domain.acceptance.AcceptanceCriterionId;
 import com.morpheus.domain.acceptance.VerificationStatus;
@@ -141,6 +142,38 @@ class NormalizedProjectContentTest {
                         List.of(fixture.evidence),
                         List.of()),
                 content);
+    }
+
+    @Test
+    void aProposedChangeSetTakesFromTheContentOnlyTheItemsOfItsChange() {
+        Fixture fixture = fixture();
+        ChangeProposal change = change(fixture);
+        ChangeProposal other = new ChangeProposal(ChangeId.generate(), fixture.project.id(), Optional.of("other"),
+                "Other", "Another intent", List.of(), List.of(), List.of(), fixture.provenance);
+        Constraint constraint = Constraint.withUnknownSemantics(
+                ConstraintId.generate(), change.id(), "Keep it local.", fixture.provenance);
+        Constraint foreign = Constraint.withUnknownSemantics(
+                ConstraintId.generate(), other.id(), "Elsewhere.", fixture.provenance);
+        DesignDecision decision = new DesignDecision(
+                DesignDecisionId.generate(), change.id(), "Decision", "Body", fixture.provenance);
+        ImplementationTask task = new ImplementationTask(
+                TaskId.generate(), change.id(), Optional.empty(), "Task", false, fixture.provenance);
+        NormalizedProjectContent content = NormalizedProjectContent.withoutAcceptanceCriteria(
+                fixture.project, List.of(fixture.specification), List.of(fixture.requirement), List.of(),
+                List.of(change, other), List.of(delta(fixture, change.id(), fixture.requirement.id())),
+                List.of(constraint, foreign), List.of(decision), List.of(task), List.of(fixture.evidence), List.of());
+
+        ProposedChangeSet proposal = ProposedChangeSet.from(content, change.id());
+        ChangeId unknown = ChangeId.generate();
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class,
+                () -> ProposedChangeSet.from(content, unknown));
+
+        assertEquals(change, proposal.change());
+        assertEquals(1, proposal.requirementDeltas().size());
+        assertEquals(List.of(constraint), proposal.constraints());
+        assertEquals(List.of(decision), proposal.designDecisions());
+        assertEquals(List.of(task), proposal.implementationTasks());
+        assertEquals("normalized content does not contain change: " + unknown, refused.getMessage());
     }
 
     @Test
