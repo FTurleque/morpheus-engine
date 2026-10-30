@@ -1,12 +1,16 @@
 package com.morpheus.architecture;
 
+import com.sun.net.httpserver.HttpServer;
+import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.domain.JavaMethodCall;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.concurrent.Executors;
 
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.simpleNameContaining;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
@@ -19,6 +23,13 @@ class LocalHttpServerBootstrapArchitectureTest {
     private static final JavaClasses PRODUCTION = new ClassFileImporter()
             .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
             .importPackages("com.morpheus.api");
+
+    /** The calls that create a JDK server or the executor serving it: the bootstrap's, never the server's. */
+    private static final DescribedPredicate<JavaMethodCall> STARTS_A_SERVER_OR_ITS_EXECUTOR =
+            DescribedPredicate.describe(
+            "creates a JDK HTTP server or an executor",
+            call -> call.getTargetOwner().getName().equals(Executors.class.getName())
+                    || call.getName().equals("create") && call.getTargetOwner().isAssignableTo(HttpServer.class));
 
     @Test
     void localServerKeepsDispatchWhileBootstrapOwnsRuntimeStartup() throws IOException {
@@ -33,8 +44,6 @@ class LocalHttpServerBootstrapArchitectureTest {
         assertFalse(server.contains("InetSocketAddress"),
                 "the local server binds no address: it reads the address its bootstrap bound through the JDK "
                 + "server, a dependency on InetSocketAddress a rule would refuse, and names none");
-        assertFalse(server.contains("HttpServer.create("));
-        assertFalse(server.contains("Executors.newVirtualThreadPerTaskExecutor()"));
         assertFalse(server.contains("startConfigured("));
 
         assertTrue(bootstrap.contains("new RuntimeSnapshotRecovery(recovery.snapshots(), recorder).recoverAll(Instant.now())"));
@@ -74,8 +83,11 @@ class LocalHttpServerBootstrapArchitectureTest {
      * {@code LoopbackRequestProtectedHttpServer}, {@code CapabilityProtectedHttpServer}, as the text ban it replaces
      * matched the name.
      *
+     * <p>The server creates neither the JDK server nor its executor either.</p>
+     *
      * <p>None of these types declares a compile-time constant, so the rule alone covers them. Broken before acceptance,
-     * 30/10/2026: a {@code RuntimeSnapshotRecovery} field added to {@code MorpheusHttpServer} failed this rule.</p>
+     * 30/10/2026: a {@code RuntimeSnapshotRecovery} field added to {@code MorpheusHttpServer} failed this rule, and so
+     * did an {@code Executors.newVirtualThreadPerTaskExecutor()} call added to it.</p>
      */
     @Test
     void theLocalServerLeavesItsStartupToTheBootstrap() {
@@ -84,6 +96,7 @@ class LocalHttpServerBootstrapArchitectureTest {
                 .should().dependOnClassesThat(simpleNameContaining("RuntimeSnapshotRecovery")
                         .or(simpleNameContaining("LoopbackRequestProtectedHttpServer"))
                         .or(simpleNameContaining("CapabilityProtectedHttpServer")))
+                .orShould().callMethodWhere(STARTS_A_SERVER_OR_ITS_EXECUTOR)
                 .because("binding, protecting and recovering at start-up are the bootstrap's; the server only dispatches")
                 .check(PRODUCTION);
     }

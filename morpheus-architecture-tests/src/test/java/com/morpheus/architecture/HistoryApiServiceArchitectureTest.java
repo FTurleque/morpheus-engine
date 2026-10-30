@@ -1,5 +1,6 @@
 package com.morpheus.architecture;
 
+import com.morpheus.application.query.RequirementQueryService;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
@@ -9,6 +10,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.simpleNameEndingWith;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.type;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -38,7 +40,6 @@ class HistoryApiServiceArchitectureTest {
         assertTrue(history.contains("new RequirementSnapshotComparisonService(runtime.snapshots(), runtime.requirements())"));
         assertTrue(history.contains("private void requireSnapshotProject("));
         assertTrue(history.contains("private Object version(ApiRuntime runtime, KnowledgeSnapshotMetadata snapshot)"));
-        assertFalse(history.contains("new RequirementQueryService("));
 
         assertTrue(routes.contains("private final MorpheusHistoryApiService service;"));
         assertTrue(routes.contains("historyService()"));
@@ -87,6 +88,25 @@ class HistoryApiServiceArchitectureTest {
                         .or(simpleNameEndingWith("LocalSourceInventoryScanner")))
                 .because("each API service serves one capability through its own application services; reaching "
                         + "another capability's service brings a second owner for the same answer")
+                .check(PRODUCTION);
+    }
+
+    /**
+     * {@code MorpheusHistoryApiService} answers from the published history, never from the current requirements:
+     * it holds no {@code RequirementQueryService}, which {@code MorpheusRequirementQueryApiService} owns. The exact
+     * type, not a name suffix: {@code HistoricalRequirementQueryService} is the history service's own.
+     *
+     * <p>{@code RequirementQueryService} declares no compile-time constant, so the rule alone covers it, and it sees
+     * a dependency of any kind where the text saw a construction only. Broken before acceptance, 30/10/2026: a
+     * {@code RequirementQueryService} field added to {@code MorpheusHistoryApiService} failed this rule.</p>
+     */
+    @Test
+    void theHistoryServiceHoldsNoCurrentRequirementQuery() {
+        noClasses()
+                .that().haveSimpleName("MorpheusHistoryApiService")
+                .should().dependOnClassesThat(type(RequirementQueryService.class))
+                .because("the history answers from the published snapshots; the current requirements are "
+                        + "MorpheusRequirementQueryApiService's")
                 .check(PRODUCTION);
     }
 }

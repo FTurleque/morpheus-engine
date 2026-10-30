@@ -1,5 +1,7 @@
 package com.morpheus.architecture;
 
+import com.morpheus.application.query.BusinessContentQueryService;
+import com.morpheus.application.query.ChangeContextQueryService;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
@@ -8,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.belongToAnyOf;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.simpleNameEndingWith;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -34,8 +37,6 @@ class ChangeQueryApiServiceArchitectureTest {
         assertTrue(facade.contains("return changeQueryService.designDecisions(projectIdValue, changeIdValue, pageRequest);"));
         assertTrue(facade.contains("return changeQueryService.implementationTasks(projectIdValue, changeIdValue, pageRequest);"));
         assertTrue(facade.contains("return changeQueryService.changeContext(projectIdValue, changeIdValue, depth);"));
-        assertFalse(facade.contains("new BusinessContentQueryService("));
-        assertFalse(facade.contains("new ChangeContextQueryService("));
         assertFalse(facade.contains("private com.morpheus.application.query.SnapshotItemResult<ChangeProposal> requireChange("));
         assertFalse(facade.contains("private Object change(ChangeProposal item)"));
         assertFalse(facade.contains("private Object constraint(Constraint item)"));
@@ -83,6 +84,27 @@ class ChangeQueryApiServiceArchitectureTest {
                         .or(simpleNameEndingWith("LocalSourceInventoryScanner")))
                 .because("each API service serves one capability through its own application services; reaching "
                         + "another capability's service brings a second owner for the same answer")
+                .check(PRODUCTION);
+    }
+
+    /**
+     * The facade holds none of the application services that serve the active change queries: {@code
+     * BusinessContentQueryService}, {@code ChangeContextQueryService}. They are {@code
+     * MorpheusChangeQueryApiService}'s, and the facade delegates to it.
+     *
+     * <p>None of these types declares a compile-time constant, so the rule alone covers them, and it sees a dependency
+     * of any kind where the text saw a construction only. Broken before acceptance, 30/10/2026: a {@code
+     * BusinessContentQueryService} field added to {@code MorpheusApiService} failed this rule.</p>
+     */
+    @Test
+    void theFacadeHoldsNoChangeQueryService() {
+        noClasses()
+                .that().haveSimpleName("MorpheusApiService")
+                .should().dependOnClassesThat(belongToAnyOf(
+                        BusinessContentQueryService.class,
+                        ChangeContextQueryService.class))
+                .because("the facade delegates the active change queries to MorpheusChangeQueryApiService; "
+                        + "a service of its own would answer beside that owner")
                 .check(PRODUCTION);
     }
 }

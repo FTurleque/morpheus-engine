@@ -1,24 +1,45 @@
 package com.morpheus.architecture.m26;
 
+import com.morpheus.architecture.ClassesOfASource;
 import com.morpheus.architecture.ProductionSources;
+import com.tngtech.archunit.base.DescribedPredicate;
+import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.core.importer.ImportOption;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
+import java.util.Set;
 
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.type;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The remote server does not end an attributed request without its record.
  *
- * <p>Textual, because it is about wiring: no rule on bytecode says in which block a call sits. The record of an
- * outcome is written in the {@code finally} of {@code serve}, the one place every exit goes through - served by the
- * facade, proxied, refused, failed. Written in each branch instead, the next branch added would be the one without a
- * record.</p>
+ * <p>Where the record is written is textual, because it is about wiring: no rule on bytecode says in which block a
+ * call sits. The record of an outcome is written in the {@code finally} of {@code serve}, the one place every exit
+ * goes through - served by the facade, proxied, refused, failed. Written in each branch instead, the next branch added
+ * would be the one without a record. What the journal can read is a dependency, and a rule holds it.</p>
  */
 class RemoteAccessJournalArchitectureTest {
+
+    private static final JavaClasses PRODUCTION = new ClassFileImporter()
+            .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+            .importPackages("com.morpheus.api.remote");
+
+    /**
+     * The accessors through which a token or its verifier is read. {@code jdk.httpserver} and {@code java.net.URI}
+     * declare no compile-time constant, so the rule alone covers the exchange and the path. Broken before acceptance,
+     * 30/10/2026: an {@code HttpExchange} parameter added to a method of {@code RemoteAccessJournal} failed the rule,
+     * and so did a call to {@code Identity.tokenHash()}.
+     */
+    private static final Set<String> TOKEN_ACCESSORS = Set.of("token", "tokenHash");
     @Test
     void theOutcomeIsRecordedOnceInTheFinallyOfServeAndTheAcceptanceBeforeAnythingIsServed() throws IOException {
         String server = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServer"));
@@ -51,18 +72,18 @@ class RemoteAccessJournalArchitectureTest {
 
     @Test
     void aRecordIsBuiltFromTheRouteTemplateAndNeverFromThePath() throws IOException {
-        String journal = Files.readString(ProductionSources.mainSource("morpheus-api", "RemoteAccessJournal"));
         String server = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServer"));
 
         assertTrue(server.contains("exchange.getRequestMethod(), route.template());"),
                 "the record takes the template the route table matched");
-        for (String callerChosen : new String[] {
-                "HttpExchange", "getRequestURI", "getRawPath", "getRawQuery", "getRequestHeaders", "tokenHash",
-                "token()"}) {
-            assertFalse(journal.contains(callerChosen),
-                    () -> "the journal must not be able to read " + callerChosen
-                            + ": a record holds nothing the caller chose and no form of a token");
-        }
+        noClasses()
+                .that(ClassesOfASource.declaredIn("RemoteAccessJournal"))
+                .should().dependOnClassesThat(resideInAPackage("com.sun.net.httpserver..").or(type(URI.class)))
+                .orShould().callMethodWhere(DescribedPredicate.describe("reads a token or its verifier",
+                        call -> TOKEN_ACCESSORS.contains(call.getName())))
+                .because("a record holds nothing the caller chose and no form of a token: the journal reads neither "
+                        + "the exchange, nor a request URI, nor a token or its verifier")
+                .check(PRODUCTION);
     }
 
     private static int occurrences(String text, String needle) {

@@ -1,5 +1,8 @@
 package com.morpheus.architecture.m27;
 
+import com.morpheus.application.policy.PolicyPackStore;
+import com.morpheus.application.query.saved.SavedViewStore;
+import com.morpheus.application.sync.SyncStateStore;
 import com.morpheus.architecture.ProductionSources;
 import com.morpheus.architecture.RepositoryRoot;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
@@ -9,6 +12,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.belongToAnyOf;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -25,6 +29,23 @@ class ReasoningPlatformArchitectureTest {
                         "..store.memory..", "..store.sqlite..",
                         "..provider..", "..application.lifecycle.mutation..")
                 .check(classes);
+    }
+
+    /**
+     * The reasoning core reads no persisted state through a store port: it reasons over the evidence it is handed.
+     *
+     * <p>The three ports declare no compile-time constant, so the rule alone covers them. Broken before acceptance,
+     * 30/10/2026: a {@code SyncStateStore} parameter added to a method of {@code ReasoningService} failed the
+     * rule.</p>
+     */
+    @Test
+    void theReasoningCoreDependsOnNoStorePort() {
+        noClasses()
+                .that().resideInAPackage("com.morpheus.application.reasoning..")
+                .should().dependOnClassesThat(belongToAnyOf(
+                        PolicyPackStore.class, SavedViewStore.class, SyncStateStore.class))
+                .because("reasoning is a deterministic read-only core: it is handed its evidence and persists nothing")
+                .check(new ClassFileImporter().importPackages("com.morpheus.application.reasoning"));
     }
 
     @Test
@@ -44,9 +65,6 @@ class ReasoningPlatformArchitectureTest {
         assertFalse(lower.contains("processbuilder"));
         assertFalse(lower.contains("runtime.getruntime"));
         assertFalse(lower.contains("com.morpheus.application.store"));
-        assertFalse(lower.contains("policypackstore"));
-        assertFalse(lower.contains("savedviewstore"));
-        assertFalse(lower.contains("syncstatestore"));
         assertFalse(lower.contains("com.morpheus.application.lifecycle.mutation"));
     }
 

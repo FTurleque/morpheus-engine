@@ -1,5 +1,9 @@
 package com.morpheus.architecture;
 
+import com.morpheus.application.sync.LocalSourceInventoryScanner;
+import com.morpheus.application.sync.IncrementalSyncService;
+import com.morpheus.application.ingestion.ProjectContentIngestion;
+import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
@@ -7,8 +11,8 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.belongToAnyOf;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.simpleNameEndingWith;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -29,11 +33,7 @@ class ProjectSyncApiServiceArchitectureTest {
         assertTrue(facade.contains("private final MorpheusProjectSyncApiService projectSyncService;"));
         assertTrue(facade.contains("return projectSyncService.sync(projectIdValue, revision);"));
         assertTrue(facade.contains("return projectSyncService.syncStatus(projectIdValue, maxAgeMinutes);"));
-        assertFalse(facade.contains("new LocalSourceInventoryScanner("));
-        assertFalse(facade.contains("new IncrementalSyncService("));
-        assertFalse(facade.contains("new ProjectContentIngestion("));
         assertFalse(facade.contains("SpecificationContentReader()"));
-        assertFalse(facade.contains("new ProjectSnapshotImportService("));
         assertFalse(facade.contains("private Path projectWorkspace("));
         assertFalse(facade.contains("policy.requireAllowedDirectory(workspace)"));
 
@@ -73,6 +73,29 @@ class ProjectSyncApiServiceArchitectureTest {
                         .or(simpleNameEndingWith("QualityReportService")))
                 .because("each API service serves one capability through its own application services; reaching "
                         + "another capability's service brings a second owner for the same answer")
+                .check(PRODUCTION);
+    }
+
+    /**
+     * The facade holds none of the application services that serve the project sync: {@code
+     * LocalSourceInventoryScanner}, {@code IncrementalSyncService}, {@code ProjectContentIngestion}, {@code
+     * ProjectSnapshotImportService}. They are {@code MorpheusProjectSyncApiService}'s, and the facade delegates to it.
+     *
+     * <p>None of these types declares a compile-time constant, so the rule alone covers them, and it sees a dependency
+     * of any kind where the text saw a construction only. Broken before acceptance, 30/10/2026: a {@code
+     * IncrementalSyncService} field added to {@code MorpheusApiService} failed this rule.</p>
+     */
+    @Test
+    void theFacadeHoldsNoProjectSyncService() {
+        noClasses()
+                .that().haveSimpleName("MorpheusApiService")
+                .should().dependOnClassesThat(belongToAnyOf(
+                        LocalSourceInventoryScanner.class,
+                        IncrementalSyncService.class,
+                        ProjectContentIngestion.class,
+                        ProjectSnapshotImportService.class))
+                .because("the facade delegates the project sync to MorpheusProjectSyncApiService; "
+                        + "a service of its own would answer beside that owner")
                 .check(PRODUCTION);
     }
 }

@@ -218,8 +218,21 @@ l'installeur, Windows le présente comme provenant d'un **éditeur inconnu**, et
 confirmation supplémentaire (« Informations complémentaires », puis « Exécuter quand même »). Ce n'est pas le signe d'un
 fichier altéré : c'est ce que Windows affiche pour tout exécutable non signé.
 
-Pour une release non signée, la vérification disponible est la somme SHA-256 publiée avec chaque fichier (section
-suivante), complétée par l'attestation de provenance décrite dans [PRODUCT_INTEGRITY.md](PRODUCT_INTEGRITY.md).
+Pour une release non signée, l'origine d'un fichier se vérifie **avant de le lancer**, en deux temps :
+
+1. la somme SHA-256 (section « Vérification SHA-256 » ci-dessus) dit que le fichier téléchargé est celui qui a été
+   publié ;
+2. l'attestation de provenance dit que ce fichier a été construit par le workflow de release de MORPHEUS, depuis le
+   commit tagué de la version. Elle se vérifie avec la [GitHub CLI](https://cli.github.com/) :
+
+```powershell
+gh attestation verify .\MORPHEUS-<version>-windows-x64-setup.exe --repo FTurleque/morpheus-engine
+```
+
+La commande échoue pour un fichier que le workflow de release n'a pas construit, même s'il porte le même nom. Le
+fichier `morpheus-<version>-windows-x64.attestation.jsonl` publié avec la release porte la même attestation, pour une
+vérification qui ne la redemande pas à GitHub (`--bundle`). La portée de cette preuve est décrite dans
+[PRODUCT_INTEGRITY.md](PRODUCT_INTEGRITY.md).
 
 Aucune signature d'éditeur n'est prévue pour les releases de MORPHEUS. Si une release venait à être signée, ses
 notes de version le diraient, et les versions antérieures resteraient telles qu'elles ont été publiées. L'état d'un
