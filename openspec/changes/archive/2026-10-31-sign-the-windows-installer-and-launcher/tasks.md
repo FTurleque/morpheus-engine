@@ -1,5 +1,12 @@
 # Tasks
 
+> **Closed on 2026-10-31 by the maintainer's decision: MORPHEUS releases stay unsigned.** No free code-signing
+> certificate is open to a proprietary licence (`docs/project/research/signature-authenticode-gratuite-2026-10-30.md`),
+> and no paid one is taken. The tasks left unticked below are not done and will not be done under this decision. What
+> is ticked is in the repository and stays there: the signing path exercised with a disposable identity, the
+> verification and its contract test. The change is archived without merging its specification into the main specs,
+> since the capability it specifies is not delivered. It reopens with a new change if the licence or the cost changes.
+
 Implementation is a separate lot, started after this specification is reviewed and after
 `refuse-an-unsigned-or-wrongly-signed-windows-binary` is merged (this change uses its verification and its
 declaration). Nothing below is done by the pull request that introduces this change.
