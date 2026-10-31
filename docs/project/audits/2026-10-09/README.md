@@ -42,6 +42,79 @@ vérifiable.** Les **22 constats actifs** sont 13 `Moyenne` et 9 `Faible`. Archi
 (84) ; les cinq autres axes sont inchangés. Le plan du 9 octobre garde 4 constats, dans les sprints 12 à 14 ; charge
 restante estimée : **19,75 à 59 jours**.
 
+## État au 31 octobre 2026 — onze sprints soldés, et la mesure rattrapée par l'audit
+
+Revérification sur `de748b38` (`origin/develop`, PR #599), soit **35 commits et 370 fichiers** (+14 747 / −1 740)
+depuis `11bb1ccf`. Build vert : 19 modules en **10 min 38 — 5 209 tests, 0 échec, 13 ignorés** (412 de plus).
+Détail dans **`reverification-2026-10-31.md`**.
+
+**Cette vague est une réponse directe à l'audit de la veille** : elle reprend un par un les quatre constats classés
+*partiels* le 30 octobre, avec les réserves inscrites pour cahier des charges. **Trois se ferment**, trois autres
+progressent réellement — et la moyenne reste à **84**, parce que trois défauts neufs apparaissent, dont deux dans
+l'appareil de mesure lui-même.
+
+**Les trois clôtures ont été rouvertes dans le code et tiennent.** `AUD-ARC-03` : les composantes fortement connexes
+de l'application passent de **17 à 2**, et la règle devient `beFreeOfCycles()` **sans aucune exception nommée** — les
+21 arêtes tolérées ont disparu. Le cycle n'a pas été repoussé ailleurs : le domaine est sous sa propre règle et son
+recompte est identique avant et après. `AUD-ARC-13` : deux décisions supplémentaires descendent sur leur type, et le
+domaine porte sa première famille scellée. `AUD-PRF-05` : le `CASE` est descendu dans des colonnes générées servies
+par deux index partiels déclarés en migration V024, et surtout **le garde-fou a cessé d'excuser** — il exige
+désormais le nom de l'index dans le plan de requête, lancé par le vrai pilote sur une base migrée.
+
+**Deux errata de ma part**, tous deux sur la passe du 30 octobre. J'avais classé `AUD-ARC-13` *partiel* au motif que
+« le ratio ne bouge que de 3 % » — alors que son action écrit « **mesurer le résultat par la réduction des arêtes de
+la SCC, pas par le nombre de lignes déplacées** ». J'ai jugé ce constat au ratio que son action me disait
+expressément de ne pas utiliser ; les arêtes passent de 21 à 0. Et le rapport règle/texte d'`AUD-TRV-03`, que
+j'annonçais « 30,5:1 → 28,6:1 », vaut en réalité 42,3:1 puis 45,6:1 d'après mes propres comptes : les comptes
+étaient bons, les rapports dérivés étaient faux.
+
+**Du vrai progrès, mesuré.** `AUD-TRV-03` bouge pour la première fois dans le bon sens **et par le bon mécanisme** :
+les règles `noClasses()` doublent (42 → **89**), les assertions textuelles reculent (1 917 → **1 705**), et 24,1 des
+26,4 points de gain du rapport viennent de la montée des règles, pas de la baisse du texte — l'inverse exact de la
+veille. `AUD-TRV-02` : l'écart de couverture passe de **20,0195 à 1,2825 point**, et le mécanisme est établi — c'est
+la couverture qui est montée, pas l'échelle qui a été redéfinie : population inchangée, cliquets **relevés** et non
+abaissés, 44 fichiers de test neufs, et **aucun `pom.xml`, workflow ou script modifié sur les 35 commits**. Les
+classes entièrement empruntées tombent de **123 à une**.
+
+**Trois constats neufs, tous dans l'appareil plutôt que dans le produit.** `AUD-TST-22` (Moyenne) : les deux échelles
+de couverture ne sont plus qualifiées au même commit, et la vérification d'unicité est dans une boucle *par échelle*
+— l'écart que l'audit suit comme indicateur n'est plus un écart, et rien n'a protesté. `AUD-TST-23` (Moyenne) : le
+mécanisme neuf classe 7 listes en « compteur de dette », genre défini comme « ne faisant que rétrécir, sous la
+décision qui le dit » — et **rien n'asserte le rétrécissement, ni l'ADR**, qui pour deux d'entre elles n'existe pas.
+`AUD-ARC-19` (Faible) : le cycle `query.dsl` ↔ `query.saved` survit à la clôture, hors de la vue d'une règle qui
+tranche au premier niveau.
+
+**Trois aggravations, toutes collatérales.** `AUD-ARC-17` croît pour la deuxième passe consécutive, et la vague en
+donne la démonstration : un déplacement de paquet a été répercuté côté code par le compilateur et nulle part côté
+document, **parce que rien ne les compare** — l'ADR affirme désormais trois faits faux. `AUD-DEP-25` et `AUD-DEP-28`
+s'aggravent par le correctif d'`AUD-PRF-05`, dont la migration V024 porte le schéma de 23 à 24 : le dépôt déclare
+`1.2.1=20` pendant que 1.2.1 livre le schéma 24, soit **4 niveaux d'écart**. Et `AUD-QUA-21` a vu son scénario
+d'impact se réaliser : la vague a édité le `tasks.md` du document qui porte la phrase fausse, sans voir la phrase.
+
+**À l'actif du dépôt** : les ADR ont été archivés et renumérotés sans qu'**aucun garde-fou ne devienne muet** ; les
+trois constats de tests ont été traités **sans toucher à l'appareil qui les mesure** ; et le dépôt ne prétend pas que
+la migration vers le bytecode soit une substitution à garantie égale — là où la cible déclare une constante
+inlinable, il garde la moitié textuelle et l'explique.
+
+**123 constats : 72 corrigés · 7 partiels · 17 toujours valides · 4 caducs · 22 Info qui tiennent ·
+1 non vérifiable.** Les **24 constats actifs** sont 14 `Moyenne` et 10 `Faible` — **aucun `Critique` ni `Élevée`**.
+**Les onze premiers sprints du plan sont soldés**, et les trois encore ouverts — 12, 13 et 14 — ne gardent plus
+qu'**un constat chacun**. Charge restante : **19 à 58 jours**, contre 25,75 à 75 la veille. Les 24 contrôles passent.
+
+| Axe | 30 oct | 31 oct |
+|---|---|---|
+| Performance | 91 | **95** |
+| Sécurité | 88 | **88** |
+| Architecture | 84 | **88** |
+| Dépendances | 82 | **82** |
+| Qualité | 84 | **80** |
+| Tests | 78 | **70** |
+| **Moyenne** | **84** | **84** |
+
+L'axe Tests perd 8 points, et c'est l'enseignement de la passe : les deux constats qui le pénalisent ne portent pas
+sur le produit mais sur **l'appareil qui le mesure**. Le produit, lui, va mieux sur tous les axes que la vague a
+touchés.
+
 ## État au 30 octobre 2026 — la vague ne déplace pas la note
 
 Revérification sur `11bb1ccf` (`origin/develop`, PR #588), soit **65 commits et 346 fichiers** (+11 611 / −1 895)
