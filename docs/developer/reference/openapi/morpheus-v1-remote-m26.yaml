@@ -48,6 +48,14 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '500':
           $ref: '#/components/responses/InternalError'
+        '504':
+          description: >-
+            BACKUP_TIMEOUT: the backup outlived the facade's deadline for a write or administration call. It may still
+            complete; its outcome is unknown, not failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
   /provider-plugins/discover:
     get:
       operationId: discoverRemoteProviderPlugins
@@ -156,7 +164,9 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorEnvelope'
     TooManyRequests:
-      description: Explicit M26 concurrent request or aggregate proxy-response budget reached
+      description: >-
+        Explicit M26 concurrent request or aggregate proxy-response budget reached, or, for a backup,
+        DATABASE_WORKERS_BUSY: every database worker of the facade stayed taken for the admission wait
       content:
         application/json:
           schema:

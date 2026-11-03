@@ -2,7 +2,6 @@ package com.morpheus.api.remote;
 
 import com.morpheus.api.AllowedWorkspaceRoots;
 import com.morpheus.api.local.DatabaseCallWorkers;
-import com.morpheus.api.local.DatabaseWorkOffloadingHttpServer;
 import com.morpheus.api.local.MorpheusHttpServer;
 import com.morpheus.api.local.MorpheusInternalCapability;
 import com.morpheus.api.transport.BoundaryFailureMessage;
@@ -51,6 +50,14 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     static final int MAX_KEYSTORE_BYTES = 4 * 1024 * 1024;
     static final Duration REQUEST_BODY_READ_TIMEOUT = Duration.ofSeconds(15);
     static final Duration IN_FLIGHT_GRACE = Duration.ofSeconds(5);
+    /**
+     * How long the facade waits for a backup once a database worker holds it: the deadline of a relayed write or
+     * administration call ({@link MorpheusRemoteProxyTransport.UpstreamDeadline#WRITE}), so that the facade's own
+     * administration work is bounded like the work it relays.
+     */
+    static final Duration BACKUP_DEADLINE = MorpheusRemoteProxyTransport.UpstreamDeadline.WRITE.timeout();
+    static final String DATABASE_WORKERS_BUSY = "DATABASE_WORKERS_BUSY";
+    static final String BACKUP_TIMEOUT = "BACKUP_TIMEOUT";
     private static final int MAX_PROXY_RESPONSE_SLOTS = MAX_PROXY_IN_FLIGHT_BYTES / MAX_PROXY_RESPONSE_BYTES;
     private static final int MAX_REQUEST_BYTES = MorpheusHttpServer.MAX_REQUEST_BODY_BYTES;
     private static final int MAX_PRESENTED_BEARER_CHARS = 1024;
@@ -75,8 +82,8 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
     private final MorpheusRemoteProxyTargetResolver proxyTargets;
     private final MorpheusRemoteProxyTransport proxyTransport;
     private final RemoteAccessJournal accessJournal;
-    private final DatabaseCallWorkers databaseWorkers =
-            new DatabaseCallWorkers(DatabaseWorkOffloadingHttpServer.DATABASE_WORKERS);
+    private final DatabaseCallWorkers databaseWorkers = new DatabaseCallWorkers(
+            "morpheus-remote-database-worker-", DatabaseCallWorkers.DATABASE_WORKERS, DatabaseCallWorkers.ADMISSION_WAIT);
 
     // Wires together every transport, persistence, and access-control collaborator of the remote HTTPS facade
     // explicitly, per MorpheusMain's explicit-wiring convention (see .claude/rules/architecture.md, "Pas de
@@ -301,9 +308,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
             if (route.names("server/backups")) {
                 requireMethod(exchange, "POST");
                 requireEmptyBody(exchange);
-                SqliteServerMaintenance.BackupVerification backup =
-                        databaseWorkers.call(() -> maintenance.createBackup(databasePath, backupDirectory));
-                responses.sendSuccess(exchange, 201, backupView(backup));
+                responses.sendSuccess(exchange, 201, backupView(backupOnADatabaseWorker()));
                 return;
             }
             proxy(exchange, route);
@@ -352,6 +357,25 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
                     "remote write/admin concurrency limit reached");
         }
         return runtime.privilegedRequestStarted();
+    }
+
+    /**
+     * The one SQLite call the facade makes itself, on a database worker: its request's virtual thread parks instead of
+     * holding a carrier while the driver waits on a busy database (ADR-0114).
+     */
+    private SqliteServerMaintenance.BackupVerification backupOnADatabaseWorker() throws IOException {
+        try {
+            return databaseWorkers.call(new BackupCall(maintenance, databasePath, backupDirectory), BACKUP_DEADLINE);
+        } catch (DatabaseCallWorkers.RefusedCall refused) {
+            if (refused.refusal() == DatabaseCallWorkers.Refusal.NO_WORKER_IN_TIME) {
+                runtime.recordThrottledPrivilegedRequest();
+                throw new RemoteFailure(429, DATABASE_WORKERS_BUSY,
+                        "every database worker of the remote facade stayed taken; retry the backup later");
+            }
+            throw new RemoteFailure(504, BACKUP_TIMEOUT,
+                    "the backup exceeded the remote facade's timeout; it may still complete: "
+                            + "do not assume it failed before retrying");
+        }
     }
 
     /**
@@ -532,6 +556,28 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
         return host.contains(":") && !host.startsWith("[") ? "[" + host + "]" : host;
     }
 
+
+    /**
+     * The backup the facade makes itself, run by a database worker and never on the request's thread. A named class
+     * rather than a lambda, so that the rule on the bytecode sees where the SQLite call runs.
+     */
+    private static final class BackupCall
+            implements DatabaseCallWorkers.DatabaseCall<SqliteServerMaintenance.BackupVerification> {
+        private final SqliteServerMaintenance maintenance;
+        private final Path databasePath;
+        private final Path backupDirectory;
+
+        private BackupCall(SqliteServerMaintenance maintenance, Path databasePath, Path backupDirectory) {
+            this.maintenance = maintenance;
+            this.databasePath = databasePath;
+            this.backupDirectory = backupDirectory;
+        }
+
+        @Override
+        public SqliteServerMaintenance.BackupVerification run() {
+            return maintenance.createBackup(databasePath, backupDirectory);
+        }
+    }
 
     private static final class RemoteFailure extends RuntimeException {
         private final int status;

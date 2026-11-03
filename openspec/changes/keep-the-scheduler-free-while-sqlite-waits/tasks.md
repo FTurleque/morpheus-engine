@@ -53,3 +53,28 @@ Implemented on 2026-10-13; each task carries what was done and what was not.
       the number of processors.*
 - [x] 5.3 Hold it by a rule. Proof: `RemoteServerArchitectureTest#theRemoteFacadeCallsTheDatabaseOnlyThroughItsDatabaseWorkers`,
       broken once.
+      *2026-11-03: replaced by 6.5 - the textual rule read one file and looked sixty characters back.*
+
+## 6. The remote facade, second pass (AUD-PRF-19 remainder, added 2026-11-03)
+
+- [x] 6.1 Re-measure the facade with the harness of 5.1. Proof: `RemoteSchedulerAvailabilityUnderSqliteWaitTest` with
+      the backup run on the request's thread: red on 16 processors (first status probe: connect timeout after
+      5,007 ms, backups `{201=12, 500=8}`); through the workers: green, status at worst 23 ms, backups `{201=20}`.
+- [x] 6.2 One mechanism for both servers. Proof: `DatabaseCallWorkers` owns the pool, the fair admission bounded by
+      `ADMISSION_WAIT`, the place given back by the worker and the interruption of an abandoned worker;
+      `DatabaseWorkOffloadingHttpServer` hands each handler to it (`runToItsEnd`), the facade its backup (`call`).
+      *Departure kept from 5.2: the facade is not decorated whole - relayed requests park on the network, and an
+      admission at the server would precede authentication, letting an anonymous caller hold the backups' queue. ADR-0114
+      says so.*
+- [x] 6.3 Bound the facade's wait. Proof: `DatabaseCallWorkersTest` - a call beyond the workers is refused
+      `NO_WORKER_IN_TIME` after the admission wait, a call still running at its deadline is refused `DEADLINE_PASSED`
+      and its worker keeps its place until it returns; the facade answers `429 DATABASE_WORKERS_BUSY` and
+      `504 BACKUP_TIMEOUT` (`BACKUP_DEADLINE`, the deadline of a relayed write), both in the remote OpenAPI.
+      *Not done: no end-to-end test of the two remote refusals.*
+- [x] 6.4 Size the pool. Proof: `DATABASE_WORKERS = 8`, no longer derived from the processors, its reason on the
+      constant and in ADR-0114.
+- [x] 6.5 Replace the textual rule. Proof: `DatabaseWorkArchitectureTest`, on the bytecode of the whole adapter, local
+      and remote - SQLite maintenance only from a `DatabaseCall`, a `DatabaseCall` run only by the workers, the local
+      decorator hands its handlers to them, one class builds a pool of platform threads. Each rule broken once: a
+      direct `BackupCall.run()`, a lambda calling `maintenance.createBackup`, an `Executors.newFixedThreadPool` in the
+      facade, a local decorator calling its handler directly.
