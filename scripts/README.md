@@ -42,14 +42,14 @@ sont réservés au diagnostic et ne constituent jamais une qualification.
 
 ## M21 — gate durable exact-head
 
-La baseline corrective active est `1.2.1` :
+La baseline corrective active est `1.2.2` :
 
 ```powershell
-.\scripts\validate.cmd m21 -Version 1.2.1
+.\scripts\validate.cmd m21 -Version 1.2.2
 ```
 
 ```bash
-bash ./scripts/validate-m21.sh 1.2.1
+bash ./scripts/validate-m21.sh 1.2.2
 ```
 
 M21 applique notamment :
@@ -59,14 +59,14 @@ clean verify
 Surefire written     >= 2876
 Surefire generated   >= 1819
 architecture         >= 836
-aggregate line coverage    >= 91.2%
-aggregate branch coverage  >= 77.3%
+aggregate line coverage    >= 92.6%
+aggregate branch coverage  >= 80.8%
 per-module line coverage   >= 89.9%
 per-module branch coverage >= 77.1%
 CycloneDX SBOM
 provenance
 portable smoke
-product/package version = 1.2.1
+product/package version = 1.2.2
 HEAD exact + workspace tracked clean
 ```
 
@@ -84,13 +84,13 @@ Le même SHA doit réussir sur Windows et Linux.
 Windows :
 
 ```powershell
-.\scripts\validate.cmd d2 -Version 1.2.1 -BaseRef origin/develop
+.\scripts\validate.cmd d2 -Version 1.2.2 -BaseRef origin/develop
 ```
 
 Linux / WSL :
 
 ```bash
-MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.1
+MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.2
 ```
 
 D2 reste un gate **local spécialisé** :
@@ -215,4 +215,4 @@ PR. `GateReachabilityArchitectureTest` refuse un validateur qu'aucun workflow ne
 python scripts/tests/test_script_inventory.py     # imprime la table : lancé par, exécuté par, non atteint
 ```
 
-Les documents et validateurs de preuve historiques (R2/R3/milestones) peuvent conserver les versions réellement exécutées à l’époque. Les guides et gates actifs utilisent `1.2.1`.
+Les documents et validateurs de preuve historiques (R2/R3/milestones) peuvent conserver les versions réellement exécutées à l’époque. Les guides et gates actifs utilisent `1.2.2`.

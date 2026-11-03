@@ -24,7 +24,7 @@
 
 ## 4.2 Décomposition
 
-MORPHEUS 1.2.1 est un reactor Maven dont le `pom.xml` racine déclare les
+MORPHEUS 1.2.2 est un reactor Maven dont le `pom.xml` racine déclare les
 modules suivants (le nombre se compte dans le POM, il ne s'écrit pas ici) :
 
 ```text
@@ -77,13 +77,13 @@ contrats métier.
 
 ---
 
-## 4.3 Technologies structurantes — baseline 1.2.1
+## 4.3 Technologies structurantes — baseline 1.2.2
 
 | Technologie | Rôle | Version / baseline |
 |-------------|------|--------------------|
 | Java | Runtime et langage | 21 |
 | Maven Wrapper | Build multi-module | 3.10.0 |
-| SQLite JDBC | Persistance embarquée | 3.53.4.0 |
+| SQLite JDBC | Persistance embarquée | 3.54.1.0 |
 | Jackson | Sérialisation / parsing JSON | BOM 3.2.4 |
 | MCP SDK Java | MCP STDIO | 2.1.0 |
 | JUnit Jupiter | Tests | 6.1.3 |

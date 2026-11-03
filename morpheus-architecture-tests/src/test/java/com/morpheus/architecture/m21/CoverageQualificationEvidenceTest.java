@@ -32,8 +32,8 @@ import org.junit.jupiter.api.io.TempDir;
  * <p>{@code config/coverage-qualification/} holds the coverage summaries of the qualification in force and
  * {@code evidence.tsv}, which names each one's scale, platform, run and commit. This suite binds the four
  * {@code *_QUALIFIED_*_RATIO} constants of the two coverage gates to those files: a constant must equal the lowest
- * kept ratio of its scale, and the kept set must be complete -- both platforms, at least two runs each, one commit,
- * one population.</p>
+ * kept ratio of its scale, and the kept set must be complete -- both platforms, at least two runs each, one commit
+ * shared by both scales, one population per scale.</p>
  *
  * <p>Both bindings are textual because their subjects lie outside the compiled classpath: the constants are private
  * to gates in two different modules, and the evidence is data ({@code .claude/rules/architecture.md}). The rule is
@@ -229,6 +229,21 @@ class CoverageQualificationEvidenceTest {
     }
 
     @Test
+    void twoScalesQualifiedAtDifferentHeadsAreRefusedAndNameBothHeads(@TempDir Path workspace) throws IOException {
+        Path evidence = qualification(workspace, new double[] {0.60d, 0.70d, 0.65d, 0.75d});
+        Path manifest = evidence.resolve(MANIFEST);
+        Files.writeString(manifest, Files.readAllLines(manifest).stream()
+                .map(line -> line.startsWith(Scale.AGGREGATE.name + "\t") ? line.replace(COMMIT, OTHER_COMMIT) : line)
+                .reduce((left, right) -> left + "\n" + right).orElseThrow() + "\n");
+
+        List<String> problems = verify(evidence, new Caps(honestCaps()));
+
+        assertEquals(1, problems.size(), problems::toString);
+        assertTrue(problems.get(0).contains("different heads") && problems.get(0).contains("per-module at " + COMMIT)
+                && problems.get(0).contains("aggregate at " + OTHER_COMMIT), problems.get(0));
+    }
+
+    @Test
     void twoPopulationsOnTheAggregateScaleAreRefused(@TempDir Path workspace) throws IOException {
         Path evidence = qualification(workspace, new double[] {0.60d, 0.70d, 0.65d, 0.75d});
         Path altered = evidence.resolve("aggregate/Windows-2.txt");
@@ -391,7 +406,32 @@ class CoverageQualificationEvidenceTest {
                 compare(problems, scale.branchConstant, cap[1], kept, "branchRatio");
             }
         }
+        problems.addAll(headsAcrossScales(entries));
         return problems;
+    }
+
+    /**
+     * One qualification measures every scale at one head. Two scales kept at two heads differ by the drift between
+     * those heads as well as by what they measure, so the gap between them -- the indicator the two scales exist to
+     * expose -- can no longer be read from the repository. A scale that already mixes commits is refused by
+     * {@link #completeness}; this names the scales whose single heads disagree.
+     */
+    private static List<String> headsAcrossScales(List<Entry> entries) {
+        Map<Scale, String> heads = new LinkedHashMap<>();
+        for (Scale scale : Scale.values()) {
+            Set<String> ofScale = new LinkedHashSet<>();
+            entries.stream().filter(entry -> entry.scale() == scale).forEach(entry -> ofScale.add(entry.commit()));
+            if (ofScale.size() == 1) {
+                heads.put(scale, ofScale.iterator().next());
+            }
+        }
+        if (new LinkedHashSet<>(heads.values()).size() <= 1) {
+            return List.of();
+        }
+        List<String> named = new ArrayList<>();
+        heads.forEach((scale, head) -> named.add(scale.name + " at " + head));
+        return List.of("the scales are qualified at different heads, " + String.join(" and ", named)
+                + "; requalify every scale at one head");
     }
 
     /**

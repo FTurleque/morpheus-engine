@@ -1,13 +1,8 @@
----
-id: BE-0114
-title: "Le travail sur la base s'exécute sur un pool borné de threads plateforme"
-domain: backend
-rules: false
----
+# ADR-0114 — Le travail sur la base s'exécute sur un pool borné de threads plateforme
 
-# Le travail sur la base s'exécute sur un pool borné de threads plateforme
+> **Archivée.** Cette décision est consolidée dans [ADR-0159](../BE-0159-database-work-runs-on-a-bounded-pool-of-platform-threads.md), qui la reprend en entier et y ajoute la sauvegarde distante sur les travailleurs, l'attente bornée et un nombre fixe de travailleurs. Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
-- Statut : **Acceptée**
+- Statut : **Remplacée par ADR-0159**
 - Date : 2026-10-13
 
 ## Context
@@ -139,10 +134,10 @@ Options écartées :
 
 ## References
 
-- [ADR-0133](GEN-0133-toolchain-java-21-et-maven-wrapper.md) — baseline Java 21.
-- [ADR-0065](ARCH-0065-jdk-httpserver-local-api.md) — serveur HTTP du JDK.
-- [ADR-0143](DATA-0143-snapshots-versionnes-et-concurrence-bornee.md) — concurrence SQLite bornée.
-- [ADR-0087](SEC-0087-local-first-operability-and-secure-diagnostic-defaults.md) — opérabilité local-first.
-- [ADR-0156](ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md) — portée de connexion par opération.
+- [ADR-0133](../GEN-0133-toolchain-java-21-et-maven-wrapper.md) — baseline Java 21.
+- [ADR-0065](../ARCH-0065-jdk-httpserver-local-api.md) — serveur HTTP du JDK.
+- [ADR-0143](../DATA-0143-snapshots-versionnes-et-concurrence-bornee.md) — concurrence SQLite bornée.
+- [ADR-0087](../SEC-0087-local-first-operability-and-secure-diagnostic-defaults.md) — opérabilité local-first.
+- [ADR-0156](../ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md) — portée de connexion par opération.
 - `openspec/changes/keep-the-scheduler-free-while-sqlite-waits`,
   `openspec/changes/admit-local-requests-before-they-meet-the-database`.

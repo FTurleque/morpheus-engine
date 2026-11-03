@@ -20,6 +20,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.Isolated;
 import tools.jackson.databind.json.JsonMapper;
 
 import javax.net.ssl.SSLContext;
@@ -59,7 +60,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * facade can finish writing it -- otherwise the whole response lands in kernel memory, the handler returns, and
  * a stalled client costs the server nothing. That is why the fixture seeds a project registry big enough to
  * produce a multi-megabyte listing.</p>
+ *
+ * <p>The class is {@code @Isolated}: its methods share one facade and its four slots, and each one fills them on
+ * purpose. Run beside each other, or beside another test that loads the machine, one method's stalled clients take
+ * the slots another expects to find free.</p>
  */
+@Isolated
 class MorpheusRemoteAdversarialClientTest {
     private static final int MAX_CONCURRENT = 4;
     private static final int SEEDED_PROJECTS = 8_000;

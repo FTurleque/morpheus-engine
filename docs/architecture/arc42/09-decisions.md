@@ -50,6 +50,7 @@ Ce que MORPHEUS expose, comment il se livre, à qui il parle.
 | Contrat HTTP `/api/v1` et erreurs JSON stables | [ADR-0066](../adr/ARCH-0066-versioned-http-api-contract.md) |
 | Les transports sont des racines de composition nommées, les paquets sont sans cycle, et une décision sur une valeur du domaine est écrite sur son type | [ADR-0156](../adr/ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md) |
 | Un rôle de l'adaptateur HTTP est un paquet, et toute liste de classes de production d'un test d'architecture déclare sa sorte | [ADR-0155](../adr/ARCH-0155-un-role-est-un-paquet-et-une-liste-de-classes-declare-sa-sorte.md) |
+| Le runtime du store SQLite est public pour son adaptateur seulement, et sa surface ne fait que rétrécir | [ADR-0158](../adr/ARCH-0158-le-runtime-du-store-sqlite-est-public-pour-son-adaptateur-seulement.md) |
 | Le cœur applicatif touche le disque local par des classes nommées, et jamais le réseau | [ADR-0150](../adr/ARCH-0150-ce-que-le-coeur-applicatif-peut-toucher.md) |
 | Une commande CLI et un outil MCP sont servis par une classe de capacité ; un dispatcher ne tient aucun cas d'usage | [ADR-0149](../adr/ARCH-0149-une-commande-et-un-outil-sont-servis-par-une-classe-de-capacite.md) |
 | MINOS et NEXUS sont des pairs optionnels, lancés à la demande par MCP STDIO | [ADR-0128](../adr/ARCH-0128-pairs-minos-et-nexus-par-mcp-stdio.md) |
@@ -111,9 +112,10 @@ Serveur distant, données, journaux, budgets et gouvernance.
 | Une copie de la base est conservée avant que son schéma n'avance, et sans elle la migration n'a pas lieu | [ADR-0110](../adr/DATA-0110-a-copy-is-kept-before-the-schema-advances.md) |
 | Journal opérationnel : un seul binding SLF4J, un fichier borné à la demande | [ADR-0146](../adr/BE-0146-journal-operationnel-slf4j-et-fichier-borne.md) |
 | Le serveur distant consigne qui a été autorisé à faire quoi | [ADR-0113](../adr/SEC-0113-the-remote-server-records-who-was-authorized-to-do-what.md) |
-| Le travail sur la base s'exécute sur un pool borné de threads plateforme | [ADR-0114](../adr/BE-0114-database-work-runs-on-a-bounded-pool-of-platform-threads.md) |
+| Le travail sur la base s'exécute sur un pool borné de threads plateforme | [ADR-0159](../adr/BE-0159-database-work-runs-on-a-bounded-pool-of-platform-threads.md) |
 | Le runtime opérationnel est une valeur que le lanceur remet ; le parallélisme JUnit en dépend | [ADR-0115](../adr/ARCH-0115-the-operational-runtime-is-a-value-the-launcher-hands-on.md) |
 | Un plugin provider est du code de confiance, sondé hors du processus MORPHEUS | [ADR-0129](../adr/SEC-0129-plugins-provider-code-de-confiance-hors-processus.md) |
+| Aucun contenu de l'espace de travail n'est lu à travers un lien symbolique ni hors de sa frontière | [ADR-0157](../adr/SEC-0157-aucun-contenu-n-est-lu-a-travers-un-lien-ni-hors-de-l-espace-de-travail.md) |
 | Deux échelles de couverture sur une population commune, et le crédit qu'un module emprunte à ses voisins | [ADR-0154](../adr/GEN-0154-deux-echelles-de-couverture-et-le-credit-emprunte.md) |
 | Tenir le registre d'ADR au format Archgate, à l'emplacement arc42 | [ADR-0132](../adr/GEN-0132-tenir-le-registre-d-adr-au-format-archgate.md) |
 

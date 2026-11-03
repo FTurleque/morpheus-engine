@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.morpheus.application.product.ProductMetadata;
 import com.morpheus.architecture.RepositoryRoot;
+import com.morpheus.architecture.RepositoryTree;
 import com.morpheus.cli.command.CliExitCode;
 import com.morpheus.integration.minos.MinosIntegrationSettings;
 import com.morpheus.integration.minos.MinosMcpCodeGateway;
@@ -114,14 +115,12 @@ class ProductionIntegrityContractTest {
         Path root = RepositoryRoot.locate();
         Path productionRoot = root.resolve("morpheus-application/src/main/java").getParent().getParent().getParent().getParent();
         List<Path> constructionSites = new ArrayList<>();
-        try (var files = Files.walk(root)) {
-            for (Path file : files
-                    .filter(path -> path.toString().contains("src" + java.io.File.separator + "main" + java.io.File.separator + "java"))
-                    .filter(path -> path.toString().endsWith(".java"))
-                    .toList()) {
-                if (Files.readString(file).contains("new UpdateDiscoveryService(")) {
-                    constructionSites.add(root.relativize(file));
-                }
+        for (Path file : RepositoryTree.files(root).stream()
+                .filter(path -> path.toString().contains("src" + java.io.File.separator + "main" + java.io.File.separator + "java"))
+                .filter(path -> path.toString().endsWith(".java"))
+                .toList()) {
+            if (Files.readString(file).contains("new UpdateDiscoveryService(")) {
+                constructionSites.add(root.relativize(file));
             }
         }
 

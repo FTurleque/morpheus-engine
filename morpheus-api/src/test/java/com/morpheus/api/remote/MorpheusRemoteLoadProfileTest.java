@@ -12,6 +12,7 @@ import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.Isolated;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
@@ -54,7 +55,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * a 5xx, saturation is expressed as an explicit refusal rather than a drop, observability survives it, and no
  * slot is left behind afterwards. The timings are recorded as evidence for the replacement decision documented
  * in {@code docs/user/TEAM_REMOTE_SERVER.md}.</p>
+ *
+ * <p>The class is {@code @Isolated}: timings measured beside other tests would be those of the machine, not of the
+ * facade, and its methods write one file.</p>
  */
+@Isolated
 class MorpheusRemoteLoadProfileTest {
     private static final int MAX_CONCURRENT = 8;
     private static final int CLIENT_THREADS = 24;

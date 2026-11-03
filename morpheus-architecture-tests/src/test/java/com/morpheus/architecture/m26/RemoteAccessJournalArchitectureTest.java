@@ -62,7 +62,7 @@ class RemoteAccessJournalArchitectureTest {
 
         assertEquals(1, occurrences(server, "accessJournal.accepted("));
         int accepted = serve.indexOf("accessJournal.accepted(attributed)");
-        for (String served : new String[] {"serveStatus(exchange)", "maintenance.createBackup(", "proxy(exchange, route)"}) {
+        for (String served : new String[] {"serveStatus(exchange)", "backupOnADatabaseWorker()", "proxy(exchange, route)"}) {
             assertTrue(accepted >= 0 && accepted < serve.indexOf(served),
                     () -> "a request is recorded as accepted before " + served + " runs");
         }

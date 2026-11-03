@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="${1:-1.2.1}"
+VERSION="${1:-1.2.2}"
 BASE_REF="${MORPHEUS_D2_BASE_REF:-origin/develop}"
 SKIP_SECURITY_SCAN="${MORPHEUS_D2_SKIP_SECURITY_SCAN:-false}"
 SKIP_PORTABLE="${MORPHEUS_D2_SKIP_PORTABLE:-false}"
@@ -80,7 +80,7 @@ for pom in sorted(actual_poms):
 root_pom = root_pom_path.read_text(encoding='utf-8')
 for token in (
     '<jackson.version>3.2.4</jackson.version>',
-    '<sqlite-jdbc.version>3.53.4.0</sqlite-jdbc.version>',
+    '<sqlite-jdbc.version>3.54.1.0</sqlite-jdbc.version>',
     '<dependency-check.maven.plugin.version>13.0.0</dependency-check.maven.plugin.version>',
     '<failOnWarning>true</failOnWarning>',
     '<id>d2-security</id>',

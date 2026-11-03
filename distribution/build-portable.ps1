@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.2.1",
+    [string]$Version = "1.2.2",
     [string]$OutputDirectory = "dist",
     # none: nothing is signed. test: the run's ephemeral identity. release: the declared publisher's identity.
     # Chosen by the caller, never inferred from a credential being present or absent.

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="${1:-1.2.1}"
+VERSION="${1:-1.2.2}"
 SKIP_PORTABLE="${MORPHEUS_M21_SKIP_PORTABLE:-false}"
 BASE_REF="${MORPHEUS_M21_BASE_REF:-origin/main}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"

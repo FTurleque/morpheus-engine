@@ -182,6 +182,10 @@ Ce qu'un transport tient de `SqliteOperationRuntime` et `SqliteServerMaintenance
   `aFamilyTheApplicationDoesNotUseIsRefusedInEveryPackage` (décision 1),
   `aConfinedFamilyIsReachedOnlyByTheClassesNamedForIt` et `everyNamedClassStillReachesItsFamily` (décision 2, les deux
   sens), `aPathUsedAsAValueIsNotAnAccess` (le vocabulaire).
+- Les listes de la décision 2 sont `ApplicationTechnologyBoundaryArchitectureTest.CONFINED_FAMILIES` et, pour la
+  réflexion, `ApplicationTechnologyBoundaryArchitectureTest.REFLECTION_AND_LOADING` : deux compteurs de dette que
+  `ProductionClassListsArchitectureTest` déclare sous cet ADR, dont la taille égale leur clé de
+  `config/debt-counter-ratchets.properties`.
 - Décision 4 : la famille SQL de `aFamilyTheApplicationDoesNotUseIsRefusedInEveryPackage` interdit le runtime SQLite
   dans l'application ; ce que les transports en tiennent est tenu par `AdapterCompositionRootArchitectureTest` et
   `SqliteStorePackagesArchitectureTest` (ADR-0156).

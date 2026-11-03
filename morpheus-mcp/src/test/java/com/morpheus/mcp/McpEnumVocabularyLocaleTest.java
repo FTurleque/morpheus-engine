@@ -10,6 +10,7 @@ import io.modelcontextprotocol.spec.McpSchema;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
@@ -34,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * database that holds no pack, portfolio or view, so a call cannot succeed outright. What it can do is fail for
  * the right reason -- a rejected enum name says the argument never parsed, and that is the regression.</p>
  */
+@Isolated
 class McpEnumVocabularyLocaleTest {
     private static final Locale HOSTILE = Locale.forLanguageTag("tr-TR");
     private static final String PROJECT_ID = "01920000-0000-7000-8000-000000000001";
