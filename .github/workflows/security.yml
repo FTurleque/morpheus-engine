@@ -283,6 +283,16 @@ jobs:
           fi
           bash ./scripts/classify-dependency-check-failure.sh "${log}" "build and test dependencies"
 
+      # sqlite-jdbc embeds the native SQLite engine. Whether the product scan associates it with
+      # cpe:2.3:a:sqlite:sqlite depends on the history of the database: the long-lived one does it on the driver JAR,
+      # a database rebuilt from scratch does not, and config/dependency-check-hints.xml restores it on the native
+      # libraries extracted from the JAR. A lost association leaves the scan green and blind to every CVE of the
+      # engine, so the product report is read here, and the job fails with SQLITE_ENGINE_NOT_IDENTIFIED when no
+      # identifier of the engine at the driver version remains. See RT-13 in docs/architecture/risks/register.md.
+      - name: Verify that sqlite-jdbc is identified as the SQLite engine it embeds
+        shell: bash
+        run: python3 scripts/check-dependency-check-sqlite-identification.py target/d2-security/dependency-check-report.json
+
       - name: Upload dependency-check evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

@@ -295,6 +295,7 @@
                             <suppressionFiles>
                                 <suppressionFile>${maven.multiModuleProjectDirectory}/config/dependency-check-suppressions.xml</suppressionFile>
                             </suppressionFiles>
+                            <hintsFile>${maven.multiModuleProjectDirectory}/config/dependency-check-hints.xml</hintsFile>
                             <outputDirectory>${project.build.directory}/d2-security</outputDirectory>
                         </configuration>
                     </plugin>
@@ -337,6 +338,7 @@
                             <suppressionFiles>
                                 <suppressionFile>${maven.multiModuleProjectDirectory}/config/dependency-check-suppressions.xml</suppressionFile>
                             </suppressionFiles>
+                            <hintsFile>${maven.multiModuleProjectDirectory}/config/dependency-check-hints.xml</hintsFile>
                             <outputDirectory>${project.build.directory}/d2-security-tests</outputDirectory>
                         </configuration>
                     </plugin>

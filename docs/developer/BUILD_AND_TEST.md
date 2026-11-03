@@ -184,6 +184,15 @@ n'est pas SQLite, `io.github.fturleque:morpheus-cli` n'est pas GitHub CLI. Le vr
 `org.xerial:sqlite-jdbc` et toutes les dépendances tierces restent analysés. Le scan produit échoue
 si une de ces règles devient inutilisée, afin d'empêcher une suppression obsolète ou trop large.
 
+L'indice versionné dans `config/dependency-check-hints.xml`, chargé par les deux profils, fait l'inverse : il ajoute
+une association que la base peut perdre. `sqlite-jdbc` embarque le moteur SQLite natif, et une base reconstruite de zéro
+classe `cpe:/a:sqlite:sqlite` dans l'écosystème natif, que l'analyseur écarte pour un JAR. L'indice donne le vendeur, le
+produit `sqlite` et la version du pilote aux bibliothèques natives extraites du JAR ; sa version suit
+`<sqlite-jdbc.version>` (`DependencyCheckWorkflowContractTest`), donc une montée de version du pilote met l'indice à jour
+dans le même changement. `security.yml` vérifie après les scans que le rapport produit porte encore
+`cpe:2.3:a:sqlite:sqlite` à la version du pilote (`scripts/check-dependency-check-sqlite-identification.py`, échec
+`SQLITE_ENGINE_NOT_IDENTIFIED`).
+
 Le workflow **MORPHEUS Security** utilise une base Dependency-Check produite uniquement par des événements de confiance. Sa politique est :
 
 ```text

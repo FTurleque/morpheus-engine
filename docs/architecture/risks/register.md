@@ -65,9 +65,24 @@
 > avec les flux, classe `cpe:/a:sqlite:sqlite` dans l'écosystème natif ; la base de longue date du CI ne le fait pas.
 > Deux identifications en dépendent. `morpheus-store-sqlite` n'est plus associé à tort à SQLite : sa règle de
 > suppression porte `base="true"` (`config/dependency-check-suppressions.xml`), pour qu'une base neuve ne fasse pas
-> échouer le scan par une règle inutilisée. Et `sqlite-jdbc` n'est plus associé au SQLite natif qu'il embarque : une
-> CVE publiée contre SQLite 3.53.x ne serait alors signalée que par son identification `sqlite_jdbc`. C'est un
-> écart de détection ouvert, qui suit l'histoire de la base et non la source qui la rafraîchit.
+> échouer le scan par une règle inutilisée. Et le JAR `sqlite-jdbc`, dépendance Java, n'est plus associé au SQLite natif
+> qu'il embarque : l'analyseur CPE écarte un CPE d'un autre écosystème que la dépendance, et une preuve `sqlite` ajoutée
+> au JAR n'y change rien, il en porte déjà par ses noms de paquets.
+>
+> **Le rattachement au moteur SQLite.** Il ne dépend plus de l'histoire de la base. `config/dependency-check-hints.xml`,
+> chargé par les profils `d2-security` et `d2-security-tests`, donne le vendeur et le produit `sqlite` et la version du
+> pilote aux bibliothèques natives que Dependency-Check extrait du JAR (`sqlite-jdbc-<version>.jar: sqlitejdbc.dll`),
+> qui ne sont pas des dépendances Java. L'étape « Verify that sqlite-jdbc is identified as the SQLite engine it embeds »
+> de `security.yml` lit le rapport produit après les deux scans et échoue sur
+> `MORPHEUS_DEPENDENCY_CHECK_FAILURE=SQLITE_ENGINE_NOT_IDENTIFIED` quand ni le JAR ni une bibliothèque extraite ne porte
+> `cpe:2.3:a:sqlite:sqlite:<version du pilote>` (`scripts/check-dependency-check-sqlite-identification.py`, exécuté par
+> `scripts/tests/test_check_dependency_check_sqlite_identification.py`). `DependencyCheckWorkflowContractTest` épingle
+> l'indice, son câblage, la version égale à `<sqlite-jdbc.version>` et l'étape. Mesuré le 03/11/2026 sur un poste de
+> développement, contre la base construite par les flux le 28/10/2026 : sans l'indice, le rapport produit ne porte aucun
+> identifiant `sqlite:sqlite` ; avec lui, la bibliothèque extraite porte `cpe:2.3:a:sqlite:sqlite:3.53.4.0`, et le scan
+> passe. Le rapport du CI du 28/10/2026, base de longue date et sans indice, porte cet identifiant sur le JAR, et la
+> vérification l'accepte. Ce qui reste à mesurer : l'effet de l'indice sur la base de longue date du CI, au premier run
+> de `security.yml` qui le charge — la vérification le dira, sans que rien ne l'ait encore observé.
 >
 > Le texte ci-dessous est l'analyse du 09/09/2026, conservée telle quelle : elle date d'avant le second chemin.
 
