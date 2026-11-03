@@ -228,6 +228,14 @@ et non une CVE. Voir RT-13 au §2. Ne **jamais** relâcher
 `DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS` pour faire disparaître le symptôme : une base plus
 vieille est une base moins fiable, et le problème est le rafraîchissement, pas le seuil.
 
+**Moteur SQLite non identifié.** Le motif `SQLITE_ENGINE_NOT_IDENTIFIED` n'est pas une CVE, mais
+ce n'est pas un échec à faire taire : le rapport du scan produit ne rattache plus `sqlite-jdbc`, ni
+aucune des bibliothèques natives extraites de son JAR, au CPE `cpe:2.3:a:sqlite:sqlite` à la
+version du pilote, et une vulnérabilité du moteur SQLite embarqué ne franchirait plus le seuil
+CVSS. Le rattachement est porté par `config/dependency-check-hints.xml` (RT-13) : après une montée
+de version de `sqlite-jdbc`, vérifier que la version de l'indice suit `<sqlite-jdbc.version>` et
+que les noms de fichiers natifs du pilote correspondent toujours à son motif.
+
 **Premier scan après un changement de namespace de cache.** La clé de cache Dependency-Check
 est construite sur la **version de schéma H2** (`<dependency-check.data.version>` du POM racine),
 pas sur la version du plugin. Changer cette valeur — ou introduire la sentinelle, comme le

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<hints xmlns="https://jeremylong.github.io/DependencyCheck/dependency-hint.1.4.xsd">
+    <hint>
+        <notes><![CDATA[
+        org.xerial:sqlite-jdbc embeds the native SQLite engine: a vulnerability published against
+        cpe:2.3:a:sqlite:sqlite is a vulnerability of the driver MORPHEUS ships.
+
+        Whether Dependency-Check 13.0.0 makes that association on its own depends on the history of
+        its database. The long-lived CI database identifies the driver JAR as sqlite:sqlite. A
+        database built from scratch (by the NVD API or by the NVD data feeds) files
+        cpe:/a:sqlite:sqlite under the native ecosystem, and the CPE analyzer drops a CPE whose
+        ecosystem differs from the dependency's (CPEAnalyzer.filterEcosystem): the driver JAR, a
+        Java dependency, is then identified as sqlite_jdbc only. Adding sqlite evidence to the JAR
+        cannot change that -- it already carries it, from its package names.
+
+        This hint targets the native libraries Dependency-Check extracts from the driver JAR
+        (sqlite-jdbc-<version>.jar: sqlitejdbc.dll), which are not Java dependencies. It gives them
+        the sqlite vendor and product, and the driver version, without which the analyzer does not
+        build a CPE for them. The version is the driver's, as the long-lived database already
+        identifies the JAR (sqlite:sqlite:<driver version>); DependencyCheckWorkflowContractTest
+        requires it to equal <sqlite-jdbc.version> of the root POM.
+
+        security.yml checks every product report with
+        scripts/check-dependency-check-sqlite-identification.py. See RT-13 in
+        docs/architecture/risks/register.md.
+        ]]></notes>
+        <given>
+            <fileName contains="sqlite-jdbc-[0-9][0-9.]*\.jar: (?:lib)?sqlitejdbc\.(?:dll|so|dylib|jnilib)" regex="true" caseSensitive="true"/>
+        </given>
+        <add>
+            <evidence type="vendor" source="hint analyzer" name="vendor" value="sqlite" confidence="HIGHEST"/>
+            <evidence type="product" source="hint analyzer" name="product" value="sqlite" confidence="HIGHEST"/>
+            <evidence type="version" source="hint analyzer" name="version" value="3.53.4.0" confidence="HIGHEST"/>
+        </add>
+    </hint>
+</hints>
