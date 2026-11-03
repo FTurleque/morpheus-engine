@@ -104,7 +104,7 @@ Assert-ReactorVersion $Version
 $pom = Get-Content -LiteralPath (Join-Path $repo 'pom.xml') -Raw
 foreach ($token in @(
     '<jackson.version>3.2.4</jackson.version>',
-    '<sqlite-jdbc.version>3.53.4.0</sqlite-jdbc.version>',
+    '<sqlite-jdbc.version>3.54.1.0</sqlite-jdbc.version>',
     '<dependency-check.maven.plugin.version>13.0.0</dependency-check.maven.plugin.version>',
     '<failOnWarning>true</failOnWarning>',
     '<id>d2-security</id>',

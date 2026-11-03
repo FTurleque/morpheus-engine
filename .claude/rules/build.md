@@ -6,7 +6,7 @@
 
 ```xml
 <jackson.version>3.2.4</jackson.version>
-<sqlite-jdbc.version>3.53.4.0</sqlite-jdbc.version>
+<sqlite-jdbc.version>3.54.1.0</sqlite-jdbc.version>
 <dependency-check.maven.plugin.version>13.0.0</dependency-check.maven.plugin.version>
 <failOnWarning>true</failOnWarning>
 <id>d2-security</id>
@@ -73,7 +73,7 @@ n'a pas de `<version>` du tout, elle vient du `junit-bom` importé plus haut.
 
 Versions actuelles pilotées par propriété dans le POM racine (à revérifier avant de citer,
 cf. `rules/meta.md`) : `junit.version=6.1.3`, `archunit.version=1.5.1`,
-`sqlite-jdbc.version=3.53.4.0`, `mcp-sdk.version=2.1.0`, `reactor-bom.version=2024.0.18`,
+`sqlite-jdbc.version=3.54.1.0`, `mcp-sdk.version=2.1.0`, `reactor-bom.version=2024.0.18`,
 `slf4j.version=2.0.20`, `jackson.version=3.2.4`, `jacoco.version=0.8.15`,
 `dependency-check.maven.plugin.version=13.0.0`.
 Un commentaire explique un couplage de versions non trivial quand il existe

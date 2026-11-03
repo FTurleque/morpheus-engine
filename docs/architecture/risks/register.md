@@ -81,8 +81,11 @@
 > développement, contre la base construite par les flux le 28/10/2026 : sans l'indice, le rapport produit ne porte aucun
 > identifiant `sqlite:sqlite` ; avec lui, la bibliothèque extraite porte `cpe:2.3:a:sqlite:sqlite:3.53.4.0`, et le scan
 > passe. Le rapport du CI du 28/10/2026, base de longue date et sans indice, porte cet identifiant sur le JAR, et la
-> vérification l'accepte. Ce qui reste à mesurer : l'effet de l'indice sur la base de longue date du CI, au premier run
-> de `security.yml` qui le charge — la vérification le dira, sans que rien ne l'ait encore observé.
+> vérification l'accepte. Sur la base du CI rafraîchie par les flux le 03/11/2026 (run `41718895786`), l'indice fait
+> apparaître sur la bibliothèque extraite de `sqlite-jdbc` 3.53.4.0 les CVE de SQLite antérieures à 3.54.0, dont quatre
+> au-dessus du seuil : le pilote passe à 3.54.1.0, qui embarque SQLite 3.54.1. Seule CVE-2026-119586 vise encore cette
+> version ; elle porte sur l'outil `sqlite3` en ligne de commande, que le pilote n'embarque pas, et sa suppression nommée
+> dans `config/dependency-check-suppressions.xml` ne vise qu'elle et que les bibliothèques extraites du pilote.
 >
 > Le texte ci-dessous est l'analyse du 09/09/2026, conservée telle quelle : elle date d'avant le second chemin.
 

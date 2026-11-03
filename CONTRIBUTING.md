@@ -56,7 +56,7 @@ Build                  Maven Wrapper 3.10.0
 Release stable         1.2.1
 Baseline développement 1.2.2
 Persistent store       SQLite
-SQLite JDBC            3.53.4.0
+SQLite JDBC            3.54.1.0
 Jackson                3.2.4
 MCP SDK                Java MCP SDK 2.1.0
 HTTP local             JDK jdk.httpserver

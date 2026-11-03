@@ -10,7 +10,7 @@ io.projectreactor:reactor-core	Apache-2.0	https://github.com/reactor/reactor-cor
 org.reactivestreams:reactive-streams	MIT-0	https://github.com/reactive-streams/reactive-streams-jvm at tag v1.0.4, read 2026-10-11
 org.slf4j:slf4j-api	MIT	inside the JAR
 org.snakeyaml:snakeyaml-engine	Apache-2.0	https://bitbucket.org/snakeyaml/snakeyaml-engine at tag snakeyaml-engine-3.0.1, read 2026-10-11
-org.xerial:sqlite-jdbc	Apache-2.0	https://github.com/xerial/sqlite-jdbc at tag 3.53.4.0, read 2026-10-11
+org.xerial:sqlite-jdbc	Apache-2.0	https://github.com/xerial/sqlite-jdbc at tag 3.54.1.0, read 2026-11-03
 tools.jackson.core:jackson-core	Apache-2.0	inside the JAR
 tools.jackson.core:jackson-databind	Apache-2.0	inside the JAR
 tools.jackson.dataformat:jackson-dataformat-yaml	Apache-2.0	inside the JAR
