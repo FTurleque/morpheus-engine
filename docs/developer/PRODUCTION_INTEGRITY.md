@@ -29,8 +29,8 @@ Architecture       >= 836 PASS
 Reactor            18/18 SUCCESS
 Windows            PASS
 Linux              PASS
-JaCoCo aggregate lines      >= 91.2 %
-JaCoCo aggregate branches   >= 77.3 %
+JaCoCo aggregate lines      >= 92.6 %
+JaCoCo aggregate branches   >= 80.8 %
 JaCoCo per-module lines     >= 89.9 %
 JaCoCo per-module branches  >= 77.1 %
 Changed lines       >= 80 %

@@ -207,8 +207,8 @@ Ratchets :
 Surefire written     >= 2876
 Surefire generated   >= 1819
 architecture         >= 836
-aggregate line coverage    >= 91.2%
-aggregate branch coverage  >= 77.3%
+aggregate line coverage    >= 92.6%
+aggregate branch coverage  >= 80.8%
 per-module line coverage   >= 89.9%
 per-module branch coverage >= 77.1%
 changed-line         >= 80%
