@@ -57,7 +57,7 @@ bit-à-bit identiques.
 | Réponse | Refus avant lecture du contenu hors périmètre |
 | Mesure | Accès accepté hors racine |
 | Seuil | 0 |
-| Preuve | `AllowedWorkspaceRootsTest`, `SafeWorkspaceFileResolverTest` |
+| Preuve | `AllowedWorkspaceRootsTest`, `SafeWorkspaceFileResolverTest`, `ScanWorkspaceBoundaryTest` |
 
 ### Q-SE-02 — Ingestion bornée — qualifié D2
 

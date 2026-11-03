@@ -76,7 +76,7 @@ mindmap
 | Réponse attendue | Refus avant lecture du contenu |
 | Mesure | Accès hors racine |
 | Seuil | 0 |
-| Vérification | `AllowedWorkspaceRootsTest`, `SafeWorkspaceFileResolverTest` et régressions providers |
+| Vérification | `AllowedWorkspaceRootsTest`, `SafeWorkspaceFileResolverTest`, `ScanWorkspaceBoundaryTest` et régressions providers |
 
 ### Q-SE-02 — Entrées externes bornées
 

@@ -137,6 +137,7 @@ nouvel ADR qui remplace les précédents. Le cycle de vie complet est dans `.cla
 | [ADR-0156](ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md) | Les transports sont des racines de composition nommées, les paquets sont sans cycle, et une décision sur une valeur du domaine est écrite sur son type | **Acceptée** |
 | [ADR-0154](GEN-0154-deux-echelles-de-couverture-et-le-credit-emprunte.md) | Deux échelles de couverture sur une population commune, et le crédit qu'un module emprunte à ses voisins | **Acceptée** |
 | [ADR-0155](ARCH-0155-un-role-est-un-paquet-et-une-liste-de-classes-declare-sa-sorte.md) | Un rôle de l'adaptateur HTTP est un paquet, et toute liste de classes de production d'un test d'architecture déclare sa sorte | **Acceptée** |
+| [ADR-0157](SEC-0157-aucun-contenu-n-est-lu-a-travers-un-lien-ni-hors-de-l-espace-de-travail.md) | Aucun contenu de l'espace de travail n'est lu à travers un lien symbolique ni hors de sa frontière | **Acceptée** |
 
 Les preuves de qualification de chaque jalon sont dans [`../../project/validation/`](../../project/validation/README.md).
 
