@@ -9,6 +9,7 @@ import com.morpheus.domain.project.ProjectSpecificationId;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
@@ -30,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  * <p>Creating a pack needs no pre-existing state, so unlike the MCP surface these calls must actually succeed.
  * Every rule kind is exercised, because each one parses a different set of enums.</p>
  */
+@Isolated
 class PolicyApiEnumVocabularyLocaleTest {
     private static final Locale HOSTILE = Locale.forLanguageTag("tr-TR");
     private static final String CHANGE_ID = "01920000-0000-7000-8000-000000000002";

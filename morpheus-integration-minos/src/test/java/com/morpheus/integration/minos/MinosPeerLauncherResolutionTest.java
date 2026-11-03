@@ -1,6 +1,7 @@
 package com.morpheus.integration.minos;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
@@ -25,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@code PATH}: another {@code java} placed first on that path would have been started as the peer. The default is
  * the launcher of the runtime MORPHEUS itself runs on, and a configured value has to name its file in full.</p>
  */
+@Isolated
 class MinosPeerLauncherResolutionTest {
     @TempDir
     Path tempDirectory;

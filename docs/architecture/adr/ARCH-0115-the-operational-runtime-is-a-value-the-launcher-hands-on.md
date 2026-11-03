@@ -81,11 +81,11 @@ Options écartées :
    ne disparaît pas quand la liste se vide de tout le reste.
 
 9. **Le parallélisme JUnit n'est activé que dans un module dont aucun test ne partage un état de la JVM** :
-   `morpheus-store-sqlite` seul, par un `junit-platform.properties` versionné dans ses ressources de test. Les autres
-   modules restent séquentiels tant qu'ils partagent un état de la JVM entre tests ; en activer un est un changement à
-   part, précédé d'exécutions parallèles propres répétées par module. La configuration de `morpheus-store-sqlite`,
-   ses garde-fous et l'état de la JVM encore partagé dans les autres modules sont décrits dans
-   [BUILD_AND_TEST](../../developer/BUILD_AND_TEST.md#parallélisme-junit).
+   `morpheus-store-sqlite`, `morpheus-api`, `morpheus-mcp` et `morpheus-cli`, chacun par un
+   `junit-platform.properties` versionné dans ses ressources de test. Un test qui change un état lu par toute la JVM
+   (locale, propriété système, flux standard, pilote JDBC) est `@Isolated`, dans tout module. Les autres modules
+   restent séquentiels ; en activer un est un changement à part, précédé d'exécutions parallèles propres répétées.
+   Configuration et garde-fous : [BUILD_AND_TEST](../../developer/BUILD_AND_TEST.md#parallélisme-junit).
 
 ## Do's and Don'ts
 
@@ -96,7 +96,8 @@ Options écartées :
 - Dans un test qui asserte sur des compteurs, construire son propre runtime ou recorder et y lire des valeurs
   absolues.
 - Retirer de `MAIN_USERS` une classe qui ne mentionne plus `LocalOperationalRuntime`.
-- Marquer `@Isolated` un test de `morpheus-store-sqlite` qui sature SQLite ou mesure une ressource de toute la JVM.
+- Marquer `@Isolated` un test qui change un état lu par toute la JVM, sature une ressource exprès ou mesure une
+  ressource de toute la JVM.
 
 ### Don't
 
@@ -130,9 +131,8 @@ Options écartées :
 
 - La règle textuelle ne voit qu'une mention : un test qui lirait l'état du processus à travers le produit lui
   échapperait.
-- Des exécutions parallèles propres ne prouvent pas l'absence d'un autre défaut ; un test ajouté à
-  `morpheus-store-sqlite` qui lit un statique du processus, pose une propriété système ou la locale par défaut casse
-  ce module.
+- Des exécutions parallèles propres ne prouvent pas l'absence d'un autre défaut ; un test ajouté à un module
+  parallèle qui lit un statique du processus, ou partage entre ses méthodes un état qu'il modifie, casse ce module.
 
 ## Compliance and Enforcement
 
@@ -152,7 +152,11 @@ Options écartées :
   opération, sur le recorder du test.
 - `morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/runtime/NoSqliteScopeLeftBehindExtension.java` et
   `SqliteConnectionScopeThreadConfinementTest.java` : portée laissée sur un thread.
-- `morpheus-store-sqlite/src/test/resources/junit-platform.properties` : configuration du parallélisme.
+- `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/JvmMutatingTestsAreIsolatedArchitectureTest.java` :
+  un test qui change la locale, le fuseau, une propriété système, un flux standard ou un pilote de `DriverManager` est
+  `@Isolated`, dans tout module.
+- `src/test/resources/junit-platform.properties` de `morpheus-store-sqlite`, `morpheus-api`, `morpheus-mcp` et
+  `morpheus-cli` : configuration du parallélisme.
 - Revue : l'absence de `junit-platform.properties` activant le parallélisme dans un autre module.
 
 ## References
