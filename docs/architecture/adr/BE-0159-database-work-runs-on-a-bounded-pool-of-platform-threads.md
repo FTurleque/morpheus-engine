@@ -36,9 +36,9 @@ Options écartées :
 | Dériver la taille du pool du nombre de processeurs | Un travailleur attend un fichier SQLite, il ne calcule pas : plus de travailleurs sur une grosse machine ajoutent de la contention sur ce fichier, moins sur un runner de deux processeurs refusent un pic qu'un poste met en file, et le comportement de l'admission changerait d'une machine à l'autre |
 | Laisser l'appelant d'une sauvegarde distante attendre sans délai | Une sauvegarde qui ne finit pas tiendrait sa requête, sa place privilégiée et son créneau sans fin, sans que rien ne le dise |
 
-## Decision
+### Détail du mécanisme
 
-### Serveur local
+#### Serveur local
 
 1. **Tout gestionnaire qui peut toucher la base s'exécute sur un travailleur.** `DatabaseWorkOffloadingHttpServer`
    décore le serveur local : un gestionnaire enregistré à travers lui est remis à un pool de threads plateforme, et le
@@ -66,7 +66,7 @@ Options écartées :
 8. **Le décorateur possède son pool** et l'arrête quand le serveur qu'il décore s'arrête
    (`RequestProtectedHttpServer.stopped`).
 
-### Serveur distant
+#### Serveur distant
 
 9. **La façade ne relaie pas tout à un pool.** Elle relaie ses requêtes au serveur local par HTTP : ses threads
    virtuels attendent le réseau et se garent. La sauvegarde est la seule route que la façade sert avec SQLite en main :
@@ -79,10 +79,29 @@ Options écartées :
     jusqu'au retour de l'appel. Côté local, le gestionnaire écrit lui-même sa réponse : son appelant attend la fin sans
     délai propre. Le pool est arrêté avec le serveur.
 
-### Hors de portée
+#### Hors de portée
 
 - Les moniteurs des stores ne sont pas touchés : le remède n'en dépend pas.
 - Le serveur MCP STDIO n'est pas concerné : il ne sert pas ses appels sur des threads virtuels.
+
+## Decision
+
+1. Tout travail SQLite des serveurs HTTP s'exécute sur un pool borné de threads plateforme, `DatabaseCallWorkers`,
+   jamais sur le thread virtuel de la requête, qui se gare et rend son porteur.
+2. `DATABASE_WORKERS` vaut huit sur toute machine et n'est déclaré que dans `DatabaseCallWorkers`, seul constructeur
+   d'un pool de threads plateforme de l'adaptateur.
+3. Serveur local : `DatabaseWorkOffloadingHttpServer` remet chaque gestionnaire entier à un travailleur ; les routes
+   qui répondent sans la base (`health`, `metrics`, `version`) sont enregistrées hors de lui.
+4. Une place par travailleur, admise par un sémaphore équitable ; au-delà de `ADMISSION_WAIT`, refus nommé : `429
+   LOCAL_SERVER_BUSY` en local, `429 DATABASE_WORKERS_BUSY` sur la façade. Le plafond local suit la base, pas le
+   réglage de la façade.
+5. Serveur distant : la façade n'est pas décorée entière, ses requêtes relayées attendent le réseau. Sa sauvegarde,
+   seule route SQLite, passe par les travailleurs après l'authentification, le rôle et la voie privilégiée, et attend
+   au plus `BACKUP_DEADLINE`, puis `504 BACKUP_TIMEOUT`, issue inconnue.
+6. Le travail SQLite est un `DatabaseCall` nommé que seuls les travailleurs exécutent ; chaque pool s'arrête avec son
+   serveur.
+
+Le détail de chaque point est dans la section Context, sous « Détail du mécanisme ».
 
 ## Do's and Don'ts
 
