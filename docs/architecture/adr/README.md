@@ -137,6 +137,7 @@ nouvel ADR qui remplace les précédents. Le cycle de vie complet est dans `.cla
 | [ADR-0156](ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md) | Les transports sont des racines de composition nommées, les paquets sont sans cycle, et une décision sur une valeur du domaine est écrite sur son type | **Acceptée** |
 | [ADR-0154](GEN-0154-deux-echelles-de-couverture-et-le-credit-emprunte.md) | Deux échelles de couverture sur une population commune, et le crédit qu'un module emprunte à ses voisins | **Acceptée** |
 | [ADR-0155](ARCH-0155-un-role-est-un-paquet-et-une-liste-de-classes-declare-sa-sorte.md) | Un rôle de l'adaptateur HTTP est un paquet, et toute liste de classes de production d'un test d'architecture déclare sa sorte | **Acceptée** |
+| [ADR-0158](ARCH-0158-le-runtime-du-store-sqlite-est-public-pour-son-adaptateur-seulement.md) | Le runtime du store SQLite est public pour son adaptateur seulement, et sa surface ne fait que rétrécir | **Acceptée** |
 
 Les preuves de qualification de chaque jalon sont dans [`../../project/validation/`](../../project/validation/README.md).
 

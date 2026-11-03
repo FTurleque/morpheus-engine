@@ -81,6 +81,17 @@ property without being named MUST fail the suite, and a named class that no long
   a table of facts
 - **THEN** the suite fails and names the gate and the list
 
+#### Scenario: A debt counter without its decision record
+
+- **WHEN** a list declared a debt counter names a decision record that is absent from the registry, not accepted, or
+  does not name the list by `TestClass.FIELD`
+- **THEN** the suite fails and names the list and the record
+
+#### Scenario: A debt counter grows
+
+- **WHEN** a list declared a debt counter holds more entries than its key in `config/debt-counter-ratchets.properties`
+- **THEN** the suite fails and names the list; when it holds fewer, the suite fails until the key is lowered
+
 #### Scenario: A composition root added by a relocation
 
 - **WHEN** a class that is not a named composition root comes to depend on a concrete store or provider because a

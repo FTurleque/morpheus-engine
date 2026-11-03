@@ -29,8 +29,9 @@ except `SqliteSnapshotBusinessContentReader` and `SqliteSnapshotBusinessContentW
 A production class outside `com.morpheus.store.sqlite..` MUST NOT depend on a class of
 `com.morpheus.store.sqlite.runtime`, other than `SqliteOperationRuntime` and `SqliteServerMaintenance` and their
 nested types. A main source outside `morpheus-store-sqlite` MUST NOT name another class of that package, so that a
-compile-time constant read across the boundary is refused as well. The exception MUST be a closed list that names
-AUD-ARC-01 as the decision that removes or confirms it.
+compile-time constant read across the boundary is refused as well. The exception MUST be the debt counter
+`RUNTIME_ENTRY_POINTS`, declared under ADR-0158: every entry MUST still be reached from outside the store, and its size
+MUST equal its key in `config/debt-counter-ratchets.properties`, so that it only shrinks.
 
 #### Scenario: A transport adapter uses the transaction runner
 
@@ -48,6 +49,26 @@ AUD-ARC-01 as the decision that removes or confirms it.
 - **WHEN** `morpheus-api`, `morpheus-cli` and `morpheus-mcp` depend on `SqliteOperationRuntime` and
   `morpheus-api` and `morpheus-cli` on `SqliteServerMaintenance`
 - **THEN** the rule passes
+
+#### Scenario: An entry point is no longer used
+
+- **WHEN** no class outside the store depends on one of the two named classes any more
+- **THEN** the architecture suite fails until the entry leaves `RUNTIME_ENTRY_POINTS` and its ratchet is lowered
+
+### Requirement: The public types of the runtime package SHALL only shrink
+
+The public types of `com.morpheus.store.sqlite.runtime`, nested ones included, MUST be exactly the debt counter
+`RUNTIME_PUBLIC_TYPES`, declared under ADR-0158. They are public for the adapter package, not for the other modules.
+
+#### Scenario: A runtime type becomes public
+
+- **WHEN** a package-private type of `com.morpheus.store.sqlite.runtime` is made public
+- **THEN** the architecture suite fails and names the type
+
+#### Scenario: A runtime type is no longer public
+
+- **WHEN** a type of `RUNTIME_PUBLIC_TYPES` loses its public modifier
+- **THEN** the architecture suite fails until the type leaves the list and its ratchet is lowered
 
 ### Requirement: The SQLite store SHALL NOT depend on another persistence module or on a provider
 

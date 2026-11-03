@@ -3,10 +3,15 @@ package com.morpheus.architecture;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -15,6 +20,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -28,7 +34,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <ul>
  *   <li>a <strong>debt counter</strong> -- what a set of classes does today and is expected to stop doing, exact in
- *       both directions and shrinking only, under the decision record that says so;</li>
+ *       both directions and shrinking only, under the decision record that says so. Both promises are checked: the
+ *       accepted record it declares names it by {@code TestClass.FIELD}, and its size equals its key in
+ *       {@code config/debt-counter-ratchets.properties}, a key that is only ever lowered;</li>
  *   <li>a <strong>table of facts</strong> -- exactly the classes a stated fact is true of, each entry with its reason
  *       or the whole table with one.</li>
  * </ul>
@@ -40,17 +48,28 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ProductionClassListsArchitectureTest {
 
-    private enum Kind { DEBT_COUNTER, TABLE_OF_FACTS }
+    /** A debt counter carries the identifier of the decision record that names it; a table of facts carries none. */
+    private record Kind(Optional<String> decision) {
+        static final Kind TABLE_OF_FACTS = new Kind(Optional.empty());
+
+        static Kind debtCounterUnder(String decisionRecord) {
+            return new Kind(Optional.of(decisionRecord));
+        }
+    }
+
+    private static final String DECISION_RECORDS = "docs/architecture/adr";
+    private static final String DEBT_COUNTER_RATCHETS = "config/debt-counter-ratchets.properties";
+    private static final String ACCEPTED = "Statut : **Acceptée**";
 
     /** Each remaining list, by {@code TestClass.FIELD}, with its kind. */
     private static final Map<String, Kind> KINDS = Map.ofEntries(
-            Map.entry("AdapterCompositionRootArchitectureTest.COMPOSITION_ROOTS", Kind.DEBT_COUNTER),
+            Map.entry("AdapterCompositionRootArchitectureTest.COMPOSITION_ROOTS", Kind.debtCounterUnder("ARCH-0156")),
             Map.entry("ApiEntryTypesArchitectureTest.ENTRY_TYPES", Kind.TABLE_OF_FACTS),
             Map.entry("AppendOnlyJournalReadsArchitectureTest.JOURNAL_PAGES", Kind.TABLE_OF_FACTS),
             Map.entry("AppendOnlyJournalReadsArchitectureTest.JOURNAL_PORTS", Kind.TABLE_OF_FACTS),
             Map.entry("AppendOnlyJournalReadsArchitectureTest.JOURNAL_RECORDS", Kind.TABLE_OF_FACTS),
-            Map.entry("ApplicationTechnologyBoundaryArchitectureTest.CONFINED_FAMILIES", Kind.DEBT_COUNTER),
-            Map.entry("ApplicationTechnologyBoundaryArchitectureTest.REFLECTION_AND_LOADING", Kind.DEBT_COUNTER),
+            Map.entry("ApplicationTechnologyBoundaryArchitectureTest.CONFINED_FAMILIES", Kind.debtCounterUnder("ARCH-0150")),
+            Map.entry("ApplicationTechnologyBoundaryArchitectureTest.REFLECTION_AND_LOADING", Kind.debtCounterUnder("ARCH-0150")),
             Map.entry("CliArgumentBaseArchitectureTest.OTHER_PURPOSES", Kind.TABLE_OF_FACTS),
             Map.entry("CliOptionValueHasOneBlankDefinitionTest.OTHER_QUESTIONS", Kind.TABLE_OF_FACTS),
             Map.entry("CurrentRequirementReaderArchitectureTest.FULL_HISTORY_READERS", Kind.TABLE_OF_FACTS),
@@ -74,18 +93,19 @@ class ProductionClassListsArchitectureTest {
             Map.entry("PublicPayloadConvergenceTest.CLI_OMITTED_KEYS", Kind.TABLE_OF_FACTS),
             Map.entry("PublishedEnumsMatchJavaEnumsTest.EXEMPT", Kind.TABLE_OF_FACTS),
             Map.entry("PublishedEnumsMatchJavaEnumsTest.TABLE", Kind.TABLE_OF_FACTS),
-            Map.entry("ReflectionAndClassLoadingBoundaryArchitectureTest.LOADING", Kind.DEBT_COUNTER),
-            Map.entry("ReflectionAndClassLoadingBoundaryArchitectureTest.REFLECTION", Kind.DEBT_COUNTER),
+            Map.entry("ReflectionAndClassLoadingBoundaryArchitectureTest.LOADING", Kind.TABLE_OF_FACTS),
+            Map.entry("ReflectionAndClassLoadingBoundaryArchitectureTest.REFLECTION", Kind.TABLE_OF_FACTS),
             Map.entry("RefusalPathTextArchitectureTest.FORBIDDEN", Kind.TABLE_OF_FACTS),
             Map.entry("RefusalPathTextArchitectureTest.KNOWN_REFUSAL_BUILDERS", Kind.TABLE_OF_FACTS),
-            Map.entry("SharedDomainProjectionArchitectureTest.ADAPTER_SHAPES_DIFFERING_FROM_THE_SHARED_ONE", Kind.DEBT_COUNTER),
+            Map.entry("SharedDomainProjectionArchitectureTest.ADAPTER_SHAPES_DIFFERING_FROM_THE_SHARED_ONE", Kind.TABLE_OF_FACTS),
             Map.entry("SharedDomainProjectionArchitectureTest.SHARED_TYPES", Kind.TABLE_OF_FACTS),
             Map.entry("ShippedRequirementStoresPageThemselvesArchitectureTest.SHIPPED_STORES", Kind.TABLE_OF_FACTS),
             Map.entry("SilentCatchArchitectureTest.EXPLAINED", Kind.TABLE_OF_FACTS),
             Map.entry("SqliteConnectionScopeUseArchitectureTest.ONE_STORE_PER_OPERATION", Kind.TABLE_OF_FACTS),
             Map.entry("SqliteConnectionScopeUseArchitectureTest.SCOPE_OWNERS", Kind.TABLE_OF_FACTS),
             Map.entry("SqliteStorePackagesArchitectureTest.ADAPTER_COLLABORATORS", Kind.TABLE_OF_FACTS),
-            Map.entry("SqliteStorePackagesArchitectureTest.RUNTIME_ENTRY_POINTS", Kind.DEBT_COUNTER),
+            Map.entry("SqliteStorePackagesArchitectureTest.RUNTIME_ENTRY_POINTS", Kind.debtCounterUnder("ARCH-0158")),
+            Map.entry("SqliteStorePackagesArchitectureTest.RUNTIME_PUBLIC_TYPES", Kind.debtCounterUnder("ARCH-0158")),
             Map.entry("StaticOperationalRuntimeUsersArchitectureTest.MAIN_USERS", Kind.TABLE_OF_FACTS),
             Map.entry("StaticOperationalRuntimeUsersArchitectureTest.PROCESS_RUNTIME_TAKERS", Kind.TABLE_OF_FACTS),
             Map.entry("TextDigestOwnershipArchitectureTest.DIGEST_SITES", Kind.TABLE_OF_FACTS),
@@ -119,6 +139,75 @@ class ProductionClassListsArchitectureTest {
                 + "module that names classes of a production module is declared in KINDS as a debt counter or a "
                 + "table of facts, and KINDS names no list that is gone. A list that is a role belongs in a package. "
                 + "Found: " + found);
+    }
+
+    @Test
+    void everyDebtCounterIsNamedByTheAcceptedDecisionRecordItDeclares() throws IOException {
+        Path records = RepositoryRoot.locate().resolve(DECISION_RECORDS);
+        List<String> refusals = new ArrayList<>();
+        for (Map.Entry<String, String> counter : debtCounters().entrySet()) {
+            List<Path> matching;
+            try (Stream<Path> files = Files.list(records)) {
+                matching = files.filter(file -> file.getFileName().toString().startsWith(counter.getValue() + "-"))
+                        .filter(file -> file.getFileName().toString().endsWith(".md"))
+                        .sorted()
+                        .toList();
+            }
+            if (matching.size() != 1) {
+                refusals.add(counter.getKey() + " declares " + counter.getValue() + ", found in the registry as "
+                        + matching);
+                continue;
+            }
+            String text = Files.readString(matching.get(0));
+            if (!text.contains(ACCEPTED)) {
+                refusals.add(counter.getKey() + " declares " + counter.getValue() + ", which is not accepted");
+            }
+            if (!text.contains(counter.getKey())) {
+                refusals.add(counter.getKey() + " declares " + counter.getValue() + ", which does not name it");
+            }
+        }
+        assertEquals(List.of(), refusals, "a debt counter shrinks under the decision record that says so: the record "
+                + "it declares is in " + DECISION_RECORDS + ", accepted, and names it by TestClass.FIELD");
+    }
+
+    @Test
+    void everyDebtCounterHoldsExactlyTheSizeItsRatchetAllows() throws IOException, ReflectiveOperationException {
+        Properties ratchets = new Properties();
+        try (var reader = Files.newBufferedReader(RepositoryRoot.locate().resolve(DEBT_COUNTER_RATCHETS))) {
+            ratchets.load(reader);
+        }
+        assertEquals(new TreeSet<>(debtCounters().keySet()), new TreeSet<>(ratchets.stringPropertyNames()),
+                "every debt counter has one key in " + DEBT_COUNTER_RATCHETS + ", and no key outlives its counter");
+
+        Map<String, Class<?>> testClasses = testClassesBySimpleName();
+        List<String> grown = new ArrayList<>();
+        List<String> shrunk = new ArrayList<>();
+        for (String counter : debtCounters().keySet()) {
+            int dot = counter.indexOf('.');
+            Field field = testClasses.get(counter.substring(0, dot)).getDeclaredField(counter.substring(dot + 1));
+            field.setAccessible(true);
+            int size = sizeOf(field.get(null));
+            int ratchet = Integer.parseInt(ratchets.getProperty(counter).trim());
+            if (size > ratchet) {
+                grown.add(counter + " holds " + size + " for a ratchet of " + ratchet);
+            } else if (size < ratchet) {
+                shrunk.add(counter + " holds " + size + " for a ratchet of " + ratchet);
+            }
+        }
+        assertEquals(List.of(), grown, "a debt counter grew: it only shrinks. Remove the new entry, or replace its "
+                + "decision record by a consolidated one that names it before raising the ratchet");
+        assertEquals(List.of(), shrunk, "a debt counter shrank: lower its key in " + DEBT_COUNTER_RATCHETS
+                + " in the same change, so that it cannot grow back");
+    }
+
+    @Test
+    void theSizeOfACounterIsItsElementsAndAMapOfCollectionsCountsTheElementsOfItsValues() {
+        assertEquals(2, sizeOf(Set.of("Alpha", "Beta")));
+        assertEquals(3, sizeOf(List.of("Alpha", "Beta", "Gamma")));
+        assertEquals(2, sizeOf(Map.of("Alpha", "a reason", "Beta", "another reason")));
+        assertEquals(3, sizeOf(Map.of("first family", Set.of("Alpha", "Beta"), "second family", Set.of("Alpha"))));
+        IllegalArgumentException refusal = assertThrows(IllegalArgumentException.class, () -> sizeOf("Alpha"));
+        assertTrue(refusal.getMessage().contains("java.lang.String"), refusal.getMessage());
     }
 
     @Test
@@ -166,6 +255,46 @@ class ProductionClassListsArchitectureTest {
             }
         }
         return lists;
+    }
+
+    private static Map<String, String> debtCounters() {
+        Map<String, String> counters = new TreeMap<>();
+        KINDS.forEach((list, kind) -> kind.decision().ifPresent(decision -> counters.put(list, decision)));
+        return counters;
+    }
+
+    /**
+     * A set or a list counts its elements; a map counts its entries, or the elements of its values when they are all
+     * collections, so that a counter of classes by family counts each class it names in each family.
+     */
+    private static int sizeOf(Object list) {
+        if (list instanceof Collection<?> collection) {
+            return collection.size();
+        }
+        if (list instanceof Map<?, ?> map) {
+            if (!map.isEmpty() && map.values().stream().allMatch(Collection.class::isInstance)) {
+                return map.values().stream().mapToInt(value -> ((Collection<?>) value).size()).sum();
+            }
+            return map.size();
+        }
+        throw new IllegalArgumentException("a debt counter is a Set, a List or a Map, not a "
+                + list.getClass().getName());
+    }
+
+    private static Map<String, Class<?>> testClassesBySimpleName() throws IOException, ClassNotFoundException {
+        Path tests = RepositoryRoot.locate().resolve("morpheus-architecture-tests/src/test/java");
+        List<Path> sources;
+        try (Stream<Path> tree = Files.walk(tests)) {
+            sources = tree.filter(path -> path.toString().endsWith(".java")).sorted().toList();
+        }
+        Map<String, Class<?>> classes = new TreeMap<>();
+        for (Path source : sources) {
+            String binaryName = tests.relativize(source).toString().replace('\\', '.').replace('/', '.')
+                    .replaceAll("\\.java$", "");
+            classes.put(source.getFileName().toString().replace(".java", ""),
+                    Class.forName(binaryName, false, ProductionClassListsArchitectureTest.class.getClassLoader()));
+        }
+        return classes;
     }
 
     /** The index of the parenthesis that closes the one opened just before {@code start}, string literals skipped. */

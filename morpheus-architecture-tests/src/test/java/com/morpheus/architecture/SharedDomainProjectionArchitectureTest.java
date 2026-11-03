@@ -41,7 +41,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>{@link #SHARED_TYPES} is the inventory: the types more than one transport shows, each with those transports.
  * It only grows. {@link #ADAPTER_SHAPES_DIFFERING_FROM_THE_SHARED_ONE} names the adapter methods that project a shared
  * type to a shape of their own, with the difference; converging them changes a public answer, so each is a decision
- * of the maintainer, and the list only shrinks.</p>
+ * of the maintainer. It is a table of facts, not a debt counter: no decision record says these shapes are to
+ * converge.</p>
  */
 class SharedDomainProjectionArchitectureTest {
 
