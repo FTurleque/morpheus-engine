@@ -125,38 +125,38 @@ les releases sont alors construites non signées, le manifeste le déclare (`"st
 le dit. À partir de la version de base déclarée, `build-release.ps1` refuse un état autre que `release`
 (`WINDOWS_SIGNING_REQUIRED`). L'état `release` échoue tant que le fournisseur de signature n'est pas configuré.
 
-## Build actif 1.2.1
+## Build actif 1.2.2
 
 Portable Windows :
 
 ```powershell
-.\distribution\build-portable.ps1 -Version 1.2.1
+.\distribution\build-portable.ps1 -Version 1.2.2
 ```
 
 Setup Windows :
 
 ```powershell
-.\distribution\build-installer.ps1 -Version 1.2.1
+.\distribution\build-installer.ps1 -Version 1.2.2
 ```
 
 Portable Linux :
 
 ```bash
-bash distribution/build-portable.sh 1.2.1
+bash distribution/build-portable.sh 1.2.2
 ```
 
-Les builders portables/installateur utilisent `1.2.1` par défaut.
+Les builders portables/installateur utilisent `1.2.2` par défaut.
 
-## Release 1.2.1 — pas encore publiée
+## Release 1.2.2 — pas encore publiée
 
-Les builders de release actifs utilisent `1.2.1` par défaut mais sont fail-closed :
+Les builders de release actifs utilisent `1.2.2` par défaut mais sont fail-closed :
 
 ```powershell
-.\distribution\build-release.ps1 -Version 1.2.1 -ExpectedTag v1.2.1
+.\distribution\build-release.ps1 -Version 1.2.2 -ExpectedTag v1.2.2
 ```
 
 ```bash
-bash distribution/build-release.sh 1.2.1 v1.2.1
+bash distribution/build-release.sh 1.2.2 v1.2.2
 ```
 
 Ils refusent l'exécution si :
@@ -176,11 +176,11 @@ Le workflow `.github/workflows/release.yml` ajoute la chaîne de confiance GitHu
 
 Le fichier `.sha256` reste la preuve d'intégrité locale ; l'attestation GitHub ajoute la preuve d'origine liée au commit et au workflow de publication.
 
-Par conséquent, le simple bump de la baseline à `1.2.1` ne crée pas une release et ne peut pas écraser `v1.2.0`.
+Par conséquent, le simple bump de la baseline à `1.2.2` ne crée pas une release et ne peut pas écraser `v1.2.1`.
 
 ## Reproduction historique 1.2.0
 
-Pour reproduire exactement la release publiée, checkout le tag immuable `v1.2.0` puis utilisez les commandes/version présentes sur ce tag. Ne tentez pas de reconstruire le HEAD `1.2.1` avec `-Version 1.2.0`.
+Pour reproduire exactement la release publiée, checkout le tag immuable `v1.2.0` puis utilisez les commandes/version présentes sur ce tag. Ne tentez pas de reconstruire le HEAD `1.2.2` avec `-Version 1.2.0`.
 
 Preuve autoritative :
 
@@ -194,11 +194,11 @@ docs/project/validation/VALIDATION_R3.md
 Le gate durable M21 qualifie la baseline active :
 
 ```powershell
-.\scripts\validate.cmd m21 -Version 1.2.1
+.\scripts\validate.cmd m21 -Version 1.2.2
 ```
 
 ```bash
-bash ./scripts/validate-m21.sh 1.2.1
+bash ./scripts/validate-m21.sh 1.2.2
 ```
 
 Ratchets :
@@ -215,7 +215,7 @@ changed-line         >= 80%
 changed-branch       >= 70%
 ```
 
-Le gate D2 spécialisé peut toujours être lancé en `1.2.1` sur un périmètre ne modifiant pas `.github/workflows/**`.
+Le gate D2 spécialisé peut toujours être lancé en `1.2.2` sur un périmètre ne modifiant pas `.github/workflows/**`.
 
 Le workflow `MORPHEUS Security` exécute OWASP Dependency-Check sur `main` et `develop`, avec refresh trusted quotidien et cache PR limité à 72 h. `.github/dependabot.yml` maintient les dépendances Maven/GitHub Actions via PR vers `develop`.
 

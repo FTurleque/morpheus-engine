@@ -1,7 +1,7 @@
 # Scénarios de qualité — MORPHEUS ENGINE
 
 > Complément de [§10](../arc42/10-exigences-qualite.md).
-> Baseline active : MORPHEUS 1.2.1 corrective — `develop` post-audit. Dernière release publiée : `v1.2.0`.
+> Baseline active : MORPHEUS 1.2.2 corrective — `develop` post-audit. Dernière release publiée : `v1.2.1`.
 >
 > Un scénario est marqué **qualifié** uniquement lorsqu'une preuve exécutable ou
 > une validation identifiée existe. Les objectifs sans seuil mesuré restent des
@@ -165,7 +165,7 @@ bit-à-bit identiques.
 | Seuil | 0 |
 | Preuve | `.github/workflows/ci.yml` et metadata GitHub Actions |
 
-Le workflow actuel appelle `validate-m21` avec la version 1.2.1. Le numéro M21
+Le workflow actuel appelle `validate-m21` avec la version 1.2.2. Le numéro M21
 est celui du gate durable d'intégrité ; il ne représente pas le dernier
 milestone fonctionnel livré.
 

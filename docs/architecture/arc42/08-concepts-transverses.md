@@ -154,7 +154,7 @@ Le choix de logging doit préserver la pureté de stdout en mode MCP STDIO.
 
 ## 8.10 Supply chain
 
-Baseline 1.2.1 :
+Baseline 1.2.2 :
 
 ```text
 Java                  21

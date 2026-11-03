@@ -6,11 +6,11 @@ Cette documentation distingue deux états :
 release publiée         MORPHEUS 1.2.1 / tag v1.2.1
 release commit           2a8b1ede9cdeb107244b04969726305afc672189
 release précédente       MORPHEUS 1.2.0 / tag v1.2.0 / 3ad9ebf030b58df97482e21e272c24feae6b9d86
-version du reactor       1.2.1
+version du reactor       1.2.2
 branche d'intégration    develop
 ```
 
-`v1.2.1` a été publiée le 16 octobre 2026 et qualifiée par les deux scripts de relecture publique ([`../project/validation/VALIDATION_RELEASE_1.2.1.md`](../project/validation/VALIDATION_RELEASE_1.2.1.md)). Les tags `v1.2.0` et `v1.2.1` sont immuables : le code qui avance sur `develop` ne doit pas être republié sous `1.2.1`, la prochaine version se déclare par un bump explicite.
+`v1.2.1` a été publiée le 16 octobre 2026 et qualifiée par les deux scripts de relecture publique ([`../project/validation/VALIDATION_RELEASE_1.2.1.md`](../project/validation/VALIDATION_RELEASE_1.2.1.md)). Les tags `v1.2.0` et `v1.2.1` sont immuables : le code qui avance sur `develop` ne doit pas être republié sous `1.2.1`. Le reactor porte `1.2.2`, ouverte parce que le schéma SQLite a avancé depuis `v1.2.1`.
 
 ## Prérequis
 
@@ -64,7 +64,7 @@ Le domaine et l’application ne dépendent ni des transports ni des clients MCP
 ## Baseline technique active
 
 ```text
-product                    1.2.1
+product                    1.2.2
 Java                       21
 Jackson                    3.2.4
 sqlite-jdbc                3.53.4.0
@@ -105,13 +105,13 @@ Linux :
 Windows :
 
 ```powershell
-.\scripts\validate.cmd m21 -Version 1.2.1
+.\scripts\validate.cmd m21 -Version 1.2.2
 ```
 
 Linux :
 
 ```bash
-bash ./scripts/validate-m21.sh 1.2.1
+bash ./scripts/validate-m21.sh 1.2.2
 ```
 
 M21 exige le même SHA exact sur Windows et Ubuntu/Linux, vérifie les ratchets de tests/couverture, le SBOM, la provenance, le portable et la convergence de version CLI/API/update.
@@ -130,13 +130,13 @@ dépannage, sources officielles) : [SpotBugs](SPOTBUGS.md).
 Windows :
 
 ```powershell
-.\scripts\validate.cmd d2 -Version 1.2.1 -BaseRef origin/develop
+.\scripts\validate.cmd d2 -Version 1.2.2 -BaseRef origin/develop
 ```
 
 Linux / WSL :
 
 ```bash
-MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.1
+MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.2
 ```
 
 D2 conserve sa règle historique de périmètre local : il refuse une PR qui modifie `.github/workflows/**`. Il ne doit donc pas être utilisé comme preuve principale d'une PR dont l'objet est précisément de faire évoluer la CI ; M21 est le gate durable de ce cas.
@@ -182,18 +182,18 @@ workflow_dispatch
 
 ## Packaging et release
 
-Les builders actifs produisent `1.2.1` par défaut :
+Les builders actifs produisent `1.2.2` par défaut :
 
 ```powershell
-.\distribution\build-portable.ps1 -Version 1.2.1
-.\distribution\build-installer.ps1 -Version 1.2.1
+.\distribution\build-portable.ps1 -Version 1.2.2
+.\distribution\build-installer.ps1 -Version 1.2.2
 ```
 
 ```bash
-bash ./distribution/build-portable.sh 1.2.1
+bash ./distribution/build-portable.sh 1.2.2
 ```
 
-Les builders de release refusent de publier si le workspace n'est pas propre ou si le tag attendu `v1.2.1` ne pointe pas exactement sur HEAD.
+Les builders de release refusent de publier si le workspace n'est pas propre ou si le tag attendu `v1.2.2` ne pointe pas exactement sur HEAD.
 
 Le workflow `MORPHEUS Release` ajoute une chaîne de publication attestée : tag `vX.Y.Z` atteignable depuis `main`, builds Linux + Windows, attestation GitHub/OIDC pour les artefacts, puis création unique de la GitHub Release sans écrasement d'assets existants.
 

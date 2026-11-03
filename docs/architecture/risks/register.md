@@ -1,7 +1,7 @@
 # Registre des risques et de la dette — MORPHEUS ENGINE
 
 > Synthèse opérationnelle de [§11](../arc42/11-risques-dette.md).
-> Baseline active : MORPHEUS 1.2.1 corrective — branche de développement post-audit.
+> Baseline active : MORPHEUS 1.2.2 corrective — branche de développement post-audit.
 > Dernière release publiée : `v1.2.0`.
 > Mise à jour : **2026-09-04** (passes post-audit A-02..A-16 ; A-01 suivie séparément selon son cycle de qualification réelle — voir #185).
 >

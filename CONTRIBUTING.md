@@ -30,7 +30,7 @@ Cette partie dit où en est MORPHEUS et sur quoi il est construit. Elle s’adre
 
 ## État produit
 
-**MORPHEUS 1.2.1 est la release stable publiée** (16 octobre 2026). Le reactor porte encore **1.2.1** ; la version suivante n'est pas ouverte.
+**MORPHEUS 1.2.1 est la release stable publiée** (16 octobre 2026). Le reactor porte **1.2.2**, ouverte parce que le schéma SQLite a avancé depuis `v1.2.1` ; elle n'est pas publiée.
 
 ```text
 Stable version          1.2.1
@@ -54,7 +54,7 @@ Preuve historique D2 : [`docs/project/validation/VALIDATION_D2.md`](docs/project
 Java                   21
 Build                  Maven Wrapper 3.10.0
 Release stable         1.2.1
-Baseline développement 1.2.1
+Baseline développement 1.2.2
 Persistent store       SQLite
 SQLite JDBC            3.53.4.0
 Jackson                3.2.4
@@ -102,11 +102,11 @@ Le gate Maven canonique est :
 Le gate durable exact-head utilisé par `MORPHEUS CI` est :
 
 ```powershell
-.\scripts\validate.cmd m21 -Version 1.2.1
+.\scripts\validate.cmd m21 -Version 1.2.2
 ```
 
 ```bash
-bash ./scripts/validate-m21.sh 1.2.1
+bash ./scripts/validate-m21.sh 1.2.2
 ```
 
 Sur les pull requests, la couverture différentielle impose **≥ 80 % des lignes exécutables changées** et **≥ 70 % des branches changées**. Le ratchet agrégé est **≥ 91,2 % lignes / ≥ 77,3 % branches**, le ratchet par module **≥ 89,9 % lignes / ≥ 77,1 % branches**, avec **≥ 2876 tests Surefire écrits**, **≥ 1819 tests Surefire générés** et **≥ 836 tests d’architecture** (source normative : `config/m21-quality-ratchets.properties`). La mesure canonique de couverture est le rapport JaCoCo agrégé `morpheus-coverage-report/target/site/jacoco-aggregate/jacoco.xml`, qui fusionne aussi l’exécution cross-module des tests d’architecture sans compter leurs classes comme code produit ; l’échelle par module somme au contraire le rapport propre à chaque module et révèle donc un module qui cesse de se tester lui-même. Les deux échelles portent des seuils distincts et ne sont jamais comparées entre elles. Dependency hygiene, SBOM CycloneDX, provenance et smoke packaging font partie du gate durable.

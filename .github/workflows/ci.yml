@@ -40,7 +40,7 @@ jobs:
       - name: Run one-command M21 gate on Linux
         if: runner.os == 'Linux'
         shell: bash
-        run: bash ./scripts/validate-m21.sh 1.2.1
+        run: bash ./scripts/validate-m21.sh 1.2.2
 
       # The scripts of scripts/ are what the gates are held by, and half of them are .ps1: their tests run on both
       # legs. Each leg runs the cases of its own interpreter -- the .ps1 cases need Windows PowerShell 5.1, the one
@@ -94,7 +94,7 @@ jobs:
       - name: Run full M28 gate on Windows (Setup.exe wizard, transactional upgrade, MCP smoke)
         if: runner.os == 'Windows'
         shell: powershell
-        run: .\scripts\validate-m28.ps1 -Version 1.2.1
+        run: .\scripts\validate-m28.ps1 -Version 1.2.2
 
       - name: Upload M21 integrity evidence
         if: always()

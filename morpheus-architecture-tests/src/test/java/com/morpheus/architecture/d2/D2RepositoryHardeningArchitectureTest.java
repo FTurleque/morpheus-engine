@@ -181,8 +181,8 @@ class D2RepositoryHardeningArchitectureTest {
         String windows = Files.readString(root.resolve("scripts/validate-m21.ps1"));
         assertTrue(linux.contains("config/m21-quality-ratchets.properties"));
         assertTrue(windows.contains("config\\m21-quality-ratchets.properties"));
-        assertTrue(linux.contains("1.2.1"));
-        assertTrue(windows.contains("1.2.1"));
+        assertTrue(linux.contains("1.2.2"));
+        assertTrue(windows.contains("1.2.2"));
     }
 
     /**
@@ -228,7 +228,7 @@ class D2RepositoryHardeningArchitectureTest {
                     () -> entry.getKey() + " must read the generatedTestsMinimum key");
             assertTrue(Pattern.compile("\\barchitectureTestsMinimum\\b").matcher(script).find(),
                     () -> entry.getKey() + " must read the architectureTestsMinimum key");
-            assertTrue(script.contains("1.2.1"), () -> entry.getKey() + " must still name the product version");
+            assertTrue(script.contains("1.2.2"), () -> entry.getKey() + " must still name the product version");
         }
     }
 
