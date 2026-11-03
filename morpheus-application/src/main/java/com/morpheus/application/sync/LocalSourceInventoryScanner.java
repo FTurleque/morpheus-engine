@@ -291,6 +291,13 @@ public final class LocalSourceInventoryScanner {
                                     SourceInventoryScanResult.Failure.Code.SOURCE_OBSERVED_TWICE,
                                     "source observed twice with different content"));
                         }
+                    } catch (WorkspaceBoundaryEscapeException boundaryFailure) {
+                        failures.add(new SourceInventoryScanResult.Failure(
+                                Optional.of(display(workspace, file)),
+                                SourceInventoryScanResult.Failure.Code.WORKSPACE_BOUNDARY_ESCAPED,
+                                safeMessage(boundaryFailure)));
+                        budget.exhaust();
+                        return FileVisitResult.TERMINATE;
                     } catch (IOException | RuntimeException exception) {
                         failures.add(new SourceInventoryScanResult.Failure(
                                 Optional.of(display(workspace, file)),
