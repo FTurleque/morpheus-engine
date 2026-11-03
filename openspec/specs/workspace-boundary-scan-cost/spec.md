@@ -39,25 +39,26 @@ the refused entry and everything after it out of the inventory.
 - **WHEN** a boundary refusal is reported
 - **THEN** its code, its displayed path and its message are those reported before this change
 
-### Requirement: The boundary work of a scan SHALL grow with the entries visited, not with their depth
+### Requirement: The boundary work of a scan SHALL resolve each directory once and link-test every segment before each read
 
-Within one scan, a directory that the scan has validated and entered MUST NOT be validated again for each entry
-beneath it: the number of physical path resolutions and link tests the scan makes for the boundary MUST be bounded by
-a constant per directory entered and a constant per file visited, plus, for the re-validation of a file after its
-fingerprint, at most a term proportional to that file's depth.
+Within one scan, a directory that the scan has validated and entered MUST NOT be resolved again for each entry
+beneath it: the number of physical path resolutions the scan makes for the boundary before reading MUST be bounded by
+a constant per directory entered and a constant per file visited. Before reading an entry the scan MUST still test the
+workspace root and every segment above the entry for a symbolic link, one query each, and MUST NOT answer that test
+from what it remembered (ADR-0157). The re-validation of a file after its fingerprint stays a full walk of its path.
 
-#### Scenario: Deepening a tree does not multiply the work per file
+#### Scenario: Deepening a tree adds one link test per segment and no resolution per file
 
 - **WHEN** the same number of files is scanned once at the bottom of a chain of `d` nested directories and once at the
   bottom of a chain of `2d`
-- **THEN** the count of boundary queries made before reading grows by a constant times `d`, for the added directories,
-  and not by the number of files times `d`
+- **THEN** the count of boundary queries made before reading grows by the resolution of the `d` added directories and
+  by one link test per added segment above each directory and each file, and by no resolution per file
 
-#### Scenario: A directory is validated once per scan
+#### Scenario: A directory is resolved once per scan
 
 - **WHEN** a directory holding many files is scanned
-- **THEN** the count of boundary queries on the segments above that directory does not grow with the number of files
-  for the checks made before reading
+- **THEN** each additional file costs the resolution of its own segment and one link test per segment above it, and
+  the directories above it are not resolved again
 
 #### Scenario: The source root still takes the full walk
 
@@ -78,13 +79,29 @@ for every segment between the workspace root and the file, and MUST NOT be answe
 
 - **WHEN** a directory above a file is replaced by a symbolic link, pointing inside or outside the workspace, after the
   file has been validated and before its fingerprint is accepted
-- **THEN** the scan reports the file as crossing a symbolic link, and neither the file nor a complete inventory is
-  produced
+- **THEN** the scan reports the file as crossing a symbolic link under `WORKSPACE_BOUNDARY_ESCAPED`, never
+  `SOURCE_UNREADABLE`, stops, and neither the file nor a complete inventory is produced
 
 #### Scenario: The file itself is replaced by a link
 
 - **WHEN** a file is replaced by a symbolic link while it is being fingerprinted
 - **THEN** it does not enter the inventory
+
+### Requirement: No content SHALL be read through a link once a validated segment has become one
+
+A scan MUST refuse an entry before reading it when the workspace root or any segment above the entry, validated
+earlier in the same scan, has since been replaced by a symbolic link, wherever the link points (ADR-0157).
+
+#### Scenario: A validated ancestor becomes a link resolving inside the workspace
+
+- **WHEN** a directory the scan has validated and entered is replaced by a symbolic link to another directory of the
+  workspace, before the next entry beneath it is read
+- **THEN** that entry is refused as crossing a symbolic link before it is read, and no other file of the scan is read
+
+#### Scenario: The workspace root becomes a link during a scan
+
+- **WHEN** the workspace root is replaced by a symbolic link after the scan has validated it
+- **THEN** the next entry is refused, before it is read, because the workspace root is a symbolic link
 
 ### Requirement: What a scan remembers MUST NOT outlive that scan nor reach the watcher
 
