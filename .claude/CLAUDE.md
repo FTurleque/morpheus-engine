@@ -18,7 +18,7 @@
 
 ## Identité
 
-`io.github.fturleque:morpheus-engine` **1.2.1** — Specification & Intent Intelligence Engine
+`io.github.fturleque:morpheus-engine` **1.2.2** — Specification & Intent Intelligence Engine
 Java 21 · Maven 3.10.0 · multi-module Maven (compter les `<module>` de `pom.xml` — ne jamais citer un total de mémoire) · local-first · **sans framework** · **sans Docker**
 
 ## Principe directeur
@@ -120,9 +120,9 @@ Dispatcher : `scripts/validate.cmd` → `scripts/validate.ps1`
 ## Milestones
 
 Dernier milestone livré : **M28** (intégration client MCP native, livré dans 1.2.0). Aucun
-milestone n'est actuellement en cours — la baseline **1.2.1** est une passe corrective et de
-durcissement (audit, sécurité, dette de gouvernance), suivie par l'issue #185 jusqu'à sa
-release réelle, pas un nouveau milestone.
+milestone n'est actuellement en cours — la baseline **1.2.2**, ouverte après la publication de 1.2.1
+parce que le schéma SQLite a avancé depuis, est une passe corrective et de durcissement (audit,
+sécurité, dette de gouvernance), pas un nouveau milestone.
 Gates actifs : **M19** (perf, lane nocturne — pas dans `clean verify`) · **M20** (release, répétition en lane nocturne — pas dans `clean verify`) · **M21** (coverage + intégrité) · **M22** (plugins)
 · **M23** (portfolio) · **M24** (query DSL) · **M25** (policy) · **M26** (remote) · **M27** (reasoning) · **M28** (MCP clients) · **D2** (hardening repo)
 

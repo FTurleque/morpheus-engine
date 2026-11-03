@@ -130,7 +130,7 @@ mindmap
 | Seuil | 0 |
 | Vérification | `.github/workflows/ci.yml` et metadata du run |
 
-Le workflow actuel appelle le gate **M21** avec la version **1.2.1**. Ce nom est
+Le workflow actuel appelle le gate **M21** avec la version **1.2.2**. Ce nom est
 intentionnel et ne doit pas être remplacé automatiquement par le dernier numéro
 de milestone fonctionnel.
 

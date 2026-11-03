@@ -1,6 +1,6 @@
 # Build, tests et validation
 
-Ce guide décrit l’environnement de développement et les gates actifs sur la baseline corrective **MORPHEUS 1.2.1**. La dernière release publiée est `v1.2.1` (16 octobre 2026), qualifiée par les scripts de relecture publique.
+Ce guide décrit l’environnement de développement et les gates actifs sur la baseline corrective **MORPHEUS 1.2.2**. La dernière release publiée est `v1.2.1` (16 octobre 2026), qualifiée par les scripts de relecture publique.
 
 ## Toolchain
 
@@ -37,7 +37,7 @@ morpheus-architecture-tests
 morpheus-coverage-report
 ```
 
-Les POMs actifs du reactor, parent compris, portent tous la même version MORPHEUS `1.2.1`. Les preuves de release historiques `1.2.0` ne sont pas réécrites.
+Les POMs actifs du reactor, parent compris, portent tous la même version MORPHEUS `1.2.2`. Les preuves de release historiques `1.2.0` ne sont pas réécrites.
 
 ## Gate Maven canonique
 
@@ -72,7 +72,7 @@ D2 absolute branch floor       35%
 maven dependency analyze       failOnWarning=true
 maven dependency convergence   required
 CycloneDX SBOM                  JSON + XML
-product/package version         1.2.1
+product/package version         1.2.2
 ```
 
 La source normative des six ratchets M21 est `config/m21-quality-ratchets.properties`. Les deux échelles de couverture y sont déclarées séparément : `aggregate*` pour la mesure canonique (`morpheus-coverage-report/target/site/jacoco-aggregate/jacoco.xml`, qui fusionne aussi l'exécution cross-module des tests d'architecture) et `perModule*` pour la somme des rapports JaCoCo de chaque module pris isolément. `AggregateCoverageGateTest` et les deux validateurs `validate-m21.*` consomment la première, `CoverageQualityGateTest` la seconde ; aucun gate ne lit les clés de l'autre échelle, et `CoverageScaleSeparationTest` fait échouer le build si l'un d'eux s'y essaie. Les deux échelles portent sur la même population de modules — tout module du réacteur qui porte une classe sous `src/main/java`, outillage de vérification compris (`morpheus-store-memory`, `morpheus-provider-synthetic`, `morpheus-provider-testkit`, `morpheus-provider-reference`) — et ne diffèrent que par les exécutions autorisées à créditer une ligne : `AggregateCoverageGateTest` dérive cette population du POM racine et refuse un rapport agrégé qui en mesure une autre.
@@ -205,13 +205,13 @@ D2 reste un gate local spécialisé avec interdiction de modifier `.github/workf
 Windows :
 
 ```powershell
-.\scripts\validate.cmd d2 -Version 1.2.1 -BaseRef origin/develop
+.\scripts\validate.cmd d2 -Version 1.2.2 -BaseRef origin/develop
 ```
 
 Linux / WSL :
 
 ```bash
-MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.1
+MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.2
 ```
 
 D2 conserve ses minima absolus de couverture `40% / 35%`, exécute Dependency-Check et exige le portable de la plateforme pour une qualification finale sans skip.
@@ -221,19 +221,19 @@ D2 conserve ses minima absolus de couverture `40% / 35%`, exécute Dependency-Ch
 Windows portable :
 
 ```powershell
-.\distribution\build-portable.ps1 -Version 1.2.1
+.\distribution\build-portable.ps1 -Version 1.2.2
 ```
 
 Windows setup :
 
 ```powershell
-.\distribution\build-installer.ps1 -Version 1.2.1
+.\distribution\build-installer.ps1 -Version 1.2.2
 ```
 
 Linux portable :
 
 ```bash
-bash distribution/build-portable.sh 1.2.1
+bash distribution/build-portable.sh 1.2.2
 ```
 
 Les builders de release exigent un workspace propre et que le tag attendu pointe exactement sur HEAD avant de produire l'artefact et son checksum SHA-256.
@@ -310,4 +310,4 @@ Activer le parallélisme dans un autre module est un changement à part, précé
 - D2 historique : [`../project/validation/VALIDATION_D2.md`](../project/validation/VALIDATION_D2.md)
 - plan D2 : [`../project/roadmap/D2_EXECUTION.md`](../project/roadmap/D2_EXECUTION.md)
 
-Ces documents historiques conservent les commandes et versions réellement utilisées lors de leur qualification ; ils ne doivent pas être réécrits pour faire croire qu'ils validaient `1.2.1`.
+Ces documents historiques conservent les commandes et versions réellement utilisées lors de leur qualification ; ils ne doivent pas être réécrits pour faire croire qu'ils validaient `1.2.2`.

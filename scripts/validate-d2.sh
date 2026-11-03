@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="${1:-1.2.1}"
+VERSION="${1:-1.2.2}"
 BASE_REF="${MORPHEUS_D2_BASE_REF:-origin/develop}"
 SKIP_SECURITY_SCAN="${MORPHEUS_D2_SKIP_SECURITY_SCAN:-false}"
 SKIP_PORTABLE="${MORPHEUS_D2_SKIP_PORTABLE:-false}"

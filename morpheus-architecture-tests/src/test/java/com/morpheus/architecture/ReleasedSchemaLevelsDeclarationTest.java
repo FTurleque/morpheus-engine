@@ -32,6 +32,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * The version in progress is exempt until it is released; the first build of the next version then fails until the
  * level just shipped is declared.</p>
  *
+ * <p>A declared level is a fact about a published version, so the declaration never names a version above the product
+ * version, and when it names the product version itself it names exactly the level the reactor ships
+ * ({@code SUPPORTED_SCHEMA_VERSION}). A ceiling alone let {@code 1.2.1=20} stand while the reactor still called itself
+ * 1.2.1 and shipped a later schema: one version, two schemas, and a green rule.</p>
+ *
  * <p>The documentation side is textual by nature (a {@code .md} file name, {@code .claude/rules/architecture.md}): the
  * intent is "a released
  * version without a declared level must not pass", and no bytecode rule sees that file.</p>
@@ -120,6 +125,31 @@ class ReleasedSchemaLevelsDeclarationTest {
     }
 
     @Test
+    void theProductVersionIsDeclaredOnlyAtTheSchemaLevelTheReactorShips() {
+        Map<String, Integer> declared = Map.of("1.0.0", 12, "1.1.0", 15, "1.2.0", 15, "1.2.1", 20);
+
+        List<String> problems = problems(Set.of("1.1.0", "1.2.0", "1.2.1"), "1.2.1", declared, 24, pinned(24));
+
+        assertEquals(1, problems.size(), problems.toString());
+        assertTrue(problems.getFirst().contains("1.2.1") && problems.getFirst().contains("schema level 20")
+                && problems.getFirst().contains("SUPPORTED_SCHEMA_VERSION 24"), problems.getFirst());
+        assertEquals(List.of(), problems(Set.of("1.1.0", "1.2.0", "1.2.1"), "1.2.1", declared, 20, pinned(24)),
+                "the product version may be declared at exactly the level it ships");
+        assertEquals(List.of(), problems(Set.of("1.1.0", "1.2.0", "1.2.1", "1.2.2"), "1.2.2", declared, 24, pinned(24)),
+                "once the product version moves on, 1.2.1 keeps the level it was published with");
+    }
+
+    @Test
+    void aVersionAboveTheProductVersionCannotBeDeclaredAsReleased() {
+        Map<String, Integer> declared = Map.of("1.0.0", 12, "1.1.0", 15, "1.2.0", 15, "1.2.1", 20, "1.2.2", 24);
+
+        List<String> problems = problems(Set.of("1.1.0", "1.2.0", "1.2.1", "1.2.2"), "1.2.1", declared, 24, pinned(24));
+
+        assertTrue(problems.stream().anyMatch(problem -> problem.contains("1.2.2")
+                && problem.contains("declared as released while the product version is 1.2.1")), problems.toString());
+    }
+
+    @Test
     void versionsAreComparedNumericallyNotAlphabetically() {
         assertTrue(compareVersions("1.9.0", "1.10.0") < 0);
         assertTrue(compareVersions("1.2", "1.2.1") < 0);
@@ -151,7 +181,16 @@ class ReleasedSchemaLevelsDeclarationTest {
         Map<String, Integer> declaredInOrder = new TreeMap<>(BY_VERSION);
         declaredInOrder.putAll(declared);
         for (Map.Entry<String, Integer> level : declaredInOrder.entrySet()) {
-            if (level.getValue() > supportedSchemaVersion) {
+            int order = compareVersions(level.getKey(), productVersion);
+            if (order > 0) {
+                problems.add("version " + level.getKey() + " is declared as released while the product version is "
+                        + productVersion + "; only a published version declares the schema level it shipped");
+            } else if (order == 0 && level.getValue() != supportedSchemaVersion) {
+                problems.add("version " + level.getKey() + " is the product version and declares schema level "
+                        + level.getValue() + ", while the reactor ships SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION "
+                        + supportedSchemaVersion + "; one version cannot ship two schemas, so either the declaration "
+                        + "or the product version is wrong");
+            } else if (level.getValue() > supportedSchemaVersion) {
                 problems.add("version " + level.getKey() + " declares schema level " + level.getValue()
                         + ", above SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION " + supportedSchemaVersion);
             } else if (!pinnedChecksums.contains(level.getValue())) {
@@ -170,7 +209,7 @@ class ReleasedSchemaLevelsDeclarationTest {
         return levels;
     }
 
-    private static int compareVersions(String left, String right) {
+    static int compareVersions(String left, String right) {
         String[] leftParts = left.split("\\.");
         String[] rightParts = right.split("\\.");
         for (int index = 0; index < Math.max(leftParts.length, rightParts.length); index++) {
@@ -183,7 +222,7 @@ class ReleasedSchemaLevelsDeclarationTest {
         return 0;
     }
 
-    private static Map<String, Integer> declaredLevels(Path root) throws IOException {
+    static Map<String, Integer> declaredLevels(Path root) throws IOException {
         Properties properties = new Properties();
         properties.load(new StringReader(Files.readString(root.resolve(DECLARATION))));
         Map<String, Integer> declared = new TreeMap<>(BY_VERSION);
@@ -206,7 +245,7 @@ class ReleasedSchemaLevelsDeclarationTest {
         return versions;
     }
 
-    private static String productVersion(Path root) throws IOException {
+    static String productVersion(Path root) throws IOException {
         Matcher version = PRODUCT_VERSION.matcher(Files.readString(root.resolve("pom.xml")));
         assertTrue(version.find(), "the root pom.xml must declare the product version after its artifactId");
         return version.group(1).trim().replace("-SNAPSHOT", "");

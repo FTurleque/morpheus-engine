@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$Version = '1.2.1',
+    [string]$Version = '1.2.2',
     [string]$ExpectedTag,
     [string]$OutputDirectory = 'dist',
     # none: nothing is signed. test: the run's ephemeral identity (the rehearsal). release: the declared publisher's

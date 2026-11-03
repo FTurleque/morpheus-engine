@@ -58,7 +58,7 @@ L'ancien `DT-02` relatif à l'absence d'ADR-0096 dans l'index ADR est résolu : 
 ### Gate CI M21
 
 Le workflow public exact-head exécute actuellement le **gate M21 avec la
-version produit 1.2.1** sur Ubuntu et Windows. Ce choix est intentionnel : M21
+version produit 1.2.2** sur Ubuntu et Windows. Ce choix est intentionnel : M21
 sert de gate d'intégrité/surface-convergence durable. Les gates M22 à M28
 restent des preuves de milestones spécialisés et ne doivent pas remplacer
 mécaniquement M21 dans `ci.yml`.
@@ -82,7 +82,7 @@ Le workflow de sécurité rafraîchit sa base OWASP de confiance **quotidienneme
 Par conséquent :
 
 ```text
-ci.yml -> validate-m21 1.2.1   == état attendu
+ci.yml -> validate-m21 1.2.2   == état attendu
 M28 livré                         != obligation d'appeler validate-m28 en CI
 D2 qualification locale           != nouveau numéro de gate produit
 ```

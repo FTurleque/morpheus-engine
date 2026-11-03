@@ -24,7 +24,7 @@
 
 ## 4.2 Décomposition
 
-MORPHEUS 1.2.1 est un reactor Maven dont le `pom.xml` racine déclare les
+MORPHEUS 1.2.2 est un reactor Maven dont le `pom.xml` racine déclare les
 modules suivants (le nombre se compte dans le POM, il ne s'écrit pas ici) :
 
 ```text
@@ -77,7 +77,7 @@ contrats métier.
 
 ---
 
-## 4.3 Technologies structurantes — baseline 1.2.1
+## 4.3 Technologies structurantes — baseline 1.2.2
 
 | Technologie | Rôle | Version / baseline |
 |-------------|------|--------------------|

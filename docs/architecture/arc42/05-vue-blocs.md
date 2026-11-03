@@ -11,7 +11,7 @@
 flowchart TB
   USER[Utilisateur / client MCP / client HTTP]
 
-  subgraph M[MORPHEUS ENGINE 1.2.1]
+  subgraph M[MORPHEUS ENGINE 1.2.2]
     CLI[morpheus-cli\nCLI / launcher]
     MCP[morpheus-mcp\nMCP STDIO]
     API[morpheus-api\nHTTP /api/v1]
