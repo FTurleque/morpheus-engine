@@ -104,7 +104,6 @@ nouvel ADR qui remplace les précédents. Le cycle de vie complet est dans `.cla
 | [ADR-0106](BE-0106-inbound-bound-is-defensive-outbound-bound-is-a-defect.md) | Une borne entrante est défensive, une borne sortante est un défaut interne | **Acceptée** |
 | [ADR-0110](DATA-0110-a-copy-is-kept-before-the-schema-advances.md) | Une copie de la base est conservée avant que son schéma n'avance, et sans elle la migration n'a pas lieu | **Acceptée** |
 | [ADR-0113](SEC-0113-the-remote-server-records-who-was-authorized-to-do-what.md) | Le serveur distant consigne qui a été autorisé à faire quoi | **Acceptée** |
-| [ADR-0114](BE-0114-database-work-runs-on-a-bounded-pool-of-platform-threads.md) | Le travail sur la base s'exécute sur un pool borné de threads plateforme | **Acceptée** |
 | [ADR-0115](ARCH-0115-the-operational-runtime-is-a-value-the-launcher-hands-on.md) | Le runtime opérationnel est une valeur que le lanceur remet ; le parallélisme JUnit en dépend | **Acceptée** |
 | [ADR-0118](ARCH-0118-tracabilite-typee-et-taxonomie-controlee.md) | Tracer par des liens typés selon une taxonomie contrôlée | **Acceptée** |
 | [ADR-0119](BE-0119-cycle-de-vie-des-changements-et-transition-tri-etat.md) | Évaluer le cycle de vie d'un changement par une machine d'état canonique et une transition tri-état | **Acceptée** |
@@ -139,6 +138,7 @@ nouvel ADR qui remplace les précédents. Le cycle de vie complet est dans `.cla
 | [ADR-0155](ARCH-0155-un-role-est-un-paquet-et-une-liste-de-classes-declare-sa-sorte.md) | Un rôle de l'adaptateur HTTP est un paquet, et toute liste de classes de production d'un test d'architecture déclare sa sorte | **Acceptée** |
 | [ADR-0157](SEC-0157-aucun-contenu-n-est-lu-a-travers-un-lien-ni-hors-de-l-espace-de-travail.md) | Aucun contenu de l'espace de travail n'est lu à travers un lien symbolique ni hors de sa frontière | **Acceptée** |
 | [ADR-0158](ARCH-0158-le-runtime-du-store-sqlite-est-public-pour-son-adaptateur-seulement.md) | Le runtime du store SQLite est public pour son adaptateur seulement, et sa surface ne fait que rétrécir | **Acceptée** |
+| [ADR-0159](BE-0159-database-work-runs-on-a-bounded-pool-of-platform-threads.md) | Le travail sur la base s'exécute sur un pool borné de threads plateforme | **Acceptée** |
 
 Les preuves de qualification de chaque jalon sont dans [`../../project/validation/`](../../project/validation/README.md).
 

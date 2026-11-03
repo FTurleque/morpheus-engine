@@ -1,13 +1,8 @@
----
-id: BE-0114
-title: "Le travail sur la base s'exécute sur un pool borné de threads plateforme"
-domain: backend
-rules: false
----
+# ADR-0114 — Le travail sur la base s'exécute sur un pool borné de threads plateforme
 
-# Le travail sur la base s'exécute sur un pool borné de threads plateforme
+> **Archivée.** Cette décision est consolidée dans [ADR-0159](../BE-0159-database-work-runs-on-a-bounded-pool-of-platform-threads.md), qui la reprend en entier et y ajoute la sauvegarde distante sur les travailleurs, l'attente bornée et un nombre fixe de travailleurs. Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
-- Statut : **Acceptée**
+- Statut : **Remplacée par ADR-0159**
 - Date : 2026-10-13
 
 ## Context
@@ -31,9 +26,7 @@ Options écartées :
 | Agrandir l'ordonnanceur (`jdk.virtualThreadScheduler.parallelism`) | Déplace la limite sans l'ôter, et exige une propriété système que le lanceur empaqueté devrait porter |
 | Servir toutes les requêtes sur un pool plateforme borné | `health` attendrait derrière les requêtes qui attendent la base : le même défaut sous une autre forme |
 | Lire le chemin dans le décorateur pour décider | Une lecture de chemin de plus, hors du parseur partagé ; enregistrer les routes sans base dans leur propre contexte dit la même chose sans rien lire |
-| Décorer le serveur distant comme le local | Chaque requête relayée, même celles qui n'attendent que le réseau, occuperait un travailleur, et la capacité de la façade tomberait au nombre de travailleurs ; l'admission précéderait l'authentification, et un appelant anonyme pourrait tenir la file des sauvegardes |
-| Dériver la taille du pool du nombre de processeurs | Un travailleur attend un fichier SQLite, il ne calcule pas : plus de travailleurs sur une grosse machine ajoutent de la contention sur ce fichier, moins sur un runner de deux processeurs refusent un pic qu'un poste met en file, et le comportement de l'admission changerait d'une machine à l'autre |
-| Laisser l'appelant d'une sauvegarde distante attendre sans délai | Une sauvegarde qui ne finit pas tiendrait sa requête, sa place privilégiée et son créneau sans fin, sans que rien ne le dise |
+| Décorer le serveur distant comme le local | Chaque requête relayée, même celles qui n'attendent que le réseau, occuperait un travailleur, et la capacité de la façade tomberait au nombre de processeurs |
 
 ## Decision
 
@@ -43,9 +36,9 @@ Options écartées :
    décore le serveur local : un gestionnaire enregistré à travers lui est remis à un pool de threads plateforme, et le
    thread virtuel qui a reçu la requête se gare jusqu'à la fin, ce qui rend son porteur. Une requête qui attend la base
    occupe un travailleur, jamais un porteur.
-2. **Le pool est borné, et sa taille est la concurrence de la base.** `DATABASE_WORKERS` vaut huit, quelle que soit la
-   machine, et est déclaré à un seul endroit, dans `DatabaseCallWorkers`, le mécanisme des deux serveurs. Un pic devient
-   une file au lieu d'une contention de connexions sur la base.
+2. **Le pool est borné, et sa taille est la concurrence de la base.** `DATABASE_WORKERS` (le nombre de processeurs,
+   avec un minimum de deux) est déclaré à un seul endroit, dans `DatabaseWorkOffloadingHttpServer`. Un pic devient une
+   file au lieu d'une contention de connexions sur la base.
 3. **Le gestionnaire entier, sur un seul travailleur.** La portée de connexion (`SqliteConnectionScope`) est confinée à
    son thread ; déporter le gestionnaire d'un bloc lui garde son sens.
 4. **Les routes qui répondent sans la base ne passent pas par les travailleurs.** Les routes de
@@ -69,14 +62,11 @@ Options écartées :
 
 9. **La façade ne relaie pas tout à un pool.** Elle relaie ses requêtes au serveur local par HTTP : ses threads
    virtuels attendent le réseau et se garent. La sauvegarde est la seule route que la façade sert avec SQLite en main :
-   elle seule passe par un pool de `DatabaseCallWorkers` propre à la façade, après l'authentification, le rôle et la
-   voie privilégiée, pendant que le thread virtuel de la requête se gare. Le travail SQLite de l'adaptateur est un
-   `DatabaseCall` nommé, que seuls les travailleurs exécutent.
-10. **La façade borne l'attente et le travail, et refuse par son nom.** Une sauvegarde attend une place au plus
-    `ADMISSION_WAIT`, puis reçoit `429 DATABASE_WORKERS_BUSY` ; une fois prise, elle attend au plus `BACKUP_DEADLINE`, le
-    délai d'une écriture relayée, puis reçoit `504 BACKUP_TIMEOUT`, issue inconnue, son travailleur gardant sa place
-    jusqu'au retour de l'appel. Côté local, le gestionnaire écrit lui-même sa réponse : son appelant attend la fin sans
-    délai propre. Le pool est arrêté avec le serveur.
+   elle seule passe par `DatabaseCallWorkers`, un pool de threads plateforme de taille `DATABASE_WORKERS`, pendant que
+   le thread virtuel de la requête attend un futur et libère son porteur. Aucun appel à `maintenance.` de
+   `MorpheusRemoteHttpServer` ne se fait hors de `databaseWorkers.call(`.
+10. **Pas d'admission propre côté façade.** Les sauvegardes sont déjà bornées par la voie privilégiée de la façade ;
+    une sauvegarde au-delà des travailleurs attend dans la file du pool. Le pool est arrêté avec le serveur.
 
 ### Hors de portée
 
@@ -89,9 +79,8 @@ Options écartées :
 
 - Enregistrer tout routeur qui peut atteindre la base à travers `DatabaseWorkOffloadingHttpServer`.
 - Garder dans `ANSWERED_WITHOUT_THE_DATABASE` les seules routes qui ne touchent aucune base.
-- Lire la taille du pool dans `DatabaseCallWorkers.DATABASE_WORKERS`, et la borne d'attente dans `ADMISSION_WAIT`.
-- Écrire tout travail SQLite de l'adaptateur HTTP comme une classe nommée qui implémente `DatabaseCall`, remise aux
-  travailleurs.
+- Lire la taille du pool dans `DATABASE_WORKERS`, et la borne d'attente dans `ADMISSION_WAIT`.
+- Faire passer tout appel SQLite de la façade distante par `databaseWorkers.call(`.
 
 ### Don't
 
@@ -99,9 +88,6 @@ Options écartées :
 - Ne pas laisser une requête attendre un travailleur sans borne.
 - Ne pas décider du passage par les travailleurs en relisant le chemin dans le décorateur.
 - Ne pas décorer la façade distante entière par un pool de travailleurs.
-- Ne pas construire un second pool de threads plateforme dans l'adaptateur HTTP, ni exécuter un `DatabaseCall` hors
-  des travailleurs.
-- Ne pas dériver la taille du pool du nombre de processeurs.
 - Ne pas remplacer ce mécanisme par un agrandissement de l'ordonnanceur des threads virtuels.
 
 ## Consequences
@@ -132,19 +118,16 @@ Options écartées :
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/LocalHttpServerBootstrapArchitectureTest.java` :
   le contexte de l'API et les routeurs à contexte propre sont enregistrés à travers les travailleurs ; un seul
   enregistrement direct subsiste, celui des routes de `ANSWERED_WITHOUT_THE_DATABASE`.
-- `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/DatabaseWorkArchitectureTest.java`, sur le
-  bytecode de tout l'adaptateur : un appel à `SqliteServerMaintenance` (hors le bail pris au démarrage) ne se fait que
-  depuis un `DatabaseCall` ; seul `DatabaseCallWorkers` exécute un `DatabaseCall` ; le décorateur local remet ses
-  gestionnaires aux travailleurs ; seul `DatabaseCallWorkers` construit un pool de threads plateforme.
-- `morpheus-api/src/test/java/com/morpheus/api/local/DatabaseCallWorkersTest.java` : refus nommé après l'attente
-  d'admission, refus nommé à l'échéance avec la place gardée par le travailleur.
+- `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m26/RemoteServerArchitectureTest.java`
+  (`theRemoteFacadeCallsTheDatabaseOnlyThroughItsDatabaseWorkers`) : tout appel à `maintenance.` de
+  `MorpheusRemoteHttpServer` passe par `databaseWorkers.call(`.
 - `morpheus-api/src/test/java/com/morpheus/api/SchedulerAvailabilityUnderSqliteWaitTest.java` : sur un vrai serveur
   local, `health` reste servie pendant qu'un écrivain exclusif tient la base et que les lectures en vol dépassent le
   nombre de processeurs.
 - `morpheus-api/src/test/java/com/morpheus/api/remote/RemoteSchedulerAvailabilityUnderSqliteWaitTest.java` : même preuve sur
   le serveur distant, sauvegardes en vol.
 - `morpheus-api/src/test/java/com/morpheus/api/local/LocalAdmissionTest.java` : jamais plus de requêtes dans les
-  travailleurs que le pool n'en a, refus nommé avec `Retry-After` après l'attente bornée, place rendue par un
+  travailleurs que `DATABASE_WORKERS`, refus nommé avec `Retry-After` après l'attente bornée, place rendue par un
   gestionnaire qui échoue.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/api/PublicHttpRouteConvergenceTest.java` : chaque route de
   la table reste servie.

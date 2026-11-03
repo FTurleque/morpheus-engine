@@ -361,7 +361,7 @@ public final class MorpheusRemoteHttpServer implements AutoCloseable {
 
     /**
      * The one SQLite call the facade makes itself, on a database worker: its request's virtual thread parks instead of
-     * holding a carrier while the driver waits on a busy database (ADR-0114).
+     * holding a carrier while the driver waits on a busy database (ADR-0159).
      */
     private SqliteServerMaintenance.BackupVerification backupOnADatabaseWorker() throws IOException {
         try {

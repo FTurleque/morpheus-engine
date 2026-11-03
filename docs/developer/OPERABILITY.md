@@ -52,7 +52,7 @@ MorpheusOperabilityApiService.metrics()
 
 Chaque requête HTTP arrive sur un thread virtuel. Le pilote SQLite attend une base occupée dans du code natif, où un
 thread virtuel garde son porteur ; les porteurs sont aussi nombreux que les processeurs. Mesuré le 13/10/2026 : 64
-lectures en attente sur 16 processeurs retardaient une sonde `health` de treize secondes (ADR-0114).
+lectures en attente sur 16 processeurs retardaient une sonde `health` de treize secondes (ADR-0159).
 
 Le serveur local remet donc tout gestionnaire qui peut toucher la base à un pool borné de threads plateforme
 (`DatabaseWorkOffloadingHttpServer`, sur `DatabaseCallWorkers`), et le thread virtuel de la requête se gare en

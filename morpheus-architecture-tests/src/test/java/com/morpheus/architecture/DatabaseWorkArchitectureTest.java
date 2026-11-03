@@ -19,7 +19,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 /**
- * Database work of both HTTP servers runs on the database workers, never on a request's virtual thread (ADR-0114).
+ * Database work of both HTTP servers runs on the database workers, never on a request's virtual thread (ADR-0159).
  *
  * <p>The SQLite driver waits for a busy database inside native code, where a virtual thread keeps its carrier, and
  * there are as many carriers as processors. The local server hands every handler that can reach the database to the
@@ -65,7 +65,7 @@ class DatabaseWorkArchitectureTest {
                 .should().callMethodWhere(SQLITE_MAINTENANCE_WORK)
                 .because("a SQLite call made on a request's virtual thread holds a carrier for as long as the driver "
                         + "waits on a busy database; the facade's SQLite work is a database call, named so that this "
-                        + "rule sees it - a lambda's body would belong to the class that writes it (ADR-0114)")
+                        + "rule sees it - a lambda's body would belong to the class that writes it (ADR-0159)")
                 .check(PRODUCTION);
     }
 
@@ -75,7 +75,7 @@ class DatabaseWorkArchitectureTest {
                 .that(DescribedPredicate.not(belongToAnyOf(DatabaseCallWorkers.class)))
                 .should().callMethodWhere(RUNS_A_DATABASE_CALL)
                 .because("a database call run anywhere but on a worker waits on the database on its caller's thread "
-                        + "(ADR-0114)")
+                        + "(ADR-0159)")
                 .check(PRODUCTION);
     }
 
@@ -85,7 +85,7 @@ class DatabaseWorkArchitectureTest {
                 .that().haveFullyQualifiedName(DatabaseWorkOffloadingHttpServer.class.getName())
                 .should().callMethod(DatabaseCallWorkers.class, "runToItsEnd", DatabaseCallWorkers.DatabaseCall.class)
                 .because("the local server runs every handler that can reach the database on a database worker; its "
-                        + "routes that answer without the database are registered outside it (ADR-0114)")
+                        + "routes that answer without the database are registered outside it (ADR-0159)")
                 .check(PRODUCTION);
     }
 
@@ -96,7 +96,7 @@ class DatabaseWorkArchitectureTest {
                 .and(DescribedPredicate.not(belongToAnyOf(DatabaseCallWorkers.class)))
                 .should().callMethodWhere(BUILDS_A_POOL_OF_PLATFORM_THREADS)
                 .because("the local server and the remote facade use one mechanism for database work, with one size "
-                        + "and one bounded admission, not a copy of it (ADR-0114)")
+                        + "and one bounded admission, not a copy of it (ADR-0159)")
                 .check(PRODUCTION);
     }
 }

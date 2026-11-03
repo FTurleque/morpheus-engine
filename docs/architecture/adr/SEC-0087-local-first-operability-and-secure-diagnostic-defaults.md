@@ -116,6 +116,6 @@ MORPHEUS operability != JARVIS orchestration
 - [ADR-0106](BE-0106-inbound-bound-is-defensive-outbound-bound-is-a-defect.md) — bornes entrantes et sortantes.
 - [ADR-0146](BE-0146-journal-operationnel-slf4j-et-fichier-borne.md) — une seule liaison de journalisation.
 - [ADR-0146](BE-0146-journal-operationnel-slf4j-et-fichier-borne.md) — journal opérationnel borné.
-- [ADR-0114](BE-0114-database-work-runs-on-a-bounded-pool-of-platform-threads.md) — pool borné de threads base de
+- [ADR-0159](BE-0159-database-work-runs-on-a-bounded-pool-of-platform-threads.md) — pool borné de threads base de
   données.
 - [VALIDATION_M19](../../project/validation/VALIDATION_M19.md) — preuve du jalon M19.

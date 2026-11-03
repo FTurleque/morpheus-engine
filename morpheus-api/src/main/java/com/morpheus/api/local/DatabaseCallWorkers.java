@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * A bounded pool of platform threads on which a call that can wait on the database runs, while its caller's virtual
- * thread parks (ADR-0114).
+ * thread parks (ADR-0159).
  *
  * <p>The SQLite driver waits for a busy database inside native code, where a virtual thread stays mounted on its
  * carrier whatever the JDK, and the carriers are as many as the processors. A call handed to a worker occupies the
