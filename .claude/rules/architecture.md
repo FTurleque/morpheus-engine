@@ -227,8 +227,8 @@ collaborateurs nommés du store de contenu de snapshot. `com.morpheus.store.sqli
 portée, le bail, le schéma et les transactions. Aucune classe de production hors du module ne dépend du runtime,
 sauf `SqliteOperationRuntime` et `SqliteServerMaintenance` (`RUNTIME_ENTRY_POINTS`). Une source principale qui nomme une
 autre classe du runtime est refusée par le texte, qui voit aussi une constante inlinée. Les classes publiques du
-runtime le sont pour les stores : ce n'est pas une autorisation pour les autres modules. Le découpage a rendu publics
-des types que la visibilité paquet cachait ; ils sont exactement `RUNTIME_PUBLIC_TYPES`, et un type de plus rendu public
+runtime le sont pour les stores : ce n'est pas une autorisation pour les autres modules. Les types publics du
+runtime sont exactement `RUNTIME_PUBLIC_TYPES`, et un type de plus rendu public
 est refusé. Les deux listes sont des compteurs de dette : elles ne font que rétrécir, et aucun `module-info.java` ne
 remplace la règle.
 > `SqliteStorePackagesArchitectureTest`, `theRuntimeDeclaresExactlyTheNamedPublicTypes`

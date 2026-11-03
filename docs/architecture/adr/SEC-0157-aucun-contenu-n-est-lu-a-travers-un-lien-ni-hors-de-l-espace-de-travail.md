@@ -23,12 +23,12 @@ classes à accès fichier :
   (`WorkspacePathBoundary`). Pour que le coût d'un scan croisse avec les entrées et non avec leur profondeur, il
   mémorise les répertoires déjà validés et la racine physique `physicalWorkspace`.
 
-Jusqu'à cette décision, le chemin rapide du scan ne questionnait que le segment de l'entrée : un ancêtre déjà validé
-remplacé par un lien résolu **dans** l'espace de travail, ou une racine remplacée par un lien, n'était refusé
-qu'après que le fichier avait été ouvert, lu et empreinté, et le refus remontait sous `SOURCE_UNREADABLE` pendant que
-le parcours continuait à lire à travers le lien (constats AUD-SEC-17 et AUD-SEC-18 de l'audit du 2026-10-09). Le même
-espace de travail avait donc deux garanties selon le chemin d'entrée, et aucun texte ne disait laquelle était
-promise. ADR-0087 dit que le scan ne suit pas les liens ; il ne dit pas **quand** le refus a lieu.
+Un chemin rapide qui ne questionnerait que le segment de l'entrée laisserait passer un ancêtre déjà validé
+remplacé par un lien résolu **dans** l'espace de travail, ou une racine remplacée par un lien : le refus viendrait
+après que le fichier a été ouvert, lu et empreinté, et le parcours continuerait à lire à travers le lien. Le même
+espace de travail aurait deux garanties selon le chemin d'entrée. ADR-0087 dit que le scan ne suit pas les liens ;
+il ne dit pas **quand** le refus a lieu, et cette décision le fixe (constats AUD-SEC-17 et AUD-SEC-18 de l'audit
+du 2026-10-09).
 
 Options considérées :
 

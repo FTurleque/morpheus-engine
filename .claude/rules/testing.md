@@ -204,7 +204,7 @@ Dispersion : 14 lignes / 3 branches, dans la référence 24 / 11. Ligne `0.899` 
 Le 03/11/2026, le plafond **agrégé** est requalifié à la même tête `d3580dc9` que le par module, sur les mêmes runs
 `41107774651` et `41107784162` (mêmes populations sur les quatre : 29 922 lignes, 10 198 branches). Les deux échelles
 d'une qualification se mesurent à une seule tête, sans quoi leur écart additionne une dérive entre deux commits ;
-`CoverageQualificationEvidenceTest` refuse désormais deux échelles conservées à deux têtes (AUD-TST-22) :
+`CoverageQualificationEvidenceTest` refuse deux échelles conservées à deux têtes (AUD-TST-22) :
 
 ```text
 agrégée     Windows  92,9216 % / 92,9216 % lignes   81,2022 % / 81,2120 % branches

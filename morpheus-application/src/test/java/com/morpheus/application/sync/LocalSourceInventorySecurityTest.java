@@ -83,6 +83,24 @@ class LocalSourceInventorySecurityTest {
     }
 
     @Test
+    void aSourceRootThatEscapesTheWorkspaceStopsTheScanBeforeTheNextRoot() throws Exception {
+        Path workspace = Files.createDirectories(tempDir.resolve("escaping-root-workspace"));
+        Path outside = Files.createDirectories(tempDir.resolve("escaping-root-outside").resolve("sub"));
+        Files.writeString(outside.resolve("outside.md"), "outside content");
+        assumeTrue(tryCreateSymbolicLink(workspace.resolve("a-link"), outside.getParent()),
+                "symbolic links cannot be created in this environment");
+
+        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(OperationalRecorder.noop());
+        SourceInventoryScanResult result = scan(scanner, workspace,
+                List.of(Path.of("a-link", "sub"), Path.of("z-missing")));
+
+        assertFalse(result.complete(), () -> "scan should be incomplete: " + result);
+        assertEquals(List.of(SourceInventoryScanResult.Failure.Code.WORKSPACE_BOUNDARY_ESCAPED),
+                result.failures().stream().map(SourceInventoryScanResult.Failure::code).toList(),
+                () -> "the escape must stop the scan before the missing root is visited: " + result.failures());
+    }
+
+    @Test
     void rejectsSourceRootThatIsItselfASymbolicLinkWithoutTraversingItsTarget() throws Exception {
         Path workspace = Files.createDirectories(tempDir.resolve("symlink-root-workspace"));
         Path target = Files.createDirectories(tempDir.resolve("symlink-root-target"));

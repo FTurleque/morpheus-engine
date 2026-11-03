@@ -120,8 +120,8 @@ Dispatcher : `scripts/validate.cmd` → `scripts/validate.ps1`
 ## Milestones
 
 Dernier milestone livré : **M28** (intégration client MCP native, livré dans 1.2.0). Aucun
-milestone n'est actuellement en cours — la baseline **1.2.2**, ouverte après la publication de 1.2.1
-parce que le schéma SQLite a avancé depuis, est une passe corrective et de durcissement (audit,
+milestone n'est actuellement en cours — la baseline **1.2.2**, qui porte un schéma SQLite
+plus récent que la 1.2.1 publiée, est une passe corrective et de durcissement (audit,
 sécurité, dette de gouvernance), pas un nouveau milestone.
 Gates actifs : **M19** (perf, lane nocturne — pas dans `clean verify`) · **M20** (release, répétition en lane nocturne — pas dans `clean verify`) · **M21** (coverage + intégrité) · **M22** (plugins)
 · **M23** (portfolio) · **M24** (query DSL) · **M25** (policy) · **M26** (remote) · **M27** (reasoning) · **M28** (MCP clients) · **D2** (hardening repo)

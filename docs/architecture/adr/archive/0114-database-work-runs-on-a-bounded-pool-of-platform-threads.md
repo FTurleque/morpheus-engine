@@ -134,10 +134,10 @@ Options écartées :
 
 ## References
 
-- [ADR-0133](GEN-0133-toolchain-java-21-et-maven-wrapper.md) — baseline Java 21.
-- [ADR-0065](ARCH-0065-jdk-httpserver-local-api.md) — serveur HTTP du JDK.
-- [ADR-0143](DATA-0143-snapshots-versionnes-et-concurrence-bornee.md) — concurrence SQLite bornée.
-- [ADR-0087](SEC-0087-local-first-operability-and-secure-diagnostic-defaults.md) — opérabilité local-first.
-- [ADR-0156](ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md) — portée de connexion par opération.
+- [ADR-0133](../GEN-0133-toolchain-java-21-et-maven-wrapper.md) — baseline Java 21.
+- [ADR-0065](../ARCH-0065-jdk-httpserver-local-api.md) — serveur HTTP du JDK.
+- [ADR-0143](../DATA-0143-snapshots-versionnes-et-concurrence-bornee.md) — concurrence SQLite bornée.
+- [ADR-0087](../SEC-0087-local-first-operability-and-secure-diagnostic-defaults.md) — opérabilité local-first.
+- [ADR-0156](../ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md) — portée de connexion par opération.
 - `openspec/changes/keep-the-scheduler-free-while-sqlite-waits`,
   `openspec/changes/admit-local-requests-before-they-meet-the-database`.

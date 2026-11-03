@@ -171,6 +171,7 @@ public final class LocalSourceInventoryScanner {
                     Optional.of(display(workspace, root)),
                     SourceInventoryScanResult.Failure.Code.WORKSPACE_BOUNDARY_ESCAPED,
                     safeMessage(boundaryFailure)));
+            budget.exhaust();
             return;
         }
         try {

@@ -36,7 +36,7 @@ class DatabaseCallWorkersTest {
         assertFalse(ranOn.isVirtual(), "a worker is a platform thread: it is the one allowed to wait");
     }
 
-    /** Before 2026-11-03 a call beyond the workers waited in the pool's own queue, without end. */
+    /** A call beyond the workers never waits in the pool's own queue: it is refused once the admission wait passes. */
     @Test
     void aCallBeyondTheWorkersIsRefusedByNameOnceTheAdmissionWaitHasPassed() throws Exception {
         workers = new DatabaseCallWorkers("test-database-worker-", 1, Duration.ofMillis(200));
@@ -66,7 +66,7 @@ class DatabaseCallWorkersTest {
         holder.join(10_000);
     }
 
-    /** Before 2026-11-03 the caller waited for its worker without a deadline. */
+    /** The caller waits for its worker no longer than its deadline. */
     @Test
     void aCallStillRunningAtItsDeadlineIsRefusedByNameAndItsWorkerKeepsItsPlaceUntilItReturns() throws Exception {
         workers = new DatabaseCallWorkers("test-database-worker-", 1, Duration.ofMillis(200));
