@@ -129,6 +129,8 @@ famille fermée de deux variantes.
   `onlyTheNamedCompositionRootsReachAConcreteStoreOrProvider`,
   `everyNamedCompositionRootStillReachesAConcreteStoreOrProvider`, `theMcpTransportDependsOnNoOtherMorpheusPackage`,
   `domainPackagesAreFreeOfCyclesBesideTheTwoNamedOnes`.
+- `ProductionClassListsArchitectureTest` : `AdapterCompositionRootArchitectureTest.COMPOSITION_ROOTS` est un compteur de
+  dette déclaré sous cet ADR, dont la taille égale sa clé de `config/debt-counter-ratchets.properties`.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/ApplicationPackageCyclesArchitectureTest.java` :
   `theApplicationPackagesAreFreeOfCycles` (`slices().matching("com.morpheus.application.(*)..").should().beFreeOfCycles()`),
   `theCycleRuleSeesEveryFirstLevelPackageOfTheApplicationSources`, et

@@ -140,7 +140,10 @@ Une liste qui serait un rôle n'existe pas : ses classes vont dans un paquet.
   `MorpheusRemote` ; une constante de `MorpheusHttpServer` lue dans un routeur, refusée par le scan seul.
 - `ProductionClassListsArchitectureTest` : toute liste qui nomme une classe d'un module de production est déclarée avec
   sa sorte, et aucune déclaration ne survit à sa liste. Vue en échec dans les deux sens : une liste non
-  déclarée nommant `SqliteOperationRuntime`, une déclaration sans liste.
+  déclarée nommant `SqliteOperationRuntime`, une déclaration sans liste. Un compteur de dette déclare l'ADR qui le dit :
+  le test exige que cet ADR soit dans le registre, accepté, et nomme la liste par `TestClass.CHAMP`, et que la taille de
+  la liste égale sa clé de `config/debt-counter-ratchets.properties`, qui ne fait que baisser. Vue en échec : un ADR qui
+  ne nomme plus sa liste, une entrée ajoutée à un compteur, une entrée retirée sans baisser la clé.
 
 ## References
 

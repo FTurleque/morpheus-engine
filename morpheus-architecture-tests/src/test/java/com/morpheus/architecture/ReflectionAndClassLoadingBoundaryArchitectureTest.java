@@ -34,7 +34,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>Outside the application, which {@link ApplicationTechnologyBoundaryArchitectureTest} confines under ADR-0150,
  * reflection and loading are reached only by the classes named below, each with its reason. A named class that no
- * longer reaches its family fails the build too, so each list is exactly the measured set and can only shrink.
+ * longer reaches its family fails the build too, so each list is exactly the measured set: a table of facts, where a
+ * class is added only with the reason it needs the family, and for loading the decision record that allows it.
  * Accessors of {@code java.lang.Class} ({@code getName}, {@code getSimpleName}, {@code isRecord},
  * {@code getClassLoader}) are not reflection here: what is refused is a dependency on {@code java.lang.reflect},
  * {@code java.lang.invoke}, a service or class loader, and a call to {@code Class.forName}. A lambda implementing
