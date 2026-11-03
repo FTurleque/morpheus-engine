@@ -11,7 +11,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -221,15 +220,10 @@ class BoundedWaitOwnershipTest {
         return OWNERS.stream().anyMatch(owner -> source.endsWith(owner));
     }
 
-    private static List<Path> testSources() throws IOException {
-        Path root = RepositoryRoot.locate();
-        try (Stream<Path> tree = Files.walk(root)) {
-            return tree.filter(Files::isRegularFile)
-                    .filter(path -> path.getFileName().toString().endsWith(".java"))
-                    .filter(path -> path.toString().replace('\\', '/').contains("/src/test/java/"))
-                    .filter(path -> !path.toString().replace('\\', '/').contains("/target/"))
-                    .sorted()
-                    .toList();
-        }
+    private static List<Path> testSources() {
+        return RepositoryTree.files(RepositoryRoot.locate()).stream()
+                .filter(path -> path.getFileName().toString().endsWith(".java"))
+                .filter(path -> path.toString().replace('\\', '/').contains("/src/test/java/"))
+                .toList();
     }
 }

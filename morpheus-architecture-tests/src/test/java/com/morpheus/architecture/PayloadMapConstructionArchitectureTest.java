@@ -15,7 +15,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.resideInAPackage;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
@@ -108,16 +107,11 @@ class PayloadMapConstructionArchitectureTest {
                 .check(PRODUCTION);
     }
 
-    private static List<Path> mainSources(Path root) throws IOException {
-        try (Stream<Path> files = Files.walk(root, 16)) {
-            return files.filter(path -> path.toString().endsWith(".java"))
-                    .filter(path -> {
-                        String relative = root.relativize(path).toString().replace('\\', '/');
-                        return relative.contains("/src/main/java/") && !relative.startsWith(".");
-                    })
-                    .sorted()
-                    .toList();
-        }
+    private static List<Path> mainSources(Path root) {
+        return RepositoryTree.files(root).stream()
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> root.relativize(path).toString().replace('\\', '/').contains("/src/main/java/"))
+                .toList();
     }
 
     /** The working directory of this module's tests is the module; the repository root is its parent. */

@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.morpheus.architecture.RepositoryRoot;
+import com.morpheus.architecture.RepositoryTree;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -582,15 +583,14 @@ class D2RepositoryHardeningArchitectureTest {
                 "the shared bounded reader must delegate to the deadline-aware primitive");
         assertTrue(Files.isRegularFile(ProductionSources.testSource("morpheus-api", "JacksonSecurityRegressionTest")));
 
-        try (var files = Files.walk(root, 16)) {
-            for (Path source : files.filter(path -> path.toString().endsWith(".java"))
-                    .filter(path -> path.toString().contains(
-                            "src" + java.io.File.separator + "main" + java.io.File.separator + "java"))
-                    .toList()) {
-                String text = Files.readString(source);
-                assertFalse(text.contains("activateDefaultTyping("), "default typing activation forbidden: " + source);
-                assertFalse(text.contains("enableDefaultTyping("), "default typing activation forbidden: " + source);
-            }
+        for (Path source : RepositoryTree.files(root).stream()
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> path.toString().contains(
+                        "src" + java.io.File.separator + "main" + java.io.File.separator + "java"))
+                .toList()) {
+            String text = Files.readString(source);
+            assertFalse(text.contains("activateDefaultTyping("), "default typing activation forbidden: " + source);
+            assertFalse(text.contains("enableDefaultTyping("), "default typing activation forbidden: " + source);
         }
     }
 

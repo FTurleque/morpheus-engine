@@ -240,6 +240,10 @@ Voir `rules/meta.md`.
 - Trouver la racine du dépôt et une fixture M0 par la classe `RepositoryRoot` du module de test (`locate()`,
   `fixture(name)`) : jamais de remontée privée depuis le répertoire de travail, quel que soit son nom.
   `RepositoryRootOwnershipTest` refuse la copie et garde identiques les propriétaires des modules
+- Parcourir tout l'arbre du dépôt par `RepositoryTree.files(root)` (`morpheus-architecture-tests`), qui écarte les
+  sorties générées, `.claude/worktrees/` et tout répertoire portant son propre `.git` : une copie d'espace de travail
+  y faussait le compte des POM. `RepositoryTreeOwnershipTest` refuse un `Files.walk`/`find`/`walkFileTree` de la
+  racine ailleurs, dans les sources de test de tous les modules
 - Vérifier la parité de persistance quand un store change : les tests `*PersistenceParityTest`
   exigent un comportement identique entre `store-memory` et `store-sqlite`
 - Construire `morpheus-provider-reference` **avant** les tests d'architecture — M22 charge son JAR depuis `target/`

@@ -32,6 +32,10 @@ Thumbs.db
 # ce dont tout contributeur a besoin, settings.local.json le reste.
 .claude/settings.local.json
 
+# Copies de travail du depot creees par les agents : des checkouts entiers, jamais du contenu de celui-ci.
+# RepositoryTree les ecarte de tout parcours de l'arbre.
+.claude/worktrees/
+
 # Local RTK output filter: the maintainer keeps it on their machine, it is not published
 .rtk/
 

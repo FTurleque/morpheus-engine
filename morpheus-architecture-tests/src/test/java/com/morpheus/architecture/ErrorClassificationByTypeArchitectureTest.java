@@ -8,7 +8,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -61,14 +60,10 @@ class ErrorClassificationByTypeArchitectureTest {
         }
     }
 
-    private static List<Path> productionSources(Path root) throws IOException {
-        try (Stream<Path> tree = Files.walk(root)) {
-            return tree.filter(Files::isRegularFile)
-                    .filter(path -> path.getFileName().toString().endsWith(".java"))
-                    .filter(path -> path.toString().replace('\\', '/').contains("/src/main/java/"))
-                    .filter(path -> !path.toString().replace('\\', '/').contains("/target/"))
-                    .sorted()
-                    .toList();
-        }
+    private static List<Path> productionSources(Path root) {
+        return RepositoryTree.files(root).stream()
+                .filter(path -> path.getFileName().toString().endsWith(".java"))
+                .filter(path -> path.toString().replace('\\', '/').contains("/src/main/java/"))
+                .toList();
     }
 }
