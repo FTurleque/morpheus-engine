@@ -6,15 +6,11 @@ import com.tngtech.archunit.lang.ArchRule;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -50,8 +46,6 @@ class AnEmptyArchitectureRuleFailsTest {
             "^\\s*archRule\\.failOnEmptyShould\\s*[=:]\\s*(\\S*)", Pattern.MULTILINE);
     private static final Pattern BUILD_SETTING = Pattern.compile(
             "(?<!/)archunit\\.archRule\\.failOnEmptyShould\\s*(?:=|>)\\s*\"?([^\\s\"<;']*)");
-    /** Build output, version control and the agents' worktrees, which hold copies of the tree, not settings of it. */
-    private static final Set<String> EXCLUDED_DIRECTORIES = Set.of(".git", "target", "node_modules", ".claude");
 
     @Test
     void aRuleThatSelectsNoClassFailsForHavingCheckedNone() {
@@ -154,25 +148,10 @@ class AnEmptyArchitectureRuleFailsTest {
     }
 
     /** Every {@code archunit.properties}, every POM, the Maven configuration, the validators and the workflows. */
-    private static List<Path> settingCarriers(Path root) throws IOException {
-        List<Path> carriers = new ArrayList<>();
-        Files.walkFileTree(root, new SimpleFileVisitor<>() {
-            @Override
-            public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attributes) {
-                return directory.equals(root) || !EXCLUDED_DIRECTORIES.contains(directory.getFileName().toString())
-                        ? FileVisitResult.CONTINUE
-                        : FileVisitResult.SKIP_SUBTREE;
-            }
-
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) {
-                if (isSettingCarrier(root.relativize(file))) {
-                    carriers.add(file);
-                }
-                return FileVisitResult.CONTINUE;
-            }
-        });
-        carriers.sort(null);
+    private static List<Path> settingCarriers(Path root) {
+        List<Path> carriers = RepositoryTree.files(root).stream()
+                .filter(file -> isSettingCarrier(root.relativize(file)))
+                .toList();
         assertTrue(carriers.stream().anyMatch(path -> path.getFileName().toString().equals("pom.xml")),
                 "no POM found under " + root + ": the scan reads nothing");
         return carriers;

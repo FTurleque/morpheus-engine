@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.morpheus.architecture.RepositoryRoot;
+import com.morpheus.architecture.RepositoryTree;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,22 +16,19 @@ class ProductVersionSourceOfTruthTest {
     @Test
     void activeRuntimeSourcesContainNoHistoricalVersionFallback() throws IOException {
         Path root = RepositoryRoot.locate();
-        try (var files = Files.walk(root, 16)) {
-            List<Path> offenders = files
-                    .filter(Files::isRegularFile)
-                    .filter(path -> path.toString().replace('\\', '/').contains("/src/main/java/"))
-                    .filter(path -> path.toString().endsWith(".java"))
-                    .filter(path -> {
-                        try {
-                            String source = Files.readString(path);
-                            return source.contains("0.1.0-SNAPSHOT") || source.contains("FALLBACK_VERSION");
-                        } catch (IOException failure) {
-                            throw new IllegalStateException(failure);
-                        }
-                    })
-                    .toList();
-            assertTrue(offenders.isEmpty(), "active runtime sources contain historical product-version fallback: " + offenders);
-        }
+        List<Path> offenders = RepositoryTree.files(root).stream()
+                .filter(path -> path.toString().replace('\\', '/').contains("/src/main/java/"))
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> {
+                    try {
+                        String source = Files.readString(path);
+                        return source.contains("0.1.0-SNAPSHOT") || source.contains("FALLBACK_VERSION");
+                    } catch (IOException failure) {
+                        throw new IllegalStateException(failure);
+                    }
+                })
+                .toList();
+        assertTrue(offenders.isEmpty(), "active runtime sources contain historical product-version fallback: " + offenders);
     }
 
     @Test

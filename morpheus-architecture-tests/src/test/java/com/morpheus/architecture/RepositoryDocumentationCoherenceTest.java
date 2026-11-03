@@ -4,18 +4,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -68,8 +64,6 @@ class RepositoryDocumentationCoherenceTest {
     private static final Pattern FENCED_CODE = Pattern.compile("```.*?```", Pattern.DOTALL);
     private static final Pattern INLINE_CODE = Pattern.compile("`[^`\\n]*`");
     private static final Pattern URI_SCHEME = Pattern.compile("^[A-Za-z][A-Za-z0-9+.-]*:");
-    /** Trees the build and the validators generate, which .gitignore keeps out of the repository. */
-    private static final Set<String> GENERATED_TREES = Set.of(".git", "target", "dist", "validation-output");
 
     /**
      * Every relative Markdown link resolves, on a current guide and on a dated record alike.
@@ -114,24 +108,9 @@ class RepositoryDocumentationCoherenceTest {
     }
 
     private static List<String> brokenMarkdownLinks(Path root) throws IOException {
-        List<Path> pages = new ArrayList<>();
-        Files.walkFileTree(root, new SimpleFileVisitor<>() {
-            @Override
-            public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attributes) {
-                return !directory.equals(root) && GENERATED_TREES.contains(directory.getFileName().toString())
-                        ? FileVisitResult.SKIP_SUBTREE
-                        : FileVisitResult.CONTINUE;
-            }
-
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) {
-                if (attributes.isRegularFile() && file.getFileName().toString().endsWith(".md")) {
-                    pages.add(file);
-                }
-                return FileVisitResult.CONTINUE;
-            }
-        });
-        pages.sort(null);
+        List<Path> pages = RepositoryTree.files(root).stream()
+                .filter(file -> file.getFileName().toString().endsWith(".md"))
+                .toList();
 
         List<String> broken = new ArrayList<>();
         for (Path page : pages) {

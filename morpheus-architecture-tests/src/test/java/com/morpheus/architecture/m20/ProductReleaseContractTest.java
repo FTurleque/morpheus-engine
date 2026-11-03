@@ -1,6 +1,7 @@
 package com.morpheus.architecture.m20;
 
 import com.morpheus.architecture.RepositoryRoot;
+import com.morpheus.architecture.RepositoryTree;
 import com.morpheus.cli.command.CliLayout;
 import org.junit.jupiter.api.Test;
 
@@ -21,15 +22,9 @@ class ProductReleaseContractTest {
     @Test
     void currentProductVersionIsOneDotTwoDotOneAcrossTheReactor() throws IOException {
         Path root = RepositoryRoot.locate();
-        List<Path> poms;
-        try (var paths = Files.walk(root)) {
-            poms = paths
-                    .filter(Files::isRegularFile)
-                    .filter(path -> path.getFileName().toString().equals("pom.xml"))
-                    .filter(path -> !path.toString().contains("target"))
-                    .sorted()
-                    .toList();
-        }
+        List<Path> poms = RepositoryTree.files(root).stream()
+                .filter(path -> path.getFileName().toString().equals("pom.xml"))
+                .toList();
 
         assertEquals(19, poms.size(), "Unexpected Maven reactor POM count");
         for (Path pomPath : poms) {
