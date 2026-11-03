@@ -11,7 +11,7 @@
 flowchart TB
   USER[Utilisateur / client MCP / client HTTP]
 
-  subgraph M[MORPHEUS ENGINE 1.2.1]
+  subgraph M[MORPHEUS ENGINE 1.2.2]
     CLI[morpheus-cli\nCLI / launcher]
     MCP[morpheus-mcp\nMCP STDIO]
     API[morpheus-api\nHTTP /api/v1]
@@ -26,7 +26,7 @@ flowchart TB
     PREF[morpheus-provider-reference\nplugin de référence]
 
     MEM[morpheus-store-memory]
-    SQL[morpheus-store-sqlite\nsqlite-jdbc 3.53.4.0]
+    SQL[morpheus-store-sqlite\nsqlite-jdbc 3.54.1.0]
 
     MCPT[morpheus-mcp-transport\ntransport MCP borné]
     MINOS[morpheus-integration-minos]

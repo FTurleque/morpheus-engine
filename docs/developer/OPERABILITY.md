@@ -52,12 +52,13 @@ MorpheusOperabilityApiService.metrics()
 
 Chaque requête HTTP arrive sur un thread virtuel. Le pilote SQLite attend une base occupée dans du code natif, où un
 thread virtuel garde son porteur ; les porteurs sont aussi nombreux que les processeurs. Mesuré le 13/10/2026 : 64
-lectures en attente sur 16 processeurs retardaient une sonde `health` de treize secondes (ADR-0114).
+lectures en attente sur 16 processeurs retardaient une sonde `health` de treize secondes (ADR-0159).
 
 Le serveur local remet donc tout gestionnaire qui peut toucher la base à un pool borné de threads plateforme
-(`DatabaseWorkOffloadingHttpServer`, `DATABASE_WORKERS` : le nombre de processeurs, deux au minimum), et le thread
-virtuel de la requête se gare en attendant. La taille du pool est la concurrence de la base ; au-delà, les requêtes
-font la queue.
+(`DatabaseWorkOffloadingHttpServer`, sur `DatabaseCallWorkers`), et le thread virtuel de la requête se gare en
+attendant. La taille du pool, `DatabaseCallWorkers.DATABASE_WORKERS`, est la concurrence de la base : huit, quelle que
+soit la machine, parce qu'un travailleur attend un fichier SQLite et ne calcule pas. Au-delà, les requêtes font la
+queue.
 
 La queue est bornée dans le temps : une requête attend un travailleur dix secondes au plus (`ADMISSION_WAIT`), dans
 l'ordre d'arrivée, puis reçoit `429 LOCAL_SERVER_BUSY` avec `Retry-After: 1`. Les refus ne sont pas comptés.
@@ -68,6 +69,14 @@ attendent. `readiness` interroge la base et passe par le pool.
 
 Un nouveau contexte HTTP du serveur local s'enregistre à travers `databaseWork`, pas `httpServer` :
 `LocalHttpServerBootstrapArchitectureTest` refuse un second enregistrement direct.
+
+La façade distante relaie ses requêtes au serveur local par HTTP, où son thread virtuel se gare sur le réseau ; elle
+n'est donc pas décorée entière. Sa seule opération SQLite, la sauvegarde, passe par le même mécanisme, son propre pool
+de `DatabaseCallWorkers`, après l'authentification, le rôle `ADMIN` et la voie privilégiée : une sauvegarde qui
+n'obtient pas de travailleur dans `ADMISSION_WAIT` reçoit `429 DATABASE_WORKERS_BUSY`, et une sauvegarde qui dépasse
+le délai d'une écriture relayée (`BACKUP_DEADLINE`) reçoit `504 BACKUP_TIMEOUT` : son issue est inconnue, elle peut
+encore aboutir. `DatabaseWorkArchitectureTest` refuse un appel SQLite de l'adaptateur hors d'un `DatabaseCall`, un
+`DatabaseCall` exécuté ailleurs que par les travailleurs, et un second pool de threads plateforme.
 
 ## Logs structurés locaux
 

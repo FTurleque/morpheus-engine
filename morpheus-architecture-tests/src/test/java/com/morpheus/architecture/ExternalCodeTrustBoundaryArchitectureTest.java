@@ -229,12 +229,10 @@ class ExternalCodeTrustBoundaryArchitectureTest {
     @Test
     void noProductionSourceClaimsToSandboxExternalCode() throws IOException {
         Pattern claim = Pattern.compile("(?i)\\b(sandboxe[sd]?|sandboxing)\\b");
-        List<Path> sources;
-        try (var walk = Files.walk(RepositoryRoot.locate())) {
-            sources = walk.filter(path -> path.toString().replace('\\', '/').contains("/src/main/java/"))
-                    .filter(path -> path.toString().endsWith(".java"))
-                    .toList();
-        }
+        List<Path> sources = RepositoryTree.files(RepositoryRoot.locate()).stream()
+                .filter(path -> path.toString().replace('\\', '/').contains("/src/main/java/"))
+                .filter(path -> path.toString().endsWith(".java"))
+                .toList();
         assertFalse(sources.isEmpty(), "the production source scan must actually find sources");
 
         for (Path source : sources) {

@@ -221,15 +221,17 @@ classe qui construit un store est refusée, sauf si elle est **nommée** dans `S
 avec son opération à store unique ; le texte (sans commentaires, ouverture avant la première construction) et le
 bytecode (appel de `SqliteConnectionScope.open`, pas une simple dépendance) le tiennent (ADR-0156).
 
-### `store-sqlite` : `adapter` et `runtime`, et le runtime reste interne
+### `store-sqlite` : `adapter` et `runtime`, et le runtime reste interne (ADR-0158)
 `com.morpheus.store.sqlite.adapter` ne contient que des implémentations de ports de l'application, plus les deux
 collaborateurs nommés du store de contenu de snapshot. `com.morpheus.store.sqlite.runtime` porte la connexion, la
 portée, le bail, le schéma et les transactions. Aucune classe de production hors du module ne dépend du runtime,
-sauf `SqliteOperationRuntime` et `SqliteServerMaintenance`. Cette liste est fermée, et c'est AUD-ARC-01 qui la tranche.
-Une source principale qui nomme une autre classe du runtime est refusée par le texte, qui voit aussi une constante
-inlinée. Les classes publiques du runtime le sont pour les stores : ce n'est pas une autorisation pour les autres
-modules.
-> `SqliteStorePackagesArchitectureTest`
+sauf `SqliteOperationRuntime` et `SqliteServerMaintenance` (`RUNTIME_ENTRY_POINTS`). Une source principale qui nomme une
+autre classe du runtime est refusée par le texte, qui voit aussi une constante inlinée. Les classes publiques du
+runtime le sont pour les stores : ce n'est pas une autorisation pour les autres modules. Les types publics du
+runtime sont exactement `RUNTIME_PUBLIC_TYPES`, et un type de plus rendu public
+est refusé. Les deux listes sont des compteurs de dette : elles ne font que rétrécir, et aucun `module-info.java` ne
+remplace la règle.
+> `SqliteStorePackagesArchitectureTest`, `theRuntimeDeclaresExactlyTheNamedPublicTypes`
 
 ### `morpheus-api` : un rôle, un paquet, et six types pour les voisins (ADR-0155)
 `remote` > `local` > routeurs (`routes.bodiless`, `routes.shareddecoder`, `routes.owncontext`) > services du paquet
@@ -242,8 +244,10 @@ un nouveau service `*ApiService` dans `com.morpheus.api`, un nouveau routeur dan
 (`ApiEntryTypesArchitectureTest`, règle et texte) : un type public de l'adaptateur l'est pour ses propres paquets.
 Toute liste d'un test d'architecture qui nomme une classe de production, quel que soit son module, est un compteur de
 dette ou une table de faits, déclarée dans `ProductionClassListsArchitectureTest` ; une liste qui serait un rôle est un
-paquet.
-> `noClassOutsideTheAdapterDependsOnATypeOfTheAdapterBesideTheEntryTypes`, `thePackagesOfTheHttpAdapterFormNoCycle`, `everyListOfProductionClassesIsADebtCounterOrATableOfFacts`
+paquet. Un compteur de dette déclare l'ADR qui le dit, et cet ADR, accepté, le nomme par `TestClass.CHAMP` ; sa taille
+égale sa clé de `config/debt-counter-ratchets.properties`, qui ne fait que baisser. Une liste sans tel ADR est une table
+de faits, qui ne promet pas de rétrécir.
+> `noClassOutsideTheAdapterDependsOnATypeOfTheAdapterBesideTheEntryTypes`, `thePackagesOfTheHttpAdapterFormNoCycle`, `everyListOfProductionClassesIsADebtCounterOrATableOfFacts`, `everyDebtCounterIsNamedByTheAcceptedDecisionRecordItDeclares`, `everyDebtCounterHoldsExactlyTheSizeItsRatchetAllows`
 
 ### `morpheus-cli` et `morpheus-mcp` : une commande, un outil, une classe de capacité (ADR-0149)
 Une commande CLI va dans une classe de `com.morpheus.cli.command`, un outil MCP dans une classe de
@@ -294,8 +298,9 @@ annotation d'injection (`jakarta.inject`, `javax.inject`) : cette règle n'a auc
 (`java.lang.reflect`, `java.lang.invoke`) et le chargement de services ou de classes (`ServiceLoader`, un
 `ClassLoader`, `Class.forName`) n'existent que dans les classes nommées pour eux, chacune avec sa raison et, pour un
 chargement, l'ADR qui le décide ; jamais pour câbler le produit ni pour construire un objet depuis une configuration.
-Les listes sont exactes et ne font que rétrécir : les lire dans `ReflectionAndClassLoadingBoundaryArchitectureTest`
-(hors `application`) et dans `ApplicationTechnologyBoundaryArchitectureTest` (dans `application`, ADR-0150), pas ici.
+Les listes sont exactes : les lire dans `ReflectionAndClassLoadingBoundaryArchitectureTest` (hors `application`, des
+tables de faits) et dans `ApplicationTechnologyBoundaryArchitectureTest` (dans `application`, des compteurs de dette
+d'ADR-0150 qui ne font que rétrécir), pas ici.
 Dans les deux, la règle sur le bytecode est doublée d'un scan du texte des sources : un type qui ne fait que typer une
 lambda reste dans le descripteur `invokedynamic`, où le bytecode ne le voit pas. Un accesseur de
 `java.lang.Class` (`getName`, `getSimpleName`, `getClassLoader`) n'est pas de la réflexion au sens de ces règles.

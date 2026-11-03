@@ -88,9 +88,9 @@ dependency hygiene      blocking
 Preuve historique : [`VALIDATION_D2.md`](VALIDATION_D2.md).
 Preuves exact-head finales : PR #121.
 
-La règle « CI non utilisée » décrit uniquement le protocole D2 historique. Les protections continues de la baseline `1.2.1` utilisent désormais GitHub Actions.
+La règle « CI non utilisée » décrit uniquement le protocole D2 historique. Les protections continues de la baseline `1.2.2` utilisent désormais GitHub Actions.
 
-## Baseline développement 1.2.1
+## Baseline développement 1.2.2
 
 Les validations courantes sont documentées dans [`../../developer/BUILD_AND_TEST.md`](../../developer/BUILD_AND_TEST.md).
 

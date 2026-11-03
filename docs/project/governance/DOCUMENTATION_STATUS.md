@@ -1,6 +1,6 @@
 # Statut et autorité de la documentation MORPHEUS
 
-Statut : **ACTIF — MORPHEUS 1.2.0 PUBLIÉ — BASELINE DÉVELOPPEMENT 1.2.1**
+Statut : **ACTIF — MORPHEUS 1.2.1 PUBLIÉ — BASELINE DÉVELOPPEMENT 1.2.2**
 
 Dernière mise à jour : 7 septembre 2026
 
@@ -122,15 +122,15 @@ dependency hygiene         blocking
 
 La règle « CI NOT USED » appartient exclusivement au protocole historique D2. Elle ne s’applique pas aux protections continues actuelles.
 
-## Baseline développement 1.2.1
+## Baseline développement 1.2.2
 
 ```text
-Version                    1.2.1
+Version                    1.2.2
 Java                       21
 Maven Wrapper              3.10.0
 Maven modules              18
 MCP SDK                    2.0.1
-SQLite JDBC                3.53.4.0
+SQLite JDBC                3.54.1.0
 Jackson                    3.2.4
 OWASP Dependency-Check     13.0.0
 ```
@@ -144,8 +144,8 @@ MORPHEUS CodeQL            security-extended
 Surefire written ratchet   >= 2876
 Surefire generated ratchet >= 1819
 Architecture ratchet       >= 836
-Aggregate line ratchet     >= 91.2%
-Aggregate branch ratchet   >= 77.3%
+Aggregate line ratchet     >= 92.6%
+Aggregate branch ratchet   >= 80.8%
 Per-module line ratchet    >= 89.9%
 Per-module branch ratchet  >= 77.1%
 PR changed line coverage   >= 80%
@@ -171,7 +171,7 @@ Le dispatcher actif est :
 Pour la baseline courante :
 
 ```powershell
-.\scripts\validate.cmd m21 -Version 1.2.1
+.\scripts\validate.cmd m21 -Version 1.2.2
 ```
 
 Les anciens wrappers `validate-*.cmd` à la racine ne font plus partie de la documentation active.
@@ -207,5 +207,6 @@ R1             ✅ 1.0.0 publié
 R2             ✅ 1.1.0 publié
 R3             ✅ 1.2.0 publié
 D2             ✅ qualifié / intégré
-1.2.1          🔧 baseline de développement active
+1.2.1          ✅ publié
+1.2.2          🔧 baseline de développement active
 ```

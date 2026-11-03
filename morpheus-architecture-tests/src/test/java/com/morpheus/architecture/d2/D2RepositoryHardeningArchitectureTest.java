@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.morpheus.architecture.RepositoryRoot;
+import com.morpheus.architecture.RepositoryTree;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -46,7 +47,7 @@ class D2RepositoryHardeningArchitectureTest {
     void dependencyAndQualityBaselineIsPinned() throws IOException {
         String pom = Files.readString(RepositoryRoot.locate().resolve("pom.xml"));
         assertTrue(pom.contains("<jackson.version>3.2.4</jackson.version>"));
-        assertTrue(pom.contains("<sqlite-jdbc.version>3.53.4.0</sqlite-jdbc.version>"));
+        assertTrue(pom.contains("<sqlite-jdbc.version>3.54.1.0</sqlite-jdbc.version>"));
         assertTrue(pom.contains("<mcp-sdk.version>2.1.0</mcp-sdk.version>"));
         assertTrue(pom.contains("<dependency-check.maven.plugin.version>13.0.0</dependency-check.maven.plugin.version>"));
         assertTrue(pom.contains("<failOnWarning>true</failOnWarning>"));
@@ -181,8 +182,8 @@ class D2RepositoryHardeningArchitectureTest {
         String windows = Files.readString(root.resolve("scripts/validate-m21.ps1"));
         assertTrue(linux.contains("config/m21-quality-ratchets.properties"));
         assertTrue(windows.contains("config\\m21-quality-ratchets.properties"));
-        assertTrue(linux.contains("1.2.1"));
-        assertTrue(windows.contains("1.2.1"));
+        assertTrue(linux.contains("1.2.2"));
+        assertTrue(windows.contains("1.2.2"));
     }
 
     /**
@@ -228,7 +229,7 @@ class D2RepositoryHardeningArchitectureTest {
                     () -> entry.getKey() + " must read the generatedTestsMinimum key");
             assertTrue(Pattern.compile("\\barchitectureTestsMinimum\\b").matcher(script).find(),
                     () -> entry.getKey() + " must read the architectureTestsMinimum key");
-            assertTrue(script.contains("1.2.1"), () -> entry.getKey() + " must still name the product version");
+            assertTrue(script.contains("1.2.2"), () -> entry.getKey() + " must still name the product version");
         }
     }
 
@@ -582,15 +583,14 @@ class D2RepositoryHardeningArchitectureTest {
                 "the shared bounded reader must delegate to the deadline-aware primitive");
         assertTrue(Files.isRegularFile(ProductionSources.testSource("morpheus-api", "JacksonSecurityRegressionTest")));
 
-        try (var files = Files.walk(root, 16)) {
-            for (Path source : files.filter(path -> path.toString().endsWith(".java"))
-                    .filter(path -> path.toString().contains(
-                            "src" + java.io.File.separator + "main" + java.io.File.separator + "java"))
-                    .toList()) {
-                String text = Files.readString(source);
-                assertFalse(text.contains("activateDefaultTyping("), "default typing activation forbidden: " + source);
-                assertFalse(text.contains("enableDefaultTyping("), "default typing activation forbidden: " + source);
-            }
+        for (Path source : RepositoryTree.files(root).stream()
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> path.toString().contains(
+                        "src" + java.io.File.separator + "main" + java.io.File.separator + "java"))
+                .toList()) {
+            String text = Files.readString(source);
+            assertFalse(text.contains("activateDefaultTyping("), "default typing activation forbidden: " + source);
+            assertFalse(text.contains("enableDefaultTyping("), "default typing activation forbidden: " + source);
         }
     }
 

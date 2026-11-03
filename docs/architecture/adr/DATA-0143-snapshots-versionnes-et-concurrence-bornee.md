@@ -265,7 +265,7 @@ stale recovery != overwrite of fresh concurrent work
 - [ADR-0036](DATA-0036-published-history-comparison-and-logical-rollback.md) — historique publié, comparaison et
   rollback logique.
 - [ADR-0110](DATA-0110-a-copy-is-kept-before-the-schema-advances.md) — copie gardée avant migration du schéma.
-- [ADR-0114](BE-0114-database-work-runs-on-a-bounded-pool-of-platform-threads.md) — pool borné pour le travail en
+- [ADR-0159](BE-0159-database-work-runs-on-a-bounded-pool-of-platform-threads.md) — pool borné pour le travail en
   base.
 - [ADR-0119](BE-0119-cycle-de-vie-des-changements-et-transition-tri-etat.md) — cycle de vie des changements.
 - [ADR-0144](DATA-0144-publication-complete-cli-et-http.md) — publication complète d'un snapshot.

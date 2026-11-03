@@ -1,6 +1,6 @@
 # Build, tests et validation
 
-Ce guide décrit l’environnement de développement et les gates actifs sur la baseline corrective **MORPHEUS 1.2.1**. La dernière release publiée est `v1.2.1` (16 octobre 2026), qualifiée par les scripts de relecture publique.
+Ce guide décrit l’environnement de développement et les gates actifs sur la baseline corrective **MORPHEUS 1.2.2**. La dernière release publiée est `v1.2.1` (16 octobre 2026), qualifiée par les scripts de relecture publique.
 
 ## Toolchain
 
@@ -37,7 +37,7 @@ morpheus-architecture-tests
 morpheus-coverage-report
 ```
 
-Les POMs actifs du reactor, parent compris, portent tous la même version MORPHEUS `1.2.1`. Les preuves de release historiques `1.2.0` ne sont pas réécrites.
+Les POMs actifs du reactor, parent compris, portent tous la même version MORPHEUS `1.2.2`. Les preuves de release historiques `1.2.0` ne sont pas réécrites.
 
 ## Gate Maven canonique
 
@@ -63,8 +63,8 @@ Le workflow `MORPHEUS CI` exécute le même gate exact-head sur Windows et Ubunt
 baseline Surefire écrits       >= 2876
 baseline Surefire générés     >= 1819
 baseline architecture          >= 836
-JaCoCo aggregate line ratchet     >= 91.2%
-JaCoCo aggregate branch ratchet   >= 77.3%
+JaCoCo aggregate line ratchet     >= 92.6%
+JaCoCo aggregate branch ratchet   >= 80.8%
 JaCoCo per-module line ratchet    >= 89.9%
 JaCoCo per-module branch ratchet  >= 77.1%
 D2 absolute line floor         40%
@@ -72,7 +72,7 @@ D2 absolute branch floor       35%
 maven dependency analyze       failOnWarning=true
 maven dependency convergence   required
 CycloneDX SBOM                  JSON + XML
-product/package version         1.2.1
+product/package version         1.2.2
 ```
 
 La source normative des six ratchets M21 est `config/m21-quality-ratchets.properties`. Les deux échelles de couverture y sont déclarées séparément : `aggregate*` pour la mesure canonique (`morpheus-coverage-report/target/site/jacoco-aggregate/jacoco.xml`, qui fusionne aussi l'exécution cross-module des tests d'architecture) et `perModule*` pour la somme des rapports JaCoCo de chaque module pris isolément. `AggregateCoverageGateTest` et les deux validateurs `validate-m21.*` consomment la première, `CoverageQualityGateTest` la seconde ; aucun gate ne lit les clés de l'autre échelle, et `CoverageScaleSeparationTest` fait échouer le build si l'un d'eux s'y essaie. Les deux échelles portent sur la même population de modules — tout module du réacteur qui porte une classe sous `src/main/java`, outillage de vérification compris (`morpheus-store-memory`, `morpheus-provider-synthetic`, `morpheus-provider-testkit`, `morpheus-provider-reference`) — et ne diffèrent que par les exécutions autorisées à créditer une ligne : `AggregateCoverageGateTest` dérive cette population du POM racine et refuse un rapport agrégé qui en mesure une autre.
@@ -94,11 +94,11 @@ Cette garde différentielle complète le ratchet global : elle évite qu'une nou
 
 ## Qualité et ratchet JaCoCo
 
-La baseline courante est verrouillée à **91,2% lignes / 77,3% branches** sur l'échelle agrégée et **89,9% lignes / 77,1% branches** par module. Les deux chiffres mesurent des populations de lignes différentes : les comparer entre eux n'a pas de sens, et comparer l'un au seuil de l'autre est précisément le défaut que la séparation des clés supprime.
+La baseline courante est verrouillée à **92,6% lignes / 80,8% branches** sur l'échelle agrégée et **89,9% lignes / 77,1% branches** par module. Les deux chiffres mesurent des populations de lignes différentes : les comparer entre eux n'a pas de sens, et comparer l'un au seuil de l'autre est précisément le défaut que la séparation des clés supprime.
 
 Règle d’évolution :
 
-1. une baisse sous 91,2% lignes ou 77,3% branches agrégées, ou sous 89,9% lignes ou 77,1% branches par module, fait échouer le gate M21 ;
+1. une baisse sous 92,6% lignes ou 80,8% branches agrégées, ou sous 89,9% lignes ou 77,1% branches par module, fait échouer le gate M21 ;
 2. les floors D2 40% / 35% restent des minima absolus et ne peuvent jamais affaiblir le ratchet ;
 3. une amélioration de couverture ne relève le ratchet qu’après qualification du même SHA exact sur Windows et Linux ;
 4. le ratchet n’est jamais abaissé automatiquement ; une baisse nécessite une décision d’audit explicite et motivée ;
@@ -184,6 +184,15 @@ n'est pas SQLite, `io.github.fturleque:morpheus-cli` n'est pas GitHub CLI. Le vr
 `org.xerial:sqlite-jdbc` et toutes les dépendances tierces restent analysés. Le scan produit échoue
 si une de ces règles devient inutilisée, afin d'empêcher une suppression obsolète ou trop large.
 
+L'indice versionné dans `config/dependency-check-hints.xml`, chargé par les deux profils, fait l'inverse : il ajoute
+une association que la base peut perdre. `sqlite-jdbc` embarque le moteur SQLite natif, et une base reconstruite de zéro
+classe `cpe:/a:sqlite:sqlite` dans l'écosystème natif, que l'analyseur écarte pour un JAR. L'indice donne le vendeur, le
+produit `sqlite` et la version du pilote aux bibliothèques natives extraites du JAR ; sa version suit
+`<sqlite-jdbc.version>` (`DependencyCheckWorkflowContractTest`), donc une montée de version du pilote met l'indice à jour
+dans le même changement. `security.yml` vérifie après les scans que le rapport produit porte encore
+`cpe:2.3:a:sqlite:sqlite` à la version du pilote (`scripts/check-dependency-check-sqlite-identification.py`, échec
+`SQLITE_ENGINE_NOT_IDENTIFIED`).
+
 Le workflow **MORPHEUS Security** utilise une base Dependency-Check produite uniquement par des événements de confiance. Sa politique est :
 
 ```text
@@ -205,13 +214,13 @@ D2 reste un gate local spécialisé avec interdiction de modifier `.github/workf
 Windows :
 
 ```powershell
-.\scripts\validate.cmd d2 -Version 1.2.1 -BaseRef origin/develop
+.\scripts\validate.cmd d2 -Version 1.2.2 -BaseRef origin/develop
 ```
 
 Linux / WSL :
 
 ```bash
-MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.1
+MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.2
 ```
 
 D2 conserve ses minima absolus de couverture `40% / 35%`, exécute Dependency-Check et exige le portable de la plateforme pour une qualification finale sans skip.
@@ -221,19 +230,19 @@ D2 conserve ses minima absolus de couverture `40% / 35%`, exécute Dependency-Ch
 Windows portable :
 
 ```powershell
-.\distribution\build-portable.ps1 -Version 1.2.1
+.\distribution\build-portable.ps1 -Version 1.2.2
 ```
 
 Windows setup :
 
 ```powershell
-.\distribution\build-installer.ps1 -Version 1.2.1
+.\distribution\build-installer.ps1 -Version 1.2.2
 ```
 
 Linux portable :
 
 ```bash
-bash distribution/build-portable.sh 1.2.1
+bash distribution/build-portable.sh 1.2.2
 ```
 
 Les builders de release exigent un workspace propre et que le tag attendu pointe exactement sur HEAD avant de produire l'artefact et son checksum SHA-256.
@@ -285,22 +294,18 @@ Windows et Linux doivent qualifier exactement le même SHA pour considérer une 
 
 La règle est décidée par [ADR-0115](../architecture/adr/ARCH-0115-the-operational-runtime-is-a-value-the-launcher-hands-on.md) : le parallélisme JUnit n'est activé que dans un module dont aucun test ne partage un état de la JVM.
 
-`morpheus-store-sqlite` est ce module. Son `src/test/resources/junit-platform.properties` versionné rend concurrentes les méthodes et les classes, sur un pool fixe (`config.strategy=fixed`), pour qu'une course ne dépende pas du nombre de cœurs de la machine. Dans ce module :
+Quatre modules l'activent : `morpheus-store-sqlite`, `morpheus-api`, `morpheus-mcp` et `morpheus-cli`. Chacun porte un `src/test/resources/junit-platform.properties` versionné qui rend concurrentes les méthodes et les classes, sur un pool fixe (`config.strategy=fixed`), pour qu'une course ne dépende pas du nombre de cœurs de la machine. Dans ces modules :
 
-- `NoSqliteScopeLeftBehindExtension`, enregistrée par `META-INF/services` et `junit.jupiter.extensions.autodetection.enabled`, lit après chaque test la portée encore attachée au thread (`SqliteConnectionScope.attachedToThisThread()`, visible du paquet seulement), la ferme, et fait échouer le test fautif par son nom : une portée laissée ouverte ferait sinon échouer, par le refus `SQLITE_CONNECTION_SCOPE_NESTED`, le test suivant du même thread du pool ;
+- un test qui asserte sur des compteurs les lit sur le runtime ou le recorder qu'il a construit et remis au code testé (la portée de connexion compte sur le recorder de son ouvreur), jamais sur un état du processus ;
 - une portée se ferme dans un `finally`, jamais seulement après des assertions ;
-- un test qui sature SQLite exprès (`SqliteLocalSecurityContractTest`) ou qui compte une ressource de toute la JVM (`SqliteDatabaseLeaseTest`) est `@Isolated` : il ne rivalise pas avec d'autres tests.
+- une classe qui change un état lu par toute la JVM — locale ou fuseau par défaut, propriété système, flux standard, pilote de `DriverManager` — est `@Isolated`, dans tout module : `JvmMutatingTestsAreIsolatedArchitectureTest` le refuse sinon. `@ResourceLock` ne suffit pas, il n'ordonne que les tests qui déclarent le même verrou, et les lecteurs de ces valeurs n'en déclarent aucun ;
+- une classe qui sature une ressource exprès ou mesure une ressource de toute la JVM est `@Isolated` : `SqliteLocalSecurityContractTest` (sature SQLite), `SqliteDatabaseLeaseTest` (descripteurs de la JVM), `MorpheusRemoteAdversarialClientTest` (ses méthodes remplissent les créneaux d'une même façade), `MorpheusRemoteLoadProfileTest` (ses mesures de temps sont une preuve, et ses méthodes écrivent `target/remote-load-profile.txt`).
 
-Les autres modules restent séquentiels. État de la JVM encore partagé entre tests, hors `morpheus-store-sqlite` :
+Dans `morpheus-store-sqlite` seul, `NoSqliteScopeLeftBehindExtension`, enregistrée par `META-INF/services` et `junit.jupiter.extensions.autodetection.enabled`, lit après chaque test la portée encore attachée au thread (`SqliteConnectionScope.attachedToThisThread()`, visible du paquet seulement), la ferme, et fait échouer le test fautif par son nom. Les trois autres modules n'ouvrent de portée que par les runtimes de production (`ApiRuntime`, `MorpheusMcpRuntime`, `CliRuntime`), qui la ferment eux-mêmes ; l'accesseur n'est pas visible hors de son paquet, et l'extension n'y est pas reprise.
 
-| État partagé | Qui l'écrit ou le lit | Effet attendu en parallèle |
-|---|---|---|
-| Propriété système `java.home` | posée puis rétablie par `MinosPeerLauncherResolutionTest` et `NexusPeerLauncherResolutionTest` | tout test qui résout un lanceur Java pendant la fenêtre lit un répertoire temporaire |
-| `Locale.setDefault` | `PolicyApiEnumVocabularyLocaleTest`, `McpEnumVocabularyLocaleTest` | tout formatage sensible à la locale dans un autre test |
-| Fichier hors répertoire temporaire | `MorpheusRemoteLoadProfileTest` écrit `target/remote-load-profile.txt`, que la lane nocturne publie | aucun tant qu'il reste le seul écrivain |
-| Champs statiques d'une classe de test | `MorpheusRemoteAdversarialClientTest` (serveur, client et répertoire partagés entre ses méthodes, posés en `@BeforeAll`) | ses méthodes ne peuvent pas s'exécuter en concurrence |
+Les tests générés d'une fabrique s'exécutent eux aussi en concurrence. Une classe dont les tests partagent un état posé en `@BeforeAll` le garde en lecture seule, ou est `@Isolated` : `CliCommandTranscriptTest` ne partage que l'espace de travail copié, chaque cas construisant sa base dans son propre répertoire, et `McpToolTranscriptTest` sert ses outils sur une base publiée une fois, sans capacité d'écriture.
 
-Aucun test n'écoute sur un port fixe. Les baux (`SqliteDatabaseLease`) et la quarantaine de l'exécuteur de transactions sont statiques mais indexés par base ou par connexion : deux tests sur deux bases temporaires n'y partagent rien.
+Les autres modules restent séquentiels. `MinosPeerLauncherResolutionTest` et `NexusPeerLauncherResolutionTest` posent `java.home` et sont `@Isolated` : activer le parallélisme dans leur module ne les trouverait pas en défaut. Aucun test n'écoute sur un port fixe. Les baux (`SqliteDatabaseLease`) et la quarantaine de l'exécuteur de transactions sont statiques mais indexés par base ou par connexion : deux tests sur deux bases temporaires n'y partagent rien.
 
 Activer le parallélisme dans un autre module est un changement à part, précédé d'exécutions parallèles propres répétées dans ce module.
 
@@ -310,4 +315,4 @@ Activer le parallélisme dans un autre module est un changement à part, précé
 - D2 historique : [`../project/validation/VALIDATION_D2.md`](../project/validation/VALIDATION_D2.md)
 - plan D2 : [`../project/roadmap/D2_EXECUTION.md`](../project/roadmap/D2_EXECUTION.md)
 
-Ces documents historiques conservent les commandes et versions réellement utilisées lors de leur qualification ; ils ne doivent pas être réécrits pour faire croire qu'ils validaient `1.2.1`.
+Ces documents historiques conservent les commandes et versions réellement utilisées lors de leur qualification ; ils ne doivent pas être réécrits pour faire croire qu'ils validaient `1.2.2`.

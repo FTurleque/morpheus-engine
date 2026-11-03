@@ -8,15 +8,15 @@ sources différentes du repo (`rules/testing.md`, `rules/governance.md`, `docs/R
 citaient chacune un chiffre différent au 31/08/2026. **Avant toute décision de gouvernance
 ou de coverage, relire le fichier properties, pas cette page.**
 
-Valeur constatée en lisant `config/m21-quality-ratchets.properties` (30/10/2026) :
+Valeur constatée en lisant `config/m21-quality-ratchets.properties` (03/11/2026) :
 
 | Clé | Valeur constatée |
 |---|---|
 | `testsMinimum` | 2876 (exécutions de méthodes déclarées) |
 | `generatedTestsMinimum` | 1819 (exécutions générées par une fabrique) |
 | `architectureTestsMinimum` | 836 (exécutions déclarées du module d'architecture) |
-| `aggregateLineCoverageMinimum` | 0.912 (91.2%) |
-| `aggregateBranchCoverageMinimum` | 0.773 (77.3%) |
+| `aggregateLineCoverageMinimum` | 0.926 (92.6%) |
+| `aggregateBranchCoverageMinimum` | 0.808 (80.8%) |
 | `perModuleLineCoverageMinimum` | 0.899 (89.9%) |
 | `perModuleBranchCoverageMinimum` | 0.771 (77.1%) |
 
@@ -201,6 +201,19 @@ par module  Windows  90,2480 % / 90,2480 % lignes   77,4760 % / 77,4858 % branch
 Dispersion : 14 lignes / 3 branches, dans la référence 24 / 11. Ligne `0.899` (**90 lignes**), branche `0.771`
 (**36 branches**). L'échelle agrégée n'est pas requalifiée : sa clé et son plafond restent ceux du 28/10.
 
+Le 03/11/2026, le plafond **agrégé** est requalifié à la même tête `d3580dc9` que le par module, sur les mêmes runs
+`41107774651` et `41107784162` (mêmes populations sur les quatre : 29 922 lignes, 10 198 branches). Les deux échelles
+d'une qualification se mesurent à une seule tête, sans quoi leur écart additionne une dérive entre deux commits ;
+`CoverageQualificationEvidenceTest` refuse deux échelles conservées à deux têtes (AUD-TST-22) :
+
+```text
+agrégée     Windows  92,9216 % / 92,9216 % lignes   81,2022 % / 81,2120 % branches
+            Linux    92,8748 % / 92,8815 % lignes   81,1728 % / 81,1826 % branches   <- plafond
+```
+
+Dispersion : 14 lignes / 4 branches, dans la référence 24 / 11. Ligne `0.926` (**82 lignes**), branche `0.808`
+(**38 branches**). Le par module n'est pas touché.
+
 **Cette marge est exécutable** : `CoverageQualificationEvidenceTest#everyCoverageRatchetKeepsThreeTimesTheSpreadUnderTheLowestKeptMeasurement`
 la calcule sur `config/coverage-qualification/` — plus basse mesure conservée moins ce qu'exige le ratchet, en lignes
 et en branches — et refuse un ratchet qui garde moins de trois fois la plus grande des deux dispersions, celle des runs
@@ -227,6 +240,10 @@ Voir `rules/meta.md`.
 - Trouver la racine du dépôt et une fixture M0 par la classe `RepositoryRoot` du module de test (`locate()`,
   `fixture(name)`) : jamais de remontée privée depuis le répertoire de travail, quel que soit son nom.
   `RepositoryRootOwnershipTest` refuse la copie et garde identiques les propriétaires des modules
+- Parcourir tout l'arbre du dépôt par `RepositoryTree.files(root)` (`morpheus-architecture-tests`), qui écarte les
+  sorties générées, `.claude/worktrees/` et tout répertoire portant son propre `.git` : une copie d'espace de travail
+  y faussait le compte des POM. `RepositoryTreeOwnershipTest` refuse un `Files.walk`/`find`/`walkFileTree` de la
+  racine ailleurs, dans les sources de test de tous les modules
 - Vérifier la parité de persistance quand un store change : les tests `*PersistenceParityTest`
   exigent un comportement identique entre `store-memory` et `store-sqlite`
 - Construire `morpheus-provider-reference` **avant** les tests d'architecture — M22 charge son JAR depuis `target/`

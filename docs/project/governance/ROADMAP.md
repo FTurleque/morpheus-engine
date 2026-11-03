@@ -1,6 +1,6 @@
 # Feuille de route — MORPHEUS
 
-Statut : **MORPHEUS 1.2.0 PUBLIÉ — BASELINE DÉVELOPPEMENT 1.2.1 / HARDENING CONTINU**
+Statut : **MORPHEUS 1.2.1 PUBLIÉ — BASELINE DÉVELOPPEMENT 1.2.2 / HARDENING CONTINU**
 
 Dernière mise à jour : 27 août 2026
 
@@ -71,19 +71,19 @@ Preuve historique : [`../validation/VALIDATION_D2.md`](../validation/VALIDATION_
 
 La contrainte « aucune CI » était spécifique au protocole D2. Elle ne redéfinit pas la politique actuelle de `develop`.
 
-## NOW — baseline corrective 1.2.1
+## NOW — baseline corrective 1.2.2
 
 La priorité courante est de faire progresser la qualité sans inventer une nouvelle release tant qu’un vrai tag n’a pas été produit.
 
 ```text
-version développement           1.2.1
+version développement           1.2.2
 MORPHEUS CI                      Windows + Ubuntu exact-head
 MORPHEUS Security                OWASP Dependency-Check
 MORPHEUS CodeQL                  security-extended
 diff coverage PR lines           >= 80%
 diff coverage PR branches        >= 70%
-aggregate line ratchet           >= 91.2%
-aggregate branch ratchet         >= 77.3%
+aggregate line ratchet           >= 92.6%
+aggregate branch ratchet         >= 80.8%
 per-module line ratchet          >= 89.9%
 per-module branch ratchet        >= 77.1%
 Surefire written ratchet         >= 2876

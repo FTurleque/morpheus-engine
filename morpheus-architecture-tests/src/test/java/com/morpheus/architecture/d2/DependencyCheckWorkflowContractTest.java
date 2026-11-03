@@ -8,9 +8,15 @@ import com.morpheus.architecture.RepositoryRoot;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.xml.parsers.DocumentBuilderFactory;
 import org.junit.jupiter.api.Test;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 
 @CoherenceCheck
 class DependencyCheckWorkflowContractTest {
@@ -697,6 +703,123 @@ class DependencyCheckWorkflowContractTest {
                 "a data-feed refresh that failed must neither date the database nor publish a cache");
         assertTrue(onFailure.contains("MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESH_FAILED"),
                 "a data-feed refresh that failed keeps the failed-refresh reason code");
+    }
+
+    /**
+     * sqlite-jdbc stays identified as the SQLite engine it embeds, whatever the history of the database.
+     *
+     * <p>A database built from scratch by Dependency-Check 13.0.0 files {@code cpe:/a:sqlite:sqlite} under the native
+     * ecosystem, and the CPE analyzer drops a CPE whose ecosystem differs from the dependency's: the driver JAR is then
+     * identified as {@code sqlite_jdbc} only, and a CVE of the engine never reaches the CVSS gate (AUD-DEP-27, RT-13).
+     * Sqlite evidence on the JAR cannot help: it already has some, from its package names. The hints file gives the
+     * vendor, the product and the driver version to the native libraries extracted from the JAR, which are not Java
+     * dependencies. Measured on 2026-11-03 against a database rebuilt from the NVD data feeds on 2026-10-28: without
+     * the hint the product report carries no {@code sqlite:sqlite} identifier, with it the extracted
+     * {@code sqlitejdbc.dll} carries {@code cpe:2.3:a:sqlite:sqlite:3.53.4.0}.</p>
+     *
+     * <p>What is pinned: the hint matches the libraries extracted from the driver and neither MORPHEUS code nor the
+     * driver JAR; it adds the {@code sqlite} vendor and product and a version equal to {@code <sqlite-jdbc.version>}
+     * (without a version the analyzer builds no CPE, and a stale one names another engine); both scan profiles load
+     * it; every aggregate scan runs one of them and none replaces the file; and the workflow reads the product report
+     * after both scans with the check that fails when the identification is gone.</p>
+     */
+    @Test
+    void theSqliteEngineEmbeddedBySqliteJdbcIsIdentifiedWhateverTheHistoryOfTheDatabase() throws Exception {
+        Path root = RepositoryRoot.locate();
+        String pom = Files.readString(root.resolve("pom.xml"));
+        String security = Files.readString(root.resolve(".github/workflows/security.yml")).replace("\r\n", "\n");
+
+        Matcher driverVersion = Pattern.compile("<sqlite-jdbc\\.version>([^<]+)</sqlite-jdbc\\.version>").matcher(pom);
+        assertTrue(driverVersion.find(), "the root POM must pin the sqlite-jdbc version");
+        String version = driverVersion.group(1).trim();
+
+        Path hintsPath = root.resolve("config/dependency-check-hints.xml");
+        assertTrue(Files.isRegularFile(hintsPath), "config/dependency-check-hints.xml must exist");
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setNamespaceAware(true);
+        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        Document hints = factory.newDocumentBuilder().parse(hintsPath.toFile());
+
+        String extractedWindows = "sqlite-jdbc-" + version + ".jar: sqlitejdbc.dll";
+        String extractedLinux = "sqlite-jdbc-" + version + ".jar: libsqlitejdbc.so";
+        boolean pinned = false;
+        NodeList hintNodes = hints.getElementsByTagNameNS("*", "hint");
+        for (int index = 0; index < hintNodes.getLength(); index++) {
+            Element hint = (Element) hintNodes.item(index);
+            NodeList fileNames = hint.getElementsByTagNameNS("*", "fileName");
+            boolean matchesTheExtractedLibraries = false;
+            for (int at = 0; at < fileNames.getLength(); at++) {
+                Element fileName = (Element) fileNames.item(at);
+                assertTrue("true".equals(fileName.getAttribute("regex")),
+                        "a fileName given of the hints file is a regular expression");
+                Pattern pattern = Pattern.compile(fileName.getAttribute("contains"));
+                assertFalse(pattern.matcher("morpheus-store-sqlite-1.2.1.jar").matches()
+                                || pattern.matcher("sqlite-jdbc-" + version + ".jar").matches(),
+                        "the sqlite hint must reach neither MORPHEUS code nor the driver JAR, whose Java ecosystem "
+                                + "makes the analyzer drop the native sqlite CPE anyway");
+                matchesTheExtractedLibraries |= pattern.matcher(extractedWindows).matches()
+                        && pattern.matcher(extractedLinux).matches();
+            }
+            if (!matchesTheExtractedLibraries) {
+                continue;
+            }
+            Map<String, String> added = new TreeMap<>();
+            NodeList evidence = ((Element) hint.getElementsByTagNameNS("*", "add").item(0))
+                    .getElementsByTagNameNS("*", "evidence");
+            for (int at = 0; at < evidence.getLength(); at++) {
+                Element item = (Element) evidence.item(at);
+                added.put(item.getAttribute("type"), item.getAttribute("value"));
+            }
+            assertTrue("sqlite".equals(added.get("vendor")) && "sqlite".equals(added.get("product")),
+                    () -> "the hint must add the sqlite vendor and product to the extracted libraries: " + added);
+            assertTrue(version.equals(added.get("version")),
+                    () -> "the hint must add the driver version " + version + " (<sqlite-jdbc.version>): without a "
+                            + "version the analyzer builds no CPE, and another one names another engine; found "
+                            + added.get("version"));
+            pinned = true;
+        }
+        assertTrue(pinned, "config/dependency-check-hints.xml must carry a hint for the native libraries extracted "
+                + "from the sqlite-jdbc JAR (" + extractedWindows + ", " + extractedLinux + ")");
+
+        String hintsFile = "<hintsFile>${maven.multiModuleProjectDirectory}/config/dependency-check-hints.xml"
+                + "</hintsFile>";
+        for (String profile : new String[] {"d2-security", "d2-security-tests"}) {
+            int start = pom.indexOf("<id>" + profile + "</id>");
+            assertTrue(start >= 0, () -> "the root POM must declare the " + profile + " profile");
+            String block = pom.substring(start, pom.indexOf("</profile>", start));
+            assertTrue(block.contains(hintsFile), () -> "the " + profile + " profile must load the hints file");
+        }
+
+        Matcher steps = Pattern.compile("(?ms)^      - name: ([^\\n]+)\\n(.*?)(?=^      - name: |\\z)")
+                .matcher(security);
+        int scans = 0;
+        while (steps.find()) {
+            String name = steps.group(1);
+            String step = steps.group(2);
+            if (step.contains("dependency-check-maven:13.0.0:aggregate")) {
+                scans++;
+                assertTrue(step.contains("-Pd2-security"),
+                        () -> "the aggregate scan \"" + name + "\" must run a profile that loads the hints file");
+            }
+        }
+        assertTrue(scans >= 2, "security.yml must keep its two aggregate scans");
+        assertFalse(security.contains("-DhintsFile") || security.contains("-Dodc.hintsFile"),
+                "no invocation may replace the hints file the profiles load");
+
+        String verify = "- name: Verify that sqlite-jdbc is identified as the SQLite engine it embeds";
+        String check = section(security, verify, "- name: Upload dependency-check evidence");
+        assertTrue(security.indexOf("- name: Run OWASP Dependency-Check scan over build and test dependencies")
+                        < security.indexOf(verify),
+                "the identification check reads the product report once both scans have run");
+        assertTrue(check.contains("run: python3 scripts/check-dependency-check-sqlite-identification.py "
+                        + "target/d2-security/dependency-check-report.json"),
+                "the identification check must read the product report");
+        assertFalse(check.contains("if:"), "the identification check must run whenever the scans succeeded");
+
+        String script = Files.readString(root.resolve("scripts/check-dependency-check-sqlite-identification.py"));
+        assertTrue(script.contains("MORPHEUS_DEPENDENCY_CHECK_FAILURE=SQLITE_ENGINE_NOT_IDENTIFIED")
+                        && script.contains("ENGINE_CPE_PREFIX = \"cpe:2.3:a:sqlite:sqlite:\""),
+                "the check must name its failure and look for the engine CPE");
     }
 
     private static String section(String workflow, String from, String to) {

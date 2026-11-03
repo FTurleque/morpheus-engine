@@ -19,6 +19,15 @@ public record RequirementChangeImpact(
         Set<RequirementChangeField> changedFields,
         List<ChangeAnalysisWarning> warnings) {
 
+    /**
+     * Scenario identities are generated, and two read in one millisecond carry no meaningful order: scenarios follow
+     * their source key, then their title, and only then their identity.
+     */
+    private static final Comparator<Scenario> SOURCE_ORDER = Comparator
+            .comparing((Scenario scenario) -> scenario.provenance().externalId().orElse(""))
+            .thenComparing(Scenario::title)
+            .thenComparing(scenario -> scenario.id().toString());
+
     public RequirementChangeImpact {
         Objects.requireNonNull(delta, "delta");
         currentRequirement = Objects.requireNonNull(currentRequirement, "currentRequirement");
@@ -40,7 +49,7 @@ public record RequirementChangeImpact(
     private static List<Scenario> canonicalScenarios(List<Scenario> scenarios, String name) {
         return Objects.requireNonNull(scenarios, name).stream()
                 .peek(item -> Objects.requireNonNull(item, name + " item"))
-                .sorted(Comparator.comparing(item -> item.id().toString()))
+                .sorted(SOURCE_ORDER)
                 .toList();
     }
 }

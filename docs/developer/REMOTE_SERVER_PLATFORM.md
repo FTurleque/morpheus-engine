@@ -425,7 +425,7 @@ disparition brutale en cours de réponse.
 
 ## Gates
 
-Le gate durable exact-head est M21 sur Linux et Windows, avec la baseline active `1.2.1`. Sur pull request, Linux applique en plus un gate JaCoCo différentiel : au moins **80 % des lignes Java de production modifiées et exécutables** et **70 % des branches modifiées** doivent être couvertes ; l’évidence est conservée dans `validation-output/m21/diff-coverage.txt`.
+Le gate durable exact-head est M21 sur Linux et Windows, avec la baseline active `1.2.2`. Sur pull request, Linux applique en plus un gate JaCoCo différentiel : au moins **80 % des lignes Java de production modifiées et exécutables** et **70 % des branches modifiées** doivent être couvertes ; l’évidence est conservée dans `validation-output/m21/diff-coverage.txt`.
 
 Les gates milestone M26 restent des preuves historiques/spécialisées :
 

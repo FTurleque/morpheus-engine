@@ -132,5 +132,5 @@ sont construits par `SqliteOperationRuntime`, sur les trois transports.
 - [ADR-0135](ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — domaine possédé par MORPHEUS.
 - [ADR-0018](DATA-0018-sqlite-initial-persistent-store.md) — SQLite comme backend persistant.
 - [ADR-0156](ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md) — racines de composition nommées.
-- [ADR-0114](BE-0114-database-work-runs-on-a-bounded-pool-of-platform-threads.md) — travail sur la base.
+- [ADR-0159](BE-0159-database-work-runs-on-a-bounded-pool-of-platform-threads.md) — travail sur la base.
 - [Validation M0](../../project/validation/VALIDATION_M0.md)
