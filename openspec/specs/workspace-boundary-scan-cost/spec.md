@@ -41,11 +41,10 @@ the refused entry and everything after it out of the inventory.
 
 ### Requirement: The boundary work of a scan SHALL resolve each directory once and link-test every segment before each read
 
-Within one scan, a directory that the scan has validated and entered MUST NOT be resolved again for each entry
-beneath it: the number of physical path resolutions the scan makes for the boundary before reading MUST be bounded by
-a constant per directory entered and a constant per file visited. Before reading an entry the scan MUST still test the
-workspace root and every segment above the entry for a symbolic link, one query each, and MUST NOT answer that test
-from what it remembered (ADR-0157). The re-validation of a file after its fingerprint stays a full walk of its path.
+Within one scan, a directory the scan has validated and entered MUST NOT be resolved again for each entry beneath it:
+the physical path resolutions made for the boundary before reading MUST be bounded by a constant per directory entered
+and per file visited. Before reading an entry the scan MUST still test the workspace root and every segment above the
+entry for a symbolic link, one query each, never answered from memory (ADR-0157).
 
 #### Scenario: Deepening a tree adds one link test per segment and no resolution per file
 

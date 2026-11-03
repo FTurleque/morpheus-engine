@@ -158,9 +158,7 @@ branch that disappears makes the validator unable to start.
 
 The current developer-facing surfaces (`docs/developer/*.md`, `scripts/README.md`, `README.md`, `docs/README.md`,
 `distribution/README.md`) MUST NOT name a `validate-<target>.cmd` wrapper, which does not exist, and any
-`scripts\validate.cmd <target>` they name MUST refer to an existing target. Dated records (`docs/project/validation/VALIDATION_*.md`,
-`docs/project/roadmap/*_EXECUTION.md`, the ADRs) SHALL keep the command they recorded and MUST be pointed to the supported
-form from `docs/project/validation/README.md`.
+`scripts\validate.cmd <target>` they name MUST refer to an existing target.
 
 #### Scenario: A current guide cites the removed wrapper
 
@@ -173,17 +171,22 @@ form from `docs/project/validation/README.md`.
 - **THEN** `scripts\validate.cmd m19` is accepted by the validator, and `scripts\validate.cmd m19 -Version 1.2.1` is
   documented nowhere because the validator has no `-Version` parameter
 
+#### Scenario: A guide that calls a block historical still has to resolve
+
+- **WHEN** `docs/developer/REMOTE_SERVER_PLATFORM.md` is scanned after the change
+- **THEN** it names `scripts\validate.cmd m26` and no `validate-m26.cmd`, and any dated result beside it is unchanged
+
+### Requirement: A dated record SHALL keep the command it recorded and be pointed to the supported form
+
+Dated records (`docs/project/validation/VALIDATION_*.md`, `docs/project/roadmap/*_EXECUTION.md`, the ADRs) SHALL keep
+the command they recorded, and `docs/project/validation/README.md` MUST point them to the supported form.
+
 #### Scenario: A dated record is annotated, not rewritten
 
 - **WHEN** `docs/project/validation/VALIDATION_M19.md` is read after the change
 - **THEN** it still shows the command that was run at the time, and a dated note next to it names
   `scripts\validate.cmd m19` as the form supported today, while `docs/project/validation/README.md` states the equivalence for
   every other record
-
-#### Scenario: A guide that calls a block historical still has to resolve
-
-- **WHEN** `docs/developer/REMOTE_SERVER_PLATFORM.md` is scanned after the change
-- **THEN** it names `scripts\validate.cmd m26` and no `validate-m26.cmd`, and any dated result beside it is unchanged
 
 ### Requirement: The release build SHALL be rehearsed on a schedule on both platforms and a failed rehearsal SHALL fail the run
 
