@@ -78,17 +78,22 @@ acceptance criterion, and the verification state of a criterion MUST NOT be read
 ### Requirement: Constraints are qualified by their explicit blocking semantics
 
 `applicableConstraints` SHALL list the constraints of the change, ordered by identity, with their applicability,
-severity, satisfaction, blocking mode and targets, supporting evidence and source evidence. `blockingConstraints`
-SHALL report one of three statuses:
+severity, satisfaction, blocking mode and targets, supporting evidence and source evidence. An `UNKNOWN` blocking
+semantics MUST NOT be treated as blocking.
 
-| Status | Condition | Observed count |
-|---|---|---|
-| `AVAILABLE` | no constraint, or an explicit blocking semantics for every constraint | applicable, `BLOCK_WHEN_VIOLATED` and `VIOLATED` constraints |
-| `PARTIALLY_AVAILABLE` | an explicit blocking semantics for some constraints only | the same count, over the known constraints |
-| `UNKNOWN` | no explicit blocking semantics | `0` |
+#### Scenario: An unknown semantics is listed and not counted as blocking
 
-An `UNKNOWN` blocking semantics MUST NOT be treated as blocking. When the status is not `AVAILABLE`,
-`blockingConstraints` SHALL appear in `unavailableFacts`.
+- **WHEN** a constraint of the change has an unknown applicability or blocking semantics
+- **THEN** it appears in `applicableConstraints` with that unknown semantics, and it is not counted by
+  `blockingConstraints`
+
+### Requirement: The blocking status SHALL say how much of the blocking semantics is known
+
+`blockingConstraints` SHALL be `AVAILABLE` when the change has no constraint or every constraint has an explicit
+blocking semantics, `PARTIALLY_AVAILABLE` when only some have one, and `UNKNOWN` when none has. Its observed count
+SHALL be the number of applicable, `BLOCK_WHEN_VIOLATED` and `VIOLATED` constraints among those with an explicit
+semantics, and `0` when the status is `UNKNOWN`. When the status is not `AVAILABLE`, `blockingConstraints` SHALL appear
+in `unavailableFacts`.
 
 #### Scenario: No constraint
 

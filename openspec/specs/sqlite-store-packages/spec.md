@@ -29,9 +29,7 @@ except `SqliteSnapshotBusinessContentReader` and `SqliteSnapshotBusinessContentW
 A production class outside `com.morpheus.store.sqlite..` MUST NOT depend on a class of
 `com.morpheus.store.sqlite.runtime`, other than `SqliteOperationRuntime` and `SqliteServerMaintenance` and their
 nested types. A main source outside `morpheus-store-sqlite` MUST NOT name another class of that package, so that a
-compile-time constant read across the boundary is refused as well. The exception MUST be the debt counter
-`RUNTIME_ENTRY_POINTS`, declared under ADR-0158: every entry MUST still be reached from outside the store, and its size
-MUST equal its key in `config/debt-counter-ratchets.properties`, so that it only shrinks.
+compile-time constant read across the boundary is refused as well.
 
 #### Scenario: A transport adapter uses the transaction runner
 
@@ -50,10 +48,20 @@ MUST equal its key in `config/debt-counter-ratchets.properties`, so that it only
   `morpheus-api` and `morpheus-cli` on `SqliteServerMaintenance`
 - **THEN** the rule passes
 
+### Requirement: The named entry points of the runtime SHALL be a debt counter that only shrinks
+
+The two named classes MUST be the debt counter `RUNTIME_ENTRY_POINTS`, declared under ADR-0158: every entry MUST still
+be reached from outside the store, and its size MUST equal its key in `config/debt-counter-ratchets.properties`.
+
 #### Scenario: An entry point is no longer used
 
 - **WHEN** no class outside the store depends on one of the two named classes any more
 - **THEN** the architecture suite fails until the entry leaves `RUNTIME_ENTRY_POINTS` and its ratchet is lowered
+
+#### Scenario: An entry point is added
+
+- **WHEN** a third runtime class is added to `RUNTIME_ENTRY_POINTS` without raising its key
+- **THEN** the architecture suite fails because the list is longer than its ratchet allows
 
 ### Requirement: The public types of the runtime package SHALL only shrink
 
