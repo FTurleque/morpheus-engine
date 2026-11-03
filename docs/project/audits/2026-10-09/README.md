@@ -8,6 +8,13 @@
 
 ---
 
+## Clôtures du 3 novembre 2026 — les onze constats moyens du sprint 15
+
+Les onze constats `Moyenne` encore ouverts du sprint 15 (`AUD-DEP-25`, `AUD-DEP-27`, `AUD-DEP-28`, `AUD-PRF-19`,
+`AUD-QUA-17`, `AUD-SEC-17`, `AUD-SEC-18`, `AUD-ARC-16`, `AUD-TRV-08`, `AUD-TST-22`, `AUD-TST-23`) ont été traités sur la
+branche `chore/sprint-15-medium`, sans toucher aux statuts : ce qui a été fait, la preuve et ce qui reste sont dans
+**`closures-2026-11-03.md`**. La revérification suivante dira si le code les confirme.
+
 ## État au 30 octobre 2026 — sprints 12 et 13
 
 Sur `11d1c30a` (branche `claude/sprint-12-final-aed805`), `AUD-TRV-03` passe de *toujours valide* à **partiel** :
