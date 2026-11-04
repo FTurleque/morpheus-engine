@@ -69,6 +69,7 @@ done by the pull request that introduces this change.
       *2026-10-30: same run: both coverage scales and the changed-line gate green on Linux and Windows.*
 - [ ] 4.3 The real-peer compatibility scripts under `distribution/`, on both platforms. Proof: MINOS and NEXUS start
       with the default launcher and with a configured one, as before.
+      *2026-11-04, Windows only, image built by `distribution/build-portable.ps1 -Version 1.2.2`: `test-nexus-compatibility.ps1` PASS with the default launcher (embedded runtime) and with an absolute Java 21 launcher; `test-minos-compatibility.ps1` PASS with an absolute Java 25 launcher (the local MINOS JAR is class version 69, so Java 24 is refused). **Not proved**: MINOS with the default launcher (the embedded Java 21 cannot run that JAR: `cannot start or initialize MINOS MCP server`), and any run on Linux (both scripts are PowerShell and drive `morpheus.exe`; no `.sh` counterpart exists under `distribution/`). The task stays open.*
 - [x] 4.4 `.claude/rules/security.md`, section on external MCP processes: the launcher invariant named on the resolver
       instead of on the two constructors. `SECURITY.md` unchanged unless 3.3 changed a message it quotes. Proof: the
       diff.

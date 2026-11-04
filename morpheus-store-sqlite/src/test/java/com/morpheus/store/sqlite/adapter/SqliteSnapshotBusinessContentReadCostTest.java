@@ -101,6 +101,33 @@ class SqliteSnapshotBusinessContentReadCostTest {
     }
 
     /**
+     * A child row whose owner is not a parent of the snapshot is read and never used: the content read back is the one
+     * that was stored. The row can only exist with foreign keys off, so it is written on a connection of its own.
+     */
+    @Test
+    void aChildRowWithoutAParentIsReadAndNeverUsed() throws Exception {
+        Path database = tempDir.resolve("orphan.db");
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+        SnapshotBusinessContent stored = content(projectId, 3);
+        store(database, projectId, stored);
+        String orphanOwner = ChangeId.generate().toString();
+
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath());
+             var statement = connection.createStatement()) {
+            statement.execute("PRAGMA foreign_keys = OFF");
+            statement.execute("INSERT INTO snapshot_change_scope (snapshot_id, change_id, ordinal, value) VALUES ('"
+                    + stored.snapshotId() + "', '" + orphanOwner + "', 0, 'scope of nobody')");
+            try (var count = statement.executeQuery("SELECT COUNT(*) FROM snapshot_change_scope WHERE snapshot_id = '"
+                    + stored.snapshotId() + "' AND change_id = '" + orphanOwner + "'")) {
+                assertTrue(count.next() && count.getInt(1) == 1, "the child row without a parent is in the table");
+            }
+        }
+
+        assertEquals(stored, read(database, stored.snapshotId()).content(),
+                "a value whose owner is not a parent of the snapshot changes nothing of what is read");
+    }
+
+    /**
      * Each of the seven grouped reads is served by the primary key of its table, in order, without a sort: the key
      * is (snapshot, owner, ordinal), which is exactly what the read asks for.
      */
