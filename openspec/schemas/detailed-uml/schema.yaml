@@ -1,0 +1,245 @@
+name: detailed-uml
+version: 1
+description: Spécifications détaillées en français - proposal → specs → design → tasks, avec diagrammes et traçabilité
+artifacts:
+  - id: proposal
+    generates: proposal.md
+    description: Proposition qui établit pourquoi le changement est nécessaire et ce qu'il touche
+    template: proposal.md
+    instruction: |
+      Rédige la proposition en français. Elle établit POURQUOI le changement
+      est nécessaire et CE QU'IL touche ; le COMMENT appartient à design.md.
+
+      Marqueurs imposés par OpenSpec, à garder tels quels : les titres
+      `## Why` et `## What Changes` (l'archivage les exige), et la section
+      `## Capabilities` avec ses deux sous-titres `### New Capabilities` et
+      `### Modified Capabilities`. Les autres titres du modèle sont libres.
+
+      Contenu attendu :
+      - **Why** : le problème ou l'opportunité, l'état constaté qui le prouve
+        (fichier, test, mesure, audit daté) et pourquoi maintenant.
+      - **What Changes** : liste précise des ajouts, modifications et retraits.
+        Marque une rupture par **BREAKING**.
+      - **Capabilities** : chaque capacité nouvelle devient
+        `specs/<capability-path>/spec.md` ; chaque capacité modifiée reprend le
+        chemin exact existant sous `openspec/specs/`. Nomme une capacité pour un
+        comportement durable du système, jamais pour le travail du changement.
+        En kebab-case, sans nouveau niveau de dossier (le projet est à plat).
+      - **Périmètre et exclusions**, **Acteurs**, **Nature des informations**,
+        **Impact** et **Questions ouvertes** : voir le modèle.
+
+      Avant de remplir Capabilities, recherche l'existant :
+      `openspec list --specs`, puis
+      `openspec show "<spec-id>" --type spec --json --no-scenarios` pour les
+      capacités proches, puis la lecture complète des plus pertinentes avec
+      `openspec show "<spec-id>" --type spec`. Réutilise un chemin existant
+      plutôt que d'en créer un quasi-doublon.
+
+      Un changement déclare au moins une capacité, ou pose
+      `skip_specs: true` dans son `.openspec.yaml` quand aucun comportement
+      spécifié ne change (refactorisation, outillage, documentation). N'invente
+      jamais une exigence pour satisfaire la validation.
+
+      Qualifie chaque affirmation : exigence, existant vérifié (avec sa preuve),
+      décision, proposition à valider ou question ouverte. Le code prouve
+      l'implémentation, pas l'intention métier. N'invente ni seuil, ni règle
+      métier, ni performance : un chiffre cite sa source vivante, sinon il
+      devient une question ouverte.
+
+      Vise la précision : une à deux pages suffisent le plus souvent. Les
+      détails de comportement vont dans les specs, les détails techniques dans
+      design.md.
+    requires: []
+
+  - id: specs
+    generates: "specs/**/*.md"
+    description: Spécifications delta des capacités, exigences atomiques et scénarios vérifiables
+    template: spec.md
+    instruction: |
+      Rédige les specs delta en français. Une spec est un contrat de
+      comportement observable, pas un plan d'implémentation.
+
+      Contenu à couvrir pour chaque capacité, selon ce qui s'applique :
+      acteurs et déclencheurs, préconditions, entrées et validations, sorties,
+      règles métier, droits et restrictions, effets de bord observables et
+      effets persistés (ou leur absence), erreurs et cas limites, exigences de
+      qualité mesurables quand une source les fixe. Ne force pas une rubrique
+      sans objet : sélectionne les scénarios qui couvrent les risques réels.
+
+      Noms internes : une classe ou une méthode n'apparaît dans une spec que si
+      ce nom est lui-même observable (fichier de contrat, en-tête HTTP, code ou
+      message de refus, option CLI, outil MCP, clé de configuration, verdict de
+      build qui le nomme). Le reste va dans design.md.
+
+      Un fichier par capacité listée dans la proposition, au chemin exact
+      `specs/<capability-path>/spec.md`. Écris les fichiers un par un, en
+      annonçant en une ligne la capacité traitée ; commence par la première
+      capacité sans fichier et ne réécris pas un fichier existant sans demande.
+      Au moins un fichier est exigé sauf `skip_specs: true`.
+
+      Marqueurs imposés par OpenSpec, à garder en anglais :
+      - sections de delta `## ADDED Requirements`, `## MODIFIED Requirements`,
+        `## REMOVED Requirements` (avec `**Reason**` et `**Migration**`),
+        `## RENAMED Requirements` (format `FROM:` / `TO:`) ;
+      - `### Requirement: <titre>` puis la description ;
+      - `#### Scenario: <titre>`, exactement quatre `#` ;
+      - étapes `- **GIVEN**`, `- **WHEN**`, `- **THEN**`, `- **AND**`. Chaque
+        scénario a un WHEN (ou GIVEN) et un THEN, sinon `--strict` échoue ;
+      - la description d'une exigence contient `SHALL` ou `MUST`. Convention
+        du projet : « DOIT (MUST) », « NE DOIT PAS (MUST NOT) ».
+
+      Aucune autre section `##` dans un delta : l'archivage ne la reporte pas
+      et `openspec validate --strict` échoue. Les diagrammes, annexes et notes
+      vont dans design.md ou dans la documentation durable de la capacité.
+
+      Exigences atomiques : une exigence, un comportement. Description de 500
+      caractères au plus (sinon `--strict` échoue) ; exemples et cas limites
+      vont dans les scénarios. Titre d'exigence : une phrase descriptive
+      stable, c'est la clé de synchronisation. Ne renomme jamais un titre
+      existant hors d'une section RENAMED.
+
+      Scénario : GIVEN la situation initiale, WHEN l'action ou l'événement,
+      THEN le résultat observable, AND les effets persistés ou leur absence et
+      l'erreur attendue (code, message ou état nommé) quand il y en a une.
+
+      Liens dans un delta : écris-les depuis la racine du dépôt
+      (`/docs/...`). L'archivage recopie le texte dans `openspec/specs/`, où un
+      lien relatif écrit depuis le changement ne résout plus.
+
+      Capacité nouvelle uniquement : la première section est `## Purpose`, une
+      à deux phrases d'au moins 50 caractères, qui renvoie à la page durable
+      `/docs/developer/specifications/<capability-path>.md`. Pas de
+      `## Purpose` dans le delta d'une capacité existante : pour changer son
+      objet, édite directement `<planningHome.root>/openspec/specs/<capability-path>/spec.md`
+      (`planningHome.root` vient de `openspec instructions ... --json`).
+
+      MODIFIED : copie le bloc ENTIER depuis la spec principale (de
+      `### Requirement:` à son dernier scénario), titre identique, puis édite.
+      Un MODIFIED partiel perd du contenu à l'archivage. Ne découpe, ne
+      raccourcis et ne traduis jamais un texte existant pour respecter une
+      limite. Pour ajouter un comportement sans changer l'existant, utilise
+      ADDED.
+
+      Ne réécris pas une exigence pour la rendre conforme au code : un écart
+      entre code, tests et spec se signale dans design.md (rubrique Écarts
+      constatés). Un comportement futur ne se décrit jamais comme disponible.
+    requires:
+      - proposal
+
+  - id: design
+    generates: design.md
+    description: Conception technique proportionnée, reliée aux exigences, avec diagrammes et stratégie de vérification
+    template: design.md
+    instruction: |
+      Rédige la conception en français. Elle explique COMMENT satisfaire les
+      exigences des specs du changement, et le relie à l'architecture réelle.
+
+      design.md est toujours produit, à la mesure du changement :
+      - évolution fonctionnelle, transverse, de sécurité, de persistance, de
+        surface publique ou d'architecture : conception complète, en ne gardant
+        que les rubriques du modèle qui s'appliquent ;
+      - changement purement documentaire, d'outillage ou local à une classe :
+        conception allégée. Garde Contexte, Exigences couvertes, Décisions,
+        Stratégie de vérification, et remplace chaque rubrique sans objet par
+        une ligne « Sans objet : <raison> ».
+
+      Règles :
+      - Ne répète ni la proposition ni les specs : renvoie à elles. Chaque
+        décision cite l'exigence qu'elle sert (`<capability-path>` et titre
+        exact de l'exigence).
+      - Qualifie chaque affirmation : existant vérifié (avec chemin de fichier,
+        test ou commande), décision, proposition à valider, question ouverte.
+      - Composants : noms réels des modules, paquets, classes et fichiers. Pas
+        de REST imposé là où la surface est une CLI, un outil MCP ou une
+        bibliothèque.
+      - Contrats d'interface : renvoie au contrat exécutable existant
+        (`docs/developer/reference/openapi/*.yaml`, `contracts/public-surfaces.tsv`)
+        au lieu d'en écrire une copie. Pour une API, précise opération et
+        chemin, authentification et rôle, champs et bornes, exemples, erreurs
+        et codes, pagination et tri, compatibilité et idempotence.
+      - Décisions : chaque décision donne les alternatives écartées et la
+        raison. Une décision qui passe le filtre de `.claude/rules/adr.md`
+        (décision durable, portée large, retour arrière coûteux) appelle un
+        ADR : nomme l'ADR existant qui la couvre, ou signale « ADR à proposer »
+        sans le déclarer accepté.
+      - Performance : un budget ou un seuil cite sa source ; sinon, décris la
+        stratégie de mesure et laisse le chiffre en question ouverte.
+      - Écarts constatés : toute divergence entre code, tests, specs et
+        documentation, sans la résoudre en silence.
+      - Questions ouvertes : seulement ce qui peut attendre sans changer les
+        specs, l'approche ou les tâches. Le reste se tranche avec l'utilisateur
+        avant d'écrire les tâches.
+
+      Diagrammes Mermaid (GitHub les rend) : chacun répond à une question
+      écrite juste au-dessus, utilise les noms réels, distingue l'existant de
+      la cible, est suivi d'une explication et cite les exigences concernées.
+      Choisis selon la question : `classDiagram` (modèle, relations,
+      cardinalités), `sequenceDiagram` (interactions, avec `alt` pour les
+      erreurs), `stateDiagram-v2` (cycle de vie), `flowchart` (processus,
+      décisions ; ce n'est pas de l'UML), `erDiagram` (persistance ; modèle
+      entité-relation, pas de l'UML), vue de composants ou C4 (frontières).
+      N'appelle UML que les diagrammes UML. Découpe un diagramme illisible.
+      Aucun diagramme décoratif : un changement trivial peut n'en avoir aucun,
+      une capacité non triviale a au moins une vue comportementale.
+
+      Liens : relatifs depuis le changement, ou depuis la racine (`/docs/...`)
+      pour un texte destiné à être recopié dans la documentation durable. Une
+      page durable cite un changement actif par son nom en code, jamais par un
+      lien : l'archivage déplace le dossier du changement.
+    requires:
+      - proposal
+      - specs
+
+  - id: tasks
+    generates: tasks.md
+    description: Liste de tâches traçables, chacune reliée à une exigence et à sa preuve
+    template: tasks.md
+    instruction: |
+      Rédige la liste de tâches en français, à partir des specs (ce qui est
+      construit) et de design.md (comment).
+
+      Avant d'écrire, relis les Questions ouvertes de design.md : si l'une
+      change ce qui sera construit, tranche-la avec l'utilisateur ; n'inscris
+      pas une hypothèse non dite dans les tâches.
+
+      Format suivi par la phase apply, à respecter :
+      - groupes sous des titres `## <n>. <nom>` ;
+      - chaque tâche suivie est une case `- [ ] X.Y <description>` ; seule une
+        case contenant `x` compte comme faite ;
+      - une ligne sans case n'est pas suivie.
+
+      Chaque tâche :
+      - est réalisable en une session et ordonnée par dépendance ;
+      - nomme l'exigence servie (`<capability-path>` › titre exact) ;
+      - dit comment vérifier qu'elle est faite : test nommé (existant ou à
+        écrire, et dit lequel), commande, comportement observable ou artefact
+        livré. Un test à écrire est annoncé comme tel, jamais comme existant.
+
+      Chaque groupe livre les tests et la documentation que son propre travail
+      exige, y compris la mise à jour des diagrammes et de la documentation
+      durable concernée (`docs/developer/specifications/`, `docs/architecture/arc42/`,
+      pages développeur ou utilisateur). Ne repousse pas tests et documentation
+      dans un dernier groupe. La synchronisation des specs ne met à jour ni
+      design.md ni la documentation durable : prévois-le explicitement.
+
+      Le dernier groupe, « Vérification d'ensemble », ne contient que des
+      contrôles transverses : `openspec validate <change> --strict`, la
+      matrice de traçabilité exigence → scénario → conception ou diagramme →
+      tâche → test ou preuve, et les gates du dépôt concernés.
+
+      L'archivage et ce qui en dépend restent des puces simples, sans case,
+      dans une section finale `## Workflow follow-up`. Ne demande jamais
+      d'archiver automatiquement.
+    requires:
+      - specs
+      - design
+
+apply:
+  requires: [tasks]
+  tracks: tasks.md
+  instruction: |
+    Lis la proposition, les specs, design.md et tasks.md, puis traite les tâches
+    en attente dans l'ordre, en cochant chacune une fois sa vérification faite.
+    Mets à jour les diagrammes et la documentation durable en même temps que le
+    code qu'ils décrivent. Arrête-toi et demande en cas de blocage, d'écart entre
+    une exigence et le code, ou de décision métier manquante.

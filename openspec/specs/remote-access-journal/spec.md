@@ -3,6 +3,8 @@
 ## Purpose
 Define the record the remote server keeps of who was authorized to do what.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/remote-access-journal.md](../../../docs/developer/specifications/remote-access-journal.md).
+
 ## Requirements
 
 ### Requirement: Every authorized remote request SHALL leave a record that attributes it

@@ -4,6 +4,8 @@
 Define what an MCP client receives when a MORPHEUS tool cannot complete, and the bound on how long a tool call can
 last before MORPHEUS answers it.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/mcp-tool-failure-contract.md](../../../docs/developer/specifications/mcp-tool-failure-contract.md).
+
 ## Requirements
 
 ### Requirement: Tool failures are tool results

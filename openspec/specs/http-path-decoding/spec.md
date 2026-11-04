@@ -4,6 +4,8 @@
 Define how the HTTP adapter turns a request path into segments: decoded exactly once, by one function, and identically
 for the code that authorizes a request and the code that routes it.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/http-path-decoding.md](../../../docs/developer/specifications/http-path-decoding.md).
+
 ## Requirements
 
 ### Requirement: A path segment SHALL be percent-decoded exactly once and `+` SHALL stay `+`

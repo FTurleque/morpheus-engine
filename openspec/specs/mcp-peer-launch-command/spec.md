@@ -4,6 +4,8 @@
 Define which executable starts an MCP peer and what a configured launcher must be to be accepted, so that the launch
 never depends on the search path of the MORPHEUS process.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/mcp-peer-launch-command.md](../../../docs/developer/specifications/mcp-peer-launch-command.md).
+
 ## Requirements
 
 ### Requirement: Without a configured launcher, a peer SHALL be started with the runtime MORPHEUS runs on

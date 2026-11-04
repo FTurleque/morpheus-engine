@@ -5,6 +5,8 @@
 Define where the behaviour of a CLI command and of an MCP tool lives, what the class that dispatches to it may hold,
 and what an extraction from a dispatcher must leave unchanged.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/adapter-capability-decomposition.md](../../../docs/developer/specifications/adapter-capability-decomposition.md).
+
 ## Requirements
 
 ### Requirement: A CLI command and an MCP tool SHALL be served by a capability class, and a dispatch class SHALL hold no use case

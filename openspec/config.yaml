@@ -1,32 +1,37 @@
-schema: spec-driven
+schema: detailed-uml
 
-# Project context (optional)
-# Add only constraints that should guide OpenSpec artifacts and workflows.
-# Include constraints an agent cannot infer by reading the code.
-# Keep general project documentation and discoverable codebase facts out.
-# Example:
-#   context: |
-#     Designs and tasks must cover Windows, macOS, and Linux
-#     Write all artifacts in Spanish
+# Contraintes non déductibles du code. Les structures détaillées vivent dans les
+# modèles de openspec/schemas/detailed-uml/ ; le mode d'emploi dans
+# docs/developer/OPENSPEC_SCHEMA.md.
+context: |
+  Rédiger tous les artefacts en français ; garder en anglais les marqueurs OpenSpec
+  (titres de section imposés, Requirement, Scenario, GIVEN/WHEN/THEN/AND, SHALL/MUST).
+  MORPHEUS : Java 21, Maven multi-module, sans framework, hexagonal (application définit les ports,
+  les adaptateurs sont frères). Les règles sont exécutables : lire le test d'architecture concerné
+  avant toute affirmation structurelle.
+  Ne jamais recopier un chiffre périssable (couverture, nombre de tests, d'ADR, version, schéma SQLite) :
+  citer sa source vivante (.claude/skills/live-numbers).
+  Une surface publique qui bouge entraîne dans le même changement contracts/public-surfaces.tsv
+  et l'OpenAPI borné (.claude/rules/governance.md).
+  Une décision durable, transverse et coûteuse à inverser relève d'un ADR (.claude/rules/adr.md) ; les autres n'en ont pas.
+  Ranger toute page de docs/ selon .claude/rules/documentation.md. Diagrammes en Mermaid.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always state what is out of scope
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+rules:
+  proposal:
+    - Citer la preuve de l'état constaté (fichier, test, audit daté) ; aucun seuil inventé.
+  specs:
+    - Une exigence, un comportement ; chaque scénario dit l'effet persisté ou son absence, et l'erreur attendue s'il y en a une.
+    - Ne pas réécrire une exigence pour la rendre conforme au code ; signaler l'écart dans design.md.
+  design:
+    - Chaque décision cite l'exigence qu'elle sert et ses alternatives écartées.
+    - Chaque diagramme répond à une question écrite et distingue l'existant de la cible.
+  tasks:
+    - Chaque tâche nomme son exigence et sa preuve ; mettre à jour la page docs/developer/specifications/ de chaque capacité touchée.
 
-# Per-operation guidance (optional)
-# Add advisory guidance for how apply and archive work should be conducted.
-# This is separate from artifact rules above.
-# Example:
-#   operations:
-#     apply:
-#       guidance:
-#         - Keep test summaries concise
-#     archive:
-#       guidance:
-#         - Summarize the archive outcome before finishing
+operations:
+  apply:
+    guidance:
+      - Écrire le test de reproduction avant le correctif ; ne jamais affaiblir un gate ni baisser un ratchet.
+  archive:
+    guidance:
+      - N'archiver que sur demande explicite, une fois la page durable et ses diagrammes conformes au comportement livré.

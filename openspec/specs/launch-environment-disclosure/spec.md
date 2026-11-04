@@ -4,6 +4,8 @@
 Define that every environment variable the product reads is documented where an operator looks for it, with its
 precedence where another source can set the same value, and that the build refuses a variable that is not documented.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/launch-environment-disclosure.md](../../../docs/developer/specifications/launch-environment-disclosure.md).
+
 ## Requirements
 
 ### Requirement: Every MORPHEUS environment variable the product mentions SHALL be named in the operator documentation

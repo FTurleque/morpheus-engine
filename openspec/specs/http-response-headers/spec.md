@@ -4,6 +4,8 @@
 Define which security headers every HTTP response of MORPHEUS carries, on the local server and on the remote facade,
 whatever code path wrote the response.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/http-response-headers.md](../../../docs/developer/specifications/http-response-headers.md).
+
 ## Requirements
 
 ### Requirement: Every response of the local server SHALL carry the same security headers
