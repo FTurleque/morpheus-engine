@@ -38,8 +38,7 @@ texte, puisque les cibles sont du Markdown et un POM.
   rapportée `<page>:<ligne> omits <module>, which the root POM declares`, chaque nom inconnu `names <module>, which the
   root POM does not declare`. Une liste qui en nomme la moitié ou moins n'est pas concernée. Si aucune page ne liste le
   reactor, la règle échoue (`no page lists the reactor`).
-- **R2** : tout motif « nombre + module(s) / projet(s) / project(s) / POM(s) » (par exemple `17 modules`, `14/14
-  modules`) sur une page courante est rapporté `<page>:<ligne> "<expression>"`. Si l'ensemble de pages est vide, la règle
+- **R2** : tout motif « nombre + module(s) / projet(s) / project(s) / POM(s) » (un entier suivi du mot « modules », ou deux entiers séparés d'une barre oblique et suivis du même mot) sur une page courante est rapporté `<page>:<ligne> "<expression>"`. Si l'ensemble de pages est vide, la règle
   échoue (`no current page`).
 - **Relevé daté** : une section (découpée aux titres de niveau 1 et 2, hors blocs de code) qui contient une date
   (`JJ/MM/AAAA` ou `AAAA-MM-JJ`) ou un commit (7 à 40 caractères hexadécimaux avec au moins un chiffre et une lettre)
