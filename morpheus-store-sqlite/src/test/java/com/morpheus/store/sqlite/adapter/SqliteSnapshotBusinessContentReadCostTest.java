@@ -112,14 +112,23 @@ class SqliteSnapshotBusinessContentReadCostTest {
         store(database, projectId, stored);
         String orphanOwner = ChangeId.generate().toString();
 
-        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath());
-             var statement = connection.createStatement()) {
-            statement.execute("PRAGMA foreign_keys = OFF");
-            statement.execute("INSERT INTO snapshot_change_scope (snapshot_id, change_id, ordinal, value) VALUES ('"
-                    + stored.snapshotId() + "', '" + orphanOwner + "', 0, 'scope of nobody')");
-            try (var count = statement.executeQuery("SELECT COUNT(*) FROM snapshot_change_scope WHERE snapshot_id = '"
-                    + stored.snapshotId() + "' AND change_id = '" + orphanOwner + "'")) {
-                assertTrue(count.next() && count.getInt(1) == 1, "the child row without a parent is in the table");
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath())) {
+            try (var pragma = connection.createStatement()) {
+                pragma.execute("PRAGMA foreign_keys = OFF");
+            }
+            try (var insert = connection.prepareStatement("INSERT INTO snapshot_change_scope "
+                    + "(snapshot_id, change_id, ordinal, value) VALUES (?, ?, 0, 'scope of nobody')")) {
+                insert.setString(1, stored.snapshotId().toString());
+                insert.setString(2, orphanOwner);
+                insert.executeUpdate();
+            }
+            try (var count = connection.prepareStatement(
+                    "SELECT COUNT(*) FROM snapshot_change_scope WHERE snapshot_id = ? AND change_id = ?")) {
+                count.setString(1, stored.snapshotId().toString());
+                count.setString(2, orphanOwner);
+                try (var result = count.executeQuery()) {
+                    assertTrue(result.next() && result.getInt(1) == 1, "the child row without a parent is in the table");
+                }
             }
         }
 
