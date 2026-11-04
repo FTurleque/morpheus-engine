@@ -234,6 +234,11 @@ Architecture et décisions (dans `docs/architecture/`) :
 - [Registre des ADR](../architecture/adr/README.md) — [gabarit](../architecture/adr/gabarit/template.md)
 - [Archgate](ARCHGATE.md) — lecture du registre d'ADR et règles TypeScript rattachées, hors CI
 
+Spécifications :
+
+- [Schéma OpenSpec `detailed-uml`](OPENSPEC_SCHEMA.md) — produire, valider et maintenir une spécification, comparer le schéma au schéma officiel
+- [Spécifications consolidées par capacité](specifications/README.md) — vue durable des specs OpenSpec : comportement, diagrammes, traçabilité jusqu'aux tests
+
 Plateformes et surfaces :
 
 - [Provider SDK](PROVIDER_SDK.md) · [Provider OpenSpec — règles de lecture](OPENSPEC_PROVIDER.md)

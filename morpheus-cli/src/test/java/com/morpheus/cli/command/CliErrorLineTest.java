@@ -38,13 +38,36 @@ class CliErrorLineTest {
     }
 
     @Test
-    void aReportWritesTheTextLineOfTheFailureAndAnswersItsExitCode() {
+    void aRefusalIsTheTextLineUnlessTheInvocationAsksForJson() {
         int[] code = new int[1];
 
-        String line = written(err -> code[0] = CliErrorLine.report(err, CliExitCode.STATE_ERROR, new IllegalStateException()));
+        String text = written(err -> code[0] = CliErrorLine.refuse(
+                new String[] {"server", "restore"}, err, CliExitCode.STATE_ERROR, new IllegalStateException("busy")));
+        String json = written(err -> CliErrorLine.refuse(
+                new String[] {"--json", "server", "restore"}, err, CliExitCode.STATE_ERROR, new IllegalStateException()));
 
-        assertEquals("MORPHEUS error [4]: IllegalStateException" + System.lineSeparator(), line);
+        assertEquals("MORPHEUS error [4]: busy" + System.lineSeparator(), text);
         assertEquals(CliExitCode.STATE_ERROR.code(), code[0]);
+        assertEquals("{\"exitCode\":4,\"code\":\"STATE_ERROR\",\"message\":\"IllegalStateException\"}"
+                + System.lineSeparator(), json);
+    }
+
+    @Test
+    void aCommandRefusalWithoutAMessageIsWordedByItsTypeName(@org.junit.jupiter.api.io.TempDir java.nio.file.Path data) {
+        int[] code = new int[1];
+
+        String line = written(err -> code[0] = CliCommandRun.run(
+                new String[] {"--data-dir", data.toString(), "anything"},
+                new PrintStream(new ByteArrayOutputStream(), true, StandardCharsets.UTF_8),
+                err,
+                java.util.Map.of(),
+                new java.util.Properties(),
+                (tokens, run) -> {
+                    throw CliFailure.usage(null);
+                }));
+
+        assertEquals("MORPHEUS error [2]: CliFailure" + System.lineSeparator(), line);
+        assertEquals(CliExitCode.USAGE.code(), code[0]);
     }
 
     private static String written(java.util.function.Consumer<PrintStream> writer) {

@@ -84,17 +84,13 @@ public final class MorpheusServerCli {
                     "server command must be identity create|list|revoke|rotate|role|migrate-legacy, "
                             + "backup create, backup verify, or restore");
         } catch (EntityNotFoundException failure) {
-            err.println("MORPHEUS server error: " + CliErrorLine.failureText(failure));
-            return CliExitCode.NOT_FOUND.code();
+            return CliErrorLine.refuse(args, err, CliExitCode.NOT_FOUND, failure);
         } catch (EntityStateException failure) {
-            err.println("MORPHEUS server error: " + CliErrorLine.failureText(failure));
-            return CliExitCode.STATE_ERROR.code();
+            return CliErrorLine.refuse(args, err, CliExitCode.STATE_ERROR, failure);
         } catch (IllegalArgumentException failure) {
-            err.println("MORPHEUS server usage error: " + CliErrorLine.failureText(failure));
-            return CliExitCode.USAGE.code();
+            return CliErrorLine.refuse(args, err, CliExitCode.USAGE, failure);
         } catch (RuntimeException failure) {
-            err.println("MORPHEUS server error: " + CliErrorLine.failureText(failure));
-            return CliExitCode.INTERNAL_ERROR.code();
+            return CliErrorLine.refuse(args, err, CliExitCode.INTERNAL_ERROR, failure);
         }
     }
 

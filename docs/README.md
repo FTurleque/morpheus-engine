@@ -50,6 +50,7 @@ Les distributions Windows/Linux embarquent leur runtime Java.
 | HTTP / MCP / cross-engine | [API](developer/API.md) · [MCP](developer/MCP.md) · [Intégrations](developer/INTEGRATIONS.md) |
 | sous-plateformes | [Portfolio](developer/PORTFOLIO_INTELLIGENCE.md) · [Query](developer/QUERY_PLATFORM.md) · [Policy](developer/POLICY_PLATFORM.md) · [Remote](developer/REMOTE_SERVER_PLATFORM.md) · [Reasoning](developer/ASSISTED_REASONING.md) |
 | observabilité, version, intégrité de production | [Operability](developer/OPERABILITY.md) · [Version produit](developer/PRODUCT_VERSION.md) · [Production integrity](developer/PRODUCTION_INTEGRITY.md) |
+| rédiger ou lire une spécification | [Schéma OpenSpec](developer/OPENSPEC_SCHEMA.md) · [Spécifications par capacité](developer/specifications/README.md) |
 
 Les seuils de qualité actifs (tests, couverture, gates) sont énoncés dans le [guide développeur](developer/README.md) et [Build, tests et validation](developer/BUILD_AND_TEST.md) ; leur source normative est `config/m21-quality-ratchets.properties`.
 

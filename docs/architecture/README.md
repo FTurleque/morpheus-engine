@@ -73,6 +73,7 @@ c'est le seul registre d'ADR du dépôt, et il porte aussi leur [gabarit](adr/ga
 | Roadmap / validations | `docs/project/governance/`, `docs/project/roadmap/`, `docs/project/validation/` | État des milestones et preuves |
 | Contrats HTTP | `docs/developer/reference/openapi/` | Surface HTTP `/api/v1` |
 | Contrats de surfaces | `contracts/public-surfaces.tsv` | Convergence CLI / MCP / HTTP |
+| Spécifications | `openspec/specs/`, `docs/developer/specifications/` | Exigences en vigueur et leur vue consolidée par capacité |
 | Migrations SQLite | `morpheus-store-sqlite/src/main/resources/db/migration/` | Schéma persistant |
 | Tests d'architecture | `morpheus-architecture-tests/` | Invariants exécutables |
 | Pipelines | `.github/workflows/` | Qualification publique exact-head |

@@ -164,7 +164,7 @@ supprimé. Le répertoire et les fichiers ne sont lisibles que par le compte qui
 MORPHEUS du même compte peuvent écrire dans le même journal.
 
 Si le répertoire de logs ne peut pas être créé, n'est pas réservé à ce compte ou n'accepte pas l'écriture, MORPHEUS ne
-démarre pas : il affiche une ligne qui commence par `MORPHEUS error: OPERATIONAL_LOG_FILE_UNUSABLE` et sort avec le
+démarre pas : il affiche une ligne qui commence par `MORPHEUS error [5]: OPERATIONAL_LOG_FILE_UNUSABLE` et sort avec le
 code 5. Il n'écrit jamais le journal ailleurs à la place. Désigner un autre répertoire avec `MORPHEUS_LOGS_DIR`, ou
 choisir un autre mode.
 
@@ -173,7 +173,7 @@ modes ; ils ne figurent pas dans le fichier.
 
 La casse et les espaces autour de la valeur ne comptent pas. Toute autre valeur — `true`, `1`, une faute de frappe —
 est refusée : MORPHEUS ne démarre pas, affiche sur la sortie d'erreur une ligne qui commence par
-`MORPHEUS usage error: OPERATIONAL_LOG_MODE_UNKNOWN` avec les valeurs acceptées, et sort avec le code 2. Une valeur
+`MORPHEUS error [2]: OPERATIONAL_LOG_MODE_UNKNOWN` avec les valeurs acceptées, et sort avec le code 2. Une valeur
 inconnue n'est jamais remplacée par « aucun journal ».
 
 Quand le journal est actif, il contient aussi les avertissements et les erreurs des bibliothèques que MORPHEUS

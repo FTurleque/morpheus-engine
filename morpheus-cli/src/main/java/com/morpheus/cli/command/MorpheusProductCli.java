@@ -48,11 +48,9 @@ public final class MorpheusProductCli {
                 default -> throw new IllegalArgumentException("unknown product command: " + parsed.command());
             };
         } catch (IllegalArgumentException failure) {
-            err.println("MORPHEUS usage error: " + CliErrorLine.failureText(failure));
-            return CliExitCode.USAGE.code();
+            return CliErrorLine.refuse(args, err, CliExitCode.USAGE, failure);
         } catch (RuntimeException failure) {
-            err.println("MORPHEUS product-integrity error: " + CliErrorLine.failureText(failure));
-            return CliExitCode.STATE_ERROR.code();
+            return CliErrorLine.refuse(args, err, CliExitCode.STATE_ERROR, failure);
         }
     }
 

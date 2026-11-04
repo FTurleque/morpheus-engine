@@ -4,6 +4,8 @@
 Define how the product builds a string-keyed payload map from alternating keys and values, what a malformed
 construction answers, and what refuses a second builder.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/payload-map-construction.md](../../../docs/developer/specifications/payload-map-construction.md).
+
 ## Requirements
 
 ### Requirement: A malformed payload map construction SHALL be refused by name

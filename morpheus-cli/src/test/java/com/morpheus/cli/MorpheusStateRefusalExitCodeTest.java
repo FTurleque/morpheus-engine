@@ -37,7 +37,6 @@ class MorpheusStateRefusalExitCodeTest {
     private static final String RULES = "new|No findings|QUALITY_THRESHOLD|BLOCKER|FINDINGS|LTE|0";
     private static final String NOT_FOUND = "MORPHEUS error [3]: ";
     private static final String STATE = "MORPHEUS error [4]: ";
-    private static final String SERVER = "MORPHEUS server error: ";
 
     @TempDir
     Path temp;
@@ -135,7 +134,7 @@ class MorpheusStateRefusalExitCodeTest {
 
     @Test
     void aMissingAuthFileOrPrincipalIsNotFoundAndALockoutIsAStateRefusal() {
-        String missingFile = SERVER + "remote auth file does not exist";
+        String missingFile = NOT_FOUND + "remote auth file does not exist";
         assertRefused(CliExitCode.NOT_FOUND, missingFile, run("server", "identity", "list"));
         assertRefused(CliExitCode.NOT_FOUND, missingFile, run("server", "identity", "revoke", "--principal", "ghost"));
         assertRefused(CliExitCode.NOT_FOUND, missingFile,
@@ -144,16 +143,16 @@ class MorpheusStateRefusalExitCodeTest {
         assertEquals(CliExitCode.SUCCESS.code(),
                 run("server", "identity", "create", "--principal", "admin", "--role", "ADMIN").exitCode());
 
-        assertRefused(CliExitCode.NOT_FOUND, SERVER + "remote principal does not exist: ghost",
+        assertRefused(CliExitCode.NOT_FOUND, NOT_FOUND + "remote principal does not exist: ghost",
                 run("server", "identity", "rotate", "--principal", "ghost"));
-        assertRefused(CliExitCode.STATE_ERROR, SERVER + "remote principal already exists: admin",
+        assertRefused(CliExitCode.STATE_ERROR, STATE + "remote principal already exists: admin",
                 run("server", "identity", "create", "--principal", "admin", "--role", "READ"));
-        assertRefused(CliExitCode.STATE_ERROR, SERVER + "cannot revoke the last active ADMIN identity",
+        assertRefused(CliExitCode.STATE_ERROR, STATE + "cannot revoke the last active ADMIN identity",
                 run("server", "identity", "revoke", "--principal", "admin"));
-        assertRefused(CliExitCode.STATE_ERROR, SERVER + "cannot change the role of the last active ADMIN identity",
+        assertRefused(CliExitCode.STATE_ERROR, STATE + "cannot change the role of the last active ADMIN identity",
                 run("server", "identity", "role", "--principal", "admin", "--role", "READ"));
         assertRefused(CliExitCode.STATE_ERROR,
-                SERVER + "migration would leave no ADMIN identity active after 2099-01-01T00:00:00Z;"
+                STATE + "migration would leave no ADMIN identity active after 2099-01-01T00:00:00Z;"
                         + " give one administrator a later expiry or exclude it from the migration",
                 run("server", "identity", "migrate-legacy", "--expires-at", "2099-01-01T00:00:00Z"));
     }
@@ -166,7 +165,7 @@ class MorpheusStateRefusalExitCodeTest {
                 run("policy", "pack", "get", "--id", "not-an-id"));
         assertRefused(CliExitCode.USAGE, "MORPHEUS error [2]: exactly one of --project or --portfolio is required",
                 run("policy", "evaluate", "--id", id()));
-        assertRefused(CliExitCode.USAGE, "MORPHEUS server usage error: remote auth file must be a regular non-symbolic file",
+        assertRefused(CliExitCode.USAGE, "MORPHEUS error [2]: remote auth file must be a regular non-symbolic file",
                 run("server", "identity", "list", "--auth-file", directory.toString()));
     }
 

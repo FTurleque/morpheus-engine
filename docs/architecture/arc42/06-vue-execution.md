@@ -175,3 +175,12 @@ stale revision != overwrite
 idempotent retry != duplicate mutation
 transition evaluation != lifecycle mutation
 ```
+
+---
+
+## 6.6 Scénarios détaillés par capacité
+
+Les séquences et diagrammes d'états propres à une capacité spécifiée (par exemple l'authentification, l'autorisation
+et le journal d'accès de la façade distante) sont maintenus avec leur traçabilité dans
+[`docs/developer/specifications/`](../../developer/specifications/README.md), à côté de la spec OpenSpec qu'ils
+illustrent. Cette section garde les scénarios transverses.

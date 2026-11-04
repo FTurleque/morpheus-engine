@@ -42,11 +42,9 @@ public final class MorpheusProviderPluginCli {
                 default -> throw new IllegalArgumentException("unknown provider-plugins action: " + parsed.action());
             };
         } catch (IllegalArgumentException failure) {
-            err.println("MORPHEUS provider-plugin usage error: " + CliErrorLine.failureText(failure));
-            return CliExitCode.USAGE.code();
+            return CliErrorLine.refuse(args, err, CliExitCode.USAGE, failure);
         } catch (RuntimeException failure) {
-            err.println("MORPHEUS provider-plugin error: " + CliErrorLine.failureText(failure));
-            return CliExitCode.STATE_ERROR.code();
+            return CliErrorLine.refuse(args, err, CliExitCode.STATE_ERROR, failure);
         }
     }
 

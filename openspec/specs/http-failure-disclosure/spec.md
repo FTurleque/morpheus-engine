@@ -4,6 +4,8 @@
 Define what the text of a failure MORPHEUS did not author may tell an HTTP caller, on every router of the HTTP adapter,
 and how that stays true of a router added later.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/http-failure-disclosure.md](../../../docs/developer/specifications/http-failure-disclosure.md).
+
 ## Requirements
 
 ### Requirement: A router SHALL relay a failure message only through the boundary filter

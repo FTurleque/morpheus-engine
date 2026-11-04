@@ -3,14 +3,16 @@ package com.morpheus.cli.command;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 
 import java.io.PrintStream;
+import java.util.Arrays;
 import java.util.Optional;
 
 /**
  * The error line of the CLI, {@code MORPHEUS error [<code>]: <message>}, or its JSON form under {@code --json}, and the
  * text a failure contributes to it: its message, or the simple name of its type when the message is absent or blank.
  *
- * <p>The line is what a caller's script reads, so every sub-command writes it here. The commands that answer with a
- * prefix of their own ({@code MORPHEUS server usage error: ...}) take the failure's text from here too.</p>
+ * <p>The line is what a caller's script reads, so every command and every server launcher writes it here: the base
+ * frame of {@link CliCommandRun}, and the families that keep their own mapping of a failure to an exit code through
+ * {@link #refuse}. Only the exit code differs between them, never the line.</p>
  */
 public final class CliErrorLine {
     private static final CanonicalJsonSerializer JSON = new CanonicalJsonSerializer();
@@ -23,10 +25,18 @@ public final class CliErrorLine {
                 .orElse(failure.getClass().getSimpleName());
     }
 
-    /** Writes the line of {@code failure} in text and returns the exit code it answers. */
-    public static int report(PrintStream err, CliExitCode code, Throwable failure) {
-        write(err, false, code, failureText(failure));
+    /**
+     * Writes the line of a refused invocation, as a JSON object when {@code args} carries {@code --json}, and returns
+     * the exit code. The arguments are read raw because a refusal often comes before they are parsed.
+     */
+    public static int refuse(String[] args, PrintStream err, CliExitCode code, String message) {
+        write(err, Arrays.asList(args).contains("--json"), code, message);
         return code.code();
+    }
+
+    /** {@link #refuse(String[], PrintStream, CliExitCode, String)} with the text of {@code failure}. */
+    public static int refuse(String[] args, PrintStream err, CliExitCode code, Throwable failure) {
+        return refuse(args, err, code, failureText(failure));
     }
 
     public static void write(PrintStream err, boolean json, CliExitCode code, String message) {
