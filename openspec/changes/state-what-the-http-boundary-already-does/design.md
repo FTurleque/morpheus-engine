@@ -94,6 +94,17 @@ et la politique distante passent tous par lui est tenu par `HttpPathReadingArchi
 | Une écriture dont l'acceptation ne peut être consignée est refusée | Une écriture n'est pas servie sans son enregistrement | `RemoteAccessJournalHttpTest#whenTheJournalCannotBeWrittenAWriteIsRefusedByNameAndAReadIsStillServed` | existant |
 | idem | Une lecture reste servie | même test ; compteur : `RemoteAccessJournalTest#aRecordThatCannotBeWrittenIsCountedRefusesAWriteAndLetsAReadThrough` | existant |
 | Le serveur distant ne démarre pas sans son journal | Un répertoire inutilisable empêche le démarrage | `RemoteAccessJournalTest#aJournalThatCannotBeOpenedIsARefusalThatNamesNoLocation` (au niveau du journal) | existant ; le refus au démarrage du serveur entier n'a pas de test propre |
+| idem | Le câblage ouvre le journal à la construction du serveur | `RemoteAccessJournalArchitectureTest#theRemoteServerOpensItsJournalBesideTheIdentityFileWhenItIsConstructed` | nouveau (2026-11-04) |
+
+## Décision de la tâche 2.2 (2026-11-04)
+
+- `[DÉCISION]` Pas de test du refus au démarrage du serveur entier. Essayé : un répertoire à la place du fichier de
+  journal n'empêche pas l'ouverture (`RotatingOperationalLogFile.openFile` ne durcit que le répertoire et crée le
+  fichier s'il manque), donc `MorpheusRemoteHttpServer.start` aboutit ; l'autre échec possible exige un répertoire
+  refusé au durcissement, non reproductible portablement alors que le fichier d'identités vient d'y être lu.
+- `[DÉCISION]` Ajout à la place de `RemoteAccessJournalArchitectureTest#theRemoteServerOpensItsJournalBesideTheIdentityFileWhenItIsConstructed` :
+  l'ouverture est unique et se fait dans le constructeur du serveur distant, à côté du fichier d'identités. Prouvé par
+  casse : remplacer l'appel par un autre fait échouer le test.
 
 ## Documentation durable et diagrammes à mettre à jour
 
