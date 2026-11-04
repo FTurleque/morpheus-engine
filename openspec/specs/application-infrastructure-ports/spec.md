@@ -3,6 +3,8 @@
 ## Purpose
 Define how the application reaches a technology that the architecture record has taken out of it.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/application-infrastructure-ports.md](../../../docs/developer/specifications/application-infrastructure-ports.md).
+
 ## Requirements
 
 ### Requirement: A technology marked as leaving SHALL be reached through a port the application declares

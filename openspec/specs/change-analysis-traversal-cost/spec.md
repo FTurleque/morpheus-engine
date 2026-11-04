@@ -4,6 +4,8 @@
 
 Define what explaining the dependencies of a change costs, and that the explanation does not change.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/change-analysis-traversal-cost.md](../../../docs/developer/specifications/change-analysis-traversal-cost.md).
+
 ## Requirements
 
 ### Requirement: Explaining the dependencies of a change SHALL cost no more store reads than finding them

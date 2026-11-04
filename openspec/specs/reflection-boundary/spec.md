@@ -4,6 +4,8 @@
 Define where the product may use reflection, service loading and class loading, that no framework wires it, and that
 the repository rule describes exactly that.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/reflection-boundary.md](../../../docs/developer/specifications/reflection-boundary.md).
+
 ## Requirements
 
 ### Requirement: Reflection SHALL be used only by classes named for it

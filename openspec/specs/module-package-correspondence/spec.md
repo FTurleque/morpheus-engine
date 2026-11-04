@@ -4,6 +4,8 @@
 Define the package each module of the reactor owns, how the build holds module and package together, and where the
 shared MCP transport lives.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/module-package-correspondence.md](../../../docs/developer/specifications/module-package-correspondence.md).
+
 ## Requirements
 
 ### Requirement: Every module with production sources SHALL own one declared root package

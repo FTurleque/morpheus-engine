@@ -3,6 +3,8 @@
 ## Purpose
 Define what storing a batch of traceability links guarantees, on every store, and what it costs.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/traceability-link-batch-write.md](../../../docs/developer/specifications/traceability-link-batch-write.md).
+
 ## Requirements
 
 ### Requirement: A batch of links SHALL be stored entirely or not at all

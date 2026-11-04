@@ -4,6 +4,8 @@
 Define how the product turns a text into a digest or into a stable key, who is allowed to compute one, and what refuses
 a private copy.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/text-digest-and-key-derivation.md](../../../docs/developer/specifications/text-digest-and-key-derivation.md).
+
 ## Requirements
 
 ### Requirement: The digest of a text SHALL be computed in one place

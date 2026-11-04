@@ -4,6 +4,8 @@
 Define how a test finds the repository it runs in, who owns that decision in each test module, and what refuses a
 private copy.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/repository-root-location.md](../../../docs/developer/specifications/repository-root-location.md).
+
 ## Requirements
 
 ### Requirement: A test module SHALL locate the repository root through one owner

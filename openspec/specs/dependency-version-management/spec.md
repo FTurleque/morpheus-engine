@@ -4,6 +4,8 @@
 Define where the version of a dependency or of a build plugin is decided in the reactor, and how the build refuses a
 module that decides one.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/dependency-version-management.md](../../../docs/developer/specifications/dependency-version-management.md).
+
 ## Requirements
 
 ### Requirement: A module POM SHALL state no dependency or plugin version

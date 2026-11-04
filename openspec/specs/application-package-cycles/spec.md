@@ -3,6 +3,8 @@
 ## Purpose
 Define which dependencies between the packages of the application layer may lie on a cycle, and how that set changes.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/application-package-cycles.md](../../../docs/developer/specifications/application-package-cycles.md).
+
 ## Requirements
 
 ### Requirement: The dependencies that lie on a cycle between application packages SHALL be named

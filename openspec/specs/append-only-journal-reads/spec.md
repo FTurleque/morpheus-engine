@@ -4,6 +4,8 @@
 
 Define how a journal that only grows is read, by whom, and what the product keeps of it.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/append-only-journal-reads.md](../../../docs/developer/specifications/append-only-journal-reads.md).
+
 ## Requirements
 
 ### Requirement: The policy audit SHALL be read from the store one page at a time

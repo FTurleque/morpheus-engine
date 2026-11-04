@@ -4,6 +4,8 @@
 Define what a test asserts when it expects the product to refuse, and how the repository refuses a test that asserts
 only the type of the refusal.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/refusal-test-evidence.md](../../../docs/developer/specifications/refusal-test-evidence.md).
+
 ## Requirements
 
 ### Requirement: A test that expects a refusal typed by the JDK SHALL read the refusal it received

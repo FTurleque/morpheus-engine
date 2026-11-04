@@ -4,6 +4,8 @@
 Guarantee that a validator or a gate never renders PASS on a value that is older than its source of truth, or on a
 measurement that is older than the code it claims to measure, and that a refusal names which of its causes it hit.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/gate-verdict-currency.md](../../../docs/developer/specifications/gate-verdict-currency.md).
+
 ## Requirements
 
 ### Requirement: A validator SHALL read the presence ratchets from the living file and MUST NOT compare an observed count to a literal

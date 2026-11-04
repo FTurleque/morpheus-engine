@@ -4,6 +4,8 @@
 Define what a source scan refuses at the physical workspace boundary, what it may remember within one scan, and how
 much boundary work it may do for each entry it visits.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/workspace-boundary-scan-cost.md](../../../docs/developer/specifications/workspace-boundary-scan-cost.md).
+
 ## Requirements
 
 ### Requirement: A source scan SHALL refuse every path that leaves the workspace physically

@@ -3,6 +3,8 @@
 ## Purpose
 Define which decisions on a single domain value the domain model makes itself, and how the application is kept from restating them.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/domain-value-decisions.md](../../../docs/developer/specifications/domain-value-decisions.md).
+
 ## Requirements
 
 ### Requirement: The domain model SHALL decide a lifecycle transition

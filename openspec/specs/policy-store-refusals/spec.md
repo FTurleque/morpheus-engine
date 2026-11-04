@@ -4,6 +4,8 @@
 Define how a policy pack store refuses an invalid write — a missing row, a stale or skipped revision, a mismatched
 audit — so that the memory store and the SQLite store give the same refusal for the same write.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/policy-store-refusals.md](../../../docs/developer/specifications/policy-store-refusals.md).
+
 ## Requirements
 
 ### Requirement: Removing a missing row is refused as not found

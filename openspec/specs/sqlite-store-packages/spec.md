@@ -4,6 +4,8 @@
 Define the two packages of the SQLite store, which classes may reach its runtime, what its adapter package may
 contain, and which modules the store may depend on.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/sqlite-store-packages.md](../../../docs/developer/specifications/sqlite-store-packages.md).
+
 ## Requirements
 
 ### Requirement: The SQLite store SHALL be split into an adapter package and a runtime package

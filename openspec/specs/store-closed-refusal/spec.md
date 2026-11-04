@@ -4,6 +4,8 @@
 Define what a SQLite store does when it is used after being closed, so that every store refuses the same way and a
 caller can handle a closed store with one rule.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/store-closed-refusal.md](../../../docs/developer/specifications/store-closed-refusal.md).
+
 ## Requirements
 
 ### Requirement: A closed SQLite store refuses every operation as a storage failure

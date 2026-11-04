@@ -4,6 +4,8 @@
 Define that the repository ignores the files that hold credentials or key material for a MORPHEUS server, and that the
 build refuses such a file when it is tracked.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/repository-credential-hygiene.md](../../../docs/developer/specifications/repository-credential-hygiene.md).
+
 ## Requirements
 
 ### Requirement: The repository SHALL ignore identity files and key material by default

@@ -4,6 +4,8 @@
 Define how the build measures the coverage a module owes to tests that live in another module, where that measurement
 is recorded, and what keeps it from growing - without moving either coverage scale.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/coverage-attribution-gap.md](../../../docs/developer/specifications/coverage-attribution-gap.md).
+
 ## Requirements
 
 ### Requirement: The gap between the two coverage scales SHALL be measured as borrowed credit, per module

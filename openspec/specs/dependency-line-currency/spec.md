@@ -4,6 +4,8 @@
 Define that a dependency deliberately held on a release line still receives the patches of that line, and that the
 update bot is configured to propose those patches and not a change of line.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/dependency-line-currency.md](../../../docs/developer/specifications/dependency-line-currency.md).
+
 ## Requirements
 
 ### Requirement: Reactor SHALL be on a patched release of the line the MCP SDK is built on

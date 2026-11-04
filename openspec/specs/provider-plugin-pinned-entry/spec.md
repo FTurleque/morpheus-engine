@@ -4,6 +4,8 @@
 Define the entries through which third-party provider code is activated and probed, what they refuse, what they load,
 and how the build holds it.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/provider-plugin-pinned-entry.md](../../../docs/developer/specifications/provider-plugin-pinned-entry.md).
+
 ## Requirements
 
 ### Requirement: Provider plugin code SHALL be reachable only through the pinned probe

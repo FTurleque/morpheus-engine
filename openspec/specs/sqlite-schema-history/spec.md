@@ -4,6 +4,8 @@
 Define how the SQLite knowledge store identifies the schema migrations applied to a database, which recorded
 migration histories it accepts when opening or restoring a database, and what it refuses.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/sqlite-schema-history.md](../../../docs/developer/specifications/sqlite-schema-history.md).
+
 ## Requirements
 
 ### Requirement: Migration identity is independent of the build platform

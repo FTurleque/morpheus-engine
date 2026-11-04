@@ -4,6 +4,8 @@
 Define which OpenSpec workspaces and document dialects the OpenSpec provider reads, how it reports content it
 cannot read, and to which file each failure is attributed.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/openspec-provider-reading.md](../../../docs/developer/specifications/openspec-provider-reading.md).
+
 ## Requirements
 
 ### Requirement: The probe only claims what the reader can read

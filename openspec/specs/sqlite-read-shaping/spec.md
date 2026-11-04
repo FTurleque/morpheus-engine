@@ -4,6 +4,8 @@
 Define what the SQLite stores ask the database to filter and to order, and what they do themselves, for the
 traceability endpoint reads and the source archive listing.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/sqlite-read-shaping.md](../../../docs/developer/specifications/sqlite-read-shaping.md).
+
 ## Requirements
 
 ### Requirement: The SQLite traceability store SHALL apply a relation filter in the database

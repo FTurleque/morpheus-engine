@@ -4,6 +4,8 @@
 Define how a page of the requirements of a published snapshot is read: who cuts the page, in what order, with what
 total, and identically on every store.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/requirement-page-reads.md](../../../docs/developer/specifications/requirement-page-reads.md).
+
 ## Requirements
 
 ### Requirement: A page of requirements SHALL be cut by the store port

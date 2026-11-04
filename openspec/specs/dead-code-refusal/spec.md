@@ -4,6 +4,8 @@
 Define that the product carries neither a public method nothing references nor, on a security path, a branch that a
 constructor or a guard makes unreachable, and that the build refuses both.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/dead-code-refusal.md](../../../docs/developer/specifications/dead-code-refusal.md).
+
 ## Requirements
 
 ### Requirement: A source scan SHALL never follow symbolic links, and no parameter SHALL offer to

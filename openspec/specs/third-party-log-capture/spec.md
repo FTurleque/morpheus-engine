@@ -3,6 +3,8 @@
 ## Purpose
 Define what happens to what the libraries embedded in MORPHEUS log.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/third-party-log-capture.md](../../../docs/developer/specifications/third-party-log-capture.md).
+
 ## Requirements
 
 ### Requirement: Third-party warnings and errors SHALL reach the operational sink when one is active

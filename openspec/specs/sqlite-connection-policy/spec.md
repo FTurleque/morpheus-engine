@@ -3,6 +3,8 @@
 ## Purpose
 Define how many connections an operation opens and who decides.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/sqlite-connection-policy.md](../../../docs/developer/specifications/sqlite-connection-policy.md).
+
 ## Requirements
 
 ### Requirement: An operation SHALL open one physical connection whichever transport carries it
