@@ -65,14 +65,12 @@ public final class MorpheusMain {
     @SuppressWarnings("java:S106")
     public static void main(String[] args) {
         refusedOperationalLogMode(System.getenv()).ifPresent(refusal -> {
-            System.err.println("MORPHEUS usage error: " + refusal);
-            System.exit(CliExitCode.USAGE.code());
+            System.exit(CliErrorLine.refuse(args, System.err, CliExitCode.USAGE, refusal));
         });
         OperationalRuntime runtime = processRuntime();
         refusedOperationalLogFile(args, System.getenv(), System.getProperties(), runtime::writeLogFileIn)
                 .ifPresent(refusal -> {
-                    System.err.println("MORPHEUS error: " + refusal);
-                    System.exit(CliExitCode.IO_ERROR.code());
+                    System.exit(CliErrorLine.refuse(args, System.err, CliExitCode.IO_ERROR, refusal));
                 });
         int exitCode;
         if (RemoteApiLaunchOptions.isRemoteApiCommand(args)) {
@@ -363,11 +361,10 @@ public final class MorpheusMain {
                     new CliProjectWriteCapabilityResolver(options.layout().databasePath()),
                     runtime.recorder());
         } catch (IllegalArgumentException failure) {
-            err.println("MORPHEUS MCP usage error: " + CliErrorLine.failureText(failure));
-            return CliExitCode.USAGE.code();
+            return CliErrorLine.refuse(args, err, CliExitCode.USAGE, failure);
         } catch (RuntimeException failure) {
-            err.println("MORPHEUS MCP startup error: " + CliErrorLine.failureText(failure));
-            return CliExitCode.INTERNAL_ERROR.code();
+            return CliErrorLine.refuse(
+                    args, err, CliExitCode.INTERNAL_ERROR, "MCP startup failed: " + CliErrorLine.failureText(failure));
         }
     }
 
@@ -394,11 +391,10 @@ public final class MorpheusMain {
                 return waitUntilInterrupted();
             }
         } catch (IllegalArgumentException failure) {
-            err.println("MORPHEUS API usage error: " + CliErrorLine.failureText(failure));
-            return CliExitCode.USAGE.code();
+            return CliErrorLine.refuse(args, err, CliExitCode.USAGE, failure);
         } catch (RuntimeException failure) {
-            err.println("MORPHEUS API startup error: " + CliErrorLine.failureText(failure));
-            return CliExitCode.INTERNAL_ERROR.code();
+            return CliErrorLine.refuse(
+                    args, err, CliExitCode.INTERNAL_ERROR, "API startup failed: " + CliErrorLine.failureText(failure));
         }
     }
 
@@ -417,11 +413,10 @@ public final class MorpheusMain {
                 return waitUntilInterrupted();
             }
         } catch (IllegalArgumentException failure) {
-            err.println("MORPHEUS remote API usage error: " + CliErrorLine.failureText(failure));
-            return CliExitCode.USAGE.code();
+            return CliErrorLine.refuse(args, err, CliExitCode.USAGE, failure);
         } catch (RuntimeException failure) {
-            err.println("MORPHEUS remote API startup error: " + CliErrorLine.failureText(failure));
-            return CliExitCode.INTERNAL_ERROR.code();
+            return CliErrorLine.refuse(
+                    args, err, CliExitCode.INTERNAL_ERROR, "remote API startup failed: " + CliErrorLine.failureText(failure));
         }
     }
 

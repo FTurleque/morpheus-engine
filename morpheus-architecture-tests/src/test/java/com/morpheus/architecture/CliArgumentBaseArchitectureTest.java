@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Predicate;
+import java.util.regex.Pattern;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -55,6 +56,7 @@ class CliArgumentBaseArchitectureTest {
     private static final String EXIT_CODE = CLI + ".command.CliExitCode";
     private static final String ERROR_LINE_LITERAL = "\"MORPHEUS error [";
     private static final String ERROR_LINE_FILE = "CliErrorLine.java";
+    private static final Pattern AN_ERROR_PREFIX = Pattern.compile("\"MORPHEUS [^\"\\n]*\\berror\\b");
 
     /** Methods with one of the three signatures and another purpose, by full name, with that purpose. */
     static final Map<String, String> OTHER_PURPOSES = Map.of(
@@ -108,6 +110,34 @@ class CliArgumentBaseArchitectureTest {
         assertEquals(Set.of(ERROR_LINE_FILE), spelling,
                 "the error line of the CLI is written by " + ERROR_LINE_FILE + " only; call it instead of spelling "
                         + ERROR_LINE_LITERAL + "\" again");
+    }
+
+    @Test
+    void noCliSourceButTheWriterOfTheErrorLineSpellsAnErrorPrefix() throws IOException {
+        Set<String> prefixed = new TreeSet<>();
+        CliOptionParsingRefusesUnknownOptionsTest.cliSources().forEach((name, source) -> {
+            if (!name.equals(ERROR_LINE_FILE) && AN_ERROR_PREFIX.matcher(Unit.of(name, source).text()).find()) {
+                prefixed.add(name);
+            }
+        });
+
+        assertEquals(Set.of(), prefixed,
+                "a CLI source spells an error prefix of its own; refuse through " + ERROR_LINE_FILE
+                        + " so that every failure reads MORPHEUS error [<code>]: <message>");
+    }
+
+    @Test
+    void aFamilyPrefixIsAnErrorPrefixAndAnInformationLineIsNot() {
+        String family = "final class A {\n    void a() {\n        err.println(\"MORPHEUS server usage error: \" + m);\n"
+                + "    }\n}\n";
+        String information = "final class B {\n    void b() {\n        err.println(\"MORPHEUS API listening on \" + uri);\n"
+                + "    }\n}\n";
+        String commented = "final class C {\n    // err.println(\"MORPHEUS usage error: \" + m);\n}\n";
+
+        assertTrue(AN_ERROR_PREFIX.matcher(Unit.of("A.java", family).text()).find(), "a family prefix is refused");
+        assertFalse(AN_ERROR_PREFIX.matcher(Unit.of("B.java", information).text()).find(),
+                "a line that names no error is not a prefix");
+        assertFalse(AN_ERROR_PREFIX.matcher(Unit.of("C.java", commented).text()).find(), "a comment is not a spelling");
     }
 
     @Test

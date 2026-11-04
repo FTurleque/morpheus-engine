@@ -4,6 +4,8 @@
 Define what every CLI sub-command shares when it reads its arguments and reports a failure, and what refuses a
 sub-command that carries its own copy.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/cli-argument-base.md](../../../docs/developer/specifications/cli-argument-base.md).
+
 ## Requirements
 
 ### Requirement: Every CLI failure SHALL be reported through one error line

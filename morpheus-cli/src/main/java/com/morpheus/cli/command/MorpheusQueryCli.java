@@ -106,13 +106,13 @@ public final class MorpheusQueryCli {
                 };
             }
         } catch (EntityNotFoundException failure) {
-            return CliErrorLine.report(err, CliExitCode.NOT_FOUND, failure);
+            return CliErrorLine.refuse(args, err, CliExitCode.NOT_FOUND, failure);
         } catch (EntityStateException failure) {
-            return CliErrorLine.report(err, CliExitCode.STATE_ERROR, failure);
+            return CliErrorLine.refuse(args, err, CliExitCode.STATE_ERROR, failure);
         } catch (IllegalArgumentException failure) {
-            return CliErrorLine.report(err, CliExitCode.USAGE, failure);
+            return CliErrorLine.refuse(args, err, CliExitCode.USAGE, failure);
         } catch (RuntimeException failure) {
-            return CliErrorLine.report(err, CliExitCode.STATE_ERROR, failure);
+            return CliErrorLine.refuse(args, err, CliExitCode.STATE_ERROR, failure);
         }
     }
 

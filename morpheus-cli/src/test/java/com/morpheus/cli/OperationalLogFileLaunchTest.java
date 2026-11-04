@@ -123,7 +123,7 @@ class OperationalLogFileLaunchTest {
         assertEquals(CliExitCode.IO_ERROR.code(), outcome.exitCode(), outcome::toString);
         List<String> lines = outcome.standardError().lines().filter(line -> !line.isBlank()).toList();
         assertEquals(1, lines.size(), outcome::toString);
-        assertTrue(lines.get(0).startsWith("MORPHEUS error: " + RotatingOperationalLogFile.REFUSAL + ": "),
+        assertTrue(lines.get(0).startsWith("MORPHEUS error [5]: " + RotatingOperationalLogFile.REFUSAL + ": "),
                 outcome::toString);
         assertEquals("", outcome.standardOutput().strip(), "nothing may run before the refusal");
     }

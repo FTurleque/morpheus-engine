@@ -121,37 +121,37 @@ class CliOptionRefusalTableTest {
             sync | repeated-flag | 2 | MORPHEUS error [2]: duplicate option: --force
             paths | undeclared | 2 | MORPHEUS error [2]: unknown option: --bogus
             paths | positional | 2 | MORPHEUS error [2]: unexpected positional argument: stray
-            update-check | undeclared | 2 | MORPHEUS usage error: unknown option: --bogus
-            update-check | duplicate | 2 | MORPHEUS usage error: duplicate option: --manifest
-            update-check | missing-value | 2 | MORPHEUS usage error: --manifest requires a value
-            update-check | dash-value | 2 | MORPHEUS usage error: --manifest requires a value
-            update-check | blank-value | 2 | MORPHEUS usage error: --manifest requires a non-blank value; omit the option to leave it unset
-            update-check | positional | 2 | MORPHEUS usage error: unexpected positional argument: stray
-            provider-plugins discover | undeclared | 2 | MORPHEUS provider-plugin usage error: unknown option: --bogus
-            provider-plugins discover | duplicate | 2 | MORPHEUS provider-plugin usage error: duplicate option: --directory
-            provider-plugins discover | missing-value | 2 | MORPHEUS provider-plugin usage error: --directory requires a value
-            provider-plugins discover | dash-value | 2 | MORPHEUS provider-plugin usage error: --directory requires a value
-            provider-plugins discover | blank-value | 2 | MORPHEUS provider-plugin usage error: --directory requires a non-blank value; omit the option to leave it unset
-            provider-plugins discover | positional | 2 | MORPHEUS provider-plugin usage error: unexpected positional argument: stray
-            reason analyze | undeclared | 2 | MORPHEUS usage error: unknown option: --bogus
-            reason analyze | duplicate | 2 | MORPHEUS usage error: duplicate option: --question
-            reason analyze | missing-value | 2 | MORPHEUS usage error: --question requires a value
-            reason analyze | dash-value | 2 | MORPHEUS usage error: --question requires a value
-            reason analyze | blank-value | 2 | MORPHEUS usage error: --question requires a non-blank value; omit the option to leave it unset
-            reason analyze | positional | 2 | MORPHEUS usage error: unexpected positional argument: stray
-            server identity list | undeclared | 2 | MORPHEUS server usage error: unknown option: --bogus
-            server identity list | duplicate | 2 | MORPHEUS server usage error: duplicate option: --auth-file
-            server identity list | missing-value | 2 | MORPHEUS server usage error: --auth-file requires a value
-            server identity list | dash-value | 2 | MORPHEUS server usage error: --auth-file requires a value
-            server identity list | blank-value | 2 | MORPHEUS server usage error: --auth-file requires a non-blank value; omit the option to leave it unset
-            server identity list | positional | 2 | MORPHEUS server usage error: unexpected positional argument: stray
-            server restore | undeclared | 2 | MORPHEUS server usage error: unknown option: --bogus
-            server restore | duplicate | 2 | MORPHEUS server usage error: duplicate option: --file
-            server restore | missing-value | 2 | MORPHEUS server usage error: --file requires a value
-            server restore | dash-value | 2 | MORPHEUS server usage error: --file requires a value
-            server restore | blank-value | 2 | MORPHEUS server usage error: --file requires a non-blank value; omit the option to leave it unset
-            server restore | positional | 2 | MORPHEUS server usage error: unexpected positional argument: stray
-            server restore | repeated-flag | 2 | MORPHEUS server usage error: duplicate option: --confirm
+            update-check | undeclared | 2 | MORPHEUS error [2]: unknown option: --bogus
+            update-check | duplicate | 2 | MORPHEUS error [2]: duplicate option: --manifest
+            update-check | missing-value | 2 | MORPHEUS error [2]: --manifest requires a value
+            update-check | dash-value | 2 | MORPHEUS error [2]: --manifest requires a value
+            update-check | blank-value | 2 | MORPHEUS error [2]: --manifest requires a non-blank value; omit the option to leave it unset
+            update-check | positional | 2 | MORPHEUS error [2]: unexpected positional argument: stray
+            provider-plugins discover | undeclared | 2 | MORPHEUS error [2]: unknown option: --bogus
+            provider-plugins discover | duplicate | 2 | MORPHEUS error [2]: duplicate option: --directory
+            provider-plugins discover | missing-value | 2 | MORPHEUS error [2]: --directory requires a value
+            provider-plugins discover | dash-value | 2 | MORPHEUS error [2]: --directory requires a value
+            provider-plugins discover | blank-value | 2 | MORPHEUS error [2]: --directory requires a non-blank value; omit the option to leave it unset
+            provider-plugins discover | positional | 2 | MORPHEUS error [2]: unexpected positional argument: stray
+            reason analyze | undeclared | 2 | MORPHEUS error [2]: unknown option: --bogus
+            reason analyze | duplicate | 2 | MORPHEUS error [2]: duplicate option: --question
+            reason analyze | missing-value | 2 | MORPHEUS error [2]: --question requires a value
+            reason analyze | dash-value | 2 | MORPHEUS error [2]: --question requires a value
+            reason analyze | blank-value | 2 | MORPHEUS error [2]: --question requires a non-blank value; omit the option to leave it unset
+            reason analyze | positional | 2 | MORPHEUS error [2]: unexpected positional argument: stray
+            server identity list | undeclared | 2 | MORPHEUS error [2]: unknown option: --bogus
+            server identity list | duplicate | 2 | MORPHEUS error [2]: duplicate option: --auth-file
+            server identity list | missing-value | 2 | MORPHEUS error [2]: --auth-file requires a value
+            server identity list | dash-value | 2 | MORPHEUS error [2]: --auth-file requires a value
+            server identity list | blank-value | 2 | MORPHEUS error [2]: --auth-file requires a non-blank value; omit the option to leave it unset
+            server identity list | positional | 2 | MORPHEUS error [2]: unexpected positional argument: stray
+            server restore | undeclared | 2 | MORPHEUS error [2]: unknown option: --bogus
+            server restore | duplicate | 2 | MORPHEUS error [2]: duplicate option: --file
+            server restore | missing-value | 2 | MORPHEUS error [2]: --file requires a value
+            server restore | dash-value | 2 | MORPHEUS error [2]: --file requires a value
+            server restore | blank-value | 2 | MORPHEUS error [2]: --file requires a non-blank value; omit the option to leave it unset
+            server restore | positional | 2 | MORPHEUS error [2]: unexpected positional argument: stray
+            server restore | repeated-flag | 2 | MORPHEUS error [2]: duplicate option: --confirm
             """;
 
     @TempDir
@@ -229,7 +229,7 @@ class CliOptionRefusalTableTest {
     private static final Map<String, Difference> DECLARED_DIFFERENCES = Map.of(
             "server: the layout options are also read in the --x=value spelling",
             new Difference(List.of("--data-dir=<data>", "server", "identity", "list", "--bogus", "x"),
-                    "2 | MORPHEUS server usage error: unknown option: --bogus"),
+                    "2 | MORPHEUS error [2]: unknown option: --bogus"),
             "augmented-context: an option of the other subject has its own refusal",
             new Difference(List.of("--data-dir", "<data>", "augmented-context", "requirement", "--project", PROJECT,
                     "--requirement", "r", "--change", "c"),

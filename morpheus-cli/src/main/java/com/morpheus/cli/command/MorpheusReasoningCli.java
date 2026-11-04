@@ -50,11 +50,9 @@ final class MorpheusReasoningCli {
                 default -> throw new IllegalArgumentException("unknown reason action: " + parsed.action());
             };
         } catch (IllegalArgumentException failure) {
-            err.println("MORPHEUS usage error: " + CliErrorLine.failureText(failure));
-            return CliExitCode.USAGE.code();
+            return CliErrorLine.refuse(args, err, CliExitCode.USAGE, failure);
         } catch (RuntimeException failure) {
-            err.println("MORPHEUS assisted-reasoning error: " + CliErrorLine.failureText(failure));
-            return CliExitCode.STATE_ERROR.code();
+            return CliErrorLine.refuse(args, err, CliExitCode.STATE_ERROR, failure);
         }
     }
 

@@ -4,6 +4,8 @@
 Guarantee that every public HTTP route of MORPHEUS is served, declared in the convergence manifest and documented
 in OpenAPI consistently, or explicitly excluded from one of them with a written reason.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/public-surface-convergence.md](../../../docs/developer/specifications/public-surface-convergence.md).
+
 ## Requirements
 
 ### Requirement: Served HTTP routes are documented

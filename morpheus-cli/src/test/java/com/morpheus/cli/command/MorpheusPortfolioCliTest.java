@@ -141,8 +141,9 @@ class MorpheusPortfolioCliTest {
         Result members = run("--json", "portfolio", "members", "--portfolio", portfolioId);
 
         assertEquals(CliExitCode.USAGE.code(), addProject.exitCode(), addProject.err());
+        assertTrue(addProject.err().contains("\"code\":\"USAGE\""), addProject.err());
         assertTrue(addProject.err().contains(
-                "provider id must not contain control characters: \"openspec[U+000A]markdown\""), addProject.err());
+                "provider id must not contain control characters: \\\"openspec[U+000A]markdown\\\""), addProject.err());
         assertFalse(members.out().contains(projectId), "a refused write must not persist the membership");
     }
 
