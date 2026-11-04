@@ -58,9 +58,9 @@ public final class MorpheusAugmentedContextCli {
                 default -> throw new IllegalArgumentException("unsupported augmented-context command: " + parsed.command());
             };
         } catch (IllegalArgumentException failure) {
-            return CliErrorLine.report(err, CliExitCode.USAGE, failure);
+            return CliErrorLine.refuse(args, err, CliExitCode.USAGE, failure);
         } catch (RuntimeException failure) {
-            return CliErrorLine.report(err, CliExitCode.STATE_ERROR, failure);
+            return CliErrorLine.refuse(args, err, CliExitCode.STATE_ERROR, failure);
         }
     }
 

@@ -9,9 +9,8 @@ Cette page recense les changements qu'un utilisateur de 1.2.1 doit connaître av
 ### CLI : une option mal formée est refusée de la même façon par toutes les commandes
 
 Toutes les commandes de la CLI lisent leurs options de la même manière. Un appel bien formé ne change pas ; seul le
-message d'un appel mal formé change, et parfois son code de sortie. Le format de la ligne d'erreur
-(`MORPHEUS error [<code>]: <message>`, ou les préfixes propres à `server`, `provider-plugins`, `reason`, `version`,
-`product-info` et `update-check`) et les codes de sortie des appels bien formés sont inchangés.
+message d'un appel mal formé change, et parfois son code de sortie. Les codes de sortie des appels bien formés sont
+inchangés. La ligne d'erreur elle-même est décrite dans la rupture suivante.
 
 Les refus sont, pour toutes les commandes :
 
@@ -52,6 +51,25 @@ Ce qui change, commande par commande :
   `x requires a value`.
 - `server` : une option inconnue répond `unknown option: --x`, et non `unknown server option: --x` ; un mot en trop,
   `unexpected positional argument: x`, et non `unexpected server argument: x`.
+
+### CLI : chaque échec s'écrit sur une seule ligne d'erreur
+
+Toutes les commandes de la CLI, et les lancements `api`, `api --remote` et `mcp`, écrivent un échec sur la sortie
+d'erreur par une seule ligne, `MORPHEUS error [<code de sortie>]: <message>`, ou, quand l'appel porte `--json`, par un
+objet JSON `{"exitCode":…,"code":"…","message":"…"}`. Les codes de sortie ne changent pas.
+
+| Commandes | 1.2.1 | 1.2.2 |
+|---|---|---|
+| `version`, `product-info`, `update-check` | `MORPHEUS usage error: …`, `MORPHEUS product-integrity error: …` | `MORPHEUS error [2]: …`, `MORPHEUS error [4]: …` |
+| `reason` | `MORPHEUS usage error: …`, `MORPHEUS assisted-reasoning error: …` | `MORPHEUS error [2]: …`, `MORPHEUS error [4]: …` |
+| `provider-plugins` | `MORPHEUS provider-plugin usage error: …`, `MORPHEUS provider-plugin error: …` | `MORPHEUS error [2]: …`, `MORPHEUS error [4]: …` |
+| `server` | `MORPHEUS server usage error: …`, `MORPHEUS server error: …` | `MORPHEUS error [<code>]: …`, code 2, 3, 4 ou 10 |
+| `api`, `api --remote`, `mcp` | `MORPHEUS API usage error: …`, `MORPHEUS MCP startup error: …`, etc. | `MORPHEUS error [2]: …` ; un démarrage refusé, `MORPHEUS error [10]: MCP startup failed: …` (de même `API`, `remote API`) |
+| mode ou répertoire de journal refusé au lancement | `MORPHEUS usage error: …`, `MORPHEUS error: …` | `MORPHEUS error [2]: …`, `MORPHEUS error [5]: …` |
+| `acceptance-criteria`, `augmented-context`, `nexus-status`, `composition`, `constraints evaluate`, `lifecycle`, `external-references`, `minos-status`, `change-orchestration`, `policy`, `portfolio`, `query`, `views`, `export`, appelées avec `--json` | ligne de texte | objet JSON |
+
+Un script qui reconnaissait l'un des anciens préfixes doit lire `MORPHEUS error [`, ou, plus sûrement, le code de
+sortie.
 
 Ce qui reste propre à une commande : `server` lit aussi les options de disposition sous la forme `--data-dir=CHEMIN` ;
 `augmented-context` et `change-orchestration` refusent une option de l'autre sujet ou de l'autre action par un message

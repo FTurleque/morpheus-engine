@@ -58,7 +58,7 @@ public final class CliCommandRun {
                     global.dataDirectory(), global.configDirectory(), global.databasePath(), environment, properties);
             return command.run(global.remaining(), new CliCommandRun(jsonOutput, layout, out));
         } catch (CliFailure failure) {
-            CliErrorLine.write(err, jsonOutput, failure.exitCode(), failure.getMessage());
+            CliErrorLine.write(err, jsonOutput, failure.exitCode(), CliErrorLine.failureText(failure));
             return failure.exitCode().code();
         } catch (IllegalArgumentException failure) {
             CliErrorLine.write(err, jsonOutput, CliExitCode.USAGE, CliErrorLine.failureText(failure));
