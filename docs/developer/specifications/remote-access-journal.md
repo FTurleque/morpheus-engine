@@ -1,7 +1,7 @@
 # Journal d'accès du serveur distant (`remote-access-journal`)
 
 Spec de référence : [`openspec/specs/remote-access-journal/spec.md`](../../../openspec/specs/remote-access-journal/spec.md)
-· Relevé du 2026-11-03 sur `836fffa5`.
+· Relevé du 2026-11-03 sur `836fffa5` ; preuves de R6 à R8 exécutées le 2026-11-04.
 
 ## Objet et périmètre
 
@@ -23,6 +23,9 @@ arrive aux identifiants ; ce journal dit à quoi ils servent. Les deux restent s
 | R3 | A record SHALL carry no secret and no caller-chosen text | ni jeton, ni empreinte, ni paramètre de chemin, ni requête, ni en-tête, ni corps | `[EXIGENCE]` |
 | R4 | The journal SHALL be bounded, private and separate from the identity file | fichier à part, borné en taille et en générations, permissions privées | `[EXIGENCE]` |
 | R5 | A record that cannot be written SHALL have a decided outcome | appliquer la politique de l'ADR, compter la perte, ne pas continuer comme si l'enregistrement existait | `[EXIGENCE]`, précisée par `[DÉCISION]` SEC-0113 §7 |
+| R6 | Une écriture est consignée avant d'être servie | `accepted` avant de servir une écriture ou une administration hors `GET`/`HEAD`, puis `completed` ; une lecture ne laisse que `completed` | `[EXIGENCE]` (changement `state-what-the-http-boundary-already-does`), `[DÉCISION]` SEC-0113 §5 |
+| R7 | Une écriture dont l'acceptation ne peut être consignée est refusée | 503 `ACCESS_JOURNAL_UNAVAILABLE` sans servir ; lecture servie ; compteur `remote.access.journal.lost` | `[EXIGENCE]` (idem), `[DÉCISION]` SEC-0113 §7 |
+| R8 | Le serveur distant ne démarre pas sans son journal | refus commençant par `ACCESS_JOURNAL_UNAVAILABLE`, sans chemin | `[EXIGENCE]` (idem), `[DÉCISION]` SEC-0113 §7 |
 
 ## Comportement détaillé
 
@@ -122,11 +125,19 @@ reste inchangée.
 
 ## Écarts et questions ouvertes
 
-- `[EXISTANT VÉRIFIÉ]` R5 renvoie à « the policy the decision record states » sans la nommer. La politique effective
-  est celle de SEC-0113 §7 : 503 `ACCESS_JOURNAL_UNAVAILABLE` pour une écriture ou une administration, lecture servie.
-  `[PROPOSITION]` L'énoncer dans la spec : proposition portée par le changement OpenSpec `state-what-the-http-boundary-already-does`.
-- `[EXISTANT VÉRIFIÉ]` Deux comportements testés ne sont pas dans la spec : la ligne `accepted` écrite avant de servir
-  une écriture, et le refus de démarrer quand le journal ne peut pas être ouvert. Même proposition.
+- `[EXISTANT VÉRIFIÉ]` R5 renvoie à « the policy the decision record states » sans la nommer ; R6 à R8 l'énoncent
+  (SEC-0113 §5 et §7) sans modifier R5. Deux exigences parlent du même sujet, l'une générale, l'autre précise.
+- `[EXISTANT VÉRIFIÉ]` Le scénario de R6 « enregistre un projet » : la preuve HTTP envoie `POST /api/v1/projects`
+  avec un corps `{}`, que le serveur local refuse en 400 ; les lignes `accepted` puis `completed` sont écrites
+  quand même, ce qui est la propriété énoncée. Pas un écart de comportement.
+- `[PROPOSITION]` Preuves partielles de R7 : le test HTTP n'asserte ni le compteur `remote.access.journal.lost` ni
+  l'absence de relais vers le serveur local (le compteur est asserté au niveau du journal). La consultation d'une route
+  `ADMIN` par `GET` comme lecture n'a qu'une preuve indirecte (`RemoteAccessJournal.accepted` rend `true` sans écrire).
+- `[EXISTANT VÉRIFIÉ]` R8 : l'ouverture se fait dans le constructeur du serveur distant. Un test du serveur entier
+  n'est pas écrit : le journal vit dans le répertoire du fichier d'identités que le serveur vient de lire, et un
+  répertoire à la place du fichier n'empêche pas l'ouverture ; seul un refus de durcissement peut échouer, ce qu'un
+  test portable ne reproduit pas. Preuve : refus au niveau du journal et épingle textuelle du câblage (décision du
+  2026-11-04, `design.md` du changement).
 - `[QUESTION]` La spec ne dit pas qu'une requête authentifiée vers une route inconnue (404) ou avec une méthode
   refusée (405) n'est pas consignée ; SEC-0113 §4 le décide, et `RemoteAccessJournalHttpTest` le vérifie pour le 404
   (aucune ligne après `GET /api/v1/nowhere` d'un lecteur authentifié). Faut-il l'écrire en exigence ?
@@ -145,6 +156,12 @@ reste inchangée.
 | R5 | The loss is visible | séquence, états | idem | `RemoteAccessJournalTest#aRecordThatCannotBeWrittenIsCountedRefusesAWriteAndLetsAReadThrough` ; `RemoteAccessJournalHttpTest#whenTheJournalCannotBeWrittenAWriteIsRefusedByNameAndAReadIsStillServed` |
 | — | (issue écrite une fois, dans le `finally`) | séquence | idem | `RemoteAccessJournalArchitectureTest#theOutcomeIsRecordedOnceInTheFinallyOfServeAndTheAcceptanceBeforeAnythingIsServed` |
 | — | (journal impossible à ouvrir) | tableau ci-dessus | — | `RemoteAccessJournalTest#aJournalThatCannotBeOpenedIsARefusalThatNamesNoLocation` |
+| R6 | Une écriture laisse deux enregistrements | séquence, états | `state-what-the-http-boundary-already-does` | `RemoteAccessJournalTest#aReadLeavesOneRecordAndAWriteOrAnAdministrationTwo` ; `RemoteAccessJournalHttpTest#anAuthorizedRequestIsAttributedARefusedOneTooAndAnUnauthenticatedOneLeavesNothing` |
+| R6 | Une lecture laisse un seul enregistrement | séquence, états | idem | mêmes tests |
+| R6 | La consultation d'une route d'administration est une lecture | états | idem | `RemoteAccessJournalTest#aRecordThatCannotBeWrittenIsCountedRefusesAWriteAndLetsAReadThrough` (`GET` `ADMIN` accepté sans écriture) : **preuve indirecte** |
+| R7 | Une écriture n'est pas servie sans son enregistrement | séquence, états | idem | `RemoteAccessJournalHttpTest#whenTheJournalCannotBeWrittenAWriteIsRefusedByNameAndAReadIsStillServed` ; compteur et non-relais : **preuve partielle** (compteur asserté au niveau du journal, relais non asserté) |
+| R7 | Une lecture reste servie | séquence | idem | même test HTTP ; compteur : `RemoteAccessJournalTest#aRecordThatCannotBeWrittenIsCountedRefusesAWriteAndLetsAReadThrough` |
+| R8 | Un répertoire inutilisable empêche le démarrage | tableau ci-dessus | idem | `RemoteAccessJournalTest#aJournalThatCannotBeOpenedIsARefusalThatNamesNoLocation` (niveau journal) ; câblage : [`RemoteAccessJournalArchitectureTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m26/RemoteAccessJournalArchitectureTest.java)`#theRemoteServerOpensItsJournalBesideTheIdentityFileWhenItIsConstructed` ; pas de test du serveur entier (décision 2.2) |
 
 ## Sources
 
