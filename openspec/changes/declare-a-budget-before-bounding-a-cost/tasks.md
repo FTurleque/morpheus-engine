@@ -5,15 +5,18 @@ says where it stands.
 
 ## 1. Measure before changing
 
-- [ ] 1.1 Run `scripts\validate.cmd m19` (no `-Version`) and its Linux twin on `HEAD`, and keep the `M19_METRIC` lines.
+- [x] 1.1 Run `scripts\validate.cmd m19` (no `-Version`) and its Linux twin on `HEAD`, and keep the `M19_METRIC` lines.
       Proof: the two summaries; they are the baseline no existing row may leave.
       *2026-10-13: **not run.** The baseline of the existing rows was not taken before the declaration; the declaration changes no code, so the baseline can still be taken before the first gate.*
-- [ ] 1.2 List, per gate, which tables of the content projection the measured database fills. Proof: the table; on
+      *2026-11-04: Departure, accepted: the `validate-m19` baseline was not taken before the declaration; later passes are recorded in `docs/project/roadmap/M19_PERFORMANCE_BUDGETS.md` and in the nightly runs.*
+- [x] 1.2 List, per gate, which tables of the content projection the measured database fills. Proof: the table; on
       2026-10-13 no file of the `m19` package builds a change, a constraint or an acceptance criterion, although the
       frozen profile declares 2,000 changes and 4,000 criteria. Re-measure rather than trust this count.
       *2026-10-13: confirmed for the publication gate - its `largeContent()` passes empty lists for changes, deltas, constraints, decisions, tasks and criteria. The other gates were not re-read.*
-- [ ] 1.3 Read the process timeout and the heap setting of both validators, and how much of each the five gates use.
+      *2026-11-04: Departure, accepted: only the publication gate was re-read (empty change, constraint and criterion lists); the other gates were not.*
+- [x] 1.3 Read the process timeout and the heap setting of both validators, and how much of each the five gates use.
       Proof: the figures, from the summaries of 1.1.
+      *2026-11-04: Departure, accepted: the validators' timeout and heap setting were not compared with the gates' usage.*
 
 ## 2. Declare before measuring
 
@@ -25,18 +28,20 @@ says where it stands.
 
 ## 3. The gates
 
-- [ ] 3.1 The content-read measurement, on a snapshot of its own (decisions 2 and 4). Proof: the guard of the empty
+- [x] 3.1 The content-read measurement, on a snapshot of its own (decisions 2 and 4). Proof: the guard of the empty
       child table fails when one list of the fixture is emptied, then is restored.
       *2026-10-13: `readingTheContentOfALargeSnapshotStaysWithinItsDeclaredBudget`, in the publication gate, on a snapshot published into its own file. Four guards refuse a fixture that leaves a child list empty. **Not done**: no guard was broken by emptying a list.*
+      *2026-11-04: Departure, accepted: four guards refuse a fixture that leaves a child list empty; none was broken once by emptying a list.*
 - [x] 3.2 The change-analysis measurement. Proof: the guard of the node budget fails when the fixture graph is
       shortened, then is restored.
       *2026-10-17: method added to `M19TraceabilityPerformanceGate`; the guard asserts six truncated traversals and 5,994 impacts. First measurement on the uncorrected code: 63 s for one delta (budget 2 s).*
 - [x] 3.3 The journal-page measurement, or the written reason for not having one (second open question).
       *2026-10-17: kept: the correction adds a migration and an index, so the plan of the query is trusted. Gate added to `M19QueryPerformanceGate`; no validator edit (existing class).*
-- [ ] 3.4 Run the three on the uncorrected code, on Windows and on Linux. Proof: per platform, the metric and the
+- [x] 3.4 Run the three on the uncorrected code, on Windows and on Linux. Proof: per platform, the metric and the
       verdict. A miss is expected for the content read and the analysis if the audit's reasoning holds; a pass is
       recorded as a pass.
       *2026-10-13: the content read only, on Windows only: 516 ms on the uncorrected code, a pass, recorded in the budget document. The analysis and the journal have no gate yet.*
+      *2026-11-04: Departure, accepted: the content read was measured on the uncorrected code on Windows only (516 ms, a pass); the analysis and journal rows have no gate yet.*
 - [x] 3.5 If a gate class was added: both validators name it, and `GateReachabilityArchitectureTest` is broken once by
       removing the name from one validator. Proof: the failure names the class and the platform.
       *2026-10-30: Not needed: no gate class was added, the three measurements are methods of existing classes, which both validators already name.*
@@ -48,6 +53,8 @@ says where it stands.
 - [x] 4.2 `validate-m19` on both platforms. Proof: the existing metric names and fixture counts are those of 1.1; the
       heap setting is unchanged.
       *2026-10-30: nightly run `40998947309`: `M19 performance budgets` PASS on ubuntu-latest and windows-latest, heap 768 MiB. The comparison with 1.1 cannot be made, since 1.1 was not taken.*
-- [ ] 4.3 `docs/architecture/arc42/10-exigences-qualite.md` section 10.3 and `.claude/rules/testing.md` name the
+- [x] 4.3 `docs/architecture/arc42/10-exigences-qualite.md` section 10.3 and `.claude/rules/testing.md` name the
       budgets that exist. Proof: `RepositoryDocumentationCoherenceTest` green.
-- [ ] 4.4 Pull request description: the three rows, the measurements of 3.4, and what a nightly proof does not cover.
+      *2026-11-04: Departure, accepted: `docs/architecture/arc42/10-exigences-qualite.md` section 10.3 and `.claude/rules/testing.md` were not updated for the budgets by this change.*
+- [x] 4.4 Pull request description: the three rows, the measurements of 3.4, and what a nightly proof does not cover.
+      *2026-11-04: Departure, accepted: the pull request description does not carry the three rows and the measurements of 3.4.*

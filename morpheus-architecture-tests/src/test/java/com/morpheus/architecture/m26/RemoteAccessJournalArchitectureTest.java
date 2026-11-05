@@ -71,6 +71,17 @@ class RemoteAccessJournalArchitectureTest {
     }
 
     @Test
+    void theRemoteServerOpensItsJournalBesideTheIdentityFileWhenItIsConstructed() throws IOException {
+        String server = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServer"));
+
+        assertEquals(1, occurrences(server, "RemoteAccessJournal.beside("),
+                "the journal is opened in one place, the constructor of the remote server");
+        assertTrue(server.contains("this.accessJournal = RemoteAccessJournal.beside(this.authFile, "),
+                "the journal sits beside the identity file, and its refusal to open ends the construction of the "
+                        + "server: a remote server does not start without the record of what it will be asked to do");
+    }
+
+    @Test
     void aRecordIsBuiltFromTheRouteTemplateAndNeverFromThePath() throws IOException {
         String server = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServer"));
 
