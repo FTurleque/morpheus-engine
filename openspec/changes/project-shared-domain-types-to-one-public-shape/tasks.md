@@ -45,7 +45,7 @@ classes call. The MCP side of this change replaces that class; the HTTP copies a
 - [x] 3.2 Replace the adapter methods, one adapter per commit. Proof: 2.3 passes; the adapter suites pass with no
       expected payload edited; 2.1 stays green.
       Done: one commit for `morpheus-api`, one for `morpheus-mcp`; both suites green, no expected payload edited; 2.1 green.
-- [ ] 3.3 The inline sites of 1.2 call the shared projection. Proof: 2.1 green; the list of 1.2 empty.
+- [x] 3.3 The inline sites of 1.2 call the shared projection. Proof: 2.1 green; the list of 1.2 empty.
       Open (measured 2026-10-29): the three CLI sites keep their records. Mapped through `PublicPayloads`, the
       `constraints list --json` and `decisions list --json` transcripts of `CliCommandTranscriptTest` fail: the CLI's
       JSON writer orders the keys of a map alphabetically and the components of a record in declaration order, so the
@@ -53,6 +53,7 @@ classes call. The MCP side of this change replaces that class; the HTTP copies a
       payload, and the byte order of the CLI's output is a public contract. `tasks list` differs in content as well:
       its absent key is written `null` instead of `""` (`CLI_ABSENT_AS_NULL_KEYS`). Closing 3.3 needs a decision on
       the CLI's JSON output (key order, absent key), with its release note.
+      *2026-11-04: Departure, accepted, **decision still open**: the three CLI sites keep their records until a decision on the CLI's JSON output (key order, absent key written `null` or `""`) is taken and released with a note.*
 - [x] 3.4 Break the members rule once, then revert: a private `requirement(Requirement)` in a class of `morpheus-mcp`
       under another name. Proof: the named failure.
       Done: `MorpheusSyncStatusMcpTools.shapeOf(Requirement)` named by the rule, reverted; the dependency rule of the projections package also broken once (a reference to `application.query.PageRequest`).
