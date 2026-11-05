@@ -3,6 +3,8 @@
 ## Purpose
 Define the relation between the logs directory the product announces and what it writes there.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/logs-directory-truth.md](../../../docs/developer/specifications/logs-directory-truth.md).
+
 ## Requirements
 
 ### Requirement: An announced logs directory SHALL have a writer

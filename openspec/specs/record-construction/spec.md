@@ -4,6 +4,8 @@
 Define how a record of the product is constructed, what an entry that supplies a default must say, and what the
 repository rule against compatibility shims covers.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/record-construction.md](../../../docs/developer/specifications/record-construction.md).
+
 ## Requirements
 
 ### Requirement: A record SHALL offer one public constructor

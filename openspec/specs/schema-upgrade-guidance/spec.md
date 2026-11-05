@@ -4,6 +4,8 @@
 Define what the operator documentation states when a MORPHEUS version advances the SQLite schema — the version reached,
 the backup that keeps a way back possible, and the way back — and how that statement is kept equal to the code.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/schema-upgrade-guidance.md](../../../docs/developer/specifications/schema-upgrade-guidance.md).
+
 ## Requirements
 
 ### Requirement: The latest upgrade guide SHALL state the schema version the code supports

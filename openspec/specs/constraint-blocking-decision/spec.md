@@ -3,6 +3,8 @@
 ## Purpose
 Define how MORPHEUS decides that a constraint blocks a lifecycle state, and where that decision is written.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/constraint-blocking-decision.md](../../../docs/developer/specifications/constraint-blocking-decision.md).
+
 ## Requirements
 
 ### Requirement: The domain model SHALL decide whether a constraint blocks a lifecycle state

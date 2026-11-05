@@ -3,6 +3,8 @@
 ## Purpose
 Define which technology the application layer may reach, through which classes, and where that is written.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/application-technology-boundary.md](../../../docs/developer/specifications/application-technology-boundary.md).
+
 ## Requirements
 
 ### Requirement: The architecture record SHALL say what the application layer may touch

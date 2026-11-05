@@ -4,6 +4,8 @@
 Define which indexes the migrated SQLite schema may hold, which reads of the store must be served by an index in the
 order they return, and how the build proves both.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/sqlite-index-coverage.md](../../../docs/developer/specifications/sqlite-index-coverage.md).
+
 ## Requirements
 
 ### Requirement: The migrated schema SHALL hold no index that repeats the leading columns of another

@@ -4,6 +4,8 @@
 Define how a boundary between the classes of one transport adapter is stated, which selections of classes may still
 be a list of names, and what a relocation of classes must leave as strict as it found it.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/adapter-internal-boundaries.md](../../../docs/developer/specifications/adapter-internal-boundaries.md).
+
 ## Requirements
 
 ### Requirement: A role inside the HTTP adapter SHALL be a package, and a rule about that role SHALL select by package

@@ -4,6 +4,8 @@
 Define what the current developer and architecture documentation may state about the modules of the Maven reactor, and
 how those statements are kept equal to the root POM.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/reactor-module-documentation.md](../../../docs/developer/specifications/reactor-module-documentation.md).
+
 ## Requirements
 
 ### Requirement: A current page that lists the reactor's modules SHALL list every module the root POM declares

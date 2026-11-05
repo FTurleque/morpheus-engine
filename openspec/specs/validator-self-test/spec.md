@@ -5,6 +5,8 @@ Guarantee that a script which gives a verdict on the repository is itself exerci
 it claims is provoked by a test, and that every script of `scripts/` is launched by something and tested or excused by
 name.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/validator-self-test.md](../../../docs/developer/specifications/validator-self-test.md).
+
 ## Requirements
 
 ### Requirement: The refusals of a validator SHALL be provoked by a test that does not build the product

@@ -4,6 +4,8 @@
 Define what the architecture suite guarantees about a rule that selects no class, and what it refuses so that the
 guarantee cannot be switched off.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/architecture-rule-vacuity-guard.md](../../../docs/developer/specifications/architecture-rule-vacuity-guard.md).
+
 ## Requirements
 
 ### Requirement: A rule of the architecture suite that retains no class SHALL fail, and the suite SHALL prove it by evaluating one

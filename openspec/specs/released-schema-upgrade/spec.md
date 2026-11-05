@@ -4,6 +4,8 @@
 Define the proof that a database written by a released version of MORPHEUS is brought to the current schema without
 losing what it held, and how the list of released schema levels is kept complete.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/released-schema-upgrade.md](../../../docs/developer/specifications/released-schema-upgrade.md).
+
 ## Requirements
 
 ### Requirement: The upgrade from every released schema level SHALL be executed on a database that holds data

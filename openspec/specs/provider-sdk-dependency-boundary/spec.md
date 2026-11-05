@@ -4,6 +4,8 @@
 Define what the published provider SDK may depend on, and that the sibling dependency rules cover every subject they
 announce.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/provider-sdk-dependency-boundary.md](../../../docs/developer/specifications/provider-sdk-dependency-boundary.md).
+
 ## Requirements
 
 ### Requirement: The provider SDK SHALL depend on no adapter

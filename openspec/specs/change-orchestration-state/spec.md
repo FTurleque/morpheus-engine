@@ -5,6 +5,8 @@ Define the aggregated orchestration state of a change that MORPHEUS exposes to J
 consumers: a compact, read-only observation of the published snapshot that keeps an unknown fact distinct from a
 real absence and never invents what the snapshot does not show.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/change-orchestration-state.md](../../../docs/developer/specifications/change-orchestration-state.md).
+
 ## Requirements
 
 ### Requirement: The orchestration state is a read-only observation of the active snapshot

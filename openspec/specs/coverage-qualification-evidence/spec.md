@@ -4,6 +4,8 @@
 Guarantee that a qualified coverage cap is backed by evidence kept with the code — measured on both platforms at one
 commit — and that the cap equals what that evidence shows.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/coverage-qualification-evidence.md](../../../docs/developer/specifications/coverage-qualification-evidence.md).
+
 ## Requirements
 
 ### Requirement: The evidence of a qualified cap SHALL be kept in the repository while the cap is in force

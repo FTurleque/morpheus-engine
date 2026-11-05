@@ -5,6 +5,8 @@ Define when a gate, a validator or a documented verification command that the re
 reachable: run by a real pipeline on every platform it claims, present on both platforms, and named by documentation
 only in a form that resolves.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/gate-reachability.md](../../../docs/developer/specifications/gate-reachability.md).
+
 ## Requirements
 
 ### Requirement: A test class that Surefire does not select SHALL be run by a validator that a workflow runs

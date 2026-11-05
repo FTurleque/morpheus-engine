@@ -4,6 +4,8 @@
 
 Define how the content of a project reaches a published snapshot, and what is refused on the way.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/project-ingestion-port.md](../../../docs/developer/specifications/project-ingestion-port.md).
+
 ## Requirements
 
 ### Requirement: The publication path SHALL read a project through the provider port

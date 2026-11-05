@@ -11,9 +11,9 @@ n'est pas réécrit : l'état courant de la couverture documentaire se lit dans
   scénarios dont le titre évoque une erreur, un refus ou une limite (heuristique lexicale, indicative seulement),
   présence d'étapes `GIVEN`, de diagrammes Mermaid et de liens.
 - Validation : `openspec validate --all --strict --json`.
-- Revue sémantique **des lots 1 et 2** : lecture des specs, du code, des tests cités et des ADR concernés ; pour le
+- Revue sémantique **des lots 1 à 6** (lots 3 à 6 le 2026-11-04 : une page par capacité, relevé par sept agents de recherche, liens et noms de méthodes vérifiés par script) : lecture des specs, du code, des tests cités et des ADR concernés ; pour le
   lot 2, relevé scénario par scénario délégué à deux agents de recherche, puis revérification des points structurants
-  et de chaque nom de méthode cité. Les lots 3 à 6 n'ont reçu que les mesures structurelles.
+  et de chaque nom de méthode cité.
 
 ## Constats globaux
 
@@ -67,10 +67,18 @@ n'est pas réécrit : l'état courant de la couverture documentaire se lit dans
    filtre de divulgation sur un corps mal formé ; refus de démarrage du serveur distant entier (prouvé au niveau du
    journal seulement).
 
+9. **Divergences des lots 3 à 6** (relevé du 2026-11-04 sur `2913fc30` ; chacune est détaillée dans la section « Écarts » de la page de la capacité, aucune spec ni aucun code n'a été modifié) :
+   - spec contredite par le code ou un test : `sqlite-read-shaping` R3 (l'`ORDER BY` de `LIST_ARCHIVES_SQL` est exigé par un test) et R2 (la migration V023 ajoute `archived_key`) ; `sqlite-schema-history` R6 (cite `R2UpgradeCompatibilityTest`, qui n'existe plus) ; `refusal-test-evidence` R3 (décrit une liste de sites que le test exige vide) ; `application-package-cycles` R1 (titre et Purpose contredisent le corps) ; `vulnerability-feed-freshness` R1 (la spec annonce `REFRESH_OVERDUE`, le workflow et son test émettent `REFRESH_KEY_UNUSABLE`) ; `workspace-boundary-scan-cost` (racine de source hors de l'espace : `IllegalArgumentException` au lieu de `WORKSPACE_BOUNDARY_ESCAPED` ; racine-lien : `SYMLINK_NOT_FOLLOWED` et le scan continue) ;
+   - spec plus large ou plus précise que son test : `suppressed-failure-trace` (le test ne voit que les `catch` vides ou à variable ignorée, et nomme fichier et type sans la ligne), `gate-reachability` (le POM de `morpheus-coverage-report` sélectionne trois classes, la spec en nomme une ; les `@TestFactory` échappent à la règle), `adapter-internal-boundaries` R1 (le suffixe `HttpRoutes` sert encore de critère), `constraint-blocking-decision` (la spec admet une exception que le test n'a pas), `enforcement-mechanism-accounting` R1 (`.claude/rules/architecture.md` écrit la valeur du plafond) ;
+   - documentation en désaccord : `docs/architecture/arc42/05-vue-blocs.md` (ligne « application → file, network… ») contre ARCH-0150, `UPGRADE_1_2_2.md` (version de schéma citée) contre la version de schéma courante, aide CLI de `policy audit` sans `--offset` ni `--limit` ;
+   - compte : `gate-reachability` porte 12 exigences, pas 11 comme le tableau du lot 5 ; `openspec validate --specs --strict` passe sur les 67 specs de l'arbre au 2026-11-04, y compris les quatre que le relevé du 2026-11-03 donnait en échec.
+10. **Preuves manquantes des lots 3 à 6** : nombreuses, chacune écrite « Preuve manquante » dans la traçabilité de sa page (refus plantés des gates d'architecture, lanes nocturnes, comparaisons avant/après de migration, scénarios de plusieurs transports, preuves propres à Windows quand le test est `@EnabledOnOs`/`@DisabledOnOs`).
+11. **Décisions ouvertes croisées** : sort de `sqlite-read-shaping` R3 et du scénario obsolète de `sqlite-schema-history` R6 ; sort de `refusal-test-evidence` R3 ; écart `REFRESH_KEY_UNUSABLE` ; reformulation de `application-package-cycles` R1 ; figer ou non les noms de compteurs de `suppressed-failure-trace` dans l'OpenAPI. Les trois décisions réservées (langue des specs, trois capacités archivées sans spec principale, préfixe d'API encodé) n'ont été croisées par aucun lot.
+
 ## Inventaire des specs principales et plan de lots
 
 Les lots regroupent des capacités qui partagent code, tests et diagrammes ; ils fixent l'ordre de la suite du travail.
-Une page durable existe pour les capacités des lots 1 et 2.
+Une page durable existe pour les capacités des lots 1 à 6.
 
 ### Lot 1 · Frontière HTTP (traité)
 
@@ -93,78 +101,78 @@ Une page durable existe pour les capacités des lots 1 et 2.
 | `launch-environment-disclosure` | 2 | 8 | 4 | passe | oui |
 | `mcp-peer-launch-command` | 3 | 7 | 3 | passe | oui |
 
-### Lot 3 · Persistance SQLite et stores
+### Lot 3 · Persistance SQLite et stores (traité)
 
 | Capacité | Exigences | Scénarios | dont erreur ou limite (titre) | `--strict` | Page durable |
 |---|---|---|---|---|---|
-| `sqlite-connection-policy` | 3 | 6 | 3 | passe | non |
-| `sqlite-index-coverage` | 5 | 20 | 9 | passe | non |
-| `sqlite-read-shaping` | 3 | 13 | 4 | passe | non |
-| `sqlite-schema-history` | 9 | 28 | 13 | passe | non |
-| `sqlite-store-packages` | 5 | 11 | 0 | échoue (> 500 car.) | non |
-| `store-closed-refusal` | 1 | 3 | 1 | passe | non |
-| `released-schema-upgrade` | 6 | 14 | 7 | passe | non |
-| `schema-upgrade-guidance` | 5 | 13 | 5 | passe | non |
-| `requirement-page-reads` | 7 | 17 | 7 | passe | non |
-| `append-only-journal-reads` | 5 | 18 | 4 | passe | non |
-| `traceability-link-batch-write` | 2 | 7 | 1 | passe | non |
-| `policy-store-refusals` | 3 | 5 | 3 | passe | non |
-| `policy-audit-order` | 1 | 3 | 0 | passe | non |
+| `sqlite-connection-policy` | 3 | 6 | 3 | passe | oui |
+| `sqlite-index-coverage` | 5 | 20 | 9 | passe | oui |
+| `sqlite-read-shaping` | 3 | 13 | 4 | passe | oui |
+| `sqlite-schema-history` | 9 | 28 | 13 | passe | oui |
+| `sqlite-store-packages` | 5 | 11 | 0 | échoue (> 500 car.) | oui |
+| `store-closed-refusal` | 1 | 3 | 1 | passe | oui |
+| `released-schema-upgrade` | 6 | 14 | 7 | passe | oui |
+| `schema-upgrade-guidance` | 5 | 13 | 5 | passe | oui |
+| `requirement-page-reads` | 7 | 17 | 7 | passe | oui |
+| `append-only-journal-reads` | 5 | 18 | 4 | passe | oui |
+| `traceability-link-batch-write` | 2 | 7 | 1 | passe | oui |
+| `policy-store-refusals` | 3 | 5 | 3 | passe | oui |
+| `policy-audit-order` | 1 | 3 | 0 | passe | oui |
 
-### Lot 4 · Frontières de modules et domaine
-
-| Capacité | Exigences | Scénarios | dont erreur ou limite (titre) | `--strict` | Page durable |
-|---|---|---|---|---|---|
-| `adapter-internal-boundaries` | 6 | 16 | 0 | passe | non |
-| `application-infrastructure-ports` | 4 | 7 | 2 | passe | non |
-| `application-package-cycles` | 3 | 7 | 0 | passe | non |
-| `application-technology-boundary` | 4 | 8 | 2 | passe | non |
-| `module-package-correspondence` | 5 | 10 | 6 | passe | non |
-| `provider-sdk-dependency-boundary` | 3 | 5 | 2 | passe | non |
-| `reflection-boundary` | 4 | 7 | 3 | passe | non |
-| `record-construction` | 3 | 6 | 2 | passe | non |
-| `domain-value-decisions` | 2 | 4 | 0 | passe | non |
-| `constraint-blocking-decision` | 4 | 8 | 2 | passe | non |
-| `operational-runtime-injection` | 3 | 5 | 2 | passe | non |
-| `project-ingestion-port` | 4 | 10 | 5 | passe | non |
-| `text-digest-and-key-derivation` | 5 | 10 | 0 | passe | non |
-| `dead-code-refusal` | 3 | 9 | 6 | passe | non |
-
-### Lot 5 · Gates, preuves et dépendances
+### Lot 4 · Frontières de modules et domaine (traité)
 
 | Capacité | Exigences | Scénarios | dont erreur ou limite (titre) | `--strict` | Page durable |
 |---|---|---|---|---|---|
-| `gate-reachability` | 11 | 37 | 21 | échoue (> 500 car.) | non |
-| `gate-verdict-currency` | 6 | 25 | 12 | passe | non |
-| `validator-self-test` | 5 | 24 | 19 | passe | non |
-| `coverage-attribution-gap` | 7 | 12 | 8 | passe | non |
-| `coverage-qualification-evidence` | 4 | 12 | 1 | passe | non |
-| `enforcement-mechanism-accounting` | 4 | 9 | 1 | passe | non |
-| `architecture-rule-vacuity-guard` | 3 | 8 | 1 | passe | non |
-| `refusal-test-evidence` | 3 | 11 | 9 | passe | non |
-| `reactor-module-documentation` | 2 | 9 | 5 | passe | non |
-| `repository-root-location` | 4 | 8 | 0 | passe | non |
-| `repository-credential-hygiene` | 2 | 5 | 4 | passe | non |
-| `warning-suppression-justification` | 2 | 3 | 2 | passe | non |
-| `dependency-line-currency` | 2 | 5 | 1 | passe | non |
-| `dependency-version-management` | 3 | 7 | 2 | passe | non |
-| `vulnerability-feed-freshness` | 3 | 12 | 6 | passe | non |
+| `adapter-internal-boundaries` | 6 | 16 | 0 | passe | oui |
+| `application-infrastructure-ports` | 4 | 7 | 2 | passe | oui |
+| `application-package-cycles` | 3 | 7 | 0 | passe | oui |
+| `application-technology-boundary` | 4 | 8 | 2 | passe | oui |
+| `module-package-correspondence` | 5 | 10 | 6 | passe | oui |
+| `provider-sdk-dependency-boundary` | 3 | 5 | 2 | passe | oui |
+| `reflection-boundary` | 4 | 7 | 3 | passe | oui |
+| `record-construction` | 3 | 6 | 2 | passe | oui |
+| `domain-value-decisions` | 2 | 4 | 0 | passe | oui |
+| `constraint-blocking-decision` | 4 | 8 | 2 | passe | oui |
+| `operational-runtime-injection` | 3 | 5 | 2 | passe | oui |
+| `project-ingestion-port` | 4 | 10 | 5 | passe | oui |
+| `text-digest-and-key-derivation` | 5 | 10 | 0 | passe | oui |
+| `dead-code-refusal` | 3 | 9 | 6 | passe | oui |
 
-### Lot 6 · Exploitation, providers et coûts
+### Lot 5 · Gates, preuves et dépendances (traité)
 
 | Capacité | Exigences | Scénarios | dont erreur ou limite (titre) | `--strict` | Page durable |
 |---|---|---|---|---|---|
-| `operational-log-mode` | 3 | 6 | 5 | passe | non |
-| `logs-directory-truth` | 1 | 4 | 2 | passe | non |
-| `third-party-log-capture` | 2 | 4 | 1 | passe | non |
-| `suppressed-failure-trace` | 3 | 5 | 1 | passe | non |
-| `openspec-provider-reading` | 4 | 8 | 1 | passe | non |
-| `provider-plugin-pinned-entry` | 5 | 8 | 3 | passe | non |
-| `portfolio-provider-identity` | 1 | 3 | 1 | passe | non |
-| `change-analysis-traversal-cost` | 3 | 7 | 0 | passe | non |
-| `workspace-boundary-scan-cost` | 5 | 15 | 2 | échoue (> 500 car.) | non |
-| `change-orchestration-state` | 7 | 14 | 5 | échoue (> 500 car.) | non |
-| `release-component-disclosure` | 5 | 18 | 7 | passe | non |
+| `gate-reachability` | 11 | 37 | 21 | échoue (> 500 car.) | oui |
+| `gate-verdict-currency` | 6 | 25 | 12 | passe | oui |
+| `validator-self-test` | 5 | 24 | 19 | passe | oui |
+| `coverage-attribution-gap` | 7 | 12 | 8 | passe | oui |
+| `coverage-qualification-evidence` | 4 | 12 | 1 | passe | oui |
+| `enforcement-mechanism-accounting` | 4 | 9 | 1 | passe | oui |
+| `architecture-rule-vacuity-guard` | 3 | 8 | 1 | passe | oui |
+| `refusal-test-evidence` | 3 | 11 | 9 | passe | oui |
+| `reactor-module-documentation` | 2 | 9 | 5 | passe | oui |
+| `repository-root-location` | 4 | 8 | 0 | passe | oui |
+| `repository-credential-hygiene` | 2 | 5 | 4 | passe | oui |
+| `warning-suppression-justification` | 2 | 3 | 2 | passe | oui |
+| `dependency-line-currency` | 2 | 5 | 1 | passe | oui |
+| `dependency-version-management` | 3 | 7 | 2 | passe | oui |
+| `vulnerability-feed-freshness` | 3 | 12 | 6 | passe | oui |
+
+### Lot 6 · Exploitation, providers et coûts (traité)
+
+| Capacité | Exigences | Scénarios | dont erreur ou limite (titre) | `--strict` | Page durable |
+|---|---|---|---|---|---|
+| `operational-log-mode` | 3 | 6 | 5 | passe | oui |
+| `logs-directory-truth` | 1 | 4 | 2 | passe | oui |
+| `third-party-log-capture` | 2 | 4 | 1 | passe | oui |
+| `suppressed-failure-trace` | 3 | 5 | 1 | passe | oui |
+| `openspec-provider-reading` | 4 | 8 | 1 | passe | oui |
+| `provider-plugin-pinned-entry` | 5 | 8 | 3 | passe | oui |
+| `portfolio-provider-identity` | 1 | 3 | 1 | passe | oui |
+| `change-analysis-traversal-cost` | 3 | 7 | 0 | passe | oui |
+| `workspace-boundary-scan-cost` | 5 | 15 | 2 | échoue (> 500 car.) | oui |
+| `change-orchestration-state` | 7 | 14 | 5 | échoue (> 500 car.) | oui |
+| `release-component-disclosure` | 5 | 18 | 7 | passe | oui |
 
 ## Changements actifs
 
@@ -187,8 +195,8 @@ n'ont pas de `## Purpose` qui renvoie à une page durable, ce qui sera à ajoute
 
 - Lot 2 : trancher les divergences du constat 6, puis les porter par un changement OpenSpec (ou par un correctif de
   code, selon la décision).
-- Lots 3 à 6 : relecture sémantique, page durable par capacité, diagrammes, traçabilité, changement OpenSpec pour
-  chaque comportement vérifié non spécifié.
+- Lots 3 à 6 : trancher les divergences du constat 9, puis les porter par un changement OpenSpec (ou un correctif de
+  code) ; un changement pour chaque comportement vérifié non spécifié que les pages signalent.
 - Découpage des quatre exigences trop longues : un changement dédié, selon la règle d'OpenSpec (MODIFIED qui garde le
   titre et les scénarios, ADDED pour chaque comportement retiré).
 - Décisions du mainteneur : sort des trois capacités archivées sans spec principale et du changement actif qui en

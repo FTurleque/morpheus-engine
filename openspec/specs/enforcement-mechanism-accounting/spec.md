@@ -5,6 +5,8 @@ Define what the architecture suite measures of its own enforcement mechanisms, w
 shrink, what a new textual ban of a type must say, and how a check that reads only documents is told apart from a
 check on code.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/enforcement-mechanism-accounting.md](../../../docs/developer/specifications/enforcement-mechanism-accounting.md).
+
 ## Requirements
 
 ### Requirement: The textual bans of a type that state no intent SHALL be a measured population that only shrinks
