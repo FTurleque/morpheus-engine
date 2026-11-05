@@ -31,9 +31,10 @@ Implemented on 2026-10-13; each task carries what was done and what was not.
 
 - [x] 3.1 One read per child table, grouped by owner. Proof: 2.1 passes; 2.2 passes unmodified.
       *2026-10-13: `readValuesByOwner`, one statement per child table, read before its parents.*
-- [ ] 3.2 State in the reader what happens to a child row without a parent (decision 3). Proof: the sentence, and a
+- [x] 3.2 State in the reader what happens to a child row without a parent (decision 3). Proof: the sentence, and a
       test that builds one with foreign keys off and asserts the read is what it was on `HEAD`.
-      *2026-10-13: the sentence is in the Javadoc of `readValuesByOwner` - a value whose owner is not a parent of the snapshot is read and never used. **Not done**: no test builds such a row with foreign keys off.*
+      *2026-10-13: the sentence is in the Javadoc of `readValuesByOwner` - a value whose owner is not a parent of the snapshot is read and never used.*
+      *2026-11-04: `SqliteSnapshotBusinessContentReadCostTest#aChildRowWithoutAParentIsReadAndNeverUsed` writes a `snapshot_change_scope` row whose change is no parent, on a connection with `PRAGMA foreign_keys = OFF`, checks the row is in the table, and asserts the content read equals the content stored. Green on `HEAD`; red when the reader is changed to hand the orphan value to the changes (`scope=[..., scope of nobody]` on all three), reverted.*
 - [x] 3.3 Break 2.1 once: restore one per-owner query. Proof: red, then reverted.
       *2026-10-13: the count test was red on the per-owner queries before they were replaced; they were not restored afterwards to break it a second time.*
 
