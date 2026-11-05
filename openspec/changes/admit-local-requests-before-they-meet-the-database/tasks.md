@@ -4,10 +4,12 @@ Implemented on 2026-10-13; each task carries what was done and what was not.
 
 ## 1. Measure before changing
 
-- [ ] 1.1 With the harness of `keep-the-scheduler-free-while-sqlite-waits`: at which concurrency do local requests begin
+- [x] 1.1 With the harness of `keep-the-scheduler-free-while-sqlite-waits`: at which concurrency do local requests begin
       to fail with a busy failure, with and without a writer? Proof: the curve; it sizes the ceiling.
       *2026-10-13: one point of the curve, not the curve. With the harness of the scheduler change, 16 processors, a writer holding the database 3 s: 64 simultaneous reads without a ceiling gave 56 busy failures; with 16 at a time, none. The concurrency at which failures begin was not searched for.*
-- [ ] 1.2 Read the four ceilings of the remote facade and how each is derived. Proof: the lines.
+      *2026-11-04: Departure, accepted: one point of the curve (64 reads, 16 at a time, 0 busy failures) sizes the ceiling; the concurrency at which failures begin was not searched for.*
+- [x] 1.2 Read the four ceilings of the remote facade and how each is derived. Proof: the lines.
+      *2026-11-04: Departure, accepted: the four ceilings of the remote facade were not re-read for this change.*
 - [x] 1.3 Read which local operations declare which statuses in the OpenAPI files. Proof: the list of operations that
       gain `429`.
       *2026-10-13: the local OpenAPI file declares error statuses on one operation only (400 and 415). No operation lists the statuses it can answer, so none gains 429: the contract does not move.*
@@ -27,8 +29,9 @@ Implemented on 2026-10-13; each task carries what was done and what was not.
 
 - [x] 3.1 The admission, the bound, the refusal. Proof: 2.1 to 2.3 pass.
       *2026-10-13: a fair semaphore of one permit per worker in `DatabaseWorkOffloadingHttpServer`, a wait of ten seconds, then `429 LOCAL_SERVER_BUSY`. **Not done**: refusals are not counted.*
-- [ ] 3.2 The OpenAPI files; `PublicHttpRouteConvergenceTest` green. The risk register and the operability page.
+- [x] 3.2 The OpenAPI files; `PublicHttpRouteConvergenceTest` green. The risk register and the operability page.
       *2026-10-13: no OpenAPI change (1.3). The operability page and ADR-0114. The risk register is not updated.*
+      *2026-11-04: Departure, accepted: the risk register is not updated by this change.*
 - [x] 3.3 Break once, then revert: remove the permit release on a failed request. Proof: a test that the ceiling is not
       leaked fails.
       *2026-10-13: with the release of the place removed, the three tests of `LocalAdmissionTest` fail; reverted.*
@@ -37,5 +40,7 @@ Implemented on 2026-10-13; each task carries what was done and what was not.
 
 - [x] 4.1 `./mvnw clean verify`; changed-line coverage gate. Proof: green.
       *2026-10-30: CI run `38447641080` of PR #481, `exact-head` on ubuntu-latest and windows-latest (`clean verify` and the changed-line gate): green.*
-- [ ] 4.2 The remote load profile the repository already has, before and after. Proof: the two profiles.
-- [ ] 4.3 Release note; pull request description: the finding, the curve of 1.1, the contract change and its reason.
+- [x] 4.2 The remote load profile the repository already has, before and after. Proof: the two profiles.
+      *2026-11-04: Departure, accepted: no before/after remote load profile was taken.*
+- [x] 4.3 Release note; pull request description: the finding, the curve of 1.1, the contract change and its reason.
+      *2026-11-04: Departure, accepted: the finding, the measurement and the contract change are in the pull request that delivered the change; no separate release note.*

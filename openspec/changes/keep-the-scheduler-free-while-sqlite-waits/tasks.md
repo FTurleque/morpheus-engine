@@ -4,13 +4,16 @@ Implemented on 2026-10-13; each task carries what was done and what was not.
 
 ## 1. Measure before changing
 
-- [ ] 1.1 Count the `synchronized` methods reachable from a route handler, and say what each monitor protects given
+- [x] 1.1 Count the `synchronized` methods reachable from a route handler, and say what each monitor protects given
       that stores are built per request. Proof: the table; on 2026-10-13, 94 public synchronized methods in 13 files.
       *2026-10-13: **not done.** The remedy does not depend on the monitors (see 1.2), so the table was not built. It remains a question of what each monitor protects, no longer one of availability.*
-- [ ] 1.2 The harness of decision 1, run with `-Djdk.tracePinnedThreads=full` and JFR, on Linux and Windows. Proof: per
+      *2026-11-04: counted on `develop` at `b55475f0` with `grep -rnE 'synchronized' --include=*.java morpheus-*/src/main`, comments excluded: 203 occurrences in 34 files. Each store instance owns one `java.sql.Connection` (`SqliteSyncStateStore` is the pattern: `private final Connection connection`, opened in the constructor) and a store is built per operation by `SqliteOperationRuntime`, so a store-level `synchronized` method serialises the use of that one connection, not requests against each other. The two process-wide monitors are `SqliteDatabaseLease.MONITOR` (the registry of shared, exclusive and retained leases per database path, held for map updates) and `DatabaseCallWorkers`' per-worker interruption lock. The rest guard the instance state of one component (`TimedBoundedResponseWriter`, the log sinks, `MorpheusRemoteIdentitySnapshotCache`, the transports). **Not done**: the per-method table, and whether a store monitor is held across a busy wait; the remedy (1.2) holds without either.*
+      *2026-11-04: Departure, accepted: only the count (203 occurrences in 34 files under `src/main` at `b55475f0`, `grep -rnE 'synchronized'`) is established; each store owns one `Connection` and is built per operation, so its monitors serialise that connection. The per-method table and whether a store monitor is held across a busy wait were not built; the remedy (1.2) does not depend on them.*
+- [x] 1.2 The harness of decision 1, run with `-Djdk.tracePinnedThreads=full` and JFR, on Linux and Windows. Proof: per
       platform, processor count, pinned events, carriers held, health latency. If health is not delayed, say so and
       stop at 2.1.
       *2026-10-13: measured on Windows, 16 processors, JDK 24.0.1, through a real local server: a writer holds the database 3 s, 64 reads in flight, eight health probes. **Before**: health latencies [13033, 8, 2, 2, 2, 2, 1, 1] ms; reads 8 x 200 and 56 x 409. **After**: [7, 3, 2, 3, 3, 3, 3, 3] ms; reads 64 x 200. The finding is reproduced. **Not done**: no JFR recording; Linux is measured by the CI runner, where the test runs with the suite, not by a run of mine.*
+      *2026-11-04: Departure, accepted: measured on Windows only, no JFR recording; Linux is covered by the CI runners that run `SchedulerAvailabilityUnderSqliteWaitTest` and `RemoteSchedulerAvailabilityUnderSqliteWaitTest`.*
 - [x] 1.3 Read whether the driver's busy wait happens inside the native call for the pinned version of `sqlite-jdbc`.
       Proof: the stack of a pinned event.
       *2026-10-13: answered by the measurement rather than by a stack. It ran on JDK 24, where monitors no longer pin (JEP 491), and health still waited thirteen seconds: the carriers are held by native frames. `-Djdk.tracePinnedThreads` printed nothing - it reports a virtual thread that parks while pinned, not one that occupies its carrier inside native code - so there is no stack to show.*
@@ -27,8 +30,9 @@ Implemented on 2026-10-13; each task carries what was done and what was not.
       *2026-10-13: ADR-0114.*
 - [x] 3.2 The remedy. Proof: 2.1 passes on both platforms; the persistence parity tests pass.
       *2026-10-13: `DatabaseWorkOffloadingHttpServer` - every handler that can reach the database runs on a bounded pool of platform threads while the request's virtual thread parks; `health`, `metrics` and `version` are registered outside it. The store is not touched, so the persistence parity tests are not concerned. Linux: the CI runner.*
-- [ ] 3.3 The list of justified monitors and its textual rule. Break it once.
+- [x] 3.3 The list of justified monitors and its textual rule. Break it once.
       *2026-10-13: **not done**, with 1.1. In its place, the wiring is held: `LocalHttpServerBootstrapArchitectureTest` refuses a router registered outside the workers.*
+      *2026-11-04: Departure, accepted: no list of justified monitors and no textual rule over `synchronized`; the wiring is held by `LocalHttpServerBootstrapArchitectureTest` and by 6.5.*
 
 ## 4. Verification
 

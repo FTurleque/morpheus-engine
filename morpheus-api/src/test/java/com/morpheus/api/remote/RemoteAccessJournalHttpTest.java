@@ -68,15 +68,19 @@ class RemoteAccessJournalHttpTest {
 
             List<String> lines = linesOnceThereAre(6, journal);
             assertEquals(6, lines.size(), lines::toString);
-            assertRecord(lines.get(0), "completed", read, "reader", "READ", "READ", "GET", "health", "200");
-            assertTrue(lines.get(0).contains("\"level\":\"INFO\""), lines.get(0));
-            assertRecord(lines.get(1), "completed", refused, "reader", "READ", "WRITE", "POST", "projects", "403");
-            assertTrue(lines.get(1).contains("\"level\":\"WARNING\""), lines.get(1));
-            assertRecord(lines.get(2), "accepted", written, "writer", "WRITE", "WRITE", "POST", "projects", null);
-            assertRecord(lines.get(3), "completed", written, "writer", "WRITE", "WRITE", "POST", "projects", "400");
-            assertRecord(lines.get(4), "accepted", onAPath, "writer", "WRITE", "WRITE", "POST",
+            List<String> ofRead = recordsOf(read, lines, 1);
+            assertRecord(ofRead.get(0), "completed", read, "reader", "READ", "READ", "GET", "health", "200");
+            assertTrue(ofRead.get(0).contains("\"level\":\"INFO\""), ofRead.get(0));
+            List<String> ofRefused = recordsOf(refused, lines, 1);
+            assertRecord(ofRefused.get(0), "completed", refused, "reader", "READ", "WRITE", "POST", "projects", "403");
+            assertTrue(ofRefused.get(0).contains("\"level\":\"WARNING\""), ofRefused.get(0));
+            List<String> ofWritten = recordsOf(written, lines, 2);
+            assertRecord(ofWritten.get(0), "accepted", written, "writer", "WRITE", "WRITE", "POST", "projects", null);
+            assertRecord(ofWritten.get(1), "completed", written, "writer", "WRITE", "WRITE", "POST", "projects", "400");
+            List<String> ofOnAPath = recordsOf(onAPath, lines, 2);
+            assertRecord(ofOnAPath.get(0), "accepted", onAPath, "writer", "WRITE", "WRITE", "POST",
                     "projects/{projectId}/sync", null);
-            assertRecord(lines.get(5), "completed", onAPath, "writer", "WRITE", "WRITE", "POST",
+            assertRecord(ofOnAPath.get(1), "completed", onAPath, "writer", "WRITE", "WRITE", "POST",
                     "projects/{projectId}/sync", Integer.toString(onAPath.statusCode()));
 
             String everything = String.join("\n", lines);
@@ -126,6 +130,19 @@ class RemoteAccessJournalHttpTest {
             lines = Files.readAllLines(journal);
         }
         return lines;
+    }
+
+    /**
+     * The records of one request, in the order they were written, once their number is checked. Only that order is a
+     * property of the server: a request is accepted before it is served and completed after its exchange is closed,
+     * so the client can send its next request, and that request can be recorded, before the outcome of the previous
+     * one is on disk.
+     */
+    private static List<String> recordsOf(HttpResponse<String> response, List<String> lines, int expected) {
+        String requestId = "\"requestId\":\"" + response.headers().firstValue("X-Request-Id").orElseThrow() + "\"";
+        List<String> records = lines.stream().filter(line -> line.contains(requestId)).toList();
+        assertEquals(expected, records.size(), lines::toString);
+        return records;
     }
 
     private MorpheusRemoteHttpServer start(Path auth) throws Exception {

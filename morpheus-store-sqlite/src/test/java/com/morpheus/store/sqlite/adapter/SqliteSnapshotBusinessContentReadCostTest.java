@@ -101,6 +101,42 @@ class SqliteSnapshotBusinessContentReadCostTest {
     }
 
     /**
+     * A child row whose owner is not a parent of the snapshot is read and never used: the content read back is the one
+     * that was stored. The row can only exist with foreign keys off, so it is written on a connection of its own.
+     */
+    @Test
+    void aChildRowWithoutAParentIsReadAndNeverUsed() throws Exception {
+        Path database = tempDir.resolve("orphan.db");
+        ProjectSpecificationId projectId = ProjectSpecificationId.generate();
+        SnapshotBusinessContent stored = content(projectId, 3);
+        store(database, projectId, stored);
+        String orphanOwner = ChangeId.generate().toString();
+
+        try (Connection connection = DriverManager.getConnection("jdbc:sqlite:" + database.toAbsolutePath())) {
+            try (var pragma = connection.createStatement()) {
+                pragma.execute("PRAGMA foreign_keys = OFF");
+            }
+            try (var insert = connection.prepareStatement("INSERT INTO snapshot_change_scope "
+                    + "(snapshot_id, change_id, ordinal, value) VALUES (?, ?, 0, 'scope of nobody')")) {
+                insert.setString(1, stored.snapshotId().toString());
+                insert.setString(2, orphanOwner);
+                insert.executeUpdate();
+            }
+            try (var count = connection.prepareStatement(
+                    "SELECT COUNT(*) FROM snapshot_change_scope WHERE snapshot_id = ? AND change_id = ?")) {
+                count.setString(1, stored.snapshotId().toString());
+                count.setString(2, orphanOwner);
+                try (var result = count.executeQuery()) {
+                    assertTrue(result.next() && result.getInt(1) == 1, "the child row without a parent is in the table");
+                }
+            }
+        }
+
+        assertEquals(stored, read(database, stored.snapshotId()).content(),
+                "a value whose owner is not a parent of the snapshot changes nothing of what is read");
+    }
+
+    /**
      * Each of the seven grouped reads is served by the primary key of its table, in order, without a sort: the key
      * is (snapshot, owner, ordinal), which is exactly what the read asks for.
      */
