@@ -1,8 +1,7 @@
 # Base d'arguments de la CLI (`cli-argument-base`)
 
 Spec de référence : [`openspec/specs/cli-argument-base/spec.md`](../../../openspec/specs/cli-argument-base/spec.md)
-· Relevé du 2026-11-03 sur `ef006fb7`, avec le changement OpenSpec `report-every-cli-failure-through-one-error-line`
-(actif, implémenté dans l'arbre de travail, non archivé).
+· Relevé du 2026-11-04 sur `2913fc30`, changement OpenSpec `2026-11-04-report-every-cli-failure-through-one-error-line` archivé et synchronisé dans la spec.
 
 ## Objet et périmètre
 
@@ -18,12 +17,12 @@ ce qui refuse une sous-commande qui en garde sa propre copie.
 
 | Alias | Exigence (titre exact) | En bref | Nature |
 |---|---|---|---|
-| R1 | Every CLI failure SHALL be reported through one error line | une ligne, un format, un écrivain, lanceurs compris ; texte = message, ou nom du type si le message est vide ; codes de sortie inchangés | `[EXIGENCE]` ; texte modifié par le changement actif |
+| R1 | Every CLI failure SHALL be reported through one error line | une ligne, un format, un écrivain, lanceurs compris ; texte = message, ou nom du type si le message est vide ; codes de sortie inchangés | `[EXIGENCE]` |
 | R2 | The command token SHALL be read in one place | premier argument qui n'est ni une option globale ni sa valeur, lu par un seul lecteur | `[EXIGENCE]` |
 | R3 | A sub-command SHALL declare its options to one shared parser | options déclarées à `CommandOptions` ; refus nommés de l'option inconnue, répétée, sans valeur, vide | `[EXIGENCE]` |
 | R4 | The same malformed input SHALL be refused the same way by every sub-command | même refus partout, sauf différence déclarée et testée | `[EXIGENCE]` |
 | R5 | A private copy of the argument base SHALL be refused | le build refuse une copie des aides, une seconde écriture du format, un analyseur privé | `[EXIGENCE]` |
-| R6 | Aucune commande n'écrit son propre préfixe d'erreur | le build refuse un littéral `"MORPHEUS …error…` hors de `CliErrorLine.java` | `[PROPOSITION]` ajoutée par le changement actif |
+| R6 | Aucune commande n'écrit son propre préfixe d'erreur | le build refuse un littéral `"MORPHEUS …error…` hors de `CliErrorLine.java` | `[EXIGENCE]` |
 
 ## Comportement détaillé
 
@@ -95,9 +94,9 @@ correspondance entre type d'échec et code de sortie diffère.
 
 ## Écarts et questions ouvertes
 
-- `[DÉCISION]` L'unification des lignes d'erreur (choix du mainteneur, 2026-11-03) est portée par le changement
-  `report-every-cli-failure-through-one-error-line` : spec modifiée, code et tests dans l'arbre de travail. Tant
-  qu'il n'est pas archivé, la spec principale garde la clause « The format and the exit codes MUST NOT change ».
+- `[EXISTANT VÉRIFIÉ]` L'unification des lignes d'erreur (choix du mainteneur, 2026-11-03), portée par le changement
+  archivé `2026-11-04-report-every-cli-failure-through-one-error-line`, est écrite dans la spec principale : la clause « The format and the exit codes MUST NOT
+  change » n'existe plus, le format et les codes y sont énoncés.
 - `[EXISTANT VÉRIFIÉ]` Comportements testés absents de la spec principale : la table des codes de sortie, le refus
   d'un argument positionnel.
 - `[EXISTANT VÉRIFIÉ]` La détection de `--json` par `CliErrorLine.refuse` lit les arguments bruts : un `--json` employé
@@ -107,13 +106,13 @@ correspondance entre type d'échec et code de sortie diffère.
 
 | Exigence | Scénario | Diagramme | Changement | Preuve |
 |---|---|---|---|---|
-| R1 | Two sub-commands, the same kind of failure | séquence | archive `2026-10-29-share-one-argument-base-across-cli-subcommands` ; changement actif `report-every-cli-failure-through-one-error-line` | [`CliOptionRefusalTableTest`](../../../morpheus-cli/src/test/java/com/morpheus/cli/CliOptionRefusalTableTest.java)`#everyCellOfTheTableIsWhatTheSubCommandAnswers` (toutes les cellules au format unique) |
+| R1 | Two sub-commands, the same kind of failure | séquence | archive `2026-10-29-share-one-argument-base-across-cli-subcommands` ; archive `2026-11-04-report-every-cli-failure-through-one-error-line` | [`CliOptionRefusalTableTest`](../../../morpheus-cli/src/test/java/com/morpheus/cli/CliOptionRefusalTableTest.java)`#everyCellOfTheTableIsWhatTheSubCommandAnswers` (toutes les cellules au format unique) |
 | R1 | A failure without a message | séquence | idem | [`CliErrorLineTest`](../../../morpheus-cli/src/test/java/com/morpheus/cli/command/CliErrorLineTest.java)`#aFailureWithoutAMessageIsWordedByItsTypeName`, `#aCommandRefusalWithoutAMessageIsWordedByItsTypeName` ; `CliArgumentBaseArchitectureTest#noCliTypeButTheOwnerTurnsAFailureIntoText` |
 | R1 | The format after the change | — | idem | suites de `morpheus-cli` |
-| R1 | A command family that answered with its own prefix | séquence | changement actif | [`OneErrorLineForEveryFamilyTest`](../../../morpheus-cli/src/test/java/com/morpheus/cli/OneErrorLineForEveryFamilyTest.java)`#aRefusalWithoutJsonIsTheOneTextLineForEveryFamily` ; `CliOptionRefusalTableTest` |
-| R1 | A refused launch of a server | — | changement actif | `OneErrorLineForEveryFamilyTest#aRefusedLaunchOfEveryServerIsTheOneErrorLineWithTheUsageCode` |
-| R1 | A refusal under the JSON output | séquence | changement actif | `OneErrorLineForEveryFamilyTest#aRefusalUnderTheJsonOutputIsOneJsonObjectWithTheSameExitCode` ; `CliErrorLineTest#aRefusalIsTheTextLineUnlessTheInvocationAsksForJson` |
-| R6 | Un préfixe propre réintroduit ; Une ligne d'information n'est pas un préfixe d'erreur | — | changement actif | [`CliArgumentBaseArchitectureTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/CliArgumentBaseArchitectureTest.java)`#noCliSourceButTheWriterOfTheErrorLineSpellsAnErrorPrefix`, `#aFamilyPrefixIsAnErrorPrefixAndAnInformationLineIsNot` |
+| R1 | A command family that answered with its own prefix | séquence | archive `2026-11-04-report-every-cli-failure-through-one-error-line` | [`OneErrorLineForEveryFamilyTest`](../../../morpheus-cli/src/test/java/com/morpheus/cli/OneErrorLineForEveryFamilyTest.java)`#aRefusalWithoutJsonIsTheOneTextLineForEveryFamily` ; `CliOptionRefusalTableTest` |
+| R1 | A refused launch of a server | — | archive `2026-11-04-report-every-cli-failure-through-one-error-line` | `OneErrorLineForEveryFamilyTest#aRefusedLaunchOfEveryServerIsTheOneErrorLineWithTheUsageCode` |
+| R1 | A refusal under the JSON output | séquence | archive `2026-11-04-report-every-cli-failure-through-one-error-line` | `OneErrorLineForEveryFamilyTest#aRefusalUnderTheJsonOutputIsOneJsonObjectWithTheSameExitCode` ; `CliErrorLineTest#aRefusalIsTheTextLineUnlessTheInvocationAsksForJson` |
+| R6 | Un préfixe propre réintroduit ; Une ligne d'information n'est pas un préfixe d'erreur | — | archive `2026-11-04-report-every-cli-failure-through-one-error-line` | [`CliArgumentBaseArchitectureTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/CliArgumentBaseArchitectureTest.java)`#noCliSourceButTheWriterOfTheErrorLineSpellsAnErrorPrefix`, `#aFamilyPrefixIsAnErrorPrefixAndAnInformationLineIsNot` |
 | R2 | Global flags before the command | séquence | idem | **partielle** : [`BlankOptionValueRefusalTest`](../../../morpheus-cli/src/test/java/com/morpheus/cli/BlankOptionValueRefusalTest.java)`#aNonBlankLayoutIsStillAcceptedByEveryParser` ; `CliArgumentBaseArchitectureTest#noCliTypeButTheOwnerReadsTheCommandTokenFromTheRawArguments` ; aucun test unitaire de `GlobalArgs` |
 | R3 | An undeclared option | séquence | idem | [`CommandOptionsTest`](../../../morpheus-cli/src/test/java/com/morpheus/cli/command/CommandOptionsTest.java)`#anUndeclaredOptionIsRefusedByNameBeforeItsValueIsRead` ; `CliOptionRefusalTableTest` |
 | R3 | An option given twice | séquence | idem | `CommandOptionsTest#aSingleValuedOptionOrAFlagGivenTwiceIsRefused` ; `DuplicateOptionRefusalTest#aRepeatedCommandOptionIsRefusedNamingIt` |
