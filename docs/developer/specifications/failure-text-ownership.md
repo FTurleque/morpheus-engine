@@ -114,15 +114,11 @@ sequenceDiagram
 
 ## Écarts et questions ouvertes
 
-- `[QUESTION]` Le texte rendu à un client MCP par `McpToolFailure.result`, et celui du raisonnement, ne sont pas
-  filtrés ; [`mcp-tool-failure-contract`](mcp-tool-failure-contract.md) exige qu'un résultat d'outil ne nomme aucun
-  chemin du serveur. Un chemin y passe : un refus de l'application qui le nomme (`SafeWorkspaceFileResolver`,
-  `LocalSourceInventoryScanner`, `SourcePath`), le plus souvent le chemin que l'appelant a lui-même fourni.
-  [`McpToolFailureTest`](../../../morpheus-mcp/src/test/java/com/morpheus/mcp/McpToolFailureTest.java)`#aRefusalThatNamesAPathReachesTheClientUnfiltered`
-  fige ce comportement : le texte arrive tel quel, là où `ServerLocationDisclosure.relayableText` le remplacerait par
-  le nom du type. Filtrer rendrait au client local, sous le compte du serveur, `IllegalArgumentException` au lieu du
-  refus qui dit quoi corriger ; ne pas filtrer contredit la lettre de l'exigence MCP. L'arbitrage revient au
-  mainteneur ; ce point est hors de cette capacité, qui n'ajoute ni ne retire aucun filtre.
+- `[DÉCISION]` Le texte rendu à un client MCP par `McpToolFailure.result`, et celui du raisonnement, ne sont pas
+  filtrés : [`mcp-tool-failure-contract`](mcp-tool-failure-contract.md) exclut d'un résultat d'outil les chemins du
+  serveur que l'appelant n'a pas fournis, et un refus qui nomme le chemin reçu en argument le garde, parce qu'il dit
+  quoi corriger à un client local qui tourne sous le même compte. `ServerLocationDisclosure.relayableText` est le
+  filtre du transport distant seul. Décidé par le mainteneur le 6 novembre 2026.
 - `[DÉCISION]` La raison d'une vue illisible à message blanc est le nom du type de l'échec : R1 l'exige de toute classe
   de production, et ce nom est stable et ne porte aucune donnée. La copie en ligne de `SqliteSavedViewStore` ne
   retombait sur le type que pour un message `null` : un message blanc donnait une raison faite d'espaces, et le refus de

@@ -18,7 +18,7 @@ d'outil ne peut plus durer.
 
 | Alias | Exigence (titre exact) | En bref | Nature |
 |---|---|---|---|
-| R1 | Tool failures are tool results | un échec atteignable devient un résultat `isError` dont le message ne nomme aucun chemin du serveur ; jamais une erreur JSON-RPC | `[EXIGENCE]` |
+| R1 | Tool failures are tool results | un échec atteignable devient un résultat `isError` dont le message ne nomme aucun chemin du serveur que l'appelant n'a pas fourni ; jamais une erreur JSON-RPC | `[EXIGENCE]` |
 | R2 | A peer operation within its configured bound never closes the session | une opération de pair dans ses délais rend son résultat ou son erreur bornée ; la borne du gestionnaire dépasse l'opération la plus longue | `[EXIGENCE]` |
 
 ## Comportement détaillé
@@ -78,13 +78,13 @@ Exigences : R1 pour la branche du store, R2 pour la branche du pair et la note f
 
 ## Écarts et questions ouvertes
 
-- `[QUESTION]` R1 dit « names no server path », mais `McpToolFailure.result` rend le texte de `FailureText.of` sans
-  filtre : un refus de l'application qui nomme un chemin (`workspace root must be a real directory: <chemin>`) arrive
-  tel quel, ce que fige
-  [`McpToolFailureTest`](../../../morpheus-mcp/src/test/java/com/morpheus/mcp/McpToolFailureTest.java)`#aRefusalThatNamesAPathReachesTheClientUnfiltered`.
-  Le serveur MCP est local (STDIO, même compte) et ce chemin est en général celui que l'appelant a fourni ;
-  `ServerLocationDisclosure.relayableText` le remplacerait par le nom du type. Restreindre R1 aux chemins que
-  l'appelant n'a pas fournis, ou filtrer : à trancher par le mainteneur.
+- `[DÉCISION]` R1 exclut les chemins que l'appelant n'a pas fournis, pas ceux qu'il a donnés en argument : le
+  serveur MCP est local (STDIO, même compte), et un refus de l'application qui nomme le chemin reçu
+  (`workspace root must be a real directory: <chemin>`) dit quoi corriger. `McpToolFailure.result` rend donc le texte de
+  `FailureText.of` sans filtre, ce que tient
+  [`McpToolFailureTest`](../../../morpheus-mcp/src/test/java/com/morpheus/mcp/McpToolFailureTest.java)`#aRefusalThatNamesAPathReachesTheClientUnfiltered` ;
+  `ServerLocationDisclosure.relayableText` reste le filtre du seul transport distant. Décidé par le mainteneur le
+  6 novembre 2026.
 - `[EXISTANT VÉRIFIÉ]` Le scénario « The database is reserved by an offline maintenance » attend un message disant que
   le store est indisponible ; le code et le test ne garantissent que le préfixe `Cannot initialize SQLite `.
 - `[EXISTANT VÉRIFIÉ]` « Names no server path » est vérifié pour le répertoire temporaire du test (deux séparateurs) et
@@ -103,6 +103,7 @@ Exigences : R1 pour la branche du store, R2 pour la branche du pair et la note f
 |---|---|---|---|---|
 | R1 | The database is reserved by an offline maintenance | séquence | archive `2026-10-09-unify-mcp-tool-failure-contract` | [`McpStoreFailureInjectionTest`](../../../morpheus-mcp/src/test/java/com/morpheus/mcp/McpStoreFailureInjectionTest.java)`#aDatabaseReservedForExclusiveMaintenanceIsRefusedByEveryHandlerThatReachesTheStore` (tous les outils publiés) |
 | R1 | The database cannot be opened | séquence | idem | même classe : `#aDatabaseTheDriverCannotReadIsRefusedByEveryHandlerThatReachesTheStore` ; `MorpheusMcpRuntimeConnectionTest#aDatabaseThatCannotBeOpenedIsTheStoreFailureEveryToolHandlerAnswers` |
+| R1 | A refusal names the path the caller supplied | — | décision du 6 novembre 2026 | [`McpToolFailureTest`](../../../morpheus-mcp/src/test/java/com/morpheus/mcp/McpToolFailureTest.java)`#aRefusalThatNamesAPathReachesTheClientUnfiltered` |
 | R1 | (liste d'outils couverte) | — | idem | `McpStoreFailureInjectionTest#theInjectedClassesAreExactlyTheServedOnes` |
 | R2 | A slow peer at its maximum timeout | séquence | idem | **composée** : [`ProductionIntegrityContractTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m21/ProductionIntegrityContractTest.java)`#theHandlerSafetyBoundOutlastsTheLongestPeerOperation` ; `MinosMcpOperationDeadlineTest` et `NexusMcpOperationDeadlineTest#aPeerAnsweringEachCallJustUnderItsTimeoutCompletesTheOperation` ; [`BoundedStdioServerTransportProviderHandlerDeadlineTest`](../../../morpheus-mcp-transport/src/test/java/com/morpheus/transport/mcp/BoundedStdioServerTransportProviderHandlerDeadlineTest.java)`#aHandlerWithinItsDeadlineIsServedNormally`, `#aHandlerThatNeverCompletesDoesNotBlockTheReaderForever` |
 
