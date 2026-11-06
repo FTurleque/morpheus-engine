@@ -77,36 +77,27 @@ final class OpenSpecSourceAttribution {
                 throw failure;
             }
             String source = source(workspaceRoot, file);
-            throw new InvalidOpenSpecSource(source, source + ": " + relayable(failure), failure,
+            throw new InvalidOpenSpecSource(source, source + ": " + ServerLocationDisclosure.relayableText(failure), failure,
                     failure.getClass().getSimpleName());
         } catch (IllegalStateException failure) {
             if (failure instanceof AttributedFailure) {
                 throw failure;
             }
             String source = source(workspaceRoot, file);
-            throw new UnreadableOpenSpecSource(source, source + ": " + relayable(failure), failure,
+            throw new UnreadableOpenSpecSource(source, source + ": " + ServerLocationDisclosure.relayableText(failure), failure,
                     failure.getClass().getSimpleName());
         } catch (UncheckedIOException failure) {
             if (failure instanceof AttributedFailure) {
                 throw failure;
             }
             String source = source(workspaceRoot, file);
-            throw new UncheckedOpenSpecSource(source, source + ": " + relayable(failure), failure.getCause(),
+            throw new UncheckedOpenSpecSource(source, source + ": " + ServerLocationDisclosure.relayableText(failure), failure.getCause(),
                     failure.getClass().getSimpleName());
         }
     }
 
     private static String source(Path workspaceRoot, Path file) {
         return WorkspaceRelativePathText.of(workspaceRoot.relativize(file));
-    }
-
-    /** The failure's own text when it names no server location, its type otherwise. */
-    static String relayable(Throwable failure) {
-        String message = failure.getMessage();
-        if (message == null || message.isBlank() || !ServerLocationDisclosure.isSafeToRelay(message)) {
-            return failure.getClass().getSimpleName();
-        }
-        return message;
     }
 
     static String failureType(Throwable failure) {

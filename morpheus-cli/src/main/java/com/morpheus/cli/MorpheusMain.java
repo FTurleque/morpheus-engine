@@ -364,7 +364,7 @@ public final class MorpheusMain {
             return CliErrorLine.refuse(args, err, CliExitCode.USAGE, failure);
         } catch (RuntimeException failure) {
             return CliErrorLine.refuse(
-                    args, err, CliExitCode.INTERNAL_ERROR, "MCP startup failed: " + CliErrorLine.failureText(failure));
+                    args, err, CliExitCode.INTERNAL_ERROR, "MCP startup failed: ", failure);
         }
     }
 
@@ -394,7 +394,7 @@ public final class MorpheusMain {
             return CliErrorLine.refuse(args, err, CliExitCode.USAGE, failure);
         } catch (RuntimeException failure) {
             return CliErrorLine.refuse(
-                    args, err, CliExitCode.INTERNAL_ERROR, "API startup failed: " + CliErrorLine.failureText(failure));
+                    args, err, CliExitCode.INTERNAL_ERROR, "API startup failed: ", failure);
         }
     }
 
@@ -416,7 +416,7 @@ public final class MorpheusMain {
             return CliErrorLine.refuse(args, err, CliExitCode.USAGE, failure);
         } catch (RuntimeException failure) {
             return CliErrorLine.refuse(
-                    args, err, CliExitCode.INTERNAL_ERROR, "remote API startup failed: " + CliErrorLine.failureText(failure));
+                    args, err, CliExitCode.INTERNAL_ERROR, "remote API startup failed: ", failure);
         }
     }
 

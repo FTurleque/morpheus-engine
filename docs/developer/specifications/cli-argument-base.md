@@ -30,7 +30,8 @@ ce qui refuse une sous-commande qui en garde sa propre copie.
 
 - **Ligne d'erreur** (`CliErrorLine`) : texte `MORPHEUS error [<code>]: <message>` ; avec `--json`, un objet
   `{"exitCode":…,"code":"…","message":"…"}`. Le texte d'un échec est son message, ou le nom simple de son type si le
-  message est absent ou blanc (`CliErrorLine.failureText`), y compris pour une `CliFailure`.
+  message est absent ou blanc, formé par `FailureText.of` (voir
+  [`failure-text-ownership`](failure-text-ownership.md)), y compris pour une `CliFailure`.
 - **Familles à correspondance propre** : `version`, `product-info`, `update-check`, `reason`, `provider-plugins`,
   `server`, les familles de gouvernance (`policy`, `portfolio`, `query`, `views`, `export`, `lifecycle`…) et les
   lanceurs `api`, `api --remote`, `mcp` gardent leur table entre type d'échec et code de sortie, mais écrivent la ligne
@@ -107,7 +108,7 @@ correspondance entre type d'échec et code de sortie diffère.
 | Exigence | Scénario | Diagramme | Changement | Preuve |
 |---|---|---|---|---|
 | R1 | Two sub-commands, the same kind of failure | séquence | archive `2026-10-29-share-one-argument-base-across-cli-subcommands` ; archive `2026-11-04-report-every-cli-failure-through-one-error-line` | [`CliOptionRefusalTableTest`](../../../morpheus-cli/src/test/java/com/morpheus/cli/CliOptionRefusalTableTest.java)`#everyCellOfTheTableIsWhatTheSubCommandAnswers` (toutes les cellules au format unique) |
-| R1 | A failure without a message | séquence | idem | [`CliErrorLineTest`](../../../morpheus-cli/src/test/java/com/morpheus/cli/command/CliErrorLineTest.java)`#aFailureWithoutAMessageIsWordedByItsTypeName`, `#aCommandRefusalWithoutAMessageIsWordedByItsTypeName` ; `CliArgumentBaseArchitectureTest#noCliTypeButTheOwnerTurnsAFailureIntoText` |
+| R1 | A failure without a message | séquence | idem | [`CliErrorLineTest`](../../../morpheus-cli/src/test/java/com/morpheus/cli/command/CliErrorLineTest.java)`#aFailureWithoutAMessageIsWordedByItsTypeName`, `#aCommandRefusalWithoutAMessageIsWordedByItsTypeName` ; [`FailureTextOwnershipArchitectureTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/FailureTextOwnershipArchitectureTest.java)`#noProductionMethodButTheTwoOwnersTurnsAFailureIntoText` |
 | R1 | The format after the change | — | idem | suites de `morpheus-cli` |
 | R1 | A command family that answered with its own prefix | séquence | archive `2026-11-04-report-every-cli-failure-through-one-error-line` | [`OneErrorLineForEveryFamilyTest`](../../../morpheus-cli/src/test/java/com/morpheus/cli/OneErrorLineForEveryFamilyTest.java)`#aRefusalWithoutJsonIsTheOneTextLineForEveryFamily` ; `CliOptionRefusalTableTest` |
 | R1 | A refused launch of a server | — | archive `2026-11-04-report-every-cli-failure-through-one-error-line` | `OneErrorLineForEveryFamilyTest#aRefusedLaunchOfEveryServerIsTheOneErrorLineWithTheUsageCode` |
@@ -120,7 +121,7 @@ correspondance entre type d'échec et code de sortie diffère.
 | R3 | (sans valeur, valeur vide) | — | idem | `CommandOptionsTest#aValueOptionWithoutAValueIsRefused`, `#aBlankValueIsRefusedByTheOneDefinition` ; `BlankOptionValueRefusalTest#aBlankValueIsRefusedNamingItsOptionBeforeAnythingIsWritten` |
 | R4 | A value that looks like an option | — | idem | `CliOptionRefusalTableTest` (colonne `dash-value`) |
 | R4 | A declared difference | — | idem | `CliOptionRefusalTableTest#everyDeclaredDifferenceIsWhatTheSubCommandAnswers` (`DECLARED_DIFFERENCES`) |
-| R5 | A new sub-command pastes the helpers | — | idem | [`CliArgumentBaseArchitectureTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/CliArgumentBaseArchitectureTest.java)`#noCliTypeButTheOwnerTurnsAFailureIntoText`, `#noCliTypeButTheOwnerReadsTheCommandTokenFromTheRawArguments`, `#noCliTypeButTheOwnerWritesTheErrorLine` |
+| R5 | A new sub-command pastes the helpers | — | idem | [`CliArgumentBaseArchitectureTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/CliArgumentBaseArchitectureTest.java)`#noCliTypeButTheOwnerReadsTheCommandTokenFromTheRawArguments`, `#noCliTypeButTheOwnerWritesTheErrorLine` ; la conversion d'un échec en texte : [`FailureTextOwnershipArchitectureTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/FailureTextOwnershipArchitectureTest.java)`#noProductionMethodButTheTwoOwnersTurnsAFailureIntoText`, `#noMainSourceButTheOwnersSpellsTheConversion` |
 | R5 | A second spelling of the format | — | idem | `CliArgumentBaseArchitectureTest#theErrorLineFormatIsSpelledInOneSourceFile` |
 | R5 | A private option parser | — | idem | [`CliOptionParsingRefusesUnknownOptionsTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/CliOptionParsingRefusesUnknownOptionsTest.java)`#theOptionTokensOfEverySubCommandAreParsedByTheSharedParserOrANamedException` |
 

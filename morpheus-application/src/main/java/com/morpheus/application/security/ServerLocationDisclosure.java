@@ -1,5 +1,7 @@
 package com.morpheus.application.security;
 
+import com.morpheus.application.foundation.FailureText;
+
 import java.util.Locale;
 import java.util.Objects;
 
@@ -33,6 +35,16 @@ public final class ServerLocationDisclosure {
         }
         String candidate = value.trim();
         return candidate.isEmpty() || !namesAServerLocation(candidate);
+    }
+
+    /**
+     * The text of a failure for a caller outside the machine: {@link FailureText#of}, or the simple name of the
+     * failure's type when that text is refused by {@link #isSafeToRelay}. The type replaces the text rather than a
+     * scrubbed copy of it, because a partially scrubbed pathname is still a pathname.
+     */
+    public static String relayableText(Throwable failure) {
+        String text = FailureText.of(failure);
+        return isSafeToRelay(text) ? text : failure.getClass().getSimpleName();
     }
 
     /** True when the value contains a filesystem location in any rendering that reaches a boundary. */

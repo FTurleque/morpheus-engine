@@ -1,5 +1,7 @@
 package com.morpheus.sdk.provider;
 
+import com.morpheus.application.foundation.FailureText;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -87,7 +89,7 @@ public final class ProviderPluginDiscovery {
                             "Cannot inspect provider plugin directory",
                             Map.of(
                                     "directory", directory.toString(),
-                                    "reason", safeMessage(failure),
+                                    "reason", FailureText.of(failure),
                                     "reasonType", failureType(failure)))));
         }
 
@@ -181,7 +183,7 @@ public final class ProviderPluginDiscovery {
                     jar,
                     "PLUGIN_METADATA_INVALID",
                     "Provider plugin JAR metadata cannot be read or validated",
-                    Map.of("reason", safeMessage(failure), "reasonType", failureType(failure)));
+                    Map.of("reason", FailureText.of(failure), "reasonType", failureType(failure)));
         }
     }
 
@@ -245,11 +247,6 @@ public final class ProviderPluginDiscovery {
                 java.util.Optional.empty(),
                 ProviderPluginStatus.INVALID,
                 List.of(ProviderPluginDiagnostic.error(code, message, details)));
-    }
-
-    private static String safeMessage(Exception failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 
     /**

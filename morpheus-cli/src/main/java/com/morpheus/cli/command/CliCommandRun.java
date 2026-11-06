@@ -1,5 +1,6 @@
 package com.morpheus.cli.command;
 
+import com.morpheus.application.foundation.FailureText;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.store.KnowledgeStoreException;
 
@@ -58,16 +59,16 @@ public final class CliCommandRun {
                     global.dataDirectory(), global.configDirectory(), global.databasePath(), environment, properties);
             return command.run(global.remaining(), new CliCommandRun(jsonOutput, layout, out));
         } catch (CliFailure failure) {
-            CliErrorLine.write(err, jsonOutput, failure.exitCode(), CliErrorLine.failureText(failure));
+            CliErrorLine.write(err, jsonOutput, failure.exitCode(), FailureText.of(failure));
             return failure.exitCode().code();
         } catch (IllegalArgumentException failure) {
-            CliErrorLine.write(err, jsonOutput, CliExitCode.USAGE, CliErrorLine.failureText(failure));
+            CliErrorLine.write(err, jsonOutput, CliExitCode.USAGE, FailureText.of(failure));
             return CliExitCode.USAGE.code();
         } catch (KnowledgeStoreException | IllegalStateException failure) {
-            CliErrorLine.write(err, jsonOutput, CliExitCode.STATE_ERROR, CliErrorLine.failureText(failure));
+            CliErrorLine.write(err, jsonOutput, CliExitCode.STATE_ERROR, FailureText.of(failure));
             return CliExitCode.STATE_ERROR.code();
         } catch (RuntimeException failure) {
-            CliErrorLine.write(err, jsonOutput, CliExitCode.INTERNAL_ERROR, CliErrorLine.failureText(failure));
+            CliErrorLine.write(err, jsonOutput, CliExitCode.INTERNAL_ERROR, FailureText.of(failure));
             return CliExitCode.INTERNAL_ERROR.code();
         }
     }

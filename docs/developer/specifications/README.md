@@ -38,6 +38,7 @@ Vue commune : la séquence de la façade distante, dans [`remote-access-journal.
 | `public-surface-convergence` | [convergence des surfaces publiques](public-surface-convergence.md) | [spec](../../../openspec/specs/public-surface-convergence/spec.md) |
 | `adapter-capability-decomposition` | [commandes et outils servis par des classes de capacité](adapter-capability-decomposition.md) | [spec](../../../openspec/specs/adapter-capability-decomposition/spec.md) |
 | `cli-argument-base` | [base d'arguments de la CLI](cli-argument-base.md) | [spec](../../../openspec/specs/cli-argument-base/spec.md) |
+| `failure-text-ownership` | [texte d'un échec formé par un seul propriétaire](failure-text-ownership.md) | créée à l'archivage de `turn-every-failure-into-text-through-one-owner` |
 | `payload-map-construction` | [construction des cartes de réponse](payload-map-construction.md) | [spec](../../../openspec/specs/payload-map-construction/spec.md) |
 | `mcp-tool-failure-contract` | [échec d'un outil MCP et borne d'un appel](mcp-tool-failure-contract.md) | [spec](../../../openspec/specs/mcp-tool-failure-contract/spec.md) |
 | `mcp-peer-launch-command` | [commande de lancement d'un pair MCP](mcp-peer-launch-command.md) | [spec](../../../openspec/specs/mcp-peer-launch-command/spec.md) |

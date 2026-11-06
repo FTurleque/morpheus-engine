@@ -1,5 +1,6 @@
 package com.morpheus.store.sqlite.adapter;
 
+import com.morpheus.application.foundation.FailureText;
 import com.morpheus.application.query.dsl.PortfolioQueryScope;
 import com.morpheus.application.query.dsl.ProjectQueryScope;
 import com.morpheus.application.query.dsl.QueryBudgets;
@@ -347,7 +348,7 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
         try {
             return new SavedViewEntry.Readable(readDefinition(result));
         } catch (IllegalArgumentException | KnowledgeStoreException failure) {
-            String reason = failure.getMessage() == null ? failure.getClass().getSimpleName() : failure.getMessage();
+            String reason = FailureText.of(failure);
             return new SavedViewEntry.Unreadable(
                     SavedViewId.parse(result.getString("id")),
                     result.getString("name"),

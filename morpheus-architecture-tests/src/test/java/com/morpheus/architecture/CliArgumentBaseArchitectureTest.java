@@ -25,20 +25,21 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Every CLI sub-command reads its command token, words a failure and writes its error line through one owner, beside
+ * Every CLI sub-command reads its command token and writes its error line through one owner, beside
  * {@code GlobalArgs} in {@code com.morpheus.cli.command}.
  *
  * <p>The error line {@code MORPHEUS error [<code>]: <message>} is what a caller's script reads, and each sub-command
- * carried its own writer of it, its own reading of a failure's text and its own reading of the command token. The three
- * conversions are recognised by their <b>signature</b>, not their name, so a pasted copy under another name is refused
- * too:</p>
+ * carried its own writer of it and its own reading of the command token. The two conversions are recognised by their
+ * <b>signature</b>, not their name, so a pasted copy under another name is refused too:</p>
  * <ul>
- *   <li>a failure into text: one parameter assignable to {@link Throwable}, a {@link String} returned;</li>
  *   <li>the raw argument vector into the command: one {@code String[]} parameter, a {@link String} or a {@link List}
  *   returned;</li>
  *   <li>a code and a message into an error line: a {@link PrintStream} and a {@code CliExitCode} among the
  *   parameters.</li>
  * </ul>
+ *
+ * <p>The text a failure contributes to the line is formed by {@code FailureText.of}, whose ownership is held for every
+ * module by {@code FailureTextOwnershipArchitectureTest}.</p>
  *
  * <p>A method with one of these signatures and another purpose is named in {@link #OTHER_PURPOSES} with its reason, and
  * a name there that no longer matches fails the rule. Compiler-generated methods (lambda bodies) are not declarations
@@ -58,7 +59,7 @@ class CliArgumentBaseArchitectureTest {
     private static final String ERROR_LINE_FILE = "CliErrorLine.java";
     private static final Pattern AN_ERROR_PREFIX = Pattern.compile("\"MORPHEUS [^\"\\n]*\\berror\\b");
 
-    /** Methods with one of the three signatures and another purpose, by full name, with that purpose. */
+    /** Methods with one of the two signatures and another purpose, by full name, with that purpose. */
     static final Map<String, String> OTHER_PURPOSES = Map.of(
             CLI + ".CliCommandPaths.commandWords([Ljava.lang.String;)",
             "the command path checked against the declared paths: the words before the first option, the attached"
@@ -67,11 +68,6 @@ class CliArgumentBaseArchitectureTest {
     private static final JavaClasses PRODUCTION = new ClassFileImporter()
             .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
             .importPackages(CLI);
-
-    private static final Predicate<JavaMethod> TURNS_A_FAILURE_INTO_TEXT = method ->
-            method.getRawParameterTypes().size() == 1
-                    && method.getRawParameterTypes().getFirst().isAssignableTo(Throwable.class)
-                    && method.getRawReturnType().isEquivalentTo(String.class);
 
     private static final Predicate<JavaMethod> READS_THE_COMMAND = method ->
             method.getRawParameterTypes().size() == 1
@@ -82,11 +78,6 @@ class CliArgumentBaseArchitectureTest {
     private static final Predicate<JavaMethod> WRITES_AN_ERROR_LINE = method ->
             method.getRawParameterTypes().stream().anyMatch(type -> type.isEquivalentTo(PrintStream.class))
                     && method.getRawParameterTypes().stream().anyMatch(type -> type.getName().equals(EXIT_CODE));
-
-    @Test
-    void noCliTypeButTheOwnerTurnsAFailureIntoText() {
-        check(TURNS_A_FAILURE_INTO_TEXT, "turns a failure into text", ERROR_LINE_OWNER);
-    }
 
     @Test
     void noCliTypeButTheOwnerReadsTheCommandTokenFromTheRawArguments() {
@@ -163,14 +154,14 @@ class CliArgumentBaseArchitectureTest {
         Set<String> stillMatching = new TreeSet<>();
         for (JavaClass javaClass : PRODUCTION) {
             for (JavaMethod method : javaClass.getMethods()) {
-                if (OTHER_PURPOSES.containsKey(method.getFullName()) && (TURNS_A_FAILURE_INTO_TEXT.test(method)
-                        || READS_THE_COMMAND.test(method) || WRITES_AN_ERROR_LINE.test(method))) {
+                if (OTHER_PURPOSES.containsKey(method.getFullName()) && (READS_THE_COMMAND.test(method)
+                        || WRITES_AN_ERROR_LINE.test(method))) {
                     stillMatching.add(method.getFullName());
                 }
             }
         }
         assertEquals(new TreeSet<>(OTHER_PURPOSES.keySet()), stillMatching,
-                "a named exception is no longer declared with one of the three signatures; remove it from the list");
+                "a named exception is no longer declared with one of the two signatures; remove it from the list");
     }
 
     private static boolean declared(JavaMethod method) {
