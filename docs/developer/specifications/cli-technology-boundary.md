@@ -40,7 +40,7 @@ famille confinée sans liste. Le gate de l'application porte la même exhaustivi
 
 | Régime | Familles | Raison |
 |---|---|---|
-| refusée | SQL, bibliothèque JSON, exécution de processus | la persistance passe par le runtime d'opération SQLite (ARCH-0156) ; le JSON imprimé vient de l'application ; les pairs MCP sont lancés par les intégrations |
+| refusée | SQL, bibliothèque JSON, exécution de processus | la persistance passe par le runtime d'opération SQLite (ARCH-0162) ; le JSON imprimé vient de l'application ; les pairs MCP sont lancés par les intégrations |
 | confinée | réseau sortant, fils d'exécution, accès fichier, environnement du processus, flux standard | le transport de la découverte de mise à jour et le câblage du processus |
 | libre | horloge murale | la CLI est la racine de composition qui donne son heure à une commande ; que l'application reçoive une `java.time.Clock` est tenu par le gate de l'application |
 | tenue ailleurs | réflexion et chargement de classes | `ReflectionAndClassLoadingBoundaryArchitectureTest`, sur tout le produit |
@@ -157,7 +157,7 @@ flowchart TD
 ## Sources
 
 - ADR : [ARCH-0150](../../architecture/adr/ARCH-0150-ce-que-le-coeur-applicatif-peut-toucher.md) (décision 1 : le
-  transport de la découverte de mise à jour dans `morpheus-cli`) ; [ARCH-0156](../../architecture/adr/ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md).
+  transport de la découverte de mise à jour dans `morpheus-cli`) ; [ARCH-0162](../../architecture/adr/ARCH-0162-racines-de-composition-nommees-paquets-sans-cycle-hors-une-paire-bornee-et-decisions-dans-le-domaine.md).
 - Règles du dépôt : `.claude/rules/architecture.md`, section « Ce que l'application touche (ADR-0150) ».
 - Pages liées : [`application-technology-boundary.md`](application-technology-boundary.md),
   [`reflection-boundary.md`](reflection-boundary.md).

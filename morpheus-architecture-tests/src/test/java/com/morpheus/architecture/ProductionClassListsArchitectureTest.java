@@ -304,9 +304,9 @@ class ProductionClassListsArchitectureTest {
         Optional<String> text = acceptedRecord(RepositoryRoot.locate().resolve(DECISION_RECORDS), list,
                 kind.decision().orElseThrow(), refusals);
 
-        assertTrue(kind.enumerationRoot().isEmpty(), "ARCH-0156 names the composition roots by reference only");
+        assertTrue(kind.enumerationRoot().isEmpty(), "ARCH-0162 names the composition roots by reference only");
         assertTrue(text.isPresent() && text.get().contains(list) && !text.get().contains("<!-- liste " + list),
-                () -> "ARCH-0156 is accepted and references the list without enumerating it: " + refusals);
+                () -> "ARCH-0162 is accepted and references the list without enumerating it: " + refusals);
     }
 
     private static String block(String list, String content) {

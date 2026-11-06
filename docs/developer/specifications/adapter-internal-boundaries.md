@@ -102,7 +102,7 @@ refuse un ADR absent, non accepté, sans bloc, un bloc vide, non fermé ou en do
 famille hors vocabulaire, puis compare les noms qualifiés dans les deux sens et nomme l'ADR, la constante et chaque nom
 en trop ou manquant. Listes énumérées : `ApplicationTechnologyBoundaryArchitectureTest.CONFINED_FAMILIES` et
 `.REFLECTION_AND_LOADING` (ARCH-0150, table « Classes nommées »), `ApiEntryTypesArchitectureTest.ENTRY_TYPES`
-(ARCH-0155 §3). Listes référencées seulement : `COMPOSITION_ROOTS` (ARCH-0156), `RUNTIME_ENTRY_POINTS` et
+(ARCH-0155 §3). Listes référencées seulement : `COMPOSITION_ROOTS` (ARCH-0162), `RUNTIME_ENTRY_POINTS` et
 `RUNTIME_PUBLIC_TYPES` (ARCH-0158) ; la constante y est la source unique et rien n'est comparé.
 
 ### R5 : localisation d'un source par le type

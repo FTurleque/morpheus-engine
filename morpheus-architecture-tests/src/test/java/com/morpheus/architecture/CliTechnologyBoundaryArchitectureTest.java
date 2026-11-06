@@ -39,7 +39,7 @@ class CliTechnologyBoundaryArchitectureTest {
 
     private static final Map<TechnologyFamily, Decision> REGIMES = Map.of(
             TechnologyFamily.SQL, new Decision(Regime.REFUSED,
-                    "persistence goes through the SQLite operation runtime of the store, ADR-0156"),
+                    "persistence goes through the SQLite operation runtime of the store, ARCH-0162"),
             TechnologyFamily.JSON_LIBRARY, new Decision(Regime.REFUSED,
                     "the JSON a command prints is written by the application"),
             TechnologyFamily.PROCESS_EXECUTION, new Decision(Regime.REFUSED,

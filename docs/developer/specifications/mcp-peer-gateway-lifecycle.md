@@ -132,7 +132,7 @@ Toutes les classes de test citées vivent sous `morpheus-mcp-transport/src/test/
 
 - [ADR-0128](../../architecture/adr/ARCH-0128-pairs-minos-et-nexus-par-mcp-stdio.md) : pairs MINOS et NEXUS par MCP
   STDIO, outils requis de chaque pair.
-- [ADR-0156](../../architecture/adr/ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md), décision 3 : le
+- [ARCH-0162](../../architecture/adr/ARCH-0162-racines-de-composition-nommees-paquets-sans-cycle-hors-une-paire-bornee-et-decisions-dans-le-domaine.md), décision 3 : le
   transport ne connaît aucun type MORPHEUS.
 - [Trace d'un échec écarté](suppressed-failure-trace.md) : les familles comptées.
 - [Échec d'un outil MCP et borne d'un appel](mcp-tool-failure-contract.md) : l'échéance d'une opération déléguée.
