@@ -81,7 +81,8 @@ servie qui manque à `MorpheusHttpRouteTable` n'est vue par aucun des deux (elle
 - Fournir les scripts de validation **en `.ps1` ET `.sh`** — la parité Windows/Linux est assertée pour **tout** `scripts/validate-<cible>.*` par `GateReachabilityArchitectureTest`
 - Justifier dans la description de la PR toute modification de `contracts/public-surfaces.tsv`,
   `config/*ratchets*.properties`, `docs/developer/reference/openapi/*.yaml` ou d'un test sous `morpheus-architecture-tests/` —
-  ce sont des fichiers de gouvernance, pas de simples fichiers de configuration
+  ce sont des fichiers de gouvernance, pas de simples fichiers de configuration. La section « Justification d'une
+  modification de gouvernance » de `.github/pull_request_template.md` le demande
 
 ## JAMAIS
 

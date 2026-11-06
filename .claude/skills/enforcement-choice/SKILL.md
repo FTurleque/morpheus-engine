@@ -16,6 +16,9 @@ du module. **Ce n'est pas de la dette à migrer par réflexe.** Le *pourquoi* es
 - « Ce nom ne doit pas apparaître ici » → **texte**.
 - Dans le doute, **garder les deux**.
 
+La phrase va aussi dans la description de la pull request : section « Intention de chaque assertion
+textuelle » de `.github/pull_request_template.md`, avec le mécanisme retenu et la violation plantée.
+
 Les deux mécanismes n'enforcent pas la même proposition, et aucun ne domine l'autre :
 
 | | `assertFalse(src.contains("X"))` | règle ArchUnit |

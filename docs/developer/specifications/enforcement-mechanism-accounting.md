@@ -28,6 +28,8 @@ documents est distinguée d'une classe qui juge du code.
 | R4 | A test class that reads only non-compiled artefacts SHALL be marked as a coherence check and SHALL stay in the gate module | marqueur dérivé de la source de la classe, dans les deux sens ; la classe reste dans le module | `[EXIGENCE]` |
 | R5 | Un échec d'un contrôle de cohérence est rapporté comme une désynchronisation documentaire | deux verdicts sur la sortie et dans un fichier de preuve, chacun avec ses tests ; nombre d'exécutions de chaque nature | `[EXIGENCE]` |
 | R6 | Le verdict distinct ne change ni la sélection ni le compte des exécutions | une seule exécution Surefire, un seul répertoire de rapports ; `-Dtest` et `-Dgroups` inchangés | `[EXIGENCE]` |
+| R7 | Le gabarit de pull request demande l'intention de chaque assertion textuelle ajoutée | section du gabarit : fichier, phrase d'intention, mécanisme retenu ; la suite refuse un gabarit ou une section absents | `[EXIGENCE]` |
+| R8 | Le gabarit de pull request demande la justification d'une modification de gouvernance | section du gabarit qui nomme le manifeste, les ratchets de `config/`, l'OpenAPI et la suite d'architecture | `[EXIGENCE]` |
 
 ## Comportement détaillé
 
@@ -76,6 +78,21 @@ tests triés — et imprime deux lignes `[enforcement verdict]` avant la ligne d
 Surefire fait toujours échouer le build. Il ne change ni la sélection, ni l'ordre, ni les rapports
 (`target/surefire-reports/`) ; une exécution restreinte par `-Dtest` ou `-Dgroups` écrit le verdict de sa seule sélection.
 [`ci.yml`](../../../.github/workflows/ci.yml) publie le fichier dans l'artefact d'intégrité.
+### Le gabarit de pull request (R7, R8)
+
+`[EXISTANT VÉRIFIÉ]` [`.github/pull_request_template.md`](../../../.github/pull_request_template.md), que GitHub pré-remplit à
+l'ouverture d'une pull request, porte deux sections. « Intention de chaque assertion textuelle » demande, par assertion
+textuelle ajoutée ou modifiée dans la suite d'architecture, le fichier, la phrase d'intention (la mention interdite, ou la
+dépendance qu'elle représente), le mécanisme retenu et, pour une règle sur le bytecode, la violation plantée qui l'a fait
+échouer. « Justification d'une modification de gouvernance » demande la raison de toute modification du manifeste des
+surfaces publiques, des fichiers de ratchets et de compteurs de dette de `config/`, des contrats OpenAPI et des tests de la
+suite.
+
+[`PullRequestTemplateCoherenceTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/PullRequestTemplateCoherenceTest.java),
+marqué `@CoherenceCheck`, lit le gabarit et refuse, en nommant son chemin, un fichier absent, une section absente (par son
+titre exact) ou un fichier de gouvernance que la seconde section ne nomme pas. Il ne lit jamais la description d'une pull
+request : aucun fichier du dépôt ne la porte, et aucun workflow ne lit `github.event.pull_request.body`. Une section laissée
+vide passe le build ; la revue est le seul filet.
 
 ## Diagrammes
 
@@ -159,6 +176,24 @@ sequenceDiagram
 ```
 
 L'échec du build reste décidé par Surefire ; le verdict le précède et le nomme.
+### Qui tient la phrase d'intention d'une assertion textuelle ?
+
+Existant vérifié, lu dans `PullRequestTemplateCoherenceTest` et `.github/workflows/`. Organigramme. Exigences R7, R8.
+
+```mermaid
+flowchart LR
+    R["règle écrite<br/>architecture.md, governance.md, skill enforcement-choice"]
+    G[".github/pull_request_template.md<br/>sections intention et gouvernance"]
+    T["PullRequestTemplateCoherenceTest<br/>présence du gabarit, des sections, des fichiers nommés"]
+    P["description de chaque pull request"]
+    V["revue du mainteneur"]
+    R --> G
+    T -->|tient| G
+    G -->|propose| P
+    V -->|tient| P
+```
+
+Le build tient le gabarit ; la description de chaque pull request n'est jugée que par la revue.
 
 ## Écarts et questions ouvertes
 
@@ -213,6 +248,13 @@ et [`CoherenceCheckMarkerTest`](../../../morpheus-architecture-tests/src/test/ja
 | R5 | Aucun échec | idem | `EnforcementVerdictTest#aGreenRunWritesTwoEmptyVerdictsAndCountsTheExecutionsOfEachNature` ; fichier lu après une exécution verte |
 | R6 | Le compte des validateurs de présence | idem | relevé avant/après dans `target/surefire-reports/`, à la livraison ; tenu ensuite par `architectureTestsMinimum` |
 | R6 | Une seule classe marquée sélectionnée par -Dtest | idem | commande rejouée à la livraison |
+| R4 | The build selects the coherence checks | idem | [`CoherenceCheck`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/CoherenceCheck.java) (`@Tag("coherence")`) ; **preuve manquante** de la sélection (Écart 5) |
+| R7 | Le gabarit est présent avec sa section | organigramme 4 | `PullRequestTemplateCoherenceTest#theTemplateAsksForTheIntentionOfEveryTextualAssertion` |
+| R7 | La section d'intention est retirée du gabarit | idem | fixture : `PullRequestTemplateCoherenceTest#aTemplateWithoutTheIntentionSectionIsRefusedBySectionName` |
+| R7 | Le gabarit est supprimé | idem | fixture : `PullRequestTemplateCoherenceTest#aMissingTemplateIsRefusedByItsExpectedPath` |
+| R7 | Une pull request laisse la section vide | idem | tenu par la revue : aucun workflow ne lit `github.event.pull_request.body` |
+| R8 | La section de gouvernance est retirée du gabarit | idem | fixture : `PullRequestTemplateCoherenceTest#aTemplateWithoutTheGovernanceSectionOrOneOfItsFilesIsRefused` |
+| R8 | La section nomme les fichiers de gouvernance | idem | `PullRequestTemplateCoherenceTest#theTemplateAsksForTheJustificationOfAGovernanceChange` ; fixture : même méthode que la ligne précédente |
 
 ## Sources
 
