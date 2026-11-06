@@ -103,6 +103,18 @@ class McpPeerSessionTest {
     }
 
     @Test
+    void aDeadlineThatCannotBeArmedClosesTheStartedClientAndDeletesItsCopy() throws IOException {
+        Path copy = Files.writeString(temporaryDirectory.resolve("peer.jar"), "verified copy");
+
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
+                () -> McpPeerSession.open(PEER, launch(Duration.ZERO, Optional.of(copy)), observers));
+
+        assertEquals("peer operation deadline must be positive", failure.getMessage());
+        assertFalse(Files.exists(copy), "the copy is deleted although the session never armed its deadline");
+        assertEquals(List.of(), residues);
+    }
+
+    @Test
     void anErrorThatCrossesACallEndsTheSessionAtOnceAndItsCloseIsThenANoOp() throws IOException {
         Path copy = Files.writeString(temporaryDirectory.resolve("peer.jar"), "verified copy");
         McpPeerSession.Peer failingOnRefusal = new McpPeerSession.Peer("FIXTURE", EVERY_TOOL, 64 * 1024,
