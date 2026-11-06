@@ -72,6 +72,7 @@ Vue commune : la séquence de la façade distante, dans [`remote-access-journal.
 | `application-package-cycles` | [paquets de l'application sans cycle](application-package-cycles.md) | [spec](../../../openspec/specs/application-package-cycles/spec.md) |
 | `application-technology-boundary` | [technologies que la couche application peut toucher](application-technology-boundary.md) | [spec](../../../openspec/specs/application-technology-boundary/spec.md) |
 | `cli-technology-boundary` | [technologies que la CLI peut toucher](cli-technology-boundary.md) | changement actif `confine-the-technology-families-the-cli-uses` |
+| `api-technology-boundary` | [technologies que l'adaptateur HTTP peut toucher](api-technology-boundary.md) | changement actif `confine-the-technology-families-the-cli-uses` |
 | `module-package-correspondence` | [correspondance entre modules et paquets](module-package-correspondence.md) | [spec](../../../openspec/specs/module-package-correspondence/spec.md) |
 | `provider-sdk-dependency-boundary` | [frontière de dépendance du SDK de provider](provider-sdk-dependency-boundary.md) | [spec](../../../openspec/specs/provider-sdk-dependency-boundary/spec.md) |
 | `reflection-boundary` | [réflexion, chargement de classes et injection](reflection-boundary.md) | [spec](../../../openspec/specs/reflection-boundary/spec.md) |

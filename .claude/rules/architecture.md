@@ -334,7 +334,8 @@ l'exécution de processus, du réseau sortant ni des fils d'exécution. L'accès
 les flux standard, l'horloge murale et la réflexion n'y sont atteints que par les classes que
 `ApplicationTechnologyBoundaryArchitectureTest` nomme pour chaque famille — la liste est exacte, elle rétrécit, et un
 nom ajouté exige un ADR consolidé qui remplace ADR-0150. Les types et appels de chaque famille sont déclarés une fois,
-dans `TechnologyFamily` (tests d'architecture), que lisent le gate de l'application et celui de la CLI : les lire là,
+dans `TechnologyFamily` (tests d'architecture), que lisent le gate de l'application, celui de la CLI et celui de
+`morpheus-api` : les lire là,
 pas ici. `Path` est du vocabulaire, pas un accès. Aucun nom n'est marqué *sort* : la découverte
 de mise à jour lit son manifeste par le port `product.UpdateManifestSource`, que `UpdateManifestFetcher`
 (`morpheus-cli`) implémente, et garde dans `UpdateDiscoveryService` le refus de `http:`, les bornes et l'analyse.
@@ -348,9 +349,19 @@ d'exécution, accès fichier, environnement du processus et flux standard n'y so
 l'horloge murale y est libre (la CLI donne son heure à une commande) ; la réflexion reste à
 `ReflectionAndClassLoadingBoundaryArchitectureTest`. Ces listes sont des **tables de faits**, pas des compteurs de
 dette : une classe ajoutée s'écrit dans le test avec sa raison, sans ADR. Une famille ajoutée à `TechnologyFamily`
-exige un régime dans les deux gates. `morpheus-api` n'a pas encore de gate de familles.
+exige un régime dans chaque gate de familles.
 
 > `CliTechnologyBoundaryArchitectureTest` — `everyFamilyOfTheVocabularyHasARegimeInTheCli`, `aFamilyTheCliRefusesIsReachedByNoClassOfTheCli`, `aConfinedFamilyIsReachedOnlyByTheClassesOfTheCliNamedForIt`, `everyClassNamedForAConfinedFamilyStillReachesIt`
+
+**L'adaptateur HTTP.** `com.morpheus.api` suit le même patron : SQL, exécution de processus, environnement du
+processus et flux standard y sont refusés (le serveur reçoit sa configuration, mot de passe TLS compris, de la CLI) ;
+bibliothèque JSON, réseau sortant, fils d'exécution et accès fichier n'y sont atteints que par les classes que
+`ApiTechnologyBoundaryArchitectureTest` nomme ; l'horloge murale y est libre ; la réflexion reste au gate du produit. Ses
+listes sont aussi des tables de faits. Ce gate dit quelles classes atteignent une famille ; les règles plus fines du
+module restent où elles sont et ne s'y répètent pas (`DatabaseWorkArchitectureTest`,
+`HttpRoutesTransportBoundaryArchitectureTest`).
+
+> `ApiTechnologyBoundaryArchitectureTest` — `everyFamilyOfTheVocabularyHasARegimeInTheHttpAdapter`, `aFamilyTheHttpAdapterRefusesIsReachedByNoClassOfTheAdapter`, `aConfinedFamilyIsReachedOnlyByTheClassesOfTheHttpAdapterNamedForIt`, `everyClassNamedForAConfinedFamilyOfTheHttpAdapterStillReachesIt`
 
 ## Cœurs purs — interdits textuels (scannés dans les sources)
 

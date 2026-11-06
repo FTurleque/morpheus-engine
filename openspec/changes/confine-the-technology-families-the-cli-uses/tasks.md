@@ -30,8 +30,11 @@
 - [x] 3.3 Compléter `.claude/rules/architecture.md`, section « Ce que l'application touche (ADR-0150) », par un paragraphe sur la CLI : régimes, tables de faits, renvoi au test, sans recopier aucune liste — vérification : relecture ; `GovernanceSurfaceCoherenceTest` vert
 - [ ] 3.4 Ouvrir, ou proposer au mainteneur d'ouvrir, le changement de `morpheus-api` exclu par D4, et faire trancher la question des compteurs de dette ; si elle l'est en leur faveur, proposer l'ADR qu'ils exigent (D5) sans l'accepter — vérification : décision consignée dans le compte rendu de la tâche
 
-  Compte rendu 3.4 : aucun changement `morpheus-api` n'est ouvert ici ; il est proposé au mainteneur, avec la question
-  des compteurs de dette, laissée ouverte. Tables de faits par défaut, aucun ADR rédigé (D5).
+  Compte rendu 3.4 : le volet `morpheus-api` est porté par ce changement (section 5, D6) plutôt que par un changement
+  à part. La question des compteurs de dette reste au mainteneur, pour les listes de la CLI et pour celles de
+  l'adaptateur HTTP : `[QUESTION]` ces listes ne doivent-elles que rétrécir ? Tables de faits par défaut, aucun ADR
+  rédigé (D5) ; un « oui » exige un ADR accepté qui les nomme. La tâche reste ouverte tant que la question n'est pas
+  tranchée.
 
 ## 4. Vérification d'ensemble
 
@@ -40,6 +43,19 @@
 - [x] 4.3 `./mvnw test -pl morpheus-architecture-tests -Dtest=CliTechnologyBoundaryArchitectureTest,ApplicationTechnologyBoundaryArchitectureTest,ReflectionAndClassLoadingBoundaryArchitectureTest,ProductionClassListsArchitectureTest,AnEmptyArchitectureRuleFailsTest,CoherenceCheckMarkerTest,EnforcementMechanismAccountingTest,RepositoryDocumentationCoherenceTest` puis `./mvnw test -pl morpheus-architecture-tests` — vérification : verdict vert ; le nombre d'exécutions ne baisse pas sous `architectureTestsMinimum` (`config/m21-quality-ratchets.properties`)
   - Relevé : `./mvnw clean verify` d'intégration (`chore/sprint-15-low`), 19 modules, `BUILD SUCCESS`, 5 349 tests, aucun échec ; `archgate check` 27/27.
 - [x] 4.4 `archgate check` — vérification : aucune violation
+
+## 5. morpheus-api
+
+- [x] 5.1 Mesurer sur le bytecode, par une règle jetable sur `com.morpheus.api`, les classes qui atteignent chaque famille de `TechnologyFamily.VOCABULARY` — exigence : `api-technology-boundary` › Une classe nommée pour une famille confinée de l'adaptateur HTTP DOIT encore l'atteindre ; vérification : table mesurée consignée (D6), SHA cité ; aucune règle jetable laissée dans le dépôt
+- [x] 5.2 Écrire `ApiTechnologyBoundaryArchitectureTest` (exhaustivité des régimes, familles refusées, confinement, égalité des ensembles) avec les régimes de D6 — exigences : toutes celles de `api-technology-boundary` ; vérification : casser chaque règle une fois et revenir en arrière
+- [x] 5.3 Déclarer `ApiTechnologyBoundaryArchitectureTest.CONFINED_FAMILIES` `TABLE_OF_FACTS` dans `ProductionClassListsArchitectureTest.KINDS` — exigence : `api-technology-boundary` › Les listes de classes du gate de l'adaptateur HTTP DOIVENT être des tables de faits déclarées ; vérification : `everyListOfProductionClassesIsADebtCounterOrATableOfFacts` rouge avant, vert après ; aucune clé ajoutée à `config/debt-counter-ratchets.properties`
+- [x] 5.4 Créer `docs/developer/specifications/api-technology-boundary.md`, l'indexer, et renvoyer vers elle depuis les pages de la CLI et de l'application et depuis `.claude/rules/architecture.md` — vérification : `RepositoryDocumentationCoherenceTest`, `GovernanceSurfaceCoherenceTest` verts
+
+  Compte rendu 5.2 (violations plantées puis retirées) : une classe de `com.morpheus.api` qui appelle `System.getenv`,
+  dépend de `java.sql` et de `java.net.http` fait échouer la règle des familles refusées (« SQL », « process
+  environment »), la règle de confinement (« outbound network ») et l'égalité des ensembles ; un nom ajouté à la liste
+  de la bibliothèque JSON fait échouer l'égalité ; le retrait du régime de l'horloge fait échouer l'exhaustivité.
+  `[QUESTION]` régime de l'horloge murale libre par défaut (D6), à confirmer.
 
 ## Workflow follow-up
 

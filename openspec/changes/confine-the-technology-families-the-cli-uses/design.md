@@ -159,6 +159,33 @@ rapportées à leur classe de premier niveau, comme dans le gate de l'applicatio
   la surface du changement sans rien apporter au défaut constaté, qui est dans la CLI.
 - **Compromis** : `morpheus-api` reste sans gate de familles d'ici là ; `AUD-ARC-18` reste partiel pour ce volet.
 - **ADR** : non concerné.
+- **Suite** : le second volet est porté par ce même changement (D6) plutôt que par un changement à part, pour garder
+  une seule déclaration partagée et une seule question ouverte (D3).
+
+### D6 : le volet `morpheus-api`
+- **Nature** : [DÉCISION], régime de l'horloge et nature des listes à confirmer par le mainteneur
+- **Exigences servies** : toutes celles de `api-technology-boundary`.
+- **Choix** : `ApiTechnologyBoundaryArchitectureTest`, sur le patron du gate de la CLI et la même `TechnologyFamily`.
+  Mesure sur le bytecode (`33acc9e0`, règle jetable non laissée dans le dépôt) : SQL, exécution de processus,
+  environnement du processus, flux standard et réflexion ne sont atteints par aucune classe de `com.morpheus.api` ; la
+  bibliothèque JSON par le seul décodeur ; le réseau sortant, les fils d'exécution, l'accès fichier et l'horloge par
+  plusieurs classes, dont celles des deux serveurs et du fichier d'identités remote. Régimes :
+  - **refusées** : SQL, exécution de processus, environnement du processus (le serveur reçoit sa configuration de la
+    CLI, mot de passe TLS compris), flux standard ;
+  - **confinées** : bibliothèque JSON, réseau sortant (la famille compte `InetAddress` et `javax.net.ssl` : la
+    politique de loopback et le TLS de la façade y sont nommés), fils d'exécution, accès fichier ;
+  - **libre** : horloge murale, comme dans la CLI ;
+  - **tenue ailleurs** : réflexion et chargement de classes.
+  Les listes sont des tables de faits (D3). Le gate ne répète pas les règles plus fines du module :
+  `DatabaseWorkArchitectureTest` (qui construit le pool de base) et `HttpRoutesTransportBoundaryArchitectureTest`
+  (quel routeur décode, et le `JsonMapper` strict) gardent leurs règles et leurs doublons textuels.
+- **Alternatives écartées** : *tenir la bibliothèque JSON « ailleurs »* : la règle des routeurs ne voit ni les services
+  ni les serveurs ; *redéfinir le réseau sortant pour ce module* (sans `InetAddress` ni TLS) : deux définitions d'une
+  famille divergeraient (D1) ; *confiner l'horloge* : la liste nommerait les classes du fichier d'identités et les
+  services sans protéger de frontière ; *factoriser la mécanique des gates de familles* : elle touche les gates de
+  l'application et de la CLI, hors du volet.
+- **Compromis** : la mécanique des quatre règles existe en deux copies, une par module de transport.
+- **ADR** : non concerné, même filtre que D5.
 
 ### D5 : pas d'ADR rédigé ; filtre appliqué
 - **Nature** : [DÉCISION]
