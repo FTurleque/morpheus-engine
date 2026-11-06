@@ -97,9 +97,17 @@ Un interdit textuel de type (`assertFalse(source.contains("UnType"))`) porte son
 comme une phrase au lieu de `expected: <false> but was: <true>`. Les interdits sans message forment la **famille non
 expliquée**, définie par l'expression que tient `EnforcementMechanismAccountingTest` (pas par une commande recopiée
 ici) : son compte doit **égaler** `UNEXPLAINED_TYPE_BAN_CEILING`. Un membre ajouté fait échouer le build ; un membre
-retiré aussi, tant que le plafond n'est pas baissé dans le même changement. La famille est vide et le plafond vaut 0 :
-un interdit de type dont la cible ne déclare aucune constante inlinable s'écrit en règle ArchUnit, les autres portent
-leur message. Aucune raison connue ne justifie de relever le plafond.
+retiré aussi, tant que le plafond n'est pas baissé dans le même changement. Aucune raison connue ne justifie de
+relever le plafond.
+
+Un interdit de type dont la cible ne déclare aucune constante inlinable s'écrit **en règle ArchUnit**, l'assertion
+textuelle pouvant rester à côté ; les autres portent leur message. `TypeBansAwaitingABytecodeRuleTest` tient cette
+convention : il compte les interdits textuels d'un nom de type, avec ou sans message et quel que soit le récepteur,
+dont la cible est une source principale d'un module importé par la suite, ne déclare aucun champ `static final` non
+privé de type `String` ou primitif, et n'est nommée par aucune classe qui évalue des règles sur le bytecode. Ce compte
+doit **égaler** `AWAITING_A_RULE_CEILING`, qui ne fait que baisser : lire la constante, pas cette page. Une règle qui
+remplace ou double un interdit textuel est livrée avec la trace de sa violation plantée (Javadoc de la méthode, tâches
+ou PR) : le build ne lit pas cette trace, la revue la lit.
 
 La part textuelle de l'enforcement n'est **pas** plafonnée, et ce refus est délibéré : un ratio se fait baisser en
 supprimant un contrôle de documentation ou en ajoutant une règle qui ne voit rien de neuf, et la plupart des
@@ -116,8 +124,8 @@ de milestone : sortir les contrôles de cohérence du module ferait baisser `arc
 
 **Généralisation par groupe de capacité**, jamais par famille entière :
 
-- les quatre interdits vrais pour **tous** les routeurs (les paquets `com.morpheus.api.remote` et
-  `com.morpheus.api.local`, l'appel `sendResponseHeaders`, `MorpheusHttpPathParser`) vivent dans
+- les cinq interdits vrais pour **tous** les routeurs (les paquets `com.morpheus.api.remote` et
+  `com.morpheus.api.local`, l'appel `sendResponseHeaders`, `MorpheusHttpPathParser`, `JsonMediaType`) vivent dans
   `HttpRoutesFamilyArchitectureTest`, règle **et** texte — n'y ajouter qu'un interdit vérifié sur chacun des
   `*HttpRoutes`. Une suite propre à un routeur ne répète aucun interdit de type qu'une règle de famille ou de groupe
   tient déjà. L'interdit sur `sendResponseHeaders` a visé **le type**
