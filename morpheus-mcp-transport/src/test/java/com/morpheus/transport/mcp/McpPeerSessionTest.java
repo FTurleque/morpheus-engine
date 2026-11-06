@@ -87,6 +87,47 @@ class McpPeerSessionTest {
     }
 
     @Test
+    void anErrorThatCrossesTheOpeningClosesThePeerAndDeletesItsCopy() throws IOException {
+        Path copy = Files.writeString(temporaryDirectory.resolve("peer.jar"), "verified copy");
+        McpPeerSession.Peer unbuildable = new McpPeerSession.Peer("FIXTURE", EVERY_TOOL, 64 * 1024,
+                (message, cause) -> {
+                    throw new PeerTypeError("the peer's exception type cannot be built: " + message);
+                });
+
+        PeerTypeError failure = assertThrows(PeerTypeError.class, () -> McpPeerSession.open(
+                unbuildable, launch(OPERATION_DEADLINE, Optional.of(copy), "-Dfixture.echoOnly=true"), observers));
+
+        assertTrue(failure.getMessage().startsWith(
+                "the peer's exception type cannot be built: FIXTURE MCP server is incompatible"), failure.getMessage());
+        assertFalse(Files.exists(copy), "the peer was abandoned and its copy deleted although an Error crossed open");
+    }
+
+    @Test
+    void anErrorThatCrossesACallEndsTheSessionAtOnceAndItsCloseIsThenANoOp() throws IOException {
+        Path copy = Files.writeString(temporaryDirectory.resolve("peer.jar"), "verified copy");
+        McpPeerSession.Peer failingOnRefusal = new McpPeerSession.Peer("FIXTURE", EVERY_TOOL, 64 * 1024,
+                (message, cause) -> {
+                    if (message.startsWith("FIXTURE tool failed")) {
+                        throw new PeerTypeError("the peer's exception type cannot be built: " + message);
+                    }
+                    return new PeerFailure(message, cause);
+                });
+
+        try (McpPeerSession session = McpPeerSession.open(
+                failingOnRefusal, launch(OPERATION_DEADLINE, Optional.of(copy)), observers)) {
+            PeerTypeError failure = assertThrows(PeerTypeError.class,
+                    () -> session.call(FixtureSessionMcpPeer.TOOL_ERROR, Map.of()));
+
+            assertEquals("the peer's exception type cannot be built: FIXTURE tool failed: session_error: "
+                    + "the peer refused", failure.getMessage());
+            assertFalse(Files.exists(copy), "the session ended when the Error crossed the call, before its close");
+        }
+
+        assertEquals(List.of(), shutdownFailures);
+        assertEquals(List.of(), residues);
+    }
+
+    @Test
     void anErrorResultAnEmptyPayloadAndMoreThanOneContentAreRefusedWithTheirMessage() {
         try (McpPeerSession session = McpPeerSession.open(PEER, launch(OPERATION_DEADLINE, Optional.empty()),
                 observers)) {
@@ -187,6 +228,13 @@ class McpPeerSessionTest {
                 "bin",
                 System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win") ? "java.exe" : "java")
                 .toString();
+    }
+
+    /** An Error raised where the session expects the peer's exception, as a class that fails to load raises one. */
+    private static final class PeerTypeError extends Error {
+        PeerTypeError(String message) {
+            super(message);
+        }
     }
 
     /** The exception type of the peer these tests hand the session, as a gateway hands it its own. */
