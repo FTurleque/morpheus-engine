@@ -66,6 +66,10 @@ mis à jour par OpenSpec : le modèle de tâches le prévoit explicitement dans 
 - **Liens dans un delta** : depuis la racine du dépôt (`/docs/...`), voir plus bas.
 - **Changement actif cité ailleurs** : par son nom en code (`nom-du-changement`), pas par un lien : l'archivage
   déplace son dossier.
+- **Paquet cité par un changement actif** : tout nom `com.morpheus…` d'un fichier de `openspec/changes/` hors
+  `archive/` doit exister dans les sources du réacteur (`OpenSpecChangePackageCitationTest`). Un paquet absent n'est
+  admis que suivi, sur la même ligne, de la marque « (ancien nom) » pour un renommage raconté, ou « (à créer) » pour
+  un paquet que le changement propose ; cette seconde marque est refusée dès que le paquet existe.
 
 ## Comportements d'OpenSpec 1.14.3 vérifiés
 

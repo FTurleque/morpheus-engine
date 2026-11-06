@@ -10,8 +10,8 @@
 - The record's compact constructor holds the invariants that must not be skipped (absolute launcher, bounded time).
 - The resolution uses the file system (is the JAR a file, the real path of the launcher, the runtime's `bin/java`) and
   `ExternalJarIntegrity` (pin verification and normalisation).
-- `morpheus-mcp-transport` ships the package `com.morpheus.integration.mcp`, which holds `McpPeerLaunch`; AUD-ARC-07
-  (sprint 10) questions that package name. It depends on no MORPHEUS type by rule.
+- `morpheus-mcp-transport` ships the package `com.morpheus.transport.mcp`, which holds `McpPeerLaunch`; AUD-ARC-07
+  (sprint 10) gave it that name in place of `com.morpheus.integration.mcp` (ancien nom). It depends on no MORPHEUS type by rule.
 - `document-every-environment-setting-the-product-reads` documents the environment settings the product reads; the
   ten names of the two peers (five properties and five variables each, by pattern) must not change under it.
 
