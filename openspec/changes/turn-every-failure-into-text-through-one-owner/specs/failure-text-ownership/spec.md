@@ -3,7 +3,7 @@
 ## Purpose
 Définir qui forme le texte d'un échec, filtré ou non, dans toutes les classes de production de MORPHEUS, et ce qui
 refuse une copie de cette conversion, pour le mainteneur et la CI. Documentation durable :
-`docs/developer/specifications/failure-text-ownership.md`.
+[`failure-text-ownership.md`](/docs/developer/specifications/failure-text-ownership.md).
 
 ## ADDED Requirements
 
