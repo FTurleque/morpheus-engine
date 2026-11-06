@@ -11,8 +11,9 @@ import java.util.Objects;
  */
 public record McpPeerLaunch(String command, List<String> arguments, Map<String, String> explicitEnvironment) {
     public McpPeerLaunch {
-        Objects.requireNonNull(command, "command");
-        if (command.isBlank()) throw new IllegalArgumentException("command must not be blank");
+        if (command == null || command.isBlank()) {
+            throw new IllegalArgumentException("command must not be null or blank");
+        }
         arguments = List.copyOf(Objects.requireNonNull(arguments, "arguments"));
         explicitEnvironment = Map.copyOf(Objects.requireNonNull(explicitEnvironment, "explicitEnvironment"));
     }

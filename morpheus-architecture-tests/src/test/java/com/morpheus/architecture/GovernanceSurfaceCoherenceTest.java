@@ -1,5 +1,6 @@
 package com.morpheus.architecture;
 
+import com.morpheus.application.product.ProductMetadata;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -23,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Guards the AI governance surfaces -- {@code .claude/CLAUDE.md}, {@code .github/AI_GOVERNANCE.md}, the rules,
  * commands, agents and skills -- against stating a perishable fact: a SQLite schema version, an ADR or module
  * total. A fact that has a source a test can read is compared to it instead: a version written as a root POM
- * property, a ratchet copied under its key. The surfaces are declared, and a declared surface that is missing fails
+ * property, a ratchet copied under its key, the current product version stated in prose. The surfaces are declared, and a declared surface that is missing fails
  * instead of shrinking the scan.
  */
 class GovernanceSurfaceCoherenceTest {
@@ -67,6 +68,23 @@ class GovernanceSurfaceCoherenceTest {
     private static final Pattern VERSION_PROPERTY_ASSIGNMENT =
             Pattern.compile("(?<![\\w.{$-])([A-Za-z0-9_-][A-Za-z0-9_.-]*\\.version)=([^\\s`,;)<]+)");
     private static final Pattern POM_PROPERTY = Pattern.compile("<([A-Za-z0-9_.-]+)>([^<]*)</\\1>");
+    /**
+     * A statement of the <em>current</em> product version: one of five markers that only ever introduce the version
+     * the reactor builds -- the artifact coordinates {@code `...:morpheus-engine`}, {@code baseline},
+     * {@code actuellement}, {@code version courante}, {@code version produit} -- followed, at most across spaces and
+     * an opening parenthesis, by a version set in bold or in a code span: {@code **1.2.2**}, {@code (`1.2.2`)}.
+     *
+     * <p>A version without that marker and that emphasis is a dated record and is not read: "livré dans 1.2.0",
+     * "la 1.2.1 publiée" name the release a past fact belongs to and stay true when the reactor moves on. A
+     * dependency version never follows one of the markers, and one written as a POM property is compared by
+     * {@link #everyVersionAGovernancePageWritesAsAPomPropertyEqualsThePom}.</p>
+     */
+    private static final Pattern CURRENT_PRODUCT_VERSION_CLAIM = Pattern.compile(
+            "(?i)(?:morpheus-engine`|\\bbaseline|\\bactuellement|\\bversion courante|\\bversion produit)"
+                    + "[ \\t]*\\(?[ \\t]*(\\*\\*|`)(\\d+\\.\\d+\\.\\d+(?:-[A-Za-z0-9.]+)?)\\1");
+    private static final Pattern ROOT_PROJECT_VERSION =
+            Pattern.compile("<artifactId>morpheus-engine</artifactId>\\s*<version>([^<\\s]+)</version>");
+    private static final String PRODUCT_VERSION_KEY = "project.version";
     private static final String RATCHETS = "config/m21-quality-ratchets.properties";
     /**
      * A table row whose first cell is a ratchet key in a code span; the first number of the next cell is the copy.
@@ -282,6 +300,66 @@ class GovernanceSurfaceCoherenceTest {
     }
 
     /**
+     * A current product version a governance page states equals the version the root POM builds, which is the one
+     * {@link ProductMetadata#version()} reports.
+     *
+     * <p>{@code .claude/CLAUDE.md} and {@code .claude/rules/governance.md} name the product version in prose so that
+     * an agent knows which baseline it works on; a version bump touches the POM, and nothing compared these pages to
+     * it. Only a statement shaped by {@link #CURRENT_PRODUCT_VERSION_CLAIM} is read: a dated record keeps the release
+     * it belongs to.</p>
+     */
+    @Test
+    void everyCurrentProductVersionAGovernancePageStatesEqualsTheRootPom() throws Exception {
+        Path root = RepositoryRoot.locate();
+        String pomVersion = rootProjectVersion(Files.readString(root.resolve("pom.xml")));
+        if (!ProductMetadata.developmentRuntime()) {
+            assertEquals(pomVersion, ProductMetadata.version(),
+                    "ProductMetadata must report the version the root POM builds");
+        }
+        List<StatedValue> stated = new ArrayList<>();
+        for (Path page : activeGovernanceSurfaces(root)) {
+            stated.addAll(statedProductVersions(relative(root, page), Files.readString(page)));
+        }
+        requireAgreement(stated, Map.of(PRODUCT_VERSION_KEY, pomVersion), "pom.xml",
+                "no governance page states the current product version in the shape of CURRENT_PRODUCT_VERSION_CLAIM:"
+                        + " the scan reads nothing");
+    }
+
+    @Test
+    void aCurrentVersionStatementIsComparedWhileADatedReleaseAndADependencyVersionAreNot() {
+        List<StatedValue> stated = statedProductVersions(".claude/CLAUDE.md", """
+                `io.github.fturleque:morpheus-engine` **1.2.3** — Specification & Intent Intelligence Engine
+                Java 21 · Maven 3.10.0
+                Dernier milestone livré : **M28** (livré dans 1.2.0). La baseline **1.2.3**, qui porte un schéma
+                plus récent que la 1.2.1 publiée, est une passe corrective.
+                `ProductMetadata` est la seule source (actuellement `1.2.2`) ; la version courante (`1.2.2`).
+                `mcp-sdk.version=2.1.0`, `junit.version=6.1.3`, Maven < 3.9.16, baseline ADR-0133.
+                """);
+        assertEquals(4, stated.size(), () -> "the four current statements are read, nothing else: " + stated);
+
+        AssertionError refusal = assertThrows(AssertionError.class,
+                () -> requireAgreement(stated, Map.of(PRODUCT_VERSION_KEY, "1.2.2"), "pom.xml", "nothing read"));
+        assertTrue(refusal.getMessage().contains(
+                ".claude/CLAUDE.md project.version states 1.2.3, pom.xml says 1.2.2"), refusal::getMessage);
+        assertFalse(refusal.getMessage().contains("1.2.0"), "a dated release is a record, not a statement");
+        assertFalse(refusal.getMessage().contains("1.2.1"), "a published release is a record, not a statement");
+        assertFalse(refusal.getMessage().contains("2.1.0"), "a dependency version is not the product version");
+
+        AssertionError empty = assertThrows(AssertionError.class,
+                () -> requireAgreement(statedProductVersions("page.md", "livré dans 1.2.0, la 1.2.1 publiée"),
+                        Map.of(PRODUCT_VERSION_KEY, "1.2.2"), "pom.xml", "the scan reads nothing"));
+        assertEquals("the scan reads nothing", empty.getMessage());
+
+        assertEquals("1.2.2", rootProjectVersion("""
+                <project><groupId>io.github.fturleque</groupId>
+                    <artifactId>morpheus-engine</artifactId>
+                    <version>1.2.2</version>
+                    <dependencies><dependency><version>9.9.9</version></dependency></dependencies>
+                </project>
+                """), "the reactor version is the one under the root coordinates");
+    }
+
+    /**
      * A ratchet a rule page copies in a table row, under the name of its key, equals the key.
      *
      * <p>The validators read {@code config/m21-quality-ratchets.properties} and nothing else; the copy in
@@ -346,6 +424,21 @@ class GovernanceSurfaceCoherenceTest {
             }
         }
         return stated;
+    }
+
+    private static List<StatedValue> statedProductVersions(String page, String content) {
+        List<StatedValue> stated = new ArrayList<>();
+        Matcher claim = CURRENT_PRODUCT_VERSION_CLAIM.matcher(content);
+        while (claim.find()) {
+            stated.add(new StatedValue(page, PRODUCT_VERSION_KEY, claim.group(2)));
+        }
+        return stated;
+    }
+
+    private static String rootProjectVersion(String pom) {
+        Matcher version = ROOT_PROJECT_VERSION.matcher(pom);
+        assertTrue(version.find(), "the root POM must declare the morpheus-engine coordinates with their version");
+        return version.group(1);
     }
 
     private static List<StatedValue> statedRatchets(String page, String content) {

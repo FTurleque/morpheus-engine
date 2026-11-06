@@ -114,12 +114,17 @@ sequenceDiagram
 
 ## Écarts et questions ouvertes
 
-- `[QUESTION]` Le texte rendu à un client MCP par `McpToolFailure.result`, et celui du raisonnement, ne sont pas
-  filtrés ; [`mcp-tool-failure-contract`](mcp-tool-failure-contract.md) exige qu'un résultat d'outil ne nomme aucun
-  chemin du serveur. Ce point est hors de cette capacité et reste à trancher par le mainteneur.
-- `[DÉCISION]` La raison d'une vue illisible à message blanc devient le nom du type (décision par défaut du changement,
-  à confirmer par le mainteneur). Aucun test ne figeait un message blanc ; `SqliteSavedViewUnreadableRowTest` exige une
-  raison non blanche.
+- `[DÉCISION]` Le texte rendu à un client MCP par `McpToolFailure.result`, et celui du raisonnement, ne sont pas
+  filtrés : [`mcp-tool-failure-contract`](mcp-tool-failure-contract.md) exclut d'un résultat d'outil les chemins du
+  serveur que l'appelant n'a pas fournis, et un refus qui nomme le chemin reçu en argument le garde, parce qu'il dit
+  quoi corriger à un client local qui tourne sous le même compte. `ServerLocationDisclosure.relayableText` est le
+  filtre du transport distant seul. Décidé par le mainteneur le 6 novembre 2026.
+- `[DÉCISION]` La raison d'une vue illisible à message blanc est le nom du type de l'échec : R1 l'exige de toute classe
+  de production, et ce nom est stable et ne porte aucune donnée. La copie en ligne de `SqliteSavedViewStore` ne
+  retombait sur le type que pour un message `null` : un message blanc donnait une raison faite d'espaces, et le refus de
+  `find` disait `cannot be read (   )`. Aucun refus du décodage (`QueryDefinitionCodec`, `requireStoredScope`) ne porte
+  de message blanc ; le cas n'est atteignable que par une exception sans texte, et sa forme est celle que
+  `FailureTextTest` prouve chez le propriétaire.
 - `[EXISTANT VÉRIFIÉ]` Le scan textuel est une heuristique : une copie qui lit le message par un intermédiaire lui
   échappe ; la règle par signature la voit si elle est déclarée.
 

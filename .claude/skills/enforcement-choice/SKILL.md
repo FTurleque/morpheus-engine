@@ -16,6 +16,9 @@ du module. **Ce n'est pas de la dette à migrer par réflexe.** Le *pourquoi* es
 - « Ce nom ne doit pas apparaître ici » → **texte**.
 - Dans le doute, **garder les deux**.
 
+La phrase va aussi dans la description de la pull request : section « Intention de chaque assertion
+textuelle » de `.github/pull_request_template.md`, avec le mécanisme retenu et la violation plantée.
+
 Les deux mécanismes n'enforcent pas la même proposition, et aucun ne domine l'autre :
 
 | | `assertFalse(src.contains("X"))` | règle ArchUnit |
@@ -55,6 +58,13 @@ qui **ne fait que rétrécir** : un membre ajouté casse le build, un membre ret
 `UNEXPLAINED_TYPE_BAN_CEILING` dans le même changement. La composition de l'enforcement du module (règles, assertions
 textuelles, familles) se lit dans `morpheus-architecture-tests/target/enforcement-composition-summary.txt`, jamais
 dans un chiffre recopié. Une classe qui ne lit que des documents porte `@CoherenceCheck` et reste dans le module.
+
+Un interdit textuel dont la cible ne déclare aucune constante inlinable attend une règle ArchUnit :
+`TypeBansAwaitingABytecodeRuleTest` compte ces interdits (cible dans une source principale d'un module importé, sans
+champ `static final` non privé `String` ou primitif, nommée par aucune classe de règles) et égale ce compte à
+`AWAITING_A_RULE_CEILING`, qui ne fait que baisser. Écrire la règle dans le `*ArchitectureTest` de l'intention, garder
+le texte à côté dans le doute, consigner la violation plantée dans la Javadoc de la méthode, puis baisser le plafond
+dans le même changement.
 
 ## Ce qui reste textuel par nature — ne pas le migrer
 

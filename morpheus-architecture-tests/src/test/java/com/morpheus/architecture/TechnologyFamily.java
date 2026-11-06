@@ -15,8 +15,9 @@ import java.util.stream.Stream;
  * fields of {@code System} it reads (ADR-0150).
  *
  * <p>{@link ApplicationTechnologyBoundaryArchitectureTest} gives each family of {@link #VOCABULARY} a regime in the
- * application, {@link CliTechnologyBoundaryArchitectureTest} one in {@code com.morpheus.cli}. A family defined once
- * cannot mean two things in two gates. {@code Path}, {@code LinkOption}, {@code IOException} and in-memory streams are
+ * application, {@link CliTechnologyBoundaryArchitectureTest} one in {@code com.morpheus.cli} and
+ * {@link ApiTechnologyBoundaryArchitectureTest} one in {@code com.morpheus.api}. A family defined once cannot mean two
+ * things in two gates. {@code Path}, {@code LinkOption}, {@code IOException} and in-memory streams are
  * vocabulary, not access.</p>
  */
 record TechnologyFamily(String name, Predicate<String> types, CallMatcher calls, Set<String> systemFields) {

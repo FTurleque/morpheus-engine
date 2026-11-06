@@ -12,6 +12,10 @@ import java.util.WeakHashMap;
 /** Executes one owned SQLite transaction while preserving the primary failure across rollback/cleanup errors. */
 public final class SqliteTransactionRunner {
     private static final System.Logger LOGGER = System.getLogger(SqliteTransactionRunner.class.getName());
+    /**
+     * The connections a failed cleanup left unusable. The transaction of any operation, on any thread, consults it
+     * before it starts, so the map takes a monitor on every call.
+     */
     private static final Map<Connection, Throwable> QUARANTINED = Collections.synchronizedMap(new WeakHashMap<>());
 
     private SqliteTransactionRunner() {

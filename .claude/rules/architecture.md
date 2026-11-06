@@ -64,6 +64,9 @@ même proposition, et aucun ne domine l'autre.
 
 Avant de choisir, **écrire l'intention en une phrase**. « Aucune dépendance » → ArchUnit.
 « Ce nom ne doit pas apparaître ici » → texte. Dans le doute, **garder les deux**.
+La phrase se recopie dans la description de la pull request, section « Intention de chaque assertion textuelle » de
+`.github/pull_request_template.md`, avec le mécanisme retenu et, pour une règle sur le bytecode, la violation plantée :
+la revue la lit là. `PullRequestTemplateCoherenceTest` tient le gabarit, jamais la description.
 
 Restent textuels par nature, ne pas les migrer :
 
@@ -97,9 +100,17 @@ Un interdit textuel de type (`assertFalse(source.contains("UnType"))`) porte son
 comme une phrase au lieu de `expected: <false> but was: <true>`. Les interdits sans message forment la **famille non
 expliquée**, définie par l'expression que tient `EnforcementMechanismAccountingTest` (pas par une commande recopiée
 ici) : son compte doit **égaler** `UNEXPLAINED_TYPE_BAN_CEILING`. Un membre ajouté fait échouer le build ; un membre
-retiré aussi, tant que le plafond n'est pas baissé dans le même changement. La famille est vide et le plafond vaut 0 :
-un interdit de type dont la cible ne déclare aucune constante inlinable s'écrit en règle ArchUnit, les autres portent
-leur message. Aucune raison connue ne justifie de relever le plafond.
+retiré aussi, tant que le plafond n'est pas baissé dans le même changement. Aucune raison connue ne justifie de
+relever le plafond.
+
+Un interdit de type dont la cible ne déclare aucune constante inlinable s'écrit **en règle ArchUnit**, l'assertion
+textuelle pouvant rester à côté ; les autres portent leur message. `TypeBansAwaitingABytecodeRuleTest` tient cette
+convention : il compte les interdits textuels d'un nom de type, avec ou sans message et quel que soit le récepteur,
+dont la cible est une source principale d'un module importé par la suite, ne déclare aucun champ `static final` non
+privé de type `String` ou primitif, et n'est nommée par aucune classe qui évalue des règles sur le bytecode. Ce compte
+doit **égaler** `AWAITING_A_RULE_CEILING`, qui ne fait que baisser : lire la constante, pas cette page. Une règle qui
+remplace ou double un interdit textuel est livrée avec la trace de sa violation plantée (Javadoc de la méthode, tâches
+ou PR) : le build ne lit pas cette trace, la revue la lit.
 
 La part textuelle de l'enforcement n'est **pas** plafonnée, et ce refus est délibéré : un ratio se fait baisser en
 supprimant un contrôle de documentation ou en ajoutant une règle qui ne voit rien de neuf, et la plupart des
@@ -113,11 +124,16 @@ charge aucune classe de production porte `@CoherenceCheck` (tag JUnit `coherence
 qu'elle nomme, et refuse un désaccord dans les deux sens. Une telle classe **reste** dans le module et dans son paquet
 de milestone : sortir les contrôles de cohérence du module ferait baisser `architectureTestsMinimum`.
 `./mvnw test -pl morpheus-architecture-tests -Dgroups=coherence` les lance seules.
+Un échec d'une classe marquée est une **désynchronisation documentaire**, tout autre échec une **violation
+d'architecture** : `EnforcementVerdictListener` (écouteur de la plateforme JUnit, sources de test du module) les
+sépare dans l'exécution Surefire unique, imprime deux lignes `[enforcement verdict]` avant l'échec de Maven et écrit
+`morpheus-architecture-tests/target/enforcement-verdict.txt`. Lire ce fichier avant de corriger : on ne répare pas
+une page de `docs/` en touchant au code, ni l'inverse.
 
 **Généralisation par groupe de capacité**, jamais par famille entière :
 
-- les quatre interdits vrais pour **tous** les routeurs (les paquets `com.morpheus.api.remote` et
-  `com.morpheus.api.local`, l'appel `sendResponseHeaders`, `MorpheusHttpPathParser`) vivent dans
+- les cinq interdits vrais pour **tous** les routeurs (les paquets `com.morpheus.api.remote` et
+  `com.morpheus.api.local`, l'appel `sendResponseHeaders`, `MorpheusHttpPathParser`, `JsonMediaType`) vivent dans
   `HttpRoutesFamilyArchitectureTest`, règle **et** texte — n'y ajouter qu'un interdit vérifié sur chacun des
   `*HttpRoutes`. Une suite propre à un routeur ne répète aucun interdit de type qu'une règle de famille ou de groupe
   tient déjà. L'interdit sur `sendResponseHeaders` a visé **le type**
@@ -235,9 +251,12 @@ remplace la règle.
 
 Une classe de `com.morpheus.store.sqlite.adapter` ne prend **aucun** moniteur, ni méthode `synchronized` ni bloc : un
 store est confiné au fil de son opération (la `SqliteConnectionScope` refuse sa connexion à tout autre fil), donc son
-moniteur ne protège rien. Un état que plusieurs fils atteignent vit dans `runtime`, avec la raison sur son verrou
-(registre des baux `SqliteDatabaseLease`, `ServerLease.close`). La règle sur le bytecode voit le modificateur ; un bloc
-ne laisse que des `monitorenter` qu'ArchUnit n'expose pas, et le texte le voit.
+moniteur ne protège rien. Un état que plusieurs fils atteignent vit dans `runtime`, avec la raison sur son verrou, et
+`runtime` ne prend **que** les moniteurs que nomme `RUNTIME_MONITORS` (table de faits, une raison par site) : un
+moniteur pris ailleurs dans le paquet est refusé, un site nommé qui ne prend plus son moniteur aussi. Un champ qui
+tient une collection enveloppée par `Collections.synchronized*` est un moniteur de la table. La règle sur le bytecode
+voit le modificateur et l'appel qui enveloppe ; un bloc ne laisse que des `monitorenter` qu'ArchUnit n'expose pas, et le
+texte le voit.
 > `SqliteStoreAdapterHoldsNoMonitorArchitectureTest`
 
 ### `morpheus-api` : un rôle, un paquet, et six types pour les voisins (ADR-0155)
@@ -334,7 +353,8 @@ l'exécution de processus, du réseau sortant ni des fils d'exécution. L'accès
 les flux standard, l'horloge murale et la réflexion n'y sont atteints que par les classes que
 `ApplicationTechnologyBoundaryArchitectureTest` nomme pour chaque famille — la liste est exacte, elle rétrécit, et un
 nom ajouté exige un ADR consolidé qui remplace ADR-0150. Les types et appels de chaque famille sont déclarés une fois,
-dans `TechnologyFamily` (tests d'architecture), que lisent le gate de l'application et celui de la CLI : les lire là,
+dans `TechnologyFamily` (tests d'architecture), que lisent le gate de l'application, celui de la CLI et celui de
+`morpheus-api` : les lire là,
 pas ici. `Path` est du vocabulaire, pas un accès. Aucun nom n'est marqué *sort* : la découverte
 de mise à jour lit son manifeste par le port `product.UpdateManifestSource`, que `UpdateManifestFetcher`
 (`morpheus-cli`) implémente, et garde dans `UpdateDiscoveryService` le refus de `http:`, les bornes et l'analyse.
@@ -348,9 +368,19 @@ d'exécution, accès fichier, environnement du processus et flux standard n'y so
 l'horloge murale y est libre (la CLI donne son heure à une commande) ; la réflexion reste à
 `ReflectionAndClassLoadingBoundaryArchitectureTest`. Ces listes sont des **tables de faits**, pas des compteurs de
 dette : une classe ajoutée s'écrit dans le test avec sa raison, sans ADR. Une famille ajoutée à `TechnologyFamily`
-exige un régime dans les deux gates. `morpheus-api` n'a pas encore de gate de familles.
+exige un régime dans chaque gate de familles.
 
 > `CliTechnologyBoundaryArchitectureTest` — `everyFamilyOfTheVocabularyHasARegimeInTheCli`, `aFamilyTheCliRefusesIsReachedByNoClassOfTheCli`, `aConfinedFamilyIsReachedOnlyByTheClassesOfTheCliNamedForIt`, `everyClassNamedForAConfinedFamilyStillReachesIt`
+
+**L'adaptateur HTTP.** `com.morpheus.api` suit le même patron : SQL, exécution de processus, environnement du
+processus et flux standard y sont refusés (le serveur reçoit sa configuration, mot de passe TLS compris, de la CLI) ;
+bibliothèque JSON, réseau sortant, fils d'exécution et accès fichier n'y sont atteints que par les classes que
+`ApiTechnologyBoundaryArchitectureTest` nomme ; l'horloge murale y est libre ; la réflexion reste au gate du produit. Ses
+listes sont aussi des tables de faits. Ce gate dit quelles classes atteignent une famille ; les règles plus fines du
+module restent où elles sont et ne s'y répètent pas (`DatabaseWorkArchitectureTest`,
+`HttpRoutesTransportBoundaryArchitectureTest`).
+
+> `ApiTechnologyBoundaryArchitectureTest` — `everyFamilyOfTheVocabularyHasARegimeInTheHttpAdapter`, `aFamilyTheHttpAdapterRefusesIsReachedByNoClassOfTheAdapter`, `aConfinedFamilyIsReachedOnlyByTheClassesOfTheHttpAdapterNamedForIt`, `everyClassNamedForAConfinedFamilyOfTheHttpAdapterStillReachesIt`
 
 ## Cœurs purs — interdits textuels (scannés dans les sources)
 

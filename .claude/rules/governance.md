@@ -81,7 +81,8 @@ servie qui manque à `MorpheusHttpRouteTable` n'est vue par aucun des deux (elle
 - Fournir les scripts de validation **en `.ps1` ET `.sh`** — la parité Windows/Linux est assertée pour **tout** `scripts/validate-<cible>.*` par `GateReachabilityArchitectureTest`
 - Justifier dans la description de la PR toute modification de `contracts/public-surfaces.tsv`,
   `config/*ratchets*.properties`, `docs/developer/reference/openapi/*.yaml` ou d'un test sous `morpheus-architecture-tests/` —
-  ce sont des fichiers de gouvernance, pas de simples fichiers de configuration
+  ce sont des fichiers de gouvernance, pas de simples fichiers de configuration. La section « Justification d'une
+  modification de gouvernance » de `.github/pull_request_template.md` le demande
 
 ## JAMAIS
 
@@ -93,6 +94,9 @@ servie qui manque à `MorpheusHttpRouteTable` n'est vue par aucun des deux (elle
 ## Version produit — source unique
 
 `ProductMetadata` est la **seule** source de vérité (actuellement `1.2.2`).
+Toute version courante qu'une page de gouvernance énonce (gras ou span de code après « actuellement », « baseline »,
+« version courante », « version produit » ou les coordonnées `morpheus-engine`) est comparée à la version du POM racine
+par `GovernanceSurfaceCoherenceTest` (`CURRENT_PRODUCT_VERSION_CLAIM`) ; une release datée (« livré dans … ») ne l'est pas.
 
 - Une version de schéma est une version de produit : dès qu'une migration entre après une release, le réacteur ouvre la
   version suivante, et le guide `docs/user/UPGRADE_<version>.md` le plus récent est le sien. Une version déclarée dans

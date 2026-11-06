@@ -18,6 +18,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -39,6 +40,7 @@ public final class McpPeerSession implements AutoCloseable {
     private final PeerOperationDeadline deadline;
     private final Optional<Path> stagedJar;
     private final Observers observers;
+    private final AtomicBoolean closed = new AtomicBoolean();
 
     private McpPeerSession(
             Peer peer, McpSyncClient client, PeerOperationDeadline deadline, Optional<Path> stagedJar,
@@ -52,16 +54,33 @@ public final class McpPeerSession implements AutoCloseable {
 
     /**
      * Starts the peer, initializes it and checks its required tools within the operation deadline. On failure the
-     * client is closed and the verified copy deleted, their own failures attached to the primary one.
+     * client is closed and the verified copy deleted, their own failures attached to the primary one; an
+     * {@link Error} is no exception to that, and propagates as it is.
      */
     public static McpPeerSession open(Peer peer, Launch launch, Observers observers) {
         Objects.requireNonNull(peer, "peer");
         Objects.requireNonNull(launch, "launch");
         Objects.requireNonNull(observers, "observers");
         McpSyncClient started = start(peer, launch, observers);
-        // Closing the client fails the pending request at once, so the operation ends at its deadline.
-        PeerOperationDeadline armed = PeerOperationDeadline.arm(
-                launch.operationDeadline(), observers.countingAbort(started::close));
+        PeerOperationDeadline armed;
+        try {
+            // Closing the client fails the pending request at once, so the operation ends at its deadline.
+            armed = PeerOperationDeadline.arm(launch.operationDeadline(), observers.countingAbort(started::close));
+        } catch (RuntimeException | Error failure) {
+            closeSuppressing(started, failure);
+            deleteStagedSuppressing(launch.stagedJar(), failure);
+            throw failure;
+        }
+        try {
+            return initialized(peer, launch, observers, started, armed);
+        } catch (Error failure) {
+            abandon(started, armed, launch.stagedJar(), failure);
+            throw failure;
+        }
+    }
+
+    private static McpPeerSession initialized(
+            Peer peer, Launch launch, Observers observers, McpSyncClient started, PeerOperationDeadline armed) {
         Set<String> available;
         try {
             started.initialize();
@@ -85,8 +104,25 @@ public final class McpPeerSession implements AutoCloseable {
         return new McpPeerSession(peer, started, armed, launch.stagedJar(), observers);
     }
 
-    /** The text of the one content item {@code toolName} answers with, bounded, neither an error nor blank. */
+    /**
+     * The text of the one content item {@code toolName} answers with, bounded, neither an error nor blank. An
+     * {@link Error} that crosses the call ends the session at once: the client is closed and the verified copy
+     * deleted, and the later {@link #close()} does nothing.
+     */
     public String call(String toolName, Map<String, Object> arguments) {
+        try {
+            return answer(toolName, arguments);
+        } catch (Error failure) {
+            if (closed.compareAndSet(false, true)) {
+                deadline.close();
+                closeSuppressing(client, failure);
+                deleteStagedSuppressing(stagedJar, failure);
+            }
+            throw failure;
+        }
+    }
+
+    private String answer(String toolName, Map<String, Object> arguments) {
         CallToolResult result;
         try {
             result = client.callTool(CallToolRequest.builder(toolName).arguments(arguments).build());
@@ -106,6 +142,7 @@ public final class McpPeerSession implements AutoCloseable {
 
     @Override
     public void close() {
+        if (!closed.compareAndSet(false, true)) return;
         deadline.close();
         try {
             client.closeGracefully();
@@ -126,21 +163,28 @@ public final class McpPeerSession implements AutoCloseable {
         } catch (RuntimeException failure) {
             deleteStagedSuppressing(launch.stagedJar(), failure);
             throw peer.failure().apply("cannot start or initialize " + peer.name() + " MCP server", failure);
+        } catch (Error failure) {
+            deleteStagedSuppressing(launch.stagedJar(), failure);
+            throw failure;
         }
     }
 
     /** Stops the clock, closes the client and deletes the copy; answers whether the deadline had passed. */
     private static boolean abandon(
-            McpSyncClient started, PeerOperationDeadline armed, Optional<Path> stagedJar, RuntimeException failure) {
+            McpSyncClient started, PeerOperationDeadline armed, Optional<Path> stagedJar, Throwable failure) {
         boolean expired = armed.expired();
         armed.close();
+        closeSuppressing(started, failure);
+        deleteStagedSuppressing(stagedJar, failure);
+        return expired;
+    }
+
+    private static void closeSuppressing(McpSyncClient started, Throwable primary) {
         try {
             started.closeGracefully();
         } catch (RuntimeException closeFailure) {
-            failure.addSuppressed(closeFailure);
+            primary.addSuppressed(closeFailure);
         }
-        deleteStagedSuppressing(stagedJar, failure);
-        return expired;
     }
 
     private static void deleteStagedSuppressing(Optional<Path> staged, Throwable primary) {

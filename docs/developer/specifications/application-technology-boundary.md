@@ -34,8 +34,9 @@ disent ce que le build impose.
 ### Familles et tenue par le build (R1, R2, R3)
 
 `[EXISTANT VÉRIFIÉ]` Chaque famille est un ensemble de types, d'appels (`CallMatcher`) et de champs de `System`,
-déclaré une fois dans `TechnologyFamily` (tests d'architecture), que lit aussi le gate de la CLI
-([`cli-technology-boundary.md`](cli-technology-boundary.md)). `ApplicationTechnologyBoundaryArchitectureTest` les juge
+déclaré une fois dans `TechnologyFamily` (tests d'architecture), que lisent aussi le gate de la CLI
+([`cli-technology-boundary.md`](cli-technology-boundary.md)) et celui de l'adaptateur HTTP
+([`api-technology-boundary.md`](api-technology-boundary.md)). `ApplicationTechnologyBoundaryArchitectureTest` les juge
 sur le bytecode importé de `com.morpheus.application`, et `everyFamilyOfTheVocabularyHasARegimeInTheApplication` exige
 que chaque famille de `TechnologyFamily.VOCABULARY` y soit refusée ou confinée :
 

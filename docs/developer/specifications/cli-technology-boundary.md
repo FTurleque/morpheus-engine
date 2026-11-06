@@ -1,7 +1,7 @@
 # Technologies que la CLI peut toucher (`cli-technology-boundary`)
 
-Spec de référence : `openspec/specs/cli-technology-boundary/spec.md`, écrite à l'archivage du changement
-`confine-the-technology-families-the-cli-uses` (delta : `openspec/changes/confine-the-technology-families-the-cli-uses/specs/cli-technology-boundary/spec.md`)
+Spec de référence : `openspec/specs/cli-technology-boundary/spec.md`, issue du changement archivé
+`confine-the-technology-families-the-cli-uses` (delta : `openspec/changes/archive/2026-11-06-confine-the-technology-families-the-cli-uses/specs/cli-technology-boundary/spec.md`)
 · Relevé du 2026-11-06 sur `8c038add`.
 
 ## Objet et périmètre
@@ -14,8 +14,8 @@ régime, et tient exactement les classes qui atteignent une famille confinée.
 - **Acteurs** : auteur d'une classe de `morpheus-cli` qui ajoute une dépendance technique ; relecteur.
 - **Inclus** : les classes de production de `com.morpheus.cli` ; la déclaration partagée des familles
   (`TechnologyFamily`, tests d'architecture).
-- **Exclus** : `morpheus-api`, qui porte déjà des règles par famille et par groupe (fils d'exécution, bibliothèque
-  JSON) à réconcilier dans un changement à part ; `morpheus-mcp`, les providers, les stores, les intégrations ; les
+- **Exclus** : `morpheus-api`, qui a son propre gate de familles
+  ([`api-technology-boundary.md`](api-technology-boundary.md)) ; `morpheus-mcp`, les providers, les stores, les intégrations ; les
   familles de l'application ([`application-technology-boundary.md`](application-technology-boundary.md)) ; la réflexion
   hors de l'application ([`reflection-boundary.md`](reflection-boundary.md)).
 
@@ -132,11 +132,10 @@ flowchart TD
 
 ## Écarts et questions ouvertes
 
-- `[QUESTION]` Le mainteneur veut-il que les listes de la CLI ne fassent que rétrécir ? Elles deviendraient des
-  compteurs de dette, ce qui exige un ADR accepté qui les nomme (un ADR consolidé qui remplace ARCH-0150, ou un ADR des
-  modules de transport). Elles sont tables de faits par défaut.
-- `morpheus-api` reste sans gate de familles ; un changement à part doit réconcilier ses règles par groupe avec la
-  déclaration partagée. Le constat `AUD-ARC-18` reste partiel pour ce volet.
+- `[DÉCISION]` Les listes de la CLI sont des tables de faits : elles disent quelles classes atteignent chaque famille
+  et ne promettent pas de rétrécir, sans ADR qui les nomme. Décidé par le mainteneur le 6 novembre 2026.
+- `morpheus-api` a son gate de familles, sur la même déclaration partagée :
+  [`api-technology-boundary.md`](api-technology-boundary.md).
 
 ## Traçabilité
 

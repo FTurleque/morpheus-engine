@@ -55,6 +55,14 @@ class MinosMcpTransportIntegrationTest {
                 () -> MinosMcpCodeGateway.PEER.requireBoundedResponse(oversized, "fixture"));
     }
 
+    @Test
+    void aGatewayGivenNoCommandIsRefusedByNameBeforeAnyProcessStarts() {
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class, () -> new MinosMcpCodeGateway(
+                null, List.of(), Map.of(), Duration.ofSeconds(10), OperationalRecorder.noop()));
+
+        assertEquals("command must not be null or blank", refused.getMessage());
+    }
+
     private String javaExecutable() {
         return Path.of(
                 System.getProperty("java.home"),

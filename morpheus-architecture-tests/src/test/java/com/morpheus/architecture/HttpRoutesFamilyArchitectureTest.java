@@ -26,14 +26,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Four boundaries hold for every HTTP router, so they are stated once over the family instead of once per router.
+ * Five boundaries hold for every HTTP router, so they are stated once over the family instead of once per router.
  *
  * <p>{@code .claude/rules/architecture.md} generalises the textual pilot by capability group, never over the whole
  * family,
  * and this is the first group. Most of what a router may touch depends on whether it reads a request body -- nine
  * of the seventeen legitimately carry {@code HttpExchange} and a decoder -- so it is not a family property and is
- * not stated here. These four are: no {@code *HttpRoutes} class reaches the remote authorization model, reaches the
- * local server that holds it, writes a response itself, or parses a path itself.</p>
+ * not stated here. These five are: no {@code *HttpRoutes} class reaches the remote authorization model, reaches the
+ * local server that holds it, writes a response itself, parses a path itself, or admits a request's media type
+ * itself.</p>
  *
  * <p>The gain is reach: a rule over the package sees every router, the one added tomorrow included, where a per-router suite sees
  * only the router it names. The per-router suites keep what is true of their router alone - the wiring it receives
@@ -161,6 +162,27 @@ class HttpRoutesFamilyArchitectureTest {
                 .because("a router does not parse a path itself: it receives the segments the server parsed, or, "
                         + "when it registers its own context, asks MorpheusHttpRequestDecoder for them; a parser of "
                         + "its own lets two readings of one path disagree about which route is being served")
+                .check(classes);
+    }
+
+    /**
+     * No router admits a request's media type itself: {@code JsonMediaType} is read by
+     * {@code MorpheusHttpRequestDecoder}, and a router that consults it decides Content-Type admission a second time.
+     *
+     * <p>{@code JsonMediaType} declares no compile-time constant that is not private, so the rule has no blind spot
+     * and sees the dependency however it is spelt. The textual ban of {@code D2RepositoryHardeningArchitectureTest},
+     * which also refuses a router reading the request headers, stays beside it.</p>
+     *
+     * <p>Broken before acceptance, 06/11/2026: {@code JsonMediaType} made public and {@code JsonMediaType.isJson(null)}
+     * called from {@code MorpheusChangesHttpRoutes}; this method failed and named that router.</p>
+     */
+    @Test
+    void noRouterAdmitsTheMediaTypeOfARequestItself() {
+        noClasses()
+                .that().resideInAPackage(ROUTES_PACKAGE + "..")
+                .should().dependOnClassesThat().haveFullyQualifiedName("com.morpheus.api.transport.JsonMediaType")
+                .because("Content-Type admission belongs to MorpheusHttpRequestDecoder; a router that reads the "
+                        + "media type itself lets two admissions of one request disagree")
                 .check(classes);
     }
 

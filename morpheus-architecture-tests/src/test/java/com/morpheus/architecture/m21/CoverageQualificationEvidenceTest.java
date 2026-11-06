@@ -35,6 +35,10 @@ import org.junit.jupiter.api.io.TempDir;
  * kept ratio of its scale, and the kept set must be complete -- both platforms, at least two runs each, one commit
  * shared by both scales, one population per scale.</p>
  *
+ * <p>The per-module summaries also carry each module's own counters, which must make their totals, and each floor of
+ * {@code config/m21-per-module-coverage-floors.properties} stays in the window they grant: the D2 floor, or at least
+ * three times the module's spread under its lowest kept count (ADR-0163).</p>
+ *
  * <p>Both bindings are textual because their subjects lie outside the compiled classpath: the constants are private
  * to gates in two different modules, and the evidence is data ({@code .claude/rules/architecture.md}). The rule is
  * exercised against fabricated
@@ -61,6 +65,12 @@ class CoverageQualificationEvidenceTest {
     // 11 branches, 15/09/2026 at a1fc0a8d (CoverageQualityGateTest cites the runs).
     private static final long REFERENCE_LINE_SPREAD = 24L;
     private static final long REFERENCE_BRANCH_SPREAD = 11L;
+    private static final String MODULE_FLOORS = "config/m21-per-module-coverage-floors.properties";
+    private static final String LINE_FLOOR_SUFFIX = ".lineCoverageMinimum";
+    private static final String BRANCH_FLOOR_SUFFIX = ".branchCoverageMinimum";
+    private static final String MODULE_PREFIX = "module.";
+    private static final List<String> MODULE_COUNTERS =
+            List.of("lineCovered", "lineMissed", "branchCovered", "branchMissed");
 
     private enum Scale {
         PER_MODULE("per-module", "perModule", "PER_MODULE_QUALIFIED_LINE_RATIO", "PER_MODULE_QUALIFIED_BRANCH_RATIO",
@@ -302,6 +312,172 @@ class CoverageQualificationEvidenceTest {
         assertTrue(problems.get(0).contains("rest on nothing a build can read"), problems.get(0));
     }
 
+    @Test
+    void everyModuleFloorStaysInsideItsQualifiedWindow() throws IOException {
+        Path root = RepositoryRoot.locate();
+        String gate = Files.readString(root.resolve(PER_MODULE_GATE));
+        List<String> problems = floorWindows(root.resolve(EVIDENCE_DIRECTORY), loadProperties(root.resolve(MODULE_FLOORS)),
+                constant(gate, PER_MODULE_GATE, "D2_MIN_LINE_RATIO"), constant(gate, PER_MODULE_GATE, "D2_MIN_BRANCH_RATIO"));
+        assertTrue(problems.isEmpty(), () -> "a per-module floor is set outside the window its evidence grants:\n  "
+                + String.join("\n  ", problems));
+    }
+
+    @Test
+    void keptModuleCountersThatMakeTheTotalsAreAcceptedAndOnesThatDoNotAreRefusedWithBothValues(@TempDir Path workspace)
+            throws IOException {
+        Path evidence = withModuleCounters(qualification(workspace, new double[] {0.60d, 0.70d, 0.65d, 0.75d}),
+                file -> new long[] {10_000L, 10_000L, 6_000L, 2_000L});
+        assertEquals(List.of(), verify(evidence, new Caps(honestCaps())));
+
+        Path edited = evidence.resolve("per-module/Windows-2.txt");
+        Files.writeString(edited, Files.readString(edited).replace("module.morpheus-cli.lineCovered=10000",
+                "module.morpheus-cli.lineCovered=10005"));
+
+        List<String> problems = verify(evidence, new Caps(honestCaps()));
+        assertTrue(problems.stream().anyMatch(problem -> problem.contains("per-module/Windows-2.txt")
+                && problem.contains("lineCovered") && problem.contains("71005") && problem.contains("71000")),
+                problems::toString);
+    }
+
+    @Test
+    void aKeptSummaryThatOmitsAModuleIsRefusedAndNamesTheFileAndTheModule(@TempDir Path workspace) throws IOException {
+        Path evidence = withModuleCounters(qualification(workspace, new double[] {0.60d, 0.70d, 0.65d, 0.75d}),
+                file -> new long[] {10_000L, 10_000L, 6_000L, 2_000L});
+        Path amputated = evidence.resolve("per-module/Linux-1.txt");
+        Files.writeString(amputated, Files.readAllLines(amputated).stream()
+                .filter(line -> !line.startsWith("module.morpheus-cli.branch"))
+                .reduce((left, right) -> left + "\n" + right).orElseThrow() + "\n");
+        Path stripped = evidence.resolve("per-module/Windows-2.txt");
+        Files.writeString(stripped, Files.readAllLines(stripped).stream()
+                .filter(line -> !line.startsWith("module."))
+                .reduce((left, right) -> left + "\n" + right).orElseThrow() + "\n");
+
+        List<String> problems = verify(evidence, new Caps(honestCaps()));
+
+        assertTrue(problems.stream().anyMatch(problem -> problem.contains("per-module/Linux-1.txt")
+                && problem.contains("module.morpheus-cli.branchCovered")), problems::toString);
+        assertTrue(problems.stream().anyMatch(problem -> problem.contains("per-module/Windows-2.txt")
+                && problem.contains("carries no module counters")), problems::toString);
+    }
+
+    @Test
+    void twoKeptSummariesThatNameDifferentModulesAreRefusedAndNameTheDifference(@TempDir Path workspace)
+            throws IOException {
+        Path evidence = withModuleCounters(qualification(workspace, new double[] {0.60d, 0.70d, 0.65d, 0.75d}),
+                file -> new long[] {10_000L, 10_000L, 6_000L, 2_000L});
+        Path renamed = evidence.resolve("per-module/Windows-1.txt");
+        Files.writeString(renamed, Files.readString(renamed).replace("module.morpheus-cli.", "module.morpheus-other."));
+
+        List<String> problems = verify(evidence, new Caps(honestCaps()));
+
+        assertTrue(problems.stream().anyMatch(problem -> problem.contains("per-module/Windows-1.txt")
+                && problem.contains("morpheus-cli")), problems::toString);
+        assertTrue(problems.stream().anyMatch(problem -> problem.contains("morpheus-other")), problems::toString);
+    }
+
+    @Test
+    void aModuleLessStableThanTheReferenceIsSizedAgainstItsOwnSpread(@TempDir Path workspace) throws IOException {
+        Path evidence = withModuleCounters(qualification(workspace, new double[] {0.60d, 0.70d, 0.65d, 0.75d}),
+                file -> new long[] {file.equals("per-module/Linux-1.txt") ? 10_000L : 10_100L,
+                        file.equals("per-module/Linux-1.txt") ? 10_000L : 9_900L, 6_000L, 2_000L});
+
+        assertEquals(List.of(), floorWindows(evidence, floors("morpheus-cli", 0.485d, 0.35d), 0.40d, 0.35d));
+
+        List<String> problems = floorWindows(evidence, floors("morpheus-cli", 0.4851d, 0.35d), 0.40d, 0.35d);
+        assertEquals(1, problems.size(), problems::toString);
+        assertTrue(problems.get(0).contains("morpheus-cli.lineCoverageMinimum") && problems.get(0).contains("10000")
+                && problems.get(0).contains("needs 300") && problems.get(0).contains("spread of 100"), problems.get(0));
+    }
+
+    @Test
+    void aStableModuleIsSizedAgainstTheReferenceSpreadNeverAgainstZero(@TempDir Path workspace) throws IOException {
+        Path evidence = withModuleCounters(qualification(workspace, new double[] {0.60d, 0.70d, 0.65d, 0.75d}),
+                file -> new long[] {10_000L, 10_000L, 6_000L, 2_000L});
+
+        assertEquals(List.of(), floorWindows(evidence, floors("morpheus-cli", 0.4964d, 0.35d), 0.40d, 0.35d));
+
+        List<String> problems = floorWindows(evidence, floors("morpheus-cli", 0.4965d, 0.35d), 0.40d, 0.35d);
+        assertEquals(1, problems.size(), problems::toString);
+        assertTrue(problems.get(0).contains("morpheus-cli.lineCoverageMinimum") && problems.get(0).contains("needs 72")
+                && problems.get(0).contains("reference spread of 24"), problems.get(0));
+    }
+
+    @Test
+    void aModuleFloorUnderTheD2FloorIsRefusedAndNamesTheModuleAndTheKey(@TempDir Path workspace) throws IOException {
+        Path evidence = withModuleCounters(qualification(workspace, new double[] {0.60d, 0.70d, 0.65d, 0.75d}),
+                file -> new long[] {10_000L, 10_000L, 6_000L, 2_000L});
+
+        List<String> problems = floorWindows(evidence, floors("morpheus-cli", 0.40d, 0.34d), 0.40d, 0.35d);
+
+        assertEquals(1, problems.size(), problems::toString);
+        assertTrue(problems.get(0).contains("morpheus-cli.branchCoverageMinimum") && problems.get(0).contains("0.34")
+                && problems.get(0).contains("below the D2 floor"), problems.get(0));
+    }
+
+    @Test
+    void aModuleTheEvidenceDoesNotCarryMayDeclareTheD2FloorAndNothingAbove(@TempDir Path workspace)
+            throws IOException {
+        Path withModules = withModuleCounters(
+                qualification(workspace.resolve("with-modules"), new double[] {0.60d, 0.70d, 0.65d, 0.75d}),
+                file -> new long[] {10_000L, 10_000L, 6_000L, 2_000L});
+        Path totalsOnly = qualification(workspace.resolve("totals-only"), new double[] {0.60d, 0.70d, 0.65d, 0.75d});
+
+        Properties atTheFloor = floors("morpheus-new", 0.40d, 0.35d);
+        assertEquals(List.of(), floorWindows(withModules, atTheFloor, 0.40d, 0.35d));
+        assertEquals(List.of(), floorWindows(totalsOnly, atTheFloor, 0.40d, 0.35d));
+        assertEquals(List.of(), floorWindows(totalsOnly, floors("morpheus-cli", 0.40d, 0.35d), 0.40d, 0.35d));
+
+        for (Path evidence : List.of(withModules, totalsOnly)) {
+            List<String> problems = floorWindows(evidence, floors("morpheus-new", 0.41d, 0.35d), 0.40d, 0.35d);
+            assertEquals(1, problems.size(), problems::toString);
+            assertTrue(problems.get(0).contains("morpheus-new.lineCoverageMinimum")
+                    && problems.get(0).contains("carries no counters for morpheus-new")
+                    && problems.get(0).contains("Windows and Linux"), problems.get(0));
+        }
+        List<String> unqualified = floorWindows(totalsOnly, floors("morpheus-cli", 0.40d, 0.36d), 0.40d, 0.35d);
+        assertTrue(unqualified.size() == 1 && unqualified.get(0).contains("morpheus-cli.branchCoverageMinimum"),
+                unqualified::toString);
+    }
+
+    /** The floors of one module, plus {@code morpheus-domain} at the D2 floor, which every window admits. */
+    private static Properties floors(String module, double line, double branch) {
+        Properties floors = new Properties();
+        floors.setProperty(module + LINE_FLOOR_SUFFIX, Double.toString(line));
+        floors.setProperty(module + BRANCH_FLOOR_SUFFIX, Double.toString(branch));
+        floors.setProperty("morpheus-domain" + LINE_FLOOR_SUFFIX, "0.40");
+        floors.setProperty("morpheus-domain" + BRANCH_FLOOR_SUFFIX, "0.35");
+        return floors;
+    }
+
+    /**
+     * Appends module counters to every per-module summary of a fabricated qualification: {@code morpheus-cli} takes
+     * the four counts the function gives for the file (line covered, line missed, branch covered, branch missed), and
+     * {@code morpheus-domain} the remainder of the summary's totals, so that the module counters make the totals.
+     */
+    private static Path withModuleCounters(Path evidence, java.util.function.Function<String, long[]> cli)
+            throws IOException {
+        for (Entry entry : readManifest(evidence)) {
+            if (entry.scale() != Scale.PER_MODULE) {
+                continue;
+            }
+            Path file = evidence.resolve(entry.file());
+            Map<String, String> totals = parseSummary(file);
+            long[] counts = cli.apply(entry.file());
+            StringBuilder text = new StringBuilder(Files.readString(file));
+            for (int index = 0; index < MODULE_COUNTERS.size(); index++) {
+                String counter = MODULE_COUNTERS.get(index);
+                text.append("module.morpheus-cli.").append(counter).append('=').append(counts[index]).append('\n');
+            }
+            for (int index = 0; index < MODULE_COUNTERS.size(); index++) {
+                String counter = MODULE_COUNTERS.get(index);
+                text.append("module.morpheus-domain.").append(counter).append('=')
+                        .append(Long.parseLong(totals.get(counter)) - counts[index]).append('\n');
+            }
+            Files.writeString(file, text);
+        }
+        return evidence;
+    }
+
     /**
      * Lowest line ratio then lowest branch ratio of each scale are 0.60 / 0.65 per module and 0.60 / 0.65
      * aggregate once {@link #qualification} has written them; the fabricated sets use these four numbers.
@@ -400,6 +576,9 @@ class CoverageQualificationEvidenceTest {
         for (Scale scale : Scale.values()) {
             List<Summary> kept = summaries.getOrDefault(scale, List.of());
             problems.addAll(completeness(scale, entries, kept));
+            if (scale == Scale.PER_MODULE) {
+                problems.addAll(moduleEvidence(kept));
+            }
             if (!kept.isEmpty()) {
                 double[] cap = caps.lineAndBranch().get(scale);
                 compare(problems, scale.lineConstant, cap[0], kept, "lineRatio");
@@ -481,6 +660,133 @@ class CoverageQualificationEvidenceTest {
                     + HEADROOM_SPREADS * spread + ", " + HEADROOM_SPREADS + "x " + source
                     + " -- a higher ratchet needs a requalified cap");
         }
+    }
+
+    /**
+     * Module counters of the kept per-module summaries. A qualification kept before the gate wrote them carries none,
+     * and qualifies no floor above the D2 floor; once one summary carries them, every summary must, for the same
+     * modules, complete, as many as its {@code reports}, and summing to its totals.
+     */
+    private static List<String> moduleEvidence(List<Summary> kept) {
+        List<String> problems = new ArrayList<>();
+        List<Summary> carrying = kept.stream().filter(summary -> !moduleCounters(summary).isEmpty()).toList();
+        if (carrying.isEmpty()) {
+            return problems;
+        }
+        Set<String> union = new java.util.TreeSet<>();
+        carrying.forEach(summary -> union.addAll(moduleCounters(summary).keySet()));
+        for (Summary summary : kept) {
+            String file = summary.entry().file();
+            Map<String, Map<String, Long>> modules = moduleCounters(summary);
+            if (modules.isEmpty()) {
+                problems.add(file + " carries no module counters while " + carrying.get(0).entry().file()
+                        + " does; every summary of a qualification carries them");
+                continue;
+            }
+            modules.forEach((module, counters) -> MODULE_COUNTERS.stream().filter(counter -> !counters.containsKey(counter))
+                    .forEach(counter -> problems.add(file + " lacks " + MODULE_PREFIX + module + "." + counter)));
+            for (String module : union) {
+                if (!modules.containsKey(module)) {
+                    String other = carrying.stream().filter(candidate -> moduleCounters(candidate).containsKey(module))
+                            .findFirst().orElseThrow().entry().file();
+                    problems.add(file + " carries no counters for module " + module + ", which " + other + " carries");
+                }
+            }
+            String reports = summary.values().get("reports");
+            if (reports != null && Long.parseLong(reports) != modules.size()) {
+                problems.add(file + " declares reports=" + reports + " but carries counters for " + modules.size()
+                        + " module(s)");
+            }
+            for (String counter : MODULE_COUNTERS) {
+                long sum = modules.values().stream().mapToLong(counters -> counters.getOrDefault(counter, 0L)).sum();
+                long total = Long.parseLong(summary.values().get(counter));
+                if (sum != total) {
+                    problems.add(file + ": the module " + counter + " counters sum to " + sum + " but " + counter + "="
+                            + total);
+                }
+            }
+        }
+        return problems;
+    }
+
+    private static Map<String, Map<String, Long>> moduleCounters(Summary summary) {
+        Map<String, Map<String, Long>> modules = new java.util.TreeMap<>();
+        summary.values().forEach((key, value) -> {
+            if (key.startsWith(MODULE_PREFIX)) {
+                int separator = key.lastIndexOf('.');
+                if (separator > MODULE_PREFIX.length()) {
+                    modules.computeIfAbsent(key.substring(MODULE_PREFIX.length(), separator), name -> new LinkedHashMap<>())
+                            .put(key.substring(separator + 1), Long.parseLong(value));
+                }
+            }
+        });
+        return modules;
+    }
+
+    /**
+     * Window of each per-module floor: the D2 floor of its quantity is always admitted, since the gate applies it
+     * anyway; a floor above it needs the module's counters in every kept per-module summary, and leaves at least three
+     * times the module's spread -- the kept runs' or the reference, whichever is wider -- under its lowest kept count.
+     * A key of no known form is left to CoverageQualityGateTest, which refuses it.
+     */
+    private static List<String> floorWindows(Path directory, Properties floors, double d2Line, double d2Branch)
+            throws IOException {
+        List<Summary> kept = new ArrayList<>();
+        for (Entry entry : readManifest(directory)) {
+            if (entry.scale() == Scale.PER_MODULE) {
+                kept.add(new Summary(entry, parseSummary(directory.resolve(entry.file()))));
+            }
+        }
+        List<String> problems = new ArrayList<>();
+        for (String key : new java.util.TreeSet<>(floors.stringPropertyNames())) {
+            boolean line = key.endsWith(LINE_FLOOR_SUFFIX);
+            if (!line && !key.endsWith(BRANCH_FLOOR_SUFFIX)) {
+                continue;
+            }
+            String module = key.substring(0, key.length() - (line ? LINE_FLOOR_SUFFIX : BRANCH_FLOOR_SUFFIX).length());
+            String counter = line ? "line" : "branch";
+            double d2Floor = line ? d2Line : d2Branch;
+            double floor = Double.parseDouble(floors.getProperty(key).strip());
+            if (floor < d2Floor - RATIO_PRECISION) {
+                problems.add(key + "=" + floor + " is below the D2 floor " + d2Floor + " of module " + module);
+                continue;
+            }
+            if (floor <= d2Floor + RATIO_PRECISION) {
+                continue;
+            }
+            List<Map<String, Long>> measured = kept.stream().map(summary -> moduleCounters(summary).get(module)).toList();
+            if (measured.isEmpty() || measured.contains(null)) {
+                problems.add(key + "=" + floor + " is above the D2 floor " + d2Floor + " but the kept per-module evidence"
+                        + " carries no counters for " + module + " in every summary: a floor above the D2 floor needs a"
+                        + " Windows and Linux qualification that carries the module");
+                continue;
+            }
+            List<Long> covered = measured.stream().map(counters -> counters.get(counter + "Covered")).sorted().toList();
+            long lowest = covered.get(0);
+            long keptSpread = covered.get(covered.size() - 1) - lowest;
+            long referenceSpread = line ? REFERENCE_LINE_SPREAD : REFERENCE_BRANCH_SPREAD;
+            long spread = Math.max(keptSpread, referenceSpread);
+            long total = measured.get(0).get(counter + "Covered") + measured.get(0).get(counter + "Missed");
+            long demanded = (long) Math.ceil(floor * total - SIX_DIGIT_ROUNDING);
+            long headroom = lowest - demanded;
+            if (headroom < HEADROOM_SPREADS * spread) {
+                String source = keptSpread >= referenceSpread ? "the kept runs' spread of " + keptSpread
+                        : "the reference spread of " + referenceSpread;
+                problems.add(key + "=" + floor + " leaves " + headroom + " covered " + counter + " units under the lowest"
+                        + " kept measurement of " + module + " (" + lowest + " of " + total + "); it needs "
+                        + HEADROOM_SPREADS * spread + ", " + HEADROOM_SPREADS + "x " + source
+                        + " -- a higher floor needs a requalification");
+            }
+        }
+        return problems;
+    }
+
+    private static Properties loadProperties(Path file) throws IOException {
+        Properties properties = new Properties();
+        try (Reader reader = Files.newBufferedReader(file)) {
+            properties.load(reader);
+        }
+        return properties;
     }
 
     private static Map<String, Double> ratchets(double perModuleLine, double perModuleBranch, double aggregateLine,

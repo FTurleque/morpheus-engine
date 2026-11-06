@@ -72,6 +72,7 @@ Vue commune : la séquence de la façade distante, dans [`remote-access-journal.
 | `application-package-cycles` | [paquets de l'application sans cycle](application-package-cycles.md) | [spec](../../../openspec/specs/application-package-cycles/spec.md) |
 | `application-technology-boundary` | [technologies que la couche application peut toucher](application-technology-boundary.md) | [spec](../../../openspec/specs/application-technology-boundary/spec.md) |
 | `cli-technology-boundary` | [technologies que la CLI peut toucher](cli-technology-boundary.md) | changement actif `confine-the-technology-families-the-cli-uses` |
+| `api-technology-boundary` | [technologies que l'adaptateur HTTP peut toucher](api-technology-boundary.md) | changement actif `confine-the-technology-families-the-cli-uses` |
 | `module-package-correspondence` | [correspondance entre modules et paquets](module-package-correspondence.md) | [spec](../../../openspec/specs/module-package-correspondence/spec.md) |
 | `provider-sdk-dependency-boundary` | [frontière de dépendance du SDK de provider](provider-sdk-dependency-boundary.md) | [spec](../../../openspec/specs/provider-sdk-dependency-boundary/spec.md) |
 | `reflection-boundary` | [réflexion, chargement de classes et injection](reflection-boundary.md) | [spec](../../../openspec/specs/reflection-boundary/spec.md) |
@@ -92,6 +93,7 @@ Vue commune : la séquence de la façade distante, dans [`remote-access-journal.
 | `validator-self-test` | [auto-test des validateurs](validator-self-test.md) | [spec](../../../openspec/specs/validator-self-test/spec.md) |
 | `coverage-attribution-gap` | [crédit de couverture emprunté](coverage-attribution-gap.md) | [spec](../../../openspec/specs/coverage-attribution-gap/spec.md) |
 | `coverage-qualification-evidence` | [preuve de qualification d'un plafond de couverture](coverage-qualification-evidence.md) | [spec](../../../openspec/specs/coverage-qualification-evidence/spec.md) |
+| `per-module-coverage-floor` | [seuil de couverture propre à chaque module](per-module-coverage-floor.md) | créée à l'archivage du changement `thresh-every-module-coverage-on-its-own-floor` |
 | `enforcement-mechanism-accounting` | [décompte des mécanismes d'enforcement](enforcement-mechanism-accounting.md) | [spec](../../../openspec/specs/enforcement-mechanism-accounting/spec.md) |
 | `architecture-rule-vacuity-guard` | [garde contre les règles d'architecture vides](architecture-rule-vacuity-guard.md) | [spec](../../../openspec/specs/architecture-rule-vacuity-guard/spec.md) |
 | `refusal-test-evidence` | [preuve de la raison d'un refus dans un test](refusal-test-evidence.md) | [spec](../../../openspec/specs/refusal-test-evidence/spec.md) |

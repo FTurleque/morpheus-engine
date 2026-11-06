@@ -142,7 +142,10 @@ class BoundedStdioClientTransportTest {
     void aPeerLaunchNeedsACommandAndCopiesWhatItIsGiven() {
         IllegalArgumentException blank = assertThrows(IllegalArgumentException.class,
                 () -> new McpPeerLaunch(" ", List.of(), Map.of()));
-        assertEquals("command must not be blank", blank.getMessage());
+        assertEquals("command must not be null or blank", blank.getMessage());
+        IllegalArgumentException absent = assertThrows(IllegalArgumentException.class,
+                () -> new McpPeerLaunch(null, List.of(), Map.of()));
+        assertEquals("command must not be null or blank", absent.getMessage());
 
         List<String> arguments = new ArrayList<>(List.of("-version"));
         McpPeerLaunch launch = new McpPeerLaunch("java", arguments, Map.of());

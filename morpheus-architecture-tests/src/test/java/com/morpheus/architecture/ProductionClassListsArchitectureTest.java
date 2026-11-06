@@ -95,6 +95,7 @@ class ProductionClassListsArchitectureTest {
     private static final Map<String, Kind> KINDS = Map.ofEntries(
             Map.entry("AdapterCompositionRootArchitectureTest.COMPOSITION_ROOTS", Kind.debtCounterUnder("ARCH-0162")),
             Map.entry("ApiEntryTypesArchitectureTest.ENTRY_TYPES", Kind.tableOfFactsEnumeratedBy("ARCH-0155", SIMPLE_NAMES)),
+            Map.entry("ApiTechnologyBoundaryArchitectureTest.CONFINED_FAMILIES", Kind.TABLE_OF_FACTS),
             Map.entry("AppendOnlyJournalReadsArchitectureTest.JOURNAL_PAGES", Kind.TABLE_OF_FACTS),
             Map.entry("AppendOnlyJournalReadsArchitectureTest.JOURNAL_PORTS", Kind.TABLE_OF_FACTS),
             Map.entry("AppendOnlyJournalReadsArchitectureTest.JOURNAL_RECORDS", Kind.TABLE_OF_FACTS),
@@ -140,6 +141,7 @@ class ProductionClassListsArchitectureTest {
             Map.entry("SilentCatchArchitectureTest.EXPLAINED", Kind.TABLE_OF_FACTS),
             Map.entry("SqliteConnectionScopeUseArchitectureTest.ONE_STORE_PER_OPERATION", Kind.TABLE_OF_FACTS),
             Map.entry("SqliteConnectionScopeUseArchitectureTest.SCOPE_OWNERS", Kind.TABLE_OF_FACTS),
+            Map.entry("SqliteStoreAdapterHoldsNoMonitorArchitectureTest.RUNTIME_MONITORS", Kind.TABLE_OF_FACTS),
             Map.entry("SqliteStorePackagesArchitectureTest.ADAPTER_COLLABORATORS", Kind.TABLE_OF_FACTS),
             Map.entry("SqliteStorePackagesArchitectureTest.RUNTIME_ENTRY_POINTS", Kind.debtCounterUnder("ARCH-0158")),
             Map.entry("SqliteStorePackagesArchitectureTest.RUNTIME_PUBLIC_TYPES", Kind.debtCounterUnder("ARCH-0158")),
