@@ -39,6 +39,7 @@ class CoverageScaleSeparationTest {
     private static final String AGGREGATE_GATE =
             "morpheus-coverage-report/src/test/java/com/morpheus/coverage/AggregateCoverageGateTest.java";
     private static final String PER_MODULE_EVIDENCE = "m21-per-module-coverage-summary.txt";
+    private static final String PER_MODULE_FLOORS = "m21-per-module-coverage-floors.properties";
     private static final String AGGREGATE_EVIDENCE = "m21-aggregate-coverage-summary.txt";
     private static final String AGGREGATE_REPORT = "target/site/jacoco-aggregate/jacoco.xml";
     private static final String BORROWED_GATE =
@@ -74,14 +75,14 @@ class CoverageScaleSeparationTest {
         String aggregateGate = Files.readString(root.resolve(AGGREGATE_GATE));
 
         assertReads(perModuleGate, PER_MODULE_GATE, "perModuleLineCoverageMinimum", "perModuleBranchCoverageMinimum",
-                PER_MODULE_EVIDENCE);
+                PER_MODULE_EVIDENCE, PER_MODULE_FLOORS);
         assertIgnores(perModuleGate, PER_MODULE_GATE, "aggregateLineCoverageMinimum", "aggregateBranchCoverageMinimum",
                 AGGREGATE_EVIDENCE, AGGREGATE_REPORT);
 
         assertReads(aggregateGate, AGGREGATE_GATE, "aggregateLineCoverageMinimum", "aggregateBranchCoverageMinimum",
                 AGGREGATE_EVIDENCE, AGGREGATE_REPORT);
         assertIgnores(aggregateGate, AGGREGATE_GATE, "perModuleLineCoverageMinimum", "perModuleBranchCoverageMinimum",
-                PER_MODULE_EVIDENCE);
+                PER_MODULE_EVIDENCE, PER_MODULE_FLOORS);
     }
 
     /**
@@ -97,7 +98,7 @@ class CoverageScaleSeparationTest {
         assertReads(borrowedGate, BORROWED_GATE, BORROWED_KEYS.toArray(String[]::new));
         assertReads(borrowedGate, BORROWED_GATE, BORROWED_EVIDENCE, AGGREGATE_REPORT);
         assertIgnores(borrowedGate, BORROWED_GATE, COVERAGE_KEYS.toArray(String[]::new));
-        assertIgnores(borrowedGate, BORROWED_GATE, PER_MODULE_EVIDENCE, AGGREGATE_EVIDENCE);
+        assertIgnores(borrowedGate, BORROWED_GATE, PER_MODULE_EVIDENCE, AGGREGATE_EVIDENCE, PER_MODULE_FLOORS);
         for (String coverageGate : List.of(PER_MODULE_GATE, AGGREGATE_GATE)) {
             String source = Files.readString(root.resolve(coverageGate));
             assertIgnores(source, coverageGate, BORROWED_KEYS.toArray(String[]::new));

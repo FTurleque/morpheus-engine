@@ -14,8 +14,14 @@ import java.nio.file.attribute.FileTime;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
+import java.util.TreeSet;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -24,15 +30,23 @@ import org.w3c.dom.Node;
 import org.xml.sax.InputSource;
 
 /**
- * Per-module coverage gate: the sum of every module's own JaCoCo report, architecture-test module excluded.
+ * Per-module coverage gate: every module's own JaCoCo report, architecture-test module excluded, judged twice.
  *
  * <p>This scale answers a question the canonical post-reactor measurement cannot: what each module covers
- * <em>by itself</em>. A service exercised only through a sibling module's tests reads as uncovered here, so a
- * module that stops testing itself stays visible instead of being masked by its consumers. It is a different
- * grandeur from the canonical measurement and therefore reads its own pair of ratchet keys.</p>
+ * <em>by itself</em>. A service exercised only through a sibling module's tests reads as uncovered here. It is a
+ * different grandeur from the canonical measurement and therefore reads its own keys.</p>
+ *
+ * <p>The sum of the reports is compared to the total ratchet pair of {@code config/m21-quality-ratchets.properties},
+ * bounded by the D2 floor and by the qualified cap of this scale. A sum alone hides a module that stops testing
+ * itself: its loss dilutes into the covered lines of the others. So each report is also compared, on its own, to the
+ * floor that {@code config/m21-per-module-coverage-floors.properties} declares for its module, and the refusal names
+ * every module under its floor at once, with the remedy -- tests written in that module (ADR-0163).</p>
  */
 class CoverageQualityGateTest {
     private static final String PER_MODULE_REPORT = "target/site/jacoco/jacoco.xml";
+    private static final String MODULE_FLOORS = "config/m21-per-module-coverage-floors.properties";
+    private static final String LINE_FLOOR_SUFFIX = ".lineCoverageMinimum";
+    private static final String BRANCH_FLOOR_SUFFIX = ".branchCoverageMinimum";
     private static final double D2_MIN_LINE_RATIO = 0.40d;
     private static final double D2_MIN_BRANCH_RATIO = 0.35d;
 
@@ -132,7 +146,6 @@ class CoverageQualityGateTest {
         double minBranchRatio = Math.max(D2_MIN_BRANCH_RATIO, ratchets.perModuleBranchCoverageMinimum());
         ReportPopulation population = reportPopulation(root);
         population.assertComplete();
-        List<Path> reports = population.reports();
         assertTrue(minLineRatio >= D2_MIN_LINE_RATIO, "coverage ratchet must never weaken the D2 line floor");
         assertTrue(minBranchRatio >= D2_MIN_BRANCH_RATIO, "coverage ratchet must never weaken the D2 branch floor");
         assertRatchetWithinQualifiedWindow("line", ratchets.perModuleLineCoverageMinimum(),
@@ -140,39 +153,33 @@ class CoverageQualityGateTest {
         assertRatchetWithinQualifiedWindow("branch", ratchets.perModuleBranchCoverageMinimum(),
                 D2_MIN_BRANCH_RATIO, PER_MODULE_QUALIFIED_BRANCH_RATIO);
 
+        List<ModuleCoverage> modules = measure(population);
         Counter lines = new Counter();
         Counter branches = new Counter();
-        for (Path report : reports) {
-            var document = parse(report);
-            Node child = document.getDocumentElement().getFirstChild();
-            while (child != null) {
-                if (child instanceof Element element && element.getTagName().equals("counter")) {
-                    Counter target = switch (element.getAttribute("type")) {
-                        case "LINE" -> lines;
-                        case "BRANCH" -> branches;
-                        default -> null;
-                    };
-                    if (target != null) {
-                        target.covered += Long.parseLong(element.getAttribute("covered"));
-                        target.missed += Long.parseLong(element.getAttribute("missed"));
-                    }
-                }
-                child = child.getNextSibling();
-            }
+        for (ModuleCoverage module : modules) {
+            lines.add(module.lines());
+            branches.add(module.branches());
         }
 
         double lineRatio = lines.ratio();
         double branchRatio = branches.ratio();
         Path summary = root.resolve("morpheus-architecture-tests/target/m21-per-module-coverage-summary.txt");
         Files.createDirectories(summary.getParent());
-        Files.writeString(summary, String.format(
-                java.util.Locale.ROOT,
+        StringBuilder evidence = new StringBuilder(String.format(
+                Locale.ROOT,
                 "coverageScope=per-module%nreports=%d%nlineCovered=%d%nlineMissed=%d%nlineRatio=%.6f%nbranchCovered=%d%nbranchMissed=%d%nbranchRatio=%.6f%nqualifiedLineBaseline=%.6f%nqualifiedBranchBaseline=%.6f%nlineRatchet=%.3f%nbranchRatchet=%.3f%nd2LineFloor=%.2f%nd2BranchFloor=%.2f%n",
-                reports.size(), lines.covered, lines.missed, lineRatio,
+                modules.size(), lines.covered, lines.missed, lineRatio,
                 branches.covered, branches.missed, branchRatio,
                 PER_MODULE_QUALIFIED_LINE_RATIO, PER_MODULE_QUALIFIED_BRANCH_RATIO,
                 minLineRatio, minBranchRatio,
                 D2_MIN_LINE_RATIO, D2_MIN_BRANCH_RATIO));
+        for (ModuleCoverage module : modules) {
+            evidence.append(String.format(Locale.ROOT,
+                    "module.%1$s.lineCovered=%2$d%nmodule.%1$s.lineMissed=%3$d%nmodule.%1$s.branchCovered=%4$d%nmodule.%1$s.branchMissed=%5$d%n",
+                    module.name(), module.lines().covered, module.lines().missed,
+                    module.branches().covered, module.branches().missed));
+        }
+        Files.writeString(summary, evidence);
 
         assertCoverageAtLeast("line", lineRatio, minLineRatio);
         assertCoverageAtLeast("branch", branchRatio, minBranchRatio);
@@ -193,6 +200,273 @@ class CoverageQualityGateTest {
                 AssertionError.class, () -> assertCoverageAtLeast("branch", 0.41d, minBranchRatio));
         assertTrue(branchRegression.getMessage().contains("per-module JaCoCo branch coverage 0.41 is below qualified-baseline ratchet"),
                 () -> "the branch regression must be refused for falling below the ratchet: " + branchRegression.getMessage());
+    }
+
+    /**
+     * The sum hides a module that stops testing itself; its own report does not. Each module of the population is
+     * compared to the floor declared for it, once the population has been proven complete and current.
+     */
+    @Test
+    void everyModuleOfThePopulationHoldsItsOwnFloor() throws Exception {
+        Path root = RepositoryRoot.locate();
+        assertEveryModuleHoldsItsOwnFloor(root, root.resolve(MODULE_FLOORS));
+    }
+
+    /**
+     * Which modules owe a floor depends on the root POM and the sources only, so the declaration is checked without a
+     * build: a module added without its two keys, or a key left behind by a retired module, fails before any
+     * measurement exists.
+     */
+    @Test
+    void theFloorFileDeclaresEveryModuleOfThePopulationAndNoOther() throws Exception {
+        Path root = RepositoryRoot.locate();
+        List<String> problems = floorDeclarationProblems(reportPopulation(root).owing(),
+                loadFloors(root.resolve(MODULE_FLOORS)), MODULE_FLOORS);
+        assertTrue(problems.isEmpty(), () -> MODULE_FLOORS + " does not declare the population of the per-module scale:"
+                + System.lineSeparator() + "  " + String.join(System.lineSeparator() + "  ", problems));
+    }
+
+    /**
+     * The defect the floors exist for, reproduced: a reactor whose total stays above the ratchets of this scale while
+     * one module has stopped testing its lines and another its branches. Both are refused at once, under their own
+     * names, and the refusal stops once each module is covered again -- not before, and not for another reason.
+     */
+    @Test
+    void aModuleUnderItsOwnFloorIsRefusedWhileTheTotalStillHolds(@TempDir Path reactor) throws Exception {
+        Files.writeString(reactor.resolve("pom.xml"), reactorPom("well-tested", "stopped-testing", "branch-gap"));
+        writeMeasuredModule(reactor.resolve("well-tested"), 9_600, 100, 3_000, 100);
+        writeMeasuredModule(reactor.resolve("stopped-testing"), 30, 70, 40, 10);
+        writeMeasuredModule(reactor.resolve("branch-gap"), 300, 0, 10, 40);
+        Path floors = writeFloors(reactor, "well-tested", "stopped-testing", "branch-gap");
+
+        Ratchets ratchets = Ratchets.load(RepositoryRoot.locate().resolve("config/m21-quality-ratchets.properties"));
+        assertCoverageAtLeast("line", 9_930d / 10_100d,
+                Math.max(D2_MIN_LINE_RATIO, ratchets.perModuleLineCoverageMinimum()));
+        assertCoverageAtLeast("branch", 3_050d / 3_200d,
+                Math.max(D2_MIN_BRANCH_RATIO, ratchets.perModuleBranchCoverageMinimum()));
+
+        AssertionError refusal = assertThrows(AssertionError.class,
+                () -> assertEveryModuleHoldsItsOwnFloor(reactor, floors));
+        String message = refusal.getMessage();
+        assertTrue(message.contains("stopped-testing: line coverage 0.300000 of its own report is below its floor 0.40"),
+                () -> "the module that stopped testing its lines must be named with its ratio and floor: " + message);
+        assertTrue(message.contains("branch-gap: branch coverage 0.200000 of its own report is below its floor 0.35"),
+                () -> "branches are judged apart from lines and must be named as such: " + message);
+        assertTrue(message.contains("write tests in stopped-testing") && message.contains("write tests in branch-gap"),
+                () -> "the refusal must name the remedy, a test written in the module: " + message);
+        assertFalse(message.contains("well-tested"), () -> "a module above its floors is not refused: " + message);
+        assertFalse(message.contains("stopped-testing: branch") || message.contains("branch-gap: line"),
+                () -> "a quantity above its floor is not refused: " + message);
+
+        writeMeasuredModule(reactor.resolve("stopped-testing"), 70, 30, 40, 10);
+        writeMeasuredModule(reactor.resolve("branch-gap"), 300, 0, 30, 20);
+        assertEveryModuleHoldsItsOwnFloor(reactor, floors);
+    }
+
+    /**
+     * The floor file follows the derived population exactly. A module added without its keys gets no default floor,
+     * a key that outlived its module is not ignored, and a module without main classes owes nothing -- so a key that
+     * names it is an orphan too.
+     */
+    @Test
+    void theFloorFileMustNameEveryModuleOfThePopulationAndNoOther(@TempDir Path reactor) throws Exception {
+        Files.writeString(reactor.resolve("pom.xml"),
+                reactorPom("declared", "added-without-floor", "half-declared", "without-main-classes"));
+        writeMeasuredModule(reactor.resolve("declared"), 90, 10, 9, 1);
+        writeMeasuredModule(reactor.resolve("added-without-floor"), 10, 90, 1, 9);
+        writeMeasuredModule(reactor.resolve("half-declared"), 90, 10, 9, 1);
+        Files.createDirectories(reactor.resolve("without-main-classes/src/test/java"));
+        Path floors = reactor.resolve("floors.properties");
+        Files.writeString(floors, String.join(System.lineSeparator(),
+                "declared.lineCoverageMinimum=0.40",
+                "declared.branchCoverageMinimum=0.35",
+                "half-declared.lineCoverageMinimum=0.40",
+                "retired-module.lineCoverageMinimum=0.40",
+                "without-main-classes.branchCoverageMinimum=0.35",
+                "declared.coverageMinimum=0.40",
+                ""));
+
+        AssertionError refusal = assertThrows(AssertionError.class,
+                () -> assertEveryModuleHoldsItsOwnFloor(reactor, floors));
+        String message = refusal.getMessage();
+        for (String missing : List.of("added-without-floor.lineCoverageMinimum",
+                "added-without-floor.branchCoverageMinimum", "half-declared.branchCoverageMinimum")) {
+            assertTrue(message.contains("declares no " + missing),
+                    () -> "a module of the population without its key must be named with the key: " + message);
+        }
+        for (String orphan : List.of("retired-module.lineCoverageMinimum",
+                "without-main-classes.branchCoverageMinimum")) {
+            assertTrue(message.contains(orphan + " names no module of the population"),
+                    () -> "a key that names no module with main classes is an orphan: " + message);
+        }
+        assertTrue(message.contains("declared.coverageMinimum is neither"),
+                () -> "a key of no known form must be refused rather than ignored: " + message);
+        assertFalse(message.contains("added-without-floor: line"),
+                () -> "a module without its keys must not be judged against a default floor: " + message);
+
+        Files.writeString(floors, String.join(System.lineSeparator(),
+                "declared.lineCoverageMinimum=0.40",
+                "declared.branchCoverageMinimum=0.35",
+                "added-without-floor.lineCoverageMinimum=0.40",
+                "added-without-floor.branchCoverageMinimum=0.35",
+                "half-declared.lineCoverageMinimum=0.40",
+                "half-declared.branchCoverageMinimum=0.35",
+                ""));
+        AssertionError underFloor = assertThrows(AssertionError.class,
+                () -> assertEveryModuleHoldsItsOwnFloor(reactor, floors));
+        assertTrue(underFloor.getMessage().contains("added-without-floor: line coverage 0.100000")
+                        && !underFloor.getMessage().contains("names no module")
+                        && !underFloor.getMessage().contains("declares no"),
+                () -> "once declared, the module is judged against its own floor and nothing else: "
+                        + underFloor.getMessage());
+        writeMeasuredModule(reactor.resolve("added-without-floor"), 90, 10, 9, 1);
+        assertEveryModuleHoldsItsOwnFloor(reactor, floors);
+    }
+
+    private static String reactorPom(String... modules) {
+        StringBuilder pom = new StringBuilder("<project>\n  <modules>\n");
+        for (String module : modules) {
+            pom.append("    <module>").append(module).append("</module>\n");
+        }
+        return pom.append("  </modules>\n</project>\n").toString();
+    }
+
+    private static void writeMeasuredModule(Path module, long lineCovered, long lineMissed, long branchCovered,
+            long branchMissed) throws IOException {
+        declareMainClass(module);
+        Path report = module.resolve(PER_MODULE_REPORT);
+        Files.createDirectories(report.getParent());
+        Files.writeString(report, "<report name=\"" + module.getFileName() + "\">"
+                + "<counter type=\"BRANCH\" missed=\"" + branchMissed + "\" covered=\"" + branchCovered + "\"/>"
+                + "<counter type=\"LINE\" missed=\"" + lineMissed + "\" covered=\"" + lineCovered + "\"/>"
+                + "</report>");
+    }
+
+    private static Path writeFloors(Path reactor, String... modules) throws IOException {
+        StringBuilder floors = new StringBuilder();
+        for (String module : modules) {
+            floors.append(module).append(LINE_FLOOR_SUFFIX).append('=').append(D2_MIN_LINE_RATIO).append('\n')
+                    .append(module).append(BRANCH_FLOOR_SUFFIX).append('=').append(D2_MIN_BRANCH_RATIO).append('\n');
+        }
+        Path file = reactor.resolve("floors.properties");
+        Files.writeString(file, floors);
+        return file;
+    }
+
+    /**
+     * Refuses, in one message, every declaration problem of the floor file and every module whose own report falls
+     * under {@code max(D2 floor, its floor)}. A module without a valid key is named as such and not judged: no default
+     * floor stands in for a missing one.
+     */
+    private void assertEveryModuleHoldsItsOwnFloor(Path root, Path floorFile) throws Exception {
+        ReportPopulation population = reportPopulation(root);
+        population.assertComplete();
+        Properties floors = loadFloors(floorFile);
+        String page = floorFile.getFileName().toString();
+        List<String> refusals = new ArrayList<>(floorDeclarationProblems(population.owing(), floors, page));
+        for (ModuleCoverage module : measure(population)) {
+            refuseUnderFloor(refusals, module.name(), "line", module.lines().ratio(),
+                    floors.getProperty(module.name() + LINE_FLOOR_SUFFIX), D2_MIN_LINE_RATIO);
+            refuseUnderFloor(refusals, module.name(), "branch", module.branches().ratio(),
+                    floors.getProperty(module.name() + BRANCH_FLOOR_SUFFIX), D2_MIN_BRANCH_RATIO);
+        }
+        if (!refusals.isEmpty()) {
+            throw new AssertionError("the per-module scale holds each module to its own floor (" + page + "), and "
+                    + refusals.size() + " problem(s) stand:" + System.lineSeparator() + "  "
+                    + String.join(System.lineSeparator() + "  ", refusals));
+        }
+    }
+
+    private static void refuseUnderFloor(List<String> refusals, String module, String kind, double ratio,
+            String declared, double d2Floor) {
+        Double floor = floorValue(declared);
+        if (floor == null) {
+            return;
+        }
+        double effective = Math.max(d2Floor, floor);
+        if (ratio < effective) {
+            refusals.add(String.format(Locale.ROOT,
+                    "%1$s: %2$s coverage %3$.6f of its own report is below its floor %4$.2f -- write tests in %1$s; "
+                            + "tests that live in another module do not count on this scale", module, kind, ratio,
+                    effective));
+        }
+    }
+
+    private static List<String> floorDeclarationProblems(List<String> owing, Properties floors, String page) {
+        List<String> problems = new ArrayList<>();
+        for (String module : owing) {
+            for (String suffix : List.of(LINE_FLOOR_SUFFIX, BRANCH_FLOOR_SUFFIX)) {
+                if (floors.getProperty(module + suffix) == null) {
+                    problems.add(module + " is in the population but " + page + " declares no " + module + suffix
+                            + " -- declare it at the D2 floor until a Windows and Linux qualification carries the module");
+                }
+            }
+        }
+        Set<String> population = new LinkedHashSet<>(owing);
+        for (String key : new TreeSet<>(floors.stringPropertyNames())) {
+            String module = moduleOf(key);
+            if (module == null) {
+                problems.add(key + " is neither <module>" + LINE_FLOOR_SUFFIX + " nor <module>" + BRANCH_FLOOR_SUFFIX);
+            } else if (!population.contains(module)) {
+                problems.add(key + " names no module of the population (a <module> of the root POM with a class "
+                        + "under src/main/java) -- remove it in the change that removes or renames its module");
+            } else if (floorValue(floors.getProperty(key)) == null) {
+                problems.add(key + "=" + floors.getProperty(key) + " is not a ratio between 0 and 1");
+            }
+        }
+        return problems;
+    }
+
+    private static String moduleOf(String key) {
+        for (String suffix : List.of(LINE_FLOOR_SUFFIX, BRANCH_FLOOR_SUFFIX)) {
+            if (key.endsWith(suffix) && key.length() > suffix.length()) {
+                return key.substring(0, key.length() - suffix.length());
+            }
+        }
+        return null;
+    }
+
+    private static Double floorValue(String declared) {
+        if (declared == null) {
+            return null;
+        }
+        try {
+            double value = Double.parseDouble(declared.strip());
+            return value >= 0.0d && value <= 1.0d ? value : null;
+        } catch (NumberFormatException notARatio) {
+            return null;
+        }
+    }
+
+    private static Properties loadFloors(Path file) throws IOException {
+        Properties floors = new Properties();
+        try (var reader = Files.newBufferedReader(file)) {
+            floors.load(reader);
+        }
+        return floors;
+    }
+
+    /** Each module's own counters, in the order of the root POM; the sum of the scale is computed from them. */
+    private List<ModuleCoverage> measure(ReportPopulation population) throws Exception {
+        List<ModuleCoverage> measured = new ArrayList<>();
+        for (ModuleReport report : population.reports()) {
+            Map<String, Counter> counters = new LinkedHashMap<>();
+            counters.put("LINE", new Counter());
+            counters.put("BRANCH", new Counter());
+            Node child = parse(report.report()).getDocumentElement().getFirstChild();
+            while (child != null) {
+                if (child instanceof Element element && element.getTagName().equals("counter")) {
+                    Counter target = counters.get(element.getAttribute("type"));
+                    if (target != null) {
+                        target.covered += Long.parseLong(element.getAttribute("covered"));
+                        target.missed += Long.parseLong(element.getAttribute("missed"));
+                    }
+                }
+                child = child.getNextSibling();
+            }
+            measured.add(new ModuleCoverage(report.module(), counters.get("LINE"), counters.get("BRANCH")));
+        }
+        return measured;
     }
 
     /**
@@ -389,7 +663,8 @@ class CoverageQualityGateTest {
      * disappearing. The gate was easier to pass on an amputated reactor than on a whole one.</p>
      */
     private ReportPopulation reportPopulation(Path root) throws Exception {
-        List<Path> reports = new ArrayList<>();
+        List<ModuleReport> reports = new ArrayList<>();
+        List<String> owing = new ArrayList<>();
         List<String> neverBuilt = new ArrayList<>();
         List<String> builtWithoutReport = new ArrayList<>();
         List<String> stale = new ArrayList<>();
@@ -398,11 +673,12 @@ class CoverageQualityGateTest {
             if (!hasMainClasses(directory)) {
                 continue;
             }
+            owing.add(module);
             Path report = directory.resolve(PER_MODULE_REPORT);
             if (Files.isRegularFile(report)) {
                 String staleness = stalenessOf(report, directory);
                 if (staleness == null) {
-                    reports.add(report);
+                    reports.add(new ModuleReport(module, report));
                 } else {
                     stale.add(module + " (" + staleness + ")");
                 }
@@ -412,8 +688,8 @@ class CoverageQualityGateTest {
                 neverBuilt.add(module);
             }
         }
-        return new ReportPopulation(List.copyOf(reports), List.copyOf(neverBuilt), List.copyOf(builtWithoutReport),
-                List.copyOf(stale));
+        return new ReportPopulation(List.copyOf(reports), List.copyOf(owing), List.copyOf(neverBuilt),
+                List.copyOf(builtWithoutReport), List.copyOf(stale));
     }
 
     /**
@@ -487,8 +763,8 @@ class CoverageQualityGateTest {
      * alone reaches this state -- and the fix is to run the reactor. A module that compiled and still emitted no
      * report has stopped reporting, and the fix is to find out why.
      */
-    private record ReportPopulation(List<Path> reports, List<String> neverBuilt, List<String> builtWithoutReport,
-            List<String> stale) {
+    private record ReportPopulation(List<ModuleReport> reports, List<String> owing, List<String> neverBuilt,
+            List<String> builtWithoutReport, List<String> stale) {
         private void assertComplete() {
             if (neverBuilt.isEmpty() && builtWithoutReport.isEmpty() && stale.isEmpty()) {
                 return;
@@ -548,9 +824,20 @@ class CoverageQualityGateTest {
         }
     }
 
+    private record ModuleReport(String module, Path report) {
+    }
+
+    private record ModuleCoverage(String name, Counter lines, Counter branches) {
+    }
+
     private static final class Counter {
         long covered;
         long missed;
+
+        void add(Counter other) {
+            covered += other.covered;
+            missed += other.missed;
+        }
 
         double ratio() {
             long total = covered + missed;
