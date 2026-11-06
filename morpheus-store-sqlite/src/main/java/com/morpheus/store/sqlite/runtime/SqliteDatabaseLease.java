@@ -40,6 +40,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * connection to the database.</p>
  */
 final class SqliteDatabaseLease {
+    /**
+     * Guards {@link #SHARED}, {@link #EXCLUSIVE} and {@link #RETAINED}: the registry is process-wide, and every thread
+     * that opens or closes a physical connection, or runs maintenance, reads and changes it.
+     */
     private static final Object MONITOR = new Object();
     private static final Map<Path, SharedState> SHARED = new HashMap<>();
     private static final Set<Path> EXCLUSIVE = new HashSet<>();
