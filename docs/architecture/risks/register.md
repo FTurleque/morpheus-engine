@@ -6,6 +6,12 @@
 > Mise à jour : **2026-09-04** (passes post-audit A-02..A-16 ; A-01 suivie séparément selon son cycle de qualification réelle — voir #185).
 >
 > **P** = probabilité, **I** = impact, **E** = exposition = P × I ; échelle 1 à 3.
+>
+> L'état d'une entrée se lit à sa place : une ligne du premier tableau de « Risques techniques » ou de « Dette
+> technique / documentaire » est ouverte, un identifiant cité entre accents graves dans un en-tête `###` de
+> requalification qui le dit position est une position, toute autre mention est close. Clore une entrée, c'est retirer
+> sa ligne du tableau. Un workflow ne renvoie qu'à une entrée ouverte ou à une position, et une ligne gardée au tableau
+> dont l'en-tête de détail dit « clos » est refusée : `RiskRegisterReferencesTest` le tient.
 
 ---
 
