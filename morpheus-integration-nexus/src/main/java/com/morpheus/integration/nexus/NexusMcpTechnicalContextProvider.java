@@ -3,6 +3,7 @@ package com.morpheus.integration.nexus;
 import com.morpheus.application.context.TechnicalContextObservation;
 import com.morpheus.application.context.TechnicalContextProvider;
 import com.morpheus.application.context.TechnicalContextRequest;
+import com.morpheus.application.foundation.FailureText;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
 
@@ -78,7 +79,7 @@ public final class NexusMcpTechnicalContextProvider implements TechnicalContextP
                 SYSTEM,
                 "UNAVAILABLE",
                 true,
-                "NEXUS integration is unavailable: " + safeMessage(failure),
+                "NEXUS integration is unavailable: " + FailureText.of(failure),
                 baseDetails());
     }
 
@@ -89,10 +90,5 @@ public final class NexusMcpTechnicalContextProvider implements TechnicalContextP
         settings.jarPath().ifPresent(path -> details.put("jar", path.toString()));
         settings.homeDirectory().ifPresent(path -> details.put("home", path.toString()));
         return Map.copyOf(details);
-    }
-
-    private String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 }

@@ -5,7 +5,11 @@ info:
   description: >-
     M26 opt-in HTTPS remote/team server additions and security overlays. Existing /api/v1 business routes remain the
     same semantic API but, in remote mode, are fronted by TLS, Bearer authentication and RBAC. Executable provider
-    plugin probing is deliberately stricter in remote mode: POST + ADMIN + trusted SHA-256.
+    plugin probing is deliberately stricter in remote mode: POST + ADMIN + trusted SHA-256. Any relayed WRITE or ADMIN
+    call can be answered 504 with an unknown outcome: UPSTREAM_WRITE_TIMEOUT when the local operation did not answer
+    within the writes' deadline, RESPONSE_BUDGET_WRITE_TIMEOUT when it answered but no response slot freed up within
+    that same deadline, counted from the moment the call was sent. The operation may have completed in both cases;
+    read its state before retrying.
 servers:
   - url: https://127.0.0.1:8765/api/v1
 security:
@@ -141,6 +145,16 @@ paths:
                 $ref: '#/components/schemas/ErrorEnvelope'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+        '504':
+          description: >-
+            UPSTREAM_WRITE_TIMEOUT: the probe did not answer within the facade's deadline for a write or administration
+            call. RESPONSE_BUDGET_WRITE_TIMEOUT: it answered, but no response slot freed up within that same deadline,
+            and its response was not relayed. Either way the outcome is unknown, not failed: read the state before
+            retrying.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
 components:
   securitySchemes:
     bearerAuth:

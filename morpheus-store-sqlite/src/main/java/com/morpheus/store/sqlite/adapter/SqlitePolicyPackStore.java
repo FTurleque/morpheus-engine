@@ -61,7 +61,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
     }
 
     @Override
-    public synchronized void create(
+    public void create(
             PolicyPack.Definition definition,
             PolicyPack.Version initialVersion,
             PolicyConfiguration.AuditRecord audit) {
@@ -96,7 +96,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
     }
 
     @Override
-    public synchronized Optional<PolicyPack.Definition> findDefinition(PolicyIds.PackId id) {
+    public Optional<PolicyPack.Definition> findDefinition(PolicyIds.PackId id) {
         ensureOpen();
         try (PreparedStatement statement = connection.prepareStatement("""
                 SELECT id, name, revision, latest_version_number, created_at, updated_at
@@ -112,7 +112,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
     }
 
     @Override
-    public synchronized List<PolicyPack.Definition> listDefinitions() {
+    public List<PolicyPack.Definition> listDefinitions() {
         ensureOpen();
         try (PreparedStatement statement = connection.prepareStatement("""
                 SELECT id, name, revision, latest_version_number, created_at, updated_at
@@ -131,7 +131,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
     }
 
     @Override
-    public synchronized Optional<PolicyPack.Version> findVersion(
+    public Optional<PolicyPack.Version> findVersion(
             PolicyIds.PackId packId,
             PolicyIds.VersionId versionId) {
         ensureOpen();
@@ -155,7 +155,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
     }
 
     @Override
-    public synchronized List<PolicyPack.Version> listVersions(PolicyIds.PackId packId) {
+    public List<PolicyPack.Version> listVersions(PolicyIds.PackId packId) {
         ensureOpen();
         try (PreparedStatement statement = connection.prepareStatement("""
                 SELECT version_id, encoded_version FROM policy_pack_versions
@@ -178,7 +178,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
     }
 
     @Override
-    public synchronized PolicyPack.Definition compareAndSetDefinition(
+    public PolicyPack.Definition compareAndSetDefinition(
             PolicyIds.PackId packId,
             long expectedRevision,
             PolicyPack.Definition replacement,
@@ -226,7 +226,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
     }
 
     @Override
-    public synchronized Optional<PolicyConfiguration.Activation> findActivation(
+    public Optional<PolicyConfiguration.Activation> findActivation(
             PolicyScope scope,
             PolicyIds.PackId packId) {
         ensureOpen();
@@ -246,7 +246,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
     }
 
     @Override
-    public synchronized List<PolicyConfiguration.Activation> listActivations(PolicyScope scope) {
+    public List<PolicyConfiguration.Activation> listActivations(PolicyScope scope) {
         ensureOpen();
         try (PreparedStatement statement = connection.prepareStatement(LIST_ACTIVATIONS_SQL)) {
             bindScope(statement, 1, scope);
@@ -263,7 +263,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
     }
 
     @Override
-    public synchronized PolicyConfiguration.Activation compareAndSetActivation(
+    public PolicyConfiguration.Activation compareAndSetActivation(
             PolicyScope scope,
             PolicyIds.PackId packId,
             long expectedRevision,
@@ -340,7 +340,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
     }
 
     @Override
-    public synchronized void removeActivation(
+    public void removeActivation(
             PolicyScope scope,
             PolicyIds.PackId packId,
             long expectedRevision,
@@ -382,7 +382,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
     }
 
     @Override
-    public synchronized Optional<PolicyConfiguration.Override> findOverride(
+    public Optional<PolicyConfiguration.Override> findOverride(
             PolicyScope scope,
             PolicyIds.PackId packId,
             PolicyIds.RuleId ruleId) {
@@ -404,7 +404,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
     }
 
     @Override
-    public synchronized List<PolicyConfiguration.Override> listOverrides(PolicyScope scope) {
+    public List<PolicyConfiguration.Override> listOverrides(PolicyScope scope) {
         ensureOpen();
         try (PreparedStatement statement = connection.prepareStatement(LIST_OVERRIDES_SQL)) {
             bindScope(statement, 1, scope);
@@ -421,7 +421,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
     }
 
     @Override
-    public synchronized PolicyConfiguration.Override compareAndSetOverride(
+    public PolicyConfiguration.Override compareAndSetOverride(
             PolicyScope scope,
             PolicyIds.PackId packId,
             PolicyIds.RuleId ruleId,
@@ -523,7 +523,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
     }
 
     @Override
-    public synchronized void removeOverride(
+    public void removeOverride(
             PolicyScope scope,
             PolicyIds.PackId packId,
             PolicyIds.RuleId ruleId,
@@ -573,7 +573,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
      * {@code idx_policy_audit_pack_order}; the lowercase text of a UUIDv7 sorts as the identity compares.
      */
     @Override
-    public synchronized PolicyAuditPage listAudit(PolicyIds.PackId packId, PageRequest pageRequest) {
+    public PolicyAuditPage listAudit(PolicyIds.PackId packId, PageRequest pageRequest) {
         ensureOpen();
         try {
             int total;
@@ -604,7 +604,7 @@ public final class SqlitePolicyPackStore implements PolicyPackStore, AutoCloseab
     }
 
     @Override
-    public synchronized void close() {
+    public void close() {
         if (closed) {
             return;
         }

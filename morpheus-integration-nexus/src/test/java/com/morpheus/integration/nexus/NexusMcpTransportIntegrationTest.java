@@ -54,7 +54,7 @@ class NexusMcpTransportIntegrationTest {
     void rejectsOversizedTextBeforeJsonDeserialization() {
         String oversized = "x".repeat(NexusMcpContextGateway.MAX_MCP_RESPONSE_BYTES + 1);
         assertThrows(NexusIntegrationException.class,
-                () -> NexusMcpContextGateway.requireBoundedResponse(oversized, "fixture"));
+                () -> NexusMcpContextGateway.PEER.requireBoundedResponse(oversized, "fixture"));
     }
 
     @Test

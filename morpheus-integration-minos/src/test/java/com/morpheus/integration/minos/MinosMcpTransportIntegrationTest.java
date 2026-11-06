@@ -52,7 +52,7 @@ class MinosMcpTransportIntegrationTest {
     void rejectsOversizedTextBeforeJsonDeserialization() {
         String oversized = "x".repeat(MinosMcpCodeGateway.MAX_MCP_RESPONSE_BYTES + 1);
         assertThrows(MinosIntegrationException.class,
-                () -> MinosMcpCodeGateway.requireBoundedResponse(oversized, "fixture"));
+                () -> MinosMcpCodeGateway.PEER.requireBoundedResponse(oversized, "fixture"));
     }
 
     private String javaExecutable() {

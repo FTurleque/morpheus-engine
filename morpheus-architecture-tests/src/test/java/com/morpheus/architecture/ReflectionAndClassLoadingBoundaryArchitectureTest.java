@@ -55,7 +55,7 @@ class ReflectionAndClassLoadingBoundaryArchitectureTest {
     private static final Map<String, String> REFLECTION = Map.of(
             SQLITE_RUNTIME + ".SqliteConnectionScope",
             "a dynamic proxy of java.sql.Connection lets every store of an operation share one physical connection "
-                    + "without closing it (ADR-0156)",
+                    + "without closing it (ADR-0162)",
             SQLITE_RUNTIME + ".SqliteDatabaseLease",
             "a dynamic proxy of java.sql.Connection releases the database lease only once the driver close succeeded",
             SQLITE_RUNTIME + ".SqliteContentionMetrics",
@@ -127,7 +127,7 @@ class ReflectionAndClassLoadingBoundaryArchitectureTest {
     void noProductClassDependsOnAnInjectionFramework() {
         noClasses().that().resideInAPackage(PRODUCT + "..")
                 .should().dependOnClassesThat().resideInAnyPackage(INJECTION_FRAMEWORKS.toArray(String[]::new))
-                .because("MORPHEUS is wired explicitly, in MorpheusMain and in the composition roots of ADR-0156, "
+                .because("MORPHEUS is wired explicitly, in MorpheusMain and in the composition roots of ADR-0162, "
                         + "never by a framework or an injection annotation")
                 .check(classes);
     }
@@ -155,11 +155,15 @@ class ReflectionAndClassLoadingBoundaryArchitectureTest {
 
     @Test
     void theApplicationKeepsItsOwnConfinementOfReflectionAndLoading() throws IOException {
-        String source = Files.readString(RepositoryRoot.locate().resolve("morpheus-architecture-tests/src/test/java/"
-                + "com/morpheus/architecture/ApplicationTechnologyBoundaryArchitectureTest.java"));
-        assertTrue(source.contains("new Family(\"reflection and class loading\"")
-                        && source.contains("java.lang.reflect.") && source.contains("java.util.ServiceLoader")
-                        && source.contains("\"forName\""),
+        Path gates = RepositoryRoot.locate().resolve("morpheus-architecture-tests/src/test/java/com/morpheus/architecture");
+        String family = Files.readString(gates.resolve("TechnologyFamily.java"));
+        String source = Files.readString(gates.resolve("ApplicationTechnologyBoundaryArchitectureTest.java"))
+                .replaceAll("\\s+", " ");
+        assertTrue(family.contains("REFLECTION_AND_CLASS_LOADING = new TechnologyFamily(\"reflection and class "
+                        + "loading\"")
+                        && family.contains("java.lang.reflect.") && family.contains("java.util.ServiceLoader")
+                        && family.contains("\"forName\"")
+                        && source.contains("TechnologyFamily.REFLECTION_AND_CLASS_LOADING, REFLECTION_AND_LOADING"),
                 "this test leaves com.morpheus.application to ApplicationTechnologyBoundaryArchitectureTest, which "
                         + "must keep confining reflection and class loading there");
     }

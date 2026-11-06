@@ -45,7 +45,7 @@ public final class SqlitePortfolioStore implements PortfolioStore, AutoCloseable
     }
 
     @Override
-    public synchronized void putPortfolio(PortfolioDefinition portfolio) {
+    public void putPortfolio(PortfolioDefinition portfolio) {
         ensureOpen();
         Objects.requireNonNull(portfolio, "portfolio");
         try (PreparedStatement statement = connection.prepareStatement("""
@@ -66,7 +66,7 @@ public final class SqlitePortfolioStore implements PortfolioStore, AutoCloseable
     }
 
     @Override
-    public synchronized Optional<PortfolioDefinition> findPortfolio(PortfolioId portfolioId) {
+    public Optional<PortfolioDefinition> findPortfolio(PortfolioId portfolioId) {
         ensureOpen();
         try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT id, name, created_at, updated_at FROM portfolios WHERE id = ?")) {
@@ -80,7 +80,7 @@ public final class SqlitePortfolioStore implements PortfolioStore, AutoCloseable
     }
 
     @Override
-    public synchronized List<PortfolioDefinition> listPortfolios() {
+    public List<PortfolioDefinition> listPortfolios() {
         ensureOpen();
         try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT id, name, created_at, updated_at FROM portfolios ORDER BY id");
@@ -96,7 +96,7 @@ public final class SqlitePortfolioStore implements PortfolioStore, AutoCloseable
     }
 
     @Override
-    public synchronized void putMembership(PortfolioMembership membership) {
+    public void putMembership(PortfolioMembership membership) {
         ensureOpen();
         requirePortfolio(membership.portfolioId());
         try (PreparedStatement statement = connection.prepareStatement("""
@@ -131,7 +131,7 @@ public final class SqlitePortfolioStore implements PortfolioStore, AutoCloseable
     }
 
     @Override
-    public synchronized Optional<PortfolioMembership> findMembership(
+    public Optional<PortfolioMembership> findMembership(
             PortfolioId portfolioId,
             ProjectSpecificationId projectId) {
         ensureOpen();
@@ -153,7 +153,7 @@ public final class SqlitePortfolioStore implements PortfolioStore, AutoCloseable
     }
 
     @Override
-    public synchronized List<PortfolioMembership> listMemberships(PortfolioId portfolioId) {
+    public List<PortfolioMembership> listMemberships(PortfolioId portfolioId) {
         ensureOpen();
         requirePortfolio(portfolioId);
         try (PreparedStatement statement = connection.prepareStatement("""
@@ -178,7 +178,7 @@ public final class SqlitePortfolioStore implements PortfolioStore, AutoCloseable
     }
 
     @Override
-    public synchronized void putReference(CrossProjectReference reference) {
+    public void putReference(CrossProjectReference reference) {
         ensureOpen();
         requireMembership(reference.portfolioId(), reference.source().projectId());
         requireMembership(reference.portfolioId(), reference.target().projectId());
@@ -212,7 +212,7 @@ public final class SqlitePortfolioStore implements PortfolioStore, AutoCloseable
     }
 
     @Override
-    public synchronized Optional<CrossProjectReference> findReference(CrossProjectReferenceId referenceId) {
+    public Optional<CrossProjectReference> findReference(CrossProjectReferenceId referenceId) {
         ensureOpen();
         try (PreparedStatement statement = connection.prepareStatement(referenceSelect() + " WHERE id = ?")) {
             statement.setString(1, referenceId.toString());
@@ -225,7 +225,7 @@ public final class SqlitePortfolioStore implements PortfolioStore, AutoCloseable
     }
 
     @Override
-    public synchronized List<CrossProjectReference> listReferences(PortfolioId portfolioId) {
+    public List<CrossProjectReference> listReferences(PortfolioId portfolioId) {
         ensureOpen();
         requirePortfolio(portfolioId);
         return queryReferences(referenceSelect() + " WHERE portfolio_id = ? ORDER BY id", statement -> {
@@ -234,7 +234,7 @@ public final class SqlitePortfolioStore implements PortfolioStore, AutoCloseable
     }
 
     @Override
-    public synchronized List<CrossProjectReference> outgoing(
+    public List<CrossProjectReference> outgoing(
             PortfolioId portfolioId,
             PortfolioEntityRef source) {
         ensureOpen();
@@ -248,7 +248,7 @@ public final class SqlitePortfolioStore implements PortfolioStore, AutoCloseable
     }
 
     @Override
-    public synchronized List<CrossProjectReference> incoming(
+    public List<CrossProjectReference> incoming(
             PortfolioId portfolioId,
             PortfolioEntityRef target) {
         ensureOpen();
@@ -262,7 +262,7 @@ public final class SqlitePortfolioStore implements PortfolioStore, AutoCloseable
     }
 
     @Override
-    public synchronized void putFreshness(PortfolioFreshness freshness) {
+    public void putFreshness(PortfolioFreshness freshness) {
         ensureOpen();
         requireMembership(freshness.portfolioId(), freshness.projectId());
         Optional<PortfolioFreshness> previous = findFreshness(freshness.portfolioId(), freshness.projectId());
@@ -291,7 +291,7 @@ public final class SqlitePortfolioStore implements PortfolioStore, AutoCloseable
     }
 
     @Override
-    public synchronized Optional<PortfolioFreshness> findFreshness(
+    public Optional<PortfolioFreshness> findFreshness(
             PortfolioId portfolioId,
             ProjectSpecificationId projectId) {
         ensureOpen();
@@ -311,7 +311,7 @@ public final class SqlitePortfolioStore implements PortfolioStore, AutoCloseable
     }
 
     @Override
-    public synchronized List<PortfolioFreshness> listFreshness(PortfolioId portfolioId) {
+    public List<PortfolioFreshness> listFreshness(PortfolioId portfolioId) {
         ensureOpen();
         requirePortfolio(portfolioId);
         try (PreparedStatement statement = connection.prepareStatement("""
@@ -334,7 +334,7 @@ public final class SqlitePortfolioStore implements PortfolioStore, AutoCloseable
     }
 
     @Override
-    public synchronized void close() {
+    public void close() {
         if (closed) {
             return;
         }

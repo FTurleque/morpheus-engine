@@ -1,13 +1,8 @@
----
-id: ARCH-0156
-title: "Les transports sont des racines de composition nommées, les paquets sont sans cycle, et une décision sur une valeur du domaine est écrite sur son type"
-domain: architecture
-rules: false
----
+# ADR-0156 — Les transports sont des racines de composition nommées, les paquets sont sans cycle, et une décision sur une valeur du domaine est écrite sur son type
 
-# Les transports sont des racines de composition nommées, les paquets sont sans cycle, et une décision sur une valeur du domaine est écrite sur son type
+> **Archivée.** Cette décision est consolidée dans [ADR-0162](../ARCH-0162-racines-de-composition-nommees-paquets-sans-cycle-hors-une-paire-bornee-et-decisions-dans-le-domaine.md), qui la reprend en entier et ajoute à la règle de premier niveau de l'application une règle de deuxième niveau sous `application.query`, qui tolère les seules arêtes listées de `query.dsl` vers `query.saved`. Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
-- Statut : **Acceptée**
+- Statut : **Remplacée par ADR-0162**
 - Date : 2026-10-30
 - Remplace : ADR-0152
 
@@ -144,9 +139,9 @@ famille fermée de deux variantes.
 
 ## References
 
-- [ADR-0003](DATA-0003-specification-knowledge-store.md) — port de stockage de connaissance.
-- [ADR-0082](DATA-0082-explicit-constraint-semantics-and-blocking-policy.md) — sémantique des contraintes.
-- [ADR-0119](BE-0119-cycle-de-vie-des-changements-et-transition-tri-etat.md) — cycle de vie et transition tri-état.
-- [ADR-0150](ARCH-0150-ce-que-le-coeur-applicatif-peut-toucher.md) — ce que le cœur applicatif peut toucher.
+- [ADR-0003](../DATA-0003-specification-knowledge-store.md) — port de stockage de connaissance.
+- [ADR-0082](../DATA-0082-explicit-constraint-semantics-and-blocking-policy.md) — sémantique des contraintes.
+- [ADR-0119](../BE-0119-cycle-de-vie-des-changements-et-transition-tri-etat.md) — cycle de vie et transition tri-état.
+- [ADR-0150](../ARCH-0150-ce-que-le-coeur-applicatif-peut-toucher.md) — ce que le cœur applicatif peut toucher.
 - `openspec/specs/application-package-cycles/spec.md`, `openspec/specs/domain-value-decisions/spec.md`.
 - `.claude/rules/architecture.md`

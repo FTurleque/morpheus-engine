@@ -11,6 +11,7 @@ import com.morpheus.application.read.ReadCategory;
 import com.morpheus.application.read.ReadCategoryReport;
 import com.morpheus.application.read.ReadCategoryStatus;
 import com.morpheus.application.read.SpecificationContentReader;
+import com.morpheus.application.security.ServerLocationDisclosure;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.constraint.Constraint;
@@ -441,7 +442,7 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
                 DiagnosticCode.INVALID_SOURCE,
                 DiagnosticSeverity.ERROR,
                 "OpenSpec content reader failed for group " + group + ": "
-                        + OpenSpecSourceAttribution.relayable(exception),
+                        + ServerLocationDisclosure.relayableText(exception),
                 Map.of(
                         "provider", providerId().value(),
                         "group", group,

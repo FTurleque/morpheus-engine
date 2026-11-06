@@ -20,10 +20,6 @@ public final class BoundaryFailureMessage {
     }
 
     public static String safe(Throwable failure) {
-        String message = failure.getMessage();
-        if (message == null || message.isBlank() || !ServerLocationDisclosure.isSafeToRelay(message)) {
-            return failure.getClass().getSimpleName();
-        }
-        return message;
+        return ServerLocationDisclosure.relayableText(failure);
     }
 }

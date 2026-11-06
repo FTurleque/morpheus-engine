@@ -1,5 +1,6 @@
 package com.morpheus.integration.minos;
 
+import com.morpheus.application.foundation.FailureText;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.reference.ExternalIntegrationStatus;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
@@ -47,7 +48,7 @@ public final class MinosIntegrationRuntime implements ExternalIntegrationStatusP
         try (MinosCodeGateway ignored = new MinosMcpCodeGateway(settings, recorder)) {
             return status("AVAILABLE", true, "MINOS MCP server is reachable and compatible");
         } catch (RuntimeException failure) {
-            return status("UNAVAILABLE", true, safeMessage(failure));
+            return status("UNAVAILABLE", true, FailureText.of(failure));
         }
     }
 
@@ -62,10 +63,5 @@ public final class MinosIntegrationRuntime implements ExternalIntegrationStatusP
         settings.homeDirectory().ifPresent(value -> details.put("homeDirectory", value.toString()));
         details.put("timeoutSeconds", Long.toString(settings.timeout().toSeconds()));
         return new ExternalIntegrationStatus("MINOS", state, configured, message, details);
-    }
-
-    private static String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 }

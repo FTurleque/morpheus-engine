@@ -59,8 +59,7 @@ version, compteurs `dependency:analyze`), ce nombre doit être traité comme pé
   docs/architecture/risks/register.md           (état CI actif + DT-10)
   scripts/README.md
   distribution/README.md
-  .claude/rules/testing.md
-  .claude/rules/governance.md
+  .claude/rules/testing.md                      (table clé / valeur, comparée par GovernanceSurfaceCoherenceTest)
   RepositoryDocumentationCoherenceTest          (valeurs épinglées, hausse délibérée)
   AggregateCoverageGateTest                     (plafond qualifié agrégé)
   CoverageQualityGateTest                       (plafond qualifié par module)

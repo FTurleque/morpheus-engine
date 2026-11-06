@@ -1,7 +1,7 @@
 # Gestion des versions de dépendances et de plugins (`dependency-version-management`)
 
 Spec de référence : [`openspec/specs/dependency-version-management/spec.md`](../../../openspec/specs/dependency-version-management/spec.md)
-· Relevé du 2026-11-04 sur `2913fc30`.
+· Relevé du 2026-11-04 sur `2913fc30` ; R4 relevé le 2026-11-06 sur `8c038add`, exigence portée par le changement actif `compare-every-document-that-states-a-fact-to-its-source` jusqu’à son archivage.
 
 ## Objet et périmètre
 
@@ -21,6 +21,7 @@ module l'emporte sans bruit sur celle du POM racine : le build la refuse.
 | R1 | A module POM SHALL state no dependency or plugin version | aucun `<version>` sauf celle du `<parent>` et `${project.version}` ; module nouveau jugé sans autre changement | `[EXIGENCE]` |
 | R2 | Every third-party version SHALL be decided in the root POM | toute version tierce vient d'un BOM importé ou d'une entrée gérée ; un plugin vient de `pluginManagement` | `[EXIGENCE]` |
 | R3 | The build rule SHALL describe the mechanism as enforced | la règle de build énonce les deux formes admises et cite le test | `[EXIGENCE]` |
+| R4 | Une version qu'une page de gouvernance IA écrit sous la forme d'une propriété du POM DOIT égaler la valeur de cette propriété | élément XML ou affectation de propriété, sur toute page de gouvernance IA, comparé au POM racine ; propriété inconnue et scan vide refusés | `[PROPOSITION]` |
 
 ## Comportement détaillé
 
@@ -37,6 +38,13 @@ module l'emporte sans bruit sur celle du POM racine : le build la refuse.
 - **R3** `[EXISTANT VÉRIFIÉ]` : `.claude/rules/build.md`, section « JAMAIS », énonce les deux formes admises (version du
   `<parent>`, `${project.version}` pour un module frère) et cite
   `D2RepositoryHardeningArchitectureTest#noModulePomStatesAVersionTheRootPomShouldDecide`.
+- **R4** `[EXISTANT VÉRIFIÉ]` ([`GovernanceSurfaceCoherenceTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/GovernanceSurfaceCoherenceTest.java)`#everyVersionAGovernancePageWritesAsAPomPropertyEqualsThePom`) :
+  sur chaque page de gouvernance IA (`.claude/CLAUDE.md`, `.github/AI_GOVERNANCE.md`, `.claude/rules/`,
+  `.claude/commands/`, `.claude/agents/`, les `SKILL.md` de `.claude/skills/`), le test lit les deux formes d'une
+  propriété de version du POM, l'élément XML et l'affectation, et compare chaque occurrence à la propriété de même nom
+  du premier bloc `<properties>` du POM racine. Il échoue en nommant la page, la propriété et les deux valeurs, ou la
+  propriété que le POM ne déclare pas ; il échoue aussi quand il ne lit aucune version. Aucune liste de propriétés n'est
+  tenue. Une version écrite en prose n'est pas lue : `.claude/rules/build.md` cite la propriété plutôt que sa valeur.
 
 ## Diagrammes
 
@@ -79,6 +87,11 @@ flowchart LR
 | R2 | A module resolves the version the root POM manages | idem | idem | **Preuve manquante** |
 | R2 | The logging backend follows the logging API | idem | idem | **Preuve manquante** ; contexte : [`ProductReleaseContractTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m20/ProductReleaseContractTest.java)`#releaseScriptsEnforcePerUserInstallExactTagChecksumsAndVerifiedToolBootstrap` (POM de la CLI) |
 | R3 | The rule page and the POMs agree | — | idem | **Preuve manquante** (revue) ; la phrase est dans `.claude/rules/build.md` |
+| R4 | La version de JaCoCo restée en arrière | — | `compare-every-document-that-states-a-fact-to-its-source` | `GovernanceSurfaceCoherenceTest#everyVersionAGovernancePageWritesAsAPomPropertyEqualsThePom` (vu rouge sur `jacoco.version` avant correction) |
+| R4 | Un bump qui ne touche que le POM | — | idem | idem |
+| R4 | Les deux formes sont lues | — | idem | `GovernanceSurfaceCoherenceTest#bothShapesOfAVersionAreComparedAndAPropertyThePomDoesNotDeclareIsRefused` |
+| R4 | Une propriété que le POM ne déclare plus | — | idem | idem |
+| R4 | Le contrôle a trouvé des versions à comparer | — | idem | `GovernanceSurfaceCoherenceTest#aVersionScanThatReadsNothingFailsInsteadOfPassing` |
 
 ## Sources
 

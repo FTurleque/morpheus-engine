@@ -4,7 +4,7 @@
 
 Dire quelles familles technologiques le module de transport `morpheus-cli` peut atteindre, par quelles classes, et
 comment le build le tient, pour le mainteneur qui y ajoute une dépendance technique. Page durable :
-`docs/developer/specifications/cli-technology-boundary.md`.
+[docs/developer/specifications/cli-technology-boundary.md](/docs/developer/specifications/cli-technology-boundary.md).
 
 ## ADDED Requirements
 

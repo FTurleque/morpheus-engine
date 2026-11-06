@@ -60,7 +60,7 @@ public final class SqliteSyncStateStore implements SyncStateStore, AutoCloseable
     }
 
     @Override
-    public synchronized Optional<ProjectSyncState> findSyncState(ProjectSpecificationId projectId) {
+    public Optional<ProjectSyncState> findSyncState(ProjectSpecificationId projectId) {
         ensureOpen();
         Objects.requireNonNull(projectId, "projectId");
         try (PreparedStatement statement = connection.prepareStatement("""
@@ -92,7 +92,7 @@ public final class SqliteSyncStateStore implements SyncStateStore, AutoCloseable
     }
 
     @Override
-    public synchronized Optional<SourceInventory> findCurrentInventory(ProjectSpecificationId projectId) {
+    public Optional<SourceInventory> findCurrentInventory(ProjectSpecificationId projectId) {
         ensureOpen();
         Objects.requireNonNull(projectId, "projectId");
         try (PreparedStatement state = connection.prepareStatement(
@@ -112,7 +112,7 @@ public final class SqliteSyncStateStore implements SyncStateStore, AutoCloseable
     }
 
     @Override
-    public synchronized SourceArchivePage listArchives(ProjectSpecificationId projectId, PageRequest pageRequest) {
+    public SourceArchivePage listArchives(ProjectSpecificationId projectId, PageRequest pageRequest) {
         ensureOpen();
         Objects.requireNonNull(projectId, "projectId");
         Objects.requireNonNull(pageRequest, "pageRequest");
@@ -159,7 +159,7 @@ public final class SqliteSyncStateStore implements SyncStateStore, AutoCloseable
     }
 
     @Override
-    public synchronized long recordAttempt(
+    public long recordAttempt(
             ProjectSpecificationId projectId,
             long expectedRevision,
             Instant attemptedAt,
@@ -206,7 +206,7 @@ public final class SqliteSyncStateStore implements SyncStateStore, AutoCloseable
     }
 
     @Override
-    public synchronized long commitSuccessfulSync(
+    public long commitSuccessfulSync(
             SourceInventory inventory,
             long expectedRevision,
             SyncPlan.SyncMode mode,
@@ -246,7 +246,7 @@ public final class SqliteSyncStateStore implements SyncStateStore, AutoCloseable
     }
 
     @Override
-    public synchronized void close() {
+    public void close() {
         if (closed) {
             return;
         }

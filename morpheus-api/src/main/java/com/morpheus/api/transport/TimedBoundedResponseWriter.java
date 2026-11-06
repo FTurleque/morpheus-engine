@@ -48,7 +48,7 @@ import java.util.concurrent.TimeUnit;
  */
 public final class TimedBoundedResponseWriter implements AutoCloseable {
     public static final Duration RESPONSE_STALL_TIMEOUT = Duration.ofSeconds(15);
-    static final Duration RESPONSE_TOTAL_TIMEOUT = Duration.ofSeconds(120);
+    public static final Duration RESPONSE_TOTAL_TIMEOUT = Duration.ofSeconds(120);
 
     private final ScheduledExecutorService watchdog;
     private final long stallNanos;

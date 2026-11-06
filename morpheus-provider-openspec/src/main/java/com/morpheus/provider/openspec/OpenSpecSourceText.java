@@ -1,6 +1,7 @@
 package com.morpheus.provider.openspec;
 
 import com.morpheus.application.read.ProviderIngestionBudget;
+import com.morpheus.application.security.ServerLocationDisclosure;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -22,7 +23,7 @@ final class OpenSpecSourceText {
                     .toList();
         } catch (IOException exception) {
             throw new IllegalStateException(
-                    "Cannot read OpenSpec source: " + OpenSpecSourceAttribution.relayable(exception), exception);
+                    "Cannot read OpenSpec source: " + ServerLocationDisclosure.relayableText(exception), exception);
         }
     }
 

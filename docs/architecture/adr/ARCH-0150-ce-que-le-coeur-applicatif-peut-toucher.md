@@ -16,74 +16,43 @@ rules: false
 `morpheus-application` définit les ports, et aucun adaptateur ne lui est visible (`LayerDependencyTest`). Rien ne dit
 en revanche quelle **technologie** il peut toucher lui-même : seuls `application.reasoning` et `application.policy`
 portent un interdit, textuel (`m27/ReasoningPlatformArchitectureTest`, `m25/PolicyPlatformArchitectureTest`), et les
-34 autres paquets peuvent acquérir `java.sql` ou un second client HTTP sans qu'aucun gate ne réagisse. Le constat
+autres paquets peuvent acquérir `java.sql` ou un second client HTTP sans qu'aucun gate ne réagisse. Le constat
 AUD-ARC-01 de l'audit du 09/10/2026 le relève ; AUD-ARC-02, AUD-ARC-03, AUD-ARC-06 et AUD-PRF-05 attendent la décision.
 
 ### Mesure
 
-Mesuré par une règle ArchUnit jetable sur `develop` à `b60a9286`, le 25/10/2026 : 349 sources, 36 paquets, 539 classes
-importées (classes imbriquées comprises, rapportées à leur classe de premier niveau). Une famille est un ensemble de
-types ou d'appels ; la colonne en donne les principaux, et `ApplicationTechnologyBoundaryArchitectureTest` la liste
-complète :
-
-| Famille | Types ou appels | Classes |
-|---|---|---|
-| Réseau sortant | `java.net.http..`, `URL`, `Socket`, `HttpURLConnection`, `javax.net..` | `product.UpdateDiscoveryService` (`:8-10`, `:44`) |
-| Accès fichier | `Files`, `FileSystems`, `FileSystem`, `WatchService`, `DirectoryStream`, `java.nio.file.attribute..`, `java.nio.channels..`, flux fichier de `java.io` | 11, ci-dessous |
-| Environnement du processus | `System.getenv`, `System.getProperty` | `operability.LocalOperationalRuntime` (`:20`), `operability.SensitiveValueRedactor` (`:43`), `product.ProductMetadata` (`:25`), `security.LocalWritePermissionHardener` (`:322`, `:356`) |
-| Flux standard | `System.out`, `System.err`, `System.in` | `operability.OperationalRuntime` (`:34`), `operability.RotatingOperationalLogFile` (`:39`) |
-| Fils d'exécution | `Executors`, `ExecutorService`, `CompletableFuture`, `ForkJoinPool`, `Thread.Builder` | `product.UpdateDiscoveryService` (`:139`) |
-| Horloge murale | `*.now()` de `java.time`, `Clock.system*`, `System.currentTimeMillis` | `operability.LocalOperabilityService` (`:34`, `:39`), `operability.OperationalRecorder` (`:37`, `:52`, `:95`) ; `Clock.systemUTC()` comme valeur par défaut d'un constructeur : `lifecycle.mutation.ControlledChangeLifecycleMutationService`, `policy.PolicyPackService`, `portfolio.PortfolioRegistryService`, `query.saved.SavedViewService` |
-| Réflexion, chargement de classes | `java.lang.reflect..`, `java.lang.invoke..`, `ServiceLoader`, `ClassLoader` | `query.compact.CanonicalJsonSerializer` (`:3-5`), `reasoning.ReasoningAdapterRegistry` (`:63`) |
-| SQL | `java.sql..`, `javax.sql..` | aucune |
-| Bibliothèque JSON | `tools.jackson..`, `com.fasterxml..` | aucune |
-| Exécution de processus | `ProcessBuilder`, `Process`, `ProcessHandle`, `Runtime` | aucune |
-
-`java.nio.file.Path` seul est utilisé par 26 classes, dont les signatures de ports (`SpecificationProvider`,
-`ProviderReadRequest`, `ProviderProjectRoot`) : c'est le vocabulaire d'un produit local-first, pas un accès.
-
-Les onze classes d'accès fichier (2 424 lignes) :
-
-| Classe | Lignes | Appelants de production | Tests d'architecture qui la nomment |
-|---|---|---|---|
-| `files.SafeWorkspaceFileResolver` | 269 | 9 (providers, remote) | 4 |
-| `sync.LocalSourceInventoryScanner` | 408 | `MorpheusProjectSyncApiService`, `MorpheusProjectCli` | 10 |
-| `sync.ScanWorkspaceBoundary` | 134 | `LocalSourceInventoryScanner`, `WorkspacePathBoundary` | 0 |
-| `sync.SourceFingerprint` | 235 | 5, dont `SqliteSyncStateStore` | 3 |
-| `security.ExternalJarIntegrity` | 121 | 6 (plugins, pairs MCP) | 3 |
-| `security.LocalWritePermissionHardener` | 413 | 8 (stores SQLite, remote, journal) | 2 |
-| `operability.RotatingOperationalLogFile` | 149 | `OperationalRuntime`, `RemoteAccessJournal` | 0 |
-| `product.UpdateDiscoveryService` | 313 | `MorpheusProductCli` | 4 |
-| `sync.LocalSourceWatcher` | 237 | aucun | 1 |
-| `discovery.ProjectDiscoveryService` | 102 | aucun | 0 |
-| `discovery.WorkspaceRootResolver` | 43 | `ProjectDiscoveryService` seulement | 0 |
-
-`java.time.Clock` est le port d'horloge, injecté par constructeur.
+La mesure qui a fondé cette décision, prise le 25/10/2026 sur `develop` à `b60a9286`, est conservée telle qu'elle a
+été écrite dans un [relevé daté](../../project/research/mesure-frontiere-technologique-application-2026-10-25.md).
+Elle classe chaque usage de technologie de l'application par famille et nomme les classes qui l'atteignaient. Une
+famille est un ensemble de types ou d'appels, dont `ApplicationTechnologyBoundaryArchitectureTest` porte la liste
+complète. `java.nio.file.Path` seul est le vocabulaire d'un produit local-first, jusque dans les signatures de ports
+(`SpecificationProvider`, `ProviderReadRequest`, `ProviderProjectRoot`), pas un accès ; `java.time.Clock` est le port
+d'horloge, injecté par constructeur.
 
 ### Options considérées
 
 - **A — un cœur pur.** Toutes les familles en usage sortent de l'application : un port y est déclaré, un adaptateur
-  l'implémente. Coût : les onze classes et les quatre lecteurs d'environnement, environ 2 400 lignes, dont cinq classes
+  l'implémente. Coût : toutes les classes d'accès fichier et tous les lecteurs d'environnement, dont des classes
   épinglées par des assertions de sécurité textuelles qui doivent les suivre ; un foyer à trouver (un nouveau module
   change la population de couverture d'ADR-0154, le classpath importé et la livraison ; un store ou un provider est le
   mauvais propriétaire d'une frontière d'espace de travail) ; et `Path` reste dans les ports, donc « pur » voudrait dire
   « sans accès », pas « sans `java.nio.file` ».
 - **B — une couche de service autorisée à faire de l'I/O locale.** Toutes les familles en usage restent, confinées aux
-  classes mesurées ; les familles inutilisées sont refusées partout. Coût minimal ; le réseau sortant reste dans la
+  classes qui les atteignent ; les familles inutilisées sont refusées partout. Coût minimal ; le réseau sortant reste dans la
   couche qui définit les ports, et le diagramme cesse de promettre un cœur sans technologie.
 - **C — exceptions nommées, chacune avec son sort.** La même règle que B, et chaque classe nommée **reste** ou **sort**.
   Seul le transport réseau sort : c'est l'unique sortie réseau du cœur, une classe, un appelant (`MorpheusProductCli`),
   et le refus de `http:` avant toute I/O comme l'analyse du manifeste restent dans l'application. L'accès local reste :
   il est la matière d'un cas d'usage local-first, ces classes sont la frontière de sécurité de l'espace de travail et
-  des fichiers sensibles, et aucun défaut observé ne se corrige en les déplaçant. Les trois classes sans appelant
-  restent nommées tant qu'elles existent : leur retrait relève du code inatteignable. Un port d'horloge propre au
+  des fichiers sensibles, et aucun défaut observé ne se corrige en les déplaçant. Les classes sans appelant de
+  production restent nommées tant qu'elles existent : leur retrait relève du code inatteignable. Un port d'horloge propre au
   projet serait un second nom pour `java.time.Clock`. La réflexion est nommée usage par usage, ici par
   `ApplicationTechnologyBoundaryArchitectureTest`, hors de l'application par
   `ReflectionAndClassLoadingBoundaryArchitectureTest`. Les interdits textuels de `reasoning` et `policy` ne migrent pas vers une règle de
   dépendance : ils refusent une mention, et interdisent `com.morpheus.application.store`,
   `com.morpheus.application.lifecycle.mutation`, `ScriptEngine`, `SELECT * FROM`, `executeQuery(`. SQL étant refusé,
   le runtime SQLite d'une opération ne peut pas entrer dans l'application ; le choix entre tenir son type dans les
-  racines de composition des transports ou un port de l'application qui le masque reste celui d'ADR-0156. Coût de C :
+  racines de composition des transports ou un port de l'application qui le masque reste celui d'ADR-0162. Coût de C :
   celui de B, plus une extraction dans un seul service. Retenu.
 
 ### Le résolveur des réglages de lancement des pairs MCP
@@ -114,15 +83,10 @@ garde le refus de `http:` avant toute I/O, la borne de taille, le délai et l'an
 
 ### 2. Une famille en usage est confinée à des classes nommées, chacune avec son sort
 
-| Classes nommées | Familles | Sort |
-|---|---|---|
-| `SafeWorkspaceFileResolver`, `LocalSourceInventoryScanner`, `ScanWorkspaceBoundary`, `SourceFingerprint`, `ExternalJarIntegrity`, `RotatingOperationalLogFile` | fichier | reste |
-| `LocalWritePermissionHardener`, `PeerLaunchSettingsResolver` | fichier, environnement | reste |
-| `LocalSourceWatcher`, `ProjectDiscoveryService`, `WorkspaceRootResolver` | fichier | reste tant que la classe existe |
-| `LocalOperationalRuntime`, `SensitiveValueRedactor`, `ProductMetadata` | environnement | reste |
-| `OperationalRuntime`, `RotatingOperationalLogFile` | flux standard | reste |
-| les six classes de la mesure | horloge murale | reste ; `java.time.Clock` est le port |
-| `CanonicalJsonSerializer`, `ReasoningAdapterRegistry` | réflexion | reste |
+L'accès fichier, l'environnement du processus, les flux standard, l'horloge murale et la réflexion ne sont atteints
+que par les classes que nomme la table « Classes nommées » de la section *Compliance and Enforcement*, avec la famille
+et le sort de chacune. Toutes restent ; `LocalSourceWatcher`, `ProjectDiscoveryService` et `WorkspaceRootResolver`
+restent tant que la classe existe. Pour l'horloge, `java.time.Clock` est le port.
 
 - Une liste est exactement l'ensemble des classes qui atteignent la famille : elle rétrécit, et un nom ajouté exige un
   ADR consolidé qui remplace celui-ci.
@@ -134,7 +98,7 @@ Ils refusent aussi une mention, et davantage qu'une famille.
 
 ### 4. Le runtime SQLite reste hors de l'application
 
-Ce qu'un transport tient de `SqliteOperationRuntime` et `SqliteServerMaintenance` relève d'ADR-0156.
+Ce qu'un transport tient de `SqliteOperationRuntime` et `SqliteServerMaintenance` relève d'ADR-0162.
 
 ## Do's and Don'ts
 
@@ -161,17 +125,17 @@ Ce qu'un transport tient de `SqliteOperationRuntime` et `SqliteServerMaintenance
   existe, pas sur ce qui s'ajoute pendant qu'elle est en attente.
 - La lecture du manifeste de mise à jour passe derrière un port, ce qui rend la découverte testable sans client HTTP
   et range le transport dans le module qui possède le processus.
-- Les listes nommées sont le compteur d'une éventuelle option A, comme `COMPOSITION_ROOTS` l'est pour ADR-0156.
+- Les listes nommées sont le compteur d'une éventuelle option A, comme `COMPOSITION_ROOTS` l'est pour ADR-0162.
 
 ### Négatives
 
-- Le cœur n'est pas purement hexagonal : onze classes d'accès fichier, dont trois sans appelant de production, et cinq
-  lecteurs d'environnement y restent.
+- Le cœur n'est pas purement hexagonal : des classes d'accès fichier, dont certaines sans appelant de production, et des
+  lecteurs d'environnement y restent, nommés par la table « Classes nommées ».
 - La règle ajoute des listes de noms, que l'audit voudrait moins nombreuses (AUD-ARC-06).
 
 ### Risques
 
-- Les trois classes sans appelant de production restent nommées tant qu'aucune décision ne les retire.
+- Les classes sans appelant de production restent nommées tant qu'aucune décision ne les retire.
 - Les invariants de sécurité de la découverte sont épinglés textuellement sur la classe qui les porte : une assertion
   qui lirait un fichier vidé de son code garderait les gates verts sans plus rien surveiller.
 
@@ -185,10 +149,49 @@ Ce qu'un transport tient de `SqliteOperationRuntime` et `SqliteServerMaintenance
 - Les listes de la décision 2 sont `ApplicationTechnologyBoundaryArchitectureTest.CONFINED_FAMILIES` et, pour la
   réflexion, `ApplicationTechnologyBoundaryArchitectureTest.REFLECTION_AND_LOADING` : deux compteurs de dette que
   `ProductionClassListsArchitectureTest` déclare sous cet ADR, dont la taille égale leur clé de
-  `config/debt-counter-ratchets.properties`.
+  `config/debt-counter-ratchets.properties`. Le build compare les deux listes, nom pour nom, aux énumérations
+  délimitées ci-dessous (`ProductionClassListsArchitectureTest#everyListADecisionRecordEnumeratesEqualsItsEnumeration`),
+  et exige que chaque nom qualifié de cet ADR existe dans `morpheus-application`
+  (`ApplicationTechnologyBoundaryArchitectureTest#everyClassTheDecisionRecordNamesByAQualifiedNameExistsAtThatName`).
+
+  Classes nommées, relatives à `com.morpheus.application` :
+
+<!-- liste ApplicationTechnologyBoundaryArchitectureTest.CONFINED_FAMILIES -->
+| Classe | Familles | Sort |
+|---|---|---|
+| `files.SafeWorkspaceFileResolver` | fichier | reste |
+| `files.LocalWritePermissionHardener` | fichier, environnement | reste |
+| `sync.LocalSourceInventoryScanner` | fichier | reste |
+| `sync.ScanWorkspaceBoundary` | fichier | reste |
+| `sync.SourceFingerprint` | fichier | reste |
+| `security.ExternalJarIntegrity` | fichier | reste |
+| `security.PeerLaunchSettingsResolver` | fichier, environnement | reste |
+| `operability.RotatingOperationalLogFile` | fichier, flux standard | reste |
+| `sync.LocalSourceWatcher` | fichier | reste tant que la classe existe |
+| `discovery.ProjectDiscoveryService` | fichier | reste tant que la classe existe |
+| `discovery.WorkspaceRootResolver` | fichier | reste tant que la classe existe |
+| `operability.LocalOperationalRuntime` | environnement | reste |
+| `operability.SensitiveValueRedactor` | environnement | reste |
+| `product.ProductMetadata` | environnement | reste |
+| `operability.OperationalRuntime` | flux standard | reste |
+| `operability.LocalOperabilityService` | horloge murale | reste |
+| `operability.OperationalRecorder` | horloge murale | reste |
+| `lifecycle.mutation.ControlledChangeLifecycleMutationService` | horloge murale | reste |
+| `policy.PolicyPackService` | horloge murale | reste |
+| `portfolio.PortfolioRegistryService` | horloge murale | reste |
+| `query.saved.SavedViewService` | horloge murale | reste |
+| `query.compact.CanonicalJsonSerializer` | réflexion | reste |
+| `reasoning.ReasoningAdapterRegistry` | réflexion | reste |
+<!-- fin de liste -->
+
+  La réflexion a sa propre liste, qui nomme les mêmes classes que la ligne « réflexion » :
+<!-- liste ApplicationTechnologyBoundaryArchitectureTest.REFLECTION_AND_LOADING -->
+  `query.compact.CanonicalJsonSerializer`, `reasoning.ReasoningAdapterRegistry`.
+<!-- fin de liste -->
+
 - Décision 4 : la famille SQL de `aFamilyTheApplicationDoesNotUseIsRefusedInEveryPackage` interdit le runtime SQLite
   dans l'application ; ce que les transports en tiennent est tenu par `AdapterCompositionRootArchitectureTest` et
-  `SqliteStorePackagesArchitectureTest` (ADR-0156).
+  `SqliteStorePackagesArchitectureTest` (ADR-0162).
 - `m27/ReasoningPlatformArchitectureTest` et `m25/PolicyPlatformArchitectureTest` : interdits textuels inchangés.
 - `LayerDependencyTest` : l'application ne dépend d'aucun adaptateur.
 - Découverte de mise à jour : `UpdateTrustBoundaryContractTest` et `AuditHardeningWorkflowContractTest` lisent la
@@ -202,7 +205,7 @@ Ce qu'un transport tient de `SqliteOperationRuntime` et `SqliteServerMaintenance
 
 ## References
 
-- [ADR-0156](ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md) — racines de composition nommées des
+- [ADR-0162](ARCH-0162-racines-de-composition-nommees-paquets-sans-cycle-hors-une-paire-bornee-et-decisions-dans-le-domaine.md) — racines de composition nommées des
   transports.
 - [ADR-0155](ARCH-0155-un-role-est-un-paquet-et-une-liste-de-classes-declare-sa-sorte.md) — rôles de l'adaptateur HTTP en paquets.
 - [ADR-0154](GEN-0154-deux-echelles-de-couverture-et-le-credit-emprunte.md) — population de couverture.

@@ -1,5 +1,6 @@
 package com.morpheus.store.sqlite.adapter;
 
+import com.morpheus.application.foundation.FailureText;
 import com.morpheus.application.query.dsl.PortfolioQueryScope;
 import com.morpheus.application.query.dsl.ProjectQueryScope;
 import com.morpheus.application.query.dsl.QueryBudgets;
@@ -64,7 +65,7 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
     }
 
     @Override
-    public synchronized void create(SavedViewDefinition definition, SavedViewVersion version) {
+    public void create(SavedViewDefinition definition, SavedViewVersion version) {
         ensureOpen();
         Objects.requireNonNull(definition, "definition");
         Objects.requireNonNull(version, "version");
@@ -93,7 +94,7 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
     }
 
     @Override
-    public synchronized Optional<SavedViewDefinition> find(SavedViewId id) {
+    public Optional<SavedViewDefinition> find(SavedViewId id) {
         ensureOpen();
         Objects.requireNonNull(id, "id");
         try (PreparedStatement statement = connection.prepareStatement("""
@@ -120,7 +121,7 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
     }
 
     @Override
-    public synchronized List<SavedViewEntry> list(QueryScope scope) {
+    public List<SavedViewEntry> list(QueryScope scope) {
         ensureOpen();
         Objects.requireNonNull(scope, "scope");
         try (PreparedStatement statement = connection.prepareStatement(LIST_BY_SCOPE_SQL)) {
@@ -139,7 +140,7 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
     }
 
     @Override
-    public synchronized List<SavedViewVersion> listVersions(SavedViewId id) {
+    public List<SavedViewVersion> listVersions(SavedViewId id) {
         ensureOpen();
         Objects.requireNonNull(id, "id");
         try (PreparedStatement statement = connection.prepareStatement(LIST_VERSIONS_SQL)) {
@@ -157,7 +158,7 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
     }
 
     @Override
-    public synchronized long count(QueryScope scope) {
+    public long count(QueryScope scope) {
         ensureOpen();
         Objects.requireNonNull(scope, "scope");
         try (PreparedStatement statement = connection.prepareStatement(
@@ -173,7 +174,7 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
     }
 
     @Override
-    public synchronized SavedViewEntry archive(SavedViewId id, long expectedRevision, Instant at) {
+    public SavedViewEntry archive(SavedViewId id, long expectedRevision, Instant at) {
         ensureOpen();
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(at, "at");
@@ -246,7 +247,7 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
     }
 
     @Override
-    public synchronized SavedViewDefinition compareAndSet(
+    public SavedViewDefinition compareAndSet(
             SavedViewId id,
             long expectedRevision,
             SavedViewDefinition replacement,
@@ -299,7 +300,7 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
     }
 
     @Override
-    public synchronized void close() {
+    public void close() {
         if (closed) {
             return;
         }
@@ -347,7 +348,7 @@ public final class SqliteSavedViewStore implements SavedViewStore, AutoCloseable
         try {
             return new SavedViewEntry.Readable(readDefinition(result));
         } catch (IllegalArgumentException | KnowledgeStoreException failure) {
-            String reason = failure.getMessage() == null ? failure.getClass().getSimpleName() : failure.getMessage();
+            String reason = FailureText.of(failure);
             return new SavedViewEntry.Unreadable(
                     SavedViewId.parse(result.getString("id")),
                     result.getString("name"),

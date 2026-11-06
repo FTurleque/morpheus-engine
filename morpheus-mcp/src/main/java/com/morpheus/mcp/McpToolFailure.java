@@ -1,5 +1,7 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.foundation.FailureText;
+
 import io.modelcontextprotocol.spec.McpSchema;
 
 /**
@@ -23,14 +25,8 @@ final class McpToolFailure {
     private McpToolFailure() {
     }
 
-    /** An exception with no message would answer an agent with an empty string; its type is at least a fact. */
-    static String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
-    }
-
     static McpSchema.CallToolResult result(RuntimeException failure) {
-        return refusal(safeMessage(failure));
+        return refusal(FailureText.of(failure));
     }
 
     /** {@code body} is passed through unchanged: a structured refusal must not lose a field on its way to the agent. */

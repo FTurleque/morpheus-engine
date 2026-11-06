@@ -29,6 +29,7 @@ Vue commune : la séquence de la façade distante, dans [`remote-access-journal.
 | `http-response-headers` | [en-têtes de sécurité des réponses](http-response-headers.md) | [spec](../../../openspec/specs/http-response-headers/spec.md) |
 | `http-failure-disclosure` | [texte d'un échec rendu à un appelant HTTP](http-failure-disclosure.md) | [spec](../../../openspec/specs/http-failure-disclosure/spec.md) |
 | `remote-access-journal` | [journal d'accès du serveur distant](remote-access-journal.md) | [spec](../../../openspec/specs/remote-access-journal/spec.md) |
+| `remote-proxy-upstream-bounds` | [bornes des appels du proxy distant](remote-proxy-upstream-bounds.md) | [spec](../../../openspec/specs/remote-proxy-upstream-bounds/spec.md) |
 
 ### Surfaces publiques et adaptateurs CLI et MCP
 
@@ -37,9 +38,11 @@ Vue commune : la séquence de la façade distante, dans [`remote-access-journal.
 | `public-surface-convergence` | [convergence des surfaces publiques](public-surface-convergence.md) | [spec](../../../openspec/specs/public-surface-convergence/spec.md) |
 | `adapter-capability-decomposition` | [commandes et outils servis par des classes de capacité](adapter-capability-decomposition.md) | [spec](../../../openspec/specs/adapter-capability-decomposition/spec.md) |
 | `cli-argument-base` | [base d'arguments de la CLI](cli-argument-base.md) | [spec](../../../openspec/specs/cli-argument-base/spec.md) |
+| `failure-text-ownership` | [texte d'un échec formé par un seul propriétaire](failure-text-ownership.md) | créée à l'archivage de `turn-every-failure-into-text-through-one-owner` |
 | `payload-map-construction` | [construction des cartes de réponse](payload-map-construction.md) | [spec](../../../openspec/specs/payload-map-construction/spec.md) |
 | `mcp-tool-failure-contract` | [échec d'un outil MCP et borne d'un appel](mcp-tool-failure-contract.md) | [spec](../../../openspec/specs/mcp-tool-failure-contract/spec.md) |
 | `mcp-peer-launch-command` | [commande de lancement d'un pair MCP](mcp-peer-launch-command.md) | [spec](../../../openspec/specs/mcp-peer-launch-command/spec.md) |
+| `mcp-peer-gateway-lifecycle` | [cycle de vie d'un client de pair MCP](mcp-peer-gateway-lifecycle.md) | spec delta du changement `share-one-lifecycle-between-the-two-mcp-gateways`, jusqu'à son archivage |
 | `launch-environment-disclosure` | [variables d'environnement documentées](launch-environment-disclosure.md) | [spec](../../../openspec/specs/launch-environment-disclosure/spec.md) |
 
 ### Persistance SQLite et stores
@@ -68,6 +71,7 @@ Vue commune : la séquence de la façade distante, dans [`remote-access-journal.
 | `application-infrastructure-ports` | [technologie sortie de l'application derrière un port](application-infrastructure-ports.md) | [spec](../../../openspec/specs/application-infrastructure-ports/spec.md) |
 | `application-package-cycles` | [paquets de l'application sans cycle](application-package-cycles.md) | [spec](../../../openspec/specs/application-package-cycles/spec.md) |
 | `application-technology-boundary` | [technologies que la couche application peut toucher](application-technology-boundary.md) | [spec](../../../openspec/specs/application-technology-boundary/spec.md) |
+| `cli-technology-boundary` | [technologies que la CLI peut toucher](cli-technology-boundary.md) | changement actif `confine-the-technology-families-the-cli-uses` |
 | `module-package-correspondence` | [correspondance entre modules et paquets](module-package-correspondence.md) | [spec](../../../openspec/specs/module-package-correspondence/spec.md) |
 | `provider-sdk-dependency-boundary` | [frontière de dépendance du SDK de provider](provider-sdk-dependency-boundary.md) | [spec](../../../openspec/specs/provider-sdk-dependency-boundary/spec.md) |
 | `reflection-boundary` | [réflexion, chargement de classes et injection](reflection-boundary.md) | [spec](../../../openspec/specs/reflection-boundary/spec.md) |
@@ -97,7 +101,10 @@ Vue commune : la séquence de la façade distante, dans [`remote-access-journal.
 | `warning-suppression-justification` | [justification des avertissements supprimés](warning-suppression-justification.md) | [spec](../../../openspec/specs/warning-suppression-justification/spec.md) |
 | `dependency-line-currency` | [dépendance tenue sur une ligne de versions](dependency-line-currency.md) | [spec](../../../openspec/specs/dependency-line-currency/spec.md) |
 | `dependency-version-management` | [gestion des versions de dépendances et de plugins](dependency-version-management.md) | [spec](../../../openspec/specs/dependency-version-management/spec.md) |
+| `risk-register-references` | [renvois des workflows vers le registre des risques](risk-register-references.md) | `openspec/specs/risk-register-references/spec.md`, créée à l'archivage du changement `refuse-a-workflow-that-points-at-a-closed-risk` |
+| `stated-fact-currency` | [actualité d'un fait recopié par un document vivant](stated-fact-currency.md) | `openspec/specs/stated-fact-currency/spec.md` à l'archivage de `compare-every-document-that-states-a-fact-to-its-source` |
 | `vulnerability-feed-freshness` | [fraîcheur de la base de vulnérabilités du gate CVE](vulnerability-feed-freshness.md) | [spec](../../../openspec/specs/vulnerability-feed-freshness/spec.md) |
+| `dependency-check-suppression-contract` | [contrat du fichier de suppressions du gate CVE](dependency-check-suppression-contract.md) | à l'archivage du changement `hold-the-dependency-check-suppressions-to-a-contract` |
 
 ### Exploitation, providers et coûts
 

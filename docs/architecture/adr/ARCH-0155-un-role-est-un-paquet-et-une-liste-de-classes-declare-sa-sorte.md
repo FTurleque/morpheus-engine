@@ -37,7 +37,7 @@ paquets d'entrée (rejeté pour la même raison), une liste fermée de types (re
 Les services de l'application restent dans le paquet parent `com.morpheus.api`, avec `ApiRuntime` et les records de
 requête qu'ils lisent. Les en sortir vers un sous-paquet laisserait le parent porter `ApiRuntime`,
 `AllowedWorkspaceRoots` (un type d'entrée) et trois records, sans rôle commun, et déplacerait la racine de composition
-`MorpheusProjectSyncApiService`, que nomme `COMPOSITION_ROOTS` (ADR-0156). Le paquet parent est déjà un rôle : il suffit
+`MorpheusProjectSyncApiService`, que nomme `COMPOSITION_ROOTS` (ADR-0162). Le paquet parent est déjà un rôle : il suffit
 qu'une règle le sépare des routeurs et des serveurs, et qu'une classe `*ApiService` ne puisse résider ailleurs.
 
 Les listes de noms de classes ne se trouvent pas que dans les tests de `morpheus-api` : les tests d'architecture en
@@ -66,8 +66,10 @@ de cycle, et sans attendre qu'un cycle se ferme pour la plomberie, les services 
 
 ### 3. Les autres modules n'utilisent que six types de l'adaptateur
 
+<!-- liste ApiEntryTypesArchitectureTest.ENTRY_TYPES -->
 `AllowedWorkspaceRoots`, `LoopbackHostPolicy`, `MorpheusHttpServer`, `MorpheusRemoteHttpServer`,
 `MorpheusRemoteIdentityFile` et `MorpheusRemoteRole`, avec leurs types imbriqués. Un type ne s'ajoute que par un ADR.
+<!-- fin de liste -->
 
 ### 4. Toute liste de classes de production déclare sa sorte
 
@@ -124,6 +126,9 @@ Une liste qui serait un rôle n'existe pas : ses classes vont dans un paquet.
 - `ApiEntryTypesArchitectureTest` : règle sur le bytecode et scan des sources des autres modules. Vue en échec : une
   classe publique plantée dans un sous-paquet, utilisée depuis `morpheus-cli`, refusée par la règle ; la seule lecture de
   sa constante, refusée par le scan seul.
+- La liste du point 3 est `ApiEntryTypesArchitectureTest.ENTRY_TYPES`, table de faits que
+  `ProductionClassListsArchitectureTest` déclare sous cet ADR et compare, nom pour nom, à l'énumération délimitée du
+  point 3 (`everyListADecisionRecordEnumeratesEqualsItsEnumeration`).
 - `ApiPackageCyclesArchitectureTest` : tranches par paquet de `com.morpheus.api`. Vue en échec : une classe de
   `transport` dépendant d'un service du parent.
 - `ApiServicesAndTransportPackagesArchitectureTest` : `transport` ne dépend d'aucun autre paquet de l'adaptateur ; les
@@ -147,7 +152,7 @@ Une liste qui serait un rôle n'existe pas : ses classes vont dans un paquet.
 
 ## References
 
-- [ADR-0156](ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md) — racines de composition nommées, `COMPOSITION_ROOTS`.
+- [ADR-0162](ARCH-0162-racines-de-composition-nommees-paquets-sans-cycle-hors-une-paire-bornee-et-decisions-dans-le-domaine.md) — racines de composition nommées, `COMPOSITION_ROOTS`.
 - [ADR-0149](ARCH-0149-une-commande-et-un-outil-sont-servis-par-une-classe-de-capacite.md) — classes de capacité de `morpheus-cli` et `morpheus-mcp`.
 - [ADR-0065](ARCH-0065-jdk-httpserver-local-api.md) — API HTTP sur `jdk.httpserver`.
 - Spécification OpenSpec `openspec/specs/adapter-internal-boundaries/spec.md`.

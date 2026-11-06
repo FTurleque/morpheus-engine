@@ -69,8 +69,9 @@ class SilentCatchArchitectureTest {
                     "closing standard input to unblock a read while the transport shuts down; nothing is lost")),
             Map.entry("PeerOperationDeadline.java#RuntimeException", new Explained(1,
                     "the abort of an expired operation failed: the transport may depend on no other MORPHEUS package "
-                            + "and cannot count, so the gateway that hands it the abort counts the failure first "
-                            + "(countingAbort) and the operation reports the deadline itself")),
+                            + "and cannot count, so McpPeerSession counts the failure first on the observer its "
+                            + "gateway hands it (Observers.countingAbort) and the operation reports the deadline "
+                            + "itself")),
             Map.entry("ProviderPluginDescendantTermination.java#RuntimeException", new Explained(1,
                     "a descendant could not be signalled from the probe worker: another process, with no recorder, "
                             + "whose output the parent discards and whose result file is already written. What the "
@@ -111,8 +112,10 @@ class SilentCatchArchitectureTest {
                 "morpheus-integration-minos/src/main/java/com/morpheus/integration/minos/MinosMcpCodeGateway.java",
                 "morpheus-integration-nexus/src/main/java/com/morpheus/integration/nexus/NexusMcpContextGateway.java")) {
             String source = Files.readString(root.resolve(gateway));
-            assertTrue(source.contains("processTreeFailures(launch.recorder()));"),
+            assertTrue(source.contains("processTreeFailures(recorder));"),
                     () -> gateway + " must hand the transport the observer built on the recorder the gateway was handed");
+            assertTrue(source.contains("McpPeerSession.open(PEER, launch, observers(recorder));"),
+                    () -> gateway + " must hand the session the observers built on the recorder the gateway was handed");
             assertTrue(source.contains("return recorder.suppressing(SuppressedFailureFamily.MCP_PEER_PROCESS_TREE);"),
                     () -> gateway + " must count a process of the peer that could not be listed or signalled");
         }

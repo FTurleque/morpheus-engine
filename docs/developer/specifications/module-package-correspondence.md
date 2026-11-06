@@ -25,7 +25,7 @@ l'adaptateur MCP.
 | R2 | Two modules SHALL NOT share or nest a root package without saying so | pas d'égalité ni d'imbrication sans déclaration ; un écart au nom du module porte sa raison | `[EXIGENCE]` |
 | R3 | The shared MCP transport SHALL live outside the integrations' and the MCP adapter's packages | racine hors de `com.morpheus.integration..` et de `com.morpheus.mcp..`, sans dépendance vers un autre paquet MORPHEUS | `[EXIGENCE]` |
 | R4 | Moving the transport SHALL relax no prohibition | tout module qui ne pouvait pas dépendre du transport en reste refusé par une règle qui nomme son paquet | `[EXIGENCE]` |
-| R5 | The rule page and the decision record SHALL name the package the rule judges | la page de règles et ARCH-0156 écrivent le paquet tel que les sources le déclarent | `[EXIGENCE]` |
+| R5 | The rule page and the decision record SHALL name the package the rule judges | la page de règles et ARCH-0162 écrivent le paquet tel que les sources le déclarent | `[EXIGENCE]` |
 
 ## Comportement détaillé
 
@@ -64,7 +64,7 @@ importées.
 ### Documentation (R5)
 
 `[EXISTANT VÉRIFIÉ]` Relu à la main le 2026-11-04 : `.claude/rules/architecture.md` dit « `morpheus-mcp-transport` livre
-`com.morpheus.transport.mcp` » et consacre une section à ce paquet ; ARCH-0156 écrit « `com.morpheus.transport.mcp` ne
+`com.morpheus.transport.mcp` » et consacre une section à ce paquet ; ARCH-0162 écrit « `com.morpheus.transport.mcp` ne
 dépend d'aucun autre paquet MORPHEUS ».
 
 ### Comportement vérifié absent de la spec
@@ -124,7 +124,7 @@ flowchart LR
 - **R4 n'a pas de test qui lie « avant » et « après ».** Les modules qui ne pouvaient pas dépendre du transport avant le
   déplacement ne sont listés nulle part ; les interdits actuels sont exécutables, mais aucun test ne vérifie qu'il ne
   manque aucun module. Preuve manquante pour l'exhaustivité.
-- **Documentation (R5).** Aucun test ne lit la page de règles ni ARCH-0156 pour y chercher `com.morpheus.transport.mcp`.
+- **Documentation (R5).** Aucun test ne lit la page de règles ni ARCH-0162 pour y chercher `com.morpheus.transport.mcp`.
   Preuve automatique manquante, relu à la main.
 
 ## Traçabilité
@@ -140,11 +140,11 @@ flowchart LR
 | R3 | The transport rule still judges the transport | idem | idem | [`AdapterCompositionRootArchitectureTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/AdapterCompositionRootArchitectureTest.java)`#theMcpTransportDependsOnNoOtherMorpheusPackage` (ArchUnit ; sujet non vide : `archRule.failOnEmptyShould`, prouvé par [`AnEmptyArchitectureRuleFailsTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/AnEmptyArchitectureRuleFailsTest.java)`#aRuleThatSelectsNoClassFailsForHavingCheckedNone`) |
 | R4 | The HTTP adapter still cannot use the transport | organigramme des interdits | idem | [`LayerDependencyTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/LayerDependencyTest.java)`#httpApiMustRemainSiblingOfCliAndMcp` (ArchUnit) |
 | R4 | Providers and stores still cannot use the transport | idem | idem | [`AdapterSiblingArchitectureTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/AdapterSiblingArchitectureTest.java)`#providersDoNotDependOnStoresTransportsOrIntegrations` et `#storesDoNotDependOnProvidersTransportsOrIntegrations` (ArchUnit) |
-| R5 | A reader looking for the transport finds it | — | idem | revue seule : `.claude/rules/architecture.md`, [ARCH-0156](../../architecture/adr/ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md) ; preuve automatique manquante |
+| R5 | A reader looking for the transport finds it | — | idem | revue seule : `.claude/rules/architecture.md`, [ARCH-0162](../../architecture/adr/ARCH-0162-racines-de-composition-nommees-paquets-sans-cycle-hors-une-paire-bornee-et-decisions-dans-le-domaine.md) ; preuve automatique manquante |
 
 ## Sources
 
-- ADR : [ARCH-0156](../../architecture/adr/ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md)
+- ADR : [ARCH-0162](../../architecture/adr/ARCH-0162-racines-de-composition-nommees-paquets-sans-cycle-hors-une-paire-bornee-et-decisions-dans-le-domaine.md)
   (décision 3), [ARCH-0155](../../architecture/adr/ARCH-0155-un-role-est-un-paquet-et-une-liste-de-classes-declare-sa-sorte.md).
 - Règles du dépôt : `.claude/rules/architecture.md` (section « Une règle choisit des classes par paquet, jamais par module »,
   section `com.morpheus.transport.mcp`).

@@ -77,7 +77,7 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
     }
 
     @Override
-    public synchronized void putSpecificationVersion(SpecificationVersion version) {
+    public void putSpecificationVersion(SpecificationVersion version) {
         ensureOpen();
         Objects.requireNonNull(version, "version");
         try {
@@ -125,7 +125,7 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
     }
 
     @Override
-    public synchronized Optional<SpecificationVersion> findSpecificationVersion(SpecificationVersionId versionId) {
+    public Optional<SpecificationVersion> findSpecificationVersion(SpecificationVersionId versionId) {
         ensureOpen();
         try {
             return findSpecificationVersionInternal(versionId);
@@ -135,7 +135,7 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
     }
 
     @Override
-    public synchronized long nextSpecificationVersionSequence(ProjectSpecificationId projectId) {
+    public long nextSpecificationVersionSequence(ProjectSpecificationId projectId) {
         ensureOpen();
         Objects.requireNonNull(projectId, "projectId");
         long backoffMillis = SEQUENCE_ALLOCATION_INITIAL_BACKOFF_MILLIS;
@@ -157,7 +157,7 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
     }
 
     @Override
-    public synchronized void bindSnapshotVersion(SnapshotSpecificationVersionBinding binding) {
+    public void bindSnapshotVersion(SnapshotSpecificationVersionBinding binding) {
         ensureOpen();
         Objects.requireNonNull(binding, "binding");
         try {
@@ -190,7 +190,7 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
     }
 
     @Override
-    public synchronized Optional<SnapshotSpecificationVersionBinding> findSnapshotVersion(KnowledgeSnapshotId snapshotId) {
+    public Optional<SnapshotSpecificationVersionBinding> findSnapshotVersion(KnowledgeSnapshotId snapshotId) {
         ensureOpen();
         try {
             return findSnapshotVersionInternal(snapshotId);
@@ -200,7 +200,7 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
     }
 
     @Override
-    public synchronized void putRequirementVersion(RequirementVersionRecord record) {
+    public void putRequirementVersion(RequirementVersionRecord record) {
         ensureOpen();
         Objects.requireNonNull(record, "record");
         try {
@@ -260,7 +260,7 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
     }
 
     @Override
-    public synchronized void putRequirementVersions(List<RequirementVersionRecord> records) {
+    public void putRequirementVersions(List<RequirementVersionRecord> records) {
         ensureOpen();
         List<RequirementVersionRecord> batch = List.copyOf(Objects.requireNonNull(records, "records"));
         if (batch.isEmpty()) {
@@ -272,7 +272,7 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
     }
 
     @Override
-    public synchronized Optional<RequirementVersionRecord> findRequirementVersion(EntityVersionId entityVersionId) {
+    public Optional<RequirementVersionRecord> findRequirementVersion(EntityVersionId entityVersionId) {
         ensureOpen();
         try {
             return findRequirementVersionInternal(entityVersionId);
@@ -282,7 +282,7 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
     }
 
     @Override
-    public synchronized List<RequirementVersionRecord> listRequirementVersions(KnowledgeSnapshotId snapshotId) {
+    public List<RequirementVersionRecord> listRequirementVersions(KnowledgeSnapshotId snapshotId) {
         ensureOpen();
         try (PreparedStatement statement = connection.prepareStatement("""
                 SELECT * FROM requirement_versions
@@ -303,7 +303,7 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
     }
 
     @Override
-    public synchronized List<RequirementVersionRecord> listCurrentRequirementVersions(KnowledgeSnapshotId snapshotId) {
+    public List<RequirementVersionRecord> listCurrentRequirementVersions(KnowledgeSnapshotId snapshotId) {
         ensureOpen();
         Objects.requireNonNull(snapshotId, "snapshotId");
         try (PreparedStatement statement = connection.prepareStatement(LIST_CURRENT_SQL)) {
@@ -322,7 +322,7 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
     }
 
     @Override
-    public synchronized List<RequirementVersionRecord> listCurrentRequirementVersions(
+    public List<RequirementVersionRecord> listCurrentRequirementVersions(
             KnowledgeSnapshotId snapshotId,
             int limit) {
         ensureOpen();
@@ -347,7 +347,7 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
     }
 
     @Override
-    public synchronized RequirementPage pageCurrentRequirementVersions(
+    public RequirementPage pageCurrentRequirementVersions(
             KnowledgeSnapshotId snapshotId,
             RequirementPageCriteria criteria,
             RequirementPageOrder order,
@@ -382,7 +382,7 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
     }
 
     @Override
-    public synchronized int countCurrentRequirementVersions(KnowledgeSnapshotId snapshotId) {
+    public int countCurrentRequirementVersions(KnowledgeSnapshotId snapshotId) {
         ensureOpen();
         Objects.requireNonNull(snapshotId, "snapshotId");
         try (PreparedStatement statement = connection.prepareStatement(COUNT_CURRENT_SQL)) {
@@ -463,7 +463,7 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
     }
 
     @Override
-    public synchronized Optional<RequirementVersionRecord> currentRequirement(
+    public Optional<RequirementVersionRecord> currentRequirement(
             KnowledgeSnapshotId snapshotId,
             DomainIdentity entityIdentity) {
         ensureOpen();
@@ -475,7 +475,7 @@ public final class SqliteVersionedRequirementStore implements VersionedRequireme
     }
 
     @Override
-    public synchronized void close() {
+    public void close() {
         if (closed) {
             return;
         }

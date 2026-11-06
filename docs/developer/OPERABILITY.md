@@ -238,12 +238,15 @@ qui revient au mainteneur.
 
 Deux modules ne comptent pas par eux-mêmes, et reçoivent ce qui compte de celui qui les construit :
 
-- `morpheus-mcp-transport` ne peut dépendre d'aucun autre paquet MORPHEUS. L'interruption d'une opération qui a
-  dépassé son délai lui est remise par la passerelle (`MinosMcpCodeGateway`, `NexusMcpContextGateway`) : c'est elle qui
-  l'enveloppe (`countingAbort`) et compte son échec avant de le laisser remonter. De même, le transport **signale** une
+- `morpheus-mcp-transport` ne peut dépendre d'aucun autre paquet MORPHEUS. Le cycle de vie d'un client de pair y
+  existe une fois (`McpPeerSession`), et chaque passerelle (`MinosMcpCodeGateway`, `NexusMcpContextGateway`) lui remet
+  à l'ouverture trois observateurs construits sur son enregistreur (`observers`) : l'interruption d'une opération qui
+  a dépassé son délai, ou une fermeture du pair qui échoue, est comptée sur le premier (`mcp-peer-shutdown`,
+  `Observers.countingAbort` compte l'échec de l'interruption avant de le laisser remonter), une copie vérifiée restée
+  sur le disque sur le deuxième (`staged-artifact-cleanup`). De même, le transport **signale** une
   énumération de descendants en échec, et un processus du pair - racine ou descendant retenu - qui refuse son signal
-  de terminaison, à un observateur (`Consumer<? super RuntimeException>`) que la passerelle lui passe à la
-  construction (`processTreeFailures`), et c'est elle qui compte (`mcp-peer-process-tree`). Le transport n'a pas
+  de terminaison, au troisième (`Consumer<? super RuntimeException>`), que la passerelle construit
+  (`processTreeFailures`), et c'est lui qui compte (`mcp-peer-process-tree`). Le transport n'a pas
   d'observateur par défaut : un signal refusé y était journalisé au niveau `DEBUG`, que le gestionnaire par défaut du
   JDK jette, et ne laissait donc aucune trace.
 - `morpheus-provider-sdk` ne lit pas le runtime du processus. `ProviderPluginService` prend son enregistreur par

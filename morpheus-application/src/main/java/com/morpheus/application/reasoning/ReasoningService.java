@@ -1,5 +1,6 @@
 package com.morpheus.application.reasoning;
 
+import com.morpheus.application.foundation.FailureText;
 import com.morpheus.application.reasoning.ReasoningContracts.AdapterExecution;
 import com.morpheus.application.reasoning.ReasoningContracts.AdapterRequest;
 import com.morpheus.application.reasoning.ReasoningContracts.AdapterResult;
@@ -76,7 +77,7 @@ public final class ReasoningService {
                         adapter.id(),
                         AdapterStatus.FAILED,
                         0,
-                        safeMessage(failure),
+                        FailureText.of(failure),
                         Map.of("failureType", failure.getClass().getSimpleName())));
             }
         }
@@ -141,10 +142,5 @@ public final class ReasoningService {
         }
         existingClaimIds.addAll(localIds);
         return List.copyOf(accepted);
-    }
-
-    private static String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 }

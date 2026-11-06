@@ -4,10 +4,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -19,7 +22,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Guards the AI governance surfaces -- {@code .claude/CLAUDE.md}, {@code .github/AI_GOVERNANCE.md}, the rules,
  * commands, agents and skills -- against stating a perishable fact: a SQLite schema version, an ADR or module
- * total. The surfaces are declared, and a declared surface that is missing fails instead of shrinking the scan.
+ * total. A fact that has a source a test can read is compared to it instead: a version written as a root POM
+ * property, a ratchet copied under its key. The surfaces are declared, and a declared surface that is missing fails
+ * instead of shrinking the scan.
  */
 class GovernanceSurfaceCoherenceTest {
     private static final Pattern SCHEMA_VERSION_DECLARATION =
@@ -55,6 +60,21 @@ class GovernanceSurfaceCoherenceTest {
      */
     private static final String GOVERNANCE_SKILL_DIRECTORY = ".claude/skills";
     private static final String SKILL_FILE = "SKILL.md";
+    /** A version written as the root POM writes it: {@code <jacoco.version>0.8.16</jacoco.version>}. */
+    private static final Pattern VERSION_PROPERTY_ELEMENT =
+            Pattern.compile("<([A-Za-z0-9_-][A-Za-z0-9_.-]*\\.version)>([^<\\s]+)</\\1>");
+    /** A version written as an assignment of the property: {@code jacoco.version=0.8.16}. */
+    private static final Pattern VERSION_PROPERTY_ASSIGNMENT =
+            Pattern.compile("(?<![\\w.{$-])([A-Za-z0-9_-][A-Za-z0-9_.-]*\\.version)=([^\\s`,;)<]+)");
+    private static final Pattern POM_PROPERTY = Pattern.compile("<([A-Za-z0-9_.-]+)>([^<]*)</\\1>");
+    private static final String RATCHETS = "config/m21-quality-ratchets.properties";
+    /**
+     * A table row whose first cell is a ratchet key in a code span; the first number of the next cell is the copy.
+     * The keys of the ratchet file all end in {@code Minimum} or {@code Maximum}, so a row naming a retired key is
+     * still read, and refused.
+     */
+    private static final Pattern RATCHET_ROW = Pattern.compile(
+            "(?m)^\\|\\s*`([a-z][A-Za-z]*(?:Minimum|Maximum))`\\s*\\|\\s*([0-9]+(?:\\.[0-9]+)?)");
 
     @Test
     void activeGovernanceDocumentationNeverPinsTheSqliteSchemaVersion() throws Exception {
@@ -205,6 +225,202 @@ class GovernanceSurfaceCoherenceTest {
                 "the audit command must name the file that declares the normative version");
         assertTrue(command.contains("SqliteSchemaManager>"),
                 "the audit report template must carry a placeholder rather than a version number");
+    }
+
+    /**
+     * A version a governance page writes in the shape of a root POM property equals that property's value.
+     *
+     * <p>{@code .claude/rules/build.md} announced {@code jacoco.version=0.8.15} for a whole revision after the POM
+     * moved to 0.8.16: a bump touches {@code pom.xml} alone, and the page every agent loads kept the old value. No
+     * list of properties is kept here: every occurrence of either shape is compared, so a page that copies one more
+     * version is held without a change to this test.</p>
+     */
+    @Test
+    void everyVersionAGovernancePageWritesAsAPomPropertyEqualsThePom() throws Exception {
+        Path root = RepositoryRoot.locate();
+        List<StatedValue> stated = new ArrayList<>();
+        for (Path page : activeGovernanceSurfaces(root)) {
+            stated.addAll(statedVersions(relative(root, page), Files.readString(page)));
+        }
+        requireAgreement(stated, rootPomProperties(Files.readString(root.resolve("pom.xml"))), "pom.xml",
+                "a governance page writes no version in the shape of a root POM property: the scan reads nothing");
+    }
+
+    @Test
+    void bothShapesOfAVersionAreComparedAndAPropertyThePomDoesNotDeclareIsRefused() {
+        Map<String, String> pom = rootPomProperties("""
+                <project><properties>
+                    <jacoco.version>0.8.16</jacoco.version>
+                </properties></project>
+                """);
+        List<StatedValue> stated = statedVersions(".claude/rules/build.md", """
+                <jacoco.version>0.8.15</jacoco.version>
+                `jacoco.version=0.8.14`, `${project.version}` and <version>${junit.version}</version>.
+                `retired.version=1.0`.
+                """);
+        assertEquals(3, stated.size(), "the element, the assignment and the retired property are each read");
+
+        AssertionError refusal = assertThrows(AssertionError.class,
+                () -> requireAgreement(stated, pom, "pom.xml", "nothing read"));
+        assertTrue(refusal.getMessage().contains(
+                ".claude/rules/build.md jacoco.version states 0.8.15, pom.xml says 0.8.16"), refusal::getMessage);
+        assertTrue(refusal.getMessage().contains(
+                ".claude/rules/build.md jacoco.version states 0.8.14, pom.xml says 0.8.16"), refusal::getMessage);
+        assertTrue(refusal.getMessage().contains(
+                ".claude/rules/build.md retired.version states 1.0, pom.xml declares no such key"),
+                refusal::getMessage);
+
+        requireAgreement(statedVersions("page.md", "`jacoco.version=0.8.16`."), pom, "pom.xml", "nothing read");
+    }
+
+    @Test
+    void aVersionScanThatReadsNothingFailsInsteadOfPassing() {
+        AssertionError refusal = assertThrows(AssertionError.class,
+                () -> requireAgreement(statedVersions("page.md", "JaCoCo 0.8.16, `mcp-sdk` 2.1.0"),
+                        Map.of("jacoco.version", "0.8.16"), "pom.xml", "the scan reads nothing"));
+        assertEquals("the scan reads nothing", refusal.getMessage());
+    }
+
+    /**
+     * A ratchet a rule page copies in a table row, under the name of its key, equals the key.
+     *
+     * <p>The validators read {@code config/m21-quality-ratchets.properties} and nothing else; the copy in
+     * {@code .claude/rules/testing.md} is what an agent reads first. Only a table row whose first cell is a key in a
+     * code span is compared: the dated paragraphs of the same page report past qualifications and stay as written.</p>
+     */
+    @Test
+    void everyRatchetARulePageCopiesUnderItsKeyEqualsTheKey() throws Exception {
+        Path root = RepositoryRoot.locate();
+        Path rules = root.resolve(".claude/rules");
+        List<StatedValue> stated = new ArrayList<>();
+        for (Path page : activeGovernanceSurfaces(root)) {
+            if (page.getParent().equals(rules)) {
+                stated.addAll(statedRatchets(relative(root, page), Files.readString(page)));
+            }
+        }
+        requireAgreement(stated, ratchets(Files.readString(root.resolve(RATCHETS))), RATCHETS,
+                "no page of .claude/rules copies a ratchet in a table row under its key: the scan reads nothing");
+    }
+
+    @Test
+    void aRatchetRowIsComparedByValueAndARetiredKeyIsRefusedWhileADatedParagraphIsNotRead() {
+        Map<String, String> file = ratchets("testsMinimum=2876\naggregateLineCoverageMinimum=0.926\n");
+        List<StatedValue> stated = statedRatchets(".claude/rules/testing.md", """
+                | Clé | Valeur constatée |
+                |---|---|
+                | `testsMinimum` | 2877 (exécutions de méthodes déclarées) |
+                | `aggregateLineCoverageMinimum` | 0.9260 (92.6%) |
+                | `retiredMinimum` | 12 |
+
+                Le 29/10/2026, `testsMinimum` passe à 1234, relevé daté.
+                """);
+        assertEquals(3, stated.size(), "the three rows are read and the dated paragraph is not");
+
+        AssertionError refusal = assertThrows(AssertionError.class,
+                () -> requireAgreement(stated, file, RATCHETS, "nothing read"));
+        assertTrue(refusal.getMessage().contains(
+                ".claude/rules/testing.md testsMinimum states 2877, " + RATCHETS + " says 2876"), refusal::getMessage);
+        assertTrue(refusal.getMessage().contains(
+                ".claude/rules/testing.md retiredMinimum states 12, " + RATCHETS + " declares no such key"),
+                refusal::getMessage);
+        assertFalse(refusal.getMessage().contains("aggregateLineCoverageMinimum"),
+                "0.9260 and 0.926 are the same value");
+        assertFalse(refusal.getMessage().contains("1234"), "a dated paragraph is a record, not a copy");
+
+        AssertionError empty = assertThrows(AssertionError.class,
+                () -> requireAgreement(statedRatchets("page.md", "`testsMinimum` vaut 2876."), file, RATCHETS,
+                        "the scan reads nothing"));
+        assertEquals("the scan reads nothing", empty.getMessage());
+    }
+
+    /** A value a page states, under the name of the key that holds it at its source. */
+    private record StatedValue(String page, String key, String value) {
+    }
+
+    private static List<StatedValue> statedVersions(String page, String content) {
+        List<StatedValue> stated = new ArrayList<>();
+        for (Pattern shape : List.of(VERSION_PROPERTY_ELEMENT, VERSION_PROPERTY_ASSIGNMENT)) {
+            Matcher matcher = shape.matcher(content);
+            while (matcher.find()) {
+                stated.add(new StatedValue(page, matcher.group(1), matcher.group(2).replaceAll("\\.+$", "")));
+            }
+        }
+        return stated;
+    }
+
+    private static List<StatedValue> statedRatchets(String page, String content) {
+        List<StatedValue> stated = new ArrayList<>();
+        Matcher row = RATCHET_ROW.matcher(content);
+        while (row.find()) {
+            stated.add(new StatedValue(page, row.group(1), row.group(2)));
+        }
+        return stated;
+    }
+
+    /**
+     * Fails naming every page, key and pair of values that disagree, and fails on an empty scan: a check that read no
+     * copy would pass on a page that no longer has the shape it reads.
+     */
+    private static void requireAgreement(List<StatedValue> stated, Map<String, String> source, String sourceName,
+            String emptyScan) {
+        if (stated.isEmpty()) {
+            throw new AssertionError(emptyScan);
+        }
+        List<String> disagreements = new ArrayList<>();
+        for (StatedValue value : stated) {
+            String expected = source.get(value.key());
+            if (expected == null) {
+                disagreements.add(value.page() + " " + value.key() + " states " + value.value() + ", " + sourceName
+                        + " declares no such key");
+            } else if (!sameValue(value.value(), expected)) {
+                disagreements.add(value.page() + " " + value.key() + " states " + value.value() + ", " + sourceName
+                        + " says " + expected);
+            }
+        }
+        if (!disagreements.isEmpty()) {
+            throw new AssertionError("a governance page copies a value that its source no longer holds; update the "
+                    + "page from " + sourceName + ", never the other way round:\n  "
+                    + String.join("\n  ", disagreements));
+        }
+    }
+
+    private static boolean sameValue(String stated, String expected) {
+        if (stated.equals(expected)) {
+            return true;
+        }
+        try {
+            return new BigDecimal(stated).compareTo(new BigDecimal(expected)) == 0;
+        } catch (NumberFormatException notANumber) {
+            return false;
+        }
+    }
+
+    /** The properties of the root POM's first {@code <properties>} block, the one that holds the versions. */
+    private static Map<String, String> rootPomProperties(String pom) {
+        int start = pom.indexOf("<properties>");
+        int end = pom.indexOf("</properties>", start);
+        assertTrue(start >= 0 && end > start, "the root POM must declare a <properties> block");
+        Map<String, String> properties = new TreeMap<>();
+        Matcher entry = POM_PROPERTY.matcher(pom.substring(start, end));
+        while (entry.find()) {
+            properties.put(entry.group(1), entry.group(2).strip());
+        }
+        return properties;
+    }
+
+    private static Map<String, String> ratchets(String content) {
+        Map<String, String> keys = new TreeMap<>();
+        for (String line : content.split("\\R")) {
+            int equals = line.indexOf('=');
+            if (!line.isBlank() && !line.startsWith("#") && equals > 0) {
+                keys.put(line.substring(0, equals).strip(), line.substring(equals + 1).strip());
+            }
+        }
+        return keys;
+    }
+
+    private static String relative(Path root, Path page) {
+        return root.relativize(page).toString().replace('\\', '/');
     }
 
     /** Quotes the offending text so a failure names what to remove instead of only where to look. */

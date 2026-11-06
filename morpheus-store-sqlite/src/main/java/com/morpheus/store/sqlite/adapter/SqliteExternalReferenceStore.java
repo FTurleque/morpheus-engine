@@ -44,7 +44,7 @@ public final class SqliteExternalReferenceStore implements ExternalReferenceStor
     }
 
     @Override
-    public synchronized void putReference(KnowledgeSnapshotId snapshotId, ExternalReference reference) {
+    public void putReference(KnowledgeSnapshotId snapshotId, ExternalReference reference) {
         ensureOpen();
         Objects.requireNonNull(snapshotId, "snapshotId");
         Objects.requireNonNull(reference, "reference");
@@ -71,7 +71,7 @@ public final class SqliteExternalReferenceStore implements ExternalReferenceStor
     }
 
     @Override
-    public synchronized Optional<ExternalReference> findReference(
+    public Optional<ExternalReference> findReference(
             KnowledgeSnapshotId snapshotId,
             ExternalReferenceId referenceId) {
         ensureOpen();
@@ -86,7 +86,7 @@ public final class SqliteExternalReferenceStore implements ExternalReferenceStor
     }
 
     @Override
-    public synchronized List<ExternalReference> findByOwner(
+    public List<ExternalReference> findByOwner(
             KnowledgeSnapshotId snapshotId,
             DomainIdentity ownerId) {
         ensureOpen();
@@ -115,7 +115,7 @@ public final class SqliteExternalReferenceStore implements ExternalReferenceStor
     }
 
     @Override
-    public synchronized void close() {
+    public void close() {
         if (closed) {
             return;
         }

@@ -21,7 +21,9 @@ Bumper une de ces versions **casse le gate** tant que le test n'est pas mis à j
 - Déclarer toute dépendance dans le `<dependencyManagement>` du POM racine (ou la laisser à un BOM importé), et tout plugin dans son `<pluginManagement>`, puis les référencer **sans version** dans le module
 - Vérifier l'hygiène après ajout : `./mvnw dependency:analyze` — `<failOnWarning>true</failOnWarning>` est actif, **0 warning** ou le build casse
 - Construire `morpheus-provider-reference` avant les tests d'architecture (M22 lit son JAR depuis `target/`)
-- Justifier toute suppression CVE dans `config/dependency-check-suppressions.xml` avec un commentaire
+- Justifier toute suppression CVE de `config/dependency-check-suppressions.xml` dans ses `<notes>`, et toute exemption
+  `base="true"` en y nommant `failBuildOnUnusedSuppressionRule` : `DependencyCheckSuppressionContractTest` tient la
+  forme, la cible bornée, la justification et la liste exacte des exemptions de chaque règle
 
 ## JAMAIS
 
@@ -71,14 +73,18 @@ Un module référence ensuite la dépendance **sans version** :
 reactor, pas une exception au principe « pas de version en dur » ; `junit-jupiter-api`
 n'a pas de `<version>` du tout, elle vient du `junit-bom` importé plus haut.
 
-Versions actuelles pilotées par propriété dans le POM racine (à revérifier avant de citer,
-cf. `rules/meta.md`) : `junit.version=6.1.3`, `archunit.version=1.5.1`,
+Versions actuelles pilotées par propriété dans le POM racine : `junit.version=6.1.3`, `archunit.version=1.5.1`,
 `sqlite-jdbc.version=3.54.1.0`, `mcp-sdk.version=2.1.0`, `reactor-bom.version=2024.0.18`,
-`slf4j.version=2.0.20`, `jackson.version=3.2.4`, `jacoco.version=0.8.15`,
+`slf4j.version=2.0.20`, `jackson.version=3.2.4`, `jacoco.version=0.8.16`,
 `dependency-check.maven.plugin.version=13.0.0`.
+Toute version écrite sur une page de gouvernance IA sous la forme d'une propriété du POM, élément XML ou
+affectation, est comparée à `pom.xml` par
+`GovernanceSurfaceCoherenceTest#everyVersionAGovernancePageWritesAsAPomPropertyEqualsThePom` : un bump qui ne touche
+que le POM fait échouer le build jusqu'à ce que la page suive. Une version écrite en prose n'est comparée à rien :
+citer la propriété plutôt que sa valeur.
 Un commentaire explique un couplage de versions non trivial quand il existe
-(ex. `reactor-bom` doit rester sur la même ligne que `mcp-sdk` 2.1.0 — voir le commentaire
-juste au-dessus de cette dépendance dans le POM).
+(ex. `reactor-bom` doit rester sur la même ligne de versions que celle que fixe `mcp-sdk.version` — voir le
+commentaire juste au-dessus de cette dépendance dans le POM).
 
 ## Stack imposée
 

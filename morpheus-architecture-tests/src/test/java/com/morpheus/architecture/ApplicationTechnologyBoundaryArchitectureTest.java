@@ -5,22 +5,24 @@ import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
-import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.CompositeArchRule;
-import com.tngtech.archunit.lang.ConditionEvents;
-import com.tngtech.archunit.lang.SimpleConditionEvent;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.function.Predicate;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.tngtech.archunit.lang.conditions.ArchConditions.never;
@@ -34,12 +36,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>A family the application does not use is refused in every package. Outbound network and threads are among them:
  * the transport of update discovery is an adapter of {@code morpheus-cli} behind a port of {@code application.product}.
  * A family it uses is reachable only from the classes ADR-0150 names for it, and each list is exactly the set of
- * classes that reach the family, so a list can shrink and cannot grow in silence. {@code Path}, {@code LinkOption}, {@code IOException} and in-memory streams are
- * vocabulary, not access. The textual bans of {@code application.reasoning} and {@code application.policy} are
- * separate and stricter: they also refuse a mention.</p>
+ * classes that reach the family, so a list can shrink and cannot grow in silence. The families are the shared
+ * vocabulary of {@link TechnologyFamily}, each of which has a regime here. The textual bans of
+ * {@code application.reasoning} and {@code application.policy} are separate and stricter: they also refuse a mention.</p>
  */
 class ApplicationTechnologyBoundaryArchitectureTest {
     private static final String APPLICATION = "com.morpheus.application";
+    private static final String DECISION_RECORD = "ARCH-0150";
+    private static final Pattern QUALIFIED_SPAN = Pattern.compile("`((?:[a-z][a-z0-9]*\\.)+[A-Z][A-Za-z0-9]*)`");
 
     private static final String HARDENER = APPLICATION + ".files.LocalWritePermissionHardener";
     private static final String ROTATING_LOG = APPLICATION + ".operability.RotatingOperationalLogFile";
@@ -48,31 +52,12 @@ class ApplicationTechnologyBoundaryArchitectureTest {
             APPLICATION + ".query.compact.CanonicalJsonSerializer",
             APPLICATION + ".reasoning.ReasoningAdapterRegistry");
 
-    private static final List<Family> UNUSED_FAMILIES = List.of(
-            Family.ofTypes("SQL", name -> name.startsWith("java.sql.") || name.startsWith("javax.sql.")),
-            Family.ofTypes("JSON library", name -> name.startsWith("tools.jackson.") || name.startsWith("com.fasterxml.")),
-            Family.ofTypes("process execution", name -> Set.of("java.lang.ProcessBuilder", "java.lang.Process",
-                    "java.lang.ProcessHandle", "java.lang.Runtime").contains(name)),
-            Family.ofTypes("outbound network", name -> name.startsWith("java.net.http.") || name.startsWith("javax.net.")
-                    || Set.of("java.net.URL", "java.net.URLConnection", "java.net.HttpURLConnection",
-                    "java.net.Socket", "java.net.ServerSocket", "java.net.DatagramSocket",
-                    "java.net.InetAddress").contains(name)),
-            new Family("threads", name -> Set.of("java.util.concurrent.Executors", "java.util.concurrent.ExecutorService",
-                    "java.util.concurrent.ScheduledExecutorService", "java.util.concurrent.ThreadPoolExecutor",
-                    "java.util.concurrent.ForkJoinPool", "java.util.concurrent.CompletableFuture",
-                    "java.lang.Thread$Builder", "java.util.Timer").contains(name),
-                    (owner, method, arity) -> owner.equals("java.lang.Thread")
-                            && Set.of("<init>", "ofVirtual", "ofPlatform", "startVirtualThread").contains(method),
-                    Set.of()));
+    private static final List<TechnologyFamily> UNUSED_FAMILIES = List.of(TechnologyFamily.SQL,
+            TechnologyFamily.JSON_LIBRARY, TechnologyFamily.PROCESS_EXECUTION, TechnologyFamily.OUTBOUND_NETWORK,
+            TechnologyFamily.THREADS);
 
-    private static final Map<Family, Set<String>> CONFINED_FAMILIES = Map.of(
-            Family.ofTypes("file access", name -> Set.of("java.nio.file.Files", "java.nio.file.FileSystems",
-                            "java.nio.file.FileSystem", "java.nio.file.WatchService", "java.nio.file.WatchKey",
-                            "java.nio.file.DirectoryStream", "java.io.File", "java.io.FileInputStream",
-                            "java.io.FileOutputStream", "java.io.FileReader", "java.io.FileWriter",
-                            "java.io.RandomAccessFile").contains(name)
-                            || name.startsWith("java.nio.file.attribute.") || name.startsWith("java.nio.file.spi.")
-                            || name.startsWith("java.nio.channels.")),
+    private static final Map<TechnologyFamily, Set<String>> CONFINED_FAMILIES = Map.of(
+            TechnologyFamily.FILE_ACCESS,
                     Set.of(HARDENER, ROTATING_LOG,
                             APPLICATION + ".files.SafeWorkspaceFileResolver",
                             APPLICATION + ".sync.LocalSourceInventoryScanner",
@@ -83,32 +68,21 @@ class ApplicationTechnologyBoundaryArchitectureTest {
                             APPLICATION + ".sync.LocalSourceWatcher",
                             APPLICATION + ".discovery.ProjectDiscoveryService",
                             APPLICATION + ".discovery.WorkspaceRootResolver"),
-            Family.ofCalls("process environment", (owner, method, arity) -> owner.equals("java.lang.System")
-                            && Set.of("getenv", "getProperty", "getProperties", "setProperty").contains(method)),
+            TechnologyFamily.PROCESS_ENVIRONMENT,
                     Set.of(HARDENER, PEER_SETTINGS,
                             APPLICATION + ".operability.LocalOperationalRuntime",
                             APPLICATION + ".operability.SensitiveValueRedactor",
                             APPLICATION + ".product.ProductMetadata"),
-            new Family("standard streams", name -> false,
-                    (owner, method, arity) -> owner.equals("java.lang.System")
-                            && Set.of("console", "setOut", "setErr", "setIn").contains(method),
-                    Set.of("out", "err", "in")),
+            TechnologyFamily.STANDARD_STREAMS,
                     Set.of(ROTATING_LOG, APPLICATION + ".operability.OperationalRuntime"),
-            Family.ofCalls("wall clock", (owner, method, arity) ->
-                            (owner.startsWith("java.time.") && method.equals("now") && arity == 0)
-                                    || (owner.equals("java.time.Clock") && method.startsWith("system"))
-                                    || (owner.equals("java.lang.System") && method.equals("currentTimeMillis"))),
+            TechnologyFamily.WALL_CLOCK,
                     Set.of(APPLICATION + ".operability.LocalOperabilityService",
                             APPLICATION + ".operability.OperationalRecorder",
                             APPLICATION + ".lifecycle.mutation.ControlledChangeLifecycleMutationService",
                             APPLICATION + ".policy.PolicyPackService",
                             APPLICATION + ".portfolio.PortfolioRegistryService",
                             APPLICATION + ".query.saved.SavedViewService"),
-            new Family("reflection and class loading", name -> name.startsWith("java.lang.reflect.")
-                    || name.startsWith("java.lang.invoke.")
-                    || Set.of("java.util.ServiceLoader", "java.lang.ClassLoader", "java.net.URLClassLoader").contains(name),
-                    (owner, method, arity) -> owner.equals("java.lang.Class") && method.equals("forName"),
-                    Set.of()),
+            TechnologyFamily.REFLECTION_AND_CLASS_LOADING,
                     REFLECTION_AND_LOADING);
 
     private final JavaClasses classes = new ClassFileImporter()
@@ -116,10 +90,21 @@ class ApplicationTechnologyBoundaryArchitectureTest {
             .importPackages(APPLICATION);
 
     @Test
+    void everyFamilyOfTheVocabularyHasARegimeInTheApplication() {
+        Set<String> regimes = new TreeSet<>();
+        UNUSED_FAMILIES.forEach(family -> regimes.add(family.name()));
+        CONFINED_FAMILIES.keySet().forEach(family -> regimes.add(family.name()));
+        Set<String> vocabulary = new TreeSet<>();
+        TechnologyFamily.VOCABULARY.forEach(family -> vocabulary.add(family.name()));
+        assertEquals(vocabulary, regimes, "ADR-0150: every family of the shared vocabulary is either unused or "
+                + "confined in the application");
+    }
+
+    @Test
     void aFamilyTheApplicationDoesNotUseIsRefusedInEveryPackage() {
         ArchRule rule = CompositeArchRule.of(UNUSED_FAMILIES.stream()
                 .map(family -> (ArchRule) classes().that().resideInAPackage(APPLICATION + "..")
-                        .should(never(reach(family)))
+                        .should(never(family.reach()))
                         .because("ADR-0150, decision 1: the application uses no " + family.name()))
                 .toList());
         rule.check(classes);
@@ -131,7 +116,7 @@ class ApplicationTechnologyBoundaryArchitectureTest {
                 .sorted(Map.Entry.comparingByKey((left, right) -> left.name().compareTo(right.name())))
                 .map(entry -> (ArchRule) classes().that().resideInAPackage(APPLICATION + "..")
                         .and(DescribedPredicate.not(namedFor(entry.getValue(), entry.getKey())))
-                        .should(never(reach(entry.getKey())))
+                        .should(never(entry.getKey().reach()))
                         .because("ADR-0150, decision 2: " + entry.getKey().name() + " is reached only by the "
                                 + "classes it names; adding one takes a consolidated ADR that replaces it"))
                 .toList());
@@ -175,6 +160,72 @@ class ApplicationTechnologyBoundaryArchitectureTest {
                 + "belongs to a class named for that family");
     }
 
+    /**
+     * A class ADR-0150 names by a name qualified from a package of the application, in any section, exists at that name:
+     * the enumeration compared by {@code ProductionClassListsArchitectureTest} does not see a name written elsewhere.
+     */
+    @Test
+    void everyClassTheDecisionRecordNamesByAQualifiedNameExistsAtThatName() throws IOException {
+        Path root = RepositoryRoot.locate();
+        List<Path> record;
+        try (Stream<Path> records = Files.list(root.resolve("docs/architecture/adr"))) {
+            record = records.filter(path -> path.getFileName().toString().startsWith(DECISION_RECORD + "-")).toList();
+        }
+        assertEquals(1, record.size(), () -> DECISION_RECORD + " is one file of the registry: " + record);
+
+        List<String> refusals = unresolvedQualifiedNames(Files.readString(record.get(0)),
+                root.resolve("morpheus-application/src/main/java/com/morpheus/application"));
+
+        assertEquals(List.of(), refusals, DECISION_RECORD + " names each class of the application at the package where "
+                + "it lives");
+    }
+
+    @Test
+    void aQualifiedNameThatResolvesToNoSourceIsRefusedAndASilentRecordToo(@TempDir Path application)
+            throws IOException {
+        Files.createDirectories(application.resolve("files"));
+        Files.createDirectories(application.resolve("security"));
+        Files.writeString(application.resolve("files/Hardener.java"), "class Hardener {}");
+
+        List<String> moved = unresolvedQualifiedNames("`security.Hardener` and `files.Hardener`, `java.time.Clock`",
+                application);
+        List<String> removed = unresolvedQualifiedNames("`files.Hardener`, `files.Gone`", application);
+        List<String> silent = unresolvedQualifiedNames("`java.time.Clock` and `Hardener` only", application);
+
+        assertEquals(List.of("security.Hardener has no source under " + application), moved);
+        assertEquals(List.of("files.Gone has no source under " + application), removed);
+        assertTrue(silent.size() == 1 && silent.get(0).contains("no class of the application"), silent::toString);
+    }
+
+    /**
+     * The names of {@code text} written in a code span as {@code package(.package)*.Class}, whose first package is a
+     * package of the application, that have no source file at that name; a text that names none is refused too, so a
+     * scan that read nothing never passes.
+     */
+    private static List<String> unresolvedQualifiedNames(String text, Path applicationPackage) throws IOException {
+        Set<String> packages;
+        try (Stream<Path> children = Files.list(applicationPackage)) {
+            packages = children.filter(Files::isDirectory).map(path -> path.getFileName().toString())
+                    .collect(Collectors.toCollection(TreeSet::new));
+        }
+        Set<String> read = new TreeSet<>();
+        List<String> refusals = new ArrayList<>();
+        Matcher span = QUALIFIED_SPAN.matcher(text);
+        while (span.find()) {
+            String name = span.group(1);
+            if (!packages.contains(name.substring(0, name.indexOf('.'))) || !read.add(name)) {
+                continue;
+            }
+            if (!Files.isRegularFile(applicationPackage.resolve(name.replace('.', '/') + ".java"))) {
+                refusals.add(name + " has no source under " + applicationPackage);
+            }
+        }
+        if (read.isEmpty()) {
+            refusals.add("the text names no class of the application by a qualified name: the scan read nothing");
+        }
+        return refusals;
+    }
+
     @Test
     void aPathUsedAsAValueIsNotAnAccess() {
         Set<String> pathOnly = new TreeSet<>();
@@ -183,79 +234,23 @@ class ApplicationTechnologyBoundaryArchitectureTest {
                     .anyMatch(dependency -> dependency.getTargetClass().getName().equals("java.nio.file.Path"));
             boolean reachesAFamily = Stream.concat(UNUSED_FAMILIES.stream(), CONFINED_FAMILIES.keySet().stream())
                     .anyMatch(family -> family.reachedBy(origin));
-            if (usesPath && !reachesAFamily) pathOnly.add(topLevelName(origin));
+            if (usesPath && !reachesAFamily) pathOnly.add(TechnologyFamily.topLevelName(origin));
         }
         assertTrue(pathOnly.contains(APPLICATION + ".read.ProviderReadRequest")
                         && pathOnly.contains(APPLICATION + ".provider.SpecificationProvider"),
                 "a port that carries a Path and opens nothing must not count as file access: " + pathOnly);
     }
 
-    private Set<String> classesReaching(Family family) {
+    private Set<String> classesReaching(TechnologyFamily family) {
         Set<String> reaching = new TreeSet<>();
         for (JavaClass origin : classes) {
-            if (family.reachedBy(origin)) reaching.add(topLevelName(origin));
+            if (family.reachedBy(origin)) reaching.add(TechnologyFamily.topLevelName(origin));
         }
         return reaching;
     }
 
-    private static ArchCondition<JavaClass> reach(Family family) {
-        return new ArchCondition<>("reach " + family.name()) {
-            @Override
-            public void check(JavaClass item, ConditionEvents events) {
-                List<String> accesses = family.accessesOf(item);
-                if (accesses.isEmpty()) {
-                    events.add(SimpleConditionEvent.violated(item, item.getName() + " does not reach " + family.name()));
-                }
-                accesses.forEach(access -> events.add(SimpleConditionEvent.satisfied(item,
-                        item.getName() + " reaches " + family.name() + " through " + access)));
-            }
-        };
-    }
-
-    private static DescribedPredicate<JavaClass> namedFor(Set<String> names, Family family) {
+    private static DescribedPredicate<JavaClass> namedFor(Set<String> names, TechnologyFamily family) {
         return DescribedPredicate.describe("named by ADR-0150 for " + family.name(),
-                javaClass -> names.contains(topLevelName(javaClass)));
-    }
-
-    /** A nested, anonymous or lambda-holding class belongs to the top-level class that declares it. */
-    private static String topLevelName(JavaClass javaClass) {
-        String name = javaClass.getName();
-        int nested = name.indexOf('$');
-        return nested < 0 ? name : name.substring(0, nested);
-    }
-
-    @FunctionalInterface
-    private interface CallMatcher {
-        boolean matches(String owner, String method, int arity);
-    }
-
-    private record Family(String name, Predicate<String> types, CallMatcher calls, Set<String> systemFields) {
-        static Family ofTypes(String name, Predicate<String> types) {
-            return new Family(name, types, (owner, method, arity) -> false, Set.of());
-        }
-
-        static Family ofCalls(String name, CallMatcher calls) {
-            return new Family(name, typeName -> false, calls, Set.of());
-        }
-
-        boolean reachedBy(JavaClass origin) {
-            return !accessesOf(origin).isEmpty();
-        }
-
-        List<String> accessesOf(JavaClass origin) {
-            Stream<String> typeAccesses = origin.getDirectDependenciesFromSelf().stream()
-                    .filter(dependency -> types.test(dependency.getTargetClass().getName()))
-                    .map(dependency -> dependency.getDescription());
-            Stream<String> callAccesses = origin.getCodeUnitCallsFromSelf().stream()
-                    .filter(call -> calls.matches(call.getTargetOwner().getName(), call.getName(),
-                            call.getTarget().getRawParameterTypes().size()))
-                    .map(call -> call.getDescription());
-            Stream<String> fieldAccesses = origin.getFieldAccessesFromSelf().stream()
-                    .filter(access -> access.getTargetOwner().getName().equals("java.lang.System")
-                            && systemFields.contains(access.getName()))
-                    .map(access -> access.getDescription());
-            return Stream.of(typeAccesses, callAccesses, fieldAccesses).flatMap(stream -> stream).distinct().sorted()
-                    .toList();
-        }
+                javaClass -> names.contains(TechnologyFamily.topLevelName(javaClass)));
     }
 }

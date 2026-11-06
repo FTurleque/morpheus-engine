@@ -1,7 +1,8 @@
 # Frontières internes d'un adaptateur de transport (`adapter-internal-boundaries`)
 
 Spec de référence : [`openspec/specs/adapter-internal-boundaries/spec.md`](../../../openspec/specs/adapter-internal-boundaries/spec.md)
-· Relevé du 2026-11-04 sur `2913fc30`.
+· Relevé du 2026-11-04 sur `2913fc30`, complété le 2026-11-06 (changement
+`hold-every-class-list-of-a-decision-record-to-its-gate`).
 
 ## Objet et périmètre
 
@@ -30,6 +31,8 @@ déplacement de classes doit laisser aussi strict qu'avant.
 | R4 | A selection that remains a list of class names SHALL be of a declared kind and exact in both directions | dette qui ne fait que rétrécir, ou table de faits ; exacte dans les deux sens | `[EXIGENCE]` |
 | R5 | Relocating a class within its module SHALL change no gate whose subject is not its package | un gate trouve un source par le type, pas par le chemin | `[EXIGENCE]` |
 | R6 | A relocation SHALL NOT lower the number of executed architecture tests nor remove a textual scan that a rule cannot replace | `architectureTestsMinimum` ne baisse pas ; la moitié textuelle reste à côté de la règle | `[EXIGENCE]` |
+| R7 | Une liste de classes qu'un ADR en vigueur énumère DOIT égaler la constante du gate qui la tient | énumération délimitée dans l'ADR, comparée nom pour nom et dans les deux sens | `[EXIGENCE]` |
+| R8 | Une table de faits qu'un ADR en vigueur énonce DOIT déclarer cet ADR | `ENTRY_TYPES` déclare ARCH-0155 et lui est comparée | `[EXIGENCE]` |
 
 ## Comportement détaillé
 
@@ -86,6 +89,21 @@ liste ; la taille de la liste égale sa clé de `config/debt-counter-ratchets.pr
 grossi ; ni plus petite : la clé doit baisser). L'exactitude dans les deux sens (une classe qui a la propriété sans
 être nommée échoue ; une classe nommée qui ne l'a plus échoue) est portée **par le gate qui détient la liste**, par
 exemple `AdapterCompositionRootArchitectureTest` pour les racines de composition.
+
+### R7, R8 : l'énumération d'un ADR égale la constante
+
+`[EXISTANT VÉRIFIÉ]` La sorte d'une liste dit aussi si son ADR l'**énumère** ou la **référence** seulement :
+`Kind.debtCounterEnumeratedBy("ARCH-NNNN", racine)` et `Kind.tableOfFactsEnumeratedBy("ARCH-NNNN", racine)` contre
+`Kind.debtCounterUnder("ARCH-NNNN")`. Une liste énumérée est écrite dans l'ADR entre `<!-- liste TestClass.CHAMP -->`
+et `<!-- fin de liste -->`, chaque nom en span de code relatif à la racine de paquet déclarée (nom simple pour
+`ENTRY_TYPES`). Une table famille → noms porte une ligne par classe et ses familles en deuxième colonne, prises dans un
+vocabulaire fermé (`FAMILY_WORDS`). `ProductionClassListsArchitectureTest#everyListADecisionRecordEnumeratesEqualsItsEnumeration`
+refuse un ADR absent, non accepté, sans bloc, un bloc vide, non fermé ou en double, une ligne sans span de code et une
+famille hors vocabulaire, puis compare les noms qualifiés dans les deux sens et nomme l'ADR, la constante et chaque nom
+en trop ou manquant. Listes énumérées : `ApplicationTechnologyBoundaryArchitectureTest.CONFINED_FAMILIES` et
+`.REFLECTION_AND_LOADING` (ARCH-0150, table « Classes nommées »), `ApiEntryTypesArchitectureTest.ENTRY_TYPES`
+(ARCH-0155 §3). Listes référencées seulement : `COMPOSITION_ROOTS` (ARCH-0162), `RUNTIME_ENTRY_POINTS` et
+`RUNTIME_PUBLIC_TYPES` (ARCH-0158) ; la constante y est la source unique et rien n'est comparé.
 
 ### R5 : localisation d'un source par le type
 
@@ -145,13 +163,22 @@ flowchart TD
     debt["Dette : ADR accepté qui la nomme par TestClass.CHAMP<br/>+ clé de debt-counter-ratchets.properties"]
     facts["Table de faits :<br/>chaque entrée porte sa raison"]
     exact["Dans les deux cas : exacte dans les deux sens,<br/>tenue par le gate qui détient la liste"]
+    q3{"Un ADR accepté<br/>en énumère-t-il les noms ?"}
+    enum["Bloc délimité dans l'ADR,<br/>comparé à la constante dans les deux sens"]
+    ref["Référence TestClass.CHAMP seule :<br/>rien à comparer"]
     q1 -- oui --> pkg
     q1 -- non --> q2
     q2 -- oui --> debt
     q2 -- non --> facts
     debt --> exact
     facts --> exact
+    exact --> q3
+    q3 -- oui --> enum
+    q3 -- non --> ref
 ```
+
+Le dernier choix (R7, R8) s'ajoute aux trois comparaisons d'une liste : au bytecode et à sa taille autorisée, tenues
+par le gate et par le cliquet, et à l'ADR qui l'énumère.
 
 ## Écarts et questions ouvertes
 
@@ -202,6 +229,10 @@ flowchart TD
 | R4 | A debt counter without its decision record | idem | idem | `ProductionClassListsArchitectureTest#everyDebtCounterIsNamedByTheAcceptedDecisionRecordItDeclares` (texte) |
 | R4 | A debt counter grows | idem | idem | `ProductionClassListsArchitectureTest#everyDebtCounterHoldsExactlyTheSizeItsRatchetAllows` (réflexion sur les champs + [`config/debt-counter-ratchets.properties`](../../../config/debt-counter-ratchets.properties)) |
 | R4 | A composition root added by a relocation | — | idem | [`AdapterCompositionRootArchitectureTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/AdapterCompositionRootArchitectureTest.java)`#onlyTheNamedCompositionRootsReachAConcreteStoreOrProvider` (ArchUnit) et `#everyNamedCompositionRootStillReachesAConcreteStoreOrProvider` |
+| R7 | Une classe ajoutée au gate et pas à l'ADR / un nom que l'ADR énumère et que le gate ne porte plus / le même nom simple dans un autre paquet / une énumération que le build ne sait pas lire | organigramme de décision | `hold-every-class-list-of-a-decision-record-to-its-gate` | `ProductionClassListsArchitectureTest#everyListADecisionRecordEnumeratesEqualsItsEnumeration` (dépôt réel) ; corpus temporaire : `#aNameAddedToTheGateAndNotToTheRecordIsNamedWithTheRecordAndTheList`, `#aNameTheRecordWritesAndTheListNoLongerHoldsIsNamed`, `#theSameSimpleNameInAnotherPackageIsNamedOnBothSides`, `#anEnumerationTheBuildCannotReadIsRefusedBySayingWhatItCouldNotRead` |
+| R7 | Un ADR qui nomme la liste par sa seule référence | idem | idem | `ProductionClassListsArchitectureTest#aListItsRecordOnlyReferencesIsNotAskedForAnEnumeration` |
+| R8 | Les six types d'entrée / un type d'entrée ajouté sans l'ADR | idem | idem | `ProductionClassListsArchitectureTest#everyListADecisionRecordEnumeratesEqualsItsEnumeration` (ARCH-0155 §3 réel ; violation plantée puis retirée) |
+| R8 | Une table de faits déclare un ADR qui ne l'énumère pas | idem | idem | `ProductionClassListsArchitectureTest#aTableOfFactsDeclaringARecordThatDoesNotEnumerateItIsRefusedByNameAndRecord` (registre temporaire) |
 | R5 | A class is moved and nothing else changes | — | idem | [`ProductionSourcesTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/ProductionSourcesTest.java)`#aClassIsFoundWhateverPackageOfItsModuleItResidesIn` et `#theRealTreeResolvesAClassInASubPackageOfItsModule` ; gates à chemin littéral : voir Écarts |
 | R5 | Two classes of one module share a simple name | — | idem | `ProductionSourcesTest#aClassDeclaredTwiceIsRefusedWithBothFiles` |
 | R6 | A router reads an inlined constant of the remote server | — | idem | `HttpRoutesFamilyArchitectureTest#noRouterReachesTheRemoteAuthorizationModel` (moitié textuelle) et `#theSourceScanNamesTheRouterThatMentionsTheLiteralAndNoOther` (rejeu) ; plancher de tests : validateurs `scripts/validate-m21.*` et `scripts/validate-d2.*`, clé `architectureTestsMinimum` (pas un test JUnit) |
@@ -209,7 +240,7 @@ flowchart TD
 ## Sources
 
 - ADR : [ARCH-0155](../../architecture/adr/ARCH-0155-un-role-est-un-paquet-et-une-liste-de-classes-declare-sa-sorte.md)
-  (rôle = paquet, sorte d'une liste), [ARCH-0156](../../architecture/adr/ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md)
+  (rôle = paquet, sorte d'une liste), [ARCH-0162](../../architecture/adr/ARCH-0162-racines-de-composition-nommees-paquets-sans-cycle-hors-une-paire-bornee-et-decisions-dans-le-domaine.md)
   (racines de composition).
 - Règles du dépôt : `.claude/rules/architecture.md`, sections « `morpheus-api` : un rôle, un paquet », « Règle ArchUnit ou
   assertion textuelle ».
