@@ -105,6 +105,7 @@ class ProductionClassListsArchitectureTest {
                     Kind.debtCounterEnumeratedBy("ARCH-0150", APPLICATION_ROOT)),
             Map.entry("CliArgumentBaseArchitectureTest.OTHER_PURPOSES", Kind.TABLE_OF_FACTS),
             Map.entry("CliOptionValueHasOneBlankDefinitionTest.OTHER_QUESTIONS", Kind.TABLE_OF_FACTS),
+            Map.entry("CliTechnologyBoundaryArchitectureTest.CONFINED_FAMILIES", Kind.TABLE_OF_FACTS),
             Map.entry("CurrentRequirementReaderArchitectureTest.FULL_HISTORY_READERS", Kind.TABLE_OF_FACTS),
             Map.entry("CurrentRequirementReaderArchitectureTest.WHOLE_CURRENT_READERS", Kind.TABLE_OF_FACTS),
             Map.entry("DispatchersHoldNoUseCaseArchitectureTest.CLI_ALLOWANCE", Kind.TABLE_OF_FACTS),

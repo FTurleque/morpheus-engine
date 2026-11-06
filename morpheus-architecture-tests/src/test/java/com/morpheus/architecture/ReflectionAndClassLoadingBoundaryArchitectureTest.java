@@ -155,11 +155,15 @@ class ReflectionAndClassLoadingBoundaryArchitectureTest {
 
     @Test
     void theApplicationKeepsItsOwnConfinementOfReflectionAndLoading() throws IOException {
-        String source = Files.readString(RepositoryRoot.locate().resolve("morpheus-architecture-tests/src/test/java/"
-                + "com/morpheus/architecture/ApplicationTechnologyBoundaryArchitectureTest.java"));
-        assertTrue(source.contains("new Family(\"reflection and class loading\"")
-                        && source.contains("java.lang.reflect.") && source.contains("java.util.ServiceLoader")
-                        && source.contains("\"forName\""),
+        Path gates = RepositoryRoot.locate().resolve("morpheus-architecture-tests/src/test/java/com/morpheus/architecture");
+        String family = Files.readString(gates.resolve("TechnologyFamily.java"));
+        String source = Files.readString(gates.resolve("ApplicationTechnologyBoundaryArchitectureTest.java"))
+                .replaceAll("\\s+", " ");
+        assertTrue(family.contains("REFLECTION_AND_CLASS_LOADING = new TechnologyFamily(\"reflection and class "
+                        + "loading\"")
+                        && family.contains("java.lang.reflect.") && family.contains("java.util.ServiceLoader")
+                        && family.contains("\"forName\"")
+                        && source.contains("TechnologyFamily.REFLECTION_AND_CLASS_LOADING, REFLECTION_AND_LOADING"),
                 "this test leaves com.morpheus.application to ApplicationTechnologyBoundaryArchitectureTest, which "
                         + "must keep confining reflection and class loading there");
     }

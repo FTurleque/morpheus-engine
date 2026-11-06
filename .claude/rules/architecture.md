@@ -333,12 +333,24 @@ pour le runtime de chaque requête HTTP ou appel MCP.
 l'exécution de processus, du réseau sortant ni des fils d'exécution. L'accès fichier, l'environnement du processus,
 les flux standard, l'horloge murale et la réflexion n'y sont atteints que par les classes que
 `ApplicationTechnologyBoundaryArchitectureTest` nomme pour chaque famille — la liste est exacte, elle rétrécit, et un
-nom ajouté exige un ADR consolidé qui remplace ADR-0150. Le test porte les listes de types et d'appels de chaque
-famille : les lire là, pas ici. `Path` est du vocabulaire, pas un accès. Aucun nom n'est marqué *sort* : la découverte
+nom ajouté exige un ADR consolidé qui remplace ADR-0150. Les types et appels de chaque famille sont déclarés une fois,
+dans `TechnologyFamily` (tests d'architecture), que lisent le gate de l'application et celui de la CLI : les lire là,
+pas ici. `Path` est du vocabulaire, pas un accès. Aucun nom n'est marqué *sort* : la découverte
 de mise à jour lit son manifeste par le port `product.UpdateManifestSource`, que `UpdateManifestFetcher`
 (`morpheus-cli`) implémente, et garde dans `UpdateDiscoveryService` le refus de `http:`, les bornes et l'analyse.
 
 > `ApplicationTechnologyBoundaryArchitectureTest` — `aFamilyTheApplicationDoesNotUseIsRefusedInEveryPackage`, `aConfinedFamilyIsReachedOnlyByTheClassesNamedForIt`, `everyNamedClassStillReachesItsFamily`
+
+**La CLI.** `com.morpheus.cli` porte ce transport et le câblage du processus : chaque famille du vocabulaire y a un
+régime, avec sa raison. SQL, bibliothèque JSON et exécution de processus y sont refusés ; réseau sortant, fils
+d'exécution, accès fichier, environnement du processus et flux standard n'y sont atteints que par les classes que
+`CliTechnologyBoundaryArchitectureTest` nomme, chacune avec sa raison, et chaque liste égale l'ensemble mesuré ;
+l'horloge murale y est libre (la CLI donne son heure à une commande) ; la réflexion reste à
+`ReflectionAndClassLoadingBoundaryArchitectureTest`. Ces listes sont des **tables de faits**, pas des compteurs de
+dette : une classe ajoutée s'écrit dans le test avec sa raison, sans ADR. Une famille ajoutée à `TechnologyFamily`
+exige un régime dans les deux gates. `morpheus-api` n'a pas encore de gate de familles.
+
+> `CliTechnologyBoundaryArchitectureTest` — `everyFamilyOfTheVocabularyHasARegimeInTheCli`, `aFamilyTheCliRefusesIsReachedByNoClassOfTheCli`, `aConfinedFamilyIsReachedOnlyByTheClassesOfTheCliNamedForIt`, `everyClassNamedForAConfinedFamilyStillReachesIt`
 
 ## Cœurs purs — interdits textuels (scannés dans les sources)
 
