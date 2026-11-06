@@ -101,6 +101,8 @@ dernière. La séquence complète de la façade (authentification, autorisation,
   réponses ajoutées par la façade. `RemoteWriteResponseBoundDocumentationTest` dérive cet ensemble de
   `MorpheusRemoteRoutePolicy` sur toute la table des routes et exige qu'il soit exactement celui du document ; il ne
   compare pas le texte d'un message émis à celui de l'OpenAPI.
+- `[DÉCISION]` `GET /metrics` garde l'échéance des écritures : l'échéance suit le rôle de la route, et une lecture
+  ADMIN partage le budget des opérations privilégiées. Décidé par le mainteneur le 6 novembre 2026.
 - `[EXISTANT VÉRIFIÉ]` Le test du scénario « Le refus est consigné une fois » remplace, sur un serveur démarré, les
   créneaux de réponse de son transport par un budget sans créneau qui répond à une attente bornée comme l'échéance
   atteinte : le serveur construit son transport lui-même et l'échéance des écritures dure plusieurs minutes. Le
