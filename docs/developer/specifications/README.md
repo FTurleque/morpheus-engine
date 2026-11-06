@@ -98,6 +98,7 @@ Vue commune : la séquence de la façade distante, dans [`remote-access-journal.
 | `dependency-line-currency` | [dépendance tenue sur une ligne de versions](dependency-line-currency.md) | [spec](../../../openspec/specs/dependency-line-currency/spec.md) |
 | `dependency-version-management` | [gestion des versions de dépendances et de plugins](dependency-version-management.md) | [spec](../../../openspec/specs/dependency-version-management/spec.md) |
 | `vulnerability-feed-freshness` | [fraîcheur de la base de vulnérabilités du gate CVE](vulnerability-feed-freshness.md) | [spec](../../../openspec/specs/vulnerability-feed-freshness/spec.md) |
+| `dependency-check-suppression-contract` | [contrat du fichier de suppressions du gate CVE](dependency-check-suppression-contract.md) | à l'archivage du changement `hold-the-dependency-check-suppressions-to-a-contract` |
 
 ### Exploitation, providers et coûts
 

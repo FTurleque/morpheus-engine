@@ -21,7 +21,9 @@ Bumper une de ces versions **casse le gate** tant que le test n'est pas mis à j
 - Déclarer toute dépendance dans le `<dependencyManagement>` du POM racine (ou la laisser à un BOM importé), et tout plugin dans son `<pluginManagement>`, puis les référencer **sans version** dans le module
 - Vérifier l'hygiène après ajout : `./mvnw dependency:analyze` — `<failOnWarning>true</failOnWarning>` est actif, **0 warning** ou le build casse
 - Construire `morpheus-provider-reference` avant les tests d'architecture (M22 lit son JAR depuis `target/`)
-- Justifier toute suppression CVE dans `config/dependency-check-suppressions.xml` avec un commentaire
+- Justifier toute suppression CVE de `config/dependency-check-suppressions.xml` dans ses `<notes>`, et toute exemption
+  `base="true"` en y nommant `failBuildOnUnusedSuppressionRule` : `DependencyCheckSuppressionContractTest` tient la
+  forme, la cible bornée, la justification et la liste exacte des exemptions de chaque règle
 
 ## JAMAIS
 
