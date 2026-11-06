@@ -16,6 +16,7 @@ import java.time.Duration;
 import java.util.Objects;
 import java.util.OptionalLong;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 /** Bounded loopback HTTP transport used by the remote HTTPS facade after authorization and target resolution. */
 final class MorpheusRemoteProxyTransport {
@@ -85,10 +86,11 @@ final class MorpheusRemoteProxyTransport {
                     "remote proxy response memory budget is saturated");
         }
         boolean budgetHeld = deadline.readOnly();
+        long sentAt = System.nanoTime();
         try {
             HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
             if (!budgetHeld) {
-                awaitResponseBudget(response);
+                awaitResponseBudget(response, sentAt + deadline.timeout().toNanos());
                 budgetHeld = true;
             }
             relay(exchange, upstreamMethod, response);
@@ -154,23 +156,41 @@ final class MorpheusRemoteProxyTransport {
     }
 
     /**
-     * Takes the response budget for a call that may change state, once the upstream has answered.
+     * Takes the response budget for a call that may change state, once the upstream has answered, and waits for it
+     * no later than the deadline of the call.
      *
      * <p>Both halves of that matter. Held across the upstream wait, the budget would be kept for up to the writes'
-     * deadline by calls that have no response bytes yet: there are eight slots for a server that admits sixteen
-     * concurrent mutations, so eight slow mutations would refuse every read for minutes. Refusing here instead of
-     * waiting would lie: the commit has already happened by the time these headers exist. The wait itself ends,
-     * because every holder of a slot writes its response under the deadlines of {@link TimedBoundedResponseWriter}
-     * and gives the slot back.</p>
+     * deadline by calls that have no response bytes yet: the slots
+     * ({@code MorpheusRemoteHttpServer.MAX_PROXY_IN_FLIGHT_BYTES / MAX_PROXY_RESPONSE_BYTES}) are fewer than the
+     * mutations the privileged ceiling admits ({@code MorpheusRemoteHttpServer.privilegedConcurrencyLimit}), so slow
+     * mutations would refuse every read for minutes. Refusing at once instead of waiting would lie: the commit has
+     * already happened by the time these headers exist.</p>
+     *
+     * <p>The wait shares the deadline of the call, counted from the moment it was sent upstream, so the client is
+     * answered within the deadline it was told however many writes queue before it. A slot that does not come back in
+     * time ends the wait with {@code RESPONSE_BUDGET_WRITE_TIMEOUT}, which says the outcome is unknown, as
+     * {@code UPSTREAM_WRITE_TIMEOUT} does. The fair semaphore keeps arrival order, and a deadline already reached asks
+     * for a slot without passing any caller that waits.</p>
      */
-    private void awaitResponseBudget(HttpResponse<InputStream> response) throws InterruptedException, IOException {
+    private void awaitResponseBudget(HttpResponse<InputStream> response, long deadlineNanos)
+            throws InterruptedException, IOException {
+        boolean acquired;
         try {
-            responseSlots.acquire();
+            acquired = responseSlots.tryAcquire(deadlineNanos - System.nanoTime(), TimeUnit.NANOSECONDS);
         } catch (InterruptedException interrupted) {
             // The response exists and nobody will read it now, so its connection goes back to the pool rather
             // than being held until the client is collected.
             response.body().close();
             throw interrupted;
+        }
+        if (!acquired) {
+            response.body().close();
+            runtime.recordThrottledPrivilegedRequest();
+            throw new TransportException(
+                    504,
+                    "RESPONSE_BUDGET_WRITE_TIMEOUT",
+                    "the remote facade had no response slot for this operation before its deadline; it may have "
+                            + "completed: read its state before retrying");
         }
     }
 
@@ -228,8 +248,9 @@ final class MorpheusRemoteProxyTransport {
      *
      * <p>{@code readOnly} says whether the call can have changed anything. A read is refused for want of response
      * budget before it is sent, and its expiry is {@code UPSTREAM_TIMEOUT}: retrying it is safe. A call that may
-     * change state takes its budget once answered, and its expiry is {@code UPSTREAM_WRITE_TIMEOUT}: the local
-     * server cannot cancel an operation it has started, so the outcome is unknown and is never reported as a
+     * change state takes its budget once answered, within the same deadline, and its expiry is
+     * {@code UPSTREAM_WRITE_TIMEOUT} before the upstream answers, {@code RESPONSE_BUDGET_WRITE_TIMEOUT} after: the
+     * local server cannot cancel an operation it has started, so the outcome is unknown and is never reported as a
      * failure.</p>
      *
      * <p>On expiry the facade gives up, answers 504, and the request gives back its request slot and its privileged

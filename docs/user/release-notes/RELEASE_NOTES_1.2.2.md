@@ -86,3 +86,10 @@ Une écriture expirée reçoit `504 UPSTREAM_WRITE_TIMEOUT`, distinct du `504 UP
 Son résultat est **inconnu** : l'opération peut avoir abouti, ou aboutir encore. Un client relit l'état concerné avant
 de la rejouer ; il ne la rejoue jamais aveuglément comme une lecture. Voir le guide du serveur d'équipe, section
 concurrence.
+
+Une écriture que le traitement interne a déjà répondue attend ensuite un créneau de réponse du serveur distant, qui ne
+garde en mémoire qu'un nombre borné de réponses à la fois. Cette attente partage l'échéance de 300 secondes de
+l'écriture, comptée depuis son envoi : en 1.2.1, elle n'avait aucune borne propre. Une écriture qui n'obtient aucun
+créneau à temps reçoit `504 RESPONSE_BUDGET_WRITE_TIMEOUT`, dont le résultat est lui aussi **inconnu** : la réponse
+interne n'est pas relayée, et le client relit l'état avant de rejouer, comme pour `UPSTREAM_WRITE_TIMEOUT`. La réponse
+à une écriture commence donc au plus tard 300 secondes après son envoi et se termine au plus tard 420 secondes après.
