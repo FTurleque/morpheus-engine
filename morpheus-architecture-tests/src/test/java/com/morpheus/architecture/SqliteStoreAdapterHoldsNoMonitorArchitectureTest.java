@@ -4,6 +4,7 @@ import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaField;
 import com.tngtech.archunit.core.domain.JavaFieldAccess;
+import com.tngtech.archunit.core.domain.JavaMethodCall;
 import com.tngtech.archunit.core.domain.JavaMethod;
 import com.tngtech.archunit.core.domain.JavaModifier;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
@@ -14,6 +15,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -43,9 +45,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * the reason several threads reach what it guards. A monitor taken anywhere else in the runtime fails, and so does a
  * named site that no longer takes its monitor, so the table never outlives what it states.</p>
  *
+ * <p>A collection wrapped by {@code Collections.synchronized*} takes a monitor on every call as surely as a block does,
+ * so the field that holds it is a monitor of the table too.</p>
+ *
  * <p>Two forms, because they do not see the same thing ({@code .claude/rules/architecture.md}): the bytecode rule sees
- * the {@code synchronized} modifier of a method however the source is written; a {@code synchronized (lock)} block
- * leaves no modifier, only {@code monitorenter} instructions ArchUnit does not expose, and the text sees it.</p>
+ * the {@code synchronized} modifier of a method and the call that wraps a collection however the source is written; a
+ * {@code synchronized (lock)} block leaves no modifier, only {@code monitorenter} instructions ArchUnit does not expose,
+ * and the text sees it.</p>
  */
 class SqliteStoreAdapterHoldsNoMonitorArchitectureTest {
 
@@ -58,18 +64,23 @@ class SqliteStoreAdapterHoldsNoMonitorArchitectureTest {
     private static final Pattern MONITOR = Pattern.compile("\\bsynchronized\\b");
     private static final Pattern BLOCK_LOCK = Pattern.compile("\\s*\\(\\s*([^()]*?)\\s*\\)");
     private static final Pattern MODIFIED_METHOD = Pattern.compile("[^;{}=()]*?\\b(\\w+)\\s*\\(");
+    private static final Pattern SYNCHRONIZED_WRAPPER = Pattern.compile(
+            "\\b(\\w+)\\s*=\\s*(?:java\\.util\\.)?Collections\\s*\\.\\s*synchronized\\w*\\s*\\(");
 
     /**
      * Every monitor of {@code com.morpheus.store.sqlite.runtime}: {@code Owner#FIELD} for a field locked by
-     * {@code synchronized} blocks, {@code Owner#method()} for a {@code synchronized} method; a nested owner is written
-     * {@code Outer.Nested}. The value is why several threads reach what the monitor guards.
+     * {@code synchronized} blocks or holding a collection wrapped by {@code Collections.synchronized*},
+     * {@code Owner#method()} for a {@code synchronized} method; a nested owner is written {@code Outer.Nested}. The
+     * value is why several threads reach what the monitor guards.
      */
     private static final Map<String, String> RUNTIME_MONITORS = Map.of(
             "SqliteDatabaseLease#MONITOR", "guards the process-wide registry of shared, exclusive and retained "
                     + "leases, which every thread that opens or closes a physical connection, or runs maintenance, "
                     + "reads and changes",
             "SqliteServerMaintenance.ServerLease#close()", "the lease is held by the remote server, which any "
-                    + "thread may close, and two closes must release the lock and the channel once");
+                    + "thread may close, and two closes must release the lock and the channel once",
+            "SqliteTransactionRunner#QUARANTINED", "records the connections a failed cleanup left unusable, which the "
+                    + "transaction of any operation, on any thread, consults before it starts");
 
     private static final JavaClasses PRODUCTION = new ClassFileImporter()
             .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
@@ -116,8 +127,21 @@ class SqliteStoreAdapterHoldsNoMonitorArchitectureTest {
     void theSynchronizedMethodsOfTheStoreRuntimeAreExactlyTheNamedOnes() {
         Set<String> synchronizedMethods = new TreeSet<>();
         Set<String> finalFieldsRead = new TreeSet<>();
+        Set<String> wrappedCollections = new TreeSet<>();
         for (JavaClass type : RUNTIME_PRODUCTION) {
             String owner = ownerName(type);
+            for (JavaMethodCall call : type.getMethodCallsFromSelf()) {
+                if (call.getTargetOwner().isEquivalentTo(Collections.class)
+                        && call.getName().startsWith("synchronized")) {
+                    String wrapped = call.getTarget().getRawReturnType().getName();
+                    call.getOrigin().getFieldAccesses().stream()
+                            .filter(access -> access.getAccessType() == JavaFieldAccess.AccessType.SET)
+                            .map(access -> access.getTarget().resolveMember())
+                            .flatMap(Optional::stream)
+                            .filter(field -> field.getRawType().getName().equals(wrapped))
+                            .forEach(field -> wrappedCollections.add(owner + "#" + field.getName()));
+                }
+            }
             for (JavaMethod method : type.getMethods()) {
                 if (method.getModifiers().contains(JavaModifier.SYNCHRONIZED)) {
                     synchronizedMethods.add(owner + "#" + method.getName() + "()");
@@ -144,6 +168,11 @@ class SqliteStoreAdapterHoldsNoMonitorArchitectureTest {
         Set<String> unread = new TreeSet<>(namedFields);
         unread.removeAll(finalFieldsRead);
         assertEquals(Set.of(), unread, "a lock field RUNTIME_MONITORS names is no final field its class reads");
+        Set<String> unnamedWrappers = new TreeSet<>(wrappedCollections);
+        unnamedWrappers.removeAll(namedFields);
+        assertEquals(Set.of(), unnamedWrappers, "a field of " + RUNTIME + " holds a collection wrapped by "
+                + "Collections.synchronized*, which takes a monitor on every call: it is named in RUNTIME_MONITORS with "
+                + "why several threads reach it");
     }
 
     @Test
@@ -164,7 +193,8 @@ class SqliteStoreAdapterHoldsNoMonitorArchitectureTest {
 
         assertTrue(scanned > 0, "no source scanned under " + RUNTIME_SOURCES);
         assertEquals(named, taken, "the sources of " + RUNTIME + " take exactly the monitors RUNTIME_MONITORS names "
-                + "(File#lock for a synchronized block, File#method() for a synchronized method): a monitor taken "
+                + "(File#lock for a synchronized block or a Collections.synchronized* field, File#method() for a "
+                + "synchronized method): a monitor taken "
                 + "elsewhere is named there with its reason, and a named site that no longer takes it leaves the table");
     }
 
@@ -180,16 +210,22 @@ class SqliteStoreAdapterHoldsNoMonitorArchitectureTest {
                         synchronized (this) { }
                         synchronized ( lock ) { }
                     }
+                    private static final java.util.Map<String, String> SEEN =
+                            java.util.Collections.synchronizedMap(new java.util.HashMap<>());
                 }
                 """;
 
-        assertEquals(Set.of("Planted#close()", "Planted#copy()", "Planted#this", "Planted#lock"),
+        assertEquals(Set.of("Planted#close()", "Planted#copy()", "Planted#this", "Planted#lock", "Planted#SEEN"),
                 monitorsTakenBy("Planted", source));
     }
 
     private static Set<String> monitorsTakenBy(String file, String source) {
         String code = RefusalPathTextArchitectureTest.withoutComments(source);
         Set<String> taken = new TreeSet<>();
+        Matcher wrapper = SYNCHRONIZED_WRAPPER.matcher(code);
+        while (wrapper.find()) {
+            taken.add(file + "#" + wrapper.group(1));
+        }
         Matcher monitor = MONITOR.matcher(code);
         while (monitor.find()) {
             Matcher block = BLOCK_LOCK.matcher(code).region(monitor.end(), code.length());

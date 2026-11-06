@@ -253,8 +253,10 @@ Une classe de `com.morpheus.store.sqlite.adapter` ne prend **aucun** moniteur, n
 store est confiné au fil de son opération (la `SqliteConnectionScope` refuse sa connexion à tout autre fil), donc son
 moniteur ne protège rien. Un état que plusieurs fils atteignent vit dans `runtime`, avec la raison sur son verrou, et
 `runtime` ne prend **que** les moniteurs que nomme `RUNTIME_MONITORS` (table de faits, une raison par site) : un
-moniteur pris ailleurs dans le paquet est refusé, un site nommé qui ne prend plus son moniteur aussi. La règle sur le
-bytecode voit le modificateur ; un bloc ne laisse que des `monitorenter` qu'ArchUnit n'expose pas, et le texte le voit.
+moniteur pris ailleurs dans le paquet est refusé, un site nommé qui ne prend plus son moniteur aussi. Un champ qui
+tient une collection enveloppée par `Collections.synchronized*` est un moniteur de la table. La règle sur le bytecode
+voit le modificateur et l'appel qui enveloppe ; un bloc ne laisse que des `monitorenter` qu'ArchUnit n'expose pas, et le
+texte le voit.
 > `SqliteStoreAdapterHoldsNoMonitorArchitectureTest`
 
 ### `morpheus-api` : un rôle, un paquet, et six types pour les voisins (ADR-0155)
