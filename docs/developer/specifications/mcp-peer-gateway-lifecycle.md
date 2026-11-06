@@ -100,10 +100,12 @@ sequenceDiagram
   passerelle : elle appelle `ExternalJarIntegrity`, un type de l'application que le transport ne peut pas voir, et son
   invariant `Path launchJar = staged.orElseThrow();` est épinglé par passerelle
   (`UnreachableSecurityBranchArchitectureTest#anMcpPeerIsLaunchedFromItsVerifiedCopyOrNotAtAll`).
-- `[EXISTANT VÉRIFIÉ]` Une commande nulle remise à un constructeur de paquet d'une passerelle est refusée par
-  `McpPeerLaunch` (`NullPointerException` « command ») ; une commande blanche garde son refus
-  `IllegalArgumentException` « command must not be blank ». Le constructeur public ne reçoit jamais de commande nulle :
-  elle vient de `PeerLaunchSettings`.
+- `[EXISTANT VÉRIFIÉ]` Une commande nulle ou blanche remise à un constructeur de paquet d'une passerelle est refusée
+  par `McpPeerLaunch`, `IllegalArgumentException` « command must not be null or blank », avant tout processus. Le
+  constructeur public ne reçoit jamais de commande nulle : elle vient de `PeerLaunchSettings`.
+- `[EXISTANT VÉRIFIÉ]` Un `Error` qui traverse l'ouverture laisse le client fermé, l'échéance désarmée et la copie
+  vérifiée supprimée, puis se propage tel quel ; un `Error` qui traverse un appel termine la session sur-le-champ, et
+  la fermeture qui suit ne fait rien.
 - `[EXISTANT VÉRIFIÉ]` L'interdit de `Throwable.addSuppressed` ne vise que les classes qui décrivent un lancement de
   pair : `javac` compile chaque try-with-resources en un appel de `addSuppressed`, et les runtimes et fournisseurs des
   intégrations ferment leur passerelle ainsi.
@@ -117,6 +119,8 @@ sequenceDiagram
 |---|---|---|---|---|
 | R1 | Les deux passerelles ouvrent leur pair par le même socle | D1, D3, diagramme des classes | `share-one-lifecycle-between-the-two-mcp-gateways` 2.1, 2.2 | `McpPeerGatewayLifecycleArchitectureTest#everyClassThatDescribesAPeerLaunchOpensItThroughTheSession` ; `McpPeerSessionTest#aSessionCallsAToolAndDeletesItsVerifiedCopyWhenItCloses` ; `MinosMcpTransportIntegrationTest`, `NexusMcpTransportIntegrationTest` |
 | R1 | Un pair auquel il manque un outil requis | D1, séquence | 1.3, 2.1 | `McpPeerSessionTest#aPeerWithoutARequiredToolIsRefusedInThePeersTypeAndItsCopyIsDeleted` |
+| R1 | Un `Error` qui traverse l'ouverture ou un appel | D1, séquence | 2.7 | `McpPeerSessionTest#anErrorThatCrossesTheOpeningClosesThePeerAndDeletesItsCopy` ; `McpPeerSessionTest#anErrorThatCrossesACallEndsTheSessionAtOnceAndItsCloseIsThenANoOp` |
+| R1 | Une passerelle à qui l'on remet une commande nulle | D3 | 2.2 | `MinosMcpTransportIntegrationTest#aGatewayGivenNoCommandIsRefusedByNameBeforeAnyProcessStarts` et son jumeau NEXUS ; `BoundedStdioClientTransportTest#aPeerLaunchNeedsACommandAndCopiesWhatItIsGiven` |
 | R2 | Un abandon qui échoue est compté par la passerelle qui l'a remis | D2 | 2.1, 2.3 | `McpPeerSessionTest#anAbortThatFailsIsToldToItsObserverAndStillFails` ; `MinosSuppressedFailureTraceTest#anAbortThatFailsIsCountedAndStillFailsForTheDeadlineThatAskedForIt` et son jumeau NEXUS ; `AdapterCompositionRootArchitectureTest#theMcpTransportDependsOnNoOtherMorpheusPackage` |
 | R2 | Une copie vérifiée qui ne peut être supprimée | D2 | 2.1, 2.3 | `McpPeerSessionTest#aCopyThatCannotBeDeletedIsToldToItsObserverAndOneThatCanIsNot` ; `MinosSuppressedFailureTraceTest#aVerifiedCopyThatCannotBeDeletedIsCountedAndOneThatCanIsNot` et son jumeau NEXUS |
 | R3 | Une opération qui dépasse son échéance | D2, D4 | 2.2 | `McpPeerSessionTest#anOperationPastItsDeadlineEndsWithTheDeadlineInThePeersType` ; `MinosMcpOperationDeadlineTest`, `NexusMcpOperationDeadlineTest` |
