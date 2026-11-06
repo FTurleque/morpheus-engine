@@ -30,8 +30,11 @@ disent ce que le build impose.
 
 ### Familles et tenue par le build (R1, R2, R3)
 
-`[EXISTANT VÉRIFIÉ]` `ApplicationTechnologyBoundaryArchitectureTest` décrit chaque famille par un ensemble de types,
-d'appels (`CallMatcher`) et de champs de `System`, lus sur le bytecode importé de `com.morpheus.application` :
+`[EXISTANT VÉRIFIÉ]` Chaque famille est un ensemble de types, d'appels (`CallMatcher`) et de champs de `System`,
+déclaré une fois dans `TechnologyFamily` (tests d'architecture), que lit aussi le gate de la CLI
+([`cli-technology-boundary.md`](cli-technology-boundary.md)). `ApplicationTechnologyBoundaryArchitectureTest` les juge
+sur le bytecode importé de `com.morpheus.application`, et `everyFamilyOfTheVocabularyHasARegimeInTheApplication` exige
+que chaque famille de `TechnologyFamily.VOCABULARY` y soit refusée ou confinée :
 
 | Régime | Familles (`UNUSED_FAMILIES` / `CONFINED_FAMILIES`) | Règle |
 |---|---|---|
@@ -149,4 +152,5 @@ stateDiagram-v2
   Compliance and Enforcement) ; l'ADR remplace ADR-0148 (archive).
 - Règles du dépôt : `.claude/rules/architecture.md`, sections « Ce que l'application touche (ADR-0150) » et « Cœurs purs ».
 - Pages liées : [`application-infrastructure-ports.md`](application-infrastructure-ports.md),
-  [`reflection-boundary.md`](reflection-boundary.md), [`application-package-cycles.md`](application-package-cycles.md).
+  [`reflection-boundary.md`](reflection-boundary.md), [`application-package-cycles.md`](application-package-cycles.md),
+  [`cli-technology-boundary.md`](cli-technology-boundary.md).
