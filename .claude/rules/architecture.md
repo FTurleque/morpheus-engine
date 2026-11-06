@@ -235,9 +235,10 @@ remplace la règle.
 
 Une classe de `com.morpheus.store.sqlite.adapter` ne prend **aucun** moniteur, ni méthode `synchronized` ni bloc : un
 store est confiné au fil de son opération (la `SqliteConnectionScope` refuse sa connexion à tout autre fil), donc son
-moniteur ne protège rien. Un état que plusieurs fils atteignent vit dans `runtime`, avec la raison sur son verrou
-(registre des baux `SqliteDatabaseLease`, `ServerLease.close`). La règle sur le bytecode voit le modificateur ; un bloc
-ne laisse que des `monitorenter` qu'ArchUnit n'expose pas, et le texte le voit.
+moniteur ne protège rien. Un état que plusieurs fils atteignent vit dans `runtime`, avec la raison sur son verrou, et
+`runtime` ne prend **que** les moniteurs que nomme `RUNTIME_MONITORS` (table de faits, une raison par site) : un
+moniteur pris ailleurs dans le paquet est refusé, un site nommé qui ne prend plus son moniteur aussi. La règle sur le
+bytecode voit le modificateur ; un bloc ne laisse que des `monitorenter` qu'ArchUnit n'expose pas, et le texte le voit.
 > `SqliteStoreAdapterHoldsNoMonitorArchitectureTest`
 
 ### `morpheus-api` : un rôle, un paquet, et six types pour les voisins (ADR-0155)

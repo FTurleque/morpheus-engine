@@ -140,6 +140,7 @@ class ProductionClassListsArchitectureTest {
             Map.entry("SilentCatchArchitectureTest.EXPLAINED", Kind.TABLE_OF_FACTS),
             Map.entry("SqliteConnectionScopeUseArchitectureTest.ONE_STORE_PER_OPERATION", Kind.TABLE_OF_FACTS),
             Map.entry("SqliteConnectionScopeUseArchitectureTest.SCOPE_OWNERS", Kind.TABLE_OF_FACTS),
+            Map.entry("SqliteStoreAdapterHoldsNoMonitorArchitectureTest.RUNTIME_MONITORS", Kind.TABLE_OF_FACTS),
             Map.entry("SqliteStorePackagesArchitectureTest.ADAPTER_COLLABORATORS", Kind.TABLE_OF_FACTS),
             Map.entry("SqliteStorePackagesArchitectureTest.RUNTIME_ENTRY_POINTS", Kind.debtCounterUnder("ARCH-0158")),
             Map.entry("SqliteStorePackagesArchitectureTest.RUNTIME_PUBLIC_TYPES", Kind.debtCounterUnder("ARCH-0158")),
