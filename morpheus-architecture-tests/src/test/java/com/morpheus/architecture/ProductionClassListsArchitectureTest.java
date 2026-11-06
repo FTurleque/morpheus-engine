@@ -63,11 +63,12 @@ class ProductionClassListsArchitectureTest {
 
     /** Each remaining list, by {@code TestClass.FIELD}, with its kind. */
     private static final Map<String, Kind> KINDS = Map.ofEntries(
-            Map.entry("AdapterCompositionRootArchitectureTest.COMPOSITION_ROOTS", Kind.debtCounterUnder("ARCH-0156")),
+            Map.entry("AdapterCompositionRootArchitectureTest.COMPOSITION_ROOTS", Kind.debtCounterUnder("ARCH-0162")),
             Map.entry("ApiEntryTypesArchitectureTest.ENTRY_TYPES", Kind.TABLE_OF_FACTS),
             Map.entry("AppendOnlyJournalReadsArchitectureTest.JOURNAL_PAGES", Kind.TABLE_OF_FACTS),
             Map.entry("AppendOnlyJournalReadsArchitectureTest.JOURNAL_PORTS", Kind.TABLE_OF_FACTS),
             Map.entry("AppendOnlyJournalReadsArchitectureTest.JOURNAL_RECORDS", Kind.TABLE_OF_FACTS),
+            Map.entry("ApplicationPackageCyclesArchitectureTest.QUERY_DSL_AND_SAVED_EDGES", Kind.debtCounterUnder("ARCH-0162")),
             Map.entry("ApplicationTechnologyBoundaryArchitectureTest.CONFINED_FAMILIES", Kind.debtCounterUnder("ARCH-0150")),
             Map.entry("ApplicationTechnologyBoundaryArchitectureTest.REFLECTION_AND_LOADING", Kind.debtCounterUnder("ARCH-0150")),
             Map.entry("CliArgumentBaseArchitectureTest.OTHER_PURPOSES", Kind.TABLE_OF_FACTS),

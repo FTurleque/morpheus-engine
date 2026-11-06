@@ -150,7 +150,7 @@ classDiagram
 ## Sources
 
 - ADR : [ARCH-0150](../../architecture/adr/ARCH-0150-ce-que-le-coeur-applicatif-peut-toucher.md) (décisions 1 et 2, section
-  Compliance and Enforcement), [ARCH-0156](../../architecture/adr/ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md).
+  Compliance and Enforcement), [ARCH-0162](../../architecture/adr/ARCH-0162-racines-de-composition-nommees-paquets-sans-cycle-hors-une-paire-bornee-et-decisions-dans-le-domaine.md).
 - Risque soldé : `DT-18` dans [`../../architecture/arc42/11-risques-dette.md`](../../architecture/arc42/11-risques-dette.md).
 - Pages liées : [`application-technology-boundary.md`](application-technology-boundary.md),
   [`mcp-peer-launch-command.md`](mcp-peer-launch-command.md).

@@ -209,7 +209,7 @@ flowchart TD
 ## Sources
 
 - ADR : [ARCH-0155](../../architecture/adr/ARCH-0155-un-role-est-un-paquet-et-une-liste-de-classes-declare-sa-sorte.md)
-  (rôle = paquet, sorte d'une liste), [ARCH-0156](../../architecture/adr/ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md)
+  (rôle = paquet, sorte d'une liste), [ARCH-0162](../../architecture/adr/ARCH-0162-racines-de-composition-nommees-paquets-sans-cycle-hors-une-paire-bornee-et-decisions-dans-le-domaine.md)
   (racines de composition).
 - Règles du dépôt : `.claude/rules/architecture.md`, sections « `morpheus-api` : un rôle, un paquet », « Règle ArchUnit ou
   assertion textuelle ».

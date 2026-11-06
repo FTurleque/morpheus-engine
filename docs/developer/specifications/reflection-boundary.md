@@ -141,7 +141,7 @@ flowchart LR
 
 - ADR : [SEC-0129](../../architecture/adr/SEC-0129-plugins-provider-code-de-confiance-hors-processus.md) (chargement du plugin),
   [ARCH-0150](../../architecture/adr/ARCH-0150-ce-que-le-coeur-applicatif-peut-toucher.md) (réflexion dans l'application),
-  [ARCH-0156](../../architecture/adr/ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md)
+  [ARCH-0162](../../architecture/adr/ARCH-0162-racines-de-composition-nommees-paquets-sans-cycle-hors-une-paire-bornee-et-decisions-dans-le-domaine.md)
   (proxy de connexion SQLite, câblage explicite).
 - Règles du dépôt : `.claude/rules/architecture.md` (section « Pas de framework, pas de magie »), `.claude/rules/code-review.md`.
 - Pages liées : [`application-technology-boundary.md`](application-technology-boundary.md),

@@ -20,7 +20,7 @@ et ce qu'une extraction hors d'un distributeur doit laisser intact.
 | R1 | A CLI command and an MCP tool SHALL be served by a capability class, and a dispatch class SHALL hold no use case | un distributeur ne dépend d'aucun cas d'usage hors d'une liste exacte | `[EXIGENCE]`, `[DÉCISION]` ARCH-0149 |
 | R2 | Every published command word and tool name SHALL be claimed by exactly one capability class | ni mot orphelin, ni mot revendiqué deux fois ; un mot inconnu reste refusé | `[EXIGENCE]` |
 | R3 | An extraction from a dispatcher SHALL change no output, no exit code, no tool name and no payload | sorties, codes, noms et schémas identiques avant et après une extraction | `[EXIGENCE]` — règle de procédure, voir écarts |
-| R4 | An extraction SHALL NOT add a composition root | aucune classe MCP ne gagne l'accès à un store concret ; la CLI passe par le port provider | `[EXIGENCE]`, `[DÉCISION]` ARCH-0156 |
+| R4 | An extraction SHALL NOT add a composition root | aucune classe MCP ne gagne l'accès à un store concret ; la CLI passe par le port provider | `[EXIGENCE]`, `[DÉCISION]` ARCH-0162 |
 
 ## Comportement détaillé
 
@@ -66,7 +66,7 @@ flowchart LR
     D["distributeurs<br/>com.morpheus.cli, com.morpheus.mcp.server"]
     K["classes de capacité<br/>com.morpheus.cli.command, com.morpheus.mcp"]
     A["application : ports et cas d'usage"]
-    R["racines de composition nommées<br/>(ADR-0156)"]
+    R["racines de composition nommées<br/>(ADR-0162)"]
     S["stores et providers concrets"]
     D --> K
     D -->|"liste exacte seulement"| A
@@ -113,5 +113,5 @@ Exigences : R1 et R4.
 ## Sources
 
 - Décisions : [ARCH-0149](../../architecture/adr/ARCH-0149-une-commande-et-un-outil-sont-servis-par-une-classe-de-capacite.md),
-  [ARCH-0156](../../architecture/adr/ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md).
+  [ARCH-0162](../../architecture/adr/ARCH-0162-racines-de-composition-nommees-paquets-sans-cycle-hors-une-paire-bornee-et-decisions-dans-le-domaine.md).
 - Règle du dépôt : `.claude/rules/architecture.md`, section « `morpheus-cli` et `morpheus-mcp` ».

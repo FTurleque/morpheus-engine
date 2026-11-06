@@ -1,6 +1,6 @@
 # ADR-0152 — Les transports sont des racines de composition nommées, et les cycles de paquets ne font que diminuer
 
-> **Archivée.** Cette décision est consolidée dans [ADR-0156](../ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md), qui la reprend en entier, remplace la liste des dépendances de l'application tolérées sur un cycle par une règle sans exception, et y ajoute les décisions écrites sur une valeur du domaine. Ce texte n'est plus en vigueur et n'est pas tenu à jour.
+> **Archivée.** Cette décision est consolidée dans [ADR-0156](0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md), qui la reprend en entier, remplace la liste des dépendances de l'application tolérées sur un cycle par une règle sans exception, et y ajoute les décisions écrites sur une valeur du domaine. Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
 - Statut : **Remplacée par ADR-0156**
 - Date : 2026-10-29
