@@ -94,3 +94,31 @@ admettre une mention.
 
 - **WHEN** la ligne dit « renommé depuis » ou « formerly » sans la marque
 - **THEN** la mention est refusée comme un paquet inexistant
+
+### Requirement: Une version produit courante qu'une page de gouvernance IA énonce DOIT égaler la version du POM racine
+
+Quand une page de gouvernance IA énonce la version produit courante, le build DOIT (MUST) la comparer à la version du
+POM racine, celle que `ProductMetadata.version()` rapporte, et échouer en nommant la page et les deux valeurs. Une
+version qui n'a pas la forme d'un énoncé courant est un relevé daté et NE DOIT PAS (MUST NOT) être comparée.
+
+#### Scenario: La forme d'un énoncé courant
+
+- **WHEN** une page écrit une version `X.Y.Z` en gras ou en span de code juste après `:morpheus-engine`, « baseline »,
+  « actuellement », « version courante » ou « version produit »
+- **THEN** cette version est comparée à celle du POM racine
+
+#### Scenario: Un passage de version qui ne touche que le POM
+
+- **GIVEN** `.claude/CLAUDE.md` qui écrit « la baseline **1.2.2** »
+- **WHEN** la version du POM racine change et la page n'est pas modifiée
+- **THEN** la suite d'architecture échoue et nomme `.claude/CLAUDE.md` et les deux versions
+
+#### Scenario: Une release datée n'est pas comparée
+
+- **WHEN** une page écrit « livré dans 1.2.0 » ou « la 1.2.1 publiée »
+- **THEN** ces mentions ne sont pas lues
+
+#### Scenario: Le contrôle a trouvé une version courante à comparer
+
+- **WHEN** le contrôle ne trouve aucune version courante dans les pages parcourues
+- **THEN** il échoue au lieu de passer

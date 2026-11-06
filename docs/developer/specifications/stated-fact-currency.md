@@ -7,14 +7,16 @@ Spec de référence : `openspec/specs/stated-fact-currency/spec.md` à l'archiva
 ## Objet et périmètre
 
 Un document vivant qui recopie un fait dont la source est lisible par un test est comparé à cette source par le build.
-Deux faits sont couverts : une valeur de cliquet recopiée dans `.claude/rules/`, et un nom de paquet `com.morpheus`
-cité par un changement OpenSpec actif.
+Trois faits sont couverts : une valeur de cliquet recopiée dans `.claude/rules/`, la version produit courante énoncée
+par une page de gouvernance IA, et un nom de paquet `com.morpheus` cité par un changement OpenSpec actif.
 
 - **Acteurs** : agent qui lit `.claude/rules/` à chaque session ; contributeur qui reprend un changement OpenSpec
   actif ; mainteneur qui relève un cliquet.
-- **Inclus** : les pages de `.claude/rules/` (lignes de table) ; les fichiers Markdown de `openspec/changes/` hors
+- **Inclus** : les pages de `.claude/rules/` (lignes de table) ; les pages de gouvernance IA (`.claude/CLAUDE.md`,
+  `.github/AI_GOVERNANCE.md`, règles, commandes, agents, skills) pour la version produit courante ; les fichiers Markdown de `openspec/changes/` hors
   `archive/`.
-- **Exclus** : les paragraphes datés de `.claude/rules/testing.md` (relevés de requalification) ; les archives
+- **Exclus** : les paragraphes datés de `.claude/rules/testing.md` (relevés de requalification) ; les releases datées
+  (« livré dans 1.2.0 », « la 1.2.1 publiée ») ; les archives
   OpenSpec ; les specs principales `openspec/specs/` ; les versions de dépendances, tenues par
   [`dependency-version-management`](dependency-version-management.md).
 
@@ -24,6 +26,7 @@ cité par un changement OpenSpec actif.
 |---|---|---|---|
 | R1 | Une valeur de cliquet qu'une page de règles recopie sous le nom de sa clé DOIT égaler cette clé | ligne de table `` `clé` `` puis valeur, comparée à `config/m21-quality-ratchets.properties` ; clé retirée refusée ; scan vide refusé | `[EXIGENCE]` |
 | R2 | Un nom de paquet `com.morpheus` cité dans un changement OpenSpec actif DOIT exister dans les sources du réacteur | paquet ou préfixe d'un paquet déclaré sous `src/main/java` ou `src/test/java` d'un module du POM racine | `[EXIGENCE]` |
+| R4 | Une version produit courante qu'une page de gouvernance IA énonce DOIT égaler la version du POM racine | version en gras ou en span de code après `:morpheus-engine`, « baseline », « actuellement », « version courante » ou « version produit », comparée à `pom.xml` et à `ProductMetadata.version()` ; scan vide refusé | `[EXIGENCE]` |
 | R3 | Seule une mention marquée « (ancien nom) » ou « (à créer) » DOIT être admise pour un paquet absent des sources | la marque suit le nom sur la même ligne ; « (à créer) » sur un paquet qui existe est refusé | `[EXIGENCE]` |
 
 ## Comportement détaillé
@@ -43,15 +46,26 @@ cité par un changement OpenSpec actif.
   qualifié, la fermeture d'un span de code et des espaces. Une autre tournure (« renommé depuis », « formerly ») n'est
   pas une marque. Aucune liste d'exceptions n'est tenue dans le test.
 
+- **R4** `[EXISTANT VÉRIFIÉ]` ([`GovernanceSurfaceCoherenceTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/GovernanceSurfaceCoherenceTest.java)`#everyCurrentProductVersionAGovernancePageStatesEqualsTheRootPom`) :
+  le motif nommé `CURRENT_PRODUCT_VERSION_CLAIM` définit l'énoncé d'une version courante : l'une des cinq marques
+  (coordonnées `:morpheus-engine`, « baseline », « actuellement », « version courante », « version produit »), puis,
+  au plus après des espaces et une parenthèse ouvrante, une version `X.Y.Z` en gras ou en span de code. Une version
+  sans marque ni emphase est un relevé daté et n'est pas lue ; une version de dépendance écrite comme propriété du POM
+  relève de [`dependency-version-management`](dependency-version-management.md). La valeur est comparée à la version
+  sous les coordonnées `morpheus-engine` du POM racine, que `ProductMetadata.version()` rapporte aussi sous Maven. Un
+  refus nomme la page et les deux versions ; un scan qui ne lit rien échoue.
+
 ## Diagrammes
 
 ### Quelle copie est comparée à quelle source ?
 
-Existant. Exigences R1, R2 et R3.
+Existant. Exigences R1 à R4.
 
 ```mermaid
 flowchart LR
     R[config/m21-quality-ratchets.properties] --> G[GovernanceSurfaceCoherenceTest]
+    V["pom.xml : version de morpheus-engine"] --> G
+    G --> C["pages de gouvernance IA : version courante en gras ou en code"]
     G --> T[".claude/rules : ligne de table `clé` | valeur"]
     S["sources du réacteur : paquets déclarés et leurs préfixes"] --> P[OpenSpecChangePackageCitationTest]
     P --> O["openspec/changes hors archive : com.morpheus… cité"]
@@ -60,8 +74,9 @@ flowchart LR
 
 ## Écarts et questions ouvertes
 
-- `[QUESTION]` **Version produit recopiée** : `.claude/CLAUDE.md` et `.claude/rules/governance.md` écrivent la version
-  produit en prose ; aucun test ne la compare à `ProductMetadata`. Hors de cette capacité, à trancher par le mainteneur.
+- `[EXISTANT VÉRIFIÉ]` **Version courante sans emphase** : une phrase qui énoncerait la version courante sans gras ni
+  span de code, ou sans l'une des cinq marques, n'est pas lue ; la convention des pages de gouvernance est d'écrire la
+  version courante en emphase.
 - `[EXISTANT VÉRIFIÉ]` **Marque « (ancien nom) » sur un paquet existant** : admise ; la spec ne dit rien de ce cas.
 
 ## Traçabilité
@@ -72,6 +87,10 @@ flowchart LR
 | R1 | Une clé retirée du fichier | idem | idem | `GovernanceSurfaceCoherenceTest#aRatchetRowIsComparedByValueAndARetiredKeyIsRefusedWhileADatedParagraphIsNotRead` |
 | R1 | Une mesure datée n'est pas comparée | idem | idem | idem |
 | R1 | Le contrôle a trouvé des valeurs à comparer | idem | idem | idem (scan vide refusé) |
+| R4 | Un passage de version qui ne touche que le POM | organigramme | idem | `GovernanceSurfaceCoherenceTest#everyCurrentProductVersionAGovernancePageStatesEqualsTheRootPom` ; `#aCurrentVersionStatementIsComparedWhileADatedReleaseAndADependencyVersionAreNot` |
+| R4 | La forme d'un énoncé courant | idem | idem | `GovernanceSurfaceCoherenceTest#aCurrentVersionStatementIsComparedWhileADatedReleaseAndADependencyVersionAreNot` |
+| R4 | Une release datée n'est pas comparée | idem | idem | `GovernanceSurfaceCoherenceTest#aCurrentVersionStatementIsComparedWhileADatedReleaseAndADependencyVersionAreNot` |
+| R4 | Le contrôle a trouvé une version courante à comparer | idem | idem | idem (scan vide refusé) |
 | R2 | Le paquet supprimé par un renommage | idem | idem | `OpenSpecChangePackageCitationTest#everyPackageAnActiveChangeCitesExistsInTheReactorSources` ; `#anAbsentPackageIsRefusedWhereverItIsCitedAndAnExistingOneUnderEveryForm` |
 | R2 | Un paquet existant cité sous plusieurs formes | idem | idem | `OpenSpecChangePackageCitationTest#anAbsentPackageIsRefusedWhereverItIsCitedAndAnExistingOneUnderEveryForm` |
 | R2 | Une archive cite un ancien nom | idem | idem | idem |
