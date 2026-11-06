@@ -110,7 +110,7 @@ stateDiagram-v2
   refusé (règle de bytecode). Aucun écart avec R2.
 - `[EXISTANT VÉRIFIÉ]` Aucune exception dans les deux règles, comme l'annonce `.claude/rules/architecture.md`.
 - `[EXISTANT VÉRIFIÉ]` Aucun changement archivé n'est dédié à cette capacité dans `openspec/changes/archive/` ; la
-  décision est consignée par l'ADR `ARCH-0156` (et, pour la contrainte, `DATA-0082`).
+  décision est consignée par l'ADR `ARCH-0162` (et, pour la contrainte, `DATA-0082`).
 - Le scénario « A target found once and lost » dit qu'un lien de traçabilité enregistre la référence comme
   « partially resolved » : cela est prouvé dans le domaine
   (`ExternalReferenceResolutionTest#aTraceabilityLinkRecordsAStaleReferenceAsPartiallyResolvedAndNeverAsHeuristic`), pas
@@ -120,13 +120,13 @@ stateDiagram-v2
 
 | Exigence | Scénario | Conception ou diagramme | Changement | Preuve |
 |---|---|---|---|---|
-| R1 | A transition blocked by a violated constraint | diagramme de classes | ADR `ARCH-0156` (pas de changement archivé dédié) | [`ChangeLifecycleTransitionDecisionTest`](../../../morpheus-domain/src/test/java/com/morpheus/domain/change/lifecycle/ChangeLifecycleTransitionDecisionTest.java)`#aBlockingConstraintAddsItsBlockerOnceAfterTheLifecycleBlockers` |
+| R1 | A transition blocked by a violated constraint | diagramme de classes | ADR `ARCH-0162` (pas de changement archivé dédié) | [`ChangeLifecycleTransitionDecisionTest`](../../../morpheus-domain/src/test/java/com/morpheus/domain/change/lifecycle/ChangeLifecycleTransitionDecisionTest.java)`#aBlockingConstraintAddsItsBlockerOnceAfterTheLifecycleBlockers` |
 | R1 | An application service restates the decision | idem | idem | [`LifecycleTransitionDecisionInTheDomainArchitectureTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/LifecycleTransitionDecisionInTheDomainArchitectureTest.java)`#noApplicationClassReadsAConstantOfALifecycleBlocker` et `#onlyTheDomainBuildsALifecycleTransitionDecision` ; famille fermée : `#aLifecycleTransitionDecisionIsAllowedOrBlockedAndNothingElse` |
 | R2 | A target found once and lost | diagramme d'états | idem | [`ExternalReferenceResolutionTest`](../../../morpheus-domain/src/test/java/com/morpheus/domain/reference/ExternalReferenceResolutionTest.java)`#aTargetFoundOnceAndLostIsStaleWithTheStaleReason` et `#aTraceabilityLinkRecordsAStaleReferenceAsPartiallyResolvedAndNeverAsHeuristic` ; côté service : [`ExternalReferenceResolutionServiceTest`](../../../morpheus-application/src/test/java/com/morpheus/application/reference/ExternalReferenceResolutionServiceTest.java)`#previouslyResolvedTargetBecomesStaleWhenRemoved` |
 | R2 | A class outside the domain chooses the next state | idem | idem | `LifecycleTransitionDecisionInTheDomainArchitectureTest#onlyTheDomainMovesTheResolutionStateOfAnExternalReference` |
 
 ## Sources
 
-- ADR : `ARCH-0156` (décisions dans le domaine, [registre](../../architecture/adr/ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md)), `BE-0119` (cycle de vie et tri-état, [ADR](../../architecture/adr/BE-0119-cycle-de-vie-des-changements-et-transition-tri-etat.md)).
+- ADR : `ARCH-0162` (décisions dans le domaine, [registre](../../architecture/adr/ARCH-0162-racines-de-composition-nommees-paquets-sans-cycle-hors-une-paire-bornee-et-decisions-dans-le-domaine.md)), `BE-0119` (cycle de vie et tri-état, [ADR](../../architecture/adr/BE-0119-cycle-de-vie-des-changements-et-transition-tri-etat.md)).
 - Règle du dépôt : [`.claude/rules/architecture.md`](../../../.claude/rules/architecture.md), section « Une décision sur une seule valeur du domaine est écrite sur son type ».
 - Page voisine : [`constraint-blocking-decision.md`](constraint-blocking-decision.md).

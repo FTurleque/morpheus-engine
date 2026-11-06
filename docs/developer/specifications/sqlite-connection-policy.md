@@ -30,7 +30,7 @@ portée de connexion ouverte, sauf pour une liste fermée de sites nommés.
 `[EXISTANT VÉRIFIÉ]` **Un seul constructeur de stores par opération.** `SqliteOperationRuntime.open(chemin, recorder)`
 ouvre la portée avant tout store, puis construit chaque store à la demande, une seule fois, sur la connexion logique
 de la portée. Chaque transport enveloppe ce runtime dans son propre type (`ApiRuntime`, `CliRuntime`,
-`MorpheusMcpRuntime`) : voir `.claude/rules/architecture.md` et ADR-0156.
+`MorpheusMcpRuntime`) : voir `.claude/rules/architecture.md` et ADR-0162.
 
 `[EXISTANT VÉRIFIÉ]` **Refus d'imbrication.** `SqliteConnectionScope.NESTED_REFUSAL` vaut `SQLITE_CONNECTION_SCOPE_NESTED` ;
 `SqliteConnectionScope.NestedScopeException` (sous-type d'`IllegalStateException`) porte le message
@@ -123,7 +123,7 @@ propre connexion.
 
 ## Sources
 
-- ADR : [ARCH-0156](../../architecture/adr/ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md)
+- ADR : [ARCH-0162](../../architecture/adr/ARCH-0162-racines-de-composition-nommees-paquets-sans-cycle-hors-une-paire-bornee-et-decisions-dans-le-domaine.md)
   (racines de composition nommées).
 - Archive OpenSpec : `openspec/changes/archive/2026-10-30-own-the-sqlite-connection-policy-in-one-place/`.
 - Règles du dépôt : `.claude/rules/architecture.md`, sections « api / mcp → stores et providers concrets » et

@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Two decisions on a single domain value are written on their type, in the domain, and no application class makes
- * them again (ADR-0156, on the pattern of ADR-0082).
+ * them again (ADR-0162, on the pattern of ADR-0082).
  *
  * <p>A lifecycle transition is decided by {@code ChangeLifecycleTransitionRequest.decide()} and its outcome is the closed
  * family {@link ChangeLifecycleTransitionDecision}; the resolution state of an external reference is moved by
@@ -44,7 +44,7 @@ class LifecycleTransitionDecisionInTheDomainArchitectureTest {
                 .should().accessFieldWhere(readsAConstantOf(ChangeLifecycleBlocker.class))
                 .because("ChangeLifecycleTransitionRequest decides a lifecycle transition and "
                         + "ChangeLifecycleTransitionDecision says whether it waits for an abandonment reason or is "
-                        + "blocked by a constraint; an application service asks them (ADR-0156)")
+                        + "blocked by a constraint; an application service asks them (ADR-0162)")
                 .check(PRODUCTION);
     }
 
@@ -55,19 +55,19 @@ class LifecycleTransitionDecisionInTheDomainArchitectureTest {
                 .should().callConstructorWhere(DescribedPredicate.describe(
                         "a constructor of a ChangeLifecycleTransitionDecision",
                         call -> call.getTargetOwner().isAssignableTo(ChangeLifecycleTransitionDecision.class)))
-                .because("a lifecycle transition is allowed or blocked by the domain's rules only (ADR-0156)")
+                .because("a lifecycle transition is allowed or blocked by the domain's rules only (ADR-0162)")
                 .check(PRODUCTION);
     }
 
     @Test
     void aLifecycleTransitionDecisionIsAllowedOrBlockedAndNothingElse() {
         assertTrue(ChangeLifecycleTransitionDecision.class.isSealed(),
-                "the outcome of a lifecycle transition is a closed family (ADR-0156)");
+                "the outcome of a lifecycle transition is a closed family (ADR-0162)");
         Set<String> permitted = Arrays.stream(ChangeLifecycleTransitionDecision.class.getPermittedSubclasses())
                 .map(Class::getSimpleName)
                 .collect(Collectors.toCollection(java.util.TreeSet::new));
         assertEquals(Set.of("Allowed", "Blocked"), permitted,
-                "a lifecycle transition is allowed towards a target or blocked by named blockers (ADR-0156)");
+                "a lifecycle transition is allowed towards a target or blocked by named blockers (ADR-0162)");
     }
 
     @Test
@@ -80,7 +80,7 @@ class LifecycleTransitionDecisionInTheDomainArchitectureTest {
                                 && call.getName().equals("transition")))
                 .because("ExternalReference decides whether a lost target leaves it UNRESOLVED or STALE, and with "
                         + "which reason; a resolver reports what it found and the reference moves itself through "
-                        + "resolvedAs, withoutResolver or notFound (ADR-0156)")
+                        + "resolvedAs, withoutResolver or notFound (ADR-0162)")
                 .check(PRODUCTION);
     }
 

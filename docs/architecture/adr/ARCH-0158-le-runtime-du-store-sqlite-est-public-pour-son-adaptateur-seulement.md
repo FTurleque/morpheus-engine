@@ -34,7 +34,7 @@ Options considérées :
   futur est refusé sous son nom, et ce qui reste public se lit en un endroit.
 
 Les transports tiennent deux classes du runtime : `SqliteOperationRuntime`, qui construit les stores d'une opération
-(ADR-0156, décision 2), et `SqliteServerMaintenance`, qui sauvegarde, restaure et prend le bail exclusif de la base
+(ADR-0162, décision 2), et `SqliteServerMaintenance`, qui sauvegarde, restaure et prend le bail exclusif de la base
 pour le serveur remote et la CLI.
 
 ## Decision
@@ -104,7 +104,7 @@ pour le serveur remote et la CLI.
 
 - [ADR-0155](ARCH-0155-un-role-est-un-paquet-et-une-liste-de-classes-declare-sa-sorte.md) — un rôle est un paquet ;
   sortes des listes de classes.
-- [ADR-0156](ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md) —
+- [ADR-0162](ARCH-0162-racines-de-composition-nommees-paquets-sans-cycle-hors-une-paire-bornee-et-decisions-dans-le-domaine.md) —
   `SqliteOperationRuntime` construit les stores d'une opération.
 - [ADR-0150](ARCH-0150-ce-que-le-coeur-applicatif-peut-toucher.md) — le runtime SQLite reste hors de l'application.
 - [ADR-0134](GEN-0134-distribution-native-autonome.md) — distribution native.

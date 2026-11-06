@@ -133,7 +133,7 @@ propre changement.
 
 ## References
 
-- [ADR-0156](../ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md) — racines de composition nommées.
+- [ADR-0156](0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md) — racines de composition nommées.
 - [ADR-0065](../ARCH-0065-jdk-httpserver-local-api.md) — API HTTP sur `jdk.httpserver`.
 - Changement OpenSpec `express-adapter-internal-roles-as-packages` : mesures (tâche 1) et notes des tâches 2 à 5.
 - `.claude/rules/architecture.md`

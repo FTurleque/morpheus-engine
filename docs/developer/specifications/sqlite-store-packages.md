@@ -113,6 +113,6 @@ classes ; ni l'un ni l'autre ne dépend d'un autre store ou d'un provider.
 ## Sources
 
 - ADR : [ARCH-0158](../../architecture/adr/ARCH-0158-le-runtime-du-store-sqlite-est-public-pour-son-adaptateur-seulement.md),
-  [ARCH-0156](../../architecture/adr/ARCH-0156-racines-de-composition-nommees-paquets-sans-cycle-et-decisions-dans-le-domaine.md).
+  [ARCH-0162](../../architecture/adr/ARCH-0162-racines-de-composition-nommees-paquets-sans-cycle-hors-une-paire-bornee-et-decisions-dans-le-domaine.md).
 - Archive OpenSpec : `openspec/changes/archive/2026-10-24-restructure-sqlite-store/`.
 - Règles du dépôt : `.claude/rules/architecture.md`, section « store-sqlite : adapter et runtime ».
