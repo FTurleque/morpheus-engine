@@ -1,7 +1,7 @@
 # Technologies que l'adaptateur HTTP peut toucher (`api-technology-boundary`)
 
-Spec de référence : `openspec/specs/api-technology-boundary/spec.md`, écrite à l'archivage du changement
-`confine-the-technology-families-the-cli-uses` (delta : `openspec/changes/confine-the-technology-families-the-cli-uses/specs/api-technology-boundary/spec.md`)
+Spec de référence : `openspec/specs/api-technology-boundary/spec.md`, issue du changement archivé
+`confine-the-technology-families-the-cli-uses` (delta : `openspec/changes/archive/2026-11-06-confine-the-technology-families-the-cli-uses/specs/api-technology-boundary/spec.md`)
 · Relevé du 2026-11-06 sur `33acc9e0`.
 
 ## Objet et périmètre
@@ -114,9 +114,9 @@ classDiagram
 
 ## Écarts et questions ouvertes
 
-- `[QUESTION]` Le mainteneur veut-il que les listes de l'adaptateur HTTP ne fassent que rétrécir ? Elles deviendraient
-  des compteurs de dette, ce qui exige un ADR accepté qui les nomme. Elles sont tables de faits par défaut, comme
-  celles de la CLI.
+- `[DÉCISION]` Les listes de l'adaptateur HTTP sont des tables de faits, comme celles de la CLI : elles disent quelles
+  classes atteignent chaque famille et ne promettent pas de rétrécir, sans ADR qui les nomme. Décidé par le mainteneur
+  le 6 novembre 2026.
 - `[DÉCISION]` par défaut, à confirmer : l'horloge murale est libre, comme dans la CLI, alors que l'adaptateur la lit
   aussi dans les classes du fichier d'identités remote (expiration d'un jeton). La confiner nommerait ces classes sans
   protéger de frontière.

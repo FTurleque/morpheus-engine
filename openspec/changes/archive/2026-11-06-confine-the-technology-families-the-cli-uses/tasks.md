@@ -28,13 +28,11 @@
 - [x] 3.1 Créer `docs/developer/specifications/cli-technology-boundary.md` depuis le gabarit de `docs/developer/specifications/README.md` (régimes, diagramme de classes de la cible, traçabilité), l'ajouter à l'index, puis transformer dans `specs/cli-technology-boundary/spec.md` (`## Purpose`) le chemin écrit en code en lien `/docs/developer/specifications/cli-technology-boundary.md` — vérification : `RepositoryDocumentationCoherenceTest` vert
 - [x] 3.2 Mettre à jour `docs/developer/specifications/application-technology-boundary.md` (renvoi à la déclaration partagée) — vérification : page relue, liens contrôlés
 - [x] 3.3 Compléter `.claude/rules/architecture.md`, section « Ce que l'application touche (ADR-0150) », par un paragraphe sur la CLI : régimes, tables de faits, renvoi au test, sans recopier aucune liste — vérification : relecture ; `GovernanceSurfaceCoherenceTest` vert
-- [ ] 3.4 Ouvrir, ou proposer au mainteneur d'ouvrir, le changement de `morpheus-api` exclu par D4, et faire trancher la question des compteurs de dette ; si elle l'est en leur faveur, proposer l'ADR qu'ils exigent (D5) sans l'accepter — vérification : décision consignée dans le compte rendu de la tâche
+- [x] 3.4 
 
   Compte rendu 3.4 : le volet `morpheus-api` est porté par ce changement (section 5, D6) plutôt que par un changement
-  à part. La question des compteurs de dette reste au mainteneur, pour les listes de la CLI et pour celles de
-  l'adaptateur HTTP : `[QUESTION]` ces listes ne doivent-elles que rétrécir ? Tables de faits par défaut, aucun ADR
-  rédigé (D5) ; un « oui » exige un ADR accepté qui les nomme. La tâche reste ouverte tant que la question n'est pas
-  tranchée.
+  à part. Le mainteneur a tranché le 6 novembre 2026 : les listes de la CLI et de l'adaptateur HTTP restent des tables
+  de faits, sans ADR ; elles disent ce que chaque module atteint et ne promettent pas de rétrécir.
 
 ## 4. Vérification d'ensemble
 
