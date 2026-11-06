@@ -1,9 +1,12 @@
 package com.morpheus.architecture;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.RecordComponent;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -48,14 +51,41 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ProductionClassListsArchitectureTest {
 
-    /** A debt counter carries the identifier of the decision record that names it; a table of facts carries none. */
-    private record Kind(Optional<String> decision) {
-        static final Kind TABLE_OF_FACTS = new Kind(Optional.empty());
+    /**
+     * A debt counter carries the identifier of the decision record that names it; a table of facts carries one only
+     * when a decision record states it. The enumeration root, when present, is the package against which the names the
+     * record writes between its delimiters are resolved: a list its record enumerates is compared to that enumeration,
+     * a list its record only references by {@code TestClass.FIELD} is not.
+     */
+    private record Kind(boolean debtCounter, Optional<String> decision, Optional<String> enumerationRoot) {
+        static final Kind TABLE_OF_FACTS = new Kind(false, Optional.empty(), Optional.empty());
 
         static Kind debtCounterUnder(String decisionRecord) {
-            return new Kind(Optional.of(decisionRecord));
+            return new Kind(true, Optional.of(decisionRecord), Optional.empty());
+        }
+
+        static Kind debtCounterEnumeratedBy(String decisionRecord, String packageRoot) {
+            return new Kind(true, Optional.of(decisionRecord), Optional.of(packageRoot));
+        }
+
+        static Kind tableOfFactsEnumeratedBy(String decisionRecord, String packageRoot) {
+            return new Kind(false, Optional.of(decisionRecord), Optional.of(packageRoot));
         }
     }
+
+    private static final String APPLICATION_ROOT = "com.morpheus.application";
+    private static final String SIMPLE_NAMES = "";
+    private static final String ENUMERATION_END = "<!-- fin de liste -->";
+    private static final Pattern CODE_SPAN = Pattern.compile("`([^`]+)`");
+    private static final Pattern TABLE_SEPARATOR = Pattern.compile("^\\|[\\s|:-]+\\|$");
+
+    /** The closed vocabulary of the family column of an enumerated table, each word mapped to the gate's family name. */
+    private static final Map<String, String> FAMILY_WORDS = Map.of(
+            "fichier", "file access",
+            "environnement", "process environment",
+            "flux standard", "standard streams",
+            "horloge murale", "wall clock",
+            "réflexion", "reflection and class loading");
 
     private static final String DECISION_RECORDS = "docs/architecture/adr";
     private static final String DEBT_COUNTER_RATCHETS = "config/debt-counter-ratchets.properties";
@@ -64,13 +94,15 @@ class ProductionClassListsArchitectureTest {
     /** Each remaining list, by {@code TestClass.FIELD}, with its kind. */
     private static final Map<String, Kind> KINDS = Map.ofEntries(
             Map.entry("AdapterCompositionRootArchitectureTest.COMPOSITION_ROOTS", Kind.debtCounterUnder("ARCH-0162")),
-            Map.entry("ApiEntryTypesArchitectureTest.ENTRY_TYPES", Kind.TABLE_OF_FACTS),
+            Map.entry("ApiEntryTypesArchitectureTest.ENTRY_TYPES", Kind.tableOfFactsEnumeratedBy("ARCH-0155", SIMPLE_NAMES)),
             Map.entry("AppendOnlyJournalReadsArchitectureTest.JOURNAL_PAGES", Kind.TABLE_OF_FACTS),
             Map.entry("AppendOnlyJournalReadsArchitectureTest.JOURNAL_PORTS", Kind.TABLE_OF_FACTS),
             Map.entry("AppendOnlyJournalReadsArchitectureTest.JOURNAL_RECORDS", Kind.TABLE_OF_FACTS),
             Map.entry("ApplicationPackageCyclesArchitectureTest.QUERY_DSL_AND_SAVED_EDGES", Kind.debtCounterUnder("ARCH-0162")),
-            Map.entry("ApplicationTechnologyBoundaryArchitectureTest.CONFINED_FAMILIES", Kind.debtCounterUnder("ARCH-0150")),
-            Map.entry("ApplicationTechnologyBoundaryArchitectureTest.REFLECTION_AND_LOADING", Kind.debtCounterUnder("ARCH-0150")),
+            Map.entry("ApplicationTechnologyBoundaryArchitectureTest.CONFINED_FAMILIES",
+                    Kind.debtCounterEnumeratedBy("ARCH-0150", APPLICATION_ROOT)),
+            Map.entry("ApplicationTechnologyBoundaryArchitectureTest.REFLECTION_AND_LOADING",
+                    Kind.debtCounterEnumeratedBy("ARCH-0150", APPLICATION_ROOT)),
             Map.entry("CliArgumentBaseArchitectureTest.OTHER_PURPOSES", Kind.TABLE_OF_FACTS),
             Map.entry("CliOptionValueHasOneBlankDefinitionTest.OTHER_QUESTIONS", Kind.TABLE_OF_FACTS),
             Map.entry("CurrentRequirementReaderArchitectureTest.FULL_HISTORY_READERS", Kind.TABLE_OF_FACTS),
@@ -147,28 +179,304 @@ class ProductionClassListsArchitectureTest {
         Path records = RepositoryRoot.locate().resolve(DECISION_RECORDS);
         List<String> refusals = new ArrayList<>();
         for (Map.Entry<String, String> counter : debtCounters().entrySet()) {
-            List<Path> matching;
-            try (Stream<Path> files = Files.list(records)) {
-                matching = files.filter(file -> file.getFileName().toString().startsWith(counter.getValue() + "-"))
-                        .filter(file -> file.getFileName().toString().endsWith(".md"))
-                        .sorted()
-                        .toList();
-            }
-            if (matching.size() != 1) {
-                refusals.add(counter.getKey() + " declares " + counter.getValue() + ", found in the registry as "
-                        + matching);
-                continue;
-            }
-            String text = Files.readString(matching.get(0));
-            if (!text.contains(ACCEPTED)) {
-                refusals.add(counter.getKey() + " declares " + counter.getValue() + ", which is not accepted");
-            }
-            if (!text.contains(counter.getKey())) {
+            Optional<String> text = acceptedRecord(records, counter.getKey(), counter.getValue(), refusals);
+            if (text.isPresent() && !text.get().contains(counter.getKey())) {
                 refusals.add(counter.getKey() + " declares " + counter.getValue() + ", which does not name it");
             }
         }
         assertEquals(List.of(), refusals, "a debt counter shrinks under the decision record that says so: the record "
                 + "it declares is in " + DECISION_RECORDS + ", accepted, and names it by TestClass.FIELD");
+    }
+
+    /**
+     * A decision record that enumerates a list, rather than naming it by {@code TestClass.FIELD} only, holds the same
+     * names as the constant of the gate: a class added to one and not to the other fails here, whichever side moved.
+     */
+    @Test
+    void everyListADecisionRecordEnumeratesEqualsItsEnumeration() throws IOException, ReflectiveOperationException {
+        Path records = RepositoryRoot.locate().resolve(DECISION_RECORDS);
+        Map<String, Class<?>> testClasses = testClassesBySimpleName();
+        List<String> refusals = new ArrayList<>();
+        int compared = 0;
+        for (Map.Entry<String, Kind> list : new TreeMap<>(KINDS).entrySet()) {
+            Optional<String> root = list.getValue().enumerationRoot();
+            if (root.isEmpty()) {
+                continue;
+            }
+            compared++;
+            String decision = list.getValue().decision().orElseThrow();
+            Optional<String> text = acceptedRecord(records, list.getKey(), decision, refusals);
+            if (text.isPresent()) {
+                refusals.addAll(enumerationRefusals(list.getKey(), decision, text.get(), root.get(),
+                        namesByFamily(listValue(testClasses, list.getKey()))));
+            }
+        }
+        assertTrue(compared > 0, "KINDS declares no list that a decision record enumerates");
+        assertEquals(List.of(), refusals, "a list a decision record enumerates is written in that record between "
+                + "<!-- liste TestClass.FIELD --> and " + ENUMERATION_END + ", with the same names as the constant");
+    }
+
+    @Test
+    void aNameAddedToTheGateAndNotToTheRecordIsNamedWithTheRecordAndTheList() {
+        List<String> refusals = enumerationRefusals("Gate.NAMES", "ARCH-9999",
+                block("Gate.NAMES", "`alpha.First`"), "com.example", Map.of("", Set.of("com.example.alpha.First",
+                        "com.example.beta.Second")));
+
+        assertEquals(1, refusals.size(), refusals::toString);
+        assertTrue(refusals.get(0).contains("Gate.NAMES") && refusals.get(0).contains("ARCH-9999")
+                && refusals.get(0).contains("com.example.beta.Second"), refusals.get(0));
+    }
+
+    @Test
+    void aNameTheRecordWritesAndTheListNoLongerHoldsIsNamed() {
+        List<String> refusals = enumerationRefusals("Gate.NAMES", "ARCH-9999",
+                block("Gate.NAMES", "`alpha.First`, `product.Removed`"), "com.example",
+                Map.of("", Set.of("com.example.alpha.First")));
+
+        assertEquals(1, refusals.size(), refusals::toString);
+        assertTrue(refusals.get(0).contains("com.example.product.Removed"), refusals.get(0));
+    }
+
+    @Test
+    void theSameSimpleNameInAnotherPackageIsNamedOnBothSides() {
+        List<String> refusals = enumerationRefusals("Gate.FAMILIES", "ARCH-9999", block("Gate.FAMILIES", """
+                | Classe | Familles | Sort |
+                |---|---|---|
+                | `security.Hardener` | fichier, environnement | reste |
+                """), "com.example", Map.of("file access", Set.of("com.example.files.Hardener"),
+                "process environment", Set.of("com.example.files.Hardener")));
+
+        String all = String.join("\n", refusals);
+        assertTrue(all.contains("com.example.security.Hardener") && all.contains("com.example.files.Hardener")
+                && all.contains("file access") && all.contains("process environment"), all);
+    }
+
+    @Test
+    void anEnumerationTheBuildCannotReadIsRefusedBySayingWhatItCouldNotRead() {
+        Map<String, Set<String>> families = Map.of("file access", Set.of("com.example.files.Reader"));
+
+        List<String> absent = enumerationRefusals("Gate.FAMILIES", "ARCH-9999", "# A record without a block\n",
+                "com.example", families);
+        List<String> empty = enumerationRefusals("Gate.FAMILIES", "ARCH-9999", block("Gate.FAMILIES", ""),
+                "com.example", families);
+        List<String> unknownFamily = enumerationRefusals("Gate.FAMILIES", "ARCH-9999", block("Gate.FAMILIES",
+                "| `files.Reader` | réseau | reste |"), "com.example", families);
+        List<String> noSpan = enumerationRefusals("Gate.NAMES", "ARCH-9999", block("Gate.NAMES",
+                "`alpha.First`\nalpha.Second, written without a span"), "com.example",
+                Map.of("", Set.of("com.example.alpha.First")));
+
+        assertTrue(absent.size() == 1 && absent.get(0).contains("no block"), absent::toString);
+        assertTrue(empty.size() == 1 && empty.get(0).contains("names no class"), empty::toString);
+        assertTrue(unknownFamily.size() == 1 && unknownFamily.get(0).contains("réseau")
+                && unknownFamily.get(0).contains("outside the vocabulary"), unknownFamily::toString);
+        assertTrue(noSpan.size() == 1 && noSpan.get(0).contains("alpha.Second"), noSpan::toString);
+    }
+
+    @Test
+    void aTableOfFactsDeclaringARecordThatDoesNotEnumerateItIsRefusedByNameAndRecord(@TempDir Path registry)
+            throws IOException {
+        Files.writeString(registry.resolve("ARCH-9001-proposed.md"), "- Statut : **Proposée**\n"
+                + block("Facts.TYPES", "`Alpha`"));
+        Files.writeString(registry.resolve("ARCH-9002-silent.md"), "- " + ACCEPTED + "\n\nNo enumeration here.\n");
+        List<String> refusals = new ArrayList<>();
+
+        Optional<String> missing = acceptedRecord(registry, "Facts.TYPES", "ARCH-9000", refusals);
+        Optional<String> proposed = acceptedRecord(registry, "Facts.TYPES", "ARCH-9001", refusals);
+        Optional<String> silent = acceptedRecord(registry, "Facts.TYPES", "ARCH-9002", refusals);
+        silent.ifPresent(text -> refusals.addAll(enumerationRefusals("Facts.TYPES", "ARCH-9002", text, SIMPLE_NAMES,
+                Map.of("", Set.of("Alpha")))));
+
+        assertTrue(missing.isEmpty() && proposed.isEmpty() && silent.isPresent(), refusals::toString);
+        assertEquals(3, refusals.size(), refusals::toString);
+        for (String decision : List.of("ARCH-9000", "ARCH-9001", "ARCH-9002")) {
+            assertTrue(refusals.stream().anyMatch(refusal -> refusal.contains("Facts.TYPES")
+                    && refusal.contains(decision)), decision + " not named in " + refusals);
+        }
+    }
+
+    @Test
+    void aListItsRecordOnlyReferencesIsNotAskedForAnEnumeration() throws IOException {
+        String list = "AdapterCompositionRootArchitectureTest.COMPOSITION_ROOTS";
+        Kind kind = KINDS.get(list);
+        List<String> refusals = new ArrayList<>();
+
+        Optional<String> text = acceptedRecord(RepositoryRoot.locate().resolve(DECISION_RECORDS), list,
+                kind.decision().orElseThrow(), refusals);
+
+        assertTrue(kind.enumerationRoot().isEmpty(), "ARCH-0156 names the composition roots by reference only");
+        assertTrue(text.isPresent() && text.get().contains(list) && !text.get().contains("<!-- liste " + list),
+                () -> "ARCH-0156 is accepted and references the list without enumerating it: " + refusals);
+    }
+
+    private static String block(String list, String content) {
+        return "Some prose.\n\n<!-- liste " + list + " -->\n" + content + "\n" + ENUMERATION_END + "\n\nMore prose.\n";
+    }
+
+    /** The text of the accepted record a list declares, or empty with the reason added to {@code refusals}. */
+    private static Optional<String> acceptedRecord(Path records, String list, String decision, List<String> refusals)
+            throws IOException {
+        List<Path> matching;
+        try (Stream<Path> files = Files.list(records)) {
+            matching = files.filter(file -> file.getFileName().toString().startsWith(decision + "-"))
+                    .filter(file -> file.getFileName().toString().endsWith(".md"))
+                    .sorted()
+                    .toList();
+        }
+        if (matching.size() != 1) {
+            refusals.add(list + " declares " + decision + ", found in the registry as " + matching);
+            return Optional.empty();
+        }
+        String text = Files.readString(matching.get(0));
+        if (!text.contains(ACCEPTED)) {
+            refusals.add(list + " declares " + decision + ", which is not accepted");
+            return Optional.empty();
+        }
+        return Optional.of(text);
+    }
+
+    /**
+     * What keeps the enumeration of {@code list} in the record's text from holding exactly the names of the constant.
+     * A table enumerates a list grouped by family, one class per row with its families in the second column; any other
+     * block enumerates every code span it contains. An enumeration that cannot be read is refused before any comparison,
+     * so that a misread never concludes that the two sides agree.
+     */
+    private static List<String> enumerationRefusals(String list, String decision, String text, String root,
+                                                    Map<String, Set<String>> constant) {
+        String where = list + " (" + decision + "): ";
+        String opening = "<!-- liste " + list + " -->";
+        int start = text.indexOf(opening);
+        if (start < 0 || text.indexOf(opening, start + 1) >= 0) {
+            return List.of(where + (start < 0 ? "the record has no block " : "the record has more than one block ")
+                    + opening + " ... " + ENUMERATION_END);
+        }
+        int end = text.indexOf(ENUMERATION_END, start);
+        if (end < 0) {
+            return List.of(where + "the block " + opening + " is not closed by " + ENUMERATION_END);
+        }
+        List<String> lines = text.substring(start + opening.length(), end).lines().map(String::trim)
+                .filter(line -> !line.isEmpty()).toList();
+        boolean grouped = !constant.keySet().equals(Set.of(""));
+        List<String> unreadable = new ArrayList<>();
+        Map<String, Set<String>> written = new TreeMap<>();
+        for (int index = 0; index < lines.size(); index++) {
+            String line = lines.get(index);
+            boolean header = index + 1 < lines.size() && TABLE_SEPARATOR.matcher(lines.get(index + 1)).matches();
+            if (header || TABLE_SEPARATOR.matcher(line).matches()) {
+                continue;
+            }
+            if (!grouped) {
+                List<String> spans = codeSpans(line);
+                if (spans.isEmpty()) {
+                    unreadable.add(where + "a line of the block names no class in a code span: " + line);
+                }
+                spans.forEach(name -> written.computeIfAbsent("", family -> new TreeSet<>()).add(qualified(root, name)));
+                continue;
+            }
+            String[] cells = line.replaceAll("^\\|", "").replaceAll("\\|$", "").split("\\|");
+            List<String> names = codeSpans(cells[0]);
+            if (cells.length < 2 || names.isEmpty()) {
+                unreadable.add(where + "a row of the table has no class in a code span and its families: " + line);
+                continue;
+            }
+            for (String word : cells[1].split(",")) {
+                String family = FAMILY_WORDS.get(word.trim());
+                if (family == null) {
+                    unreadable.add(where + "the family '" + word.trim() + "' is outside the vocabulary "
+                            + new TreeSet<>(FAMILY_WORDS.keySet()) + ": " + line);
+                    continue;
+                }
+                names.forEach(name -> written.computeIfAbsent(family, key -> new TreeSet<>()).add(qualified(root, name)));
+            }
+        }
+        if (!unreadable.isEmpty()) {
+            return unreadable;
+        }
+        if (written.isEmpty()) {
+            return List.of(where + "the block " + opening + " names no class");
+        }
+        List<String> refusals = new ArrayList<>();
+        Set<String> families = new TreeSet<>(constant.keySet());
+        families.addAll(written.keySet());
+        for (String family : families) {
+            String group = family.isEmpty() ? "" : " for " + family;
+            Set<String> missing = new TreeSet<>(constant.getOrDefault(family, Set.of()));
+            missing.removeAll(written.getOrDefault(family, Set.of()));
+            Set<String> extra = new TreeSet<>(written.getOrDefault(family, Set.of()));
+            extra.removeAll(constant.getOrDefault(family, Set.of()));
+            if (!missing.isEmpty()) {
+                refusals.add(where + "the list holds" + group + " " + missing + ", which the record does not write");
+            }
+            if (!extra.isEmpty()) {
+                refusals.add(where + "the record writes" + group + " " + extra + ", which the list does not hold");
+            }
+        }
+        return refusals;
+    }
+
+    private static List<String> codeSpans(String text) {
+        List<String> spans = new ArrayList<>();
+        Matcher span = CODE_SPAN.matcher(text);
+        while (span.find()) {
+            spans.add(span.group(1).trim());
+        }
+        return spans;
+    }
+
+    private static String qualified(String root, String name) {
+        return root.isEmpty() ? name : root + "." + name;
+    }
+
+    /**
+     * The names of a list by family: a set or a list is one group under the empty family; a map of collections groups
+     * its values by the name of their key, a string or a record with a {@code name} component; any other map is one
+     * group of its keys.
+     */
+    private static Map<String, Set<String>> namesByFamily(Object list) throws ReflectiveOperationException {
+        Map<String, Set<String>> families = new TreeMap<>();
+        if (list instanceof Collection<?> collection) {
+            families.put("", strings(collection));
+        } else if (list instanceof Map<?, ?> map && !map.isEmpty()
+                && map.values().stream().allMatch(Collection.class::isInstance)) {
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                families.put(familyName(entry.getKey()), strings((Collection<?>) entry.getValue()));
+            }
+        } else if (list instanceof Map<?, ?> map) {
+            families.put("", strings(map.keySet()));
+        } else {
+            throw new IllegalArgumentException("an enumerated list is a Set, a List or a Map, not a "
+                    + list.getClass().getName());
+        }
+        return families;
+    }
+
+    private static String familyName(Object key) throws ReflectiveOperationException {
+        if (key instanceof String name) {
+            return name;
+        }
+        if (key.getClass().isRecord()) {
+            for (RecordComponent component : key.getClass().getRecordComponents()) {
+                if (component.getName().equals("name")) {
+                    Method accessor = component.getAccessor();
+                    accessor.setAccessible(true);
+                    return (String) accessor.invoke(key);
+                }
+            }
+        }
+        throw new IllegalArgumentException("the key of a family is a String or a record with a name, not a "
+                + key.getClass().getName());
+    }
+
+    private static Set<String> strings(Collection<?> values) {
+        Set<String> names = new TreeSet<>();
+        values.forEach(value -> names.add(value instanceof Class<?> type ? type.getSimpleName() : value.toString()));
+        return names;
+    }
+
+    private static Object listValue(Map<String, Class<?>> testClasses, String list) throws ReflectiveOperationException {
+        int dot = list.indexOf('.');
+        Field field = testClasses.get(list.substring(0, dot)).getDeclaredField(list.substring(dot + 1));
+        field.setAccessible(true);
+        return field.get(null);
     }
 
     @Test
@@ -184,10 +492,7 @@ class ProductionClassListsArchitectureTest {
         List<String> grown = new ArrayList<>();
         List<String> shrunk = new ArrayList<>();
         for (String counter : debtCounters().keySet()) {
-            int dot = counter.indexOf('.');
-            Field field = testClasses.get(counter.substring(0, dot)).getDeclaredField(counter.substring(dot + 1));
-            field.setAccessible(true);
-            int size = sizeOf(field.get(null));
+            int size = sizeOf(listValue(testClasses, counter));
             int ratchet = Integer.parseInt(ratchets.getProperty(counter).trim());
             if (size > ratchet) {
                 grown.add(counter + " holds " + size + " for a ratchet of " + ratchet);
@@ -260,7 +565,11 @@ class ProductionClassListsArchitectureTest {
 
     private static Map<String, String> debtCounters() {
         Map<String, String> counters = new TreeMap<>();
-        KINDS.forEach((list, kind) -> kind.decision().ifPresent(decision -> counters.put(list, decision)));
+        KINDS.forEach((list, kind) -> {
+            if (kind.debtCounter()) {
+                counters.put(list, kind.decision().orElseThrow());
+            }
+        });
         return counters;
     }
 

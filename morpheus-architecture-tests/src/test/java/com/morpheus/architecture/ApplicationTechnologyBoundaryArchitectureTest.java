@@ -11,16 +11,21 @@ import com.tngtech.archunit.lang.CompositeArchRule;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.function.Predicate;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.tngtech.archunit.lang.conditions.ArchConditions.never;
@@ -40,6 +45,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ApplicationTechnologyBoundaryArchitectureTest {
     private static final String APPLICATION = "com.morpheus.application";
+    private static final String DECISION_RECORD = "ARCH-0150";
+    private static final Pattern QUALIFIED_SPAN = Pattern.compile("`((?:[a-z][a-z0-9]*\\.)+[A-Z][A-Za-z0-9]*)`");
 
     private static final String HARDENER = APPLICATION + ".files.LocalWritePermissionHardener";
     private static final String ROTATING_LOG = APPLICATION + ".operability.RotatingOperationalLogFile";
@@ -173,6 +180,72 @@ class ApplicationTechnologyBoundaryArchitectureTest {
         assertTrue(scanned > 100, "the scan must read the application sources, read " + scanned);
         assertEquals(Set.of(), unnamed, "ADR-0150, decision 2: a source that names reflection or class loading "
                 + "belongs to a class named for that family");
+    }
+
+    /**
+     * A class ADR-0150 names by a name qualified from a package of the application, in any section, exists at that name:
+     * the enumeration compared by {@code ProductionClassListsArchitectureTest} does not see a name written elsewhere.
+     */
+    @Test
+    void everyClassTheDecisionRecordNamesByAQualifiedNameExistsAtThatName() throws IOException {
+        Path root = RepositoryRoot.locate();
+        List<Path> record;
+        try (Stream<Path> records = Files.list(root.resolve("docs/architecture/adr"))) {
+            record = records.filter(path -> path.getFileName().toString().startsWith(DECISION_RECORD + "-")).toList();
+        }
+        assertEquals(1, record.size(), () -> DECISION_RECORD + " is one file of the registry: " + record);
+
+        List<String> refusals = unresolvedQualifiedNames(Files.readString(record.get(0)),
+                root.resolve("morpheus-application/src/main/java/com/morpheus/application"));
+
+        assertEquals(List.of(), refusals, DECISION_RECORD + " names each class of the application at the package where "
+                + "it lives");
+    }
+
+    @Test
+    void aQualifiedNameThatResolvesToNoSourceIsRefusedAndASilentRecordToo(@TempDir Path application)
+            throws IOException {
+        Files.createDirectories(application.resolve("files"));
+        Files.createDirectories(application.resolve("security"));
+        Files.writeString(application.resolve("files/Hardener.java"), "class Hardener {}");
+
+        List<String> moved = unresolvedQualifiedNames("`security.Hardener` and `files.Hardener`, `java.time.Clock`",
+                application);
+        List<String> removed = unresolvedQualifiedNames("`files.Hardener`, `files.Gone`", application);
+        List<String> silent = unresolvedQualifiedNames("`java.time.Clock` and `Hardener` only", application);
+
+        assertEquals(List.of("security.Hardener has no source under " + application), moved);
+        assertEquals(List.of("files.Gone has no source under " + application), removed);
+        assertTrue(silent.size() == 1 && silent.get(0).contains("no class of the application"), silent::toString);
+    }
+
+    /**
+     * The names of {@code text} written in a code span as {@code package(.package)*.Class}, whose first package is a
+     * package of the application, that have no source file at that name; a text that names none is refused too, so a
+     * scan that read nothing never passes.
+     */
+    private static List<String> unresolvedQualifiedNames(String text, Path applicationPackage) throws IOException {
+        Set<String> packages;
+        try (Stream<Path> children = Files.list(applicationPackage)) {
+            packages = children.filter(Files::isDirectory).map(path -> path.getFileName().toString())
+                    .collect(Collectors.toCollection(TreeSet::new));
+        }
+        Set<String> read = new TreeSet<>();
+        List<String> refusals = new ArrayList<>();
+        Matcher span = QUALIFIED_SPAN.matcher(text);
+        while (span.find()) {
+            String name = span.group(1);
+            if (!packages.contains(name.substring(0, name.indexOf('.'))) || !read.add(name)) {
+                continue;
+            }
+            if (!Files.isRegularFile(applicationPackage.resolve(name.replace('.', '/') + ".java"))) {
+                refusals.add(name + " has no source under " + applicationPackage);
+            }
+        }
+        if (read.isEmpty()) {
+            refusals.add("the text names no class of the application by a qualified name: the scan read nothing");
+        }
+        return refusals;
     }
 
     @Test

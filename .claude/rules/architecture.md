@@ -252,9 +252,12 @@ un nouveau service `*ApiService` dans `com.morpheus.api`, un nouveau routeur dan
 Toute liste d'un test d'architecture qui nomme une classe de production, quel que soit son module, est un compteur de
 dette ou une table de faits, déclarée dans `ProductionClassListsArchitectureTest` ; une liste qui serait un rôle est un
 paquet. Un compteur de dette déclare l'ADR qui le dit, et cet ADR, accepté, le nomme par `TestClass.CHAMP` ; sa taille
-égale sa clé de `config/debt-counter-ratchets.properties`, qui ne fait que baisser. Une liste sans tel ADR est une table
-de faits, qui ne promet pas de rétrécir.
-> `noClassOutsideTheAdapterDependsOnATypeOfTheAdapterBesideTheEntryTypes`, `thePackagesOfTheHttpAdapterFormNoCycle`, `everyListOfProductionClassesIsADebtCounterOrATableOfFacts`, `everyDebtCounterIsNamedByTheAcceptedDecisionRecordItDeclares`, `everyDebtCounterHoldsExactlyTheSizeItsRatchetAllows`
+égale sa clé de `config/debt-counter-ratchets.properties`, qui ne fait que baisser. Une liste qui ne promet pas de
+rétrécir est une table de faits ; elle déclare l'ADR qui l'énonce s'il y en a un. Quand l'ADR **énumère** la liste au
+lieu de la nommer par sa seule référence, sa sorte le dit (`debtCounterEnumeratedBy`, `tableOfFactsEnumeratedBy`) et
+l'ADR l'écrit entre `<!-- liste TestClass.CHAMP -->` et `<!-- fin de liste -->` : le build compare ces noms à la
+constante, dans les deux sens, et nomme l'écart. Ajouter un nom à la constante sans l'ADR, ou l'inverse, casse le build.
+> `noClassOutsideTheAdapterDependsOnATypeOfTheAdapterBesideTheEntryTypes`, `thePackagesOfTheHttpAdapterFormNoCycle`, `everyListOfProductionClassesIsADebtCounterOrATableOfFacts`, `everyDebtCounterIsNamedByTheAcceptedDecisionRecordItDeclares`, `everyDebtCounterHoldsExactlyTheSizeItsRatchetAllows`, `everyListADecisionRecordEnumeratesEqualsItsEnumeration`
 
 ### `morpheus-cli` et `morpheus-mcp` : une commande, un outil, une classe de capacité (ADR-0149)
 Une commande CLI va dans une classe de `com.morpheus.cli.command`, un outil MCP dans une classe de

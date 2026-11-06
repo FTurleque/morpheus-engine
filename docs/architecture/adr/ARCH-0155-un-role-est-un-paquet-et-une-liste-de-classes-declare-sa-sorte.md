@@ -66,8 +66,10 @@ de cycle, et sans attendre qu'un cycle se ferme pour la plomberie, les services 
 
 ### 3. Les autres modules n'utilisent que six types de l'adaptateur
 
+<!-- liste ApiEntryTypesArchitectureTest.ENTRY_TYPES -->
 `AllowedWorkspaceRoots`, `LoopbackHostPolicy`, `MorpheusHttpServer`, `MorpheusRemoteHttpServer`,
 `MorpheusRemoteIdentityFile` et `MorpheusRemoteRole`, avec leurs types imbriqués. Un type ne s'ajoute que par un ADR.
+<!-- fin de liste -->
 
 ### 4. Toute liste de classes de production déclare sa sorte
 
@@ -124,6 +126,9 @@ Une liste qui serait un rôle n'existe pas : ses classes vont dans un paquet.
 - `ApiEntryTypesArchitectureTest` : règle sur le bytecode et scan des sources des autres modules. Vue en échec : une
   classe publique plantée dans un sous-paquet, utilisée depuis `morpheus-cli`, refusée par la règle ; la seule lecture de
   sa constante, refusée par le scan seul.
+- La liste du point 3 est `ApiEntryTypesArchitectureTest.ENTRY_TYPES`, table de faits que
+  `ProductionClassListsArchitectureTest` déclare sous cet ADR et compare, nom pour nom, à l'énumération délimitée du
+  point 3 (`everyListADecisionRecordEnumeratesEqualsItsEnumeration`).
 - `ApiPackageCyclesArchitectureTest` : tranches par paquet de `com.morpheus.api`. Vue en échec : une classe de
   `transport` dépendant d'un service du parent.
 - `ApiServicesAndTransportPackagesArchitectureTest` : `transport` ne dépend d'aucun autre paquet de l'adaptateur ; les
