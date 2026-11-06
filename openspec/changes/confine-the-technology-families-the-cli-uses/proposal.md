@@ -30,6 +30,8 @@ sur les fils d'exécution (`DatabaseWorkArchitectureTest`, `ARCH-0159`) est born
 ### New Capabilities
 - `cli-technology-boundary` : quelles familles technologiques `com.morpheus.cli` peut atteindre, par quelles classes, et
   comment le build le tient.
+- `api-technology-boundary` : la même question pour `com.morpheus.api`, sur la même déclaration partagée (volet
+  `morpheus-api`, `design.md` D6).
 
 ### Modified Capabilities
 
@@ -41,14 +43,17 @@ ce qu'elles refusent ni ce qu'elles confinent dans l'application.
 **Inclus :** les classes de production de `com.morpheus.cli` (module `morpheus-cli`) ; la déclaration partagée des
 familles dans `morpheus-architecture-tests`.
 
+**Inclus en second volet :** les classes de production de `com.morpheus.api` (module `morpheus-api`), l'autre module de
+transport que l'action du constat nomme (`design.md` D6, section « morpheus-api » de `tasks.md`).
+
 **Exclus :**
-- `morpheus-api`, l'autre module de transport que l'action du constat nomme. Il porte déjà des règles par famille et
+- dans le premier volet, `morpheus-api`. Il porte déjà des règles par famille et
   par groupe — fils d'exécution (`DatabaseWorkArchitectureTest`, `ARCH-0159`), bibliothèque JSON
   (`HttpRoutesTransportBoundaryArchitectureTest`, `everyApiJsonMapperIsStrictAboutUnknownPropertiesAndTrailingTokens`) —
   qu'un gate de familles doit d'abord réconcilier sans les répéter (`.claude/rules/architecture.md` : une suite ne répète
   aucun interdit qu'une règle tient déjà) ; et sa surface est plus large (relevé textuel du 06/11 sur `30520bd3` : des
-  imports réseau, fichier et fils dans plusieurs classes, là où la CLI n'en a qu'une pour le réseau et les fils). Il fera l'objet d'un changement à part,
-  qui réutilisera la déclaration partagée des familles livrée ici.
+  imports réseau, fichier et fils dans plusieurs classes, là où la CLI n'en a qu'une pour le réseau et les fils). Il est
+  traité en second volet de ce changement, sur la déclaration partagée des familles livrée par le premier.
 - `morpheus-mcp`, les providers, les stores et les intégrations : hors de l'action du constat.
 - tout déplacement de code : le changement mesure et gèle l'état présent, il ne déplace aucune classe.
 - la rédaction d'un ADR (voir `design.md`, D5).

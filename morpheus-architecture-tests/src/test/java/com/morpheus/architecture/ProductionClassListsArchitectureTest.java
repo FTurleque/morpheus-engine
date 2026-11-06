@@ -95,6 +95,7 @@ class ProductionClassListsArchitectureTest {
     private static final Map<String, Kind> KINDS = Map.ofEntries(
             Map.entry("AdapterCompositionRootArchitectureTest.COMPOSITION_ROOTS", Kind.debtCounterUnder("ARCH-0162")),
             Map.entry("ApiEntryTypesArchitectureTest.ENTRY_TYPES", Kind.tableOfFactsEnumeratedBy("ARCH-0155", SIMPLE_NAMES)),
+            Map.entry("ApiTechnologyBoundaryArchitectureTest.CONFINED_FAMILIES", Kind.TABLE_OF_FACTS),
             Map.entry("AppendOnlyJournalReadsArchitectureTest.JOURNAL_PAGES", Kind.TABLE_OF_FACTS),
             Map.entry("AppendOnlyJournalReadsArchitectureTest.JOURNAL_PORTS", Kind.TABLE_OF_FACTS),
             Map.entry("AppendOnlyJournalReadsArchitectureTest.JOURNAL_RECORDS", Kind.TABLE_OF_FACTS),
