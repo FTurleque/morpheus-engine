@@ -41,6 +41,7 @@ Vue commune : la séquence de la façade distante, dans [`remote-access-journal.
 | `payload-map-construction` | [construction des cartes de réponse](payload-map-construction.md) | [spec](../../../openspec/specs/payload-map-construction/spec.md) |
 | `mcp-tool-failure-contract` | [échec d'un outil MCP et borne d'un appel](mcp-tool-failure-contract.md) | [spec](../../../openspec/specs/mcp-tool-failure-contract/spec.md) |
 | `mcp-peer-launch-command` | [commande de lancement d'un pair MCP](mcp-peer-launch-command.md) | [spec](../../../openspec/specs/mcp-peer-launch-command/spec.md) |
+| `mcp-peer-gateway-lifecycle` | [cycle de vie d'un client de pair MCP](mcp-peer-gateway-lifecycle.md) | spec delta du changement `share-one-lifecycle-between-the-two-mcp-gateways`, jusqu'à son archivage |
 | `launch-environment-disclosure` | [variables d'environnement documentées](launch-environment-disclosure.md) | [spec](../../../openspec/specs/launch-environment-disclosure/spec.md) |
 
 ### Persistance SQLite et stores
