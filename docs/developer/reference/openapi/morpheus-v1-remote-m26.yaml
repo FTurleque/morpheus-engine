@@ -9,7 +9,10 @@ info:
     call can be answered 504 with an unknown outcome: UPSTREAM_WRITE_TIMEOUT when the local operation did not answer
     within the writes' deadline, RESPONSE_BUDGET_WRITE_TIMEOUT when it answered but no response slot freed up within
     that same deadline, counted from the moment the call was sent. The operation may have completed in both cases;
-    read its state before retrying.
+    read its state before retrying. Every operation that the facade relays on the writes' deadline declares that
+    response below. A path below that another document of this directory also declares is a remote overlay of that
+    operation: it lists the responses the facade adds, and its request and success response are those of the
+    document that declares the operation.
 servers:
   - url: https://127.0.0.1:8765/api/v1
 security:
@@ -146,16 +149,336 @@ paths:
         '429':
           $ref: '#/components/responses/TooManyRequests'
         '504':
-          description: >-
-            UPSTREAM_WRITE_TIMEOUT: the probe did not answer within the facade's deadline for a write or administration
-            call. RESPONSE_BUDGET_WRITE_TIMEOUT: it answered, but no response slot freed up within that same deadline,
-            and its response was not relayed. Either way the outcome is unknown, not failed: read the state before
-            retrying.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
+          $ref: '#/components/responses/RelayedWriteOutcomeUnknown'
+  /metrics:
+    get:
+      summary: Remote overlay of the local metrics read (morpheus-v1.yaml).
+      description: >-
+        Requires ADMIN. Relayed to the local API on the writes' deadline: the deadline follows the role, so this
+        GET has it too.
+      responses:
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '504':
+          $ref: '#/components/responses/RelayedWriteOutcomeUnknown'
+  /portfolios:
+    post:
+      summary: Remote overlay of portfolio creation (morpheus-v1-portfolio-m23.yaml).
+      description: Requires WRITE. Relayed to the local API on the writes' deadline.
+      responses:
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '504':
+          $ref: '#/components/responses/RelayedWriteOutcomeUnknown'
+  /portfolios/{portfolioId}/projects:
+    parameters:
+      - $ref: '#/components/parameters/PortfolioId'
+    post:
+      summary: Remote overlay of adding a project to a portfolio (morpheus-v1-portfolio-m23.yaml).
+      description: Requires WRITE. Relayed to the local API on the writes' deadline.
+      responses:
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '504':
+          $ref: '#/components/responses/RelayedWriteOutcomeUnknown'
+  /portfolios/{portfolioId}/projects/{projectId}/missing:
+    parameters:
+      - $ref: '#/components/parameters/PortfolioId'
+      - $ref: '#/components/parameters/ProjectId'
+    post:
+      summary: Remote overlay of marking a portfolio member missing (morpheus-v1-portfolio-m23.yaml).
+      description: Requires WRITE. Relayed to the local API on the writes' deadline.
+      responses:
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '504':
+          $ref: '#/components/responses/RelayedWriteOutcomeUnknown'
+  /portfolios/{portfolioId}/projects/{projectId}/freshness:
+    parameters:
+      - $ref: '#/components/parameters/PortfolioId'
+      - $ref: '#/components/parameters/ProjectId'
+    post:
+      summary: Remote overlay of recording the freshness of a portfolio member (morpheus-v1-portfolio-m23.yaml).
+      description: Requires WRITE. Relayed to the local API on the writes' deadline.
+      responses:
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '504':
+          $ref: '#/components/responses/RelayedWriteOutcomeUnknown'
+  /portfolios/{portfolioId}/references:
+    parameters:
+      - $ref: '#/components/parameters/PortfolioId'
+    post:
+      summary: Remote overlay of declaring a portfolio reference (morpheus-v1-portfolio-m23.yaml).
+      description: Requires WRITE. Relayed to the local API on the writes' deadline.
+      responses:
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '504':
+          $ref: '#/components/responses/RelayedWriteOutcomeUnknown'
+  /portfolios/{portfolioId}/traverse:
+    parameters:
+      - $ref: '#/components/parameters/PortfolioId'
+    post:
+      summary: Remote overlay of the portfolio traversal (morpheus-v1-portfolio-m23.yaml).
+      description: Requires WRITE. Relayed to the local API on the writes' deadline.
+      responses:
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '504':
+          $ref: '#/components/responses/RelayedWriteOutcomeUnknown'
+  /projects:
+    post:
+      summary: Remote overlay of project registration (morpheus-v1.yaml).
+      description: Requires WRITE. Relayed to the local API on the writes' deadline.
+      responses:
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '504':
+          $ref: '#/components/responses/RelayedWriteOutcomeUnknown'
+  /projects/{projectId}/sync:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+    post:
+      summary: Remote overlay of project synchronization (morpheus-v1.yaml).
+      description: Requires WRITE. Relayed to the local API on the writes' deadline.
+      responses:
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '504':
+          $ref: '#/components/responses/RelayedWriteOutcomeUnknown'
+  /projects/{projectId}/changes/{changeId}/lifecycle-transitions:
+    parameters:
+      - $ref: '#/components/parameters/ProjectId'
+      - $ref: '#/components/parameters/ChangeId'
+    post:
+      summary: Remote overlay of a change lifecycle transition (morpheus-v1.yaml).
+      description: Requires WRITE. Relayed to the local API on the writes' deadline.
+      responses:
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '504':
+          $ref: '#/components/responses/RelayedWriteOutcomeUnknown'
+  /saved-views:
+    post:
+      summary: Remote overlay of saved view creation (morpheus-v1-query-m24.yaml).
+      description: Requires WRITE. Relayed to the local API on the writes' deadline.
+      responses:
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '504':
+          $ref: '#/components/responses/RelayedWriteOutcomeUnknown'
+  /saved-views/{savedViewId}:
+    parameters:
+      - $ref: '#/components/parameters/SavedViewId'
+    put:
+      summary: Remote overlay of saved view revision (morpheus-v1-query-m24.yaml).
+      description: Requires WRITE. Relayed to the local API on the writes' deadline.
+      responses:
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '504':
+          $ref: '#/components/responses/RelayedWriteOutcomeUnknown'
+  /saved-views/{savedViewId}/archive:
+    parameters:
+      - $ref: '#/components/parameters/SavedViewId'
+    post:
+      summary: Remote overlay of saved view archival (morpheus-v1-query-m24.yaml).
+      description: Requires WRITE. Relayed to the local API on the writes' deadline.
+      responses:
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '504':
+          $ref: '#/components/responses/RelayedWriteOutcomeUnknown'
+  /policy-packs:
+    post:
+      summary: Remote overlay of policy pack creation (morpheus-v1-policy-m25.yaml).
+      description: Requires WRITE. Relayed to the local API on the writes' deadline.
+      responses:
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '504':
+          $ref: '#/components/responses/RelayedWriteOutcomeUnknown'
+  /policy-packs/{policyPackId}:
+    parameters:
+      - $ref: '#/components/parameters/PolicyPackId'
+    put:
+      summary: Remote overlay of policy pack revision (morpheus-v1-policy-m25.yaml).
+      description: Requires WRITE. Relayed to the local API on the writes' deadline.
+      responses:
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '504':
+          $ref: '#/components/responses/RelayedWriteOutcomeUnknown'
+  /policy-packs/{policyPackId}/activate:
+    parameters:
+      - $ref: '#/components/parameters/PolicyPackId'
+    post:
+      summary: Remote overlay of policy pack activation (morpheus-v1-policy-m25.yaml).
+      description: Requires WRITE. Relayed to the local API on the writes' deadline.
+      responses:
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '504':
+          $ref: '#/components/responses/RelayedWriteOutcomeUnknown'
+  /policy-packs/{policyPackId}/deactivate:
+    parameters:
+      - $ref: '#/components/parameters/PolicyPackId'
+    post:
+      summary: Remote overlay of policy pack deactivation (morpheus-v1-policy-m25.yaml).
+      description: Requires WRITE. Relayed to the local API on the writes' deadline.
+      responses:
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '504':
+          $ref: '#/components/responses/RelayedWriteOutcomeUnknown'
+  /policy-packs/{policyPackId}/overrides/{ruleId}:
+    parameters:
+      - $ref: '#/components/parameters/PolicyPackId'
+      - $ref: '#/components/parameters/RuleId'
+    put:
+      summary: Remote overlay of a policy rule override (morpheus-v1-policy-m25.yaml).
+      description: Requires WRITE. Relayed to the local API on the writes' deadline.
+      responses:
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '504':
+          $ref: '#/components/responses/RelayedWriteOutcomeUnknown'
+  /policy-overrides/remove:
+    post:
+      summary: Remote overlay of policy override removal (morpheus-v1-policy-m25.yaml).
+      description: Requires WRITE. Relayed to the local API on the writes' deadline.
+      responses:
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '504':
+          $ref: '#/components/responses/RelayedWriteOutcomeUnknown'
 components:
+  parameters:
+    ChangeId:
+      name: changeId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+    PolicyPackId:
+      name: policyPackId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+    PortfolioId:
+      name: portfolioId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+    ProjectId:
+      name: projectId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+    RuleId:
+      name: ruleId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+    SavedViewId:
+      name: savedViewId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
   securitySchemes:
     bearerAuth:
       type: http
@@ -165,6 +488,16 @@ components:
         Bearer token generated locally by the server identity lifecycle CLI. Only SHA-256(token) is persisted and the
         current identity file is reloaded for every remote authentication.
   responses:
+    RelayedWriteOutcomeUnknown:
+      description: >-
+        UPSTREAM_WRITE_TIMEOUT: the local operation did not answer within the facade's deadline for a write or
+        administration call. RESPONSE_BUDGET_WRITE_TIMEOUT: it answered, but no response slot freed up within that
+        same deadline, counted from the moment the call was sent, and its response was not relayed. Either way the
+        outcome is unknown, not failed: read the state before retrying.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
     Unauthenticated:
       description: Missing, invalid, rotated or revoked Bearer token
       content:

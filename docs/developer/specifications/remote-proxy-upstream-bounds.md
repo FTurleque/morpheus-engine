@@ -94,13 +94,17 @@ dernière. La séquence complète de la façade (authentification, autorisation,
 
 - `[EXISTANT VÉRIFIÉ]` La section `## Purpose` de la spec principale ne renvoie à aucune page durable ; l'ajout de ce
   renvoi relève d'un changement de spec principale.
-- `[EXISTANT VÉRIFIÉ]` Aucun test ne compare les codes de refus émis par la façade aux réponses de
-  `morpheus-v1-remote-m26.yaml` : `UPSTREAM_WRITE_TIMEOUT` et `RESPONSE_BUDGET_WRITE_TIMEOUT` y sont documentés à la
-  main, sur `/provider-plugins/probe` et dans `info.description`.
-- `[EXISTANT VÉRIFIÉ]` Le scénario « Le refus est consigné une fois » n'a pas de test au niveau du serveur : l'échéance
-  d'une écriture vient de la politique de routes (300 s) et le serveur construit son transport lui-même, sans point
-  d'injection. Le refus suit le chemin de toute `TransportException`, que `RemoteAccessJournalHttpTest` exerce pour une
-  écriture refusée.
+- `[EXISTANT VÉRIFIÉ]` `morpheus-v1-remote-m26.yaml` déclare la réponse `RelayedWriteOutcomeUnknown`
+  (`UPSTREAM_WRITE_TIMEOUT`, `RESPONSE_BUDGET_WRITE_TIMEOUT`) sur chaque opération que la façade relaie à l'échéance
+  des écritures, `GET /metrics` compris : c'est une route ADMIN, et l'échéance suit le rôle, pas la méthode. Les
+  opérations dont la route est déclarée par un autre document y sont des surcouches distantes, qui ne listent que les
+  réponses ajoutées par la façade. `RemoteWriteResponseBoundDocumentationTest` dérive cet ensemble de
+  `MorpheusRemoteRoutePolicy` sur toute la table des routes et exige qu'il soit exactement celui du document ; il ne
+  compare pas le texte d'un message émis à celui de l'OpenAPI.
+- `[EXISTANT VÉRIFIÉ]` Le test du scénario « Le refus est consigné une fois » remplace, sur un serveur démarré, les
+  créneaux de réponse de son transport par un budget sans créneau qui répond à une attente bornée comme l'échéance
+  atteinte : le serveur construit son transport lui-même et l'échéance des écritures dure plusieurs minutes. Le
+  remplacement passe par la réflexion, dans le test seul.
 - Question ouverte : nommer, dans le message du refus, le statut que l'amont avait répondu.
 
 ## Traçabilité
@@ -115,8 +119,8 @@ dernière. La séquence complète de la façade (authentification, autorisation,
 | R3 | The client is told to read before retrying | séquence, 1re alternative | — | même classe : `#aWriteTheUpstreamNeverAnswersEndsAtItsDeadlineAsAnUnknownOutcome` |
 | R4 | Aucun créneau ne se libère avant l'échéance | séquence, dernière alternative | tâches 1.2, 2.1 | même classe : `#aWriteThatGetsNoSlotBeforeItsDeadlineIsRefusedAsAnUnknownOutcome` |
 | R4 | Le refus n'est pas celui d'un amont lent | idem | tâche 1.2 | même classe : `#aWriteThatGetsNoSlotBeforeItsDeadlineIsRefusedAsAnUnknownOutcome` et `#aWriteTheUpstreamNeverAnswersEndsAtItsDeadlineAsAnUnknownOutcome` |
-| R4 | Le refus est consigné une fois | séquence, `completed` dans le `finally` | tâche 1.3 | **preuve manquante** au niveau du serveur (voir Écarts) |
-| R4 | Le refus est documenté pour les clients distants | — | tâche 3.3 | relecture de [`morpheus-v1-remote-m26.yaml`](../reference/openapi/morpheus-v1-remote-m26.yaml) ; `PublicHttpRouteConvergenceTest` |
+| R4 | Le refus est consigné une fois | séquence, `completed` dans le `finally` | tâche 1.3 | [`RemoteAccessJournalHttpTest`](../../../morpheus-api/src/test/java/com/morpheus/api/remote/RemoteAccessJournalHttpTest.java)`#aWriteRefusedForWantOfAResponseSlotIsRecordedOnceAndGivesBackEverySlotItHeld` |
+| R4 | Le refus est documenté pour les clients distants | — | tâches 1.3, 3.3 | [`RemoteWriteResponseBoundDocumentationTest`](../../../morpheus-api/src/test/java/com/morpheus/api/remote/RemoteWriteResponseBoundDocumentationTest.java)`#theRemoteOpenApiDeclaresTheUnknownOutcomeOnExactlyTheOperationsRelayedOnTheWritesDeadline` sur [`morpheus-v1-remote-m26.yaml`](../reference/openapi/morpheus-v1-remote-m26.yaml) ; `PublicHttpRouteConvergenceTest` |
 | R5 | Une attente non bornée réintroduite | — | tâches 1.1, 2.3 | [`RemoteServerArchitectureTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m26/RemoteServerArchitectureTest.java)`#noClassOfTheHttpAdapterWaitsOnASemaphoreWithoutADeadline` |
 | R6 | La borne écrite suit les constantes | — | tâche 1.4 | [`RemoteWriteResponseBoundDocumentationTest`](../../../morpheus-api/src/test/java/com/morpheus/api/remote/RemoteWriteResponseBoundDocumentationTest.java) |
 
