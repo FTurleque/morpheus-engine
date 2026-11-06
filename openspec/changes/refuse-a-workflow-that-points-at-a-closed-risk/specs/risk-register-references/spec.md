@@ -4,7 +4,7 @@
 
 Garantir qu'un workflow qui renvoie le mainteneur vers le registre des risques désigne une entrée qui n'est pas close,
 pour qu'un échec de gate ne l'envoie jamais lire qu'un problème encore actif est réglé. Page durable :
-`docs/developer/specifications/risk-register-references.md`.
+[docs/developer/specifications/risk-register-references.md](/docs/developer/specifications/risk-register-references.md).
 
 ## ADDED Requirements
 
