@@ -62,7 +62,7 @@ public final class SqliteTraceabilityStore implements TraceabilityStore, AutoClo
     }
 
     @Override
-    public synchronized void putLink(KnowledgeSnapshotId snapshotId, TraceabilityLink link) {
+    public void putLink(KnowledgeSnapshotId snapshotId, TraceabilityLink link) {
         ensureOpen();
         Objects.requireNonNull(snapshotId, "snapshotId");
         Objects.requireNonNull(link, "link");
@@ -78,7 +78,7 @@ public final class SqliteTraceabilityStore implements TraceabilityStore, AutoClo
     }
 
     @Override
-    public synchronized void putLinks(KnowledgeSnapshotId snapshotId, List<TraceabilityLink> links) {
+    public void putLinks(KnowledgeSnapshotId snapshotId, List<TraceabilityLink> links) {
         ensureOpen();
         Objects.requireNonNull(snapshotId, "snapshotId");
         List<TraceabilityLink> batch = List.copyOf(Objects.requireNonNull(links, "links"));
@@ -95,7 +95,7 @@ public final class SqliteTraceabilityStore implements TraceabilityStore, AutoClo
     }
 
     @Override
-    public synchronized Optional<TraceabilityLink> findLink(
+    public Optional<TraceabilityLink> findLink(
             KnowledgeSnapshotId snapshotId,
             TraceabilityLinkId linkId) {
         ensureOpen();
@@ -120,7 +120,7 @@ public final class SqliteTraceabilityStore implements TraceabilityStore, AutoClo
     }
 
     @Override
-    public synchronized List<TraceabilityLink> outgoing(
+    public List<TraceabilityLink> outgoing(
             KnowledgeSnapshotId snapshotId,
             TraceabilityEntityRef source,
             Set<TraceabilityRelationType> relationTypes) {
@@ -128,7 +128,7 @@ public final class SqliteTraceabilityStore implements TraceabilityStore, AutoClo
     }
 
     @Override
-    public synchronized List<TraceabilityLink> incoming(
+    public List<TraceabilityLink> incoming(
             KnowledgeSnapshotId snapshotId,
             TraceabilityEntityRef target,
             Set<TraceabilityRelationType> relationTypes) {
@@ -136,7 +136,7 @@ public final class SqliteTraceabilityStore implements TraceabilityStore, AutoClo
     }
 
     @Override
-    public synchronized void close() {
+    public void close() {
         if (closed) {
             return;
         }
