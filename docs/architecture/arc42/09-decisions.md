@@ -116,7 +116,7 @@ Serveur distant, données, journaux, budgets et gouvernance.
 | Le runtime opérationnel est une valeur que le lanceur remet ; le parallélisme JUnit en dépend | [ADR-0115](../adr/ARCH-0115-the-operational-runtime-is-a-value-the-launcher-hands-on.md) |
 | Un plugin provider est du code de confiance, sondé hors du processus MORPHEUS | [ADR-0129](../adr/SEC-0129-plugins-provider-code-de-confiance-hors-processus.md) |
 | Aucun contenu de l'espace de travail n'est lu à travers un lien symbolique ni hors de sa frontière | [ADR-0157](../adr/SEC-0157-aucun-contenu-n-est-lu-a-travers-un-lien-ni-hors-de-l-espace-de-travail.md) |
-| Deux échelles de couverture sur une population commune, et le crédit qu'un module emprunte à ses voisins | [ADR-0154](../adr/GEN-0154-deux-echelles-de-couverture-et-le-credit-emprunte.md) |
+| Deux échelles de couverture sur une population commune, un seuil propre à chaque module, et le crédit qu'un module emprunte à ses voisins | [ADR-0163](../adr/GEN-0163-deux-echelles-de-couverture-un-seuil-par-module-et-le-credit-emprunte.md) |
 | Tenir le registre d'ADR au format Archgate, à l'emplacement arc42 | [ADR-0132](../adr/GEN-0132-tenir-le-registre-d-adr-au-format-archgate.md) |
 
 ---

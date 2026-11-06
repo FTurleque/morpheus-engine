@@ -1,13 +1,8 @@
----
-id: GEN-0154
-title: "Deux échelles de couverture sur une population commune, et le crédit qu'un module emprunte à ses voisins"
-domain: general
-rules: false
----
+# ADR-0154 — Deux échelles de couverture sur une population commune, et le crédit qu'un module emprunte à ses voisins
 
-# Deux échelles de couverture sur une population commune, et le crédit qu'un module emprunte à ses voisins
+> **Archivée.** Cette décision est consolidée dans [ADR-0163](../GEN-0163-deux-echelles-de-couverture-un-seuil-par-module-et-le-credit-emprunte.md), qui la reprend en entier et ajoute, sur l'échelle par module, un seuil de couverture propre à chaque module de la population. Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
-- Statut : **Acceptée**
+- Statut : **Remplacée par ADR-0163**
 - Date : 2026-10-29
 - Remplace : ADR-0104
 
@@ -128,9 +123,9 @@ dépendent de lui : une dépendance de test dans ce sens est un cycle du réacte
 
 ## References
 
-- [ADR-0089](GEN-0089-production-integrity-surface-convergence.md) — intégrité de production.
-- [ADR-0085](GEN-0085-predeclared-performance-budgets-and-deterministic-large-fixtures.md) — déterminisme des gates.
-- [ADR-0150](ARCH-0150-ce-que-le-coeur-applicatif-peut-toucher.md) — ce que le cœur applicatif peut toucher.
+- [ADR-0089](../GEN-0089-production-integrity-surface-convergence.md) — intégrité de production.
+- [ADR-0085](../GEN-0085-predeclared-performance-budgets-and-deterministic-large-fixtures.md) — déterminisme des gates.
+- [ADR-0150](../ARCH-0150-ce-que-le-coeur-applicatif-peut-toucher.md) — ce que le cœur applicatif peut toucher.
 - `.claude/rules/testing.md`, la skill `coverage-ratchet` et `config/coverage-qualification/`.
 - Changement OpenSpec `shrink-the-coverage-a-module-borrows-from-its-neighbours` (constat AUD-TRV-02).
-- [VALIDATION_M21](../../project/validation/VALIDATION_M21.md).
+- [VALIDATION_M21](../../../project/validation/VALIDATION_M21.md).
