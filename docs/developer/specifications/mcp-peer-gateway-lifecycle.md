@@ -106,6 +106,9 @@ sequenceDiagram
 - `[EXISTANT VÉRIFIÉ]` Un `Error` qui traverse l'ouverture laisse le client fermé, l'échéance désarmée et la copie
   vérifiée supprimée, puis se propage tel quel ; un `Error` qui traverse un appel termine la session sur-le-champ, et
   la fermeture qui suit ne fait rien.
+- `[DÉCISION]` Un `Error` pendant un appel ferme la session sur-le-champ plutôt que d'attendre le `close()` de
+  l'appelant : après un `Error`, l'état du client et du processus du pair n'est plus fiable, et le pair ne doit pas
+  survivre à un appelant qui ne fermerait pas la session. Décidé par le mainteneur le 6 novembre 2026.
 - `[EXISTANT VÉRIFIÉ]` L'interdit de `Throwable.addSuppressed` ne vise que les classes qui décrivent un lancement de
   pair : `javac` compile chaque try-with-resources en un appel de `addSuppressed`, et les runtimes et fournisseurs des
   intégrations ferment leur passerelle ainsi.
