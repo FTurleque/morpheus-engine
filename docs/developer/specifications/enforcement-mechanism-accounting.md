@@ -11,9 +11,10 @@ n'énoncent pas leur intention) ; le reste est publié sans jamais faire échoue
 documents est distinguée d'une classe qui juge du code.
 
 - **Acteurs** : `EnforcementMechanismAccountingTest`, `CoherenceCheckMarkerTest`, le marqueur `@CoherenceCheck`
-  (étiquette JUnit `coherence`), la CI qui publie le fichier de preuve.
+  (étiquette JUnit `coherence`), l'écouteur `EnforcementVerdictListener`, la CI qui publie les fichiers de preuve.
 - **Inclus** : le plafond de la famille « sans intention », l'obligation d'un message pour tout nouvel interdit textuel de
-  type, la publication de la composition, le marquage des contrôles de cohérence.
+  type, la publication de la composition, le marquage des contrôles de cohérence, le verdict qui sépare un échec de
+  cohérence d'une violation d'architecture.
 - **Exclus** : le choix entre règle ArchUnit et assertion textuelle (voir `.claude/rules/architecture.md` et le skill
   `enforcement-choice`) ; la part textuelle globale, volontairement non plafonnée.
 
@@ -25,6 +26,8 @@ documents est distinguée d'une classe qui juge du code.
 | R2 | A new textual ban of a type SHALL state which proposition it enforces | message qui dit ce qui est refusé (la mention ou la dépendance) | `[EXIGENCE]` |
 | R3 | The architecture suite SHALL publish the composition of its own enforcement by one stated method | fichier de preuve à méthode nommée en première ligne ; aucun échec sur ces comptes | `[EXIGENCE]` |
 | R4 | A test class that reads only non-compiled artefacts SHALL be marked as a coherence check and SHALL stay in the gate module | marqueur dérivé de la source de la classe, dans les deux sens ; la classe reste dans le module | `[EXIGENCE]` |
+| R5 | Un échec d'un contrôle de cohérence est rapporté comme une désynchronisation documentaire | deux verdicts sur la sortie et dans un fichier de preuve, chacun avec ses tests ; nombre d'exécutions de chaque nature | `[EXIGENCE]` |
+| R6 | Le verdict distinct ne change ni la sélection ni le compte des exécutions | une seule exécution Surefire, un seul répertoire de rapports ; `-Dtest` et `-Dgroups` inchangés | `[EXIGENCE]` |
 
 ## Comportement détaillé
 
@@ -57,6 +60,22 @@ aucune règle sur le bytecode, ne lit aucune source de production, ne charge auc
 [`@CoherenceCheck`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/CoherenceCheck.java) doit
 être présent exactement quand la propriété est vraie ; le désaccord est refusé dans les deux sens, avec le chemin de la classe.
 La sélection s'obtient par `./mvnw test -pl morpheus-architecture-tests -Dgroups=coherence`.
+
+### Le verdict distinct (R5, R6)
+
+`[EXISTANT VÉRIFIÉ]` [`EnforcementVerdictListener`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/EnforcementVerdictListener.java),
+écouteur de la plateforme JUnit enregistré comme service dans les ressources de test du module
+(`META-INF/services/org.junit.platform.launcher.TestExecutionListener`), lit chaque nœud terminé de l'exécution Surefire
+unique. [`EnforcementVerdict`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/EnforcementVerdict.java)
+range un nœud parmi les contrôles de cohérence quand lui ou l'un de ses ancêtres porte l'étiquette `coherence` (une méthode
+ou un test généré hérite de sa classe) : un échec de cohérence est une **désynchronisation documentaire**, tout autre échec
+une **violation d'architecture** ; un conteneur en échec est nommé sous le verdict de sa nature. En fin de plan, succès
+compris, l'écouteur écrit `morpheus-architecture-tests/target/enforcement-verdict.txt` — la méthode en première ligne
+(sélection comprise), le nombre de classes de test, le nombre d'exécutions de chaque nature, puis chaque verdict avec ses
+tests triés — et imprime deux lignes `[enforcement verdict]` avant la ligne d'échec de Maven. Le verdict ne décide rien :
+Surefire fait toujours échouer le build. Il ne change ni la sélection, ni l'ordre, ni les rapports
+(`target/surefire-reports/`) ; une exécution restreinte par `-Dtest` ou `-Dgroups` écrit le verdict de sa seule sélection.
+[`ci.yml`](../../../.github/workflows/ci.yml) publie le fichier dans l'artefact d'intégrité.
 
 ## Diagrammes
 
@@ -110,6 +129,37 @@ flowchart TD
 La suite suit aussi les classes qu'une classe nomme : une lecture de code faite par un assistant d'une autre classe de la
 suite rend la première non cohérente.
 
+### Comment un échec devient-il un verdict ?
+
+Existant vérifié, lu dans `EnforcementVerdictListener` et `EnforcementVerdict`. Séquence. Exigences R5, R6.
+
+```mermaid
+sequenceDiagram
+    participant S as Surefire (exécution unique)
+    participant J as Plateforme JUnit
+    participant T as Classes de la suite
+    participant L as EnforcementVerdictListener
+    participant F as target/enforcement-verdict.txt
+    S->>J: lancer le module
+    J->>T: exécuter chaque test
+    T-->>J: résultat
+    J-->>S: rapports TEST-*.xml (inchangés)
+    J->>L: executionFinished(nœud, résultat)
+    alt échec, étiquette coherence sur le nœud ou un ancêtre
+        L->>L: désynchronisation documentaire
+    else échec sans l'étiquette
+        L->>L: violation d'architecture
+    else succès
+        L->>L: compter l'exécution par nature
+    end
+    J->>L: testPlanExecutionFinished
+    L->>F: méthode, comptes, tests de chaque verdict
+    L-->>S: deux lignes [enforcement verdict]
+    S-->>S: échec du build si un test a échoué
+```
+
+L'échec du build reste décidé par Surefire ; le verdict le précède et le nomme.
+
 ## Écarts et questions ouvertes
 
 1. **« No document of the repository restates the ceiling's value ».** `[EXISTANT VÉRIFIÉ]` La spec l'interdit. Le fichier
@@ -128,7 +178,12 @@ suite rend la première non cohérente.
    comptes).
 5. **« The build selects the coherence checks ».** `[EXISTANT VÉRIFIÉ]` Aucun test ne lance la suite avec `-Dgroups=coherence`
    ni ne vérifie qu'au moins une classe est sélectionnée par l'étiquette. `everyTestClassThatReadsNoCodeIsMarkedAndNoOtherIs`
-   affirme seulement qu'au moins une classe porte le marqueur. Preuve manquante pour la sélection.
+   affirme seulement qu'au moins une classe porte le marqueur. Preuve manquante pour la sélection. Le fichier de verdict
+   (`executions.coherence`) prouve, à chaque exécution du module, que l'étiquette est lue par la plateforme ; la commande
+   `-Dgroups=coherence` a été rejouée une fois à la livraison du verdict (relevé du changement
+   `report-documentation-drift-apart-from-architecture-violations`), aucun build ne la lance.
+8. **Sortir les contrôles de cohérence du module.** `[QUESTION]` Écarté par le mainteneur le 06/11/2026 ; le verdict distinct
+   (R5) répond au besoin de lecture sans déplacement. Aucune tâche n'en dépend.
 6. **« SHALL stay in the gate module ».** Aucune règle n'interdit de sortir une classe marquée de `morpheus-architecture-tests` ;
    la conséquence (baisse de `architectureTestsMinimum`) serait refusée par le validateur de présence, pas par cette capacité.
 7. **Dépendance d'une règle écrite.** `[EXISTANT VÉRIFIÉ]` L'expression de la famille ne voit pas un interdit écrit
@@ -136,7 +191,8 @@ suite rend la première non cohérente.
 
 ## Traçabilité
 
-Archive : `2026-10-29-let-unexplained-textual-enforcement-only-shrink`. Tests principaux :
+Archive : `2026-10-29-let-unexplained-textual-enforcement-only-shrink` ; changement
+`report-documentation-drift-apart-from-architecture-violations` (R5, R6). Tests principaux :
 [`EnforcementMechanismAccountingTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/EnforcementMechanismAccountingTest.java)
 et [`CoherenceCheckMarkerTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/CoherenceCheckMarkerTest.java).
 
@@ -150,7 +206,13 @@ et [`CoherenceCheckMarkerTest`](../../../morpheus-architecture-tests/src/test/ja
 | R3 | A count changes | idem | aucune assertion sur ces comptes (Écart 4) |
 | R4 | A documentation check without its marker | organigramme 2 | `CoherenceCheckMarkerTest#everyTestClassThatReadsNoCodeIsMarkedAndNoOtherIs` ; fixture : `#aClassThatReadsOnlyDocumentsIsACoherenceCheck` |
 | R4 | A marked class starts reading a production source | idem | même méthode (sens inverse) ; fixtures : `#aClassThatReadsAProductionSourceOrLoadsAProductionClassOrEvaluatesARuleIsNot`, `#aProductionPathNamedOnlyInACommentIsNotARead`, `#aClassThatReadsCodeThroughAHelperOfAnotherClassOfTheSuiteIsFollowed` |
-| R4 | The build selects the coherence checks | idem | [`CoherenceCheck`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/CoherenceCheck.java) (`@Tag("coherence")`) ; **preuve manquante** de la sélection (Écart 5) |
+| R4 | The build selects the coherence checks | idem | [`CoherenceCheck`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/CoherenceCheck.java) (`@Tag("coherence")`) ; **preuve manquante** de la sélection par un build (Écart 5) |
+| R5 | Seul un contrôle de cohérence échoue | séquence 3 | `EnforcementVerdictTest#onlyAFailedCoherenceCheckIsDocumentationDrift`, `#aTestInheritsTheCoherenceTagOfItsClassAtAnyDepth` ; violation plantée une fois et relevée à la livraison |
+| R5 | Une règle sur le code échoue | idem | `EnforcementVerdictTest#onlyAFailedCodeCheckIsAnArchitectureViolation` ; violation plantée une fois et relevée à la livraison |
+| R5 | Les deux natures échouent dans la même exécution | idem | `EnforcementVerdictTest#bothNaturesFailingTogetherGiveTwoVerdictsEachWithItsOwnTestsSorted` |
+| R5 | Aucun échec | idem | `EnforcementVerdictTest#aGreenRunWritesTwoEmptyVerdictsAndCountsTheExecutionsOfEachNature` ; fichier lu après une exécution verte |
+| R6 | Le compte des validateurs de présence | idem | relevé avant/après dans `target/surefire-reports/`, à la livraison ; tenu ensuite par `architectureTestsMinimum` |
+| R6 | Une seule classe marquée sélectionnée par -Dtest | idem | commande rejouée à la livraison |
 
 ## Sources
 

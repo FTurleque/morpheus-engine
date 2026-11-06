@@ -113,6 +113,11 @@ charge aucune classe de production porte `@CoherenceCheck` (tag JUnit `coherence
 qu'elle nomme, et refuse un désaccord dans les deux sens. Une telle classe **reste** dans le module et dans son paquet
 de milestone : sortir les contrôles de cohérence du module ferait baisser `architectureTestsMinimum`.
 `./mvnw test -pl morpheus-architecture-tests -Dgroups=coherence` les lance seules.
+Un échec d'une classe marquée est une **désynchronisation documentaire**, tout autre échec une **violation
+d'architecture** : `EnforcementVerdictListener` (écouteur de la plateforme JUnit, sources de test du module) les
+sépare dans l'exécution Surefire unique, imprime deux lignes `[enforcement verdict]` avant l'échec de Maven et écrit
+`morpheus-architecture-tests/target/enforcement-verdict.txt`. Lire ce fichier avant de corriger : on ne répare pas
+une page de `docs/` en touchant au code, ni l'inverse.
 
 **Généralisation par groupe de capacité**, jamais par famille entière :
 
