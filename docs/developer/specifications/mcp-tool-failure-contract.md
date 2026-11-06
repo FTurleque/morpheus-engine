@@ -78,6 +78,13 @@ Exigences : R1 pour la branche du store, R2 pour la branche du pair et la note f
 
 ## Écarts et questions ouvertes
 
+- `[QUESTION]` R1 dit « names no server path », mais `McpToolFailure.result` rend le texte de `FailureText.of` sans
+  filtre : un refus de l'application qui nomme un chemin (`workspace root must be a real directory: <chemin>`) arrive
+  tel quel, ce que fige
+  [`McpToolFailureTest`](../../../morpheus-mcp/src/test/java/com/morpheus/mcp/McpToolFailureTest.java)`#aRefusalThatNamesAPathReachesTheClientUnfiltered`.
+  Le serveur MCP est local (STDIO, même compte) et ce chemin est en général celui que l'appelant a fourni ;
+  `ServerLocationDisclosure.relayableText` le remplacerait par le nom du type. Restreindre R1 aux chemins que
+  l'appelant n'a pas fournis, ou filtrer : à trancher par le mainteneur.
 - `[EXISTANT VÉRIFIÉ]` Le scénario « The database is reserved by an offline maintenance » attend un message disant que
   le store est indisponible ; le code et le test ne garantissent que le préfixe `Cannot initialize SQLite `.
 - `[EXISTANT VÉRIFIÉ]` « Names no server path » est vérifié pour le répertoire temporaire du test (deux séparateurs) et

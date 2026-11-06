@@ -46,6 +46,17 @@
   - Relevé : `./mvnw clean verify` d'intégration (`chore/sprint-15-low`), 19 modules, `BUILD SUCCESS`, 5 349 tests, aucun échec ; `archgate check` 27/27.
 - [x] 5.4 `archgate check` — vérification : aucune violation
 
+## Restes du constat AUD-QUA-19
+
+- D6 : la raison d'une vue illisible à message blanc est le nom du type, comme l'exige « Le texte d'un échec a un seul
+  propriétaire » ; la copie en ligne retirée rendait une raison faite d'espaces. Aucun refus du décodage n'a de message
+  blanc ; la forme est prouvée par `FailureTextTest`.
+- `[QUESTION]` `McpToolFailure.result` relaie sans filtre un refus qui nomme un chemin, souvent fourni par l'appelant ;
+  `mcp-tool-failure-contract` exige qu'un résultat d'outil ne nomme aucun chemin du serveur.
+  `McpToolFailureTest#aRefusalThatNamesAPathReachesTheClientUnfiltered` fige le comportement actuel en attendant
+  l'arbitrage du mainteneur (filtrer par `ServerLocationDisclosure.relayableText`, ou restreindre l'exigence MCP aux
+  chemins que l'appelant n'a pas fournis).
+
 ## Workflow follow-up
 
 - Archiver le changement après la revue, sur demande explicite.

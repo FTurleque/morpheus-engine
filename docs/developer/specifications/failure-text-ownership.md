@@ -116,10 +116,19 @@ sequenceDiagram
 
 - `[QUESTION]` Le texte rendu à un client MCP par `McpToolFailure.result`, et celui du raisonnement, ne sont pas
   filtrés ; [`mcp-tool-failure-contract`](mcp-tool-failure-contract.md) exige qu'un résultat d'outil ne nomme aucun
-  chemin du serveur. Ce point est hors de cette capacité et reste à trancher par le mainteneur.
-- `[DÉCISION]` La raison d'une vue illisible à message blanc devient le nom du type (décision par défaut du changement,
-  à confirmer par le mainteneur). Aucun test ne figeait un message blanc ; `SqliteSavedViewUnreadableRowTest` exige une
-  raison non blanche.
+  chemin du serveur. Un chemin y passe : un refus de l'application qui le nomme (`SafeWorkspaceFileResolver`,
+  `LocalSourceInventoryScanner`, `SourcePath`), le plus souvent le chemin que l'appelant a lui-même fourni.
+  [`McpToolFailureTest`](../../../morpheus-mcp/src/test/java/com/morpheus/mcp/McpToolFailureTest.java)`#aRefusalThatNamesAPathReachesTheClientUnfiltered`
+  fige ce comportement : le texte arrive tel quel, là où `ServerLocationDisclosure.relayableText` le remplacerait par
+  le nom du type. Filtrer rendrait au client local, sous le compte du serveur, `IllegalArgumentException` au lieu du
+  refus qui dit quoi corriger ; ne pas filtrer contredit la lettre de l'exigence MCP. L'arbitrage revient au
+  mainteneur ; ce point est hors de cette capacité, qui n'ajoute ni ne retire aucun filtre.
+- `[DÉCISION]` La raison d'une vue illisible à message blanc est le nom du type de l'échec : R1 l'exige de toute classe
+  de production, et ce nom est stable et ne porte aucune donnée. La copie en ligne de `SqliteSavedViewStore` ne
+  retombait sur le type que pour un message `null` : un message blanc donnait une raison faite d'espaces, et le refus de
+  `find` disait `cannot be read (   )`. Aucun refus du décodage (`QueryDefinitionCodec`, `requireStoredScope`) ne porte
+  de message blanc ; le cas n'est atteignable que par une exception sans texte, et sa forme est celle que
+  `FailureTextTest` prouve chez le propriétaire.
 - `[EXISTANT VÉRIFIÉ]` Le scan textuel est une heuristique : une copie qui lit le message par un intermédiaire lui
   échappe ; la règle par signature la voit si elle est déclarée.
 
