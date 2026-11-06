@@ -1,0 +1,34 @@
+# Tâches : borner l'attente d'un créneau de réponse du proxy distant
+
+## 1. Reproduire
+
+- [ ] 1.1 Ajouter à `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m26/RemoteServerArchitectureTest.java` la règle ArchUnit qui refuse, dans `com.morpheus.api..`, tout appel à `Semaphore.acquire()`, `acquire(int)`, `acquireUninterruptibly()` et `acquireUninterruptibly(int)`, avec un `because` qui cite l'exigence — exigence : `remote-proxy-upstream-bounds` › L'adaptateur HTTP n'attend aucun sémaphore sans délai ; vérification : la règle échoue sur le code actuel en nommant `MorpheusRemoteProxyTransport.awaitResponseBudget`
+- [ ] 1.2 Écrire dans `MorpheusRemoteProxyResponseBudgetTest` (`morpheus-api`) le test « aucun créneau avant l'échéance » : sémaphore équitable à zéro, `new UpstreamDeadline(<durée courte>, false)`, amont qui répond `201` ; attendre `504`, `RESPONSE_BUDGET_WRITE_TIMEOUT`, un message qui demande de relire l'état, aucun octet écrit (`responseCode() == -1`), créneaux libres inchangés, corps amont fermé — exigence : › Une écriture sans créneau de réponse à son échéance reçoit un refus de résultat inconnu ; vérification : rouge avant le correctif (l'appel ne revient pas dans le délai du test)
+- [ ] 1.3 Écrire, au niveau de `MorpheusRemoteHttpServer`, le test « refus consigné une fois » : budget de réponse saturé, écriture autorisée ; un enregistrement `accepted` et un seul `completed` à `504`, créneau de requête et créneau privilégié rendus — exigence : idem (scénario « Le refus est consigné une fois ») ; vérification : rouge avant le correctif
+- [ ] 1.4 Écrire le test qui calcule la borne composée depuis `UpstreamDeadline.WRITE` et `TimedBoundedResponseWriter.RESPONSE_TOTAL_TIMEOUT` et exige qu'elle figure dans `docs/developer/REMOTE_SERVER_PLATFORM.md` et `docs/user/TEAM_REMOTE_SERVER.md` — exigence : › La réponse à une écriture relayée commence avant l'échéance de son appel ; vérification : rouge tant que la documentation (groupe 3) ne la porte pas
+
+## 2. Borner l'attente
+
+- [ ] 2.1 Dans `MorpheusRemoteProxyTransport.forward`, noter l'instant d'envoi ; remplacer `awaitResponseBudget` par une attente `responseSlots.tryAcquire(reste, NANOSECONDS)` jusqu'à l'échéance de l'appel ; à l'expiration, fermer le corps amont, compter le refus par `runtime.recordThrottledPrivilegedRequest()` et lever `TransportException(504, "RESPONSE_BUDGET_WRITE_TIMEOUT", …)` ; garder le traitement de l'interruption ; réécrire la Javadoc sans recopier le nombre de créneaux ni le plafond d'écritures (citer les constantes) — exigences : › Every proxied response SHALL be read within the memory budget, › Une écriture sans créneau de réponse à son échéance reçoit un refus de résultat inconnu ; vérification : tests 1.1, 1.2 et 1.3 verts
+- [ ] 2.2 Adapter les tests existants : `#aMutationWaitsForTheBudgetRatherThanBeingRefusedAfterItsCommit` (créneau libéré avant l'échéance, scénario « A write waits for a slot that frees in time ») et le double `WatchedSemaphore` de `#anInterruptWhileWaitingForTheBudgetClosesTheUpstreamResponse`, qui redéfinit désormais `tryAcquire(long, TimeUnit)` — exigence : › Every proxied response SHALL be read within the memory budget ; vérification : `./mvnw test -pl morpheus-api -Dtest=MorpheusRemoteProxyResponseBudgetTest` vert
+- [ ] 2.3 Casser la règle 1.1 une fois : réintroduire `responseSlots.acquire()`, constater l'échec nommé, revenir en arrière — exigence : › L'adaptateur HTTP n'attend aucun sémaphore sans délai ; vérification : sortie rouge consignée dans la PR, `git diff morpheus-api/src/main` égal au correctif seul
+
+## 3. Contrat et documentation
+
+- [ ] 3.1 Réécrire dans `docs/developer/REMOTE_SERVER_PLATFORM.md` le paragraphe du budget de réponse (`:230`) : attente bornée par l'échéance de l'appel, refus `504 RESPONSE_BUDGET_WRITE_TIMEOUT` de résultat inconnu, borne composée ; remplacer « huit slots » (`:222`) par les constantes qui le donnent — exigences : › Une écriture sans créneau…, › La réponse à une écriture relayée commence… ; vérification : test 1.4 vert
+- [ ] 3.2 Dans `docs/user/TEAM_REMOTE_SERVER.md`, ajouter le refus à la table des échéances et à la règle « relire avant de rejouer », et remplacer « jamais plus de cinq minutes » par la borne composée — exigences : idem ; vérification : test 1.4 et `UserDocumentationSpeaksOfTheInstalledProductTest` verts
+- [ ] 3.3 Dans `docs/developer/reference/openapi/morpheus-v1-remote-m26.yaml`, ajouter une réponse `504` sur `/provider-plugins/probe` qui nomme `UPSTREAM_WRITE_TIMEOUT` et `RESPONSE_BUDGET_WRITE_TIMEOUT` (résultat inconnu, `ErrorEnvelope`), et une phrase d'`info.description` pour tout appel WRITE ou ADMIN relayé ; ne pas modifier `contracts/public-surfaces.tsv` (aucune route ni capacité ne change) — exigence : › Une écriture sans créneau… (scénario « Le refus est documenté pour les clients distants ») ; vérification : `./mvnw test -pl morpheus-architecture-tests -Dtest=PublicHttpRouteConvergenceTest,RemoteServerArchitectureTest` vert, OpenAPI relue
+- [ ] 3.4 Ajouter le refus aux notes de version de la version en préparation (`docs/user/release-notes/RELEASE_NOTES_<version>.md`, version lue dans `ProductMetadata`) — vérification : `UserDocumentationSpeaksOfTheInstalledProductTest` vert
+- [ ] 3.5 Créer `docs/developer/specifications/remote-proxy-upstream-bounds.md` à partir du gabarit de `docs/developer/specifications/README.md` (exigences, diagramme de séquence repris de `design.md`, écarts dont l'absence de renvoi dans `## Purpose` de la spec principale, traçabilité) et l'ajouter à l'index, section « Frontière HTTP locale et distante » — exigences : toutes celles de la capacité ; vérification : `./mvnw test -pl morpheus-architecture-tests -Dtest=RepositoryDocumentationCoherenceTest` vert, diagramme rendu
+
+## 4. Vérification d'ensemble
+
+- [ ] 4.1 Lancer `openspec validate bound-the-wait-for-a-remote-response-slot --strict` — vérification : aucun avertissement
+- [ ] 4.2 Compléter la matrice de traçabilité de la page durable (exigence → scénario → diagramme → tâche → preuve) — vérification : chaque exigence a une preuve existante ou est marquée « preuve manquante »
+- [ ] 4.3 Lancer `./mvnw test -pl morpheus-api` puis `./mvnw test -pl morpheus-architecture-tests` — vérification : verdicts verts, `architectureTestsMinimum` respecté (lu dans `config/m21-quality-ratchets.properties`)
+- [ ] 4.4 Lancer `archgate check` — vérification : aucune violation
+
+## Workflow follow-up
+
+- Archiver le changement après la revue, sur demande explicite.
+- Après l'archivage, relire la spec principale consolidée et la page durable.
