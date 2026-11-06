@@ -17,7 +17,8 @@
 
 - [x] 3.1 Lancer `openspec validate refuse-a-workflow-that-points-at-a-closed-risk --strict` — vérification : aucun avertissement
 - [x] 3.2 Compléter la matrice de traçabilité de la page durable (exigence → scénario → diagramme → tâche → preuve) — vérification : chaque exigence a une preuve existante
-- [ ] 3.3 Lancer `./mvnw test -pl morpheus-architecture-tests` — vérification : verdict vert, `architectureTestsMinimum` respecté (lu dans `config/m21-quality-ratchets.properties`)
+- [x] 3.3 Lancer `./mvnw test -pl morpheus-architecture-tests` — vérification : verdict vert, `architectureTestsMinimum` respecté (lu dans `config/m21-quality-ratchets.properties`)
+  - Relevé : `./mvnw clean verify` d'intégration (`chore/sprint-15-low`), 19 modules, `BUILD SUCCESS`, 5 349 tests, aucun échec ; `archgate check` 27/27.
   - Écart : la suite entière n'est pas lancée dans le lot ; seules les classes que la règle peut toucher le sont (`RiskRegisterReferencesTest`, `CoherenceCheckMarkerTest`, `RepositoryDocumentationCoherenceTest`, `EnforcementMechanismAccountingTest`, `GateReachabilityArchitectureTest`, `RefusalTestEvidenceArchitectureTest`, `ProductionClassListsArchitectureTest`, `RepositoryTreeOwnershipTest`, `RepositoryRootOwnershipTest`, `D2RepositoryHardeningArchitectureTest`, `DependencyCheckWorkflowContractTest`, toutes vertes). Le passage complet revient à l'intégration en série.
 - [x] 3.4 Lancer `archgate check` — vérification : aucune violation
   - Relevé : `archgate check` passe, aucune violation, aucun avertissement.

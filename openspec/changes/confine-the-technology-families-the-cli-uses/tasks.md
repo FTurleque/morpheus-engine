@@ -37,7 +37,8 @@
 
 - [x] 4.1 `openspec validate confine-the-technology-families-the-cli-uses --strict` — vérification : aucun avertissement
 - [x] 4.2 Compléter la matrice de traçabilité de la page durable — vérification : chaque exigence a une preuve existante ou « preuve manquante »
-- [ ] 4.3 `./mvnw test -pl morpheus-architecture-tests -Dtest=CliTechnologyBoundaryArchitectureTest,ApplicationTechnologyBoundaryArchitectureTest,ReflectionAndClassLoadingBoundaryArchitectureTest,ProductionClassListsArchitectureTest,AnEmptyArchitectureRuleFailsTest,CoherenceCheckMarkerTest,EnforcementMechanismAccountingTest,RepositoryDocumentationCoherenceTest` puis `./mvnw test -pl morpheus-architecture-tests` — vérification : verdict vert ; le nombre d'exécutions ne baisse pas sous `architectureTestsMinimum` (`config/m21-quality-ratchets.properties`)
+- [x] 4.3 `./mvnw test -pl morpheus-architecture-tests -Dtest=CliTechnologyBoundaryArchitectureTest,ApplicationTechnologyBoundaryArchitectureTest,ReflectionAndClassLoadingBoundaryArchitectureTest,ProductionClassListsArchitectureTest,AnEmptyArchitectureRuleFailsTest,CoherenceCheckMarkerTest,EnforcementMechanismAccountingTest,RepositoryDocumentationCoherenceTest` puis `./mvnw test -pl morpheus-architecture-tests` — vérification : verdict vert ; le nombre d'exécutions ne baisse pas sous `architectureTestsMinimum` (`config/m21-quality-ratchets.properties`)
+  - Relevé : `./mvnw clean verify` d'intégration (`chore/sprint-15-low`), 19 modules, `BUILD SUCCESS`, 5 349 tests, aucun échec ; `archgate check` 27/27.
 - [x] 4.4 `archgate check` — vérification : aucune violation
 
 ## Workflow follow-up

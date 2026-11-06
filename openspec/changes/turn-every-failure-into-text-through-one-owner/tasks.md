@@ -42,7 +42,8 @@
 
 - [x] 5.1 `openspec validate turn-every-failure-into-text-through-one-owner --strict` — vérification : aucun avertissement
 - [x] 5.2 Compléter la matrice de traçabilité de la page durable (exigence → scénario → conception → tâche → preuve) — vérification : chaque exigence a une preuve existante ou est marquée « preuve manquante »
-- [ ] 5.3 `./mvnw test -pl morpheus-architecture-tests -Dtest=FailureTextOwnershipArchitectureTest,CliArgumentBaseArchitectureTest,CliOptionValueHasOneBlankDefinitionTest,AuditRemediationContractTest,HttpFailureDisclosureArchitectureTest,ProductionClassListsArchitectureTest,EnforcementMechanismAccountingTest,CoherenceCheckMarkerTest,ApplicationPackageCyclesArchitectureTest,RepositoryDocumentationCoherenceTest`, puis `./mvnw clean verify` et `./mvnw dependency:analyze` — vérification : verdicts verts, aucun avertissement ; ratchets de présence relus dans `config/m21-quality-ratchets.properties`, aucun baissé
+- [x] 5.3 `./mvnw test -pl morpheus-architecture-tests -Dtest=FailureTextOwnershipArchitectureTest,CliArgumentBaseArchitectureTest,CliOptionValueHasOneBlankDefinitionTest,AuditRemediationContractTest,HttpFailureDisclosureArchitectureTest,ProductionClassListsArchitectureTest,EnforcementMechanismAccountingTest,CoherenceCheckMarkerTest,ApplicationPackageCyclesArchitectureTest,RepositoryDocumentationCoherenceTest`, puis `./mvnw clean verify` et `./mvnw dependency:analyze` — vérification : verdicts verts, aucun avertissement ; ratchets de présence relus dans `config/m21-quality-ratchets.properties`, aucun baissé
+  - Relevé : `./mvnw clean verify` d'intégration (`chore/sprint-15-low`), 19 modules, `BUILD SUCCESS`, 5 349 tests, aucun échec ; `archgate check` 27/27.
 - [x] 5.4 `archgate check` — vérification : aucune violation
 
 ## Workflow follow-up

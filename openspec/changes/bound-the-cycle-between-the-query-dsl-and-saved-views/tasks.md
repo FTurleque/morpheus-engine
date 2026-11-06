@@ -27,8 +27,10 @@
 
 - [x] 4.1 Lancer `openspec validate bound-the-cycle-between-the-query-dsl-and-saved-views --strict` — vérification : aucun avertissement
 - [x] 4.2 Compléter la matrice de traçabilité de la page durable (exigence → scénario → conception ou diagramme → tâche → preuve) — vérification : chaque exigence a une preuve existante ou est marquée « preuve manquante »
-- [ ] 4.3 Lancer `./mvnw test -pl morpheus-architecture-tests -Dtest=ApplicationPackageCyclesArchitectureTest,ProductionClassListsArchitectureTest,AnEmptyArchitectureRuleFailsTest,AdrIndexCoherenceTest,RepositoryDocumentationCoherenceTest` puis `./mvnw test -pl morpheus-architecture-tests` — vérification : verdict vert
-- [ ] 4.4 Lancer `archgate check` — vérification : aucune violation
+- [x] 4.3 Lancer `./mvnw test -pl morpheus-architecture-tests -Dtest=ApplicationPackageCyclesArchitectureTest,ProductionClassListsArchitectureTest,AnEmptyArchitectureRuleFailsTest,AdrIndexCoherenceTest,RepositoryDocumentationCoherenceTest` puis `./mvnw test -pl morpheus-architecture-tests` — vérification : verdict vert
+  - Relevé : `./mvnw clean verify` d'intégration (`chore/sprint-15-low`), 19 modules, `BUILD SUCCESS`, 5 349 tests, aucun échec ; `archgate check` 27/27.
+- [x] 4.4 Lancer `archgate check` — vérification : aucune violation
+  - Relevé : `./mvnw clean verify` d'intégration (`chore/sprint-15-low`), 19 modules, `BUILD SUCCESS`, 5 349 tests, aucun échec ; `archgate check` 27/27.
 
 ## Workflow follow-up
 

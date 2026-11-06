@@ -18,7 +18,8 @@
 
 - [x] 3.1 Lancer `openspec validate hold-the-dependency-check-suppressions-to-a-contract --strict` — vérification : aucun avertissement
 - [x] 3.2 Compléter la matrice de traçabilité de la page durable (exigence → scénario → diagramme → tâche → preuve) — vérification : chaque exigence a une preuve existante
-- [ ] 3.3 Lancer `./mvnw test -pl morpheus-architecture-tests` — vérification : verdict vert, `architectureTestsMinimum` respecté (lu dans `config/m21-quality-ratchets.properties`)
+- [x] 3.3 Lancer `./mvnw test -pl morpheus-architecture-tests` — vérification : verdict vert, `architectureTestsMinimum` respecté (lu dans `config/m21-quality-ratchets.properties`)
+  - Relevé : `./mvnw clean verify` d'intégration (`chore/sprint-15-low`), 19 modules, `BUILD SUCCESS`, 5 349 tests, aucun échec ; `archgate check` 27/27.
 - [x] 3.4 Lancer `archgate check` — vérification : aucune violation
 
 ## Écarts d'implémentation

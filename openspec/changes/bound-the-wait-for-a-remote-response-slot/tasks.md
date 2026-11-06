@@ -29,7 +29,8 @@
 
 - [x] 4.1 Lancer `openspec validate bound-the-wait-for-a-remote-response-slot --strict` — vérification : aucun avertissement
 - [x] 4.2 Compléter la matrice de traçabilité de la page durable (exigence → scénario → diagramme → tâche → preuve) — vérification : chaque exigence a une preuve existante ou est marquée « preuve manquante »
-- [ ] 4.3 Lancer `./mvnw test -pl morpheus-api` puis `./mvnw test -pl morpheus-architecture-tests` — vérification : verdicts verts, `architectureTestsMinimum` respecté (lu dans `config/m21-quality-ratchets.properties`)
+- [x] 4.3 Lancer `./mvnw test -pl morpheus-api` puis `./mvnw test -pl morpheus-architecture-tests` — vérification : verdicts verts, `architectureTestsMinimum` respecté (lu dans `config/m21-quality-ratchets.properties`)
+  - Relevé : `./mvnw clean verify` d'intégration (`chore/sprint-15-low`), 19 modules, `BUILD SUCCESS`, 5 349 tests, aucun échec ; `archgate check` 27/27.
 - [x] 4.4 Lancer `archgate check` — vérification : aucune violation
 
 ## Workflow follow-up
