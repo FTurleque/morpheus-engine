@@ -4,7 +4,7 @@
 
 Garantir qu'un document vivant qui recopie un fait dont la source est lisible par un test (valeur de cliquet, nom de
 paquet) est comparé à cette source par le build, pour les agents et les contributeurs qui le lisent avant d'agir. Page
-durable : `docs/developer/specifications/stated-fact-currency.md`.
+durable : [stated-fact-currency](/docs/developer/specifications/stated-fact-currency.md).
 
 ## ADDED Requirements
 

@@ -97,6 +97,7 @@ Vue commune : la séquence de la façade distante, dans [`remote-access-journal.
 | `warning-suppression-justification` | [justification des avertissements supprimés](warning-suppression-justification.md) | [spec](../../../openspec/specs/warning-suppression-justification/spec.md) |
 | `dependency-line-currency` | [dépendance tenue sur une ligne de versions](dependency-line-currency.md) | [spec](../../../openspec/specs/dependency-line-currency/spec.md) |
 | `dependency-version-management` | [gestion des versions de dépendances et de plugins](dependency-version-management.md) | [spec](../../../openspec/specs/dependency-version-management/spec.md) |
+| `stated-fact-currency` | [actualité d'un fait recopié par un document vivant](stated-fact-currency.md) | `openspec/specs/stated-fact-currency/spec.md` à l'archivage de `compare-every-document-that-states-a-fact-to-its-source` |
 | `vulnerability-feed-freshness` | [fraîcheur de la base de vulnérabilités du gate CVE](vulnerability-feed-freshness.md) | [spec](../../../openspec/specs/vulnerability-feed-freshness/spec.md) |
 
 ### Exploitation, providers et coûts

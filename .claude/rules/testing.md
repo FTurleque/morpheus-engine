@@ -227,9 +227,9 @@ déjà qualifiée ; elle ne touche pas au plafond.
 **Ne jamais baisser un ratchet pour faire passer un build.** Écrire les tests manquants.
 
 **Si tu modifies `config/m21-quality-ratchets.properties`** (hausse justifiée par une
-preuve reproductible), répercute immédiatement les nouvelles valeurs dans ce fichier,
-dans `rules/governance.md` et dans `docs/README.md` — les trois doivent rester identiques.
-Voir `rules/meta.md`.
+preuve reproductible), répercute immédiatement les nouvelles valeurs dans la table en tête de ce fichier — une
+ligne `` | `clé` | valeur | `` est comparée au fichier par `GovernanceSurfaceCoherenceTest`, qui échoue tant
+qu'elle ne suit pas — et dans `docs/README.md`. Voir `rules/meta.md`.
 
 ## TOUJOURS
 

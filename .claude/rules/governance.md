@@ -136,11 +136,9 @@ et gardent la version courante et deux planchers absolus de couverture, nommés 
 la couverture elle-même est conclue par les gates Java que D2 exécute dans son `clean verify`.
 La couverture y est déclarée
 **deux fois**, une paire de clés par échelle de mesure (`aggregate*` et `perModule*`) — citer
-un seuil sans nommer son échelle n'a pas de sens. Valeurs constatées le 03/11/2026 :
-présence `2876 / 1819 / 836` (déclarés / générés / architecture), couverture `92,6% / 80,8%` agrégée et
-`89,9% / 77,1%` par module (l'agrégée relevée le 03/11/2026 et la par module le 30/10/2026, chacune dans son plafond
-requalifié sur la même tête `d3580dc9`).
+un seuil sans nommer son échelle n'a pas de sens. Cette page ne recopie aucune valeur : la seule copie de
+`.claude/rules/` est la table de `rules/testing.md`, que
+`GovernanceSurfaceCoherenceTest#everyRatchetARulePageCopiesUnderItsKeyEqualsTheKey` compare clé par clé au fichier.
 Ces nombres sont des
-**ratchets** — ils ne descendent pas, mais ils **montent** au fil des milestones, donc
-toute valeur recopiée ici (y compris dans une version antérieure de cette page) peut être
-périmée. Relire le fichier `.properties` avant de citer un chiffre. Voir `rules/meta.md`.
+**ratchets** — ils ne descendent pas, mais ils **montent** au fil des milestones. Relire le fichier `.properties`
+avant de citer un chiffre. Voir `rules/meta.md`.
