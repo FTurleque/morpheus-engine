@@ -2,6 +2,13 @@ package com.morpheus.architecture.m21;
 
 import com.morpheus.architecture.ProductionSources;
 import com.morpheus.architecture.RepositoryRoot;
+import com.tngtech.archunit.base.DescribedPredicate;
+import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.domain.JavaMethod;
+import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.lang.ArchCondition;
+import com.tngtech.archunit.lang.ConditionEvents;
+import com.tngtech.archunit.lang.SimpleConditionEvent;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -12,10 +19,13 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AuditHardeningWorkflowContractTest {
+    private static final String MCP_TRANSPORT_PACKAGE = "com.morpheus.transport.mcp";
+    private static final String INBOUND_FAIL_CLOSED_SIGNAL = MCP_TRANSPORT_PACKAGE + ".MessageTooLargeException";
     private static final Pattern CACHE_AGE = Pattern.compile(
             "DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS:\\s*'([0-9]+)'");
     private static final Pattern RELEASE_TAG_TRIGGER = Pattern.compile(
@@ -271,6 +281,46 @@ class AuditHardeningWorkflowContractTest {
         int ioFailure = send.indexOf("catch (IOException");
         assertTrue(refusal >= 0 && ioFailure > refusal,
                 "sendMessage must hand an outbound refusal back to its sender before the fail-closed branch");
+    }
+
+    /**
+     * ADR-0106, on the bytecode: the client's outbound encoding, {@code encode} and any lambda it declares, neither
+     * raises nor names {@code MessageTooLargeException}, the inbound fail-closed signal. The textual ban above sees the
+     * region of the source between {@code encode(} and {@code failClosed(}; this rule sees the method however the
+     * signal reaches it, through a call, a {@code throws} clause, a class literal or an {@code instanceof}.
+     * {@code MessageTooLargeException} declares no compile-time constant, so the rule has no blind spot.
+     *
+     * <p>Broken before acceptance, 06/11/2026: {@code if (encoded.length < 0) throw new MessageTooLargeException(0);}
+     * written into {@code encode}; this method failed and named the constructor call in {@code encode}.</p>
+     */
+    @Test
+    void mcpClientOutboundEncodingNeverRaisesTheInboundFailClosedSignal() {
+        JavaClasses transport = new ClassFileImporter().importPackages(MCP_TRANSPORT_PACKAGE);
+        noMethods()
+                .that().areDeclaredInClassesThat()
+                .haveFullyQualifiedName(MCP_TRANSPORT_PACKAGE + ".BoundedStdioClientTransport")
+                .and(DescribedPredicate.describe("are encode or a lambda declared in it",
+                        (JavaMethod method) -> method.getName().equals("encode")
+                                || method.getName().startsWith("lambda$encode$")))
+                .should(new ArchCondition<JavaMethod>("raise or name " + INBOUND_FAIL_CLOSED_SIGNAL) {
+                    @Override
+                    public void check(JavaMethod method, ConditionEvents events) {
+                        boolean touches = Stream.of(
+                                        method.getAccessesFromSelf().stream().map(access -> access.getTargetOwner()),
+                                        method.getThrowsClause().getTypes().stream(),
+                                        method.getReferencedClassObjects().stream()
+                                                .map(reference -> reference.getRawType()),
+                                        method.getInstanceofChecks().stream().map(check -> check.getRawType()))
+                                .flatMap(types -> types)
+                                .anyMatch(type -> type.getName().equals(INBOUND_FAIL_CLOSED_SIGNAL));
+                        events.add(new SimpleConditionEvent(method, touches,
+                                method.getFullName() + (touches ? " raises or names " : " leaves ")
+                                        + INBOUND_FAIL_CLOSED_SIGNAL));
+                    }
+                })
+                .because("an oversized outbound frame is MORPHEUS's own and is refused to its sender; failing the "
+                        + "session closed is the answer to a hostile inbound peer only (ADR-0106)")
+                .check(transport);
     }
 
     /**

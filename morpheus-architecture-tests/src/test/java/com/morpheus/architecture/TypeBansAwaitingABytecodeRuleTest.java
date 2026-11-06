@@ -45,7 +45,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 class TypeBansAwaitingABytecodeRuleTest {
 
     /** The textual bans of a type awaiting a rule on the bytecode. Lowered with each member that receives its rule; never raised. */
-    static final int AWAITING_A_RULE_CEILING = 1;
+    static final int AWAITING_A_RULE_CEILING = 0;
 
     private static final String SUITE_POM = "morpheus-architecture-tests/pom.xml";
     private static final String MAIN_SOURCES = "src/main/java";
