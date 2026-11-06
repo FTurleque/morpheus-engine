@@ -64,6 +64,9 @@ même proposition, et aucun ne domine l'autre.
 
 Avant de choisir, **écrire l'intention en une phrase**. « Aucune dépendance » → ArchUnit.
 « Ce nom ne doit pas apparaître ici » → texte. Dans le doute, **garder les deux**.
+La phrase se recopie dans la description de la pull request, section « Intention de chaque assertion textuelle » de
+`.github/pull_request_template.md`, avec le mécanisme retenu et, pour une règle sur le bytecode, la violation plantée :
+la revue la lit là. `PullRequestTemplateCoherenceTest` tient le gabarit, jamais la description.
 
 Restent textuels par nature, ne pas les migrer :
 
