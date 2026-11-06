@@ -4,7 +4,7 @@
 
 Garantir qu'un module du réacteur qui cesse de se tester fait échouer le build sous son nom, au lieu de se diluer
 dans la couverture totale des autres modules de l'échelle par module. Page durable :
-`docs/developer/specifications/per-module-coverage-floor.md`.
+[seuil de couverture propre à chaque module](/docs/developer/specifications/per-module-coverage-floor.md).
 
 ## ADDED Requirements
 

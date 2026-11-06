@@ -92,6 +92,7 @@ Vue commune : la séquence de la façade distante, dans [`remote-access-journal.
 | `validator-self-test` | [auto-test des validateurs](validator-self-test.md) | [spec](../../../openspec/specs/validator-self-test/spec.md) |
 | `coverage-attribution-gap` | [crédit de couverture emprunté](coverage-attribution-gap.md) | [spec](../../../openspec/specs/coverage-attribution-gap/spec.md) |
 | `coverage-qualification-evidence` | [preuve de qualification d'un plafond de couverture](coverage-qualification-evidence.md) | [spec](../../../openspec/specs/coverage-qualification-evidence/spec.md) |
+| `per-module-coverage-floor` | [seuil de couverture propre à chaque module](per-module-coverage-floor.md) | créée à l'archivage du changement `thresh-every-module-coverage-on-its-own-floor` |
 | `enforcement-mechanism-accounting` | [décompte des mécanismes d'enforcement](enforcement-mechanism-accounting.md) | [spec](../../../openspec/specs/enforcement-mechanism-accounting/spec.md) |
 | `architecture-rule-vacuity-guard` | [garde contre les règles d'architecture vides](architecture-rule-vacuity-guard.md) | [spec](../../../openspec/specs/architecture-rule-vacuity-guard/spec.md) |
 | `refusal-test-evidence` | [preuve de la raison d'un refus dans un test](refusal-test-evidence.md) | [spec](../../../openspec/specs/refusal-test-evidence/spec.md) |

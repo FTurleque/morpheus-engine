@@ -61,6 +61,16 @@ Deux gates mesurent la couverture et ne mesurent **pas la même grandeur**. Jusq
 
 La décision et ses raisons — séparation des échelles, population commune, maintien de l'outillage, exigences d'une hausse de plafond, crédit emprunté — sont consignées dans **ADR-0163** (`docs/architecture/adr/GEN-0163-deux-echelles-de-couverture-un-seuil-par-module-et-le-credit-emprunte.md`). La lire avant de toucher à une clé, à un plafond qualifié, à la population ou au maximum du crédit emprunté.
 
+### Un seuil propre à chaque module, à côté du cliquet total
+
+Le cliquet `perModule*` juge la **somme** des rapports : un module qui cesse de se tester s'y dilue. `CoverageQualityGateTest#everyModuleOfThePopulationHoldsItsOwnFloor` juge donc aussi le rapport propre de chaque module de la population contre `max(plancher D2, seuil du module)`, lignes et branches séparément, et refuse en une fois tous les modules en défaut avec le remède : un test **dans ce module**. Le cliquet total reste en vigueur, dans sa propre méthode.
+
+- **Source unique** : `config/m21-per-module-coverage-floors.properties`, deux clés par module (`<artifactId>.lineCoverageMinimum`, `<artifactId>.branchCoverageMinimum`). Ne recopier aucune valeur ailleurs.
+- **Population** : celle que le gate dérive du POM. Un module ajouté arrive avec ses deux clés au plancher D2 dans le même changement ; un module retiré ou renommé emporte ses clés. `theFloorFileDeclaresEveryModuleOfThePopulationAndNoOther` refuse une clé manquante ou orpheline sans build.
+- **Fenêtre** : `CoverageQualificationEvidenceTest#everyModuleFloorStaysInsideItsQualifiedWindow` admet le plancher D2, et au-dessus seulement un seuil qui garde trois fois la dispersion du module — la plus grande de son écart entre résumés conservés et de la référence de l'échelle — sous sa plus basse mesure conservée. Un module que la preuve conservée ne porte pas reste au plancher.
+- **Séparation** : seul le gate par module lit ce fichier ; `CoverageScaleSeparationTest` le refuse au gate agrégé et au gate du crédit emprunté.
+- **Jamais** baisser un seuil de module pour faire passer un build ; une baisse liée à du code retiré se justifie dans la PR.
+
 ### Le crédit emprunté : une troisième grandeur, pas une échelle
 
 Pour chaque module de la population, `BorrowedCoverageGateTest` (`morpheus-coverage-report`) compte les lignes et les branches que le rapport agrégé couvre et que le rapport propre du module ne couvre pas : ce que sa couverture doit aux tests qui vivent ailleurs. Il écrit `target/m21-borrowed-coverage-summary.txt` (`coverageScope=borrowed-credit`, une ligne par module) et tient deux propriétés :
@@ -223,6 +233,12 @@ ceux du commit mesuré ; aucun test ne les lit.
 
 Une session qui ne dispose que d'une plateforme ne peut relever que le ratchet, dans la marge
 déjà qualifiée ; elle ne touche pas au plafond.
+
+Une requalification garde tels quels les résumés écrits par les gates. Ceux de l'échelle par module portent les
+compteurs de chaque module (`module.<artifactId>.*`) : `CoverageQualificationEvidenceTest` exige qu'ils fassent les
+totaux et que chaque résumé porte le même ensemble de modules, puis lit dans ces compteurs la fenêtre de chaque seuil de
+module. Les deux échelles se requalifient à une seule tête ; les seuils de module se posent après les plafonds, chacun
+dans sa fenêtre.
 
 **Ne jamais baisser un ratchet pour faire passer un build.** Écrire les tests manquants.
 

@@ -40,6 +40,27 @@ rapport par module ne crédite que les tests **du module qui porte la ligne**. U
 `morpheus-application` exercé uniquement par des tests de `morpheus-api` y lit comme non
 couvert, et un test ajouté sous `morpheus-architecture-tests` n'y déplace rien du tout.
 
+## Le seuil d'un module : sous le cliquet total, un par module
+
+L'échelle par module a deux niveaux de seuil, à ne pas confondre :
+
+- le **cliquet total** `perModule*` (`config/m21-quality-ratchets.properties`), borné par son plafond ;
+- un **seuil par module**, dans `config/m21-per-module-coverage-floors.properties` (deux clés par
+  module : `<artifactId>.lineCoverageMinimum`, `<artifactId>.branchCoverageMinimum`), que le gate
+  compare au rapport propre du module. Le fichier est la seule source de ces valeurs.
+
+Un module sous son seuil se corrige par des tests **dans ce module**, jamais en baissant sa clé.
+Ajouter un module au réacteur exige ses deux clés au plancher D2 dans le même changement ; le retirer
+ou le renommer emporte ses clés.
+
+Relever le seuil d'un module est une décision, comme un ratchet, mais dans la fenêtre de **ce
+module** : au-dessus du plancher D2, `CoverageQualificationEvidenceTest#everyModuleFloorStaysInsideItsQualifiedWindow`
+exige que la preuve conservée porte les compteurs du module et que le seuil garde trois fois sa
+dispersion (la plus grande de son écart entre résumés conservés et de la référence de l'échelle)
+sous sa plus basse mesure conservée, en lignes et en branches séparément. Lire ces compteurs dans
+les lignes `module.<artifactId>.*` des résumés sous `config/coverage-qualification/per-module/`.
+Un module absent de cette preuve reste au plancher D2 jusqu'à la prochaine requalification.
+
 ## Le maximum du crédit emprunté se baisse, il ne se relève pas
 
 `borrowedLineCreditMaximum` / `borrowedBranchCreditMaximum` bornent le total de ce que les modules
@@ -93,6 +114,12 @@ plafond soit égal au plus bas ratio de son échelle dans ces fichiers.
    commit, fichier). Le commit se lit dans `gh run view <run> --json headSha`, pas dans le résumé.
 3. Changer les deux constantes du gate dans le même changement, et supprimer les résumés de
    l'ensemble remplacé : Git garde l'ancien.
+4. Requalifier les **deux** échelles à la même tête : le test refuse deux échelles conservées à
+   deux têtes. Les résumés par module portent les compteurs de chaque module ; le test exige qu'ils
+   fassent les totaux et que tous portent le même ensemble de modules.
+5. Poser ensuite chaque seuil de module au plus haut millième de sa fenêtre, lignes et branches
+   séparément, valeur lue dans la preuve qui vient d'être conservée. Si un plafond baisse, le dire
+   dans la PR : la régression se corrige par des tests, jamais en baissant un cliquet.
 
 Un ensemble incomplet (plateforme absente, un seul run, deux commits, deux populations, résumé d'une
 autre échelle) est refusé par le test ; ne pas l'affaiblir pour le faire passer.
@@ -131,6 +158,7 @@ Une **mesure datée** ne se réécrit pas. Seule une affirmation courante se met
 ./mvnw clean verify
 ./mvnw test -pl morpheus-architecture-tests -Dtest=CoverageQualityGateTest
 ./mvnw test -pl morpheus-architecture-tests -Dtest=CoverageQualificationEvidenceTest
+./mvnw test -pl morpheus-architecture-tests -Dtest=CoverageScaleSeparationTest
 ./mvnw test -pl morpheus-coverage-report
 ```
 
