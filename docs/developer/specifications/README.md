@@ -29,6 +29,7 @@ Vue commune : la séquence de la façade distante, dans [`remote-access-journal.
 | `http-response-headers` | [en-têtes de sécurité des réponses](http-response-headers.md) | [spec](../../../openspec/specs/http-response-headers/spec.md) |
 | `http-failure-disclosure` | [texte d'un échec rendu à un appelant HTTP](http-failure-disclosure.md) | [spec](../../../openspec/specs/http-failure-disclosure/spec.md) |
 | `remote-access-journal` | [journal d'accès du serveur distant](remote-access-journal.md) | [spec](../../../openspec/specs/remote-access-journal/spec.md) |
+| `remote-proxy-upstream-bounds` | [bornes des appels du proxy distant](remote-proxy-upstream-bounds.md) | [spec](../../../openspec/specs/remote-proxy-upstream-bounds/spec.md) |
 
 ### Surfaces publiques et adaptateurs CLI et MCP
 

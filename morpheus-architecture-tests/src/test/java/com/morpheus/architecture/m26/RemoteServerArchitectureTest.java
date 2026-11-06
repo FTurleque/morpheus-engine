@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.Semaphore;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -403,6 +404,27 @@ class RemoteServerArchitectureTest {
                         .or(simpleNameContaining("MorpheusRemoteProxyTargetResolver")))
                 .because("the transport receives a target the policy authorized and the resolver built; deciding either "
                 + "again would let two readings disagree")
+                .check(PRODUCTION);
+    }
+
+    /**
+     * No class of the HTTP adapter waits on a semaphore without a deadline: a wait goes through {@code tryAcquire},
+     * with or without a timeout, so every caller that queues for a slot is answered within a bound it can be told.
+     *
+     * <p>A compiled call, which the bytecode sees and no inlined constant hides, so the rule alone covers it, with no
+     * list of exceptions. Broken before acceptance, 06/11/2026: the unbounded {@code responseSlots.acquire()} of
+     * {@code MorpheusRemoteProxyTransport} failed this rule, naming the class and the method.</p>
+     */
+    @Test
+    void noClassOfTheHttpAdapterWaitsOnASemaphoreWithoutADeadline() {
+        noClasses()
+                .that().resideInAPackage("com.morpheus.api..")
+                .should().callMethod(Semaphore.class, "acquire")
+                .orShould().callMethod(Semaphore.class, "acquire", int.class)
+                .orShould().callMethod(Semaphore.class, "acquireUninterruptibly")
+                .orShould().callMethod(Semaphore.class, "acquireUninterruptibly", int.class)
+                .because("remote-proxy-upstream-bounds: the HTTP adapter waits on no semaphore without a deadline, so "
+                        + "a caller queued for a slot is answered before the deadline it was told")
                 .check(PRODUCTION);
     }
 }
