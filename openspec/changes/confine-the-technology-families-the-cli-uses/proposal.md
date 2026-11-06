@@ -9,7 +9,7 @@ apporte d'un coup trois familles : réseau sortant (imports `java.net.http`, `Ht
 d'`ARCH-0150` — familles mesurées, liste nommée par famille, exactitude dans les deux sens — s'arrête à
 `com.morpheus.application` : `ApplicationTechnologyBoundaryArchitectureTest` importe ce seul paquet. Hors de lui, seule
 la réflexion est confinée sur tout le produit (`ReflectionAndClassLoadingBoundaryArchitectureTest`), et la seule règle
-sur les fils d'exécution (`DatabaseWorkArchitectureTest`, `ARCH-0159`) est bornée à `com.morpheus.api`. Constat
+sur les fils d'exécution (`DatabaseWorkArchitectureTest`, `BE-0159`) est bornée à `com.morpheus.api`. Constat
 `AUD-ARC-18` (Faible, partiel) de l'audit `docs/project/audits/2026-10-09/findings.md`, revérifié le 2026-11-06 sur
 `30520bd3` : rien n'empêche la prochaine dépendance technique d'entrer dans la CLI sans décision.
 
@@ -48,7 +48,7 @@ transport que l'action du constat nomme (`design.md` D6, section « morpheus-api
 
 **Exclus :**
 - dans le premier volet, `morpheus-api`. Il porte déjà des règles par famille et
-  par groupe — fils d'exécution (`DatabaseWorkArchitectureTest`, `ARCH-0159`), bibliothèque JSON
+  par groupe — fils d'exécution (`DatabaseWorkArchitectureTest`, `BE-0159`), bibliothèque JSON
   (`HttpRoutesTransportBoundaryArchitectureTest`, `everyApiJsonMapperIsStrictAboutUnknownPropertiesAndTrailingTokens`) —
   qu'un gate de familles doit d'abord réconcilier sans les répéter (`.claude/rules/architecture.md` : une suite ne répète
   aucun interdit qu'une règle tient déjà) ; et sa surface est plus large (relevé textuel du 06/11 sur `30520bd3` : des

@@ -11,7 +11,7 @@ Motivation : voir `proposal.md`, section Why. État vérifié le 2026-11-06 sur 
   `com.morpheus.application` seul (`importPackages(APPLICATION)`).
 - `[EXISTANT VÉRIFIÉ]` `ReflectionAndClassLoadingBoundaryArchitectureTest` importe tout `com.morpheus` et confine la
   réflexion et le chargement de classes, bytecode et texte, avec ses propres listes (tables de faits hors application).
-- `[EXISTANT VÉRIFIÉ]` `DatabaseWorkArchitectureTest` (`ARCH-0159`) borne ses règles à `com.morpheus.api..`, et son
+- `[EXISTANT VÉRIFIÉ]` `DatabaseWorkArchitectureTest` (`BE-0159`) borne ses règles à `com.morpheus.api..`, et son
   prédicat de pool ne reconnaît que `Thread.ofPlatform` et `Executors.newFixedThreadPool`.
 - `[EXISTANT VÉRIFIÉ]` `morpheus-architecture-tests/pom.xml` déclare `morpheus-cli` en dépendance de test : ses classes
   sont importables par une règle ArchUnit.
