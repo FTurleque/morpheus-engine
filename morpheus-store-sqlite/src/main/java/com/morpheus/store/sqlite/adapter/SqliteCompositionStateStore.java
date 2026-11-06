@@ -36,7 +36,7 @@ public final class SqliteCompositionStateStore implements CompositionStateStore,
     }
 
     @Override
-    public synchronized void save(CompositionSnapshotState state) {
+    public void save(CompositionSnapshotState state) {
         ensureOpen();
         Objects.requireNonNull(state, "state");
         SqliteTransactionRunner.runVoid(connection,
@@ -49,7 +49,7 @@ public final class SqliteCompositionStateStore implements CompositionStateStore,
     }
 
     @Override
-    public synchronized Optional<CompositionSnapshotState> find(KnowledgeSnapshotId snapshotId) {
+    public Optional<CompositionSnapshotState> find(KnowledgeSnapshotId snapshotId) {
         ensureOpen();
         Objects.requireNonNull(snapshotId, "snapshotId");
         try (PreparedStatement statement = connection.prepareStatement(
@@ -246,7 +246,7 @@ public final class SqliteCompositionStateStore implements CompositionStateStore,
     }
 
     @Override
-    public synchronized void close() {
+    public void close() {
         if (closed) {
             return;
         }

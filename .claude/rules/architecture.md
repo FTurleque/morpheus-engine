@@ -233,6 +233,13 @@ est refusé. Les deux listes sont des compteurs de dette : elles ne font que ré
 remplace la règle.
 > `SqliteStorePackagesArchitectureTest`, `theRuntimeDeclaresExactlyTheNamedPublicTypes`
 
+Une classe de `com.morpheus.store.sqlite.adapter` ne prend **aucun** moniteur, ni méthode `synchronized` ni bloc : un
+store est confiné au fil de son opération (la `SqliteConnectionScope` refuse sa connexion à tout autre fil), donc son
+moniteur ne protège rien. Un état que plusieurs fils atteignent vit dans `runtime`, avec la raison sur son verrou
+(registre des baux `SqliteDatabaseLease`, `ServerLease.close`). La règle sur le bytecode voit le modificateur ; un bloc
+ne laisse que des `monitorenter` qu'ArchUnit n'expose pas, et le texte le voit.
+> `SqliteStoreAdapterHoldsNoMonitorArchitectureTest`
+
 ### `morpheus-api` : un rôle, un paquet, et six types pour les voisins (ADR-0155)
 `remote` > `local` > routeurs (`routes.bodiless`, `routes.shareddecoder`, `routes.owncontext`) > services du paquet
 parent > `transport` : une dépendance qui remonte cet ordre est un cycle, refusé par

@@ -43,7 +43,7 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
     }
 
     @Override
-    public synchronized void putProject(ProjectStoreEntry project) {
+    public void putProject(ProjectStoreEntry project) {
         ensureOpen();
         try {
             Optional<ProjectStoreEntry> existing = findProjectInternal(project.id());
@@ -73,7 +73,7 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
     }
 
     @Override
-    public synchronized Optional<ProjectStoreEntry> findProject(ProjectSpecificationId projectId) {
+    public Optional<ProjectStoreEntry> findProject(ProjectSpecificationId projectId) {
         ensureOpen();
         try {
             return findProjectInternal(projectId);
@@ -83,7 +83,7 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
     }
 
     @Override
-    public synchronized Optional<ProjectStoreEntry> findProjectByRoot(SourceLocator rootLocator) {
+    public Optional<ProjectStoreEntry> findProjectByRoot(SourceLocator rootLocator) {
         ensureOpen();
         Objects.requireNonNull(rootLocator, "rootLocator");
         try {
@@ -94,7 +94,7 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
     }
 
     @Override
-    public synchronized List<ProjectStoreEntry> listProjects() {
+    public List<ProjectStoreEntry> listProjects() {
         ensureOpen();
         try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT id, root_scheme, root_value FROM projects ORDER BY id");
@@ -110,7 +110,7 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
     }
 
     @Override
-    public synchronized void putSnapshot(KnowledgeSnapshotMetadata snapshot) {
+    public void putSnapshot(KnowledgeSnapshotMetadata snapshot) {
         ensureOpen();
         if (snapshot.state() == KnowledgeSnapshotState.ACTIVE
                 || snapshot.state() == KnowledgeSnapshotState.RETIRED) {
@@ -146,7 +146,7 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
     }
 
     @Override
-    public synchronized Optional<KnowledgeSnapshotMetadata> findSnapshot(KnowledgeSnapshotId snapshotId) {
+    public Optional<KnowledgeSnapshotMetadata> findSnapshot(KnowledgeSnapshotId snapshotId) {
         ensureOpen();
         try {
             return findSnapshotInternal(snapshotId);
@@ -156,7 +156,7 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
     }
 
     @Override
-    public synchronized List<KnowledgeSnapshotMetadata> listSnapshots(ProjectSpecificationId projectId) {
+    public List<KnowledgeSnapshotMetadata> listSnapshots(ProjectSpecificationId projectId) {
         ensureOpen();
         Objects.requireNonNull(projectId, "projectId");
         try (PreparedStatement statement = connection.prepareStatement("""
@@ -180,7 +180,7 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
     }
 
     @Override
-    public synchronized Optional<KnowledgeSnapshotMetadata> activeSnapshot(ProjectSpecificationId projectId) {
+    public Optional<KnowledgeSnapshotMetadata> activeSnapshot(ProjectSpecificationId projectId) {
         ensureOpen();
         try {
             return activeSnapshotInternal(projectId);
@@ -190,7 +190,7 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
     }
 
     @Override
-    public synchronized KnowledgeSnapshotMetadata transitionSnapshotState(
+    public KnowledgeSnapshotMetadata transitionSnapshotState(
             KnowledgeSnapshotId snapshotId,
             KnowledgeSnapshotState expectedState,
             KnowledgeSnapshotState targetState) {
@@ -218,7 +218,7 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
     }
 
     @Override
-    public synchronized KnowledgeSnapshotMetadata activateSnapshot(
+    public KnowledgeSnapshotMetadata activateSnapshot(
             KnowledgeSnapshotId snapshotId,
             Optional<KnowledgeSnapshotId> expectedActiveSnapshotId) {
         ensureOpen();
@@ -257,7 +257,7 @@ public final class SqliteSpecificationKnowledgeStore implements SpecificationKno
     }
 
     @Override
-    public synchronized void close() {
+    public void close() {
         if (closed) {
             return;
         }

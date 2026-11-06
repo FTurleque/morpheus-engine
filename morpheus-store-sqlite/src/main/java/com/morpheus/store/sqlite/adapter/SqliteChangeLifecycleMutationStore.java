@@ -71,7 +71,7 @@ public final class SqliteChangeLifecycleMutationStore implements ChangeLifecycle
     }
 
     @Override
-    public synchronized Optional<ChangeLifecycleOperationalState> findState(
+    public Optional<ChangeLifecycleOperationalState> findState(
             ProjectSpecificationId projectId,
             ChangeId changeId) {
         ensureOpen();
@@ -85,7 +85,7 @@ public final class SqliteChangeLifecycleMutationStore implements ChangeLifecycle
     }
 
     @Override
-    public synchronized Optional<ChangeLifecycleMutationAuditRecord> findByIdempotencyKey(
+    public Optional<ChangeLifecycleMutationAuditRecord> findByIdempotencyKey(
             ProjectSpecificationId projectId,
             ChangeLifecycleIdempotencyKey idempotencyKey) {
         ensureOpen();
@@ -104,7 +104,7 @@ public final class SqliteChangeLifecycleMutationStore implements ChangeLifecycle
      * as the identity compares.
      */
     @Override
-    public synchronized ChangeLifecycleMutationAuditPage listAudit(
+    public ChangeLifecycleMutationAuditPage listAudit(
             ProjectSpecificationId projectId,
             ChangeId changeId,
             PageRequest pageRequest) {
@@ -142,7 +142,7 @@ public final class SqliteChangeLifecycleMutationStore implements ChangeLifecycle
     }
 
     @Override
-    public synchronized ChangeLifecycleMutationPersistenceResult apply(ChangeLifecycleMutationAttempt attempt) {
+    public ChangeLifecycleMutationPersistenceResult apply(ChangeLifecycleMutationAttempt attempt) {
         ensureOpen();
         Objects.requireNonNull(attempt, "attempt");
         requireProject(attempt.projectId());
@@ -201,7 +201,7 @@ public final class SqliteChangeLifecycleMutationStore implements ChangeLifecycle
     }
 
     @Override
-    public synchronized void close() {
+    public void close() {
         if (closed) {
             return;
         }

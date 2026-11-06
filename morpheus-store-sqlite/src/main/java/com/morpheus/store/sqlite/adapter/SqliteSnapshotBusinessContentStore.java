@@ -35,7 +35,7 @@ public final class SqliteSnapshotBusinessContentStore implements SnapshotBusines
     }
 
     @Override
-    public synchronized void putSnapshotContent(SnapshotBusinessContent content) {
+    public void putSnapshotContent(SnapshotBusinessContent content) {
         ensureOpen();
         Objects.requireNonNull(content, "content");
         try {
@@ -67,7 +67,7 @@ public final class SqliteSnapshotBusinessContentStore implements SnapshotBusines
     }
 
     @Override
-    public synchronized Optional<SnapshotBusinessContent> findSnapshotContent(KnowledgeSnapshotId snapshotId) {
+    public Optional<SnapshotBusinessContent> findSnapshotContent(KnowledgeSnapshotId snapshotId) {
         ensureOpen();
         Objects.requireNonNull(snapshotId, "snapshotId");
         try {
@@ -78,7 +78,7 @@ public final class SqliteSnapshotBusinessContentStore implements SnapshotBusines
     }
 
     @Override
-    public synchronized void close() {
+    public void close() {
         if (closed) {
             return;
         }

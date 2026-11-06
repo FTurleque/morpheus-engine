@@ -33,8 +33,8 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * Synchronization state is written with the revision the writer read, and both adapters hold that invariant.
  *
- * <p>Two syncs on one project open one SQLite connection each, so the adapter's {@code synchronized} never
- * excluded them from each other. The write was a blind upsert: a writer that had read the state before another
+ * <p>Two syncs on one project open one SQLite connection each, so no monitor on an adapter instance excludes them
+ * from each other. The write was a blind upsert: a writer that had read the state before another
  * recorded {@code SCAN_INCOMPLETE} wrote {@code NULL} over that flag, and the next {@code prepare()} chose the
  * incremental path on an inventory the system knew was incomplete. The scenario is exercised on the memory store
  * and on SQLite, because the memory store is the one the unit tests always used and the defect was only visible

@@ -29,7 +29,7 @@ public final class SqliteEntityIdentityStore implements EntityIdentityStore, Aut
     }
 
     @Override
-    public synchronized Optional<DomainIdentity> find(EntityIdentityKey key) {
+    public Optional<DomainIdentity> find(EntityIdentityKey key) {
         ensureOpen();
         Objects.requireNonNull(key, "key");
         try {
@@ -40,7 +40,7 @@ public final class SqliteEntityIdentityStore implements EntityIdentityStore, Aut
     }
 
     @Override
-    public synchronized void put(EntityIdentityBinding binding) {
+    public void put(EntityIdentityBinding binding) {
         ensureOpen();
         Objects.requireNonNull(binding, "binding");
         try {
@@ -76,7 +76,7 @@ public final class SqliteEntityIdentityStore implements EntityIdentityStore, Aut
     }
 
     @Override
-    public synchronized void close() {
+    public void close() {
         if (closed) {
             return;
         }

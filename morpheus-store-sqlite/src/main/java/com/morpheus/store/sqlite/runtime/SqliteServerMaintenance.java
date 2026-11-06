@@ -54,7 +54,12 @@ public final class SqliteServerMaintenance {
         }
     }
 
-    /** Lifetime lease used by remote server mode to make offline restore fail closed while the server is active. */
+    /**
+     * Lifetime lease used by remote server mode to make offline restore fail closed while the server is active.
+     *
+     * <p>{@link #close()} is synchronized: the lease is held by the remote server, which any thread may close, and two
+     * closes must release the lock and the channel once.</p>
+     */
     public static final class ServerLease implements AutoCloseable {
         private final FileChannel channel;
         private final FileLock lock;
