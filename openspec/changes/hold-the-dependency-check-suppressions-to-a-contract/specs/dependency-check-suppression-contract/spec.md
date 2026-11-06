@@ -4,7 +4,7 @@
 
 Garantir qu'une règle du fichier de suppressions du gate CVE ne retire que ce qu'elle dit retirer, sur une cible ancrée,
 avec sa raison écrite, pour que l'élargissement d'une suppression fasse échouer le build au lieu de reposer sur la seule
-relecture. Page durable : `docs/developer/specifications/dependency-check-suppression-contract.md`.
+relecture. Page durable : [dependency-check-suppression-contract](/docs/developer/specifications/dependency-check-suppression-contract.md).
 
 ## ADDED Requirements
 
