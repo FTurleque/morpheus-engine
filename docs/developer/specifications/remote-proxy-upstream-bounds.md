@@ -130,4 +130,4 @@ dernière. La séquence complète de la façade (authentification, autorisation,
   nommés.
 - Page développeur : [`../REMOTE_SERVER_PLATFORM.md`](../REMOTE_SERVER_PLATFORM.md), section « Concurrence et timeout
   proxy ».
-- Changement : `openspec/changes/bound-the-wait-for-a-remote-response-slot/`.
+- Changement : `openspec/changes/archive/2026-11-06-bound-the-wait-for-a-remote-response-slot/`.

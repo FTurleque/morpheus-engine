@@ -47,7 +47,7 @@
   - `Change 'thresh-every-module-coverage-on-its-own-floor' is valid`.
 - [x] 5.2 Compléter la matrice de traçabilité de la page durable (exigence → scénario → conception ou diagramme → tâche → preuve) — vérification : chaque exigence a une preuve existante ou est marquée « preuve manquante »
   - Matrice de la page durable : chaque scénario a sa preuve ; « preuve manquante » sur le réacteur réel (5.3) et sur la preuve réelle des seuils au-dessus du plancher (3.4, 3.5) ; la baisse justifiée reste tenue par la revue.
-- [ ] 5.3 Lancer `./mvnw clean verify`, puis `./mvnw test -pl morpheus-architecture-tests -Dtest=CoverageQualityGateTest,CoverageQualificationEvidenceTest,CoverageScaleSeparationTest,AdrIndexCoherenceTest,RepositoryDocumentationCoherenceTest` — vérification : verdict vert sur Linux et Windows (CI)
+- [ ] 5.3 Lancer `./mvnw clean verify`, puis `./mvnw test -pl morpheus-architecture-tests -Dtest=CoverageQualityGateTest,CoverageQualificationEvidenceTest,CoverageScaleSeparationTest,AdrIndexCoherenceTest,RepositoryDocumentationCoherenceTest` — vérification : verdict vert sur Linux et Windows (CI) — Windows : `./mvnw clean verify` BUILD SUCCESS sur `chore/sprint-15-remainder`, preuve par module à 16 modules ; Linux : attendu de la CI de la pull request
 - [x] 5.4 Lancer `archgate check` — vérification : aucune violation
   - 0 violation, 0 warning ; seul `briefingWarnings` connu : section `Decision` de GEN-0089 au-dessus du plafond de 2 000 caractères, sans rapport avec ce changement.
 

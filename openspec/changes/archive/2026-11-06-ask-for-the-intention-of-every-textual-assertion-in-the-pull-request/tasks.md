@@ -26,7 +26,7 @@
   - « Change 'ask-for-the-intention-of-every-textual-assertion-in-the-pull-request' is valid ».
 - [x] 4.2 `./mvnw test -pl morpheus-architecture-tests -Dtest=<classe ajoutée>,CoherenceCheckMarkerTest,EnforcementMechanismAccountingTest,GovernanceSurfaceCoherenceTest,RepositoryDocumentationCoherenceTest` — vérification : verdict vert
   - 40 exécutions, 0 échec, `BUILD SUCCESS`.
-- [ ] 4.3 `./mvnw test -pl morpheus-architecture-tests` — vérification : verdict vert, le nombre d'exécutions déclarées du module monte (`architectureTestsMinimum` de `config/m21-quality-ratchets.properties` non touché)
+- [x] 4.3 `./mvnw test -pl morpheus-architecture-tests` — vérification : verdict vert, le nombre d'exécutions déclarées du module monte (`architectureTestsMinimum` de `config/m21-quality-ratchets.properties` non touché) — fait sur la branche d'intégration `chore/sprint-15-remainder` (Windows, JDK 21) : `./mvnw clean verify` BUILD SUCCESS ; module d'architecture 1068 exécutions déclarées, 0 générée, verdict `documentationDrift=0`, `architectureViolations=0` ; `architectureTestsMinimum` non touché
   - Lancé par `test` (sans `package`) : 1 014 exécutions, quatre échecs étrangers au changement — `ProviderPluginPlatformContractTest` (deux méthodes, JAR de référence non empaqueté), `CoverageQualityGateTest` (aucun rapport JaCoCo sans `verify`) et `M19PerformanceGate` (budget de performance, hors sélection Surefire, retenu par le motif `-Dtest`). Reste à conclure par `./mvnw clean verify`.
 - [x] 4.4 `archgate check` — vérification : aucune violation
   - `archgate check` : `pass: true`, aucune violation, aucun avertissement.

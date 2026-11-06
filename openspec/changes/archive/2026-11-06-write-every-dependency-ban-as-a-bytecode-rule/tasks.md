@@ -37,7 +37,7 @@
   - `Change 'write-every-dependency-ban-as-a-bytecode-rule' is valid`.
 - [x] 4.2 `./mvnw test -pl morpheus-architecture-tests -Dtest=<classe ajoutée>,EnforcementMechanismAccountingTest,CoherenceCheckMarkerTest,AnEmptyArchitectureRuleFailsTest,ProductionClassListsArchitectureTest,RepositoryDocumentationCoherenceTest` puis chaque `*ArchitectureTest` qui reçoit une règle — vérification : verdict vert
   - Module entier lancé (relevé de 2.4) : 1036 exécutions, trois échecs propres à la phase `test` sans `package` ni rapport JaCoCo (`CoverageQualityGateTest`, deux méthodes de `ProviderPluginPlatformContractTest` qui exigent le JAR de référence) ; toutes les classes citées par la tâche et chaque classe qui reçoit une règle sont vertes.
-- [ ] 4.3 `./mvnw clean verify` (le module d'architecture exige `morpheus-provider-reference` construit) — vérification : verdict vert
+- [x] 4.3 `./mvnw clean verify` (le module d'architecture exige `morpheus-provider-reference` construit) — vérification : verdict vert — fait sur la branche d'intégration `chore/sprint-15-remainder` (Windows, JDK 21) : `./mvnw clean verify` BUILD SUCCESS ; module d'architecture 1068 exécutions déclarées, 0 générée, verdict `documentationDrift=0`, `architectureViolations=0` ; `architectureTestsMinimum` non touché
   - Non lancé dans ce lot : le `clean verify` complet est fait en série par l'intégrateur.
 - [x] 4.4 `archgate check` — vérification : aucune violation
   - `archgate check` : `pass: true`, 0 violation, 0 avertissement.

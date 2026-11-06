@@ -82,3 +82,165 @@ be derived from the class by the suite, not declared in a list. A marked class M
 
 - **WHEN** the suite is run with the coherence marker as its only selected group
 - **THEN** only the marked classes run, and at least one does
+
+### Requirement: Le gabarit de pull request demande l'intention de chaque assertion textuelle ajoutée
+
+Le dépôt DOIT (MUST) porter un gabarit de description de pull request, à l'emplacement que GitHub lit, dont une
+section demande, pour chaque assertion textuelle ajoutée ou modifiée dans la suite d'architecture, la phrase
+d'intention qui la justifie et le mécanisme retenu, assertion textuelle ou règle sur le bytecode. La suite
+d'architecture DOIT (MUST) échouer, en nommant le fichier, si le gabarit ou cette section manque.
+
+#### Scenario: Le gabarit est présent avec sa section
+
+- **GIVEN** le gabarit de pull request du dépôt, qui porte la section d'intention
+- **WHEN** la suite d'architecture s'exécute
+- **THEN** le contrôle du gabarit passe
+- **AND** aucun fichier n'est écrit ni modifié par ce contrôle
+
+#### Scenario: La section d'intention est retirée du gabarit
+
+- **GIVEN** un gabarit de pull request dont la section d'intention a été supprimée
+- **WHEN** la suite d'architecture s'exécute
+- **THEN** elle échoue, nomme le chemin du gabarit et dit quelle section manque
+- **AND** le gabarit reste tel qu'il a été édité
+
+#### Scenario: Le gabarit est supprimé
+
+- **GIVEN** un dépôt sans gabarit de pull request
+- **WHEN** la suite d'architecture s'exécute
+- **THEN** elle échoue et nomme le chemin attendu du gabarit
+
+#### Scenario: Une pull request laisse la section vide
+
+- **GIVEN** une pull request dont la description laisse vide la section d'intention alors qu'elle ajoute une assertion
+  textuelle
+- **WHEN** la suite d'architecture s'exécute sur sa branche
+- **THEN** la suite ne juge pas la description, qu'aucun fichier du dépôt ne porte
+- **AND** le refus, s'il a lieu, est celui de la revue
+
+### Requirement: Le gabarit de pull request demande la justification d'une modification de gouvernance
+
+Le gabarit de description de pull request DOIT (MUST) porter une section qui demande la justification de toute
+modification d'un fichier de gouvernance : manifeste des surfaces publiques, fichiers de ratchets et de compteurs de
+dette sous `config/`, contrats OpenAPI, tests de la suite d'architecture. La suite d'architecture DOIT (MUST) échouer, en
+nommant le fichier, si cette section manque.
+
+#### Scenario: La section de gouvernance est retirée du gabarit
+
+- **GIVEN** un gabarit de pull request qui garde la section d'intention mais a perdu celle de gouvernance
+- **WHEN** la suite d'architecture s'exécute
+- **THEN** elle échoue, nomme le chemin du gabarit et dit que la section de gouvernance manque
+- **AND** aucun autre fichier n'est lu ni modifié
+
+#### Scenario: La section nomme les fichiers de gouvernance
+
+- **GIVEN** le gabarit de pull request du dépôt
+- **WHEN** la suite d'architecture lit sa section de gouvernance
+- **THEN** elle y trouve le manifeste `contracts/public-surfaces.tsv`, les fichiers de ratchets sous `config/`, les
+  contrats OpenAPI et la suite d'architecture, et passe
+
+### Requirement: Un échec d'un contrôle de cohérence est rapporté comme une désynchronisation documentaire
+
+À chaque exécution de la suite d'architecture, le build DOIT (MUST) classer chaque test en échec selon le marqueur de
+cohérence de sa classe et rendre deux verdicts distincts, sur sa sortie et dans un fichier de preuve du module :
+désynchronisation documentaire pour un échec d'une classe marquée, violation d'architecture pour tout autre. Chaque
+verdict DOIT (MUST) nommer ses tests et le fichier DOIT (MUST) donner le nombre d'exécutions de chaque nature.
+
+#### Scenario: Seul un contrôle de cohérence échoue
+
+- **GIVEN** une page de `docs/` reformulée de sorte qu'une classe marquée de la suite échoue, le code restant conforme
+- **WHEN** la suite d'architecture s'exécute
+- **THEN** le build échoue, et son verdict nomme le test en échec comme désynchronisation documentaire
+- **AND** le verdict de violation d'architecture est vide, et le fichier de preuve l'écrit
+
+#### Scenario: Une règle sur le code échoue
+
+- **GIVEN** une violation d'une règle sur le bytecode introduite dans une classe de production
+- **WHEN** la suite d'architecture s'exécute
+- **THEN** le build échoue, et son verdict nomme le test en échec comme violation d'architecture
+- **AND** aucun test n'est rangé comme désynchronisation documentaire
+
+#### Scenario: Les deux natures échouent dans la même exécution
+
+- **WHEN** un contrôle de cohérence et une règle sur le code échouent ensemble
+- **THEN** les deux verdicts sont rendus, chacun avec ses seuls tests
+
+#### Scenario: Aucun échec
+
+- **WHEN** la suite d'architecture passe
+- **THEN** le fichier de preuve est écrit avec deux verdicts vides et un nombre d'exécutions de classes marquées
+  supérieur à zéro
+
+### Requirement: Le verdict distinct ne change ni la sélection ni le compte des exécutions
+
+Le verdict DOIT (MUST) être rendu dans l'exécution Surefire unique du module, sans second répertoire de rapports ni
+renommage des rapports : chaque classe de la suite s'exécute une fois, ses rapports restent dans le répertoire que
+lisent les validateurs de présence, et une invocation qui sélectionne des tests par `-Dtest` ou `-Dgroups` garde le
+comportement qu'elle avait.
+
+#### Scenario: Le compte des validateurs de présence
+
+- **GIVEN** la même révision construite avec et sans l'écouteur du verdict
+- **WHEN** le compte des exécutions déclarées du module est relevé dans `morpheus-architecture-tests/target/surefire-reports/`
+- **THEN** les deux comptes sont égaux
+- **AND** aucun rapport n'est écrit dans un autre répertoire
+
+#### Scenario: Une seule classe marquée sélectionnée par -Dtest
+
+- **WHEN** la suite est lancée avec `-Dtest` qui ne désigne qu'une classe marquée
+- **THEN** cette classe s'exécute et la commande réussit si ses tests passent
+- **AND** le verdict ne porte que ses exécutions
+
+### Requirement: Les interdits textuels de type qui attendent une règle sur le bytecode forment une population qui ne fait que rétrécir
+
+La suite d'architecture DOIT (MUST) compter, par une expression qu'elle tient et prouve sur exemples, ses interdits
+textuels d'un nom de type, avec ou sans message, dont la cible est déclarée dans les sources principales d'un module
+qu'elle importe, ne déclare aucune constante de compilation non privée, et n'est nommée par aucune de ses classes qui
+évaluent des règles sur le bytecode. Ce compte DOIT (MUST) égaler un plafond déclaré, jamais relevé.
+
+#### Scenario: Un interdit textuel est ajouté sur une cible qui permet une règle
+
+- **GIVEN** un type des sources principales d'un module importé, sans constante de compilation non privée, qu'aucune
+  classe de règles ne nomme
+- **WHEN** un test de la suite ajoute `assertFalse(source.contains("CeType"), "…")`
+- **THEN** la suite échoue, donne le compte mesuré, le plafond et les membres par fichier
+- **AND** le message dit d'écrire la règle sur le bytecode, l'assertion textuelle pouvant rester à côté
+
+#### Scenario: La cible déclare une constante inlinable
+
+- **GIVEN** un type qui déclare une constante `static final` non privée de type `String` ou primitif
+- **WHEN** un test de la suite l'interdit par une assertion textuelle
+- **THEN** l'interdit n'est pas compté, car une règle sur le bytecode ne verrait pas l'usage de la constante
+- **AND** la suite passe sans que le plafond change
+
+#### Scenario: Une règle est écrite et le plafond est laissé tel quel
+
+- **WHEN** une classe de règles de la suite nomme désormais la cible d'un membre, et le plafond déclaré n'est pas abaissé
+- **THEN** la suite échoue et demande d'abaisser le plafond au compte mesuré dans le même changement
+
+#### Scenario: L'expression est prouvée dans les deux sens
+
+- **WHEN** la mesure s'exécute sur des exemples : un membre ; une cible à constante non privée ; une cible à constante
+  privée seulement ; une cible hors du dépôt ; une cible nommée par une classe de règles ; un interdit écrit dans un
+  commentaire ou une chaîne ; un récepteur qui n'est pas un identifiant (`Files.readString(p).contains(…)`)
+- **THEN** elle compte exactement le membre, la cible à constante privée seulement et le récepteur qualifié
+
+### Requirement: Une règle qui remplace ou double un interdit textuel est livrée avec sa violation plantée
+
+Le changement qui ajoute une règle sur le bytecode pour remplacer ou doubler un interdit textuel DOIT (MUST) consigner,
+dans ses tâches ou sa pull request, la violation introduite pour la faire échouer, l'échec constaté qui nomme la classe
+fautive, et le retour arrière. Une règle qui ne retient aucune classe DOIT (MUST) continuer d'échouer
+(`archRule.failOnEmptyShould`).
+
+#### Scenario: Une règle migrée sans trace de violation
+
+- **GIVEN** une pull request qui ajoute une règle sur le bytecode à la place d'un interdit textuel
+- **WHEN** ses tâches et sa description ne consignent aucune violation plantée
+- **THEN** la revue la refuse ; le build, qui ne lit pas cette trace, ne la refuse pas
+- **AND** aucune règle n'est acceptée sur la seule foi d'un build vert
+
+#### Scenario: Une règle migrée qui ne voit aucune classe
+
+- **WHEN** une règle ajoutée par la migration cible un paquet absent de l'ensemble importé
+- **THEN** la suite échoue par le garde-fou des règles vides
+- **AND** aucune exemption ne permet de la garder

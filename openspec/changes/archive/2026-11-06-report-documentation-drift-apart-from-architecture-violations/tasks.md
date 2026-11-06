@@ -35,7 +35,7 @@
 - [x] 4.1 `openspec validate report-documentation-drift-apart-from-architecture-violations --strict` — vérification : aucun avertissement
 - [x] 4.2 `./mvnw test -pl morpheus-architecture-tests` — vérification : verdict vert, fichier de verdict présent
   - Relevé : fichier présent, `documentationDrift=0` ; seul échec, `CoverageQualityGateTest`, rangé en violation d'architecture, qui exige les rapports JaCoCo d'un `clean verify` (4.3) et non un `test` seul.
-- [ ] 4.3 (laissée à l'intégrateur) `./mvnw clean verify` — vérification : verdict vert ; `architectureTestsMinimum` (`config/m21-quality-ratchets.properties`) non touché
+- [x] 4.3 `./mvnw clean verify` — vérification : verdict vert ; `architectureTestsMinimum` (`config/m21-quality-ratchets.properties`) non touché — fait sur la branche d'intégration `chore/sprint-15-remainder` (Windows, JDK 21) : `./mvnw clean verify` BUILD SUCCESS ; module d'architecture 1068 exécutions déclarées, 0 générée, verdict `documentationDrift=0`, `architectureViolations=0` ; `architectureTestsMinimum` non touché
 - [x] 4.4 `archgate check` — vérification : aucune violation
   - Relevé : 17 règles, 0 violation, 0 avertissement.
 
