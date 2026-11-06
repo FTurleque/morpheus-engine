@@ -1,7 +1,8 @@
 # Preuve de qualification d'un plafond de couverture (`coverage-qualification-evidence`)
 
 Spec de référence : [`openspec/specs/coverage-qualification-evidence/spec.md`](../../../openspec/specs/coverage-qualification-evidence/spec.md)
-· Relevé du 2026-11-04 sur `2913fc30`.
+· Relevé du 2026-11-04 sur `2913fc30`, complété le 2026-11-06 sur `a7bc8571` pour R6 et R7, ajoutées par le changement
+`thresh-every-module-coverage-on-its-own-floor` (spec delta jusqu'à son archivage).
 
 ## Objet et périmètre
 
@@ -13,10 +14,12 @@ ne serait qu'une valeur écrite dans un test.
   qui portent les constantes `*_QUALIFIED_*_RATIO`.
 - **Inclus** : le dossier [`config/coverage-qualification/`](../../../config/coverage-qualification/evidence.tsv) (manifeste
   `evidence.tsv` et un résumé par run et par échelle), l'égalité plafond / plus basse mesure, la complétude de la
-  qualification, l'unité de tête entre les deux échelles, le guide développeur.
+  qualification, l'unité de tête entre les deux échelles, les compteurs de chaque module dans la preuve de l'échelle
+  par module et la dispersion d'un module, le guide développeur.
 - **Exclus** : les valeurs des plafonds et des ratchets (relire les constantes et
   [`config/m21-quality-ratchets.properties`](../../../config/m21-quality-ratchets.properties) ; elles ne sont jamais
-  recopiées ici) ; le crédit emprunté (voir [`coverage-attribution-gap.md`](coverage-attribution-gap.md)).
+  recopiées ici) ; le crédit emprunté (voir [`coverage-attribution-gap.md`](coverage-attribution-gap.md)) ; la
+  déclaration et l'application des seuils par module (voir [`per-module-coverage-floor.md`](per-module-coverage-floor.md)).
 
 ## Exigences
 
@@ -27,6 +30,8 @@ ne serait qu'une valeur écrite dans un test.
 | R3 | A qualification SHALL be complete before it backs a cap | au moins deux runs par plateforme, un commit, une population | `[EXIGENCE]` |
 | R4 | The developer guide SHALL distinguish a raise by decision from a requalification without stating a margin | le guide distingue relèvement par décision et requalification, sans chiffrer la distance restante | `[EXIGENCE]` |
 | R5 | Every scale of a qualification SHALL be measured at the same head | preuves agrégée et par module nomment un seul commit | `[EXIGENCE]` |
+| R6 | La preuve de l'échelle par module porte les compteurs de chaque module | lignes `module.<artifactId>.*` dont les sommes font les totaux, même ensemble de modules dans chaque résumé | `[EXIGENCE]` (spec delta) |
+| R7 | La dispersion d'un module se lit dans la preuve conservée | plus grande de l'écart observé pour le module et de la référence de l'échelle, jamais saisie à la main | `[EXIGENCE]` (spec delta) |
 
 ## Comportement détaillé
 
@@ -53,6 +58,23 @@ toléré), et refuse un résumé dont le ratio ne correspond pas à ses compteur
 Un seul commit pour toute la qualification, une seule population par échelle agrégée (population, nombre de modules et
 nombre de rapports). Un fichier gardé hors manifeste, un fichier du manifeste absent, un dossier vide et un résumé de
 l'autre échelle sont refusés.
+
+### Les compteurs de chaque module
+
+`[EXISTANT VÉRIFIÉ]` Le gate de l'échelle par module écrit, après ses totaux, quatre lignes par module de la population :
+`module.<artifactId>.lineCovered`, `.lineMissed`, `.branchCovered`, `.branchMissed`. Dans la preuve conservée, le test
+refuse un résumé dont les sommes par module diffèrent des totaux (il nomme le fichier et les deux valeurs), un résumé
+qui omet un module qu'un autre résumé porte, deux résumés qui portent des ensembles de modules différents, et un
+résumé sans lignes par module quand un autre en porte. Une preuve dont aucun résumé ne porte de lignes par module
+reste acceptée : elle ne qualifie alors aucun seuil de module au-dessus du plancher D2.
+
+### La dispersion d'un module
+
+`[EXISTANT VÉRIFIÉ]` Pour une grandeur d'un module, la dispersion retenue est la plus grande de l'écart, en lignes ou en
+branches couvertes, entre les résumés conservés pour ce module, et de la dispersion de référence de l'échelle
+(`REFERENCE_LINE_SPREAD`, `REFERENCE_BRANCH_SPREAD`). Un module stable n'a donc jamais une marge nulle. Le seuil d'un
+module au-dessus du plancher D2 doit garder trois fois cette dispersion sous la plus basse mesure conservée du module ;
+la règle et ses refus sont décrits dans [`per-module-coverage-floor.md`](per-module-coverage-floor.md).
 
 ### Une règle voisine, hors spec
 
@@ -131,7 +153,11 @@ flowchart LR
    constantes des gates ; un renommage d'une constante sans mise à jour de `Scale` dans le test échoue en nommant la
    constante. Intention : la propriété porte sur des constantes privées de deux modules et sur des données, que ArchUnit ne
    voit pas.
-5. **Précision de comparaison.** `[EXISTANT VÉRIFIÉ]` L'égalité tolère `RATIO_PRECISION` et l'arrondi à six chiffres des
+5. **Preuve conservée sans compteurs par module.** `[EXISTANT VÉRIFIÉ]` Au 2026-11-06, les résumés de
+   `config/coverage-qualification/per-module/` ne portent que des totaux : R6 et R7 ne s'appliquent encore à aucune
+   mesure réelle. La requalification des deux échelles à une seule tête, décidée par le mainteneur le 2026-11-06, les
+   rendra effectives (tâche 3.4 du changement `thresh-every-module-coverage-on-its-own-floor`).
+6. **Précision de comparaison.** `[EXISTANT VÉRIFIÉ]` L'égalité tolère `RATIO_PRECISION` et l'arrondi à six chiffres des
    résumés ; la spec dit « to the precision the summaries carry ».
 
 ## Traçabilité
@@ -157,6 +183,12 @@ Archives : `2026-10-21-keep-the-evidence-a-coverage-cap-was-qualified-on` et
 | R4 | The guide holds no headroom figure | idem | idem ; **preuve manquante** (Écarts 1 et 2) |
 | R5 | The scales were qualified at two heads | organigramme 1 | `#twoScalesQualifiedAtDifferentHeadsAreRefusedAndNameBothHeads` |
 | R5 | A requalification of one scale only | idem | même méthode (deux échelles à deux têtes refusées) |
+| R6 | Un résumé conservé sans les compteurs d'un module | — | `#aKeptSummaryThatOmitsAModuleIsRefusedAndNamesTheFileAndTheModule` |
+| R6 | Des compteurs par module qui ne font pas le total | — | `#keptModuleCountersThatMakeTheTotalsAreAcceptedAndOnesThatDoNotAreRefusedWithBothValues` |
+| R6 | Deux résumés d'une qualification nomment des modules différents | — | `#twoKeptSummariesThatNameDifferentModulesAreRefusedAndNameTheDifference` |
+| R6 | La preuve écrite par le gate porte ses lignes par module | séquence de [`per-module-coverage-floor.md`](per-module-coverage-floor.md) | écriture dans `CoverageQualityGateTest#perModuleCoverageDoesNotRegressBelowQualifiedBaseline` ; **preuve manquante** : aucun test ne relit les lignes `module.*` de la preuve écrite sur le réacteur réel avant le `clean verify` de l'intégrateur et la requalification (Écart 5) |
+| R7 | Un module plus instable que la référence | — | `#aModuleLessStableThanTheReferenceIsSizedAgainstItsOwnSpread` |
+| R7 | Un module stable | — | `#aStableModuleIsSizedAgainstTheReferenceSpreadNeverAgainstZero` |
 
 Contrôles du test hors scénarios de la spec : `#aSummaryWhoseRatioDisagreesWithItsCountsIsRefused`,
 `#aFileKeptOutsideTheManifestAndAManifestedFileThatIsAbsentAreRefused`, `#anEmptyEvidenceDirectoryIsRefusedBecauseTheCapsRestOnNothing`,
@@ -170,7 +202,9 @@ Contrôles du test hors scénarios de la spec : `#aSummaryWhoseRatioDisagreesWit
   `.claude/rules/meta.md`.
 - Décision : [ADR-0163](../../architecture/adr/GEN-0163-deux-echelles-de-couverture-un-seuil-par-module-et-le-credit-emprunte.md).
 - Guide développeur : [`BUILD_AND_TEST.md`](../BUILD_AND_TEST.md).
-- Pages liées : [`coverage-attribution-gap.md`](coverage-attribution-gap.md),
+- Pages liées : [`per-module-coverage-floor.md`](per-module-coverage-floor.md),
+  [`coverage-attribution-gap.md`](coverage-attribution-gap.md),
   [`gate-verdict-currency.md`](gate-verdict-currency.md).
 - Archives OpenSpec : `2026-10-21-keep-the-evidence-a-coverage-cap-was-qualified-on`,
-  `2026-11-04-record-the-sprint-15-medium-decisions`.
+  `2026-11-04-record-the-sprint-15-medium-decisions` ; changement actif `thresh-every-module-coverage-on-its-own-floor`
+  (R6, R7).
