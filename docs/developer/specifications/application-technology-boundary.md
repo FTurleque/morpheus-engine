@@ -1,7 +1,8 @@
 # Technologies que la couche application peut toucher (`application-technology-boundary`)
 
 Spec de référence : [`openspec/specs/application-technology-boundary/spec.md`](../../../openspec/specs/application-technology-boundary/spec.md)
-· Relevé du 2026-11-04 sur `2913fc30`.
+· Relevé du 2026-11-04 sur `2913fc30`, complété le 2026-11-06 (changement
+`hold-every-class-list-of-a-decision-record-to-its-gate`).
 
 ## Objet et périmètre
 
@@ -25,6 +26,8 @@ disent ce que le build impose.
 | R2 | A technology the application does not use SHALL be refused in all of its packages | une famille non employée est refusée pour toute classe de `com.morpheus.application` | `[EXIGENCE]` |
 | R3 | A technology the application does use SHALL be confined to named classes | l'ensemble nommé est exactement l'ensemble qui atteint la famille ; il rétrécit | `[EXIGENCE]` |
 | R4 | The descriptions of the application layer SHALL say what is enforced | aucune description ne présente comme sans technologie une couche qui fait de l'I/O | `[EXIGENCE]` |
+| R5 | Une classe que le registre de la frontière technologique nomme par un nom qualifié DOIT exister à ce nom | tout nom `paquet.Classe` d'ARCH-0150 résout dans `morpheus-application` | `[EXIGENCE]` |
+| R6 | Le registre de la frontière technologique NE DOIT PAS porter de mesure périssable de ses classes nommées | ni longueur, ni total, ni numéro de ligne dans l'ADR ; la mesure datée vit dans un relevé | `[EXIGENCE]` |
 
 ## Comportement détaillé
 
@@ -42,6 +45,24 @@ Les ensembles de noms sont ceux du test (`CONFINED_FAMILIES`, `REFLECTION_AND_LO
 rétrécir sous ARCH-0150 (`ProductionClassListsArchitectureTest.KINDS`, clés de
 [`config/debt-counter-ratchets.properties`](../../../config/debt-counter-ratchets.properties)). Un nom ajouté exige un ADR
 consolidé qui remplace ARCH-0150.
+
+`[EXISTANT VÉRIFIÉ]` L'ADR écrit les mêmes noms, qualifiés depuis `com.morpheus.application`, dans la table « Classes
+nommées » de sa section Compliance and Enforcement, entre `<!-- liste ApplicationTechnologyBoundaryArchitectureTest.CONFINED_FAMILIES -->`
+et `<!-- fin de liste -->` (et un second bloc pour `REFLECTION_AND_LOADING`).
+`ProductionClassListsArchitectureTest#everyListADecisionRecordEnumeratesEqualsItsEnumeration` compare ces blocs aux
+constantes, famille par famille et dans les deux sens ; la décision 2 renvoie à cette table au lieu de recopier les
+noms, ce qui garde la section `Decision` courte.
+
+### Noms qualifiés et mesure datée (R5, R6)
+
+`[EXISTANT VÉRIFIÉ]` `ApplicationTechnologyBoundaryArchitectureTest#everyClassTheDecisionRecordNamesByAQualifiedNameExistsAtThatName`
+lit ARCH-0150 entier, retient chaque span de code `paquet(.paquet)*.Classe` dont le premier paquet est un paquet de
+`com.morpheus.application`, et exige le fichier source à ce nom ; un ADR qui n'en nomme aucun est refusé aussi. Il voit
+un nom écrit hors du bloc comparé ; un nom simple périmé hors du bloc reste à la revue.
+
+`[EXISTANT VÉRIFIÉ]` La mesure du 25/10/2026 (`b60a9286`), qui a fondé l'option C, est conservée telle qu'elle a été
+écrite dans [`docs/project/research/mesure-frontiere-technologique-application-2026-10-25.md`](../../project/research/mesure-frontiere-technologique-application-2026-10-25.md) ;
+l'ADR y renvoie. R6 est tenue par la revue : aucun test ne cherche une longueur ou un total dans l'ADR.
 
 `[EXISTANT VÉRIFIÉ]` Un jumeau textuel,
 `noApplicationSourceNamesReflectionOrLoadingUnlessItsClassIsNamed`, attrape le type qui ne figure que dans le
@@ -123,10 +144,6 @@ stateDiagram-v2
   fichier. Preuve manquante pour R4 sur ce document.
 - **Descriptions (R4) sans contrôle automatique.** Aucun test ne lit `.claude/CLAUDE.md`, la page de règles ni la vue
   des blocs pour y chercher une formule « sans technologie » ; la tenue de R4 repose sur la revue. Preuve manquante.
-- **Section « Mesure » d'ARCH-0150 datée.** Elle décrit la liste du 25/10/2026 (par exemple
-  `security.LocalWritePermissionHardener`, `UpdateDiscoveryService` classe d'accès fichier) qui n'est plus celle du
-  test (`files.LocalWritePermissionHardener`, `UpdateDiscoveryService` absente). C'est une mesure datée, mais l'écart
-  est visible d'un lecteur pressé ; la section Decision, elle, correspond au code.
 - **Pas d'ADR par famille exigé par test (R1).** `ProductionClassListsArchitectureTest` vérifie que l'ADR nomme la liste
   `TestClass.CHAMP` ; aucun test ne vérifie que l'ADR répond pour chacune des neuf familles de la spec. Preuve manquante.
 
@@ -141,6 +158,8 @@ stateDiagram-v2
 | R3 | A second class opens an outbound connection | organigramme des régimes | idem | `ApplicationTechnologyBoundaryArchitectureTest#aFamilyTheApplicationDoesNotUseIsRefusedInEveryPackage` (famille « outbound network » : voir Écarts sur le libellé) |
 | R3 | A named class no longer reaches the family | diagramme d'états | idem | `ApplicationTechnologyBoundaryArchitectureTest#everyNamedClassStillReachesItsFamily` (ArchUnit) |
 | R3 | A path is not an access | — | idem | `ApplicationTechnologyBoundaryArchitectureTest#aPathUsedAsAValueIsNotAnAccess` |
+| R5 | Une classe déplacée dans un autre paquet / retirée des sources / le contrôle a lu des noms | — | `hold-every-class-list-of-a-decision-record-to-its-gate` | `ApplicationTechnologyBoundaryArchitectureTest#everyClassTheDecisionRecordNamesByAQualifiedNameExistsAtThatName` (texte, dépôt réel) et `#aQualifiedNameThatResolvesToNoSourceIsRefusedAndASilentRecordToo` (corpus temporaire) |
+| R6 | La mesure du 25/10/2026 quitte le registre / une famille refusée n'est attribuée à aucune classe / chaque ligne de la décision nomme ses classes | — | idem | revue seule : relecture d'ARCH-0150 ; R5 et la comparaison du bloc couvrent la part vérifiable ; preuve automatique manquante |
 | R4 | The record allows local file access | — | idem | revue seule : `.claude/CLAUDE.md`, `.claude/rules/architecture.md`, [`arc42/05-vue-blocs.md`](../../architecture/arc42/05-vue-blocs.md) ; preuve automatique manquante |
 
 ## Sources
