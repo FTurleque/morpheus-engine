@@ -3,7 +3,7 @@
 ## Purpose
 Définir le cycle de vie d'un client de pair MCP commun aux passerelles MINOS et NEXUS, ce que chaque passerelle garde
 en propre, et ce qui refuse une copie de ce cycle, pour le mainteneur et la CI. Documentation durable :
-`docs/developer/specifications/mcp-peer-gateway-lifecycle.md`.
+[mcp-peer-gateway-lifecycle](/docs/developer/specifications/mcp-peer-gateway-lifecycle.md).
 
 ## ADDED Requirements
 
@@ -72,9 +72,9 @@ exception levée, les familles comptées, l'échéance d'une opération, les out
 ### Requirement: Une passerelle ne refait pas le cycle de vie
 
 La suite d'architecture DOIT (MUST) échouer, en nommant la classe, quand une classe de `com.morpheus.integration..`
-dépend du client MCP du SDK ou de `BoundedStdioClientTransport`, ou appelle `PeerOperationDeadline.arm`,
-`Files.deleteIfExists` ou `Throwable.addSuppressed`, et quand une classe qui décrit un lancement de pair
-(`McpPeerLaunch`) ne passe pas par le socle.
+dépend du client MCP du SDK ou de `BoundedStdioClientTransport`, ou appelle `PeerOperationDeadline.arm` ou
+`Files.deleteIfExists`, et quand une classe qui décrit un lancement de pair (`McpPeerLaunch`) appelle
+`Throwable.addSuppressed` ou ne passe pas par le socle.
 
 #### Scenario: Une passerelle qui reconstruit son client
 

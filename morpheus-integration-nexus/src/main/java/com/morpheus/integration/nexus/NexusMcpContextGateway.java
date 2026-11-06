@@ -6,20 +6,12 @@ import com.morpheus.application.context.TechnicalContextRequest;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.operability.SuppressedFailureFamily;
 import com.morpheus.application.security.ExternalJarIntegrity;
-import com.morpheus.transport.mcp.BoundedStdioClientTransport;
 import com.morpheus.transport.mcp.McpPeerLaunch;
+import com.morpheus.transport.mcp.McpPeerSession;
 import com.morpheus.transport.mcp.PeerOperationDeadline;
-import io.modelcontextprotocol.client.McpClient;
-import io.modelcontextprotocol.client.McpSyncClient;
-import io.modelcontextprotocol.json.McpJsonDefaults;
-import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
-import io.modelcontextprotocol.spec.McpSchema.TextContent;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -47,20 +39,19 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
     static final int MAX_CONTEXT_ITEMS = 4_096;
     static final int MAX_EXCLUDED_ITEMS = 4_096;
     static final int MAX_METADATA_ENTRIES = 1_024;
-    private static final Set<String> REQUIRED_TOOLS = Set.of(
-            TOOL_LIST_PROJECTS, TOOL_BUILD_CONTEXT, TOOL_EXPLAIN_CONTEXT);
+    static final McpPeerSession.Peer PEER = new McpPeerSession.Peer(
+            "NEXUS", Set.of(TOOL_LIST_PROJECTS, TOOL_BUILD_CONTEXT, TOOL_EXPLAIN_CONTEXT), MAX_MCP_RESPONSE_BYTES,
+            NexusIntegrationException::new);
 
-    private final McpSyncClient client;
-    private final PeerOperationDeadline deadline;
-    private final Optional<Path> stagedJar;
-    private final OperationalRecorder recorder;
+    private final McpPeerSession session;
     private final JsonMapper mapper = JsonMapper.builder()
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
             .build();
 
     /** A gateway to the configured peer; what fails without failing the operation is counted on {@code recorder}. */
     public NexusMcpContextGateway(NexusIntegrationSettings settings, OperationalRecorder recorder) {
-        this(launch(Objects.requireNonNull(settings, "settings"), Objects.requireNonNull(recorder, "recorder")));
+        this(launch(Objects.requireNonNull(settings, "settings"), Objects.requireNonNull(recorder, "recorder")),
+                recorder);
     }
 
     NexusMcpContextGateway(
@@ -80,42 +71,17 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
             Duration timeout,
             Duration operationDeadline,
             OperationalRecorder recorder) {
-        this(new Launch(command, arguments, environment, timeout, operationDeadline, Optional.empty(), recorder));
+        this(new McpPeerSession.Launch(new McpPeerLaunch(command, arguments, environment), timeout,
+                operationDeadline, Optional.empty()), recorder);
     }
 
-    private NexusMcpContextGateway(Launch launch) {
-        this.stagedJar = launch.stagedJar();
-        this.recorder = launch.recorder();
-        McpSyncClient started = buildClient(launch, stagedJar);
-        // Closing the client fails the pending request at once, so the operation ends at its deadline.
-        PeerOperationDeadline armed = PeerOperationDeadline.arm(
-                launch.operationDeadline(), countingAbort(started::close, recorder));
-        try {
-            started.initialize();
-            Set<String> available = started.listTools().tools().stream()
-                    .map(tool -> tool.name())
-                    .collect(java.util.stream.Collectors.toUnmodifiableSet());
-            if (!available.containsAll(REQUIRED_TOOLS)) {
-                throw new NexusIntegrationException(
-                        "NEXUS MCP server is incompatible; required tools missing: "
-                                + REQUIRED_TOOLS.stream().filter(tool -> !available.contains(tool)).sorted().toList());
-            }
-            this.client = started;
-            this.deadline = armed;
-        } catch (RuntimeException failure) {
-            boolean expired = armed.expired();
-            armed.close();
-            closeStartedSuppressing(started, failure);
-            deleteStagedSuppressing(stagedJar, failure);
-            if (expired) throw deadlineExceeded(launch.operationDeadline(), failure);
-            if (failure instanceof NexusIntegrationException integrationFailure) throw integrationFailure;
-            throw new NexusIntegrationException("cannot start or initialize NEXUS MCP server", failure);
-        }
+    private NexusMcpContextGateway(McpPeerSession.Launch launch, OperationalRecorder recorder) {
+        this.session = McpPeerSession.open(PEER, launch, observers(recorder));
     }
 
     @Override
     public List<ProjectInfo> listProjects() {
-        String json = call(TOOL_LIST_PROJECTS, Map.of());
+        String json = session.call(TOOL_LIST_PROJECTS, Map.of());
         try {
             ProjectPayload[] payload = mapper.readValue(json, ProjectPayload[].class);
             if (payload == null) {
@@ -146,7 +112,7 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
             arguments.put("constraints", request.options().constraints());
         }
         String tool = request.options().explain() ? TOOL_EXPLAIN_CONTEXT : TOOL_BUILD_CONTEXT;
-        String json = call(tool, arguments);
+        String json = session.call(tool, arguments);
         try {
             ContextPayload payload = mapper.readValue(json, ContextPayload.class);
             ProjectPayload project = Objects.requireNonNull(payload.project(), "NEXUS context project");
@@ -176,15 +142,7 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
 
     @Override
     public void close() {
-        deadline.close();
-        try {
-            client.closeGracefully();
-        } catch (RuntimeException shutdownFailure) {
-            // Optional external process cleanup must not mask the primary result.
-            recorder.suppressed(SuppressedFailureFamily.MCP_PEER_SHUTDOWN, shutdownFailure);
-        } finally {
-            deleteStagedCounting(stagedJar, recorder);
-        }
+        session.close();
     }
 
     private TechnicalContextItem item(ItemPayload item) {
@@ -194,49 +152,13 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
                 item.reasons() == null ? List.of() : item.reasons(), item.estimatedTokens(), item.truncated());
     }
 
-    private String call(String toolName, Map<String, Object> arguments) {
-        try {
-            var result = client.callTool(CallToolRequest.builder(toolName).arguments(arguments).build());
-            String content = requireBoundedResponse(text(result.content()), toolName);
-            if (Boolean.TRUE.equals(result.isError())) {
-                throw new NexusIntegrationException("NEXUS tool failed: " + toolName + ": " + content);
-            }
-            if (content.isBlank()) {
-                throw new NexusIntegrationException("NEXUS tool returned an empty payload: " + toolName);
-            }
-            return content;
-        } catch (NexusIntegrationException failure) {
-            throw failure;
-        } catch (RuntimeException failure) {
-            if (deadline.expired()) throw deadlineExceeded(deadline.deadline(), failure);
-            throw new NexusIntegrationException("NEXUS MCP call failed: " + toolName, failure);
-        }
-    }
-
-    static String requireBoundedResponse(String content, String toolName) {
-        Objects.requireNonNull(content, "content");
-        if (content.length() > MAX_MCP_RESPONSE_BYTES
-                || content.getBytes(StandardCharsets.UTF_8).length > MAX_MCP_RESPONSE_BYTES) {
-            throw new NexusIntegrationException(
-                    "NEXUS MCP response exceeds " + MAX_MCP_RESPONSE_BYTES + " bytes: " + toolName);
-        }
-        return content;
-    }
-
     static void requireCardinality(int size, int maximum, String label) {
         if (size < 0 || size > maximum) {
             throw new NexusIntegrationException("NEXUS " + label + " exceeds configured limit " + maximum);
         }
     }
 
-    private String text(List<?> content) {
-        if (content == null || content.size() != 1 || !(content.getFirst() instanceof TextContent textContent)) {
-            throw new NexusIntegrationException("NEXUS MCP response must contain exactly one TextContent item");
-        }
-        return textContent.text() == null ? "" : textContent.text();
-    }
-
-    private static Launch launch(NexusIntegrationSettings settings, OperationalRecorder recorder) {
+    private static McpPeerSession.Launch launch(NexusIntegrationSettings settings, OperationalRecorder recorder) {
         if (!settings.enabled()) {
             throw new NexusIntegrationException("NEXUS integration is not configured: "
                     + settings.configurationError().orElse(settings.state().name()));
@@ -249,65 +171,24 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
             List<String> arguments = new ArrayList<>();
             settings.homeDirectory().ifPresent(home -> arguments.add("-Dnexus.home=" + home));
             arguments.addAll(List.of("-jar", launchJar.toString()));
-            return new Launch(settings.javaCommand(), arguments, Map.of(), settings.timeout(),
-                    PeerOperationDeadline.of(settings.timeout(), REQUESTS_PER_OPERATION), staged, recorder);
+            return new McpPeerSession.Launch(new McpPeerLaunch(settings.javaCommand(), arguments, Map.of()),
+                    settings.timeout(), PeerOperationDeadline.of(settings.timeout(), REQUESTS_PER_OPERATION), staged);
         } catch (IllegalArgumentException integrityFailure) {
-            deleteStagedCounting(staged, recorder);
+            observers(recorder).deleteStagedCounting(staged);
             throw new NexusIntegrationException(
                     "NEXUS JAR integrity verification failed immediately before launch", integrityFailure);
         } catch (RuntimeException failure) {
-            deleteStagedCounting(staged, recorder);
+            observers(recorder).deleteStagedCounting(staged);
             throw failure;
         }
     }
 
-    private static McpSyncClient buildClient(Launch launch, Optional<Path> stagedJar) {
-        try {
-            BoundedStdioClientTransport transport = new BoundedStdioClientTransport(
-                    new McpPeerLaunch(launch.command(), launch.arguments(), launch.environment()),
-                    McpJsonDefaults.getMapper(), MAX_MCP_RESPONSE_BYTES,
-                    processTreeFailures(launch.recorder()));
-            return McpClient.sync(transport).requestTimeout(launch.timeout()).build();
-        } catch (RuntimeException failure) {
-            deleteStagedSuppressing(stagedJar, failure);
-            throw new NexusIntegrationException("cannot start or initialize NEXUS MCP server", failure);
-        }
-    }
-
-    private static NexusIntegrationException deadlineExceeded(Duration operationDeadline, RuntimeException failure) {
-        return new NexusIntegrationException(
-                "NEXUS MCP operation exceeded its " + operationDeadline.toMillis() + " ms deadline", failure);
-    }
-
-    private static void closeStartedSuppressing(McpSyncClient started, Throwable primary) {
-        if (started == null) return;
-        try {
-            started.closeGracefully();
-        } catch (RuntimeException closeFailure) {
-            primary.addSuppressed(closeFailure);
-        }
-    }
-
-    private static void deleteStagedSuppressing(Optional<Path> staged, Throwable primary) {
-        if (staged.isEmpty()) return;
-        try {
-            Files.deleteIfExists(staged.orElseThrow());
-        } catch (IOException deleteFailure) {
-            primary.addSuppressed(deleteFailure);
-        }
-    }
-
-    /**
-     * Deletes the verified copy once the peer has released it. A copy that cannot be deleted stays on disk; nothing
-     * can be done about it here, and it is counted so that the residue is not discovered by its size.
-     */
-    static void deleteStagedCounting(Optional<Path> staged, OperationalRecorder recorder) {
-        if (staged.isEmpty()) return;
-        try {
-            Files.deleteIfExists(staged.orElseThrow());
-        } catch (IOException residue) {
-            recorder.suppressed(SuppressedFailureFamily.STAGED_ARTIFACT_CLEANUP, residue);
-        }
+    /** What counts the failures the session sets aside, on the recorder the gateway was handed. */
+    static McpPeerSession.Observers observers(OperationalRecorder recorder) {
+        return new McpPeerSession.Observers(
+                recorder.suppressing(SuppressedFailureFamily.MCP_PEER_SHUTDOWN),
+                recorder.suppressing(SuppressedFailureFamily.STAGED_ARTIFACT_CLEANUP),
+                processTreeFailures(recorder));
     }
 
     /**
@@ -317,49 +198,6 @@ public final class NexusMcpContextGateway implements NexusContextGateway {
      */
     static Consumer<Throwable> processTreeFailures(OperationalRecorder recorder) {
         return recorder.suppressing(SuppressedFailureFamily.MCP_PEER_PROCESS_TREE);
-    }
-
-    /**
-     * The abort of an operation that passed its deadline, counting its own failure before letting it go on. The
-     * deadline lives in the transport module, which may depend on no other MORPHEUS package and so cannot count; the
-     * gateway that hands it the abort can.
-     */
-    static Runnable countingAbort(Runnable abort, OperationalRecorder recorder) {
-        return () -> {
-            try {
-                abort.run();
-            } catch (RuntimeException abortFailure) {
-                recorder.suppressed(SuppressedFailureFamily.MCP_PEER_SHUTDOWN, abortFailure);
-                throw abortFailure;
-            }
-        };
-    }
-
-    private static String requireText(String value, String name) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value.trim();
-    }
-
-    private record Launch(
-            String command,
-            List<String> arguments,
-            Map<String, String> environment,
-            Duration timeout,
-            Duration operationDeadline,
-            Optional<Path> stagedJar,
-            OperationalRecorder recorder) {
-        private Launch {
-            Objects.requireNonNull(recorder, "recorder");
-            command = requireText(command, "command");
-            arguments = List.copyOf(Objects.requireNonNull(arguments, "arguments"));
-            environment = Map.copyOf(Objects.requireNonNull(environment, "environment"));
-            Objects.requireNonNull(timeout, "timeout");
-            Objects.requireNonNull(operationDeadline, "operationDeadline");
-            stagedJar = Objects.requireNonNull(stagedJar, "stagedJar")
-                    .map(path -> path.toAbsolutePath().normalize());
-        }
     }
 
     private record ProjectPayload(

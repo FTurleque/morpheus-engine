@@ -123,6 +123,7 @@ class ExternalCodeTrustBoundaryArchitectureTest {
         Path root = RepositoryRoot.locate();
         for (Path source : List.of(
                 MCP_TRANSPORT,
+                Path.of("morpheus-mcp-transport/src/main/java/com/morpheus/transport/mcp/McpPeerSession.java"),
                 Path.of("morpheus-integration-minos/src/main/java/com/morpheus/integration/minos/MinosMcpCodeGateway.java"),
                 Path.of("morpheus-integration-nexus/src/main/java/com/morpheus/integration/nexus/NexusMcpContextGateway.java"))) {
             String text = Files.readString(root.resolve(source));
@@ -132,7 +133,8 @@ class ExternalCodeTrustBoundaryArchitectureTest {
         }
         noClasses()
                 .that(ClassesOfASource.declaredIn(
-                        "BoundedStdioClientTransport", "MinosMcpCodeGateway", "NexusMcpContextGateway"))
+                        "BoundedStdioClientTransport", "McpPeerSession", "MinosMcpCodeGateway",
+                        "NexusMcpContextGateway"))
                 .should().dependOnClassesThat().haveFullyQualifiedName(SDK_SERVER_PARAMETERS)
                 .because("a peer is launched from McpPeerLaunch, never from the SDK's ServerParameters, whose "
                         + "builder injects an environment allowlist of its own")

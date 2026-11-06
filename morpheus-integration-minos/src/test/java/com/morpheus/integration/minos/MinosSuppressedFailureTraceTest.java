@@ -40,12 +40,12 @@ class MinosSuppressedFailureTraceTest {
         Path undeletable = Files.createDirectory(temporaryDirectory.resolve("occupied"));
         Files.writeString(undeletable.resolve("child"), "a directory that is not empty cannot be deleted");
 
-        MinosMcpCodeGateway.deleteStagedCounting(Optional.of(deletable), recorder);
-        MinosMcpCodeGateway.deleteStagedCounting(Optional.empty(), recorder);
+        MinosMcpCodeGateway.observers(recorder).deleteStagedCounting(Optional.of(deletable));
+        MinosMcpCodeGateway.observers(recorder).deleteStagedCounting(Optional.empty());
         assertFalse(Files.exists(deletable));
         assertEquals(Map.of(), metrics.snapshot().counters());
 
-        MinosMcpCodeGateway.deleteStagedCounting(Optional.of(undeletable), recorder);
+        MinosMcpCodeGateway.observers(recorder).deleteStagedCounting(Optional.of(undeletable));
 
         assertTrue(Files.exists(undeletable));
         assertEquals(Map.of("failure.suppressed.staged-artifact-cleanup", 1L), metrics.snapshot().counters());
@@ -70,10 +70,10 @@ class MinosSuppressedFailureTraceTest {
     @Test
     void anAbortThatFailsIsCountedAndStillFailsForTheDeadlineThatAskedForIt() {
         AtomicInteger aborted = new AtomicInteger();
-        Runnable healthy = MinosMcpCodeGateway.countingAbort(aborted::incrementAndGet, recorder);
-        Runnable broken = MinosMcpCodeGateway.countingAbort(() -> {
+        Runnable healthy = MinosMcpCodeGateway.observers(recorder).countingAbort(aborted::incrementAndGet);
+        Runnable broken = MinosMcpCodeGateway.observers(recorder).countingAbort(() -> {
             throw new IllegalStateException("the peer could not be closed");
-        }, recorder);
+        });
 
         healthy.run();
         assertEquals(1, aborted.get());
