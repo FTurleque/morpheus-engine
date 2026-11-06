@@ -117,9 +117,9 @@ classDiagram
 - `[DÉCISION]` Les listes de l'adaptateur HTTP sont des tables de faits, comme celles de la CLI : elles disent quelles
   classes atteignent chaque famille et ne promettent pas de rétrécir, sans ADR qui les nomme. Décidé par le mainteneur
   le 6 novembre 2026.
-- `[DÉCISION]` par défaut, à confirmer : l'horloge murale est libre, comme dans la CLI, alors que l'adaptateur la lit
+- `[DÉCISION]` L'horloge murale est libre, comme dans la CLI, alors que l'adaptateur la lit
   aussi dans les classes du fichier d'identités remote (expiration d'un jeton). La confiner nommerait ces classes sans
-  protéger de frontière.
+  protéger de frontière. Confirmé par le mainteneur le 6 novembre 2026.
 
 ## Traçabilité
 
