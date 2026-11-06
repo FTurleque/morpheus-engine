@@ -12,17 +12,20 @@ class CliErrorLineTest {
 
     @Test
     void aFailureIsWordedByItsMessage() {
-        assertEquals("--project is required", CliErrorLine.failureText(new IllegalArgumentException("--project is required")));
+        assertEquals("MORPHEUS error [2]: --project is required" + System.lineSeparator(), written(err -> CliErrorLine.refuse(
+                new String[0], err, CliExitCode.USAGE, new IllegalArgumentException("--project is required"))));
     }
 
     @Test
     void aFailureWithoutAMessageIsWordedByItsTypeName() {
-        assertEquals("IllegalStateException", CliErrorLine.failureText(new IllegalStateException()));
+        assertEquals("MORPHEUS error [4]: IllegalStateException" + System.lineSeparator(), written(err -> CliErrorLine.refuse(
+                new String[0], err, CliExitCode.STATE_ERROR, new IllegalStateException())));
     }
 
     @Test
     void aFailureWithABlankMessageIsWordedByItsTypeName() {
-        assertEquals("IllegalArgumentException", CliErrorLine.failureText(new IllegalArgumentException(" \t")));
+        assertEquals("MORPHEUS error [2]: IllegalArgumentException" + System.lineSeparator(), written(err -> CliErrorLine.refuse(
+                new String[0], err, CliExitCode.USAGE, new IllegalArgumentException(" \t"))));
     }
 
     @Test
@@ -50,6 +53,16 @@ class CliErrorLineTest {
         assertEquals(CliExitCode.STATE_ERROR.code(), code[0]);
         assertEquals("{\"exitCode\":4,\"code\":\"STATE_ERROR\",\"message\":\"IllegalStateException\"}"
                 + System.lineSeparator(), json);
+    }
+
+    @Test
+    void aLauncherRefusalPutsItsContextBeforeTheTextOfTheFailure() {
+        assertEquals("MORPHEUS error [10]: API startup failed: address in use" + System.lineSeparator(),
+                written(err -> CliErrorLine.refuse(new String[0], err, CliExitCode.INTERNAL_ERROR, "API startup failed: ",
+                        new IllegalStateException("address in use"))));
+        assertEquals("MORPHEUS error [10]: MCP startup failed: NullPointerException" + System.lineSeparator(),
+                written(err -> CliErrorLine.refuse(new String[0], err, CliExitCode.INTERNAL_ERROR, "MCP startup failed: ",
+                        new NullPointerException())));
     }
 
     @Test

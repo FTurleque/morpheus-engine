@@ -1,14 +1,14 @@
 package com.morpheus.cli.command;
 
+import com.morpheus.application.foundation.FailureText;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 
 import java.io.PrintStream;
 import java.util.Arrays;
-import java.util.Optional;
 
 /**
  * The error line of the CLI, {@code MORPHEUS error [<code>]: <message>}, or its JSON form under {@code --json}, and the
- * text a failure contributes to it: its message, or the simple name of its type when the message is absent or blank.
+ * text a failure contributes to it, formed by {@code FailureText.of}.
  *
  * <p>The line is what a caller's script reads, so every command and every server launcher writes it here: the base
  * frame of {@link CliCommandRun}, and the families that keep their own mapping of a failure to an exit code through
@@ -18,11 +18,6 @@ public final class CliErrorLine {
     private static final CanonicalJsonSerializer JSON = new CanonicalJsonSerializer();
 
     private CliErrorLine() {
-    }
-
-    public static String failureText(Throwable failure) {
-        return Optional.ofNullable(failure.getMessage()).filter(message -> !message.isBlank())
-                .orElse(failure.getClass().getSimpleName());
     }
 
     /**
@@ -36,7 +31,12 @@ public final class CliErrorLine {
 
     /** {@link #refuse(String[], PrintStream, CliExitCode, String)} with the text of {@code failure}. */
     public static int refuse(String[] args, PrintStream err, CliExitCode code, Throwable failure) {
-        return refuse(args, err, code, failureText(failure));
+        return refuse(args, err, code, FailureText.of(failure));
+    }
+
+    /** {@link #refuse(String[], PrintStream, CliExitCode, String)} with the text of {@code failure} after {@code context}. */
+    public static int refuse(String[] args, PrintStream err, CliExitCode code, String context, Throwable failure) {
+        return refuse(args, err, code, context + FailureText.of(failure));
     }
 
     public static void write(PrintStream err, boolean json, CliExitCode code, String message) {

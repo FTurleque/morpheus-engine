@@ -43,8 +43,8 @@ import org.junit.jupiter.api.Test;
  *   halves -- {@code c <= ' '}, what {@code trim()} removes, and {@code Character.isWhitespace}, what {@code isBlank()}
  *   holds. A whole-string test there is refused: {@code isBlank() || trim().isEmpty()} lets U+0001 next to U+2003
  *   through.</li>
- *   <li><b>The message of a throwable</b>: the {@code safeMessage} methods, which print the class name when an
- *   exception has no message. They are recognised by <em>what the test reads</em>, never by the method's name: the
+ *   <li><b>The message of a throwable</b>, refused: the text of a failure is formed by {@code FailureText.of}, outside
+ *   the CLI, and a blank test of a failure's message in the CLI is a copy of it. It is recognised by <em>what the test reads</em>, never by the method's name: the
  *   receiver is {@code p.getMessage()} where {@code p} is a parameter of the enclosing method whose declared type is
  *   {@code Throwable} or a name ending in {@code Exception} or {@code Error}; or a local declared from
  *   {@code p.getMessage()}; or the parameter of a lambda filtering {@code Optional.ofNullable(p.getMessage())}. A
@@ -128,8 +128,8 @@ class CliOptionValueHasOneBlankDefinitionTest {
         Scan scan = scan(sources, OTHER_QUESTIONS);
 
         assertTrue(sources.containsKey(DEFINITION_FILE), "the scan did not read " + DEFINITION_FILE);
-        assertTrue(scan.throwableMessages() > 0,
-                "the scan recognised no throwable message: the class would be vacuous, or the recognition broken");
+        assertEquals(0, scan.throwableMessages(),
+                "a CLI source tests the blank of a failure's message; the text of a failure is FailureText.of");
         assertEquals(List.of(), scan.violations(),
                 "a blank test of the CLI is neither OptionValue.nonBlank nor a question classified here");
     }
@@ -186,12 +186,15 @@ class CliOptionValueHasOneBlankDefinitionTest {
 
         for (String source : List.of(local, direct, lambda)) {
             Scan scan = scan(withDefinition("A.java", source), Map.of());
-            assertEquals(List.of(), scan.violations(), source);
+            assertEquals(1, scan.violations().size(), source);
+            assertTrue(scan.violations().getFirst().endsWith(" tests the blank of a failure's message; call FailureText.of"),
+                    source);
             assertEquals(1, scan.throwableMessages(), source);
         }
         for (String source : List.of(namedLikeAMessage, notAParameter, anotherMessage)) {
             Scan scan = scan(withDefinition("A.java", source), Map.of());
             assertEquals(1, scan.violations().size(), source);
+            assertTrue(scan.violations().getFirst().endsWith(" tests the blank itself; call OptionValue.nonBlank"), source);
             assertEquals(0, scan.throwableMessages(), source);
         }
     }
@@ -305,6 +308,7 @@ class CliOptionValueHasOneBlankDefinitionTest {
                     }
                 } else if (readsTheMessageOfAThrowable(unit, method, test.start())) {
                     throwableMessages++;
+                    violations.add(where + " tests the blank of a failure's message; call FailureText.of");
                 } else if (otherQuestions.containsKey(key)) {
                     namedCounts.merge(key, 1, Integer::sum);
                 } else {

@@ -2,8 +2,10 @@ package com.morpheus.application.security;
 
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.AccessDeniedException;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -108,5 +110,35 @@ class ServerLocationDisclosureTest {
     @Test
     void aNullValueIsNeverRelayed() {
         assertFalse(ServerLocationDisclosure.isSafeToRelay(null));
+    }
+
+    @Test
+    void theRelayedTextOfAFailureThatNamesAServerLocationIsTheSimpleNameOfItsType() {
+        assertEquals("AccessDeniedException", ServerLocationDisclosure.relayableText(
+                new AccessDeniedException("/home/alice/.morpheus/plugins/provider.jar")));
+        assertEquals("IllegalStateException", ServerLocationDisclosure.relayableText(
+                new IllegalStateException("cannot read C:\\Users\\alice\\spec.md")));
+    }
+
+    @Test
+    void theRelayedTextOfAFailureMorpheusWroteIsItsMessage() {
+        assertEquals("query predicate count exceeds 64", ServerLocationDisclosure.relayableText(
+                new IllegalArgumentException("query predicate count exceeds 64")));
+    }
+
+    @Test
+    void theRelayedTextOfAFailureWithoutAMessageOrWithABlankOneIsTheSimpleNameOfItsType() {
+        assertEquals("IllegalStateException", ServerLocationDisclosure.relayableText(new IllegalStateException()));
+        assertEquals("IllegalArgumentException",
+                ServerLocationDisclosure.relayableText(new IllegalArgumentException("  ")));
+    }
+
+    @Test
+    void theRelayedTextOfAFailureTooLongToRelayIsTheSimpleNameOfItsType() {
+        String longest = "x".repeat(ServerLocationDisclosure.MAX_RELAYED_LENGTH);
+
+        assertEquals(longest, ServerLocationDisclosure.relayableText(new IllegalArgumentException(longest)));
+        assertEquals("IllegalArgumentException",
+                ServerLocationDisclosure.relayableText(new IllegalArgumentException(longest + "x")));
     }
 }

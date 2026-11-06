@@ -41,7 +41,7 @@ class McpArgumentHelperOwnershipTest {
                     + "[A-Za-z0-9_<>,.\\[\\]? ]+[ ]+"
                     + "(requiredString|optionalString|optionalText|requiredLong|requiredBoolean|requiredInteger"
                     + "|optionalInteger|optionalBoolean|optionalInt|intValue|longValue|doubleValue|integral"
-                    + "|stringList|stringMap|stringKeyMap|stringObjectMap|nestedObject|rejectUnknown|safeMessage)"
+                    + "|stringList|stringMap|stringKeyMap|stringObjectMap|nestedObject|rejectUnknown|safeMessage|refusal)"
                     + "[ ]*\\(");
 
     @Test
