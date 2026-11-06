@@ -8,9 +8,10 @@ Spec de référence : [`openspec/specs/enforcement-mechanism-accounting/spec.md`
 La suite d'architecture mesure de quoi son propre enforcement est fait : règles sur le bytecode, assertions textuelles,
 interdits textuels de type. Une seule population est plafonnée et ne fait que rétrécir (les interdits textuels de type qui
 n'énoncent pas leur intention) ; le reste est publié sans jamais faire échouer la suite. Une classe de test qui ne lit que des
-documents est distinguée d'une classe qui juge du code.
+documents est distinguée d'une classe qui juge du code. Une seconde population plafonnée, tenue par une classe à part,
+compte les interdits textuels de type qui attendent une règle sur le bytecode.
 
-- **Acteurs** : `EnforcementMechanismAccountingTest`, `CoherenceCheckMarkerTest`, le marqueur `@CoherenceCheck`
+- **Acteurs** : `EnforcementMechanismAccountingTest`, `TypeBansAwaitingABytecodeRuleTest`, `CoherenceCheckMarkerTest`, le marqueur `@CoherenceCheck`
   (étiquette JUnit `coherence`), l'écouteur `EnforcementVerdictListener`, la CI qui publie les fichiers de preuve.
 - **Inclus** : le plafond de la famille « sans intention », l'obligation d'un message pour tout nouvel interdit textuel de
   type, la publication de la composition, le marquage des contrôles de cohérence, le verdict qui sépare un échec de
@@ -30,6 +31,8 @@ documents est distinguée d'une classe qui juge du code.
 | R6 | Le verdict distinct ne change ni la sélection ni le compte des exécutions | une seule exécution Surefire, un seul répertoire de rapports ; `-Dtest` et `-Dgroups` inchangés | `[EXIGENCE]` |
 | R7 | Le gabarit de pull request demande l'intention de chaque assertion textuelle ajoutée | section du gabarit : fichier, phrase d'intention, mécanisme retenu ; la suite refuse un gabarit ou une section absents | `[EXIGENCE]` |
 | R8 | Le gabarit de pull request demande la justification d'une modification de gouvernance | section du gabarit qui nomme le manifeste, les ratchets de `config/`, l'OpenAPI et la suite d'architecture | `[EXIGENCE]` |
+| R9 | Les interdits textuels de type qui attendent une règle sur le bytecode forment une population qui ne fait que rétrécir | interdits dont la cible permet une règle et qu'aucune classe de règles ne nomme ; compte égal à un plafond jamais relevé | `[EXIGENCE]` |
+| R10 | Une règle qui remplace ou double un interdit textuel est livrée avec sa violation plantée | violation, échec qui nomme la classe, retour arrière, consignés hors du build | `[EXIGENCE]` |
 
 ## Comportement détaillé
 
@@ -44,6 +47,28 @@ se lit là, pas dans cette page). Un membre ajouté fait échouer la suite avec 
 dit qu'un interdit textuel de type énonce son intention comme message de l'assertion, et les membres par fichier ; un membre
 retiré fait échouer jusqu'à l'abaissement du plafond dans le même changement. La famille complémentaire (même forme avec
 un message) est comptée à part (`EXPLAINED_TYPE_BAN`).
+
+### La population en attente de règle (R9, R10)
+
+`[EXISTANT VÉRIFIÉ]` [`TypeBansAwaitingABytecodeRuleTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/TypeBansAwaitingABytecodeRuleTest.java)
+lit le code des classes de test de la suite (commentaires et blocs de texte blanchis, littéraux de chaîne gardés) et y
+cherche `assertFalse(<expression>.contains("<NomDeType>")` suivi de `)` ou de `,` : avec ou sans message, quel que soit le
+récepteur. Un interdit est **en attente de règle** quand sa cible :
+
+- est un fichier `<NomDeType>.java` sous `src/main/java` d'un module que `morpheus-architecture-tests/pom.xml` déclare en
+  dépendance (un nom présent dans deux modules compte s'il qualifie dans l'un) ;
+- ne déclare aucun champ `static final` non privé de type `String` ou primitif (tout champ de ce type dans une interface) :
+  une telle constante serait inlinée par `javac`, et une règle ne la verrait pas ;
+- n'est nommée par aucune classe de la suite qui évalue des règles sur le bytecode : nom simple en mot entier dans son code,
+  littéraux de chaîne compris et littéraux de ses propres `.contains(...)` exclus, ou préfixe passé à
+  `haveSimpleNameStartingWith(...)`.
+
+Les trois lectures sur-approchent ce qui est tenu : une approximation laisse le texte seul, jamais n'oblige à une règle qui
+raterait une constante inlinée. Le compte doit **égaler** `AWAITING_A_RULE_CEILING` (constante du test ; la valeur se lit
+là). Au-dessus, l'échec donne le compte, le plafond, les membres par fichier et dit d'écrire la règle dans le
+`*ArchitectureTest` de l'intention ; au-dessous, il demande d'abaisser le plafond dans le même changement. La classe lit les
+sources des cibles, donc ne porte pas `@CoherenceCheck`. Une règle qui remplace ou double un interdit consigne sa
+violation plantée dans la Javadoc de sa méthode (R10) ; le build ne lit pas cette trace.
 
 ### La composition publiée (R3)
 
@@ -195,12 +220,40 @@ flowchart LR
 
 Le build tient le gabarit ; la description de chaque pull request n'est jugée que par la revue.
 
+### Quand un interdit textuel de type attend-il une règle sur le bytecode ?
+
+Existant vérifié, lu dans `TypeBansAwaitingABytecodeRuleTest` et `EnforcementMechanismAccountingTest`. Organigramme.
+Exigences R1, R9.
+
+```mermaid
+flowchart TD
+    B["interdit textuel d'un nom de type<br/>assertFalse(expr.contains(&quot;Type&quot;)…)"]
+    M{"porte un message ?"}
+    U["famille sans intention<br/>plafond R1, échec"]
+    C1{"cible : source principale<br/>d'un module importé ?"}
+    C2{"cible : constante de compilation<br/>non privée ?"}
+    C3{"cible : nommée par une classe<br/>qui évalue des règles ?"}
+    O["hors population<br/>le texte reste seul ou doublé"]
+    P["population en attente de règle<br/>compte = plafond, ne fait que baisser"]
+    B --> M
+    M -- "non" --> U
+    M -- "oui" --> C1
+    U -.-> C1
+    C1 -- "non" --> O
+    C1 -- "oui" --> C2
+    C2 -- "oui" --> O
+    C2 -- "non" --> C3
+    C3 -- "oui" --> O
+    C3 -- "non" --> P
+```
+
+La flèche pointillée : un interdit sans message est refusé par la famille R1 et compté aussi dans la population R9.
+
 ## Écarts et questions ouvertes
 
-1. **« No document of the repository restates the ceiling's value ».** `[EXISTANT VÉRIFIÉ]` La spec l'interdit. Le fichier
-   `.claude/rules/architecture.md` (sous « Un interdit textuel de type écrit son intention ») écrit « La famille est vide et
-   le plafond vaut 0 ». Aucun test ne scrute les documents à la recherche de cette valeur : l'exigence R1 est tenue en partie
-   par la discipline. `[QUESTION]` Faut-il corriger la règle (qui est une copie) ou la spec ?
+1. **« No document of the repository restates the ceiling's value ».** `[EXISTANT VÉRIFIÉ]` La spec l'interdit, et
+   `.claude/rules/architecture.md` ne recopie la valeur d'aucun des deux plafonds. Aucun test ne scrute les documents à la
+   recherche de ces valeurs : l'exigence est tenue par la discipline.
 2. **Découpage « autres artefacts ».** `[EXISTANT VÉRIFIÉ]` La spec demande « the textual assertions over another artefact ».
    Le code publie trois comptes d'assertions textuelles (`inClassesReadingAProductionSource`, `inCoherenceClasses`,
    `inOtherClasses`), classés par la nature de la classe qui les écrit, pas par la nature du fichier lu. La correspondance
@@ -217,19 +270,26 @@ Le build tient le gabarit ; la description de chaque pull request n'est jugée q
    (`executions.coherence`) prouve, à chaque exécution du module, que l'étiquette est lue par la plateforme ; la commande
    `-Dgroups=coherence` a été rejouée une fois à la livraison du verdict (relevé du changement
    `report-documentation-drift-apart-from-architecture-violations`), aucun build ne la lance.
-8. **Sortir les contrôles de cohérence du module.** `[QUESTION]` Écarté par le mainteneur le 06/11/2026 ; le verdict distinct
-   (R5) répond au besoin de lecture sans déplacement. Aucune tâche n'en dépend.
 6. **« SHALL stay in the gate module ».** Aucune règle n'interdit de sortir une classe marquée de `morpheus-architecture-tests` ;
    la conséquence (baisse de `architectureTestsMinimum`) serait refusée par le validateur de présence, pas par cette capacité.
 7. **Dépendance d'une règle écrite.** `[EXISTANT VÉRIFIÉ]` L'expression de la famille ne voit pas un interdit écrit
    `assertTrue(!…)`, par assistant ou en boucle ; la Javadoc de la classe le dit (« a debt counter, not a census »).
+8. **Sortir les contrôles de cohérence du module.** `[QUESTION]` Écarté par le mainteneur le 06/11/2026 ; le verdict distinct
+   (R5) répond au besoin de lecture sans déplacement. Aucune tâche n'en dépend.
+9. **Récepteurs qualifiés.** `[EXISTANT VÉRIFIÉ]` Les deux familles R1 n'acceptent qu'un identifiant avant `.contains(` :
+   `assertFalse(Files.readString(p).contains("Type"), …)` leur échappe. La population R9 accepte tout récepteur ; les
+   expressions R1 ne sont pas modifiées.
+10. **Nommée pour une autre raison.** Un nom simple cité par une classe de règles pour une autre raison (message d'un
+   `because`, assertion) sort l'interdit de la population R9 ; la revue tient ce cas. `[QUESTION]` Étendre la population
+   aux interdits d'un nom de paquet, ou aux cibles d'une bibliothèque jugées sur le bytecode importé ?
 
 ## Traçabilité
 
 Archive : `2026-10-29-let-unexplained-textual-enforcement-only-shrink` ; changement
 `report-documentation-drift-apart-from-architecture-violations` (R5, R6). Tests principaux :
 [`EnforcementMechanismAccountingTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/EnforcementMechanismAccountingTest.java)
-et [`CoherenceCheckMarkerTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/CoherenceCheckMarkerTest.java).
+et [`CoherenceCheckMarkerTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/CoherenceCheckMarkerTest.java) ;
+changement `write-every-dependency-ban-as-a-bytecode-rule` pour R9 et R10.
 
 | Exigence | Scénario | Conception ou diagramme | Preuve |
 |---|---|---|---|
@@ -248,13 +308,18 @@ et [`CoherenceCheckMarkerTest`](../../../morpheus-architecture-tests/src/test/ja
 | R5 | Aucun échec | idem | `EnforcementVerdictTest#aGreenRunWritesTwoEmptyVerdictsAndCountsTheExecutionsOfEachNature` ; fichier lu après une exécution verte |
 | R6 | Le compte des validateurs de présence | idem | relevé avant/après dans `target/surefire-reports/`, à la livraison ; tenu ensuite par `architectureTestsMinimum` |
 | R6 | Une seule classe marquée sélectionnée par -Dtest | idem | commande rejouée à la livraison |
-| R4 | The build selects the coherence checks | idem | [`CoherenceCheck`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/CoherenceCheck.java) (`@Tag("coherence")`) ; **preuve manquante** de la sélection (Écart 5) |
 | R7 | Le gabarit est présent avec sa section | organigramme 4 | `PullRequestTemplateCoherenceTest#theTemplateAsksForTheIntentionOfEveryTextualAssertion` |
 | R7 | La section d'intention est retirée du gabarit | idem | fixture : `PullRequestTemplateCoherenceTest#aTemplateWithoutTheIntentionSectionIsRefusedBySectionName` |
 | R7 | Le gabarit est supprimé | idem | fixture : `PullRequestTemplateCoherenceTest#aMissingTemplateIsRefusedByItsExpectedPath` |
 | R7 | Une pull request laisse la section vide | idem | tenu par la revue : aucun workflow ne lit `github.event.pull_request.body` |
 | R8 | La section de gouvernance est retirée du gabarit | idem | fixture : `PullRequestTemplateCoherenceTest#aTemplateWithoutTheGovernanceSectionOrOneOfItsFilesIsRefused` |
 | R8 | La section nomme les fichiers de gouvernance | idem | `PullRequestTemplateCoherenceTest#theTemplateAsksForTheJustificationOfAGovernanceChange` ; fixture : même méthode que la ligne précédente |
+| R9 | Un interdit textuel est ajouté sur une cible qui permet une règle | organigramme « Quand un interdit textuel de type attend-il une règle sur le bytecode ? » | `TypeBansAwaitingABytecodeRuleTest#theTextualBansOfATypeAwaitingARuleOnTheBytecodeDoNotGrow` (échec au-dessus du plafond, membres par fichier) |
+| R9 | La cible déclare une constante inlinable | idem | `TypeBansAwaitingABytecodeRuleTest#aNonPrivateStaticFinalFieldOfAStringOrPrimitiveTypeIsAnInlinableConstant` ; exemple `PublicConstant` de `#theExpressionCountsABanWhoseTargetPermitsARuleThatNoRuleClassNames` |
+| R9 | Une règle est écrite et le plafond est laissé tel quel | idem | `#theTextualBansOfATypeAwaitingARuleOnTheBytecodeDoNotGrow` (`assertEquals` du plafond au compte mesuré) |
+| R9 | L'expression est prouvée dans les deux sens | idem | `#theExpressionCountsABanWhoseTargetPermitsARuleThatNoRuleClassNames` (membre, constante non privée, constante privée seule, cible hors du dépôt, cible nommée, cible d'une règle de famille, commentaire et chaîne, récepteur qualifié) |
+| R10 | Une règle migrée sans trace de violation | — | tenu par la revue (le build ne lit pas la trace) |
+| R10 | Une règle migrée qui ne voit aucune classe | — | `AnEmptyArchitectureRuleFailsTest` |
 
 ## Sources
 
