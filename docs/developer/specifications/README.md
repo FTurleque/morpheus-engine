@@ -38,7 +38,7 @@ Vue commune : la séquence de la façade distante, dans [`remote-access-journal.
 | `public-surface-convergence` | [convergence des surfaces publiques](public-surface-convergence.md) | [spec](../../../openspec/specs/public-surface-convergence/spec.md) |
 | `adapter-capability-decomposition` | [commandes et outils servis par des classes de capacité](adapter-capability-decomposition.md) | [spec](../../../openspec/specs/adapter-capability-decomposition/spec.md) |
 | `cli-argument-base` | [base d'arguments de la CLI](cli-argument-base.md) | [spec](../../../openspec/specs/cli-argument-base/spec.md) |
-| `failure-text-ownership` | [texte d'un échec formé par un seul propriétaire](failure-text-ownership.md) | créée à l'archivage de `turn-every-failure-into-text-through-one-owner` |
+| `failure-text-ownership` | [texte d'un échec formé par un seul propriétaire](failure-text-ownership.md) | [spec](../../../openspec/specs/failure-text-ownership/spec.md) |
 | `payload-map-construction` | [construction des cartes de réponse](payload-map-construction.md) | [spec](../../../openspec/specs/payload-map-construction/spec.md) |
 | `mcp-tool-failure-contract` | [échec d'un outil MCP et borne d'un appel](mcp-tool-failure-contract.md) | [spec](../../../openspec/specs/mcp-tool-failure-contract/spec.md) |
 | `mcp-peer-launch-command` | [commande de lancement d'un pair MCP](mcp-peer-launch-command.md) | [spec](../../../openspec/specs/mcp-peer-launch-command/spec.md) |
@@ -71,8 +71,8 @@ Vue commune : la séquence de la façade distante, dans [`remote-access-journal.
 | `application-infrastructure-ports` | [technologie sortie de l'application derrière un port](application-infrastructure-ports.md) | [spec](../../../openspec/specs/application-infrastructure-ports/spec.md) |
 | `application-package-cycles` | [paquets de l'application sans cycle](application-package-cycles.md) | [spec](../../../openspec/specs/application-package-cycles/spec.md) |
 | `application-technology-boundary` | [technologies que la couche application peut toucher](application-technology-boundary.md) | [spec](../../../openspec/specs/application-technology-boundary/spec.md) |
-| `cli-technology-boundary` | [technologies que la CLI peut toucher](cli-technology-boundary.md) | changement actif `confine-the-technology-families-the-cli-uses` |
-| `api-technology-boundary` | [technologies que l'adaptateur HTTP peut toucher](api-technology-boundary.md) | changement actif `confine-the-technology-families-the-cli-uses` |
+| `cli-technology-boundary` | [technologies que la CLI peut toucher](cli-technology-boundary.md) | [spec](../../../openspec/specs/cli-technology-boundary/spec.md) |
+| `api-technology-boundary` | [technologies que l'adaptateur HTTP peut toucher](api-technology-boundary.md) | [spec](../../../openspec/specs/api-technology-boundary/spec.md) |
 | `module-package-correspondence` | [correspondance entre modules et paquets](module-package-correspondence.md) | [spec](../../../openspec/specs/module-package-correspondence/spec.md) |
 | `provider-sdk-dependency-boundary` | [frontière de dépendance du SDK de provider](provider-sdk-dependency-boundary.md) | [spec](../../../openspec/specs/provider-sdk-dependency-boundary/spec.md) |
 | `reflection-boundary` | [réflexion, chargement de classes et injection](reflection-boundary.md) | [spec](../../../openspec/specs/reflection-boundary/spec.md) |
@@ -93,7 +93,7 @@ Vue commune : la séquence de la façade distante, dans [`remote-access-journal.
 | `validator-self-test` | [auto-test des validateurs](validator-self-test.md) | [spec](../../../openspec/specs/validator-self-test/spec.md) |
 | `coverage-attribution-gap` | [crédit de couverture emprunté](coverage-attribution-gap.md) | [spec](../../../openspec/specs/coverage-attribution-gap/spec.md) |
 | `coverage-qualification-evidence` | [preuve de qualification d'un plafond de couverture](coverage-qualification-evidence.md) | [spec](../../../openspec/specs/coverage-qualification-evidence/spec.md) |
-| `per-module-coverage-floor` | [seuil de couverture propre à chaque module](per-module-coverage-floor.md) | créée à l'archivage du changement `thresh-every-module-coverage-on-its-own-floor` |
+| `per-module-coverage-floor` | [seuil de couverture propre à chaque module](per-module-coverage-floor.md) | [spec](../../../openspec/specs/per-module-coverage-floor/spec.md) |
 | `enforcement-mechanism-accounting` | [décompte des mécanismes d'enforcement](enforcement-mechanism-accounting.md) | [spec](../../../openspec/specs/enforcement-mechanism-accounting/spec.md) |
 | `architecture-rule-vacuity-guard` | [garde contre les règles d'architecture vides](architecture-rule-vacuity-guard.md) | [spec](../../../openspec/specs/architecture-rule-vacuity-guard/spec.md) |
 | `refusal-test-evidence` | [preuve de la raison d'un refus dans un test](refusal-test-evidence.md) | [spec](../../../openspec/specs/refusal-test-evidence/spec.md) |
@@ -103,10 +103,10 @@ Vue commune : la séquence de la façade distante, dans [`remote-access-journal.
 | `warning-suppression-justification` | [justification des avertissements supprimés](warning-suppression-justification.md) | [spec](../../../openspec/specs/warning-suppression-justification/spec.md) |
 | `dependency-line-currency` | [dépendance tenue sur une ligne de versions](dependency-line-currency.md) | [spec](../../../openspec/specs/dependency-line-currency/spec.md) |
 | `dependency-version-management` | [gestion des versions de dépendances et de plugins](dependency-version-management.md) | [spec](../../../openspec/specs/dependency-version-management/spec.md) |
-| `risk-register-references` | [renvois des workflows vers le registre des risques](risk-register-references.md) | `openspec/specs/risk-register-references/spec.md`, créée à l'archivage du changement `refuse-a-workflow-that-points-at-a-closed-risk` |
-| `stated-fact-currency` | [actualité d'un fait recopié par un document vivant](stated-fact-currency.md) | `openspec/specs/stated-fact-currency/spec.md` à l'archivage de `compare-every-document-that-states-a-fact-to-its-source` |
+| `risk-register-references` | [renvois des workflows vers le registre des risques](risk-register-references.md) | [spec](../../../openspec/specs/risk-register-references/spec.md) |
+| `stated-fact-currency` | [actualité d'un fait recopié par un document vivant](stated-fact-currency.md) | [spec](../../../openspec/specs/stated-fact-currency/spec.md) |
 | `vulnerability-feed-freshness` | [fraîcheur de la base de vulnérabilités du gate CVE](vulnerability-feed-freshness.md) | [spec](../../../openspec/specs/vulnerability-feed-freshness/spec.md) |
-| `dependency-check-suppression-contract` | [contrat du fichier de suppressions du gate CVE](dependency-check-suppression-contract.md) | à l'archivage du changement `hold-the-dependency-check-suppressions-to-a-contract` |
+| `dependency-check-suppression-contract` | [contrat du fichier de suppressions du gate CVE](dependency-check-suppression-contract.md) | [spec](../../../openspec/specs/dependency-check-suppression-contract/spec.md) |
 
 ### Exploitation, providers et coûts
 

@@ -153,10 +153,10 @@ flowchart LR
    constantes des gates ; un renommage d'une constante sans mise à jour de `Scale` dans le test échoue en nommant la
    constante. Intention : la propriété porte sur des constantes privées de deux modules et sur des données, que ArchUnit ne
    voit pas.
-5. **Preuve conservée sans compteurs par module.** `[EXISTANT VÉRIFIÉ]` Au 2026-11-06, les résumés de
-   `config/coverage-qualification/per-module/` ne portent que des totaux : R6 et R7 ne s'appliquent encore à aucune
-   mesure réelle. La requalification des deux échelles à une seule tête, décidée par le mainteneur le 2026-11-06, les
-   rendra effectives (tâche 3.4 du changement `thresh-every-module-coverage-on-its-own-floor`).
+5. **Preuve conservée avec compteurs par module.** `[EXISTANT VÉRIFIÉ]` La qualification du 2026-11-07 mesure les
+   deux échelles à une seule tête (`dbd65062`, deux runs par plateforme) : les résumés de
+   `config/coverage-qualification/per-module/` portent les compteurs de chaque module, et R6 et R7 s'appliquent à la
+   mesure réelle.
 6. **Précision de comparaison.** `[EXISTANT VÉRIFIÉ]` L'égalité tolère `RATIO_PRECISION` et l'arrondi à six chiffres des
    résumés ; la spec dit « to the precision the summaries carry ».
 
@@ -186,7 +186,7 @@ Archives : `2026-10-21-keep-the-evidence-a-coverage-cap-was-qualified-on` et
 | R6 | Un résumé conservé sans les compteurs d'un module | — | `#aKeptSummaryThatOmitsAModuleIsRefusedAndNamesTheFileAndTheModule` |
 | R6 | Des compteurs par module qui ne font pas le total | — | `#keptModuleCountersThatMakeTheTotalsAreAcceptedAndOnesThatDoNotAreRefusedWithBothValues` |
 | R6 | Deux résumés d'une qualification nomment des modules différents | — | `#twoKeptSummariesThatNameDifferentModulesAreRefusedAndNameTheDifference` |
-| R6 | La preuve écrite par le gate porte ses lignes par module | séquence de [`per-module-coverage-floor.md`](per-module-coverage-floor.md) | écriture dans `CoverageQualityGateTest#perModuleCoverageDoesNotRegressBelowQualifiedBaseline` ; **preuve manquante** : aucun test ne relit les lignes `module.*` de la preuve écrite sur le réacteur réel avant le `clean verify` de l'intégrateur et la requalification (Écart 5) |
+| R6 | La preuve écrite par le gate porte ses lignes par module | séquence de [`per-module-coverage-floor.md`](per-module-coverage-floor.md) | écriture dans `CoverageQualityGateTest#perModuleCoverageDoesNotRegressBelowQualifiedBaseline` ; lignes `module.*` de la preuve réelle relues par `CoverageQualificationEvidenceTest#everyModuleFloorStaysInsideItsQualifiedWindow` (Écart 5) |
 | R7 | Un module plus instable que la référence | — | `#aModuleLessStableThanTheReferenceIsSizedAgainstItsOwnSpread` |
 | R7 | Un module stable | — | `#aStableModuleIsSizedAgainstTheReferenceSpreadNeverAgainstZero` |
 

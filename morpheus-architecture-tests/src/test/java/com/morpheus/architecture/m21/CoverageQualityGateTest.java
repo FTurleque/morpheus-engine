@@ -50,7 +50,17 @@ class CoverageQualityGateTest {
     private static final double D2_MIN_LINE_RATIO = 0.40d;
     private static final double D2_MIN_BRANCH_RATIO = 0.35d;
 
-    // Qualified exact-head baseline of the PER-MODULE scale: 90.2012% lines / 77.4564% branches.
+    // Qualified exact-head baseline of the PER-MODULE scale: 90.4147% lines / 77.6803% branches.
+    //
+    // Requalified on 07/11/2026 at develop dbd65062, the merge of PR #616: two workflow_dispatch runs of develop
+    // (42306627340 and 42311778667), both checking out that SHA; the push run of the same SHA was cancelled by the
+    // workflow's concurrency group. Read from each run's m21-integrity-<OS> artifact,
+    // per-module-coverage-summary.txt, coverageScope=per-module, reports=16, 29900 lines and 10148 branches on all
+    // four, with the counters of every module (kept in config/coverage-qualification/):
+    //     Windows  90.4348% / 90.4448% lines,  77.6902% / 77.7099% branches
+    //     Linux    90.4147% / 90.4147% lines,  77.6803% / 77.6803% branches   <- qualified on the lowest
+    // Spread across the four: 9 lines and 3 branches, inside the 24 / 11 of 15/09, which stays the one margins are
+    // sized against. Previous cap: 90.2012% / 77.4564% (30/10/2026, below). The ratchets keep 0.899 / 0.771.
     //
     // Requalified on 30/10/2026 at d3580dc9, the head of PR #597: its pull_request run (41107774651) and a
     // workflow_dispatch run of the same branch (41107784162), both checking out that SHA. Read from each run's
@@ -135,8 +145,8 @@ class CoverageQualityGateTest {
     // branches (3.1x). One more thousandth on either key would drop it under 3x (65 lines, 24 branches).
     //
     // Raising these two constants requires a fresh per-module measurement on BOTH platforms, cited here.
-    private static final double PER_MODULE_QUALIFIED_LINE_RATIO = 0.902012d;
-    private static final double PER_MODULE_QUALIFIED_BRANCH_RATIO = 0.774564d;
+    private static final double PER_MODULE_QUALIFIED_LINE_RATIO = 0.904147d;
+    private static final double PER_MODULE_QUALIFIED_BRANCH_RATIO = 0.776803d;
 
     @Test
     void perModuleCoverageDoesNotRegressBelowQualifiedBaseline() throws Exception {
