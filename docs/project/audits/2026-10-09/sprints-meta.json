@@ -196,12 +196,14 @@
         "AUD-ARC-17",
         "AUD-ARC-18",
         "AUD-ARC-19",
+        "AUD-ARC-20",
         "AUD-DEP-23",
         "AUD-DEP-24",
         "AUD-DEP-25",
         "AUD-DEP-26",
         "AUD-DEP-27",
         "AUD-DEP-28",
+        "AUD-DEP-29",
         "AUD-PRF-19",
         "AUD-PRF-20",
         "AUD-QUA-17",
@@ -209,6 +211,7 @@
         "AUD-QUA-19",
         "AUD-QUA-20",
         "AUD-QUA-21",
+        "AUD-QUA-22",
         "AUD-SEC-17",
         "AUD-SEC-18",
         "AUD-TRV-08",
@@ -216,7 +219,8 @@
         "AUD-TST-20",
         "AUD-TST-21",
         "AUD-TST-22",
-        "AUD-TST-23"
+        "AUD-TST-23",
+        "AUD-TST-24"
       ]
     }
   ]

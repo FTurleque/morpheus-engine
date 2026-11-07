@@ -276,7 +276,10 @@ rétrécir est une table de faits ; elle déclare l'ADR qui l'énonce s'il y en 
 lieu de la nommer par sa seule référence, sa sorte le dit (`debtCounterEnumeratedBy`, `tableOfFactsEnumeratedBy`) et
 l'ADR l'écrit entre `<!-- liste TestClass.CHAMP -->` et `<!-- fin de liste -->` : le build compare ces noms à la
 constante, dans les deux sens, et nomme l'écart. Ajouter un nom à la constante sans l'ADR, ou l'inverse, casse le build.
-> `noClassOutsideTheAdapterDependsOnATypeOfTheAdapterBesideTheEntryTypes`, `thePackagesOfTheHttpAdapterFormNoCycle`, `everyListOfProductionClassesIsADebtCounterOrATableOfFacts`, `everyDebtCounterIsNamedByTheAcceptedDecisionRecordItDeclares`, `everyDebtCounterHoldsExactlyTheSizeItsRatchetAllows`, `everyListADecisionRecordEnumeratesEqualsItsEnumeration`
+Une énumération que personne n'a déclarée est refusée aussi : un paragraphe d'ADR accepté qui nomme une liste par
+`TestClass.CHAMP` et écrit hors balises deux de ses noms, ou une balise ouverte pour une liste que `KINDS` ne déclare pas
+énumérée par cet ADR.
+> `noClassOutsideTheAdapterDependsOnATypeOfTheAdapterBesideTheEntryTypes`, `thePackagesOfTheHttpAdapterFormNoCycle`, `everyListOfProductionClassesIsADebtCounterOrATableOfFacts`, `everyDebtCounterIsNamedByTheAcceptedDecisionRecordItDeclares`, `everyDebtCounterHoldsExactlyTheSizeItsRatchetAllows`, `everyListADecisionRecordEnumeratesEqualsItsEnumeration`, `everyEnumerationADecisionRecordWritesIsDelimitedAndDeclared`
 
 ### `morpheus-cli` et `morpheus-mcp` : une commande, un outil, une classe de capacité (ADR-0149)
 Une commande CLI va dans une classe de `com.morpheus.cli.command`, un outil MCP dans une classe de

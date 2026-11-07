@@ -167,7 +167,7 @@ sa référence `TestClass.CHAMP` n'est pas comparé.
 
 #### Scenario: Un ADR qui nomme la liste par sa seule référence
 
-- **GIVEN** `ARCH-0156`, qui nomme `AdapterCompositionRootArchitectureTest.COMPOSITION_ROOTS` sans énumérer ses noms
+- **GIVEN** `ARCH-0162`, qui nomme `AdapterCompositionRootArchitectureTest.COMPOSITION_ROOTS` sans énumérer ses noms
 - **WHEN** la suite d'architecture s'exécute, la liste étant déclarée référencée seulement
 - **THEN** la comparaison ne lui demande aucune énumération et ne le refuse pas
 

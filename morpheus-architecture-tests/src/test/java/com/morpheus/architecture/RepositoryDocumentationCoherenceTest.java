@@ -286,9 +286,9 @@ class RepositoryDocumentationCoherenceTest {
         // sits ten executions under a measurement taken on both platforms, stated with its commit beside the key in
         // config/m21-quality-ratchets.properties; a coverage key sits under the cap that CoverageQualityGateTest or
         // AggregateCoverageGateTest qualifies, with its measurements in config/coverage-qualification/.
-        assertEquals("2876", ratchets.get("testsMinimum"));
+        assertEquals("3556", ratchets.get("testsMinimum"));
         assertEquals("1819", ratchets.get("generatedTestsMinimum"));
-        assertEquals("836", ratchets.get("architectureTestsMinimum"));
+        assertEquals("1058", ratchets.get("architectureTestsMinimum"));
         assertEquals("0.901", ratchets.get("perModuleLineCoverageMinimum"));
         assertEquals("0.773", ratchets.get("perModuleBranchCoverageMinimum"));
         assertEquals("0.928", ratchets.get("aggregateLineCoverageMinimum"));

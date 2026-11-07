@@ -12,9 +12,9 @@ Valeur constatée en lisant `config/m21-quality-ratchets.properties` (07/11/2026
 
 | Clé | Valeur constatée |
 |---|---|
-| `testsMinimum` | 2876 (exécutions de méthodes déclarées) |
+| `testsMinimum` | 3556 (exécutions de méthodes déclarées) |
 | `generatedTestsMinimum` | 1819 (exécutions générées par une fabrique) |
-| `architectureTestsMinimum` | 836 (exécutions déclarées du module d'architecture) |
+| `architectureTestsMinimum` | 1058 (exécutions déclarées du module d'architecture) |
 | `aggregateLineCoverageMinimum` | 0.928 (92.8%) |
 | `aggregateBranchCoverageMinimum` | 0.811 (81.1%) |
 | `perModuleLineCoverageMinimum` | 0.901 (90.1%) |
@@ -198,6 +198,11 @@ identiques des quatre runs.
 Le 29/10/2026, les trois ratchets de présence montent, sans toucher à la couverture : `2876 / 1819 / 836`, dix
 sous les 2 886 / 1 829 / 846 exécutions identiques des quatre runs de `develop` à `63e6f1cb` (run `40875102300`
 `push`, run `40870856270` `pull_request` de la PR #584, mêmes sources), Linux et Windows.
+
+Le 07/11/2026, `testsMinimum` et `architectureTestsMinimum` passent à `3556 / 1058`, dix sous les 3 566 / 1 068
+exécutions identiques des quatre runs de `dbd65062` (runs `42306627340` et `42311778667`, Linux et Windows) ;
+`generatedTestsMinimum` reste à `1819`, déjà dix sous les 1 829. Le cliquet d'architecture était resté 222 exécutions
+sous sa marge de dix : un plancher oublié.
 
 Le 30/10/2026, le seul plafond **par module** est requalifié à `d3580dc9`, tête de la PR #597 (run `41107774651`
 `pull_request` et run `41107784162` `workflow_dispatch`, mêmes populations sur les quatre : 29 922 lignes, 10 198

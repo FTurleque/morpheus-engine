@@ -52,6 +52,7 @@ Ce que MORPHEUS expose, comment il se livre, à qui il parle.
 | Un rôle de l'adaptateur HTTP est un paquet, et toute liste de classes de production d'un test d'architecture déclare sa sorte | [ADR-0155](../adr/ARCH-0155-un-role-est-un-paquet-et-une-liste-de-classes-declare-sa-sorte.md) |
 | Le runtime du store SQLite est public pour son adaptateur seulement, et sa surface ne fait que rétrécir | [ADR-0158](../adr/ARCH-0158-le-runtime-du-store-sqlite-est-public-pour-son-adaptateur-seulement.md) |
 | Le cœur applicatif touche le disque local par des classes nommées, et jamais le réseau | [ADR-0150](../adr/ARCH-0150-ce-que-le-coeur-applicatif-peut-toucher.md) |
+| Une technologie sortie du cœur entre dans un module de transport, qui tient sa propre table des classes qui l'atteignent | [ADR-0165](../adr/ARCH-0165-une-technologie-sortie-du-coeur-entre-dans-un-module-de-transport-qui-tient-sa-propre-table.md) |
 | Une commande CLI et un outil MCP sont servis par une classe de capacité ; un dispatcher ne tient aucun cas d'usage | [ADR-0149](../adr/ARCH-0149-une-commande-et-un-outil-sont-servis-par-une-classe-de-capacite.md) |
 | MINOS et NEXUS sont des pairs optionnels, lancés à la demande par MCP STDIO | [ADR-0128](../adr/ARCH-0128-pairs-minos-et-nexus-par-mcp-stdio.md) |
 | Une ressource d'un pair MCP se désigne explicitement, sans heuristique ni mutation du pair | [ADR-0145](../adr/BE-0145-ressource-de-pair-mcp-designee-explicitement.md) |
@@ -116,6 +117,7 @@ Serveur distant, données, journaux, budgets et gouvernance.
 | Le runtime opérationnel est une valeur que le lanceur remet ; le parallélisme JUnit en dépend | [ADR-0115](../adr/ARCH-0115-the-operational-runtime-is-a-value-the-launcher-hands-on.md) |
 | Un plugin provider est du code de confiance, sondé hors du processus MORPHEUS | [ADR-0129](../adr/SEC-0129-plugins-provider-code-de-confiance-hors-processus.md) |
 | Aucun contenu de l'espace de travail n'est lu à travers un lien symbolique ni hors de sa frontière | [ADR-0157](../adr/SEC-0157-aucun-contenu-n-est-lu-a-travers-un-lien-ni-hors-de-l-espace-de-travail.md) |
+| Les releases Windows restent non signées tant qu'aucun certificat sans coût n'est accessible, et leur provenance est la somme SHA-256 et l'attestation | [ADR-0164](../adr/SEC-0164-les-releases-windows-restent-non-signees-tant-qu-aucun-certificat-sans-cout-n-est-accessible.md) |
 | Deux échelles de couverture sur une population commune, un seuil propre à chaque module, et le crédit qu'un module emprunte à ses voisins | [ADR-0163](../adr/GEN-0163-deux-echelles-de-couverture-un-seuil-par-module-et-le-credit-emprunte.md) |
 | Tenir le registre d'ADR au format Archgate, à l'emplacement arc42 | [ADR-0132](../adr/GEN-0132-tenir-le-registre-d-adr-au-format-archgate.md) |
 

@@ -90,6 +90,8 @@ class ProductionClassListsArchitectureTest {
     private static final String DECISION_RECORDS = "docs/architecture/adr";
     private static final String DEBT_COUNTER_RATCHETS = "config/debt-counter-ratchets.properties";
     private static final String ACCEPTED = "Statut : **Acceptée**";
+    private static final Pattern DECISION_RECORD_FILE = Pattern.compile("^([A-Z]+-\\d{4})-.+\\.md$");
+    private static final Pattern BLOCK_OPENING = Pattern.compile("<!-- liste ([\\w.]+) -->");
 
     /** Each remaining list, by {@code TestClass.FIELD}, with its kind. */
     private static final Map<String, Kind> KINDS = Map.ofEntries(
@@ -143,7 +145,8 @@ class ProductionClassListsArchitectureTest {
             Map.entry("SqliteConnectionScopeUseArchitectureTest.SCOPE_OWNERS", Kind.TABLE_OF_FACTS),
             Map.entry("SqliteStoreAdapterHoldsNoMonitorArchitectureTest.RUNTIME_MONITORS", Kind.TABLE_OF_FACTS),
             Map.entry("SqliteStorePackagesArchitectureTest.ADAPTER_COLLABORATORS", Kind.TABLE_OF_FACTS),
-            Map.entry("SqliteStorePackagesArchitectureTest.RUNTIME_ENTRY_POINTS", Kind.debtCounterUnder("ARCH-0158")),
+            Map.entry("SqliteStorePackagesArchitectureTest.RUNTIME_ENTRY_POINTS",
+                    Kind.debtCounterEnumeratedBy("ARCH-0158", SIMPLE_NAMES)),
             Map.entry("SqliteStorePackagesArchitectureTest.RUNTIME_PUBLIC_TYPES", Kind.debtCounterUnder("ARCH-0158")),
             Map.entry("StaticOperationalRuntimeUsersArchitectureTest.MAIN_USERS", Kind.TABLE_OF_FACTS),
             Map.entry("StaticOperationalRuntimeUsersArchitectureTest.PROCESS_RUNTIME_TAKERS", Kind.TABLE_OF_FACTS),
@@ -220,6 +223,164 @@ class ProductionClassListsArchitectureTest {
         assertTrue(compared > 0, "KINDS declares no list that a decision record enumerates");
         assertEquals(List.of(), refusals, "a list a decision record enumerates is written in that record between "
                 + "<!-- liste TestClass.FIELD --> and " + ENUMERATION_END + ", with the same names as the constant");
+    }
+
+    /**
+     * The comparison above reads only the lists KINDS declares enumerated, so this test finds the enumerations nobody
+     * declared. In every accepted record of the registry, a block opened for a list that KINDS does not declare
+     * enumerated by that record is refused, since nothing would compare it; and a paragraph that names a declared list
+     * by {@code TestClass.FIELD} and writes, in code spans outside any block, two of its names (its only name, for a list
+     * of one) is refused, since it states the list without being compared to it. A name written in another paragraph is
+     * prose about the class, not an enumeration of the list.
+     */
+    @Test
+    void everyEnumerationADecisionRecordWritesIsDelimitedAndDeclared() throws IOException, ReflectiveOperationException {
+        Map<String, Class<?>> testClasses = testClassesBySimpleName();
+        Map<String, Set<String>> names = new TreeMap<>();
+        Map<String, String> enumeratedBy = new TreeMap<>();
+        for (Map.Entry<String, Kind> list : KINDS.entrySet()) {
+            names.put(list.getKey(), simpleNames(listValue(testClasses, list.getKey())));
+            if (list.getValue().enumerationRoot().isPresent()) {
+                enumeratedBy.put(list.getKey(), list.getValue().decision().orElseThrow());
+            }
+        }
+        Path records = RepositoryRoot.locate().resolve(DECISION_RECORDS);
+        List<Path> accepted;
+        try (Stream<Path> files = Files.list(records)) {
+            accepted = files.filter(file -> DECISION_RECORD_FILE.matcher(file.getFileName().toString()).matches())
+                    .sorted().toList();
+        }
+        List<String> refusals = new ArrayList<>();
+        int read = 0;
+        for (Path record : accepted) {
+            String text = Files.readString(record);
+            if (!text.contains(ACCEPTED)) {
+                continue;
+            }
+            read++;
+            Matcher file = DECISION_RECORD_FILE.matcher(record.getFileName().toString());
+            String decision = file.matches() ? file.group(1) : "";
+            refusals.addAll(undeclaredEnumerations(decision, text, names, enumeratedBy));
+        }
+        assertTrue(read > 0, "no accepted decision record read in " + DECISION_RECORDS);
+        assertEquals(List.of(), refusals, "an enumeration a decision record writes is compared to its list: write the "
+                + "names between <!-- liste TestClass.FIELD --> and " + ENUMERATION_END + ", and declare the list in "
+                + "KINDS as enumerated by that record");
+    }
+
+    @Test
+    void namesWrittenNextToTheirListOutsideABlockAreRefusedAndProseAboutAClassIsNot() {
+        Map<String, Set<String>> names = Map.of("Gate.ENTRIES", Set.of("Alpha", "Beta", "Gamma"),
+                "Gate.SOLE", Set.of("Delta"));
+        String text = """
+                Context: `Alpha` and `Beta` are both entries, said in prose.
+
+                Decision: the entries are `Gate.ENTRIES` (`Alpha`, `com.example.Beta`).
+
+                The single one is `Gate.SOLE`, today `Delta`.
+
+                `Gate.ENTRIES` holds `Alpha` among others.
+
+                `Gate.ENTRIES_EXTRA` is another list, beside `Alpha` and `Beta`.
+                """;
+
+        List<String> refusals = undeclaredEnumerations("ARCH-9999", text, names, Map.of());
+
+        assertEquals(2, refusals.size(), refusals::toString);
+        assertTrue(refusals.get(0).contains("Gate.ENTRIES") && refusals.get(0).contains("ARCH-9999")
+                && refusals.get(0).contains("[Alpha, Beta]"), refusals.get(0));
+        assertTrue(refusals.get(1).contains("Gate.SOLE") && refusals.get(1).contains("[Delta]"), refusals.get(1));
+    }
+
+    @Test
+    void aBlockIsAdmittedOnlyForAListDeclaredEnumeratedByItsRecordAndItsNamesAreNotReadAsProse() {
+        Map<String, Set<String>> names = Map.of("Gate.ENTRIES", Set.of("Alpha", "Beta"),
+                "Gate.OTHER", Set.of("Gamma", "Delta"));
+        String text = "The entries are `Gate.ENTRIES`:\n" + block("Gate.ENTRIES", "`Alpha`, `Beta`")
+                + "\nAnd `Gate.OTHER`:\n" + block("Gate.OTHER", "`Gamma`, `Delta`")
+                + "\nAnd `Gate.UNKNOWN`:\n" + block("Gate.UNKNOWN", "`Epsilon`");
+
+        List<String> refusals = undeclaredEnumerations("ARCH-9999", text, names,
+                Map.of("Gate.ENTRIES", "ARCH-9999", "Gate.OTHER", "ARCH-0001"));
+
+        assertEquals(2, refusals.size(), refusals::toString);
+        assertTrue(refusals.get(0).contains("Gate.OTHER") && refusals.get(0).contains("ARCH-9999"), refusals.get(0));
+        assertTrue(refusals.get(1).contains("Gate.UNKNOWN"), refusals.get(1));
+
+        List<String> unclosed = undeclaredEnumerations("ARCH-9999", "`Gate.ENTRIES`:\n<!-- liste Gate.ENTRIES -->\n"
+                + "`Alpha`, `Beta`\n\nThe rest of the record.\n", names, Map.of("Gate.ENTRIES", "ARCH-9999"));
+        assertEquals(1, unclosed.size(), unclosed::toString);
+        assertTrue(unclosed.get(0).contains("never closes"), unclosed.get(0));
+    }
+
+    /**
+     * The blocks of {@code text} whose list is not declared enumerated by {@code decision}, then the paragraphs of the
+     * text left once the blocks are removed that name a list and write enough of its names to enumerate it.
+     */
+    private static List<String> undeclaredEnumerations(String decision, String text, Map<String, Set<String>> names,
+                                                       Map<String, String> enumeratedBy) {
+        List<String> refusals = new ArrayList<>();
+        StringBuilder outside = new StringBuilder();
+        Matcher opening = BLOCK_OPENING.matcher(text);
+        int from = 0;
+        while (opening.find(from)) {
+            String list = opening.group(1);
+            if (!decision.equals(enumeratedBy.get(list))) {
+                refusals.add(decision + " writes a block for " + list + ", which KINDS does not declare enumerated by "
+                        + decision + ": nothing compares it");
+            }
+            outside.append(text, from, opening.start()).append('\n');
+            int end = text.indexOf(ENUMERATION_END, opening.end());
+            if (end < 0) {
+                refusals.add(decision + " opens a block for " + list + " that " + ENUMERATION_END + " never closes");
+                return refusals;
+            }
+            from = end + ENUMERATION_END.length();
+        }
+        outside.append(text.substring(from));
+        for (String paragraph : outside.toString().split("\\R\\s*\\R")) {
+            for (Map.Entry<String, Set<String>> list : new TreeMap<>(names).entrySet()) {
+                Set<String> written = namesWrittenNextToTheList(paragraph, list.getKey(), list.getValue());
+                if (!written.isEmpty() && written.size() >= Math.min(2, list.getValue().size())) {
+                    refusals.add(decision + " names " + list.getKey() + " and writes " + written
+                            + " outside a block: " + paragraph.strip().lines().findFirst().orElse(""));
+                }
+            }
+        }
+        return refusals;
+    }
+
+    /** The names of {@code list} a paragraph writes in code spans, when it names the list itself as a whole word. */
+    private static Set<String> namesWrittenNextToTheList(String paragraph, String list, Set<String> names) {
+        Set<String> written = new TreeSet<>();
+        if (names.isEmpty() || !Pattern.compile("(?<![\\w.])" + Pattern.quote(list) + "(?!\\w)").matcher(paragraph)
+                .find()) {
+            return written;
+        }
+        for (String span : codeSpans(paragraph)) {
+            String simple = span.substring(span.lastIndexOf('.') + 1);
+            if (names.contains(simple)) {
+                written.add(simple);
+            }
+        }
+        return written;
+    }
+
+    /** The simple names a list holds: its elements, or a map's keys, or the elements of a map's collection values. */
+    private static Set<String> simpleNames(Object list) {
+        Collection<?> values = list instanceof Map<?, ?> map ? entriesOf(map) : (Collection<?>) list;
+        Set<String> simple = new TreeSet<>();
+        for (Object value : values) {
+            String name = value instanceof Class<?> type ? type.getSimpleName() : value.toString();
+            simple.add(name.substring(name.lastIndexOf('.') + 1));
+        }
+        return simple;
+    }
+
+    private static Collection<?> entriesOf(Map<?, ?> map) {
+        boolean ofCollections = !map.isEmpty() && map.values().stream().allMatch(Collection.class::isInstance);
+        return ofCollections ? map.values().stream().flatMap(value -> ((Collection<?>) value).stream()).toList()
+                : map.keySet();
     }
 
     @Test

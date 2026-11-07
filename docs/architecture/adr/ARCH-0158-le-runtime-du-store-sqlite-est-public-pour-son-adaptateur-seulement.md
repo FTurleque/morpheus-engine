@@ -43,8 +43,11 @@ pour le serveur remote et la CLI.
    plus les deux collaborateurs nommés du store de contenu de snapshot ; `com.morpheus.store.sqlite.runtime` contient
    tout le reste. Aucune classe ne réside dans `com.morpheus.store.sqlite`.
 2. **Le runtime est public pour l'adaptateur, pas pour les autres modules.** Hors du store, une classe de production ne
-   dépend que des classes du runtime de `SqliteStorePackagesArchitectureTest.RUNTIME_ENTRY_POINTS`
-   (`SqliteOperationRuntime`, `SqliteServerMaintenance`). C'est un compteur de dette : exact, il ne fait que rétrécir.
+   dépend que des classes du runtime de `SqliteStorePackagesArchitectureTest.RUNTIME_ENTRY_POINTS` :
+   <!-- liste SqliteStorePackagesArchitectureTest.RUNTIME_ENTRY_POINTS -->
+   `SqliteOperationRuntime`, `SqliteServerMaintenance`
+   <!-- fin de liste -->
+   C'est un compteur de dette : exact, il ne fait que rétrécir.
 3. **La surface publique du runtime ne fait que rétrécir.** Les types publics de `com.morpheus.store.sqlite.runtime`,
    imbriqués compris, sont exactement `SqliteStorePackagesArchitectureTest.RUNTIME_PUBLIC_TYPES`. Un type qui doit
    devenir public, ou une entrée ajoutée à l'une des deux listes, exige un ADR consolidé qui remplace celui-ci.
