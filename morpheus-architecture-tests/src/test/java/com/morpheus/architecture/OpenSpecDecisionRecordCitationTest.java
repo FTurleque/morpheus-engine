@@ -26,8 +26,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@code docs/architecture/adr/archive/} says itself that it is no longer kept up to date, so a citation of it in the
  * present tense sends the reader to a stale text. A cited identifier is {@code ADR-NNNN} or a domain prefix of the
  * registry followed by four digits; its number is looked up among the records in force and the archived ones. A record
- * in force cited under another domain's prefix is refused, naming its own. A number found only in the archive is refused unless the mark {@value #ARCHIVED} follows it on the same line, which tells the
- * reader the record is cited as history; a number found nowhere is refused. The archive of changes is a dated record
+ * in force cited under another domain's prefix is refused, naming its own. A number found only in the archive is
+ * refused unless the mark {@value #ARCHIVED} follows it on the same line, which tells the reader the record is cited
+ * as history; a number found nowhere is refused. The archive of changes is a dated record
  * and is not read. No list of exceptions is kept here.</p>
  */
 @CoherenceCheck

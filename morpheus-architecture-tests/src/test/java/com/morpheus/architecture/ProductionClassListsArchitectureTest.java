@@ -368,24 +368,19 @@ class ProductionClassListsArchitectureTest {
 
     /** The simple names a list holds: its elements, or a map's keys, or the elements of a map's collection values. */
     private static Set<String> simpleNames(Object list) {
-        Collection<?> values;
-        if (list instanceof Collection<?> collection) {
-            values = collection;
-        } else if (list instanceof Map<?, ?> map && !map.isEmpty()
-                && map.values().stream().allMatch(Collection.class::isInstance)) {
-            values = map.values().stream().flatMap(value -> ((Collection<?>) value).stream()).toList();
-        } else if (list instanceof Map<?, ?> map) {
-            values = map.keySet();
-        } else {
-            throw new IllegalArgumentException("a declared list is a Set, a List or a Map, not a "
-                    + list.getClass().getName());
-        }
+        Collection<?> values = list instanceof Map<?, ?> map ? entriesOf(map) : (Collection<?>) list;
         Set<String> simple = new TreeSet<>();
         for (Object value : values) {
             String name = value instanceof Class<?> type ? type.getSimpleName() : value.toString();
             simple.add(name.substring(name.lastIndexOf('.') + 1));
         }
         return simple;
+    }
+
+    private static Collection<?> entriesOf(Map<?, ?> map) {
+        boolean ofCollections = !map.isEmpty() && map.values().stream().allMatch(Collection.class::isInstance);
+        return ofCollections ? map.values().stream().flatMap(value -> ((Collection<?>) value).stream()).toList()
+                : map.keySet();
     }
 
     @Test
