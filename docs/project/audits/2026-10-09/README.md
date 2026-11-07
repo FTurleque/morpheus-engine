@@ -8,6 +8,123 @@
 
 ---
 
+## État au 7 novembre 2026 — treize constats traités en une nuit, 93 → 96
+
+Revérification sur `f0fe88b7` (`origin/develop`, PR #617), soit **69 commits et 283 fichiers** (+16 797 / −1 247)
+depuis `30520bd3`. Build vert : 19 modules en **9 min 17 — 5 395 tests, 0 échec, 14 ignorés**, avec le nouveau verdict
+séparé (`documentation drift: 0`, `architecture violation: 0`). Détail dans **`reverification-2026-11-07.md`**.
+
+Le prompt de la veille a produit ce qu'il demandait : **PR #614 a ouvert un changement OpenSpec par constat**, puis
+#615, #616 et #617 ont implémenté. **Treize des quatorze constats actifs ont été traités**, avec un relevé de
+revendications portant **trois sections « Ce qui n'est pas fait » successives**, chacune honorée par la suivante. Le
+mainteneur a aussi tranché sur `AUD-ARC-15`, laissé en question ouverte : non seulement il a rouvert un écart accepté
+deux jours plus tôt, mais **95 méthodes `synchronized` sur 96** ont été retirées.
+
+**Dix clôtures confirmées.** `AUD-ARC-17`, le constat qui s'était aggravé **trois passes consécutives**, cesse
+d'exister — et pas par esquive : la table qui mentait a été **requalifiée de prétention présente en relevé daté**, et
+elle est exacte en tant que telle (les onze longueurs revérifiées contre le commit qu'elle date). Ce qui mentait était
+son emplacement, pas sa mesure. `AUD-QUA-20` : la similarité entre les deux passerelles MCP passe de **57,4 % à
+19,7 %**, mesure refaite avec la méthode du constat et validée par rejeu. `AUD-PRF-20` : les deux moitiés tombent, et
+la borne composée est désormais **dérivée des constantes par un test** qui casse si la documentation ne suit pas.
+`AUD-DEP-29` : les neuf versions et les sept clés de cliquet vérifiées **une par une**, aucune divergence.
+
+**Un piège de réconciliation, inversé.** Mes fichiers du 6 novembre sont **non commités** : la copie *commitée* du
+dépôt est restée à mon état du 31 octobre, avec 24 constats actifs au lieu de 14. Adopter la copie du dépôt aurait
+effacé onze clôtures. J'ai vérifié que l'écart était exactement celles-là et adopté ma copie — mais **cette passe est
+à commiter**, sinon le dépôt porte un audit périmé de deux semaines.
+
+**Un arbitrage, et il m'est défavorable.** `AUD-TRV-03` demandait en tête de « plafonner explicitement la part
+textuelle ». Le dépôt le refuse par écrit : *un ratio se fait baisser en supprimant un contrôle de documentation ou en
+ajoutant une règle qui ne voit rien de neuf*. **Cet argument est juste, et c'est le mien** — cet audit répète depuis un
+mois qu'une assertion textuelle et une règle ArchUnit n'enforcent pas la même proposition. Je **retire cette clause
+comme prescription** : la garder laisserait le constat ouvert sur un critère inatteignable par construction. Il reste
+ouvert sur ce qui demeure mesurable, et le texte **remonte** : +62 assertions après un recul de 212, et
+`Files.readString` en deuxième hausse consécutive.
+
+`AUD-TRV-02` est **à un cheveu de la clôture** : son gate par module existe et voit désormais 12 des 16 modules ; ce
+qui reste tient à **six clés sur trente-deux** posées au plancher — non quatre comme le relevé l'annonce — et à deux
+classes que l'action nommait en premier et qui n'ont toujours aucun test. `AUD-DEP-05` est inchangé au mot près pour
+la quatrième fois.
+
+**Trois constats neufs, et un motif qui se répète.** `AUD-TST-24` : le contrat des suppressions borne la forme d'une
+règle, jamais le nombre des détections éteintes. `AUD-ARC-20` : la comparaison d'une énumération d'ADR à son gate est
+**sur déclaration** — 3 listes sur 54 — et un ADR énumère déjà hors balises. `AUD-QUA-22` : quatre citations au présent
+d'un ADR archivé dans des documents vivants. Avec une faiblesse inscrite dans `AUD-TRV-03`, les quatre pointent la même
+chose : **le mécanisme de cliquet du dépôt est sur déclaration**. Il est excellent là où il s'applique ; ce qui lui
+manque est de détecter ce qui a oublié de s'y inscrire.
+
+**127 constats : 93 corrigés · 4 partiels · 3 toujours valides · 4 caducs · 22 Info qui tiennent · 1 non vérifiable.**
+Les **7 constats actifs** sont 3 `Moyenne` et 4 `Faible` — **aucun `Critique` ni `Élevée`**. Charge restante :
+**8,75 à 25 jours**, contre 12 à 36. Les 24 contrôles passent.
+
+| Axe | 6 nov | 7 nov |
+|---|---|---|
+| Sécurité | 100 | **100** |
+| Performance | 99 | **100** |
+| Qualité | 88 | **95** |
+| Dépendances | 90 | **95** |
+| Architecture | 92 | **94** |
+| Tests | 90 | **91** |
+| **Moyenne** | **93** | **96** |
+
+## État au 6 novembre 2026 — les onze revendications confirmées, 84 → 93
+
+Revérification sur `30520bd3` (`origin/develop`, PR #613), soit **62 commits et 386 fichiers** (+15 806 / −1 067)
+depuis `de748b38`. Build vert : 19 modules en **8 min 33 — 5 255 tests, 0 échec, 14 ignorés**, deux minutes de moins
+qu'au 31 octobre. Détail dans **`reverification-2026-11-06.md`**.
+
+**L'événement de la passe est une méthode.** Le dépôt a écrit `closures-2026-11-03.md`, qui revendique onze constats
+traités avec leur preuve rejouable, **en laissant délibérément les statuts intacts** — « une ligne de ce fichier est
+une revendication, et la revérification suivante dira si le code la confirme » — avec une section « Ce qui n'est pas
+fait » qui liste cinq réserves. Toutes se sont vérifiées exactes.
+
+**Les onze revendications sont confirmées**, et aucune ne reposait sur une réécriture de texte. `AUD-PRF-19` : le motif
+textuel et la fenêtre de 60 caractères ont **disparu du dépôt**, remplacés par quatre vraies règles ArchUnit.
+`AUD-SEC-17`/`AUD-SEC-18` : chaque segment est interrogé avant lecture, et `ADR-0157` tranche enfin entre les deux
+frontières qui se contredisaient, en choisissant la propriété **forte**. `AUD-ARC-16` : `ARCH-0158` est cette fois
+l'ADR attendu — bon module, bonne propriété, la visibilité. `AUD-TRV-08` : onze sites vérifiés un à un, prouvé en bac
+à sable. `AUD-TST-22` et `AUD-TST-23`, ouverts par l'audit six jours plus tôt, sont clos **sur le mécanisme** et pas
+seulement sur l'instance. `AUD-DEP-25`/`AUD-DEP-28` : 19 POM sur 19 en 1.2.2 et un gate à quatre termes.
+
+**L'issue la plus intéressante est `AUD-DEP-27`** : rendre `sqlite-jdbc` identifiable comme le moteur SQLite qu'il
+embarque **a rendu visibles des CVE réelles** — quatre au-dessus du seuil de 7.0 — d'où la montée du pilote en
+3.54.1.0. Corriger un constat de visibilité a immédiatement produit un correctif de sécurité.
+
+**Trois errata de ma part, dont un sérieux.** Le 30 octobre j'ai inscrit sur `AUD-QUA-17` « recompte sur `11bb1ccf` :
+chiffres inchangés » et durci le statut de *partiel* à *toujours valide*. **Ce recompte n'a pas eu lieu** : les quatre
+compteurs statiques sur lesquels reposait le constat avaient été retirés quinze jours plus tôt. C'est la faute la plus
+coûteuse que puisse commettre cet audit, puisque c'est exactement ce qu'il reproche au reste du dépôt. Les deux autres
+sont mineurs : un chiffre mal formé sur `AUD-ARC-19` (13 imports, pas 7), et la méthode de comptage d'`AUD-TRV-03`,
+désormais **inscrite définitivement dans le constat**, qui donne 1 701 là où j'annonçais 1 705.
+
+**Ce qui reste.** Les trois sprints ouverts du plan ne gardent **qu'un constat chacun**. `AUD-TRV-03` s'éloigne de son
+critère sur deux mesures — `Files.readString` bouge pour la première fois, à la hausse. `AUD-TRV-02` tient sur sa seule
+troisième clause ; attention à la lecture piégeuse, **l'écart passe de 1,28 à 2,67 points sans qu'un test de couverture
+ait changé** : c'est le 1,28 qui était faux, et la mesure a été réparée. `AUD-DEP-05` est un *partiel* qui **ne
+progressera plus** : le mainteneur a accepté le risque le 31 octobre, les releases restent non signées.
+
+**Trois aggravations.** `AUD-ARC-17` croît pour la troisième passe consécutive (cinq longueurs de fichier périmées
+s'ajoutent aux trois divergences connues). `AUD-TST-21` a vu **son scénario se réaliser** : une troisième règle de
+suppression est entrée sans qu'aucune assertion ne la voie, pendant que le fichier d'indices voisin naissait avec son
+contrat. `AUD-QUA-21` récidive, et l'archivage massif en a fait le **seul change OpenSpec vivant** du dépôt.
+
+**Un constat neuf, `AUD-DEP-29` (Moyenne)** : la page de règles que chaque session d'agent charge déclare neuf versions
+de dépendances qu'aucun gate ne compare au POM — et l'une a **déjà dérivé** (`jacoco` 0.8.15 contre 0.8.16).
+
+**124 constats : 83 corrigés · 5 partiels · 9 toujours valides · 4 caducs · 22 Info qui tiennent · 1 non vérifiable.**
+Les **14 constats actifs** sont 4 `Moyenne` et 10 `Faible` — **aucun `Critique` ni `Élevée`**. Charge restante :
+**12 à 36 jours**, contre 19 à 58. Les 24 contrôles passent.
+
+| Axe | 31 oct | 6 nov |
+|---|---|---|
+| Sécurité | 88 | **100** |
+| Performance | 95 | **99** |
+| Architecture | 88 | **92** |
+| Tests | 70 | **90** |
+| Dépendances | 82 | **90** |
+| Qualité | 80 | **88** |
+| **Moyenne** | **84** | **93** |
+
 ## Clôtures du 3 novembre 2026 — les onze constats moyens du sprint 15
 
 Les onze constats `Moyenne` encore ouverts du sprint 15 (`AUD-DEP-25`, `AUD-DEP-27`, `AUD-DEP-28`, `AUD-PRF-19`,

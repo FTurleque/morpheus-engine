@@ -1,9 +1,9 @@
 # Sprints de correction
-État au **31 octobre 2026** sur `de748b38` (`origin/develop`, PR #599), après un `./mvnw clean verify` vert sur les 19 modules (5 209 tests, 0 échec). L'ordre et le découpage sont ceux du 9 octobre ; seuls les statuts ont été réétablis, constat par constat, sur le code.
+État au **7 novembre 2026** sur `f0fe88b7` (`origin/develop`, PR #617), après un `./mvnw clean verify` vert sur les 19 modules (5 395 tests, 0 échec). L'ordre et le découpage sont ceux du 9 octobre ; seuls les statuts ont été réétablis, constat par constat, sur le code.
 
-**Plan du 9 octobre : 73 constats, 70 soldés, 3 restants.** Les **onze premiers sprints sont soldés** : la vague du 31 octobre ferme les deux constats du sprint 11, `AUD-ARC-03` (les composantes fortement connexes de l'application passent de 17 à 2, et la règle devient `beFreeOfCycles()` sans aucune exception nommée) et `AUD-ARC-13`, et elle ferme aussi `AUD-PRF-05` du sprint 13. Les trois sprints encore ouverts du plan — 12, 13 et 14 — ne gardent plus qu'**un constat chacun**. `AUD-TRV-08`, né du dispositif et non du produit, est rangé dans les dérives.
+**Plan du 9 octobre : 73 constats, 70 soldés, 3 restants.** Les onze premiers sprints restent soldés, et les trois encore ouverts — 12, 13 et 14 — ne gardent qu'**un constat chacun**. `AUD-TRV-02` est à un cheveu de la clôture : son gate par module existe, et ce qui reste tient à six clés sur trente-deux posées au plancher et à deux classes jamais testées. `AUD-TRV-03` garde la tête de son action **retirée comme prescription** — plafonner la part textuelle récompenserait les gestes que cet audit reproche ailleurs — et ne tient plus que sur ce qui reste mesurable. `AUD-DEP-05` est tenu par un blocage amont que le mainteneur a accepté par écrit, et ne progressera plus.
 
-**Sprint 15 — dérives : 26 constats, 21 restants.** Ce sprint n'est pas du plan d'origine : il rassemble les constats nés *après* l'audit, d'une scission, d'un effet de bord d'un correctif ou du changement de branche d'intégration. Les ranger dans les sprints d'origine faisait croire que ceux-ci traînaient depuis le 9 octobre ; ils sont soldés, et du travail neuf est apparu à côté.
+**Sprint 15 — dérives : 30 constats, 4 restants.** Ce sprint n'est pas du plan d'origine : il rassemble les constats nés *après* l'audit, d'une scission, d'un effet de bord d'un correctif ou du changement de branche d'intégration. Les ranger dans les sprints d'origine faisait croire que ceux-ci traînaient depuis le 9 octobre ; ils sont soldés, et du travail neuf est apparu à côté.
 
 ## Avancement
 
@@ -23,8 +23,8 @@
 | **12** | Restructurer les adaptateurs | 3 | 2 | 1 | 3 à 8 j |
 | **13** | Couverture et pagination | 2 | 1 | 1 | 3 à 8 j |
 | **14** | Signer la distribution | 1 | 0 | 1 | 1 à 3 j |
-| **15** | Dérives apparues pendant les correctifs | 26 | 5 | 21 | 12 à 39 j |
-| | **Total** | **99** | **75** | **24** | **19 à 58 j** |
+| **15** | Dérives apparues pendant les correctifs | 30 | 26 | 4 | 1.75 à 6 j |
+| | **Total** | **103** | **96** | **7** | **8.75 à 25 j** |
 
 Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j · L 3 à 8 j). Un constat `partiel` compte pour son effort entier : ce qui reste d'un constat partiellement traité n'est pas proportionnel à ce qui en a été fait.
 
@@ -259,7 +259,7 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 
 ## Sprint 15 — Dérives apparues pendant les correctifs
 
-26 constats · 3 corrigé · 4 partiel · 17 toujours valide · 2 caduc
+30 constats · 24 corrigé · 1 partiel · 3 toujours valide · 2 caduc
 
 *Pourquoi ici* — Ce sprint n'est pas du plan du 9 octobre : il rassemble les constats nés **après** l'audit, soit d'une scission quand la mesure du dépôt a montré que ma cause était fausse, soit d'un effet de bord d'un correctif, soit du changement de branche d'intégration du 18 octobre. Les ranger dans les sprints d'origine faisait croire que ceux-ci traînaient depuis le 9 octobre, ce qui est faux : ils sont soldés, et du travail neuf est apparu à côté. La passe du 26 octobre en ajoute quatre, tous nés de la grande restructuration des adaptateurs : l'élargissement de visibilité qu'elle a imposé, un test de garde qui ne garde rien, la liste d'ADR-0148 recopiée à la main dans son gate, et deux dérives de la trace de suivi. La contre-vérification du 28 octobre en ajoute trois : deux frontières d'espace de travail aux garanties opposées, et deux duplications que le sprint 9 a laissées hors de son périmètre. La contre-vérification du 28 octobre au soir en ajoute quatre : des gates qui parcourent tout l'arbre du dépôt et comptent les copies d'espaces de travail, un écart de détection CVE sur une base NVD reconstruite, un fichier de suppressions qu'aucune assertion ne tient, et une attente de créneau de réponse sans délai propre.
 
@@ -267,29 +267,33 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 
 | Constat | Statut | Sév. | Eff. | Objet |
 |---|---|---|---|---|
-| `AUD-ARC-16` | partiel | Moyenne | M | La restructuration de morpheus-store-sqlite a élargi la surface publique du module : trois types et onze membres passés de package-private à public, la garde du compilateur remplacée par une règle |
+| `AUD-ARC-16` | corrigé | Moyenne | M | La restructuration de morpheus-store-sqlite a élargi la surface publique du module : trois types et onze membres passés de package-private à public, la garde du compilateur remplacée par une règle |
 | `AUD-DEP-23` | caduc | Moyenne | S | Les huit voies nocturnes analysent `develop`, qui n'est pas la branche d'intégration, et que rien ne garantit à jour |
 | `AUD-DEP-24` | caduc | Moyenne | S | Le basculement vers main n'est répercuté ni dans Dependabot, ni dans les sept validateurs, ni dans la documentation du modèle de branches |
-| `AUD-DEP-25` | toujours valide | Moyenne | S | Le produit s'annonce 1.2.1 alors qu'il migre la base en V022, et aucun gate ne relie la version du réacteur au schéma |
-| `AUD-DEP-27` | toujours valide | Moyenne | M | Sur une base NVD reconstruite, sqlite-jdbc n'est plus associé au SQLite natif qu'il embarque : une CVE du moteur ne serait vue que par l'identification sqlite_jdbc, et rien ne le suit |
-| `AUD-DEP-28` | toujours valide | Moyenne | S | Le depot declare deux niveaux de schema pour la version 1.2.1, et le test cense le voir ne peut structurellement pas l'attraper |
-| `AUD-PRF-19` | partiel | Moyenne | M | Le serveur remote sert toujours sur threads virtuels nus, et sa route de sauvegarde appelle SQLite directement |
-| `AUD-QUA-17` | toujours valide | Moyenne | M | Le verrou du parallelisme JUnit se deplace : SqliteConnectionScope porte quatre compteurs statiques de processus lus en difference par les tests |
-| `AUD-SEC-17` | toujours valide | Moyenne | S | L'optimisation de la frontière du workspace a rétréci le contrôle avant lecture : un fichier peut être lu et empreinté avant d'être refusé |
-| `AUD-SEC-18` | toujours valide | Moyenne | M | Deux frontières d'espace de travail coexistent dans morpheus-application avec des garanties opposées, et rien n'écrit laquelle est le contrat |
-| `AUD-TRV-08` | toujours valide | Moyenne | S | Huit gates de morpheus-architecture-tests parcourent tout l'arbre du dépôt sans écarter .claude/ : une copie d'espace de travail sous .claude/worktrees fausse leur verdict |
+| `AUD-DEP-25` | corrigé | Moyenne | S | Le produit s'annonce 1.2.1 alors qu'il migre la base en V022, et aucun gate ne relie la version du réacteur au schéma |
+| `AUD-DEP-27` | corrigé | Moyenne | M | Sur une base NVD reconstruite, sqlite-jdbc n'est plus associé au SQLite natif qu'il embarque : une CVE du moteur ne serait vue que par l'identification sqlite_jdbc, et rien ne le suit |
+| `AUD-DEP-28` | corrigé | Moyenne | S | Le depot declare deux niveaux de schema pour la version 1.2.1, et le test cense le voir ne peut structurellement pas l'attraper |
+| `AUD-DEP-29` | corrigé | Moyenne | S | La page de regles que chaque session d'agent charge declare neuf versions de dependances, qu'aucun gate ne compare au POM — et l'une a deja derive |
+| `AUD-PRF-19` | corrigé | Moyenne | M | Le serveur remote sert toujours sur threads virtuels nus, et sa route de sauvegarde appelle SQLite directement |
+| `AUD-QUA-17` | corrigé | Moyenne | M | Le verrou du parallelisme JUnit se deplace : SqliteConnectionScope porte quatre compteurs statiques de processus lus en difference par les tests |
+| `AUD-SEC-17` | corrigé | Moyenne | S | L'optimisation de la frontière du workspace a rétréci le contrôle avant lecture : un fichier peut être lu et empreinté avant d'être refusé |
+| `AUD-SEC-18` | corrigé | Moyenne | M | Deux frontières d'espace de travail coexistent dans morpheus-application avec des garanties opposées, et rien n'écrit laquelle est le contrat |
+| `AUD-TRV-08` | corrigé | Moyenne | S | Huit gates de morpheus-architecture-tests parcourent tout l'arbre du dépôt sans écarter .claude/ : une copie d'espace de travail sous .claude/worktrees fausse leur verdict |
 | `AUD-TST-18` | corrigé | Moyenne | S | Le validateur de release R3 ne peut pas passer : il exige 17 POM dans le reacteur, le depot en compte 19 |
 | `AUD-TST-20` | corrigé | Moyenne | S | Le test censé prouver que la règle anti-lecture-non-bornée voit ce qu'elle refuse reste vert même si la règle devient aveugle |
-| `AUD-TST-22` | toujours valide | Moyenne | S | Les deux echelles de couverture ne sont plus qualifiees au meme commit, et leur ecart — l'indicateur que l'audit suit — n'est plus calculable |
-| `AUD-TST-23` | toujours valide | Moyenne | M | Le genre « compteur de dette » promet une liste qui ne fait que retrecir sous un ADR, et rien ne verifie ni le retrecissement ni l'ADR |
-| `AUD-ARC-15` | toujours valide | Faible | S | Les 94 méthodes public synchronized de morpheus-store-sqlite n'ont aucune raison d'être documentée |
-| `AUD-ARC-17` | toujours valide | Faible | S | La liste de onze classes d'ADR-0148 et les constantes du gate qui la tient sont deux listes recopiées à la main, que rien ne compare |
+| `AUD-TST-22` | corrigé | Moyenne | S | Les deux echelles de couverture ne sont plus qualifiees au meme commit, et leur ecart — l'indicateur que l'audit suit — n'est plus calculable |
+| `AUD-TST-23` | corrigé | Moyenne | M | Le genre « compteur de dette » promet une liste qui ne fait que retrecir sous un ADR, et rien ne verifie ni le retrecissement ni l'ADR |
+| `AUD-ARC-15` | corrigé | Faible | S | Les 94 méthodes public synchronized de morpheus-store-sqlite n'ont aucune raison d'être documentée |
+| `AUD-ARC-17` | corrigé | Faible | S | La liste de onze classes d'ADR-0148 et les constantes du gate qui la tient sont deux listes recopiées à la main, que rien ne compare |
 | `AUD-ARC-18` | partiel | Faible | M | Le transport sorti du cœur est arrivé dans morpheus-cli, qui n'a aucun gate de confinement technologique |
-| `AUD-ARC-19` | toujours valide | Faible | M | Le cycle query.dsl <-> query.saved survit a la cloture d'AUD-ARC-03, structurellement hors de la vue de la regle |
-| `AUD-DEP-26` | partiel | Faible | S | La trace de suivi ne décrit plus l'état réelle des gates : un risque clos qui sert encore de renvoi, un guide d'upgrade pour une version que le réacteur ignore |
-| `AUD-PRF-20` | toujours valide | Faible | S | L'attente d'un créneau de réponse par une écriture du proxy remote n'a pas de délai propre : elle n'est bornée que par composition, et sa borne n'est écrite nulle part |
+| `AUD-ARC-19` | corrigé | Faible | M | Le cycle query.dsl <-> query.saved survit a la cloture d'AUD-ARC-03, structurellement hors de la vue de la regle |
+| `AUD-ARC-20` | toujours valide | Faible | S | La comparaison d'une énumération d'ADR à son gate est sur déclaration : 3 listes sur 54, et un ADR énumère déjà un compteur de dette hors de sa portée |
+| `AUD-DEP-26` | corrigé | Faible | S | La trace de suivi ne décrit plus l'état réelle des gates : un risque clos qui sert encore de renvoi, un guide d'upgrade pour une version que le réacteur ignore |
+| `AUD-PRF-20` | corrigé | Faible | S | L'attente d'un créneau de réponse par une écriture du proxy remote n'a pas de délai propre : elle n'est bornée que par composition, et sa borne n'est écrite nulle part |
 | `AUD-QUA-18` | corrigé | Faible | S | Le parallelisme JUnit est active sur le module ou une portee mal fermee empoisonne un thread du pool, sans aucun filet |
-| `AUD-QUA-19` | toujours valide | Faible | S | La règle qui a retiré safeMessage du CLI n'importe que com.morpheus.cli : sept copies survivent ailleurs, sous trois types de paramètre |
-| `AUD-QUA-20` | toujours valide | Faible | M | Les passerelles MinosMcpCodeGateway et NexusMcpContextGateway portent l'essentiel de la duplication qui reste entre les deux modules d'intégration |
-| `AUD-QUA-21` | toujours valide | Faible | S | Un document OpenSpec vivant affirme au present un nom de paquet que le renommage a supprime, et rien ne le confronte au code |
-| `AUD-TST-21` | toujours valide | Faible | S | Le fichier de suppressions Dependency-Check n'est tenu par aucune assertion : une règle élargie ou ajoutée passerait sans que rien ne rougisse |
+| `AUD-QUA-19` | corrigé | Faible | S | La règle qui a retiré safeMessage du CLI n'importe que com.morpheus.cli : sept copies survivent ailleurs, sous trois types de paramètre |
+| `AUD-QUA-20` | corrigé | Faible | M | Les passerelles MinosMcpCodeGateway et NexusMcpContextGateway portent l'essentiel de la duplication qui reste entre les deux modules d'intégration |
+| `AUD-QUA-21` | corrigé | Faible | S | Un document OpenSpec vivant affirme au present un nom de paquet que le renommage a supprime, et rien ne le confronte au code |
+| `AUD-QUA-22` | toujours valide | Faible | S | Des documents vivants citent au présent un ADR archivé, et le contrôle neuf des citations ne voit que les noms de paquet |
+| `AUD-TST-21` | corrigé | Faible | S | Le fichier de suppressions Dependency-Check n'est tenu par aucune assertion : une règle élargie ou ajoutée passerait sans que rien ne rougisse |
+| `AUD-TST-24` | toujours valide | Faible | S | Le contrat des suppressions Dependency-Check borne la forme d'une règle, jamais le nombre ni la liste des détections éteintes |
