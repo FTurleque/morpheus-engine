@@ -40,7 +40,18 @@ class AggregateCoverageGateTest {
     private static final double D2_MIN_LINE_RATIO = 0.40d;
     private static final double D2_MIN_BRANCH_RATIO = 0.35d;
 
-    // Qualified exact-head baseline of the AGGREGATE scale: 92.8748% lines / 81.1728% branches.
+    // Qualified exact-head baseline of the AGGREGATE scale: 93.0970% lines / 81.4348% branches.
+    //
+    // Requalified on 07/11/2026 at develop dbd65062, the merge of PR #616 and the head the per-module cap is
+    // qualified at: two workflow_dispatch runs of develop (42306627340 and 42311778667), both checking out that SHA.
+    // Read from each run's m21-integrity-<OS> artifact, aggregate-coverage-summary.txt, coverageScope=aggregate,
+    // populationModules=16, 29900 lines and 10148 branches on all four (kept in config/coverage-qualification/):
+    //     Windows  93.1171% / 93.1271% lines,  81.4643% / 81.4840% branches
+    //     Linux    93.0970% / 93.0970% lines,  81.4348% / 81.4446% branches   <- qualified on the lowest
+    // Spread across the four: 9 lines and 5 branches. Previous cap: 92.8748% / 81.1728% (03/11/2026, below).
+    // Both ratchets raised inside this cap, each the highest thousandth that keeps 3x the 24-line / 11-branch
+    // reference spread of 15/09: line 0.926 -> 0.928 leaves 88 lines (3.7x), branch 0.808 -> 0.811 leaves 33
+    // branches (3.0x). One more thousandth would drop either under 3x (58 lines, 23 branches).
     //
     // Requalified on 03/11/2026 at d3580dc9, the head of PR #597 and the head the per-module cap is qualified at:
     // both scales of one qualification are measured at one head, so the gap between them reads as a gap and not
@@ -102,8 +113,8 @@ class AggregateCoverageGateTest {
     // magnitude more than the observed run-to-run variation and small enough that a real regression is caught.
     //
     // Raising these two constants requires a fresh aggregate measurement on BOTH platforms, cited here.
-    private static final double AGGREGATE_QUALIFIED_LINE_RATIO = 0.928748d;
-    private static final double AGGREGATE_QUALIFIED_BRANCH_RATIO = 0.811728d;
+    private static final double AGGREGATE_QUALIFIED_LINE_RATIO = 0.930970d;
+    private static final double AGGREGATE_QUALIFIED_BRANCH_RATIO = 0.814348d;
 
     @Test
     void aggregateCoverageIncludesCrossModuleExecutionAndMeetsRatchets() throws Exception {

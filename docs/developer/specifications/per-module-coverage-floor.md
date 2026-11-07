@@ -1,7 +1,7 @@
 # Seuil de couverture propre à chaque module (`per-module-coverage-floor`)
 
-Spec de référence : spec delta du changement `thresh-every-module-coverage-on-its-own-floor`
-(`specs/per-module-coverage-floor/spec.md`), jusqu'à son archivage, qui crée `openspec/specs/per-module-coverage-floor/spec.md`
+Spec de référence : `openspec/specs/per-module-coverage-floor/spec.md`, issue du changement archivé
+`thresh-every-module-coverage-on-its-own-floor` (`openspec/changes/archive/2026-11-07-thresh-every-module-coverage-on-its-own-floor/`)
 · Relevé du 2026-11-06 sur `a7bc8571`.
 
 ## Objet et périmètre
@@ -146,11 +146,12 @@ renommé est un retrait plus un ajout.
 
 ## Écarts et questions ouvertes
 
-1. **Tous les seuils sont au plancher D2.** `[EXISTANT VÉRIFIÉ]` La preuve conservée sous
-   `config/coverage-qualification/per-module/` ne porte encore que des totaux : aucun seuil ne peut quitter le
-   plancher. La requalification des deux échelles à une seule tête, sur deux runs CI par plateforme, est la voie
-   décidée par le mainteneur le 2026-11-06 (tâches 3.4 et 3.5 du changement). Jusque-là, le seuil attrape un module
-   tombé sous le plancher D2, pas une régression plus fine.
+1. **Seuils posés sur la qualification du 2026-11-07.** `[EXISTANT VÉRIFIÉ]` La preuve conservée sous
+   `config/coverage-qualification/per-module/` porte les compteurs de chaque module, mesurés par deux runs CI par
+   plateforme à `dbd65062`. Chaque seuil est au plus haut millième de sa fenêtre, lignes et branches séparément. Un
+   module trop petit pour garder trois fois la dispersion de référence au-dessus du plancher y reste
+   (`morpheus-provider-testkit`, `morpheus-provider-reference`, et les branches de `morpheus-integration-minos` et
+   `morpheus-integration-nexus`) : cette dispersion est celle de l'échelle entière, ce que pose la question D4.
 2. **Un seuil au plancher admis sous la marge.** `[DÉCISION]` Un seuil égal au plancher D2 passe même quand la mesure
    du module est à moins de trois fois sa dispersion au-dessus : le refuser rendrait la configuration impossible pour
    un module mesuré près du plancher. La fenêtre de R4 s'applique au-dessus du plancher.
@@ -174,7 +175,7 @@ Changement : `thresh-every-module-coverage-on-its-own-floor`. Fichiers de test, 
 |---|---|---|---|---|
 | R1 | Un module cesse de se tester pendant que la somme tient | séquence ; design D2 | 2.1, 2.2 | `CoverageQualityGateTest#aModuleUnderItsOwnFloorIsRefusedWhileTheTotalStillHolds` (réacteur assemblé) |
 | R1 | Les branches sont jugées à part des lignes | séquence ; design D2 | 2.1, 2.2 | même méthode (module `branch-gap`) |
-| R1 | Tous les modules tiennent leur seuil | séquence | 2.3, 5.3 | `CoverageQualityGateTest#everyModuleOfThePopulationHoldsItsOwnFloor` ; **preuve manquante** sur le réacteur réel jusqu'au `clean verify` de l'intégrateur (5.3) |
+| R1 | Tous les modules tiennent leur seuil | séquence | 2.3, 5.3 | `CoverageQualityGateTest#everyModuleOfThePopulationHoldsItsOwnFloor` ; vert sur le réacteur réel : `clean verify` Windows du 2026-11-07, CI Linux de la pull request de qualification |
 | R2 | Un module ajouté au réacteur sans seuil | états ; design D1, D6 | 2.1, 2.2, 2.4 | `CoverageQualityGateTest#theFloorFileMustNameEveryModuleOfThePopulationAndNoOther` ; sur la vraie configuration : `#theFloorFileDeclaresEveryModuleOfThePopulationAndNoOther` |
 | R2 | Un module retiré du réacteur dont la clé reste | états ; design D6 | 2.1, 2.4 | `CoverageQualityGateTest#theFloorFileMustNameEveryModuleOfThePopulationAndNoOther` |
 | R2 | Un module sans classe principale n'a pas de seuil | états ; design D6 | 2.1 | même méthode (module `without-main-classes`) |
@@ -182,7 +183,7 @@ Changement : `thresh-every-module-coverage-on-its-own-floor`. Fichiers de test, 
 | R3 | Un nouveau module au plancher | états | 3.1, 3.2 | même méthode |
 | R4 | Un seuil posé sur la mesure | design D3, D4 | 3.1, 3.2 | `CoverageQualificationEvidenceTest#aModuleLessStableThanTheReferenceIsSizedAgainstItsOwnSpread`, `#aStableModuleIsSizedAgainstTheReferenceSpreadNeverAgainstZero` (preuve synthétique) ; sur la preuve réelle : **preuve manquante** jusqu'à la requalification (3.4, 3.5) |
 | R4 | Un seuil sous le plancher D2 | design D3 | 3.1, 3.2 | `CoverageQualificationEvidenceTest#aModuleFloorUnderTheD2FloorIsRefusedAndNamesTheModuleAndTheKey` |
-| R4 | Un seuil dans la fenêtre | design D3 | 3.2, 3.5 | `CoverageQualificationEvidenceTest#everyModuleFloorStaysInsideItsQualifiedWindow` (vraie configuration, seuils au plancher) ; seuils au-dessus du plancher : **preuve manquante** jusqu'à 3.5 |
+| R4 | Un seuil dans la fenêtre | design D3 | 3.2, 3.5 | `CoverageQualificationEvidenceTest#everyModuleFloorStaysInsideItsQualifiedWindow` (vraie configuration, seuils posés dans leur fenêtre) ; un millième de plus sur `morpheus-api` est refusé (71 lignes de marge pour 72 exigées) |
 | R5 | Le message nomme le remède | séquence ; design D2 | 2.2 | `CoverageQualityGateTest#aModuleUnderItsOwnFloorIsRefusedWhileTheTotalStillHolds` (« write tests in … ») |
 | R5 | Une baisse de seuil se justifie | Écart 3 ; design D3 | — | revue de PR (`.claude/rules/governance.md`) ; pas de preuve exécutable |
 | R6 | Le gate agrégé lit les seuils par module | design D9 | 2.5 | `CoverageScaleSeparationTest#neitherCoverageGateReadsTheOtherScaleKeysReportOrEvidence`, `#theBorrowedCreditGateReadsNoCoverageKeyAndNeitherCoverageGateReadsIt` (violation plantée une fois, tâche 2.5) |

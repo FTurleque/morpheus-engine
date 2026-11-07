@@ -144,10 +144,10 @@ MORPHEUS CodeQL            security-extended
 Surefire written ratchet   >= 2876
 Surefire generated ratchet >= 1819
 Architecture ratchet       >= 836
-Aggregate line ratchet     >= 92.6%
-Aggregate branch ratchet   >= 80.8%
-Per-module line ratchet    >= 89.9%
-Per-module branch ratchet  >= 77.1%
+Aggregate line ratchet     >= 92.8%
+Aggregate branch ratchet   >= 81.1%
+Per-module line ratchet    >= 90.1%
+Per-module branch ratchet  >= 77.3%
 PR changed line coverage   >= 80%
 PR changed branch coverage >= 70%
 JaCoCo canonical report    morpheus-coverage-report/target/site/jacoco-aggregate/jacoco.xml

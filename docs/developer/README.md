@@ -70,10 +70,10 @@ Jackson                    3.2.4
 sqlite-jdbc                3.54.1.0
 MCP SDK                    2.1.0
 OWASP Dependency-Check     13.0.0
-JaCoCo aggregate line ratchet     >= 92.6%
-JaCoCo aggregate branch ratchet   >= 80.8%
-JaCoCo per-module line ratchet    >= 89.9%
-JaCoCo per-module branch ratchet  >= 77.1%
+JaCoCo aggregate line ratchet     >= 92.8%
+JaCoCo aggregate branch ratchet   >= 81.1%
+JaCoCo per-module line ratchet    >= 90.1%
+JaCoCo per-module branch ratchet  >= 77.3%
 Surefire written floor     >= 2876
 Surefire generated floor   >= 1819
 Architecture floor         >= 836
