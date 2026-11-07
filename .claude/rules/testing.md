@@ -8,17 +8,17 @@ sources différentes du repo (`rules/testing.md`, `rules/governance.md`, `docs/R
 citaient chacune un chiffre différent au 31/08/2026. **Avant toute décision de gouvernance
 ou de coverage, relire le fichier properties, pas cette page.**
 
-Valeur constatée en lisant `config/m21-quality-ratchets.properties` (03/11/2026) :
+Valeur constatée en lisant `config/m21-quality-ratchets.properties` (07/11/2026) :
 
 | Clé | Valeur constatée |
 |---|---|
 | `testsMinimum` | 2876 (exécutions de méthodes déclarées) |
 | `generatedTestsMinimum` | 1819 (exécutions générées par une fabrique) |
 | `architectureTestsMinimum` | 836 (exécutions déclarées du module d'architecture) |
-| `aggregateLineCoverageMinimum` | 0.926 (92.6%) |
-| `aggregateBranchCoverageMinimum` | 0.808 (80.8%) |
-| `perModuleLineCoverageMinimum` | 0.899 (89.9%) |
-| `perModuleBranchCoverageMinimum` | 0.771 (77.1%) |
+| `aggregateLineCoverageMinimum` | 0.928 (92.8%) |
+| `aggregateBranchCoverageMinimum` | 0.811 (81.1%) |
+| `perModuleLineCoverageMinimum` | 0.901 (90.1%) |
+| `perModuleBranchCoverageMinimum` | 0.773 (77.3%) |
 
 ## Deux mesures de présence : déclarées et générées
 
@@ -223,6 +223,22 @@ agrégée     Windows  92,9216 % / 92,9216 % lignes   81,2022 % / 81,2120 % bran
 
 Dispersion : 14 lignes / 4 branches, dans la référence 24 / 11. Ligne `0.926` (**82 lignes**), branche `0.808`
 (**38 branches**). Le par module n'est pas touché.
+
+Le 07/11/2026, les **deux** plafonds sont requalifiés à `dbd65062`, merge de la PR #616, sur deux runs
+`workflow_dispatch` de `develop` (`42306627340`, `42311778667` ; le run `push` du même SHA a été annulé par le groupe de
+concurrence de `ci.yml`), mêmes populations sur les quatre : 29 900 lignes, 10 148 branches. Les résumés par module
+portent pour la première fois les compteurs de chaque module, et chaque seuil de module est posé dans sa fenêtre :
+
+```text
+par module  Windows  90,4348 % / 90,4448 % lignes   77,6902 % / 77,7099 % branches
+            Linux    90,4147 % / 90,4147 % lignes   77,6803 % / 77,6803 % branches   <- plafond
+agrégée     Windows  93,1171 % / 93,1271 % lignes   81,4643 % / 81,4840 % branches
+            Linux    93,0970 % / 93,0970 % lignes   81,4348 % / 81,4446 % branches   <- plafond
+```
+
+Dispersion : 9 lignes / 3 branches par module, 9 / 5 en agrégé, dans la référence 24 / 11. Chaque clé monte au plus
+haut millième qui en garde trois fois : par module `0.901` (**94 lignes**) et `0.773` (**38 branches**), agrégé `0.928`
+(**88 lignes**) et `0.811` (**33 branches**).
 
 **Cette marge est exécutable** : `CoverageQualificationEvidenceTest#everyCoverageRatchetKeepsThreeTimesTheSpreadUnderTheLowestKeptMeasurement`
 la calcule sur `config/coverage-qualification/` — plus basse mesure conservée moins ce qu'exige le ratchet, en lignes

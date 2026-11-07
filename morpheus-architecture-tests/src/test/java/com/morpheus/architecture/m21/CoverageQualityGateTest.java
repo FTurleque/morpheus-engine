@@ -60,7 +60,10 @@ class CoverageQualityGateTest {
     //     Windows  90.4348% / 90.4448% lines,  77.6902% / 77.7099% branches
     //     Linux    90.4147% / 90.4147% lines,  77.6803% / 77.6803% branches   <- qualified on the lowest
     // Spread across the four: 9 lines and 3 branches, inside the 24 / 11 of 15/09, which stays the one margins are
-    // sized against. Previous cap: 90.2012% / 77.4564% (30/10/2026, below). The ratchets keep 0.899 / 0.771.
+    // sized against. Previous cap: 90.2012% / 77.4564% (30/10/2026, below).
+    // Both keys raised inside this cap, each the highest thousandth that keeps 3x the 24 / 11 spread:
+    // line 0.899 -> 0.901 leaves 94 lines (3.9x), branch 0.771 -> 0.773 leaves 38 branches (3.5x). One more
+    // thousandth would drop either under 3x (64 lines, 28 branches).
     //
     // Requalified on 30/10/2026 at d3580dc9, the head of PR #597: its pull_request run (41107774651) and a
     // workflow_dispatch run of the same branch (41107784162), both checking out that SHA. Read from each run's

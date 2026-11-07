@@ -48,8 +48,10 @@ class AggregateCoverageGateTest {
     // populationModules=16, 29900 lines and 10148 branches on all four (kept in config/coverage-qualification/):
     //     Windows  93.1171% / 93.1271% lines,  81.4643% / 81.4840% branches
     //     Linux    93.0970% / 93.0970% lines,  81.4348% / 81.4446% branches   <- qualified on the lowest
-    // Spread across the four: 9 lines and 5 branches. Previous cap: 92.8748% / 81.1728% (03/11/2026, below). The
-    // ratchets keep 0.926 / 0.808.
+    // Spread across the four: 9 lines and 5 branches. Previous cap: 92.8748% / 81.1728% (03/11/2026, below).
+    // Both ratchets raised inside this cap, each the highest thousandth that keeps 3x the 24-line / 11-branch
+    // reference spread of 15/09: line 0.926 -> 0.928 leaves 88 lines (3.7x), branch 0.808 -> 0.811 leaves 33
+    // branches (3.0x). One more thousandth would drop either under 3x (58 lines, 23 branches).
     //
     // Requalified on 03/11/2026 at d3580dc9, the head of PR #597 and the head the per-module cap is qualified at:
     // both scales of one qualification are measured at one head, so the gap between them reads as a gap and not

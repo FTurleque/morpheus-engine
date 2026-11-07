@@ -289,10 +289,10 @@ class RepositoryDocumentationCoherenceTest {
         assertEquals("2876", ratchets.get("testsMinimum"));
         assertEquals("1819", ratchets.get("generatedTestsMinimum"));
         assertEquals("836", ratchets.get("architectureTestsMinimum"));
-        assertEquals("0.899", ratchets.get("perModuleLineCoverageMinimum"));
-        assertEquals("0.771", ratchets.get("perModuleBranchCoverageMinimum"));
-        assertEquals("0.926", ratchets.get("aggregateLineCoverageMinimum"));
-        assertEquals("0.808", ratchets.get("aggregateBranchCoverageMinimum"));
+        assertEquals("0.901", ratchets.get("perModuleLineCoverageMinimum"));
+        assertEquals("0.773", ratchets.get("perModuleBranchCoverageMinimum"));
+        assertEquals("0.928", ratchets.get("aggregateLineCoverageMinimum"));
+        assertEquals("0.811", ratchets.get("aggregateBranchCoverageMinimum"));
 
         assertBothValidatorsReadTheAggregateKeysOf(root);
     }
