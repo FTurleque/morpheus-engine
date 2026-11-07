@@ -23,7 +23,10 @@ Bumper une de ces versions **casse le gate** tant que le test n'est pas mis à j
 - Construire `morpheus-provider-reference` avant les tests d'architecture (M22 lit son JAR depuis `target/`)
 - Justifier toute suppression CVE de `config/dependency-check-suppressions.xml` dans ses `<notes>`, et toute exemption
   `base="true"` en y nommant `failBuildOnUnusedSuppressionRule` : `DependencyCheckSuppressionContractTest` tient la
-  forme, la cible bornée, la justification et la liste exacte des exemptions de chaque règle
+  forme, la cible bornée, la justification et la liste exacte des exemptions de chaque règle, ainsi que l'étendue du
+  fichier — la table exacte des détections éteintes, dont la taille égale la clé de
+  `config/dependency-check-suppression-ratchets.properties`, qui ne fait que baisser : une suppression ajoutée relève
+  cette clé et se justifie dans la PR
 
 ## JAMAIS
 

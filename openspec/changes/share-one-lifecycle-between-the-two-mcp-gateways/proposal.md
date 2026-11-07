@@ -76,7 +76,7 @@ Pairs MINOS et NEXUS lancés en MCP STDIO ; mainteneur et CI. Aucune surface pub
   tests d'architecture `McpPeerGatewayLifecycleArchitectureTest` (nouveau), `SilentCatchArchitectureTest`,
   `ExternalCodeTrustBoundaryArchitectureTest` (épinglages réalignés, jamais affaiblis).
 - Documentation : `docs/developer/specifications/mcp-peer-gateway-lifecycle.md` (nouvelle) et son index.
-- ADR : ADR-0128 (pairs par MCP STDIO) et ADR-0156 (décision 3, le transport ne connaît aucun type MORPHEUS) restent
+- ADR : ADR-0128 (pairs par MCP STDIO) et ARCH-0162 (décision 3, le transport ne connaît aucun type MORPHEUS) restent
   vrais ; ADR-0128 nomme les passerelles qui vérifient les outils requis et se clarifie si son texte ne l'est plus
   (`design.md`, D1).
 

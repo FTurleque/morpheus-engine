@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
@@ -40,6 +41,12 @@ import org.w3c.dom.NodeList;
  * {@code failBuildOnUnusedSuppressionRule}. The exempted rules equal {@link #EXEMPTIONS}, a table of facts that grows
  * only by a diff of this class.</p>
  *
+ * <p>The form bounds what one rule removes; {@link #SUPPRESSED_DETECTIONS} bounds how many there are. It is the exact
+ * set of the targets the file switches off, compared in both directions, and its size equals the key
+ * {@value #SUPPRESSED_DETECTIONS_KEY} of {@value #SUPPRESSION_RATCHETS}, which is only ever lowered: a well-formed rule
+ * added to the file fails until the table names it and the key is raised, and the pull request justifies that raise.
+ * A rule removed lowers the key in the same change, so the extent cannot grow back to it.</p>
+ *
  * <p>Intent: a property of an XML configuration file, where the text is the only hold - parsed, not a bytecode rule.
  * Problems are collected and reported together, so a change that breaks two rules sees both.</p>
  */
@@ -60,6 +67,19 @@ class DependencyCheckSuppressionContractTest {
             "morpheus-store-sqlite cpe:/a:sqlite:sqlite",
             "CVE-2026-119586");
 
+    /**
+     * Every detection the file switches off, each identified as {@link #EXEMPTIONS} identifies its rules. Growing this
+     * set raises {@value #SUPPRESSED_DETECTIONS_KEY}; the reason of each entry is in the notes of its rule.
+     */
+    private static final Set<String> SUPPRESSED_DETECTIONS = Set.of(
+            "morpheus-store-sqlite cpe:/a:sqlite:sqlite",
+            "CVE-2026-119586",
+            "morpheus-cli cpe:/a:github:cli");
+
+    static final String SUPPRESSION_RATCHETS = "config/dependency-check-suppression-ratchets.properties";
+
+    static final String SUPPRESSED_DETECTIONS_KEY = "suppressedDetections";
+
     private static final Set<String> ADMITTED_ATTRIBUTES = Set.of("base", "until");
 
     private static final Pattern CVE = Pattern.compile("CVE-[0-9]{4}-[0-9]{4,}");
@@ -79,6 +99,50 @@ class DependencyCheckSuppressionContractTest {
 
         assertEquals(List.of(), problems(suppressions, reactor(root), EXEMPTIONS),
                 SUPPRESSIONS + " must hold to the suppression contract");
+    }
+
+    @Test
+    void theDetectionsTheFileSwitchesOffAreExactlyTheTableAndTheTableHoldsTheSizeItsRatchetAllows() throws Exception {
+        Path root = RepositoryRoot.locate();
+        Document suppressions = parse(Files.readAllBytes(root.resolve(SUPPRESSIONS)));
+        Properties ratchets = new Properties();
+        try (var reader = Files.newBufferedReader(root.resolve(SUPPRESSION_RATCHETS))) {
+            ratchets.load(reader);
+        }
+        assertEquals(Set.of(SUPPRESSED_DETECTIONS_KEY), ratchets.stringPropertyNames(),
+                SUPPRESSION_RATCHETS + " holds exactly the key " + SUPPRESSED_DETECTIONS_KEY);
+
+        List<String> problems = new ArrayList<>(extentProblems(suppressions, reactor(root), SUPPRESSED_DETECTIONS));
+        problems.addAll(ratchetProblems(SUPPRESSED_DETECTIONS.size(),
+                Integer.parseInt(ratchets.getProperty(SUPPRESSED_DETECTIONS_KEY).trim())));
+        assertEquals(List.of(), problems, "the extent of " + SUPPRESSIONS + " is the table of suppressed detections, "
+                + "whose size is the key of " + SUPPRESSION_RATCHETS);
+    }
+
+    @Test
+    void aWellFormedRuleOutsideTheTableIsRefusedNamingItsTargetAndAnEntryWithoutRuleIsNamed() throws Exception {
+        Document file = parse(suppressions(
+                association("^pkg:maven/io\\.github\\.fturleque/morpheus-cli@9\\.8\\.7$", "cpe:/a:github:cli")
+                        + association("^pkg:maven/io\\.github\\.fturleque/morpheus-api@9\\.8\\.7$",
+                                "cpe:/a:apache:api")
+                        + namedVulnerability(
+                                ".*sqlite-jdbc-[0-9][0-9.]*\\.jar[/\\\\].*sqlitejdbc\\.(?:dll|so|dylib|jnilib)$",
+                                "CVE-2026-0003")));
+        List<String> problems = extentProblems(file, FICTIONAL,
+                Set.of("morpheus-cli cpe:/a:github:cli", "CVE-2026-0002"));
+
+        assertEquals(List.of(), problems(file, FICTIONAL, Set.of()), "every rule of the fabricated file is well formed");
+        assertNamed(problems, "rule #2", "morpheus-api cpe:/a:apache:api", "outside the table");
+        assertNamed(problems, "rule #3", "CVE-2026-0003", "outside the table");
+        assertNamed(problems, "CVE-2026-0002", "no rule");
+        assertEquals(3, problems.size(), problems::toString);
+    }
+
+    @Test
+    void aTableLargerThanItsKeyIsRefusedAsGrownAndASmallerOneAsALowerKeyToWrite() {
+        assertEquals(List.of(), ratchetProblems(3, 3));
+        assertNamed(ratchetProblems(4, 3), "holds 4", "key of 3", "grew");
+        assertNamed(ratchetProblems(2, 3), "holds 2", "key of 3", "lower");
     }
 
     @Test
@@ -297,6 +361,48 @@ class DependencyCheckSuppressionContractTest {
             }
         }
         return problems;
+    }
+
+    /**
+     * The targets the file switches off against {@code table}, in both directions. A rule of a refused form has no
+     * target: {@link #problems} refuses it.
+     */
+    static List<String> extentProblems(Document suppressions, Reactor reactor, Set<String> table) {
+        List<String> problems = new ArrayList<>();
+        Set<String> switchedOff = new TreeSet<>();
+        List<Element> rules = children(suppressions.getDocumentElement());
+        for (int index = 0; index < rules.size(); index++) {
+            String name = "rule #" + (index + 1);
+            String target = target(rules.get(index), reactor, name, new ArrayList<>());
+            if (target == null) {
+                continue;
+            }
+            switchedOff.add(target);
+            if (!table.contains(target)) {
+                problems.add(name + " (" + target + "): outside the table of suppressed detections; a detection is "
+                        + "switched off only by a change of this contract that raises " + SUPPRESSED_DETECTIONS_KEY);
+            }
+        }
+        for (String entry : new TreeSet<>(table)) {
+            if (!switchedOff.contains(entry)) {
+                problems.add("the table of suppressed detections names " + entry + ", which no rule targets");
+            }
+        }
+        return problems;
+    }
+
+    /** The size of the table against its key, which is only ever lowered. */
+    static List<String> ratchetProblems(int size, int key) {
+        if (size > key) {
+            return List.of("the table of suppressed detections holds " + size + " for a key of " + key + ": it grew; "
+                    + "raise " + SUPPRESSED_DETECTIONS_KEY + " in " + SUPPRESSION_RATCHETS + " and justify it in the "
+                    + "pull request");
+        }
+        if (size < key) {
+            return List.of("the table of suppressed detections holds " + size + " for a key of " + key + ": lower "
+                    + SUPPRESSED_DETECTIONS_KEY + " in the same change, so that it cannot grow back");
+        }
+        return List.of();
     }
 
     private static void notesProblems(Element rule, boolean base, String name, List<String> problems) {

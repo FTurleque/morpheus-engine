@@ -86,9 +86,9 @@ aggregate line ratchet           >= 92.8%
 aggregate branch ratchet         >= 81.1%
 per-module line ratchet          >= 90.1%
 per-module branch ratchet        >= 77.3%
-Surefire written ratchet         >= 2876
+Surefire written ratchet         >= 3556
 Surefire generated ratchet       >= 1819
-architecture ratchet             >= 836
+architecture ratchet             >= 1058
 SBOM / provenance                required
 ```
 

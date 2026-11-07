@@ -16,7 +16,7 @@ deux fichiers après remplacement de `MINOS`/`Minos`/`minos` et `NEXUS`/`Nexus`/
 - `[EXISTANT VÉRIFIÉ]` `morpheus-mcp-transport` dépend de `mcp-core`, `reactor-core`, `reactive-streams` et
   `mcp-json-jackson3` (son `pom.xml`) : `McpClient`, `McpSyncClient` et `McpJsonDefaults` y sont disponibles. Il ne
   dépend d'aucun module MORPHEUS (`AdapterCompositionRootArchitectureTest#theMcpTransportDependsOnNoOtherMorpheusPackage`,
-  ADR-0156 décision 3). Il remet déjà le comptage à la passerelle par des observateurs : `BoundedStdioClientTransport`
+  ARCH-0162 décision 3). Il remet déjà le comptage à la passerelle par des observateurs : `BoundedStdioClientTransport`
   reçoit un `Consumer<Throwable>` (`processTreeFailures`), `PeerOperationDeadline.arm` un `Runnable` (`countingAbort`).
 - `[EXISTANT VÉRIFIÉ]` `OperationalRecorder.suppressing(famille)` rend un `Consumer<Throwable>` qui appelle
   `suppressed(famille, échec)` (`OperationalRecorder.java:42-45`) : un observateur remis au socle compte exactement
@@ -191,7 +191,7 @@ Aucune donnée ni contrat à migrer. Retour arrière : revenir sur le changement
 - **Compromis** : le module du transport gagne la notion de session de pair ; le comptage lui arrive par trois
   observateurs.
 - **ADR** : non concerné (question 3 du filtre : déplacer une classe se renverse sans casser donnée ni contrat).
-  ADR-0156, décision 3, reste vrai. ADR-0128, décision 3, dit que « l'adaptateur liste les outils du pair » : la
+  ARCH-0162, décision 3, reste vrai. ADR-0128, décision 3, dit que « l'adaptateur liste les outils du pair » : la
   passerelle garde la liste et le socle la vérifie ; clarifier ce texte sans en changer le sens si la revue le juge
   trompeur.
 

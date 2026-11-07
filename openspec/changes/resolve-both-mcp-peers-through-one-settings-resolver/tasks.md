@@ -18,7 +18,7 @@ done by the pull request that introduces this change.
       *`PeerLauncherArchitectureTest` (five sentences: absolute launcher in the constructor, `java.home`, `.toRealPath()`, no `orElse("java")`, no bare literal). `LaunchEnvironmentDisclosureTest` reads every quoted `MORPHEUS_*` literal of the main sources: a quoted environment prefix in a settings type is refused, so the prefixes derive from the peer's name (`Peer.named`).*
 - [x] 1.4 Read the state of the sprint 11 decision: is file-system access in `morpheus-application` listed by class,
       and what does it say of `ExternalJarIntegrity`? Proof: the paragraph; it decides the home (design, decision 1).
-      *ADR-0148 (accepted 2026-10-25) lists file access by class; `ExternalJarIntegrity` stays. Maintainer decision 2026-10-27: the resolver joins the lists through a consolidated ADR that replaces ADR-0148.*
+      *ADR-0148 (archivé), accepted on 2026-10-25, lists file access by class; `ExternalJarIntegrity` stays. Maintainer decision 2026-10-27: the resolver joins the lists through a consolidated ADR that replaces ADR-0148 (archivé).*
 - [x] 1.5 Read the presence ratchets, the execution counts of the four twin test classes and both coverage scales from
       the last validation summary. Proof: the figures and their source (`.claude/skills/live-numbers`).
       *2026-10-30: Not done, and no longer doable: it is a measurement of the code before the change, and the change is merged.*
@@ -56,7 +56,7 @@ done by the pull request that introduces this change.
       *`Files.isReadable` in `MinosIntegrationSettings.resolve`: `theSettingsTypesOfTheIntegrationsResolveNothingThemselves` fails naming the method. `Optional.of("java")` in the resolver: `theOnlyBareLauncherNamesAreTheTwoFilesLookedForUnderTheRuntime` fails naming the resolver. A bound on one side: see 2.3.*
 - [x] 3.6 Clarify ADR-0128 (the settings resolution is shared, and where it lives); add the resolver to the sprint 11 list if 1.4 requires it. Proof: the diffs;
       `AdrIndexCoherenceTest` green.
-      *ADR-0128 decisions 6 and 8 name the resolver and the shared constructor; ADR-0148 replaced by a consolidated ADR (ADR-0150) that names `PeerLaunchSettingsResolver` for file access and process environment; `AdrIndexCoherenceTest` green.*
+      *ADR-0128 decisions 6 and 8 name the resolver and the shared constructor; ADR-0148 (archivé) replaced by a consolidated ADR (ADR-0150) that names `PeerLaunchSettingsResolver` for file access and process environment; `AdrIndexCoherenceTest` green.*
 
 ## 4. Verification
 
