@@ -7,7 +7,7 @@ rules: false
 
 # Une technologie sortie du cœur entre dans un module de transport, qui tient sa propre table des classes qui l'atteignent
 
-- Statut : **Proposée**
+- Statut : **Acceptée**
 - Date : 2026-11-07
 
 ## Context

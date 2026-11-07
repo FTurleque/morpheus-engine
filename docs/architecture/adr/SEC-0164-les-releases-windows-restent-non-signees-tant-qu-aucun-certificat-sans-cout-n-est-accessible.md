@@ -7,7 +7,7 @@ rules: false
 
 # Les releases Windows restent non signées tant qu'aucun certificat sans coût n'est accessible, et leur provenance est la somme SHA-256 et l'attestation
 
-- Statut : **Proposée**
+- Statut : **Acceptée**
 - Date : 2026-11-07
 
 ## Context

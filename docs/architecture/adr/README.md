@@ -139,8 +139,8 @@ nouvel ADR qui remplace les précédents. Le cycle de vie complet est dans `.cla
 | [ADR-0157](SEC-0157-aucun-contenu-n-est-lu-a-travers-un-lien-ni-hors-de-l-espace-de-travail.md) | Aucun contenu de l'espace de travail n'est lu à travers un lien symbolique ni hors de sa frontière | **Acceptée** |
 | [ADR-0158](ARCH-0158-le-runtime-du-store-sqlite-est-public-pour-son-adaptateur-seulement.md) | Le runtime du store SQLite est public pour son adaptateur seulement, et sa surface ne fait que rétrécir | **Acceptée** |
 | [ADR-0159](BE-0159-database-work-runs-on-a-bounded-pool-of-platform-threads.md) | Le travail sur la base s'exécute sur un pool borné de threads plateforme | **Acceptée** |
-| [ADR-0164](SEC-0164-les-releases-windows-restent-non-signees-tant-qu-aucun-certificat-sans-cout-n-est-accessible.md) | Les releases Windows restent non signées tant qu'aucun certificat sans coût n'est accessible, et leur provenance est la somme SHA-256 et l'attestation | **Proposée** |
-| [ADR-0165](ARCH-0165-une-technologie-sortie-du-coeur-entre-dans-un-module-de-transport-qui-tient-sa-propre-table.md) | Une technologie sortie du cœur entre dans un module de transport, qui tient sa propre table des classes qui l'atteignent | **Proposée** |
+| [ADR-0164](SEC-0164-les-releases-windows-restent-non-signees-tant-qu-aucun-certificat-sans-cout-n-est-accessible.md) | Les releases Windows restent non signées tant qu'aucun certificat sans coût n'est accessible, et leur provenance est la somme SHA-256 et l'attestation | **Acceptée** |
+| [ADR-0165](ARCH-0165-une-technologie-sortie-du-coeur-entre-dans-un-module-de-transport-qui-tient-sa-propre-table.md) | Une technologie sortie du cœur entre dans un module de transport, qui tient sa propre table des classes qui l'atteignent | **Acceptée** |
 
 Les preuves de qualification de chaque jalon sont dans [`../../project/validation/`](../../project/validation/README.md).
 
