@@ -1,7 +1,7 @@
 # Cycle de vie d'un client de pair MCP (`mcp-peer-gateway-lifecycle`)
 
-Spec de référence : spec delta du changement `share-one-lifecycle-between-the-two-mcp-gateways`, qui devient
-`openspec/specs/mcp-peer-gateway-lifecycle/spec.md` à son archivage · Relevé du 2026-11-06 sur `8c038add`.
+Spec de référence : [`openspec/specs/mcp-peer-gateway-lifecycle/spec.md`](../../../openspec/specs/mcp-peer-gateway-lifecycle/spec.md)
+· Relevé du 2026-11-06 sur `8c038add`.
 
 ## Objet et périmètre
 
