@@ -197,6 +197,7 @@
         "AUD-ARC-18",
         "AUD-ARC-19",
         "AUD-ARC-20",
+        "AUD-ARC-21",
         "AUD-DEP-23",
         "AUD-DEP-24",
         "AUD-DEP-25",
@@ -220,7 +221,8 @@
         "AUD-TST-21",
         "AUD-TST-22",
         "AUD-TST-23",
-        "AUD-TST-24"
+        "AUD-TST-24",
+        "AUD-TST-25"
       ]
     }
   ]

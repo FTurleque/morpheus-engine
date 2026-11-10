@@ -1,9 +1,9 @@
 # Sprints de correction
 État au **7 novembre 2026** sur `f0fe88b7` (`origin/develop`, PR #617), après un `./mvnw clean verify` vert sur les 19 modules (5 395 tests, 0 échec). L'ordre et le découpage sont ceux du 9 octobre ; seuls les statuts ont été réétablis, constat par constat, sur le code.
 
-**Plan du 9 octobre : 73 constats, 70 soldés, 3 restants.** Les onze premiers sprints restent soldés, et les trois encore ouverts — 12, 13 et 14 — ne gardent qu'**un constat chacun**. `AUD-TRV-02` est à un cheveu de la clôture : son gate par module existe, et ce qui reste tient à six clés sur trente-deux posées au plancher et à deux classes jamais testées. `AUD-TRV-03` garde la tête de son action **retirée comme prescription** — plafonner la part textuelle récompenserait les gestes que cet audit reproche ailleurs — et ne tient plus que sur ce qui reste mesurable. `AUD-DEP-05` est tenu par un blocage amont que le mainteneur a accepté par écrit, et ne progressera plus.
+**Plan du 9 octobre : 73 constats, 72 soldés, 1 restants.** Les onze premiers sprints restent soldés, et les trois encore ouverts — 12, 13 et 14 — ne gardent qu'**un constat chacun**. `AUD-TRV-02` est à un cheveu de la clôture : son gate par module existe, et ce qui reste tient à six clés sur trente-deux posées au plancher et à deux classes jamais testées. `AUD-TRV-03` garde la tête de son action **retirée comme prescription** — plafonner la part textuelle récompenserait les gestes que cet audit reproche ailleurs — et ne tient plus que sur ce qui reste mesurable. `AUD-DEP-05` est tenu par un blocage amont que le mainteneur a accepté par écrit, et ne progressera plus.
 
-**Sprint 15 — dérives : 30 constats, 4 restants.** Ce sprint n'est pas du plan d'origine : il rassemble les constats nés *après* l'audit, d'une scission, d'un effet de bord d'un correctif ou du changement de branche d'intégration. Les ranger dans les sprints d'origine faisait croire que ceux-ci traînaient depuis le 9 octobre ; ils sont soldés, et du travail neuf est apparu à côté.
+**Sprint 15 — dérives : 32 constats, 2 restants.** Ce sprint n'est pas du plan d'origine : il rassemble les constats nés *après* l'audit, d'une scission, d'un effet de bord d'un correctif ou du changement de branche d'intégration. Les ranger dans les sprints d'origine faisait croire que ceux-ci traînaient depuis le 9 octobre ; ils sont soldés, et du travail neuf est apparu à côté.
 
 ## Avancement
 
@@ -20,11 +20,11 @@
 | **9** ✓ | Supprimer la duplication du socle | 6 | 6 | 0 | — |
 | **10** ✓ | Dire la vérité dans les règles | 7 | 7 | 0 | — |
 | **11** ✓ | Trancher l'architecture | 4 | 4 | 0 | — |
-| **12** | Restructurer les adaptateurs | 3 | 2 | 1 | 3 à 8 j |
+| **12** ✓ | Restructurer les adaptateurs | 3 | 3 | 0 | — |
 | **13** | Couverture et pagination | 2 | 1 | 1 | 3 à 8 j |
-| **14** | Signer la distribution | 1 | 0 | 1 | 1 à 3 j |
-| **15** | Dérives apparues pendant les correctifs | 30 | 26 | 4 | 1.75 à 6 j |
-| | **Total** | **103** | **96** | **7** | **8.75 à 25 j** |
+| **14** ✓ | Signer la distribution | 1 | 1 | 0 | — |
+| **15** | Dérives apparues pendant les correctifs | 32 | 30 | 2 | 0.5 à 2 j |
+| | **Total** | **105** | **102** | **3** | **3.5 à 10 j** |
 
 Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j · L 3 à 8 j). Un constat `partiel` compte pour son effort entier : ce qui reste d'un constat partiellement traité n'est pas proportionnel à ce qui en a été fait.
 
@@ -218,9 +218,9 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 | `AUD-ARC-03` | corrigé | Moyenne | L | morpheus-application contient une composante fortement connexe de 17 paquets sur 36 |
 | `AUD-ARC-13` | corrigé | Faible | L | Domaine sans aucun type polymorphe : 59 records et 25 enums, zéro interface, pour 9,4 fois moins de lignes que l'application |
 
-## Sprint 12 — Restructurer les adaptateurs
+## Sprint 12 — Restructurer les adaptateurs  ·  **terminé**
 
-3 constats · 2 corrigé · 1 partiel
+3 constats · 3 corrigé
 
 *Pourquoi ici* — Rendre les frontières internes exprimables par la structure, pour que les gates cessent de maintenir des listes de noms.
 
@@ -230,7 +230,7 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 |---|---|---|---|---|
 | `AUD-ARC-06` | corrigé | Moyenne | M | morpheus-api : 80 classes dans un unique paquet plat, aucune frontière intra-module exprimable |
 | `AUD-ARC-09` | corrigé | Moyenne | L | Découpage incohérent d'un adaptateur à l'autre : api décomposé par capacité, mcp et cli gardent un monolithe historique à côté |
-| `AUD-TRV-03` | partiel | Moyenne | L | L'enforcement repose majoritairement sur des assertions textuelles et non sur la structure du code |
+| `AUD-TRV-03` | corrigé | Moyenne | L | L'enforcement repose majoritairement sur des assertions textuelles et non sur la structure du code |
 
 ## Sprint 13 — Couverture et pagination
 
@@ -243,11 +243,11 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 | Constat | Statut | Sév. | Eff. | Objet |
 |---|---|---|---|---|
 | `AUD-PRF-05` | corrigé | Moyenne | L | Pagination de la recherche de requirements appliquée en mémoire après chargement intégral du snapshot |
-| `AUD-TRV-02` | partiel | Moyenne | L | Écart de 20,9 points entre les deux échelles de couverture : morpheus-application n'est pas testable sans ses modules voisins |
+| `AUD-TRV-02` | partiel | Moyenne | L | Écart de 2,7 points entre les deux échelles de couverture : six clés sur trente-deux restent au plancher absolu |
 
-## Sprint 14 — Signer la distribution
+## Sprint 14 — Signer la distribution  ·  **terminé**
 
-1 constats · 1 partiel
+1 constats · 1 corrigé
 
 *Pourquoi ici* — Chemin critique externe, pas technique : à amorcer dès le sprint 2 (achat du certificat), à livrer quand il arrive.
 
@@ -255,11 +255,11 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 
 | Constat | Statut | Sév. | Eff. | Objet |
 |---|---|---|---|---|
-| `AUD-DEP-05` | partiel | Moyenne | M | L'installeur Windows et les archives ne sont pas signés Authenticode, alors que le dépôt exige cette signature de son propre outillage |
+| `AUD-DEP-05` | corrigé | Moyenne | M | L'installeur Windows et les archives ne sont pas signés Authenticode, alors que le dépôt exige cette signature de son propre outillage |
 
 ## Sprint 15 — Dérives apparues pendant les correctifs
 
-30 constats · 24 corrigé · 1 partiel · 3 toujours valide · 2 caduc
+32 constats · 28 corrigé · 2 toujours valide · 2 caduc
 
 *Pourquoi ici* — Ce sprint n'est pas du plan du 9 octobre : il rassemble les constats nés **après** l'audit, soit d'une scission quand la mesure du dépôt a montré que ma cause était fausse, soit d'un effet de bord d'un correctif, soit du changement de branche d'intégration du 18 octobre. Les ranger dans les sprints d'origine faisait croire que ceux-ci traînaient depuis le 9 octobre, ce qui est faux : ils sont soldés, et du travail neuf est apparu à côté. La passe du 26 octobre en ajoute quatre, tous nés de la grande restructuration des adaptateurs : l'élargissement de visibilité qu'elle a imposé, un test de garde qui ne garde rien, la liste d'ADR-0148 recopiée à la main dans son gate, et deux dérives de la trace de suivi. La contre-vérification du 28 octobre en ajoute trois : deux frontières d'espace de travail aux garanties opposées, et deux duplications que le sprint 9 a laissées hors de son périmètre. La contre-vérification du 28 octobre au soir en ajoute quatre : des gates qui parcourent tout l'arbre du dépôt et comptent les copies d'espaces de travail, un écart de détection CVE sur une base NVD reconstruite, un fichier de suppressions qu'aucune assertion ne tient, et une attente de créneau de réponse sans délai propre.
 
@@ -285,15 +285,17 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 | `AUD-TST-23` | corrigé | Moyenne | M | Le genre « compteur de dette » promet une liste qui ne fait que retrecir sous un ADR, et rien ne verifie ni le retrecissement ni l'ADR |
 | `AUD-ARC-15` | corrigé | Faible | S | Les 94 méthodes public synchronized de morpheus-store-sqlite n'ont aucune raison d'être documentée |
 | `AUD-ARC-17` | corrigé | Faible | S | La liste de onze classes d'ADR-0148 et les constantes du gate qui la tient sont deux listes recopiées à la main, que rien ne compare |
-| `AUD-ARC-18` | partiel | Faible | M | Le transport sorti du cœur est arrivé dans morpheus-cli, qui n'a aucun gate de confinement technologique |
+| `AUD-ARC-18` | corrigé | Faible | M | Le transport sorti du cœur est arrivé dans morpheus-cli, qui n'a aucun gate de confinement technologique |
 | `AUD-ARC-19` | corrigé | Faible | M | Le cycle query.dsl <-> query.saved survit a la cloture d'AUD-ARC-03, structurellement hors de la vue de la regle |
-| `AUD-ARC-20` | toujours valide | Faible | S | La comparaison d'une énumération d'ADR à son gate est sur déclaration : 3 listes sur 54, et un ADR énumère déjà un compteur de dette hors de sa portée |
+| `AUD-ARC-20` | corrigé | Faible | S | La comparaison d'une énumération d'ADR à son gate est sur déclaration : 3 listes sur 54, et un ADR énumère déjà un compteur de dette hors de sa portée |
+| `AUD-ARC-21` | toujours valide | Faible | S | ARCH-0165 fonde deux tables de faits qu'aucun code ne cite, et le genre déclaré ne sait pas porter un ADR sans énumération |
 | `AUD-DEP-26` | corrigé | Faible | S | La trace de suivi ne décrit plus l'état réelle des gates : un risque clos qui sert encore de renvoi, un guide d'upgrade pour une version que le réacteur ignore |
 | `AUD-PRF-20` | corrigé | Faible | S | L'attente d'un créneau de réponse par une écriture du proxy remote n'a pas de délai propre : elle n'est bornée que par composition, et sa borne n'est écrite nulle part |
 | `AUD-QUA-18` | corrigé | Faible | S | Le parallelisme JUnit est active sur le module ou une portee mal fermee empoisonne un thread du pool, sans aucun filet |
 | `AUD-QUA-19` | corrigé | Faible | S | La règle qui a retiré safeMessage du CLI n'importe que com.morpheus.cli : sept copies survivent ailleurs, sous trois types de paramètre |
 | `AUD-QUA-20` | corrigé | Faible | M | Les passerelles MinosMcpCodeGateway et NexusMcpContextGateway portent l'essentiel de la duplication qui reste entre les deux modules d'intégration |
 | `AUD-QUA-21` | corrigé | Faible | S | Un document OpenSpec vivant affirme au present un nom de paquet que le renommage a supprime, et rien ne le confronte au code |
-| `AUD-QUA-22` | toujours valide | Faible | S | Des documents vivants citent au présent un ADR archivé, et le contrôle neuf des citations ne voit que les noms de paquet |
+| `AUD-QUA-22` | corrigé | Faible | S | Des documents vivants citent au présent un ADR archivé, et le contrôle neuf des citations ne voit que les noms de paquet |
 | `AUD-TST-21` | corrigé | Faible | S | Le fichier de suppressions Dependency-Check n'est tenu par aucune assertion : une règle élargie ou ajoutée passerait sans que rien ne rougisse |
-| `AUD-TST-24` | toujours valide | Faible | S | Le contrat des suppressions Dependency-Check borne la forme d'une règle, jamais le nombre ni la liste des détections éteintes |
+| `AUD-TST-24` | corrigé | Faible | S | Le contrat des suppressions Dependency-Check borne la forme d'une règle, jamais le nombre ni la liste des détections éteintes |
+| `AUD-TST-25` | toujours valide | Faible | S | Les deux plafonds qui bornent la migration des interdits textuels ne sont que des constantes Java : les relever passe le build |
