@@ -88,7 +88,7 @@ contrats métier.
 | MCP SDK Java | MCP STDIO | 2.1.0 |
 | JUnit Jupiter | Tests | 6.1.3 |
 | ArchUnit | Tests d'architecture | 1.5.1 |
-| JaCoCo | Couverture | 0.8.15 |
+| JaCoCo | Couverture | 0.8.16 |
 | CycloneDX | SBOM | 2.9.3 |
 | OWASP Dependency-Check | SCA locale | 13.0.0 |
 | `jdk.httpserver` | HTTP local/remote | fourni par le JDK |
