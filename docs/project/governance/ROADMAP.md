@@ -93,16 +93,13 @@ SBOM / provenance                required
 ```
 
 Suivis clôturés : #154 (SonarCloud + réglages GitHub Security administrateur), #184
-(réduction progressive de la dette de couverture historique).
+(réduction progressive de la dette de couverture historique), #185 (workflow de release
+attestée, qualifié sur la release v1.2.1 :
+[`VALIDATION_RELEASE_1.2.1.md`](../validation/VALIDATION_RELEASE_1.2.1.md)).
 
-Suivi actif :
-
-```text
-#185  qualification réelle du workflow de release attestée sur v1.2.1+
-```
-
-Ce suivi a des critères de clôture explicites : aucune qualification de release n’est
-simulée pour obtenir artificiellement un état vert.
+Les suivis encore ouverts sont tenus dans
+[`DOCUMENTATION_STATUS.md`](DOCUMENTATION_STATUS.md#suivis-encore-ouverts). Aucune
+qualification de release n’est simulée pour obtenir artificiellement un état vert.
 
 ## R3 — MORPHEUS 1.2.0
 
@@ -169,5 +166,5 @@ Aucun numéro de release supplémentaire n’est déclaré publié avant une vra
 ```text
 NEXT
   maintenir les ratchets exact-head sans régression
-  qualifier la prochaine vraie release attestée (#185)
+  qualifier la prochaine vraie release attestée par le même workflow
 ```

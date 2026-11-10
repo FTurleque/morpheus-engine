@@ -36,33 +36,39 @@ faible : c'est précisément le signal que PIT apporte.
 
 Toutes les versions sont des propriétés du POM racine ([`pom.xml`](../../pom.xml)), jamais `LATEST`.
 
-| Propriété | Valeur | Rôle |
-|---|---|---|
-| `spotbugs.maven.plugin.version` | `4.10.4.1` | plugin Maven (publié le 05/09/2026) |
-| `spotbugs.version` | `4.10.4` | moteur d'analyse, épinglé comme dépendance du plugin |
-| `pitest.maven.plugin.version` | `1.30.0` | plugin Maven PIT (publié le 27/08/2026) |
-| `pitest.junit5.plugin.version` | `1.2.3` | passerelle JUnit Platform pour PIT |
+| Propriété | Rôle |
+|---|---|
+| `spotbugs.maven.plugin.version` | plugin Maven SpotBugs |
+| `spotbugs.version` | moteur d'analyse, épinglé comme dépendance du plugin |
+| `pitest.maven.plugin.version` | plugin Maven PIT |
+| `pitest.junit5.plugin.version` | passerelle JUnit Platform pour PIT |
+
+Le tableau ne recopie aucune valeur : elles se lisent dans le POM. Aucune version n'y est dite « la dernière » :
+c'est une prétention qui se périme au premier bump.
 
 Pourquoi ces choix :
 
-- **SpotBugs 4.10.4.1** est la dernière version stable ; elle embarque déjà le moteur 4.10.4, qui est épinglé quand même
-  pour qu'une montée du plugin ne change pas les détecteurs sans décision. Le plugin exige Maven 3.8.9 ou plus (le
-  wrapper est en 3.10.0) et s'exécute sur le JDK 21 imposé par Enforcer. La version 4.10.4.1 a des ruptures de
-  configuration documentées (`outputEncoding` et `outputDirectory` ne se configurent plus directement) : aucune des
-  deux n'est utilisée ici.
-- **PIT 1.30.0**. Les notes de version officielles précisent que le saut depuis la série 1.25.x vient d'une release
-  mal étiquetée `1.29.10` ; `1.29.10` est donc à éviter.
-- **`pitest-junit5-plugin` 1.2.3** est la dernière version publiée, **datée de mai 2025**. Elle est compilée contre
+- **SpotBugs.** Le POM du plugin déclare son propre moteur ; `spotbugs.version` épingle quand même le moteur en
+  dépendance du plugin, pour qu'une montée du plugin ne change pas les détecteurs sans décision. Les deux propriétés
+  peuvent donc diverger, et les détecteurs exécutés sont alors ceux de `spotbugs.version`, pas ceux que le plugin
+  annonce. Le plugin exige Maven 3.8.9 ou plus (champ `prerequisites` de son POM ; le wrapper est en 3.10.0) et
+  s'exécute sur le JDK 21 imposé par Enforcer. Depuis 4.10.4.1, `outputEncoding` et `outputDirectory` ne se
+  configurent plus dans le plugin : aucun des deux n'est utilisé ici.
+- **PIT.** Les notes de version officielles de la série 1.30 précisent que le saut depuis la série 1.25.x vient d'une
+  release mal étiquetée `1.29.10` ; `1.29.10` est donc à éviter.
+- **`pitest-junit5-plugin` 1.2.3** est **datée de mai 2025**. Elle est compilée contre
   JUnit Platform 1.9.2, et le ticket
   [`pitest/pitest-junit5-plugin#113`](https://github.com/pitest/pitest-junit5-plugin/issues/113) (ouvert, non
   confirmé par le mainteneur au 07/10/2026) rapporte « 0 test exécuté » avec JUnit Platform 6 sous Gradle.
 
-**Compatibilité JUnit 6.1.3 : vérifiée par exécution, pas par supposition.** Avec PIT 1.30.0 et le plugin 1.2.3, le
+**Compatibilité JUnit 6.1.3 : vérifiée par exécution, pas par supposition.** Le relevé du 07/10/2026 a été fait avec
+PIT 1.30.0 et le plugin 1.2.3 : le
 plugin Maven ajoute lui-même au classpath des tests `junit-platform-launcher`, `junit-platform-engine` et
 `junit-jupiter-engine` en **6.1.3**, alignés sur le projet (visible dans le journal : `Auto adding
 org.junit.platform:junit-platform-launcher:jar:6.1.3`). Les tests sont découverts et exécutés, et des mutations sont
-tuées (§ 10). Le défaut du ticket ne se reproduit donc pas dans cette configuration. Cette compatibilité repose sur
-un plugin qui n'a pas été mis à jour depuis 2025 : si une montée de JUnit la casse, le symptôme est un
+tuées (§ 10). Le défaut du ticket ne se reproduisait donc pas dans cette configuration ; elle n'a pas été rejouée sur
+la version de PIT que le POM épingle aujourd'hui. Cette compatibilité repose sur
+un plugin qui n'a pas été mis à jour depuis 2025 : si une montée de JUnit ou de PIT la casse, le symptôme est un
 `Ran 0 tests`, et le garde-fou du § 8 fait alors échouer le run au lieu de le laisser passer.
 
 Aucune version de JUnit ou de Java n'a été modifiée.
