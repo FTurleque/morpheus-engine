@@ -1,7 +1,7 @@
 # MORPHEUS — constats d'audit
 Audit du **9 octobre 2026** sur `20cf2e0`, revérifié quatorze fois depuis, et le **7 novembre 2026** sur `f0fe88b7` (`origin/develop`, PR #617). Chaque constat porte son statut et la preuve qui l'établit.
 
-**127 constats** — 93 corrigé, 4 partiel, 3 toujours valide, 4 caduc, 22 tient, 1 non vérifiable ici.
+**129 constats** — 99 corrigé, 1 partiel, 2 toujours valide, 4 caduc, 22 tient, 1 non vérifiable ici.
 
 > **Plus aucun constat `Élevée` n'est ouvert.** La PR #580 ferme les deux derniers, `AUD-ARC-01` et `AUD-PRF-04`, et chacun a été rouvert dans le code avant d'être accepté. Il y en avait onze le 9 octobre.
 
@@ -1093,7 +1093,7 @@ SafeWorkspaceFileResolver (morpheus-application/.../files/SafeWorkspaceFileResol
 
 </details>
 
-### AUD-TRV-02 — Écart de 20,9 points entre les deux échelles de couverture : morpheus-application n'est pas testable sans ses modules voisins
+### AUD-TRV-02 — Écart de 2,7 points entre les deux échelles de couverture : six clés sur trente-deux restent au plancher absolu
 | | |
 |---|---|
 | **Statut sur `develop`** | **PARTIEL** |
@@ -1103,39 +1103,31 @@ SafeWorkspaceFileResolver (morpheus-application/.../files/SafeWorkspaceFileResol
 | **Sprint** | 13 — Couverture et pagination |
 | **Après** | AUD-TST-01 |
 | **Fusionne / issu de** | AUD-TST-07, AUD-QUA-10 |
-| **Vérifié le** | 2026-11-07 sur `f0fe88b7` |
+| **Vérifié le** | 2026-11-07 sur `00ca1378` |
 
-**Constat de vérification** — PARTIEL maintenu, **a un cheveu de la cloture**, et pour deux raisons mesurees et etroites.
+**Constat de vérification** — PARTIEL maintenu, et la raison se réduit maintenant à **une seule** : les six clés sur trente-deux posées au plancher absolu, sur ~1,7 % des lignes, où la fenêtre de qualification est vide par construction — la marge exigée est absolue (72 lignes ou 33 branches) et dépasse la taille de ces modules. Une marge **proportionnelle** pour les petits modules fermerait ce constat.
 
-La troisieme clause n'est pas un seuil cosmetique : population derivee et non maintenue a la main, complétude refusee avant toute conclusion, cle manquante refusee sans build, deux quantites jugees separement sur le rapport **propre**, tous les defauts nommes en une fois, remede ecrit dans le message, cliquet total conserve, et la valeur de chaque seuil bornee par une fenetre adossee a une preuve bi-plateforme a tete unique. Le defaut que ce constat decrivait depuis un mois — « un module qui cesse de se tester reste invisible tant que la somme tient » — est desormais **vu, pour 12 des 16 modules**.
+La première clause de l'action est honorée en entier, la troisième l'était depuis le 7 novembre. La seconde demandait de suivre la **réduction** de l'écart : il ne bouge pas cette passe, ni dans un sens ni dans l'autre, et les plafonds n'ont pas été requalifiés — leur preuve vieillit de huit commits, ce qui n'est pas une dérive mais mérite d'être noté.
 
-Ce qui empeche la cloture : **6 cles sur 32 au plancher D2**, ou rien n'est protege, sur 1,7 % des lignes — la fenetre y etant vide, ce n'est pas une negligence mais un trou reel, qu'une marge **proportionnelle** pour les petits modules fermerait. Et surtout, l'action ne se reduisait pas a sa troisieme clause : sa **premiere** nommait sept classes de comportement a couvrir en priorite, **deux n'ont toujours aucun test** (`QuerySchemaRegistry`, 93 lignes, et `WorkspacePathBoundary`, 14), et le compte des classes sans test propre n'a pas bouge d'une unite. La vague a construit le gate que la troisieme clause demandait et n'a pas avance d'une ligne sur la premiere.
-
-La seconde clause demandait de suivre la **reduction** de l'ecart : il a tres legerement augmente (+0,0087 pt). C'est du bruit de requalification, pas une regression — les deux plafonds montent — mais l'indicateur ne va pas dans le sens demande.
-
-**Titre et section `preuve` perimes pour la quatrieme passe consecutive** : le titre annonce 20,9 points pour un ecart mesure a **2,68**, le module affiche 0,87 de rapport test/source, et une seule classe du depot entier est entierement empruntee. La lecture du constat par son titre est trompeuse d'un facteur huit. La reecriture, recommandee trois fois, n'a pas ete faite.
+**Titre et section `preuve` réécrits**, après l'avoir recommandé quatre passes de suite : le titre annonçait 20,9 points pour un écart mesuré à 2,68 et une lecture fausse d'un facteur huit. Le titre porte désormais l'écart réel et ce qui tient le constat ouvert ; la `preuve` est entièrement remesurée sur `00ca1378`. La mesure du 9 octobre n'est pas effacée, elle passe dans la section `impact` comme point de départ daté.
 
 ```
-Rouvert sur `f0fe88b7`, chaque methode **rejouee sur `30520bd3`** jusqu'a retrouver son chiffre du 6 novembre avant d'etre appliquee. **La troisieme clause est executee.** `config/m21-per-module-coverage-floors.properties` est neuf : **32 cles, 16 modules, deux par module, aucune manquante, aucune orpheline**, population **derivee** du POM racine et des sources. `CoverageQualityGateTest#theFloorFileDeclaresEveryModuleOfThePopulationAndNoOther` (`:234-240`) refuse une cle manquante, orpheline, de forme inconnue ou hors ratio **sans build**. `#everyModuleOfThePopulationHoldsItsOwnFloor` (`:223-226`, `:374-391`) refuse de conclure d'une population partielle, puis juge le **rapport propre** de chaque module contre `max(plancher D2, seuil)`, **lignes et branches separement**, et jette **une seule erreur qui nomme tous** les modules en defaut avec le remede ecrit (« tests that live in another module do not count on this scale »). Le cliquet total subsiste dans sa propre methode, et le defaut vise est reproduit sur reacteur fabrique (`:248-283` : total au-dessus du cliquet, deux modules sous leur seuil, les deux refuses). **La fenetre est executable** : `CoverageQualificationEvidenceTest#everyModuleFloorStaysInsideItsQualifiedWindow` plus cinq fixtures, et les quatre resumes conserves portent **64 lignes `module.<artifactId>.*` chacun**, soit 16 modules x 4 compteurs.
+Revérifié sur `00ca1378`. **La première clause de l'action est close** : les sept classes de comportement qu'elle nommait en priorité ont toutes un test propre dans `morpheus-application/src/test`, les deux dernières arrivant avec cette PR — `QuerySchemaRegistryTest` (4 tests, registre fermé des champs : chaque famille d'entités a son schéma, dans un ordre stable qui est aussi la projection par défaut, et les opérateurs suivent le type du champ) et `WorkspacePathBoundaryTest` (4 tests). Le compte des classes sans test propre passe de **12 (412 lignes) à 9 (248 lignes)**, méthode du constat rejouée à l'identique.
 
-**Les cles au plancher D2 sont six, non quatre.** Mesure cle par cle : **6 sur 32**, sur 4 modules — `provider-testkit` et `provider-reference` entierement, plus les branches de `integration-minos` et `integration-nexus`. La revendication du 7 novembre en annonce quatre : les deux cles de branches manquent a son compte. Et le plancher n'y protege rien (0,40 contre 0,810 mesure sur testkit, 0,35 contre 0,704 sur minos). **Mais ce n'est pas un relachement : la fenetre y est vide par construction** — la marge exigee est **absolue** (72 lignes ou 33 branches) et depasse la taille de ces modules (63 et 70 lignes). A l'actif : les **26 autres cles sont toutes posees au plus haut millieme de leur fenetre**, verifie une a une. Poids du non protege : ~506 lignes sur ~29 900, soit **1,7 %**, et le cliquet total continue de les couvrir dans la somme.
-
-**Les plafonds sont frais** : les 8 lignes d'`evidence.tsv` portent le meme commit `dbd65062`, a **3 commits** de la tete contre 75 auparavant. Ecart entre echelles a tete constante : **2,6823 pt en lignes** (contre 2,6736), 3,7545 en branches. Les quatre cliquets ont ete **releves** sous des plafonds eux-memes releves, donc le gate se resserre. Appareil de mesure intact : sur 69 commits, les seuls fichiers de build touches sont une ligne de `ci.yml`, deux dependances JUnit et deux scopes de test. `GEN-0163` est **Acceptee** et remplace `GEN-0154`, archive avec sa mention.
-
-Mesures de terrain inchangees : **12 classes de `morpheus-application` sans test propre (412 lignes), memes noms** ; 1 classe entierement empruntee ; rapports test/source 0,8665 et 0,9869.
+**Les six clés au plancher sont inchangées**, relevées une à une dans un fichier que la PR ne touche pas. **L'écart entre échelles est inchangé au millième** : les deux plafonds qualifiés sont les mêmes qu'au 7 novembre, leur preuve porte toujours le commit `dbd65062`, désormais à **8 commits** de la tête. Les quatre seuils de couverture ne bougent pas ; ce qui monte dans `config/m21-quality-ratchets.properties`, ce sont les comptes de tests — `testsMinimum` 2 876 → **3 556** et `architectureTestsMinimum` 836 → **1 058**, chacun dix sous une mesure datée du 07/11/2026 à `dbd65062`, annoncée identique sur Linux et Windows sur deux exécutions CI chacune. Je ne peux pas vérifier les exécutions CI ; je constate que la marge de dix que le fichier s'impose est rétablie, après l'avoir signalée oubliée de 232 unités.
 ```
 
-**Ce qui reste** — **6 cles sur 32 au plancher D2** (4 modules), soit ~1,7 % des lignes sans seuil propre effectif ; la fenetre y est vide tant que la marge exigee reste absolue. **2 des 7 classes de comportement** nommees en premier par l'action restent sans test propre : `QuerySchemaRegistry`, `WorkspacePathBoundary`. 12 classes de `morpheus-application` (412 lignes) sans test propre, inchange. 1 classe entierement empruntee. **Titre et section `preuve` a reecrire** : leurs chiffres sont faux d'un facteur huit.
+**Ce qui reste** — **6 clés sur 32 au plancher absolu D2** (4 modules : `provider-testkit` et `provider-reference` entièrement, les branches d'`integration-minos` et d'`integration-nexus`), soit ~1,7 % des lignes sans seuil propre effectif ; la fenêtre y est vide tant que la marge exigée reste absolue — une marge proportionnelle la rendrait non vide et fermerait ce constat. Écart entre les deux échelles inchangé à **2,6823 pt** en lignes ; preuve de qualification à 8 commits de la tête. 9 classes de `morpheus-application` (248 lignes) sans test propre, contre 12 (412) la veille.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
 **Preuve**
 
 ```
-Plafonds qualifies lus dans les gates : morpheus-architecture-tests/.../m21/CoverageQualityGateTest.java:92 PER_MODULE_QUALIFIED_LINE_RATIO = 0.694341d contre morpheus-coverage-report/.../AggregateCoverageGateTest.java:74 AGGREGATE_QUALIFIED_LINE_RATIO = 0.903026d, sur la meme population de modules -> 20,87 points gagnes uniquement par l'execution croisee. config/m21-quality-ratchets.properties enonce lui-meme que l'echelle par module 'measures what each module covers without help from the others'. Ratios test/main mesures : morpheus-application 11460/24819 = 0,46 et morpheus-domain 1010/2624 = 0,38, contre morpheus-api 1,31, morpheus-mcp 1,43, morpheus-mcp-transport 1,67. 31 classes de morpheus-application sur 341 (1456 lignes) ne sont nommees par aucun fichier de test du depot, dont des classes de comportement : CompactChangeAnalysisView (163 l.), PolicyPublicViews (138), CompactQualityReportView (118), CompactQualityReportService (99), QuerySchemaRegistry (93), ObservedProjectSnapshotPublisher (52), WorkspacePathBoundary (44) ; leurs seuls appelants sont dans morpheus-api, morpheus-cli et morpheus-mcp.
+Plafonds qualifiés lus dans les gates : `CoverageQualityGateTest:151` `PER_MODULE_QUALIFIED_LINE_RATIO = 0.904147` contre `AggregateCoverageGateTest:116` `AGGREGATE_QUALIFIED_LINE_RATIO = 0.930970`, sur la même population de modules → **2,6823 points** gagnés par l'exécution croisée (3,7545 en branches). `config/m21-quality-ratchets.properties` énonce lui-même que l'échelle par module « measures what each module covers without help from the others ». Les seuils actifs sont `perModuleLineCoverageMinimum=0.901` et `aggregateLineCoverageMinimum=0.928`. `config/m21-per-module-coverage-floors.properties` porte **32 clés sur 16 modules**, deux par module ; **six** sont au plancher absolu D2 (0,40 en lignes, 0,35 en branches) : `provider-testkit` et `provider-reference` entièrement, plus les seules branches d'`integration-minos` et d'`integration-nexus`. Rapports test/source mesurés : `morpheus-application` 22 586/25 876 = **0,87** et `morpheus-domain` 0,99, contre `morpheus-api` 1,52, `morpheus-mcp` 1,57, `morpheus-cli` 1,49, `morpheus-store-sqlite` 1,33. **Neuf** classes de `morpheus-application` sur 359 (**248 lignes**) ne sont nommées par aucun fichier de test du dépôt — `ConstraintEvaluationView` (73 l.), `ChangeTransitionEvaluation` (48), `ChangeAnalysisSummary` (38), `ChangeDependencyImpact` (27), `TraceabilityPathStep` (23), `ProviderSelectionResult` (16), `WorkspaceRootCandidate` (10), `SnapshotValidator` (7), `PolicyFactResolver` (6) ; leurs seuls appelants sont dans `morpheus-api`, `morpheus-cli` et `morpheus-mcp`.
 ```
 
-**Impact** — Le module qui porte 38 % du code de production, les ports et les cas d'usage a le plus faible rapport test/main des gros modules : une part de son comportement n'est exercee qu'a travers HTTP, MCP ou la CLI. Un changement de comportement n'est vu que si un test d'adaptateur passe par le bon chemin, et le diagnostic d'un echec part de la mauvaise couche. Environ un cinquieme de la couverture du depot est attribuee a un module de test transverse : un module extrait, scinde ou retire du reacteur emporterait cette attribution sans laisser de suite propre derriere lui. L'echelle par module nomme le phenomene et le mesure a 20,9 points ; elle ne le resorbe pas.
+**Impact** — Le module qui porte le plus de code de production, les ports et les cas d'usage garde le plus faible rapport test/source des gros modules : une part de son comportement n'est exercée qu'à travers HTTP, MCP ou la CLI. Un changement de comportement n'est vu que si un test d'adaptateur passe par le bon chemin, et le diagnostic d'un échec part de la mauvaise couche. L'écart entre les deux échelles mesure ce report : il valait 20,9 points le 9 octobre, il en vaut **2,7**. Ce qui reste non protégé est ailleurs — six clés posées au plancher absolu, où aucun seuil propre ne mord, soit environ 1,7 % des lignes du dépôt : un de ces modules peut cesser de se tester sans qu'aucun gate ne le dise, le cliquet total continuant de les couvrir dans la somme.
 
 **Action** — Cibler d'abord les sept classes de comportement listees avec des tests unitaires dans morpheus-application/src/test (store memoire + provider synthetique, conformement aux regles du depot) : l'echelle par module monte sans toucher a l'agregee. Suivre la reduction de l'ecart entre les deux echelles comme indicateur, en relevant perModule* selon la procedure de la skill coverage-ratchet et sans jamais aligner les deux echelles. A terme, remplacer le seuil unique par un seuil de non-regression par module : a 69,1 % global, morpheus-application tire la moyenne sans jamais etre nomme.
 
@@ -1144,34 +1136,30 @@ Plafonds qualifies lus dans les gates : morpheus-architecture-tests/.../m21/Cove
 ### AUD-TRV-03 — L'enforcement repose majoritairement sur des assertions textuelles et non sur la structure du code
 | | |
 |---|---|
-| **Statut sur `develop`** | **PARTIEL** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Tests · Architecture |
 | **Effort** | L |
 | **Sprint** | 12 — Restructurer les adaptateurs |
 | **Après** | AUD-ARC-06 |
 | **Fusionne / issu de** | AUD-TST-04, AUD-ARC-12 |
-| **Vérifié le** | 2026-11-07 sur `f0fe88b7` |
+| **Vérifié le** | 2026-11-07 sur `00ca1378` |
 
-**Constat de vérification** — PARTIEL maintenu, et **je retire une prescription de ce constat, qui etait la mienne et qui etait mauvaise.**
+**Constat de vérification** — CORRIGÉ, et c'est la clôture la plus discutable de cette passe, donc je l'expose en entier.
 
-La tete de l'action demandait de « plafonner explicitement la part textuelle ». Le depot la refuse par ecrit (`.claude/rules/architecture.md:115-119`) avec cet argument : « un ratio se fait baisser en supprimant un controle de documentation ou en ajoutant une regle qui ne voit rien de neuf, et la plupart des assertions textuelles visent des fichiers ou le texte est la seule prise ». **Cet argument est juste, et c'est le mien** : cet audit repete depuis un mois qu'une assertion textuelle et une regle ArchUnit n'enforcent pas la meme proposition et qu'aucune ne domine l'autre. Un plafond sur le ratio recompenserait donc exactement les deux gestes que je reproche par ailleurs. Je retire cette clause en tant que prescription et j'inscris la decision du depot comme fondee — sans quoi ce constat resterait ouvert sur un critere **inatteignable par construction**, ce qui ne sert personne.
+L'action avait quatre morceaux. Sa **tête** — plafonner la part textuelle — j'ai l'ai retirée le 7 novembre comme prescription : l'argument du dépôt était juste et il était le mien. La **clause 1** est tenue sur le fond depuis hier soir : le gabarit exige l'intention par assertion, le gate exige le tableau, et ce que le build ne peut pas atteindre — le texte réellement écrit dans une PR — est hors de portée de tout mécanisme du dépôt. La **clause 2** est tenue sur sa famille, aux deux plafonds à zéro. La **clause 3** demandait un déplacement « **pour que** » un échec de prose ne se lise pas comme une violation d'architecture : le but est atteint par le verdict séparé, et le moyen que je prescrivais est refusé par un motif qui, cette passe, devient exact.
 
-Ce qui maintient le PARTIEL n'est donc plus la proportion, c'est ce qui reste mesurable et defendable. **Le texte remonte** : +62 assertions apres un recul de 212, et `Files.readString` monte pour la **deuxieme passe consecutive** (449 -> 455 -> 479). Le mecanisme reste bon — le gain vient des regles, pas d'une suppression de controles — mais les 62 assertions neuves ont rendu 0,67 des 1,12 point que les six regles neuves avaient gagnes. **Clause 1 non tenue sur le fond** : le gabarit demande l'intention, le gate ne verifie qu'un titre de section. **Clause 2 tenue sur sa famille**, qui represente moins de 2 % des assertions : les interdits de mention de methode privee, de litteral ou de paquet restent textuels et **sans inventaire**, ce qui etait deja le reste du 31 octobre et l'est toujours a la lettre. **Clause 3** : la separation du verdict est un gain net et repond au besoin exprime — qu'un echec de prose ne se lise pas comme une violation d'architecture — mais la sortie du module n'a pas eu lieu et le motif ecrit pour ne pas la faire **n'est pas etabli par les chiffres**.
-
-Une faiblesse du mecanisme a inscrire : `AWAITING_A_RULE_CEILING` et `UNEXPLAINED_TYPE_BAN_CEILING` se presentent comme des cliquets qui ne font que baisser, mais ne sont **que des constantes Java** — ni cle de `config/debt-counter-ratchets.properties`, ni comparaison a un etat anterieur. Les relever passe le build ; seule la revue s'y oppose. C'est la troisieme instance, cette passe, de la meme faiblesse : le mecanisme de cliquet du depot est **sur declaration**.
+Ce qui reste ne relève plus de ce constat. Le ratio ne baisse pas et le texte remonte de 5 assertions — mais tenir le constat ouvert là-dessus, ce serait réinstaller exactement le critère que j'ai retiré comme mauvais. Les familles d'interdits textuels sans inventaire (mention de méthode privée, de littéral, de paquet) et les deux plafonds qui ne sont que des constantes Java sont des faiblesses réelles : elles **partent en constat neuf** plutôt que de maintenir ouvert un constat dont les quatre clauses sont honorées. Un constat est corrigé quand son action est faite.
 
 ```
-Rouvert sur `f0fe88b7`, methode du constat **rejouee sur `30520bd3`** jusqu'a retrouver 1 717 / 93 / 455 avant application. Assertions `contains` **1 717 -> 1 779 (+62)** ; regles `noClasses()` **93 -> 99 (+6)** ; `Files.readString` **455 -> 479 (+24)** ; listes sans genre declare **0 -> 0**. Rapport **18,46:1 -> 17,97:1**, soit **-0,49**. Decomposition : a texte constant 17,34 (les six regles neuves auraient gagne **1,12 point**), a regles constantes 19,13 (les 62 assertions neuves en ont **rendu 0,67**). Listes : 47 -> **54** declarees, dont **48 tables de faits** et 6 compteurs de dette adosses aux 6 cles de `config/debt-counter-ratchets.properties` ; **aucun compteur n'a ete requalifie en table de faits** — diff de `KINDS` cle par cle, les deux seuls changements de genre sont des **durcissements** (`CONFINED_FAMILIES` et `REFLECTION_AND_LOADING` passent a `debtCounterEnumeratedBy`, qui exige en plus l'enumeration par l'ADR).
+Vérifié sur `00ca1378`, **méthode rejouée sur `30520bd3` et `f0fe88b7`** avant application : `noClasses()` **93 → 99 → 99** et `Files.readString` **455 → 479 → 480** reproduisent exactement les chiffres des deux passes précédentes ; mon compteur d'assertions `contains` donne 1 721 → 1 784 → **1 789**, soit un décalage constant de +5 sur la méthode d'origine (1 717 → 1 779) et le **même delta** d'une passe à l'autre. Ratio stable : **18,0:1**, +5 assertions, aucune règle neuve.
 
-**Clause 1** : `.github/pull_request_template.md` existe avec sa section d'intention et son tableau, et `PullRequestTemplateCoherenceTest` la tient par trois refus plantes. Mais le gate ne verifie que **la presence de la ligne de titre** : vider la section de son tableau en gardant le titre passe. La classe dit elle-meme qu'elle ne lit jamais la description. La garantie reelle sur l'intention est ailleurs, `UNEXPLAINED_TYPE_BAN_CEILING = 0`, sur une famille syntaxique etroite.
+**Clause 1, désormais tenue sur le fond.** `PullRequestTemplateCoherenceTest` ne vérifie plus la seule ligne de titre : `anIntentionSectionKeptWithoutItsTableIsRefusee` plante cinq refus — section vide avec son titre, tableau à deux colonnes au lieu de quatre, tableau **dans un commentaire HTML**, ligne d'en-tête sans sa ligne de séparation — et exige la forme exacte `| Fichier | Intention | Mécanisme | Violation plantée |` avec son séparateur à quatre colonnes, hors commentaire. Le gabarit demande donc l'intention, le mécanisme et la violation plantée par assertion, et le build le tient. La classe continue de dire qu'elle ne lit jamais la description d'une PR : le build n'y a pas accès, la revue seule la juge.
 
-**Clause 2** : `TypeBansAwaitingABytecodeRuleTest` existe, `AWAITING_A_RULE_CEILING = 0`, tenu dans les deux sens. Le predicat a ete **reimplemente independamment et la population rejouee sur les deux revisions** : 28 appariements bruts, moins 14 cibles hors des modules importes, moins 7 declarant une constante inlinable, moins 7 nommees par une classe qui evalue des regles — **2 sur `30520bd3`, 0 sur `f0fe88b7`**, et les deux commits de la vague les retirent un par un. Le plafond est donc exact et reproduit. **Mais la population exclut l'essentiel** : 28 candidats sur ~1 779 assertions, soit moins de 2 %. En sortent par construction tout `assertTrue(!...)`, toute composition, tout helper, tout interdit ne visant pas un nom de type en majuscule — mention de methode privee, de litteral, de paquet — et **toute cible dont le nom simple apparait n'importe ou dans une des 74 classes qui importent ArchUnit**, sur-approximation assumee. Les deux regles ecrites sont de vraies regles de bytecode, chacune portant la trace de sa violation plantee.
+**Clause 2, tenue et exacte** : `AWAITING_A_RULE_CEILING = 0`, `UNEXPLAINED_TYPE_BAN_CEILING = 0`, chacun asserté par égalité — un membre de plus échoue, un de moins exige de baisser la constante dans le même changement.
 
-**Clause 3** : `EnforcementVerdictListener` existe, enregistre en service JUnit, ne change ni selection ni ordre ni rapports, ecrit `target/enforcement-verdict.txt`, imprime deux lignes de verdict, et **la CI le publie** (`ci.yml:114`). Mais le marqueur `@CoherenceCheck` **ne sort rien du module** : les 28 classes marquees vivent toutes dans `morpheus-architecture-tests`, dans leurs paquets de milestone, executees par la selection par defaut. Et `.claude/rules/architecture.md:124-125` l'ecrit en regle : « Une telle classe **reste** dans le module [...] : sortir les controles de coherence du module ferait baisser `architectureTestsMinimum`. » **Le motif chiffre ne tient pas** : `architectureTestsMinimum=836` contre **1 089 annotations declarees mesurees**, soit une marge de 232 a 253, alors que les 28 classes marquees portent **207** executions. Les sortir ne ferait pas descendre le compte sous le cliquet — et par le critere de la page elle-meme (« sits ten under the measurement [...] A larger gap is a forgotten floor »), ce cliquet est oublie de 232 a 253 unites au lieu de 10.
+**Clause 3** : le verdict séparé (`documentation drift` / `architecture violation`) est en place et publié par la CI. Les 29 classes `@CoherenceCheck` (**222 exécutions**, recomptées) restent dans le module — mais le motif écrit pour ne pas les en sortir, que je contestais par les chiffres, **est maintenant établi** : `architectureTestsMinimum` passe de 836 à **1 058** pour une mesure de 1 068, soit la marge de dix que le fichier exige. Sortir ces 222 exécutions ferait tomber le compte à 846, soit 212 sous le cliquet. Mon objection portait sur un plancher oublié de 232 unités ; le plancher a été remis à sa place et l'argument du dépôt devient vrai.
 ```
-
-**Ce qui reste** — **1 779 assertions `contains` contre 99 regles (17,97:1)**, et **479 `Files.readString`**, deuxieme hausse consecutive. **Clause 1** : rien ne garantit que la phrase d'intention est ecrite ; le gate ne verifie que la presence des titres de section, ni le tableau ni son contenu. **Clause 2** : la part textuelle n'est bornee que pour la famille des interdits de type mono-litteral (28 appariements sur ~1 779) ; les interdits de mention de methode privee, de litteral ou de paquet restent sans inventaire ; les deux plafonds ne sont que des constantes Java, sans cle de cliquet ni comparaison a un etat anterieur. **Clause 3** : les 28 classes de coherence (207 executions) **restent** dans le module de gates, et le motif ecrit pour ne pas les sortir n'est pas etabli — marge mesuree 232 a 253 contre 207. 48 listes sur 54 sont des tables de faits qui ne promettent pas de retrecir ; la detection des listes reste elle-meme textuelle. **La tete de l'action — plafonner la part textuelle — est retiree comme prescription** : l'argument du depot est fonde.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -1928,24 +1916,22 @@ pom.xml:237-253 cyclonedx-maven-plugin `makeAggregateBom` liee a `verify`, sorti
 ### AUD-DEP-05 — L'installeur Windows et les archives ne sont pas signés Authenticode, alors que le dépôt exige cette signature de son propre outillage
 | | |
 |---|---|
-| **Statut sur `develop`** | **PARTIEL** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Blocage** | **Amont** — attend une publication tierce, aucune action du dépôt ne le ferme |
 | **Sévérité** | Moyenne |
 | **Axe** | Dépendances |
 | **Effort** | M |
 | **Sprint** | 14 — Signer la distribution |
 | **Après** | AUD-DEP-12 |
-| **Vérifié le** | 2026-11-07 sur `f0fe88b7` |
+| **Vérifié le** | 2026-11-07 sur `00ca1378` |
 
-**Constat de vérification** — Inchange au mot pres, pour la quatrieme revérification consecutive. La decision de renoncer vit toujours exactement la ou l'audit l'avait inscrite : une cellule de registre, deux en-tetes de `tasks.md` archives et un champ JSON — trois supports dont **aucun n'est le registre de decisions du depot**. Un ADR *rejete* et archive n'est pas une decision de renoncer ; c'est l'inverse.
+**Constat de vérification** — CORRIGÉ — et je le dis sans ambiguïté : **aucun binaire publié n'est signé**, et il n'y a pas de correctif technique. Ce qui ferme ce constat est la seconde branche de son action, écrite le 9 octobre : « tant que le certificat n'existe pas, documenter l'avertissement attendu et la commande de vérification dans `docs/user/INSTALLATION.md` ». C'est fait, et le dernier point du reste — « la décision de renoncer n'est écrite dans aucun ADR accepté » — tombe avec `SEC-0164`.
 
-Ce n'est pas une aggravation mais une stagnation assumee par decision du mainteneur. Lu comme indicateur de risque, le PARTIEL reste genereux : l'exposition est intacte. Les deux tests du contrat de signature qui touchent la declaration restent **conditionnels** et n'attestent aucune signature.
+Un constat est corrigé quand son action est faite, pas quand son titre est épuisé. L'asymétrie que le titre dénonce subsiste et l'ADR la nomme lui-même : le dépôt exige de son fournisseur Inno Setup une signature valide qu'il n'applique pas à son livrable. Elle est désormais une **décision datée, accetée, suivie au registre des risques, avec une condition de réouverture nommée** — et non plus un oubli. C'est ce que l'action demandait d'obtenir faute de certificat. Le risque reste au registre ; l'audit n'a plus de prescription à porter.
 
 ```
-Verifie sur `f0fe88b7` : **rien n'a bouge, dans aucun sens**. Les trois champs de `authenticode-signing.properties` sont toujours vides ; `release.yml:150` appelle `build-release.ps1` **sans `-SigningState`**, donc l'etat par defaut `none` ; la branche `'release'` de `sign-windows-binary.ps1:85-104` echoue sur les deux champs vides puis **inconditionnellement** a `:103`. `git log de748b38..f0fe88b7` sur les quatre fichiers de l'appareil de signature et sur l'ADR-0153 : **aucun commit**. Sur `distribution/`, la vague de 69 commits ne change que des numeros de version. `RT-14` est toujours un risque **accepte et ouvert** (`register.md:29`, ligne du premier tableau, donc ouvert au sens du nouveau gate d'`AUD-DEP-26`). **Aucun ADR n'a ete ecrit** : recherche sur les 106 fichiers de `docs/architecture/adr/`, le seul qui parle de signature de code est `archive/0153-...`, **« Rejetee »**, date du 29/10 donc anterieur a la decision, et dont l'en-tete dit lui-meme qu'il « n'est pas tenu a jour ».
+Vérifié sur `00ca1378`. **`SEC-0164` est `Acceptée`** (2026-11-07) : « Les releases Windows restent non signées tant qu'aucun certificat sans coût n'est accessible, et leur provenance est la somme SHA-256 et l'attestation ». Elle énumère les options — SignPath Foundation exige une licence approuvée par l'OSI, que la licence propriétaire de MORPHEUS n'est pas ; certificat payant OV/EV refusé par le mainteneur, titulaire personne physique et clé hors runner — et retient la troisième, décidée le 2026-10-31. Chaque élément recoupé une à une : `docs/user/INSTALLATION.md:217` décrit l'avertissement « éditeur inconnu » et SmartScreen, `:223-233` donnent les deux preuves d'origine et la commande `gh attestation verify ... --repo FTurleque/morpheus-engine` ; **RT-14** est ouvert, coté 6, « risque accepté » daté, avec sa condition de réouverture ; `ADR-0153`, la proposition de signer, est archivée **`Rejetée`** ; les trois champs de `authenticode-signing.properties` sont vides (`publisherSubject`, `signingBaseline`, `timestampAuthority`) ; `release.yml:150` appelle `build-release.ps1` **sans** `-SigningState`, dont le défaut est `'none'` ; et la lane nocturne exerce le chemin de signature par `validate-m20.ps1 -TestSigning`.
 ```
-
-**Ce qui reste** — Aucun binaire publie n'est signe Authenticode ; trois champs de declaration vides ; `release.yml:150` construit en etat `none` ; la branche `'release'` echoue par construction. La seule preuve d'origine demande une commande hors produit que l'utilisateur final n'executera pas, et SmartScreen ne la voit pas. Le depot continue d'appliquer a son fournisseur un controle qu'il n'applique pas a son propre livrable. **La decision de renoncer n'est ecrite dans aucun ADR accepte.**
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -2453,24 +2439,24 @@ ARCH-0148-ce-que-le-coeur-applicatif-peut-toucher.md porte une table de onze cla
 ### AUD-ARC-18 — Le transport sorti du cœur est arrivé dans morpheus-cli, qui n'a aucun gate de confinement technologique
 | | |
 |---|---|
-| **Statut sur `develop`** | **PARTIEL** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Architecture |
 | **Effort** | M |
 | **Sprint** | 15 — Dérives apparues pendant les correctifs |
 | **Fusionne / issu de** | AUD-ARC-01 |
 | **Origine** | **Né le 28 octobre**, pendant les correctifs — hors du plan du 9 octobre |
-| **Vérifié le** | 2026-11-07 sur `f0fe88b7` |
+| **Vérifié le** | 2026-11-07 sur `00ca1378` |
 
-**Constat de vérification** — PARTIEL maintenu, mais pour une raison entierement nouvelle. Le fait qui le portait depuis le 30 octobre — « un gate produit-entier existe, il ne couvre rien de ce qui est en cause » — est **eteint**. Ce qui le maintient est la seconde moitie de l'action, restee lettre morte : ecrire dans `ARCH-0150` ou dans l'ADR qui l'amende que ces modules tiennent leur propre liste. La lecture adverse est defendable — dans ce depot les specs OpenSpec sont des contrats vivants et elles portent la phrase — mais je ne la retiens pas, parce que le mecanisme qui adosse une liste a une decision ne connait que les ADR, et parce que l'impact ecrit du constat visait precisement l'absence de decision.
+**Constat de vérification** — CORRIGÉ. La première moitié de l'action — étendre la recette à `com.morpheus.cli` puis à `morpheus-api` — était faite depuis la vague précédente ; la seconde, la décision écrite, l'est par `ARCH-0165`.
 
-**Sur l'asymetrie des sortes de listes, il faut dire les deux choses.** Justifiee : rien n'a ete **retire**, ces deux listes naissent tables de faits et ne requalifient aucun compteur ; la CLI et l'adaptateur HTTP sont des modules de transport dont le role *est* de porter reseau, fils et fichiers, et leur promettre de retrecir serait une promesse fausse. Il y a une option « coeur purifie » pour l'application, il n'y en a pas pour un transport. Affaiblissante : dans l'application, ajouter un nom exige un ADR consolide **et** le relevement d'une cle de cliquet, que le gabarit de pull request fait declarer ; dans la CLI et l'API, il coute une ligne et une raison, revues par un humain. Apres ce travail, plus rien ne permet a la prochaine classe d'arriver **en silence** — le gate rougit — mais elle peut toujours arriver **sans decision ecrite**.
+Le reste demandait aussi « ni ADR ni clé de cliquet » pour les listes confinées de la CLI et de l'API : la réponse est argumentée et je l'accepte. Un cliquet qui ne fait que rétrécir sur ces listes pousserait à déplacer les technologies ailleurs sans gain — c'est le même raisonnement que celui qui m'a fait retirer le plafond textuel d'`AUD-TRV-03`. La trace en pull request existe par ailleurs : toute modification d'un test sous `morpheus-architecture-tests/` doit être justifiée dans la description, section tenue par `PullRequestTemplateCoherenceTest`.
+
+Une conséquence reste à inscrire et elle devient un constat à part : `ARCH-0165` **énonce** ces deux tables de faits, mais `KINDS` ne peut pas le noter — le genre `Kind` n'offre `tableOfFactsEnumeratedBy` qu'avec une énumération, et aucun `tableOfFactsUnder`. Le lien ADR → liste est donc perdu pour les deux listes que l'ADR du jour vient de fonder.
 
 ```
-Rouvert sur `f0fe88b7`. **Le volet enforcement est integralement fait.** Les deux gates existent — `CliTechnologyBoundaryArchitectureTest` (152 lignes) et `ApiTechnologyBoundaryArchitectureTest` (192 lignes) — la ou il n'en existait aucun. `TechnologyFamily` est la **declaration unique** (dix familles, `VOCABULARY`), lue par les trois gates et par rien d'autre : aucun predicat concurrent dans le module. **Chaque famille a un regime dans chaque gate**, avec sa raison, et le refus d'une famille sans regime est une **egalite d'ensembles**, pas une inclusion — une onziemme famille ferait rougir les trois gates. **Les trois familles en cause sont confinees a des classes nommees avec leur raison** : `UpdateManifestFetcher` est inchange aux lignes du constat mais il est desormais nomme pour le reseau, les fils et le fichier — **3 familles sur 3, contre 0 sur 3 au 31 octobre**. Exactitude dans les deux sens (regle ArchUnit plus egalite stricte `named == reached`). Contre-mesure par grep sur `morpheus-cli` : les cinq classes nommees pour le fichier sont exactement celles qui l'atteignent, et le reseau comme les fils ne sont atteints que par `UpdateManifestFetcher`. **Le volet decision n'est pas fait** : `grep` sur `docs/architecture/adr/*.md` ne trouve aucun ADR enoncant qu'un transport sorti du coeur atterrit dans un module de transport tenant sa propre liste, et aucun ne cite les deux gates ; la phrase vit dans `docs/developer/specifications/` et les specs OpenSpec.
+Vérifié sur `00ca1378`. **`ARCH-0165` est `Acceptée`** (2026-11-07) : « Une technologie sortie du cœur entre dans un module de transport, qui tient sa propre table des classes qui l'atteignent ». Sa décision 1 écrit la phrase que le reste du constat réclamait — une technologie retirée du cœur entre dans `morpheus-cli` ou `morpheus-api`, derrière un port de l'application — et exclut explicitement `morpheus-mcp`, qui n'a pas de gate de familles. Sa décision 2 nomme les deux gates et exige un régime par famille de `TechnologyFamily` dans chacun, avec sa raison. Sa décision 3 tranche la question que le reste posait : ces listes sont des **tables de faits**, pas des compteurs de dette, et l'option d'en faire des compteurs est écartée en Context avec son motif — « faux par construction, puisque porter ces technologies est le rôle d'un module de transport ». Les deux listes sont déclarées dans `ProductionClassListsArchitectureTest.KINDS` (`Api…`/`Cli…TechnologyBoundaryArchitectureTest.CONFINED_FAMILIES`, `Kind.TABLE_OF_FACTS`), et les deux gates existaient déjà avec la garde d'exactitude dans les deux sens.
 ```
-
-**Ce qui reste** — Aucun ADR n'enonce que le transport sorti du coeur atterrit dans un module de transport, ni que ces modules tiennent leur propre liste : la seconde moitie de l'action n'est pas faite, la phrase vivant dans les specifications et les javadocs, nulle part dans `docs/architecture/adr/`. Consequence directe : les listes confinees de la CLI (10 entrees) et de l'API (23) n'ont ni ADR ni cle de cliquet, et une famille confinee peut gagner une classe sans decision ecrite ni trace declaree en pull request.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -2524,21 +2510,23 @@ Rouvert sur `f0fe88b7`. **La seconde regle au deuxieme niveau existe** : `Applic
 ### AUD-ARC-20 — La comparaison d'une énumération d'ADR à son gate est sur déclaration : 3 listes sur 54, et un ADR énumère déjà un compteur de dette hors de sa portée  *(constat neuf, 07/11)*
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Architecture |
 | **Effort** | S |
 | **Sprint** | 15 — Dérives apparues pendant les correctifs |
 | **Fusionne / issu de** | AUD-ARC-17 |
-| **Vérifié le** | 2026-11-07 sur `f0fe88b7` |
+| **Vérifié le** | 2026-11-07 sur `00ca1378` |
 
-**Constat de vérification** — Constat neuf, reste direct de la clôture d'`AUD-ARC-17`. Sévérité Faible : deux noms, concordants aujourd'hui, et le correctif du cas est d'une ligne. Ce qui justifie de le suivre est le mécanisme, non l'instance.
+**Constat de vérification** — CORRIGÉ, et le correctif va au-delà du constat : j'avais demandé de fermer le mécanisme plutôt que le cas, le dépôt a fait les deux.
+
+Une limite subsiste et elle est inhérente au moyen : la détection s'accroche au **nom de la liste**. Un ADR qui énumérerait les mêmes classes sans nommer `TestClass.CHAMP` reste de la prose aux yeux du gate. Ce n'est pas un reste du constat — la prescription portait sur l'énumération d'une liste déclarée, qui se reconnaît par son nom — mais la réserve est inscrite ici plutôt que dans un constat neuf.
 
 ```
-Ouvert et vérifié directement sur `f0fe88b7` : les 54 entrées de `KINDS` comptées, les 3 porteuses d'une racine relevées une à une, et l'énumération d'`ARCH-0158:47` lue dans son contexte avec l'absence de balises établie.
-```
+Vérifié sur `00ca1378`. **Le cas** : `ARCH-0158` écrit maintenant son énumération entre `<!-- liste SqliteStorePackagesArchitectureTest.RUNTIME_ENTRY_POINTS -->` et `<!-- fin de liste -->`, et `KINDS` passe la liste de `debtCounterUnder("ARCH-0158")` à `debtCounterEnumeratedBy("ARCH-0158", SIMPLE_NAMES)` : elle entre dans la comparaison. Les listes comparées à leur ADR passent de **3 à 4 sur 54** (recompté : 54 entrées, 48 tables de faits, 6 compteurs de dette, 4 porteuses d'une racine).
 
-**Ce qui reste** — 3 listes sur 54 sont comparées à leur ADR ; `ARCH-0158:47` énumère `RUNTIME_ENTRY_POINTS` hors balises en la déclarant exacte, et rien ne la compare.
+**Le mécanisme** : `everyEnumerationADecisionRecordWritesIsDelimitedAndDeclared` lit **tous** les ADR acceptés du registre et refuse deux choses — un bloc ouvert pour une liste que `KINDS` ne déclare pas énumérée *par cet ADR*, et un paragraphe qui nomme une liste par `TestClass.CHAMP` en écrivant, en spans de code **hors bloc**, deux de ses noms (son nom unique pour une liste d'un). Un bloc jamais fermé est refusé par son propre message. C'est bien la détection de l'énumération non balisée que l'action demandait, et non le traitement du cas : trois fixtures la plantent dans les deux sens, dont une qui vérifie qu'un nom écrit dans un *autre* paragraphe reste de la prose. Le prédicat « nomme la liste comme mot entier » et la résolution des noms simples ont été relus ligne à ligne.
+```
 
 **Preuve**
 
@@ -2549,6 +2537,39 @@ Ouvert et vérifié directement sur `f0fe88b7` : les 54 entrées de `KINDS` comp
 **Impact** — C'est le travers d'`AUD-ARC-17` qui survit dans un autre ADR, et l'endroit où il réapparaîtra. Ce constat-là avait grossi **trois passes consécutives** parce que deux listes recopiées à la main divergeaient dès que l'une des deux était touchée, et le mécanisme qui vient de le fermer ne protège que les trois listes qui ont pensé à s'y déclarer. Un ADR qui énumère sa liste sans la baliser obtient exactement la situation d'avant : une affirmation exacte le jour où elle est écrite, et personne pour la relire.
 
 **Action** — Baliser l'énumération d'`ARCH-0158` entre `<!-- liste SqliteStorePackagesArchitectureTest.RUNTIME_ENTRY_POINTS -->` et `<!-- fin de liste -->`, et déclarer la liste avec son `enumerationRoot` pour qu'elle entre dans la comparaison. Puis fermer le mécanisme plutôt que ce cas : faire échouer le build quand un ADR **énumère** des noms de classe qui correspondent à une liste déclarée sans que celle-ci porte de racine — autrement dit, détecter l'énumération non balisée au lieu d'attendre qu'on pense à la déclarer.
+
+### AUD-ARC-21 — ARCH-0165 fonde deux tables de faits qu'aucun code ne cite, et le genre déclaré ne sait pas porter un ADR sans énumération
+| | |
+|---|---|
+| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Sévérité** | Faible |
+| **Axe** | Architecture · Qualité |
+| **Effort** | S |
+| **Sprint** | 15 — Dérives apparues pendant les correctifs |
+| **Fusionne / issu de** | AUD-ARC-18, AUD-QUA-22 |
+| **Vérifié le** | 2026-11-07 sur `00ca1378` |
+
+**Constat de vérification** — Constat neuf, conséquence directe de la clôture d'`AUD-ARC-18` — que `ARCH-0165` ferme à juste titre. Sévérité Faible : les deux listes sont exactes, leur garde d'exactitude dans les deux sens fonctionne, et l'ADR a un jour. Ce qui justifie de le suivre est que la règle du dépôt demande un lien que son propre mécanisme ne sait pas exprimer : tant que `tableOfFactsUnder` n'existe pas, toute table de faits fondée par un ADR qui ne l'énumère pas restera dans ce cas.
+
+```
+Ouvert et vérifié directement sur `00ca1378` : les quatre fabriques du record `Kind` lues dans la source, les deux entrées de `KINDS` relevées à leur ligne, les décisions 2 et 3 d'`ARCH-0165` lues dans le fichier accepté, la règle de `.claude/rules/architecture.md` lue à sa ligne, et la recherche des deux écritures `ARCH-0165` / `ADR-0165` passée sur l'ensemble des `.java` et des `.md` du dépôt hors relevés d'audit.
+```
+
+**Ce qui reste** — Les deux `CONFINED_FAMILIES` des modules de transport sont déclarées sans ADR alors qu'`ARCH-0165` les énonce ; le record `Kind` n'offre aucun `tableOfFactsUnder` ; `ARCH-0165` n'est cité par aucune source du dépôt.
+
+<details><summary>Constat d'origine (9 octobre)</summary>
+
+**Preuve**
+
+```
+`.claude/rules/architecture.md:275` énonce la règle : « Une liste qui ne promet pas de rétrécir est une table de faits ; **elle déclare l'ADR qui l'énonce s'il y en a un**. » `ARCH-0165`, acceptée le 2026-11-07, en énonce deux : sa décision 3 écrit que « les listes confinées d'un module de transport sont des tables de faits » et sa décision 2 les nomme par leur classe (`CliTechnologyBoundaryArchitectureTest`, `ApiTechnologyBoundaryArchitectureTest`). Or `ProductionClassListsArchitectureTest.KINDS:100` et `:111` déclarent les deux `CONFINED_FAMILIES` en `Kind.TABLE_OF_FACTS`, dont le champ `decision` est `Optional.empty()`. Et le genre ne sait pas faire autrement : le record `Kind` n'offre que `TABLE_OF_FACTS`, `debtCounterUnder`, `debtCounterEnumeratedBy` et `tableOfFactsEnumeratedBy` — **aucun `tableOfFactsUnder`**. Une table de faits ne peut donc porter son ADR que si cet ADR **énumère** ses noms, ce qu'`ARCH-0165` ne fait pas. Recherche sur tout le dépôt : `ARCH-0165` n'est cité que par son propre fichier, la ligne d'index du registre et la table d'arc42 — **aucun `.java`, aucune page de `.claude/`**. Les deux gates qu'il fonde ne le nomment pas.
+```
+
+**Impact** — Le dépôt vient de gater, pour les documents OpenSpec, exactement ce défaut : un identifiant d'ADR qui survit à l'archivage du texte qu'il désigne (`AUD-QUA-22`). Ici le lien n'existe même pas. Si `ARCH-0165` était un jour remplacé ou archivé, les deux listes continueraient de vivre sans que rien ne pointe vers une décision retirée — et inversement, un ADR accepté dont aucune ligne de code ne dépend ressemble à une étude, ce que `.claude/rules/adr.md` tient pour suspect. Le coût immédiat est nul : les deux listes sont justes et leur ADR est frais d'un jour. Le coût est au prochain déplacement de décision, et il s'est déjà matérialisé une fois ce mois-ci.
+
+**Action** — Ajouter au record `Kind` une fabrique `tableOfFactsUnder(decisionRecord)` symétrique de `debtCounterUnder`, déclarer les deux `CONFINED_FAMILIES` sous `ARCH-0165`, et étendre `everyDebtCounterIsNamedByTheAcceptedDecisionRecordItDeclares` aux tables de faits qui portent un ADR : l'ADR déclaré doit exister, être accepté, et nommer la liste par `TestClass.CHAMP`. La vérification inverse — un ADR accepté qui énonce une liste sans que `KINDS` le déclare — est la même famille que `everyEnumerationADecisionRecordWritesIsDelimitedAndDeclared` et peut s'y greffer.
+
+</details>
 
 ### AUD-QUA-11 — Deux shims de compatibilité @Deprecated(forRemoval = true) vivent depuis deux mois sans plan de retrait
 | | |
@@ -2821,21 +2842,23 @@ Apres le renommage `com.morpheus.integration.mcp` -> `com.morpheus.transport.mcp
 ### AUD-QUA-22 — Des documents vivants citent au présent un ADR archivé, et le contrôle neuf des citations ne voit que les noms de paquet  *(constat neuf, 07/11)*
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Qualité |
 | **Effort** | S |
 | **Sprint** | 15 — Dérives apparues pendant les correctifs |
 | **Fusionne / issu de** | AUD-QUA-21 |
-| **Vérifié le** | 2026-11-07 sur `f0fe88b7` |
+| **Vérifié le** | 2026-11-07 sur `00ca1378` |
 
-**Constat de vérification** — Constat neuf, reste direct de la clôture d'`AUD-QUA-21`. Sévérité Faible : quatre lignes de prose, sans effet à l'exécution. Il existe parce que le constat parent a démontré que ce repère faux survit aux relectures — il y a survécu deux fois — et parce que le contrôle qui vient de fermer le parent ne peut structurellement pas voir cette forme.
+**Constat de vérification** — CORRIGÉ. L'action demandait les deux moitiés — corriger les quatre citations, puis confronter tout identifiant d'ADR cité par un document vivant au statut de son fichier — et les deux sont faites, avec une porte de sortie explicite (`(archivé)`) pour une citation assumée comme historique.
+
+**Erratum sur ma preuve.** J'écrivais qu'`ARCH-0162` « n'a pas de décisions numérotées », donc que la citation « décision 3 » n'avait pas d'équivalent littéral. C'est faux : `ARCH-0162` numérote ses six décisions, et sa **décision 3** est « `com.morpheus.transport.mcp` ne dépend d'aucun autre paquet MORPHEUS » — exactement ce que la citation corrigée affirme. Vérifié sur `f0fe88b7` aussi, donc l'erreur était déjà dans le constat à son ouverture : la numérotation existait quand je l'ai niée. La correction du dépôt est juste, et ma prescription de « réécrire décision 3 » était sans objet.
 
 ```
-Ouvert et vérifié directement sur `f0fe88b7` : les quatre citations relevées une à une avec leur ligne, le statut archivé d'`ADR-0156` et son remplacement par `ARCH-0162` établis, et la portée du contrôle neuf lue dans son code. Les trois premières ont été trouvées indépendamment par deux vérifications de cette passe.
-```
+Vérifié sur `00ca1378`. **Les quatre citations** sont corrigées en `ARCH-0162` : `design.md:19`, `design.md:194`, `proposal.md:79` du change vivant `share-one-lifecycle-between-the-two-mcp-gateways`, et `openspec/specs/adapter-internal-boundaries/spec.md:170`. Recherche exhaustive : plus aucune mention d'`ADR-0156` ni d'`ARCH-0156` hors des changements OpenSpec **archivés** (relevés datés, légitimes), de la ligne « Remplace » d'`ARCH-0162` et de mes propres relevés d'audit.
 
-**Ce qui reste** — Quatre citations au présent d'`ADR-0156` archivé, dans un change OpenSpec vivant (3) et une spécification vivante (1) ; aucun contrôle ne confronte un identifiant d'ADR cité par un document vivant au statut de son fichier.
+**Le contrôle** : `OpenSpecDecisionRecordCitationTest` (marqué `@CoherenceCheck`) dérive du registre les préfixes de domaine, les numéros en vigueur avec leur préfixe et les numéros archivés, puis lit chaque `.md` des changements hors archive et des spécifications. Il refuse un numéro archivé cité sans la marque `(archivé)` sur la même ligne, un numéro qu'aucun ADR ne porte, et un ADR en vigueur cité sous le préfixe d'un autre domaine — en nommant le bon. **Prédicat réimplémenté indépendamment et rejoué sur `00ca1378`** : 92 fichiers vivants lus, **zéro refus** ; registre lu par la même méthode, 80 ADR en vigueur et 83 archivés. Aucune liste d'exceptions.
+```
 
 **Preuve**
 
@@ -3102,21 +3125,21 @@ config/dependency-check-suppressions.xml : deux regles, chacune ancree sur un pa
 ### AUD-TST-24 — Le contrat des suppressions Dependency-Check borne la forme d'une règle, jamais le nombre ni la liste des détections éteintes  *(constat neuf, 07/11)*
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur `develop`** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Tests · Dépendances |
 | **Effort** | S |
 | **Sprint** | 15 — Dérives apparues pendant les correctifs |
 | **Fusionne / issu de** | AUD-TST-21 |
-| **Vérifié le** | 2026-11-07 sur `f0fe88b7` |
+| **Vérifié le** | 2026-11-07 sur `00ca1378` |
 
-**Constat de vérification** — Constat neuf, reste direct de la clôture d'`AUD-TST-21`. Sévérité Faible : l'état courant est sain — trois règles, toutes justifiées et bornées — et le sujet est la facilité d'une accumulation future, comme c'était le cas du constat parent à son ouverture.
+**Constat de vérification** — CORRIGÉ. L'action demandait de borner l'étendue par le mécanisme des listes du dépôt : table exacte dans les deux sens, cliquet qui ne fait que baisser, relèvement explicite et justifié en pull request. Les trois sont là.
+
+Deux écarts à ma lettre, aucun matériel. **La clé vit dans son propre fichier** plutôt que dans `config/debt-counter-ratchets.properties` : ce fichier-là est lu par `ProductionClassListsArchitectureTest`, qui ne connaît que des listes de **classes de production** ; une liste de couples module × CPE n'y a pas sa place, et le nom du fichier neuf porte `ratchets`, donc la règle de gouvernance qui exige une justification en PR pour `config/*ratchets*.properties` le couvre. **Aucun ADR ne l'adosse** : l'exigence d'ADR du dépôt porte sur les compteurs de dette de classes de production, pas ici ; l'en-tête du fichier et la javadoc portent la décision. Le patron est respecté là où il a un sens.
 
 ```
-Ouvert et vérifié directement sur `f0fe88b7` : absence de clé de cliquet établie par recherche dans `config/*.properties`, javadoc d'`EXEMPTIONS` relue, et les deux scénarios déroulés à la main contre les 18 assertions du contrat.
+Vérifié sur `00ca1378` (PR #618). `config/dependency-check-suppression-ratchets.properties` est neuf : **une seule clé**, `suppressedDetections=3`, et l'en-tête du fichier écrit qu'elle ne fait que baisser. `DependencyCheckSuppressionContractTest.SUPPRESSED_DETECTIONS` tient les trois cibles éteintes (`morpheus-store-sqlite cpe:/a:sqlite:sqlite`, `CVE-2026-119586`, `morpheus-cli cpe:/a:github:cli`) et `theDetectionsTheFileSwitchesOffAreExactlyTheTableAndTheTableHoldsTheSizeItsRatchetAllows` les compare **dans les deux sens** au fichier de suppressions — recompté à la main : le fichier porte exactement trois règles — puis la taille de la table à la clé. `ratchetProblems` refuse une table plus grande (« it grew ; raise ») **et** plus petite (« lower it in the same change »), et `aTableLargerThanItsKeyIsRefusedAsGrownAndASmallerOneAsALowerKeyToWrite` plante les deux. Mon scénario d'ouverture est devenu une fixture : `aWellFormedRuleOutsideTheTableIsRefusedNamingItsTargetAndAnEntryWithoutRuleIsNamed` fabrique un fichier dont **chaque règle est bien formée** — le test l'assert d'abord — puis exige trois refus nommés : la règle `[packageUrl, cpe]` inédite, la règle `[filePath, vulnerabilityName]` sur un CVE supplémentaire, et une entrée de table que plus aucune règle ne vise. Les deux scénarios qui passaient avec zéro problème échouent désormais par leur cible.
 ```
-
-**Ce qui reste** — Aucune clé de cliquet ni table adossée à un ADR ne borne le nombre ou la liste des détections éteintes ; une quatrième règle de forme admise est acceptée par le contrat.
 
 **Preuve**
 
@@ -3127,6 +3150,39 @@ Ouvert et vérifié directement sur `f0fe88b7` : absence de clé de cliquet éta
 **Impact** — Le titre du constat parent disait « une règle élargie **ou ajoutée** » : la première moitié est désormais tenue, la seconde ne l'est pas. Le coût n'est pas celui d'une règle mal formée — le contrat les refuse — mais celui d'une **accumulation bien formée** : l'ensemble des CVE et des couples module x CPE que le dépôt éteint peut croître indéfiniment, une règle à la fois, sans qu'aucun gate ne rougisse. C'est la forme la plus discrète de la dérive que le constat parent décrivait, et la seule qui lui survive.
 
 **Action** — Borner l'étendue par le mécanisme que le dépôt emploie déjà pour ses listes : déclarer la liste des détections éteintes — couples module x CPE et CVE nommés — dans `ProductionClassListsArchitectureTest` et lui poser une clé dans `config/debt-counter-ratchets.properties`, adossée à un ADR accepté, de sorte qu'une règle de plus exige le relèvement explicite d'un cliquet et sa justification en pull request. Le patron existe : `EXEMPTIONS` est déjà une liste exacte dans les deux sens, il lui manque sa clé et sa décision. À défaut, un simple plafond du nombre de règles rendrait l'accumulation bruyante.
+
+### AUD-TST-25 — Les deux plafonds qui bornent la migration des interdits textuels ne sont que des constantes Java : les relever passe le build
+| | |
+|---|---|
+| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Sévérité** | Faible |
+| **Axe** | Tests · Architecture |
+| **Effort** | S |
+| **Sprint** | 15 — Dérives apparues pendant les correctifs |
+| **Fusionne / issu de** | AUD-TRV-03 |
+| **Vérifié le** | 2026-11-07 sur `00ca1378` |
+
+**Constat de vérification** — Constat neuf, reste inscrit d'`AUD-TRV-03` à sa clôture. Sévérité Faible, et elle est méritée : l'état courant est le meilleur possible (zéro de chaque côté), les deux plafonds sont assertés exactement, et seule la revue s'oppose à leur relèvement — ce qui est le régime de beaucoup de choses dans ce dépôt. Il existe parce que la promesse écrite sur la constante (« never raised ») n'est pas celle que le build tient, et que le dépôt sait faire la différence ailleurs.
+
+```
+Ouvert et vérifié directement sur `00ca1378` : les deux déclarations lues dans leur contexte, les six clés de `config/debt-counter-ratchets.properties` énumérées, recherche des deux noms de constante sur l'ensemble du dépôt (sources, `config/`, `.claude/`, `docs/` hors relevés d'audit) — aucune occurrence hors des deux classes qui les déclarent.
+```
+
+**Ce qui reste** — `AWAITING_A_RULE_CEILING` et `UNEXPLAINED_TYPE_BAN_CEILING` valent 0, sont assertés par égalité, et ne sont adossés à aucune clé de cliquet ni à aucune comparaison à un état antérieur : les relever dans le même changement passe le build.
+
+<details><summary>Constat d'origine (9 octobre)</summary>
+
+**Preuve**
+
+```
+`TypeBansAwaitingABytecodeRuleTest:48` déclare `static final int AWAITING_A_RULE_CEILING = 0` et son javadoc écrit « Lowered with each member that receives its rule; never raised » ; `EnforcementMechanismAccountingTest:51` déclare de même `UNEXPLAINED_TYPE_BAN_CEILING = 0`. Les deux sont assertés par égalité, donc un membre de plus **comme** un membre de moins fait échouer le build. Mais la promesse « never raised » n'est tenue par rien : recherche faite sur tout le dépôt, aucune des deux constantes n'apparaît dans un fichier `.properties`, et `config/debt-counter-ratchets.properties` ne porte que ses six clés de listes de classes de production. Aucune comparaison à un état antérieur n'existe : porter la constante de 0 à 1 dans le même changement que l'interdit qui la dépasse rend le build vert. Le dépôt possède pourtant le mécanisme — six clés de cliquet pour les listes, et `suppressedDetections` créée le 7 novembre pour les suppressions CVE.
+```
+
+**Impact** — C'est le dernier survivant d'un motif relevé quatre fois en deux passes : **le cliquet du dépôt est sur déclaration**. Ici il ne l'est même pas — il n'y a pas de cliquet, seulement un nombre dans un fichier source que son commentaire dit ne jamais monter. Les deux plafonds sont la **seule** borne de la part textuelle de l'enforcement depuis que j'ai retiré le plafond du ratio comme prescription fautive : si leur relèvement est indolore, la famille des interdits de type qui attendent une règle peut se repeupler au même prix qu'avant leur existence. Les deux valent zéro aujourd'hui, ce qui est l'état le plus sain possible et rend l'écart sans conséquence immédiate ; le coût n'est pas dans l'état, il est dans la facilité du retour en arrière.
+
+**Action** — Donner à chacune des deux constantes sa clé dans `config/debt-counter-ratchets.properties` — ou dans un fichier de cliquets propre, comme `suppressedDetections` l'a fait — et asserter l'égalité entre la constante et la clé, de sorte qu'un relèvement touche un fichier de gouvernance et exige sa justification en pull request. Le patron à copier est celui du 7 novembre : table exacte dans les deux sens, clé qui ne fait que baisser, message qui nomme le remède. Les deux valant zéro, la clé peut être posée à zéro sans aucune autre modification.
+
+</details>
 
 ### AUD-PRF-11 — ORDER BY name COLLATE NOCASE sur saved_views ne peut pas utiliser l'index BINARY qui porte la colonne
 | | |

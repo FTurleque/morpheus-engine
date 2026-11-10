@@ -8,6 +8,64 @@
 
 ---
 
+## État au 7 novembre 2026, au soir — six clôtures, dont la plus ancienne, 96 → 98
+
+Revérification sur `00ca1378` (`origin/develop`, PR #618), **5 commits et 38 fichiers** (+1 855 / −331) depuis
+`f0fe88b7`. Build vert : 19 modules — **5 413 tests, 0 échec, 14 ignorés**, en **10 min 01** de temps Maven, avec le
+verdict séparé `documentation drift: 0` / `architecture violation: 0`. Le module des gates déclare **1 078 exécutions**
+pour un cliquet relevé à 1 058. Détail dans **`reverification-2026-11-07-soir.md`**.
+
+Une seule pull request, qui fait trois choses : elle **commite les fichiers d'audit** du 6 et du 7 novembre — le dépôt
+ne porte plus un relevé périmé de deux semaines, ce qui était l'avertissement de la passe du matin ; elle **traite les
+sept constats actifs** ; elle fait **accepter deux ADR** qui sont des décisions, non des correctifs.
+
+**Six clôtures.** `AUD-TRV-03` d'abord, le plus ancien constat structurel de la mission — l'enforcement textuel : sa
+clause 1 est désormais tenue sur le fond (le gate exige la forme exacte du tableau d'intentions, hors commentaire HTML,
+avec cinq refus plantés), sa clause 2 l'était, et le motif écrit pour ne pas sortir les contrôles de cohérence du module
+de gates **devient vrai** cette passe — `architectureTestsMinimum` passe de 836 à 1 058 pour une mesure de 1 068, la
+marge de dix que le fichier s'impose, et le dépôt inscrit lui-même « un plancher oublié ». Le ratio, lui, ne baisse pas
+(1 789 assertions contre 99 règles) : mais tenir le constat ouvert là-dessus réinstallerait le critère que j'ai retiré
+la veille comme mauvais. `AUD-TST-24` : l'étendue des suppressions CVE est bornée par une table exacte dans les deux
+sens et un cliquet, et mes deux scénarios d'ouverture sont devenus des fixtures qui échouent. `AUD-ARC-20` : le dépôt
+ferme le **mécanisme** et pas seulement le cas — un gate refuse l'énumération non balisée dans tout ADR accepté.
+`AUD-QUA-22` : les quatre citations corrigées, et un contrôle qui confronte tout identifiant d'ADR cité par un document
+vivant au statut de son fichier, avec une porte de sortie explicite `(archivé)` ; prédicat réimplémenté et rejoué, 92
+fichiers, zéro refus. `AUD-ARC-18` : `ARCH-0165` écrit la phrase manquante et tranche le genre des listes.
+
+**Une clôture par décision écrite, et je le dis sans détour.** `AUD-DEP-05` : **aucun binaire Windows n'est signé** et
+il n'y a pas de correctif technique. `SEC-0164`, acceptée, décide de ne pas signer tant qu'aucun certificat sans coût
+n'est accessible, et donne à l'utilisateur deux preuves d'origine — somme SHA-256 et attestation GitHub — documentées
+dans `INSTALLATION.md`, avec RT-14 accepté au registre et une condition de réouverture nommée. C'est la **seconde
+branche de l'action écrite le 9 octobre**. Un constat est corrigé quand son action est faite, pas quand son titre est
+épuisé.
+
+**Le constat qui reste.** `AUD-TRV-02` tient par un seul fil : **six clés sur trente-deux au plancher absolu**, sur
+~1,7 % des lignes, où la fenêtre de qualification est vide parce que la marge exigée est absolue et dépasse la taille
+de ces modules. Sa première clause est close — les sept classes de comportement nommées ont toutes un test propre — et
+son **titre et sa section preuve sont réécrits** après quatre passes de recommandation : le titre annonçait 20,9 points
+pour un écart mesuré à **2,68**.
+
+**Deux constats neufs**, qui ne sont pas des dérives de cette PR mais les réserves des constats fermés, sorties pour ne
+pas disparaître avec eux : `AUD-TST-25` — les deux plafonds qui bornent la migration des interdits textuels promettent
+en javadoc de ne jamais monter, et rien ne tient cette promesse ; `AUD-ARC-21` — `ARCH-0165` fonde deux tables de faits
+qu'aucune source du dépôt ne cite, le genre déclaré ne sachant pas porter un ADR sans énumération.
+
+**129 constats : 99 corrigés · 1 partiel · 2 toujours valides · 4 caducs · 22 Info qui tiennent · 1 non vérifiable.**
+Les **3 constats actifs** sont 1 `Moyenne` et 2 `Faible`. Charge restante : **3,5 à 10 jours**, contre 8,75 à 25.
+**13 des 15 sprints** sont soldés. Les contrôles passent, et il y en a **25** : un contrôle neuf refuse un constat
+absent de la liste de membres de son sprint — le défaut qui, cette passe, faisait afficher un sprint ouvert comme
+terminé.
+
+| Axe | 7 nov. matin | 7 nov. soir |
+|---|---|---|
+| Sécurité | 100 | **100** |
+| Performance | 100 | **100** |
+| Dépendances | 95 | **100** |
+| Architecture | 94 | **98** |
+| Qualité | 95 | **95** |
+| Tests | 91 | **95** |
+| **Moyenne** | **96** | **98** |
+
 ## État au 7 novembre 2026 — treize constats traités en une nuit, 93 → 96
 
 Revérification sur `f0fe88b7` (`origin/develop`, PR #617), soit **69 commits et 283 fichiers** (+16 797 / −1 247)
