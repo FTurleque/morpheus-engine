@@ -83,8 +83,8 @@ n'est levée que si un JAR est configuré, et d'autres erreurs (JAR, délai) mè
 - `[EXISTANT VÉRIFIÉ]` Le scénario du lien symbolique n'est prouvé qu'hors Windows (`@EnabledOnOs({LINUX, MAC})`) ;
   « no process is started » n'a pas de test direct (l'intégration n'est pas activée, et la passerelle refuse de
   démarrer une intégration non activée).
-- `[EXISTANT VÉRIFIÉ]` Le changement actif `resolve-both-mcp-peers-through-one-settings-resolver` décrit la résolution
-  commune, déjà présente dans le code ; il n'est pas archivé.
+- `[EXISTANT VÉRIFIÉ]` La résolution commune aux deux pairs est spécifiée par
+  [`openspec/specs/mcp-peer-settings-resolution/spec.md`](../../../openspec/specs/mcp-peer-settings-resolution/spec.md).
 
 ## Traçabilité
 
@@ -99,7 +99,7 @@ méthodes), `R` = `PeerLaunchSettingsResolverTest`.
 | R2 | A relative path is refused | organigramme | idem | `M`, `N#aRelativePathIsRefused` |
 | R2 | A missing file or a directory is refused | organigramme | idem | `M`, `N#aMissingFileAndADirectoryAreRefused` |
 | R2 | A link is resolved, and the real file is what runs | organigramme | idem | `M`, `N#aLinkIsResolvedAndTheRealFileIsWhatWouldRun` (Linux et macOS seulement) ; `R#aConfiguredLauncherIsLaunchedFromItsRealFile` |
-| R2 | (parité des deux pairs) | — | changement actif `resolve-both-mcp-peers-through-one-settings-resolver` | [`McpPeerSettingsResolutionArchitectureTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/McpPeerSettingsResolutionArchitectureTest.java)`#bothPeersResolveTheSameInputsAlike` |
+| R2 | (parité des deux pairs) | — | spec `mcp-peer-settings-resolution` | [`McpPeerSettingsResolutionArchitectureTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/McpPeerSettingsResolutionArchitectureTest.java)`#bothPeersResolveTheSameInputsAlike` |
 | R3 | The remote view gains nothing | — | archive ci-dessus | [`IntegrationStatusDisclosureTest`](../../../morpheus-application/src/test/java/com/morpheus/application/context/IntegrationStatusDisclosureTest.java)`#noValueOfAProjectedStatusNamesAServerLocation` ; [`IntegrationStatusViewsTest`](../../../morpheus-api/src/test/java/com/morpheus/api/IntegrationStatusViewsTest.java)`#serverLaunchLocationsAreReportedAsConfiguredWithoutBeingNamed` ; vue locale : `MinosIntegrationRuntimeTest#anAbsentConfigurationIsReportedDisabledAndRegistersNoResolver` (équivalent NEXUS non trouvé) |
 
 ## Sources
