@@ -1,7 +1,7 @@
 # MORPHEUS — constats d'audit
-Audit du **9 octobre 2026** sur `20cf2e0`, revérifié quatorze fois depuis, et le **7 novembre 2026** sur `f0fe88b7` (`origin/develop`, PR #617). Chaque constat porte son statut et la preuve qui l'établit.
+Audit du **9 octobre 2026** sur `20cf2e0`, revérifié quinze fois depuis, et le **10 novembre 2026** sur `38a4079f` (`origin/develop`, PR #623). Chaque constat porte son statut et la preuve qui l'établit.
 
-**129 constats** — 99 corrigé, 1 partiel, 2 toujours valide, 4 caduc, 22 tient, 1 non vérifiable ici.
+**130 constats** — 99 corrigé, 1 partiel, 3 toujours valide, 4 caduc, 22 tient, 1 non vérifiable ici.
 
 > **Plus aucun constat `Élevée` n'est ouvert.** La PR #580 ferme les deux derniers, `AUD-ARC-01` et `AUD-PRF-04`, et chacun a été rouvert dans le code avant d'être accepté. Il y en avait onze le 9 octobre.
 
@@ -1103,13 +1103,15 @@ SafeWorkspaceFileResolver (morpheus-application/.../files/SafeWorkspaceFileResol
 | **Sprint** | 13 — Couverture et pagination |
 | **Après** | AUD-TST-01 |
 | **Fusionne / issu de** | AUD-TST-07, AUD-QUA-10 |
-| **Vérifié le** | 2026-11-07 sur `00ca1378` |
+| **Vérifié le** | 2026-11-10 sur `38a4079f` |
 
 **Constat de vérification** — PARTIEL maintenu, et la raison se réduit maintenant à **une seule** : les six clés sur trente-deux posées au plancher absolu, sur ~1,7 % des lignes, où la fenêtre de qualification est vide par construction — la marge exigée est absolue (72 lignes ou 33 branches) et dépasse la taille de ces modules. Une marge **proportionnelle** pour les petits modules fermerait ce constat.
 
 La première clause de l'action est honorée en entier, la troisième l'était depuis le 7 novembre. La seconde demandait de suivre la **réduction** de l'écart : il ne bouge pas cette passe, ni dans un sens ni dans l'autre, et les plafonds n'ont pas été requalifiés — leur preuve vieillit de huit commits, ce qui n'est pas une dérive mais mérite d'être noté.
 
 **Titre et section `preuve` réécrits**, après l'avoir recommandé quatre passes de suite : le titre annonçait 20,9 points pour un écart mesuré à 2,68 et une lecture fausse d'un facteur huit. Le titre porte désormais l'écart réel et ce qui tient le constat ouvert ; la `preuve` est entièrement remesurée sur `00ca1378`. La mesure du 9 octobre n'est pas effacée, elle passe dans la section `impact` comme point de départ daté.
+
+**Revérifié le 10 novembre sur `38a4079f`** : inchangé, et cette fois sans ambiguïté — **aucun fichier `.java` ne change** entre `00ca1378` et cette tête. Les six clés au plancher sont relevées une à une dans un fichier que la PR ne touche pas, les 32 clés sont là, et les quatre seuils de couverture de `config/m21-quality-ratchets.properties` sont identiques. L'écart entre échelles n'a donc pas pu bouger ; sa preuve de qualification, toujours datée de `dbd65062`, s'éloigne de la tête de **25 commits**.
 
 ```
 Revérifié sur `00ca1378`. **La première clause de l'action est close** : les sept classes de comportement qu'elle nommait en priorité ont toutes un test propre dans `morpheus-application/src/test`, les deux dernières arrivant avec cette PR — `QuerySchemaRegistryTest` (4 tests, registre fermé des champs : chaque famille d'entités a son schéma, dans un ordre stable qui est aussi la projection par défaut, et les opérateurs suivent le type du champ) et `WorkspacePathBoundaryTest` (4 tests). Le compte des classes sans test propre passe de **12 (412 lignes) à 9 (248 lignes)**, méthode du constat rejouée à l'identique.
@@ -2547,9 +2549,11 @@ Vérifié sur `00ca1378`. **Le cas** : `ARCH-0158` écrit maintenant son énumé
 | **Effort** | S |
 | **Sprint** | 15 — Dérives apparues pendant les correctifs |
 | **Fusionne / issu de** | AUD-ARC-18, AUD-QUA-22 |
-| **Vérifié le** | 2026-11-07 sur `00ca1378` |
+| **Vérifié le** | 2026-11-10 sur `38a4079f` |
 
 **Constat de vérification** — Constat neuf, conséquence directe de la clôture d'`AUD-ARC-18` — que `ARCH-0165` ferme à juste titre. Sévérité Faible : les deux listes sont exactes, leur garde d'exactitude dans les deux sens fonctionne, et l'ADR a un jour. Ce qui justifie de le suivre est que la règle du dépôt demande un lien que son propre mécanisme ne sait pas exprimer : tant que `tableOfFactsUnder` n'existe pas, toute table de faits fondée par un ADR qui ne l'énumère pas restera dans ce cas.
+
+**Revérifié le 10 novembre sur `38a4079f`** : inchangé. `tableOfFactsUnder` n'existe toujours pas dans le record `Kind`, les deux `CONFINED_FAMILIES` restent déclarées sans ADR, et `ARCH-0165` n'est cité par **aucun `.java`** du dépôt — trois jours après son acceptation.
 
 ```
 Ouvert et vérifié directement sur `00ca1378` : les quatre fabriques du record `Kind` lues dans la source, les deux entrées de `KINDS` relevées à leur ligne, les décisions 2 et 3 d'`ARCH-0165` lues dans le fichier accepté, la règle de `.claude/rules/architecture.md` lue à sa ligne, et la recherche des deux écritures `ARCH-0165` / `ADR-0165` passée sur l'ensemble des `.java` et des `.md` du dépôt hors relevés d'audit.
@@ -2870,6 +2874,38 @@ Vérifié sur `00ca1378`. **Les quatre citations** sont corrigées en `ARCH-0162
 
 **Action** — Corriger les quatre citations en `ARCH-0162`, en réécrivant « décision 3 » puisque le texte de remplacement ne numérote pas ses décisions. Puis étendre le contrôle : confronter les identifiants d'ADR cités par un document vivant — change OpenSpec hors archive et spécification — au statut du fichier correspondant, en refusant un identifiant dont le fichier vit dans `archive/` sauf mention explicite au passé. Le dépôt sait déjà lire le registre et son archive (`AdrIndexCoherenceTest`, `everyDebtCounterIsNamedByTheAcceptedDecisionRecordItDeclares`) : la prise existe.
 
+### AUD-QUA-23 — Deux pages développeur vivantes énoncent des versions du POM qui ont dérivé, et le gate qui compare ces tables s'arrête à .claude/  *(constat neuf, 10/11)*
+| | |
+|---|---|
+| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Sévérité** | Faible |
+| **Axe** | Qualité · Dépendances |
+| **Effort** | S |
+| **Sprint** | 15 — Dérives apparues pendant les correctifs |
+| **Vérifié le** | 2026-11-10 sur `38a4079f` |
+
+**Constat de vérification** — Constat neuf, né de la vague Dependabot des PR #619 à #621 — mais la dérive la plus ancienne date du 19 octobre et a survécu à quatre passes d'audit, la mienne comprise : je ne l'avais pas cherchée là. Sévérité Faible, et elle est méritée : les deux outils concernés sont opt-in, aucun gate ne dépend de ces valeurs, et le correctif du cas tient en trois cellules. Ce qui justifie de le suivre est la portée du gate, pas les trois cellules.
+
+```
+Ouvert et vérifié directement sur `38a4079f` : les trois cellules et les six mentions relevées à leur ligne, les valeurs du POM lues dans `pom.xml`, les deux commits de bump datés par `git log -S`, la portée du gate lue dans ses deux constantes, et le balayage de tout `docs/` rejoué pour établir qu'aucune autre page n'est en défaut.
+```
+
+**Ce qui reste** — `spotbugs.maven.plugin.version` écrit `4.10.4.1` dans deux pages vivantes pour `4.10.5.0` au POM, `pitest.maven.plugin.version` écrit `1.30.0` pour `1.30.2` ; le gate qui compare cette forme ne lit que `.claude/` et `.github/AI_GOVERNANCE.md`.
+
+<details><summary>Constat d'origine (10 novembre)</summary>
+
+**Preuve**
+
+```
+Trois cellules de tableau écrivent une propriété du POM avec une valeur que le POM ne porte plus : `docs/developer/CODE_AUDIT.md:41` et `docs/developer/SPOTBUGS.md:16` donnent `spotbugs.maven.plugin.version` = `4.10.4.1` contre `4.10.5.0` dans `pom.xml:88` — dérive ouverte le **19/10/2026** par `2b63af5f` — et `CODE_AUDIT.md:43` donne `pitest.maven.plugin.version` = `1.30.0` contre `1.30.2`, soit **deux bumps de retard**, le dernier du 09/11/2026 (`e3d00265`). La prose les répète : `CODE_AUDIT.md:48` « **SpotBugs 4.10.4.1** est la dernière version stable », `:50`, `:53` « **PIT 1.30.0** », `:60`, et `SPOTBUGS.md:49-52` quatre lignes dont « `latest` = `release` = **4.10.4.1** ». Le gate qui sait comparer cette forme existe : `GovernanceSurfaceCoherenceTest#everyVersionAGovernancePageWritesAsAPomPropertyEqualsThePom`. Sa portée est déclarée en deux constantes, `GOVERNANCE_PAGES = [".claude/CLAUDE.md", ".github/AI_GOVERNANCE.md"]` et `GOVERNANCE_DIRECTORIES = [".claude/commands", ".claude/agents", ".claude/rules"]` : **tout `docs/` lui est invisible**. Balayage de `docs/` par le même motif, relevés datés écartés (`audits/`, `release-notes/`, `validation/`, `roadmap/`) : ces trois cellules sont les seules en défaut.
+```
+
+**Impact** — C'est exactement la dérive pour laquelle `.claude/rules/meta.md` a été écrit — « trois chiffres différents pour le même seuil » — et le dépôt l'a résolue d'un seul côté de la frontière. Les deux pages concernées sont celles qu'un contributeur lit **avant de lancer l'outil** : il y prend une version, la compare à ce qu'il voit passer, et conclut à tort. La page affirme en plus que `4.10.4.1` est la dernière version publiée, ce qui est faux depuis trois semaines. Le coût est faible — SpotBugs et PIT sont des profils opt-in qu'aucun workflow bloquant n'exécute — mais le mécanisme est celui qui a produit `AUD-QUA-21`, `AUD-QUA-22` et la dérive fondatrice de `meta.md` : une affirmation exacte le jour où elle est écrite, et personne pour la relire.
+
+**Action** — Corriger les trois cellules et les six mentions en prose. Puis élargir la portée du gate plutôt que de traiter le cas : `everyVersionAGovernancePageWritesAsAPomPropertyEqualsThePom` sait déjà lire une propriété du POM écrite dans une page ; lui donner `docs/` en entier, en exemptant par la règle les relevés datés que `rules/documentation.md` nomme déjà comme tels (`docs/project/audits/`, `docs/user/release-notes/`, `docs/project/validation/`, `docs/project/roadmap/`), qui citent légitimement la version de leur date. Une transcription de console reste une preuve datée : la borner par son bloc de code plutôt que par une liste d'exceptions.
+
+</details>
+
 ### AUD-SEC-05 — La commande Java des pairs MCP est résolue via le PATH plutôt que par un chemin absolu
 | | |
 |---|---|
@@ -3160,9 +3196,11 @@ Vérifié sur `00ca1378` (PR #618). `config/dependency-check-suppression-ratchet
 | **Effort** | S |
 | **Sprint** | 15 — Dérives apparues pendant les correctifs |
 | **Fusionne / issu de** | AUD-TRV-03 |
-| **Vérifié le** | 2026-11-07 sur `00ca1378` |
+| **Vérifié le** | 2026-11-10 sur `38a4079f` |
 
 **Constat de vérification** — Constat neuf, reste inscrit d'`AUD-TRV-03` à sa clôture. Sévérité Faible, et elle est méritée : l'état courant est le meilleur possible (zéro de chaque côté), les deux plafonds sont assertés exactement, et seule la revue s'oppose à leur relèvement — ce qui est le régime de beaucoup de choses dans ce dépôt. Il existe parce que la promesse écrite sur la constante (« never raised ») n'est pas celle que le build tient, et que le dépôt sait faire la différence ailleurs.
+
+**Revérifié le 10 novembre sur `38a4079f`** : inchangé. Les deux constantes valent toujours 0, aucune clé ne les adosse — `config/debt-counter-ratchets.properties` garde ses six clés, et la recherche des deux noms sur tout le dépôt ne sort d'aucun `.properties`. Le dépôt a pourtant créé une septième clé de cliquet le 7 novembre, pour les suppressions CVE : le patron existe et n'a pas été appliqué ici.
 
 ```
 Ouvert et vérifié directement sur `00ca1378` : les deux déclarations lues dans leur contexte, les six clés de `config/debt-counter-ratchets.properties` énumérées, recherche des deux noms de constante sur l'ensemble du dépôt (sources, `config/`, `.claude/`, `docs/` hors relevés d'audit) — aucune occurrence hors des deux classes qui les déclarent.
