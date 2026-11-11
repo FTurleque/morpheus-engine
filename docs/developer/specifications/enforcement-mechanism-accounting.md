@@ -33,6 +33,7 @@ compte les interdits textuels de type qui attendent une règle sur le bytecode.
 | R8 | Le gabarit de pull request demande la justification d'une modification de gouvernance | section du gabarit qui nomme le manifeste, les ratchets de `config/`, l'OpenAPI et la suite d'architecture | `[EXIGENCE]` |
 | R9 | Les interdits textuels de type qui attendent une règle sur le bytecode forment une population qui ne fait que rétrécir | interdits dont la cible permet une règle et qu'aucune classe de règles ne nomme ; compte égal à un plafond jamais relevé | `[EXIGENCE]` |
 | R10 | Une règle qui remplace ou double un interdit textuel est livrée avec sa violation plantée | violation, échec qui nomme la classe, retour arrière, consignés hors du build | `[EXIGENCE]` |
+| R11 | Chaque plafond d'une population d'interdits textuels égale une clé d'un fichier de cliquets | les deux plafonds égalent leur clé de `config/enforcement-ceiling-ratchets.properties` ; clé manquante ou orpheline refusée | `[EXIGENCE]` |
 
 ## Comportement détaillé
 
@@ -69,6 +70,19 @@ là). Au-dessus, l'échec donne le compte, le plafond, les membres par fichier e
 `*ArchitectureTest` de l'intention ; au-dessous, il demande d'abaisser le plafond dans le même changement. La classe lit les
 sources des cibles, donc ne porte pas `@CoherenceCheck`. Une règle qui remplace ou double un interdit consigne sa
 violation plantée dans la Javadoc de sa méthode (R10) ; le build ne lit pas cette trace.
+
+### Les plafonds adossés à un fichier de cliquets (R11)
+
+`[EXISTANT VÉRIFIÉ]` Chacun des deux plafonds égale sa clé, nommée `TestClass.CHAMP`, de
+[`config/enforcement-ceiling-ratchets.properties`](../../../config/enforcement-ceiling-ratchets.properties) (les valeurs se
+lisent là). `EnforcementMechanismAccountingTest` lit le fichier et compare `UNEXPLAINED_TYPE_BAN_CEILING` à sa clé ;
+`TypeBansAwaitingABytecodeRuleTest` compare `AWAITING_A_RULE_CEILING` à la sienne par la même fonction. Un plafond plus
+bas que sa clé fait échouer jusqu'à ce que la clé soit abaissée dans le même changement ; un plafond plus haut fait
+échouer en disant qu'un relèvement passe par la clé, fichier de gouvernance dont la pull request justifie la
+modification (section « Justification d'une modification de gouvernance » du gabarit, qui vise
+`config/*ratchets*.properties`). Une clé absente, ou une clé qu'aucun plafond ne lit, fait aussi échouer. La règle
+« ne fait que baisser » reste tenue par la revue : le build ne compare pas la clé à sa valeur sur la branche de base.
+Lire un `.properties` n'est pas lire du code : `EnforcementMechanismAccountingTest` garde son marqueur de cohérence.
 
 ### La composition publiée (R3)
 
@@ -320,6 +334,10 @@ changement `write-every-dependency-ban-as-a-bytecode-rule` pour R9 et R10.
 | R9 | L'expression est prouvée dans les deux sens | idem | `#theExpressionCountsABanWhoseTargetPermitsARuleThatNoRuleClassNames` (membre, constante non privée, constante privée seule, cible hors du dépôt, cible nommée, cible d'une règle de famille, commentaire et chaîne, récepteur qualifié) |
 | R10 | Une règle migrée sans trace de violation | — | tenu par la revue (le build ne lit pas la trace) |
 | R10 | Une règle migrée qui ne voit aucune classe | — | `AnEmptyArchitectureRuleFailsTest` |
+| R11 | Un plafond relevé dans le seul test | section « Les plafonds adossés à un fichier de cliquets » | `TypeBansAwaitingABytecodeRuleTest#theCeilingEqualsItsRatchetKey`, `EnforcementMechanismAccountingTest#theUnexplainedCeilingEqualsItsRatchetKey` ; fixture : `#aCeilingThatDiffersFromItsKeyIsRefusedInBothDirectionsWithItsRemedy` ; violation plantée à la livraison (`AWAITING_A_RULE_CEILING` à 1, échec qui nomme constante, clé et valeurs, retour arrière) |
+| R11 | Un relèvement qui touche le fichier de gouvernance | idem | tenu par la revue (gabarit, section de gouvernance) |
+| R11 | Un membre retiré, la clé laissée telle quelle | idem | fixture : `EnforcementMechanismAccountingTest#aCeilingThatDiffersFromItsKeyIsRefusedInBothDirectionsWithItsRemedy` (« lower the key ») |
+| R11 | Une clé manquante ou orpheline | idem | `EnforcementMechanismAccountingTest#theCeilingRatchetsDeclareTheKeyOfEachCeilingAndNoOther` ; fixture : `#aMissingKeyAndAnOrphanKeyAreRefusedByName` |
 
 ## Sources
 

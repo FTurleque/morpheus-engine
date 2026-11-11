@@ -77,7 +77,7 @@ Sans objet au-delà des deux classes de test et du fichier de cliquets : aucune 
 |---|---|---|---|
 | Chaque plafond … égale une clé … | Un plafond relevé dans le seul test | violation plantée : constante portée à 1, échec constaté qui nomme constante et clé, retour arrière (consignés dans les tâches) | à écrire |
 | idem | Un membre retiré, la clé laissée telle quelle | test sur exemple : constante 0, clé 1 → message qui demande d'abaisser la clé | à écrire |
-| idem | Une clé manquante ou orpheline | test sur fichier temporaire (`@TempDir`) : clé absente, clé en trop | à écrire |
+| idem | Une clé manquante ou orpheline | test sur clés lues en mémoire : clé absente, clé en trop, valeur qui n'est pas un compte ; présence du fichier réel par les méthodes sur le dépôt | à écrire |
 | idem | Un relèvement qui touche le fichier de gouvernance | revue de la PR (gabarit, section gouvernance) | manuel |
 
 ## Documentation durable et diagrammes à mettre à jour
