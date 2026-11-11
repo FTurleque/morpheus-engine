@@ -40,7 +40,7 @@ import org.xml.sax.InputSource;
  * bounded by the D2 floor and by the qualified cap of this scale. A sum alone hides a module that stops testing
  * itself: its loss dilutes into the covered lines of the others. So each report is also compared, on its own, to the
  * floor that {@code config/m21-per-module-coverage-floors.properties} declares for its module, and the refusal names
- * every module under its floor at once, with the remedy -- tests written in that module (ADR-0163).</p>
+ * every module under its floor at once, with the remedy -- tests written in that module (ADR-0166).</p>
  */
 class CoverageQualityGateTest {
     private static final String PER_MODULE_REPORT = "target/site/jacoco/jacoco.xml";

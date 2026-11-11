@@ -7,7 +7,7 @@ rules: false
 
 # Deux échelles de couverture sur une population commune, un seuil propre à chaque module dont la marge suit sa taille, et le crédit qu'un module emprunte à ses voisins
 
-- Statut : **Proposée**
+- Statut : **Acceptée**
 - Date : 2026-11-11
 - Remplace : ADR-0163
 
