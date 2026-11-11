@@ -88,7 +88,7 @@ servie qui manque à `MorpheusHttpRouteTable` n'est vue par aucun des deux (elle
 
 - Jamais contourner un gate en éditant le test pour qu'il passe à tort
 - Jamais supprimer une règle ArchUnit sans la remplacer par équivalente ou plus stricte
-- Jamais force-pusher sur `main` ou `develop`
+- Jamais force-pusher sur `main`, seule branche longue : toute pull request la vise, une release est un tag `v*` posé sur elle
 - Jamais introduire `docker` dans l'installeur ou l'intégration MCP (M28 l'interdit textuellement)
 
 ## Version produit — source unique

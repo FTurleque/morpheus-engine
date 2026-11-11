@@ -44,16 +44,16 @@
 > perdue ne fait donc plus échouer le gate. Le risque qui reste est que les deux sources viennent du même service : une
 > panne du NVD plus longue que le budget de 72 h arrête chaque scan en `STALE_DATABASE`, ce qui est voulu.
 >
-> **État de la clé.** Posée le 17/09/2026, d'abord refusée par le NVD (run `35269719882` sur `develop`,
-> « Invalid API Key », puis chaque `schedule` de `main` jusqu'au run `35687241977` du 22/09/2026 04:32 UTC),
-> remplacée le 22/09/2026 à 07:40 UTC et acceptée depuis :
+> **État de la clé.** La clé en service a été posée et activée le 11/11/2026, après le refus de la précédente par
+> le NVD (« Invalid API Key ») sur chaque `schedule` de `main` du 06/11/2026 (run `42162196141`) au 11/11/2026 (run
+> `42958923568`). Elle est acceptée depuis :
 >
 > | Branche | Dependency-Check | Run | Constat |
 > |---|---|---|---|
-> | `main` | 12.2.2 | `35701902846` (`workflow_dispatch`, 22/09/2026) | `Wrote trusted Dependency-Check refresh sentinel (schema 5.6, plugin 12.2.2, via NVD API key refresh)` |
-> | `develop` | 13.0.0 | `35744008694` (`push`, merge de #345, 22/09/2026) | sentinelle écrite `via NVD API key refresh`, `obtained via NVD API key refresh: 0h 00m old`, aucune annotation `REFRESH_FAILED` |
+> | `main` | 13.0.0 | `43108324489` (`workflow_dispatch`, 11/11/2026) | `obtained via NVD API key refresh: 0h 00m old` ; le scan qui suit échoue sur `sqlite-jdbc` 3.53.4.0, une détection, pas un défaut de la clé |
+> | `develop` | 13.0.0 | `43109249424` (`workflow_dispatch`, 11/11/2026) | `obtained via NVD API key refresh: 0h 00m old`, run vert |
 >
-> Prochaine rotation au plus tard le **22/09/2027** ; procédure, détenteur et vérification dans
+> Prochaine rotation au plus tard le **11/11/2027** ; procédure, détenteur et vérification dans
 > [COLD_START_RECOVERY §2](../../developer/COLD_START_RECOVERY.md).
 >
 > **Second chemin.** Exécuté avec Dependency-Check 13.0.0, sans clé, le 28/10/2026 (`update-only` avec
@@ -223,7 +223,7 @@ vieille est une base moins fiable, et le problème est le rafraîchissement, pas
 
 ### Risques de gouvernance résolus le 27/08/2026
 
-Les anciens risques `RT-10` (promotion stable sans ruleset complet) et `RT-11` (push direct sur `develop`) ne sont plus actifs : le ruleset **Protect main & develop** couvre les deux branches, exige une pull request, la résolution des conversations, les checks exact-head Linux/Windows, Dependency-Check et CodeQL, et interdit suppression/non-fast-forward sans bypass.
+Les anciens risques `RT-10` (promotion stable sans ruleset complet) et `RT-11` (push direct sur `develop`) ne sont plus actifs : le ruleset **Protect main** protège `main`, seule branche longue, exige une pull request, la résolution des conversations, les checks exact-head Linux/Windows, Dependency-Check et CodeQL, et interdit suppression/non-fast-forward sans bypass.
 
 Ils restent traçables dans l'historique Git et les issues #154/#166, mais ne doivent plus être présentés comme risques ouverts.
 
@@ -243,7 +243,8 @@ Il ne reste qu'**une dette active qui attend un événement extérieur** : `DT-1
 première vraie release publiée (#185). `DT-10` reste au tableau parce que son action est encore la nôtre — la
 remontée progressive des ratchets, dans le plafond qualifié de chaque échelle. `DT-19` aussi : chaque interdit textuel
 de type qui reçoit son intention baisse son plafond. `DT-13` en sort le 22/09/2026 :
-voir la requalification ci-dessous.
+voir la requalification ci-dessous. La position `DT-13` est close : aucune PR de promotion n'existe, toute pull request
+vise `main`, et la garde de couverture des lignes modifiées `origin/main...HEAD` tourne sur chacune.
 
 ### Requalification du 22/09/2026 — `DT-13` est une position, pas une dette
 
@@ -504,9 +505,9 @@ Ubuntu  -> bash ./scripts/validate-m21.sh 1.2.1
 Windows -> scripts\validate.cmd m21 -Version 1.2.1
 ```
 
-M21 s'exécute sur les pull requests ainsi que sur les pushes `main` et `develop`. Les actions tierces des workflows actifs sont référencées par SHA immuable et le Maven Wrapper vérifie le SHA-256 de la distribution Maven.
+M21 s'exécute sur les pull requests ainsi que sur les pushes sur `main`, seule branche longue. Les actions tierces des workflows actifs sont référencées par SHA immuable et le Maven Wrapper vérifie le SHA-256 de la distribution Maven.
 
-Deux signaux tournent sur une **cadence bornée** plutôt que par pull request, dans `nightly.yml` : l'analyse SonarQube Cloud de `develop` — que `ci.yml` ne couvrait pas, puisqu'il n'analyse que les pushes sur `main`, soit une fois par promotion — et la lane advisory `macos-smoke`. `nightly.yml` n'a **aucun** déclencheur `pull_request`, ce qui est la raison même de son existence : `SONAR_TOKEN` est un secret durable et ne doit jamais côtoyer du code non mergé.
+L'analyse SonarQube Cloud tourne dans le job `sonar` de `ci.yml` sur chaque push sur `main`, donc sur chaque fusion ; c'est le seul job qui porte `SONAR_TOKEN`, un secret durable qui ne doit jamais côtoyer du code non mergé. La lane advisory `macos-smoke` tourne sur une **cadence bornée** plutôt que par pull request, dans `nightly.yml`, qui n'a **aucun** déclencheur `pull_request`.
 
 Ratchets actifs :
 
@@ -522,11 +523,11 @@ changed-line            >= 80%
 changed-branch          >= 70%
 ```
 
-La qualification exact-head de #230 sur `9602eaa4a20b08955e63a6dfe10e30fb1ec90f1d` a produit `1017` tests, `308` tests d'architecture, `52,6971%` lignes et `45,7250%` branches et a justifié les ratchets ci-dessus. Les PR de hardening ultérieures doivent satisfaire les mêmes gates ; le registre n'utilise pas un SHA mouvant de `develop` comme prétendue baseline active.
+La qualification exact-head de #230 sur `9602eaa4a20b08955e63a6dfe10e30fb1ec90f1d` a produit `1017` tests, `308` tests d'architecture, `52,6971%` lignes et `45,7250%` branches et a justifié les ratchets ci-dessus. Les PR de hardening ultérieures doivent satisfaire les mêmes gates ; le registre n'utilise pas un SHA mouvant de `main` comme prétendue baseline active.
 
-`MORPHEUS Security` exécute OWASP Dependency-Check (CVSS >= 7 bloquant) sur PR/push `main` et `develop`, quotidiennement et sur demande. Les PR n'obtiennent pas la clé NVD depuis ce workflow. `MORPHEUS CodeQL` exécute un SAST Java versionné avec `security-extended`.
+`MORPHEUS Security` exécute OWASP Dependency-Check (CVSS >= 7 bloquant) sur PR/push `main`, quotidiennement et sur demande. Les PR n'obtiennent pas la clé NVD depuis ce workflow. `MORPHEUS CodeQL` exécute un SAST Java versionné avec `security-extended`.
 
-Le ruleset GitHub actif rend ces checks obligatoires avant merge sur `main` et `develop`. Le nom **M21** désigne le gate durable d'intégrité/surface-convergence ; il ne signifie pas que les fonctionnalités M22 à M28 sont absentes ou non qualifiées.
+Le ruleset GitHub actif **Protect main** rend ces checks obligatoires avant merge sur `main`. Le nom **M21** désigne le gate durable d'intégrité/surface-convergence ; il ne signifie pas que les fonctionnalités M22 à M28 sont absentes ou non qualifiées.
 
 ---
 

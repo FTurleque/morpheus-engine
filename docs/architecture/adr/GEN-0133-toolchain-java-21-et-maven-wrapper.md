@@ -94,7 +94,8 @@ l'Enforcer et une nouvelle décision.
 
 Le gate local est `./mvnw clean verify` sous Unix et `.\mvnw.cmd clean verify` sous Windows. La CI est requise : le
 workflow `.github/workflows/ci.yml` exécute le gate sur la tête exacte de la PR, sous Linux et sous Windows, pour
-`develop` et `main`, avec un JDK 21. Elle appelle le même Wrapper et ne crée pas de second chemin de build divergent.
+chaque pull request et chaque push sur `main`, avec un JDK 21. Elle appelle le même Wrapper et ne crée pas de second
+chemin de build divergent.
 
 Ce workflow est générique : aucun workflow n'est propre à un jalon. Les validateurs locaux restent supportés ; le
 workflow est une preuve reproductible supplémentaire, pas un remplacement des invariants produit.

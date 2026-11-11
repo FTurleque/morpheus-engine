@@ -81,14 +81,6 @@ for attempt in $(seq 1 12); do
     echo "::error::Unable to read the quality gate for analysis ${analysis_id}"
     exit 1
   }
-  # SonarQube Cloud refuses to serve the verdict of a branch other than main to an organization whose plan does not
-  # include branch data: the analysis is uploaded and processed, and its quality gate cannot be read. That is a verdict
-  # nobody can see, not a failed one. It is accepted only where the caller names a branch other than main; on main, or
-  # when no branch is named, a refusal to read stays an error, because there it would mean the token lost its rights.
-  if [[ "$gate_http" == "403" && -n "${SONAR_BRANCH_NAME:-}" && "${SONAR_BRANCH_NAME}" != "main" ]]; then
-    gate_status="UNREADABLE_OFF_MAIN"
-    break
-  fi
   if [[ "$gate_http" != "200" ]]; then
     echo "::error::Unable to read the quality gate for analysis ${analysis_id} (HTTP ${gate_http})"
     exit 1
@@ -120,16 +112,6 @@ case "$gate_status" in
         echo "### SonarQube Cloud"
         echo
         echo "Analysis \`${analysis_id}\` was uploaded and processed, but SonarQube Cloud returned quality-gate status \`NONE\` after retries. The trusted main analysis is retained as advisory evidence; product gates are not marked failed for an absent Sonar verdict."
-      } >> "$GITHUB_STEP_SUMMARY"
-    fi
-    ;;
-  UNREADABLE_OFF_MAIN)
-    echo "::warning::SONAR_QUALITY_GATE_UNREADABLE_OFF_MAIN: analysis ${analysis_id} of branch ${SONAR_BRANCH_NAME} was uploaded and processed, and SonarQube Cloud refuses to serve its quality gate (HTTP 403: branch data is not available to this organization). The verdict is unknown, not failed."
-    if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
-      {
-        echo "### SonarQube Cloud"
-        echo
-        echo "Analysis \`${analysis_id}\` of branch \`${SONAR_BRANCH_NAME}\` was uploaded and processed. SonarQube Cloud answered HTTP 403 to the read of its quality gate: the organization has no access to the data of a branch other than \`main\`. **No verdict was read for this branch**; the analysis of \`main\` after a promotion is the one that carries a quality gate."
       } >> "$GITHUB_STEP_SUMMARY"
     fi
     ;;

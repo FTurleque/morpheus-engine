@@ -61,7 +61,7 @@ class SentinelTest(DependencyCheckScriptCase):
 
     def test_a_refresh_that_was_recorded_is_read_back_with_its_age_and_its_origin(self) -> None:
         written = self.run_script("write-dependency-check-sentinel.sh", self.data(), "13.0.0", "5.6", "nvd-api",
-                                  GITHUB_REF_NAME="develop")
+                                  GITHUB_REF_NAME="main")
         self.assertEqual(0, written.returncode, written.stderr)
 
         result = self.read()
@@ -73,7 +73,7 @@ class SentinelTest(DependencyCheckScriptCase):
         self.assertEqual("5.6", facts["recordedSchemaVersion"])
         self.assertEqual("13.0.0", facts["pluginVersion"])
         self.assertEqual("nvd-api", facts["refreshedBy"])
-        self.assertEqual("develop", facts["refreshedOnRef"])
+        self.assertEqual("main", facts["refreshedOnRef"])
 
     def test_no_sentinel_is_an_unknown_age_never_a_fresh_one(self) -> None:
         result = self.read()

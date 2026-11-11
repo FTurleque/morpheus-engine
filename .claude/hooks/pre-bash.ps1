@@ -37,7 +37,7 @@ try {
     $command = $json.command
     if (-not $command) { exit 0 }
 
-    $isProtectedBranchCommand = $command -match '(main|develop|master)'
+    $isProtectedBranchCommand = $command -match '(main|master)'
 
     # Maven must go through the wrapper (3.9.16, Enforcer-checked).
     # RTK rewrites `./mvnw ...` into `rtk mvn ...`, and `rtk mvn` resolves the
@@ -52,17 +52,17 @@ try {
         # Soft warning only - ne bloque pas
     }
 
-    # Block: git push --force on main/develop/master
+    # Block: git push --force on main/master
     if ($command -match 'git\s+push.*--force' -and $isProtectedBranchCommand) {
         Deny "[DANGER] Force push sur une branche protegee - bloque (voir rules/governance.md)"
     }
 
-    # Block: git push --delete / -d on main/develop/master
+    # Block: git push --delete / -d on main/master
     if ($command -match 'git\s+push.*(--delete|\s-d\s)' -and $isProtectedBranchCommand) {
         Deny "[DANGER] Suppression distante d'une branche protegee - bloque"
     }
 
-    # Block: git branch -D / --delete --force on main/develop/master
+    # Block: git branch -D / --delete --force on main/master
     if ($command -match 'git\s+branch.*(-D|--delete\s+--force)' -and $isProtectedBranchCommand) {
         Deny "[DANGER] Suppression forcee d'une branche protegee - bloque"
     }

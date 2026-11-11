@@ -2,7 +2,7 @@ name: MORPHEUS CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -65,10 +65,6 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
         run: |
           case "$BASE_REF" in
-            develop)
-              git diff --unified=0 --no-color origin/develop...HEAD -- |
-                python3 scripts/check-diff-coverage.py --minimum 0.80 --minimum-branch 0.70
-              ;;
             main)
               git diff --unified=0 --no-color origin/main...HEAD -- |
                 python3 scripts/check-diff-coverage.py --minimum 0.80 --minimum-branch 0.70
@@ -132,11 +128,8 @@ jobs:
     # a successfully processed analysis for which SonarQube Cloud returns NONE / "Quality Gate not computed" is
     # classified separately as an external indeterminate state so it cannot masquerade as a MORPHEUS regression.
     #
-    # This job covers `main` only, and a push to main is rare -- it is a promotion. `develop` accumulates every
-    # merge in between, so restricting analysis to this job left the integration branch with no verdict at all
-    # until promotion time. That gap is closed by the sonar-develop job in .github/workflows/nightly.yml, on a
-    # bounded daily cadence rather than per merge; the trigger reasoning above is why it lives in a workflow with
-    # no pull_request trigger instead of being widened here.
+    # `main` is the only long-lived branch and every pull request merges into it, so a push to main is a merge:
+    # this job gives every merge its verdict, and no other workflow carries SONAR_TOKEN.
     name: SonarQube Cloud Analysis
     if: github.event_name == 'push' && github.ref_name == 'main'
     runs-on: ubuntu-latest

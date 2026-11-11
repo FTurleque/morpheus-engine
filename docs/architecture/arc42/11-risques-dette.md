@@ -1,6 +1,6 @@
 # §11 — Risques et dette technique
 
-> **Sources actives** : code et build du HEAD `develop`, ADR, preuves R3/D2,
+> **Sources actives** : code et build du HEAD `main`, ADR, preuves R3/D2,
 > pipeline exact-head et registre détaillé [`../risks/register.md`](../risks/register.md).
 >
 > Échelle : probabilité et impact de 1 (faible) à 3 (élevé) ; exposition = P × I.
@@ -22,7 +22,7 @@
 | RT-09 | Drift entre documents historiques et HEAD actuel | 2 | 2 | **4** | Sources de vérité hiérarchisées ; réconciliation documentaire et contrats d'architecture sur les invariants CI |
 | RT-12 | Peer MCP externe MINOS/NEXUS compromis | 2 | 2 | **4** | JAR optionnel/pinnable, environnement hérité réduit à une allowlist, descendants observés et terminés, frames/queues bornées, stderr et exceptions peer redacted ; la frontière n'est pas une sandbox OS |
 
-Les anciens risques de gouvernance liés à l'absence de protection de `main`/`develop` sont résolus : le ruleset **Protect main & develop** impose les PR, les checks exact-head requis, la résolution des conversations et interdit suppression/non-fast-forward sans bypass.
+Le risque de gouvernance d'une branche non protégée est clos : le ruleset **Protect main** protège `main`, seule branche longue, impose les PR, les checks exact-head requis, la résolution des conversations et interdit suppression/non-fast-forward sans bypass.
 
 ---
 

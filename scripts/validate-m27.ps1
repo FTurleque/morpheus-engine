@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$Version = '1.0.0',
-    [string]$BaseRef = 'origin/develop',
+    [string]$BaseRef = 'origin/main',
     [switch]$SkipPortable
 )
 
@@ -59,8 +59,8 @@ if ($initialTracked.Count -ne 0) { throw "M27 exact-head gate requires no tracke
 
 git rev-parse --verify --quiet "$BaseRef`^{commit}" *> $null
 if ($LASTEXITCODE -ne 0) {
-    $BaseRef = 'develop'; git rev-parse --verify --quiet "$BaseRef`^{commit}" *> $null
-    if ($LASTEXITCODE -ne 0) { throw 'M27 base ref not found: origin/develop (fallback develop also missing)' }
+    $BaseRef = 'main'; git rev-parse --verify --quiet "$BaseRef`^{commit}" *> $null
+    if ($LASTEXITCODE -ne 0) { throw 'M27 base ref not found: origin/main (fallback main also missing)' }
 }
 Write-Host "M27 diff base: $BaseRef"
 Invoke-Native 'git diff --check' { git diff --check "$BaseRef...HEAD" }

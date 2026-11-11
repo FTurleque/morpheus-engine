@@ -67,7 +67,7 @@ class EntryContract(PlayedScenarios):
         cls.interpreter.require()
 
     @classmethod
-    def launch(cls, checkout: FabricatedCheckout, version: str | None = "", base_ref: str | None = "develop",
+    def launch(cls, checkout: FabricatedCheckout, version: str | None = "", base_ref: str | None = "main",
                build_exit: int = 0, extra: tuple[str, ...] = ()) -> Run:
         return cls.interpreter.run(checkout, cls.target, checkout.version if version == "" else version, base_ref,
                                    build_exit, extra)

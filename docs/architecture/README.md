@@ -4,7 +4,7 @@
 > diagrammes Mermaid et des références vers les ADR du projet.
 >
 > Baseline produit documentée : **MORPHEUS 1.2.0** — Java 21 — Maven multi-module.
-> État de référence : `develop` post-R3 / post-D2, avec hardening MRA poursuivi séparément.
+> État de référence : `main` post-R3 / post-D2, avec hardening MRA poursuivi séparément.
 > Dernière réconciliation : **2026-08-11**.
 
 ---

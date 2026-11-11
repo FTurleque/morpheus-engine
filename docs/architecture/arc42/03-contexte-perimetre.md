@@ -2,7 +2,7 @@
 
 > **Sources actives** : `docs/project/ECOSYSTEME.md`, `docs/developer/reference/openapi/`,
 > `docs/developer/MCP.md`, ADR-0007, ADR-0062, ADR-0094, ADR-0096 et code
-> du HEAD `develop`.
+> du HEAD `main`.
 
 ---
 

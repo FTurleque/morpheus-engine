@@ -84,13 +84,13 @@ Le même SHA doit réussir sur Windows et Linux.
 Windows :
 
 ```powershell
-.\scripts\validate.cmd d2 -Version 1.2.2 -BaseRef origin/develop
+.\scripts\validate.cmd d2 -Version 1.2.2 -BaseRef origin/main
 ```
 
 Linux / WSL :
 
 ```bash
-MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.2
+MORPHEUS_D2_BASE_REF=origin/main bash ./scripts/validate-d2.sh 1.2.2
 ```
 
 D2 reste un gate **local spécialisé** :
@@ -109,7 +109,7 @@ portable smoke required
 same SHA Windows/Linux required
 ```
 
-Il n'est pas destiné à qualifier une PR qui modifie précisément les workflows GitHub ; le gate durable de ces PR reste M21, complété par `MORPHEUS Security` sur `main` et `develop`.
+Il n'est pas destiné à qualifier une PR qui modifie précisément les workflows GitHub ; le gate durable de ces PR reste M21, complété par `MORPHEUS Security` sur `main`.
 
 Les switches/variables de skip D2 sont réservés au diagnostic et ne constituent jamais une qualification finale.
 

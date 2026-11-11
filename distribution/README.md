@@ -217,7 +217,7 @@ changed-branch       >= 70%
 
 Le gate D2 spécialisé peut toujours être lancé en `1.2.2` sur un périmètre ne modifiant pas `.github/workflows/**`.
 
-Le workflow `MORPHEUS Security` exécute OWASP Dependency-Check sur `main` et `develop`, avec refresh trusted quotidien et cache PR limité à 72 h. `.github/dependabot.yml` maintient les dépendances Maven/GitHub Actions via PR vers `develop`.
+Le workflow `MORPHEUS Security` exécute OWASP Dependency-Check sur `main`, avec refresh trusted quotidien et cache PR limité à 72 h. `.github/dependabot.yml` maintient les dépendances Maven/GitHub Actions via PR vers `main`.
 
 ## Runtime layout
 

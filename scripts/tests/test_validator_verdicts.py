@@ -35,7 +35,6 @@ class Target:
     architecture_pass: str = "Architecture: PASS"
     coverage_pass: str = "JaCoCo: PASS"
     living_minimums: tuple[str, ...] = ()
-    fallback_base: str = "main"
 
     @property
     def label(self) -> str:
@@ -50,14 +49,13 @@ MILESTONE_MINIMUMS = ("testsMinimum", "architectureTestsMinimum", "aggregateLine
 TARGETS = (
     Target("m21", living_minimums=tuple(FABRICATED_RATCHETS)),
     Target("d2", tests_pass="D2 tests: PASS", architecture_pass="D2 tests: PASS", coverage_pass="D2 coverage: PASS",
-           living_minimums=("testsMinimum", "generatedTestsMinimum", "architectureTestsMinimum"),
-           fallback_base="develop"),
+           living_minimums=("testsMinimum", "generatedTestsMinimum", "architectureTestsMinimum")),
     Target("m22", living_minimums=MILESTONE_MINIMUMS),
     Target("m23", living_minimums=MILESTONE_MINIMUMS),
     Target("m24", living_minimums=MILESTONE_MINIMUMS),
-    Target("m25", living_minimums=MILESTONE_MINIMUMS, fallback_base="develop"),
-    Target("m26", living_minimums=MILESTONE_MINIMUMS, fallback_base="develop"),
-    Target("m27", living_minimums=MILESTONE_MINIMUMS, fallback_base="develop"),
+    Target("m25", living_minimums=MILESTONE_MINIMUMS),
+    Target("m26", living_minimums=MILESTONE_MINIMUMS),
+    Target("m27", living_minimums=MILESTONE_MINIMUMS),
 )
 
 
@@ -159,7 +157,7 @@ class VerdictContract(PlayedScenarios):
         self.assertEqual(f"{self.target.label} VALIDATION PASS", lines[0])
         self.assertIn(f"sha={checkout.head()}", lines)
         self.assertIn(f"version={checkout.version}", lines)
-        self.assertIn(f"baseRef={self.target.fallback_base}", lines,
+        self.assertIn("baseRef=main", lines,
                       "without the remote ref the validator falls back to the local branch and says which")
         self.assertIn(f"tests={FABRICATED_TOTAL_TESTS}", lines)
         self.assertIn(f"architectureTests={FABRICATED_ARCHITECTURE_TESTS}", lines)
@@ -191,7 +189,7 @@ class VerdictContract(PlayedScenarios):
     @staticmethod
     def given_no_base_ref(checkout, validate):
         checkout.git("checkout", "--quiet", "--detach")
-        checkout.git("branch", "--quiet", "-D", "main", "develop")
+        checkout.git("branch", "--quiet", "-D", "main")
 
     def test_a_base_ref_that_resolves_nowhere_is_refused_before_the_build(self) -> None:
         self.refused("no_base_ref", f"{self.target.label} base ref not found", before_the_build=True)

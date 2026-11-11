@@ -1,6 +1,6 @@
 # §8 — Concepts transverses
 
-> **Sources actives** : `pom.xml`, ADR, code du HEAD `develop`, preuves R3/D2,
+> **Sources actives** : `pom.xml`, ADR, code du HEAD `main`, preuves R3/D2,
 > `morpheus-architecture-tests/` et contrats publics.
 
 ---

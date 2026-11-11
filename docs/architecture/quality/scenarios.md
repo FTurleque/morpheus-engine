@@ -1,7 +1,7 @@
 # Scénarios de qualité — MORPHEUS ENGINE
 
 > Complément de [§10](../arc42/10-exigences-qualite.md).
-> Baseline active : MORPHEUS 1.2.2 corrective — `develop` post-audit. Dernière release publiée : `v1.2.1`.
+> Baseline active : MORPHEUS 1.2.2 corrective — `main` post-audit. Dernière release publiée : `v1.2.1`.
 >
 > Un scénario est marqué **qualifié** uniquement lorsqu'une preuve exécutable ou
 > une validation identifiée existe. Les objectifs sans seuil mesuré restent des

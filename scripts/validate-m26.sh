@@ -3,7 +3,7 @@ set -euo pipefail
 
 VERSION="${1:-1.0.0}"
 SKIP_PORTABLE="${MORPHEUS_M26_SKIP_PORTABLE:-false}"
-BASE_REF="${MORPHEUS_M26_BASE_REF:-origin/develop}"
+BASE_REF="${MORPHEUS_M26_BASE_REF:-origin/main}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/python.sh"
 REPO="$(cd -- "$SCRIPT_DIR/.." && pwd)"
@@ -56,9 +56,9 @@ if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
   git status --short --untracked-files=no >&2
   exit 1
 fi
-if ! git rev-parse --verify "${BASE_REF}^{commit}" >/dev/null 2>&1; then BASE_REF=develop; fi
+if ! git rev-parse --verify "${BASE_REF}^{commit}" >/dev/null 2>&1; then BASE_REF=main; fi
 if ! git rev-parse --verify "${BASE_REF}^{commit}" >/dev/null 2>&1; then
-  echo 'M26 base ref not found: origin/develop (fallback develop also missing)' >&2
+  echo 'M26 base ref not found: origin/main (fallback main also missing)' >&2
   exit 1
 fi
 printf '%s\n' "M26 diff base: $BASE_REF"

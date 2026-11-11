@@ -43,33 +43,27 @@ class SonarQualityGateClassificationContractTest {
     }
 
     /**
-     * SonarQube Cloud does not serve the quality gate of a branch other than main to this organization. The nightly
-     * analysis of develop is uploaded and processed, and its verdict cannot be read: an unknown verdict, which the
-     * lane must say rather than turn into a failure or a pass. The exemption is bound to a branch the caller names,
-     * so that the same refusal on main -- where it would mean the token lost its rights -- stays an error.
+     * Only {@code main} is analysed, and it names no branch, so a refusal to read its quality gate -- which would
+     * mean the token lost its rights -- is an error that names its status. No verdict is ever reported as unknown
+     * because of the branch it was read for.
      */
     @Test
-    void anUnreadableGateIsUnknownOnlyForABranchOtherThanMainThatTheCallerNames() throws IOException {
+    void anUnreadableGateIsAnErrorBecauseOnlyMainIsAnalysed() throws IOException {
         Path root = RepositoryRoot.locate();
         String classifier = Files.readString(root.resolve("scripts/classify-sonar-quality-gate.sh"));
-        String nightly = Files.readString(root.resolve(".github/workflows/nightly.yml"));
-        String trustedMain = Files.readString(root.resolve(".github/workflows/ci.yml"));
 
-        assertTrue(classifier.contains("\"$gate_http\" == \"403\" && -n \"${SONAR_BRANCH_NAME:-}\""
-                        + " && \"${SONAR_BRANCH_NAME}\" != \"main\""),
-                "the unreadable-gate exemption must require HTTP 403 and a named branch other than main");
-        assertTrue(classifier.contains("SONAR_QUALITY_GATE_UNREADABLE_OFF_MAIN"),
-                "an unreadable gate must be announced under its own name");
-        assertTrue(classifier.contains("The verdict is unknown, not failed"),
-                "the lane must say that no verdict was read, not that the gate passed");
+        assertFalse(classifier.contains("UNREADABLE_OFF_MAIN"),
+                "no branch other than main is analysed, so no refusal to read a gate may become an unknown verdict");
+        assertFalse(classifier.contains("SONAR_BRANCH_NAME"),
+                "the classifier must not depend on a branch name that no workflow passes");
         assertTrue(classifier.contains("(HTTP ${gate_http})"),
-                "every other refusal to read the gate must stay an error that names its status");
+                "every refusal to read the gate must stay an error that names its status");
 
-        assertTrue(nightly.contains("SONAR_BRANCH_NAME: develop"),
-                "the nightly lane analyses develop and must name it to the classifier");
-        assertTrue(nightly.contains("-Dsonar.qualitygate.wait=true"),
-                "the nightly lane must still ask for a verdict: the exemption is not an upload-only mode");
-        assertFalse(trustedMain.contains("SONAR_BRANCH_NAME"),
-                "the analysis of main names no branch, so a refusal to read its gate stays an error");
+        try (var workflows = Files.list(root.resolve(".github/workflows"))) {
+            for (Path workflow : workflows.filter(path -> path.toString().endsWith(".yml")).sorted().toList()) {
+                assertFalse(Files.readString(workflow).contains("SONAR_BRANCH_NAME"),
+                        workflow.getFileName() + " names a SonarQube Cloud branch, but only main is analysed");
+            }
+        }
     }
 }

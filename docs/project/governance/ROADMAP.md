@@ -9,10 +9,9 @@ MORPHEUS est piloté par des preuves : contrats stables, tests reproductibles, S
 ## Politique de branches
 
 ```text
-feature / fix branch        -> develop via PR
-promotion branch temporaire -> main après qualification
-develop                     -> intégration protégée
-main                        -> stabilisation / livraison protégée
+feature / fix branch        -> main via PR
+main                        -> seule branche longue, protégée
+tag vX.Y.Z sur main         -> release
 ```
 
 Les protections repository imposent des checks exact-head et interdisent de considérer une simple documentation comme preuve d’exécution.
@@ -69,7 +68,7 @@ CI used as D2 gate            false
 Plan historique : [`../roadmap/D2_EXECUTION.md`](../roadmap/D2_EXECUTION.md).
 Preuve historique : [`../validation/VALIDATION_D2.md`](../validation/VALIDATION_D2.md), complétée par les preuves exact-head publiées sur la PR #121.
 
-La contrainte « aucune CI » était spécifique au protocole D2. Elle ne redéfinit pas la politique actuelle de `develop`.
+La contrainte « aucune CI » était spécifique au protocole D2. Elle ne redéfinit pas la politique actuelle de `main`.
 
 ## NOW — baseline corrective 1.2.2
 

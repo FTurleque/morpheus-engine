@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$Version = '1.2.2',
-    [string]$BaseRef = 'origin/develop',
+    [string]$BaseRef = 'origin/main',
     [switch]$SkipSecurityScan,
     [switch]$SkipPortable
 )
@@ -33,9 +33,9 @@ function Assert-NativeSuccess([string]$Label) {
 function Resolve-BaseRef([string]$Requested) {
     & git rev-parse --verify --quiet "$Requested^{commit}" *> $null
     if ($LASTEXITCODE -eq 0) { return $Requested }
-    & git rev-parse --verify --quiet 'develop^{commit}' *> $null
-    if ($LASTEXITCODE -eq 0) { return 'develop' }
-    throw "D2 base ref not found: $Requested (fallback develop also missing)"
+    & git rev-parse --verify --quiet 'main^{commit}' *> $null
+    if ($LASTEXITCODE -eq 0) { return 'main' }
+    throw "D2 base ref not found: $Requested (fallback main also missing)"
 }
 
 function Assert-ReactorVersion([string]$ExpectedVersion) {
