@@ -6,6 +6,7 @@ import com.morpheus.application.lifecycle.mutation.ChangeWriteCapabilityResolver
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.domain.provider.ProviderId;
+import com.morpheus.mcp.server.MorpheusMcpServer;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;

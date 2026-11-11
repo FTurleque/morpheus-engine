@@ -218,6 +218,52 @@ print(f"inventory: {len(inventory)} components, both archives covered")
 PY
 pass "published inventory"
 
+# ---------------------------------------------------------------------------
+# 8. The Authenticode signature of the Windows binaries. Windows' own trust decision is the authority, and this
+#    variant has no tool it can rely on to reproduce it, so it does not judge the signature: it reads the same
+#    declaration as the Windows variant, requires the Windows manifest to state each binary's signature, and says
+#    by name that the signature itself was not verified here. Its verdict is therefore not the full pass sentence.
+# ---------------------------------------------------------------------------
+morpheus_python - "$REPO_ROOT/distribution/windows/authenticode-signing.properties" \
+  "$WORKDIR/assets/morpheus-$VERSION-windows-x64-release-manifest.json" "$VERSION" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+declaration_path, manifest_path, version = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3]
+if not declaration_path.is_file():
+    raise SystemExit(f"AUTHENTICODE_PUBLISHER_NOT_DECLARED: the signing declaration is missing: {declaration_path}")
+declared = {}
+for line in declaration_path.read_text(encoding="utf-8").splitlines():
+    line = line.strip()
+    if not line or line.startswith("#"):
+        continue
+    key, separator, value = line.partition("=")
+    if not separator or key.strip() not in ("publisherSubject", "signingBaseline", "timestampAuthority"):
+        raise SystemExit(f"the signing declaration holds an unexpected line: {line}")
+    if key.strip() in declared:
+        raise SystemExit(f"the signing declaration states {key.strip()} twice")
+    declared[key.strip()] = value.strip()
+missing = sorted({"publisherSubject", "signingBaseline", "timestampAuthority"} - declared.keys())
+if missing:
+    raise SystemExit(f"the signing declaration does not state {missing}")
+
+manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+for name in (f"MORPHEUS-{version}-windows-x64-setup.exe", f"morpheus-{version}-windows-x64.zip"):
+    entries = [asset for asset in manifest.get("assets", []) if asset.get("name") == name]
+    if len(entries) != 1:
+        raise SystemExit(f"the Windows manifest does not describe {name} once")
+    statement = entries[0].get("signature")
+    if not isinstance(statement, dict) or statement.get("status") not in ("signed", "unsigned"):
+        raise SystemExit(f"the Windows manifest states no signature status for {name}")
+    print(f"  {name}: the manifest states {statement['status']} {statement.get('signer', '')}".rstrip())
+baseline = declared["signingBaseline"] or "none declared"
+print(f"  signing baseline: {baseline}")
+PY
+echo "AUTHENTICODE_NOT_VERIFIED_ON_THIS_PLATFORM: the Authenticode signature of the Windows binaries was not verified" \
+  "by this variant; only scripts\\verify-release-provenance.ps1, run on Windows, verifies it"
+
 echo
-echo "RELEASE QUALIFICATION PASS: $TAG @ $TAG_SHA"
-echo "Record this output in docs/project/validation/VALIDATION_RELEASE_<version>.md before closing issue #185."
+echo "RELEASE QUALIFICATION INCOMPLETE: $TAG @ $TAG_SHA -- every check of this variant passed, the Authenticode" \
+  "signature was not verified on this platform"
+echo "Record this output with the Windows variant's in docs/project/validation/VALIDATION_RELEASE_<version>.md before closing issue #185."

@@ -1,0 +1,6 @@
+args: version
+exit: 0
+stdout:
+MORPHEUS <version>
+
+stderr:

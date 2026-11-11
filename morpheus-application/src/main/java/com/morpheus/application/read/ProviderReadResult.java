@@ -1,6 +1,5 @@
 package com.morpheus.application.read;
 
-import com.morpheus.application.ingestion.NormalizedProjectContent;
 import com.morpheus.domain.diagnostic.Diagnostic;
 import com.morpheus.domain.provider.ProviderId;
 

@@ -98,9 +98,11 @@ class ExternalReferenceResolutionServiceTest {
         assertEquals(ExternalReferenceResolutionState.UNRESOLVED, unresolved.resolutionState());
         assertEquals(ExternalReferenceResolutionReason.TARGET_UNAVAILABLE, unresolved.resolutionReason());
 
-        assertThrows(IllegalArgumentException.class, () -> new ExternalReferenceResolverRegistry(List.of(
+        IllegalArgumentException duplicate = assertThrows(
+                IllegalArgumentException.class, () -> new ExternalReferenceResolverRegistry(List.of(
                 unavailable,
                 new MutableResolver(ExternalReferenceResolverResult.notFound()))));
+        assertEquals("multiple external reference resolvers for system: MINOS", duplicate.getMessage());
     }
 
     @Test

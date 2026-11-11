@@ -28,7 +28,7 @@ class OpenSpecRequirementDeltaReaderTest {
     @Test
     void normalizesModifiedAndAddedRequirementDeltasFromM0Fixture() {
         var result = new OpenSpecRequirementDeltaReader().read(
-                fixture("openspec-basic"),
+                RepositoryRoot.fixture("openspec-basic"),
                 new StableTestIdentityResolver());
 
         assertEquals(3, result.requirementDeltas().size());
@@ -70,7 +70,7 @@ class OpenSpecRequirementDeltaReaderTest {
     void modifiedDeltaReusesCurrentLogicalRequirementIdentityWithoutReplacingBaselineContent() {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         StableTestIdentityResolver identities = new StableTestIdentityResolver();
-        Path workspace = fixture("openspec-basic");
+        Path workspace = RepositoryRoot.fixture("openspec-basic");
 
         var current = new OpenSpecCurrentSpecificationReader().read(workspace, projectId, identities);
         var deltas = new OpenSpecRequirementDeltaReader().read(workspace, identities);
@@ -93,7 +93,7 @@ class OpenSpecRequirementDeltaReaderTest {
     @Test
     void deltaOccurrenceIdentityIsDistinctFromLogicalRequirementIdentityAndHasSourceEvidence() {
         var result = new OpenSpecRequirementDeltaReader().read(
-                fixture("openspec-basic"),
+                RepositoryRoot.fixture("openspec-basic"),
                 new StableTestIdentityResolver());
 
         var modified = result.requirementDeltas().stream()
@@ -267,7 +267,7 @@ class OpenSpecRequirementDeltaReaderTest {
     @Test
     void theStateMatrixDeltasReadExactlyAsBeforeWithoutAnyDiagnostic() {
         var result = new OpenSpecRequirementDeltaReader().read(
-                fixture("openspec-state-matrix"),
+                RepositoryRoot.fixture("openspec-state-matrix"),
                 new StableTestIdentityResolver());
 
         assertEquals(
@@ -636,7 +636,7 @@ class OpenSpecRequirementDeltaReaderTest {
                 authentication from that credential
                 evidence 5-8 9-15 16-22 25-28 29-34 35-40 41-44 45-50
                 diagnostics [] skipped 0 unclosed 0
-                """, frozen(fixture("openspec-basic")));
+                """, frozen(RepositoryRoot.fixture("openspec-basic")));
         assertEquals("""
                 MODIFIED auth-session/session-expiration | Session expiration | The system SHALL expire an authenticated \
                 session after 60 minutes. | file:openspec/changes/extend-timeout/specs/auth-session/spec.md
@@ -646,7 +646,7 @@ class OpenSpecRequirementDeltaReaderTest {
                   Proposed timeout | given [] | when the proposed timeout passes | then the session SHALL expire
                 evidence 5-8 9-12 5-8 9-12
                 diagnostics [] skipped 0 unclosed 0
-                """, frozen(fixture("openspec-state-matrix")));
+                """, frozen(RepositoryRoot.fixture("openspec-state-matrix")));
     }
 
     private String frozen(Path workspace) {
@@ -704,21 +704,6 @@ class OpenSpecRequirementDeltaReaderTest {
         List<Diagnostic> matching = diagnostics.stream().filter(diagnostic -> diagnostic.code() == code).toList();
         assertEquals(1, matching.size(), "diagnostics with code " + code + ": " + diagnostics);
         return matching.getFirst();
-    }
-
-    private Path fixture(String name) {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        Path fromRoot = current.resolve("experiments/m0/fixtures").resolve(name);
-        if (Files.isDirectory(fromRoot)) {
-            return fromRoot;
-        }
-
-        Path fromModule = current.resolve("../experiments/m0/fixtures").normalize().resolve(name);
-        if (Files.isDirectory(fromModule)) {
-            return fromModule;
-        }
-
-        throw new IllegalStateException("M0 fixture not found: " + name + " from " + current);
     }
 
     private static final class StableTestIdentityResolver implements EntityIdentityResolver {

@@ -43,15 +43,15 @@ import org.junit.jupiter.api.Test;
  *   halves -- {@code c <= ' '}, what {@code trim()} removes, and {@code Character.isWhitespace}, what {@code isBlank()}
  *   holds. A whole-string test there is refused: {@code isBlank() || trim().isEmpty()} lets U+0001 next to U+2003
  *   through.</li>
- *   <li><b>The message of a throwable</b>: the {@code safeMessage} methods, which print the class name when an
- *   exception has no message. They are recognised by <em>what the test reads</em>, never by the method's name: the
+ *   <li><b>The message of a throwable</b>, refused: the text of a failure is formed by {@code FailureText.of}, outside
+ *   the CLI, and a blank test of a failure's message in the CLI is a copy of it. It is recognised by <em>what the test reads</em>, never by the method's name: the
  *   receiver is {@code p.getMessage()} where {@code p} is a parameter of the enclosing method whose declared type is
  *   {@code Throwable} or a name ending in {@code Exception} or {@code Error}; or a local declared from
  *   {@code p.getMessage()}; or the parameter of a lambda filtering {@code Optional.ofNullable(p.getMessage())}. A
  *   variable merely named {@code message}, a message read from something that is not such a parameter, and a
  *   {@code getMessage()} in a method without such a parameter are not recognised.</li>
- *   <li><b>A named other question</b>, in {@link #OTHER_QUESTIONS}: an option's <em>name</em>, an environment variable
- *   or JVM property (empty means unset there, ADR-0108), a message printed by the reasoning output -- and two open
+ *   <li><b>A named other question</b>, in {@link #OTHER_QUESTIONS}: an environment variable
+ *   or JVM property (empty means unset there, ADR-0130), a message printed by the reasoning output -- and two open
  *   residuals where the test reads a <em>part</em> of an option value, not the value: the elements of
  *   {@code --providers} and the provenance field of {@code --evidence}. Each entry holds the number of blank tests of
  *   its method: a method that gains one, loses one or disappears fails the guard until the entry is written again.</li>
@@ -80,7 +80,7 @@ import org.junit.jupiter.api.Test;
  * </ul>
  *
  * <p>The rule is textual because the proposition is about which method tests a string, which no dependency rule over
- * compiled classes expresses (ADR-0103).</p>
+ * compiled classes expresses ({@code .claude/rules/architecture.md}).</p>
  */
 class CliOptionValueHasOneBlankDefinitionTest {
 
@@ -89,18 +89,16 @@ class CliOptionValueHasOneBlankDefinitionTest {
 
     /** Methods whose blank tests answer another question than "is this option value blank", with their count. */
     private static final Map<String, OtherQuestion> OTHER_QUESTIONS = Map.of(
-            "MorpheusCli.java#consumeOption", new OtherQuestion(1,
-                    "the option's name: a token '--' followed by nothing is an empty option, not a blank value"),
             "MorpheusReasoningCli.java#analyze", new OtherQuestion(1,
                     "the message of an adapter execution, printed only when there is one"),
             "CliLayout.java#envPath", new OtherQuestion(1,
-                    "an environment variable: empty means unset (ADR-0108, CLI-7 suite)"),
+                    "an environment variable: empty means unset (ADR-0130)"),
             "RemoteApiLaunchOptions.java#presentSetting", new OtherQuestion(1,
-                    "an environment variable or JVM property: empty means unset (ADR-0108, CLI-7 suite)"),
+                    "an environment variable or JVM property: empty means unset (ADR-0130)"),
             "RemoteApiLaunchOptions.java#resolveWorkspaceRoots", new OtherQuestion(1,
                     "an element of MORPHEUS_SERVER_WORKSPACE_ROOTS, an environment variable or JVM property"),
             "MorpheusPortfolioCli.java#providers", new OtherQuestion(1,
-                    "open residual: an element of --providers; a list made of separators is dropped (ADR-0108, CLI-7)"),
+                    "open residual: an element of --providers; a list made of separators is dropped (ADR-0130)"),
             "MorpheusReasoningCli.java#parseAssignments", new OtherQuestion(1,
                     "open residual: the optional provenance field of an --evidence value, not the value"));
 
@@ -130,8 +128,8 @@ class CliOptionValueHasOneBlankDefinitionTest {
         Scan scan = scan(sources, OTHER_QUESTIONS);
 
         assertTrue(sources.containsKey(DEFINITION_FILE), "the scan did not read " + DEFINITION_FILE);
-        assertTrue(scan.throwableMessages() > 0,
-                "the scan recognised no throwable message: the class would be vacuous, or the recognition broken");
+        assertEquals(0, scan.throwableMessages(),
+                "a CLI source tests the blank of a failure's message; the text of a failure is FailureText.of");
         assertEquals(List.of(), scan.violations(),
                 "a blank test of the CLI is neither OptionValue.nonBlank nor a question classified here");
     }
@@ -188,12 +186,15 @@ class CliOptionValueHasOneBlankDefinitionTest {
 
         for (String source : List.of(local, direct, lambda)) {
             Scan scan = scan(withDefinition("A.java", source), Map.of());
-            assertEquals(List.of(), scan.violations(), source);
+            assertEquals(1, scan.violations().size(), source);
+            assertTrue(scan.violations().getFirst().endsWith(" tests the blank of a failure's message; call FailureText.of"),
+                    source);
             assertEquals(1, scan.throwableMessages(), source);
         }
         for (String source : List.of(namedLikeAMessage, notAParameter, anotherMessage)) {
             Scan scan = scan(withDefinition("A.java", source), Map.of());
             assertEquals(1, scan.violations().size(), source);
+            assertTrue(scan.violations().getFirst().endsWith(" tests the blank itself; call OptionValue.nonBlank"), source);
             assertEquals(0, scan.throwableMessages(), source);
         }
     }
@@ -307,6 +308,7 @@ class CliOptionValueHasOneBlankDefinitionTest {
                     }
                 } else if (readsTheMessageOfAThrowable(unit, method, test.start())) {
                     throwableMessages++;
+                    violations.add(where + " tests the blank of a failure's message; call FailureText.of");
                 } else if (otherQuestions.containsKey(key)) {
                     namedCounts.merge(key, 1, Integer::sum);
                 } else {

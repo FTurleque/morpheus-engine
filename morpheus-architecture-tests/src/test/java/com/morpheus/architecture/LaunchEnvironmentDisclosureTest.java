@@ -39,7 +39,7 @@ class LaunchEnvironmentDisclosureTest {
 
     @Test
     void everyMorpheusEnvironmentVariableTheMainSourcesMentionIsNamedInTheOperatorDocumentation() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         Map<String, Path> mentioned = mentionedNames(root);
         String documentation = operatorDocumentation(root);
 
@@ -64,7 +64,7 @@ class LaunchEnvironmentDisclosureTest {
 
     @Test
     void everyExcusedLiteralStillExistsAndCarriesAReason() throws IOException {
-        Map<String, Path> mentioned = mentionedNames(repositoryRoot());
+        Map<String, Path> mentioned = mentionedNames(RepositoryRoot.locate());
 
         for (Map.Entry<String, String> excused : NOT_AN_ENVIRONMENT_VARIABLE.entrySet()) {
             assertFalse(excused.getValue().isBlank(), "an excuse without a reason: " + excused.getKey());
@@ -120,17 +120,5 @@ class LaunchEnvironmentDisclosureTest {
             }
         }
         return pages.toString();
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 }

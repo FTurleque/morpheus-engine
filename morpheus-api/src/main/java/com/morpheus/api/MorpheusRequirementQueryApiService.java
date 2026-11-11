@@ -1,6 +1,10 @@
 package com.morpheus.api;
 
+import com.morpheus.api.transport.ApiFailure;
+import com.morpheus.api.transport.PagedEnvelope;
+import com.morpheus.application.foundation.PayloadMap;
 import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.payload.PublicPayloads;
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.query.RequirementQueryService;
 import com.morpheus.application.query.RequirementSearchQuery;
@@ -8,19 +12,15 @@ import com.morpheus.application.query.TraceRequirementQueryService;
 import com.morpheus.application.query.compact.CompactQueryViewService;
 import com.morpheus.application.store.RequirementVersionRecord;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.domain.requirement.Requirement;
 import com.morpheus.domain.requirement.RequirementId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 
 import java.nio.file.Path;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
 /** Owns active requirement search, detail and trace API views. */
-final class MorpheusRequirementQueryApiService {
+public final class MorpheusRequirementQueryApiService {
     private final Path databasePath;
     private final OperationalRecorder recorder;
 
@@ -29,7 +29,7 @@ final class MorpheusRequirementQueryApiService {
         this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
-    Object requirements(String projectIdValue, String query, PageRequest pageRequest) {
+    public Object requirements(String projectIdValue, String query, PageRequest pageRequest) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         String queryText = query == null ? "" : query.trim();
         Objects.requireNonNull(pageRequest, "pageRequest");
@@ -39,24 +39,24 @@ final class MorpheusRequirementQueryApiService {
                     .findActive(projectId, new RequirementSearchQuery(queryText), pageRequest)
                     .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
             return PagedEnvelope.following(
-                    map("snapshotId", result.snapshot().id().toString(), "query", queryText),
+                    PayloadMap.of("snapshotId", result.snapshot().id().toString(), "query", queryText),
                     PagedEnvelope.page(result.pageRequest(), result.totalMatches(), result.hasMore(),
-                            result.items().stream().map(this::requirementRecord).toList()));
+                            result.items().stream().map(record -> PublicPayloads.requirementVersion(record.entityVersion())).toList()));
         }
     }
 
-    Object requirement(String projectIdValue, String requirementIdValue) {
+    public Object requirement(String projectIdValue, String requirementIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         RequirementId requirementId = RequirementId.parse(requirementIdValue);
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             KnowledgeSnapshotMetadata snapshot = activeSnapshot(runtime, projectId);
             RequirementVersionRecord record = runtime.requirements().currentRequirement(snapshot.id(), requirementId.value())
                     .orElseThrow(() -> ApiFailure.notFound("requirement not found: " + requirementId));
-            return map("snapshotId", snapshot.id().toString(), "requirement", requirementRecord(record));
+            return PayloadMap.of("snapshotId", snapshot.id().toString(), "requirement", PublicPayloads.requirementVersion(record.entityVersion()));
         }
     }
 
-    Object traceRequirement(String projectIdValue, String requirementIdValue, int depth) {
+    public Object traceRequirement(String projectIdValue, String requirementIdValue, int depth) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         RequirementId requirementId = RequirementId.parse(requirementIdValue);
         requireRange("depth", depth, 1, MorpheusApiService.MAX_DEPTH);
@@ -82,39 +82,9 @@ final class MorpheusRequirementQueryApiService {
                 .orElseThrow(() -> ApiFailure.conflict("project has no ACTIVE snapshot: " + projectId));
     }
 
-    private Object requirementRecord(RequirementVersionRecord record) {
-        var version = record.entityVersion();
-        return map(
-                "entityVersionId", version.id().toString(),
-                "specificationVersionId", version.specificationVersionId().toString(),
-                "temporalState", version.temporalState().name(),
-                "requirement", requirement(version.content()));
-    }
-
-    private Object requirement(Requirement item) {
-        return map(
-                "id", item.id().toString(),
-                "specificationId", item.specificationId().toString(),
-                "key", item.key().orElse(""),
-                "title", item.title(),
-                "statement", item.statement());
-    }
-
     private void requireRange(String name, long value, long minimum, long maximum) {
         if (value < minimum || value > maximum) {
             throw ApiFailure.badRequest(name + " must be between " + minimum + " and " + maximum);
         }
-    }
-
-    /** LinkedHashMap preserves stable construction order before canonical JSON serialization. */
-    private Map<String, Object> map(Object... entries) {
-        if (entries.length % 2 != 0) {
-            throw new IllegalArgumentException("map entries must be key/value pairs");
-        }
-        Map<String, Object> result = new LinkedHashMap<>();
-        for (int index = 0; index < entries.length; index += 2) {
-            result.put((String) entries[index], entries[index + 1]);
-        }
-        return Collections.unmodifiableMap(result);
     }
 }

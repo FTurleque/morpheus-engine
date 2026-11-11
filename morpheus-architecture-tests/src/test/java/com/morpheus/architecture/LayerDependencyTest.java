@@ -21,6 +21,7 @@ class LayerDependencyTest {
                         "com.morpheus.mcp..",
                         "com.morpheus.api..",
                         "com.morpheus.integration..",
+                        "com.morpheus.transport..",
                         "com.minos..",
                         "com.nexus..",
                         "com.jarvis..")
@@ -39,6 +40,7 @@ class LayerDependencyTest {
                         "com.morpheus.mcp..",
                         "com.morpheus.api..",
                         "com.morpheus.integration..",
+                        "com.morpheus.transport..",
                         "com.minos..",
                         "com.nexus..",
                         "com.jarvis..")
@@ -54,6 +56,7 @@ class LayerDependencyTest {
                         "com.morpheus.cli..",
                         "com.morpheus.mcp..",
                         "com.morpheus.integration..",
+                        "com.morpheus.transport..",
                         "com.minos..",
                         "com.nexus..",
                         "com.jarvis..")

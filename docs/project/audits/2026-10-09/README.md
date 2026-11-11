@@ -8,6 +8,815 @@
 
 ---
 
+## État au 10 novembre 2026 — le carnet OpenSpec est vide, les trois constats actifs sont intacts
+
+Revérification sur `38a4079f` (`origin/develop`, PR #623), **17 commits et 31 fichiers** (+798 / −152) depuis
+`00ca1378`. Build : **vert** — 19 modules, **5 413 tests, 0 échec, 14 ignorés**, `BUILD SUCCESS` en **9 min 22**, verdict séparé `documentation drift: 0` / `architecture violation: 0`. Totaux par module identiques à ceux du 7 novembre au soir, ce qu'on attend d'une base où aucun fichier `.java` ne change. Détail dans **`reverification-2026-11-10.md`**.
+
+**Ce qui a changé n'est pas ce qu'on attendait.** Cinq pull requests : trois montées Dependabot (`setup-java` 6.2.0,
+`codeql-action` 4.39.3, PIT 1.30.2), les scripts de fumée MINOS et NEXUS portés sur les deux plateformes, et la
+publication de l'audit du 7 novembre. **Aucun fichier `.java` ne change** — mesuré, pas supposé : `git diff --name-only
+-- '*.java'` renvoie zéro. Les deux derniers changements OpenSpec en vol sont archivés, et `openspec/changes/` ne
+contient plus que son `archive/` : **94 changements archivés, zéro en cours**. Le carnet est vide pour la première
+fois depuis le début de la mission.
+
+**Les trois constats actifs sont donc intacts, et je les ai revérifiés un par un plutôt que de le déduire du diff.**
+`AUD-TRV-02` : six clés sur trente-deux toujours au plancher absolu, quatre seuils de couverture inchangés, preuve de
+qualification désormais à **25 commits** de la tête. `AUD-TST-25` : les deux plafonds valent toujours 0 sans aucune clé
+de cliquet — alors que le dépôt en a créé une septième le 7 novembre pour les suppressions CVE, donc le patron existe
+et n'a pas été repris. `AUD-ARC-21` : `tableOfFactsUnder` n'existe toujours pas, et `ARCH-0165` n'est cité par **aucun
+`.java`** trois jours après son acceptation.
+
+**Un constat neuf, trouvé dans la vague Dependabot.** `AUD-QUA-23` : trois cellules de tableau de
+`docs/developer/CODE_AUDIT.md` et `docs/developer/SPOTBUGS.md` écrivent une propriété du POM avec une valeur que le POM
+ne porte plus — `spotbugs.maven.plugin.version` à `4.10.4.1` pour `4.10.5.0`, dérive ouverte le **19 octobre** et
+passée sous quatre revérifications dont les miennes, et `pitest.maven.plugin.version` à `1.30.0` pour `1.30.2`, deux
+bumps de retard. Le gate qui sait comparer exactement cette forme existe ; sa portée déclarée est
+`.claude/` plus `.github/AI_GOVERNANCE.md`, et **tout `docs/` lui est invisible**. C'est la dérive pour laquelle
+`.claude/rules/meta.md` a été écrit, résolue d'un seul côté de la frontière.
+
+**130 constats : 99 corrigés · 1 partiel · 3 toujours valides · 4 caducs · 22 Info qui tiennent · 1 non vérifiable.**
+Les **4 constats actifs** sont 1 `Moyenne` et 3 `Faible`. Charge restante : **3,75 à 11 jours**. Moyenne inchangée à
+**98** : le constat neuf coûte un point à Qualité et un à Dépendances.
+
+| Axe | 7 nov. soir | 10 nov. |
+|---|---|---|
+| Sécurité | 100 | **100** |
+| Performance | 100 | **100** |
+| Dépendances | 100 | **99** |
+| Architecture | 98 | **98** |
+| Tests | 95 | **95** |
+| Qualité | 95 | **94** |
+| **Moyenne** | **98** | **98** |
+
+## État au 7 novembre 2026, au soir — six clôtures, dont la plus ancienne, 96 → 98
+
+Revérification sur `00ca1378` (`origin/develop`, PR #618), **5 commits et 38 fichiers** (+1 855 / −331) depuis
+`f0fe88b7`. Build vert : 19 modules — **5 413 tests, 0 échec, 14 ignorés**, en **10 min 01** de temps Maven, avec le
+verdict séparé `documentation drift: 0` / `architecture violation: 0`. Le module des gates déclare **1 078 exécutions**
+pour un cliquet relevé à 1 058. Détail dans **`reverification-2026-11-07-soir.md`**.
+
+Une seule pull request, qui fait trois choses : elle **commite les fichiers d'audit** du 6 et du 7 novembre — le dépôt
+ne porte plus un relevé périmé de deux semaines, ce qui était l'avertissement de la passe du matin ; elle **traite les
+sept constats actifs** ; elle fait **accepter deux ADR** qui sont des décisions, non des correctifs.
+
+**Six clôtures.** `AUD-TRV-03` d'abord, le plus ancien constat structurel de la mission — l'enforcement textuel : sa
+clause 1 est désormais tenue sur le fond (le gate exige la forme exacte du tableau d'intentions, hors commentaire HTML,
+avec cinq refus plantés), sa clause 2 l'était, et le motif écrit pour ne pas sortir les contrôles de cohérence du module
+de gates **devient vrai** cette passe — `architectureTestsMinimum` passe de 836 à 1 058 pour une mesure de 1 068, la
+marge de dix que le fichier s'impose, et le dépôt inscrit lui-même « un plancher oublié ». Le ratio, lui, ne baisse pas
+(1 789 assertions contre 99 règles) : mais tenir le constat ouvert là-dessus réinstallerait le critère que j'ai retiré
+la veille comme mauvais. `AUD-TST-24` : l'étendue des suppressions CVE est bornée par une table exacte dans les deux
+sens et un cliquet, et mes deux scénarios d'ouverture sont devenus des fixtures qui échouent. `AUD-ARC-20` : le dépôt
+ferme le **mécanisme** et pas seulement le cas — un gate refuse l'énumération non balisée dans tout ADR accepté.
+`AUD-QUA-22` : les quatre citations corrigées, et un contrôle qui confronte tout identifiant d'ADR cité par un document
+vivant au statut de son fichier, avec une porte de sortie explicite `(archivé)` ; prédicat réimplémenté et rejoué, 92
+fichiers, zéro refus. `AUD-ARC-18` : `ARCH-0165` écrit la phrase manquante et tranche le genre des listes.
+
+**Une clôture par décision écrite, et je le dis sans détour.** `AUD-DEP-05` : **aucun binaire Windows n'est signé** et
+il n'y a pas de correctif technique. `SEC-0164`, acceptée, décide de ne pas signer tant qu'aucun certificat sans coût
+n'est accessible, et donne à l'utilisateur deux preuves d'origine — somme SHA-256 et attestation GitHub — documentées
+dans `INSTALLATION.md`, avec RT-14 accepté au registre et une condition de réouverture nommée. C'est la **seconde
+branche de l'action écrite le 9 octobre**. Un constat est corrigé quand son action est faite, pas quand son titre est
+épuisé.
+
+**Le constat qui reste.** `AUD-TRV-02` tient par un seul fil : **six clés sur trente-deux au plancher absolu**, sur
+~1,7 % des lignes, où la fenêtre de qualification est vide parce que la marge exigée est absolue et dépasse la taille
+de ces modules. Sa première clause est close — les sept classes de comportement nommées ont toutes un test propre — et
+son **titre et sa section preuve sont réécrits** après quatre passes de recommandation : le titre annonçait 20,9 points
+pour un écart mesuré à **2,68**.
+
+**Deux constats neufs**, qui ne sont pas des dérives de cette PR mais les réserves des constats fermés, sorties pour ne
+pas disparaître avec eux : `AUD-TST-25` — les deux plafonds qui bornent la migration des interdits textuels promettent
+en javadoc de ne jamais monter, et rien ne tient cette promesse ; `AUD-ARC-21` — `ARCH-0165` fonde deux tables de faits
+qu'aucune source du dépôt ne cite, le genre déclaré ne sachant pas porter un ADR sans énumération.
+
+**129 constats : 99 corrigés · 1 partiel · 2 toujours valides · 4 caducs · 22 Info qui tiennent · 1 non vérifiable.**
+Les **3 constats actifs** sont 1 `Moyenne` et 2 `Faible`. Charge restante : **3,5 à 10 jours**, contre 8,75 à 25.
+**13 des 15 sprints** sont soldés. Les contrôles passent, et il y en a **25** : un contrôle neuf refuse un constat
+absent de la liste de membres de son sprint — le défaut qui, cette passe, faisait afficher un sprint ouvert comme
+terminé.
+
+| Axe | 7 nov. matin | 7 nov. soir |
+|---|---|---|
+| Sécurité | 100 | **100** |
+| Performance | 100 | **100** |
+| Dépendances | 95 | **100** |
+| Architecture | 94 | **98** |
+| Qualité | 95 | **95** |
+| Tests | 91 | **95** |
+| **Moyenne** | **96** | **98** |
+
+## État au 7 novembre 2026 — treize constats traités en une nuit, 93 → 96
+
+Revérification sur `f0fe88b7` (`origin/develop`, PR #617), soit **69 commits et 283 fichiers** (+16 797 / −1 247)
+depuis `30520bd3`. Build vert : 19 modules en **9 min 17 — 5 395 tests, 0 échec, 14 ignorés**, avec le nouveau verdict
+séparé (`documentation drift: 0`, `architecture violation: 0`). Détail dans **`reverification-2026-11-07.md`**.
+
+Le prompt de la veille a produit ce qu'il demandait : **PR #614 a ouvert un changement OpenSpec par constat**, puis
+#615, #616 et #617 ont implémenté. **Treize des quatorze constats actifs ont été traités**, avec un relevé de
+revendications portant **trois sections « Ce qui n'est pas fait » successives**, chacune honorée par la suivante. Le
+mainteneur a aussi tranché sur `AUD-ARC-15`, laissé en question ouverte : non seulement il a rouvert un écart accepté
+deux jours plus tôt, mais **95 méthodes `synchronized` sur 96** ont été retirées.
+
+**Dix clôtures confirmées.** `AUD-ARC-17`, le constat qui s'était aggravé **trois passes consécutives**, cesse
+d'exister — et pas par esquive : la table qui mentait a été **requalifiée de prétention présente en relevé daté**, et
+elle est exacte en tant que telle (les onze longueurs revérifiées contre le commit qu'elle date). Ce qui mentait était
+son emplacement, pas sa mesure. `AUD-QUA-20` : la similarité entre les deux passerelles MCP passe de **57,4 % à
+19,7 %**, mesure refaite avec la méthode du constat et validée par rejeu. `AUD-PRF-20` : les deux moitiés tombent, et
+la borne composée est désormais **dérivée des constantes par un test** qui casse si la documentation ne suit pas.
+`AUD-DEP-29` : les neuf versions et les sept clés de cliquet vérifiées **une par une**, aucune divergence.
+
+**Un piège de réconciliation, inversé.** Mes fichiers du 6 novembre sont **non commités** : la copie *commitée* du
+dépôt est restée à mon état du 31 octobre, avec 24 constats actifs au lieu de 14. Adopter la copie du dépôt aurait
+effacé onze clôtures. J'ai vérifié que l'écart était exactement celles-là et adopté ma copie — mais **cette passe est
+à commiter**, sinon le dépôt porte un audit périmé de deux semaines.
+
+**Un arbitrage, et il m'est défavorable.** `AUD-TRV-03` demandait en tête de « plafonner explicitement la part
+textuelle ». Le dépôt le refuse par écrit : *un ratio se fait baisser en supprimant un contrôle de documentation ou en
+ajoutant une règle qui ne voit rien de neuf*. **Cet argument est juste, et c'est le mien** — cet audit répète depuis un
+mois qu'une assertion textuelle et une règle ArchUnit n'enforcent pas la même proposition. Je **retire cette clause
+comme prescription** : la garder laisserait le constat ouvert sur un critère inatteignable par construction. Il reste
+ouvert sur ce qui demeure mesurable, et le texte **remonte** : +62 assertions après un recul de 212, et
+`Files.readString` en deuxième hausse consécutive.
+
+`AUD-TRV-02` est **à un cheveu de la clôture** : son gate par module existe et voit désormais 12 des 16 modules ; ce
+qui reste tient à **six clés sur trente-deux** posées au plancher — non quatre comme le relevé l'annonce — et à deux
+classes que l'action nommait en premier et qui n'ont toujours aucun test. `AUD-DEP-05` est inchangé au mot près pour
+la quatrième fois.
+
+**Trois constats neufs, et un motif qui se répète.** `AUD-TST-24` : le contrat des suppressions borne la forme d'une
+règle, jamais le nombre des détections éteintes. `AUD-ARC-20` : la comparaison d'une énumération d'ADR à son gate est
+**sur déclaration** — 3 listes sur 54 — et un ADR énumère déjà hors balises. `AUD-QUA-22` : quatre citations au présent
+d'un ADR archivé dans des documents vivants. Avec une faiblesse inscrite dans `AUD-TRV-03`, les quatre pointent la même
+chose : **le mécanisme de cliquet du dépôt est sur déclaration**. Il est excellent là où il s'applique ; ce qui lui
+manque est de détecter ce qui a oublié de s'y inscrire.
+
+**127 constats : 93 corrigés · 4 partiels · 3 toujours valides · 4 caducs · 22 Info qui tiennent · 1 non vérifiable.**
+Les **7 constats actifs** sont 3 `Moyenne` et 4 `Faible` — **aucun `Critique` ni `Élevée`**. Charge restante :
+**8,75 à 25 jours**, contre 12 à 36. Les 24 contrôles passent.
+
+| Axe | 6 nov | 7 nov |
+|---|---|---|
+| Sécurité | 100 | **100** |
+| Performance | 99 | **100** |
+| Qualité | 88 | **95** |
+| Dépendances | 90 | **95** |
+| Architecture | 92 | **94** |
+| Tests | 90 | **91** |
+| **Moyenne** | **93** | **96** |
+
+## État au 6 novembre 2026 — les onze revendications confirmées, 84 → 93
+
+Revérification sur `30520bd3` (`origin/develop`, PR #613), soit **62 commits et 386 fichiers** (+15 806 / −1 067)
+depuis `de748b38`. Build vert : 19 modules en **8 min 33 — 5 255 tests, 0 échec, 14 ignorés**, deux minutes de moins
+qu'au 31 octobre. Détail dans **`reverification-2026-11-06.md`**.
+
+**L'événement de la passe est une méthode.** Le dépôt a écrit `closures-2026-11-03.md`, qui revendique onze constats
+traités avec leur preuve rejouable, **en laissant délibérément les statuts intacts** — « une ligne de ce fichier est
+une revendication, et la revérification suivante dira si le code la confirme » — avec une section « Ce qui n'est pas
+fait » qui liste cinq réserves. Toutes se sont vérifiées exactes.
+
+**Les onze revendications sont confirmées**, et aucune ne reposait sur une réécriture de texte. `AUD-PRF-19` : le motif
+textuel et la fenêtre de 60 caractères ont **disparu du dépôt**, remplacés par quatre vraies règles ArchUnit.
+`AUD-SEC-17`/`AUD-SEC-18` : chaque segment est interrogé avant lecture, et `ADR-0157` tranche enfin entre les deux
+frontières qui se contredisaient, en choisissant la propriété **forte**. `AUD-ARC-16` : `ARCH-0158` est cette fois
+l'ADR attendu — bon module, bonne propriété, la visibilité. `AUD-TRV-08` : onze sites vérifiés un à un, prouvé en bac
+à sable. `AUD-TST-22` et `AUD-TST-23`, ouverts par l'audit six jours plus tôt, sont clos **sur le mécanisme** et pas
+seulement sur l'instance. `AUD-DEP-25`/`AUD-DEP-28` : 19 POM sur 19 en 1.2.2 et un gate à quatre termes.
+
+**L'issue la plus intéressante est `AUD-DEP-27`** : rendre `sqlite-jdbc` identifiable comme le moteur SQLite qu'il
+embarque **a rendu visibles des CVE réelles** — quatre au-dessus du seuil de 7.0 — d'où la montée du pilote en
+3.54.1.0. Corriger un constat de visibilité a immédiatement produit un correctif de sécurité.
+
+**Trois errata de ma part, dont un sérieux.** Le 30 octobre j'ai inscrit sur `AUD-QUA-17` « recompte sur `11bb1ccf` :
+chiffres inchangés » et durci le statut de *partiel* à *toujours valide*. **Ce recompte n'a pas eu lieu** : les quatre
+compteurs statiques sur lesquels reposait le constat avaient été retirés quinze jours plus tôt. C'est la faute la plus
+coûteuse que puisse commettre cet audit, puisque c'est exactement ce qu'il reproche au reste du dépôt. Les deux autres
+sont mineurs : un chiffre mal formé sur `AUD-ARC-19` (13 imports, pas 7), et la méthode de comptage d'`AUD-TRV-03`,
+désormais **inscrite définitivement dans le constat**, qui donne 1 701 là où j'annonçais 1 705.
+
+**Ce qui reste.** Les trois sprints ouverts du plan ne gardent **qu'un constat chacun**. `AUD-TRV-03` s'éloigne de son
+critère sur deux mesures — `Files.readString` bouge pour la première fois, à la hausse. `AUD-TRV-02` tient sur sa seule
+troisième clause ; attention à la lecture piégeuse, **l'écart passe de 1,28 à 2,67 points sans qu'un test de couverture
+ait changé** : c'est le 1,28 qui était faux, et la mesure a été réparée. `AUD-DEP-05` est un *partiel* qui **ne
+progressera plus** : le mainteneur a accepté le risque le 31 octobre, les releases restent non signées.
+
+**Trois aggravations.** `AUD-ARC-17` croît pour la troisième passe consécutive (cinq longueurs de fichier périmées
+s'ajoutent aux trois divergences connues). `AUD-TST-21` a vu **son scénario se réaliser** : une troisième règle de
+suppression est entrée sans qu'aucune assertion ne la voie, pendant que le fichier d'indices voisin naissait avec son
+contrat. `AUD-QUA-21` récidive, et l'archivage massif en a fait le **seul change OpenSpec vivant** du dépôt.
+
+**Un constat neuf, `AUD-DEP-29` (Moyenne)** : la page de règles que chaque session d'agent charge déclare neuf versions
+de dépendances qu'aucun gate ne compare au POM — et l'une a **déjà dérivé** (`jacoco` 0.8.15 contre 0.8.16).
+
+**124 constats : 83 corrigés · 5 partiels · 9 toujours valides · 4 caducs · 22 Info qui tiennent · 1 non vérifiable.**
+Les **14 constats actifs** sont 4 `Moyenne` et 10 `Faible` — **aucun `Critique` ni `Élevée`**. Charge restante :
+**12 à 36 jours**, contre 19 à 58. Les 24 contrôles passent.
+
+| Axe | 31 oct | 6 nov |
+|---|---|---|
+| Sécurité | 88 | **100** |
+| Performance | 95 | **99** |
+| Architecture | 88 | **92** |
+| Tests | 70 | **90** |
+| Dépendances | 82 | **90** |
+| Qualité | 80 | **88** |
+| **Moyenne** | **84** | **93** |
+
+## Clôtures du 3 novembre 2026 — les onze constats moyens du sprint 15
+
+Les onze constats `Moyenne` encore ouverts du sprint 15 (`AUD-DEP-25`, `AUD-DEP-27`, `AUD-DEP-28`, `AUD-PRF-19`,
+`AUD-QUA-17`, `AUD-SEC-17`, `AUD-SEC-18`, `AUD-ARC-16`, `AUD-TRV-08`, `AUD-TST-22`, `AUD-TST-23`) ont été traités sur la
+branche `chore/sprint-15-medium`, sans toucher aux statuts : ce qui a été fait, la preuve et ce qui reste sont dans
+**`closures-2026-11-03.md`**. La revérification suivante dira si le code les confirme.
+
+## État au 30 octobre 2026 — sprints 12 et 13
+
+Sur `11d1c30a` (branche `claude/sprint-12-final-aed805`), `AUD-TRV-03` passe de *toujours valide* à **partiel** :
+aucune liste de noms n'est plus un rôle, toute liste de classes de production d'un test d'architecture déclare sa sorte
+(ADR-0155, qui remplace ADR-0147), et la famille des interdits de type sans message est vide, sous un plafond de 0.
+L'enforcement reste majoritairement textuel : 1 733 assertions `contains` pour 72 règles `noClasses()`.
+
+Sur `67964ed2` (branche `claude/sprint-13-final-83a18a`), `AUD-PRF-05` passe de *partiel* à **corrigé** : l'ordre de
+la page est servi par un index et le garde-fou de plan de requête n'excuse plus aucune forme de page. `AUD-TRV-02` reste
+**partiel**, mais 117 des 118 classes de `morpheus-application` couvertes seulement par d'autres modules ont leurs
+propres tests, et l'écart entre les deux échelles passe de 13,36 à 4,32 points en lignes. Le gain n'est pas verrouillé :
+le ratchet par module (0,712) et son plafond qualifié restent loin sous la mesure (88,27 %).
+
+**120 constats : 72 corrigés · 7 partiels · 14 toujours valides · 4 caducs · 22 Info qui tiennent · 1 non
+vérifiable.** Les **21 constats actifs** sont 12 `Moyenne` et 9 `Faible`. Performance **95** (91), moyenne **86**
+(85) ; les cinq autres axes sont inchangés. Le plan du 9 octobre garde 3 constats, un par sprint de 12 à 14 ; charge
+restante estimée : **16,75 à 51 jours**.
+
+## État au 30 octobre 2026 — sprint 11 soldé
+
+Sur `c8ec9e4e` (branche `claude/sprint-11-final-9391a2`, base `11bb1ccf`), `AUD-ARC-03` et `AUD-ARC-13` passent de
+*partiel* à **corrigé**. Les paquets de premier niveau de `morpheus-application` n'ont plus aucun cycle : 21 dépendances
+sur un cycle et deux composantes avant, aucune après, par quatre déplacements de types vers le paquet le plus bas qui
+les emploie ou vers le domaine. La règle est `beFreeOfCycles()` sans liste d'exceptions (ADR-0156, qui remplace
+ADR-0152). La transition d'un cycle de vie et l'état de résolution d'une référence externe sont décidés sur leur type
+du domaine, sous des règles sans exception, et le domaine porte sa première famille scellée
+(`ChangeLifecycleTransitionDecision`). Domaine : 65 records, 26 enums, 1 interface scellée, 3 059 lignes ; rapport de
+lignes application/domaine 8,42× (9,69× sur `11bb1ccf`).
+
+**120 constats : 71 corrigés · 7 partiels · 15 toujours valides · 4 caducs · 22 Info qui tiennent · 1 non
+vérifiable.** Les **22 constats actifs** sont 13 `Moyenne` et 9 `Faible`. Architecture **89** (84), moyenne **85**
+(84) ; les cinq autres axes sont inchangés. Le plan du 9 octobre garde 4 constats, dans les sprints 12 à 14 ; charge
+restante estimée : **19,75 à 59 jours**.
+
+## État au 31 octobre 2026 — onze sprints soldés, et la mesure rattrapée par l'audit
+
+Revérification sur `de748b38` (`origin/develop`, PR #599), soit **35 commits et 370 fichiers** (+14 747 / −1 740)
+depuis `11bb1ccf`. Build vert : 19 modules en **10 min 38 — 5 209 tests, 0 échec, 13 ignorés** (412 de plus).
+Détail dans **`reverification-2026-10-31.md`**.
+
+**Cette vague est une réponse directe à l'audit de la veille** : elle reprend un par un les quatre constats classés
+*partiels* le 30 octobre, avec les réserves inscrites pour cahier des charges. **Trois se ferment**, trois autres
+progressent réellement — et la moyenne reste à **84**, parce que trois défauts neufs apparaissent, dont deux dans
+l'appareil de mesure lui-même.
+
+**Les trois clôtures ont été rouvertes dans le code et tiennent.** `AUD-ARC-03` : les composantes fortement connexes
+de l'application passent de **17 à 2**, et la règle devient `beFreeOfCycles()` **sans aucune exception nommée** — les
+21 arêtes tolérées ont disparu. Le cycle n'a pas été repoussé ailleurs : le domaine est sous sa propre règle et son
+recompte est identique avant et après. `AUD-ARC-13` : deux décisions supplémentaires descendent sur leur type, et le
+domaine porte sa première famille scellée. `AUD-PRF-05` : le `CASE` est descendu dans des colonnes générées servies
+par deux index partiels déclarés en migration V024, et surtout **le garde-fou a cessé d'excuser** — il exige
+désormais le nom de l'index dans le plan de requête, lancé par le vrai pilote sur une base migrée.
+
+**Deux errata de ma part**, tous deux sur la passe du 30 octobre. J'avais classé `AUD-ARC-13` *partiel* au motif que
+« le ratio ne bouge que de 3 % » — alors que son action écrit « **mesurer le résultat par la réduction des arêtes de
+la SCC, pas par le nombre de lignes déplacées** ». J'ai jugé ce constat au ratio que son action me disait
+expressément de ne pas utiliser ; les arêtes passent de 21 à 0. Et le rapport règle/texte d'`AUD-TRV-03`, que
+j'annonçais « 30,5:1 → 28,6:1 », vaut en réalité 42,3:1 puis 45,6:1 d'après mes propres comptes : les comptes
+étaient bons, les rapports dérivés étaient faux.
+
+**Du vrai progrès, mesuré.** `AUD-TRV-03` bouge pour la première fois dans le bon sens **et par le bon mécanisme** :
+les règles `noClasses()` doublent (42 → **89**), les assertions textuelles reculent (1 917 → **1 705**), et 24,1 des
+26,4 points de gain du rapport viennent de la montée des règles, pas de la baisse du texte — l'inverse exact de la
+veille. `AUD-TRV-02` : l'écart de couverture passe de **20,0195 à 1,2825 point**, et le mécanisme est établi — c'est
+la couverture qui est montée, pas l'échelle qui a été redéfinie : population inchangée, cliquets **relevés** et non
+abaissés, 44 fichiers de test neufs, et **aucun `pom.xml`, workflow ou script modifié sur les 35 commits**. Les
+classes entièrement empruntées tombent de **123 à une**.
+
+**Trois constats neufs, tous dans l'appareil plutôt que dans le produit.** `AUD-TST-22` (Moyenne) : les deux échelles
+de couverture ne sont plus qualifiées au même commit, et la vérification d'unicité est dans une boucle *par échelle*
+— l'écart que l'audit suit comme indicateur n'est plus un écart, et rien n'a protesté. `AUD-TST-23` (Moyenne) : le
+mécanisme neuf classe 7 listes en « compteur de dette », genre défini comme « ne faisant que rétrécir, sous la
+décision qui le dit » — et **rien n'asserte le rétrécissement, ni l'ADR**, qui pour deux d'entre elles n'existe pas.
+`AUD-ARC-19` (Faible) : le cycle `query.dsl` ↔ `query.saved` survit à la clôture, hors de la vue d'une règle qui
+tranche au premier niveau.
+
+**Trois aggravations, toutes collatérales.** `AUD-ARC-17` croît pour la deuxième passe consécutive, et la vague en
+donne la démonstration : un déplacement de paquet a été répercuté côté code par le compilateur et nulle part côté
+document, **parce que rien ne les compare** — l'ADR affirme désormais trois faits faux. `AUD-DEP-25` et `AUD-DEP-28`
+s'aggravent par le correctif d'`AUD-PRF-05`, dont la migration V024 porte le schéma de 23 à 24 : le dépôt déclare
+`1.2.1=20` pendant que 1.2.1 livre le schéma 24, soit **4 niveaux d'écart**. Et `AUD-QUA-21` a vu son scénario
+d'impact se réaliser : la vague a édité le `tasks.md` du document qui porte la phrase fausse, sans voir la phrase.
+
+**À l'actif du dépôt** : les ADR ont été archivés et renumérotés sans qu'**aucun garde-fou ne devienne muet** ; les
+trois constats de tests ont été traités **sans toucher à l'appareil qui les mesure** ; et le dépôt ne prétend pas que
+la migration vers le bytecode soit une substitution à garantie égale — là où la cible déclare une constante
+inlinable, il garde la moitié textuelle et l'explique.
+
+**123 constats : 72 corrigés · 7 partiels · 17 toujours valides · 4 caducs · 22 Info qui tiennent ·
+1 non vérifiable.** Les **24 constats actifs** sont 14 `Moyenne` et 10 `Faible` — **aucun `Critique` ni `Élevée`**.
+**Les onze premiers sprints du plan sont soldés**, et les trois encore ouverts — 12, 13 et 14 — ne gardent plus
+qu'**un constat chacun**. Charge restante : **19 à 58 jours**, contre 25,75 à 75 la veille. Les 24 contrôles passent.
+
+| Axe | 30 oct | 31 oct |
+|---|---|---|
+| Performance | 91 | **95** |
+| Sécurité | 88 | **88** |
+| Architecture | 84 | **88** |
+| Dépendances | 82 | **82** |
+| Qualité | 84 | **80** |
+| Tests | 78 | **70** |
+| **Moyenne** | **84** | **84** |
+
+L'axe Tests perd 8 points, et c'est l'enseignement de la passe : les deux constats qui le pénalisent ne portent pas
+sur le produit mais sur **l'appareil qui le mesure**. Le produit, lui, va mieux sur tous les axes que la vague a
+touchés.
+
+## État au 30 octobre 2026 — la vague ne déplace pas la note
+
+Revérification sur `11bb1ccf` (`origin/develop`, PR #588), soit **65 commits et 346 fichiers** (+11 611 / −1 895)
+depuis `65a97b06`. Build vert : `./mvnw clean verify` sur les 19 modules en **10 min 55 — 4 797 tests, 0 échec,
+13 ignorés** (105 tests de plus). Détail dans **`reverification-2026-10-30.md`**.
+
+**La vague a fait beaucoup, et la moyenne n'a pas bougé : 84.** Trois mouvements s'annulent. Les quatre clôtures du
+sprint 10 sont **confirmées**, et pour la bonne raison — chacune tient par une règle compilée ou une suppression de
+code, aucune par une réécriture de texte. Quatre constats de fond passent de *toujours valide* à **partiel** :
+`AUD-ARC-03` (cycles de paquets de l'application : **17 → 9** composantes), `AUD-ARC-13` (la décision descend dans
+`Constraint`, le paquet `application.constraint` disparaît), `AUD-TRV-02` (l'écart de couverture est pour la
+première fois mesuré, nommé classe par classe et borné par un cliquet descendant) et `AUD-PRF-05` (page et total en
+une seule instruction SQL). Un `partiel` pèse son poids entier : le barème ne récompense pas la moitié d'un chemin.
+Et **deux constats neufs** s'ouvrent, qui coûtent exactement ce que le sprint 10 avait rapporté.
+
+Ces quatre progrès gardent chacun leur réserve, inscrite au constat : la règle sur les cycles tolère **21 arêtes
+nommées** et n'est pas `beFreeOfCycles()` ; le domaine reste à **0 interface et 0 type scellé** ; l'écart de
+couverture n'a **pas bougé d'un centième** (20,0195 points), seule sa mesure est neuve ; et la pagination SQL
+s'ordonne par une expression `CASE` **qu'aucun index ne sert**, que le garde-fou de plan de requête excuse par son
+nom.
+
+**Deux aggravations.** `AUD-TRV-03` repasse de *partiel* à *toujours valide* : le dépôt a gagné **57 assertions
+textuelles** (1 859 → 1 916) et **perdu 2 règles** `noClasses()` (44 → 42) — le travers s'accentue pendant qu'on le
+corrige ailleurs. Et `AUD-ARC-17` est plus large qu'on ne le croyait : la table « Mesure » d'`ARCH-0150` attribue
+encore à `UpdateDiscoveryService` les familles **réseau** et **fils d'exécution**, que la **Décision 1 du même ADR**
+déclare inutilisées — le document contredit sa propre décision, et décrit l'état d'avant le correctif d'`AUD-ARC-01`.
+
+**Deux constats neufs.** `AUD-DEP-28` (Moyenne) : le dépôt déclare **deux niveaux de schéma pour la version 1.2.1**
+(20 dans le fichier de déclaration, 23 dans le code), et le test censé le voir ne peut structurellement pas
+l'attraper — sa seule comparaison est un plafond. `AUD-QUA-21` (Faible) : un `design.md` OpenSpec vivant affirme au
+présent un nom de paquet que le renommage a supprimé.
+
+**À l'actif du dépôt** : la vague a renuméroté plusieurs ADR et renommé un paquet dans 34 fichiers sans qu'**aucun
+garde-fou ne devienne muet**. C'est exactement l'opération qui casse silencieusement des assertions textuelles.
+
+**120 constats : 69 corrigés · 9 partiels · 15 toujours valides · 4 caducs · 22 Info qui tiennent ·
+1 non vérifiable.** Les **24 constats actifs** sont 14 `Moyenne` et 10 `Faible` — **aucun `Critique` ni `Élevée`**.
+Les dix premiers sprints du plan restent soldés ; il reste 6 constats du plan du 9 octobre et 18 du sprint 15.
+Charge restante estimée : **25,75 à 75 jours**. Les 24 contrôles de cohérence passent.
+
+| Axe | 28 oct (nuit) | 30 oct |
+|---|---|---|
+| Performance | 91 | **91** |
+| Sécurité | 88 | **88** |
+| Architecture | 84 | **84** |
+| Qualité | 85 | **84** |
+| Dépendances | 86 | **82** |
+| Tests | 82 | **78** |
+| **Moyenne** | **84** | **84** |
+
+## État au 29 octobre 2026 — sprint 10 soldé
+
+La PR #583, fusionnée sur `develop` en `b0368076`, ferme les quatre constats ouverts du sprint 10, chacun revérifié
+dans le code fusionné : `AUD-ARC-07` (le transport MCP partagé vit dans `com.morpheus.transport.mcp`, et
+`ModulePackageCorrespondenceTest` exige de chaque module le préfixe de paquet qui lui correspond), `AUD-ARC-08`
+(`com.morpheus.sdk` est sujet d'une règle, et les sujets annoncés sont comparés aux règles), `AUD-ARC-11` (la
+réflexion et le chargement de classes n'existent que dans des classes nommées, règle sur le bytecode doublée d'un
+scan du texte) et `AUD-QUA-11` (shims retirés, activateur non public, le probe épinglé seule entrée publique vers du
+code de plugin).
+
+**118 constats : 69 corrigés · 5 partiels · 17 toujours valides · 4 caducs · 22 Info qui tiennent ·
+1 non vérifiable.** **Les dix premiers sprints du plan sont soldés** ; il reste 6 constats du plan du 9 octobre et
+16 du sprint 15.
+
+## État dans la nuit du 28 au 29 octobre 2026 — plus aucun constat Élevée
+
+La PR #580 vise les **deux derniers constats de sévérité Élevée**. Statuts établis sur `65a97b06`, chacun
+rouvert dans le code avant d'être accepté. Détail dans **`contre-verification-2026-10-28-nuit.md`**.
+
+**Les deux tiennent. Il n'y a plus aucun constat `Élevée` ouvert** — il y en avait onze le 9 octobre.
+
+**`AUD-ARC-01`** : le réseau est entièrement sorti de `morpheus-application`. Recensement complet, imports et
+usages pleinement qualifiés : 6 occurrences restantes, toutes `java.net.URI`, un type-valeur. Le transport vit
+derrière le port `UpdateManifestSource`, implémenté dans `morpheus-cli`. Deux choses au-delà du verdict : le
+gate ne **confine** plus la famille réseau, il la **refuse** dans tout le paquet ; et la liste des classes à
+accès fichier **rétrécit enfin**, de 12 à 11. La décision de sécurité — refus du schéma `http:`, borne de
+taille, délai — est restée du bon côté de la frontière.
+
+**`AUD-PRF-04`** : les trois journaux sont bornés en SQL, sans tri en mémoire. Le cas intéressant est
+`sync_source_archives`, dont l'ordre stable n'allait pas de soi — l'horodatage texte ne trie pas par temps
+quand la fraction change de longueur —, d'où une migration V023 qui ajoute une clé d'ordre, la remplit pour
+l'existant et crée son index. Un gate lance `EXPLAIN QUERY PLAN` par le vrai pilote et refuse un balayage de
+table ou un arbre temporaire.
+
+**`AUD-TST-20`** se ferme aussi, et le piège qu'il décrivait a été évité : l'ancienne règle, devenue sans
+sujet après la pagination, a été retirée plutôt que laissée à passer sur l'ensemble vide.
+
+**Build vert** : `./mvnw clean verify` sur les 19 modules en 10 min 51 — **4 692 tests, 0 échec, 13 skips**.
+
+**Un constat naît**, `AUD-ARC-18` : le transport sorti du cœur est arrivé dans `morpheus-cli`, qui n'a aucun
+gate de confinement technologique — `UpdateManifestFetcher` y apporte réseau, accès fichier et fils
+d'exécution d'un coup. Ce n'est pas une violation d'ADR-0150, dont la portée est la couche applicative : c'est
+une zone non couverte, et c'est le prix du déplacement, que l'ADR n'écrit pas.
+
+**Deux constats gagnent une preuve en situation.** `AUD-TRV-08` : le build est vert seulement parce que
+`.claude/worktrees` est vide ; `.gitignore` ne le couvre toujours pas et la PR a même aggravé l'un des deux
+gates concernés. `AUD-ARC-17` : la section « Mesure » d'ARCH-0150 n'a pas suivi son propre amendement — elle
+liste encore la classe qui vient d'en sortir et en omet une autre.
+
+**118 constats : 65 corrigés · 6 partiels · 20 toujours valides · 4 caducs · 22 Info qui tiennent ·
+1 non vérifiable.** **Les neuf premiers sprints du plan sont soldés.**
+
+Notes par axe de la contre-vérification de nuit, que le registre reproduit sans les recalculer :
+
+| Axe | 9 oct. | 26 oct. | 28 soir | **28-29 nuit** | |
+|---|---|---|---|---|---|
+| Performance | 28 | 77 | 81 | **91** | **+10** |
+| Sécurité | 75 | 96 | 88 | **88** | — |
+| Dépendances / exploitation | 36 | 83 | 86 | **86** | — |
+| Qualité | 46 | 70 | 84 | **84** | — |
+| Tests | 54 | 70 | 78 | **82** | +4 |
+| Architecture | 26 | 55 | 59 | **72** | **+13** |
+| **Moyenne** | 44 | 75 | 79 | **84** | **+5** |
+
+---
+
+## État au 28 octobre 2026, au soir — dix-sept constats revérifiés, quatre constats neufs
+
+Une troisième passe du 28 octobre, faite sur `9c027eeb` (PR #579) sans réseau ni build Linux, est consignée dans
+**`contre-verification-2026-10-28-soir.md`**. Le registre la relit dans le code de `65a97b06` (`develop`, après la
+PR #580).
+
+**Ce que le document établit, et que le registre retient.** Les clôtures d'`AUD-DEP-07` et d'`AUD-PRF-09` tiennent ;
+le registre les porte corrigées. La règle `base="true"` du fichier de suppressions Dependency-Check n'ajoute aucune
+règle et n'élargit aucune portée : le pilote `sqlite-jdbc` reste scanné. `AUD-ARC-16` reste partiel.
+
+**Une réparation dont le texte est perdu.** Le document annonce que vingt constats portaient encore le texte du
+26 octobre et qu'il les a restaurés ; ces textes ne sont ni dans Git ni dans le document. `AUD-ARC-01`, `AUD-PRF-04`
+et `AUD-TST-20` sont revérifiés sur `aace25fc` par la PR #580. Les dix-sept autres sont revérifiés dans le code de
+`65a97b06`, citation par citation, sans reprendre les verdicts du document :
+
+- cinq tiennent tels quels, seule leur date de vérification change : `AUD-ARC-07`, `AUD-ARC-15`, `AUD-DEP-05`,
+  `AUD-QUA-17`, `AUD-SEC-17` ;
+- dix gardent leur statut sur un texte réécrit : `AUD-ARC-03` (361 fichiers, 38 paquets, la même composante de 17),
+  `AUD-ARC-08` (citations), `AUD-ARC-11` (sept classes réflexives, pas huit), `AUD-ARC-13` (rapport de taille 10,0),
+  `AUD-ARC-17` (la liste a suivi ADR-0150, et rien ne la compare toujours au gate), `AUD-DEP-25` (V023, trois
+  migrations après le tag `v1.2.1`), `AUD-PRF-05`, `AUD-PRF-19` (la route de sauvegarde passe par les travailleurs de
+  base, le reste est ouvert), `AUD-QUA-11` et `AUD-TRV-03` (1 858 assertions `contains` pour 61 constructeurs de règle) ;
+- `AUD-DEP-26` passe à **partiel** : RT-13 est rouvert et les six messages de `security.yml` qui y renvoient visent
+  une entrée ouverte ; `UPGRADE_1_2_2.md` reste actif pour une version que le POM ne porte pas ;
+- `AUD-TRV-02` reste **toujours valide**, là où le document le passait à partiel : `morpheus-application` est couvert
+  à 49,22 % de ses lignes par ses propres tests (48,00 % le 26 octobre), l'écart des deux échelles reste de 20 points
+  dans les preuves conservées, et aucune part de l'action n'est faite.
+
+**Quatre constats naissent**, au sprint 15 :
+- `AUD-TRV-08` (Moyenne, S) : sur dix parcours de l'arbre du dépôt depuis sa racine dans `morpheus-architecture-tests`,
+  huit n'écartent pas `.claude/`, soit onze méthodes de test dans huit classes ; une copie sous `.claude/worktrees`
+  fausse leur verdict dans les deux sens ;
+- `AUD-DEP-27` (Moyenne, M) : sur une base NVD reconstruite, `sqlite-jdbc` n'est plus associé au SQLite natif qu'il
+  embarque ; RT-13 le consigne, aucun test ni constat ne le suit ;
+- `AUD-TST-21` (Faible, S) : le fichier de suppressions Dependency-Check n'est tenu par aucune assertion ;
+- `AUD-PRF-20` (Faible, S) : l'attente d'un créneau de réponse par une écriture du proxy remote n'a pas de délai
+  propre ; la borne composée, environ 420 s pour un seul tour de file, n'est écrite nulle part.
+
+**Ce que le registre ne reprend pas du document** :
+- « il reste deux Élevée, `AUD-ARC-01` et `AUD-PRF-04` » : les deux sont corrigés par la PR #580, et aucun constat
+  `Élevée` n'est ouvert ;
+- le passage d'`AUD-TRV-02` à partiel, pour la raison ci-dessus ;
+- le symptôme chiffré d'`AUD-TRV-08` (57 POM au lieu de 19, 2 724 fichiers Java sous `.claude/worktrees`, deux
+  échecs) : non reproduit, ces copies n'existent plus ; le registre inscrit le motif, qu'il a mesuré ;
+- les mesures qui demandent une base NVD, le rafraîchissement réel par les flux et la classification sur base
+  neuve : non reproduites ici ;
+- ses notes par axe, calculées sur `9c027eeb` avant la PR #580. Le registre ne les recalcule pas ; ce sont les notes du
+  document :
+
+| Axe | 28 oct. matin | 28 oct. soir | |
+|---|---|---|---|
+| Sécurité | 92 | 88 | −4 |
+| Dépendances | 87 | 86 | −1 |
+| Qualité | 88 | 84 | −4 |
+| Performance | 78 | 81 | +3 |
+| Tests | 83 | 78 | −5 |
+| Architecture | 59 | 59 | — |
+| **Moyenne** | **81** | **79** | **−2** |
+
+**Plan du 9 octobre : 63 soldés sur 73, 10 restants.** Sprint 15 : 20 constats, 15 restants. **117 constats :
+65 corrigés · 6 partiels · 19 toujours valides · 4 caducs · 22 Info qui tiennent · 1 non vérifiable.** Aucun constat
+`Élevée` n'est ouvert.
+
+---
+
+## État au 28 octobre 2026 — plus aucun constat `Élevée` ouvert
+
+Branche `fix/audit-arc-01-prf-04`, sur `aace25fc`, après un `./mvnw clean verify` vert sur les 19 modules (4 692 tests, 0 échec, 13 ignorés). Les deux derniers
+constats `Élevée` sont corrigés, et avec eux le test de garde qui ne gardait rien.
+
+**`AUD-ARC-01` est corrigé.** La découverte de mise à jour lit son manifeste par un port de l'application,
+`UpdateManifestSource` ; son transport `java.net.http` vit dans `morpheus-cli`, seul appelant. Le gate technologique
+refuse le réseau sortant et les fils d'exécution dans tout `com.morpheus.application`, sans exception nommée. La voie
+« cœur pur » du constat d'origine reste écartée par ADR-0150 : c'est un choix écrit et gaté, que l'action demandait de
+trancher, pas une correction qui manque. DT-18 est soldée.
+
+**`AUD-PRF-04` est corrigé.** L'audit des mutations de cycle de vie et les archives de synchronisation sont lus par
+pages bornées au store, comme l'audit des policies, et aucun port de journal n'offre plus de lecture entière. Les
+archives ont une clé d'ordre stockée (migration V023) ; le tri en mémoire a disparu. ADR-0131 est consolidé dans
+ADR-0151, puisque la clôture par une règle d'appel qu'il retenait pour ces deux journaux est remplacée.
+
+**`AUD-TST-20` est corrigé** (sprint 15) : le test de garde compare la liste exacte des méthodes que la règle juge,
+et une fixture la casse dans les deux sens à chaque exécution.
+
+**Plan du 9 octobre : 63 soldés sur 73, 10 restants.** Les sprints 1 à 9 sont terminés. **113 constats :
+65 corrigés · 5 partiels · 16 toujours valides · 4 caducs · 22 Info qui tiennent · 1 non vérifiable.** Aucun constat
+`Élevée` n'est ouvert.
+
+---
+
+## État au 28 octobre 2026 — contre-vérification : le sprint 9 terminé
+
+Une passe indépendante, sur `5c3ce4dd` (PR #577), avec un build de contrôle : `./mvnw clean verify` vert sur les
+19 modules, 4 669 tests, 0 échec. Elle couvre le sprint 9, que les notes précédentes laissaient hors de leur
+périmètre, et relit leurs sept verdicts. Détail dans **`contre-verification-2026-10-28.md`**. Le registre en est
+reconstruit sur `fbf58cac`, chaque constat repris de la contre-vérification relu dans le code.
+
+**Le sprint 9 est terminé** : `AUD-QUA-02`, `AUD-QUA-06`, `AUD-QUA-07`, `AUD-QUA-08`, `AUD-QUA-09` et `AUD-ARC-10`
+sont corrigés. Chaque helper du socle a un propriétaire, et les règles qui refusent une copie cherchent une forme —
+une signature, un appel compilé, un fichier de test qui remonte depuis le répertoire courant — et non un nom.
+
+**`AUD-ARC-16` passe à partiel, pas à caduc.** La contre-vérification le déclare caduc : la garde d'exactitude que
+l'action demandait en premier existait déjà le 26 octobre (`SqliteStorePackagesArchitectureTest:81`, `:109`). C'est
+exact, mais l'action demandait aussi, dans ses deux voies, d'écrire que l'élargissement de visibilité est le prix du
+découpage et que la liste des types publics de `runtime/` ne peut que rétrécir. Aucun ADR ne le dit.
+
+**Trois constats naissent**, au sprint 15 : `AUD-SEC-18` (deux frontières d'espace de travail aux garanties
+opposées, sans décision écrite), `AUD-QUA-19` (sept copies de `safeMessage` hors du CLI, que la règle du sprint 9
+ne voit pas) et `AUD-QUA-20` (les passerelles MINOS et NEXUS portent l'essentiel de la duplication qui reste entre
+les deux modules d'intégration).
+
+**Quatre citations corrigées** : `AUD-TST-10` (le contrôle par palier de `validate-r2` s'ajoute à `tests >= 1`, et
+six paliers ne sont le départ d'aucun test d'upgrade), `AUD-PRF-14`, `AUD-TST-19` et `AUD-TST-09` (32 champs de
+plafond périmés et non lus dans les preuves conservées).
+
+**Ce que la reconstruction n'a pas repris de la contre-vérification** :
+- la correction de citation d'`AUD-PRF-09` est sans objet : le registre cite le test par son nom ;
+- l'intitulé d'`AUD-TST-09` n'est plus littéralement vrai : l'écart de branche agrégé est de 0,4195 point, au-delà
+  des 0,41 de l'intitulé ;
+- « 78 des 89 blocs » d'`AUD-QUA-20` n'est pas reproduit ; la mesure inscrite est la sienne, 151 des 195 fenêtres
+  de douze lignes communes aux deux modules ;
+- quelques comptes d'avant ne sont pas reproduits à l'identique (342 appels de `RepositoryRoot`, 352 relus ;
+  11 fichiers de `PublicPayloads`, 10 relus) : aucun ne change un statut.
+
+**Plan du 9 octobre : 61 soldés sur 73, 12 restants.** Les sprints 1 à 5 et 7 à 9 sont terminés. **113 constats :
+62 corrigés · 7 partiels · 17 toujours valides · 4 caducs · 22 Info qui tiennent · 1 non vérifiable.** Il reste deux
+constats `Élevée` : `AUD-ARC-01` et `AUD-PRF-04`, tous deux partiels.
+
+| Axe | 26 oct. | **28 oct.** | |
+|---|---|---|---|
+| Sécurité | 96 | **92** | −4 |
+| Qualité | 70 | **88** | **+18** |
+| Dépendances / exploitation | 83 | **87** | +4 |
+| Tests | 70 | **83** | +13 |
+| Performance | 77 | **78** | +1 |
+| Architecture | 55 | **59** | +4 |
+| **Moyenne** | **75** | **81** | **+6** |
+
+Notes de la contre-vérification, qui comptait `AUD-ARC-16` comme caduc ; le registre le garde ouvert, sans que la
+note d'architecture soit recalculée.
+
+---
+
+## État au 28 octobre 2026 — les sprints 1, 5, 7 et 8 terminés
+
+Sept PR fusionnées (#570 à #576) sur les sept constats encore ouverts des sprints 1, 5, 7 et 8, statuts relus
+dans le code de `develop` à `6c6a97f6` ; puis la branche `fix/finish-sprints-1-5` sur les deux qui restaient,
+`AUD-DEP-07` et `AUD-PRF-09`. Détail dans **`reverification-2026-10-28.md`** et
+**`reverification-2026-10-28-sprints-1-5.md`**.
+
+**Cinq constats se ferment** : `AUD-PRF-14` (une seule passe mesure et décode, chaque répertoire listé une fois),
+`AUD-TRV-07` (les huit validateurs `.ps1` ont une lane nocturne Windows, et une règle refuse un validateur qu'aucune
+voie ne lance), `AUD-TST-09` (plafonds de couverture requalifiés sur les deux plateformes, marge exécutée par un
+test), `AUD-TST-10` (upgrade testé depuis des bases écrites par v1.0.0, v1.1.0 et v1.2.1) et `AUD-TST-19` (les trois
+ratchets de présence à dix sous une mesure déterministe, raison écrite à côté des clés).
+
+**`AUD-PRF-09` est corrigé** : la décision du 17 octobre est rouverte par le mainteneur. Chaque appel amont de la
+façade remote a un délai (60 s en lecture, 300 s en écriture et ADMIN), et une écriture expirée répond un résultat
+inconnu, `504 UPSTREAM_WRITE_TIMEOUT`.
+
+**`AUD-DEP-07` est corrigé** : le gate CVE a une seconde source de rafraîchissement, les flux de données JSON 2.0 du
+NVD, sans clé, qui prend le relais dès que le chemin par `NVD_API_KEY` n'a pas rafraîchi la base.
+
+**Plan du 9 octobre : 55 soldés sur 73, 18 restants.** Les sprints 1, 2, 3, 4, 5, 7 et 8 sont terminés. La PR #569
+(sprint 9), fusionnée le 28 octobre, n'est pas revérifiée par cette passe.
+
+---
+
+## État au 26 octobre 2026 — la grande restructuration, et le premier build vert de la mission
+
+67 commits et **25 pull requests** depuis la passe du 24 octobre (#540 à #564) : 907 fichiers,
++15 100 / −5 206. La plus grosse vague depuis l'audit. Statuts établis sur `4694b8b2`.
+Détail dans **`reverification-2026-10-26.md`**.
+
+**Pour la première fois, l'audit dispose d'une exécution réelle.** Les six passes précédentes ont
+travaillé sans compiler — Maven Central est injoignable depuis le conteneur d'audit. Le build a été
+lancé sur la machine du mainteneur : **`./mvnw clean verify` vert sur les 19 modules en 10 min 46,
+4 437 tests, 0 échec, 13 skips**, dont 779 exécutions de tests d'architecture. Les règles ArchUnit
+des trois nouveaux ADR passent, les gates de couverture passent, et la couverture est mesurée.
+
+**Trois constats se ferment**, tous en architecture, tous avec une règle exécutable à l'appui :
+`AUD-ARC-02` (**Élevée** — l'ingestion passe par un port, l'agrégat concret a disparu du dépôt),
+`AUD-ARC-06` (`morpheus-api` en sept paquets de rôle, racines de composition de 32 à 5) et
+`AUD-ARC-09` (`MorpheusCli` de 908 à 109 lignes, `MorpheusMcpToolService` supprimé). Trois ADR du
+25 octobre — ARCH-0147, ARCH-0148, ARCH-0149 — tranchent le sprint 11.
+
+**Quatre constats naissent de cette même restructuration** : l'élargissement de visibilité qu'elle a
+imposé dans `morpheus-store-sqlite` (`AUD-ARC-16`), un test de garde qui resterait vert si sa règle
+devenait aveugle (`AUD-TST-20`), la liste d'ADR-0148 recopiée à la main dans son gate (`AUD-ARC-17`)
+et deux dérives de la trace de suivi (`AUD-DEP-26`).
+
+**110 constats : 49 corrigés · 12 partiels · 22 toujours valides · 4 caducs · 22 Info qui tiennent ·
+1 non vérifiable.** Il reste **deux constats `Élevée`** : `AUD-ARC-01` et `AUD-PRF-04`, tous deux
+partiels.
+
+| Axe | 9 oct. | 17 oct. | 18 oct. | 21 oct. | **26 oct.** | |
+|---|---|---|---|---|---|---|
+| Sécurité | 75 | 100 | 96 | 96 | **96** | — |
+| Dépendances / exploitation | 36 | 87 | 75 | 84 | **83** | −1 |
+| Performance | 28 | 52 | 77 | 77 | **77** | — |
+| Tests | 54 | 69 | 66 | 75 | **70** | −5 |
+| Qualité | 46 | 66 | 63 | 71 | **70** | −1 |
+| Architecture | 26 | 46 | 46 | 46 | **55** | **+9** |
+| **Moyenne** | 44 | 70 | 70 | 75 | **75** | — |
+
+La moyenne ne bouge pas, et c'est le résultat honnête. L'architecture gagne neuf points, mais quatre
+constats neufs et une lecture plus exacte de la couverture reprennent ailleurs ce qui a été gagné.
+Un score stable après la plus grosse vague de la mission ne dit pas que rien n'a avancé : il dit que
+le travail a déplacé autant de dette qu'il en a soldé, et que la mesure le voit.
+
+**Ce que le build révèle sur la couverture.** Mesurée par module et par ses *propres* tests :
+`morpheus-application` **48,00 %** de lignes sur 11 076 instrumentées, `morpheus-store-memory`
+52,87 %, `morpheus-domain` 59,78 %, contre `morpheus-api` 94,24 % et `morpheus-cli` 88,19 %.
+L'agrégat affiche 91,33 %. L'écart de `AUD-TRV-02` n'est plus déduit de deux plafonds : il est
+mesuré, et sa cause est visible — le cœur métier n'atteint les chiffres de l'agrégat que parce que
+les tests des adaptateurs le traversent. Par ailleurs la couverture agrégée réelle (91,33 % / 77,49 %)
+**dépasse les plafonds qualifiés inscrits** le 9 octobre (90,30 % / 76,11 %), qui décrivent donc un
+état périmé.
+
+**Aggravations.** Les copies de `sha256` passent de 6 à 7 — la nouvelle est née du découpage de
+`morpheus-store-sqlite`. Les blocs de 12 lignes dupliqués dans `src/main` passent de 322 à 405.
+`AUD-QUA-02` baisse de 99 à 71 copies, sous son chiffre d'origine pour la première fois, mais la
+divergence double : 16 écritures distinctes du même localisateur contre 7, et 5 critères de détection
+incompatibles contre 2.
+
+**Errata.** Le « reste à faire » d'`AUD-DEP-05` demandait une section de vérification SHA-256 qui
+existe depuis le tag `v1.2.1`, antérieure au constat. Et `AUD-ARC-11` sous-comptait son propre
+sujet : huit classes de production atteignent la réflexion, pas trois.
+
+---
+
+## État au 21 octobre 2026 — le sprint 8, et deux errata de l'audit
+
+72 commits depuis la passe du 18 octobre (PR #517 à #535) : le **sprint 8** et la clôture du sprint 7.
+Statuts établis sur `6bdf4bbb`. Détail dans **`reverification-2026-10-21.md`**.
+
+**Quatre des six constats du sprint 8 sont corrigés**, deux restent partiels. Et cette passe corrige **deux
+erreurs de l'audit lui-même** — voir les errata ci-dessous.
+
+**106 constats : 46 corrigés · 7 partiels · 26 toujours valides · 4 caducs · 22 Info qui tiennent · 1 non
+vérifiable.** Un constat neuf, `AUD-TST-19`. Il reste **trois constats `Élevée`** : `AUD-ARC-01`,
+`AUD-ARC-02`, `AUD-PRF-04`.
+
+| Axe | 9 oct. | 13 oct. | 17 oct. | 18 oct. | **21 oct.** | |
+|---|---|---|---|---|---|---|
+| Sécurité | 75 | 100 | 100 | 96 | **96** | — |
+| Dépendances / exploitation | 36 | 68 | 87 | 75 | **84** | +9 |
+| Performance | 28 | 52 | 52 | 77 | **77** | — |
+| Tests | 54 | 69 | 69 | 66 | **75** | +9 |
+| Qualité | 46 | 56 | 66 | 63 | **71** | +8 |
+| Architecture | 26 | 35 | 46 | 46 | **46** | — |
+| **Moyenne** | **44** | **63** | **70** | **70** | **75** | **+5** |
+
+**Le meilleur niveau depuis le 9 octobre.** Charge restante : 38 à 110 jours sur 33 constats ouverts. Les
+sprints 2, 3 et 4 sont terminés, les sprints 1, 5, 6 et 7 gardent un reliquat chacun, le sprint 8 est
+largement entamé.
+
+**Premier erratum — `AUD-DEP-23` et `AUD-DEP-24` sont caducs.** Le 18 octobre j'ai levé un constat `Élevée`
+disant que les voies nocturnes analysaient une branche gelée. L'observation était exacte, la conclusion non :
+c'était la **fenêtre de promotion de la v1.2.1**, pas un changement de modèle. La PR #516 a refermé la
+fenêtre le 18 à 16h33, et depuis les dix-neuf PR du lot sont toutes allées sur `develop`. Le modèle décrit
+par `ROADMAP.md` n'a jamais changé. *La leçon : auditer pendant une fenêtre de release, c'est risquer de
+prendre l'état transitoire pour l'état permanent.*
+
+**Second erratum — `AUD-DEP-13` était corrigé depuis le 14 octobre.** Le `<version>1.0.4</version>` a disparu
+dans le commit qui soldait `AUD-DEP-14` ; j'ai vérifié l'un sans voir que le même commit fermait l'autre, et
+quatre passes l'ont reconduit sans le remesurer. *Un constat soldé en dommage collatéral d'un autre n'est
+signalé par rien.*
+
+**Ce qui est le plus solide dans ce lot.** `AUD-TST-03` : 457 `assertThrows` au résultat jeté avant, **0**
+après, recomptés indépendamment. `AUD-TST-06` : le gate ne compare pas à une liste recopiée mais à la table
+de routage de la CLI elle-même, que `MorpheusMain.run` consulte avant tout dispatch. `AUD-TST-08` : la
+frontière entre tests écrits et générés est **mesurée**, pas déclarée.
+
+**Un constat neuf, `AUD-TST-19`.** Le commit qui a re-basé les ratchets a mesuré 693 tests d'architecture et
+laissé le ratchet à 585 : **108 exécutions de jeu** sur la couche qui tient tous les autres invariants, quand
+les deux autres clés du même fichier n'en ont que 10.
+
+**Une aggravation, troisième fois : `AUD-QUA-02`.** 99 copies du localisateur de racine, contre 73 au
+9 octobre — dont 97 dans `morpheus-architecture-tests`. Tant que le socle n'existe pas, tout travail de test
+aggrave ce constat, y compris celui qui solde les autres.
+
+**Trois réserves.** *Aucun build n'a pu être exécuté* dans aucune des six passes : les ratchets et les
+plafonds de couverture ne sont pas revérifiables, seule leur mécanique l'est. *PowerShell est absent*, donc
+la moitié `.ps1` du dispositif n'est ici ni lancée ni testée — ce qui est aussi le fond de `AUD-TRV-07`.
+*L'API GitHub est refusée*, donc les identifiants de run et les durées restent des revendications. Seule
+exécution réelle : la suite Python, **322 tests, 0 échec, 21 sautés**.
+
+## État au 18 octobre 2026 — le sprint 7, et le changement de branche d'intégration
+
+33 commits depuis la passe du 17 octobre (PR #508 à #515), portant le **sprint 7 de performance** et un
+changement que personne n'avait annoncé à l'audit : **`main` a remplacé `develop` comme branche
+d'intégration**. Les statuts sont ceux de `29c942ae`, dont l'arbre est identique à `origin/main`. Détail
+dans **`reverification-2026-10-18.md`**, complément du soir compris.
+
+**Huit constats passent à corrigé**, dont `AUD-PRF-02`, l'un des deux derniers `Élevée` de l'axe
+Performance. **Quatre constats sont neufs**, tous nés du changement de branche ou de ses effets de bord :
+`AUD-DEP-23`, `AUD-DEP-24`, `AUD-DEP-25`, `AUD-SEC-17`.
+
+**105 constats : 41 corrigés · 5 partiels · 34 toujours valides · 2 caducs · 22 Info qui tiennent · 1 non
+vérifiable.** Il ne reste que **trois constats `Élevée`** : `AUD-ARC-01`, `AUD-ARC-02` et `AUD-PRF-04`.
+
+| Axe | 9 oct. | 13 oct. | 15 oct. | 17 oct. | **18 oct.** | |
+|---|---|---|---|---|---|---|
+| Sécurité | 75 | 100 | 100 | 100 | **96** | −4 |
+| Dépendances / exploitation | 36 | 68 | 73 | 87 | **75** | −12 |
+| Performance | 28 | 52 | 52 | 52 | **77** | **+25** |
+| Tests | 54 | 69 | 65 | 69 | **66** | −3 |
+| Qualité | 46 | 56 | 52 | 66 | **63** | −3 |
+| Architecture | 26 | 35 | 36 | 46 | **46** | — |
+| **Moyenne** | **44** | **63** | **63** | **70** | **70** | — |
+
+La moyenne ne bouge pas, et c'est l'information : **le sprint 7 paie exactement ce que les quatre constats
+neufs coûtent.** Le gain de 25 points sur Performance est le plus gros d'une passe sur un seul axe depuis le
+9 octobre.
+
+**Où en est le plan.** Les sprints **2, 3 et 4 sont terminés**. Les sprints 1, 5, 6 et 7 gardent **un
+reliquat chacun**, et ce sont les seuls restes du plan du 9 octobre dans la première moitié :
+
+| Sprint | Reliquat | Où il en est |
+|---|---|---|
+| 1 | `AUD-DEP-07` | **Bloqué en amont** — Dependency-Check 13.0.1 n'existe pas ; rien que le dépôt puisse faire |
+| 5 | `AUD-PRF-09` | Change OpenSpec ouvert, non archivé : en cours |
+| 6 | `AUD-PRF-04` | Partiel — la table HTTP est corrigée, les deux autres sont mises hors d'atteinte par une règle |
+| 7 | `AUD-PRF-14` | **Jamais commencé** — cité dans aucun change OpenSpec |
+
+Les sprints 8 à 14 n'ont pas commencé, conformément à l'ordre. Charge restante : 41 à 120 jours sur 39
+constats ouverts.
+
+**Correction de modélisation.** Les neuf constats nés *après* le 9 octobre — d'une scission, d'un effet de
+bord d'un correctif, ou du changement de branche — étaient rangés dans les sprints du plan d'origine, ce qui
+faisait croire que ceux-ci traînaient depuis le 9 octobre. C'était faux. Ils sont regroupés dans un
+**sprint 15, « Dérives apparues pendant les correctifs »** : 9 constats, 7 ouverts. Aucun n'est prérequis
+d'un constat du plan d'origine, la vérification a été faite avant de les déplacer.
+
+**Ce qu'il faut savoir du changement de branche.** Les sept PR du lot ont toutes atterri sur `main`, et
+`origin/HEAD` y pointe : `main` est la branche d'intégration, `develop` un miroir rattrapé à la main. Les
+huit voies nocturnes — Sonar, SpotBugs, PIT, budgets M19, répétition de release, validateurs sans voie —
+épinglent toutes `develop`. Pendant environ vingt-quatre heures elles ont **rendu vert sur du code périmé**,
+jusqu'à ce que la PR #515 synchronise les deux branches, une minute après que le relevé l'ait trouvé.
+Aujourd'hui les arbres sont identiques et le volet aigu est éteint, d'où la rétrogradation d'`AUD-DEP-23`
+d'Élevée à Moyenne. Mais rien ne garantit que `develop` suive : **un vert nocturne atteste l'état de
+`develop` au moment du run, pas celui de `main`.** Le reste du basculement n'est pas répercuté non plus —
+Dependabot vise toujours `develop`, donc une mise à jour de dépendance fusionnée là n'atteindra jamais
+`main`, silencieusement (`AUD-DEP-24`).
+
+**Deux verdicts contre-vérifiés, deux revendications qui ne tiennent pas.** Les deux `Élevée` de Performance
+ont été repris par une lecture indépendante : verdicts confirmés, et le comptage d'`AUD-PRF-02` est
+recalculable à l'identique. En revanche, `closures-2026-10-17.md` affirme que le filet d'`AUD-QUA-18` est
+« éprouvée par un test qui fuit la portée » — **ce test n'existe pas** ; et il justifie le maintien en
+séquentiel de trois modules par `java.home` et `Locale.setDefault`, alors que `java.home` n'est posé dans
+aucun des trois et que `morpheus-cli` ne porte ni l'un ni l'autre. Aucun verdict ne change, mais c'est la
+fiabilité du registre de clôture qui est en cause, et c'est le motif que cet audit suit depuis le début.
+
+**Trois réserves.** *Sécurité 96* au lieu de 100 vient d'`AUD-SEC-17`, un rétrécissement du contrôle avant
+lecture introduit par une optimisation : l'invariant « rien hors frontière n'entre dans l'inventaire » tient
+et il est testé ; l'invariant « aucun contenu n'est lu à travers un lien » ne tient plus. *Aucun build n'a
+pu être exécuté* dans aucune des cinq passes — Maven Central est refusé par le proxy, PowerShell est absent,
+l'API GitHub aussi. Tout est établi par lecture de code, sauf la suite Python de `scripts/tests`,
+réexécutée : **292 tests, 0 échec, 17 sautés**. Enfin, pour tout le sprint 7, *la structure algorithmique est
+vérifiable, la baisse de coût ne l'est pas* : elle n'est tenue que par des gates M19 qui ne tournent pas
+dans `clean verify`.
+
 ## État au 17 octobre 2026 — vérification des sept constats portés à « corrigé »
 
 54 commits depuis la passe du 15 octobre (PR #493 à #506), dont la promotion de **v1.2.1** sur `main` le

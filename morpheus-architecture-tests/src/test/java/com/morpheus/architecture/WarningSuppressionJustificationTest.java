@@ -30,7 +30,7 @@ class WarningSuppressionJustificationTest {
 
     @Test
     void everySuppressedWarningOfTheProductStatesItsReason() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         List<String> unjustified = new ArrayList<>();
         int suppressions = 0;
         for (Path source : mainSources(root)) {
@@ -113,17 +113,5 @@ class WarningSuppressionJustificationTest {
             }
         }
         return sources;
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 }

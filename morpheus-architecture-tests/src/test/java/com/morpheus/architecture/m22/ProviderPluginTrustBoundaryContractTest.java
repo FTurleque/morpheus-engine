@@ -1,17 +1,29 @@
 package com.morpheus.architecture.m22;
 
+import com.morpheus.architecture.ClassesOfASource;
+import com.morpheus.architecture.ProductionSources;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.assignableTo;
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.belongToAnyOf;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.morpheus.architecture.RepositoryRoot;
+import com.morpheus.sdk.provider.ProviderPluginService;
+import com.tngtech.archunit.core.domain.JavaClass;
+import com.tngtech.archunit.core.domain.JavaMethod;
+import com.tngtech.archunit.core.domain.JavaModifier;
+import com.tngtech.archunit.core.importer.ClassFileImporter;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
+import java.util.ServiceLoader;
 import org.junit.jupiter.api.Test;
 
 /**
- * The external-code trust boundary, stated as what it guarantees and as what it deliberately does not (ADR-0101).
+ * The external-code trust boundary, stated as what it guarantees and as what it deliberately does not (ADR-0129).
  *
  * <p>MORPHEUS runs two kinds of code it did not write: a provider plugin an operator activated, and an MCP peer
  * whose launch command an operator configured. Both cross a real process and environment boundary. None of it is
@@ -51,12 +63,11 @@ class ProviderPluginTrustBoundaryContractTest {
         String worker = read(SDK + "ProviderPluginProbeWorker.java");
         String probe = read(SDK + "ProviderPluginProbeProcess.java");
 
-        assertTrue(activator.contains("provider plugin activation requires a trusted SHA-256 pin"),
-                "unpinned executable activation must stay fail-closed");
         assertTrue(activator.contains("ExternalJarIntegrity.normalizeSha256(expectedSha256)"));
-        assertTrue(activator.contains("ExternalJarIntegrity.stageVerifiedCopy(candidate.jarPath(), expected)"),
+        assertTrue(activator.contains(
+                        "Path stagedJar = ExternalJarIntegrity.stageVerifiedCopy(candidate.jarPath(), trustedSha256);"),
                 "the verified copy must be what is loaded, closing the verify-to-load window on the original path");
-        assertTrue(activator.contains("new java.net.URL[] {loadJar.toUri().toURL()}"),
+        assertTrue(activator.contains("new java.net.URL[] {stagedJar.toUri().toURL()}"),
                 "the classloader must only ever see the staged copy");
 
         assertTrue(probe.contains("command(candidate, workspaceRoot, trustedSha256, resultFile)"),
@@ -67,6 +78,69 @@ class ProviderPluginTrustBoundaryContractTest {
                 "the pin must stay a required argument of the worker");
     }
 
+    /**
+     * The only public way into third-party provider code is the probe, and it takes the pin.
+     *
+     * <p>The property is one of the declared API, read on the compiled classes: an overload without a pin -- even
+     * one that only throws today -- is a second entry whose body can change without any gate reading it again. The
+     * activator and its handle are not public, so no host activates plugin code in its own process: plugin code runs
+     * in the probe worker, the child process of ADR-0129.</p>
+     */
+    @Test
+    void theOnlyPublicEntryToPluginCodeIsThePinnedProbe() {
+        var sdk = new ClassFileImporter().importPackages("com.morpheus.sdk.provider");
+        JavaClass activator = sdk.get("com.morpheus.sdk.provider.ProviderPluginActivator");
+        JavaClass activation = sdk.get("com.morpheus.sdk.provider.ProviderPluginActivation");
+        JavaClass service = sdk.get(ProviderPluginService.class);
+
+        for (JavaClass hidden : List.of(activator, activation)) {
+            assertFalse(hidden.getModifiers().contains(JavaModifier.PUBLIC),
+                    () -> hidden.getSimpleName() + " must not be public: a public activator loads plugin code in the "
+                            + "caller's process, outside the probe worker");
+        }
+        assertEquals(
+                List.of("com.morpheus.sdk.provider.ProviderPluginActivator.activate("
+                        + "com.morpheus.sdk.provider.ProviderPluginCandidate, java.lang.String)"),
+                activator.getMethods().stream()
+                        .filter(method -> method.getName().equals("activate"))
+                        .map(JavaMethod::getFullName)
+                        .toList(),
+                "activation must have exactly one entry, and it must take the trusted SHA-256 pin");
+        assertEquals(
+                List.of("com.morpheus.sdk.provider.ProviderPluginService.probe("
+                        + "java.nio.file.Path, java.lang.String, java.nio.file.Path, java.lang.String)"),
+                publicMethodsNamed(service, "probe"),
+                "the probe must have exactly one public entry, and it must take the trusted SHA-256 pin");
+        for (JavaClass entry : List.of(activator, service)) {
+            assertEquals(
+                    List.of(),
+                    entry.getMethods().stream()
+                            .filter(method -> method.isAnnotatedWith(Deprecated.class))
+                            .map(JavaMethod::getFullName)
+                            .sorted()
+                            .toList(),
+                    () -> entry.getSimpleName() + " must not keep a deprecated entry waiting for its removal");
+        }
+    }
+
+    private static List<String> publicMethodsNamed(JavaClass owner, String name) {
+        return owner.getMethods().stream()
+                .filter(method -> method.getName().equals(name))
+                .filter(method -> method.getModifiers().contains(JavaModifier.PUBLIC))
+                .map(JavaMethod::getFullName)
+                .sorted()
+                .toList();
+    }
+
+    /**
+     * Discovery stays metadata-only: it reads the plugin directory and the JAR manifests, and nothing else.
+     *
+     * <p>A class loader of any kind, {@code ServiceLoader}, {@code ProcessBuilder} and {@code Process} declare no
+     * compile-time constant, so the rule alone covers them, and it sees a dependency of any kind where the text saw
+     * only {@code new URLClassLoader}, {@code ServiceLoader.load(} and {@code new ProcessBuilder}. Broken before
+     * acceptance, 30/10/2026: a {@code URLClassLoader} field added to {@code ProviderPluginDiscovery} failed the rule,
+     * and so did a {@code ProcessBuilder} one.</p>
+     */
     @Test
     void discoveryStaysMetadataOnly() throws IOException {
         String discovery = read(SDK + "ProviderPluginDiscovery.java");
@@ -77,9 +151,13 @@ class ProviderPluginTrustBoundaryContractTest {
                 "a linked ancestor must be resolved and declared, so the operator sees which tree was scanned");
         assertTrue(discovery.contains("This class never creates a ClassLoader or ServiceLoader"),
                 "the metadata-only contract must stay stated where it is implemented");
-        assertFalse(discovery.contains("new URLClassLoader"), "discovery must never load a class");
-        assertFalse(discovery.contains("ServiceLoader.load("), "discovery must never resolve a service");
-        assertFalse(discovery.contains("new ProcessBuilder"), "discovery must never start a process");
+        noClasses()
+                .that(ClassesOfASource.declaredIn("ProviderPluginDiscovery"))
+                .should().dependOnClassesThat(assignableTo(ClassLoader.class)
+                        .or(belongToAnyOf(ServiceLoader.class, ProcessBuilder.class, Process.class)))
+                .because("discovery reads metadata only: it never loads a class, resolves a service or starts a "
+                        + "process; only the pinned probe runs plugin code")
+                .check(new ClassFileImporter().importPackages("com.morpheus.sdk.provider"));
     }
 
     @Test
@@ -121,9 +199,8 @@ class ProviderPluginTrustBoundaryContractTest {
     @Test
     void executingThirdPartyCodeIsNeverModelFacingAndTheDirectoryIsServerChosen() throws IOException {
         String manifest = read("contracts/public-surfaces.tsv");
-        String mcpTools = read("morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusProviderPluginMcpTools.java");
-        String httpRoutes = read(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusProviderPluginHttpRoutes.java");
+        String mcpTools = ProductionSources.readMain("morpheus-mcp", "MorpheusProviderPluginMcpTools");
+        String httpRoutes = ProductionSources.readMain("morpheus-api", "MorpheusProviderPluginHttpRoutes");
 
         assertTrue(manifest.contains(
                         "provider.plugins.probe\tWRITE\tprovider-plugins probe\tEXPLICITLY_NOT_EXPOSED\t"),
@@ -153,12 +230,12 @@ class ProviderPluginTrustBoundaryContractTest {
 
         String sdkGuide = read("docs/developer/PROVIDER_SDK.md");
         assertTrue(sdkGuide.contains("classloader isolation != security sandbox"));
-        assertTrue(sdkGuide.contains("0101-external-code-is-trusted-code-not-sandboxed-code.md"),
+        assertTrue(sdkGuide.contains("SEC-0129-plugins-provider-code-de-confiance-hors-processus.md"),
                 "the SDK guide must point at the trust model rather than restate it");
         assertFalse(sdkGuide.contains("différée au-delà de M22"),
                 "the process boundary exists since M22; only the sandbox does not");
 
-        String adr = read("docs/architecture/adr/0101-external-code-is-trusted-code-not-sandboxed-code.md");
+        String adr = read("docs/architecture/adr/SEC-0129-plugins-provider-code-de-confiance-hors-processus.md");
         assertTrue(adr.contains("PAS une sandbox du système d'exploitation"));
         assertTrue(adr.contains("= code de confiance"));
 
@@ -168,7 +245,7 @@ class ProviderPluginTrustBoundaryContractTest {
         for (String page : List.of(
                 "SECURITY.md",
                 "docs/developer/PROVIDER_SDK.md",
-                "docs/architecture/adr/0101-external-code-is-trusted-code-not-sandboxed-code.md",
+                "docs/architecture/adr/SEC-0129-plugins-provider-code-de-confiance-hors-processus.md",
                 "docs/developer/MCP.md",
                 SDK + "ProviderPluginProbeProcess.java",
                 SDK + "ProviderPluginActivator.java")) {
@@ -181,18 +258,6 @@ class ProviderPluginTrustBoundaryContractTest {
     }
 
     private static String read(String relative) throws IOException {
-        return Files.readString(repositoryRoot().resolve(relative));
-    }
-
-    private static Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found");
+        return Files.readString(RepositoryRoot.locate().resolve(relative));
     }
 }

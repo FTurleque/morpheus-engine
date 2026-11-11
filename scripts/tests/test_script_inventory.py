@@ -6,11 +6,12 @@ script escape notice without anything failing -- nothing launched it any more, o
 Both rules read text, the only hold on ``.yml``, ``.sh``, ``.ps1``, ``.cmd`` and ``.md`` (ADR-0103), and both read
 *executable* text: a mention in a comment launches nothing.
 
-* **Launched** means named in the executable text of a workflow, or of a script that is itself launched; a few entry
-  points a person runs by hand are named in LAUNCHED_BY_HAND with the reason, and launch what they name in turn
+* **Launched** means named in the executable text of a workflow, or of a script that is itself launched
   (``validate.cmd`` hands its target to ``validate.ps1``, which launches every ``validate-<target>.ps1`` by
-  construction). A documentation page is not a launch: until 2026-10-15 it counted as one, and six ``.sh`` validators
-  that only a guide named looked launched while nothing ran them.
+  construction); the entry points a person runs by hand are named in LAUNCHED_BY_HAND with the reason, and launch
+  what they name in turn. A documentation page is not a launch: a validator that only a guide names is run by
+  nobody. That ``validate.ps1`` launches every target is a construction, not a proof that a workflow hands it each
+  one: GateReachabilityArchitectureTest holds that, validator by validator.
 * **Run by a test** means declared in the ``SCRIPTS_UNDER_TEST`` of a test file of this directory, which is where a
   test that launches a script says so. A Java test that reads a script as text does not count: reading is not running.
   The declaration is checked against the test code, not taken on trust: a validator a harness module declares must be
@@ -56,8 +57,6 @@ AFTER_A_RELEASE = ("reads a release GitHub has published, through gh and the att
 
 # The entry points a person runs, named with the reason no workflow does. Each must be named by a current page.
 LAUNCHED_BY_HAND = {
-    "validate.cmd": "the dispatcher every guide gives a Windows user, scripts\\validate.cmd <target>; a workflow runs "
-                    "a validator directly, never through it",
     "verify-release-provenance.sh": AFTER_A_RELEASE,
     "verify-release-provenance.ps1": AFTER_A_RELEASE,
 }
@@ -103,9 +102,9 @@ NOT_REACHED_BY_A_TEST = {
     "m20": "everything after the build: the tagged release build, the archive, the install and upgrade smokes. "
            "nightly.yml runs it for real on both platforms",
     "m28": "everything after the inherited r2 gate: the client manager, the installer, the setup lifecycle. The "
-           "Windows leg of ci.yml runs the .ps1 for real; nothing runs the .sh to its end",
+           "Windows leg of ci.yml runs the .ps1 for real, and nightly.yml runs both variants through r3",
     "r3": "everything after its scope policy and its reactor count: the inherited m28 gate, the release "
-          "documentation. Nothing runs it to its end, on either platform",
+          "documentation. nightly.yml runs it for real on both platforms",
 }
 
 

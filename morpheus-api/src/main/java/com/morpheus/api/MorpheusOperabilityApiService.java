@@ -33,7 +33,7 @@ public final class MorpheusOperabilityApiService {
     }
 
     /** The recorder of the process whose counters {@link #metrics()} serves: what it counts is read on that route. */
-    OperationalRecorder recorder() {
+    public OperationalRecorder recorder() {
         return operability.recorder();
     }
 

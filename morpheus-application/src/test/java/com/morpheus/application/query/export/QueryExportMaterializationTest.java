@@ -214,9 +214,12 @@ class QueryExportMaterializationTest {
         QueryExecutionService queries = queries(portfolios);
         QueryDefinition query = query(portfolioId);
 
-        assertThrows(IllegalArgumentException.class, () -> queries.materializeComplete(query, 0));
-        assertThrows(IllegalArgumentException.class,
+        IllegalArgumentException belowRange = assertThrows(
+                IllegalArgumentException.class, () -> queries.materializeComplete(query, 0));
+        assertEquals("maximumRows must be between 1 and " + QueryBudgets.MAX_SOURCE_ROWS, belowRange.getMessage());
+        IllegalArgumentException aboveRange = assertThrows(IllegalArgumentException.class,
                 () -> queries.materializeComplete(query, QueryBudgets.MAX_SOURCE_ROWS + 1));
+        assertEquals("maximumRows must be between 1 and " + QueryBudgets.MAX_SOURCE_ROWS, aboveRange.getMessage());
         assertEquals(0, portfolios.membershipReads);
     }
 

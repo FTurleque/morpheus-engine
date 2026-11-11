@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.api.local.MorpheusHttpServer;
 import com.morpheus.application.product.ProductMetadata;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -77,7 +78,7 @@ class MorpheusApiContractTest {
             assertEquals(400, badQuery.status());
             assertTrue(badQuery.body().contains("unknown query parameter"));
 
-            String registration = "{\"workspace\":" + http.jsonString(http.fixture("openspec-basic").toString()) + "}";
+            String registration = "{\"workspace\":" + http.jsonString(RepositoryRoot.fixture("openspec-basic").toString()) + "}";
             ApiTestSupport.Response created = http.postJson(server, "/projects", registration);
             assertEquals(201, created.status(), created.body());
             String projectId = http.field(created.body(), "projectId");

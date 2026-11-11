@@ -30,7 +30,7 @@ Cette partie dit où en est MORPHEUS et sur quoi il est construit. Elle s’adre
 
 ## État produit
 
-**MORPHEUS 1.2.1 est la release stable publiée** (16 octobre 2026). Le reactor porte encore **1.2.1** ; la version suivante n'est pas ouverte.
+**MORPHEUS 1.2.1 est la release stable publiée** (16 octobre 2026). Le reactor porte **1.2.2**, ouverte parce que le schéma SQLite a avancé depuis `v1.2.1` ; elle n'est pas publiée.
 
 ```text
 Stable version          1.2.1
@@ -54,11 +54,11 @@ Preuve historique D2 : [`docs/project/validation/VALIDATION_D2.md`](docs/project
 Java                   21
 Build                  Maven Wrapper 3.10.0
 Release stable         1.2.1
-Baseline développement 1.2.1
+Baseline développement 1.2.2
 Persistent store       SQLite
-SQLite JDBC            3.53.4.0
-Jackson                3.2.3
-MCP SDK                Java MCP SDK 2.0.1
+SQLite JDBC            3.54.1.0
+Jackson                3.2.4
+MCP SDK                Java MCP SDK 2.1.0
 HTTP local             JDK jdk.httpserver
 Remote HTTPS           JDK HttpsServer, opt-in
 Distribution           jpackage + Inno Setup Windows
@@ -102,14 +102,14 @@ Le gate Maven canonique est :
 Le gate durable exact-head utilisé par `MORPHEUS CI` est :
 
 ```powershell
-.\scripts\validate.cmd m21 -Version 1.2.1
+.\scripts\validate.cmd m21 -Version 1.2.2
 ```
 
 ```bash
-bash ./scripts/validate-m21.sh 1.2.1
+bash ./scripts/validate-m21.sh 1.2.2
 ```
 
-Sur les pull requests, la couverture différentielle impose **≥ 80 % des lignes exécutables changées** et **≥ 70 % des branches changées**. Le ratchet agrégé est **≥ 90,0 % lignes / ≥ 75,7 % branches**, le ratchet par module **≥ 69,1 % lignes / ≥ 61,2 % branches**, avec **≥ 3820 tests Surefire** et **≥ 585 tests d’architecture** (source normative : `config/m21-quality-ratchets.properties`). La mesure canonique de couverture est le rapport JaCoCo agrégé `morpheus-coverage-report/target/site/jacoco-aggregate/jacoco.xml`, qui fusionne aussi l’exécution cross-module des tests d’architecture sans compter leurs classes comme code produit ; l’échelle par module somme au contraire le rapport propre à chaque module et révèle donc un module qui cesse de se tester lui-même. Les deux échelles portent des seuils distincts et ne sont jamais comparées entre elles. Dependency hygiene, SBOM CycloneDX, provenance et smoke packaging font partie du gate durable.
+Sur les pull requests, la couverture différentielle impose **≥ 80 % des lignes exécutables changées** et **≥ 70 % des branches changées**. Le ratchet agrégé est **≥ 92,8 % lignes / ≥ 81,1 % branches**, le ratchet par module **≥ 90,1 % lignes / ≥ 77,3 % branches**, avec **≥ 3556 tests Surefire écrits**, **≥ 1819 tests Surefire générés** et **≥ 1058 tests d’architecture** (source normative : `config/m21-quality-ratchets.properties`). La mesure canonique de couverture est le rapport JaCoCo agrégé `morpheus-coverage-report/target/site/jacoco-aggregate/jacoco.xml`, qui fusionne aussi l’exécution cross-module des tests d’architecture sans compter leurs classes comme code produit ; l’échelle par module somme au contraire le rapport propre à chaque module et révèle donc un module qui cesse de se tester lui-même. Les deux échelles portent des seuils distincts et ne sont jamais comparées entre elles. Dependency hygiene, SBOM CycloneDX, provenance et smoke packaging font partie du gate durable.
 
 D2 reste une preuve historique distincte : sa qualification finale a été effectuée localement sur Windows et Linux/WSL au même SHA, sans utiliser la CI comme gate D2. Cette contrainte historique ne désactive pas les workflows actuels `MORPHEUS CI`, `MORPHEUS Security` et `MORPHEUS CodeQL`.
 

@@ -1,9 +1,8 @@
 package com.morpheus.architecture;
 
-import com.morpheus.application.lifecycle.ChangeLifecycleBlocker;
-import com.morpheus.application.lifecycle.ChangeLifecycleFacts;
-import com.morpheus.application.lifecycle.ChangeLifecyclePolicy;
-import com.morpheus.application.lifecycle.ChangeLifecycleStateMachine;
+import com.morpheus.domain.change.lifecycle.ChangeLifecycleBlocker;
+import com.morpheus.domain.change.lifecycle.ChangeLifecycleFacts;
+import com.morpheus.domain.change.lifecycle.ChangeLifecyclePolicy;
 import com.morpheus.application.quality.ChangeCompletenessAssessment;
 import com.morpheus.application.quality.ChangeCompletenessReport;
 import com.morpheus.application.quality.ChangeCompletenessService;
@@ -59,10 +58,10 @@ import com.morpheus.domain.version.SpecificationVersionId;
 import com.morpheus.store.memory.MemorySnapshotBusinessContentStore;
 import com.morpheus.store.memory.MemorySpecificationKnowledgeStore;
 import com.morpheus.store.memory.MemoryTraceabilityStore;
-import com.morpheus.store.sqlite.SqliteSnapshotBusinessContentStore;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
-import com.morpheus.store.sqlite.SqliteTraceabilityStore;
-import com.morpheus.store.sqlite.SqliteVersionedRequirementStore;
+import com.morpheus.store.sqlite.adapter.SqliteSnapshotBusinessContentStore;
+import com.morpheus.store.sqlite.adapter.SqliteSpecificationKnowledgeStore;
+import com.morpheus.store.sqlite.adapter.SqliteTraceabilityStore;
+import com.morpheus.store.sqlite.adapter.SqliteVersionedRequirementStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -342,8 +341,7 @@ class ChangeLifecycleQualityContractTest {
             TraceabilityStore traceability) {
         return new ChangeLifecycleQualityService(
                 snapshots,
-                completeness(snapshots, content, requirements, traceability),
-                new ChangeLifecycleStateMachine());
+                completeness(snapshots, content, requirements, traceability));
     }
 
     private ChangeCompletenessAssessment find(ChangeCompletenessReport report, ChangeId changeId) {

@@ -19,19 +19,19 @@ import java.util.Map;
 import java.util.Objects;
 
 /** Read-only M25 management surface for policy activation/CAS state discovery. */
-final class MorpheusPolicyMcpManagementTools {
+public final class MorpheusPolicyMcpManagementTools {
     static final String LIST_ACTIVATIONS = "list_policy_activations";
 
     private final Path databasePath;
     private final OperationalRecorder recorder;
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
-    MorpheusPolicyMcpManagementTools(Path databasePath, OperationalRecorder recorder) {
+    public MorpheusPolicyMcpManagementTools(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
         this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
-    List<McpServerFeatures.SyncToolSpecification> specifications() {
+    public List<McpServerFeatures.SyncToolSpecification> specifications() {
         return List.of(tool(
                 LIST_ACTIVATIONS,
                 "List active policy versions and CAS revisions for one explicit scope.",

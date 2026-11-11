@@ -3,6 +3,8 @@
 ## Purpose
 Define what the product leaves behind when it deliberately does not propagate a failure.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/suppressed-failure-trace.md](../../../docs/developer/specifications/suppressed-failure-trace.md).
+
 ## Requirements
 
 ### Requirement: A deliberately swallowed failure SHALL be counted under a named family

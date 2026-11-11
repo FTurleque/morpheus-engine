@@ -1,5 +1,6 @@
 package com.morpheus.sdk.provider;
 
+import com.morpheus.application.foundation.FailureText;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.security.ExternalJarIntegrity;
 import com.morpheus.domain.provider.ProviderProbeResult;
@@ -38,22 +39,14 @@ public final class ProviderPluginService {
         return discovery.discover(Objects.requireNonNull(pluginDirectory, "pluginDirectory"));
     }
 
-    /**
-     * Unpinned executable activation is intentionally rejected. Public adapters must provide a trusted SHA-256 pin.
-     */
-    @Deprecated(forRemoval = true)
-    public ProviderPluginProbeOutcome probe(Path pluginDirectory, String pluginId, Path workspaceRoot) {
-        Objects.requireNonNull(pluginDirectory, "pluginDirectory");
-        Objects.requireNonNull(workspaceRoot, "workspaceRoot");
-        requireText(pluginId, "pluginId");
-        throw new IllegalArgumentException("provider plugin probe requires a trusted SHA-256 pin");
-    }
-
     public ProviderPluginProbeOutcome probe(
             Path pluginDirectory, String pluginId, Path workspaceRoot, String expectedSha256) {
         Objects.requireNonNull(pluginDirectory, "pluginDirectory");
         Objects.requireNonNull(workspaceRoot, "workspaceRoot");
         String requestedPluginId = requireText(pluginId, "pluginId");
+        if (expectedSha256 == null || expectedSha256.isBlank()) {
+            throw new IllegalArgumentException("provider plugin probe requires a trusted SHA-256 pin");
+        }
         String trustedSha256 = ExternalJarIntegrity.normalizeSha256(expectedSha256);
         ProviderPluginDiscoveryResult result = discovery.discover(pluginDirectory);
         Outcomes outcomes = new Outcomes(requestedPluginId, result.diagnostics());
@@ -97,7 +90,7 @@ public final class ProviderPluginService {
                     "Provider plugin was rejected before activation because its SHA-256 pin did not match",
                     Map.of(
                             "pluginId", requestedPluginId,
-                            "reason", safeMessage(integrityFailure),
+                            "reason", FailureText.of(integrityFailure),
                             "reasonType", failureType(integrityFailure))));
         }
 
@@ -113,7 +106,7 @@ public final class ProviderPluginService {
                             : "Provider plugin activation or probe failed in its isolated process",
                     Map.of(
                             "pluginId", requestedPluginId,
-                            "reason", safeMessage(failure),
+                            "reason", FailureText.of(failure),
                             "reasonType", failureType(failure))));
         } catch (RuntimeException | LinkageError failure) {
             return outcomes.selected(selected, Optional.empty(), ProviderPluginDiagnostic.error(
@@ -121,7 +114,7 @@ public final class ProviderPluginService {
                     "Provider plugin activation or probe failed without terminating MORPHEUS",
                     Map.of(
                             "pluginId", requestedPluginId,
-                            "reason", safeMessage(failure),
+                            "reason", FailureText.of(failure),
                             "reasonType", failureType(failure))));
         }
     }
@@ -132,11 +125,6 @@ public final class ProviderPluginService {
             throw new IllegalArgumentException(name + " must not be blank");
         }
         return value.trim();
-    }
-
-    private static String safeMessage(Throwable failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 
     /**

@@ -10,6 +10,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -26,6 +27,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -58,8 +60,9 @@ class ProviderProbeResultIpcTest {
         Path result = directory.resolve("probe-result.properties");
         Files.writeString(result, "planted by another local process", StandardCharsets.UTF_8);
 
-        assertThrows(IOException.class, () -> ProviderProbeResultCodec.write(result, sampleResult()),
+        IOException occupied = assertThrows(IOException.class, () -> ProviderProbeResultCodec.write(result, sampleResult()),
                 "an occupied result pathname must not be written through");
+        assertInstanceOf(FileAlreadyExistsException.class, occupied);
         assertEquals("planted by another local process", Files.readString(result),
                 "the planted content must be left untouched");
     }
@@ -71,8 +74,9 @@ class ProviderProbeResultIpcTest {
         Path result = directory.resolve("probe-result.properties");
         assumeTrue(createSymbolicLink(result, victim), "symbolic links are not creatable in this environment");
 
-        assertThrows(IOException.class, () -> ProviderProbeResultCodec.write(result, sampleResult()),
+        IOException linked = assertThrows(IOException.class, () -> ProviderProbeResultCodec.write(result, sampleResult()),
                 "a symlinked result pathname must not redirect the write");
+        assertInstanceOf(FileAlreadyExistsException.class, linked);
         assertEquals("original", Files.readString(victim),
                 "the symlink target must not be overwritten");
     }
@@ -84,8 +88,9 @@ class ProviderProbeResultIpcTest {
         Path link = directory.resolve("linked-result.properties");
         assumeTrue(createSymbolicLink(link, payload), "symbolic links are not creatable in this environment");
 
-        assertThrows(IOException.class, () -> ProviderProbeResultCodec.read(link),
+        IOException followed = assertThrows(IOException.class, () -> ProviderProbeResultCodec.read(link),
                 "the parent must not read a result reached through a link");
+        assertEquals("isolated provider probe result is not a regular file", followed.getMessage());
     }
 
     @Test
@@ -100,7 +105,9 @@ class ProviderProbeResultIpcTest {
 
     @Test
     void readingRefusesAnAbsentResult() {
-        assertThrows(IOException.class, () -> ProviderProbeResultCodec.read(directory.resolve("missing.properties")));
+        IOException absent = assertThrows(IOException.class,
+                () -> ProviderProbeResultCodec.read(directory.resolve("missing.properties")));
+        assertEquals("isolated provider probe result is not a regular file", absent.getMessage());
     }
 
     @Test
@@ -108,7 +115,8 @@ class ProviderProbeResultIpcTest {
         Path asDirectory = directory.resolve("probe-result.properties");
         Files.createDirectory(asDirectory);
 
-        assertThrows(IOException.class, () -> ProviderProbeResultCodec.read(asDirectory));
+        IOException notAFile = assertThrows(IOException.class, () -> ProviderProbeResultCodec.read(asDirectory));
+        assertEquals("isolated provider probe result is not a regular file", notAFile.getMessage());
     }
 
     @Test

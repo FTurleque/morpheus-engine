@@ -10,13 +10,13 @@ import java.util.List;
 import java.util.Map;
 
 /** M21 product metadata tools. Update discovery remains CLI-only; MCP performs no file or network I/O. */
-final class MorpheusProductMcpTools {
+public final class MorpheusProductMcpTools {
     static final String INFO_TOOL = "get_product_info";
     static final String UPDATE_TOOL = "check_product_update";
 
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
-    List<McpServerFeatures.SyncToolSpecification> specifications() {
+    public List<McpServerFeatures.SyncToolSpecification> specifications() {
         return List.of(
                 tool(
                         INFO_TOOL,

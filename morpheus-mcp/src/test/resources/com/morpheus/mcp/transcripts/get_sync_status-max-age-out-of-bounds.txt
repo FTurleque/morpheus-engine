@@ -1,0 +1,5 @@
+tool: get_sync_status
+arguments: {"maxAgeMinutes":0,"projectId":"01920000-0000-7000-8000-000000000101"}
+isError: true
+text:
+maxAgeMinutes must be an integer between 1 and 525600 when present

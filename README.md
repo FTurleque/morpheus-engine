@@ -150,7 +150,7 @@ Point d’entrée : [`docs/README.md`](docs/README.md).
 
 ## État du projet
 
-Version stable publiée : **1.2.1** (16 octobre 2026). Mise à niveau depuis 1.2.0 ou 1.1.0 : lire d'abord [`docs/user/UPGRADE_1_2_1.md`](docs/user/UPGRADE_1_2_1.md).
+Version stable publiée : **1.2.1** (16 octobre 2026). Mise à niveau depuis 1.2.0 ou 1.1.0 : lire d'abord [`docs/user/UPGRADE_1_2_1.md`](docs/user/UPGRADE_1_2_1.md). La version en préparation est **1.2.2** : elle fait avancer le schéma SQLite ([`docs/user/UPGRADE_1_2_2.md`](docs/user/UPGRADE_1_2_2.md)).
 
 L’état détaillé — release, baseline technique, modules, gates de qualité et chaîne d’approvisionnement — est dans [`CONTRIBUTING.md`](CONTRIBUTING.md) ; la politique de sécurité dans [`SECURITY.md`](SECURITY.md).
 

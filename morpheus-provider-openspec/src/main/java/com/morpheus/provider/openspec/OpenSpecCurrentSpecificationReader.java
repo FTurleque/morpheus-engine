@@ -1,7 +1,9 @@
 package com.morpheus.provider.openspec;
 
+import com.morpheus.application.foundation.StableKey;
+import com.morpheus.application.foundation.TextDigest;
 import com.morpheus.application.identity.EntityIdentityResolver;
-import com.morpheus.application.ingestion.NormalizedProjectContent;
+import com.morpheus.application.read.NormalizedProjectContent;
 import com.morpheus.application.read.ProviderIngestionBudget;
 import com.morpheus.application.read.ProviderProjectRoot;
 import com.morpheus.domain.diagnostic.Diagnostic;
@@ -14,6 +16,7 @@ import com.morpheus.domain.project.ProjectSpecification;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.provenance.Provenance;
 import com.morpheus.domain.provider.ProviderCapability;
+import com.morpheus.domain.provider.ProviderProbeResult;
 import com.morpheus.domain.provider.ProviderProbeStatus;
 import com.morpheus.domain.requirement.Requirement;
 import com.morpheus.domain.requirement.RequirementId;
@@ -23,15 +26,8 @@ import com.morpheus.domain.source.SourceLocator;
 import com.morpheus.domain.specification.Specification;
 import com.morpheus.domain.specification.SpecificationId;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.text.Normalizer;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -89,9 +85,24 @@ public final class OpenSpecCurrentSpecificationReader {
         if (!probe.capabilities().contains(ProviderCapability.READ_CURRENT_SPECIFICATIONS)) {
             throw new IllegalArgumentException("OpenSpec workspace has no readable current specifications: " + root);
         }
+        return read(root, projectId, identityResolver, budget, probe);
+    }
+
+    /** Reads the current specifications of a workspace whose probe the caller has already run and charged. */
+    NormalizedProjectContent read(
+            Path workspaceRoot,
+            ProjectSpecificationId projectId,
+            EntityIdentityResolver identityResolver,
+            ProviderIngestionBudget.Session budget,
+            ProviderProbeResult probe) {
+        Path root = Objects.requireNonNull(workspaceRoot, "workspaceRoot").toAbsolutePath().normalize();
+        Objects.requireNonNull(projectId, "projectId");
+        Objects.requireNonNull(identityResolver, "identityResolver");
+        Objects.requireNonNull(budget, "budget");
+        Objects.requireNonNull(probe, "probe");
 
         Path specsRoot = root.resolve("openspec/specs");
-        List<Path> specificationFiles = listSpecificationFiles(specsRoot, budget);
+        List<Path> specificationFiles = OpenSpecWorkspaceListing.specificationFiles(specsRoot, budget, "openspec/current");
         List<Specification> specifications = new ArrayList<>();
         List<Requirement> requirements = new ArrayList<>();
         List<Scenario> scenarios = new ArrayList<>();
@@ -145,7 +156,7 @@ public final class OpenSpecCurrentSpecificationReader {
             List<Evidence> evidence,
             List<Diagnostic> diagnostics,
             ProviderIngestionBudget.Session budget) {
-        List<String> lines = readAllLines(workspaceRoot, specificationFile, budget);
+        List<String> lines = OpenSpecSourceText.readAllLines(workspaceRoot, specificationFile, budget);
         if (lines.isEmpty()) {
             throw new IllegalArgumentException("OpenSpec specification is empty");
         }
@@ -242,7 +253,7 @@ public final class OpenSpecCurrentSpecificationReader {
         }
 
         String title = requirementMatcher.group(1).trim();
-        String requirementKey = specificationKey + "/" + slug(title);
+        String requirementKey = specificationKey + "/" + StableKey.fromTitle(title);
         String requirementExternalId = "requirement:" + requirementKey;
 
         int firstScenario = endExclusive;
@@ -253,7 +264,7 @@ public final class OpenSpecCurrentSpecificationReader {
             }
         }
 
-        String statement = joinContent(lines, start + 1, firstScenario);
+        String statement = OpenSpecSourceText.joinContent(lines, start + 1, firstScenario);
         if (statement.isBlank()) {
             throw new IllegalArgumentException("OpenSpec requirement has no statement: " + requirementKey);
         }
@@ -327,7 +338,7 @@ public final class OpenSpecCurrentSpecificationReader {
         }
 
         String title = heading.group(1).trim();
-        String scenarioExternalId = "scenario:" + requirementKey + "/" + slug(title);
+        String scenarioExternalId = "scenario:" + requirementKey + "/" + StableKey.fromTitle(title);
         List<String> preconditions = new ArrayList<>();
         StringBuilder action = new StringBuilder();
         StringBuilder expectedOutcome = new StringBuilder();
@@ -417,37 +428,7 @@ public final class OpenSpecCurrentSpecificationReader {
                 evidenceId,
                 source,
                 Optional.of(new SourceRange(startLine, normalizedEndLine)),
-                Optional.of(sha256(excerpt)));
-    }
-
-    private List<Path> listSpecificationFiles(
-            Path specsRoot,
-            ProviderIngestionBudget.Session budget) {
-        try (var paths = OpenSpecBoundedTraversal.walk(specsRoot)) {
-            List<Path> files = paths
-                    .filter(Files::isRegularFile)
-                    .filter(path -> path.getFileName().toString().equals("spec.md"))
-                    .limit(budget.remainingFiles() + 1)
-                    .toList();
-            budget.requireAdditionalFiles(files.size(), "openspec/current");
-            return files.stream().sorted().toList();
-        } catch (IOException exception) {
-            throw new IllegalStateException("Cannot enumerate OpenSpec specifications", exception);
-        }
-    }
-
-    private List<String> readAllLines(
-            Path workspaceRoot,
-            Path source,
-            ProviderIngestionBudget.Session budget) {
-        try {
-            return budget.readDocument(workspaceRoot.relativize(source))
-                    .lines()
-                    .toList();
-        } catch (IOException exception) {
-            throw new IllegalStateException(
-                    "Cannot read OpenSpec source: " + OpenSpecSourceAttribution.relayable(exception), exception);
-        }
+                Optional.of(TextDigest.sha256(excerpt)));
     }
 
     private String specificationKey(Path specsRoot, Path specificationFile) {
@@ -476,7 +457,7 @@ public final class OpenSpecCurrentSpecificationReader {
             while (end < lines.size() && (fences.isFenced(end) || !lines.get(end).startsWith("## "))) {
                 end++;
             }
-            String body = joinContent(lines, index + 1, end);
+            String body = OpenSpecSourceText.joinContent(lines, index + 1, end);
             return body.isBlank() ? Optional.empty() : Optional.of(body);
         }
         return Optional.empty();
@@ -490,38 +471,6 @@ public final class OpenSpecCurrentSpecificationReader {
             }
         }
         return indexes;
-    }
-
-    private String joinContent(List<String> lines, int startInclusive, int endExclusive) {
-        List<String> content = new ArrayList<>();
-        for (int index = startInclusive; index < endExclusive; index++) {
-            String line = lines.get(index).trim();
-            if (!line.isEmpty() && !line.startsWith("#")) {
-                content.add(line);
-            }
-        }
-        return String.join(" ", content).trim();
-    }
-
-    private String slug(String value) {
-        String normalized = Normalizer.normalize(value, Normalizer.Form.NFD)
-                .replaceAll("\\p{M}+", "")
-                .toLowerCase(Locale.ROOT)
-                .replaceAll("[^a-z0-9]+", "-")
-                .replaceAll("^-+|-+$", "");
-        if (normalized.isBlank()) {
-            throw new IllegalArgumentException("Cannot derive a stable key from: " + value);
-        }
-        return normalized;
-    }
-
-    private String sha256(String value) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 must be available", exception);
-        }
     }
 
     private void append(StringBuilder target, String value) {

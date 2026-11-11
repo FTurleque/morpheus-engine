@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * One MINOS operation is bounded as a whole, and a peer that stays within its request timeout is never cut short by
- * that bound (ADR-0106, amendment of 8 October 2026).
+ * that bound (ADR-0106).
  */
 class MinosMcpOperationDeadlineTest {
 

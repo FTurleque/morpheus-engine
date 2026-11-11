@@ -1,27 +1,27 @@
 package com.morpheus.api;
 
+import com.morpheus.api.transport.ApiFailure;
+import com.morpheus.api.transport.PagedEnvelope;
+import com.morpheus.application.foundation.PayloadMap;
 import com.morpheus.application.history.HistoricalRequirementQueryService;
 import com.morpheus.application.history.PublishedSnapshotHistoryService;
 import com.morpheus.application.history.RequirementSnapshotComparisonService;
 import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.payload.PublicPayloads;
 import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.ProjectStoreEntry;
-import com.morpheus.application.store.RequirementVersionRecord;
+import com.morpheus.application.store.RequirementPage;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.domain.requirement.Requirement;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 
 import java.nio.file.Path;
-import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 /** Owns published snapshot history queries and version-history API views. */
-final class MorpheusHistoryApiService {
+public final class MorpheusHistoryApiService {
     private final Path databasePath;
     private final OperationalRecorder recorder;
 
@@ -34,7 +34,7 @@ final class MorpheusHistoryApiService {
      * One page of the published lineage, oldest first. The lineage never shrinks ({@code KEEP_ALL_PUBLISHED}), so it is
      * walked whole to know {@code totalMatches}, but only the retained page pays the two store reads of {@link #version}.
      */
-    Object versions(String projectIdValue, PageRequest pageRequest) {
+    public Object versions(String projectIdValue, PageRequest pageRequest) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         Objects.requireNonNull(pageRequest, "pageRequest");
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
@@ -42,13 +42,13 @@ final class MorpheusHistoryApiService {
             PublishedSnapshotHistoryService history = new PublishedSnapshotHistoryService(runtime.snapshots());
             List<KnowledgeSnapshotMetadata> lineage = history.lineage(projectId);
             return PagedEnvelope.following(
-                    map("projectId", projectId.toString(), "retentionPolicy", history.retentionPolicy().name()),
+                    PayloadMap.of("projectId", projectId.toString(), "retentionPolicy", history.retentionPolicy().name()),
                     PagedEnvelope.slice(
                             pageRequest.offset(), pageRequest.limit(), lineage, snapshot -> version(runtime, snapshot)));
         }
     }
 
-    Object historicalRequirements(
+    public Object historicalRequirements(
             String projectIdValue,
             String snapshotIdValue,
             PageRequest pageRequest) {
@@ -57,15 +57,16 @@ final class MorpheusHistoryApiService {
         Objects.requireNonNull(pageRequest, "pageRequest");
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             requireSnapshotProject(runtime, projectId, snapshotId);
-            List<RequirementVersionRecord> records = new HistoricalRequirementQueryService(runtime.snapshots(), runtime.requirements())
-                    .requirements(snapshotId);
+            RequirementPage page = new HistoricalRequirementQueryService(runtime.snapshots(), runtime.requirements())
+                    .requirements(snapshotId, pageRequest.offset(), pageRequest.limit());
             return PagedEnvelope.following(
-                    map("snapshotId", snapshotId.toString()),
-                    PagedEnvelope.slice(pageRequest.offset(), pageRequest.limit(), records, this::requirementRecord));
+                    PayloadMap.of("snapshotId", snapshotId.toString()),
+                    PagedEnvelope.page(pageRequest, page.totalMatches(), page.hasMoreAfter(pageRequest.offset()),
+                            page.items().stream().map(record -> PublicPayloads.requirementVersion(record.entityVersion())).toList()));
         }
     }
 
-    Object compareVersions(String projectIdValue, String sourceIdValue, String targetIdValue) {
+    public Object compareVersions(String projectIdValue, String sourceIdValue, String targetIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         KnowledgeSnapshotId sourceId = KnowledgeSnapshotId.parse(sourceIdValue);
         KnowledgeSnapshotId targetId = KnowledgeSnapshotId.parse(targetIdValue);
@@ -74,15 +75,15 @@ final class MorpheusHistoryApiService {
             requireSnapshotProject(runtime, projectId, targetId);
             var comparison = new RequirementSnapshotComparisonService(runtime.snapshots(), runtime.requirements())
                     .compare(sourceId, targetId);
-            return map(
+            return PayloadMap.of(
                     "projectId", projectId.toString(),
                     "sourceSnapshotId", comparison.sourceSnapshot().id().toString(),
                     "targetSnapshotId", comparison.targetSnapshot().id().toString(),
-                    "differences", comparison.differences().stream().map(difference -> map(
+                    "differences", comparison.differences().stream().map(difference -> PayloadMap.admittingAbsentValues(
                             "requirementId", difference.entityIdentity().toString(),
                             "kind", difference.kind().name(),
-                            "source", difference.source().map(this::requirementRecord).orElse(null),
-                            "target", difference.target().map(this::requirementRecord).orElse(null))).toList());
+                            "source", difference.source().map(record -> PublicPayloads.requirementVersion(record.entityVersion())).orElse(null),
+                            "target", difference.target().map(record -> PublicPayloads.requirementVersion(record.entityVersion())).orElse(null))).toList());
         }
     }
 
@@ -108,7 +109,7 @@ final class MorpheusHistoryApiService {
                 .orElseThrow(() -> state("published snapshot has no specification version binding: " + snapshot.id()));
         var specificationVersion = runtime.requirements().findSpecificationVersion(binding.specificationVersionId())
                 .orElseThrow(() -> state("specification version not found: " + binding.specificationVersionId()));
-        return map(
+        return PayloadMap.of(
                 "snapshotId", snapshot.id().toString(),
                 "snapshotState", snapshot.state().name(),
                 "predecessorSnapshotId", snapshot.predecessorId().map(Object::toString).orElse("none"),
@@ -121,37 +122,7 @@ final class MorpheusHistoryApiService {
                 "predecessorSpecificationVersionId", specificationVersion.predecessor().map(Object::toString).orElse("none"));
     }
 
-    private Object requirementRecord(RequirementVersionRecord record) {
-        var version = record.entityVersion();
-        return map(
-                "entityVersionId", version.id().toString(),
-                "specificationVersionId", version.specificationVersionId().toString(),
-                "temporalState", version.temporalState().name(),
-                "requirement", requirement(version.content()));
-    }
-
-    private Object requirement(Requirement item) {
-        return map(
-                "id", item.id().toString(),
-                "specificationId", item.specificationId().toString(),
-                "key", item.key().orElse(""),
-                "title", item.title(),
-                "statement", item.statement());
-    }
-
     private KnowledgeStoreException state(String message) {
         return new KnowledgeStoreException(message);
-    }
-
-    /** LinkedHashMap keeps construction stable while preserving JSON null in historical diffs. */
-    private Map<String, Object> map(Object... entries) {
-        if (entries.length % 2 != 0) {
-            throw new IllegalArgumentException("map entries must be key/value pairs");
-        }
-        Map<String, Object> result = new LinkedHashMap<>();
-        for (int index = 0; index < entries.length; index += 2) {
-            result.put((String) entries[index], entries[index + 1]);
-        }
-        return Collections.unmodifiableMap(result);
     }
 }

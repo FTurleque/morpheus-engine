@@ -3,15 +3,17 @@ package com.morpheus.cli;
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.read.ProviderReadRequest;
+import com.morpheus.cli.command.CliLayout;
+import com.morpheus.cli.command.CliRuntime;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.provider.synthetic.SyntheticSpecificationContentReader;
-import com.morpheus.store.sqlite.SqliteChangeLifecycleMutationStore;
+import com.morpheus.store.sqlite.adapter.SqliteChangeLifecycleMutationStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
@@ -19,6 +21,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MorpheusM17McpStdioIntegrationTest {
@@ -51,8 +54,9 @@ class MorpheusM17McpStdioIntegrationTest {
         }
 
         try (var mutations = new SqliteChangeLifecycleMutationStore(database)) {
-            assertTrue(mutations.listAudit(
-                    ProjectSpecificationId.parse(seed.projectId()), ChangeId.parse(seed.changeId())).isEmpty(),
+            assertEquals(0, mutations.listAudit(
+                    ProjectSpecificationId.parse(seed.projectId()), ChangeId.parse(seed.changeId()),
+                    PageRequest.first(1)).totalMatches(),
                     "denied MCP write must not create audit or state");
         }
     }
@@ -62,7 +66,7 @@ class MorpheusM17McpStdioIntegrationTest {
         CliLayout layout = CliLayout.resolve(
                 Optional.empty(), Optional.empty(), Optional.of(database), Map.of(), properties);
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
-        Path fixture = fixture("synthetic-basic");
+        Path fixture = RepositoryRoot.fixture("synthetic-basic");
         try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath(), OperationalRecorder.noop())) {
             var normalized = new SyntheticSpecificationContentReader()
                     .read(
@@ -88,18 +92,6 @@ class MorpheusM17McpStdioIntegrationTest {
         properties.setProperty("os.name", System.getProperty("os.name", "Windows"));
         properties.setProperty("user.home", tempDirectory.resolve("home").toString());
         return properties;
-    }
-
-    private Path fixture(String name) {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            Path candidate = current.resolve("experiments/m0/fixtures").resolve(name);
-            if (Files.isDirectory(candidate)) {
-                return candidate;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("M0 fixture not found: " + name);
     }
 
     private record Seed(String projectId, String changeId) {

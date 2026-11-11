@@ -3,6 +3,8 @@
 ## Purpose
 Define what a portfolio membership remembers of the providers it was registered with, whichever store holds it.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/portfolio-provider-identity.md](../../../docs/developer/specifications/portfolio-provider-identity.md).
+
 ## Requirements
 
 ### Requirement: A membership reads back the providers it was registered with

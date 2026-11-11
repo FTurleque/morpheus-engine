@@ -7,7 +7,7 @@ import com.morpheus.application.identity.IdentityCollisionException;
 import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.provider.ProviderId;
 import com.morpheus.store.memory.MemorySpecificationKnowledgeStore;
-import com.morpheus.store.sqlite.SqliteEntityIdentityStore;
+import com.morpheus.store.sqlite.adapter.SqliteEntityIdentityStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

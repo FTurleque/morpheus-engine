@@ -1,11 +1,13 @@
 package com.morpheus.store.memory;
 
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationAttempt;
+import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationAuditPage;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationAuditRecord;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationPersistenceResult;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationPersistenceState;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleMutationStore;
 import com.morpheus.application.lifecycle.mutation.ChangeLifecycleOperationalState;
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.SpecificationKnowledgeStore;
 import com.morpheus.domain.change.ChangeId;
@@ -48,16 +50,18 @@ public final class MemoryChangeLifecycleMutationStore implements ChangeLifecycle
     }
 
     @Override
-    public synchronized List<ChangeLifecycleMutationAuditRecord> listAudit(
+    public synchronized ChangeLifecycleMutationAuditPage listAudit(
             ProjectSpecificationId projectId,
-            ChangeId changeId) {
-        return byMutationId.values().stream()
+            ChangeId changeId,
+            PageRequest pageRequest) {
+        Objects.requireNonNull(pageRequest, "pageRequest");
+        return ChangeLifecycleMutationAuditPage.of(byMutationId.values().stream()
                 .filter(item -> item.projectId().equals(projectId) && item.changeId().equals(changeId))
                 .sorted((left, right) -> {
                     int revision = left.toRevision().compareTo(right.toRevision());
                     return revision != 0 ? revision : left.mutationId().compareTo(right.mutationId());
                 })
-                .toList();
+                .toList(), pageRequest);
     }
 
     @Override

@@ -30,13 +30,13 @@ packaging       PASS
 ## Architecture Decision Records
 
 - [`../../architecture/adr/README.md`](../../architecture/adr/README.md) — index des ADR ;
-- `ADR-0077` à `ADR-0080` couvrent le contrat d’orchestration M14 ;
+- `ADR-0139` à `ADR-0139` couvrent le contrat d’orchestration M14 ;
 - `ADR-0081` couvre acceptance/verification M15 ;
 - `ADR-0082` couvre la politique de contraintes M16 ;
 - `ADR-0083` couvre les mutations lifecycle contrôlées M17 ;
 - `ADR-0084` couvre la composition multi-provider provider-neutral, déterministe et explicable M18.
 
-Une ADR dépendante d’une hypothèse technique ne doit être acceptée qu’après preuve reproductible. Une ADR acceptée reste normative pour la décision qu’elle porte jusqu’à remplacement ou amendement explicite.
+Une ADR dépendante d’une hypothèse technique ne doit être acceptée qu’après preuve reproductible. Une ADR acceptée reste normative pour la décision qu’elle porte jusqu’à son remplacement explicite par un ADR qui la consolide.
 
 ## Validations
 

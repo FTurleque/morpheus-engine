@@ -42,7 +42,7 @@ Les adaptateurs sont **frères** : `api`, `cli`, `mcp`, `integration` ne s'impor
 | Package | Interdits supplémentaires | Test |
 |---|---|---|
 | `application.query.{dsl,saved,export}` | cli, mcp, api, store.memory, store.sqlite, provider.openspec, provider.markdown | `m24/QueryPlatformArchitectureTest` |
-| `application.policy..` | idem + **provider.sdk** | `m25/PolicyPlatformArchitectureTest` |
+| `application.policy..` | idem + **sdk.provider** | `m25/PolicyPlatformArchitectureTest` |
 | `application.reasoning..` | idem + **tout provider** + **application.lifecycle.mutation** | `m27/ReasoningPlatformArchitectureTest` |
 
 ### Isolation POM (m22/ProviderPluginPlatformContractTest)
@@ -76,7 +76,7 @@ Partout sous `src/main/java/` : `activateDefaultTyping(` · `enableDefaultTyping
 ```
 VIOLATION [CRITIQUE|MAJEURE|MINEURE]
   Fichier:    morpheus-application/src/main/java/.../Foo.java:42
-  Import:     com.morpheus.store.sqlite.SqliteThing
+  Import:     com.morpheus.store.sqlite.adapter.SqliteThing
   Règle:      applicationMustNotDependOnAdapters
   Test:       morpheus-architecture-tests/.../LayerDependencyTest.java:32
   Raison:     "application services define use cases and ports without depending on adapters"

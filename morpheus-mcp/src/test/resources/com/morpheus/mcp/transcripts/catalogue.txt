@@ -1,0 +1,231 @@
+tool: activate_policy_pack
+description: Explicitly activate one immutable policy version in a project or portfolio scope.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"actor":{"minLength":1,"type":"string"},"expectedRevision":{"minimum":0,"type":"integer"},"id":{"minLength":1,"type":"string"},"reason":{"minLength":1,"type":"string"},"scopeId":{"minLength":1,"type":"string"},"scopeKind":{"enum":["PROJECT","PORTFOLIO"],"type":"string"},"versionId":{"minLength":1,"type":"string"}},"required":["id","versionId","scopeKind","scopeId","expectedRevision","actor","reason"],"type":"object"}
+
+tool: add_cross_project_reference
+description: Persist one provenance-preserving cross-project reference observation.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"evidenceId":{"minLength":1,"type":"string"},"portfolioId":{"minLength":1,"type":"string"},"providerId":{"minLength":1,"type":"string"},"relation":{"minLength":1,"type":"string"},"sourceId":{"minLength":1,"type":"string"},"sourceLocator":{"minLength":1,"type":"string"},"sourceProjectId":{"minLength":1,"type":"string"},"sourceType":{"minLength":1,"type":"string"},"targetId":{"minLength":1,"type":"string"},"targetProjectId":{"minLength":1,"type":"string"},"targetType":{"minLength":1,"type":"string"}},"required":["portfolioId","sourceProjectId","sourceType","sourceId","targetProjectId","targetType","targetId","relation","providerId"],"type":"object"}
+
+tool: apply_change_lifecycle_transition
+description: Apply one controlled MORPHEUS lifecycle transition. This is a side-effecting M17 operation requiring WRITE_CHANGE capability, expectedRevision, idempotencyKey and explicit confirmation.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"abandonmentReason":{"enum":["REJECTED","OBSOLETE","DUPLICATE","NOT_FEASIBLE","NO_LONGER_NEEDED","SUPERSEDED_BY_OTHER_CHANGE","UNKNOWN"],"type":"string"},"actor":{"minLength":1,"type":"string"},"changeId":{"minLength":1,"type":"string"},"confirmed":{"type":"boolean"},"expectedRevision":{"minimum":0,"type":"integer"},"idempotencyKey":{"minLength":1,"type":"string"},"mutationId":{"minLength":1,"type":"string"},"projectId":{"minLength":1,"type":"string"},"targetState":{"enum":["DRAFT","PROPOSED","SPECIFIED","DESIGNED","PLANNED","IMPLEMENTING","VERIFYING","COMPLETED","ARCHIVED","ABANDONED"],"type":"string"}},"required":["projectId","changeId","idempotencyKey","expectedRevision","targetState","actor","confirmed"],"type":"object"}
+
+tool: archive_saved_view
+description: CAS-archive one saved view without deleting revision history.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"expectedRevision":{"minimum":1,"type":"integer"},"id":{"minLength":1,"type":"string"}},"required":["id","expectedRevision"],"type":"object"}
+
+tool: check_product_update
+description: Compatibility stub. URI-backed update discovery is CLI-only and this MCP tool performs no file or network I/O.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{},"required":[],"type":"object"}
+
+tool: create_policy_pack
+description: Create one versioned provider-neutral policy pack.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"actor":{"minLength":1,"type":"string"},"name":{"maxLength":160,"minLength":1,"type":"string"},"reason":{"minLength":1,"type":"string"},"rules":{"items":{"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"changeId":{"minLength":1,"type":"string"},"comparison":{"enum":["EQ","NE","LT","LTE","GT","GTE"],"type":"string"},"description":{"maxLength":512,"minLength":1,"type":"string"},"expectedCount":{"minimum":0,"type":"integer"},"id":{"minLength":1,"type":"string"},"kind":{"enum":["CONSTRAINT_GUARD","LIFECYCLE_GUARD","QUALITY_THRESHOLD","QUERY_ASSERTION"],"type":"string"},"qualityMetric":{"minLength":1,"type":"string"},"queryDefinition":{"minLength":1,"type":"string"},"severity":{"enum":["INFO","WARNING","BLOCKER"],"type":"string"},"sourceState":{"minLength":1,"type":"string"},"targetState":{"minLength":1,"type":"string"},"threshold":{"type":"number"}},"required":["description","kind","severity"],"type":"object"},"maxItems":128,"minItems":1,"type":"array"}},"required":["name","rules","actor","reason"],"type":"object"}
+
+tool: create_portfolio
+description: Create a stable MORPHEUS portfolio identity.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"name":{"minLength":1,"type":"string"}},"required":["name"],"type":"object"}
+
+tool: create_saved_view
+description: Persist a versioned query definition, never materialized results.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"entity":{"minLength":1,"type":"string"},"fields":{"minLength":1,"type":"string"},"filter":{"maxLength":16384,"type":"string"},"limit":{"maximum":500,"minimum":1,"type":"integer"},"name":{"maxLength":160,"minLength":1,"type":"string"},"offset":{"minimum":0,"type":"integer"},"scopeId":{"minLength":1,"type":"string"},"scopeKind":{"enum":["PROJECT","PORTFOLIO"],"type":"string"},"sort":{"minLength":1,"type":"string"}},"required":["name","scopeKind","scopeId","entity"],"type":"object"}
+
+tool: deactivate_policy_pack
+description: CAS-deactivate one policy pack from a scope.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"actor":{"minLength":1,"type":"string"},"expectedRevision":{"minimum":1,"type":"integer"},"id":{"minLength":1,"type":"string"},"reason":{"minLength":1,"type":"string"},"scopeId":{"minLength":1,"type":"string"},"scopeKind":{"enum":["PROJECT","PORTFOLIO"],"type":"string"}},"required":["id","scopeKind","scopeId","expectedRevision","actor","reason"],"type":"object"}
+
+tool: dry_run_policy_pack
+description: Dry-run one policy version without activation or mutation.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"id":{"minLength":1,"type":"string"},"scopeId":{"minLength":1,"type":"string"},"scopeKind":{"enum":["PROJECT","PORTFOLIO"],"type":"string"},"versionId":{"minLength":1,"type":"string"}},"required":["id","versionId","scopeKind","scopeId"],"type":"object"}
+
+tool: evaluate_change_transition
+description: Evaluate one MORPHEUS lifecycle transition without mutating the change, provider, or snapshot.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"abandonmentReason":{"enum":["REJECTED","OBSOLETE","DUPLICATE","NOT_FEASIBLE","NO_LONGER_NEEDED","SUPERSEDED_BY_OTHER_CHANGE","UNKNOWN"],"type":"string"},"allowBackwardTransitions":{"type":"boolean"},"allowCompletedReopen":{"type":"boolean"},"changeId":{"minLength":1,"type":"string"},"fromAbandonmentReason":{"enum":["REJECTED","OBSOLETE","DUPLICATE","NOT_FEASIBLE","NO_LONGER_NEEDED","SUPERSEDED_BY_OTHER_CHANGE","UNKNOWN"],"type":"string"},"fromState":{"enum":["DRAFT","PROPOSED","SPECIFIED","DESIGNED","PLANNED","IMPLEMENTING","VERIFYING","COMPLETED","ARCHIVED","ABANDONED"],"type":"string"},"projectId":{"minLength":1,"type":"string"},"targetState":{"enum":["DRAFT","PROPOSED","SPECIFIED","DESIGNED","PLANNED","IMPLEMENTING","VERIFYING","COMPLETED","ARCHIVED","ABANDONED"],"type":"string"}},"required":["projectId","changeId","fromState","targetState"],"type":"object"}
+
+tool: evaluate_policies
+description: Evaluate active policies read-only for one explicit scope.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"id":{"minLength":1,"type":"string"},"scopeId":{"minLength":1,"type":"string"},"scopeKind":{"enum":["PROJECT","PORTFOLIO"],"type":"string"}},"required":["scopeKind","scopeId"],"type":"object"}
+
+tool: execute_query
+description: Execute one bounded provider-neutral MORPHEUS query.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"entity":{"minLength":1,"type":"string"},"fields":{"minLength":1,"type":"string"},"filter":{"maxLength":16384,"type":"string"},"limit":{"maximum":500,"minimum":1,"type":"integer"},"offset":{"minimum":0,"type":"integer"},"scopeId":{"minLength":1,"type":"string"},"scopeKind":{"enum":["PROJECT","PORTFOLIO"],"type":"string"},"sort":{"minLength":1,"type":"string"}},"required":["scopeKind","scopeId","entity"],"type":"object"}
+
+tool: execute_saved_view
+description: Execute the current stored query definition of one active saved view.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"id":{"minLength":1,"type":"string"}},"required":["id"],"type":"object"}
+
+tool: export_query
+description: Export the complete bounded query view as canonical JSON, CSV or Markdown. An export is always complete (at most 10000 rows, refused above): it takes no offset or limit. Over MCP a response past 1 MiB is refused (MCP_RESPONSE_TOO_LARGE) and this export cannot be paged: read the rows with execute_query, page by page, or export with the CLI (export query) or HTTP (POST /api/v1/exports).
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"entity":{"minLength":1,"type":"string"},"fields":{"minLength":1,"type":"string"},"filter":{"maxLength":16384,"type":"string"},"format":{"enum":["JSON","CSV","MARKDOWN"],"type":"string"},"scopeId":{"minLength":1,"type":"string"},"scopeKind":{"enum":["PROJECT","PORTFOLIO"],"type":"string"},"sort":{"minLength":1,"type":"string"}},"required":["scopeKind","scopeId","entity","format"],"type":"object"}
+
+tool: export_saved_view
+description: Export one active saved view as canonical JSON, CSV or Markdown. The export is always complete: it ignores the page stored with the view.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"format":{"enum":["JSON","CSV","MARKDOWN"],"type":"string"},"id":{"minLength":1,"type":"string"}},"required":["id","format"],"type":"object"}
+
+tool: find_requirements
+description: Find CURRENT requirements in the ACTIVE snapshot using deterministic lexical search.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"limit":{"maximum":100,"minimum":1,"type":"integer"},"offset":{"maximum":1000000,"minimum":0,"type":"integer"},"projectId":{"minLength":1,"type":"string"},"query":{"type":"string"}},"required":["projectId"],"type":"object"}
+
+tool: get_acceptance_criteria
+description: List explicit persisted acceptance criteria for one change with verification status and evidence; never converts scenarios or test presence into acceptance facts.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"changeId":{"minLength":1,"type":"string"},"limit":{"maximum":100,"minimum":1,"type":"integer"},"offset":{"maximum":1000000,"minimum":0,"type":"integer"},"projectId":{"minLength":1,"type":"string"}},"required":["projectId","changeId"],"type":"object"}
+
+tool: get_augmented_change_context
+description: Build live technical context for one ACTIVE change. MORPHEUS supplies change intent and facts; the external provider owns technical ranking and token budgeting.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"changeId":{"minLength":1,"type":"string"},"constraints":{"additionalProperties":{"type":"string"},"type":"object"},"explain":{"type":"boolean"},"nexusProject":{"minLength":1,"type":"string"},"projectId":{"minLength":1,"type":"string"},"requestedSources":{"items":{"enum":["DOCUMENTATION","FILE","GIT","INSTRUCTION","SKILL","SYMBOL","TEST"],"type":"string"},"type":"array","uniqueItems":true},"tokenBudget":{"maximum":100000,"minimum":1,"type":"integer"}},"required":["projectId","changeId","nexusProject"],"type":"object"}
+
+tool: get_augmented_requirement_context
+description: Build live technical context for one ACTIVE requirement. MORPHEUS supplies intent; the external provider owns technical ranking and token budgeting.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"constraints":{"additionalProperties":{"type":"string"},"type":"object"},"explain":{"type":"boolean"},"nexusProject":{"minLength":1,"type":"string"},"projectId":{"minLength":1,"type":"string"},"requestedSources":{"items":{"enum":["DOCUMENTATION","FILE","GIT","INSTRUCTION","SKILL","SYMBOL","TEST"],"type":"string"},"type":"array","uniqueItems":true},"requirementId":{"minLength":1,"type":"string"},"tokenBudget":{"maximum":100000,"minimum":1,"type":"integer"}},"required":["projectId","requirementId","nexusProject"],"type":"object"}
+
+tool: get_blocking_conditions
+description: Return deterministic completeness findings and observable blocker facts for one change.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"changeId":{"minLength":1,"type":"string"},"projectId":{"minLength":1,"type":"string"}},"required":["projectId","changeId"],"type":"object"}
+
+tool: get_change
+description: Return one normalized change proposal from the ACTIVE snapshot.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"changeId":{"minLength":1,"type":"string"},"projectId":{"minLength":1,"type":"string"}},"required":["projectId","changeId"],"type":"object"}
+
+tool: get_change_context
+description: Return bounded deterministic context and traceability for one change.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"changeId":{"minLength":1,"type":"string"},"depth":{"maximum":20,"minimum":1,"type":"integer"},"projectId":{"minLength":1,"type":"string"}},"required":["projectId","changeId"],"type":"object"}
+
+tool: get_change_orchestration_state
+description: Return the read-only UC-16 orchestration state for one ACTIVE change. Lifecycle is never inferred; supply lifecycleState only when explicitly observed.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"abandonmentReason":{"enum":["REJECTED","OBSOLETE","DUPLICATE","NOT_FEASIBLE","NO_LONGER_NEEDED","SUPERSEDED_BY_OTHER_CHANGE","UNKNOWN"],"type":"string"},"changeId":{"minLength":1,"type":"string"},"lifecycleState":{"enum":["DRAFT","PROPOSED","SPECIFIED","DESIGNED","PLANNED","IMPLEMENTING","VERIFYING","COMPLETED","ARCHIVED","ABANDONED"],"type":"string"},"projectId":{"minLength":1,"type":"string"}},"required":["projectId","changeId"],"type":"object"}
+
+tool: get_change_status
+description: Return observable lifecycle facts without inferring a lifecycle state that is not persisted.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"changeId":{"minLength":1,"type":"string"},"projectId":{"minLength":1,"type":"string"}},"required":["projectId","changeId"],"type":"object"}
+
+tool: get_composition_status
+description: Return persisted snapshot-scoped multi-provider composition status for the ACTIVE project snapshot.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"projectId":{"minLength":1,"type":"string"}},"required":["projectId"],"type":"object"}
+
+tool: get_constraints
+description: List constraints explicitly attached to one change.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"changeId":{"minLength":1,"type":"string"},"limit":{"maximum":100,"minimum":1,"type":"integer"},"offset":{"maximum":1000000,"minimum":0,"type":"integer"},"projectId":{"minLength":1,"type":"string"}},"required":["projectId","changeId"],"type":"object"}
+
+tool: get_current_specification
+description: Return the ACTIVE snapshot of one project: its identifiers and entity counts, and one page of its specifications, each with its full description.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"limit":{"maximum":100,"minimum":1,"type":"integer"},"offset":{"maximum":1000000,"minimum":0,"type":"integer"},"projectId":{"minLength":1,"type":"string"}},"required":["projectId"],"type":"object"}
+
+tool: get_design_decisions
+description: List design decisions explicitly attached to one change.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"changeId":{"minLength":1,"type":"string"},"limit":{"maximum":100,"minimum":1,"type":"integer"},"offset":{"maximum":1000000,"minimum":0,"type":"integer"},"projectId":{"minLength":1,"type":"string"}},"required":["projectId","changeId"],"type":"object"}
+
+tool: get_implementation_tasks
+description: List implementation tasks explicitly attached to one change.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"changeId":{"minLength":1,"type":"string"},"limit":{"maximum":100,"minimum":1,"type":"integer"},"offset":{"maximum":1000000,"minimum":0,"type":"integer"},"projectId":{"minLength":1,"type":"string"}},"required":["projectId","changeId"],"type":"object"}
+
+tool: get_policy_audit
+description: Read immutable policy configuration audit records, oldest first, one page at a time (offset, limit; default 50, maximum 100).
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"id":{"minLength":1,"type":"string"},"limit":{"maximum":100,"minimum":1,"type":"integer"},"offset":{"maximum":2147483647,"minimum":0,"type":"integer"}},"required":["id"],"type":"object"}
+
+tool: get_policy_pack
+description: Read one policy pack by stable identity.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"id":{"minLength":1,"type":"string"}},"required":["id"],"type":"object"}
+
+tool: get_portfolio_overview
+description: Return portfolio members, freshness, reference count and explicit conflicts.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"portfolioId":{"minLength":1,"type":"string"}},"required":["portfolioId"],"type":"object"}
+
+tool: get_product_info
+description: Return MORPHEUS product/build metadata. This tool performs no network access.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{},"required":[],"type":"object"}
+
+tool: get_saved_view
+description: Read one saved view by stable identity.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"id":{"minLength":1,"type":"string"}},"required":["id"],"type":"object"}
+
+tool: get_specification_context
+description: Return bounded CURRENT requirements and associated scenarios/changes for one specification.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"limit":{"maximum":100,"minimum":1,"type":"integer"},"offset":{"maximum":1000000,"minimum":0,"type":"integer"},"projectId":{"minLength":1,"type":"string"},"specificationId":{"minLength":1,"type":"string"}},"required":["projectId","specificationId"],"type":"object"}
+
+tool: get_sync_status
+description: Return persisted synchronization freshness for one project.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"maxAgeMinutes":{"maximum":525600,"minimum":1,"type":"integer"},"projectId":{"minLength":1,"type":"string"}},"required":["projectId"],"type":"object"}
+
+tool: list_changes
+description: List normalized change proposals from the ACTIVE snapshot.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"limit":{"maximum":100,"minimum":1,"type":"integer"},"offset":{"maximum":1000000,"minimum":0,"type":"integer"},"projectId":{"minLength":1,"type":"string"}},"required":["projectId"],"type":"object"}
+
+tool: list_composition_conflicts
+description: List explicit persisted multi-provider composition conflicts with provenance-preserving candidates.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"limit":{"maximum":100,"minimum":1,"type":"integer"},"offset":{"maximum":2147483647,"minimum":0,"type":"integer"},"projectId":{"minLength":1,"type":"string"}},"required":["projectId"],"type":"object"}
+
+tool: list_external_references
+description: List snapshot-scoped external references owned by one entity in the ACTIVE project snapshot.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"ownerId":{"minLength":1,"type":"string"},"projectId":{"minLength":1,"type":"string"}},"required":["projectId","ownerId"],"type":"object"}
+
+tool: list_policy_activations
+description: List active policy versions and CAS revisions for one explicit scope.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"scopeId":{"minLength":1,"type":"string"},"scopeKind":{"enum":["PROJECT","PORTFOLIO"],"type":"string"}},"required":["scopeKind","scopeId"],"type":"object"}
+
+tool: list_policy_overrides
+description: List policy overrides for one explicit scope.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"scopeId":{"minLength":1,"type":"string"},"scopeKind":{"enum":["PROJECT","PORTFOLIO"],"type":"string"}},"required":["scopeKind","scopeId"],"type":"object"}
+
+tool: list_policy_pack_versions
+description: List immutable versions of one policy pack, oldest first, one page at a time (offset, limit; default 50, maximum 100).
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"id":{"minLength":1,"type":"string"},"limit":{"maximum":100,"minimum":1,"type":"integer"},"offset":{"maximum":2147483647,"minimum":0,"type":"integer"}},"required":["id"],"type":"object"}
+
+tool: list_policy_packs
+description: List policy pack identities and current registry metadata.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{},"required":[],"type":"object"}
+
+tool: list_portfolio_references
+description: List portfolio-scoped or project-scoped cross-project references.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"limit":{"maximum":500,"minimum":1,"type":"integer"},"offset":{"minimum":0,"type":"integer"},"portfolioId":{"minLength":1,"type":"string"},"projectId":{"minLength":1,"type":"string"}},"required":["portfolioId"],"type":"object"}
+
+tool: list_reasoning_adapters
+description: List optional MORPHEUS reasoning adapters. Listing never activates an adapter or performs network access.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{},"required":[],"type":"object"}
+
+tool: list_saved_view_versions
+description: List immutable saved-view revisions in ascending order, one page at a time (offset, limit; default 50, maximum 100).
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"id":{"minLength":1,"type":"string"},"limit":{"maximum":100,"minimum":1,"type":"integer"},"offset":{"maximum":2147483647,"minimum":0,"type":"integer"}},"required":["id"],"type":"object"}
+
+tool: list_saved_views
+description: List active saved views for one explicit project or portfolio scope.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"scopeId":{"minLength":1,"type":"string"},"scopeKind":{"enum":["PROJECT","PORTFOLIO"],"type":"string"}},"required":["scopeKind","scopeId"],"type":"object"}
+
+tool: mark_portfolio_project_missing
+description: Mark one portfolio project missing without deleting identity or references.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"portfolioId":{"minLength":1,"type":"string"},"projectId":{"minLength":1,"type":"string"}},"required":["portfolioId","projectId"],"type":"object"}
+
+tool: observe_portfolio_freshness
+description: Record incremental project freshness for one portfolio member.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"explanation":{"minLength":1,"type":"string"},"portfolioId":{"minLength":1,"type":"string"},"projectId":{"minLength":1,"type":"string"},"revision":{"minLength":1,"type":"string"},"state":{"minLength":1,"type":"string"}},"required":["portfolioId","projectId","state"],"type":"object"}
+
+tool: put_policy_override
+description: Create or CAS-update one explicit audited policy override.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"actor":{"minLength":1,"type":"string"},"expectedRevision":{"minimum":0,"type":"integer"},"id":{"minLength":1,"type":"string"},"mode":{"enum":["DISABLE","FORCE_WARN","FORCE_BLOCK"],"type":"string"},"reason":{"minLength":1,"type":"string"},"ruleId":{"minLength":1,"type":"string"},"scopeId":{"minLength":1,"type":"string"},"scopeKind":{"enum":["PROJECT","PORTFOLIO"],"type":"string"}},"required":["id","ruleId","mode","scopeKind","scopeId","expectedRevision","actor","reason"],"type":"object"}
+
+tool: reason_with_evidence
+description: Produce evidence-backed inferences, heuristics and suggestions without mutating published facts. adapterIds must be explicit; an empty list returns facts only.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"adapterIds":{"items":{"maxLength":128,"minLength":1,"type":"string"},"maxItems":8,"type":"array","uniqueItems":true},"evidence":{"items":{"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"id":{"maxLength":128,"minLength":1,"type":"string"},"kind":{"enum":["PUBLISHED_FACT","SOURCE_EXCERPT","POLICY_RESULT","EXTERNAL_CONTEXT","OBSERVATION"],"type":"string"},"provenance":{"additionalProperties":{"type":"string"},"maxProperties":32,"type":"object"},"statement":{"maxLength":16384,"minLength":1,"type":"string"},"subject":{"maxLength":512,"minLength":1,"type":"string"}},"required":["id","kind","subject","statement"],"type":"object"},"maxItems":256,"type":"array"},"maxClaims":{"maximum":256,"minimum":1,"type":"integer"},"parameters":{"additionalProperties":{"type":"string"},"maxProperties":32,"type":"object"},"question":{"maxLength":8192,"minLength":1,"type":"string"}},"required":["question"],"type":"object"}
+
+tool: register_portfolio_project
+description: Register or refresh one project membership without deriving identity from paths.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"name":{"minLength":1,"type":"string"},"portfolioId":{"minLength":1,"type":"string"},"projectId":{"minLength":1,"type":"string"},"providers":{"minLength":1,"type":"string"},"repository":{"minLength":1,"type":"string"},"workspace":{"minLength":1,"type":"string"}},"required":["portfolioId","projectId","name"],"type":"object"}
+
+tool: resolve_external_reference
+description: Resolve one stored external reference live without mutating the published snapshot.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"projectId":{"minLength":1,"type":"string"},"referenceId":{"minLength":1,"type":"string"}},"required":["projectId","referenceId"],"type":"object"}
+
+tool: trace_requirement
+description: Return bounded deterministic traceability context for one CURRENT requirement.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"depth":{"maximum":20,"minimum":1,"type":"integer"},"projectId":{"minLength":1,"type":"string"},"requirementId":{"minLength":1,"type":"string"}},"required":["projectId","requirementId"],"type":"object"}
+
+tool: traverse_portfolio
+description: Traverse cross-project references with explicit depth/node/link budgets.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"direction":{"minLength":1,"type":"string"},"maxDepth":{"maximum":8,"minimum":1,"type":"integer"},"maxLinks":{"maximum":5000,"minimum":1,"type":"integer"},"maxNodes":{"maximum":1000,"minimum":1,"type":"integer"},"portfolioId":{"minLength":1,"type":"string"},"startId":{"minLength":1,"type":"string"},"startProjectId":{"minLength":1,"type":"string"},"startType":{"minLength":1,"type":"string"}},"required":["portfolioId","startProjectId","startType","startId"],"type":"object"}
+
+tool: update_policy_pack
+description: CAS-update a policy pack by creating a new immutable version.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"actor":{"minLength":1,"type":"string"},"expectedRevision":{"minimum":1,"type":"integer"},"id":{"minLength":1,"type":"string"},"name":{"maxLength":160,"minLength":1,"type":"string"},"reason":{"minLength":1,"type":"string"},"rules":{"items":{"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"changeId":{"minLength":1,"type":"string"},"comparison":{"enum":["EQ","NE","LT","LTE","GT","GTE"],"type":"string"},"description":{"maxLength":512,"minLength":1,"type":"string"},"expectedCount":{"minimum":0,"type":"integer"},"id":{"minLength":1,"type":"string"},"kind":{"enum":["CONSTRAINT_GUARD","LIFECYCLE_GUARD","QUALITY_THRESHOLD","QUERY_ASSERTION"],"type":"string"},"qualityMetric":{"minLength":1,"type":"string"},"queryDefinition":{"minLength":1,"type":"string"},"severity":{"enum":["INFO","WARNING","BLOCKER"],"type":"string"},"sourceState":{"minLength":1,"type":"string"},"targetState":{"minLength":1,"type":"string"},"threshold":{"type":"number"}},"required":["description","kind","severity"],"type":"object"},"maxItems":128,"minItems":1,"type":"array"}},"required":["id","expectedRevision","name","rules","actor","reason"],"type":"object"}
+
+tool: update_saved_view
+description: CAS-update one saved-view definition using expectedRevision.
+inputSchema: {"$schema":"https://json-schema.org/draft/2020-12/schema","additionalProperties":false,"properties":{"entity":{"minLength":1,"type":"string"},"expectedRevision":{"minimum":1,"type":"integer"},"fields":{"minLength":1,"type":"string"},"filter":{"maxLength":16384,"type":"string"},"id":{"minLength":1,"type":"string"},"limit":{"maximum":500,"minimum":1,"type":"integer"},"name":{"maxLength":160,"minLength":1,"type":"string"},"offset":{"minimum":0,"type":"integer"},"sort":{"minLength":1,"type":"string"}},"required":["id","expectedRevision","name","entity"],"type":"object"}

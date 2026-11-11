@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.api.local.MorpheusHttpServer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import tools.jackson.databind.JsonNode;
@@ -20,8 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The audit of a policy pack answers with a page, not a bare array (AUD-PRF-04, ADR-0107): a journal only grows, and a
- * list cut without saying so is what ADR-0108 forbids.
+ * The audit of a policy pack answers with a page, not a bare array (AUD-PRF-04, ADR-0151): a journal only grows, and a
+ * list cut without saying so is what ADR-0124 forbids.
  */
 class MorpheusPolicyAuditPagingHttpTest {
     private static final Pattern UUID_V7 = Pattern.compile(

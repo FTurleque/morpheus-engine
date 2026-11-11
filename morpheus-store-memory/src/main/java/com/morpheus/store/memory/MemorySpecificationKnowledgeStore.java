@@ -6,6 +6,9 @@ import com.morpheus.application.identity.EntityIdentityStore;
 import com.morpheus.application.identity.IdentityCollisionException;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.ProjectStoreEntry;
+import com.morpheus.application.store.RequirementPage;
+import com.morpheus.application.store.RequirementPageCriteria;
+import com.morpheus.application.store.RequirementPageOrder;
 import com.morpheus.application.store.RequirementVersionRecord;
 import com.morpheus.application.store.SnapshotConflictException;
 import com.morpheus.application.store.SnapshotSpecificationVersionBinding;
@@ -25,6 +28,7 @@ import com.morpheus.domain.version.SpecificationVersionId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /** Reference in-memory implementation of the local MORPHEUS storage contracts. */
@@ -347,6 +351,37 @@ public final class MemorySpecificationKnowledgeStore
                 .sorted((left, right) -> left.entityVersion().id().compareTo(right.entityVersion().id()))
                 .limit(limit)
                 .toList();
+    }
+
+    @Override
+    public synchronized RequirementPage pageCurrentRequirementVersions(
+            KnowledgeSnapshotId snapshotId,
+            RequirementPageCriteria criteria,
+            RequirementPageOrder order,
+            int offset,
+            int limit) {
+        Objects.requireNonNull(snapshotId, "snapshotId");
+        Objects.requireNonNull(criteria, "criteria");
+        Objects.requireNonNull(order, "order");
+        VersionedRequirementStore.requireValidPage(offset, limit);
+        List<RequirementVersionRecord> matches = requirementVersions.values().stream()
+                .filter(record -> record.snapshotId().equals(snapshotId))
+                .filter(record -> record.entityVersion().temporalState() == TemporalState.CURRENT)
+                .filter(record -> criteria.matches(record.entityVersion().content()))
+                .sorted(order.comparator())
+                .toList();
+        int from = Math.min(offset, matches.size());
+        int to = (int) Math.min((long) from + limit, matches.size());
+        return new RequirementPage(matches.subList(from, to), matches.size());
+    }
+
+    @Override
+    public synchronized int countCurrentRequirementVersions(KnowledgeSnapshotId snapshotId) {
+        Objects.requireNonNull(snapshotId, "snapshotId");
+        return (int) requirementVersions.values().stream()
+                .filter(record -> record.snapshotId().equals(snapshotId))
+                .filter(record -> record.entityVersion().temporalState() == TemporalState.CURRENT)
+                .count();
     }
 
     @Override

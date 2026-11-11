@@ -38,12 +38,12 @@ class NexusSuppressedFailureTraceTest {
         Path undeletable = Files.createDirectory(temporaryDirectory.resolve("occupied"));
         Files.writeString(undeletable.resolve("child"), "a directory that is not empty cannot be deleted");
 
-        NexusMcpContextGateway.deleteStagedCounting(Optional.of(deletable), recorder);
-        NexusMcpContextGateway.deleteStagedCounting(Optional.empty(), recorder);
+        NexusMcpContextGateway.observers(recorder).deleteStagedCounting(Optional.of(deletable));
+        NexusMcpContextGateway.observers(recorder).deleteStagedCounting(Optional.empty());
         assertFalse(Files.exists(deletable));
         assertEquals(Map.of(), metrics.snapshot().counters());
 
-        NexusMcpContextGateway.deleteStagedCounting(Optional.of(undeletable), recorder);
+        NexusMcpContextGateway.observers(recorder).deleteStagedCounting(Optional.of(undeletable));
 
         assertTrue(Files.exists(undeletable));
         assertEquals(Map.of("failure.suppressed.staged-artifact-cleanup", 1L), metrics.snapshot().counters());
@@ -68,10 +68,10 @@ class NexusSuppressedFailureTraceTest {
     @Test
     void anAbortThatFailsIsCountedAndStillFailsForTheDeadlineThatAskedForIt() {
         AtomicInteger aborted = new AtomicInteger();
-        Runnable healthy = NexusMcpContextGateway.countingAbort(aborted::incrementAndGet, recorder);
-        Runnable broken = NexusMcpContextGateway.countingAbort(() -> {
+        Runnable healthy = NexusMcpContextGateway.observers(recorder).countingAbort(aborted::incrementAndGet);
+        Runnable broken = NexusMcpContextGateway.observers(recorder).countingAbort(() -> {
             throw new IllegalStateException("the peer could not be closed");
-        }, recorder);
+        });
 
         healthy.run();
         assertEquals(1, aborted.get());

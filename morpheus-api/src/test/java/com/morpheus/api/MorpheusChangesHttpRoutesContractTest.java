@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.api.local.MorpheusHttpServer;
 import com.morpheus.application.operability.OperationalRecorder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -65,7 +66,7 @@ class MorpheusChangesHttpRoutesContractTest {
     @Test
     void acceptanceCriteriaUsesTheSharedPaginationContract() {
         Path database = tempDirectory.resolve("acceptance-pagination.db");
-        Path fixture = http.fixture("openspec-basic");
+        Path fixture = RepositoryRoot.fixture("openspec-basic");
         try (MorpheusHttpServer server = MorpheusHttpServer.start(database, "127.0.0.1", 0)) {
             String registration = "{\"workspace\":" + http.jsonString(fixture.toString()) + "}";
             ApiTestSupport.Response created = http.postJson(server, "/projects", registration);

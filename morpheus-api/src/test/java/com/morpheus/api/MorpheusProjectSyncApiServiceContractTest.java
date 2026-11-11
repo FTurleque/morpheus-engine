@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.api.transport.ApiFailure;
 import com.morpheus.application.operability.OperationalRecorder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -25,7 +26,7 @@ class MorpheusProjectSyncApiServiceContractTest {
     @Test
     void preservesSyncStatusValidationAndWorkspaceConfinement() throws Exception {
         Path database = tempDirectory.resolve("sync-service.db");
-        Path fixture = http.fixture("openspec-basic");
+        Path fixture = RepositoryRoot.fixture("openspec-basic");
         MorpheusProjectRegistryApiService registry = new MorpheusProjectRegistryApiService(database, OperationalRecorder.noop(), Optional.empty());
         MorpheusProjectRegistryApiService.RegistrationResult registration = registry.registerProject(fixture.toString());
         String projectId = ((Map<?, ?>) registration.project()).get("projectId").toString();

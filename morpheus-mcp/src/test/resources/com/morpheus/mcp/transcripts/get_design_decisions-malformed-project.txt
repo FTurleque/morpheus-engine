@@ -1,0 +1,5 @@
+tool: get_design_decisions
+arguments: {"changeId":"01920000-0000-7000-8000-000000000106","projectId":"not-an-id"}
+isError: true
+text:
+Invalid UUID string: not-an-id

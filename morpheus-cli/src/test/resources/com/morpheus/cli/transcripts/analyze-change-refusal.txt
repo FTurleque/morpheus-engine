@@ -1,0 +1,6 @@
+args: analyze-change --project <project> --change <change> --depth 21
+exit: 2
+stdout:
+
+stderr:
+MORPHEUS error [2]: --depth must be between 1 and 20

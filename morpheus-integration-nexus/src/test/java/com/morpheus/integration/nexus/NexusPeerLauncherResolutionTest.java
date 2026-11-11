@@ -1,6 +1,7 @@
 package com.morpheus.integration.nexus;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
@@ -25,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@code PATH}: another {@code java} placed first on that path would have been started as the peer. The default is
  * the launcher of the runtime MORPHEUS itself runs on, and a configured value has to name its file in full.</p>
  */
+@Isolated
 class NexusPeerLauncherResolutionTest {
     @TempDir
     Path tempDirectory;
@@ -149,7 +151,7 @@ class NexusPeerLauncherResolutionTest {
 
         NexusIntegrationSettings settings = NexusIntegrationSettings.resolve(Map.of(), properties);
 
-        assertEquals("NEXUS runner JAR is not a file: " + missingJar
+        assertEquals("NEXUS JAR is not a file: " + missingJar
                         + "; NEXUS Java command must be an absolute path; invalid NEXUS timeout: soon",
                 settings.configurationError().orElseThrow());
     }

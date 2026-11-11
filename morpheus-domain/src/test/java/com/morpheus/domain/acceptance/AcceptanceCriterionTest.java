@@ -71,7 +71,7 @@ class AcceptanceCriterionTest {
 
     @Test
     void rejectsCriterionWithoutRequirementOrChangeOwner() {
-        assertThrows(IllegalArgumentException.class, () -> new AcceptanceCriterion(
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> new AcceptanceCriterion(
                 AcceptanceCriterionId.generate(),
                 Optional.empty(),
                 Optional.empty(),
@@ -80,6 +80,7 @@ class AcceptanceCriterionTest {
                 VerificationStatus.UNKNOWN,
                 List.of(),
                 provenance()));
+        assertEquals("acceptance criterion must reference a requirement, a change, or both", failure.getMessage());
     }
 
     @Test
@@ -88,7 +89,7 @@ class AcceptanceCriterionTest {
                 VerificationStatus.PARTIALLY_VERIFIED,
                 VerificationStatus.VERIFIED,
                 VerificationStatus.FAILED)) {
-            assertThrows(IllegalArgumentException.class, () -> new AcceptanceCriterion(
+            IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> new AcceptanceCriterion(
                     AcceptanceCriterionId.generate(),
                     Optional.of(RequirementId.generate()),
                     Optional.empty(),
@@ -97,6 +98,7 @@ class AcceptanceCriterionTest {
                     status,
                     List.of(),
                     provenance()));
+            assertEquals("verification evidence is required for status " + status, failure.getMessage());
         }
     }
 
@@ -128,7 +130,7 @@ class AcceptanceCriterionTest {
     void rejectsDuplicateVerificationEvidence() {
         EvidenceId evidenceId = EvidenceId.generate();
 
-        assertThrows(IllegalArgumentException.class, () -> new AcceptanceCriterion(
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> new AcceptanceCriterion(
                 AcceptanceCriterionId.generate(),
                 Optional.empty(),
                 Optional.of(ChangeId.generate()),
@@ -137,11 +139,12 @@ class AcceptanceCriterionTest {
                 VerificationStatus.VERIFIED,
                 List.of(evidenceId, evidenceId),
                 provenance()));
+        assertTrue(failure.getMessage().contains("duplicate verification evidence identity"), failure.getMessage());
     }
 
     @Test
     void rejectsBlankTitleAndCondition() {
-        assertThrows(IllegalArgumentException.class, () -> new AcceptanceCriterion(
+        IllegalArgumentException blankTitleFailure = assertThrows(IllegalArgumentException.class, () -> new AcceptanceCriterion(
                 AcceptanceCriterionId.generate(),
                 Optional.of(RequirementId.generate()),
                 Optional.empty(),
@@ -150,8 +153,9 @@ class AcceptanceCriterionTest {
                 VerificationStatus.UNKNOWN,
                 List.of(),
                 provenance()));
+        assertEquals("title must not be blank", blankTitleFailure.getMessage());
 
-        assertThrows(IllegalArgumentException.class, () -> new AcceptanceCriterion(
+        IllegalArgumentException blankConditionFailure = assertThrows(IllegalArgumentException.class, () -> new AcceptanceCriterion(
                 AcceptanceCriterionId.generate(),
                 Optional.of(RequirementId.generate()),
                 Optional.empty(),
@@ -160,6 +164,7 @@ class AcceptanceCriterionTest {
                 VerificationStatus.UNKNOWN,
                 List.of(),
                 provenance()));
+        assertEquals("condition must not be blank", blankConditionFailure.getMessage());
     }
 
     private static Provenance provenance() {

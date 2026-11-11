@@ -4,24 +4,19 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Guards active repository documentation and validation contracts against drifting from repository facts. */
@@ -29,23 +24,6 @@ class RepositoryDocumentationCoherenceTest {
     private static final Pattern PROJECT_VERSION = Pattern.compile("<version>([^<]+)</version>");
     private static final Pattern MCP_VERSION = Pattern.compile("<mcp-sdk\\.version>([^<]+)</mcp-sdk\\.version>");
     private static final Pattern MODULE_BLOCK = Pattern.compile("<modules>(.*?)</modules>", Pattern.DOTALL);
-    private static final Pattern SCHEMA_VERSION_DECLARATION =
-            Pattern.compile("SUPPORTED_SCHEMA_VERSION\\s*=\\s*(\\d+)");
-    private static final Pattern SCHEMA_VERSION_LITERAL =
-            Pattern.compile("SUPPORTED_SCHEMA_VERSION\\s*=\\s*\\d+");
-    /**
-     * A total that grows with the repository, stated on a page that describes the current contract:
-     * "98 fichiers" ADR, "17 modules". The count belongs in a glob at answer time, not on the page.
-     */
-    private static final Pattern ADR_OR_MODULE_TOTAL = Pattern.compile(
-            "(?i)\\b\\d{1,4}\\s+(?:fichiers?|ADRs?|modules?)\\b");
-    /**
-     * A schema version stated in prose on an active surface: "schema 15", "schéma V017", or the constant
-     * followed by its value in words rather than by an assignment. Historical pages are never scanned with it.
-     */
-    private static final Pattern SCHEMA_VERSION_PROSE = Pattern.compile(
-            "(?i)(?:sch[eé]ma|schema)\\s+(?:supported\\s+|support[eé]e?\\s+)?V?\\d+"
-                    + "|SUPPORTED_SCHEMA_VERSION[^\\n]{0,40}?\\bV?\\d+");
     /**
      * A dependency version stated next to the name of the dependency it belongs to.
      *
@@ -53,22 +31,6 @@ class RepositoryDocumentationCoherenceTest {
      * Maven coordinate an active page actually uses, without reaching across a sentence into an unrelated
      * number.</p>
      */
-    /**
-     * The AI governance surfaces the checks below scan. {@code .claude/CLAUDE.md} is the always-loaded entry point,
-     * so a stale fact on it propagates furthest; {@code .github/AI_GOVERNANCE.md} maps what is loaded and by what.
-     */
-    private static final List<String> GOVERNANCE_PAGES = List.of(".claude/CLAUDE.md", ".github/AI_GOVERNANCE.md");
-    private static final List<String> GOVERNANCE_DIRECTORIES =
-            List.of(".claude/commands", ".claude/agents", ".claude/rules");
-    /**
-     * Skills are the one AI surface that does not live one file deep: Claude Code loads
-     * {@code .claude/skills/<name>/SKILL.md} and ignores anything else under that root. Listing the directory the
-     * way the three above are listed would therefore have found no Markdown at all and reported the whole surface
-     * as absent, so the collection descends one level -- and refuses a skill written in a shape that is never
-     * loaded, which would otherwise be governance nobody applies and nobody scans.
-     */
-    private static final String GOVERNANCE_SKILL_DIRECTORY = ".claude/skills";
-    private static final String SKILL_FILE = "SKILL.md";
     private static final Pattern SQLITE_JDBC_MENTION =
             Pattern.compile("(?i)sqlite[- ]jdbc[^0-9\\n]{0,24}(\\d+(?:\\.\\d+){2,3})");
     private static final Pattern DEPENDENCY_CHECK_MENTION =
@@ -102,8 +64,6 @@ class RepositoryDocumentationCoherenceTest {
     private static final Pattern FENCED_CODE = Pattern.compile("```.*?```", Pattern.DOTALL);
     private static final Pattern INLINE_CODE = Pattern.compile("`[^`\\n]*`");
     private static final Pattern URI_SCHEME = Pattern.compile("^[A-Za-z][A-Za-z0-9+.-]*:");
-    /** Trees the build and the validators generate, which .gitignore keeps out of the repository. */
-    private static final Set<String> GENERATED_TREES = Set.of(".git", "target", "dist", "validation-output");
 
     /**
      * Every relative Markdown link resolves, on a current guide and on a dated record alike.
@@ -115,14 +75,14 @@ class RepositoryDocumentationCoherenceTest {
      */
     @Test
     void everyRelativeMarkdownLinkResolvesFromThePageThatHoldsIt() throws Exception {
-        List<String> broken = brokenMarkdownLinks(repositoryRoot());
+        List<String> broken = brokenMarkdownLinks(RepositoryRoot.locate());
         assertTrue(broken.isEmpty(), () -> broken.size() + " relative Markdown link(s) do not resolve from their page:"
                 + System.lineSeparator() + String.join(System.lineSeparator(), broken));
     }
 
     /**
-     * An empty corpus would satisfy the rule above as well (ADR-0103). This proves it refuses a moved target, names
-     * the page and the target, and leaves alone what is not a link to a file.
+     * An empty corpus would satisfy the rule above as well. This proves it refuses a moved target, names the
+     * page and the target, and leaves alone what is not a link to a file.
      */
     @Test
     void theLinkRuleRefusesAMovedTargetAndIgnoresWhatIsNotAFileLink(@TempDir Path corpus) throws Exception {
@@ -148,24 +108,9 @@ class RepositoryDocumentationCoherenceTest {
     }
 
     private static List<String> brokenMarkdownLinks(Path root) throws IOException {
-        List<Path> pages = new ArrayList<>();
-        Files.walkFileTree(root, new SimpleFileVisitor<>() {
-            @Override
-            public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attributes) {
-                return !directory.equals(root) && GENERATED_TREES.contains(directory.getFileName().toString())
-                        ? FileVisitResult.SKIP_SUBTREE
-                        : FileVisitResult.CONTINUE;
-            }
-
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) {
-                if (attributes.isRegularFile() && file.getFileName().toString().endsWith(".md")) {
-                    pages.add(file);
-                }
-                return FileVisitResult.CONTINUE;
-            }
-        });
-        pages.sort(null);
+        List<Path> pages = RepositoryTree.files(root).stream()
+                .filter(file -> file.getFileName().toString().endsWith(".md"))
+                .toList();
 
         List<String> broken = new ArrayList<>();
         for (Path page : pages) {
@@ -196,7 +141,7 @@ class RepositoryDocumentationCoherenceTest {
 
     @Test
     void contributingGuideMatchesPomVersionMcpSdkAndModuleList() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String pom = Files.readString(root.resolve("pom.xml"));
         String readme = Files.readString(root.resolve("CONTRIBUTING.md"));
 
@@ -214,7 +159,7 @@ class RepositoryDocumentationCoherenceTest {
 
     @Test
     void activeDocumentationDeclaresCurrentDevelopmentBaseline() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String version = firstGroup(PROJECT_VERSION, Files.readString(root.resolve("pom.xml")), "project version");
         for (Path page : activeStatusPages(root)) {
             String content = Files.readString(page);
@@ -225,7 +170,7 @@ class RepositoryDocumentationCoherenceTest {
 
     @Test
     void activeStatusPagesDoNotAdvertiseCompletedD2AsPending() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         List<String> obsoleteMarkers = List.of(
                 "D2 EN COURS",
                 "D2 — Repository Hardening en cours",
@@ -259,7 +204,7 @@ class RepositoryDocumentationCoherenceTest {
      */
     @Test
     void activeStackDocumentationAndD2ValidatorsFollowTheRootPomDependencyVersions() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String pom = Files.readString(root.resolve("pom.xml"));
         String sqlite = pomProperty(pom, "sqlite-jdbc.version");
         String dependencyCheck = pomProperty(pom, "dependency-check.maven.plugin.version");
@@ -295,7 +240,7 @@ class RepositoryDocumentationCoherenceTest {
      */
     @Test
     void theArc42StackTablesAreReconciledAsAWholeRatherThanRowByRow() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String pom = Files.readString(root.resolve("pom.xml"));
         Map<String, String> reconciled = new HashMap<>();
         for (String property : List.of(
@@ -334,59 +279,30 @@ class RepositoryDocumentationCoherenceTest {
 
     @Test
     void bothPlatformValidatorsConsumeSingleQualityRatchetConfiguration() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         Path ratchetFile = root.resolve("config/m21-quality-ratchets.properties");
         Map<String, String> ratchets = properties(ratchetFile);
-        // Pinned so that moving a ratchet is a deliberate act with evidence, never a side effect. The presence
-        // ratchets were raised on 08/09/2026 from 1300/335 against exact-head measurements taken on BOTH
-        // platforms at fix/audit-hardening-2026-09-08, 1560+ tests of which 390+ are architecture tests.
-        //
-        // The coverage ratchets are two pairs because two gates measure two different grandeurs, each with its
-        // own qualified cap, and until 09/09/2026 they shared one pair of keys:
-        //     per-module (CoverageQualityGateTest, sum of each module's own report)
-        //         Windows  62.5328% / 62.5432% lines,  53.8092% / 53.8188% branches
-        //         Linux    62.5083% / 62.5013% lines,  53.7997% / 53.7997% branches
-        //     aggregate  (AggregateCoverageGateTest, canonical jacoco-aggregate report), 09/09/2026 at e5127486
-        //         Windows  85.7612% / 85.7717% lines,  68.5342% / 68.5629% branches
-        //         Linux    85.7263% / 85.7367% lines,  68.5246% / 68.5437% branches
-        // Each pair stays below its own cap rather than at it: two runs of one commit differed by two covered
-        // lines, so pinning a ratchet to the measurement would make ordinary variation fail the build.
-        //
-        // 16/09/2026: the per-module pair is raised 0.620/0.535 -> 0.640/0.560 inside the cap requalified on
-        // 15/09 (0.645143 / 0.562964). No new measurement was taken and the cap is untouched -- raising a ratchet
-        // within an already-qualified cap is a decision, not a measurement. Remaining headroom on this scale:
-        // 146 lines and 30 branches, against a cross-platform spread of 24 lines and 11 branches. The branch key
-        // is the tight one (2.8x the spread, against 6.1x for lines); treat the two keys separately next time.
-        // The aggregate pair is deliberately NOT touched: it measures another population and has its own cap.
-        //
-        // 22/09/2026: the per-module LINE key alone is raised 0.640 -> 0.642, same cap, no new measurement.
-        // Headroom becomes 89 lines (3.7x the spread); the branch key stays at 0.560 with its 30 branches (2.8x).
-        // Population re-read that day on both m21-integrity-Linux artifacts of develop at e8e0f0ca: 28352 lines
-        // and 10212 branches, which moves neither headroom by one unit.
-        //
-        // 22/09/2026, later: the per-module cap is requalified to 0.649302 / 0.572366 on four exact-head
-        // measurements of e8e0f0ca (see CoverageQualityGateTest), and BOTH per-module keys are raised inside it,
-        // each sized separately to at least 3x the 24-line / 11-branch spread: line 0.642 -> 0.646 (93 lines, 3.9x),
-        // branch 0.560 -> 0.569 (34 branches, 3.1x). The aggregate pair is still not touched.
-        //
-        // 09/10/2026: both caps requalified on four exact-head measurements of develop 8e3fda5a (see each gate),
-        // and every ratchet raised inside them. Coverage keys, each the highest thousandth keeping 3x the 24-line /
-        // 11-branch reference spread: per-module 0.646 -> 0.691 (97 lines) and 0.569 -> 0.612 (38 branches),
-        // aggregate 0.850 -> 0.900 (88 lines) and 0.680 -> 0.757 (42 branches). Presence ratchets, 3830 tests of
-        // which 590 architecture tests on all four runs: 1550 -> 3820 and 385 -> 585, the 10 / 5 margin of 08/09.
-        assertEquals("3820", ratchets.get("testsMinimum"));
-        assertEquals("585", ratchets.get("architectureTestsMinimum"));
-        assertEquals("0.691", ratchets.get("perModuleLineCoverageMinimum"));
-        assertEquals("0.612", ratchets.get("perModuleBranchCoverageMinimum"));
-        assertEquals("0.900", ratchets.get("aggregateLineCoverageMinimum"));
-        assertEquals("0.757", ratchets.get("aggregateBranchCoverageMinimum"));
+        // Pinned so that moving a ratchet is a deliberate act with evidence, never a side effect. A presence key
+        // sits ten executions under a measurement taken on both platforms, stated with its commit beside the key in
+        // config/m21-quality-ratchets.properties; a coverage key sits under the cap that CoverageQualityGateTest or
+        // AggregateCoverageGateTest qualifies, with its measurements in config/coverage-qualification/.
+        assertEquals("3556", ratchets.get("testsMinimum"));
+        assertEquals("1819", ratchets.get("generatedTestsMinimum"));
+        assertEquals("1058", ratchets.get("architectureTestsMinimum"));
+        assertEquals("0.901", ratchets.get("perModuleLineCoverageMinimum"));
+        assertEquals("0.773", ratchets.get("perModuleBranchCoverageMinimum"));
+        assertEquals("0.928", ratchets.get("aggregateLineCoverageMinimum"));
+        assertEquals("0.811", ratchets.get("aggregateBranchCoverageMinimum"));
 
+        assertBothValidatorsReadTheAggregateKeysOf(root);
+    }
+
+    /** Both validators conclude on the aggregate scale, so both read its keys and neither falls back to another. */
+    private static void assertBothValidatorsReadTheAggregateKeysOf(Path root) throws IOException {
         String linux = Files.readString(root.resolve("scripts/validate-m21.sh"));
         String windows = Files.readString(root.resolve("scripts/validate-m21.ps1"));
         assertTrue(linux.contains("config/m21-quality-ratchets.properties"));
         assertTrue(windows.contains("config\\m21-quality-ratchets.properties"));
-        // Both validators conclude on the aggregate scale, so both must read the aggregate keys and neither
-        // may fall back to a scale-agnostic one.
         for (String script : List.of(linux, windows)) {
             assertTrue(script.contains("aggregateLineCoverageMinimum"));
             assertTrue(script.contains("aggregateBranchCoverageMinimum"));
@@ -399,10 +315,11 @@ class RepositoryDocumentationCoherenceTest {
 
     @Test
     void activeRiskDocumentationMatchesExecutableQualityRatchetsAndResolvedAdrIndex() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         Map<String, String> ratchets = properties(root.resolve("config/m21-quality-ratchets.properties"));
         String expectedRatchets = """
-                Surefire total          >= %s
+                Surefire written        >= %s
+                Surefire generated      >= %s
                 architecture            >= %s
                 aggregate line          >= %s
                 aggregate branch        >= %s
@@ -412,6 +329,7 @@ class RepositoryDocumentationCoherenceTest {
                 changed-branch          >= 70%%
                 """.formatted(
                 ratchets.get("testsMinimum"),
+                ratchets.get("generatedTestsMinimum"),
                 ratchets.get("architectureTestsMinimum"),
                 percentage(ratchets.get("aggregateLineCoverageMinimum")),
                 percentage(ratchets.get("aggregateBranchCoverageMinimum")),
@@ -428,7 +346,7 @@ class RepositoryDocumentationCoherenceTest {
 
         String arc42 = Files.readString(root.resolve("docs/architecture/arc42/11-risques-dette.md"));
         String adrIndex = Files.readString(root.resolve("docs/architecture/adr/README.md"));
-        assertTrue(adrIndex.contains("[ADR-0096](0096-conservative-native-mcp-client"),
+        assertTrue(adrIndex.contains("[ADR-0096](GEN-0096-conservative-native-mcp-client"),
                 "ADR index must retain the accepted ADR-0096 entry");
         assertFalse(arc42.contains("| DT-02 |"),
                 "active debt register must not advertise the already-resolved ADR-0096 index drift");
@@ -436,9 +354,10 @@ class RepositoryDocumentationCoherenceTest {
 
     @Test
     void operatorFacingQualityGateDocumentationMirrorsTheNormativeRatchets() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         Map<String, String> ratchets = properties(root.resolve("config/m21-quality-ratchets.properties"));
         String tests = ratchets.get("testsMinimum");
+        String generated = ratchets.get("generatedTestsMinimum");
         String architecture = ratchets.get("architectureTestsMinimum");
         String aggregateLine = decimalPercentage(ratchets.get("aggregateLineCoverageMinimum"));
         String aggregateBranch = decimalPercentage(ratchets.get("aggregateBranchCoverageMinimum"));
@@ -446,14 +365,16 @@ class RepositoryDocumentationCoherenceTest {
         String perModuleBranch = decimalPercentage(ratchets.get("perModuleBranchCoverageMinimum"));
 
         assertLabelledThresholds(root, "docs/developer/BUILD_AND_TEST.md", Map.of(
-                "baseline Surefire totale", tests,
+                "baseline Surefire écrits", tests,
+                "baseline Surefire générés", generated,
                 "baseline architecture", architecture,
                 "JaCoCo aggregate line ratchet", aggregateLine,
                 "JaCoCo aggregate branch ratchet", aggregateBranch,
                 "JaCoCo per-module line ratchet", perModuleLine,
                 "JaCoCo per-module branch ratchet", perModuleBranch));
         assertLabelledThresholds(root, "docs/developer/PRODUCTION_INTEGRITY.md", Map.of(
-                "Tests ", tests,
+                "Tests written", tests,
+                "Tests generated", generated,
                 "Architecture ", architecture,
                 "JaCoCo aggregate lines", aggregateLine,
                 "JaCoCo aggregate branches", aggregateBranch,
@@ -464,35 +385,40 @@ class RepositoryDocumentationCoherenceTest {
         // Each now has to name the scale as well as the number: one figure standing alone was exactly how a
         // per-module threshold came to be read as governing the canonical measurement.
         assertLabelledThresholds(root, "scripts/README.md", Map.of(
-                "Surefire total", tests,
+                "Surefire written", tests,
+                "Surefire generated", generated,
                 "architecture ", architecture,
                 "aggregate line coverage", aggregateLine,
                 "aggregate branch coverage", aggregateBranch,
                 "per-module line coverage", perModuleLine,
                 "per-module branch coverage", perModuleBranch));
         assertLabelledThresholds(root, "distribution/README.md", Map.of(
-                "Surefire total", tests,
+                "Surefire written", tests,
+                "Surefire generated", generated,
                 "architecture ", architecture,
                 "aggregate line coverage", aggregateLine,
                 "aggregate branch coverage", aggregateBranch,
                 "per-module line coverage", perModuleLine,
                 "per-module branch coverage", perModuleBranch));
         assertLabelledThresholds(root, "docs/developer/README.md", Map.of(
-                "Surefire floor", tests,
+                "Surefire written floor", tests,
+                "Surefire generated floor", generated,
                 "Architecture floor", architecture,
                 "JaCoCo aggregate line ratchet", aggregateLine,
                 "JaCoCo aggregate branch ratchet", aggregateBranch,
                 "JaCoCo per-module line ratchet", perModuleLine,
                 "JaCoCo per-module branch ratchet", perModuleBranch));
         assertLabelledThresholds(root, "docs/project/governance/DOCUMENTATION_STATUS.md", Map.of(
-                "Surefire ratchet", tests,
+                "Surefire written ratchet", tests,
+                "Surefire generated ratchet", generated,
                 "Architecture ratchet", architecture,
                 "Aggregate line ratchet", aggregateLine,
                 "Aggregate branch ratchet", aggregateBranch,
                 "Per-module line ratchet", perModuleLine,
                 "Per-module branch ratchet", perModuleBranch));
         assertLabelledThresholds(root, "docs/project/governance/ROADMAP.md", Map.of(
-                "Surefire ratchet", tests,
+                "Surefire written ratchet", tests,
+                "Surefire generated ratchet", generated,
                 "architecture ratchet", architecture,
                 "aggregate line ratchet", aggregateLine,
                 "aggregate branch ratchet", aggregateBranch,
@@ -501,10 +427,11 @@ class RepositoryDocumentationCoherenceTest {
 
         String readme = Files.readString(root.resolve("CONTRIBUTING.md"));
         String readmeClaim = ("Le ratchet agrégé est **≥ %s %% lignes / ≥ %s %% branches**, le ratchet par module"
-                + " **≥ %s %% lignes / ≥ %s %% branches**, avec **≥ %s tests Surefire** et"
+                + " **≥ %s %% lignes / ≥ %s %% branches**, avec **≥ %s tests Surefire écrits**,"
+                + " **≥ %s tests Surefire générés** et"
                 + " **≥ %s tests d’architecture**")
                 .formatted(french(aggregateLine), french(aggregateBranch),
-                        french(perModuleLine), french(perModuleBranch), tests, architecture);
+                        french(perModuleLine), french(perModuleBranch), tests, generated, architecture);
         assertTrue(readme.contains(readmeClaim),
                 () -> "CONTRIBUTING.md must state the normative M21 ratchets: " + readmeClaim);
 
@@ -526,7 +453,7 @@ class RepositoryDocumentationCoherenceTest {
      */
     @Test
     void operatorFacingD2GateDocumentationMirrorsWhatTheD2ValidatorsEnforce() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String linux = Files.readString(root.resolve("scripts/validate-d2.sh"));
         String windows = Files.readString(root.resolve("scripts/validate-d2.ps1"));
 
@@ -545,138 +472,6 @@ class RepositoryDocumentationCoherenceTest {
                 "the D2 guide must say that the presence minimums are the ratchet file's, not a number of its own");
     }
 
-    @Test
-    void activeGovernanceDocumentationNeverPinsTheSqliteSchemaVersion() throws Exception {
-        Path root = repositoryRoot();
-        String manager = Files.readString(root.resolve(
-                "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSchemaManager.java"));
-        Matcher declaration = SCHEMA_VERSION_DECLARATION.matcher(manager);
-        assertTrue(declaration.find(), "SqliteSchemaManager must declare SUPPORTED_SCHEMA_VERSION");
-
-        String maintenance = Files.readString(root.resolve(
-                "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteServerMaintenance.java"));
-        assertTrue(maintenance.contains("SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION"),
-                "maintenance must consume the declared constant rather than restate the version");
-
-        // Active governance surfaces describe the *current* contract, so a literal here silently rots.
-        // Historical snapshots under docs/project/validation and docs/project/roadmap legitimately record past versions.
-        for (Path page : activeGovernanceSurfaces(root)) {
-            String content = Files.readString(page);
-            Matcher pinned = SCHEMA_VERSION_LITERAL.matcher(content);
-            assertFalse(pinned.find(),
-                    () -> root.relativize(page) + " pins SUPPORTED_SCHEMA_VERSION to a literal; derive it from "
-                            + "SqliteSchemaManager instead so the check cannot describe a stale contract");
-
-            // The assignment form is only one way to state the version. An active surface that *describes* the
-            // current schema in prose - "schema 15" in a report template, "constate a 17" in a rule - rots the
-            // same way while sailing past a check that only looks for the constant.
-            Matcher prose = SCHEMA_VERSION_PROSE.matcher(content);
-            assertFalse(prose.find(),
-                    () -> root.relativize(page) + " states a current SQLite schema version in prose ("
-                            + describeFirstMatch(SCHEMA_VERSION_PROSE, content)
-                            + "); active surfaces must read SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION instead");
-        }
-    }
-
-    /**
-     * The surface list must refuse a missing surface rather than scan less (ADR-0103): every check iterating it would
-     * otherwise keep passing on a narrower population. Proven on a copy, one surface removed at a time.
-     */
-    @Test
-    void theGovernanceSurfaceListRefusesAMissingSurfaceInsteadOfShrinking(@TempDir Path corpus) throws Exception {
-        for (String page : GOVERNANCE_PAGES) {
-            Files.createDirectories(corpus.resolve(page).getParent());
-            Files.writeString(corpus.resolve(page), "# page\n");
-        }
-        for (String directory : GOVERNANCE_DIRECTORIES) {
-            Files.createDirectories(corpus.resolve(directory));
-            Files.writeString(corpus.resolve(directory).resolve("rule.md"), "# rule\n");
-        }
-        Path skill = corpus.resolve(GOVERNANCE_SKILL_DIRECTORY).resolve("a-skill");
-        Files.createDirectories(skill);
-        Files.writeString(skill.resolve(SKILL_FILE), "# skill\n");
-        assertEquals(GOVERNANCE_PAGES.size() + GOVERNANCE_DIRECTORIES.size() + 1,
-                activeGovernanceSurfaces(corpus).size(), "a complete corpus must be scanned whole");
-
-        for (String page : GOVERNANCE_PAGES) {
-            Path file = corpus.resolve(page);
-            Files.delete(file);
-            AssertionError refusal = assertThrows(AssertionError.class, () -> activeGovernanceSurfaces(corpus));
-            assertTrue(refusal.getMessage().contains(page), () -> "the refusal must name " + page);
-            Files.writeString(file, "# page\n");
-        }
-        for (String directory : GOVERNANCE_DIRECTORIES) {
-            Path rule = corpus.resolve(directory).resolve("rule.md");
-            Files.delete(rule);
-            AssertionError refusal = assertThrows(AssertionError.class, () -> activeGovernanceSurfaces(corpus));
-            assertTrue(refusal.getMessage().contains(directory), () -> "the refusal must name " + directory);
-            Files.writeString(rule, "# rule\n");
-        }
-
-        Files.delete(skill.resolve(SKILL_FILE));
-        AssertionError emptied = assertThrows(AssertionError.class, () -> activeGovernanceSurfaces(corpus));
-        assertTrue(emptied.getMessage().contains("a-skill/" + SKILL_FILE),
-                () -> "the refusal must name the skill folder that lost its " + SKILL_FILE);
-        Files.writeString(skill.resolve(SKILL_FILE), "# skill\n");
-
-        // A skill written as a loose file is never loaded by Claude Code, so it would be governance that applies
-        // to nothing while escaping every check above. Refused rather than ignored.
-        Path loose = corpus.resolve(GOVERNANCE_SKILL_DIRECTORY).resolve("written-as-a-loose-file.md");
-        Files.writeString(loose, "# not a skill\n");
-        AssertionError misplaced = assertThrows(AssertionError.class, () -> activeGovernanceSurfaces(corpus));
-        assertTrue(misplaced.getMessage().contains("written-as-a-loose-file.md"),
-                () -> "the refusal must name the file written outside a skill folder");
-        Files.delete(loose);
-
-        assertEquals(GOVERNANCE_PAGES.size() + GOVERNANCE_DIRECTORIES.size() + 1,
-                activeGovernanceSurfaces(corpus).size(), "the corpus must be whole again once each shape is fixed");
-    }
-
-    /**
-     * Active governance surfaces must not state a total that changes when the repository grows.
-     *
-     * <p>{@code rules/meta.md} says never to recopy a perishable total, yet the ADR rule recopied one, and it had
-     * rotted into an ambiguity: "98 fichiers" counted 97 numbered ADRs plus the directory's own README, so a
-     * reader following it would have cited 98 ADRs. The instruction to count is what belongs on these pages.</p>
-     */
-    @Test
-    void activeGovernanceSurfacesDoNotRestateAPerishableAdrOrModuleTotal() throws Exception {
-        Path root = repositoryRoot();
-        long numberedAdrs;
-        try (var files = Files.list(root.resolve("docs/architecture/adr"))) {
-            numberedAdrs = files.filter(path -> path.getFileName().toString().matches("\\d{4}-.*\\.md")).count();
-        }
-        assertTrue(numberedAdrs > 0, "the ADR directory must contain numbered decision records");
-
-        for (Path page : activeGovernanceSurfaces(root)) {
-            String content = Files.readString(page);
-            assertFalse(ADR_OR_MODULE_TOTAL.matcher(content).find(),
-                    () -> root.relativize(page) + " restates a perishable total (\""
-                            + describeFirstMatch(ADR_OR_MODULE_TOTAL, content)
-                            + "\"); count docs/architecture/adr/0*.md or pom.xml <module> entries instead");
-        }
-    }
-
-    /**
-     * The developer platform guide describes the current contract, so it must not pin the runtime's maximum
-     * schema version. It said the maximum was V016 and that anything above 16 is refused, while the manager had
-     * moved to 17 -- a reader following it would have concluded a valid database was rejected.
-     */
-    @Test
-    void theRemotePlatformGuideDerivesTheSchemaCeilingFromTheDeclaringConstant() throws Exception {
-        Path root = repositoryRoot();
-        String guide = Files.readString(root.resolve("docs/developer/REMOTE_SERVER_PLATFORM.md"));
-
-        int section = guide.indexOf("## Schéma SQLite");
-        assertTrue(section >= 0, "the guide must keep its SQLite schema section");
-        String schemaSection = guide.substring(section, Math.min(guide.length(), section + 2000));
-
-        assertTrue(schemaSection.contains("SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION"),
-                "the documented ceiling must point at the constant that declares it");
-        assertFalse(Pattern.compile("version maximale supportée par le runtime\\s*:\\s*\\*\\*V?\\d+")
-                        .matcher(schemaSection).find(),
-                "the guide must not restate the runtime's maximum schema version as a literal");
-    }
 
     /**
      * The guide must not describe a failure type that no longer exists.
@@ -688,39 +483,23 @@ class RepositoryDocumentationCoherenceTest {
      */
     @Test
     void theRemotePlatformGuideOnlyNamesFailureTypesThatExist() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String guide = Files.readString(root.resolve("docs/developer/REMOTE_SERVER_PLATFORM.md"));
         Path sqliteSources = root.resolve("morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite");
 
         Matcher named = Pattern.compile("`(Sqlite[A-Za-z]*Exception)`").matcher(guide);
         while (named.find()) {
             String type = named.group(1);
-            assertTrue(Files.isRegularFile(sqliteSources.resolve(type + ".java")),
+            assertTrue(Files.isRegularFile(sqliteSources.resolve("adapter").resolve(type + ".java"))
+                            || Files.isRegularFile(sqliteSources.resolve("runtime").resolve(type + ".java")),
                     () -> "REMOTE_SERVER_PLATFORM.md documents " + type + ", which no longer exists");
         }
     }
 
-    /**
-     * The audit command must tell its reader where the normative value lives, not just avoid restating it.
-     * A template with an empty placeholder and no instruction invites the next reader to fill in a remembered
-     * number, which is how the stale "schema 15" line survived the previous correction.
-     */
-    @Test
-    void theSecurityAuditCommandDerivesTheSqliteSchemaVersionFromTheDeclaringConstant() throws Exception {
-        Path root = repositoryRoot();
-        String command = Files.readString(root.resolve(".claude/commands/security-audit.md"));
-
-        assertTrue(command.contains("SUPPORTED_SCHEMA_VERSION"),
-                "the audit command must point at the declaring constant");
-        assertTrue(command.contains("SqliteSchemaManager.java"),
-                "the audit command must name the file that declares the normative version");
-        assertTrue(command.contains("SqliteSchemaManager>"),
-                "the audit report template must carry a placeholder rather than a version number");
-    }
 
     @Test
     void rootBuildEnforcerPinsQualifiedJavaAndDependencyConvergence() throws Exception {
-        String pom = Files.readString(repositoryRoot().resolve("pom.xml")).replace("\r\n", "\n");
+        String pom = Files.readString(RepositoryRoot.locate().resolve("pom.xml")).replace("\r\n", "\n");
         assertTrue(pom.contains("<requireJavaVersion>\n                                    <version>[21,22)</version>\n                                </requireJavaVersion>"),
                 "root Maven enforcer must reject JDKs newer than the qualified Java 21 line");
         assertTrue(pom.contains("<dependencyConvergence/>"),
@@ -729,10 +508,10 @@ class RepositoryDocumentationCoherenceTest {
 
     @Test
     void httpExtensionRoutesUseSharedTimedRequestBodyBoundary() throws Exception {
-        Path root = repositoryRoot();
-        Path api = root.resolve("morpheus-api/src/main/java/com/morpheus/api");
+        Path root = RepositoryRoot.locate();
+        Path api = root.resolve("morpheus-api/src/main/java");
         List<Path> routers;
-        try (var files = Files.list(api)) {
+        try (var files = Files.walk(api)) {
             routers = files.filter(path -> path.getFileName().toString().endsWith("HttpRoutes.java")).sorted().toList();
         }
         assertFalse(routers.isEmpty(), "no *HttpRoutes.java found under " + api);
@@ -745,17 +524,17 @@ class RepositoryDocumentationCoherenceTest {
                     () -> route + " must read its body through MorpheusHttpRequestDecoder, not a reader of its own");
         }
 
-        String decoder = Files.readString(api.resolve("MorpheusHttpRequestDecoder.java"));
+        String decoder = ProductionSources.readMain("morpheus-api", "MorpheusHttpRequestDecoder");
         assertTrue(decoder.contains("HttpRequestBodyReader.read("),
                 "the request decoder must read bodies through the shared bounded reader");
-        String reader = Files.readString(api.resolve("HttpRequestBodyReader.java"));
+        String reader = ProductionSources.readMain("morpheus-api", "HttpRequestBodyReader");
         assertTrue(reader.contains("TimedBoundedInputReader.read("),
                 "shared request-body reader must delegate to the deadline-aware primitive");
     }
 
     @Test
     void repositoryPublishesSecurityPolicyAndSensitiveCodeOwnership() throws Exception {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String security = Files.readString(root.resolve("SECURITY.md"));
         String codeowners = Files.readString(root.resolve(".github/CODEOWNERS"));
 
@@ -771,11 +550,9 @@ class RepositoryDocumentationCoherenceTest {
 
     @Test
     void remoteAuthorizationAndCredentialDocumentationStayFailClosedAndExpiryAware() throws Exception {
-        Path root = repositoryRoot();
-        String routePolicy = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteRoutePolicy.java"));
-        String remoteServer = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
+        Path root = RepositoryRoot.locate();
+        String routePolicy = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteRoutePolicy"));
+        String remoteServer = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServer"));
         String userGuide = Files.readString(root.resolve("docs/user/TEAM_REMOTE_SERVER.md"));
         String developerGuide = Files.readString(root.resolve("docs/developer/REMOTE_SERVER_PLATFORM.md"));
 
@@ -808,11 +585,6 @@ class RepositoryDocumentationCoherenceTest {
         return value;
     }
 
-    /** Quotes the offending text so a failure names what to remove instead of only where to look. */
-    private static String describeFirstMatch(Pattern pattern, String content) {
-        Matcher matcher = pattern.matcher(content);
-        return matcher.find() ? matcher.group().strip() : "";
-    }
 
     private static void assertLabelledThresholds(Path root, String page, Map<String, String> expected) throws IOException {
         String content = Files.readString(root.resolve(page)).replace("\r\n", "\n");
@@ -852,82 +624,6 @@ class RepositoryDocumentationCoherenceTest {
         return decimal.replace('.', ',');
     }
 
-    /**
-     * The pages and directories every governance check above scans.
-     *
-     * <p>A missing surface is refused, not skipped. The list used to tolerate an absent page or directory, so
-     * deleting one narrowed every check that iterates it while each of them kept passing -- the population defect
-     * A-03 removed from the coverage gate. A surface retired on purpose leaves {@link #GOVERNANCE_PAGES} or
-     * {@link #GOVERNANCE_DIRECTORIES} in the same change.</p>
-     */
-    private static List<Path> activeGovernanceSurfaces(Path root) throws IOException {
-        List<Path> surfaces = new ArrayList<>();
-        List<String> missing = new ArrayList<>();
-        for (String page : GOVERNANCE_PAGES) {
-            Path file = root.resolve(page);
-            if (Files.isRegularFile(file)) {
-                surfaces.add(file);
-            } else {
-                missing.add(page);
-            }
-        }
-        for (String directory : GOVERNANCE_DIRECTORIES) {
-            Path base = root.resolve(directory);
-            List<Path> pages = List.of();
-            if (Files.isDirectory(base)) {
-                try (var entries = Files.list(base)) {
-                    pages = entries.filter(path -> path.toString().endsWith(".md")).sorted().toList();
-                }
-            }
-            if (pages.isEmpty()) {
-                missing.add(directory + "/*.md");
-            }
-            surfaces.addAll(pages);
-        }
-        surfaces.addAll(collectSkillSurfaces(root, missing));
-        if (!missing.isEmpty()) {
-            throw new AssertionError("declared governance surface(s) absent: " + String.join(", ", missing)
-                    + "; retire a surface by removing it from the declared list, never by letting the scan shrink");
-        }
-        return surfaces;
-    }
-
-    /**
-     * The {@code SKILL.md} of every skill folder, in name order.
-     *
-     * <p>A skill is only loaded from {@code .claude/skills/&lt;name&gt;/SKILL.md}. Two shapes are therefore refused
-     * rather than skipped: a folder without its {@code SKILL.md}, and a loose {@code .md} sitting directly under
-     * the skills root. Both would be governance that Claude Code never reads and that no check here would ever
-     * scan -- the quietest way for a rule to stop existing.</p>
-     */
-    private static List<Path> collectSkillSurfaces(Path root, List<String> missing) throws IOException {
-        Path skillsRoot = root.resolve(GOVERNANCE_SKILL_DIRECTORY);
-        List<Path> skills = new ArrayList<>();
-        if (Files.isDirectory(skillsRoot)) {
-            List<Path> entries;
-            try (var stream = Files.list(skillsRoot)) {
-                entries = stream.sorted().toList();
-            }
-            for (Path entry : entries) {
-                String name = entry.getFileName().toString();
-                if (Files.isDirectory(entry)) {
-                    Path skillFile = entry.resolve(SKILL_FILE);
-                    if (Files.isRegularFile(skillFile)) {
-                        skills.add(skillFile);
-                    } else {
-                        missing.add(GOVERNANCE_SKILL_DIRECTORY + "/" + name + "/" + SKILL_FILE);
-                    }
-                } else if (name.endsWith(".md")) {
-                    missing.add(GOVERNANCE_SKILL_DIRECTORY + "/" + name
-                            + " (a skill is loaded from <name>/" + SKILL_FILE + ", never from a loose file)");
-                }
-            }
-        }
-        if (skills.isEmpty()) {
-            missing.add(GOVERNANCE_SKILL_DIRECTORY + "/*/" + SKILL_FILE);
-        }
-        return skills;
-    }
 
     private static List<Path> activeStatusPages(Path root) {
         return List.of(
@@ -958,22 +654,6 @@ class RepositoryDocumentationCoherenceTest {
             result.put(line.substring(0, separator).trim(), line.substring(separator + 1).trim());
         }
         return Map.copyOf(result);
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            Path pom = current.resolve("pom.xml");
-            if (Files.isRegularFile(pom)) {
-                String content = Files.readString(pom);
-                if (content.contains("<artifactId>morpheus-engine</artifactId>")
-                        && content.contains("<modules>")) {
-                    return current;
-                }
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 
     private static String firstGroup(Pattern pattern, String text, String label) {

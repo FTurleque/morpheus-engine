@@ -1,18 +1,17 @@
 package com.morpheus.architecture.d2;
 
+import com.morpheus.architecture.CoherenceCheck;
+import com.morpheus.architecture.RepositoryRoot;
+import com.morpheus.architecture.RepositoryTree;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -30,16 +29,15 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
  * Windows PowerShell 5.1 decodes a BOM-less file in the ANSI code page, and one non-ASCII byte was enough to stop
  * both hooks from parsing for a whole revision. Only the post-edit hook warned about it, and only locally.</p>
  */
+@CoherenceCheck
 class RepositoryTextHygieneContractTest {
 
     private static final Pattern USES = Pattern.compile("(?m)^\\s*(?:-\\s*)?uses:\\s*(\\S+)");
     private static final Pattern PINNED = Pattern.compile("[^@\\s]+@[0-9a-f]{40}");
-    private static final Set<String> NOT_SOURCES = Set.of(
-            ".git", "target", "validation-output", "dist", "node_modules", ".idea", "worktrees");
 
     @Test
     void everyWorkflowActionIsPinnedByACommitSha() throws IOException {
-        assertEquals(List.of(), unpinnedActions(repoRoot().resolve(".github/workflows")),
+        assertEquals(List.of(), unpinnedActions(RepositoryRoot.locate().resolve(".github/workflows")),
                 "every uses: of a workflow names a local action or a 40-character commit SHA, never a mutable tag");
     }
 
@@ -63,7 +61,7 @@ class RepositoryTextHygieneContractTest {
     @Test
     void everyPowerShellScriptIsAsciiUnlessItCarriesABom() throws IOException {
         List<String> scripts = new ArrayList<>();
-        assertEquals(List.of(), nonAsciiScripts(repoRoot(), scripts),
+        assertEquals(List.of(), nonAsciiScripts(RepositoryRoot.locate(), scripts),
                 "Windows PowerShell 5.1 reads a BOM-less script in the ANSI code page; keep .ps1 files ASCII");
         assertFalse(scripts.isEmpty(), "the walk found no PowerShell script at all");
     }
@@ -107,28 +105,16 @@ class RepositoryTextHygieneContractTest {
 
     private static List<String> nonAsciiScripts(Path root, List<String> seen) throws IOException {
         List<String> offending = new ArrayList<>();
-        Files.walkFileTree(root, new SimpleFileVisitor<>() {
-            @Override
-            public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attributes) {
-                Path name = dir.getFileName();
-                return !dir.equals(root) && name != null && NOT_SOURCES.contains(name.toString())
-                        ? FileVisitResult.SKIP_SUBTREE
-                        : FileVisitResult.CONTINUE;
+        for (Path file : RepositoryTree.files(root)) {
+            if (!file.toString().endsWith(".ps1")) {
+                continue;
             }
-
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) throws IOException {
-                if (!file.toString().endsWith(".ps1")) {
-                    return FileVisitResult.CONTINUE;
-                }
-                String relative = root.relativize(file).toString().replace('\\', '/');
-                seen.add(relative);
-                if (isNonAsciiWithoutBom(Files.readAllBytes(file))) {
-                    offending.add(relative);
-                }
-                return FileVisitResult.CONTINUE;
+            String relative = root.relativize(file).toString().replace('\\', '/');
+            seen.add(relative);
+            if (isNonAsciiWithoutBom(Files.readAllBytes(file))) {
+                offending.add(relative);
             }
-        });
+        }
         offending.sort(String::compareTo);
         return offending;
     }
@@ -145,18 +131,5 @@ class RepositoryTextHygieneContractTest {
             }
         }
         return false;
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
-            return current;
-        }
-        Path parent = current.getParent();
-        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml"))
-                && Files.isDirectory(parent.resolve("distribution"))) {
-            return parent;
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found from " + current);
     }
 }

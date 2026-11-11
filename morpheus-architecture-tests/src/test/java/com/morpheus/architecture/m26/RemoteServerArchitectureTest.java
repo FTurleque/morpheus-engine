@@ -1,19 +1,30 @@
 package com.morpheus.architecture.m26;
 
+import com.morpheus.architecture.ProductionSources;
+import com.morpheus.architecture.RepositoryRoot;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.importer.ImportOption;
+import com.morpheus.architecture.ClassesOfASource;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.Semaphore;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.simpleNameContaining;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RemoteServerArchitectureTest {
+
+    private static final JavaClasses PRODUCTION = new ClassFileImporter()
+            .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+            .importPackages("com.morpheus.api");
 
     @Test
     void domainAndApplicationDoNotDependOnRemoteServerAdapters() {
@@ -33,11 +44,9 @@ class RemoteServerArchitectureTest {
      */
     @Test
     void remoteBackupResponseNamesTheFileWhileTheLocalCliKeepsThePathname() throws IOException {
-        Path root = repositoryRoot();
-        String remoteServer = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
-        String cli = Files.readString(root.resolve(
-                "morpheus-cli/src/main/java/com/morpheus/cli/MorpheusServerCli.java"));
+        Path root = RepositoryRoot.locate();
+        String remoteServer = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServer"));
+        String cli = Files.readString(ProductionSources.mainSource("morpheus-cli", "MorpheusServerCli"));
         String openApi = Files.readString(root.resolve("docs/developer/reference/openapi/morpheus-v1-remote-m26.yaml"));
 
         assertTrue(remoteServer.contains("view.put(\"fileName\", fileNameOf(backup.path()))"),
@@ -51,30 +60,6 @@ class RemoteServerArchitectureTest {
     }
 
     /**
-     * The facade's own SQLite work runs on a database worker, never on the request's virtual thread (AUD-PRF-19).
-     *
-     * <p>The driver waits for a busy database inside native code, where a virtual thread keeps its carrier, and there
-     * are as many carriers as processors. Every route the facade does not forward reaches {@code maintenance} on the
-     * request's thread unless the call is handed to {@code databaseWorkers}. The intent is a property of what the
-     * source says, not of a compiled dependency, hence the text.</p>
-     */
-    @Test
-    void theRemoteFacadeCallsTheDatabaseOnlyThroughItsDatabaseWorkers() throws IOException {
-        String source = Files.readString(repositoryRoot().resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
-        Matcher call = Pattern.compile("maintenance\\.\\w+\\(").matcher(source);
-        int calls = 0;
-        while (call.find()) {
-            calls++;
-            String before = source.substring(Math.max(0, call.start() - 60), call.start());
-            assertTrue(before.contains("databaseWorkers.call(() -> "),
-                    () -> "a SQLite maintenance call of the remote facade must run on a database worker: "
-                            + source.substring(call.start(), Math.min(source.length(), call.end() + 40)));
-        }
-        assertTrue(calls > 0, "the facade no longer calls the maintenance service; this rule has nothing to hold");
-    }
-
-    /**
      * Every HTTP surface that reports a server-side location must name it rather than locate it.
      *
      * <p>These three were found one after another and share a cause: an internal model carrying an absolute
@@ -83,14 +68,12 @@ class RemoteServerArchitectureTest {
      */
     @Test
     void httpSurfacesNameServerSideLocationsWhileTheCliKeepsThem() throws IOException {
-        Path root = repositoryRoot();
-        String projects = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusProjectRegistryApiService.java"));
-        String integrations = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/IntegrationStatusViews.java"));
-        String cli = Files.readString(root.resolve("morpheus-cli/src/main/java/com/morpheus/cli/MorpheusCli.java"));
+        Path root = RepositoryRoot.locate();
+        String projects = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusProjectRegistryApiService"));
+        String integrations = Files.readString(ProductionSources.mainSource("morpheus-api", "IntegrationStatusViews"));
+        String cli = Files.readString(ProductionSources.mainSource("morpheus-cli", "MorpheusProjectCli"));
         String integrationProjection = Files.readString(root.resolve(
-                "morpheus-application/src/main/java/com/morpheus/application/security/IntegrationStatusDisclosure.java"));
+                "morpheus-application/src/main/java/com/morpheus/application/context/IntegrationStatusDisclosure.java"));
 
         assertTrue(projects.contains("result.put(\"workspaceName\", workspaceName(entry.rootLocator()))"),
                 "the HTTP project view must name the workspace");
@@ -118,9 +101,9 @@ class RemoteServerArchitectureTest {
      */
     @Test
     void remoteBackupSchemaCeilingCannotRotBelowTheSupportedSchemaVersion() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String manager = Files.readString(root.resolve(
-                "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSchemaManager.java"));
+                "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/runtime/SqliteSchemaManager.java"));
         Matcher declaration = Pattern.compile("SUPPORTED_SCHEMA_VERSION\\s*=\\s*(\\d+)").matcher(manager);
         assertTrue(declaration.find(), "SqliteSchemaManager must declare SUPPORTED_SCHEMA_VERSION");
         int supported = Integer.parseInt(declaration.group(1));
@@ -136,7 +119,7 @@ class RemoteServerArchitectureTest {
 
     @Test
     void remoteSurfaceManifestKeepsAdministrativeAndRemoteBoundariesExplicit() throws IOException {
-        String manifest = Files.readString(repositoryRoot().resolve("contracts/public-surfaces.tsv"));
+        String manifest = Files.readString(RepositoryRoot.locate().resolve("contracts/public-surfaces.tsv"));
 
         assertTrue(manifest.contains("server.status\tREAD\tEXPLICITLY_REMOTE_ONLY\tEXPLICITLY_NOT_EXPOSED\tGET /api/v1/server/status"));
         assertTrue(manifest.contains("server.identity.revoke\tWRITE\tserver identity revoke\tEXPLICITLY_NOT_EXPOSED\tEXPLICITLY_LOCAL_ONLY"));
@@ -156,11 +139,9 @@ class RemoteServerArchitectureTest {
      */
     @Test
     void leavingTheNonExpiringIdentityFormatStaysExplicitAndNeverRotatesTokens() throws IOException {
-        Path root = repositoryRoot();
-        String identityFile = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteIdentityFile.java"));
-        String serverCli = Files.readString(root.resolve(
-                "morpheus-cli/src/main/java/com/morpheus/cli/MorpheusServerCli.java"));
+        Path root = RepositoryRoot.locate();
+        String identityFile = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteIdentityFile"));
+        String serverCli = Files.readString(ProductionSources.mainSource("morpheus-cli", "MorpheusServerCli"));
         String guide = Files.readString(root.resolve("docs/user/TEAM_REMOTE_SERVER.md"));
 
         assertTrue(identityFile.contains("public static LegacyMigration migrateLegacyExpiry("),
@@ -185,7 +166,7 @@ class RemoteServerArchitectureTest {
 
     @Test
     void remoteOpenApiRequiresBearerAuthenticationAndPluginIntegrityPin() throws IOException {
-        String openApi = Files.readString(repositoryRoot().resolve("docs/developer/reference/openapi/morpheus-v1-remote-m26.yaml"));
+        String openApi = Files.readString(RepositoryRoot.locate().resolve("docs/developer/reference/openapi/morpheus-v1-remote-m26.yaml"));
 
         assertTrue(openApi.contains("scheme: bearer"));
         assertTrue(openApi.contains("/server/status:"));
@@ -197,7 +178,7 @@ class RemoteServerArchitectureTest {
 
     @Test
     void remoteOpenApiKeepsOfflineRestorePrivateAndPublicLimitsBounded() throws IOException {
-        String openApi = Files.readString(repositoryRoot().resolve("docs/developer/reference/openapi/morpheus-v1-remote-m26.yaml"));
+        String openApi = Files.readString(RepositoryRoot.locate().resolve("docs/developer/reference/openapi/morpheus-v1-remote-m26.yaml"));
 
         assertFalse(openApi.contains("/server/restore"));
         assertTrue(openApi.contains("maximum: 512"));
@@ -208,32 +189,27 @@ class RemoteServerArchitectureTest {
 
     @Test
     void remoteRuntimeStateStaysExtractedAndPolicyFree() throws IOException {
-        Path root = repositoryRoot();
-        String server = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
-        String runtime = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteRuntimeState.java"));
+        String server = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServer"));
+        String runtime = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteRuntimeState"));
 
         assertTrue(server.contains("private final MorpheusRemoteRuntimeState runtime;"));
         assertFalse(server.contains("class RuntimeState"));
         assertTrue(runtime.contains("final class MorpheusRemoteRuntimeState"));
-        assertFalse(runtime.contains("MorpheusRemoteRole"));
-        assertFalse(runtime.contains("MorpheusRemoteIdentityFile"));
+        assertFalse(runtime.contains("MorpheusRemoteIdentityFile"),
+                "the remote runtime state names no identity file: it holds no credential, and a constant of the "
+                + "file would be inlined where no rule sees it");
     }
 
     /**
-     * A remote mutation has no upstream deadline, so a blocked one holds its slots until it really ends. That is
-     * only tolerable while an operator can see it: the privileged gauge and the age of the oldest privileged
-     * operation are the difference between a busy facade and a stuck one, and they must not rot back into an
-     * aggregate request count that also moves with ordinary read traffic.
+     * A remote mutation holds its privileged slot for as long as the facade waits for it, up to the writes'
+     * upstream deadline. An operator must be able to see that: the privileged gauge and the age of the oldest
+     * privileged operation are the difference between a busy facade and a slow one, and they must not rot back into
+     * an aggregate request count that also moves with ordinary read traffic.
      */
     @Test
     void remoteStatusExposesPrivilegedOccupancyAndIsServedOutsideTheRequestBudget() throws IOException {
-        Path root = repositoryRoot();
-        String server = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
-        String runtime = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteRuntimeState.java"));
+        String server = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServer"));
+        String runtime = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteRuntimeState"));
 
         assertTrue(runtime.contains("activePrivilegedRequests"),
                 "remote status must expose how many privileged operations are in flight");
@@ -260,60 +236,47 @@ class RemoteServerArchitectureTest {
 
     @Test
     void remoteResponseRenderingStaysExtractedAndPolicyFree() throws IOException {
-        Path root = repositoryRoot();
-        String server = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
-        String responses = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteResponseWriter.java"));
+        String server = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServer"));
+        String responses = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteResponseWriter"));
 
         assertTrue(server.contains("private final MorpheusRemoteResponseWriter responses"));
-        assertFalse(server.contains("CanonicalJsonSerializer"));
+        assertFalse(server.contains("CanonicalJsonSerializer"),
+                "the remote server names no canonical serializer: MorpheusRemoteResponseWriter renders every "
+                + "remote response");
         assertFalse(server.contains("private void sendJson("));
         assertFalse(server.contains("private static void applySecurityHeaders("));
         assertTrue(responses.contains("final class MorpheusRemoteResponseWriter"));
         assertTrue(responses.contains("Content-Security-Policy"));
         assertTrue(responses.contains("\"Strict-Transport-Security\", \"max-age=31536000\""),
                 "the HTTPS-only facade must pin HTTPS for the host it is exposed on, and for that host only");
-        assertFalse(responses.contains("MorpheusRemoteRole"));
-        assertFalse(responses.contains("MorpheusRemoteIdentityFile"));
-        assertFalse(responses.contains("MorpheusRemoteRoutePolicy"));
+        assertFalse(responses.contains("MorpheusRemoteIdentityFile"),
+                "the remote response writer names no identity file: it holds no credential, and a constant of the"
+                + " file would be inlined where no rule sees it");
     }
 
     @Test
     void remoteProxyTargetResolutionStaysExtractedAndTransportFree() throws IOException {
-        Path root = repositoryRoot();
-        String server = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
-        String resolver = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteProxyTargetResolver.java"));
+        String server = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServer"));
+        String resolver = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteProxyTargetResolver"));
 
         assertTrue(server.contains("private final MorpheusRemoteProxyTargetResolver proxyTargets;"));
         assertFalse(server.contains("private URI localTarget("));
         assertFalse(server.contains("private static Map<String, String> parseQuery("));
         assertFalse(server.contains("private static String encodeQuery("));
-        assertFalse(server.contains("URLDecoder"));
-        assertFalse(server.contains("URLEncoder"));
         assertTrue(resolver.contains("final class MorpheusRemoteProxyTargetResolver"));
         assertTrue(resolver.contains("SERVER_CONFIGURED_PLUGIN_DIRECTORY"));
         assertTrue(resolver.contains("PLUGIN_SHA256_REQUIRED"));
-        assertFalse(resolver.contains("HttpClient"));
-        assertFalse(resolver.contains("MorpheusRemoteRole"));
-        assertFalse(resolver.contains("MorpheusRemoteIdentityFile"));
-        assertFalse(resolver.contains("MorpheusRemoteRoutePolicy"));
+        assertFalse(resolver.contains("MorpheusRemoteIdentityFile"),
+                "the proxy target resolver names no identity file: it holds no credential, and a constant of the "
+                + "file would be inlined where no rule sees it");
     }
 
     @Test
     void remoteProxyTransportStaysExtractedBoundedAndPolicyFree() throws IOException {
-        Path root = repositoryRoot();
-        String server = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
-        String transport = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteProxyTransport.java"));
+        String server = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServer"));
+        String transport = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteProxyTransport"));
 
         assertTrue(server.contains("private final MorpheusRemoteProxyTransport proxyTransport;"));
-        assertFalse(server.contains("HttpClient"));
-        assertFalse(server.contains("HttpResponse"));
-        assertFalse(server.contains("HttpTimeoutException"));
         assertFalse(server.contains("private void copyBounded("));
         assertFalse(server.contains("proxyResponses"));
         assertTrue(transport.contains("final class MorpheusRemoteProxyTransport"));
@@ -321,22 +284,147 @@ class RemoteServerArchitectureTest {
         assertTrue(transport.contains("UPSTREAM_LENGTH_REQUIRED"));
         assertTrue(transport.contains("UPSTREAM_RESPONSE_TOO_LARGE"));
         assertTrue(transport.contains("UPSTREAM_TIMEOUT"));
+        assertTrue(transport.contains("UPSTREAM_WRITE_TIMEOUT"),
+                "a write that outlives its upstream deadline must be told apart from a read that does");
         assertTrue(transport.contains("copyBounded("));
-        assertFalse(transport.contains("MorpheusRemoteRole"));
-        assertFalse(transport.contains("MorpheusRemoteIdentityFile"));
-        assertFalse(transport.contains("MorpheusRemoteRoutePolicy"));
-        assertFalse(transport.contains("MorpheusRemoteProxyTargetResolver"));
+        assertFalse(transport.contains("MorpheusRemoteIdentityFile"),
+                "the proxy transport names no identity file: it holds no credential, and a constant of the file "
+                + "would be inlined where no rule sees it");
     }
 
-    private Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
+    /**
+     * {@code MorpheusRemoteRuntimeState} counts what the server is doing and knows no role. The rule bans a dependency
+     * on any class whose simple name contains {@code MorpheusRemoteRole}, as the text ban it replaces matched the name.
+     *
+     * <p>None of these types declares a compile-time constant, so the rule alone covers them. Broken before acceptance,
+     * 30/10/2026: a {@code MorpheusRemoteRole} field added to {@code MorpheusRemoteRuntimeState} failed this rule.</p>
+     */
+    @Test
+    void theRemoteRuntimeStateKnowsNoRole() {
+        noClasses()
+                .that(ClassesOfASource.declaredIn("MorpheusRemoteRuntimeState"))
+                .should().dependOnClassesThat(simpleNameContaining("MorpheusRemoteRole"))
+                .because("the runtime state is shared by every request; a role in it would let one caller's rights shape "
+                + "another's")
+                .check(PRODUCTION);
+    }
+
+    /**
+     * {@code MorpheusRemoteResponseWriter} renders a response it is given and applies no route policy and no role. The
+     * rule bans a dependency on any class whose simple name contains {@code MorpheusRemoteRole},
+     * {@code MorpheusRemoteRoutePolicy}, as the text ban it replaces matched the name.
+     *
+     * <p>None of these types declares a compile-time constant, so the rule alone covers them. Broken before acceptance,
+     * 30/10/2026: a {@code MorpheusRemoteRole} field added to {@code MorpheusRemoteResponseWriter} failed this
+     * rule.</p>
+     */
+    @Test
+    void theRemoteResponseWriterAppliesNoPolicy() {
+        noClasses()
+                .that(ClassesOfASource.declaredIn("MorpheusRemoteResponseWriter"))
+                .should().dependOnClassesThat(simpleNameContaining("MorpheusRemoteRole")
+                        .or(simpleNameContaining("MorpheusRemoteRoutePolicy")))
+                .because("authorization is decided once, by the route policy, before a response is rendered")
+                .check(PRODUCTION);
+    }
+
+    /**
+     * {@code MorpheusRemoteHttpServer} neither encodes nor decodes a proxy target:
+     * {@code MorpheusRemoteProxyTargetResolver} builds it. The rule bans a dependency on any class whose simple name
+     * contains {@code URLDecoder}, {@code URLEncoder}, as the text ban it replaces matched the name.
+     *
+     * <p>None of these types declares a compile-time constant, so the rule alone covers them. Broken before acceptance,
+     * 30/10/2026: a {@code URLDecoder} field added to {@code MorpheusRemoteHttpServer} failed this rule.</p>
+     */
+    @Test
+    void theRemoteServerEncodesAndDecodesNoProxyTarget() {
+        noClasses()
+                .that(ClassesOfASource.declaredIn("MorpheusRemoteHttpServer"))
+                .should().dependOnClassesThat(simpleNameContaining("URLDecoder")
+                        .or(simpleNameContaining("URLEncoder")))
+                .because("the proxy target is built once, by the resolver, from the path the policy authorized")
+                .check(PRODUCTION);
+    }
+
+    /**
+     * {@code MorpheusRemoteProxyTargetResolver} builds a target and neither sends it nor authorizes it. The rule bans a
+     * dependency on any class whose simple name contains {@code HttpClient}, {@code MorpheusRemoteRole},
+     * {@code MorpheusRemoteRoutePolicy}, as the text ban it replaces matched the name.
+     *
+     * <p>None of these types declares a compile-time constant, so the rule alone covers them. Broken before acceptance,
+     * 30/10/2026: a {@code HttpClient} field added to {@code MorpheusRemoteProxyTargetResolver} failed this rule.</p>
+     */
+    @Test
+    void theProxyTargetResolverNeitherSendsNorAuthorizes() {
+        noClasses()
+                .that(ClassesOfASource.declaredIn("MorpheusRemoteProxyTargetResolver"))
+                .should().dependOnClassesThat(simpleNameContaining("HttpClient")
+                        .or(simpleNameContaining("MorpheusRemoteRole"))
+                        .or(simpleNameContaining("MorpheusRemoteRoutePolicy")))
+                .because("resolving a target, authorizing the request and sending it upstream are three steps, each with "
+                + "one owner")
+                .check(PRODUCTION);
+    }
+
+    /**
+     * {@code MorpheusRemoteHttpServer} sends nothing upstream itself: {@code MorpheusRemoteProxyTransport} does,
+     * bounded. The rule bans a dependency on any class whose simple name contains {@code HttpClient},
+     * {@code HttpResponse}, {@code HttpTimeoutException}, as the text ban it replaces matched the name.
+     *
+     * <p>None of these types declares a compile-time constant, so the rule alone covers them. Broken before acceptance,
+     * 30/10/2026: a {@code HttpClient} field added to {@code MorpheusRemoteHttpServer} failed this rule.</p>
+     */
+    @Test
+    void theRemoteServerSendsNothingUpstreamItself() {
+        noClasses()
+                .that(ClassesOfASource.declaredIn("MorpheusRemoteHttpServer"))
+                .should().dependOnClassesThat(simpleNameContaining("HttpClient")
+                        .or(simpleNameContaining("HttpResponse"))
+                        .or(simpleNameContaining("HttpTimeoutException")))
+                .because("the upstream call is made once, by the proxy transport, under its bounds")
+                .check(PRODUCTION);
+    }
+
+    /**
+     * {@code MorpheusRemoteProxyTransport} sends a resolved, authorized request and neither authorizes nor resolves
+     * one. The rule bans a dependency on any class whose simple name contains {@code MorpheusRemoteRole},
+     * {@code MorpheusRemoteRoutePolicy}, {@code MorpheusRemoteProxyTargetResolver}, as the text ban it replaces matched
+     * the name.
+     *
+     * <p>None of these types declares a compile-time constant, so the rule alone covers them. Broken before acceptance,
+     * 30/10/2026: a {@code MorpheusRemoteRole} field added to {@code MorpheusRemoteProxyTransport} failed this
+     * rule.</p>
+     */
+    @Test
+    void theProxyTransportNeitherAuthorizesNorResolves() {
+        noClasses()
+                .that(ClassesOfASource.declaredIn("MorpheusRemoteProxyTransport"))
+                .should().dependOnClassesThat(simpleNameContaining("MorpheusRemoteRole")
+                        .or(simpleNameContaining("MorpheusRemoteRoutePolicy"))
+                        .or(simpleNameContaining("MorpheusRemoteProxyTargetResolver")))
+                .because("the transport receives a target the policy authorized and the resolver built; deciding either "
+                + "again would let two readings disagree")
+                .check(PRODUCTION);
+    }
+
+    /**
+     * No class of the HTTP adapter waits on a semaphore without a deadline: a wait goes through {@code tryAcquire},
+     * with or without a timeout, so every caller that queues for a slot is answered within a bound it can be told.
+     *
+     * <p>A compiled call, which the bytecode sees and no inlined constant hides, so the rule alone covers it, with no
+     * list of exceptions. Broken before acceptance, 06/11/2026: the unbounded {@code responseSlots.acquire()} of
+     * {@code MorpheusRemoteProxyTransport} failed this rule, naming the class and the method.</p>
+     */
+    @Test
+    void noClassOfTheHttpAdapterWaitsOnASemaphoreWithoutADeadline() {
+        noClasses()
+                .that().resideInAPackage("com.morpheus.api..")
+                .should().callMethod(Semaphore.class, "acquire")
+                .orShould().callMethod(Semaphore.class, "acquire", int.class)
+                .orShould().callMethod(Semaphore.class, "acquireUninterruptibly")
+                .orShould().callMethod(Semaphore.class, "acquireUninterruptibly", int.class)
+                .because("remote-proxy-upstream-bounds: the HTTP adapter waits on no semaphore without a deadline, so "
+                        + "a caller queued for a slot is answered before the deadline it was told")
+                .check(PRODUCTION);
     }
 }

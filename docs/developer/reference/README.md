@@ -76,8 +76,8 @@ M21 n’ajoute pas de migration métier : les métadonnées de build/release et 
 
 - [Architecture développeur](../ARCHITECTURE.md)
 - [Index ADR](../../architecture/adr/README.md)
-- [ADR-0088 — release/installation/data separation](../../architecture/adr/0088-product-release-installation-and-persistent-data-separation.md)
-- [ADR-0089 — production integrity & surface convergence](../../architecture/adr/0089-production-integrity-surface-convergence.md) — **Proposée tant que M21-S8 n’est pas verte**
+- [ADR-0088 — release/installation/data separation](../../architecture/adr/GEN-0088-product-release-installation-and-persistent-data-separation.md)
+- [ADR-0089 — production integrity & surface convergence](../../architecture/adr/GEN-0089-production-integrity-surface-convergence.md) — **Proposée tant que M21-S8 n’est pas verte**
 
 ## Intégrations
 

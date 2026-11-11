@@ -1,10 +1,11 @@
 package com.morpheus.architecture.m21;
 
+import com.morpheus.architecture.CoherenceCheck;
+import com.morpheus.architecture.RepositoryRoot;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -19,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * being written. The script refuses by name instead. The assertions are textual: the targets are a {@code .sh} and a
  * {@code .ps1}, where text is the only hold.</p>
  */
+@CoherenceCheck
 class BuildProvenanceSbomContractTest {
     private static final String REFUSAL = "BUILD_PROVENANCE_SBOM_MISSING";
     private static final List<String> VARIANTS =
@@ -27,7 +29,7 @@ class BuildProvenanceSbomContractTest {
     @Test
     void neitherVariantWritesAProvenanceFileWithoutTheSbomItVouchesFor() throws IOException {
         for (String variant : VARIANTS) {
-            String script = Files.readString(repositoryRoot().resolve(variant));
+            String script = Files.readString(RepositoryRoot.locate().resolve(variant));
 
             assertTrue(script.contains("sbomSha256="), () -> variant + " must still state the digest of the SBOM");
             assertTrue(script.contains(REFUSAL),
@@ -35,17 +37,5 @@ class BuildProvenanceSbomContractTest {
             assertFalse(script.contains("=missing") || script.contains("\"missing\""),
                     () -> variant + " must not write a placeholder where the digest of the SBOM belongs");
         }
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 }

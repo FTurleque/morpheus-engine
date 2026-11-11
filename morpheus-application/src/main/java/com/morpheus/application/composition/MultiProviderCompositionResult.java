@@ -1,6 +1,6 @@
 package com.morpheus.application.composition;
 
-import com.morpheus.application.ingestion.NormalizedProjectContent;
+import com.morpheus.application.read.NormalizedProjectContent;
 import com.morpheus.domain.provider.ProviderId;
 
 import java.util.List;

@@ -1,7 +1,9 @@
 package com.morpheus.provider.openspec;
 
+import com.morpheus.application.foundation.StableKey;
+import com.morpheus.application.foundation.TextDigest;
 import com.morpheus.application.identity.EntityIdentityResolver;
-import com.morpheus.application.ingestion.NormalizedProjectContent;
+import com.morpheus.application.read.NormalizedProjectContent;
 import com.morpheus.application.read.ProviderIngestionBudget;
 import com.morpheus.application.read.ProviderProjectRoot;
 import com.morpheus.domain.change.ChangeId;
@@ -17,23 +19,17 @@ import com.morpheus.domain.project.ProjectSpecification;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.provenance.Provenance;
 import com.morpheus.domain.provider.ProviderCapability;
+import com.morpheus.domain.provider.ProviderProbeResult;
 import com.morpheus.domain.provider.ProviderProbeStatus;
 import com.morpheus.domain.source.SourceLocator;
 import com.morpheus.domain.task.ImplementationTask;
 import com.morpheus.domain.task.TaskId;
 
-import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.text.Normalizer;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -85,9 +81,12 @@ public final class OpenSpecChangeMetadataReader {
             Path workspaceRoot,
             ProjectSpecificationId projectId,
             EntityIdentityResolver identityResolver,
-            ProviderIngestionBudget.Session budget) {
+            ProviderIngestionBudget.Session budget,
+            ProviderProbeResult probe,
+            List<Path> changeRoots) {
         List<RuntimeException> rejected = new ArrayList<>();
-        NormalizedProjectContent content = read(workspaceRoot, projectId, identityResolver, budget, rejected::add);
+        NormalizedProjectContent content = normalize(
+                workspaceRoot, projectId, identityResolver, budget, probe, changeRoots, rejected::add);
         return new ContainedRead(content, rejected);
     }
 
@@ -116,6 +115,25 @@ public final class OpenSpecChangeMetadataReader {
         if (!probe.capabilities().contains(ProviderCapability.READ_CHANGES)) {
             throw new IllegalArgumentException("OpenSpec workspace has no readable changes: " + root);
         }
+        return normalize(
+                root, projectId, identityResolver, budget, probe,
+                OpenSpecWorkspaceListing.changeRoots(root, budget), rejectChange);
+    }
+
+    /** Normalizes the given change roots of a workspace whose probe and enumeration the caller has already charged. */
+    private NormalizedProjectContent normalize(
+            Path workspaceRoot,
+            ProjectSpecificationId projectId,
+            EntityIdentityResolver identityResolver,
+            ProviderIngestionBudget.Session budget,
+            ProviderProbeResult probe,
+            List<Path> changeRoots,
+            Consumer<RuntimeException> rejectChange) {
+        Path root = Objects.requireNonNull(workspaceRoot, "workspaceRoot").toAbsolutePath().normalize();
+        Objects.requireNonNull(projectId, "projectId");
+        Objects.requireNonNull(identityResolver, "identityResolver");
+        Objects.requireNonNull(budget, "budget");
+        Objects.requireNonNull(probe, "probe");
 
         List<ChangeProposal> changes = new ArrayList<>();
         List<Constraint> constraints = new ArrayList<>();
@@ -123,7 +141,7 @@ public final class OpenSpecChangeMetadataReader {
         List<ImplementationTask> tasks = new ArrayList<>();
         List<Evidence> evidence = new ArrayList<>();
 
-        for (Path changeRoot : listChangeRoots(root.resolve("openspec/changes"), budget)) {
+        for (Path changeRoot : changeRoots) {
             List<ChangeProposal> changeProposals = new ArrayList<>();
             List<Constraint> changeConstraints = new ArrayList<>();
             List<DesignDecision> changeDecisions = new ArrayList<>();
@@ -185,10 +203,10 @@ public final class OpenSpecChangeMetadataReader {
             throw new IllegalArgumentException("OpenSpec change has no proposal.md: " + changeKey);
         }
 
-        List<String> proposalLines = readAllLines(workspaceRoot, proposalFile, budget);
+        List<String> proposalLines = OpenSpecSourceText.readAllLines(workspaceRoot, proposalFile, budget);
         SourceLocator proposalSource = locator(workspaceRoot, proposalFile);
         String changeExternalId = "change:" + changeKey;
-        // Two proposal dialects (ADR-0028, amendment of 8 October 2026): the original `# Proposal: <title>` and
+        // Two proposal dialects (ADR-0028; docs/developer/OPENSPEC_PROVIDER.md): the original `# Proposal: <title>` and
         // `## Intent`, and the OpenSpec CLI templates, whose `# Proposal` has no title and whose motivation is `## Why`.
         String title = proposalTitle(proposalLines).orElse(changeKey);
         String intent = sectionBody(proposalLines, "## Intent")
@@ -258,7 +276,7 @@ public final class OpenSpecChangeMetadataReader {
         if (!Files.isRegularFile(designFile)) {
             return;
         }
-        List<String> lines = readAllLines(workspaceRoot, designFile, budget);
+        List<String> lines = OpenSpecSourceText.readAllLines(workspaceRoot, designFile, budget);
         SourceLocator source = locator(workspaceRoot, designFile);
         List<Integer> headings = headingIndexes(lines, DECISION_HEADING);
         for (int index = 0; index < headings.size(); index++) {
@@ -269,11 +287,11 @@ public final class OpenSpecChangeMetadataReader {
                 throw new IllegalStateException("design decision heading mismatch");
             }
             String title = matcher.group(1).trim();
-            String decision = joinContent(lines, start + 1, end);
+            String decision = OpenSpecSourceText.joinContent(lines, start + 1, end);
             if (decision.isBlank()) {
                 throw new IllegalArgumentException("OpenSpec design decision has no body: " + title);
             }
-            String externalId = "design-decision:" + changeKey + ":" + slug(title);
+            String externalId = "design-decision:" + changeKey + ":" + StableKey.fromTitle(title);
             Evidence itemEvidence = evidence(identities, externalId, source, lines, start + 1, end, budget);
             evidence.add(itemEvidence);
             decisions.add(new DesignDecision(
@@ -298,7 +316,7 @@ public final class OpenSpecChangeMetadataReader {
         if (!Files.isRegularFile(tasksFile)) {
             return;
         }
-        List<String> lines = readAllLines(workspaceRoot, tasksFile, budget);
+        List<String> lines = OpenSpecSourceText.readAllLines(workspaceRoot, tasksFile, budget);
         SourceLocator source = locator(workspaceRoot, tasksFile);
         int ordinal = 0;
         for (int index = 0; index < lines.size(); index++) {
@@ -320,25 +338,6 @@ public final class OpenSpecChangeMetadataReader {
         }
     }
 
-    private List<Path> listChangeRoots(
-            Path changesRoot,
-            ProviderIngestionBudget.Session budget) {
-        if (!Files.isDirectory(changesRoot)) {
-            return List.of();
-        }
-        try (var paths = Files.list(changesRoot)) {
-            List<Path> roots = paths
-                    .filter(Files::isDirectory)
-                    .filter(path -> !path.getFileName().toString().equals("archive"))
-                    .limit(budget.remainingFiles() + 1)
-                    .toList();
-            budget.requireAdditionalFiles(roots.size(), "openspec/changes");
-            return roots.stream().sorted().toList();
-        } catch (IOException exception) {
-            throw new IllegalStateException("Cannot enumerate OpenSpec changes", exception);
-        }
-    }
-
     private Optional<String> proposalTitle(List<String> lines) {
         return lines.stream()
                 .map(PROPOSAL_TITLE::matcher)
@@ -353,7 +352,7 @@ public final class OpenSpecChangeMetadataReader {
             return Optional.empty();
         }
         int end = nextLevelTwoHeading(lines, start + 1);
-        String body = joinContent(lines, start + 1, end);
+        String body = OpenSpecSourceText.joinContent(lines, start + 1, end);
         return body.isBlank() ? Optional.empty() : Optional.of(body);
     }
 
@@ -405,17 +404,6 @@ public final class OpenSpecChangeMetadataReader {
         return indexes;
     }
 
-    private String joinContent(List<String> lines, int startInclusive, int endExclusive) {
-        List<String> content = new ArrayList<>();
-        for (int index = startInclusive; index < endExclusive; index++) {
-            String line = lines.get(index).trim();
-            if (!line.isEmpty() && !line.startsWith("#")) {
-                content.add(line);
-            }
-        }
-        return String.join(" ", content).trim();
-    }
-
     private SourceLocator locator(Path workspaceRoot, Path source) {
         return SourceLocator.file(workspaceRoot.relativize(source).toString());
     }
@@ -447,42 +435,7 @@ public final class OpenSpecChangeMetadataReader {
                 evidenceId,
                 source,
                 Optional.of(new SourceRange(startLine, normalizedEnd)),
-                Optional.of(sha256(excerpt)));
-    }
-
-    private List<String> readAllLines(
-            Path workspaceRoot,
-            Path source,
-            ProviderIngestionBudget.Session budget) {
-        try {
-            return budget.readDocument(workspaceRoot.relativize(source))
-                    .lines()
-                    .toList();
-        } catch (IOException exception) {
-            throw new IllegalStateException(
-                    "Cannot read OpenSpec source: " + OpenSpecSourceAttribution.relayable(exception), exception);
-        }
-    }
-
-    private String slug(String value) {
-        String normalized = Normalizer.normalize(value, Normalizer.Form.NFD)
-                .replaceAll("\\p{M}+", "")
-                .toLowerCase(Locale.ROOT)
-                .replaceAll("[^a-z0-9]+", "-")
-                .replaceAll("^-+|-+$", "");
-        if (normalized.isBlank()) {
-            throw new IllegalArgumentException("Cannot derive a stable key from: " + value);
-        }
-        return normalized;
-    }
-
-    private String sha256(String value) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 must be available", exception);
-        }
+                Optional.of(TextDigest.sha256(excerpt)));
     }
 
     private record LineItem(int lineNumber, String text) {

@@ -27,7 +27,11 @@ class ExternalJarIntegrityTest {
         assertEquals(jar.toAbsolutePath().normalize(), ExternalJarIntegrity.verifySha256(jar, trusted));
 
         Files.writeString(jar, "substituted-content");
-        assertThrows(IllegalArgumentException.class, () -> ExternalJarIntegrity.verifySha256(jar, trusted));
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class, () -> ExternalJarIntegrity.verifySha256(jar, trusted));
+        assertTrue(failure.getMessage().startsWith(
+                "external JAR integrity mismatch for plugin.jar: expected=" + trusted + " actual="),
+                failure::getMessage);
     }
 
     @Test
@@ -98,13 +102,17 @@ class ExternalJarIntegrityTest {
 
     @Test
     void rejectsMalformedPin() {
-        assertThrows(IllegalArgumentException.class, () -> ExternalJarIntegrity.normalizeSha256("abc"));
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class, () -> ExternalJarIntegrity.normalizeSha256("abc"));
+        assertEquals("expected SHA-256 must contain exactly 64 hexadecimal characters", failure.getMessage());
     }
 
     @Test
     void rejectsMissingAndSymbolicFilesBeforeHashing() throws Exception {
         Path missing = temp.resolve("missing.jar");
-        assertThrows(IllegalArgumentException.class, () -> ExternalJarIntegrity.verifySha256(missing, "0".repeat(64)));
+        IllegalArgumentException missingFailure = assertThrows(
+                IllegalArgumentException.class, () -> ExternalJarIntegrity.verifySha256(missing, "0".repeat(64)));
+        assertEquals("trusted external JAR must be a regular non-symbolic file", missingFailure.getMessage());
 
         Path target = temp.resolve("target.jar");
         Files.writeString(target, "trusted-content");
@@ -114,8 +122,9 @@ class ExternalJarIntegrityTest {
         } catch (UnsupportedOperationException | java.io.IOException failure) {
             abort("symbolic links cannot be created in this environment");
         }
-        assertThrows(
+        IllegalArgumentException linkFailure = assertThrows(
                 IllegalArgumentException.class,
                 () -> ExternalJarIntegrity.verifySha256(link, ExternalJarIntegrity.sha256(target)));
+        assertEquals("trusted external JAR must be a regular non-symbolic file", linkFailure.getMessage());
     }
 }

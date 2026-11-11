@@ -1,13 +1,19 @@
 param(
-    [string]$Version = "1.2.1",
-    [string]$OutputDirectory = "dist"
+    [string]$Version = "1.2.2",
+    [string]$OutputDirectory = "dist",
+    # none: nothing is signed. test: the run's ephemeral identity. release: the declared publisher's identity.
+    # Chosen by the caller, never inferred from a credential being present or absent.
+    [ValidateSet("none", "test", "release")][string]$SigningState = "none"
 )
 
 $ErrorActionPreference = "Stop"
 $repo = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+. (Join-Path $repo "scripts\lib\MorpheusAuthenticode.ps1")
+$signingEntryPoint = Join-Path $PSScriptRoot "windows\sign-windows-binary.ps1"
+Write-Host "Windows signing state: $SigningState"
 $dist = Join-Path $repo $OutputDirectory
 $work = Join-Path $dist ".m20-windows"
-$input = Join-Path $work "input"
+$jpackageInput = Join-Path $work "input"
 $appImageRoot = Join-Path $work "image"
 
 $mvnw = Join-Path $repo "mvnw.cmd"
@@ -87,7 +93,7 @@ function Test-PackagedApiOperability {
     $stderr = Join-Path $WorkDirectory "api-smoke.stderr.log"
     Remove-Item $stdout, $stderr -Force -ErrorAction SilentlyContinue
     $process = Start-Process -FilePath $Launcher `
-        -ArgumentList @("--data-dir", $apiData, "api", "--host", "127.0.0.1", "--port", "$port") `
+        -ArgumentList "--data-dir `"$apiData`" api --host 127.0.0.1 --port $port" `
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr -WindowStyle Hidden -PassThru
     try {
         for ($attempt = 1; $attempt -le 60; $attempt++) {
@@ -136,7 +142,7 @@ Write-Host "Verifying baseline MCP/API/provider-SDK/MINOS/NEXUS classes are embe
 $jarEntries = & $jarTool tf $jar.FullName
 if ($LASTEXITCODE -ne 0) { throw "Unable to inspect shaded JAR" }
 $requiredEntries = @(
-    "com/morpheus/mcp/MorpheusMcpServer.class",
+    "com/morpheus/mcp/server/MorpheusMcpServer.class",
     "com/morpheus/mcp/MorpheusJarvisOrchestrationMcpTools.class",
     "com/morpheus/mcp/MorpheusControlledLifecycleMcpTools.class",
     "com/morpheus/mcp/MorpheusCompositionMcpTools.class",
@@ -145,17 +151,17 @@ $requiredEntries = @(
     "io/modelcontextprotocol/server/McpServer.class",
     "io/modelcontextprotocol/client/McpClient.class",
     "io/modelcontextprotocol/client/transport/StdioClientTransport.class",
-    "com/morpheus/api/MorpheusHttpServer.class",
+    "com/morpheus/api/local/MorpheusHttpServer.class",
     "com/morpheus/api/MorpheusJarvisOrchestrationApiService.class",
     "com/morpheus/api/MorpheusControlledLifecycleApiService.class",
     "com/morpheus/api/MorpheusCompositionApiService.class",
     "com/morpheus/api/MorpheusOperabilityApiService.class",
     "com/morpheus/api/MorpheusProviderPluginApiService.class",
-    "com/morpheus/cli/MorpheusJarvisOrchestrationCli.class",
-    "com/morpheus/cli/MorpheusControlledLifecycleCli.class",
-    "com/morpheus/cli/MorpheusCompositionCli.class",
-    "com/morpheus/cli/MorpheusProductCli.class",
-    "com/morpheus/cli/MorpheusProviderPluginCli.class",
+    "com/morpheus/cli/command/MorpheusJarvisOrchestrationCli.class",
+    "com/morpheus/cli/command/MorpheusControlledLifecycleCli.class",
+    "com/morpheus/cli/command/MorpheusCompositionCli.class",
+    "com/morpheus/cli/command/MorpheusProductCli.class",
+    "com/morpheus/cli/command/MorpheusProviderPluginCli.class",
     "com/morpheus/sdk/provider/MorpheusProviderPlugin.class",
     "com/morpheus/sdk/provider/ProviderPluginService.class",
     "com/morpheus/application/product/ProductMetadata.class",
@@ -167,8 +173,8 @@ $requiredEntries = @(
     "com/morpheus/application/composition/CompositionQueryService.class",
     "com/morpheus/provider/markdown/StructuredMarkdownSpecificationProvider.class",
     "com/morpheus/provider/markdown/StructuredMarkdownSpecificationContentReader.class",
-    "com/morpheus/store/sqlite/SqliteChangeLifecycleMutationStore.class",
-    "com/morpheus/store/sqlite/SqliteCompositionStateStore.class",
+    "com/morpheus/store/sqlite/adapter/SqliteChangeLifecycleMutationStore.class",
+    "com/morpheus/store/sqlite/adapter/SqliteCompositionStateStore.class",
     "db/migration/V011__controlled_lifecycle_mutations.sql",
     "db/migration/V012__multi_provider_composition.sql",
     "com/morpheus/integration/minos/MinosMcpExternalReferenceResolver.class",
@@ -193,20 +199,40 @@ if ($embeddedReferenceProvider) { throw "Packaging proof failed; reference provi
 Write-Host "Baseline MCP/API/provider-SDK/MINOS/NEXUS packaging proof: PASS"
 
 Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue
-New-Item $input -ItemType Directory -Force | Out-Null
+New-Item $jpackageInput -ItemType Directory -Force | Out-Null
 New-Item $appImageRoot -ItemType Directory -Force | Out-Null
-Copy-Item $jar.FullName (Join-Path $input "morpheus.jar")
+Copy-Item $jar.FullName (Join-Path $jpackageInput "morpheus.jar")
 
 Write-Host "Creating self-contained Windows app-image with embedded runtime + jdk.httpserver + java.sql + java.net.http..."
 & $jpackage --type app-image --name morpheus --app-version $Version `
     --description "MORPHEUS Specification & Intent Intelligence Engine" `
-    --input $input --main-jar "morpheus.jar" --main-class "com.morpheus.cli.MorpheusMain" `
+    --input $jpackageInput --main-jar "morpheus.jar" --main-class "com.morpheus.cli.MorpheusMain" `
     --add-modules jdk.httpserver,java.sql,java.net.http --java-options "--enable-native-access=ALL-UNNAMED -Dstdout.encoding=UTF-8 -Dstderr.encoding=UTF-8" `
     --jlink-options "--strip-debug --no-man-pages --no-header-files" --win-console --dest $appImageRoot
 if ($LASTEXITCODE -ne 0) { throw "jpackage app-image failed with exit code $LASTEXITCODE" }
 
 $launcher = Join-Path $appImageRoot "morpheus\morpheus.exe"
 if (-not (Test-Path $launcher)) { throw "Packaged launcher not found: $launcher" }
+
+# The executables of the image outside the embedded runtime are signed here, right after jpackage and before anything
+# is derived from the image: the archive, the installer payload, the checksums, the manifest and the attestation then
+# all describe the signed bytes. The runtime's binaries are third-party and left as they came.
+$imageExecutables = Get-MorpheusImageExecutables -ImageRoot (Join-Path $appImageRoot "morpheus")
+if ($imageExecutables.Product.Count -eq 0) { throw "Packaging proof failed; the image holds no executable outside the runtime" }
+if ($SigningState -eq "none") {
+    Write-Host "Windows signing: not requested; the image executables are left unsigned ($($imageExecutables.Product.Count))"
+} else {
+    $env:MORPHEUS_WINDOWS_SIGNING_STATE = $SigningState
+    foreach ($executable in $imageExecutables.Product) {
+        & $signingEntryPoint -Path $executable
+        if ($LASTEXITCODE -ne 0) { throw "WINDOWS_SIGNING_FAILED: $executable could not be signed (exit $LASTEXITCODE)" }
+    }
+    $unsignedExecutables = @($imageExecutables.Product | Where-Object { (Get-MorpheusSignatureStatement -Path $_)["status"] -ne "signed" })
+    if ($unsignedExecutables.Count -ne 0) {
+        throw "WINDOWS_SIGNING_FAILED: a signing build left image executables unsigned: $($unsignedExecutables -join ', ')"
+    }
+    Write-Host "Windows signing of the image executables ($SigningState): PASS ($($imageExecutables.Product.Count) signed, runtime untouched)"
+}
 
 # The isolated provider probe starts its child from the MORPHEUS runtime alone -- java.home/bin/java -- and never
 # from PATH, so the distribution has to carry that launcher. jpackage's default jlink options include
@@ -328,6 +354,20 @@ New-Item $dist -ItemType Directory -Force | Out-Null
 $archive = Join-Path $dist "morpheus-$Version-windows-x64.zip"
 Compress-PortableArchiveWithRetry -SourceDirectory (Join-Path $appImageRoot "morpheus") -DestinationArchive $archive
 if (-not (Test-Path $archive)) { throw "Portable Windows archive is missing after archive creation: $archive" }
+if ($SigningState -ne "none") {
+    # Read back from the archive, not from the image: a signing step moved after the archive leaves this archive's
+    # launcher unsigned while the image on disk is signed.
+    $archiveCheck = Join-Path $work "archive-signature-check"
+    Remove-Item $archiveCheck -Recurse -Force -ErrorAction SilentlyContinue
+    Expand-Archive -LiteralPath $archive -DestinationPath $archiveCheck -Force
+    $archived = Get-MorpheusImageExecutables -ImageRoot (Join-Path $archiveCheck "morpheus")
+    $unsignedArchived = @($archived.Product | Where-Object { (Get-MorpheusSignatureStatement -Path $_)["status"] -ne "signed" })
+    Remove-Item $archiveCheck -Recurse -Force -ErrorAction SilentlyContinue
+    if ($archived.Product.Count -eq 0 -or $unsignedArchived.Count -ne 0) {
+        throw "WINDOWS_SIGNING_FAILED: the archive $archive carries an unsigned executable outside the runtime"
+    }
+    Write-Host "Windows archive executables signed ($SigningState): PASS ($($archived.Product.Count))"
+}
 
 Write-Host "Portable Windows distribution: $archive"
 Write-Host "The archive contains MORPHEUS $Version, its Java runtime, provider SDK, MCP/API, optional MINOS/NEXUS client adapters, M14-M28 contracts and the opt-in MCP client integration manager. External provider plugins, MINOS, NEXUS and JARVIS are not embedded or required; lifecycle writes still require an explicit WRITE_CHANGE-capable provider."

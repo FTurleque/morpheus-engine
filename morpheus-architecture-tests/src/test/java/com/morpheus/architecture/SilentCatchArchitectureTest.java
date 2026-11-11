@@ -59,7 +59,7 @@ class SilentCatchArchitectureTest {
                             + "identity that cannot be resolved is not trusted, and the refusal that follows is named")),
             Map.entry("TimedBoundedInputReader.java#IOException", new Explained(1,
                     "closing the request body after a read that already timed out or failed; that failure is raised")),
-            Map.entry("UpdateDiscoveryService.java#IOException", new Explained(1,
+            Map.entry("UpdateManifestFetcher.java#IOException", new Explained(1,
                     "closing the manifest stream after a timeout or an interruption that is raised just after")),
             Map.entry("LocalSourceWatcher.java#IOException", new Explained(1,
                     "closing the watch service when the constructor fails; the constructor's failure propagates")),
@@ -69,8 +69,9 @@ class SilentCatchArchitectureTest {
                     "closing standard input to unblock a read while the transport shuts down; nothing is lost")),
             Map.entry("PeerOperationDeadline.java#RuntimeException", new Explained(1,
                     "the abort of an expired operation failed: the transport may depend on no other MORPHEUS package "
-                            + "and cannot count, so the gateway that hands it the abort counts the failure first "
-                            + "(countingAbort) and the operation reports the deadline itself")),
+                            + "and cannot count, so McpPeerSession counts the failure first on the observer its "
+                            + "gateway hands it (Observers.countingAbort) and the operation reports the deadline "
+                            + "itself")),
             Map.entry("ProviderPluginDescendantTermination.java#RuntimeException", new Explained(1,
                     "a descendant could not be signalled from the probe worker: another process, with no recorder, "
                             + "whose output the parent discards and whose result file is already written. What the "
@@ -84,7 +85,7 @@ class SilentCatchArchitectureTest {
 
     @Test
     void everySilentCatchOfTheProductIsNamedWithItsReason() throws IOException {
-        Map<String, Integer> found = silentCatches(mainSources(repositoryRoot()));
+        Map<String, Integer> found = silentCatches(mainSources(RepositoryRoot.locate()));
         assertTrue(found.values().stream().mapToInt(Integer::intValue).sum() > 5,
                 "too few silent catches found: the rule would pass on nothing - " + found);
 
@@ -106,28 +107,30 @@ class SilentCatchArchitectureTest {
 
     @Test
     void theModulesThatCannotCountAreHandedWhatDoes() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         for (String gateway : List.of(
                 "morpheus-integration-minos/src/main/java/com/morpheus/integration/minos/MinosMcpCodeGateway.java",
                 "morpheus-integration-nexus/src/main/java/com/morpheus/integration/nexus/NexusMcpContextGateway.java")) {
             String source = Files.readString(root.resolve(gateway));
-            assertTrue(source.contains("processTreeFailures(launch.recorder()));"),
+            assertTrue(source.contains("processTreeFailures(recorder));"),
                     () -> gateway + " must hand the transport the observer built on the recorder the gateway was handed");
+            assertTrue(source.contains("McpPeerSession.open(PEER, launch, observers(recorder));"),
+                    () -> gateway + " must hand the session the observers built on the recorder the gateway was handed");
             assertTrue(source.contains("return recorder.suppressing(SuppressedFailureFamily.MCP_PEER_PROCESS_TREE);"),
                     () -> gateway + " must count a process of the peer that could not be listed or signalled");
         }
         assertFalse(Files.readString(root.resolve(
-                        "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioClientTransport.java"))
+                        "morpheus-mcp-transport/src/main/java/com/morpheus/transport/mcp/BoundedStdioClientTransport.java"))
                         .contains("System.Logger.Level.DEBUG"),
                 "a failed signal logged at DEBUG is dropped by the default handler of the JDK: the transport reports "
                         + "it to the observer its gateway hands it");
-        assertTrue(Files.readString(root.resolve("morpheus-cli/src/main/java/com/morpheus/cli/MorpheusMain.java"))
+        assertTrue(Files.readString(ProductionSources.mainSource("morpheus-cli", "MorpheusMain"))
                         .contains("new MorpheusProviderPluginCli(runtime.recorder())"),
                 "the CLI probe must count on the recorder of the process");
-        assertTrue(Files.readString(root.resolve("morpheus-cli/src/main/java/com/morpheus/cli/MorpheusMain.java"))
+        assertTrue(Files.readString(ProductionSources.mainSource("morpheus-cli", "MorpheusMain"))
                         .contains("exitCode = run(runtime, args, out, err, System.getenv(), System.getProperties());"),
                 "the runtime the launcher hands to its commands must be the one of the process");
-        assertTrue(Files.readString(root.resolve("morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"))
+        assertTrue(Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusHttpServer"))
                         .contains("providerPluginProbeEnabled, operabilityService.recorder());"),
                 "the HTTP probe must count where the same server serves its metrics");
 
@@ -139,8 +142,7 @@ class SilentCatchArchitectureTest {
         assertFalse(service.contains("OperationalRecorder.noop()"), "the SDK must not choose a recorder that counts nowhere");
         assertFalse(Files.readString(root.resolve(sdk + "ProviderPluginProbeProcess.java"))
                 .contains("OperationalRecorder.noop()"), "the probe process must not choose a recorder that counts nowhere");
-        assertFalse(Files.readString(root.resolve(
-                        "morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusProviderPluginMcpTools.java"))
+        assertFalse(Files.readString(ProductionSources.mainSource("morpheus-mcp", "MorpheusProviderPluginMcpTools"))
                 .contains("ProviderPluginService"),
                 "the MCP adapter only discovers: it holds no service that could probe, so it needs no recorder");
     }
@@ -221,17 +223,5 @@ class SilentCatchArchitectureTest {
             }
         }
         return sources;
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 }

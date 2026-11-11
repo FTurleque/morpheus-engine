@@ -23,7 +23,7 @@ morpheus --db /path/to/morpheus.db mcp --stdio
 Contrat transport :
 
 ```text
-SDK        Java MCP SDK 2.0.1
+SDK        Java MCP SDK 2.1.0
 transport  STDIO
 stdout     JSON-RPC MCP uniquement
 stderr     diagnostics uniquement
@@ -35,10 +35,15 @@ server     morpheus
 
 ## 2. Composition du serveur
 
-`MorpheusMcpServer` assemble les familles de tools suivantes :
+`MorpheusMcpServer` (`com.morpheus.mcp.server`) enregistre les familles de tools suivantes, chacune servie par sa
+classe de `com.morpheus.mcp` ([ADR-0149](../architecture/adr/ARCH-0149-une-commande-et-un-outil-sont-servis-par-une-classe-de-capacite.md)) :
 
 ```text
-MorpheusMcpToolCatalog                 spécification / requirements / changes
+MorpheusSpecificationMcpTools          spécification courante et contexte d'une spécification
+MorpheusRequirementMcpTools            recherche et traçabilité des requirements
+MorpheusChangeMcpTools                 changes, éléments attachés, contexte et faits de lifecycle
+MorpheusAcceptanceCriteriaMcpTools     critères d'acceptation d'un change
+MorpheusSyncStatusMcpTools             fraîcheur de synchronisation
 MorpheusProductMcpTools                version et informations produit
 MorpheusProviderPluginMcpTools         découverte et inspection plugins
 MorpheusPortfolioMcpTools              portfolios et références inter-projets
@@ -52,6 +57,9 @@ MorpheusJarvisOrchestrationMcpTools    état et évaluation orchestration
 MorpheusCompositionMcpTools            composition multi-provider
 MorpheusControlledLifecycleMcpTools    mutation lifecycle contrôlée
 ```
+
+Les définitions des tools du catalogue (noms, descriptions, schémas) sont dans `MorpheusMcpToolCatalog` ; le
+serveur les publie dans cet ordre et refuse de démarrer si l'une n'est servie par aucune classe.
 
 Le serveur publie la capability `tools`, active `validateToolInputs=true` et construit les handlers sur les mêmes services applicatifs que la CLI et l’API.
 
@@ -78,7 +86,7 @@ Les erreurs de schéma sont rejetées avant l’appel applicatif. Les erreurs m�
 
 Un refus que le service *rend* au lieu de le lever est aussi un résultat en erreur : `apply_change_lifecycle_transition` répond `isError: true` pour `CONFLICT`, `NOT_AUTHORIZED`, `REQUIRES_CONFIRMATION` et `REJECTED`, et `isError: false` pour `APPLIED` et `ALREADY_APPLIED`. Le corps JSON est identique dans les deux cas (`state`, `reason`, `lifecycleState`, `audit`). La partition est `ChangeLifecycleMutationResultState.successful()`, et tout résultat d'erreur est construit par `McpToolFailure` (ADR-0102).
 
-Un outil qui lit une collection qui ne fait que croître prend `offset` et `limit` (50 par défaut, de 1 à 100), parce que le conseil rendu quand une réponse dépasse le cadre d'1 Mio est de « réessayer avec un `limit` plus petit ». Les bornes sont lues et déclarées par `PageArguments`, la page est `PagedEnvelope.slice`, et `GrowingCollectionToolsArePageableTest` refuse tout outil servi qui ne pagine pas sans figurer, avec une raison, dans sa liste d'exemptions (ADR-0107, amendement MCP-2). Aujourd'hui : `get_policy_audit`, `list_policy_pack_versions`, `list_saved_view_versions`. Pour `list_policy_pack_versions` et `list_saved_view_versions`, la borne limite la réponse, pas la lecture. `get_policy_audit` est borné à la source : la page est demandée au store (`PageArguments.request`), qui ne construit que ses enregistrements (ADR-0107, amendement du 17 octobre 2026).
+Un outil qui lit une collection qui ne fait que croître prend `offset` et `limit` (50 par défaut, de 1 à 100), parce que le conseil rendu quand une réponse dépasse le cadre d'1 Mio est de « réessayer avec un `limit` plus petit ». Les bornes sont lues et déclarées par `PageArguments`, la page est `PagedEnvelope.slice`, et `GrowingCollectionToolsArePageableTest` refuse tout outil servi qui ne pagine pas sans figurer, avec une raison, dans sa liste d'exemptions (ADR-0151). Aujourd'hui : `get_policy_audit`, `list_policy_pack_versions`, `list_saved_view_versions`. Pour `list_policy_pack_versions` et `list_saved_view_versions`, la borne limite la réponse, pas la lecture. `get_policy_audit` est borné à la source : la page est demandée au store (`PageArguments.request`), qui ne construit que ses enregistrements (ADR-0151).
 
 ## 4. Lecture, gestion et mutation
 
@@ -375,7 +383,7 @@ Les builders vérifient explicitement la présence de la couche M28 avant de pro
 Windows :
 
 ```powershell
-scripts\validate.cmd m28 -Version 1.2.1 -BaseRef origin/develop
+scripts\validate.cmd m28 -Version 1.2.2 -BaseRef origin/develop
 ```
 
 Le gate couvre notamment :
@@ -398,7 +406,7 @@ setup Windows
 Linux/WSL :
 
 ```bash
-MORPHEUS_M28_BASE_REF=origin/develop bash ./scripts/validate-m28.sh 1.2.1
+MORPHEUS_M28_BASE_REF=origin/develop bash ./scripts/validate-m28.sh 1.2.2
 ```
 
 Le gate Linux couvre les contrats statiques, la non-régression reactor et le packaging Linux. Les écritures de profils Windows ne sont pas simulées comme une preuve Linux équivalente.
@@ -423,6 +431,6 @@ write capability is not escalated
 - [Guide utilisateurs MCP](../user/MCP_CLIENTS.md)
 - [Plan M28](../project/roadmap/M28_EXECUTION.md)
 - [Validation M28](../project/validation/VALIDATION_M28.md)
-- [ADR-0062 — MCP SDK et STDIO](../architecture/adr/0062-official-java-mcp-sdk-and-native-stdio.md)
+- [ADR-0062 — MCP SDK et STDIO](../architecture/adr/ARCH-0062-official-java-mcp-sdk-and-native-stdio.md)
 - [CLI](../user/CLI.md)
 - [Intégrations](../user/INTEGRATIONS.md)

@@ -14,7 +14,7 @@
 | RT-01 | Concurrence SQLite accrue si le mode remote devient fortement multi-écrivain | 2 | 3 | **6** | `journal_mode=PERSIST`, busy timeout, transactions bornées, une connexion physique scopée par opération, leases, réservation atomique des séquences de version, backups ; observabilité de contention (`sqlite.contention.*`, `sqlite.transaction.duration`) et tests de stress multi-écrivain ; substitution possible derrière les ports si besoin prouvé |
 | RT-02 | Retour à un ancien binaire après migration de schéma non rétrocompatible | 2 | 3 | **6** | Migrations forward-only explicites, checksums, refus des schémas futurs, backup avant opérations sensibles, restore offline |
 | RT-03 | `jdk.httpserver` peut devenir limitant sous charge serveur importante | 2 | 2 | **4** | Mode remote optionnel et borné ; harnais de charge reproductible (`MorpheusRemoteLoadProfileTest`) et critères objectifs de remplacement documentés — mesurer avant toute substitution et formaliser un ADR si nécessaire |
-| RT-04 | Évolution du MCP SDK 2.0.1 ou de ses contrats clients | 2 | 2 | **4** | Version épinglée, tests de contrat, MCP STDIO borné, diagnostics redacted et configuration conservatrice |
+| RT-04 | Évolution du MCP SDK 2.1.0 ou de ses contrats clients | 2 | 2 | **4** | Version épinglée, tests de contrat, MCP STDIO borné, diagnostics redacted et configuration conservatrice |
 | RT-05 | Plugin provider externe malformé, trop volumineux ou non fiable | 2 | 2 | **4** | Discovery metadata-only sans symlink avec revalidation d'identité avant/après lecture, activation explicite, SHA-256 obligatoire en remote, staging vérifié, budgets d'ingestion et environnement enfant minimisé |
 | RT-06 | Diagnostic runtime limité par les choix de logging silencieux compatibles MCP | 2 | 2 | **4** | Health/metrics, erreurs structurées, redaction des diagnostics peer et preuves de validation ; toute évolution doit préserver stdout MCP |
 | RT-07 | Baseline remote limitée à Bearer auth / RBAC, sans IAM entreprise | 1 | 2 | **2** | Périmètre explicitement documenté ; mutations inter-processus sérialisées, live reload, audit secret-free roulant borné ; mot de passe TLS résolu tardivement en `char[]` et jamais retenu dans les options de lancement ; SSO/LDAP seulement après besoin et ADR dédiés |
@@ -30,18 +30,20 @@ Les anciens risques de gouvernance liés à l'absence de protection de `main`/`d
 
 | ID | Dette | Domaine | Priorité | Traitement |
 |----|-------|---------|----------|------------|
-| DT-10 | Couverture historique globale encore modeste malgré un changed-code gate strict | Qualité | **Moyenne** | Ratchets M21 actifs à `3820 / 585`, couverture `90,0% / 75,7%` agrégée et `69,1% / 61,2%` par module ; chaque échelle a son propre plafond qualifié et ne se relève qu'après nouvelle preuve exact-head reproductible sur les deux plateformes |
+| DT-10 | Couverture historique globale encore modeste malgré un changed-code gate strict | Qualité | **Moyenne** | Ratchets M21 actifs à `3556 / 1819 / 1058`, couverture `92,8% / 81,1%` agrégée et `90,1% / 77,3%` par module ; chaque échelle a son propre plafond qualifié et ne se relève qu'après nouvelle preuve exact-head reproductible sur les deux plateformes |
 | DT-11 | Nouveau workflow de release attestée pas encore qualifié par une vraie release publiée | Release | **Moyenne** | Valider l'enchaînement tag -> Linux/Windows -> attestations -> assets -> GitHub Release lors de la prochaine vraie release `v1.2.1+` ; suivi #185. Atténuation depuis le 11/10/2026 : la moitié « build » est répétée sur les deux plateformes par la lane `Release rehearsal` de `nightly.yml`, chaque nuit dès que `main` porte cette lane et à la demande avant cela ; attestation, publication et relecture publique restent non exercées |
 
 `DT-04` (SQLite unique backend), `DT-05` (macOS) et `DT-12` (identités historiques à trois champs) sont
 **requalifiées le 16/09/2026** : ce sont des positions tenues, pas des dettes. Elles partent respectivement vers
-[ADR-0018 §15](../adr/0018-sqlite-initial-persistent-store.md), [§10.4 ci-contre](10-exigences-qualite.md) et
-[ADR-0094](../adr/0094-optional-team-remote-server-mode.md), chacune avec l'événement qui la rouvrira.
+[ADR-0018 §15](../adr/DATA-0018-sqlite-initial-persistent-store.md), [§10.4 ci-contre](10-exigences-qualite.md) et
+[ADR-0094](../adr/SEC-0094-optional-team-remote-server-mode.md), chacune avec l'événement qui la rouvrira.
 `DT-07` et `DT-08` **sortent du registre technique** le même jour : ce sont des réglages de comptes externes,
 suivis dans #154, qu'aucun commit ne ferme et qu'aucun test ne surveille — suivis ailleurs, pas réglés. Détail
 et conditions de réouverture : [`../risks/register.md`](../risks/register.md).
 
 | DT-17 | Les quatre routeurs d'extension écrivent chacun leur propre enveloppe de réponse | API HTTP | **Faible à moyenne** | Nommée le 16/09/2026 après vérification sur le code : trois des quatre méthodes d'envoi sont identiques octet pour octet à `MorpheusHttpResponseWriter.send`, et les quatre redéclarent en `private` des records d'enveloppe identiques aux records `public` de `MorpheusHttpServer`. Parité de réponse à épingler avant migration, comme DT-16 l'a fait pour la requête. Détail : [`../risks/register.md`](../risks/register.md) |
+
+`DT-18` est **soldée le 28/10/2026 et retirée du tableau actif** : le cœur applicatif ne porte aucun transport réseau. La découverte de mise à jour lit son manifeste par le port `product.UpdateManifestSource`, que `UpdateManifestFetcher` (`morpheus-cli`, paquet `command`) implémente pour `file:` et `https:` ; `MorpheusProductCli` le câble explicitement. Le refus de `http:` et des autres schémas avant toute I/O, la borne de taille, le délai et l'analyse du manifeste restent dans `UpdateDiscoveryService`. `ApplicationTechnologyBoundaryArchitectureTest` refuse le réseau sortant et les fils d'exécution dans tout `com.morpheus.application..` ([ADR-0150](../adr/ARCH-0150-ce-que-le-coeur-applicatif-peut-toucher.md)). **Condition de réouverture** : une classe de l'application qui atteint de nouveau le réseau, ce que ce test refuse.
 
 `DT-03` est **éliminée le 16/09/2026** : [`10-exigences-qualite.md`](10-exigences-qualite.md) §10.3 nomme désormais les cinq gates de performance M19, leur contrat de fixture et ADR-0085, sans reproduire aucun seuil — les budgets restent portés par les constantes des gates.
 
@@ -56,7 +58,7 @@ L'ancien `DT-02` relatif à l'absence d'ADR-0096 dans l'index ADR est résolu : 
 ### Gate CI M21
 
 Le workflow public exact-head exécute actuellement le **gate M21 avec la
-version produit 1.2.1** sur Ubuntu et Windows. Ce choix est intentionnel : M21
+version produit 1.2.2** sur Ubuntu et Windows. Ce choix est intentionnel : M21
 sert de gate d'intégrité/surface-convergence durable. Les gates M22 à M28
 restent des preuves de milestones spécialisés et ne doivent pas remplacer
 mécaniquement M21 dans `ci.yml`.
@@ -64,12 +66,13 @@ mécaniquement M21 dans `ci.yml`.
 La baseline active du gate est :
 
 ```text
-Surefire total          >= 3820
-architecture            >= 585
-aggregate line          >= 90.0%
-aggregate branch        >= 75.7%
-per-module line         >= 69.1%
-per-module branch       >= 61.2%
+Surefire written        >= 3556
+Surefire generated      >= 1819
+architecture            >= 1058
+aggregate line          >= 92.8%
+aggregate branch        >= 81.1%
+per-module line         >= 90.1%
+per-module branch       >= 77.3%
 changed-line            >= 80%
 changed-branch          >= 70%
 ```
@@ -79,7 +82,7 @@ Le workflow de sécurité rafraîchit sa base OWASP de confiance **quotidienneme
 Par conséquent :
 
 ```text
-ci.yml -> validate-m21 1.2.1   == état attendu
+ci.yml -> validate-m21 1.2.2   == état attendu
 M28 livré                         != obligation d'appeler validate-m28 en CI
 D2 qualification locale           != nouveau numéro de gate produit
 ```

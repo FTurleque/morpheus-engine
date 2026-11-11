@@ -1,6 +1,6 @@
 package com.morpheus.application.quality;
 
-import com.morpheus.application.lifecycle.ChangeLifecycleFacts;
+import com.morpheus.domain.change.lifecycle.ChangeLifecycleFacts;
 
 import java.util.LinkedHashMap;
 import java.util.List;

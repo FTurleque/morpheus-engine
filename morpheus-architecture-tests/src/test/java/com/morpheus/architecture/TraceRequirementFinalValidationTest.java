@@ -44,10 +44,10 @@ import com.morpheus.domain.version.SpecificationVersionId;
 import com.morpheus.store.memory.MemoryExternalReferenceStore;
 import com.morpheus.store.memory.MemorySpecificationKnowledgeStore;
 import com.morpheus.store.memory.MemoryTraceabilityStore;
-import com.morpheus.store.sqlite.SqliteExternalReferenceStore;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
-import com.morpheus.store.sqlite.SqliteTraceabilityStore;
-import com.morpheus.store.sqlite.SqliteVersionedRequirementStore;
+import com.morpheus.store.sqlite.adapter.SqliteExternalReferenceStore;
+import com.morpheus.store.sqlite.adapter.SqliteSpecificationKnowledgeStore;
+import com.morpheus.store.sqlite.adapter.SqliteTraceabilityStore;
+import com.morpheus.store.sqlite.adapter.SqliteVersionedRequirementStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

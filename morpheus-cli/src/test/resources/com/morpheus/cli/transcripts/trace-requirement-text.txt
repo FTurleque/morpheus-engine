@@ -1,0 +1,8 @@
+args: trace-requirement --project <project> --requirement <requirement>
+exit: 0
+stdout:
+requirement=Session expiration
+nodes=13 links=12 externalReferences=0
+truncationReason=DEPTH_BUDGET_REACHED:2
+
+stderr:

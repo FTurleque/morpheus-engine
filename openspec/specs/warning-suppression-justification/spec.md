@@ -4,6 +4,8 @@
 Define what accompanies a suppressed warning in the product's sources, and what a boundary does instead of an unchecked
 cast.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/warning-suppression-justification.md](../../../docs/developer/specifications/warning-suppression-justification.md).
+
 ## Requirements
 
 ### Requirement: A suppressed warning in the product's sources SHALL state its reason

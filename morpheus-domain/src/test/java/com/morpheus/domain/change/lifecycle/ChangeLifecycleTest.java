@@ -30,18 +30,20 @@ class ChangeLifecycleTest {
 
     @Test
     void abandonedLifecycleRequiresStructuredReason() {
-        assertThrows(IllegalArgumentException.class, () -> new ChangeLifecycle(
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> new ChangeLifecycle(
                 ChangeId.generate(),
                 ChangeLifecycleState.ABANDONED,
                 Optional.empty()));
+        assertEquals("ABANDONED lifecycle requires an abandonment reason", failure.getMessage());
     }
 
     @Test
     void nonAbandonedLifecycleRejectsAbandonmentReason() {
-        assertThrows(IllegalArgumentException.class, () -> new ChangeLifecycle(
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> new ChangeLifecycle(
                 ChangeId.generate(),
                 ChangeLifecycleState.PROPOSED,
                 Optional.of(ChangeAbandonmentReason.OBSOLETE)));
+        assertEquals("abandonment reason is only valid for ABANDONED lifecycle", failure.getMessage());
     }
 
     @Test

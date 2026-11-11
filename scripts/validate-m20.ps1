@@ -1,6 +1,9 @@
 [CmdletBinding()]
 param(
-    [string]$Version = '1.0.0'
+    [string]$Version = '1.0.0',
+    # Builds the release test-signed with an identity created for this run and removed with it. Without it the
+    # validator creates no certificate, builds unsigned, and says the signing path was not exercised.
+    [switch]$TestSigning
 )
 
 Set-StrictMode -Version Latest
@@ -29,6 +32,15 @@ $script:TagCreated = $false
 $script:FullTestSummary = $null
 $script:ArchitectureTestSummary = $null
 $script:PowerShellExecutable = (Get-Process -Id $PID).Path
+$script:TestIdentity = $null
+$script:SigningExercised = $false
+. (Join-Path $repo 'scripts\lib\MorpheusAuthenticode.ps1')
+
+# The subject the pinned Inno Setup compiler is signed with: the positive control's expected publisher, a third party's
+# and never MORPHEUS's. Its pattern is pinned by distribution/ensure-inno-setup.ps1.
+$script:CompilerPublisher = 'CN=Pyrsys B.V., O=Pyrsys B.V., S=Noord-Holland, C=NL'
+# Who a binary is checked against when MORPHEUS's publisher is not declared yet: a name no certificate carries.
+$script:StandInPublisher = 'CN=MORPHEUS rehearsal stand-in publisher'
 
 function Write-Section([string]$Title) {
     Write-Host ''
@@ -270,6 +282,119 @@ function Test-InstalledApi([string]$Launcher) {
     }
 }
 
+# One verification, one expected answer. The qualification calls the same Test-MorpheusAuthenticode, so a
+# verification that stops refusing fails the night it does, under the name of the proof that no longer holds.
+function Assert-AuthenticodeAnswer([string]$Proof, [string]$Path, [AllowEmptyString()][string]$Publisher, [string[]]$Expected) {
+    $answer = Test-MorpheusAuthenticode -Path $Path -ExpectedSubject $Publisher -SignatureRequired
+    if ($Expected -notcontains $answer.Outcome) {
+        throw "Authenticode proof '$Proof' answered $($answer.Outcome), expected $($Expected -join ' or '): $($answer.Detail)"
+    }
+    Write-Host "Authenticode proof '$Proof': $($answer.Outcome) as expected"
+    $script:Results["Authenticode: $Proof"] = "PASS ($($answer.Outcome))"
+}
+
+function Invoke-AuthenticodeProofs([string]$Setup) {
+    $declaration = Read-MorpheusSigningDeclaration -Repository $repo
+    $publisher = if ([string]::IsNullOrEmpty($declaration.PublisherSubject)) { $script:StandInPublisher } else { $declaration.PublisherSubject }
+    $compiler = [string](@(& (Join-Path $repo 'distribution\ensure-inno-setup.ps1'))[-1])
+    if (-not (Test-Path -LiteralPath $compiler -PathType Leaf)) { throw "The pinned Inno Setup compiler was not resolved: $compiler" }
+
+    if ($TestSigning) {
+        Assert-AuthenticodeAnswer 'test-signed installer refused' $Setup $publisher @('AUTHENTICODE_SIGNATURE_NOT_TRUSTED', 'AUTHENTICODE_SIGNER_UNEXPECTED')
+    } else {
+        Assert-AuthenticodeAnswer 'unsigned installer refused' $Setup $publisher @('AUTHENTICODE_SIGNATURE_MISSING')
+    }
+    Assert-AuthenticodeAnswer 'another publisher refused' $compiler $publisher @('AUTHENTICODE_SIGNER_UNEXPECTED')
+    if ([string]::IsNullOrEmpty($declaration.PublisherSubject)) {
+        Assert-AuthenticodeAnswer 'undeclared publisher refused' $compiler '' @('AUTHENTICODE_PUBLISHER_NOT_DECLARED')
+    }
+    $altered = Join-Path $outputRoot 'authenticode-altered-compiler.exe'
+    $bytes = [IO.File]::ReadAllBytes($compiler)
+    $offset = [int]($bytes.Length / 2)
+    $bytes[$offset] = $bytes[$offset] -bxor 0xFF
+    [IO.File]::WriteAllBytes($altered, $bytes)
+    try {
+        Assert-AuthenticodeAnswer 'altered binary refused' $altered $script:CompilerPublisher @('AUTHENTICODE_SIGNATURE_INVALID')
+    } finally {
+        Remove-Item -LiteralPath $altered -Force -ErrorAction SilentlyContinue
+    }
+    Assert-AuthenticodeAnswer 'positive control accepted' $compiler $script:CompilerPublisher @('PASS')
+}
+
+function New-TestSigningIdentity {
+    # Created in the personal store of the current user and nowhere else by this script; New-SelfSignedCertificate
+    # also files a copy among the intermediate authorities, which Remove-TestSigningIdentity removes with it. No root
+    # store is touched, so nothing on the machine trusts what this identity signs.
+    $subject = 'CN=MORPHEUS release rehearsal test identity ' + [Guid]::NewGuid().ToString('N')
+    $certificate = New-SelfSignedCertificate -Type CodeSigningCert -Subject $subject -CertStoreLocation 'Cert:\CurrentUser\My' `
+        -KeyExportPolicy NonExportable -NotAfter (Get-Date).AddDays(1)
+    $script:TestIdentity = $certificate
+    $env:MORPHEUS_WINDOWS_SIGNING_TEST_THUMBPRINT = $certificate.Thumbprint
+    Write-Host "Test signing identity created for this run: $subject"
+}
+
+function Get-StoredCopies([string]$Thumbprint) {
+    return @(Get-ChildItem -Path 'Cert:\' -Recurse -ErrorAction SilentlyContinue |
+        Where-Object { $_.PSObject.Properties['Thumbprint'] -and $_.Thumbprint -eq $Thumbprint })
+}
+
+function Remove-TestSigningIdentity {
+    if ($null -eq $script:TestIdentity) { return }
+    $thumbprint = $script:TestIdentity.Thumbprint
+    foreach ($copy in Get-StoredCopies $thumbprint) {
+        Remove-Item -LiteralPath $copy.PSPath -DeleteKey -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $copy.PSPath) { Remove-Item -LiteralPath $copy.PSPath -ErrorAction SilentlyContinue }
+    }
+    Remove-Item Env:\MORPHEUS_WINDOWS_SIGNING_TEST_THUMBPRINT -ErrorAction SilentlyContinue
+    $left = Get-StoredCopies $thumbprint
+    $script:TestIdentity = $null
+    if ($left.Count -ne 0) {
+        throw "The test signing identity outlived the run: $(@($left | ForEach-Object { $_.PSParentPath }) -join ', ')"
+    }
+    Write-Host 'Test signing identity removed from every certificate store'
+}
+
+function Assert-SignedByTestIdentity([string]$What, [string]$Path) {
+    $signature = Get-AuthenticodeSignature -LiteralPath $Path
+    if ([string]$signature.SignatureType -ne 'Authenticode' -or $null -eq $signature.SignerCertificate `
+            -or $signature.SignerCertificate.Thumbprint -ne $script:TestIdentity.Thumbprint) {
+        throw "WINDOWS_SIGNING_FAILED: $What is not signed by the run's test identity: $Path"
+    }
+    $script:Results["Test-signed: $What"] = 'PASS'
+}
+
+function Get-ExtractedLauncher([string]$Archive, [string]$Into, [string]$Root) {
+    Remove-Item -LiteralPath $Into -Recurse -Force -ErrorAction SilentlyContinue
+    Expand-Archive -LiteralPath $Archive -DestinationPath $Into -Force
+    $executables = Get-MorpheusImageExecutables -ImageRoot (Join-Path $Into $Root)
+    if ($executables.Product.Count -eq 0) { throw "No executable outside the runtime in $Archive" }
+    return $executables.Product
+}
+
+function Assert-TestSignedArtifacts([string]$Zip, [string]$Setup, $Manifest) {
+    $work = Join-Path $outputRoot 'signing-check'
+    $archived = @(Get-ExtractedLauncher $Zip (Join-Path $work 'archive') 'morpheus')
+    $payloadZip = Join-Path $repo 'dist\morpheus-payload.zip'
+    $payload = @(Get-ExtractedLauncher $payloadZip (Join-Path $work 'payload') '.')
+    foreach ($executable in $archived) { Assert-SignedByTestIdentity "archive $(Split-Path -Leaf $executable)" $executable }
+    foreach ($executable in $payload) { Assert-SignedByTestIdentity "payload $(Split-Path -Leaf $executable)" $executable }
+    $archivedLauncher = $archived | Where-Object { (Split-Path -Leaf $_) -eq 'morpheus.exe' } | Select-Object -First 1
+    $payloadLauncher = $payload | Where-Object { (Split-Path -Leaf $_) -eq 'morpheus.exe' } | Select-Object -First 1
+    if ($null -eq $archivedLauncher -or $null -eq $payloadLauncher `
+            -or (Get-FileHash -LiteralPath $archivedLauncher).Hash -ne (Get-FileHash -LiteralPath $payloadLauncher).Hash) {
+        throw 'The launcher of the archive and the launcher of the installer payload are not byte-identical'
+    }
+    $script:Results['Archive and payload launchers identical'] = 'PASS'
+    Assert-SignedByTestIdentity 'installer' $Setup
+    foreach ($asset in $Manifest.assets) {
+        if ($asset.signature.status -ne 'signed' -or $asset.signature.signer -cne $script:TestIdentity.Subject) {
+            throw "The release manifest does not state $($asset.name) as signed by the run's test identity"
+        }
+    }
+    $script:Results['Manifest states the test signer'] = 'PASS'
+    Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
+}
+
 function Write-FailureSummary([System.Exception]$Failure) {
     $path = Join-Path $outputRoot 'failure-summary.txt'
     $lines = [System.Collections.Generic.List[string]]::new()
@@ -303,6 +428,14 @@ function Write-Summary([bool]$Success) {
     $lines.Add('Not exercised by a rehearsal: the provenance attestation')
     $lines.Add('Not exercised by a rehearsal: the publication of the release')
     $lines.Add('Not exercised by a rehearsal: the public read-back of a published release')
+    $lines.Add('Not exercised by a rehearsal: the Authenticode signature of the release binaries')
+    $lines.Add('Not exercised by a rehearsal: the release signing identity')
+    $lines.Add('Not exercised by a rehearsal: the signing service')
+    if ($script:SigningExercised) {
+        $lines.Add('Signing path: exercised with an ephemeral test identity; no timestamp authority was contacted')
+    } else {
+        $lines.Add('Signing path: not exercised (run with -TestSigning to sign with an ephemeral test identity)')
+    }
     if ($script:FullTestSummary) {
         $lines.Add(('Full reactor tests: {0}; failures: {1}; errors: {2}; skipped: {3}; suites: {4}' -f
             $script:FullTestSummary.Tests, $script:FullTestSummary.Failures, $script:FullTestSummary.Errors,
@@ -375,9 +508,17 @@ try {
     $script:TagCreated = $true
     $script:Results['Validation tag preparation'] = 'PASS'
 
+    $signingState = 'none'
+    if ($TestSigning) {
+        $script:CurrentStage = 'Test signing identity'
+        New-TestSigningIdentity
+        $signingState = 'test'
+        $script:Results['Test signing identity'] = 'PASS (created for this run)'
+    }
+
     $releaseScript = Join-Path $repo 'distribution\build-release.ps1'
     Invoke-LoggedStage -Name 'Tagged Windows release build' -FilePath $script:PowerShellExecutable `
-        -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $releaseScript, '-Version', $Version, '-ExpectedTag', $script:ValidationTag) `
+        -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $releaseScript, '-Version', $Version, '-ExpectedTag', $script:ValidationTag, '-SigningState', $signingState) `
         -LogName '02-release-build.log'
 
     $zip = Join-Path $repo "dist\morpheus-$Version-windows-x64.zip"
@@ -394,6 +535,17 @@ try {
     }
     $script:Results['SHA-256 + release manifest'] = 'PASS'
 
+    $script:CurrentStage = 'Authenticode proofs'
+    if ($TestSigning) {
+        Assert-TestSignedArtifacts -Zip $zip -Setup $setup -Manifest $manifest
+    } else {
+        foreach ($asset in $manifest.assets) {
+            if ($asset.signature.status -ne 'unsigned') { throw "The unsigned rehearsal manifest states $($asset.name) as $($asset.signature.status)" }
+        }
+        $script:Results['Manifest states unsigned'] = 'PASS'
+    }
+    Invoke-AuthenticodeProofs -Setup $setup
+
     Remove-Item -LiteralPath $installRoot -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $validationLocalAppData -Recurse -Force -ErrorAction SilentlyContinue
 
@@ -409,6 +561,15 @@ try {
     $database = Join-Path $stateRoot 'data\morpheus.db'
     if (-not (Test-Path -LiteralPath $database)) { throw "Installed runtime did not create persistent database: $database" }
     $script:Results['Install + PATH + no-JDK + API'] = 'PASS'
+    if ($TestSigning) {
+        $installedUninstaller = Get-ChildItem -LiteralPath $installRoot -Filter 'unins*.exe' -File | Select-Object -First 1
+        if ($null -eq $installedUninstaller) { throw "Uninstaller not found under $installRoot" }
+        Assert-SignedByTestIdentity 'installed uninstaller' $installedUninstaller.FullName
+        if ((Get-FileHash -LiteralPath $launcher).Hash -ne (Get-FileHash -LiteralPath (Join-Path $repo 'dist\.m20-windows\image\morpheus\morpheus.exe')).Hash) {
+            throw 'The installed launcher is not byte-identical to the signed launcher of the image'
+        }
+        $script:Results['Installed launcher identical'] = 'PASS'
+    }
 
     Write-Section 'Upgrade preservation'
     Invoke-Setup -SetupPath $setup -Target $installRoot -AddToPath $true
@@ -443,6 +604,13 @@ try {
     if ($endingStatus.Count -gt 0) { throw 'Tracked or untracked workspace state changed during validation' }
     $script:Results['Exact-head stability'] = 'PASS'
 
+    if ($TestSigning) {
+        $script:CurrentStage = 'Test signing identity removal'
+        Remove-TestSigningIdentity
+        $script:SigningExercised = $true
+        $script:Results['Test signing identity removal'] = 'PASS'
+    }
+
     Write-Summary $true
     exit 0
 } catch {
@@ -453,7 +621,12 @@ try {
     Write-Summary $false
     exit 1
 } finally {
+    # Every exit path, a failed build included: the identity never outlives the run.
+    $identityFailure = $null
+    try { Remove-TestSigningIdentity } catch { $identityFailure = $_.Exception.Message }
+    if ($identityFailure) { Write-Host $identityFailure }
     if ($script:TagCreated -and $script:ValidationTag) {
         git tag -d $script:ValidationTag 2>$null | Out-Null
     }
+    if ($identityFailure) { exit 1 }
 }

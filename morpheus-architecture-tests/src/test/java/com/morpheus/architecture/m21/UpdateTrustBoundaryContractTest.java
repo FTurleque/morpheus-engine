@@ -1,6 +1,8 @@
 package com.morpheus.architecture.m21;
 
 import com.morpheus.application.product.UpdateTrustLevel;
+import com.morpheus.architecture.ProductionSources;
+import com.morpheus.architecture.RepositoryRoot;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -16,13 +18,12 @@ class UpdateTrustBoundaryContractTest {
 
     @Test
     void discoveryCarriesProvenanceReferenceButCannotClaimPublisherVerification() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String result = Files.readString(root.resolve(
                 "morpheus-application/src/main/java/com/morpheus/application/product/UpdateCheckResult.java"));
         String discovery = Files.readString(root.resolve(
                 "morpheus-application/src/main/java/com/morpheus/application/product/UpdateDiscoveryService.java"));
-        String cli = Files.readString(root.resolve(
-                "morpheus-cli/src/main/java/com/morpheus/cli/MorpheusProductCli.java"));
+        String cli = Files.readString(ProductionSources.mainSource("morpheus-cli", "MorpheusProductCli"));
 
         assertEquals(List.of(UpdateTrustLevel.DISCOVERY_ONLY), List.of(UpdateTrustLevel.values()),
                 "adding a verified trust state requires an explicit verifier and an architecture review");
@@ -38,17 +39,5 @@ class UpdateTrustBoundaryContractTest {
                 "human-readable update output must expose the trust classification");
         assertTrue(cli.contains("action=none (discovery is read-only; MORPHEUS never auto-installs updates)"),
                 "the CLI must keep the discovery-only boundary explicit");
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("pom.xml"))
-                    && Files.isDirectory(current.resolve("morpheus-application"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found");
     }
 }

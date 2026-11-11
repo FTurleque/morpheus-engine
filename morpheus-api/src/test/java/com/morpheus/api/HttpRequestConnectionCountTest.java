@@ -1,8 +1,9 @@
 package com.morpheus.api;
 
+import com.morpheus.api.local.MorpheusHttpServer;
 import com.morpheus.application.operability.OperationalLogMode;
 import com.morpheus.application.operability.OperationalRuntime;
-import com.morpheus.store.sqlite.SqliteConnectionScope;
+import com.morpheus.store.sqlite.runtime.SqliteConnectionScope;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

@@ -7,6 +7,7 @@
 @.claude/rules/testing.md
 @.claude/rules/security.md
 @.claude/rules/governance.md
+@.claude/rules/adr.md
 @.claude/rules/build.md
 @.claude/rules/code-style.md
 @.claude/rules/tooling.md
@@ -17,7 +18,7 @@
 
 ## Identité
 
-`io.github.fturleque:morpheus-engine` **1.2.1** — Specification & Intent Intelligence Engine
+`io.github.fturleque:morpheus-engine` **1.2.2** — Specification & Intent Intelligence Engine
 Java 21 · Maven 3.10.0 · multi-module Maven (compter les `<module>` de `pom.xml` — ne jamais citer un total de mémoire) · local-first · **sans framework** · **sans Docker**
 
 ## Principe directeur
@@ -27,10 +28,10 @@ Java 21 · Maven 3.10.0 · multi-module Maven (compter les `<module>` de `pom.xm
 chaque milestone) assertent la structure, les contrats, la sécurité et jusqu'au contenu
 textuel de fichiers précis.
 `docs/architecture/adr/` documente le *pourquoi*. **Ne jamais citer un total d'ADR de mémoire** : compter
-les fichiers numérotés (`docs/architecture/adr/0*.md`) avec un `glob` au moment où la réponse est
-écrite — le répertoire contient aussi un `README.md`, donc « nombre de fichiers » et
-« nombre d'ADR » ne sont pas le même chiffre. Vérifier aussi le plus haut numéro attribué
-avant d'en assigner un nouveau : un doublon de numérotation a déjà existé.
+les ADR en vigueur (`docs/architecture/adr/*-[0-9][0-9][0-9][0-9]-*.md`) avec un `glob` au moment où la
+réponse est écrite — le répertoire contient aussi un `README.md`, et les ADR retirés vivent dans `archive/`, donc
+« nombre de fichiers » et « nombre d'ADR » ne sont pas le même chiffre. Vérifier aussi le plus haut numéro attribué,
+registre **et** archive, avant d'en assigner un nouveau : un doublon de numérotation a déjà existé.
 
 > Avant de décider quoi que ce soit de structurel : **lire le test ArchUnit concerné**, puis l'ADR.
 > Ne jamais deviner une règle — elle est écrite quelque part et vérifiable.
@@ -77,7 +78,9 @@ ce qui est chargé, par quoi, et pourquoi.
 
 ## Architecture : ports & adapters
 
-`application` définit les **ports** et ne connaît **aucun** adaptateur.
+`application` définit les **ports** et ne connaît **aucun** adaptateur. Ce n'est pas une couche sans technologie
+(ADR-0150) : ni SQL, ni JSON, ni processus, ni réseau, ni fils d'exécution ; l'accès fichier, à l'environnement, aux flux standard, à l'horloge et la réflexion
+passent par des classes nommées dans `ApplicationTechnologyBoundaryArchitectureTest`, liste qui ne fait que rétrécir.
 Les adaptateurs dépendent vers l'intérieur. Les adaptateurs sont **frères** — ils ne s'appellent pas entre eux.
 
 ```
@@ -97,10 +100,10 @@ Les adaptateurs dépendent vers l'intérieur. Les adaptateurs sont **frères** �
                           └─────────────┘
 ```
 
-Exception écrite et bornée (ADR-0109) : `api` et `mcp` construisent le runtime de chaque requête HTTP ou appel
+Exception écrite et bornée (ADR-0162) : `api` et `mcp` construisent le runtime de chaque requête HTTP ou appel
 d'outil MCP à partir de `store-sqlite` (et, pour la synchronisation HTTP, du provider OpenSpec), **uniquement** par
 les racines de composition nommées dans `AdapterCompositionRootArchitectureTest`. Cette liste ne fait que rétrécir ;
-une nouvelle classe qui veut un store concret passe par une racine existante ou amende l'ADR.
+une nouvelle classe qui veut un store concret passe par une racine existante, ou par un ADR consolidé qui remplace ADR-0162 et la nomme.
 
 ## Commandes
 
@@ -117,9 +120,9 @@ Dispatcher : `scripts/validate.cmd` → `scripts/validate.ps1`
 ## Milestones
 
 Dernier milestone livré : **M28** (intégration client MCP native, livré dans 1.2.0). Aucun
-milestone n'est actuellement en cours — la baseline **1.2.1** est une passe corrective et de
-durcissement (audit, sécurité, dette de gouvernance), suivie par l'issue #185 jusqu'à sa
-release réelle, pas un nouveau milestone.
+milestone n'est actuellement en cours — la baseline **1.2.2**, qui porte un schéma SQLite
+plus récent que la 1.2.1 publiée, est une passe corrective et de durcissement (audit,
+sécurité, dette de gouvernance), pas un nouveau milestone.
 Gates actifs : **M19** (perf, lane nocturne — pas dans `clean verify`) · **M20** (release, répétition en lane nocturne — pas dans `clean verify`) · **M21** (coverage + intégrité) · **M22** (plugins)
 · **M23** (portfolio) · **M24** (query DSL) · **M25** (policy) · **M26** (remote) · **M27** (reasoning) · **M28** (MCP clients) · **D2** (hardening repo)
 
@@ -127,7 +130,9 @@ Gates actifs : **M19** (perf, lane nocturne — pas dans `clean verify`) · **M2
 
 | Fichier | Rôle |
 |---|---|
-| `morpheus-cli/.../MorpheusMain.java` | Câblage du processus (les runtimes par requête : racines nommées d'ADR-0109) |
+| `morpheus-cli/.../MorpheusMain.java` | Câblage du processus (les runtimes par requête : racines nommées d'ADR-0162) |
+| `morpheus-cli/.../command/` | Classes de capacité de la CLI, une par famille du manifeste (ADR-0149) |
+| `morpheus-mcp/.../server/MorpheusMcpServer.java` | Serveur MCP STDIO ; ses outils sont les classes de capacité de `com.morpheus.mcp` |
 | `morpheus-api/.../MorpheusHttpServer.java` | Serveur local (loopback obligatoire) |
 | `morpheus-api/.../MorpheusRemoteHttpServer.java` | Serveur remote (TLS + RBAC) |
 | `morpheus-application/.../product/ProductMetadata.java` | Source unique de la version |

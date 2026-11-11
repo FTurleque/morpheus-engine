@@ -29,7 +29,8 @@ class PolicyCodecAndBudgetContractTest {
 
         assertEquals(first, second);
         assertEquals(version, decoded);
-        assertThrows(IllegalArgumentException.class, () -> codec.decode(first + "AA"));
+        IllegalArgumentException trailing = assertThrows(IllegalArgumentException.class, () -> codec.decode(first + "AA"));
+        assertEquals("encoded policy pack contains trailing data", trailing.getMessage());
     }
 
     @Test
@@ -38,7 +39,8 @@ class PolicyCodecAndBudgetContractTest {
         for (int index = 0; index <= PolicyBudgets.MAX_RULES_PER_PACK; index++) {
             rules.add(rule());
         }
-        assertThrows(IllegalArgumentException.class, () -> version(rules));
+        IllegalArgumentException oversized = assertThrows(IllegalArgumentException.class, () -> version(rules));
+        assertEquals("policy pack exceeds max rules: " + PolicyBudgets.MAX_RULES_PER_PACK, oversized.getMessage());
     }
 
     private PolicyPack.Version version(List<PolicyRule> rules) {

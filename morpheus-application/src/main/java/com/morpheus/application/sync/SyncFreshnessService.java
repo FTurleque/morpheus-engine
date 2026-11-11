@@ -1,6 +1,5 @@
 package com.morpheus.application.sync;
 
-import com.morpheus.application.store.SyncStateStore;
 import com.morpheus.domain.project.ProjectSpecificationId;
 
 import java.time.Duration;

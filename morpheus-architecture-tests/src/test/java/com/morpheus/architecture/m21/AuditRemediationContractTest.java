@@ -1,5 +1,7 @@
 package com.morpheus.architecture.m21;
 
+import com.morpheus.architecture.ProductionSources;
+import com.morpheus.architecture.RepositoryRoot;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -17,10 +19,10 @@ class AuditRemediationContractTest {
 
     @Test
     void queryBudgetsAreAppliedToCurrentRequirementsAtTheStoreBoundary() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String query = read(root, "morpheus-application/src/main/java/com/morpheus/application/query/dsl/QueryExecutionService.java");
         String store = read(root, "morpheus-application/src/main/java/com/morpheus/application/store/VersionedRequirementStore.java");
-        String sqlite = read(root, "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteVersionedRequirementStore.java");
+        String sqlite = read(root, "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/adapter/SqliteVersionedRequirementStore.java");
         String memory = read(root, "morpheus-store-memory/src/main/java/com/morpheus/store/memory/MemorySpecificationKnowledgeStore.java");
 
         assertTrue(store.contains("listCurrentRequirementVersions("));
@@ -38,7 +40,7 @@ class AuditRemediationContractTest {
 
     @Test
     void completeMaterializationRejectsBeforeOverBudgetSortOrProjection() throws IOException {
-        String query = read(repoRoot(),
+        String query = read(RepositoryRoot.locate(),
                 "morpheus-application/src/main/java/com/morpheus/application/query/dsl/QueryExecutionService.java");
 
         assertTrue(query.contains("materializeRowsBounded(query, maximumRows)"));
@@ -51,8 +53,7 @@ class AuditRemediationContractTest {
 
     @Test
     void providerPluginMcpFallbackNeverRelaysArbitraryExceptionMessages() throws IOException {
-        String mcp = read(repoRoot(),
-                "morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusProviderPluginMcpTools.java");
+        String mcp = ProductionSources.readMain("morpheus-mcp", "MorpheusProviderPluginMcpTools");
 
         assertTrue(mcp.contains("PROVIDER_PLUGIN_DISCOVERY_FAILED"));
         assertTrue(mcp.contains("McpToolFailure.refusal(REMOTE_DISCOVERY_FAILURE)"));
@@ -61,13 +62,15 @@ class AuditRemediationContractTest {
         assertFalse(mcp.contains("McpToolFailure.result("),
                 "this boundary answers a stable code; result(RuntimeException) relays the exception's message");
         assertFalse(mcp.contains("McpToolFailure.safeMessage"));
+        assertFalse(mcp.contains("FailureText.of"),
+                "this boundary answers a stable code; FailureText.of words the exception's own message");
         assertEquals(occurrences(mcp, "refusal("), occurrences(mcp, "McpToolFailure.refusal(REMOTE_DISCOVERY_FAILURE)"),
                 "every refusal built here is written McpToolFailure.refusal(REMOTE_DISCOVERY_FAILURE): a bare refusal( or one fed anything else is refused");
     }
 
     @Test
     void aggregateCoverageIsCanonicalForMavenDiffGateArtifactsAndSonar() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String rootPom = read(root, "pom.xml");
         String coveragePom = read(root, "morpheus-coverage-report/pom.xml");
         String aggregateGate = read(root,
@@ -90,7 +93,7 @@ class AuditRemediationContractTest {
 
     @Test
     void activeDocumentationTracksBuildVersionsAndModuleCount() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String pom = read(root, "pom.xml");
         String readme = read(root, "CONTRIBUTING.md");
         String status = read(root, "docs/project/governance/DOCUMENTATION_STATUS.md");
@@ -127,17 +130,5 @@ class AuditRemediationContractTest {
             count++;
         }
         return count;
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("pom.xml"))
-                    && Files.isDirectory(current.resolve("morpheus-application"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found");
     }
 }

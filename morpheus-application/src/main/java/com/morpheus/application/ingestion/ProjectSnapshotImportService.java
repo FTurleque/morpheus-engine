@@ -1,5 +1,6 @@
 package com.morpheus.application.ingestion;
 
+import com.morpheus.application.read.NormalizedProjectContent;
 import com.morpheus.application.security.ServerLocationDisclosure;
 import com.morpheus.application.snapshot.SnapshotLifecycleService;
 import com.morpheus.application.snapshot.SnapshotValidationResult;

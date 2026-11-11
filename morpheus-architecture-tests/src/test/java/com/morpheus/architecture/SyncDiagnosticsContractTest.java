@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.lang.reflect.RecordComponent;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -32,7 +31,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>It also holds the one choice the HTTP adapter makes: a remote WRITE caller reaches the sync route, so no class of
  * {@code com.morpheus.api} may relay the local projection, and the sync service relays the remote one. These are
- * bytecode rules (ADR-0103: the intention is "no call", which a text search would only approximate).</p>
+ * bytecode rules ({@code .claude/rules/architecture.md}: the intention is "no call", which a text search would only
+ * approximate).</p>
  *
  * <p>What it does not cover: that the remote projection is applied to the value the route actually serializes rather
  * than computed and dropped — the integration test proves it, with a title the location predicate refuses; and
@@ -134,17 +134,6 @@ class SyncDiagnosticsContractTest {
     }
 
     private static String read() throws IOException {
-        return Files.readString(repoRoot().resolve("docs/developer/reference/openapi/morpheus-v1.yaml"));
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null && !Files.exists(current.resolve("contracts/public-surfaces.tsv"))) {
-            current = current.getParent();
-        }
-        if (current == null) {
-            throw new IllegalStateException("repository root (contracts/public-surfaces.tsv) not found");
-        }
-        return current;
+        return Files.readString(RepositoryRoot.locate().resolve("docs/developer/reference/openapi/morpheus-v1.yaml"));
     }
 }

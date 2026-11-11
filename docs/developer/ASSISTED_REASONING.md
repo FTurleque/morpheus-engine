@@ -4,7 +4,7 @@ M27 ajoute une capacité d’analyse assistée **read-only**, provider-neutral e
 
 ```text
 morpheus-application/src/main/java/com/morpheus/application/reasoning
-morpheus-cli/src/main/java/com/morpheus/cli/MorpheusReasoningCli.java
+morpheus-cli/src/main/java/com/morpheus/cli/command/MorpheusReasoningCli.java
 morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusReasoningMcpTools.java
 morpheus-api/src/main/java/com/morpheus/api/MorpheusReasoning*.java
 ```
@@ -272,4 +272,4 @@ Minimums :
 35% branch coverage
 ```
 
-Voir [`../project/roadmap/M27_EXECUTION.md`](../project/roadmap/M27_EXECUTION.md) et [`../architecture/adr/0095-evidence-backed-assisted-reasoning.md`](../architecture/adr/0095-evidence-backed-assisted-reasoning.md).
+Voir [`../project/roadmap/M27_EXECUTION.md`](../project/roadmap/M27_EXECUTION.md) et [`../architecture/adr/0095-evidence-backed-assisted-reasoning.md`](../architecture/adr/ARCH-0095-evidence-backed-assisted-reasoning.md).

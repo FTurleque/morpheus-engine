@@ -2,6 +2,7 @@ package com.morpheus.mcp;
 
 import com.morpheus.application.composition.CompositionQueryService;
 import com.morpheus.application.composition.CompositionStateView;
+import com.morpheus.application.foundation.PayloadMap;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.store.KnowledgeStoreException;
@@ -17,7 +18,7 @@ import java.util.Objects;
 import java.util.function.Function;
 
 /** M18 read-only tools exposing persisted multi-provider composition state and conflicts. */
-final class MorpheusCompositionMcpTools {
+public final class MorpheusCompositionMcpTools {
     static final String STATUS_TOOL = "get_composition_status";
     static final String CONFLICTS_TOOL = "list_composition_conflicts";
 
@@ -25,12 +26,12 @@ final class MorpheusCompositionMcpTools {
     private final OperationalRecorder recorder;
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
-    MorpheusCompositionMcpTools(Path databasePath, OperationalRecorder recorder) {
+    public MorpheusCompositionMcpTools(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
         this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
-    List<McpServerFeatures.SyncToolSpecification> specifications() {
+    public List<McpServerFeatures.SyncToolSpecification> specifications() {
         return List.of(
                 tool(
                         STATUS_TOOL,
@@ -74,7 +75,7 @@ final class MorpheusCompositionMcpTools {
 
     private Object conflicts(CompositionStateView state, Map<String, Object> arguments) {
         return PagedEnvelope.following(
-                map("snapshotId", state.snapshotId(), "primaryProviderId", state.primaryProviderId()),
+                PayloadMap.of("snapshotId", state.snapshotId(), "primaryProviderId", state.primaryProviderId()),
                 PageArguments.slice(arguments, state::conflicts, Function.identity()));
     }
 
@@ -93,13 +94,5 @@ final class MorpheusCompositionMcpTools {
         return Map.copyOf(schema);
     }
 
-
-    private Map<String, Object> map(Object... entries) {
-        Map<String, Object> result = new LinkedHashMap<>();
-        for (int index = 0; index < entries.length; index += 2) {
-            result.put((String) entries[index], Objects.requireNonNull(entries[index + 1], "map value"));
-        }
-        return Map.copyOf(result);
-    }
 
 }

@@ -16,16 +16,18 @@ class ProviderReadContractTest {
 
     @Test
     void requestRejectsEmptyCategorySet() {
-        assertThrows(IllegalArgumentException.class, () -> new ProviderReadRequest(
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> new ProviderReadRequest(
                 Path.of("."), ProjectSpecificationId.generate(), Set.of()));
+        assertEquals("requestedCategories must not be empty", failure.getMessage());
     }
 
     @Test
     void resultRejectsDuplicateCategoryReports() {
         var report = ReadCategoryReport.of(ReadCategory.REQUIREMENTS, ReadCategoryStatus.READ, 2);
 
-        assertThrows(IllegalArgumentException.class, () -> new ProviderReadResult(
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> new ProviderReadResult(
                 new ProviderId("test"), Optional.empty(), List.of(report, report), List.of()));
+        assertEquals("duplicate read category report: REQUIREMENTS", failure.getMessage());
     }
 
     @Test

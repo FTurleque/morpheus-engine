@@ -29,7 +29,8 @@ class DomainIdentityTest {
     void rejectsNonUuidV7Values() {
         UUID uuidV4 = UUID.randomUUID();
 
-        assertThrows(IllegalArgumentException.class, () -> new DomainIdentity(uuidV4));
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> new DomainIdentity(uuidV4));
+        assertEquals("DomainIdentity must be an RFC 9562 UUIDv7", failure.getMessage());
     }
 
     @Test

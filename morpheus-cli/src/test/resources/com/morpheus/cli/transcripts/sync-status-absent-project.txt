@@ -1,0 +1,6 @@
+args: --json sync-status --project 01900000-0000-7000-8000-000000000001
+exit: 0
+stdout:
+{"projectId":"01900000-0000-7000-8000-000000000001","state":"UNKNOWN","lastSuccessfulSyncAt":null,"ageSeconds":null,"lastObservedChangeAt":null,"sourceRevision":null,"lastSuccessfulMode":null,"pendingFullRebuildReason":null,"currentSourceCount":0}
+
+stderr:

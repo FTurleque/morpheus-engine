@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -49,9 +50,10 @@ class IntermediateSymlinkBoundaryTest {
         Path link = workspace.resolve("link");
         assumeTrue(createSymlink(link, outside.getParent()), "symbolic links cannot be created in this environment");
 
-        assertThrows(IOException.class,
+        IOException failure = assertThrows(IOException.class,
                 () -> new LocalSourceWatcher(workspace, List.of(Path.of("link/nested")),
                         SourceScanPolicy.safeDefaults(), OperationalRecorder.noop()));
+        assertEquals("source path crosses a symbolic link inside the workspace", failure.getMessage());
     }
 
     private boolean createSymlink(Path link, Path target) {

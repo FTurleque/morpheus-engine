@@ -20,16 +20,29 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class SyntheticJsonGrammarTest {
     @Test
     void numbersOutsideTheJsonGrammarAreRefused() {
-        List<String> invalid = List.of(
-                "01", "00", "-01", "1.", ".1", "1e", "1e+", "1e-", "+1", "-",
-                "1.2.3", "0x1F", "١٢");
+        Map<String, String> invalid = new LinkedHashMap<>();
+        invalid.put("01", "JSON number must not have a leading zero: 01");
+        invalid.put("00", "JSON number must not have a leading zero: 00");
+        invalid.put("-01", "JSON number must not have a leading zero: -01");
+        invalid.put("1.", "JSON number requires at least one digit after the decimal point");
+        invalid.put(".1", "expected JSON value");
+        invalid.put("1e", "JSON number requires at least one digit in its exponent");
+        invalid.put("1e+", "JSON number requires at least one digit in its exponent");
+        invalid.put("1e-", "JSON number requires at least one digit in its exponent");
+        invalid.put("+1", "expected JSON value");
+        invalid.put("-", "expected JSON value");
+        invalid.put("1.2.3", "expected ','");
+        invalid.put("0x1F", "expected ','");
+        invalid.put("١٢", "expected JSON value");
 
-        for (String literal : invalid) {
-            assertThrows(
+        invalid.forEach((literal, message) -> {
+            IllegalArgumentException refused = assertThrows(
                     IllegalArgumentException.class,
                     () -> SyntheticJsonParser.parseObject("{\"value\":" + literal + "}"),
                     () -> "must refuse the number literal: " + literal);
-        }
+            assertTrue(refused.getMessage().startsWith(message + " at index "),
+                    () -> literal + " -> " + refused.getMessage());
+        });
     }
 
     @Test
@@ -51,9 +64,10 @@ class SyntheticJsonGrammarTest {
      */
     @Test
     void unicodeDigitsAreNotJsonDigits() {
-        assertThrows(
+        IllegalArgumentException refused = assertThrows(
                 IllegalArgumentException.class,
                 () -> SyntheticJsonParser.parseObject("{\"value\":\u0663}"));
+        assertTrue(refused.getMessage().startsWith("expected JSON value at index "), refused.getMessage());
     }
 
     @Test
@@ -77,34 +91,44 @@ class SyntheticJsonGrammarTest {
 
     @Test
     void unicodeEscapesMustBeFourHexDigits() {
-        List<String> invalid = List.of(
-                "\"\\u\"",
-                "\"\\u12\"",
-                "\"\\u12g4\"",
-                "\"\\u+123\"",
-                "\"\\u 123\"",
-                "\"\\u" + (char) 0x0663 + "123\"");
+        Map<String, String> invalid = new LinkedHashMap<>();
+        invalid.put("\"\\u\"", "incomplete unicode escape");
+        invalid.put("\"\\u12\"", "invalid unicode escape: 12\"}");
+        invalid.put("\"\\u12g4\"", "invalid unicode escape: 12g4");
+        invalid.put("\"\\u+123\"", "invalid unicode escape: +123");
+        invalid.put("\"\\u 123\"", "invalid unicode escape:  123");
+        invalid.put("\"\\u" + (char) 0x0663 + "123\"", "invalid unicode escape: " + (char) 0x0663 + "123");
 
-        for (String literal : invalid) {
-            assertThrows(
+        invalid.forEach((literal, message) -> {
+            IllegalArgumentException refused = assertThrows(
                     IllegalArgumentException.class,
                     () -> SyntheticJsonParser.parseObject("{\"value\":" + literal + "}"),
                     () -> "must refuse the escape: " + literal);
-        }
+            assertTrue(refused.getMessage().startsWith(message + " at index "),
+                    () -> literal + " -> " + refused.getMessage());
+        });
     }
 
     /** An unpaired surrogate cannot round-trip through UTF-8, so it must not enter the parsed model. */
     @Test
     void unpairedSurrogateEscapesAreRefusedAndPairsAreAccepted() {
-        assertThrows(
+        IllegalArgumentException loneHigh = assertThrows(
                 IllegalArgumentException.class,
                 () -> SyntheticJsonParser.parseObject("{\"value\":\"\\uD83D\"}"));
-        assertThrows(
+        assertTrue(loneHigh.getMessage().startsWith(
+                        "high surrogate escape must be followed by a low surrogate escape at index "),
+                loneHigh.getMessage());
+        IllegalArgumentException loneLow = assertThrows(
                 IllegalArgumentException.class,
                 () -> SyntheticJsonParser.parseObject("{\"value\":\"\\uDE00\"}"));
-        assertThrows(
+        assertTrue(loneLow.getMessage().startsWith("unpaired low surrogate in unicode escape at index "),
+                loneLow.getMessage());
+        IllegalArgumentException highThenPlain = assertThrows(
                 IllegalArgumentException.class,
                 () -> SyntheticJsonParser.parseObject("{\"value\":\"\\uD83D\\u0041\"}"));
+        assertTrue(highThenPlain.getMessage().startsWith(
+                        "high surrogate escape must be followed by a low surrogate escape at index "),
+                highThenPlain.getMessage());
 
         assertEquals(
                 new String(Character.toChars(0x1F600)),
@@ -122,9 +146,10 @@ class SyntheticJsonGrammarTest {
                 () -> SyntheticJsonParser.parseObject("{\"id\":\"first\",\"id\":\"second\"}"));
         assertTrue(refused.getMessage().contains("duplicate JSON object key: id"), refused.getMessage());
 
-        assertThrows(
+        IllegalArgumentException nested = assertThrows(
                 IllegalArgumentException.class,
                 () -> SyntheticJsonParser.parseObject("{\"outer\":{\"k\":1,\"k\":2}}"));
+        assertTrue(nested.getMessage().contains("duplicate JSON object key: k"), nested.getMessage());
     }
 
     @Test
@@ -157,19 +182,21 @@ class SyntheticJsonGrammarTest {
     void unicodeSpacesThatAreNotJsonWhitespaceAreRefusedBetweenTokens() {
         for (char separator : new char[] {0x000B, 0x000C, 0x001C, 0x001D, 0x001E, 0x001F, 0x2028, 0x2029, 0x3000}) {
             String document = "{" + separator + "\"value\":1}";
-            assertThrows(
+            IllegalArgumentException refused = assertThrows(
                     IllegalArgumentException.class,
                     () -> SyntheticJsonParser.parseObject(document),
                     () -> "must refuse U+" + String.format("%04X", (int) separator) + " as a token separator");
+            assertTrue(refused.getMessage().startsWith("expected '\"' at index "), refused.getMessage());
         }
     }
 
     /** A no-break space is not whitespace to Java either, but it is the separator a reader reaches for first. */
     @Test
     void aNoBreakSpaceIsNotATokenSeparator() {
-        assertThrows(
+        IllegalArgumentException refused = assertThrows(
                 IllegalArgumentException.class,
                 () -> SyntheticJsonParser.parseObject("{" + (char) 0x00A0 + "\"value\":1}"));
+        assertTrue(refused.getMessage().startsWith("expected '\"' at index "), refused.getMessage());
     }
 
     /**
@@ -232,7 +259,9 @@ class SyntheticJsonGrammarTest {
         String emoji = new String(Character.toChars(0x1F600));
 
         assertEquals(emoji, value("\"" + emoji + "\""));
-        assertThrows(IllegalArgumentException.class, () -> SyntheticJsonParser.parseObject(emoji));
+        IllegalArgumentException refused =
+                assertThrows(IllegalArgumentException.class, () -> SyntheticJsonParser.parseObject(emoji));
+        assertTrue(refused.getMessage().startsWith("expected JSON value at index "), refused.getMessage());
     }
 
     private static Object value(String jsonLiteral) {

@@ -1,6 +1,6 @@
 package com.morpheus.application.orchestration;
 
-import com.morpheus.application.lifecycle.ChangeLifecycleBlocker;
+import com.morpheus.domain.change.lifecycle.ChangeLifecycleBlocker;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.constraint.ConstraintEvaluationState;
 

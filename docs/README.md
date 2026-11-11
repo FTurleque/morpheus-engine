@@ -2,7 +2,7 @@
 
 MORPHEUS est un **Specification & Intent Intelligence Engine** local-first : il normalise des spécifications, compose des providers sans effacer provenance ni conflits, publie des snapshots versionnés et les expose par CLI, MCP STDIO et API HTTP.
 
-Version stable publiée : **MORPHEUS 1.2.1** (tag `v1.2.1`, 16 octobre 2026). La précédente, 1.2.0, reste disponible sous son tag.
+Version stable publiée : **MORPHEUS 1.2.1** (tag `v1.2.1`, 16 octobre 2026). La précédente, 1.2.0, reste disponible sous son tag. La version en préparation est 1.2.2, qui fait avancer le schéma SQLite.
 
 La documentation est rangée en trois espaces, un par lecteur, plus le dossier d'architecture, qui porte le registre des ADR. Chaque page n'appartient qu'à un seul endroit.
 
@@ -50,6 +50,7 @@ Les distributions Windows/Linux embarquent leur runtime Java.
 | HTTP / MCP / cross-engine | [API](developer/API.md) · [MCP](developer/MCP.md) · [Intégrations](developer/INTEGRATIONS.md) |
 | sous-plateformes | [Portfolio](developer/PORTFOLIO_INTELLIGENCE.md) · [Query](developer/QUERY_PLATFORM.md) · [Policy](developer/POLICY_PLATFORM.md) · [Remote](developer/REMOTE_SERVER_PLATFORM.md) · [Reasoning](developer/ASSISTED_REASONING.md) |
 | observabilité, version, intégrité de production | [Operability](developer/OPERABILITY.md) · [Version produit](developer/PRODUCT_VERSION.md) · [Production integrity](developer/PRODUCTION_INTEGRITY.md) |
+| rédiger ou lire une spécification | [Schéma OpenSpec](developer/OPENSPEC_SCHEMA.md) · [Spécifications par capacité](developer/specifications/README.md) |
 
 Les seuils de qualité actifs (tests, couverture, gates) sont énoncés dans le [guide développeur](developer/README.md) et [Build, tests et validation](developer/BUILD_AND_TEST.md) ; leur source normative est `config/m21-quality-ratchets.properties`.
 
@@ -57,7 +58,7 @@ Les seuils de qualité actifs (tests, couverture, gates) sont énoncés dans le 
 
 | Besoin | Document |
 |---|---|
-| retrouver ou écrire une décision | [Registre des ADR](architecture/adr/README.md) · [gabarit](architecture/adr/template.md) |
+| retrouver ou écrire une décision | [Registre des ADR](architecture/adr/README.md) · [gabarit](architecture/adr/gabarit/template.md) |
 | vue d'ensemble du système | [Vue d'ensemble](architecture/overview.md) |
 | dossier arc42 complet | [Index arc42](architecture/README.md) |
 | scénarios qualité, risques et dette | [Scénarios qualité](architecture/quality/scenarios.md) · [Registre des risques](architecture/risks/register.md) |

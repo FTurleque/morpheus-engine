@@ -65,29 +65,35 @@ printf '%s\n' "M26 diff base: $BASE_REF"
 git diff --check "$BASE_REF...HEAD"
 ./mvnw clean verify
 
-read -r TESTS FAILURES ERRORS ARCH_TESTS < <(morpheus_python - "$REPO" <<'PY'
-import pathlib, sys, xml.etree.ElementTree as ET
+read -r TESTS FAILURES ERRORS ARCH_TESTS GENERATED < <(morpheus_python - "$REPO" <<'PY'
+import pathlib, re, sys, xml.etree.ElementTree as ET
 root = pathlib.Path(sys.argv[1])
+# Surefire names each invocation of a test factory, of a parameterised or of a repeated test `method()[N]`; a declared
+# test method keeps its bare name. testsMinimum bounds the declared ones, so the comparison below subtracts the others.
+INVOCATION = re.compile(r'\[[0-9]+\]$')
 def totals(base):
-    tests = failures = errors = 0
+    tests = failures = errors = generated = 0
     for report in base.rglob('target/surefire-reports/TEST-*.xml'):
         suite = ET.parse(report).getroot()
-        tests += int(suite.attrib.get('tests', 0)); failures += int(suite.attrib.get('failures', 0)); errors += int(suite.attrib.get('errors', 0))
-    return tests, failures, errors
+        tests += int(suite.attrib.get('tests', 0))
+        generated += sum(1 for case in suite.iter('testcase') if INVOCATION.search(case.attrib.get('name', '')))
+        failures += int(suite.attrib.get('failures', 0))
+        errors += int(suite.attrib.get('errors', 0))
+    return tests, failures, errors, generated
 all_tests = totals(root); arch = totals(root / 'morpheus-architecture-tests')
-print(all_tests[0], all_tests[1], all_tests[2], arch[0])
+print(all_tests[0], all_tests[1], all_tests[2], arch[0], all_tests[3])
 PY
 )
 if (( FAILURES != 0 || ERRORS != 0 )); then echo "Surefire failures=$FAILURES errors=$ERRORS" >&2; exit 1; fi
-if (( TESTS < TESTS_MINIMUM )); then
-  echo "M26 test baseline regression: $TESTS < $TESTS_MINIMUM (testsMinimum in $RATCHETS)" >&2
+if (( TESTS - GENERATED < TESTS_MINIMUM )); then
+  echo "M26 test baseline regression: $((TESTS - GENERATED)) < $TESTS_MINIMUM written executions (testsMinimum in $RATCHETS)" >&2
   exit 1
 fi
 if (( ARCH_TESTS < ARCH_TESTS_MINIMUM )); then
   echo "M26 architecture baseline regression: $ARCH_TESTS < $ARCH_TESTS_MINIMUM (architectureTestsMinimum in $RATCHETS)" >&2
   exit 1
 fi
-printf '%s\n' "Tests: PASS ($TESTS, baseline >= $TESTS_MINIMUM)"
+printf '%s\n' "Tests: PASS ($((TESTS - GENERATED)) written, baseline >= $TESTS_MINIMUM)"
 printf '%s\n' "Architecture: PASS ($ARCH_TESTS, baseline >= $ARCH_TESTS_MINIMUM)"
 
 COVERAGE="$REPO/morpheus-architecture-tests/target/m21-aggregate-coverage-summary.txt"
@@ -118,12 +124,12 @@ if [[ "$SKIP_PORTABLE" != true ]]; then
   SHADED_JAR="$(ls -1t "$REPO"/morpheus-cli/target/morpheus-cli-*-all.jar | head -n 1)"
   "$JAR_TOOL" tf "$SHADED_JAR" > "$OUTPUT/shaded-entries.txt"
   for entry in \
-    'com/morpheus/api/MorpheusRemoteHttpServer.class' \
-    'com/morpheus/api/MorpheusRemoteIdentityFile.class' \
-    'com/morpheus/api/MorpheusRemoteRole.class' \
-    'com/morpheus/store/sqlite/SqliteServerMaintenance.class' \
-    'com/morpheus/cli/RemoteApiLaunchOptions.class' \
-    'com/morpheus/cli/MorpheusServerCli.class'; do
+    'com/morpheus/api/remote/MorpheusRemoteHttpServer.class' \
+    'com/morpheus/api/remote/MorpheusRemoteIdentityFile.class' \
+    'com/morpheus/api/remote/MorpheusRemoteRole.class' \
+    'com/morpheus/store/sqlite/runtime/SqliteServerMaintenance.class' \
+    'com/morpheus/cli/launch/RemoteApiLaunchOptions.class' \
+    'com/morpheus/cli/command/MorpheusServerCli.class'; do
     grep -Fxq "$entry" "$OUTPUT/shaded-entries.txt" || { echo "M26 packaged runtime is missing $entry" >&2; exit 1; }
   done
   HELP="$($LAUNCHER help)"

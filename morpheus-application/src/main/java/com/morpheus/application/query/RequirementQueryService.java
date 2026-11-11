@@ -1,25 +1,21 @@
 package com.morpheus.application.query;
 
 import com.morpheus.application.store.KnowledgeStoreException;
-import com.morpheus.application.store.RequirementVersionRecord;
+import com.morpheus.application.store.RequirementPage;
+import com.morpheus.application.store.RequirementPageCriteria;
+import com.morpheus.application.store.RequirementPageOrder;
 import com.morpheus.application.store.SpecificationKnowledgeStore;
 import com.morpheus.application.store.VersionedRequirementStore;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.domain.requirement.Requirement;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotId;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotState;
 
-import java.util.Comparator;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 /** Deterministic snapshot-coherent lexical search over persisted CURRENT requirements. */
 public final class RequirementQueryService {
-    private static final Comparator<RequirementVersionRecord> REQUIREMENT_ORDER = Comparator
-            .comparing(record -> record.entityVersion().content().id());
-
     private final SpecificationKnowledgeStore snapshotStore;
     private final VersionedRequirementStore requirementStore;
 
@@ -60,33 +56,14 @@ public final class RequirementQueryService {
             KnowledgeSnapshotMetadata snapshot,
             RequirementSearchQuery query,
             PageRequest pageRequest) {
-        List<RequirementVersionRecord> matches = requirementStore.listCurrentRequirementVersions(snapshot.id()).stream()
-                .filter(record -> matches(record.entityVersion().content(), query))
-                .sorted(REQUIREMENT_ORDER)
-                .toList();
-
-        int totalMatches = matches.size();
-        int from = Math.min(pageRequest.offset(), totalMatches);
-        long requestedEnd = (long) from + pageRequest.limit();
-        int to = (int) Math.min(requestedEnd, totalMatches);
-        List<RequirementVersionRecord> items = matches.subList(from, to);
-        boolean hasMore = to < totalMatches;
-
-        return new RequirementSearchPage(snapshot, query, items, pageRequest, totalMatches, hasMore);
-    }
-
-    private boolean matches(Requirement requirement, RequirementSearchQuery query) {
-        List<String> terms = query.terms();
-        if (terms.isEmpty()) {
-            return true;
-        }
-
-        String corpus = RequirementSearchQuery.normalize(String.join(
-                " ",
-                requirement.key().orElse(""),
-                requirement.title(),
-                requirement.statement()));
-        return terms.stream().allMatch(corpus::contains);
+        RequirementPage page = requirementStore.pageCurrentRequirementVersions(
+                snapshot.id(),
+                RequirementPageCriteria.lexical(query.terms()),
+                RequirementPageOrder.REQUIREMENT_ID,
+                pageRequest.offset(),
+                pageRequest.limit());
+        return new RequirementSearchPage(
+                snapshot, query, page.items(), pageRequest, page.totalMatches(), page.hasMoreAfter(pageRequest.offset()));
     }
 
     private void requirePublished(KnowledgeSnapshotMetadata snapshot) {

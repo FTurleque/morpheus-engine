@@ -32,7 +32,8 @@ class MemorySavedViewStoreBudgetTest {
         }
 
         SavedViewDefinition overflow = definition("overflow", query);
-        assertThrows(IllegalStateException.class, () -> store.create(overflow, version(overflow)));
+        IllegalStateException failure = assertThrows(IllegalStateException.class, () -> store.create(overflow, version(overflow)));
+        assertEquals("saved view budget exceeded for scope: " + QueryBudgets.MAX_SAVED_VIEWS_PER_SCOPE, failure.getMessage());
         assertEquals(QueryBudgets.MAX_SAVED_VIEWS_PER_SCOPE, store.count(scope));
     }
 
@@ -49,8 +50,9 @@ class MemorySavedViewStoreBudgetTest {
         SavedViewDefinition moved = new SavedViewDefinition(
                 original.id(), original.name(), movedQuery, 2L, original.status(), original.createdAt(), NOW.plusSeconds(1));
 
-        assertThrows(IllegalArgumentException.class, () -> store.compareAndSet(
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> store.compareAndSet(
                 original.id(), 1L, moved, version(moved)));
+        assertEquals("saved view scope is immutable", failure.getMessage());
         assertEquals(original, store.find(original.id()).orElseThrow());
         assertEquals(1, store.listVersions(original.id()).size());
     }

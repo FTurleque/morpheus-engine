@@ -1,6 +1,6 @@
 # Feuille de route — MORPHEUS
 
-Statut : **MORPHEUS 1.2.0 PUBLIÉ — BASELINE DÉVELOPPEMENT 1.2.1 / HARDENING CONTINU**
+Statut : **MORPHEUS 1.2.1 PUBLIÉ — BASELINE DÉVELOPPEMENT 1.2.2 / HARDENING CONTINU**
 
 Dernière mise à jour : 27 août 2026
 
@@ -71,37 +71,35 @@ Preuve historique : [`../validation/VALIDATION_D2.md`](../validation/VALIDATION_
 
 La contrainte « aucune CI » était spécifique au protocole D2. Elle ne redéfinit pas la politique actuelle de `develop`.
 
-## NOW — baseline corrective 1.2.1
+## NOW — baseline corrective 1.2.2
 
 La priorité courante est de faire progresser la qualité sans inventer une nouvelle release tant qu’un vrai tag n’a pas été produit.
 
 ```text
-version développement           1.2.1
+version développement           1.2.2
 MORPHEUS CI                      Windows + Ubuntu exact-head
 MORPHEUS Security                OWASP Dependency-Check
 MORPHEUS CodeQL                  security-extended
 diff coverage PR lines           >= 80%
 diff coverage PR branches        >= 70%
-aggregate line ratchet           >= 90.0%
-aggregate branch ratchet         >= 75.7%
-per-module line ratchet          >= 69.1%
-per-module branch ratchet        >= 61.2%
-Surefire ratchet                 >= 3820
-architecture ratchet             >= 585
+aggregate line ratchet           >= 92.8%
+aggregate branch ratchet         >= 81.1%
+per-module line ratchet          >= 90.1%
+per-module branch ratchet        >= 77.3%
+Surefire written ratchet         >= 3556
+Surefire generated ratchet       >= 1819
+architecture ratchet             >= 1058
 SBOM / provenance                required
 ```
 
 Suivis clôturés : #154 (SonarCloud + réglages GitHub Security administrateur), #184
-(réduction progressive de la dette de couverture historique).
+(réduction progressive de la dette de couverture historique), #185 (workflow de release
+attestée, qualifié sur la release v1.2.1 :
+[`VALIDATION_RELEASE_1.2.1.md`](../validation/VALIDATION_RELEASE_1.2.1.md)).
 
-Suivi actif :
-
-```text
-#185  qualification réelle du workflow de release attestée sur v1.2.1+
-```
-
-Ce suivi a des critères de clôture explicites : aucune qualification de release n’est
-simulée pour obtenir artificiellement un état vert.
+Les suivis encore ouverts sont tenus dans
+[`DOCUMENTATION_STATUS.md`](DOCUMENTATION_STATUS.md#suivis-encore-ouverts). Aucune
+qualification de release n’est simulée pour obtenir artificiellement un état vert.
 
 ## R3 — MORPHEUS 1.2.0
 
@@ -168,5 +166,5 @@ Aucun numéro de release supplémentaire n’est déclaré publié avant une vra
 ```text
 NEXT
   maintenir les ratchets exact-head sans régression
-  qualifier la prochaine vraie release attestée (#185)
+  qualifier la prochaine vraie release attestée par le même workflow
 ```

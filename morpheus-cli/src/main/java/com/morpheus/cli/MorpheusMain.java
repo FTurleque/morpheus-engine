@@ -1,16 +1,43 @@
 package com.morpheus.cli;
 
 import com.morpheus.api.AllowedWorkspaceRoots;
-import com.morpheus.api.MorpheusHttpServer;
-import com.morpheus.api.MorpheusRemoteHttpServer;
+import com.morpheus.api.local.MorpheusHttpServer;
+import com.morpheus.api.remote.MorpheusRemoteHttpServer;
 import com.morpheus.application.operability.LocalOperationalRuntime;
 import com.morpheus.application.operability.OperationalLogFileException;
 import com.morpheus.application.operability.OperationalLogMode;
 import com.morpheus.application.operability.OperationalRuntime;
 import com.morpheus.application.query.dsl.QueryBudgets;
+import com.morpheus.cli.command.CliCommandRun;
+import com.morpheus.cli.command.CliErrorLine;
+import com.morpheus.cli.command.CliExitCode;
+import com.morpheus.cli.command.CliLayout;
+import com.morpheus.cli.command.MorpheusAcceptanceCriteriaCli;
+import com.morpheus.cli.command.MorpheusAugmentedContextCli;
+import com.morpheus.cli.command.MorpheusChangeCli;
+import com.morpheus.cli.command.MorpheusCompositionCli;
+import com.morpheus.cli.command.MorpheusConstraintSemanticsCli;
+import com.morpheus.cli.command.MorpheusControlledLifecycleCli;
+import com.morpheus.cli.command.MorpheusExternalIntegrationCli;
+import com.morpheus.cli.command.MorpheusJarvisOrchestrationCli;
+import com.morpheus.cli.command.MorpheusPathsCli;
+import com.morpheus.cli.command.MorpheusPolicyCli;
+import com.morpheus.cli.command.MorpheusPortfolioCli;
+import com.morpheus.cli.command.MorpheusProductCli;
+import com.morpheus.cli.command.MorpheusProjectCli;
+import com.morpheus.cli.command.MorpheusProviderPluginCli;
+import com.morpheus.cli.command.MorpheusQualityCli;
+import com.morpheus.cli.command.MorpheusQueryCli;
+import com.morpheus.cli.command.MorpheusRequirementCli;
+import com.morpheus.cli.command.MorpheusServerCli;
+import com.morpheus.cli.command.MorpheusSyncStatusCli;
+import com.morpheus.cli.launch.ApiLaunchOptions;
+import com.morpheus.cli.launch.CliProjectWriteCapabilityResolver;
+import com.morpheus.cli.launch.McpLaunchOptions;
+import com.morpheus.cli.launch.RemoteApiLaunchOptions;
 import com.morpheus.integration.minos.MinosIntegrationRuntime;
 import com.morpheus.integration.nexus.NexusIntegrationRuntime;
-import com.morpheus.mcp.MorpheusMcpServer;
+import com.morpheus.mcp.server.MorpheusMcpServer;
 
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
@@ -19,11 +46,14 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.function.Consumer;
+import java.util.function.IntSupplier;
+import java.util.function.Predicate;
 
 /** Official native MORPHEUS launcher for CLI, MCP STDIO and local/remote HTTP API modes. */
 public final class MorpheusMain {
@@ -35,14 +65,12 @@ public final class MorpheusMain {
     @SuppressWarnings("java:S106")
     public static void main(String[] args) {
         refusedOperationalLogMode(System.getenv()).ifPresent(refusal -> {
-            System.err.println("MORPHEUS usage error: " + refusal);
-            System.exit(CliExitCode.USAGE.code());
+            System.exit(CliErrorLine.refuse(args, System.err, CliExitCode.USAGE, refusal));
         });
         OperationalRuntime runtime = processRuntime();
         refusedOperationalLogFile(args, System.getenv(), System.getProperties(), runtime::writeLogFileIn)
                 .ifPresent(refusal -> {
-                    System.err.println("MORPHEUS error: " + refusal);
-                    System.exit(CliExitCode.IO_ERROR.code());
+                    System.exit(CliErrorLine.refuse(args, System.err, CliExitCode.IO_ERROR, refusal));
                 });
         int exitCode;
         if (RemoteApiLaunchOptions.isRemoteApiCommand(args)) {
@@ -119,7 +147,12 @@ public final class MorpheusMain {
         return Optional.empty();
     }
 
-    static int run(
+    /**
+     * Serves the arguments with the first capability class of the table that claims them, in the order of the table,
+     * or with {@link MorpheusCli} when none does. MINOS and NEXUS are resolved by the two classes that use them, and
+     * only when one of them serves the arguments.
+     */
+    public static int run(
             OperationalRuntime runtime,
             String[] args,
             PrintStream out,
@@ -127,43 +160,72 @@ public final class MorpheusMain {
             Map<String, String> environment,
             Properties properties) {
         Objects.requireNonNull(runtime, "runtime");
-        if (MorpheusProviderPluginCli.handles(args)) {
-            return new MorpheusProviderPluginCli(runtime.recorder()).run(args, out, err);
+        Optional<String> undeclared = CliCommandPaths.refusalOf(args);
+        if (undeclared.isPresent()) {
+            return CliCommandRun.refuseUndeclared(args, err, undeclared.get());
         }
-        if (MorpheusProductCli.handles(args)) {
-            return new MorpheusProductCli(runtime.recorder()).run(args, out, err);
+        List<CliCapability> capabilities = List.of(
+                new CliCapability(MorpheusProviderPluginCli::handles,
+                        () -> new MorpheusProviderPluginCli(runtime.recorder()).run(args, out, err)),
+                new CliCapability(MorpheusProductCli::handles,
+                        () -> new MorpheusProductCli(runtime.recorder()).run(args, out, err)),
+                new CliCapability(MorpheusServerCli::handles,
+                        () -> new MorpheusServerCli().run(args, out, err, environment, properties)),
+                new CliCapability(MorpheusPolicyCli::handles,
+                        () -> new MorpheusPolicyCli(runtime.recorder()).run(args, out, err, environment, properties)),
+                new CliCapability(MorpheusQueryCli::handles,
+                        () -> new MorpheusQueryCli(runtime.recorder()).run(args, out, err, environment, properties)),
+                new CliCapability(MorpheusPortfolioCli::handles,
+                        () -> new MorpheusPortfolioCli(runtime.recorder()).run(args, out, err, environment, properties)),
+                new CliCapability(MorpheusCompositionCli::handles,
+                        () -> new MorpheusCompositionCli(runtime.recorder())
+                                .run(args, out, err, environment, properties)),
+                new CliCapability(MorpheusControlledLifecycleCli::handles,
+                        () -> new MorpheusControlledLifecycleCli(runtime.recorder())
+                                .run(args, out, err, environment, properties)),
+                new CliCapability(MorpheusConstraintSemanticsCli::handles,
+                        () -> new MorpheusConstraintSemanticsCli(runtime.recorder())
+                                .run(args, out, err, environment, properties)),
+                new CliCapability(MorpheusAcceptanceCriteriaCli::handles,
+                        () -> new MorpheusAcceptanceCriteriaCli(runtime.recorder())
+                                .run(args, out, err, environment, properties)),
+                new CliCapability(MorpheusJarvisOrchestrationCli::handles,
+                        () -> new MorpheusJarvisOrchestrationCli(runtime.recorder())
+                                .run(args, out, err, environment, properties)),
+                new CliCapability(MorpheusAugmentedContextCli::handles, () -> {
+                    NexusIntegrationRuntime nexus =
+                            NexusIntegrationRuntime.resolve(environment, properties, runtime.recorder());
+                    return new MorpheusAugmentedContextCli(runtime.recorder(), nexus, nexus)
+                            .run(args, out, err, environment, properties);
+                }),
+                new CliCapability(MorpheusExternalIntegrationCli::handles, () -> {
+                    MinosIntegrationRuntime minos =
+                            MinosIntegrationRuntime.resolve(environment, properties, runtime.recorder());
+                    return new MorpheusExternalIntegrationCli(runtime.recorder(), minos.resolverRegistry(), minos)
+                            .run(args, out, err, environment, properties);
+                }),
+                new CliCapability(MorpheusQualityCli::handles,
+                        () -> new MorpheusQualityCli(runtime.recorder()).run(args, out, err, environment, properties)),
+                new CliCapability(MorpheusPathsCli::handles,
+                        () -> new MorpheusPathsCli().run(args, out, err, environment, properties)),
+                new CliCapability(MorpheusSyncStatusCli::handles,
+                        () -> new MorpheusSyncStatusCli(runtime.recorder())
+                                .run(args, out, err, environment, properties)),
+                new CliCapability(MorpheusChangeCli::handles,
+                        () -> new MorpheusChangeCli(runtime.recorder()).run(args, out, err, environment, properties)),
+                new CliCapability(MorpheusRequirementCli::handles,
+                        () -> new MorpheusRequirementCli(runtime.recorder())
+                                .run(args, out, err, environment, properties)),
+                new CliCapability(MorpheusProjectCli::handles,
+                        () -> new MorpheusProjectCli(runtime.recorder()).run(args, out, err, environment, properties)));
+        IntSupplier claimant = () -> new MorpheusCli().run(args, out, err, environment, properties);
+        for (CliCapability capability : capabilities) {
+            if (capability.claims().test(args)) {
+                claimant = capability.runner();
+                break;
+            }
         }
-        if (MorpheusServerCli.handles(args)) {
-            return new MorpheusServerCli().run(args, out, err, environment, properties);
-        }
-        MinosIntegrationRuntime minos = MinosIntegrationRuntime.resolve(environment, properties, runtime.recorder());
-        NexusIntegrationRuntime nexus = NexusIntegrationRuntime.resolve(environment, properties, runtime.recorder());
-        int exitCode;
-        if (MorpheusPolicyCli.handles(args)) {
-            exitCode = new MorpheusPolicyCli(runtime.recorder()).run(args, out, err, environment, properties);
-        } else if (MorpheusQueryCli.handles(args)) {
-            exitCode = new MorpheusQueryCli(runtime.recorder()).run(args, out, err, environment, properties);
-        } else if (MorpheusPortfolioCli.handles(args)) {
-            exitCode = new MorpheusPortfolioCli(runtime.recorder()).run(args, out, err, environment, properties);
-        } else if (MorpheusCompositionCli.handles(args)) {
-            exitCode = new MorpheusCompositionCli(runtime.recorder()).run(args, out, err, environment, properties);
-        } else if (MorpheusControlledLifecycleCli.handles(args)) {
-            exitCode = new MorpheusControlledLifecycleCli(runtime.recorder()).run(args, out, err, environment, properties);
-        } else if (MorpheusConstraintSemanticsCli.handles(args)) {
-            exitCode = new MorpheusConstraintSemanticsCli(runtime.recorder()).run(args, out, err, environment, properties);
-        } else if (MorpheusAcceptanceCriteriaCli.handles(args)) {
-            exitCode = new MorpheusAcceptanceCriteriaCli(runtime.recorder()).run(args, out, err, environment, properties);
-        } else if (MorpheusJarvisOrchestrationCli.handles(args)) {
-            exitCode = new MorpheusJarvisOrchestrationCli(runtime.recorder()).run(args, out, err, environment, properties);
-        } else if (MorpheusAugmentedContextCli.handles(args)) {
-            exitCode = new MorpheusAugmentedContextCli(runtime.recorder(), nexus, nexus)
-                    .run(args, out, err, environment, properties);
-        } else if (MorpheusExternalIntegrationCli.handles(args)) {
-            exitCode = new MorpheusExternalIntegrationCli(runtime.recorder(), minos.resolverRegistry(), minos)
-                    .run(args, out, err, environment, properties);
-        } else {
-            exitCode = new MorpheusCli(runtime.recorder()).run(args, out, err, environment, properties);
-        }
+        int exitCode = claimant.getAsInt();
         if (exitCode == CliExitCode.SUCCESS.code() && isHelpRequest(args)) {
             out.println();
             out.println("MCP:");
@@ -179,6 +241,8 @@ public final class MorpheusMain {
             out.println("  Remote mode is HTTPS-only and requires MORPHEUS_SERVER_TLS_PASSWORD, at least one active ADMIN identity and at least one server-owned workspace root.");
             out.println("  morpheus [layout] server identity create --principal NAME --role READ|WRITE|ADMIN [--expires-at ISO-8601] [--auth-file FILE]");
             out.println("  morpheus [layout] server identity rotate --principal NAME [--expires-at ISO-8601|never] [--auth-file FILE]");
+            out.println("  morpheus [layout] server identity role --principal NAME --role READ|WRITE|ADMIN [--auth-file FILE]");
+            out.println("  morpheus [layout] server identity revoke --principal NAME [--auth-file FILE]");
             out.println("  morpheus [layout] server identity list [--auth-file FILE]");
             out.println("  Rotation preserves the current expiry when --expires-at is omitted; --expires-at never makes the credential permanent.");
             out.println("  morpheus [layout] server identity migrate-legacy --expires-at ISO-8601 [--principal NAME] [--dry-run] [--auth-file FILE]");
@@ -195,7 +259,9 @@ public final class MorpheusMain {
             out.println("  morpheus [--json] policy pack update --id ID --expected-revision N --name NAME --rules RULES --actor NAME --reason TEXT");
             out.println("  morpheus [--json] policy activate --id ID --version ID (--project ID | --portfolio ID) --expected-revision N --actor NAME --reason TEXT");
             out.println("  morpheus [--json] policy deactivate --id ID (--project ID | --portfolio ID) --expected-revision N --actor NAME --reason TEXT");
+            out.println("  morpheus [--json] policy activations (--project ID | --portfolio ID)");
             out.println("  morpheus [--json] policy override put --id ID --rule ID --mode DISABLE|FORCE_WARN|FORCE_BLOCK (--project ID | --portfolio ID) --expected-revision N --actor NAME --reason TEXT");
+            out.println("  morpheus [--json] policy override remove --id ID --rule ID (--project ID | --portfolio ID) --expected-revision N --actor NAME --reason TEXT");
             out.println("  morpheus [--json] policy override list (--project ID | --portfolio ID)");
             out.println("  morpheus [--json] policy evaluate (--project ID | --portfolio ID) [--id ID]");
             out.println("  morpheus [--json] policy dry-run --id ID --version ID (--project ID | --portfolio ID)");
@@ -218,7 +284,13 @@ public final class MorpheusMain {
             out.println("Portfolio intelligence (M23):");
             out.println("  morpheus [--json] portfolio create --name NAME");
             out.println("  morpheus [--json] portfolio add-project --portfolio ID --project ID --name NAME [--workspace PATH] [--repository SCHEME:VALUE] [--providers a,b]");
+            out.println("  morpheus [--json] portfolio missing --portfolio ID --project ID");
+            out.println("  morpheus [--json] portfolio freshness --portfolio ID --project ID --state FRESH|STALE|MISSING|UNKNOWN [--revision REV] [--explanation TEXT]");
+            out.println("  morpheus [--json] portfolio add-reference --portfolio ID --source-project ID --source-type TYPE --source-id ID --target-project ID --target-type TYPE --target-id ID --relation NAME --provider NAME [--source-locator SCHEME:VALUE] [--evidence ID]");
+            out.println("  morpheus [--json] portfolio list [--offset N] [--limit N]");
             out.println("  morpheus [--json] portfolio overview --portfolio ID");
+            out.println("  morpheus [--json] portfolio members --portfolio ID [--offset N] [--limit N]");
+            out.println("  morpheus [--json] portfolio conflicts --portfolio ID");
             out.println("  morpheus [--json] portfolio references --portfolio ID [--project ID] [--offset N] [--limit N]");
             out.println("  morpheus [--json] portfolio traverse --portfolio ID --start-project ID --start-type TYPE --start-id ID [--direction BOTH] [--depth N] [--nodes N] [--links N]");
             out.println("  Project identity remains distinct from workspace, repository and provider observations.");
@@ -289,11 +361,10 @@ public final class MorpheusMain {
                     new CliProjectWriteCapabilityResolver(options.layout().databasePath()),
                     runtime.recorder());
         } catch (IllegalArgumentException failure) {
-            err.println("MORPHEUS MCP usage error: " + safeMessage(failure));
-            return CliExitCode.USAGE.code();
+            return CliErrorLine.refuse(args, err, CliExitCode.USAGE, failure);
         } catch (RuntimeException failure) {
-            err.println("MORPHEUS MCP startup error: " + safeMessage(failure));
-            return CliExitCode.INTERNAL_ERROR.code();
+            return CliErrorLine.refuse(
+                    args, err, CliExitCode.INTERNAL_ERROR, "MCP startup failed: ", failure);
         }
     }
 
@@ -320,11 +391,10 @@ public final class MorpheusMain {
                 return waitUntilInterrupted();
             }
         } catch (IllegalArgumentException failure) {
-            err.println("MORPHEUS API usage error: " + safeMessage(failure));
-            return CliExitCode.USAGE.code();
+            return CliErrorLine.refuse(args, err, CliExitCode.USAGE, failure);
         } catch (RuntimeException failure) {
-            err.println("MORPHEUS API startup error: " + safeMessage(failure));
-            return CliExitCode.INTERNAL_ERROR.code();
+            return CliErrorLine.refuse(
+                    args, err, CliExitCode.INTERNAL_ERROR, "API startup failed: ", failure);
         }
     }
 
@@ -343,11 +413,10 @@ public final class MorpheusMain {
                 return waitUntilInterrupted();
             }
         } catch (IllegalArgumentException failure) {
-            err.println("MORPHEUS remote API usage error: " + safeMessage(failure));
-            return CliExitCode.USAGE.code();
+            return CliErrorLine.refuse(args, err, CliExitCode.USAGE, failure);
         } catch (RuntimeException failure) {
-            err.println("MORPHEUS remote API startup error: " + safeMessage(failure));
-            return CliExitCode.INTERNAL_ERROR.code();
+            return CliErrorLine.refuse(
+                    args, err, CliExitCode.INTERNAL_ERROR, "remote API startup failed: ", failure);
         }
     }
 
@@ -386,6 +455,13 @@ public final class MorpheusMain {
         }
     }
 
+    /**
+     * A capability class of the dispatch of {@link #run}: whether it claims the arguments, and the run it serves them
+     * with. The first one in the order of the table that claims the arguments serves them.
+     */
+    private record CliCapability(Predicate<String[]> claims, IntSupplier runner) {
+    }
+
     private static int waitUntilInterrupted() {
         try {
             Thread.currentThread().join();
@@ -411,10 +487,5 @@ public final class MorpheusMain {
             return token.equals("help") || token.equals("--help") || token.equals("-h");
         }
         return true;
-    }
-
-    private static String safeMessage(RuntimeException failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 }

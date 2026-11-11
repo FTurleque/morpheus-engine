@@ -1,6 +1,5 @@
 package com.morpheus.mcp;
 
-import com.morpheus.application.operability.ExhaustiveShutdown;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.query.dsl.PortfolioQueryScope;
@@ -27,7 +26,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /** M24 MCP tools; transport schemas delegate all semantics to the shared application query services. */
-final class MorpheusQueryMcpTools {
+public final class MorpheusQueryMcpTools {
     static final String EXECUTE_QUERY = "execute_query";
     static final String CREATE_SAVED_VIEW = "create_saved_view";
     static final String LIST_SAVED_VIEWS = "list_saved_views";
@@ -46,12 +45,12 @@ final class MorpheusQueryMcpTools {
     private final QueryDslParser parser = new QueryDslParser();
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
 
-    MorpheusQueryMcpTools(Path databasePath, OperationalRecorder recorder) {
+    public MorpheusQueryMcpTools(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
         this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
-    List<McpServerFeatures.SyncToolSpecification> specifications() {
+    public List<McpServerFeatures.SyncToolSpecification> specifications() {
         return List.of(
                 tool(EXECUTE_QUERY, "Execute one bounded provider-neutral MORPHEUS query.", querySchema(false)),
                 tool(CREATE_SAVED_VIEW, "Persist a versioned query definition, never materialized results.", querySchema(true)),

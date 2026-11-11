@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class QualityReportSnapshotCoherenceTest {
@@ -50,7 +51,7 @@ class QualityReportSnapshotCoherenceTest {
                 0, 0, 0,
                 Map.of(), Map.of(), Map.of());
 
-        assertThrows(IllegalArgumentException.class, () -> new QualityReport(
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> new QualityReport(
                 first,
                 wrongRequirements,
                 tasks,
@@ -60,6 +61,7 @@ class QualityReportSnapshotCoherenceTest {
                 LifecycleQualityAggregationStatus.REQUIRES_EXPLICIT_LIFECYCLE_INPUT,
                 metrics,
                 List.of()));
+        assertEquals("requirements belongs to another snapshot", failure.getMessage());
     }
 
     private KnowledgeSnapshotMetadata snapshot(

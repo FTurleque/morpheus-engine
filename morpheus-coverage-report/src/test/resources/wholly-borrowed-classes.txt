@@ -1,0 +1,5 @@
+# The classes covered only by the tests of other modules, exact, sorted: "module package.Type", the type named by
+# its source file. Read by BorrowedCoverageGateTest, which fails on an unlisted one and on a listed one that its own
+# module now covers. Measured on Linux and Windows; an entry leaves in the change that gives its class a test of its
+# own module.
+morpheus-application com.morpheus.application.operability.LocalOperationalRuntime

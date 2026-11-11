@@ -11,7 +11,7 @@ v1.2.1 / 2a8b1ede9cdeb107244b04969726305afc672189  release publiée le 16 octobr
 
 Le tag publié `v1.2.0` et ses preuves de release restent historiques et ne sont ni déplacés ni réécrits. Le code actif postérieur à cette release utilise `1.2.1` afin qu'un arbre logiciel différent ne soit jamais reconstruit ou promu sous l'identité déjà publiée `1.2.0`.
 
-`1.2.1` est devenue une release publiée par la création du tag `v1.2.1` et la qualification de ses artefacts ([`../project/validation/VALIDATION_RELEASE_1.2.1.md`](../project/validation/VALIDATION_RELEASE_1.2.1.md)). Le reactor porte encore `1.2.1` : la prochaine version se déclare par un bump explicite de `ProductMetadata` et des POMs, jamais par un nouveau tag sur la même version.
+`1.2.1` est devenue une release publiée par la création du tag `v1.2.1` et la qualification de ses artefacts ([`../project/validation/VALIDATION_RELEASE_1.2.1.md`](../project/validation/VALIDATION_RELEASE_1.2.1.md)). Le reactor porte `1.2.2` : le schéma SQLite a avancé depuis `v1.2.1`, et une version de schéma est une version de produit. Une version se déclare par un bump explicite des POMs, jamais par un nouveau tag sur la même version.
 
 ## Résolution
 
@@ -40,8 +40,10 @@ La distribution fournit `Implementation-Version` à partir de `${project.version
 
 `ProductVersionSourceOfTruthTest` vérifie que les sources runtime actives ne réintroduisent ni `FALLBACK_VERSION` ni l'ancien fallback `0.1.0-SNAPSHOT`, et que CLI/MCP/HTTP restent raccordés à `ProductMetadata`.
 
-`ProductReleaseContractTest` vérifie en plus que les 17 POMs du reactor actif utilisent `1.2.1` et qu'aucun POM actif ne conserve `1.2.0` comme version MORPHEUS.
+`ProductReleaseContractTest` vérifie en plus que les POMs du reactor actif utilisent `1.2.2` et qu'aucun POM actif ne conserve `1.2.1` ni `1.2.0` comme version MORPHEUS.
 
-Les scripts M21, D2 et les builders portables/release actifs utilisent également `1.2.1` par défaut. Les validateurs et documents de preuve historiques conservent volontairement la version réellement qualifiée à leur époque.
+`UpgradeGuideCoherenceTest` relie la version, le schéma et le guide : aucun guide `docs/user/UPGRADE_*.md` ne nomme une version que le reactor n'a pas ouverte, et dès que `SUPPORTED_SCHEMA_VERSION` dépasse le niveau livré par la dernière release, le reactor porte une version supérieure et le guide le plus récent est le sien. `ReleasedSchemaLevelsDeclarationTest` refuse qu'une version soit déclarée publiée au-dessus de la version du reactor, ou, quand c'est la version du reactor, à un autre niveau que celui qu'elle livre.
+
+Les scripts M21, D2 et les builders portables/release actifs utilisent également `1.2.2` par défaut. Les validateurs et documents de preuve historiques conservent volontairement la version réellement qualifiée à leur époque.
 
 Toute évolution de la version produit doit modifier la version Maven canonique et les mécanismes de packaging/release associés ; elle ne doit pas ajouter de version courante codée en dur dans un adaptateur.

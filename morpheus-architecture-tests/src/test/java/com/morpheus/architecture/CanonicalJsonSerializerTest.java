@@ -57,16 +57,25 @@ class CanonicalJsonSerializerTest {
 
     @Test
     void rejectsUnsupportedTypesNonStringMapKeysNonFiniteNumbersAndNonWarningSeverity() {
-        assertThrows(IllegalArgumentException.class, () -> serializer.toJson(new Object()));
-        assertThrows(IllegalArgumentException.class, () -> serializer.toJson(Map.of(1, "value")));
-        assertThrows(IllegalArgumentException.class, () -> serializer.toJson(Double.NaN));
-        assertThrows(IllegalArgumentException.class, () -> serializer.toJson(Float.POSITIVE_INFINITY));
-        assertThrows(
+        IllegalArgumentException unsupportedType = assertThrows(
+                IllegalArgumentException.class, () -> serializer.toJson(new Object()));
+        assertEquals("unsupported canonical JSON type: java.lang.Object", unsupportedType.getMessage());
+        IllegalArgumentException nonStringKey = assertThrows(
+                IllegalArgumentException.class, () -> serializer.toJson(Map.of(1, "value")));
+        assertEquals("canonical JSON maps require String keys", nonStringKey.getMessage());
+        IllegalArgumentException nonFiniteDouble = assertThrows(
+                IllegalArgumentException.class, () -> serializer.toJson(Double.NaN));
+        assertEquals("non-finite double is not valid JSON", nonFiniteDouble.getMessage());
+        IllegalArgumentException nonFiniteFloat = assertThrows(
+                IllegalArgumentException.class, () -> serializer.toJson(Float.POSITIVE_INFINITY));
+        assertEquals("non-finite float is not valid JSON", nonFiniteFloat.getMessage());
+        IllegalArgumentException nonWarningSeverity = assertThrows(
                 IllegalArgumentException.class,
                 () -> new WarningView(
                         CompactWarningCode.CHANGE_NOT_FOUND,
                         DiagnosticSeverity.ERROR,
                         "invalid severity",
                         Map.of()));
+        assertEquals("compact warning severity must be WARNING", nonWarningSeverity.getMessage());
     }
 }

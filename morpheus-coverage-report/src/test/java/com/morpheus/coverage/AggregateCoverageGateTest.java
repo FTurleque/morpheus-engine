@@ -40,7 +40,46 @@ class AggregateCoverageGateTest {
     private static final double D2_MIN_LINE_RATIO = 0.40d;
     private static final double D2_MIN_BRANCH_RATIO = 0.35d;
 
-    // Qualified exact-head baseline of the AGGREGATE scale: 90.3026% lines / 76.1089% branches.
+    // Qualified exact-head baseline of the AGGREGATE scale: 93.0970% lines / 81.4348% branches.
+    //
+    // Requalified on 07/11/2026 at develop dbd65062, the merge of PR #616 and the head the per-module cap is
+    // qualified at: two workflow_dispatch runs of develop (42306627340 and 42311778667), both checking out that SHA.
+    // Read from each run's m21-integrity-<OS> artifact, aggregate-coverage-summary.txt, coverageScope=aggregate,
+    // populationModules=16, 29900 lines and 10148 branches on all four (kept in config/coverage-qualification/):
+    //     Windows  93.1171% / 93.1271% lines,  81.4643% / 81.4840% branches
+    //     Linux    93.0970% / 93.0970% lines,  81.4348% / 81.4446% branches   <- qualified on the lowest
+    // Spread across the four: 9 lines and 5 branches. Previous cap: 92.8748% / 81.1728% (03/11/2026, below).
+    // Both ratchets raised inside this cap, each the highest thousandth that keeps 3x the 24-line / 11-branch
+    // reference spread of 15/09: line 0.926 -> 0.928 leaves 88 lines (3.7x), branch 0.808 -> 0.811 leaves 33
+    // branches (3.0x). One more thousandth would drop either under 3x (58 lines, 23 branches).
+    //
+    // Requalified on 03/11/2026 at d3580dc9, the head of PR #597 and the head the per-module cap is qualified at:
+    // both scales of one qualification are measured at one head, so the gap between them reads as a gap and not
+    // as a gap plus the drift between two commits. Its pull_request run (41107774651) and a workflow_dispatch run of
+    // the same branch (41107784162), both checking out that SHA. Read from each run's m21-integrity-<OS> artifact,
+    // aggregate-coverage-summary.txt, coverageScope=aggregate, populationModules=16, 29922 lines and 10198 branches
+    // on all four (kept in config/coverage-qualification/):
+    //     Windows  92.9216% / 92.9216% lines,  81.2022% / 81.2120% branches
+    //     Linux    92.8748% / 92.8815% lines,  81.1728% / 81.1826% branches   <- qualified on the lowest
+    // Spread across the four: 14 lines and 4 branches. Previous cap: 91.4837% / 77.7195% (28/10/2026, below),
+    // overtaken by 1.4 points on lines and 3.5 on branches.
+    // Both ratchets raised inside this cap, each the highest thousandth that keeps 3x the 24-line / 11-branch
+    // reference spread of 15/09: line 0.912 -> 0.926 leaves 82 lines (3.4x), branch 0.773 -> 0.808 leaves 38
+    // branches (3.5x). One more thousandth would drop either under 3x (52 lines, 27 branches).
+    //
+    // Requalified on 28/10/2026 at 61198c68, the head of PR #570: its pull_request run (40604205899) and a
+    // workflow_dispatch run of the same branch (40604205079), both checking out that SHA. Read from each run's
+    // m21-integrity-<OS> artifact, aggregate-coverage-summary.txt, coverageScope=aggregate, populationModules=16,
+    // 29696 lines and 10112 branches on all four (kept in config/coverage-qualification/):
+    //     Windows  91.5275% / 91.5275% lines,  77.7690% / 77.7690% branches
+    //     Linux    91.4837% / 91.4871% lines,  77.7195% / 77.7393% branches   <- qualified on the lowest
+    // Spread across the four: 13 lines and 5 branches. Previous cap: 90.3026% / 76.1089% (09/10/2026, below),
+    // overtaken by 1.2 points on lines and 1.6 on branches.
+    // Both ratchets raised inside this cap, each the highest thousandth that keeps 3x the 24-line / 11-branch
+    // reference spread of 15/09: line 0.900 -> 0.912 leaves 84 lines (3.5x), branch 0.757 -> 0.773 leaves 42
+    // branches (3.8x). One more thousandth would drop either under 3x (54 lines, 32 branches).
+    // CoverageQualificationEvidenceTest computes this headroom from the kept evidence and refuses a ratchet that
+    // spends it.
     //
     // Requalified on 09/10/2026 at develop 8e3fda5a: the push run of develop (37925178678) and the pull_request
     // run of the promotion PR #274 (37925186306), which check out the same SHA. Read from each run's
@@ -74,12 +113,12 @@ class AggregateCoverageGateTest {
     // magnitude more than the observed run-to-run variation and small enough that a real regression is caught.
     //
     // Raising these two constants requires a fresh aggregate measurement on BOTH platforms, cited here.
-    private static final double AGGREGATE_QUALIFIED_LINE_RATIO = 0.903026d;
-    private static final double AGGREGATE_QUALIFIED_BRANCH_RATIO = 0.761089d;
+    private static final double AGGREGATE_QUALIFIED_LINE_RATIO = 0.930970d;
+    private static final double AGGREGATE_QUALIFIED_BRANCH_RATIO = 0.814348d;
 
     @Test
     void aggregateCoverageIncludesCrossModuleExecutionAndMeetsRatchets() throws Exception {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         Path report = root.resolve("morpheus-coverage-report/target/site/jacoco-aggregate/jacoco.xml");
         assertTrue(Files.isRegularFile(report), "aggregate JaCoCo report is missing: " + report);
 
@@ -136,14 +175,26 @@ class AggregateCoverageGateTest {
      */
     @Test
     void aggregateRatchetWindowRejectsAnUnqualifiedRaiseAndAReturnToTheD2Floor() {
-        assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
+        AssertionError lineAboveCap = assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
                 "line", AGGREGATE_QUALIFIED_LINE_RATIO + 0.000001d, D2_MIN_LINE_RATIO, AGGREGATE_QUALIFIED_LINE_RATIO));
-        assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
+        assertTrue(lineAboveCap.getMessage().contains("aggregate line ratchet")
+                        && lineAboveCap.getMessage().contains("exceeds its qualified aggregate baseline"),
+                () -> "a line ratchet above its qualified baseline must be refused as such: " + lineAboveCap.getMessage());
+        AssertionError branchAboveCap = assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
                 "branch", AGGREGATE_QUALIFIED_BRANCH_RATIO + 0.000001d, D2_MIN_BRANCH_RATIO, AGGREGATE_QUALIFIED_BRANCH_RATIO));
-        assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
+        assertTrue(branchAboveCap.getMessage().contains("aggregate branch ratchet")
+                        && branchAboveCap.getMessage().contains("exceeds its qualified aggregate baseline"),
+                () -> "a branch ratchet above its qualified baseline must be refused as such: " + branchAboveCap.getMessage());
+        AssertionError lineAtFloor = assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
                 "line", D2_MIN_LINE_RATIO, D2_MIN_LINE_RATIO, AGGREGATE_QUALIFIED_LINE_RATIO));
-        assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
+        assertTrue(lineAtFloor.getMessage().contains("aggregate line ratchet")
+                        && lineAtFloor.getMessage().contains("must stay stricter than the D2 floor"),
+                () -> "a line ratchet back at the D2 floor must be refused as such: " + lineAtFloor.getMessage());
+        AssertionError branchAtFloor = assertThrows(AssertionError.class, () -> assertRatchetWithinQualifiedWindow(
                 "branch", D2_MIN_BRANCH_RATIO, D2_MIN_BRANCH_RATIO, AGGREGATE_QUALIFIED_BRANCH_RATIO));
+        assertTrue(branchAtFloor.getMessage().contains("aggregate branch ratchet")
+                        && branchAtFloor.getMessage().contains("must stay stricter than the D2 floor"),
+                () -> "a branch ratchet back at the D2 floor must be refused as such: " + branchAtFloor.getMessage());
     }
 
     /** Every key is required, and a missing one must name itself rather than surface as a parse failure. */
@@ -158,7 +209,8 @@ class AggregateCoverageGateTest {
     }
 
     /**
-     * A guard that has never refused is not a guard (ADR-0103). A reactor assembled on purpose, then a report that
+     * A guard that has never refused is not a guard ({@code .claude/rules/architecture.md}). A reactor assembled on
+     * purpose, then a report that
      * dropped one of its modules and one that measured a stranger, must both be refused by name before the report
      * that matches is accepted.
      */
@@ -426,19 +478,6 @@ class AggregateCoverageGateTest {
         var builder = factory.newDocumentBuilder();
         builder.setEntityResolver((publicId, systemId) -> new InputSource(new StringReader("")));
         return builder.parse(report.toFile());
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("pom.xml"))
-                    && Files.isDirectory(current.resolve("morpheus-application"))
-                    && Files.isDirectory(current.resolve("distribution"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found");
     }
 
     private record Ratchets(double aggregateLineCoverageMinimum, double aggregateBranchCoverageMinimum) {

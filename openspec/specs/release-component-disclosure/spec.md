@@ -4,6 +4,8 @@
 Define what a MORPHEUS release discloses about the third-party components it redistributes: the attribution carried
 inside each distributed artifact, the inventory published beside them, and how both are kept equal to what is shipped.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/release-component-disclosure.md](../../../docs/developer/specifications/release-component-disclosure.md).
+
 ## Requirements
 
 ### Requirement: Every distributed artifact SHALL carry the product licence and the third-party notices

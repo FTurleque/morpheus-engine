@@ -13,7 +13,7 @@ import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.provider.ProviderId;
 import com.morpheus.domain.source.SourceLocator;
 import com.morpheus.store.memory.MemoryPortfolioStore;
-import com.morpheus.store.sqlite.SqlitePortfolioStore;
+import com.morpheus.store.sqlite.adapter.SqlitePortfolioStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

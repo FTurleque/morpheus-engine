@@ -1,8 +1,12 @@
 package com.morpheus.api;
 
+import com.morpheus.api.transport.ApiFailure;
+import com.morpheus.api.transport.BoundaryFailureMessage;
+import com.morpheus.application.foundation.PayloadMap;
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.BoundedDiagnostics;
 import com.morpheus.application.ingestion.ObservedProjectSnapshotPublisher;
+import com.morpheus.application.ingestion.ProjectContentIngestion;
 import com.morpheus.application.ingestion.ProjectSnapshotImportResult;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.application.operability.OperationalRecorder;
@@ -14,21 +18,18 @@ import com.morpheus.application.sync.SyncFreshnessService;
 import com.morpheus.application.sync.SyncPlan;
 import com.morpheus.application.sync.SyncStateConflictException;
 import com.morpheus.domain.project.ProjectSpecificationId;
-import com.morpheus.provider.openspec.OpenSpecProjectContentReader;
+import com.morpheus.provider.openspec.OpenSpecSpecificationContentReader;
+import com.morpheus.provider.openspec.OpenSpecSpecificationProvider;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
 /** Owns project synchronization orchestration and synchronization API views. */
-final class MorpheusProjectSyncApiService {
+public final class MorpheusProjectSyncApiService {
     private static final String UNKNOWN_VALUE = "unknown";
 
     private final Path databasePath;
@@ -41,7 +42,7 @@ final class MorpheusProjectSyncApiService {
         this.allowedWorkspaceRoots = Objects.requireNonNull(allowedWorkspaceRoots, "allowedWorkspaceRoots");
     }
 
-    Object sync(String projectIdValue, Optional<String> revision) {
+    public Object sync(String projectIdValue, Optional<String> revision) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         Optional<String> normalizedRevision = Objects.requireNonNull(revision, "revision")
                 .map(String::trim)
@@ -54,7 +55,7 @@ final class MorpheusProjectSyncApiService {
                     projectId,
                     normalizedRevision,
                     attemptedAt,
-                    List.of(Path.of("openspec")));
+                    OpenSpecSpecificationProvider.SOURCE_DIRECTORIES);
             IncrementalSyncService syncService = new IncrementalSyncService(runtime.syncState(), recorder);
             SyncPlan plan = syncService.prepare(scan, SyncPlan.Trigger.manual().forced(), attemptedAt);
             if (!scan.complete()) {
@@ -66,7 +67,7 @@ final class MorpheusProjectSyncApiService {
             }
 
             try {
-                var normalized = new OpenSpecProjectContentReader().read(
+                var normalized = new ProjectContentIngestion(new OpenSpecSpecificationContentReader()).read(
                         workspace,
                         projectId,
                         new PersistentEntityIdentityResolver(runtime.identities()));
@@ -79,7 +80,7 @@ final class MorpheusProjectSyncApiService {
                         recorder)
                         .publishFull(normalized, normalizedRevision, Instant.now());
                 syncService.complete(plan, Instant.now());
-                return map(
+                return PayloadMap.of(
                         "projectId", projectId.toString(),
                         "snapshotId", imported.snapshot().id().toString(),
                         "mode", plan.mode().name(),
@@ -100,14 +101,14 @@ final class MorpheusProjectSyncApiService {
         }
     }
 
-    Object syncStatus(String projectIdValue, long maxAgeMinutes) {
+    public Object syncStatus(String projectIdValue, long maxAgeMinutes) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         requireRange("maxAgeMinutes", maxAgeMinutes, 1L, MorpheusApiService.MAX_MAX_AGE_MINUTES);
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
             requireProject(runtime, projectId);
             SyncFreshness freshness = new SyncFreshnessService(runtime.syncState())
                     .assess(projectId, Instant.now(), Duration.ofMinutes(maxAgeMinutes));
-            return map(
+            return PayloadMap.of(
                     "projectId", projectId.toString(),
                     "state", freshness.state().name(),
                     "lastSuccessfulSyncAt", freshness.lastSuccessfulSyncAt().map(Instant::toString).orElse(UNKNOWN_VALUE),
@@ -147,17 +148,5 @@ final class MorpheusProjectSyncApiService {
         if (value < minimum || value > maximum) {
             throw ApiFailure.badRequest(name + " must be between " + minimum + " and " + maximum);
         }
-    }
-
-    /** LinkedHashMap preserves stable construction order before canonical JSON serialization. */
-    private Map<String, Object> map(Object... entries) {
-        if (entries.length % 2 != 0) {
-            throw new IllegalArgumentException("map entries must be key/value pairs");
-        }
-        Map<String, Object> result = new LinkedHashMap<>();
-        for (int index = 0; index < entries.length; index += 2) {
-            result.put((String) entries[index], entries[index + 1]);
-        }
-        return Collections.unmodifiableMap(result);
     }
 }

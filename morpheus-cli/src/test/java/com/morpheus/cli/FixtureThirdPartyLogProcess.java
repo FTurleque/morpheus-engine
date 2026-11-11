@@ -9,7 +9,7 @@ import java.nio.file.Path;
  * A process that logs the way an embedded library does, and writes nothing itself. Given a directory, it first names
  * it as the directory of the operational log file, as the launcher does.
  */
-final class FixtureThirdPartyLogProcess {
+public final class FixtureThirdPartyLogProcess {
     private FixtureThirdPartyLogProcess() {
     }
 

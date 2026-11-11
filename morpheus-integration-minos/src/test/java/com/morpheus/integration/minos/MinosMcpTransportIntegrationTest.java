@@ -52,7 +52,15 @@ class MinosMcpTransportIntegrationTest {
     void rejectsOversizedTextBeforeJsonDeserialization() {
         String oversized = "x".repeat(MinosMcpCodeGateway.MAX_MCP_RESPONSE_BYTES + 1);
         assertThrows(MinosIntegrationException.class,
-                () -> MinosMcpCodeGateway.requireBoundedResponse(oversized, "fixture"));
+                () -> MinosMcpCodeGateway.PEER.requireBoundedResponse(oversized, "fixture"));
+    }
+
+    @Test
+    void aGatewayGivenNoCommandIsRefusedByNameBeforeAnyProcessStarts() {
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class, () -> new MinosMcpCodeGateway(
+                null, List.of(), Map.of(), Duration.ofSeconds(10), OperationalRecorder.noop()));
+
+        assertEquals("command must not be null or blank", refused.getMessage());
     }
 
     private String javaExecutable() {

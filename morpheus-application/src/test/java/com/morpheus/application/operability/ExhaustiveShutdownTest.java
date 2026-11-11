@@ -22,7 +22,7 @@ class ExhaustiveShutdownTest {
     void everyLaterResourceIsStillReleasedWhenAnEarlierReleaseFails() {
         List<String> released = new ArrayList<>();
 
-        assertThrows(IllegalStateException.class, () -> ExhaustiveShutdown.releaseAll(
+        IllegalStateException failure = assertThrows(IllegalStateException.class, () -> ExhaustiveShutdown.releaseAll(
                 "cannot shut down",
                 () -> released.add("socket"),
                 () -> {
@@ -31,6 +31,7 @@ class ExhaustiveShutdownTest {
                 () -> released.add("local server"),
                 () -> released.add("lease")));
 
+        assertEquals("executor refused to stop", failure.getMessage());
         assertEquals(List.of("socket", "local server", "lease"), released);
     }
 

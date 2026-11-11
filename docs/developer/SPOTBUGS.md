@@ -13,8 +13,8 @@ vert, et aucun défaut de production n'a été corrigé par cette intégration (
 
 | Élément | Où | Rôle |
 |---|---|---|
-| `spotbugs.maven.plugin.version` = `4.10.4.1` | [`pom.xml`](../../pom.xml), `<properties>` | version du plugin Maven |
-| `spotbugs.version` = `4.10.4` | idem | moteur d'analyse, épinglé comme dépendance du plugin |
+| `spotbugs.maven.plugin.version` | [`pom.xml`](../../pom.xml), `<properties>` | version du plugin Maven |
+| `spotbugs.version` | idem | moteur d'analyse, épinglé comme dépendance du plugin |
 | profil `audit-spotbugs` | `pom.xml`, `<profiles>` | déclare le plugin dans `<build><plugins>` (donc hérité par chaque module) et lie `check` à `verify` |
 | [`config/spotbugs-exclude.xml`](../../config/spotbugs-exclude.xml) | dépôt | filtre d'exclusion, **vide** volontairement (§ 7) |
 
@@ -42,14 +42,15 @@ Paramètres du profil :
 
 ## 2. Version retenue et vérification
 
-Vérifié le 09/10/2026 :
+Les deux versions sont celles des propriétés du POM ; cette page n'en recopie aucune, et ne dit d'aucune qu'elle est
+« la dernière publiée ». Ce que la version épinglée du plugin exige se lit dans le POM du plugin, résolu par le build.
+Relu le 10/11/2026 à la version que `spotbugs.maven.plugin.version` épingle :
 
 | Constat | Source |
 |---|---|
-| `spotbugs-maven-plugin` : `latest` = `release` = **4.10.4.1** (publiée le 05/09/2026) | `maven-metadata.xml` sur Maven Central |
-| `spotbugs` (moteur) : `release` = **4.10.4** (20/08/2026), celui que le POM du plugin 4.10.4.1 déclare | `maven-metadata.xml` et POM du plugin |
-| exigences du plugin : Maven ≥ 3.8.9, compilation Java 11 | POM du plugin 4.10.4.1 ; notes de version 4.10.4.0 |
-| ruptures de configuration en 4.10.4.1 : `outputEncoding` et `outputDirectory` ne se configurent plus dans le plugin (propriétés `project.reporting.*`), `fork` supprimé | notes de version GitHub |
+| exigences du plugin : Maven ≥ 3.8.9, compilation Java 11 | `prerequisites` et `java.version` du POM du plugin |
+| le POM du plugin déclare le moteur `4.10.5` ; `spotbugs.version` épingle `4.10.4` : l'analyse tourne avec le moteur épinglé | POM du plugin, `pom.xml` |
+| depuis 4.10.4.1, `outputEncoding` et `outputDirectory` ne se configurent plus dans le plugin (propriétés `project.reporting.*`), `fork` est supprimé | notes de version GitHub (relevé du 09/10/2026) |
 
 Compatibilité avec le dépôt : le wrapper est en Maven 3.10.0 (≥ 3.8.9) ; le code cible Java 21
 (`maven.compiler.release`) et Enforcer impose le JDK `[21,22)`. Le profil n'utilise **aucun** des trois paramètres
@@ -61,8 +62,8 @@ deux propriétés **ensemble**, puis rejouer l'analyse complète (§ 4) et compa
 
 ## 3. Périmètre : modules analysés
 
-Le réacteur compte **18 modules** (19 projets avec le POM parent). **16** portent des classes sous `src/main/java` et
-sont tous analysés ; les deux autres n'ont aucune classe de production :
+Tous les modules que le POM racine déclare et qui portent des classes sous `src/main/java` sont analysés ; ceux qui
+n'en portent aucune sont nommés dans le tableau :
 
 | Module | Traitement | Raison |
 |---|---|---|

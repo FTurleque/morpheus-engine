@@ -19,7 +19,7 @@ class SyntheticSpecificationProviderTest {
 
     @Test
     void recognizesSyntheticFixture() {
-        var result = provider.probe(fixture("synthetic-basic"));
+        var result = provider.probe(RepositoryRoot.fixture("synthetic-basic"));
 
         assertEquals(ProviderProbeStatus.SUPPORTED, result.status());
         assertEquals(SyntheticSpecificationProvider.ID, result.providerId());
@@ -45,7 +45,7 @@ class SyntheticSpecificationProviderTest {
 
     @Test
     void aByteOrderMarkBeforeTheSourceIsAccepted(@TempDir Path tempDir) throws IOException {
-        Path fixtureSource = fixture("synthetic-basic").resolve(SyntheticSpecificationProvider.SOURCE_FILE);
+        Path fixtureSource = RepositoryRoot.fixture("synthetic-basic").resolve(SyntheticSpecificationProvider.SOURCE_FILE);
         Path source = tempDir.resolve(SyntheticSpecificationProvider.SOURCE_FILE);
         Files.createDirectories(source.getParent());
         Files.writeString(source, "\uFEFF" + Files.readString(fixtureSource));
@@ -92,17 +92,5 @@ class SyntheticSpecificationProviderTest {
         assertEquals(ProviderProbeStatus.INVALID, result.status());
         assertEquals(DiagnosticCode.INVALID_SOURCE, result.diagnostics().getFirst().code());
         assertTrue(result.diagnostics().getFirst().message().contains("maximum input size"));
-    }
-
-    private Path fixture(String name) {
-        Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
-        while (current != null) {
-            Path candidate = current.resolve("experiments/m0/fixtures").resolve(name);
-            if (Files.isDirectory(candidate)) {
-                return candidate;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("Cannot locate fixture " + name);
     }
 }

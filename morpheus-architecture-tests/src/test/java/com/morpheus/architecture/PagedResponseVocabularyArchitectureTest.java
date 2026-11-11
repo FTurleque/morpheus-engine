@@ -15,8 +15,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * ADR-0107: no paginated response of {@code morpheus-mcp} or {@code morpheus-api} invents a name. The intention
- * aims at text in map literals, not at a compiled dependency (ADR-0103), so every rule here reads sources.
+ * ADR-0151: no paginated response of {@code morpheus-mcp} or {@code morpheus-api} invents a name. The intention
+ * aims at text in map literals, not at a compiled dependency ({@code .claude/rules/architecture.md}), so every rule
+ * here reads sources.
  */
 class PagedResponseVocabularyArchitectureTest {
     private static final List<String> MODULES = List.of("morpheus-mcp", "morpheus-api");
@@ -65,7 +66,7 @@ class PagedResponseVocabularyArchitectureTest {
     void noResponseSpellsThePageTotalAnotherWay() throws IOException {
         List<String> violations = new ArrayList<>();
         for (String module : MODULES) {
-            try (Stream<Path> sources = Files.walk(root().resolve(module).resolve("src/main/java"))) {
+            try (Stream<Path> sources = Files.walk(RepositoryRoot.locate().resolve(module).resolve("src/main/java"))) {
                 for (Path source : sources.filter(path -> path.toString().endsWith(".java")).sorted().toList()) {
                     String text = Files.readString(source);
                     for (String literal : REFUSED_SPELLINGS_OF_A_PAGE_TOTAL) {
@@ -81,8 +82,7 @@ class PagedResponseVocabularyArchitectureTest {
 
     @Test
     void theCurrentSpecificationToolEmbedsItsPageAsAValue() throws IOException {
-        String service = Files.readString(root().resolve(
-                "morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusMcpToolService.java"));
+        String service = Files.readString(ProductionSources.mainSource("morpheus-mcp", "MorpheusSpecificationMcpTools"));
         assertTrue(service.contains("\"specifications\", PagedEnvelope.slice("),
                 "get_current_specification carries its page under the key that names the collection");
     }
@@ -91,7 +91,7 @@ class PagedResponseVocabularyArchitectureTest {
         List<Path> result = new ArrayList<>();
         for (String module : MODULES) {
             Path factory = factory(module);
-            try (Stream<Path> sources = Files.walk(root().resolve(module).resolve("src/main/java"))) {
+            try (Stream<Path> sources = Files.walk(RepositoryRoot.locate().resolve(module).resolve("src/main/java"))) {
                 sources.filter(path -> path.toString().endsWith(".java"))
                         .filter(path -> !path.equals(factory))
                         .sorted()
@@ -103,34 +103,19 @@ class PagedResponseVocabularyArchitectureTest {
     }
 
     private Path factory(String module) {
-        String adapterPackage = module.substring("morpheus-".length());
-        Path factory = root().resolve(module).resolve(
-                "src/main/java/com/morpheus/" + adapterPackage + "/PagedEnvelope.java");
+        Path factory = ProductionSources.mainSource(module, "PagedEnvelope");
         assertTrue(Files.isRegularFile(factory), "missing " + factory);
         return factory;
     }
 
     private String normalized(String source) {
-        return source.replace("package com.morpheus.mcp;", "package <adapter>;")
-                .replace("package com.morpheus.api;", "package <adapter>;")
+        return source.replaceFirst("package com\\.morpheus\\.(mcp|api)(\\.[a-z]+)*;", "package <adapter>;")
                 .replace("morpheus-mcp", "<adapter>")
                 .replace("morpheus-api", "<adapter>")
                 .replace("\r\n", "\n");
     }
 
     private String relative(Path source) {
-        return root().relativize(source).toString().replace('\\', '/');
-    }
-
-    private Path root() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
+        return RepositoryRoot.locate().relativize(source).toString().replace('\\', '/');
     }
 }

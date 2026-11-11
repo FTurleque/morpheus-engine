@@ -50,8 +50,8 @@ Format TSV : `capability	intent	cli	mcp	http	notes`, `intent` ∈ `READ` | `WRIT
 5. **Décider si un ADR est nécessaire** : toute décision structurelle (nouveau port, nouvelle
    sous-plateforme, changement de frontière de sécurité, nouveau transport) doit avoir un
    ADR dans `docs/architecture/adr/`. Chercher d'abord si un ADR existant couvre déjà le sujet : lister
-   `docs/architecture/adr/0*.md` avec un `glob` plutôt que de se fier à un total mémorisé, et vérifier
-   qu'aucun numéro choisi n'est déjà pris avant d'en assigner un nouveau — un doublon de
+   `docs/architecture/adr/*-[0-9][0-9][0-9][0-9]-*.md` avec un `glob` plutôt que de se fier à un total mémorisé,
+   et vérifier qu'aucun numéro choisi n'est déjà pris, registre et `archive/` compris, avant d'en assigner un nouveau — un doublon de
    numérotation a déjà existé
 6. **Vérifier le quadruplet milestone** si un gate est concerné :
    `morpheus-architecture-tests/.../m<N>/` (suite ArchUnit) + `scripts/validate-m<N>.ps1`

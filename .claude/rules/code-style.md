@@ -9,6 +9,10 @@ Aucun linter n'est configuré. La cohérence vient du code existant et des tests
 - Déléguer la version à `ProductMetadata.version()` / `ProductMetadata.current()` — jamais de littéral
 - Valider aux **frontières système** (entrée CLI, endpoint HTTP, outil MCP) et faire confiance au code interne
 - Rendre les échecs **explicites** : exception nommée (`SyncBaselineInconsistentException`) plutôt que retour silencieux
+- Construire une carte de réponse publique par `PayloadMap` (`com.morpheus.application.foundation`) : `of` refuse une
+  valeur absente, `admittingAbsentValues` la garde, et les deux refusent par leur nom un nombre impair d'arguments, une
+  clé qui n'est pas une `String` et une clé répétée. Une autre méthode `Object...` qui rend une `Map` est refusée
+  (`PayloadMapConstructionArchitectureTest`)
 - Nommer les états de rejet explicitement (`SCAN_INCOMPLETE`, `PLUGIN_SHA256_REQUIRED`, `existing-unmanaged-morpheus-entry`)
 - Préférer des **fabriques nommées** (`generate()`, `parse()`) à plusieurs constructeurs publics surchargés.
   Pour un **record** ce n'est pas une préférence : il n'a qu'un constructeur public, le canonique
@@ -75,14 +79,20 @@ public record DomainIdentity(UUID value) implements Comparable<DomainIdentity> {
 
 ## Déterminisme
 
-Le projet vend du déterminisme (ADR-0039, 0043, 0045, 0053, 0056, 0085). Concrètement :
+Le projet vend du déterminisme (ADR-0039, 0043, 0056, 0085, 0122, 0125). Concrètement :
 
 - Ordonner explicitement toute collection retournée par une requête
 - Sérialiser en **JSON canonique** (`CanonicalJsonSerializer`) pour toute sortie comparable
+- Calculer le SHA-256 d'un texte par `TextDigest.sha256` et la clé stable d'un titre par `StableKey.fromTitle`
+  (`com.morpheus.application.foundation`), jamais par une copie privée : les empreintes de provenance en sont faites.
+  La clé d'un scénario synthétique garde sa dérivation ASCII (`persistedScenarioKey`) : ses identités sont persistées et
+  un repli des accents leur en donnerait de nouvelles.
+  Les classes qui demandent elles-mêmes un `MessageDigest` (fichier, flux, jeton) sont nommées avec leur raison dans
+  `TextDigestOwnershipArchitectureTest`, liste qui ne fait que rétrécir
 - Ne jamais laisser un `HashMap`/`HashSet` déterminer un ordre observable
 - Borner toute traversée (profondeur, nœuds, liens) et exposer une **raison de troncature**
 
 ## Sémantique tri-state
 
 `UNKNOWN` n'est jamais silencieusement converti en `BLOCKED` ou en `PASS`.
-Si une information manque, la réponse le dit. Cf. ADR-0078, ADR-0093.
+Si une information manque, la réponse le dit. Cf. ADR-0119, ADR-0093.

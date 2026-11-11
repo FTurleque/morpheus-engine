@@ -4,7 +4,8 @@ import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.policy.PolicyPack;
 import com.morpheus.application.policy.PolicyPackService;
 import com.morpheus.application.policy.PolicyRule;
-import com.morpheus.store.sqlite.SqlitePolicyPackStore;
+import com.morpheus.mcp.server.MorpheusMcpServer;
+import com.morpheus.store.sqlite.adapter.SqlitePolicyPackStore;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.json.schema.JsonSchemaValidator;
 import io.modelcontextprotocol.server.McpServerFeatures;
@@ -32,7 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The three tools that read a collection which only ever grows take a page (ADR-0107, amendment on MCP-2).
+ * The three tools that read a collection which only ever grows take a page (ADR-0151).
  *
  * <p>{@code get_policy_audit}, {@code list_policy_pack_versions} and {@code list_saved_view_versions} rendered their
  * whole collection under a schema that forbade {@code offset} and {@code limit}. Past 1 MiB the transport answers

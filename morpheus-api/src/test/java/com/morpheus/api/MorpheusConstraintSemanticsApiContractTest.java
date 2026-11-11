@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.api.local.MorpheusHttpServer;
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.application.operability.OperationalRecorder;
@@ -59,7 +60,7 @@ class MorpheusConstraintSemanticsApiContractTest {
 
     private Seed seed(Path database) {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
-        Path fixture = http.fixture("synthetic-basic");
+        Path fixture = RepositoryRoot.fixture("synthetic-basic");
         try (ApiRuntime runtime = new ApiRuntime(database, OperationalRecorder.noop())) {
             var normalized = new SyntheticSpecificationContentReader()
                     .read(

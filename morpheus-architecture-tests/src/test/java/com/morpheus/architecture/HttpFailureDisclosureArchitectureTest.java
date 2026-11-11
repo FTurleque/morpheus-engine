@@ -27,26 +27,27 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * routes relayed a pathname raised from below a service to the caller, and through the remote facade to a caller
  * outside the machine. The helper had the same name in each of them and nothing compared it with the filter.</p>
  *
- * <p>Two holds, because they do not see the same thing (ADR-0103). The rule reads the bytecode: a class of the adapter
+ * <p>Two holds, because they do not see the same thing ({@code .claude/rules/architecture.md}). The rule reads the
+ * bytecode: a class of the adapter
  * that calls {@code getMessage()} on anything but a failure MORPHEUS authors is refused, whatever the helper is called.
  * The text refuses the helper's name in the adapter's sources, which is what a reviewer greps for.</p>
  */
 class HttpFailureDisclosureArchitectureTest {
     private static final String ADAPTER_PACKAGE = "com.morpheus.api";
-    private static final String FILTER = "com.morpheus.api.BoundaryFailureMessage";
+    private static final String FILTER = "com.morpheus.api.transport.BoundaryFailureMessage";
 
     /** Failure types whose message is written by MORPHEUS for the caller, each with the reason it needs no filter. */
     private static final Map<String, String> AUTHORED_FOR_THE_CALLER = Map.of(
-            "com.morpheus.api.ApiFailure",
+            "com.morpheus.api.transport.ApiFailure",
             "built by the adapter with a status, a code and a message meant for the response; a foreign message enters "
                     + "it only through the filter",
-            "com.morpheus.api.MorpheusRemoteHttpServer$RemoteFailure",
+            "com.morpheus.api.remote.MorpheusRemoteHttpServer$RemoteFailure",
             "the remote facade's own refusal, built from an ApiFailure or from a literal",
-            "com.morpheus.api.MorpheusRemoteRoutePolicy$RoutePolicyException",
+            "com.morpheus.api.remote.MorpheusRemoteRoutePolicy$RoutePolicyException",
             "a refusal of the remote route policy: a status, a code and one of two literal messages",
-            "com.morpheus.api.MorpheusRemoteProxyTargetResolver$ResolutionException",
+            "com.morpheus.api.remote.MorpheusRemoteProxyTargetResolver$ResolutionException",
             "a refusal to resolve the proxied target, built from a code and a message the resolver writes",
-            "com.morpheus.api.MorpheusRemoteProxyTransport$TransportException",
+            "com.morpheus.api.remote.MorpheusRemoteProxyTransport$TransportException",
             "a failure of the upstream hop reported under the facade's own code and message, never the upstream's");
 
     private static final Set<String> MESSAGE_ACCESSORS = Set.of("getMessage", "getLocalizedMessage");
@@ -101,7 +102,7 @@ class HttpFailureDisclosureArchitectureTest {
 
     @Test
     void noSourceOfTheAdapterDeclaresAMessageHelperOfItsOwn() throws IOException {
-        Path sources = repositoryRoot().resolve("morpheus-api/src/main/java/com/morpheus/api");
+        Path sources = RepositoryRoot.locate().resolve("morpheus-api/src/main/java");
         List<String> offenders = new ArrayList<>();
         int scanned = 0;
         try (Stream<Path> files = Files.walk(sources)) {
@@ -116,17 +117,5 @@ class HttpFailureDisclosureArchitectureTest {
         assertTrue(scanned > 20, "too few sources of the HTTP adapter scanned (" + scanned + ")");
         assertTrue(offenders.isEmpty(), () -> "a private safeMessage keeps every non-empty message, pathnames "
                 + "included; use BoundaryFailureMessage.safe: " + offenders);
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 }

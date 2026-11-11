@@ -1,0 +1,5 @@
+tool: get_design_decisions
+arguments: {"changeId":"01920000-0000-7000-8000-000000000106","projectId":"01920000-0000-7000-8000-000000000101"}
+isError: false
+text:
+{"hasMore":false,"items":[{"changeId":"01920000-0000-7000-8000-000000000106","decision":"Issue a persistent credential distinct from the session.","id":"01920000-0000-7000-8000-000000000108","title":"Use a separate credential"}],"limit":50,"offset":0,"snapshotId":"<id-1>","totalMatches":1}

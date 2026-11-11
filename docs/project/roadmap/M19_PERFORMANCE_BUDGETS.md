@@ -148,7 +148,7 @@ classes de gate passent dans le tas de 768 MiB, avec `change_analysis_p95_ms=404
 produire par la lane nocturne (`workflow_dispatch` sur `develop` tant que ce workflow n'est pas sur `main`).
 
 Les valeurs suivent la recommandation de la spécification
-(`openspec/changes/declare-a-budget-before-bounding-a-cost`), qui les laissait au mainteneur ; il a lancé le sprint sans
+(`openspec/changes/archive/2026-11-05-declare-a-budget-before-bounding-a-cost`), qui les laissait au mainteneur ; il a lancé le sprint sans
 les fixer. Elles sont choisies d'après ce à quoi sert l'opération, pas d'après une exécution.
 
 ## 5. Budgets de comportement non temporels

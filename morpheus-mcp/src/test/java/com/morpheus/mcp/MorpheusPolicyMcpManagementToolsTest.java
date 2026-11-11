@@ -1,6 +1,7 @@
 package com.morpheus.mcp;
 
 import com.morpheus.application.operability.OperationalRecorder;
+import com.morpheus.mcp.server.MorpheusMcpServer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

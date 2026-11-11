@@ -1,0 +1,8 @@
+args: constraints list --project <project> --change <change>
+exit: 0
+stdout:
+snapshotId=<id> total=2 hasMore=false
+<id>	aucune persistance SHALL être activée sans opt-in explicite.
+<id>	une session standard SHALL conserver le comportement courant par défaut ;
+
+stderr:

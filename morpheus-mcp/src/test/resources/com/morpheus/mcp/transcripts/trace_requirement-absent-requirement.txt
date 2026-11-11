@@ -1,0 +1,5 @@
+tool: trace_requirement
+arguments: {"projectId":"01920000-0000-7000-8000-000000000101","requirementId":"01920000-0000-7000-8000-0000000000ff"}
+isError: true
+text:
+requirement or ACTIVE snapshot not found: 01920000-0000-7000-8000-0000000000ff

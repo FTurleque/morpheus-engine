@@ -1,6 +1,6 @@
 package com.morpheus.api;
 
-import com.morpheus.application.lifecycle.ChangeLifecyclePolicy;
+import com.morpheus.domain.change.lifecycle.ChangeLifecyclePolicy;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.orchestration.ChangeLifecycleObservation;
 import com.morpheus.application.orchestration.ChangeOrchestrationStateService;
@@ -18,16 +18,16 @@ import java.util.Objects;
 import java.util.Optional;
 
 /** M14 HTTP facade for the read-only MORPHEUS/JARVIS orchestration contract. */
-final class MorpheusJarvisOrchestrationApiService {
+public final class MorpheusJarvisOrchestrationApiService {
     private final Path databasePath;
     private final OperationalRecorder recorder;
 
-    MorpheusJarvisOrchestrationApiService(Path databasePath, OperationalRecorder recorder) {
+    public MorpheusJarvisOrchestrationApiService(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
         this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
-    Object state(
+    public Object state(
             String projectIdValue,
             String changeIdValue,
             Optional<String> lifecycleState,
@@ -48,7 +48,7 @@ final class MorpheusJarvisOrchestrationApiService {
         }
     }
 
-    Object transition(String projectIdValue, String changeIdValue, TransitionCheckRequest request) {
+    public Object transition(String projectIdValue, String changeIdValue, TransitionCheckRequest request) {
         Objects.requireNonNull(request, "request");
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ChangeId changeId = ChangeId.parse(changeIdValue);

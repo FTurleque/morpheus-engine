@@ -42,30 +42,31 @@ sont réservés au diagnostic et ne constituent jamais une qualification.
 
 ## M21 — gate durable exact-head
 
-La baseline corrective active est `1.2.1` :
+La baseline corrective active est `1.2.2` :
 
 ```powershell
-.\scripts\validate.cmd m21 -Version 1.2.1
+.\scripts\validate.cmd m21 -Version 1.2.2
 ```
 
 ```bash
-bash ./scripts/validate-m21.sh 1.2.1
+bash ./scripts/validate-m21.sh 1.2.2
 ```
 
 M21 applique notamment :
 
 ```text
 clean verify
-Surefire total       >= 3820
-architecture         >= 585
-aggregate line coverage    >= 90.0%
-aggregate branch coverage  >= 75.7%
-per-module line coverage   >= 69.1%
-per-module branch coverage >= 61.2%
+Surefire written     >= 3556
+Surefire generated   >= 1819
+architecture         >= 1058
+aggregate line coverage    >= 92.8%
+aggregate branch coverage  >= 81.1%
+per-module line coverage   >= 90.1%
+per-module branch coverage >= 77.3%
 CycloneDX SBOM
 provenance
 portable smoke
-product/package version = 1.2.1
+product/package version = 1.2.2
 HEAD exact + workspace tracked clean
 ```
 
@@ -83,13 +84,13 @@ Le même SHA doit réussir sur Windows et Linux.
 Windows :
 
 ```powershell
-.\scripts\validate.cmd d2 -Version 1.2.1 -BaseRef origin/develop
+.\scripts\validate.cmd d2 -Version 1.2.2 -BaseRef origin/develop
 ```
 
 Linux / WSL :
 
 ```bash
-MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.1
+MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.2
 ```
 
 D2 reste un gate **local spécialisé** :
@@ -97,8 +98,9 @@ D2 reste un gate **local spécialisé** :
 ```text
 .github/workflows delta forbidden
 clean verify required
-Surefire total         >= testsMinimum of config/m21-quality-ratchets.properties
-architecture total     >= architectureTestsMinimum of the same file
+Surefire written       >= testsMinimum of config/m21-quality-ratchets.properties
+Surefire generated     >= generatedTestsMinimum of the same file
+architecture written   >= architectureTestsMinimum of the same file
 absolute line floor    >= 40.0%
 absolute branch floor  >= 35.0%
 dependency hygiene blocking
@@ -163,6 +165,7 @@ message qui nomme la cause, aucune ligne `PASS` pour le contrôle refusé, aucun
 | `test_validator_verdicts.py` | le contrat commun de `m21`, `d2` et `m22` à `m27`, sur le `.sh` et le `.ps1` ; pour chacun, le verdict suit les minimums écrits dans le `config/m21-quality-ratchets.properties` du checkout fabriqué (`m22` à `m27` comparaient jusqu'au 15/10/2026 aux planchers littéraux de leur date) |
 | `test_validator_entry_refusals.py` | ce que `m19`, `m20`, `m28` et `r3` refusent avant d'avoir besoin d'un produit, le verdict complet de `r2`, et pour `r2` et `r3` le compte de POM qu'ils dérivent des `<module>` du POM racine |
 | `test_validate_dispatcher.py` | `validate.ps1` et `validate.cmd` : cibles listées, cibles refusées, arguments transmis, échec propagé |
+| `test_write_build_provenance.py` | l'écrivain de provenance, `.sh` et `.ps1`, sur les mêmes cas : une branche, une tête détachée sans étiquette (`detached`), une étiquette, un SBOM absent |
 | `test_read_quality_ratchet.py`, `test_require_aggregate_coverage_evidence.py` | les bibliothèques de `lib/` écrites en deux langages, sur **une** liste de cas |
 | `test_script_inventory.py` | l'inventaire : tout script est lancé par quelque chose, et exécuté par un test ou excusé par son nom |
 
@@ -186,9 +189,9 @@ Tout fichier de test déclare ce qu'il exécute dans `SCRIPTS_UNDER_TEST`. Un sc
 rien ne lance, fait échouer `test_script_inventory.py`, qui le nomme. Il n'y a pas d'exception silencieuse :
 
 - est lancé ce que nomme un workflow, ou un script lui-même lancé ; une page de documentation ne lance rien ;
-- un point d'entrée qu'une personne lance à la main (le dispatcher `validate.cmd`, la vérification de provenance
-  d'une release publiée) est inscrit dans `LAUNCHED_BY_HAND`, avec la raison, et doit être nommé par une page
-  courante ; ce qu'il nomme est lancé à son tour ;
+- un point d'entrée qu'une personne lance à la main (la vérification de provenance d'une release publiée) est
+  inscrit dans `LAUNCHED_BY_HAND`, avec la raison, et doit être nommé par une page courante ; ce qu'il nomme est
+  lancé à son tour ;
 - un script qu'aucun workflow, script lancé ou point d'entrée manuel ne nomme est inscrit dans `NOT_LAUNCHED`, avec
   la raison pour laquelle il est conservé ;
 - un script qu'aucun test n'exécute est inscrit dans `NOT_RUN_BY_A_TEST`, avec la raison ;
@@ -200,12 +203,16 @@ harnais génère, une bibliothèque doit être nommée par un validateur que le 
 apparaître dans une chaîne du code, hors de la déclaration et des docstrings. Que cette chaîne atteigne un processus
 dans chaque cas, ce sont les cas eux-mêmes qui l'assertent.
 
-Les validateurs `.sh` qu'aucun autre workflow ne lançait (`d2`, `m22` à `m26`, `r3`, et par la chaîne de `r3`,
-`m28`, `r2`, `m27`) tournent chaque nuit dans la lane `validators-without-a-lane` de `nightly.yml`, en attendant que
-le mainteneur décide pour chacun de le garder, de le tester ou de le retirer.
+Chaque validateur est conservé et lancé par un workflow sur sa propre plateforme. Ceux qu'aucun autre workflow ne
+lance tournent chaque nuit dans `nightly.yml` : la lane `validators-without-a-lane` exécute les `.sh` (`d2`, `m22` à
+`m26`, `r3`, et par la chaîne de `r3`, `m28`, `r2`, `m27`), la lane `windows-validators` les `.ps1` de `d2`, `m21`,
+`m22` à `m26` et `r3`, par le dispatcher `validate.cmd`, qui tourne ainsi pour de vrai lui aussi.
+`validate-m21.ps1` est dans cette lane et non sur la jambe Windows de `MORPHEUS CI` : cette jambe fait déjà un
+`clean verify` complet par la chaîne de `validate-m28.ps1`, et la jambe Linux y tient le contrat de `m21` sur chaque
+PR. `GateReachabilityArchitectureTest` refuse un validateur qu'aucun workflow ne lance.
 
 ```bash
 python scripts/tests/test_script_inventory.py     # imprime la table : lancé par, exécuté par, non atteint
 ```
 
-Les documents et validateurs de preuve historiques (R2/R3/milestones) peuvent conserver les versions réellement exécutées à l’époque. Les guides et gates actifs utilisent `1.2.1`.
+Les documents et validateurs de preuve historiques (R2/R3/milestones) peuvent conserver les versions réellement exécutées à l’époque. Les guides et gates actifs utilisent `1.2.2`.

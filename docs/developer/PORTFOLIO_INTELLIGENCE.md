@@ -110,7 +110,7 @@ Instant                                           -> String
 Optional<T>                                       -> Optional transport-safe
 ```
 
-Cette règle reste cohérente avec ADR-0047 ; il n'est pas nécessaire d'élargir `CanonicalJsonSerializer` pour sérialiser directement des UUID ou des objets domaine.
+Cette règle reste cohérente avec ADR-0123 ; il n'est pas nécessaire d'élargir `CanonicalJsonSerializer` pour sérialiser directement des UUID ou des objets domaine.
 
 Vues publiques :
 
@@ -250,4 +250,4 @@ Executable delta     NONE Windows + Linux
 ```
 
 Preuve : [`../project/validation/VALIDATION_M23.md`](../project/validation/VALIDATION_M23.md).
-ADR : [`../architecture/adr/0091-multi-project-portfolio-intelligence.md`](../architecture/adr/0091-multi-project-portfolio-intelligence.md).
+ADR : [`../architecture/adr/0091-multi-project-portfolio-intelligence.md`](../architecture/adr/DATA-0091-multi-project-portfolio-intelligence.md).

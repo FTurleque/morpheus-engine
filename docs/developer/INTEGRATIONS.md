@@ -45,6 +45,15 @@ MORPHEUS_MINOS_HOME
 MORPHEUS_MINOS_TIMEOUT_SECONDS
 ```
 
+Le runtime embarqué par l'image (`--add-modules jdk.httpserver,java.sql,java.net.http` dans
+`distribution/build-portable.ps1` et `build-portable.sh`) n'est pas étendu pour MINOS, qui emploie entre autres
+`jdk.compiler` et `java.desktop` : sur une installation, MINOS exige `MORPHEUS_MINOS_JAVA`, et son lanceur par défaut
+échoue au démarrage (`javax/tools/DiagnosticListener` introuvable). NEXUS démarre sur le runtime embarqué.
+
+La compatibilité avec un vrai pair se vérifie sur l'image construite, sous Windows par
+`distribution/test-minos-compatibility.ps1` et `test-nexus-compatibility.ps1`, sous Linux par leurs équivalents `.sh`.
+Le smoke MINOS se lance avec un lanceur Java absolu.
+
 ## 3. NEXUS
 
 MORPHEUS produit une intention structurée ; NEXUS construit le contexte technique sous contraintes et budget.
@@ -225,4 +234,4 @@ Merge M18 : `30f11ac3ffc522bcc0c71e31216a3fb70f0631d7`.
 - [API HTTP](API.md)
 - [MCP](MCP.md)
 - [Guide utilisateur des intégrations](../user/INTEGRATIONS.md)
-- [ADR-0084](../architecture/adr/0084-provider-neutral-multi-provider-composition.md)
+- [ADR-0084](../architecture/adr/ARCH-0084-provider-neutral-multi-provider-composition.md)

@@ -23,7 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <p>{@code .claude/rules/documentation.md} forbids there a commit hash, a test counter, an issue or pull request
  * number, a test or gate name, a {@code ./mvnw} command and a {@code src/} path. The rule was prose only, and a
  * review of 2026-10-13 found it broken on five pages by sentences older than the rule. The check is textual
- * because Markdown offers no other hold (ADR-0103): it forbids the mention, which is the intention.</p>
+ * because Markdown offers no other hold ({@code .claude/rules/architecture.md}): it forbids the mention, which is the
+ * intention.</p>
  *
  * <p>The release notes of a published version are dated records and are not rewritten; they are exempt by name.
  * The note of a version still in preparation is an active page and is scanned.</p>
@@ -38,7 +39,7 @@ class UserDocumentationSpeaksOfTheInstalledProductTest {
 
     @Test
     void noActiveUserPageCarriesDeveloperEvidence() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         List<Path> pages = activePages(root);
         assertFalse(pages.isEmpty(), "no active page found under " + USER_DOCUMENTATION
                 + "; the scan must not pass on an empty set");
@@ -60,7 +61,7 @@ class UserDocumentationSpeaksOfTheInstalledProductTest {
 
     @Test
     void everyDatedExemptionIsAReleaseNoteThatStillExists() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
 
         for (String exempt : DATED_RELEASE_NOTES) {
             assertTrue(Files.isRegularFile(root.resolve(exempt)),
@@ -138,17 +139,5 @@ class UserDocumentationSpeaksOfTheInstalledProductTest {
 
     private static String relative(Path root, Path page) {
         return root.relativize(page).toString().replace('\\', '/');
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 }

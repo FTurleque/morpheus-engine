@@ -1,0 +1,6 @@
+args: projects
+exit: 2
+stdout:
+
+stderr:
+MORPHEUS error [2]: projects requires subcommand: list | add

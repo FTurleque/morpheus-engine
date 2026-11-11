@@ -1,0 +1,263 @@
+package com.morpheus.api.remote;
+
+import java.util.Arrays;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class MorpheusRemoteIdentityFileTest {
+    @TempDir
+    Path temp;
+
+    @Test
+    void identityDiagnosticsNeverRenderTheStoredTokenVerifier() {
+        byte[] tokenHash = new byte[32];
+        for (int index = 0; index < tokenHash.length; index++) {
+            tokenHash[index] = (byte) (index + 1);
+        }
+        MorpheusRemoteIdentityFile.Identity identity = new MorpheusRemoteIdentityFile.Identity(
+                "ci-runner", MorpheusRemoteRole.READ, tokenHash, Optional.empty());
+
+        String rendered = identity.toString();
+
+        assertFalse(rendered.contains(Arrays.toString(tokenHash)),
+                () -> "identity diagnostics leaked the token hash: " + rendered);
+        assertFalse(rendered.contains("1, 2, 3"),
+                () -> "identity diagnostics leaked token hash bytes: " + rendered);
+        assertFalse(rendered.contains("[B@"),
+                () -> "identity diagnostics must not fall back to a raw array reference: " + rendered);
+        assertTrue(rendered.contains("ci-runner"), "principal must remain available for diagnostics");
+        assertTrue(rendered.contains("READ"), "role must remain available for diagnostics");
+        assertArrayEquals(tokenHash, identity.tokenHash(), "the stored verifier itself must be unchanged");
+    }
+
+    @Test
+    void generatedCredentialDiagnosticsNeverRenderTheBearerToken() {
+        String rawToken = "sekret-bearer-token-value";
+        MorpheusRemoteIdentityFile.GeneratedCredential credential =
+                new MorpheusRemoteIdentityFile.GeneratedCredential("ci-runner", MorpheusRemoteRole.ADMIN, rawToken, Optional.empty());
+
+        String rendered = credential.toString();
+
+        assertFalse(rendered.contains(rawToken),
+                () -> "credential diagnostics leaked the bearer token: " + rendered);
+        assertTrue(rendered.contains("ci-runner"), "principal must remain available for diagnostics");
+        assertEquals(rawToken, credential.token(), "the token must still be retrievable for its one-time print");
+    }
+
+    @Test
+    void generatedTokenIsReturnedOnceButOnlyItsHashIsPersisted() throws Exception {
+        Path auth = temp.resolve("remote-auth.txt");
+        MorpheusRemoteIdentityFile.GeneratedCredential credential =
+                MorpheusRemoteIdentityFile.create(auth, "alice", MorpheusRemoteRole.ADMIN);
+
+        String persisted = Files.readString(auth);
+        assertFalse(persisted.contains(credential.token()));
+        assertTrue(persisted.contains(MorpheusRemoteIdentityFile.sha256Hex(credential.token())));
+        assertTrue(credential.expiresAt().isEmpty());
+
+        List<MorpheusRemoteIdentityFile.Identity> identities = MorpheusRemoteIdentityFile.load(auth);
+        assertEquals("alice", MorpheusRemoteIdentityFile.authenticate(identities, credential.token()).orElseThrow().principal());
+        assertTrue(MorpheusRemoteIdentityFile.authenticate(identities, "wrong-token").isEmpty());
+    }
+
+    @Test
+    void expiringCredentialIsPersistedAndRejectedAfterExpiry() throws Exception {
+        Path auth = temp.resolve("expiring-auth.txt");
+        Instant expiry = Instant.parse("2099-01-01T00:00:00Z");
+        MorpheusRemoteIdentityFile.GeneratedCredential credential =
+                MorpheusRemoteIdentityFile.create(auth, "future", MorpheusRemoteRole.READ, expiry);
+
+        String persisted = Files.readString(auth);
+        assertTrue(persisted.contains("|" + expiry));
+        assertEquals(Optional.of(expiry), credential.expiresAt());
+        assertEquals(Optional.of(expiry), MorpheusRemoteIdentityFile.load(auth).getFirst().expiresAt());
+        assertTrue(MorpheusRemoteIdentityFile.authenticate(MorpheusRemoteIdentityFile.load(auth), credential.token()).isPresent());
+
+        String expiredToken = "expired-token";
+        Path expired = temp.resolve("expired-auth.txt");
+        Files.writeString(expired,
+                "expired|READ|" + MorpheusRemoteIdentityFile.sha256Hex(expiredToken)
+                        + "|2000-01-01T00:00:00Z" + System.lineSeparator(),
+                StandardCharsets.UTF_8);
+        List<MorpheusRemoteIdentityFile.Identity> expiredIdentities = MorpheusRemoteIdentityFile.load(expired);
+        assertTrue(expiredIdentities.getFirst().isExpiredAt(Instant.now()));
+        assertTrue(MorpheusRemoteIdentityFile.authenticate(expiredIdentities, expiredToken).isEmpty());
+    }
+
+    @Test
+    void legacyThreeFieldIdentityRemainsNonExpiring() throws Exception {
+        String token = "legacy-token";
+        Path auth = temp.resolve("legacy-auth.txt");
+        Files.writeString(auth,
+                "legacy|READ|" + MorpheusRemoteIdentityFile.sha256Hex(token) + System.lineSeparator(),
+                StandardCharsets.UTF_8);
+
+        MorpheusRemoteIdentityFile.Identity identity = MorpheusRemoteIdentityFile.load(auth).getFirst();
+        assertTrue(identity.expiresAt().isEmpty());
+        assertTrue(MorpheusRemoteIdentityFile.authenticate(List.of(identity), token).isPresent());
+    }
+
+    @Test
+    void rotationPreservesExpiryUnlessExplicitlyReplaced() throws Exception {
+        Path auth = temp.resolve("rotate-auth.txt");
+        Instant firstExpiry = Instant.parse("2099-01-01T00:00:00Z");
+        MorpheusRemoteIdentityFile.create(auth, "alice", MorpheusRemoteRole.ADMIN, firstExpiry);
+
+        MorpheusRemoteIdentityFile.GeneratedCredential preserved = MorpheusRemoteIdentityFile.rotate(auth, "alice");
+        assertEquals(Optional.of(firstExpiry), preserved.expiresAt());
+
+        Instant replacement = Instant.parse("2099-06-01T00:00:00Z");
+        MorpheusRemoteIdentityFile.GeneratedCredential replaced =
+                MorpheusRemoteIdentityFile.rotate(auth, "alice", Optional.of(replacement));
+        assertEquals(Optional.of(replacement), replaced.expiresAt());
+
+        MorpheusRemoteIdentityFile.GeneratedCredential permanent =
+                MorpheusRemoteIdentityFile.rotate(auth, "alice", Optional.empty());
+        assertTrue(permanent.expiresAt().isEmpty());
+        assertTrue(MorpheusRemoteIdentityFile.load(auth).getFirst().expiresAt().isEmpty());
+    }
+
+    @Test
+    void rejectsPastExpiryAtCredentialCreation() {
+        Path auth = temp.resolve("past-auth.txt");
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
+                () -> MorpheusRemoteIdentityFile.create(
+                        auth, "alice", MorpheusRemoteRole.READ, Instant.parse("2000-01-01T00:00:00Z")));
+        assertEquals("remote identity expiry must be in the future", failure.getMessage());
+    }
+
+    @Test
+    void duplicatePrincipalAndMalformedHashesFailClosed() throws Exception {
+        Path auth = temp.resolve("remote-auth.txt");
+        MorpheusRemoteIdentityFile.create(auth, "alice", MorpheusRemoteRole.READ);
+        IllegalArgumentException duplicateFailure = assertThrows(IllegalArgumentException.class,
+                () -> MorpheusRemoteIdentityFile.create(auth, "alice", MorpheusRemoteRole.ADMIN));
+        assertEquals("remote principal already exists: alice", duplicateFailure.getMessage());
+
+        Path malformed = temp.resolve("malformed.txt");
+        Files.writeString(malformed, "bob|READ|not-a-hash\n");
+        IllegalArgumentException hashFailure =
+                assertThrows(IllegalArgumentException.class, () -> MorpheusRemoteIdentityFile.load(malformed));
+        assertEquals("invalid token SHA-256 at line 1", hashFailure.getMessage());
+
+        Path malformedExpiry = temp.resolve("malformed-expiry.txt");
+        Files.writeString(malformedExpiry, "bob|READ|" + "0".repeat(64) + "|tomorrow\n");
+        IllegalArgumentException expiryFailure =
+                assertThrows(IllegalArgumentException.class, () -> MorpheusRemoteIdentityFile.load(malformedExpiry));
+        assertEquals("invalid remote identity expiry at line 1", expiryFailure.getMessage());
+    }
+
+    @Test
+    void rejectsOversizedIdentityFileAndAuditRead() throws Exception {
+        Path auth = temp.resolve("oversized.txt");
+        Files.writeString(auth, "x".repeat(MorpheusRemoteIdentityFile.MAX_FILE_BYTES + 1));
+
+        IllegalArgumentException loadFailure = assertThrows(
+                IllegalArgumentException.class,
+                () -> MorpheusRemoteIdentityFile.load(auth));
+        assertTrue(loadFailure.getMessage().contains("exceeds " + MorpheusRemoteIdentityFile.MAX_FILE_BYTES));
+
+        IllegalArgumentException auditFailure = assertThrows(
+                IllegalArgumentException.class,
+                () -> MorpheusRemoteIdentityFile.audit(auth));
+        assertTrue(auditFailure.getMessage().contains("exceeds " + MorpheusRemoteIdentityFile.MAX_FILE_BYTES));
+    }
+
+    @Test
+    void rejectsMalformedUtf8InsteadOfAcceptingReplacementCharacters() throws Exception {
+        Path auth = temp.resolve("invalid-utf8.txt");
+        Files.write(auth, new byte[]{(byte) 0xC3, 0x28});
+
+        IllegalArgumentException failure =
+                assertThrows(IllegalArgumentException.class, () -> MorpheusRemoteIdentityFile.load(auth));
+        assertEquals("cannot read remote auth file", failure.getMessage());
+        assertTrue(failure.getCause().getMessage().startsWith("workspace file is not valid UTF-8"),
+                () -> "the file must be refused for its encoding: " + failure.getCause().getMessage());
+    }
+
+    @Test
+    void rejectsSymbolicIdentityFileWhenPlatformAllowsCreatingOne() throws Exception {
+        Path target = temp.resolve("target-auth.txt");
+        Files.writeString(
+                target,
+                "alice|READ|" + "0".repeat(64) + System.lineSeparator(),
+                StandardCharsets.UTF_8);
+        Path link = temp.resolve("linked-auth.txt");
+        try {
+            Files.createSymbolicLink(link, target.getFileName());
+        } catch (Exception unavailable) {
+            return;
+        }
+
+        IllegalArgumentException failure =
+                assertThrows(IllegalArgumentException.class, () -> MorpheusRemoteIdentityFile.load(link));
+        assertEquals("remote auth file must not be a symbolic link", failure.getMessage());
+    }
+
+    @Test
+    void identityEqualsComparesTokenHashByContentNotReference() {
+        byte[] hashA = new byte[32];
+        hashA[0] = 1;
+        byte[] hashB = hashA.clone();
+        assertFalse(hashA == hashB);
+
+        MorpheusRemoteIdentityFile.Identity first =
+                new MorpheusRemoteIdentityFile.Identity("alice", MorpheusRemoteRole.ADMIN, hashA, Optional.empty());
+        MorpheusRemoteIdentityFile.Identity second =
+                new MorpheusRemoteIdentityFile.Identity("alice", MorpheusRemoteRole.ADMIN, hashB, Optional.empty());
+
+        assertEquals(first, second);
+        assertEquals(first.hashCode(), second.hashCode());
+    }
+
+    @Test
+    void identityEqualsFastPathsAndDistinguishingFields() {
+        byte[] hash = new byte[32];
+        hash[0] = 9;
+        byte[] otherHash = new byte[32];
+        otherHash[0] = 10;
+
+        Instant expiry = Instant.parse("2099-01-01T00:00:00Z");
+        Instant otherExpiry = Instant.parse("2099-06-01T00:00:00Z");
+
+        MorpheusRemoteIdentityFile.Identity base =
+                new MorpheusRemoteIdentityFile.Identity("alice", MorpheusRemoteRole.ADMIN, hash, Optional.of(expiry));
+
+        assertEquals(base, base);
+        assertFalse(base.equals("not an identity"));
+
+        MorpheusRemoteIdentityFile.Identity differentPrincipal =
+                new MorpheusRemoteIdentityFile.Identity("bob", MorpheusRemoteRole.ADMIN, hash, Optional.of(expiry));
+        assertFalse(base.equals(differentPrincipal));
+
+        MorpheusRemoteIdentityFile.Identity differentRole =
+                new MorpheusRemoteIdentityFile.Identity("alice", MorpheusRemoteRole.READ, hash, Optional.of(expiry));
+        assertFalse(base.equals(differentRole));
+
+        MorpheusRemoteIdentityFile.Identity differentHash =
+                new MorpheusRemoteIdentityFile.Identity("alice", MorpheusRemoteRole.ADMIN, otherHash, Optional.of(expiry));
+        assertFalse(base.equals(differentHash));
+
+        MorpheusRemoteIdentityFile.Identity differentExpiry =
+                new MorpheusRemoteIdentityFile.Identity("alice", MorpheusRemoteRole.ADMIN, hash, Optional.of(otherExpiry));
+        assertFalse(base.equals(differentExpiry));
+
+        MorpheusRemoteIdentityFile.Identity sameValues =
+                new MorpheusRemoteIdentityFile.Identity("alice", MorpheusRemoteRole.ADMIN, hash, Optional.of(expiry));
+        assertTrue(base.equals(sameValues));
+    }
+
+}

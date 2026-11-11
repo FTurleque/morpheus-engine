@@ -1,0 +1,6 @@
+args: trace-requirement --project 01900000-0000-7000-8000-000000000001 --requirement 01900000-0000-7000-8000-000000000001
+exit: 3
+stdout:
+
+stderr:
+MORPHEUS error [3]: requirement or ACTIVE snapshot not found: 01900000-0000-7000-8000-000000000001

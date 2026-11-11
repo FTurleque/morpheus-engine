@@ -1,5 +1,10 @@
 package com.morpheus.architecture.m27;
 
+import com.morpheus.application.policy.PolicyPackStore;
+import com.morpheus.application.query.saved.SavedViewStore;
+import com.morpheus.application.sync.SyncStateStore;
+import com.morpheus.architecture.ProductionSources;
+import com.morpheus.architecture.RepositoryRoot;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import org.junit.jupiter.api.Test;
 
@@ -7,6 +12,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.belongToAnyOf;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -25,9 +31,26 @@ class ReasoningPlatformArchitectureTest {
                 .check(classes);
     }
 
+    /**
+     * The reasoning core reads no persisted state through a store port: it reasons over the evidence it is handed.
+     *
+     * <p>The three ports declare no compile-time constant, so the rule alone covers them. Broken before acceptance,
+     * 30/10/2026: a {@code SyncStateStore} parameter added to a method of {@code ReasoningService} failed the
+     * rule.</p>
+     */
+    @Test
+    void theReasoningCoreDependsOnNoStorePort() {
+        noClasses()
+                .that().resideInAPackage("com.morpheus.application.reasoning..")
+                .should().dependOnClassesThat(belongToAnyOf(
+                        PolicyPackStore.class, SavedViewStore.class, SyncStateStore.class))
+                .because("reasoning is a deterministic read-only core: it is handed its evidence and persists nothing")
+                .check(new ClassFileImporter().importPackages("com.morpheus.application.reasoning"));
+    }
+
     @Test
     void reasoningCoreContainsNoTransportPersistenceOrProcessExecution() throws IOException {
-        Path sourceRoot = repositoryRoot().resolve(
+        Path sourceRoot = RepositoryRoot.locate().resolve(
                 "morpheus-application/src/main/java/com/morpheus/application/reasoning");
         StringBuilder source = new StringBuilder();
         try (var files = Files.walk(sourceRoot)) {
@@ -47,7 +70,7 @@ class ReasoningPlatformArchitectureTest {
 
     @Test
     void publicManifestAndOpenApiExposeSameReadOnlyM27IntentFamilies() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String manifest = Files.readString(root.resolve("contracts/public-surfaces.tsv"));
         String openApi = Files.readString(root.resolve("docs/developer/reference/openapi/morpheus-v1-reasoning-m27.yaml"));
 
@@ -67,8 +90,7 @@ class ReasoningPlatformArchitectureTest {
 
     @Test
     void remoteFacadeRegistersReasoningAnalysisAsExplicitReadOnlyPost() throws IOException {
-        String source = Files.readString(repositoryRoot().resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteRoutePolicy.java"));
+        String source = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteRoutePolicy"));
         assertTrue(source.contains(
                 "route(\"reasoning/analyze\", Map.of(POST, MorpheusRemoteRole.READ))"));
         assertTrue(source.contains(
@@ -83,17 +105,5 @@ class ReasoningPlatformArchitectureTest {
         } catch (IOException failure) {
             throw new IllegalStateException(failure);
         }
-    }
-
-    private Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
     }
 }

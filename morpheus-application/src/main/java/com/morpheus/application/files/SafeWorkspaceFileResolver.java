@@ -3,7 +3,10 @@ package com.morpheus.application.files;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CoderResult;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -21,7 +24,8 @@ import java.util.Objects;
  */
 public final class SafeWorkspaceFileResolver {
     private static final int DEFAULT_MAX_UTF8_BYTES = 1024 * 1024;
-    private static final String BYTE_ORDER_MARK = "\uFEFF";
+    private static final byte[] BYTE_ORDER_MARK = {(byte) 0xEF, (byte) 0xBB, (byte) 0xBF};
+    private static final int DECODED_CHUNK_CHARS = 8192;
 
     private final Path lexicalRoot;
     private final Path realRoot;
@@ -70,6 +74,14 @@ public final class SafeWorkspaceFileResolver {
 
     /** Reads a confined strict UTF-8 file while refusing more than {@code maxBytes} before buffering the excess. */
     public String readUtf8(Path relativePath, int maxBytes) throws IOException {
+        return readUtf8Document(relativePath, maxBytes).text();
+    }
+
+    /**
+     * Reads a confined strict UTF-8 file like {@link #readUtf8(Path, int)} and measures its encoded size and line
+     * count while decoding it, so that a caller who budgets them does not traverse the text again.
+     */
+    public WorkspaceUtf8Document readUtf8Document(Path relativePath, int maxBytes) throws IOException {
         return decodeStrictUtf8(readBytes(relativePath, maxBytes), relativePath);
     }
 
@@ -169,19 +181,83 @@ public final class SafeWorkspaceFileResolver {
 
     /**
      * Decodes strict UTF-8 and drops one leading byte order mark, which editors on Windows write and which is an
-     * encoding signature, not content. A second one, or one inside the text, is content and is kept.
+     * encoding signature, not content. A second one, or one inside the text, is content and is kept. Lines are
+     * counted on each decoded chunk as it is appended, with the terminators {@link String#lines()} recognizes.
      */
-    private String decodeStrictUtf8(byte[] content, Path relativePath) {
+    private WorkspaceUtf8Document decodeStrictUtf8(byte[] content, Path relativePath) {
+        int start = startsWithByteOrderMark(content) ? BYTE_ORDER_MARK.length : 0;
+        int length = content.length - start;
+        CharsetDecoder decoder = StandardCharsets.UTF_8.newDecoder()
+                .onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT);
+        ByteBuffer input = ByteBuffer.wrap(content, start, length);
+        CharBuffer chunk = CharBuffer.allocate(DECODED_CHUNK_CHARS);
+        StringBuilder text = new StringBuilder(length);
+        LineCounter lines = new LineCounter();
         try {
-            String text = StandardCharsets.UTF_8.newDecoder()
-                    .onMalformedInput(CodingErrorAction.REPORT)
-                    .onUnmappableCharacter(CodingErrorAction.REPORT)
-                    .decode(ByteBuffer.wrap(content))
-                    .toString();
-            return text.startsWith(BYTE_ORDER_MARK) ? text.substring(BYTE_ORDER_MARK.length()) : text;
+            CoderResult result;
+            do {
+                result = decoder.decode(input, chunk, true);
+                if (result.isError()) {
+                    result.throwException();
+                }
+                lines.drain(chunk, text);
+            } while (result.isOverflow());
+            do {
+                result = decoder.flush(chunk);
+                lines.drain(chunk, text);
+            } while (result.isOverflow());
         } catch (CharacterCodingException failure) {
             throw new IllegalArgumentException(
                     "workspace file is not valid UTF-8: " + WorkspaceRelativePathText.of(relativePath), failure);
+        }
+        return new WorkspaceUtf8Document(text.toString(), length, lines.count());
+    }
+
+    private static boolean startsWithByteOrderMark(byte[] content) {
+        return content.length >= BYTE_ORDER_MARK.length
+                && content[0] == BYTE_ORDER_MARK[0]
+                && content[1] == BYTE_ORDER_MARK[1]
+                && content[2] == BYTE_ORDER_MARK[2];
+    }
+
+    /** Counts lines as {@link String#lines()} does: a line feed, a carriage return or both in that order end one. */
+    private static final class LineCounter {
+        private long terminators;
+        private boolean afterCarriageReturn;
+        private boolean empty = true;
+        private boolean endsWithTerminator;
+
+        void drain(CharBuffer chunk, StringBuilder text) {
+            chunk.flip();
+            char[] decoded = chunk.array();
+            int end = chunk.limit();
+            for (int index = 0; index < end; index++) {
+                char current = decoded[index];
+                if (current == '\n') {
+                    if (!afterCarriageReturn) {
+                        terminators++;
+                    }
+                    afterCarriageReturn = false;
+                    endsWithTerminator = true;
+                } else if (current == '\r') {
+                    terminators++;
+                    afterCarriageReturn = true;
+                    endsWithTerminator = true;
+                } else {
+                    afterCarriageReturn = false;
+                    endsWithTerminator = false;
+                }
+            }
+            if (end > 0) {
+                empty = false;
+            }
+            text.append(decoded, 0, end);
+            chunk.clear();
+        }
+
+        long count() {
+            return empty || endsWithTerminator ? terminators : terminators + 1;
         }
     }
 

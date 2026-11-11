@@ -165,4 +165,5 @@ printf '%s\n' \
   'Not exercised by a rehearsal: the tag being reachable from main' \
   'Not exercised by a rehearsal: the provenance attestation' \
   'Not exercised by a rehearsal: the publication of the release' \
-  'Not exercised by a rehearsal: the public read-back of a published release' | tee "$OUTPUT/validation-summary.txt"
+  'Not exercised by a rehearsal: the public read-back of a published release' \
+  'Authenticode: not applicable -- the Linux build produces no Authenticode-signable binary' | tee "$OUTPUT/validation-summary.txt"

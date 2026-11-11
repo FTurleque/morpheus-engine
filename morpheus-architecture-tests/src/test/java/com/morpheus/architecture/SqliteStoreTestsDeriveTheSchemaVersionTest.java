@@ -32,18 +32,33 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@code assertThat}, a {@code long} literal or an argument split across statements, and says so rather than claiming
  * more.</p>
  */
+@CoherenceCheck
 class SqliteStoreTestsDeriveTheSchemaVersionTest {
     private static final Pattern LITERAL_AGAINST_SCHEMA_STATE = Pattern.compile(
             "assertEquals\\(\\s*(\\d[\\d_]*)\\s*,\\s*([^;]*?(?:currentVersion\\(|getInt\\(\"count\"\\))[^;]*?)\\)\\s*;");
 
     /** File name to the reason its literal is a frozen baseline and not a restatement of the latest version. */
-    private static final Map<String, String> FROZEN_BASELINES = Map.of(
-            "R2UpgradeCompatibilityTest.java",
-            "asserts the schema version of its frozen 1.0.0 fixture, which is what the fixture was, before upgrading it");
+    private static final Map<String, String> FROZEN_BASELINES = Map.of();
+
+    @Test
+    void theScannedShapeIsTheLiteralComparisonAndNotTheDerivedOne() {
+        assertTrue(LITERAL_AGAINST_SCHEMA_STATE.matcher(
+                "assertEquals(12, new SqliteSchemaManager().currentVersion(connection));").find(),
+                "the pattern no longer recognises a schema version restated as a literal");
+        assertTrue(LITERAL_AGAINST_SCHEMA_STATE.matcher(
+                "assertEquals(3, result.getInt(\"count\"));").find(),
+                "the pattern no longer recognises a ledger count restated as a literal");
+        assertFalse(LITERAL_AGAINST_SCHEMA_STATE.matcher(
+                "assertEquals(SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION, manager.currentVersion(connection));").find(),
+                "the pattern refuses a comparison with the constant, which is what a store test must write");
+        assertFalse(LITERAL_AGAINST_SCHEMA_STATE.matcher(
+                "assertEquals(level, new SqliteSchemaManager().currentVersion(connection));").find(),
+                "the pattern refuses a comparison with a variable the test derives");
+    }
 
     @Test
     void noStoreTestComparesTheSchemaVersionOrTheLedgerCountWithALiteral() throws IOException {
-        Path tests = repositoryRoot().resolve("morpheus-store-sqlite/src/test/java");
+        Path tests = RepositoryRoot.locate().resolve("morpheus-store-sqlite/src/test/java");
         List<Path> sources;
         try (Stream<Path> files = Files.walk(tests)) {
             sources = files.filter(path -> path.toString().endsWith(".java")).sorted().toList();
@@ -52,12 +67,10 @@ class SqliteStoreTestsDeriveTheSchemaVersionTest {
 
         List<String> restatements = new ArrayList<>();
         TreeSet<String> filesWithALiteral = new TreeSet<>();
-        int comparisonsOfTheScannedShape = 0;
         for (Path source : sources) {
             String text = Files.readString(source);
             Matcher matcher = LITERAL_AGAINST_SCHEMA_STATE.matcher(text);
             while (matcher.find()) {
-                comparisonsOfTheScannedShape++;
                 String name = source.getFileName().toString();
                 filesWithALiteral.add(name);
                 if (!FROZEN_BASELINES.containsKey(name)) {
@@ -67,8 +80,6 @@ class SqliteStoreTestsDeriveTheSchemaVersionTest {
                 }
             }
         }
-        assertTrue(comparisonsOfTheScannedShape > 0,
-                "no assertion of the scanned shape exists: the rule would pass on nothing");
 
         FROZEN_BASELINES.forEach((file, reason) -> {
             assertFalse(reason.isBlank(), "a frozen-baseline exclusion needs its reason: " + file);
@@ -78,20 +89,5 @@ class SqliteStoreTestsDeriveTheSchemaVersionTest {
         assertTrue(restatements.isEmpty(),
                 () -> "a store test must read SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION instead of restating it: "
                         + restatements);
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            Path pom = current.resolve("pom.xml");
-            if (Files.isRegularFile(pom)) {
-                String content = Files.readString(pom);
-                if (content.contains("<artifactId>morpheus-engine</artifactId>") && content.contains("<modules>")) {
-                    return current;
-                }
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 }

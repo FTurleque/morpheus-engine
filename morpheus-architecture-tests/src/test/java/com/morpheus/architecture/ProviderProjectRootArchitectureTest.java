@@ -47,8 +47,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p>Publication compares that root with the one the project was registered under. The structured-markdown
  * reader once published the file it read instead, and every markdown-only workspace failed to publish on a
- * store collision. Three mechanisms hold the rule because none sees all of it (ADR-0103; ADR-0028, amendments
- * PRV-1 and PRV-7):</p>
+ * store collision. Three mechanisms hold the rule because none sees all of it ({@code .claude/rules/architecture.md};
+ * ADR-0028):</p>
  *
  * <ul>
  *   <li><b>The source scan</b> holds the argument. No rule on bytecode can say which argument a constructor
@@ -226,7 +226,7 @@ class ProviderProjectRootArchitectureTest {
 
     @Test
     void everyProviderPublishesItsProjectRootThroughTheSinglePoint() throws IOException {
-        Scan scan = Scan.of(repoRoot());
+        Scan scan = Scan.of(RepositoryRoot.locate());
 
         assertEquals(List.of(), scan.violations(),
                 "a provider publishes as project root the workspace root it received, written inline as "
@@ -384,7 +384,7 @@ class ProviderProjectRootArchitectureTest {
      * What the scan does not follow, frozen so that a change in either direction is seen: a divergent value handed
      * to a parameter by its caller, a name bound nowhere in the file that shares its name with a parameter of
      * another method, and a request parameter whatever its type. Each is written in the class Javadoc and in the
-     * ADR-0028 amendment PRV-7; the behavioural tests are what hold them.
+     * ADR-0028; the behavioural tests are what hold them.
      */
     @Test
     void theScanAcceptsTheDivergencesItDoesNotFollow(@TempDir Path repository) throws IOException {
@@ -491,7 +491,7 @@ class ProviderProjectRootArchitectureTest {
      */
     @Test
     void theRuleSeesEverySourceFileTheScanReads() throws IOException {
-        Set<String> scanned = Scan.of(repoRoot()).constructingSources();
+        Set<String> scanned = Scan.of(RepositoryRoot.locate()).constructingSources();
         Set<String> imported = new TreeSet<>();
         for (JavaClass javaClass : PRODUCTION) {
             if (constructsAProjectSpecification(javaClass)) {
@@ -512,7 +512,7 @@ class ProviderProjectRootArchitectureTest {
 
     @Test
     void everyClassThatConstructsAProjectSpecificationHasATestThatReadsTheRootItPublishes() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         assertEquals(List.of(), untestedReaders(root, Scan.of(root)),
                 "the behavioural tests are what hold the published root; a reader without one is held only by "
                         + "the spelling of its source");
@@ -1010,17 +1010,6 @@ class ProviderProjectRootArchitectureTest {
                     .sorted()
                     .toList();
         }
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("docs/architecture/adr"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found");
     }
 
     private interface Maker {

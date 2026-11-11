@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.api.transport.ApiFailure;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.query.PageRequest;
 import org.junit.jupiter.api.Test;
@@ -25,7 +26,7 @@ class MorpheusDiagnosticsApiServiceContractTest {
     @Test
     void preservesChangeCompletenessAndAggregateDiagnosticsContracts() {
         Path database = tempDirectory.resolve("diagnostics-service.db");
-        Path fixture = http.fixture("openspec-basic");
+        Path fixture = RepositoryRoot.fixture("openspec-basic");
         MorpheusProjectRegistryApiService registry = new MorpheusProjectRegistryApiService(database, OperationalRecorder.noop(), Optional.empty());
         String projectId = ((Map<?, ?>) registry.registerProject(fixture.toString()).project()).get("projectId").toString();
         new MorpheusProjectSyncApiService(database, OperationalRecorder.noop(), Optional.empty()).sync(projectId, Optional.of("diagnostics-r1"));

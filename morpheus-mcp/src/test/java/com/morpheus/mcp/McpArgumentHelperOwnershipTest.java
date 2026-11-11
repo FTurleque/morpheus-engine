@@ -41,7 +41,7 @@ class McpArgumentHelperOwnershipTest {
                     + "[A-Za-z0-9_<>,.\\[\\]? ]+[ ]+"
                     + "(requiredString|optionalString|optionalText|requiredLong|requiredBoolean|requiredInteger"
                     + "|optionalInteger|optionalBoolean|optionalInt|intValue|longValue|doubleValue|integral"
-                    + "|stringList|stringMap|stringKeyMap|stringObjectMap|nestedObject|rejectUnknown|safeMessage)"
+                    + "|stringList|stringMap|stringKeyMap|stringObjectMap|nestedObject|rejectUnknown|safeMessage|refusal)"
                     + "[ ]*\\(");
 
     @Test
@@ -78,7 +78,7 @@ class McpArgumentHelperOwnershipTest {
     }
 
     private static List<Path> sources() throws IOException {
-        try (Stream<Path> files = Files.list(SOURCES)) {
+        try (Stream<Path> files = Files.walk(SOURCES)) {
             return files.filter(path -> path.getFileName().toString().endsWith(".java")).sorted().toList();
         }
     }

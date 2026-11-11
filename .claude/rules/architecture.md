@@ -1,6 +1,7 @@
 # Règles — Architecture (ports & adapters)
 
-Source de vérité : `morpheus-architecture-tests/.../LayerDependencyTest.java` + les `*ArchitectureTest` par milestone.
+Source de vérité : `morpheus-architecture-tests/.../LayerDependencyTest.java`, `ApplicationTechnologyBoundaryArchitectureTest`
++ les `*ArchitectureTest` par milestone.
 Ces règles sont **exécutables** — si tu doutes, lance le test, ne devine pas.
 
 ## Le modèle réel : hexagonal, pas en couches empilées
@@ -32,7 +33,7 @@ void applicationMustNotDependOnAdapters() {
             .should().dependOnClassesThat().resideInAnyPackage(
                     "com.morpheus.provider..", "com.morpheus.store..", "com.morpheus.cli..",
                     "com.morpheus.mcp..", "com.morpheus.api..", "com.morpheus.integration..",
-                    "com.minos..", "com.nexus..", "com.jarvis..")
+                    "com.morpheus.transport..", "com.minos..", "com.nexus..", "com.jarvis..")
             .because("application services define use cases and ports without depending on adapters")
             .check(classes);
 }
@@ -43,7 +44,12 @@ void applicationMustNotDependOnAdapters() {
 milestone (règles de sous-plateforme, ex. `m24/QueryPlatformArchitectureTest`). Ne jamais
 se contenter d'une convention non testée — si ArchUnit ne la vérifie pas, elle n'existe pas.
 
-## Règle ArchUnit ou assertion textuelle — cf. ADR-0103
+Une règle choisit des classes **par paquet**, jamais par module. Un nouveau module déclare son paquet racine dans
+`ModulePackageCorrespondenceTest`, qui lit les `<module>` du POM racine et refuse un module sans entrée, un paquet hors
+de la racine de son module et une imbrication non déclarée ; une racine qui ne suit pas le nom du module y porte sa
+raison (`morpheus-mcp-transport` livre `com.morpheus.transport.mcp`, `morpheus-provider-sdk` `com.morpheus.sdk.provider`).
+
+## Règle ArchUnit ou assertion textuelle
 
 Beaucoup d'interdits de dépendance sont aujourd'hui écrits `assertFalse(<source lue>.contains("X"))`.
 **Ce n'est pas une forme dégradée à migrer par réflexe** : les deux mécanismes n'enforcent pas la
@@ -58,6 +64,9 @@ même proposition, et aucun ne domine l'autre.
 
 Avant de choisir, **écrire l'intention en une phrase**. « Aucune dépendance » → ArchUnit.
 « Ce nom ne doit pas apparaître ici » → texte. Dans le doute, **garder les deux**.
+La phrase se recopie dans la description de la pull request, section « Intention de chaque assertion textuelle » de
+`.github/pull_request_template.md`, avec le mécanisme retenu et, pour une règle sur le bytecode, la violation plantée :
+la revue la lit là. `PullRequestTemplateCoherenceTest` tient le gabarit, jamais la description.
 
 Restent textuels par nature, ne pas les migrer :
 
@@ -70,9 +79,12 @@ Restent textuels par nature, ne pas les migrer :
 Trois obligations avant d'accepter une règle migrée :
 
 1. **Vérifier que la classe visée est dans l'ensemble importé.** `morpheus-provider-testkit` n'y est
-   pas (`morpheus-provider-reference` y est depuis le 30/09/2026, ADR-0028 amendement PRV-7) — relire
+   pas (`morpheus-provider-reference` y est, ADR-0028) — relire
    le `pom.xml` de `morpheus-architecture-tests` plutôt que cette ligne. Le garde-fou `archRule.failOnEmptyShould` est actif et
-   fait échouer une règle qui ne retient aucune classe — **ne pas le désactiver**.
+   fait échouer une règle qui ne retient aucune classe — **ne pas le désactiver**. `AnEmptyArchitectureRuleFailsTest`
+   le prouve en évaluant une règle vide, et refuse `allowEmptyShould` dans le code des tests du module ainsi que tout
+   réglage de `failOnEmptyShould` autre que `true` dans un `archunit.properties`, un POM, `.mvn/`, `scripts/` ou un
+   workflow. Une règle légitimement vide se réécrit ou se supprime : le scan n'a pas de liste d'exemptions.
 2. **Vérifier qu'un littéral n'est pas un préfixe de famille.** `contains("MorpheusRemote")` interdit
    toute une famille de types, pas un seul.
 3. **Casser la règle pour prouver qu'elle tient** : introduire la violation, constater l'échec,
@@ -81,21 +93,63 @@ Trois obligations avant d'accepter une règle migrée :
 Découper par **intention**, jamais par classe de test : regrouper fait descendre le compte de
 méthodes `@Test`, et `architectureTestsMinimum` ne se baisse pas (`rules/testing.md`).
 
-**Généralisation décidée le 11/09/2026** (amendement d'ADR-0103), par groupe de capacité, jamais par
-famille entière :
+### Un interdit textuel de type écrit son intention
 
-- les trois interdits vrais pour **tous** les routeurs (`MorpheusRemote*`, l'appel `sendResponseHeaders`,
-  `MorpheusHttpPathParser`) vivent dans `HttpRoutesFamilyArchitectureTest`, règle **et** texte — n'y
-  ajouter qu'un interdit vérifié sur chacun des `*HttpRoutes`. Le deuxième a visé **le type**
+Un interdit textuel de type (`assertFalse(source.contains("UnType"))`) porte son intention **en message** :
+`assertFalse(source.contains("UnType"), "<la mention, ou la dépendance qu'elle représente>")`. Son échec se lit alors
+comme une phrase au lieu de `expected: <false> but was: <true>`. Les interdits sans message forment la **famille non
+expliquée**, définie par l'expression que tient `EnforcementMechanismAccountingTest` (pas par une commande recopiée
+ici) : son compte doit **égaler** `UNEXPLAINED_TYPE_BAN_CEILING`. Un membre ajouté fait échouer le build ; un membre
+retiré aussi, tant que le plafond n'est pas baissé dans le même changement. Aucune raison connue ne justifie de
+relever le plafond. Ce plafond et celui de `AWAITING_A_RULE_CEILING` égalent chacun leur clé de
+`config/enforcement-ceiling-ratchets.properties` : un relèvement touche ce fichier de gouvernance et se justifie dans la
+PR, une baisse abaisse la clé dans le même changement.
+
+Un interdit de type dont la cible ne déclare aucune constante inlinable s'écrit **en règle ArchUnit**, l'assertion
+textuelle pouvant rester à côté ; les autres portent leur message. `TypeBansAwaitingABytecodeRuleTest` tient cette
+convention : il compte les interdits textuels d'un nom de type, avec ou sans message et quel que soit le récepteur,
+dont la cible est une source principale d'un module importé par la suite, ne déclare aucun champ `static final` non
+privé de type `String` ou primitif, et n'est nommée par aucune classe qui évalue des règles sur le bytecode. Ce compte
+doit **égaler** `AWAITING_A_RULE_CEILING`, qui ne fait que baisser : lire la constante, pas cette page. Une règle qui
+remplace ou double un interdit textuel est livrée avec la trace de sa violation plantée (Javadoc de la méthode, tâches
+ou PR) : le build ne lit pas cette trace, la revue la lit.
+
+La part textuelle de l'enforcement n'est **pas** plafonnée, et ce refus est délibéré : un ratio se fait baisser en
+supprimant un contrôle de documentation ou en ajoutant une règle qui ne voit rien de neuf, et la plupart des
+assertions textuelles visent des fichiers où le texte est la seule prise. Ce que le module publie de sa propre
+composition se lit dans `morpheus-architecture-tests/target/enforcement-composition-summary.txt`, dont la première
+ligne nomme la méthode ; aucun document ne recopie ces comptes.
+
+Une classe de test du module qui n'évalue aucune règle sur le bytecode, ne lit aucune source de production et ne
+charge aucune classe de production porte `@CoherenceCheck` (tag JUnit `coherence`), et aucune autre ne le porte :
+`CoherenceCheckMarkerTest` dérive la propriété de la source de chaque classe, en suivant les classes de la suite
+qu'elle nomme, et refuse un désaccord dans les deux sens. Une telle classe **reste** dans le module et dans son paquet
+de milestone : sortir les contrôles de cohérence du module ferait baisser `architectureTestsMinimum`.
+`./mvnw test -pl morpheus-architecture-tests -Dgroups=coherence` les lance seules.
+Un échec d'une classe marquée est une **désynchronisation documentaire**, tout autre échec une **violation
+d'architecture** : `EnforcementVerdictListener` (écouteur de la plateforme JUnit, sources de test du module) les
+sépare dans l'exécution Surefire unique, imprime deux lignes `[enforcement verdict]` avant l'échec de Maven et écrit
+`morpheus-architecture-tests/target/enforcement-verdict.txt`. Lire ce fichier avant de corriger : on ne répare pas
+une page de `docs/` en touchant au code, ni l'inverse.
+
+**Généralisation par groupe de capacité**, jamais par famille entière :
+
+- les cinq interdits vrais pour **tous** les routeurs (les paquets `com.morpheus.api.remote` et
+  `com.morpheus.api.local`, l'appel `sendResponseHeaders`, `MorpheusHttpPathParser`, `JsonMediaType`) vivent dans
+  `HttpRoutesFamilyArchitectureTest`, règle **et** texte — n'y ajouter qu'un interdit vérifié sur chacun des
+  `*HttpRoutes`. Une suite propre à un routeur ne répète aucun interdit de type qu'une règle de famille ou de groupe
+  tient déjà. L'interdit sur `sendResponseHeaders` a visé **le type**
   `MorpheusHttpResponseWriter` jusqu'à DT-17 : vrai des treize routeurs que le serveur porte en champ, il
   était faux des quatre autres, qui écrivaient déjà leur réponse et ne pouvaient satisfaire un interdit sur
   le writer partagé qu'en gardant une copie privée de ses huit lignes — la règle nommait la bonne intention
   et enforçait son contraire. Interdire **la mécanique** plutôt que le collaborateur dit ce que la méthode a
   toujours annoncé ; le writer, lui, s'interdit **par groupe** (voir ci-dessous) ;
 - la frontière transport/JSON se règle par capacité dans `HttpRoutesTransportBoundaryArchitectureTest`, en
-  **trois groupes listés par nom** — `ROUTERS_WITHOUT_A_BODY`, `ROUTERS_THROUGH_THE_SHARED_DECODER`,
-  `ROUTERS_REGISTERING_THEIR_OWN_CONTEXT` : un nouveau routeur est refusé tant que personne
-  ne l'a classé, et `theClassificationRefusesAnUnclassifiedADoublyClassifiedAndAVanishedRouter` le prouve.
+  **trois groupes qui sont trois paquets** de `com.morpheus.api.routes` — `bodiless`, `shareddecoder`,
+  `owncontext`, nommés par `ROUTERS_WITHOUT_A_BODY`, `ROUTERS_THROUGH_THE_SHARED_DECODER`,
+  `ROUTERS_REGISTERING_THEIR_OWN_CONTEXT`. Ranger un routeur, c'est le classer : un routeur rangé ailleurs (le paquet
+  parent, un paquet qu'aucune règle ne nomme) est refusé, et
+  `theClassificationRefusesARouterLeftInTheParentPackageAndOneInAnUnnamedPackage` le prouve.
   Le troisième groupe porte une **règle de dépendance**, pas une règle de configuration : ces routeurs
   *doivent* dépendre de `MorpheusHttpRequestDecoder` **et de `MorpheusHttpResponseWriter`**, et ne dépendent
   ni de `tools.jackson..`, ni d'`HttpRequestBodyReader`, ni de `CanonicalJsonSerializer` (les volets Jackson
@@ -109,9 +163,10 @@ famille entière :
   `everyApiJsonMapperIsStrictAboutUnknownPropertiesAndTrailingTokens` exige les deux features de
   désérialisation stricte de **tout** `JsonMapper.builder()` de `morpheus-api` — depuis DT-16 elle ne trouve
   plus qu'un seul site, le décodeur. `MorpheusHttpServer` n'est la frontière d'aucun groupe : ne l'interdire
-  nulle part. Depuis DT-17 tout routeur qui le mentionne en dépend aussi — les quatre du troisième groupe
-  construisent ses records publics d'enveloppe, en plus d'emprunter `API_PREFIX` que `javac` inline ; avant
-  DT-17 quatre des six mentions étaient la constante seule, invisible à toute règle de bytecode ;
+  nulle part. Aucun routeur ne le mentionne : les enveloppes (`ApiSuccess`, `ApiError`, `ApiErrorEnvelope`)
+  sont des types de `com.morpheus.api.transport`, les records de requête des types du paquet des routeurs, et
+  `API_PREFIX`, que `javac` inline, est déclaré par `MorpheusHttpRouteTable`. Le serveur local, dans
+  `com.morpheus.api.local`, dépend des routeurs et jamais l'inverse ;
 
   > Rien ne compare cette description à la classe qu'elle décrit. Ces lignes ont menti d'une révision entière
   > après DT-16 (constat O-3 de l'audit du 16/09/2026) : elles annonçaient un groupe « à `JsonMapper` propre »
@@ -119,7 +174,7 @@ famille entière :
   > de modifier ce paragraphe** — les noms de constantes ci-dessus sont la seule prise fiable.
 - les assertions visant des cibles sans famille (services, plomberie `LocalHttp*`, serveur remote) **ne
   migrent pas** ;
-- depuis le 13/10/2026 (amendement d'ADR-0103) le troisième groupe a une seconde règle de groupe : ses quatre
+- le troisième groupe a une seconde règle de groupe : ses quatre
   routeurs, à qui le serveur ne remet aucun segment, les demandent à `MorpheusHttpRequestDecoder.pathSegments*` —
   et **eux seuls** (`onlyARouterThatRegistersItsOwnContextAsksTheDecoderForThePath`). L'interdit de famille sur
   `MorpheusHttpPathParser` tient le parseur ; cette règle tient le chemin. Un routeur porté par le serveur qui
@@ -129,16 +184,16 @@ famille entière :
 
 ### `com.morpheus.domain..` ne doit dépendre de rien de tout ça
 ```
-provider..  store..  cli..  mcp..  api..  integration..
+provider..  store..  cli..  mcp..  api..  integration..  transport..
 com.minos..  com.nexus..  com.jarvis..
 ```
 
 ### `com.morpheus.application..` — **exactement les mêmes interdits**
-L'application ne dépend d'**aucun** adaptateur. Pas de `store`, pas de `provider`, pas de `provider.sdk`.
+L'application ne dépend d'**aucun** adaptateur. Pas de `store`, pas de `provider`, pas de `sdk.provider`.
 > `applicationMustNotDependOnAdapters` — *"application services define use cases and ports without depending on adapters"*
 
 ### `com.morpheus.api..` est un **frère** de cli/mcp, pas leur parent
-Interdits depuis `api` : `cli..`, `mcp..`, `integration..`, `com.minos..`, `com.nexus..`, `com.jarvis..`
+Interdits depuis `api` : `cli..`, `mcp..`, `integration..`, `transport..`, `com.minos..`, `com.nexus..`, `com.jarvis..`
 > L'adaptateur HTTP réutilise les contrats *application*, jamais un autre adaptateur.
 
 ### `integration.minos` / `integration.nexus`
@@ -153,7 +208,7 @@ Interdits : `cli..`, `mcp..`, `api..`, `store..`, **et l'implémentation `com.mi
 | Package | Interdits supplémentaires |
 |---|---|
 | `application.query.{dsl,saved,export}` | cli, mcp, api, store.memory, store.sqlite, provider.openspec, provider.markdown |
-| `application.policy..` | idem **+ `provider.sdk`** |
+| `application.policy..` | idem **+ `sdk.provider`** |
 | `application.reasoning..` | idem + **tout `provider..`** + **`application.lifecycle.mutation..`** |
 
 ### `domain` et `application` ignorent le SDK plugin — **jusque dans les POMs**
@@ -161,10 +216,19 @@ Interdits : `cli..`, `mcp..`, `api..`, `store..`, **et l'implémentation `com.mi
 ni `morpheus-provider-sdk` ni `morpheus-provider-reference`.
 > `ProviderPluginPlatformContractTest#domainAndApplicationDoNotDependOnSdkOrReferencePlugin`
 
-### `api` / `mcp` → stores et providers concrets : seulement par les racines nommées (ADR-0109)
+### `com.morpheus.sdk..` (le SDK provider) ne dépend d'**aucun** adaptateur
+Interdits depuis `morpheus-provider-sdk` : `store..`, `provider..` (plugin de référence compris), `integration..`,
+`transport..`, `mcp..`, `api..`, `cli..`. Le SDK est publié aux auteurs de plugins et ne dépend que du domaine, de l'application et du
+JDK (ADR-0129). La règle de bytecode a un jumeau textuel : une constante de compilation d'un adaptateur ne laisserait
+aucune dépendance. `morpheus-provider-testkit` partage le paquet mais n'est pas dans l'ensemble importé : sa frontière
+est son POM. Les familles que `AdapterSiblingArchitectureTest` juge sont déclarées dans `SUBJECTS` et comparées à ses
+règles.
+> `AdapterSiblingArchitectureTest#theProviderSdkDependsOnNoAdapter`, `#noProviderSdkSourceNamesAnAdapterPackage`, `#everyDeclaredSubjectIsTheSubjectOfARuleAndNoOther`
+
+### `api` / `mcp` → stores et providers concrets : seulement par les racines nommées (ADR-0162)
 Les serveurs HTTP et MCP construisent le runtime de chaque requête à partir de `store-sqlite` (et le provider OpenSpec
 pour la synchronisation HTTP). Seules les classes de `AdapterCompositionRootArchitectureTest.COMPOSITION_ROOTS` y ont
-droit ; la liste est exactement l'ensemble mesuré et ne fait que rétrécir. En ajouter une exige d'amender ADR-0109.
+droit ; la liste est exactement l'ensemble mesuré et ne fait que rétrécir. En ajouter une exige de remplacer ADR-0162 par un ADR consolidé qui la nomme.
 > `onlyTheNamedCompositionRootsReachAConcreteStoreOrProvider`, `everyNamedCompositionRootStillReachesAConcreteStoreOrProvider`
 
 Les stores d'une opération sont construits par **une seule classe**, `SqliteOperationRuntime`, qui ouvre la
@@ -173,22 +237,157 @@ transports. Chaque transport a **un** type de runtime qui l'enveloppe (`ApiRunti
 et ne rend que des ports de l'application — c'est ce qui garde les services hors de `COMPOSITION_ROOTS`. Une autre
 classe qui construit un store est refusée, sauf si elle est **nommée** dans `SqliteConnectionScopeUseArchitectureTest`
 avec son opération à store unique ; le texte (sans commentaires, ouverture avant la première construction) et le
-bytecode (appel de `SqliteConnectionScope.open`, pas une simple dépendance) le tiennent (amendement d'ADR-0109 du
-15/10/2026).
+bytecode (appel de `SqliteConnectionScope.open`, pas une simple dépendance) le tiennent (ADR-0162).
 
-### `morpheus-mcp-transport` ne dépend d'aucun autre paquet MORPHEUS
-Le transport STDIO borné est partagé par le serveur MCP et les clients MINOS/NEXUS.
-> `theMcpTransportDependsOnNoOtherMorpheusPackage`
+### `store-sqlite` : `adapter` et `runtime`, et le runtime reste interne (ADR-0158)
+`com.morpheus.store.sqlite.adapter` ne contient que des implémentations de ports de l'application, plus les deux
+collaborateurs nommés du store de contenu de snapshot. `com.morpheus.store.sqlite.runtime` porte la connexion, la
+portée, le bail, le schéma et les transactions. Aucune classe de production hors du module ne dépend du runtime,
+sauf `SqliteOperationRuntime` et `SqliteServerMaintenance` (`RUNTIME_ENTRY_POINTS`). Une source principale qui nomme une
+autre classe du runtime est refusée par le texte, qui voit aussi une constante inlinée. Les classes publiques du
+runtime le sont pour les stores : ce n'est pas une autorisation pour les autres modules. Les types publics du
+runtime sont exactement `RUNTIME_PUBLIC_TYPES`, et un type de plus rendu public
+est refusé. Les deux listes sont des compteurs de dette : elles ne font que rétrécir, et aucun `module-info.java` ne
+remplace la règle.
+> `SqliteStorePackagesArchitectureTest`, `theRuntimeDeclaresExactlyTheNamedPublicTypes`
+
+Une classe de `com.morpheus.store.sqlite.adapter` ne prend **aucun** moniteur, ni méthode `synchronized` ni bloc : un
+store est confiné au fil de son opération (la `SqliteConnectionScope` refuse sa connexion à tout autre fil), donc son
+moniteur ne protège rien. Un état que plusieurs fils atteignent vit dans `runtime`, avec la raison sur son verrou, et
+`runtime` ne prend **que** les moniteurs que nomme `RUNTIME_MONITORS` (table de faits, une raison par site) : un
+moniteur pris ailleurs dans le paquet est refusé, un site nommé qui ne prend plus son moniteur aussi. Un champ qui
+tient une collection enveloppée par `Collections.synchronized*` est un moniteur de la table. La règle sur le bytecode
+voit le modificateur et l'appel qui enveloppe ; un bloc ne laisse que des `monitorenter` qu'ArchUnit n'expose pas, et le
+texte le voit.
+> `SqliteStoreAdapterHoldsNoMonitorArchitectureTest`
+
+### `morpheus-api` : un rôle, un paquet, et six types pour les voisins (ADR-0155)
+`remote` > `local` > routeurs (`routes.bodiless`, `routes.shareddecoder`, `routes.owncontext`) > services du paquet
+parent > `transport` : une dépendance qui remonte cet ordre est un cycle, refusé par
+`ApiPackageCyclesArchitectureTest` ; la plomberie, les services et les routeurs ont en plus leur règle d'ordre, qui
+n'attend pas qu'un cycle se ferme (`ApiServicesAndTransportPackagesArchitectureTest`,
+`HttpRoutesFamilyArchitectureTest#noRouterReachesTheLocalServer`). Une nouvelle classe va dans le paquet de son rôle,
+un nouveau service `*ApiService` dans `com.morpheus.api`, un nouveau routeur dans le paquet de son groupe. Les autres modules n'utilisent que `AllowedWorkspaceRoots`, `LoopbackHostPolicy`,
+`MorpheusHttpServer`, `MorpheusRemoteHttpServer`, `MorpheusRemoteIdentityFile` et `MorpheusRemoteRole`
+(`ApiEntryTypesArchitectureTest`, règle et texte) : un type public de l'adaptateur l'est pour ses propres paquets.
+Toute liste d'un test d'architecture qui nomme une classe de production, quel que soit son module, est un compteur de
+dette ou une table de faits, déclarée dans `ProductionClassListsArchitectureTest` ; une liste qui serait un rôle est un
+paquet. Un compteur de dette déclare l'ADR qui le dit, et cet ADR, accepté, le nomme par `TestClass.CHAMP` ; sa taille
+égale sa clé de `config/debt-counter-ratchets.properties`, qui ne fait que baisser. Une liste qui ne promet pas de
+rétrécir est une table de faits ; elle déclare l'ADR qui l'énonce s'il y en a un (`tableOfFactsUnder`), et cet ADR,
+accepté, la nomme par `TestClass.CHAMP`. Un ADR accepté qui nomme une table de faits par `TestClass.CHAMP` est celui
+qu'elle déclare, et le seul : ni une table déclarée sans lui, ni deux ADR pour une table. Quand l'ADR **énumère** la liste au
+lieu de la nommer par sa seule référence, sa sorte le dit (`debtCounterEnumeratedBy`, `tableOfFactsEnumeratedBy`) et
+l'ADR l'écrit entre `<!-- liste TestClass.CHAMP -->` et `<!-- fin de liste -->` : le build compare ces noms à la
+constante, dans les deux sens, et nomme l'écart. Ajouter un nom à la constante sans l'ADR, ou l'inverse, casse le build.
+Une énumération que personne n'a déclarée est refusée aussi : un paragraphe d'ADR accepté qui nomme une liste par
+`TestClass.CHAMP` et écrit hors balises deux de ses noms, ou une balise ouverte pour une liste que `KINDS` ne déclare pas
+énumérée par cet ADR.
+> `noClassOutsideTheAdapterDependsOnATypeOfTheAdapterBesideTheEntryTypes`, `thePackagesOfTheHttpAdapterFormNoCycle`, `everyListOfProductionClassesIsADebtCounterOrATableOfFacts`, `everyListIsNamedByTheAcceptedDecisionRecordItDeclares`, `everyTableOfFactsAnAcceptedRecordNamesDeclaresThatRecord`, `everyDebtCounterHoldsExactlyTheSizeItsRatchetAllows`, `everyListADecisionRecordEnumeratesEqualsItsEnumeration`, `everyEnumerationADecisionRecordWritesIsDelimitedAndDeclared`
+
+### `morpheus-cli` et `morpheus-mcp` : une commande, un outil, une classe de capacité (ADR-0149)
+Une commande CLI va dans une classe de `com.morpheus.cli.command`, un outil MCP dans une classe de
+`com.morpheus.mcp` qui déclare la lambda de son gestionnaire ; la classe sert une famille de
+`contracts/public-surfaces.tsv`. `MorpheusMain`, `MorpheusCli`, `CliCommandPaths` (`com.morpheus.cli`) et
+`MorpheusMcpServer` (`com.morpheus.mcp.server`) distribuent et ne nomment de l'application, d'un provider ou d'un
+store que la liste autorisée exacte de leur adaptateur ; `MorpheusCli` ne sert que l'aide (et `version` appelé directement).
+Le parseur des options, auquel chaque sous-commande déclare ce qu'elle accepte (`CommandOptions`), le cadre d'exécution
+(`CliCommandRun`), la ligne d'erreur et le texte d'un échec (`CliErrorLine`), la lecture du jeton de commande
+(`GlobalArgs`), les projections propres au MCP (`McpContentPayloads`) et le cadre des outils du catalogue
+(`McpCatalogTool`) existent une fois. Les paquets de chaque adaptateur sont sans cycle ; les autres modules n'utilisent de
+`morpheus-mcp` que `MorpheusMcpServer`.
+> `DispatchersHoldNoUseCaseArchitectureTest`, `CliCommandDispatchIsExhaustiveTest`, `ServedToolsAreClaimedOnceTest`, `CliAndMcpPackageCyclesArchitectureTest`, `McpEntryTypesArchitectureTest`, `CliArgumentBaseArchitectureTest`, `CliOptionParsingRefusesUnknownOptionsTest`
+
+### `com.morpheus.transport.mcp` ne dépend d'aucun autre paquet MORPHEUS
+Le transport STDIO borné, livré par le module `morpheus-mcp-transport`, est partagé par le serveur MCP et les clients
+MINOS/NEXUS. Son paquet n'est ni sous `com.morpheus.integration..` ni sous `com.morpheus.mcp..` : une règle qui doit
+l'interdire le nomme (`com.morpheus.transport..`).
+> `theMcpTransportDependsOnNoOtherMorpheusPackage`, `theSharedMcpTransportResidesOutsideTheIntegrationsAndTheMcpAdapter`
 
 ### Les paquets du domaine sont sans cycle, à deux exceptions nommées
 `ProviderProbeResult → SourceLocator` et `RequirementDelta → Scenario`, nommées par la paire de types exacte ; tout
-autre cycle échoue. La même règle sur `application` est reportée (167 cycles mesurés le 08/10/2026, ADR-0109).
+autre cycle échoue (ADR-0162).
 > `domainPackagesAreFreeOfCyclesBesideTheTwoNamedOnes`
 
+### Les paquets de l'application sont sans cycle
+`slices().matching("com.morpheus.application.(*)..").should().beFreeOfCycles()`, sans liste d'exceptions (ADR-0162).
+Un type employé par deux paquets vit dans le plus bas des deux, ou dans le domaine s'il ne parle que du domaine ; un
+port se déclare dans le paquet de la capacité dont il emploie les types (`PolicyPackStore` dans `policy`,
+`SavedViewStore` dans `query.saved`, `SyncStateStore` dans `sync`). La règle tranche au premier niveau : `query.dsl` et
+`query.saved` sont une seule tranche.
+
+Sous `com.morpheus.application.query`, une seconde règle tranche au deuxième niveau, la racine `query` étant une tranche
+à elle : aucun cycle, hors des arêtes de `query.dsl` vers `query.saved` que nomme
+`ApplicationPackageCyclesArchitectureTest.QUERY_DSL_AND_SAVED_EDGES`. Cette liste tient **toutes** les arêtes de la
+paire, dans les deux sens, par type de premier rang, mesurées sur le bytecode et sur le texte (une constante inlinée
+n'existe que dans le texte) ; elle est exacte, et c'est un compteur de dette d'ADR-0162 dont la clé de
+`config/debt-counter-ratchets.properties` ne fait que baisser. Une arête retirée fait baisser la clé dans le même
+changement ; une arête ajoutée exige un ADR consolidé qui remplace ADR-0162. Le cycle est borné, pas résorbé : la
+résorption reste possible sans changer de règle.
+> `theApplicationPackagesAreFreeOfCycles`, `theCycleRuleSeesEveryFirstLevelPackageOfTheApplicationSources`, `theCycleRuleRefusesTwoPackagesThatDependOnEachOther`, `theQueryPlatformPackagesAreFreeOfCyclesBesideTheListedReturnEdges`, `theEdgesBetweenTheQueryDslAndTheSavedViewsAreExactlyTheListedOnes`, `theQueryCycleRuleSeesEverySecondLevelPackageOfTheQuerySources`
+
+### Une décision sur une seule valeur du domaine est écrite sur son type
+Le blocage d'une contrainte (`Constraint.evaluateFor`, `hasKnownBlocking`, `isViolatedExplicitBlockingPolicy`) est
+décidé par le domaine ; aucune classe de l'application ne lit une constante de `ConstraintApplicability`,
+`ConstraintBlockingMode` ou `ConstraintSatisfaction`, `switch` compris (ADR-0082).
+La transition d'un cycle de vie est décidée par `ChangeLifecycleTransitionRequest.decide()`, dont le résultat est la
+famille scellée `ChangeLifecycleTransitionDecision` (`Allowed`, `Blocked`) : aucune classe de l'application ne lit une
+constante de `ChangeLifecycleBlocker`, et seul le domaine construit une décision. L'état de résolution d'une référence
+externe est déplacé par `ExternalReference` (`resolvedAs`, `withoutResolver`, `notFound`) : aucune classe hors du
+domaine n'appelle `ExternalReference.transition` (ADR-0162). Ces règles n'ont aucune exception.
+> `ConstraintDecisionInTheDomainArchitectureTest#noApplicationClassReadsAConstantOfAConstraintsBlockingInputs`, `LifecycleTransitionDecisionInTheDomainArchitectureTest`
+
 ### Pas de framework, pas de magie
-Jamais Spring / Quarkus / Micronaut / Guice, jamais de réflexion, de classpath scanning
-ou d'annotations d'injection. Le câblage est explicite : dans `MorpheusMain` pour le processus, dans les racines
-de composition nommées d'ADR-0109 pour le runtime de chaque requête HTTP ou appel MCP.
+Aucune classe du produit ne dépend d'un framework d'injection (Spring, Quarkus, Micronaut, Guice, CDI) ni d'une
+annotation d'injection (`jakarta.inject`, `javax.inject`) : cette règle n'a aucune exception. La réflexion
+(`java.lang.reflect`, `java.lang.invoke`) et le chargement de services ou de classes (`ServiceLoader`, un
+`ClassLoader`, `Class.forName`) n'existent que dans les classes nommées pour eux, chacune avec sa raison et, pour un
+chargement, l'ADR qui le décide ; jamais pour câbler le produit ni pour construire un objet depuis une configuration.
+Les listes sont exactes : les lire dans `ReflectionAndClassLoadingBoundaryArchitectureTest` (hors `application`, des
+tables de faits) et dans `ApplicationTechnologyBoundaryArchitectureTest` (dans `application`, des compteurs de dette
+d'ADR-0150 qui ne font que rétrécir), pas ici.
+Dans les deux, la règle sur le bytecode est doublée d'un scan du texte des sources : un type qui ne fait que typer une
+lambda reste dans le descripteur `invokedynamic`, où le bytecode ne le voit pas. Un accesseur de
+`java.lang.Class` (`getName`, `getSimpleName`, `getClassLoader`) n'est pas de la réflexion au sens de ces règles.
+Le câblage est explicite : dans `MorpheusMain` pour le processus, dans les racines de composition nommées d'ADR-0162
+pour le runtime de chaque requête HTTP ou appel MCP.
+> `reflectionIsReachedOnlyByTheClassesNamedForIt`, `serviceAndClassLoadingAreReachedOnlyByTheClassesNamedForThem`, `everyNamedClassStillReachesItsFamily`, `noProductClassDependsOnAnInjectionFramework`
+
+## Ce que l'application touche (ADR-0150)
+
+`com.morpheus.application..` ne dépend **jamais** de SQL (`java.sql`), d'une bibliothèque JSON (Jackson), de
+l'exécution de processus, du réseau sortant ni des fils d'exécution. L'accès fichier, l'environnement du processus,
+les flux standard, l'horloge murale et la réflexion n'y sont atteints que par les classes que
+`ApplicationTechnologyBoundaryArchitectureTest` nomme pour chaque famille — la liste est exacte, elle rétrécit, et un
+nom ajouté exige un ADR consolidé qui remplace ADR-0150. Les types et appels de chaque famille sont déclarés une fois,
+dans `TechnologyFamily` (tests d'architecture), que lisent le gate de l'application, celui de la CLI et celui de
+`morpheus-api` : les lire là,
+pas ici. `Path` est du vocabulaire, pas un accès. Aucun nom n'est marqué *sort* : la découverte
+de mise à jour lit son manifeste par le port `product.UpdateManifestSource`, que `UpdateManifestFetcher`
+(`morpheus-cli`) implémente, et garde dans `UpdateDiscoveryService` le refus de `http:`, les bornes et l'analyse.
+
+> `ApplicationTechnologyBoundaryArchitectureTest` — `aFamilyTheApplicationDoesNotUseIsRefusedInEveryPackage`, `aConfinedFamilyIsReachedOnlyByTheClassesNamedForIt`, `everyNamedClassStillReachesItsFamily`
+
+**La CLI.** `com.morpheus.cli` porte ce transport et le câblage du processus : chaque famille du vocabulaire y a un
+régime, avec sa raison. SQL, bibliothèque JSON et exécution de processus y sont refusés ; réseau sortant, fils
+d'exécution, accès fichier, environnement du processus et flux standard n'y sont atteints que par les classes que
+`CliTechnologyBoundaryArchitectureTest` nomme, chacune avec sa raison, et chaque liste égale l'ensemble mesuré ;
+l'horloge murale y est libre (la CLI donne son heure à une commande) ; la réflexion reste à
+`ReflectionAndClassLoadingBoundaryArchitectureTest`. Ces listes sont des **tables de faits**, pas des compteurs de
+dette : une classe ajoutée s'écrit dans le test avec sa raison, sans ADR. Une famille ajoutée à `TechnologyFamily`
+exige un régime dans chaque gate de familles.
+
+> `CliTechnologyBoundaryArchitectureTest` — `everyFamilyOfTheVocabularyHasARegimeInTheCli`, `aFamilyTheCliRefusesIsReachedByNoClassOfTheCli`, `aConfinedFamilyIsReachedOnlyByTheClassesOfTheCliNamedForIt`, `everyClassNamedForAConfinedFamilyStillReachesIt`
+
+**L'adaptateur HTTP.** `com.morpheus.api` suit le même patron : SQL, exécution de processus, environnement du
+processus et flux standard y sont refusés (le serveur reçoit sa configuration, mot de passe TLS compris, de la CLI) ;
+bibliothèque JSON, réseau sortant, fils d'exécution et accès fichier n'y sont atteints que par les classes que
+`ApiTechnologyBoundaryArchitectureTest` nomme ; l'horloge murale y est libre ; la réflexion reste au gate du produit. Ses
+listes sont aussi des tables de faits. Ce gate dit quelles classes atteignent une famille ; les règles plus fines du
+module restent où elles sont et ne s'y répètent pas (`DatabaseWorkArchitectureTest`,
+`HttpRoutesTransportBoundaryArchitectureTest`).
+
+> `ApiTechnologyBoundaryArchitectureTest` — `everyFamilyOfTheVocabularyHasARegimeInTheHttpAdapter`, `aFamilyTheHttpAdapterRefusesIsReachedByNoClassOfTheAdapter`, `aConfinedFamilyIsReachedOnlyByTheClassesOfTheHttpAdapterNamedForIt`, `everyClassNamedForAConfinedFamilyOfTheHttpAdapterStillReachesIt`
 
 ## Cœurs purs — interdits textuels (scannés dans les sources)
 

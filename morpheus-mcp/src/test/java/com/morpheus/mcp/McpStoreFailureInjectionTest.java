@@ -2,7 +2,8 @@ package com.morpheus.mcp;
 
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
+import com.morpheus.mcp.server.MorpheusMcpServer;
+import com.morpheus.store.sqlite.adapter.SqliteSpecificationKnowledgeStore;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.json.schema.JsonSchemaValidator;
 import io.modelcontextprotocol.server.McpServerFeatures;
@@ -17,7 +18,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * A store that cannot be opened is answered as a tool refusal by every handler that reaches one (ADR-0102 section
- * 2, amendment of 8 October 2026).
+ * 7).
  *
  * <p>Every published tool is called with the smallest arguments its own schema accepts, so it gets past its argument
  * checks and has to open the store. Two ways the store can fail to open are injected: a database file the driver
@@ -130,12 +130,11 @@ class McpStoreFailureInjectionTest {
 
     private static Map<String, List<McpServerFeatures.SyncToolSpecification>> toolClasses(Path database) {
         Map<String, List<McpServerFeatures.SyncToolSpecification>> classes = new LinkedHashMap<>();
-        MorpheusMcpToolService service = new MorpheusMcpToolService(database, OperationalRecorder.noop());
-        List<McpServerFeatures.SyncToolSpecification> catalog = new ArrayList<>();
-        for (MorpheusMcpToolCatalog.ToolDefinition definition : new MorpheusMcpToolCatalog().tools()) {
-            catalog.add(MorpheusMcpServer.tool(definition, service));
-        }
-        classes.put("McpServer", catalog);
+        classes.put("Specification", new MorpheusSpecificationMcpTools(database, OperationalRecorder.noop()).specifications());
+        classes.put("Requirement", new MorpheusRequirementMcpTools(database, OperationalRecorder.noop()).specifications());
+        classes.put("Change", new MorpheusChangeMcpTools(database, OperationalRecorder.noop()).specifications());
+        classes.put("AcceptanceCriteria", new MorpheusAcceptanceCriteriaMcpTools(database, OperationalRecorder.noop()).specifications());
+        classes.put("SyncStatus", new MorpheusSyncStatusMcpTools(database, OperationalRecorder.noop()).specifications());
         classes.put("Product", new MorpheusProductMcpTools().specifications());
         classes.put("ProviderPlugin", new MorpheusProviderPluginMcpTools().specifications());
         classes.put("Portfolio", new MorpheusPortfolioMcpTools(database, OperationalRecorder.noop()).specifications());

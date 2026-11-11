@@ -9,7 +9,7 @@ grep -rn "activateDefaultTyping(\|enableDefaultTyping(" --include="*.java" .
 ```
 → doit être **vide** sous `src/main/java/`.
 
-Vérifier `morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java` :
+Vérifier `morpheus-api/src/main/java/com/morpheus/api/local/MorpheusHttpServer.java` :
 - `MAX_REQUEST_BODY_BYTES = 65_536`
 - `FAIL_ON_UNKNOWN_PROPERTIES`
 - `FAIL_ON_TRAILING_TOKENS`
@@ -25,7 +25,7 @@ Vérifier l'existence de `morpheus-api/src/test/java/com/morpheus/api/JacksonSec
 
 Doit contenir : `HttpsServer` · `PKCS12` · `TLSv1.3` · `TLSv1.2` · `MorpheusRemoteRole.ADMIN`
 · `TOO_MANY_REQUESTS` · `X-Frame-Options` · `Content-Security-Policy` · `PLUGIN_SHA256_REQUIRED`
-· `usesBoundedUpstreamTimeout` · `String upstreamMethod = exchange.getRequestMethod();`
+· `route.upstreamDeadline()` · `String upstreamMethod = exchange.getRequestMethod();`
 
 Ne doit **PAS** contenir : `Access-Control-Allow-Origin` · `request.header("Authorization"` · `providerProbe ? "GET"`
 
@@ -36,7 +36,12 @@ Ne doit **PAS** contenir : `token + "|"`
 `RemoteApiLaunchOptions.java` : `MORPHEUS_SERVER_TLS_PASSWORD` présent, `--tls-password` **absent**.
 
 ## 4. Plugins providers (fail-closed)
-- `ProviderPluginActivator` → `"provider plugin activation requires a trusted SHA-256 pin"`
+- `ProviderPluginService` : une seule méthode publique `probe`, seule entrée publique vers du code de plugin, qui
+  refuse un pin absent par `"provider plugin probe requires a trusted SHA-256 pin"` (`ProviderPluginServicePinTest`) ;
+  `ProviderPluginActivator` et `ProviderPluginActivation` ne sont pas publics, `activate` prend le pin et refuse un pin
+  absent par `"provider plugin activation requires a trusted SHA-256 pin"` (`ProviderPluginActivatorTest`) ; aucune
+  surcharge `@Deprecated` (`ProviderPluginTrustBoundaryContractTest#theOnlyPublicEntryToPluginCodeIsThePinnedProbe`)
+- `ProviderPluginActivator` ne contient **pas** `orElse(candidate.jarPath())` : le classloader ne lit que la copie vérifiée
 - `ProviderPluginDiscovery` → `LinkOption.NOFOLLOW_LINKS` + `Files.isSymbolicLink`
 - `MorpheusHttpServer` → `providerPluginProbeEnabled` + `"provider-plugin probe is remote-only"`
 - `morpheus-cli/pom.xml` ne contient **pas** `morpheus-provider-reference`
@@ -46,7 +51,7 @@ Ne doit **PAS** contenir : `token + "|"`
 Récupérer d'abord la valeur normative — ne jamais la citer de mémoire ni la recopier ici :
 
 ```bash
-grep -n "SUPPORTED_SCHEMA_VERSION = " morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSchemaManager.java
+grep -n "SUPPORTED_SCHEMA_VERSION = " morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/runtime/SqliteSchemaManager.java
 ```
 
 `SqliteSchemaManager.java` **déclare** la version supportée ; `SqliteServerMaintenance.java` doit

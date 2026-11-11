@@ -1,6 +1,6 @@
 package com.morpheus.application.quality;
 
-import com.morpheus.application.lifecycle.ChangeLifecycleTransitionDecision;
+import com.morpheus.domain.change.lifecycle.ChangeLifecycleTransitionDecision;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycle;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.snapshot.KnowledgeSnapshotMetadata;

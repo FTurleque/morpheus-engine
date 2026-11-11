@@ -1,6 +1,5 @@
 package com.morpheus.application.query;
 
-import com.morpheus.application.constraint.ConstraintPolicyEvaluationService;
 import com.morpheus.domain.constraint.ConstraintEvaluation;
 import org.junit.jupiter.api.Test;
 
@@ -19,14 +18,13 @@ class ConstraintEvaluationPageTest {
     @Test
     void aPageEvaluatesOnlyItsOwnSlice() {
         ConstraintSnapshotFixture fixture = ConstraintSnapshotFixture.nonBlocking(250);
-        ConstraintPolicyEvaluationService real = new ConstraintPolicyEvaluationService();
         AtomicInteger evaluations = new AtomicInteger();
         ConstraintEvaluationQueryService service = new ConstraintEvaluationQueryService(
                 fixture.snapshots(),
                 fixture.content(),
                 (constraint, target) -> {
                     evaluations.incrementAndGet();
-                    return real.evaluate(constraint, target);
+                    return constraint.evaluateFor(target);
                 });
 
         var page = service.activeEvaluations(
@@ -50,7 +48,7 @@ class ConstraintEvaluationPageTest {
                 fixture.content(),
                 (constraint, target) -> {
                     evaluations.incrementAndGet();
-                    return new ConstraintPolicyEvaluationService().evaluate(constraint, target);
+                    return constraint.evaluateFor(target);
                 });
 
         var page = service.activeEvaluations(

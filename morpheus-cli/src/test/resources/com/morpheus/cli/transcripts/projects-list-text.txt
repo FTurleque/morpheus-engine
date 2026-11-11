@@ -1,0 +1,6 @@
+args: projects list
+exit: 0
+stdout:
+<project>	<temp>/workspace
+
+stderr:

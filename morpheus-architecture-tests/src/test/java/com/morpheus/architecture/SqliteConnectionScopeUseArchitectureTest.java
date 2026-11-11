@@ -1,6 +1,6 @@
 package com.morpheus.architecture;
 
-import com.morpheus.store.sqlite.SqliteConnectionScope;
+import com.morpheus.store.sqlite.runtime.SqliteConnectionScope;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
@@ -44,7 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * itself. It used to ask only for a dependency on the scope class, which a field of that type, or a catch of its
  * nested exception, satisfied. It sees a store built through a constructor reference, which the text does not spell
  * {@code new Sqlite...Store(}; it cannot see that the scope is open around the constructions, which the text holds
- * (ADR-0103).</p>
+ * ({@code .claude/rules/architecture.md}).</p>
  */
 class SqliteConnectionScopeUseArchitectureTest {
     private static final Pattern CONSTRUCTION = Pattern.compile("new Sqlite[A-Za-z]*Store\\(");
@@ -53,7 +53,7 @@ class SqliteConnectionScopeUseArchitectureTest {
     private static final String SCOPE_OPENING = "SqliteConnectionScope.open(";
     private static final List<String> MODULES_THAT_BUILD_STORES =
             List.of("morpheus-api", "morpheus-mcp", "morpheus-cli", "morpheus-store-sqlite");
-    private static final String SQLITE_ADAPTER = "com.morpheus.store.sqlite";
+    private static final String SQLITE_ADAPTER = "com.morpheus.store.sqlite.adapter";
 
     /** The classes that build the stores of an operation under a scope they open themselves. */
     private static final Set<String> SCOPE_OWNERS = Set.of("SqliteOperationRuntime");
@@ -247,7 +247,7 @@ class SqliteConnectionScopeUseArchitectureTest {
     }
 
     private static List<Path> adapterSources() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         List<Path> sources = new java.util.ArrayList<>();
         for (String module : MODULES_THAT_BUILD_STORES) {
             try (Stream<Path> files = Files.walk(root.resolve(module).resolve("src/main/java"))) {
@@ -255,17 +255,5 @@ class SqliteConnectionScopeUseArchitectureTest {
             }
         }
         return sources;
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 }

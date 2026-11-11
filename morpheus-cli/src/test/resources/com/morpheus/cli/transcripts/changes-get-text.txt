@@ -1,0 +1,9 @@
+args: changes get --project <project> --change <change>
+exit: 0
+stdout:
+id=<change>
+key=add-remember-me
+title=Add remember-me sessions
+intent=Permettre à un utilisateur de conserver volontairement une session authentifiée plus longtemps sur un appareil de confiance, sans modifier le comportement par défaut des sessions existantes.
+
+stderr:

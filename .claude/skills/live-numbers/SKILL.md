@@ -30,10 +30,10 @@ qu'elle vient de lire.
 
 | Section | Source normative | Piège |
 |---|---|---|
-| Ratchets | `config/m21-quality-ratchets.properties` | **Deux paires de clés.** Un seuil de couverture cité sans son échelle (`aggregate*` ou `perModule*`) ne veut rien dire. |
+| Ratchets | `config/m21-quality-ratchets.properties` | **Deux paires de clés de couverture.** Un seuil de couverture cité sans son échelle (`aggregate*` ou `perModule*`) ne veut rien dire. **Deux clés de présence.** `testsMinimum` borne les exécutions déclarées et `generatedTestsMinimum` celles qu'une fabrique génère : un « nombre de tests » cité sans dire lequel ne veut rien dire, et ni l'un ni l'autre n'est le total Surefire. |
 | Plafonds qualifiés | une constante par échelle, dans le gate de cette échelle | Le ratchet ne doit jamais dépasser le plafond **de sa propre échelle**. Voir [coverage-ratchet](../coverage-ratchet/SKILL.md). |
 | Preuves de couverture | `target/m21-*-coverage-summary.txt` | La première ligne déclare la portée mesurée, et une preuve dont la portée ne correspond pas est refusée. Absente = le `clean verify` n'a pas tourné. |
-| ADR | les fichiers numérotés de `docs/architecture/adr/` | Le répertoire contient aussi un `README.md` : « nombre de fichiers » et « nombre d'ADR » ne sont pas le même chiffre. La ligne « doublons » n'est pas décorative — un doublon de numérotation a déjà existé. |
+| ADR | les fichiers `{PRÉFIXE}-{NNNN}-…md` de `docs/architecture/adr/` (en vigueur) et ceux de `archive/` (retirés) | Le répertoire contient aussi un `README.md` : « nombre de fichiers » et « nombre d'ADR » ne sont pas le même chiffre. Le plus haut numéro se lit sur le registre **et** l'archive. La ligne « doublons » n'est pas décorative — un doublon de numérotation a déjà existé. |
 | Manifeste | `contracts/public-surfaces.tsv` | Le compte de lignes inclut l'en-tête. Les sentinelles se comptent, elles ne se recopient pas. |
 | Schéma SQLite | la constante qui le déclare | `SqliteServerMaintenance` doit **consommer** cette constante, jamais restituer un littéral. |
 
@@ -57,7 +57,7 @@ Si une valeur lue ici contredit une valeur écrite dans `.claude/`, dans `README
 - Ne pas recopier un nombre depuis une exécution antérieure de cette skill : il devient faux au
   prochain milestone.
 - Ne pas écrire un total périssable dans une page de gouvernance.
-  `RepositoryDocumentationCoherenceTest` refuse cette formulation sur ces surfaces : c'est
+  `GovernanceSurfaceCoherenceTest` refuse cette formulation sur ces surfaces : c'est
   l'instruction de compter qui y a sa place, pas le résultat du comptage.
 - Ne pas confondre une **mesure datée** et une **affirmation courante**. Une preuve horodatée ne
   se met pas à jour : la réécrire falsifie un enregistrement au lieu de rafraîchir une règle.

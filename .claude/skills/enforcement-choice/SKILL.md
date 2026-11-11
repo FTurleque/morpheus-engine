@@ -8,13 +8,16 @@ description: Choisir entre une règle ArchUnit et une assertion textuelle pour e
 `morpheus-architecture-tests` enforce la plupart des interdits de dépendance par
 `assertFalse(<source lue>.contains("Type"))` alors qu'ArchUnit est déjà une dépendance déclarée
 du module. **Ce n'est pas de la dette à migrer par réflexe.** Le *pourquoi* est dans
-`docs/architecture/adr/0103-textual-assertions-and-archunit-rules-enforce-different-things.md`.
+`.claude/rules/architecture.md`, section « Règle ArchUnit ou assertion textuelle ».
 
 ## D'abord : écrire l'intention en une phrase
 
 - « Aucune dépendance vers X » → **ArchUnit**.
 - « Ce nom ne doit pas apparaître ici » → **texte**.
 - Dans le doute, **garder les deux**.
+
+La phrase va aussi dans la description de la pull request : section « Intention de chaque assertion
+textuelle » de `.github/pull_request_template.md`, avec le mécanisme retenu et la violation plantée.
 
 Les deux mécanismes n'enforcent pas la même proposition, et aucun ne domine l'autre :
 
@@ -40,11 +43,28 @@ Les deux mécanismes n'enforcent pas la même proposition, et aucun ne domine l'
 1. **Vérifier que la classe visée est dans l'ensemble importé.** Plusieurs modules du réacteur
    n'y sont pas. Le garde-fou `archRule.failOnEmptyShould` est actif et fait échouer une règle
    qui ne retient aucune classe — **ne pas le désactiver** : sans lui, une règle pointée hors
-   classpath passe à vide.
+   classpath passe à vide. `AnEmptyArchitectureRuleFailsTest` échoue si quelqu'un le désactive :
+   globalement (`archunit.properties`, propriété système) ou pour une règle (`allowEmptyShould`).
 2. **Vérifier qu'un littéral n'est pas un préfixe de famille.** Un `contains` sur un préfixe
    interdit toute une famille de types, pas un seul.
 3. **Casser la règle pour prouver qu'elle tient** : introduire la violation, constater l'échec,
    revenir en arrière. Une règle vide passe aussi.
+
+## Un interdit textuel de type porte son intention en message
+
+`assertFalse(source.contains("UnType"), "<la mention, ou la dépendance qu'elle représente>")`, jamais la forme à
+un seul argument. Les interdits sans message forment une famille que `EnforcementMechanismAccountingTest` compte et
+qui **ne fait que rétrécir** : un membre ajouté casse le build, un membre retiré exige de baisser
+`UNEXPLAINED_TYPE_BAN_CEILING` dans le même changement. La composition de l'enforcement du module (règles, assertions
+textuelles, familles) se lit dans `morpheus-architecture-tests/target/enforcement-composition-summary.txt`, jamais
+dans un chiffre recopié. Une classe qui ne lit que des documents porte `@CoherenceCheck` et reste dans le module.
+
+Un interdit textuel dont la cible ne déclare aucune constante inlinable attend une règle ArchUnit :
+`TypeBansAwaitingABytecodeRuleTest` compte ces interdits (cible dans une source principale d'un module importé, sans
+champ `static final` non privé `String` ou primitif, nommée par aucune classe de règles) et égale ce compte à
+`AWAITING_A_RULE_CEILING`, qui ne fait que baisser. Écrire la règle dans le `*ArchitectureTest` de l'intention, garder
+le texte à côté dans le doute, consigner la violation plantée dans la Javadoc de la méthode, puis baisser le plafond
+dans le même changement.
 
 ## Ce qui reste textuel par nature — ne pas le migrer
 
@@ -59,9 +79,13 @@ Les deux mécanismes n'enforcent pas la même proposition, et aucun ne domine l'
 
 Une règle « toute la famille » échoue dès la première exception légitime, et l'affaiblir pour la
 faire passer supprime l'invariant pour tous les autres membres. Le patron qui tient est dans
-`HttpRoutesTransportBoundaryArchitectureTest` : des groupes **listés par nom**, et un test de
-classification qui refuse un membre non classé, doublement classé ou disparu. Un nouveau membre
-est refusé tant que personne ne l'a rangé.
+`HttpRoutesTransportBoundaryArchitectureTest` : chaque groupe est **un paquet**
+(`com.morpheus.api.routes.bodiless`, `.shareddecoder`, `.owncontext`), et un test de classification
+refuse un membre rangé hors de ces paquets ou deux membres de même nom simple. Ranger, c'est classer :
+un membre doublement classé ou disparu ne peut plus s'écrire, et un nouveau membre est refusé tant
+que personne ne l'a rangé. Une liste de noms qui reste n'est jamais un rôle : elle est un compteur de
+dette ou une table de faits, déclarée comme telle dans `ProductionClassListsArchitectureTest`, quel
+que soit le module dont elle nomme les classes (ADR-0155).
 
 `HttpRoutesFamilyArchitectureTest` porte à l'inverse les interdits vérifiés sur **chaque**
 membre : n'y ajouter qu'un interdit dont on a vérifié qu'il vaut pour tous.

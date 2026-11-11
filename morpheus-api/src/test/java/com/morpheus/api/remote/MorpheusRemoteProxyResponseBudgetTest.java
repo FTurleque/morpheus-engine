@@ -1,0 +1,522 @@
+package com.morpheus.api.remote;
+
+import com.morpheus.api.local.MorpheusInternalCapability;
+import com.morpheus.api.transport.TimedBoundedResponseWriter;
+import com.sun.net.httpserver.Headers;
+import com.sun.net.httpserver.HttpContext;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpPrincipal;
+import com.sun.net.httpserver.HttpServer;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * The response budget bounds memory in flight, not how long an upstream operation takes.
+ *
+ * <p>A call that may change state takes its slot once the upstream headers are in, which is the first moment a
+ * response body can occupy memory, and gives it back on every exit. Taken before the loopback call, the slot would
+ * be held for the whole wait, up to the writes' deadline, by a mutation with no response bytes at all: with fewer
+ * slots than the privileged ceiling admits writes, slow mutations would shut the whole facade, reads included, until
+ * their deadline.</p>
+ *
+ * <p>What bounds mutations is {@code privilegedConcurrency} and the deadline of their call, which bounds both the
+ * upstream wait and the wait for a slot.</p>
+ */
+class MorpheusRemoteProxyResponseBudgetTest {
+    private static final MorpheusRemoteProxyTransport.UpstreamDeadline SHORT_WRITE_DEADLINE =
+            new MorpheusRemoteProxyTransport.UpstreamDeadline(Duration.ofMillis(300), false);
+
+
+    private HttpServer upstream;
+    private ExecutorService callers;
+    private final CountDownLatch upstreamBlocked = new CountDownLatch(2);
+    private final CountDownLatch releaseUpstream = new CountDownLatch(1);
+
+    @BeforeEach
+    void startUpstream() throws IOException {
+        upstream = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        upstream.createContext("/api/v1/projects", exchange -> {
+            upstreamBlocked.countDown();
+            try {
+                releaseUpstream.await();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+            respond(exchange, "{\"data\":\"written\"}");
+        });
+        upstream.createContext("/api/v1/health", exchange -> respond(exchange, "{\"data\":\"ok\"}"));
+        upstream.setExecutor(Executors.newFixedThreadPool(4));
+        upstream.start();
+        callers = Executors.newFixedThreadPool(4);
+    }
+
+    @AfterEach
+    void stopUpstream() {
+        releaseUpstream.countDown();
+        callers.shutdownNow();
+        upstream.stop(0);
+    }
+
+    @Test
+    void blockedMutationsDoNotConsumeTheResponseBudgetAReadNeeds() throws Exception {
+        Semaphore responseSlots = new Semaphore(2, true);
+        MorpheusRemoteProxyTransport transport = transport(responseSlots);
+
+        // Two writes the upstream holds; their deadline is minutes away.
+        List<Future<?>> writes = List.of(
+                callers.submit(() -> forward(transport, "POST", "/api/v1/projects")),
+                callers.submit(() -> forward(transport, "POST", "/api/v1/projects")));
+        assertTrue(upstreamBlocked.await(10, TimeUnit.SECONDS), "both mutations must have reached the upstream");
+
+        // A read whose own concurrency is free must still be served: the stuck mutations hold no response memory.
+        StubExchange read = new StubExchange("GET", "/api/v1/health");
+        assertNull(forward(transport, read), "the read must not be refused while mutations are merely waiting");
+        assertEquals(200, read.responseCode());
+        assertEquals("{\"data\":\"ok\"}", read.body());
+
+        releaseUpstream.countDown();
+        for (Future<?> write : writes) {
+            assertNull(write.get(10, TimeUnit.SECONDS), "the mutations must complete once the upstream answers");
+        }
+        assertEquals(2, responseSlots.availablePermits(), "every slot must be back once the calls finish");
+    }
+
+    /** A read is refused before the call: nothing happened upstream, so a retry costs the caller nothing else. */
+    @Test
+    void aSaturatedBudgetRefusesAReadBeforeTheCallIsMade() {
+        Semaphore exhausted = new Semaphore(0);
+        MorpheusRemoteProxyTransport transport = transport(exhausted);
+
+        MorpheusRemoteProxyTransport.TransportException failure =
+                (MorpheusRemoteProxyTransport.TransportException)
+                        forward(transport, new StubExchange("GET", "/api/v1/health"));
+
+        assertEquals(429, failure.status());
+        assertEquals("RESPONSE_BUDGET_EXHAUSTED", failure.code());
+        assertEquals(0, exhausted.availablePermits(), "a refused call must not have taken a permit");
+    }
+
+    /**
+     * A mutation is not refused at once for want of budget, because by the time the upstream has answered its commit
+     * has already happened. Refusing there would report a failure for work that is durable. It waits instead, and a
+     * slot given back before the deadline of its call lets it relay the upstream response.
+     */
+    @Test
+    void aMutationWaitsForTheBudgetRatherThanBeingRefusedAfterItsCommit() throws Exception {
+        Semaphore exhausted = new Semaphore(0, true);
+        MorpheusRemoteProxyTransport transport = transport(exhausted);
+        releaseUpstream.countDown();
+
+        StubExchange write = new StubExchange("POST", "/api/v1/projects");
+        Future<Object> pending = callers.submit(() -> forward(transport, write));
+
+        // It must not have answered anything yet: no budget, and no refusal either.
+        TimeoutException unanswered =
+                assertThrows(TimeoutException.class, () -> pending.get(300, TimeUnit.MILLISECONDS));
+        assertEquals("java.util.concurrent.FutureTask", unanswered.getStackTrace()[0].getClassName());
+        assertEquals("get", unanswered.getStackTrace()[0].getMethodName());
+
+        exhausted.release();
+        assertNull(pending.get(10, TimeUnit.SECONDS), "the mutation must complete once a slot frees up");
+        assertEquals(200, write.responseCode());
+        assertEquals(1, exhausted.availablePermits(), "the slot must be given back");
+    }
+
+    /**
+     * A write that gets no slot before the deadline of its call is answered there, and the answer says the outcome is
+     * unknown: the upstream has answered, so its operation may have completed. The upstream response is closed, never
+     * relayed in part, and a slot that was never taken is not given back. The code is not the one of an upstream that
+     * never answered.
+     */
+    @Test
+    void aWriteThatGetsNoSlotBeforeItsDeadlineIsRefusedAsAnUnknownOutcome() throws Exception {
+        upstream.createContext("/api/v1/created", exchange -> respond(exchange, 201, "{\"data\":\"created\"}"));
+        Semaphore exhausted = new Semaphore(0, true);
+        MorpheusRemoteRuntimeState runtime = runtime();
+        MorpheusRemoteProxyTransport transport = transport(exhausted, runtime);
+
+        StubExchange write = new StubExchange("POST", "/api/v1/created");
+        Object outcome = callers.submit(() -> forward(transport, write, SHORT_WRITE_DEADLINE))
+                .get(10, TimeUnit.SECONDS);
+
+        assertTrue(outcome instanceof MorpheusRemoteProxyTransport.TransportException,
+                () -> "the write must end with an explicit refusal, got: " + outcome);
+        MorpheusRemoteProxyTransport.TransportException failure =
+                (MorpheusRemoteProxyTransport.TransportException) outcome;
+        assertEquals(504, failure.status());
+        assertEquals("RESPONSE_BUDGET_WRITE_TIMEOUT", failure.code());
+        assertEquals("the remote facade had no response slot for this operation before its deadline; it may have "
+                + "completed: read its state before retrying", failure.getMessage());
+        assertEquals(-1, write.responseCode(), "nothing of the upstream response must have been written downstream");
+        assertEquals("", write.body(), "no byte of the upstream body must have been relayed");
+        assertEquals(0, exhausted.availablePermits(), "a slot that was never taken must not be given back");
+        assertEquals(1L, runtime.status("127.0.0.1", 8443).get("throttledPrivilegedRequests"),
+                "the refusal is counted as a write refused for capacity");
+    }
+
+    /**
+     * An interrupt while a mutation waits for the budget must not abandon the upstream response. Nobody will
+     * read it now, so its connection goes back to the pool rather than being held until the client is collected.
+     */
+    @Test
+    void anInterruptWhileWaitingForTheBudgetClosesTheUpstreamResponse() throws Exception {
+        WatchedSemaphore exhausted = new WatchedSemaphore();
+        MorpheusRemoteProxyTransport transport = transport(exhausted);
+        releaseUpstream.countDown();
+
+        AtomicReference<Object> outcome = new AtomicReference<>();
+        StubExchange write = new StubExchange("POST", "/api/v1/projects");
+        Thread caller = new Thread(() -> outcome.set(forward(transport, write)));
+        caller.start();
+        assertTrue(exhausted.reachedTheWait.await(10, TimeUnit.SECONDS),
+                "the mutation must have reached the budget wait");
+
+        caller.interrupt();
+        caller.join(TimeUnit.SECONDS.toMillis(10));
+
+        assertTrue(outcome.get() instanceof MorpheusRemoteProxyTransport.TransportException,
+                () -> "the interrupted mutation must fail explicitly, got: " + outcome.get());
+        MorpheusRemoteProxyTransport.TransportException failure =
+                (MorpheusRemoteProxyTransport.TransportException) outcome.get();
+        assertEquals(503, failure.status());
+        assertEquals("UPSTREAM_INTERRUPTED", failure.code());
+        assertEquals(-1, write.responseCode(), "nothing must have been written downstream");
+        assertEquals(0, exhausted.availablePermits(), "a budget that was never taken must not be given back");
+    }
+
+    /**
+     * A budget with nothing to give, which says when a caller is about to wait on it.
+     *
+     * <p>Signalling from inside {@code tryAcquire} is what makes the interrupt land in the right place: a caller
+     * interrupted a moment too early throws out of {@code tryAcquire} on its own interrupt status, which is the
+     * same path.</p>
+     */
+    private static final class WatchedSemaphore extends Semaphore {
+        private final CountDownLatch reachedTheWait = new CountDownLatch(1);
+
+        private WatchedSemaphore() {
+            super(0, true);
+        }
+
+        @Override
+        public boolean tryAcquire(long timeout, TimeUnit unit) throws InterruptedException {
+            reachedTheWait.countDown();
+            return super.tryAcquire(timeout, unit);
+        }
+    }
+
+    @Test
+    void theSlotIsReleasedWhenTheUpstreamAnswersSomethingUnusable() {
+        upstream.createContext("/api/v1/unbounded", exchange -> {
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, 0);
+            exchange.getResponseBody().write("{}".getBytes(StandardCharsets.UTF_8));
+            exchange.close();
+        });
+        Semaphore responseSlots = new Semaphore(1, true);
+        MorpheusRemoteProxyTransport transport = transport(responseSlots);
+
+        Object outcome = forward(transport, new StubExchange("GET", "/api/v1/unbounded"),
+                MorpheusRemoteProxyTransport.UpstreamDeadline.WRITE);
+
+        assertTrue(outcome instanceof MorpheusRemoteProxyTransport.TransportException,
+                () -> "a chunked upstream response must be refused, got: " + outcome);
+        assertEquals(1, responseSlots.availablePermits(), "the slot must come back after an unusable response");
+    }
+
+    /**
+     * A write the upstream never answers ends at its deadline, and the answer says the outcome is unknown: the local
+     * server cannot cancel what it started, so the operation may still complete after the facade gave up.
+     */
+    @Test
+    void aWriteTheUpstreamNeverAnswersEndsAtItsDeadlineAsAnUnknownOutcome() throws Exception {
+        Semaphore responseSlots = new Semaphore(2, true);
+        MorpheusRemoteProxyTransport transport = transport(responseSlots);
+
+        StubExchange write = new StubExchange("POST", "/api/v1/projects");
+        Object outcome = callers.submit(() -> forward(transport, write, SHORT_WRITE_DEADLINE))
+                .get(10, TimeUnit.SECONDS);
+
+        assertTrue(outcome instanceof MorpheusRemoteProxyTransport.TransportException,
+                () -> "the write must end with an explicit refusal, got: " + outcome);
+        MorpheusRemoteProxyTransport.TransportException failure =
+                (MorpheusRemoteProxyTransport.TransportException) outcome;
+        assertEquals(504, failure.status());
+        assertEquals("UPSTREAM_WRITE_TIMEOUT", failure.code());
+        assertEquals("local MORPHEUS operation exceeded the remote facade's timeout; it may have completed: "
+                + "read its state before retrying", failure.getMessage());
+        assertEquals(-1, write.responseCode(), "nothing must have been written downstream");
+        assertEquals(2, responseSlots.availablePermits(), "a write that never got its headers took no slot");
+    }
+
+    /** A write's response is bounded in size as a read's is, and the slot it took comes back. */
+    @Test
+    void anOversizedResponseToAWriteIsRefusedByNameAndItsSlotComesBack() {
+        upstream.createContext("/api/v1/oversized", exchange -> respond(exchange, "x".repeat(4097)));
+        Semaphore responseSlots = new Semaphore(1, true);
+        MorpheusRemoteProxyTransport transport = transport(responseSlots);
+
+        StubExchange write = new StubExchange("POST", "/api/v1/oversized");
+        Object outcome = forward(transport, write, MorpheusRemoteProxyTransport.UpstreamDeadline.WRITE);
+
+        assertTrue(outcome instanceof MorpheusRemoteProxyTransport.TransportException,
+                () -> "an oversized response must be refused, got: " + outcome);
+        MorpheusRemoteProxyTransport.TransportException failure =
+                (MorpheusRemoteProxyTransport.TransportException) outcome;
+        assertEquals(502, failure.status());
+        assertEquals("UPSTREAM_RESPONSE_TOO_LARGE", failure.code());
+        assertEquals(-1, write.responseCode(), "nothing must have been written downstream");
+        assertEquals(1, responseSlots.availablePermits(), "the slot must come back after an oversized response");
+    }
+
+    /** A read keeps its own code: retrying it is safe, which is exactly what must not be said of a write. */
+    @Test
+    void aReadTheUpstreamNeverAnswersKeepsTheReadsCodeAndGivesItsSlotBack() throws Exception {
+        Semaphore responseSlots = new Semaphore(2, true);
+        MorpheusRemoteProxyTransport transport = transport(responseSlots);
+
+        Object outcome = callers.submit(() -> forward(transport, new StubExchange("GET", "/api/v1/projects"),
+                        new MorpheusRemoteProxyTransport.UpstreamDeadline(Duration.ofMillis(300), true)))
+                .get(10, TimeUnit.SECONDS);
+
+        assertTrue(outcome instanceof MorpheusRemoteProxyTransport.TransportException,
+                () -> "the read must end with an explicit refusal, got: " + outcome);
+        MorpheusRemoteProxyTransport.TransportException failure =
+                (MorpheusRemoteProxyTransport.TransportException) outcome;
+        assertEquals(504, failure.status());
+        assertEquals("UPSTREAM_TIMEOUT", failure.code());
+        assertEquals(2, responseSlots.availablePermits(), "the read's slot must be given back");
+    }
+
+    /**
+     * The privileged ceiling recovers once its stuck writes reach their deadline.
+     *
+     * <p>The remote server takes a privileged permit before it forwards a mutation and gives it back in the
+     * {@code finally} of {@code serve}, whatever {@code forward} ends with. This drives as many writes the upstream
+     * never answers as the ceiling admits through that same take, forward, give back sequence: while they wait the
+     * ceiling refuses the next one, and once they end it admits it.</p>
+     */
+    @Test
+    void asManyStuckWritesAsThePrivilegedCeilingEndAndTheCeilingAdmitsTheNext() throws Exception {
+        int ceiling = MorpheusRemoteHttpServer.privilegedConcurrencyLimit(8);
+        Semaphore privileged = new Semaphore(ceiling, true);
+        MorpheusRemoteProxyTransport transport = transport(new Semaphore(2, true));
+        MorpheusRemoteProxyTransport.UpstreamDeadline deadline =
+                new MorpheusRemoteProxyTransport.UpstreamDeadline(Duration.ofSeconds(2), false);
+
+        List<Future<Object>> writes = new ArrayList<>();
+        for (int write = 0; write < ceiling; write++) {
+            assertTrue(privileged.tryAcquire(), "the ceiling admits up to its limit");
+            writes.add(callers.submit(() -> {
+                try {
+                    return forward(transport, new StubExchange("POST", "/api/v1/projects"), deadline);
+                } finally {
+                    privileged.release();
+                }
+            }));
+        }
+        assertFalse(privileged.tryAcquire(), "the ceiling is saturated while the writes wait");
+
+        for (Future<Object> write : writes) {
+            Object outcome = write.get(10, TimeUnit.SECONDS);
+            assertTrue(outcome instanceof MorpheusRemoteProxyTransport.TransportException,
+                    () -> "every stuck write must end with an explicit refusal, got: " + outcome);
+            assertEquals("UPSTREAM_WRITE_TIMEOUT",
+                    ((MorpheusRemoteProxyTransport.TransportException) outcome).code());
+        }
+        assertEquals(ceiling, privileged.availablePermits(), "every privileged permit must be back");
+        assertTrue(privileged.tryAcquire(), "the ceiling must admit the next write");
+    }
+
+    private MorpheusRemoteProxyTransport transport(Semaphore responseSlots) {
+        return transport(responseSlots, runtime());
+    }
+
+    private static MorpheusRemoteRuntimeState runtime() {
+        return new MorpheusRemoteRuntimeState(4, 1, Duration.ofSeconds(1), 4096, 4096, 2, Instant.EPOCH);
+    }
+
+    private MorpheusRemoteProxyTransport transport(Semaphore responseSlots, MorpheusRemoteRuntimeState runtime) {
+        return new MorpheusRemoteProxyTransport(
+                MorpheusInternalCapability.generate(),
+                runtime,
+                4096,
+                responseSlots,
+                HttpClient.newHttpClient(),
+                new TimedBoundedResponseWriter());
+    }
+
+    /** Returns the failure the call produced, or null when it completed. */
+    private Object forward(MorpheusRemoteProxyTransport transport, String method, String path) {
+        return forward(transport, new StubExchange(method, path));
+    }
+
+    private Object forward(MorpheusRemoteProxyTransport transport, StubExchange exchange) {
+        return forward(transport, exchange, MorpheusRemoteRoutePolicy
+                .authorize(exchange.getRequestMethod(), exchange.path).upstreamDeadline());
+    }
+
+    private Object forward(
+            MorpheusRemoteProxyTransport transport,
+            StubExchange exchange,
+            MorpheusRemoteProxyTransport.UpstreamDeadline deadline) {
+        try {
+            transport.forward(
+                    exchange,
+                    URI.create("http://127.0.0.1:" + upstream.getAddress().getPort() + exchange.path),
+                    new byte[0],
+                    deadline);
+            return null;
+        } catch (IOException | RuntimeException failure) {
+            return failure;
+        }
+    }
+
+    private static void respond(HttpExchange exchange, String body) throws IOException {
+        respond(exchange, 200, body);
+    }
+
+    private static void respond(HttpExchange exchange, int status, String body) throws IOException {
+        byte[] payload = body.getBytes(StandardCharsets.UTF_8);
+        exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
+        exchange.sendResponseHeaders(status, payload.length);
+        try (OutputStream out = exchange.getResponseBody()) {
+            out.write(payload);
+        }
+    }
+
+    private static final class StubExchange extends HttpExchange {
+        private final String method;
+        private final String path;
+        private final Headers requestHeaders = new Headers();
+        private final Headers responseHeaders = new Headers();
+        private final ByteArrayOutputStream responseBody = new ByteArrayOutputStream();
+        private final AtomicReference<Integer> code = new AtomicReference<>(-1);
+
+        private StubExchange(String method, String path) {
+            this.method = method;
+            this.path = path;
+        }
+
+        String body() {
+            return responseBody.toString(StandardCharsets.UTF_8);
+        }
+
+        int responseCode() {
+            return code.get();
+        }
+
+        @Override
+        public Headers getRequestHeaders() {
+            return requestHeaders;
+        }
+
+        @Override
+        public Headers getResponseHeaders() {
+            return responseHeaders;
+        }
+
+        @Override
+        public URI getRequestURI() {
+            return URI.create(path);
+        }
+
+        @Override
+        public String getRequestMethod() {
+            return method;
+        }
+
+        @Override
+        public HttpContext getHttpContext() {
+            return null;
+        }
+
+        @Override
+        public void close() {
+            // The exchange the transport writes into is inspected by the test, not recycled.
+        }
+
+        @Override
+        public InputStream getRequestBody() {
+            return InputStream.nullInputStream();
+        }
+
+        @Override
+        public OutputStream getResponseBody() {
+            return responseBody;
+        }
+
+        @Override
+        public void sendResponseHeaders(int rCode, long responseLength) {
+            code.set(rCode);
+        }
+
+        @Override
+        public InetSocketAddress getRemoteAddress() {
+            return new InetSocketAddress("127.0.0.1", 12345);
+        }
+
+        @Override
+        public int getResponseCode() {
+            return code.get();
+        }
+
+        @Override
+        public InetSocketAddress getLocalAddress() {
+            return new InetSocketAddress("127.0.0.1", 8443);
+        }
+
+        @Override
+        public String getProtocol() {
+            return "HTTP/1.1";
+        }
+
+        @Override
+        public Object getAttribute(String name) {
+            return null;
+        }
+
+        @Override
+        public void setAttribute(String name, Object value) {
+            // Filter attributes: nothing in the proxy path reads them back.
+        }
+
+        @Override
+        public void setStreams(InputStream input, OutputStream output) {
+            // Only the container swaps an exchange's streams, and no container runs here.
+        }
+
+        @Override
+        public HttpPrincipal getPrincipal() {
+            return null;
+        }
+    }
+}

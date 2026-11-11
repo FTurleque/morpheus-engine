@@ -76,7 +76,7 @@ mindmap
 | Réponse attendue | Refus avant lecture du contenu |
 | Mesure | Accès hors racine |
 | Seuil | 0 |
-| Vérification | `AllowedWorkspaceRootsTest`, `SafeWorkspaceFileResolverTest` et régressions providers |
+| Vérification | `AllowedWorkspaceRootsTest`, `SafeWorkspaceFileResolverTest`, `ScanWorkspaceBoundaryTest` et régressions providers |
 
 ### Q-SE-02 — Entrées externes bornées
 
@@ -130,7 +130,7 @@ mindmap
 | Seuil | 0 |
 | Vérification | `.github/workflows/ci.yml` et metadata du run |
 
-Le workflow actuel appelle le gate **M21** avec la version **1.2.1**. Ce nom est
+Le workflow actuel appelle le gate **M21** avec la version **1.2.2**. Ce nom est
 intentionnel et ne doit pas être remplacé automatiquement par le dernier numéro
 de milestone fonctionnel.
 
@@ -204,7 +204,7 @@ mesure sont [`../../project/roadmap/M19_PERFORMANCE_BUDGETS.md`](../../project/r
 (document daté M19-S1, `FROZEN BEFORE OPTIMIZATION` — c'est une preuve
 historique, pas un état courant). La décision qui institue ces budgets
 pré-déclarés sur fixtures larges déterministes est
-[ADR-0085](../adr/0085-predeclared-performance-budgets-and-deterministic-large-fixtures.md).
+[ADR-0085](../adr/GEN-0085-predeclared-performance-budgets-and-deterministic-large-fixtures.md).
 
 **Cette page ne reproduit aucun seuil.** Un budget se lit dans la constante du
 gate qui l'applique — une valeur recopiée ici deviendrait périmée sans que rien

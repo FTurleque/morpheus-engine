@@ -48,7 +48,7 @@ class SkippedTestReasonGateTest {
 
     @Test
     void everyTestThisReactorSkippedWasDisabledByAnOperatingSystemCondition() throws Exception {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         List<String> unexplained = unexplainedSkips(root, testedPopulation(root));
 
         assertTrue(unexplained.isEmpty(), () -> "these tests were skipped for another reason than an operating-system "
@@ -253,18 +253,5 @@ class SkippedTestReasonGateTest {
         var builder = factory.newDocumentBuilder();
         builder.setEntityResolver((publicId, systemId) -> new InputSource(new StringReader("")));
         return builder.parse(file.toFile());
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("pom.xml"))
-                    && Files.isDirectory(current.resolve("morpheus-application"))
-                    && Files.isDirectory(current.resolve("distribution"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found");
     }
 }

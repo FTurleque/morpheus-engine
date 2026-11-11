@@ -26,19 +26,22 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Three boundaries hold for every HTTP router, so they are stated once over the family instead of once per router.
+ * Five boundaries hold for every HTTP router, so they are stated once over the family instead of once per router.
  *
- * <p>ADR-0103 left the generalisation of its pilot undecided; its amendment of 11/09/2026 decides it by capability,
+ * <p>{@code .claude/rules/architecture.md} generalises the textual pilot by capability group, never over the whole
+ * family,
  * and this is the first group. Most of what a router may touch depends on whether it reads a request body -- nine
  * of the seventeen legitimately carry {@code HttpExchange} and a decoder -- so it is not a family property and is
- * not stated here. These three are: no {@code *HttpRoutes} class reaches the remote authorization model, writes a
- * response itself, or parses a path itself.</p>
+ * not stated here. These five are: no {@code *HttpRoutes} class reaches the remote authorization model, reaches the
+ * local server that holds it, writes a response itself, parses a path itself, or admits a request's media type
+ * itself.</p>
  *
- * <p>The gain is reach, not volume. Thirteen routers carried these bans as per-class text. Four -- policy,
- * policy-management, query and reasoning -- carried none, and a router added tomorrow would carry none until
- * someone wrote its test. Nothing is removed: the per-class assertions stay where they are.</p>
+ * <p>The gain is reach: a rule over the package sees every router, the one added tomorrow included, where a per-router suite sees
+ * only the router it names. The per-router suites keep what is true of their router alone - the wiring it receives
+ * and the calls it makes - and the bans of a type that hold over a whole group or the whole family are stated here and
+ * in {@code HttpRoutesTransportBoundaryArchitectureTest}, once.</p>
  *
- * <p>Each guard was broken before it was accepted (executions E0-E5 of the amendment). The two halves that do not
+ * <p>Each guard was broken before it was accepted (executions E0-E5 of 11/09/2026). The two halves that do not
  * need a classpath -- the source scan and the router bijection -- replay their refusal on every build over synthetic
  * inputs. The three ArchUnit rules would need a synthetic classpath to do the same; each records instead the
  * execution that broke it.</p>
@@ -46,17 +49,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class HttpRoutesFamilyArchitectureTest {
 
     private static final String ROUTER_SUFFIX = "HttpRoutes";
+    private static final String ROUTES_PACKAGE = "com.morpheus.api.routes";
+    private static final String REMOTE_PACKAGE = "com.morpheus.api.remote";
+    private static final String LOCAL_PACKAGE = "com.morpheus.api.local";
 
     private final JavaClasses classes = new ClassFileImporter().importPackages("com.morpheus");
 
     /**
-     * The rule sees every dependency on the ten {@code MorpheusRemote*} types; the text sees the ones javac inlines.
+     * The rule sees every dependency on the remote server and its identity model, the whole of
+     * {@code com.morpheus.api.remote}, whatever a class of it is called; the text sees the ones javac inlines.
      *
      * <p>Unlike the pilot's two banned types, this family declares compile-time constants that are not private:
      * {@code MorpheusRemoteHttpServer.MAX_CONCURRENT_REQUESTS} and {@code DEFAULT_MAX_CONCURRENT_REQUESTS} are
-     * public, three more of its limits are package-private, and {@code MorpheusRemoteIdentityFile} exposes four
-     * public ones. A router writing any of them carries the value and no reference to the class, so the rule alone
-     * would pass. ADR-0103 makes coexistence mandatory in exactly that case.</p>
+     * public, and {@code MorpheusRemoteIdentityFile} exposes four public ones; a router reading one imports the
+     * package, which the second text scan refuses. A router writing any of them carries the value and no reference to the class, so the rule alone
+     * would pass. {@code .claude/rules/architecture.md} keeps both holds in exactly that case.</p>
      *
      * <p>Broken before acceptance, 11/09/2026. E1, {@code MorpheusRemoteProxyTransport.class} written into
      * {@code MorpheusPolicyHttpRoutes}: this rule failed, and the three other suites naming that router passed. E2,
@@ -67,13 +74,14 @@ class HttpRoutesFamilyArchitectureTest {
     @Test
     void noRouterReachesTheRemoteAuthorizationModel() throws IOException {
         noClasses()
-                .that().haveSimpleNameEndingWith(ROUTER_SUFFIX)
-                .should().dependOnClassesThat().haveSimpleNameStartingWith("MorpheusRemote")
+                .that().resideInAPackage(ROUTES_PACKAGE + "..")
+                .should().dependOnClassesThat().resideInAPackage(REMOTE_PACKAGE + "..")
                 .because("routers serve the loopback server; the remote surface carries its own TLS, RBAC and "
                         + "audit obligations and must not be reachable from any route")
                 .check(classes);
 
         assertNoRouterSourceMentions("MorpheusRemote");
+        assertNoRouterSourceMentions(REMOTE_PACKAGE);
     }
 
     /**
@@ -88,10 +96,8 @@ class HttpRoutesFamilyArchitectureTest {
      * rule named the right intention and enforced its opposite.</p>
      *
      * <p>Banning the mechanics states what the method was always called: a router does not write a response itself.
-     * Delegating to the server's writer is not writing it. The thirteen keep a stricter guard than this one -- each
-     * carries {@code assertFalse(routes.contains("MorpheusHttpResponseWriter"))} in its own suite, and
-     * {@code HttpRoutesTransportBoundaryArchitectureTest} bans the writer over both groups the server holds -- so
-     * nothing that was true before is no longer checked.</p>
+     * Delegating to the server's writer is not writing it. The thirteen the server holds keep a stricter guard than
+     * this one: {@code HttpRoutesTransportBoundaryArchitectureTest} bans the writer over both of their groups.</p>
      *
      * <p>Rule and text both. A call is not a compile-time constant, so javac inlines nothing and the rule is the
      * load-bearing half; the text scan reaches the modules the ArchUnit classpath excludes, and its refusal is
@@ -107,7 +113,7 @@ class HttpRoutesFamilyArchitectureTest {
     @Test
     void noRouterWritesTheResponseItself() throws IOException {
         noClasses()
-                .that().haveSimpleNameEndingWith(ROUTER_SUFFIX)
+                .that().resideInAPackage(ROUTES_PACKAGE + "..")
                 .should().callMethodWhere(target(name("sendResponseHeaders")))
                 .because("a router decides a route and hands the outcome on; setting the response headers and "
                         + "pushing the bytes belongs to MorpheusHttpResponseWriter, which owns them for the whole "
@@ -115,6 +121,31 @@ class HttpRoutesFamilyArchitectureTest {
                 .check(classes);
 
         assertNoRouterSourceMentions("sendResponseHeaders");
+    }
+
+    /**
+     * No router depends on the local server or its protections: the server holds the routers, so a router reaching
+     * back to it closes a cycle and lets the server's state leak into a route.
+     *
+     * <p>Rule and text both. {@code MorpheusHttpServer} declares public compile-time constants ({@code DEFAULT_HOST},
+     * {@code DEFAULT_PORT}, {@code MAX_REQUEST_BODY_BYTES}): a router reading one carries the value and no reference to
+     * the class, so the rule alone would pass, and reading it from the routers' packages spells the local package,
+     * which the text scan refuses.</p>
+     *
+     * <p>Broken before acceptance, 30/10/2026. A {@code MorpheusHttpServer} field in {@code MorpheusChangesHttpRoutes}
+     * failed the rule. {@code MorpheusHttpServer.DEFAULT_PORT} read in {@code MorpheusVersionsHttpRoutes} passed the
+     * rule, javac having written the value, and failed the text scan alone.</p>
+     */
+    @Test
+    void noRouterReachesTheLocalServer() throws IOException {
+        noClasses()
+                .that().resideInAPackage(ROUTES_PACKAGE + "..")
+                .should().dependOnClassesThat().resideInAPackage(LOCAL_PACKAGE + "..")
+                .because("the local server holds the routers; a router that reaches back to it, or to one of its "
+                        + "protections, makes the route depend on the server that dispatches it")
+                .check(classes);
+
+        assertNoRouterSourceMentions(LOCAL_PACKAGE);
     }
 
     /**
@@ -126,7 +157,7 @@ class HttpRoutesFamilyArchitectureTest {
     @Test
     void noRouterParsesThePathItself() {
         noClasses()
-                .that().haveSimpleNameEndingWith(ROUTER_SUFFIX)
+                .that().resideInAPackage(ROUTES_PACKAGE + "..")
                 .should().dependOnClassesThat().haveSimpleName("MorpheusHttpPathParser")
                 .because("a router does not parse a path itself: it receives the segments the server parsed, or, "
                         + "when it registers its own context, asks MorpheusHttpRequestDecoder for them; a parser of "
@@ -135,22 +166,45 @@ class HttpRoutesFamilyArchitectureTest {
     }
 
     /**
+     * No router admits a request's media type itself: {@code JsonMediaType} is read by
+     * {@code MorpheusHttpRequestDecoder}, and a router that consults it decides Content-Type admission a second time.
+     *
+     * <p>{@code JsonMediaType} declares no compile-time constant that is not private, so the rule has no blind spot
+     * and sees the dependency however it is spelt. The textual ban of {@code D2RepositoryHardeningArchitectureTest},
+     * which also refuses a router reading the request headers, stays beside it.</p>
+     *
+     * <p>Broken before acceptance, 06/11/2026: {@code JsonMediaType} made public and {@code JsonMediaType.isJson(null)}
+     * called from {@code MorpheusChangesHttpRoutes}; this method failed and named that router.</p>
+     */
+    @Test
+    void noRouterAdmitsTheMediaTypeOfARequestItself() {
+        noClasses()
+                .that().resideInAPackage(ROUTES_PACKAGE + "..")
+                .should().dependOnClassesThat().haveFullyQualifiedName("com.morpheus.api.transport.JsonMediaType")
+                .because("Content-Type admission belongs to MorpheusHttpRequestDecoder; a router that reads the "
+                        + "media type itself lets two admissions of one request disagree")
+                .check(classes);
+    }
+
+    /**
      * A family rule is only as wide as the family it can see.
      *
      * <p>{@code failOnEmptyShould} catches a rule that retains no class at all; it does not catch one that retains
      * sixteen routers out of seventeen. The rules above see the ArchUnit classpath, which excludes
-     * {@code morpheus-provider-testkit}; the text scan sees every module's sources. Holding the two to the same set
-     * means a router declared where the rules cannot follow is refused by name instead of silently escaping them.</p>
+     * {@code morpheus-provider-testkit}, and they select the routers by their package, {@code com.morpheus.api.routes};
+     * the text scan sees every module's sources. Holding the two to the same set means a router declared where the
+     * rules cannot follow, or outside the routers' package, is refused by name instead of silently escaping them.</p>
      */
     @Test
     void theRulesSeeEveryRouterTheSourcesDeclare() throws IOException {
         TreeSet<String> imported = new TreeSet<>();
         for (JavaClass javaClass : classes) {
-            if (javaClass.getSimpleName().endsWith(ROUTER_SUFFIX)) {
+            if (javaClass.getSimpleName().endsWith(ROUTER_SUFFIX)
+                    && javaClass.getPackageName().startsWith(ROUTES_PACKAGE + ".")) {
                 imported.add(javaClass.getSimpleName());
             }
         }
-        assertSameRouters(routerSources(repositoryRoot()).keySet(), imported);
+        assertSameRouters(routerSources(RepositoryRoot.locate()).keySet(), imported);
     }
 
     /**
@@ -212,12 +266,13 @@ class HttpRoutesFamilyArchitectureTest {
         sourceless.removeAll(declared);
         assertTrue(escaping.isEmpty() && sourceless.isEmpty(),
                 () -> "the family rules must see exactly the routers the sources declare; declared outside the "
-                        + "architecture-test classpath, so escaping every rule here: " + escaping
+                        + "architecture-test classpath or outside com.morpheus.api.routes, so escaping every rule "
+                        + "here: " + escaping
                         + "; imported without a source the text scan can read: " + sourceless);
     }
 
     private void assertNoRouterSourceMentions(String literal) throws IOException {
-        assertNoRouterSourceMentions(routerSources(repositoryRoot()), literal);
+        assertNoRouterSourceMentions(routerSources(RepositoryRoot.locate()), literal);
     }
 
     private static void assertNoRouterSourceMentions(Map<String, Path> routers, String literal) throws IOException {
@@ -248,17 +303,5 @@ class HttpRoutesFamilyArchitectureTest {
             }
         }
         return routers;
-    }
-
-    private Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
     }
 }

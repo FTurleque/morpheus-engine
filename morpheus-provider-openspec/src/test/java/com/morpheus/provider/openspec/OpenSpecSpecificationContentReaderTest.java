@@ -29,6 +29,8 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OpenSpecSpecificationContentReaderTest {
@@ -36,7 +38,7 @@ class OpenSpecSpecificationContentReaderTest {
     @Test
     void basicFixtureReportsAllImplementedM2CategoriesAsRead() {
         var result = new OpenSpecSpecificationContentReader().read(
-                request(fixture("openspec-basic"), EnumSet.of(
+                request(RepositoryRoot.fixture("openspec-basic"), EnumSet.of(
                         ReadCategory.CURRENT_SPECIFICATIONS,
                         ReadCategory.REQUIREMENTS,
                         ReadCategory.SCENARIOS,
@@ -76,7 +78,7 @@ class OpenSpecSpecificationContentReaderTest {
     @Test
     void aWorkspaceProducedByTheOpenSpecCliIsRead() {
         var result = new OpenSpecSpecificationContentReader().read(
-                request(fixture("openspec-upstream-cli"), EnumSet.of(
+                request(RepositoryRoot.fixture("openspec-upstream-cli"), EnumSet.of(
                         ReadCategory.CURRENT_SPECIFICATIONS,
                         ReadCategory.REQUIREMENTS,
                         ReadCategory.SCENARIOS,
@@ -335,7 +337,7 @@ class OpenSpecSpecificationContentReaderTest {
      */
     @Test
     void publishesTheWorkspaceItReceivedAsProjectRoot() {
-        Path workspace = fixture("openspec-basic");
+        Path workspace = RepositoryRoot.fixture("openspec-basic");
 
         var content = new OpenSpecSpecificationContentReader().read(
                 ProviderReadRequest.all(workspace.resolve("openspec").resolve(".."), ProjectSpecificationId.generate()),
@@ -349,7 +351,7 @@ class OpenSpecSpecificationContentReaderTest {
     @Test
     void partialFixtureKeepsReadableRequirementsAndMarksScenariosPartial() {
         var result = new OpenSpecSpecificationContentReader().read(
-                request(fixture("openspec-partial"), EnumSet.of(
+                request(RepositoryRoot.fixture("openspec-partial"), EnumSet.of(
                         ReadCategory.CURRENT_SPECIFICATIONS,
                         ReadCategory.REQUIREMENTS,
                         ReadCategory.SCENARIOS,
@@ -372,7 +374,7 @@ class OpenSpecSpecificationContentReaderTest {
     @Test
     void unsupportedSemanticCategoriesAreExplicitAndScenarioIsNeverAcceptanceCriterion() {
         var result = new OpenSpecSpecificationContentReader().read(
-                request(fixture("openspec-basic"), EnumSet.of(
+                request(RepositoryRoot.fixture("openspec-basic"), EnumSet.of(
                         ReadCategory.SCENARIOS,
                         ReadCategory.ACCEPTANCE_CRITERIA,
                         ReadCategory.EXTERNAL_REFERENCES,
@@ -469,6 +471,24 @@ class OpenSpecSpecificationContentReaderTest {
         assertEquals("UncheckedIOException", failure.details().get("exception"));
         assertNamesNoServerLocation(failure);
         assertEquals(ReadCategoryStatus.FAILED, status(result, ReadCategory.CURRENT_SPECIFICATIONS));
+    }
+
+    @Test
+    void aFailureThatIsNotTheFilesLeavesTheReadUnchangedAndFailsNoCategory() {
+        RuntimeException defect = new ArithmeticException("integer overflow");
+        RuntimeException collaborator = new RuntimeException("identity store unavailable");
+        for (RuntimeException failure : List.of(defect, collaborator)) {
+            EntityIdentityResolver failing = (providerId, entityType, externalId) -> {
+                throw failure;
+            };
+            for (Set<ReadCategory> categories : List.of(
+                    EnumSet.of(ReadCategory.CURRENT_SPECIFICATIONS),
+                    EnumSet.of(ReadCategory.CHANGES),
+                    EnumSet.of(ReadCategory.REQUIREMENT_DELTAS))) {
+                assertSame(failure, assertThrows(RuntimeException.class, () -> new OpenSpecSpecificationContentReader()
+                        .read(request(RepositoryRoot.fixture("openspec-basic"), categories), failing)), categories.toString());
+            }
+        }
     }
 
     @Test
@@ -813,21 +833,6 @@ class OpenSpecSpecificationContentReaderTest {
 
     private int count(com.morpheus.application.read.ProviderReadResult result, ReadCategory category) {
         return result.report(category).orElseThrow().itemCount();
-    }
-
-    private Path fixture(String name) {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        Path fromRoot = current.resolve("experiments/m0/fixtures").resolve(name);
-        if (Files.isDirectory(fromRoot)) {
-            return fromRoot;
-        }
-
-        Path fromModule = current.resolve("../experiments/m0/fixtures").normalize().resolve(name);
-        if (Files.isDirectory(fromModule)) {
-            return fromModule;
-        }
-
-        throw new IllegalStateException("M0 fixture not found: " + name + " from " + current);
     }
 
     private static final class StableTestIdentityResolver implements EntityIdentityResolver {

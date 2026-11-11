@@ -3,6 +3,8 @@
 ## Purpose
 Define the order in which a policy store returns the audit of policy pack writes.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/policy-audit-order.md](../../../docs/developer/specifications/policy-audit-order.md).
+
 ## Requirements
 
 ### Requirement: The policy audit is returned by instant, then by identity

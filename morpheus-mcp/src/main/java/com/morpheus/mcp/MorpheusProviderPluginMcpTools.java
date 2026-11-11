@@ -18,7 +18,7 @@ import java.util.Optional;
  * Executable plugin probing is deliberately not model-facing. The default server constructor keeps this surface
  * disabled, so an MCP caller can never choose an arbitrary local directory.
  */
-final class MorpheusProviderPluginMcpTools {
+public final class MorpheusProviderPluginMcpTools {
     static final String DISCOVER_TOOL = "discover_provider_plugins";
     static final String RETIRED_PROBE_TOOL = "probe_provider_plugin";
     static final String REMOTE_DISCOVERY_FAILURE = "PROVIDER_PLUGIN_DISCOVERY_FAILED";
@@ -27,16 +27,16 @@ final class MorpheusProviderPluginMcpTools {
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
     private final Optional<Path> pluginDirectory;
 
-    MorpheusProviderPluginMcpTools() {
+    public MorpheusProviderPluginMcpTools() {
         this.pluginDirectory = Optional.empty();
     }
 
-    MorpheusProviderPluginMcpTools(Path pluginDirectory) {
+    public MorpheusProviderPluginMcpTools(Path pluginDirectory) {
         this.pluginDirectory = Optional.of(
                 Objects.requireNonNull(pluginDirectory, "pluginDirectory").toAbsolutePath().normalize());
     }
 
-    List<McpServerFeatures.SyncToolSpecification> specifications() {
+    public List<McpServerFeatures.SyncToolSpecification> specifications() {
         if (pluginDirectory.isEmpty()) {
             return List.of();
         }

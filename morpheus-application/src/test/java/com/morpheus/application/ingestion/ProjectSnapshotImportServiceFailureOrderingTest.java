@@ -1,5 +1,6 @@
 package com.morpheus.application.ingestion;
 
+import com.morpheus.application.read.NormalizedProjectContent;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.ProjectStoreEntry;
 import com.morpheus.application.store.RequirementVersionRecord;

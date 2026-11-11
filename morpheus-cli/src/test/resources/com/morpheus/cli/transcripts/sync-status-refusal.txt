@@ -1,0 +1,6 @@
+args: sync-status --project 01900000-0000-7000-8000-000000000001 --max-age-minutes 0
+exit: 2
+stdout:
+
+stderr:
+MORPHEUS error [2]: --max-age-minutes must be between 1 and 525600

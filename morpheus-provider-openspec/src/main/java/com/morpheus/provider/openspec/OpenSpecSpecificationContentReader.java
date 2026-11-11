@@ -1,7 +1,7 @@
 package com.morpheus.provider.openspec;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
-import com.morpheus.application.ingestion.NormalizedProjectContent;
+import com.morpheus.application.read.NormalizedProjectContent;
 import com.morpheus.application.read.ProviderIngestionBudget;
 import com.morpheus.application.read.ProviderIngestionLimitException;
 import com.morpheus.application.read.ProviderProjectRoot;
@@ -11,6 +11,7 @@ import com.morpheus.application.read.ReadCategory;
 import com.morpheus.application.read.ReadCategoryReport;
 import com.morpheus.application.read.ReadCategoryStatus;
 import com.morpheus.application.read.SpecificationContentReader;
+import com.morpheus.application.security.ServerLocationDisclosure;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.constraint.Constraint;
@@ -76,9 +77,18 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
     public ProviderReadResult read(ProviderReadRequest request, EntityIdentityResolver identityResolver) {
         Objects.requireNonNull(request, "request");
         Objects.requireNonNull(identityResolver, "identityResolver");
+        return read(request, identityResolver, OpenSpecIngestionBudgets.open(request.workspaceRoot()));
+    }
+
+    ProviderReadResult read(
+            ProviderReadRequest request,
+            EntityIdentityResolver identityResolver,
+            ProviderIngestionBudget.Session budget) {
+        Objects.requireNonNull(request, "request");
+        Objects.requireNonNull(identityResolver, "identityResolver");
+        Objects.requireNonNull(budget, "budget");
 
         Path root = request.workspaceRoot();
-        ProviderIngestionBudget.Session budget = OpenSpecIngestionBudgets.open(root);
         ProviderProbeResult probe = provider.probe(root, budget);
         List<Diagnostic> diagnostics = new ArrayList<>(probe.diagnostics());
 
@@ -151,7 +161,7 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
         if (needCurrent && probe.capabilities().contains(ProviderCapability.READ_CURRENT_SPECIFICATIONS)) {
             try {
                 NormalizedProjectContent current = currentReader.read(
-                        request.workspaceRoot(), request.projectId(), identityResolver, budget);
+                        request.workspaceRoot(), request.projectId(), identityResolver, budget, probe);
                 state.specifications.addAll(current.specifications());
                 state.requirements.addAll(current.requirements());
                 state.scenarios.addAll(current.scenarios());
@@ -163,15 +173,20 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
             } catch (ProviderIngestionLimitException exception) {
                 throw exception;
             } catch (RuntimeException exception) {
+                requireAttributedToASource(exception);
                 state.currentFailed = true;
                 addDistinct(diagnostics, List.of(invalidSource("current", exception)));
             }
         }
 
-        if (needChanges && probe.capabilities().contains(ProviderCapability.READ_CHANGES)) {
+        boolean changesReadable = needChanges && probe.capabilities().contains(ProviderCapability.READ_CHANGES);
+        List<Path> changeRoots = changesReadable
+                ? OpenSpecWorkspaceListing.changeRoots(request.workspaceRoot(), budget)
+                : List.of();
+        if (changesReadable) {
             try {
                 OpenSpecChangeMetadataReader.ContainedRead read = changeReader.readContained(
-                        request.workspaceRoot(), request.projectId(), identityResolver, budget);
+                        request.workspaceRoot(), request.projectId(), identityResolver, budget, probe, changeRoots);
                 NormalizedProjectContent changes = read.content();
                 state.changes.addAll(changes.changes());
                 state.constraints.addAll(changes.constraints());
@@ -187,6 +202,7 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
             } catch (ProviderIngestionLimitException exception) {
                 throw exception;
             } catch (RuntimeException exception) {
+                requireAttributedToASource(exception);
                 state.changeFailed = true;
                 addDistinct(diagnostics, List.of(invalidSource("changes", exception)));
             }
@@ -197,7 +213,7 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
                 && probe.capabilities().contains(ProviderCapability.READ_CHANGES)) {
             try {
                 OpenSpecRequirementDeltaReader.ReadResult deltas = deltaReader.read(
-                        request.workspaceRoot(), identityResolver, budget);
+                        request.workspaceRoot(), identityResolver, budget, probe, changeRoots);
                 // A delta of a rejected change would reference a change that is not published.
                 Set<ChangeId> readChanges = new HashSet<>();
                 state.changes.forEach(change -> readChanges.add(change.id()));
@@ -220,12 +236,23 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
             } catch (ProviderIngestionLimitException exception) {
                 throw exception;
             } catch (RuntimeException exception) {
+                requireAttributedToASource(exception);
                 state.deltaFailed = true;
                 addDistinct(diagnostics, List.of(invalidSource("requirement-deltas", exception)));
             }
         }
 
         return state;
+    }
+
+    /**
+     * A failure of a file fails its group; any other failure is a defect or a failure of a collaborator such as the
+     * identity store, which no category status describes, and leaves the read.
+     */
+    private static void requireAttributedToASource(RuntimeException exception) {
+        if (!(exception instanceof OpenSpecSourceAttribution.AttributedFailure)) {
+            throw exception;
+        }
     }
 
     private ReadCategoryReport report(ReadCategory category, ProviderProbeResult probe, ReadState state) {
@@ -415,7 +442,7 @@ public final class OpenSpecSpecificationContentReader implements SpecificationCo
                 DiagnosticCode.INVALID_SOURCE,
                 DiagnosticSeverity.ERROR,
                 "OpenSpec content reader failed for group " + group + ": "
-                        + OpenSpecSourceAttribution.relayable(exception),
+                        + ServerLocationDisclosure.relayableText(exception),
                 Map.of(
                         "provider", providerId().value(),
                         "group", group,

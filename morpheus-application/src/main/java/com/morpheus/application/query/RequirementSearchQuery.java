@@ -1,15 +1,16 @@
 package com.morpheus.application.query;
 
+import com.morpheus.application.store.RequirementPageCriteria;
+
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 
 /** Deterministic lexical query over requirement key, title and statement. */
 public record RequirementSearchQuery(String text) {
     public RequirementSearchQuery {
         Objects.requireNonNull(text, "text");
-        text = normalize(text);
+        text = RequirementPageCriteria.normalize(text);
     }
 
     public static RequirementSearchQuery all() {
@@ -23,9 +24,5 @@ public record RequirementSearchQuery(String text) {
         return Arrays.stream(text.split("\\p{javaWhitespace}+"))
                 .filter(term -> !term.isEmpty())
                 .toList();
-    }
-
-    static String normalize(String value) {
-        return value.strip().toLowerCase(Locale.ROOT);
     }
 }

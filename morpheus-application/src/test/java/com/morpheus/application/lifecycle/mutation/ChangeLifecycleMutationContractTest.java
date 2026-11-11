@@ -32,12 +32,13 @@ class ChangeLifecycleMutationContractTest {
         assertEquals(0, state.revision().value());
         assertTrue(state.updatedAt().isEmpty());
         assertTrue(state.lastMutationId().isEmpty());
-        assertThrows(IllegalArgumentException.class, () -> new ChangeLifecycleOperationalState(
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> new ChangeLifecycleOperationalState(
                 projectId,
                 ChangeLifecycle.of(changeId, ChangeLifecycleState.DRAFT),
                 ChangeLifecycleRevision.initial(),
                 Optional.of(T0),
                 Optional.of(ChangeLifecycleMutationId.generate())));
+        assertEquals("revision 0 is a virtual initial state and cannot have mutation metadata", failure.getMessage());
     }
 
     @Test
@@ -78,23 +79,25 @@ class ChangeLifecycleMutationContractTest {
         assertEquals(1, view.lifecycleState().orElseThrow().revision());
         assertEquals("fixture", view.audit().orElseThrow().providerId());
 
-        assertThrows(IllegalArgumentException.class, () -> new ChangeLifecycleMutationResult(
+        IllegalArgumentException appliedWithoutEvidence = assertThrows(IllegalArgumentException.class, () -> new ChangeLifecycleMutationResult(
                 ChangeLifecycleMutationResultState.APPLIED,
                 Optional.empty(),
                 Optional.empty(),
                 "invalid"));
-        assertThrows(IllegalArgumentException.class, () -> new ChangeLifecycleMutationResult(
+        assertEquals("APPLIED requires lifecycle state and audit", appliedWithoutEvidence.getMessage());
+        IllegalArgumentException conflictWithAudit = assertThrows(IllegalArgumentException.class, () -> new ChangeLifecycleMutationResult(
                 ChangeLifecycleMutationResultState.CONFLICT,
                 Optional.of(state),
                 Optional.of(audit),
                 "invalid"));
+        assertEquals("CONFLICT must not fabricate an applied audit record", conflictWithAudit.getMessage());
     }
 
     @Test
     void auditRevisionMustAdvanceExactlyOnce() {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
         ChangeId changeId = ChangeId.generate();
-        assertThrows(IllegalArgumentException.class, () -> new ChangeLifecycleMutationAuditRecord(
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> new ChangeLifecycleMutationAuditRecord(
                 ChangeLifecycleMutationId.generate(),
                 new ChangeLifecycleIdempotencyKey("bad-audit"),
                 "fingerprint",
@@ -109,6 +112,7 @@ class ChangeLifecycleMutationContractTest {
                 new ProviderId("fixture"),
                 "invalid",
                 T0));
+        assertEquals("audit toRevision must equal fromRevision + 1", failure.getMessage());
     }
 
     @Test
@@ -119,7 +123,7 @@ class ChangeLifecycleMutationContractTest {
         ChangeLifecycleIdempotencyKey key = new ChangeLifecycleIdempotencyKey("abandoned-missing-reason");
         ProviderId providerId = new ProviderId("fixture");
 
-        assertThrows(IllegalArgumentException.class, () -> new ChangeLifecycleMutationAttempt(
+        IllegalArgumentException attemptFailure = assertThrows(IllegalArgumentException.class, () -> new ChangeLifecycleMutationAttempt(
                 mutationId,
                 key,
                 "fingerprint",
@@ -133,8 +137,9 @@ class ChangeLifecycleMutationContractTest {
                 providerId,
                 "allowed",
                 T0));
+        assertEquals("ABANDONED persistence attempt requires an abandonment reason", attemptFailure.getMessage());
 
-        assertThrows(IllegalArgumentException.class, () -> new ChangeLifecycleMutationAuditRecord(
+        IllegalArgumentException auditFailure = assertThrows(IllegalArgumentException.class, () -> new ChangeLifecycleMutationAuditRecord(
                 mutationId,
                 key,
                 "fingerprint",
@@ -149,6 +154,7 @@ class ChangeLifecycleMutationContractTest {
                 providerId,
                 "allowed",
                 T0));
+        assertEquals("ABANDONED audit record requires an abandonment reason", auditFailure.getMessage());
     }
 
     /**

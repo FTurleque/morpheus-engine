@@ -3,11 +3,10 @@ package com.morpheus.architecture;
 import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.provider.openspec.OpenSpecCurrentSpecificationReader;
-import com.morpheus.store.sqlite.SqliteEntityIdentityStore;
+import com.morpheus.store.sqlite.adapter.SqliteEntityIdentityStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -40,30 +39,15 @@ class PersistentIdentityOpenSpecIntegrationTest {
                 second.evidence().stream().map(item -> item.id()).toList());
     }
 
-    private com.morpheus.application.ingestion.NormalizedProjectContent read(
+    private com.morpheus.application.read.NormalizedProjectContent read(
             OpenSpecCurrentSpecificationReader reader,
             Path database,
             ProjectSpecificationId projectId) {
         try (var store = new SqliteEntityIdentityStore(database)) {
             return reader.read(
-                    fixture("openspec-basic"),
+                    RepositoryRoot.fixture("openspec-basic"),
                     projectId,
                     new PersistentEntityIdentityResolver(store));
         }
-    }
-
-    private Path fixture(String name) {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        Path fromRoot = current.resolve("experiments/m0/fixtures").resolve(name);
-        if (Files.isDirectory(fromRoot)) {
-            return fromRoot;
-        }
-
-        Path fromModule = current.resolve("../experiments/m0/fixtures").normalize().resolve(name);
-        if (Files.isDirectory(fromModule)) {
-            return fromModule;
-        }
-
-        throw new IllegalStateException("M0 fixture not found: " + name + " from " + current);
     }
 }

@@ -1,0 +1,6 @@
+args: does-not-exist
+exit: 2
+stdout:
+
+stderr:
+MORPHEUS error [2]: unknown command: does-not-exist

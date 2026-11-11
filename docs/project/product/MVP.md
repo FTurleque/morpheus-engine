@@ -196,7 +196,7 @@ ChangeProposal -> Requirement
 Constraint -> ChangeProposal ou Requirement
 ```
 
-La direction canonique finale dépend de la taxonomie ADR-0010 ; les requêtes doivent également pouvoir exposer les inverses utiles.
+La direction canonique finale dépend de la taxonomie ADR-0118 ; les requêtes doivent également pouvoir exposer les inverses utiles.
 
 Chaque lien retourne selon le cas :
 

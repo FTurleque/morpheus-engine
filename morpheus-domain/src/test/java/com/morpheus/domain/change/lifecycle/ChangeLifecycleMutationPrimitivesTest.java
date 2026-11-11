@@ -12,15 +12,19 @@ class ChangeLifecycleMutationPrimitivesTest {
         assertEquals(0, initial.value());
         assertEquals(1, initial.next().value());
         assertEquals(2, initial.next().next().value());
-        assertThrows(IllegalArgumentException.class, () -> new ChangeLifecycleRevision(-1));
-        assertThrows(IllegalStateException.class, () -> new ChangeLifecycleRevision(Long.MAX_VALUE).next());
+        IllegalArgumentException negativeFailure = assertThrows(IllegalArgumentException.class, () -> new ChangeLifecycleRevision(-1));
+        assertEquals("lifecycle revision must be non-negative", negativeFailure.getMessage());
+        IllegalStateException overflowFailure = assertThrows(IllegalStateException.class, () -> new ChangeLifecycleRevision(Long.MAX_VALUE).next());
+        assertEquals("lifecycle revision overflow", overflowFailure.getMessage());
     }
 
     @Test
     void idempotencyKeyIsExplicitNormalizedAndBounded() {
         assertEquals("retry-1", new ChangeLifecycleIdempotencyKey("  retry-1  ").value());
-        assertThrows(IllegalArgumentException.class, () -> new ChangeLifecycleIdempotencyKey("   "));
-        assertThrows(IllegalArgumentException.class, () -> new ChangeLifecycleIdempotencyKey("x".repeat(201)));
+        IllegalArgumentException blankFailure = assertThrows(IllegalArgumentException.class, () -> new ChangeLifecycleIdempotencyKey("   "));
+        assertEquals("idempotency key must not be blank", blankFailure.getMessage());
+        IllegalArgumentException tooLongFailure = assertThrows(IllegalArgumentException.class, () -> new ChangeLifecycleIdempotencyKey("x".repeat(201)));
+        assertEquals("idempotency key must not exceed 200 characters", tooLongFailure.getMessage());
     }
 
     @Test

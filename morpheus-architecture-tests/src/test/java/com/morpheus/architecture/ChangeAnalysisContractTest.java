@@ -57,10 +57,10 @@ import com.morpheus.domain.version.SpecificationVersionId;
 import com.morpheus.store.memory.MemorySnapshotBusinessContentStore;
 import com.morpheus.store.memory.MemorySpecificationKnowledgeStore;
 import com.morpheus.store.memory.MemoryTraceabilityStore;
-import com.morpheus.store.sqlite.SqliteSnapshotBusinessContentStore;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
-import com.morpheus.store.sqlite.SqliteTraceabilityStore;
-import com.morpheus.store.sqlite.SqliteVersionedRequirementStore;
+import com.morpheus.store.sqlite.adapter.SqliteSnapshotBusinessContentStore;
+import com.morpheus.store.sqlite.adapter.SqliteSpecificationKnowledgeStore;
+import com.morpheus.store.sqlite.adapter.SqliteTraceabilityStore;
+import com.morpheus.store.sqlite.adapter.SqliteVersionedRequirementStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -161,7 +161,9 @@ class ChangeAnalysisContractTest {
         ChangeAnalysisResult depthOne = service.analyzeActive(fixture.proposal(), 1).orElseThrow();
         assertFalse(depthOne.dependencyImpacts().stream().anyMatch(impact ->
                 impact.impactedEntity().identity().equals(fixture.transitiveDependencyRequirementId().value())));
-        assertThrows(IllegalArgumentException.class, () -> service.analyzeActive(fixture.proposal(), 0));
+        IllegalArgumentException failure = assertThrows(
+                IllegalArgumentException.class, () -> service.analyzeActive(fixture.proposal(), 0));
+        assertEquals("maxDepth must be greater than zero", failure.getMessage());
     }
 
     @Test

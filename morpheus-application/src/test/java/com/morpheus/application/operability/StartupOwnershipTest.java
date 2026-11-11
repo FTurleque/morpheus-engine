@@ -101,19 +101,26 @@ class StartupOwnershipTest {
     void keepActionRegistersAReleaseForAHandleTheCallerHoldsItself() {
         AtomicBoolean released = new AtomicBoolean();
 
-        assertThrows(
+        IllegalStateException failure = assertThrows(
                 IllegalStateException.class,
                 () -> failAfterKeepingAnAction(released));
 
+        assertEquals("bind failed", failure.getMessage());
         assertTrue(released.get());
     }
 
     @Test
     void aResourceOrReleaseThatIsNullIsRejectedAtRegistration() {
         try (StartupOwnership owned = new StartupOwnership()) {
-            assertThrows(NullPointerException.class, () -> owned.keep(null, ignored -> { }));
-            assertThrows(NullPointerException.class, () -> owned.keep("socket", null));
-            assertThrows(NullPointerException.class, () -> owned.keepAction(null));
+            NullPointerException nullResource = assertThrows(
+                    NullPointerException.class, () -> owned.keep(null, ignored -> { }));
+            assertEquals("resource", nullResource.getMessage());
+            NullPointerException nullRelease = assertThrows(
+                    NullPointerException.class, () -> owned.keep("socket", null));
+            assertEquals("release", nullRelease.getMessage());
+            NullPointerException nullAction = assertThrows(
+                    NullPointerException.class, () -> owned.keepAction(null));
+            assertEquals("release", nullAction.getMessage());
             owned.transferred();
         }
     }

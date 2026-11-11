@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.api.local.MorpheusHttpServer;
 import com.morpheus.application.composition.CompositionCandidate;
 import com.morpheus.application.composition.CompositionConflict;
 import com.morpheus.application.composition.CompositionEntityType;
@@ -55,7 +56,7 @@ class MorpheusCompositionApiContractTest {
 
     private String seed(Path database) {
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
-        Path fixture = http.fixture("synthetic-basic");
+        Path fixture = RepositoryRoot.fixture("synthetic-basic");
         try (ApiRuntime runtime = new ApiRuntime(database, OperationalRecorder.noop())) {
             var normalized = new SyntheticSpecificationContentReader()
                     .read(

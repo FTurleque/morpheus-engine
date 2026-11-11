@@ -31,6 +31,7 @@ if ($Tag -notmatch '^v(?<version>[0-9]+\.[0-9]+\.[0-9]+)$') {
 }
 $version = $Matches.version
 $repo = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot 'lib\MorpheusAuthenticode.ps1')
 
 foreach ($tool in @('gh', 'git')) {
     if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { Fail "required tool not found: $tool" }
@@ -211,6 +212,64 @@ try {
         }
     }
     Pass "published inventory ($($inventory.Count) components, both archives covered)"
+
+    # -----------------------------------------------------------------------
+    # 8. The Windows binaries carry the signature the declaration requires, by the declared publisher, and the
+    #    Windows manifest states what the binaries are. Windows' own trust decision is the authority.
+    # -----------------------------------------------------------------------
+    try {
+        $declaration = Read-MorpheusSigningDeclaration -Repository $repo
+    } catch {
+        Fail $_.Exception.Message
+    }
+    $signingRequired = Test-MorpheusSigningRequired -Version $version -Baseline $declaration.SigningBaseline
+    $windowsImageRoot = Join-Path $WorkDirectory 'windows-image'
+    Expand-Archive -LiteralPath (Join-Path $assets "morpheus-$version-windows-x64.zip") -DestinationPath $windowsImageRoot -Force
+    $imageExecutables = Get-MorpheusImageExecutables -ImageRoot (Join-Path $windowsImageRoot 'morpheus')
+    if ($imageExecutables.Product.Count -eq 0) { Fail 'the Windows archive carries no executable outside the runtime' }
+    $setupPath = Join-Path $assets "MORPHEUS-$version-windows-x64-setup.exe"
+
+    $outcomes = @(@($setupPath) + $imageExecutables.Product | ForEach-Object {
+            Test-MorpheusAuthenticode -Path $_ -ExpectedSubject $declaration.PublisherSubject -SignatureRequired:$signingRequired
+        })
+    foreach ($outcome in $outcomes) {
+        if ($outcome.Outcome -ne 'PASS' -and $outcome.Outcome -ne 'UNSIGNED') { Fail "$($outcome.Outcome): $($outcome.Detail)" }
+    }
+
+    $windowsManifest = Get-Content -LiteralPath (Join-Path $assets "morpheus-$version-windows-x64-release-manifest.json") -Raw | ConvertFrom-Json
+    try {
+        $observed = @{
+            "MORPHEUS-$version-windows-x64-setup.exe" = (Get-MorpheusSignatureStatement -Path $setupPath)
+            "morpheus-$version-windows-x64.zip" = (Get-MorpheusCombinedSignatureStatement -Paths $imageExecutables.Product)
+        }
+    } catch {
+        Fail $_.Exception.Message
+    }
+    foreach ($assetName in @($observed.Keys | Sort-Object)) {
+        $entry = @($windowsManifest.assets | Where-Object { $_.name -eq $assetName })
+        if ($entry.Count -ne 1) { Fail "the Windows manifest does not describe $assetName once" }
+        $stated = $entry[0].PSObject.Properties['signature']
+        if ($null -eq $stated -or $null -eq $stated.Value) { Fail "the Windows manifest states no signature status for $assetName" }
+        $statedSigner = if ($stated.Value.PSObject.Properties['signer']) { [string]$stated.Value.signer } else { '' }
+        $statedText = "$($stated.Value.status) $statedSigner".Trim()
+        $observedSigner = if ($observed[$assetName].Contains('signer')) { [string]$observed[$assetName]['signer'] } else { '' }
+        $observedText = "$($observed[$assetName]['status']) $observedSigner".Trim()
+        if ($statedText -cne $observedText) {
+            Fail "signature statement mismatch for ${assetName}: the manifest states '$statedText', the published binary is '$observedText'"
+        }
+    }
+
+    $runtimeSigned = @($imageExecutables.Runtime | Where-Object { (Get-MorpheusSignatureStatement -Path $_)['status'] -eq 'signed' }).Count
+    Write-Host ("Embedded runtime binaries (reported, not judged): {0} signed, {1} unsigned" -f $runtimeSigned, ($imageExecutables.Runtime.Count - $runtimeSigned))
+    foreach ($outcome in $outcomes) { Write-Host "  $($outcome.Outcome): $($outcome.Detail)" }
+    $unsigned = @($outcomes | Where-Object { $_.Outcome -eq 'UNSIGNED' })
+    if ($unsigned.Count -eq 0) {
+        Pass "Authenticode signature ($($outcomes.Count) binaries signed by '$($declaration.PublisherSubject)', timestamped)"
+    } elseif ([string]::IsNullOrEmpty($declaration.SigningBaseline)) {
+        Write-Host "AUTHENTICODE_NOT_REQUIRED_YET: no signing baseline is declared; $($unsigned.Count) Windows binaries of $Tag carry no signature"
+    } else {
+        Write-Host "Authenticode signature: unsigned by declared baseline (release $version, baseline $($declaration.SigningBaseline))"
+    }
 
     Write-Host ''
     Write-Host "RELEASE QUALIFICATION PASS: $Tag @ $tagSha"

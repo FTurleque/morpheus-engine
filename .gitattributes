@@ -9,3 +9,6 @@ mvnw text eol=lf
 
 mvnw.cmd text eol=crlf
 *.ps1 text eol=crlf
+
+# SQLite databases written by published programs are test fixtures compared by checksum.
+*.db binary

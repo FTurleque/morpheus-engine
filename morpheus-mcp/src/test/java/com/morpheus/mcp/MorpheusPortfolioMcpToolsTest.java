@@ -2,6 +2,7 @@ package com.morpheus.mcp;
 
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.domain.project.ProjectSpecificationId;
+import com.morpheus.mcp.server.MorpheusMcpServer;
 import io.modelcontextprotocol.spec.McpSchema;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

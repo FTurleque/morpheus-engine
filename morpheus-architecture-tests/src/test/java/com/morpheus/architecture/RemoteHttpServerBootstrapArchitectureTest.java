@@ -1,34 +1,45 @@
 package com.morpheus.architecture;
 
+import com.sun.net.httpserver.HttpServer;
+import com.tngtech.archunit.base.DescribedPredicate;
+import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.domain.JavaMethodCall;
+import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.core.importer.ImportOption;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
+import java.util.concurrent.Executors;
 
+import static com.tngtech.archunit.core.domain.JavaClass.Predicates.simpleNameContaining;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RemoteHttpServerBootstrapArchitectureTest {
 
+    private static final JavaClasses PRODUCTION = new ClassFileImporter()
+            .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+            .importPackages("com.morpheus.api");
+
+    /** The calls that create a JDK server or the executor serving it: the bootstrap's, never the server's. */
+    private static final DescribedPredicate<JavaMethodCall> STARTS_A_SERVER_OR_ITS_EXECUTOR =
+            DescribedPredicate.describe(
+            "creates a JDK HTTP server or an executor",
+            call -> call.getTargetOwner().getName().equals(Executors.class.getName())
+                    || call.getName().equals("create") && call.getTargetOwner().isAssignableTo(HttpServer.class)
+                    || call.getName().equals("startRemote")
+                    && call.getTargetOwner().getName().equals("com.morpheus.api.local.MorpheusHttpServer"));
+
     @Test
     void remoteServerKeepsRequestPolicyWhileBootstrapOwnsTlsAndRuntimeStartup() throws IOException {
-        Path root = repositoryRoot();
-        String server = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java"));
-        String bootstrap = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServerBootstrap.java"));
+        String server = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServer"));
+        String bootstrap = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServerBootstrap"));
 
         assertTrue(server.contains("return MorpheusRemoteHttpServerBootstrap.start("));
-        assertFalse(server.contains("HttpsServer.create("));
-        assertFalse(server.contains("HttpsConfigurator"));
-        assertFalse(server.contains("SSLContext"));
-        assertFalse(server.contains("LocalWritePermissionHardener"));
-        assertFalse(server.contains("SafeWorkspaceFileResolver"));
-        assertFalse(server.contains("Executors.newVirtualThreadPerTaskExecutor()"));
         assertFalse(server.contains("acquireServerLease("));
         assertFalse(server.contains("MorpheusInternalCapability.generate()"));
-        assertFalse(server.contains("MorpheusHttpServer.startRemote("));
         assertFalse(server.contains("buildSslContext("));
         assertFalse(server.contains("requireHost("));
 
@@ -41,7 +52,7 @@ class RemoteHttpServerBootstrapArchitectureTest {
         assertTrue(bootstrap.contains("MorpheusInternalCapability.generate()"));
         assertTrue(bootstrap.contains("MorpheusHttpServer.startRemote("));
         assertTrue(bootstrap.contains("Executors.newVirtualThreadPerTaskExecutor()"));
-        assertTrue(bootstrap.contains("https.createContext(MorpheusHttpServer.API_PREFIX, result::handle)"));
+        assertTrue(bootstrap.contains("https.createContext(MorpheusHttpRouteTable.API_PREFIX, result::handle)"));
         assertTrue(bootstrap.contains("https.start()"));
 
         assertTrue(server.contains("private MorpheusRemoteIdentityFile.Identity authenticate(HttpExchange exchange)"));
@@ -53,7 +64,6 @@ class RemoteHttpServerBootstrapArchitectureTest {
         assertFalse(bootstrap.contains("authenticate(HttpExchange"));
         assertFalse(bootstrap.contains("requiredRole("));
         assertFalse(bootstrap.contains("proxy(HttpExchange"));
-        assertFalse(bootstrap.contains("MorpheusRemoteResponseWriter"));
         assertFalse(bootstrap.contains("createBackup("));
     }
 
@@ -70,15 +80,10 @@ class RemoteHttpServerBootstrapArchitectureTest {
      */
     @Test
     void theTlsKeystorePasswordIsResolvedLateHeldMutablyAndWiped() throws IOException {
-        Path root = repositoryRoot();
-        String options = Files.readString(root.resolve(
-                "morpheus-cli/src/main/java/com/morpheus/cli/RemoteApiLaunchOptions.java"));
-        String main = Files.readString(root.resolve(
-                "morpheus-cli/src/main/java/com/morpheus/cli/MorpheusMain.java"));
-        String handle = Files.readString(root.resolve(
-                "morpheus-cli/src/main/java/com/morpheus/cli/TlsKeystorePassword.java"));
-        String bootstrap = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServerBootstrap.java"));
+        String options = Files.readString(ProductionSources.mainSource("morpheus-cli", "RemoteApiLaunchOptions"));
+        String main = Files.readString(ProductionSources.mainSource("morpheus-cli", "MorpheusMain"));
+        String handle = Files.readString(ProductionSources.mainSource("morpheus-cli", "TlsKeystorePassword"));
+        String bootstrap = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRemoteHttpServerBootstrap"));
 
         assertFalse(options.contains("String tlsPassword"),
                 "the launch options must not retain the TLS password as an immutable field");
@@ -106,15 +111,48 @@ class RemoteHttpServerBootstrapArchitectureTest {
                 "the bootstrap must wipe the decoded keystore bytes");
     }
 
-    private Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
+    /**
+     * {@code MorpheusRemoteHttpServer} applies the request policy and leaves TLS and the hardening of its files to
+     * {@code MorpheusRemoteHttpServerBootstrap}. The rule bans a dependency on any class whose simple name contains
+     * {@code HttpsConfigurator}, {@code SSLContext}, {@code LocalWritePermissionHardener},
+     * {@code SafeWorkspaceFileResolver}, as the text ban it replaces matched the name.
+     *
+     * <p>The server creates neither the JDK server, nor its executor, nor the local upstream it proxies to.</p>
+     *
+     * <p>None of these types declares a compile-time constant, so the rule alone covers them. Broken before acceptance,
+     * 30/10/2026: a {@code HttpsConfigurator} field added to {@code MorpheusRemoteHttpServer} failed this rule, and so
+     * did an {@code HttpsServer.create} call added to it.</p>
+     */
+    @Test
+    void theRemoteServerLeavesTlsAndItsFilesToTheBootstrap() {
+        noClasses()
+                .that(ClassesOfASource.declaredIn("MorpheusRemoteHttpServer"))
+                .should().dependOnClassesThat(simpleNameContaining("HttpsConfigurator")
+                        .or(simpleNameContaining("SSLContext"))
+                        .or(simpleNameContaining("LocalWritePermissionHardener"))
+                        .or(simpleNameContaining("SafeWorkspaceFileResolver")))
+                .orShould().callMethodWhere(STARTS_A_SERVER_OR_ITS_EXECUTOR)
+                .because("TLS set-up and file hardening happen once, at start-up, in the bootstrap; the server serves "
+                + "requests")
+                .check(PRODUCTION);
+    }
+
+    /**
+     * {@code MorpheusRemoteHttpServerBootstrap} starts the remote server and writes no response. The rule bans a
+     * dependency on any class whose simple name contains {@code MorpheusRemoteResponseWriter}, as the text ban it
+     * replaces matched the name.
+     *
+     * <p>None of these types declares a compile-time constant, so the rule alone covers them. Broken before acceptance,
+     * 30/10/2026: a {@code MorpheusRemoteResponseWriter} field added to {@code MorpheusRemoteHttpServerBootstrap}
+     * failed this rule.</p>
+     */
+    @Test
+    void theRemoteBootstrapWritesNoResponse() {
+        noClasses()
+                .that(ClassesOfASource.declaredIn("MorpheusRemoteHttpServerBootstrap"))
+                .should().dependOnClassesThat(simpleNameContaining("MorpheusRemoteResponseWriter"))
+                .because("every remote response goes through the server and its writer; a bootstrap that wrote one would "
+                + "bypass the request policy")
+                .check(PRODUCTION);
     }
 }

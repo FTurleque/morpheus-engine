@@ -1,6 +1,8 @@
 package com.morpheus.architecture.m20;
 
-import com.morpheus.cli.CliLayout;
+import com.morpheus.architecture.RepositoryRoot;
+import com.morpheus.architecture.RepositoryTree;
+import com.morpheus.cli.command.CliLayout;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -18,23 +20,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ProductReleaseContractTest {
 
     @Test
-    void currentProductVersionIsOneDotTwoDotOneAcrossTheReactor() throws IOException {
-        Path root = repoRoot();
-        List<Path> poms;
-        try (var paths = Files.walk(root)) {
-            poms = paths
-                    .filter(Files::isRegularFile)
-                    .filter(path -> path.getFileName().toString().equals("pom.xml"))
-                    .filter(path -> !path.toString().contains("target"))
-                    .sorted()
-                    .toList();
-        }
+    void currentProductVersionIsOneDotTwoDotTwoAcrossTheReactor() throws IOException {
+        Path root = RepositoryRoot.locate();
+        List<Path> poms = RepositoryTree.files(root).stream()
+                .filter(path -> path.getFileName().toString().equals("pom.xml"))
+                .toList();
 
         assertEquals(19, poms.size(), "Unexpected Maven reactor POM count");
         for (Path pomPath : poms) {
             String pom = Files.readString(pomPath);
-            assertTrue(pom.contains("<version>1.2.1</version>"),
-                    () -> "MORPHEUS 1.2.1 version missing from " + root.relativize(pomPath));
+            assertTrue(pom.contains("<version>1.2.2</version>"),
+                    () -> "MORPHEUS 1.2.2 version missing from " + root.relativize(pomPath));
+            assertFalse(pom.contains("<version>1.2.1</version>"),
+                    () -> "Published MORPHEUS 1.2.1 version remains active in " + root.relativize(pomPath));
             assertFalse(pom.contains("<version>1.2.0</version>"),
                     () -> "Published MORPHEUS 1.2.0 version remains active in " + root.relativize(pomPath));
             assertFalse(pom.contains("<version>1.1.0</version>"),
@@ -48,7 +46,7 @@ class ProductReleaseContractTest {
 
     @Test
     void windowsProductionLayoutSeparatesProgramFromPersistentState() {
-        Path root = repoRoot().resolve("target/m20-layout-test").toAbsolutePath().normalize();
+        Path root = RepositoryRoot.locate().resolve("target/m20-layout-test").toAbsolutePath().normalize();
         Properties windows = properties("Windows 10", root.resolve("home"));
         Path localAppData = root.resolve("LocalAppData");
 
@@ -69,7 +67,7 @@ class ProductReleaseContractTest {
 
     @Test
     void linuxProductionLayoutUsesXdgDataConfigAndStateRoots() {
-        Path root = repoRoot().resolve("target/m20-xdg-test").toAbsolutePath().normalize();
+        Path root = RepositoryRoot.locate().resolve("target/m20-xdg-test").toAbsolutePath().normalize();
         Properties linux = properties("Linux", root.resolve("home"));
         Path data = root.resolve("data");
         Path config = root.resolve("config");
@@ -91,7 +89,7 @@ class ProductReleaseContractTest {
 
     @Test
     void releaseScriptsEnforcePerUserInstallExactTagChecksumsAndVerifiedToolBootstrap() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String installer = Files.readString(root.resolve("distribution/windows/MORPHEUS.iss"));
         String windowsRelease = Files.readString(root.resolve("distribution/build-release.ps1"));
         String linuxRelease = Files.readString(root.resolve("distribution/build-release.sh"));
@@ -141,18 +139,6 @@ class ProductReleaseContractTest {
                         + "SLF4J pick one of the two, and what the embedded libraries log is lost again");
         assertTrue(windowsPortable.contains("--enable-native-access=ALL-UNNAMED"));
         assertTrue(linuxPortable.contains("--enable-native-access=ALL-UNNAMED"));
-    }
-
-    private Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
-            return current;
-        }
-        Path parent = current.getParent();
-        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml")) && Files.isDirectory(parent.resolve("distribution"))) {
-            return parent;
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found from " + current);
     }
 
     private Properties properties(String osName, Path home) {

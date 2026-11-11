@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="${1:-1.2.1}"
+VERSION="${1:-1.2.2}"
 OUTPUT_DIRECTORY="${2:-dist}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -40,22 +40,22 @@ if [[ -z "$JAR" ]]; then
 fi
 
 printf '%s\n' "Verifying baseline MCP/API/provider-SDK/MINOS/NEXUS classes are embedded in the shaded JAR..."
-JAR_ENTRIES="$($JAR_TOOL tf "$JAR")"
+JAR_ENTRIES="$("$JAR_TOOL" tf "$JAR")"
 for entry in \
-  'com/morpheus/mcp/MorpheusMcpServer.class' \
+  'com/morpheus/mcp/server/MorpheusMcpServer.class' \
   'com/morpheus/mcp/MorpheusJarvisOrchestrationMcpTools.class' \
   'com/morpheus/mcp/MorpheusProductMcpTools.class' \
   'com/morpheus/mcp/MorpheusProviderPluginMcpTools.class' \
   'io/modelcontextprotocol/server/McpServer.class' \
   'io/modelcontextprotocol/client/McpClient.class' \
   'io/modelcontextprotocol/client/transport/StdioClientTransport.class' \
-  'com/morpheus/api/MorpheusHttpServer.class' \
+  'com/morpheus/api/local/MorpheusHttpServer.class' \
   'com/morpheus/api/MorpheusOperabilityApiService.class' \
   'com/morpheus/api/MorpheusJarvisOrchestrationApiService.class' \
   'com/morpheus/api/MorpheusProviderPluginApiService.class' \
-  'com/morpheus/cli/MorpheusJarvisOrchestrationCli.class' \
-  'com/morpheus/cli/MorpheusProductCli.class' \
-  'com/morpheus/cli/MorpheusProviderPluginCli.class' \
+  'com/morpheus/cli/command/MorpheusJarvisOrchestrationCli.class' \
+  'com/morpheus/cli/command/MorpheusProductCli.class' \
+  'com/morpheus/cli/command/MorpheusProviderPluginCli.class' \
   'com/morpheus/sdk/provider/MorpheusProviderPlugin.class' \
   'com/morpheus/sdk/provider/ProviderPluginService.class' \
   'com/morpheus/application/product/ProductMetadata.class' \
@@ -205,7 +205,7 @@ if [[ "$NEXUS_STATUS" != *'"state":"DISABLED"'* ]]; then
   exit 1
 fi
 printf '%s\n' "$NEXUS_STATUS"
-HELP="$($LAUNCHER help)"
+HELP="$("$LAUNCHER" help)"
 if [[ "$HELP" != *'change-orchestration'* || "$HELP" != *'update-check'* || "$HELP" != *'provider-plugins'* ]]; then
   echo "Packaged baseline CLI help smoke failed" >&2
   exit 1

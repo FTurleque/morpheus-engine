@@ -1,0 +1,6 @@
+args: --json sync-status --project <project>
+exit: 0
+stdout:
+{"projectId":"<project>","state":"FRESH","lastSuccessfulSyncAt":"<instant>","ageSeconds":<age>,"lastObservedChangeAt":null,"sourceRevision":null,"lastSuccessfulMode":"FULL_REBUILD","pendingFullRebuildReason":null,"currentSourceCount":10}
+
+stderr:

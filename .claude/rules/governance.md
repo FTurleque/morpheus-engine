@@ -32,7 +32,7 @@ code tiers, donc il est délibérément absent du transport MCP (jamais model-fa
 colonne `notes` justifie pourquoi. C'est le patron à reproduire pour toute nouvelle
 capacité qui n'expose pas les trois transports.
 
-Ce que les gates comparent réellement — deux mécanismes, à ne pas confondre :
+Ce que les gates comparent réellement — des mécanismes à ne pas confondre :
 
 - **Route par route, dans les deux sens** : `PublicHttpRouteConvergenceTest` (paquet `com.morpheus.api` des tests
   d'architecture) compare méthode + chemin entre la table `MorpheusHttpRouteTable`, la colonne `http` du manifeste
@@ -43,10 +43,29 @@ Ce que les gates comparent réellement — deux mécanismes, à ne pas confondre
   `Allow` égal aux méthodes de la route. Exclusions motivées dans le
   test : les routes servies par le seul serveur remote (`REMOTE_ONLY`) et les sondes d'exploitation sans ligne au
   manifeste (`NOT_IN_MANIFEST` : racine, `health`, `readiness`, `metrics`). La colonne `mcp` a son équivalent,
-  `PublicSurfaceManifestCoversEveryServedToolTest`. Ni l'un ni l'autre ne vérifie la colonne `cli`.
+  `PublicSurfaceManifestCoversEveryServedToolTest`.
+- **Commande par commande, dans les deux sens** : la colonne `cli` est comparée à `CliCommandPaths`, la déclaration unique
+  des chemins de commande du CLI (un chemin = les mots avant la première option : `portfolio list`, `policy pack create`).
+  `PublicSurfaceManifestCoversEveryServedCliCommandTest` (paquet `com.morpheus.cli` des tests d'architecture) refuse une
+  cellule qui nomme une commande non déclarée, un chemin déclaré que ni une ligne ni une exclusion écrite ne nomme, un chemin
+  nommé par deux lignes, et une exclusion qui ne dispense de rien ; un sentinelle ne nomme rien, donc ne cache pas une commande
+  servie. `CliCommandPathsTest` (module `morpheus-cli`) lance chaque chemin déclaré sans option et exige qu'il ne soit pas
+  refusé comme inconnu, qu'un chemin non déclaré le soit avant toute sous-commande, et que l'aide embarquée documente chaque
+  chemin. Ajouter une action au `switch` d'une sous-commande sans la déclarer la rend inatteignable. Hors garde : les options
+  d'une commande (une cellule `server restore --confirm` est comparée sur `server restore`), la justesse de l'intention et des
+  notes, et le contenu d'une réponse ; ce que la table ne sait pas dire d'une commande qui échoue pour une autre raison que
+  « inconnue » reste ouvert. Exclusions actuelles : relire `EXCLUSIONS` dans le test, pas cette page.
 - **Lignes épinglées** : les tests `publicManifestAndOpenApiExposeSame*IntentFamilies` (M24, M25, M27) cherchent quelques
   lignes **exactes** du TSV et quelques clés de chemin de l'OpenAPI, choisies à la main. Ils épinglent une famille de
   capacités ; ils ne comparent pas les deux fichiers.
+- **Contenu, type par type** : `PublicPayloadConvergenceTest` publie `openspec-basic` (et `synthetic-basic`, seul
+  porteur de critères d'acceptation) dans une base temporaire, interroge les vraies surfaces HTTP, MCP et CLI, retire
+  l'enveloppe que chacune nomme et compare clé par clé, par `id`, chaque type partagé de
+  `SharedDomainProjectionArchitectureTest.SHARED_TYPES`. Ces formes sont écrites une fois, par `PublicPayloads`
+  (`com.morpheus.application.payload`), et une méthode d'adaptateur qui projette un type partagé est refusée. Hors
+  garde : les enveloppes elles-mêmes (page, membre de détail, contenu MCP), un type montré par un seul transport, une
+  forme construite dans une lambda que les fixtures n'atteignent pas. La CLI a ses propres formes de changement et de
+  critère d'acceptation : leurs écarts sont nommés (`CLI_OMITTED_KEYS`, `CLI_ABSENT_AS_NULL_KEYS`), pas égalisés.
 
 `MorpheusHttpRouteTable` est la seule liste des routes et de leurs méthodes : l'en-tête `Allow` local en est calculé,
 et `MorpheusRemoteRoutePolicy` refuse de se charger si ses rôles ne couvrent pas exactement ses routes et méthodes.
@@ -57,12 +76,13 @@ servie qui manque à `MorpheusHttpRouteTable` n'est vue par aucun des deux (elle
 
 - Mettre à jour **ensemble** : le code, `contracts/public-surfaces.tsv`, et `docs/developer/reference/openapi/morpheus-v1-*.yaml`
 - Ranger toute page de `docs/` à l'emplacement que fixe `rules/documentation.md` — l'arborescence est figée
-- Écrire un ADR dans `docs/architecture/adr/` pour toute décision structurelle (compter `docs/architecture/adr/0*.md` avec un `glob` — ne jamais recopier un total, cf. `rules/meta.md` ; le `README.md` du répertoire n'est pas un ADR)
+- Écrire un ADR dans `docs/architecture/adr/` pour toute décision structurelle qui passe le filtre de `rules/adr.md` (compter `docs/architecture/adr/*-[0-9][0-9][0-9][0-9]-*.md` avec un `glob` — ne jamais recopier un total, cf. `rules/meta.md` ; le `README.md` du répertoire n'est pas un ADR, et les ADR retirés sont dans `archive/`)
 - Livrer le quadruplet complet pour un nouveau milestone (suite ArchUnit + scripts dual-platform + EXECUTION + VALIDATION)
 - Fournir les scripts de validation **en `.ps1` ET `.sh`** — la parité Windows/Linux est assertée pour **tout** `scripts/validate-<cible>.*` par `GateReachabilityArchitectureTest`
 - Justifier dans la description de la PR toute modification de `contracts/public-surfaces.tsv`,
   `config/*ratchets*.properties`, `docs/developer/reference/openapi/*.yaml` ou d'un test sous `morpheus-architecture-tests/` —
-  ce sont des fichiers de gouvernance, pas de simples fichiers de configuration
+  ce sont des fichiers de gouvernance, pas de simples fichiers de configuration. La section « Justification d'une
+  modification de gouvernance » de `.github/pull_request_template.md` le demande
 
 ## JAMAIS
 
@@ -73,7 +93,17 @@ servie qui manque à `MorpheusHttpRouteTable` n'est vue par aucun des deux (elle
 
 ## Version produit — source unique
 
-`ProductMetadata` est la **seule** source de vérité (actuellement `1.2.1`).
+`ProductMetadata` est la **seule** source de vérité (actuellement `1.2.2`).
+Toute version courante qu'une page de gouvernance énonce (gras ou span de code après « actuellement », « baseline »,
+« version courante », « version produit » ou les coordonnées `morpheus-engine`) est comparée à la version du POM racine
+par `GovernanceSurfaceCoherenceTest` (`CURRENT_PRODUCT_VERSION_CLAIM`) ; une release datée (« livré dans … ») ne l'est pas.
+
+- Une version de schéma est une version de produit : dès qu'une migration entre après une release, le réacteur ouvre la
+  version suivante, et le guide `docs/user/UPGRADE_<version>.md` le plus récent est le sien. Une version déclarée dans
+  `released-schema-levels.properties` l'est au niveau qu'elle a livré, jamais au-dessus de la version courante
+  (`UpgradeGuideCoherenceTest`, `ReleasedSchemaLevelsDeclarationTest`)
+- Le passage de version est un lot indivisible : les POM du réacteur, les validateurs et `ci.yml` qui la nomment, et
+  les documents épinglés que les tests de cohérence énumèrent
 
 - Toute surface publique délègue : `ProductMetadata.version()` / `ProductMetadata.current()`
   → dans `MorpheusApiService`, `MorpheusProductCli`, `MorpheusProductMcpTools`
@@ -90,7 +120,7 @@ Toute spec `docs/developer/reference/openapi/*.yaml` doit porter :
 
 ## Sémantiques métier non négociables
 
-- **Policy tri-state** : `UNKNOWN` n'est **jamais** implicitement `BLOCKED` (ADR-0078, ADR-0093)
+- **Policy tri-state** : `UNKNOWN` n'est **jamais** implicitement `BLOCKED` (ADR-0119, ADR-0093)
 - **Pas de last-write-wins silencieux** : les conflits de composition restent explicites
 - **CAS obligatoire** sur les écritures de configuration (`expected revision`) — les writers périmés échouent explicitement
 - **Non-destructif** : `missing`, `archive`, `deactivate` conservent identité, références et révision antérieure
@@ -102,17 +132,17 @@ Toute spec `docs/developer/reference/openapi/*.yaml` doit porter :
 
 **Ne pas se fier aux nombres codés en dur ici** — source de vérité vivante :
 `config/m21-quality-ratchets.properties`. `scripts/validate-m21.*` lisent ce fichier et
-assertent le nombre de tests, le nombre de tests d'architecture, la couverture ligne/branche
-et la version courante (`1.2.1`). `scripts/validate-d2.*` lisent aussi `testsMinimum` et
-`architectureTestsMinimum` (aucun littéral : `D2RepositoryHardeningArchitectureTest` le refuse),
+assertent le nombre de tests déclarés et le nombre de tests générés (deux clés, deux
+comptes : `rules/testing.md`), le nombre de tests d'architecture, la couverture ligne/branche
+et la version courante (`1.2.2`). `scripts/validate-d2.*` lisent aussi `testsMinimum`,
+`generatedTestsMinimum` et `architectureTestsMinimum` (aucun littéral : `D2RepositoryHardeningArchitectureTest` le refuse),
 et gardent la version courante et deux planchers absolus de couverture, nommés comme tels ;
 la couverture elle-même est conclue par les gates Java que D2 exécute dans son `clean verify`.
 La couverture y est déclarée
 **deux fois**, une paire de clés par échelle de mesure (`aggregate*` et `perModule*`) — citer
-un seuil sans nommer son échelle n'a pas de sens. Valeurs constatées le 09/10/2026 :
-`3820 / 585`, couverture `90,0% / 75,7%` agrégée et `69,1% / 61,2%` par module
-(les six relevées ce jour-là, dans les deux plafonds requalifiés le même jour sur `8e3fda5a`).
+un seuil sans nommer son échelle n'a pas de sens. Cette page ne recopie aucune valeur : la seule copie de
+`.claude/rules/` est la table de `rules/testing.md`, que
+`GovernanceSurfaceCoherenceTest#everyRatchetARulePageCopiesUnderItsKeyEqualsTheKey` compare clé par clé au fichier.
 Ces nombres sont des
-**ratchets** — ils ne descendent pas, mais ils **montent** au fil des milestones, donc
-toute valeur recopiée ici (y compris dans une version antérieure de cette page) peut être
-périmée. Relire le fichier `.properties` avant de citer un chiffre. Voir `rules/meta.md`.
+**ratchets** — ils ne descendent pas, mais ils **montent** au fil des milestones. Relire le fichier `.properties`
+avant de citer un chiffre. Voir `rules/meta.md`.

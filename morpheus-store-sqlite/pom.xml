@@ -7,7 +7,7 @@
     <parent>
         <groupId>io.github.fturleque</groupId>
         <artifactId>morpheus-engine</artifactId>
-        <version>1.2.1</version>
+        <version>1.2.2</version>
     </parent>
 
     <artifactId>morpheus-store-sqlite</artifactId>
@@ -34,19 +34,4 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <configuration>
-                    <!-- Loaded through DriverManager's JDBC service-provider mechanism. -->
-                    <usedDependencies>
-                        <usedDependency>org.xerial:sqlite-jdbc</usedDependency>
-                    </usedDependencies>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
 </project>

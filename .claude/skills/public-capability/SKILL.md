@@ -14,10 +14,30 @@ deux casse le build. Ce qui suit est l'ordre qui évite d'y revenir trois fois.
 `morpheus-application` **définit les ports** et ne connaît **aucun** adaptateur. Les adaptateurs
 (`provider`, `store`, `cli`, `mcp`, `api`, `integration`) dépendent vers l'intérieur et sont
 **frères** — ils ne s'appellent pas entre eux. Le câblage est explicite dans `MorpheusMain` : ni
-framework, ni réflexion, ni scan de classpath.
+framework ni annotation d'injection, et ni réflexion ni chargement de classes ou de services hors des classes que
+`ReflectionAndClassLoadingBoundaryArchitectureTest` et `ApplicationTechnologyBoundaryArchitectureTest` nomment.
 
 Un consommateur de port doit rester provider-neutre : il fonctionne avec les trois providers
 (openspec, markdown, synthetic). C'est vérifié.
+
+Une réponse qui montre un type du domaine déjà montré par un autre transport le projette par
+`PublicPayloads` (`com.morpheus.application.payload`), jamais par une méthode de l'adaptateur. Un type qui devient
+visible sur un second transport entre dans `SharedDomainProjectionArchitectureTest.SHARED_TYPES`, reçoit sa
+projection dans `PublicPayloads` et son exposition dans `PublicPayloadConvergenceTest`.
+
+## 1 bis. Déclarer la commande CLI
+
+Une commande s'écrit dans une classe de `com.morpheus.cli.command`, celle de sa famille du manifeste, branchée dans la
+chaîne de `MorpheusMain.run` par son `handles` ; un outil MCP dans une classe de `com.morpheus.mcp`, qui déclare la
+lambda de son gestionnaire et que `MorpheusMcpServer` enregistre. Jamais dans le dispatcher ni le serveur
+(ADR-0149, `DispatchersHoldNoUseCaseArchitectureTest`). Les options sont déclarées à `CommandOptions`, la
+ligne d'erreur est écrite par `CliErrorLine`.
+
+Une commande ou une action de CLI s'ajoute dans `CliCommandPaths` (`morpheus-cli`) : `MorpheusMain.run` refuse comme
+commande inconnue tout chemin non déclaré, avant d'interroger une sous-commande. Un `case` ajouté au seul `switch` de la
+sous-commande n'est pas atteignable. Le chemin déclaré doit aussi figurer dans une ligne `usage` de l'aide de
+`MorpheusMain` (`CliCommandPathsTest`) et dans la colonne `cli` d'une ligne du manifeste, ou dans les `EXCLUSIONS` écrites de
+`PublicSurfaceManifestCoversEveryServedCliCommandTest` si c'est un point d'entrée du processus et non une capacité.
 
 ## 2. Écrire la ligne du manifeste
 
@@ -42,7 +62,9 @@ silencieux de ce système. L'absence se déclare, elle ne se déduit pas. La col
 justifie le sentinelle : « ce code tiers est exécutable, donc jamais model-facing » est une
 justification, « non exposé » n'en est pas une.
 
-Toute valeur autre qu'un sentinelle doit correspondre à une surface **réellement implémentée**.
+Toute valeur autre qu'un sentinelle doit correspondre à une surface **réellement implémentée** : les gates comparent les
+colonnes `http` (table des routes), `mcp` (outils servis) et `cli` (`CliCommandPaths`) à ce que chaque transport sert, dans les
+deux sens. Un sentinelle sur un transport qui sert la commande laisse la commande sans ligne, et le build échoue.
 
 ## 3. Mettre l'OpenAPI au même niveau
 

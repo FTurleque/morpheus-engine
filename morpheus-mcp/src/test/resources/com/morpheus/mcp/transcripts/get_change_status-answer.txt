@@ -1,0 +1,5 @@
+tool: get_change_status
+arguments: {"changeId":"01920000-0000-7000-8000-000000000106","projectId":"01920000-0000-7000-8000-000000000101"}
+isError: false
+text:
+{"changeId":"01920000-0000-7000-8000-000000000106","lifecycleState":"UNAVAILABLE","observableFacts":{"acceptanceCriteriaDefined":"TRUE","blockingAcceptanceCriterionFailed":"UNAVAILABLE","blockingAcceptanceCriterionUnverified":"UNAVAILABLE","criticalConstraintsKnown":"UNAVAILABLE","designDecisionsAvailable":"TRUE","designRequired":"UNAVAILABLE","knownBlocker":"UNAVAILABLE","planPresent":"TRUE","requirementsIdentified":"FALSE"},"reason":"Published snapshot content does not persist an explicit ChangeLifecycle state; MORPHEUS does not infer it.","snapshotId":"<id-1>","status":"UNAVAILABLE_REQUIRES_EXPLICIT_LIFECYCLE_INPUT"}

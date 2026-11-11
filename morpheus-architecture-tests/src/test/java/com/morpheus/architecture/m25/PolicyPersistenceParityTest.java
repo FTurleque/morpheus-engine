@@ -1,19 +1,19 @@
 package com.morpheus.architecture.m25;
 
-import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.policy.PolicyConfiguration;
 import com.morpheus.application.policy.PolicyIds;
 import com.morpheus.application.policy.PolicyPack;
 import com.morpheus.application.policy.PolicyPackService;
 import com.morpheus.application.policy.PolicyRule;
 import com.morpheus.application.policy.PolicyScope;
-import com.morpheus.application.store.PolicyPackStore;
+import com.morpheus.application.query.PageRequest;
+import com.morpheus.application.policy.PolicyPackStore;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.store.memory.MemoryPolicyPackStore;
-import com.morpheus.store.sqlite.SqlitePolicyPackStore;
+import com.morpheus.store.sqlite.adapter.SqlitePolicyPackStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

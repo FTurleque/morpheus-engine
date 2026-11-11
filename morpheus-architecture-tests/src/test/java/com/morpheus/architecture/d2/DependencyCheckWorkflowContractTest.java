@@ -3,18 +3,27 @@ package com.morpheus.architecture.d2;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.morpheus.architecture.CoherenceCheck;
+import com.morpheus.architecture.RepositoryRoot;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.xml.parsers.DocumentBuilderFactory;
 import org.junit.jupiter.api.Test;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 
+@CoherenceCheck
 class DependencyCheckWorkflowContractTest {
 
     @Test
     void trustedUpdateUsesApiKeyWhenPresentAndFreshCacheWhenUpstreamAnonymousUpdateIsBroken() throws IOException {
-        String security = Files.readString(repoRoot().resolve(".github/workflows/security.yml"));
+        String security = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/security.yml"));
 
         int updateStart = security.indexOf("- name: Update Dependency-Check vulnerability database (trusted events)");
         int saveStart = security.indexOf("- name: Save trusted Dependency-Check database");
@@ -66,7 +75,7 @@ class DependencyCheckWorkflowContractTest {
      */
     @Test
     void databaseFreshnessAndFailureReasonsAreObservableBeforeAndWhenTheyStopTheBuild() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String security = Files.readString(root.resolve(".github/workflows/security.yml"));
         String report = Files.readString(root.resolve("scripts/report-dependency-check-cache.sh"));
         String classify = Files.readString(root.resolve("scripts/classify-dependency-check-failure.sh"));
@@ -159,7 +168,7 @@ class DependencyCheckWorkflowContractTest {
      */
     @Test
     void theProvenancePublishedOnAPullRequestIsReadFromTheSentinelNotFromALiteral() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String security = Files.readString(root.resolve(".github/workflows/security.yml"));
         String writer = Files.readString(root.resolve("scripts/write-dependency-check-sentinel.sh"));
         String reader = Files.readString(root.resolve("scripts/read-dependency-check-sentinel.sh"));
@@ -205,12 +214,10 @@ class DependencyCheckWorkflowContractTest {
     /**
      * A provenance this branch cannot have produced is a deviation worth naming and never worth refusing.
      *
-     * <p>Pinned to Dependency-Check 13.0.0, whose anonymous refresh is broken upstream (#8715), the only
-     * provenance a refresh performed here can carry is the API-key label. Anything else was written somewhere
-     * else, and there are exactly two ways that happens. One is legitimate and documented: the branch still
-     * pinned to 12.2.2 refreshes anonymously and writes the same H2 schema, and the STALE_DATABASE message in
-     * this workflow names that backport as a way out of a cold start. The other is that {@code NVD_API_KEY}
-     * stopped being read after the promotion and nobody knows it yet.</p>
+     * <p>Pinned to Dependency-Check 13.0.0, a refresh performed here carries one of two labels: the API-key
+     * refresh or the data-feed refresh. Anything else was written somewhere else, and there are exactly two ways
+     * that happens. One is legitimate: the branch still pinned to 12.2.2 refreshes anonymously and writes the same
+     * H2 schema. The other is that the sentinel writer of this branch stopped running and nobody knows it yet.</p>
      *
      * <p>The two are indistinguishable from the sentinel alone, so the step warns and lets the scan proceed.
      * Refusing would close the documented bootstrap and discard a database that is perfectly readable and
@@ -224,16 +231,18 @@ class DependencyCheckWorkflowContractTest {
      */
     @Test
     void aProvenanceThisBranchCannotHaveProducedIsWarnedAboutAndNeverRefused() throws IOException {
-        String security = Files.readString(repoRoot().resolve(".github/workflows/security.yml"));
+        String security = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/security.yml"));
         String freshnessStep = section(security,
                 "- name: Verify restored Dependency-Check database freshness",
                 "- name: Remove stale Dependency-Check update lock");
 
         int deviation = freshnessStep.indexOf(
-                "if [[ \"${refreshed_by:-unknown}\" != 'NVD API key refresh' ]]; then");
+                "if [[ \"${refreshed_by:-unknown}\" != 'NVD API key refresh' "
+                        + "&& \"${refreshed_by:-unknown}\" != 'NVD data feed refresh' ]]; then");
         assertTrue(deviation >= 0,
-                "the pull-request step must compare the provenance it publishes against the only label a "
-                        + "refresh performed on this branch can produce");
+                "the pull-request step must compare the provenance it publishes against the two labels a "
+                        + "refresh performed on this branch can produce, the API-key refresh and the data-feed "
+                        + "refresh");
 
         String warning = freshnessStep.substring(deviation, freshnessStep.indexOf("\n          fi", deviation));
         assertTrue(warning.contains("::warning::Dependency-Check database was obtained via"),
@@ -245,9 +254,8 @@ class DependencyCheckWorkflowContractTest {
         assertTrue(warning.contains("RT-13"),
                 "the annotation must point at the risk it is the standing evidence for");
         assertFalse(warning.contains("exit "),
-                "a provenance from elsewhere must never stop the scan: refusing would close the 12.2.2 "
-                        + "bootstrap this workflow names as a way out of a cold start, and would discard a "
-                        + "readable database still inside its freshness budget");
+                "a provenance from elsewhere must never stop the scan: refusing would discard a readable "
+                        + "database still inside its freshness budget, which already bounds the deviation");
     }
     /**
      * A refresh that failed is not a refresh -- and it is also not, by itself, a reason to refuse the scan.
@@ -274,7 +282,7 @@ class DependencyCheckWorkflowContractTest {
      */
     @Test
     void aRefreshThatFailedIsNotARefreshAndIsAlsoNotByItselfARefusal() throws IOException {
-        String security = Files.readString(repoRoot().resolve(".github/workflows/security.yml"));
+        String security = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/security.yml"));
         String trustedUpdate = section(security,
                 "- name: Update Dependency-Check vulnerability database (trusted events)",
                 "- name: Save trusted Dependency-Check database");
@@ -332,7 +340,7 @@ class DependencyCheckWorkflowContractTest {
      */
     @Test
     void aFailedRefreshNamesTheKeyOnlyWhenTheLogSaysTheKeyWasRefused() throws IOException {
-        String security = Files.readString(repoRoot().resolve(".github/workflows/security.yml"));
+        String security = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/security.yml"));
         String trustedUpdate = section(security,
                 "- name: Update Dependency-Check vulnerability database (trusted events)",
                 "- name: Save trusted Dependency-Check database");
@@ -375,7 +383,7 @@ class DependencyCheckWorkflowContractTest {
      */
     @Test
     void everyDependencyCheckInvocationUsesTheVersionTheRootPomPins() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String pom = Files.readString(root.resolve("pom.xml"));
         String security = Files.readString(root.resolve(".github/workflows/security.yml"));
 
@@ -416,7 +424,7 @@ class DependencyCheckWorkflowContractTest {
      */
     @Test
     void theTrustedCacheIsKeyedOnTheSchemaVersionAndNeverFallsBackAcrossSchemas() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String pom = Files.readString(root.resolve("pom.xml"));
         String security = Files.readString(root.resolve(".github/workflows/security.yml"));
 
@@ -465,7 +473,7 @@ class DependencyCheckWorkflowContractTest {
      */
     @Test
     void freshnessIsReadFromARefreshSentinelAndNeverFromAFileModificationTime() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String security = Files.readString(root.resolve(".github/workflows/security.yml"));
         String writer = Files.readString(root.resolve("scripts/write-dependency-check-sentinel.sh"));
         String reader = Files.readString(root.resolve("scripts/read-dependency-check-sentinel.sh"));
@@ -527,7 +535,7 @@ class DependencyCheckWorkflowContractTest {
      */
     @Test
     void aRefreshThatDidNotHappenRaisesItsOwnAlertAfterTheScanAndNeverUnderARequiredName() throws IOException {
-        String security = Files.readString(repoRoot().resolve(".github/workflows/security.yml"));
+        String security = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/security.yml"));
         int alertStart = security.indexOf("\n  refresh-alert:");
         assertTrue(alertStart > 0, "the alert must be a job of its own");
         String scanJob = security.substring(security.indexOf("\n  dependency-check:"), alertStart);
@@ -564,11 +572,53 @@ class DependencyCheckWorkflowContractTest {
      */
     @Test
     void theAlertAndTheWarningShareOneThreshold() throws IOException {
-        String security = Files.readString(repoRoot().resolve(".github/workflows/security.yml"));
-        String report = Files.readString(repoRoot().resolve("scripts/report-dependency-check-cache.sh"));
+        String security = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/security.yml"));
+        String report = Files.readString(RepositoryRoot.locate().resolve("scripts/report-dependency-check-cache.sh"));
         String expression = "(( age_seconds * 3 >= max_age_seconds * 2 ))";
         assertTrue(report.contains(expression), "the warning must keep the two-thirds expression");
         assertTrue(security.contains(expression), "the alert must use the very same expression as the warning");
+    }
+
+    /**
+     * The alert job only sees runs in which both refresh sources failed. A key the NVD refuses and a key that is gone
+     * never clear on their own, and the data feeds, the one source left, have just failed too: waiting for the
+     * two-thirds threshold only hands a person the last day of the budget, so the alert names them in the first run
+     * that sees them. It matches the causes by the very strings the update step publishes, each followed by the
+     * data-feed failure, so a cause reworded in one place and not the other fails here rather than silently falling
+     * back to the threshold. The third cause, a key path that failed with the key configured, is the one an NVD
+     * outage produces, and it alone waits for the threshold.
+     */
+    @Test
+    void aCauseThatCannotClearByItselfRaisesTheAlertInTheFirstRunThatSeesIt() throws IOException {
+        String security = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/security.yml"));
+        String update = section(security, "- name: Update Dependency-Check vulnerability database (trusted events)",
+                "- name: Save trusted Dependency-Check database");
+        String alertJob = security.substring(security.indexOf("\n  refresh-alert:"));
+
+        int immediate = alertJob.indexOf("MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_KEY_UNUSABLE");
+        int threshold = alertJob.indexOf("(( age_seconds * 3 >= max_age_seconds * 2 ))");
+        assertTrue(immediate > 0, "a cause that cannot clear by itself must carry an alert code of its own");
+        assertTrue(threshold > immediate, "the immediate alert must be decided before the two-thirds threshold");
+
+        int caseStart = alertJob.indexOf("case \"${REFRESH_CAUSE:-}\" in");
+        assertTrue(caseStart > 0 && caseStart < immediate, "the immediate alert must be selected by the published cause");
+        String caseLine = alertJob.substring(caseStart, immediate);
+        for (String cause : new String[] {"NVD_API_KEY was refused by the NVD", "NVD_API_KEY is not configured"}) {
+            assertTrue(update.contains("refresh_skipped_because='" + cause + "'"),
+                    () -> "the update step must publish the cause the alert matches: " + cause);
+            assertTrue(caseLine.contains("'" + cause + "; '*"),
+                    () -> "the immediate alert must match the published cause, followed by the data-feed failure: "
+                            + cause);
+        }
+        String transientCause = "the NVD refresh failed with NVD_API_KEY configured";
+        assertTrue(update.contains("refresh_skipped_because='" + transientCause + "'"),
+                "the update step must keep naming the cause an NVD outage produces");
+        assertFalse(caseLine.contains(transientCause),
+                "a refresh that failed with the key configured may be an outage and must wait for the threshold");
+        assertTrue(update.contains(
+                        "refresh_skipped_because=\"${refresh_skipped_because}; the NVD data feed refresh failed\""),
+                "the cause the alert reads must say that the data feeds failed too, since the alert only fires "
+                        + "when neither source renewed the database");
     }
 
     /**
@@ -577,8 +627,8 @@ class DependencyCheckWorkflowContractTest {
      */
     @Test
     void everyDependencyCheckCodeTheWorkflowEmitsIsExplainedInTheRecoveryGuide() throws IOException {
-        String security = Files.readString(repoRoot().resolve(".github/workflows/security.yml"));
-        String guide = Files.readString(repoRoot().resolve("docs/developer/COLD_START_RECOVERY.md"));
+        String security = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/security.yml"));
+        String guide = Files.readString(RepositoryRoot.locate().resolve("docs/developer/COLD_START_RECOVERY.md"));
         Matcher codes = Pattern.compile("MORPHEUS_DEPENDENCY_CHECK_[A-Z]+=([A-Z_]+)").matcher(security);
         java.util.Set<String> values = new java.util.TreeSet<>();
         while (codes.find()) {
@@ -595,24 +645,188 @@ class DependencyCheckWorkflowContractTest {
                 () -> "docs/developer/COLD_START_RECOVERY.md does not mention " + unexplained);
     }
 
+    /**
+     * The gate has two refresh sources, so no single secret can stop it.
+     *
+     * <p>Pinned to Dependency-Check 13.0.0, the anonymous NVD API refresh is broken upstream (#8715), which left
+     * {@code NVD_API_KEY} as the only possible writer of the trusted sentinel through the API: a refused, revoked or
+     * removed key would stop every scan 72 hours later (AUD-DEP-07, RT-13). The data-feed path of the same analyzer
+     * reads the CVE JSON 2.0 feeds the NVD publishes, needs no key, and never reaches the API client the upstream
+     * defect breaks.</p>
+     *
+     * <p>What is pinned: the data-feed refresh runs whenever the key path did not refresh -- whatever the cause --
+     * and before the cache fallback; it never reads the key; a success is a refresh like the other, with the
+     * sentinel under its own label and {@code updated=true}, and it says that the gate is down to one source; a
+     * failure writes nothing.</p>
+     */
+    @Test
+    void theDataFeedRefreshIsTheSecondSourceWheneverTheKeyPathDidNotRefresh() throws IOException {
+        // A Windows checkout carries CRLF; the branch boundary below is located by its line structure.
+        String security = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/security.yml"))
+                .replace("\r\n", "\n");
+        assertTrue(security.contains(
+                        "NVD_DATAFEED_URL: 'https://nvd.nist.gov/feeds/json/cve/2.0/nvdcve-2.0-{0}.json.gz'"),
+                "the second source must be the CVE JSON 2.0 feeds the NVD itself publishes, declared once");
+
+        String trustedUpdate = section(security,
+                "- name: Update Dependency-Check vulnerability database (trusted events)",
+                "- name: Save trusted Dependency-Check database");
+        String guard = "if [[ -n \"${refresh_skipped_because}\" ]]; then";
+        int noKey = trustedUpdate.indexOf("refresh_skipped_because='NVD_API_KEY is not configured'");
+        int dataFeed = trustedUpdate.indexOf("\"-DnvdDatafeedUrl=${NVD_DATAFEED_URL}\"");
+        int fallback = trustedUpdate.lastIndexOf(guard);
+        assertTrue(noKey >= 0 && dataFeed > noKey && fallback > dataFeed,
+                "the data-feed refresh must come after every way the key path can fail and before the cache "
+                        + "fallback");
+
+        String dataFeedBlock = trustedUpdate.substring(trustedUpdate.lastIndexOf(guard, dataFeed), fallback);
+        assertTrue(dataFeedBlock.contains("org.owasp:dependency-check-maven:13.0.0:update-only 2>&1 | tee "
+                        + "\"${datafeed_log}\"; then"),
+                "the data-feed refresh must be a condition on its own log, like the key path");
+        assertFalse(dataFeedBlock.contains("nvdApiKey"),
+                "the data-feed refresh must never read the key: it exists for the runs where the key cannot work");
+
+        int failed = dataFeedBlock.indexOf("\n            else\n");
+        assertTrue(failed > 0, "a failed data-feed refresh must have its own branch");
+        String onSuccess = dataFeedBlock.substring(0, failed);
+        String onFailure = dataFeedBlock.substring(failed);
+        assertTrue(onSuccess.contains("\"${DEPENDENCY_CHECK_SCHEMA_VERSION}\" \"NVD data feed refresh\"")
+                        && onSuccess.contains("echo \"updated=true\"")
+                        && onSuccess.contains("refresh_skipped_because=''"),
+                "a data-feed refresh that succeeded is a refresh: sentinel under its own label, cache published, "
+                        + "no fallback");
+        assertTrue(onSuccess.contains("MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESHED_FROM_DATA_FEED")
+                        && onSuccess.contains("${refresh_skipped_because}"),
+                "a run renewed from the data feeds alone must say why the key path did not run, because the gate "
+                        + "then has one working source");
+        assertFalse(onFailure.contains("write-dependency-check-sentinel.sh") || onFailure.contains("updated=true"),
+                "a data-feed refresh that failed must neither date the database nor publish a cache");
+        assertTrue(onFailure.contains("MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESH_FAILED"),
+                "a data-feed refresh that failed keeps the failed-refresh reason code");
+    }
+
+    /**
+     * sqlite-jdbc stays identified as the SQLite engine it embeds, whatever the history of the database.
+     *
+     * <p>A database built from scratch by Dependency-Check 13.0.0 files {@code cpe:/a:sqlite:sqlite} under the native
+     * ecosystem, and the CPE analyzer drops a CPE whose ecosystem differs from the dependency's: the driver JAR is then
+     * identified as {@code sqlite_jdbc} only, and a CVE of the engine never reaches the CVSS gate (AUD-DEP-27, RT-13).
+     * Sqlite evidence on the JAR cannot help: it already has some, from its package names. The hints file gives the
+     * vendor, the product and the driver version to the native libraries extracted from the JAR, which are not Java
+     * dependencies. Measured on 2026-11-03 against a database rebuilt from the NVD data feeds on 2026-10-28: without
+     * the hint the product report carries no {@code sqlite:sqlite} identifier, with it the extracted
+     * {@code sqlitejdbc.dll} carries {@code cpe:2.3:a:sqlite:sqlite:3.53.4.0}.</p>
+     *
+     * <p>What is pinned: the hint matches the libraries extracted from the driver and neither MORPHEUS code nor the
+     * driver JAR; it adds the {@code sqlite} vendor and product and a version equal to {@code <sqlite-jdbc.version>}
+     * (without a version the analyzer builds no CPE, and a stale one names another engine); both scan profiles load
+     * it; every aggregate scan runs one of them and none replaces the file; and the workflow reads the product report
+     * after both scans with the check that fails when the identification is gone.</p>
+     */
+    @Test
+    void theSqliteEngineEmbeddedBySqliteJdbcIsIdentifiedWhateverTheHistoryOfTheDatabase() throws Exception {
+        Path root = RepositoryRoot.locate();
+        String pom = Files.readString(root.resolve("pom.xml"));
+        String security = Files.readString(root.resolve(".github/workflows/security.yml")).replace("\r\n", "\n");
+
+        Matcher driverVersion = Pattern.compile("<sqlite-jdbc\\.version>([^<]+)</sqlite-jdbc\\.version>").matcher(pom);
+        assertTrue(driverVersion.find(), "the root POM must pin the sqlite-jdbc version");
+        String version = driverVersion.group(1).trim();
+
+        Path hintsPath = root.resolve("config/dependency-check-hints.xml");
+        assertTrue(Files.isRegularFile(hintsPath), "config/dependency-check-hints.xml must exist");
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        factory.setNamespaceAware(true);
+        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        Document hints = factory.newDocumentBuilder().parse(hintsPath.toFile());
+
+        String extractedWindows = "sqlite-jdbc-" + version + ".jar: sqlitejdbc.dll";
+        String extractedLinux = "sqlite-jdbc-" + version + ".jar: libsqlitejdbc.so";
+        boolean pinned = false;
+        NodeList hintNodes = hints.getElementsByTagNameNS("*", "hint");
+        for (int index = 0; index < hintNodes.getLength(); index++) {
+            Element hint = (Element) hintNodes.item(index);
+            NodeList fileNames = hint.getElementsByTagNameNS("*", "fileName");
+            boolean matchesTheExtractedLibraries = false;
+            for (int at = 0; at < fileNames.getLength(); at++) {
+                Element fileName = (Element) fileNames.item(at);
+                assertTrue("true".equals(fileName.getAttribute("regex")),
+                        "a fileName given of the hints file is a regular expression");
+                Pattern pattern = Pattern.compile(fileName.getAttribute("contains"));
+                assertFalse(pattern.matcher("morpheus-store-sqlite-1.2.1.jar").matches()
+                                || pattern.matcher("sqlite-jdbc-" + version + ".jar").matches(),
+                        "the sqlite hint must reach neither MORPHEUS code nor the driver JAR, whose Java ecosystem "
+                                + "makes the analyzer drop the native sqlite CPE anyway");
+                matchesTheExtractedLibraries |= pattern.matcher(extractedWindows).matches()
+                        && pattern.matcher(extractedLinux).matches();
+            }
+            if (!matchesTheExtractedLibraries) {
+                continue;
+            }
+            Map<String, String> added = new TreeMap<>();
+            NodeList evidence = ((Element) hint.getElementsByTagNameNS("*", "add").item(0))
+                    .getElementsByTagNameNS("*", "evidence");
+            for (int at = 0; at < evidence.getLength(); at++) {
+                Element item = (Element) evidence.item(at);
+                added.put(item.getAttribute("type"), item.getAttribute("value"));
+            }
+            assertTrue("sqlite".equals(added.get("vendor")) && "sqlite".equals(added.get("product")),
+                    () -> "the hint must add the sqlite vendor and product to the extracted libraries: " + added);
+            assertTrue(version.equals(added.get("version")),
+                    () -> "the hint must add the driver version " + version + " (<sqlite-jdbc.version>): without a "
+                            + "version the analyzer builds no CPE, and another one names another engine; found "
+                            + added.get("version"));
+            pinned = true;
+        }
+        assertTrue(pinned, "config/dependency-check-hints.xml must carry a hint for the native libraries extracted "
+                + "from the sqlite-jdbc JAR (" + extractedWindows + ", " + extractedLinux + ")");
+
+        String hintsFile = "<hintsFile>${maven.multiModuleProjectDirectory}/config/dependency-check-hints.xml"
+                + "</hintsFile>";
+        for (String profile : new String[] {"d2-security", "d2-security-tests"}) {
+            int start = pom.indexOf("<id>" + profile + "</id>");
+            assertTrue(start >= 0, () -> "the root POM must declare the " + profile + " profile");
+            String block = pom.substring(start, pom.indexOf("</profile>", start));
+            assertTrue(block.contains(hintsFile), () -> "the " + profile + " profile must load the hints file");
+        }
+
+        Matcher steps = Pattern.compile("(?ms)^      - name: ([^\\n]+)\\n(.*?)(?=^      - name: |\\z)")
+                .matcher(security);
+        int scans = 0;
+        while (steps.find()) {
+            String name = steps.group(1);
+            String step = steps.group(2);
+            if (step.contains("dependency-check-maven:13.0.0:aggregate")) {
+                scans++;
+                assertTrue(step.contains("-Pd2-security"),
+                        () -> "the aggregate scan \"" + name + "\" must run a profile that loads the hints file");
+            }
+        }
+        assertTrue(scans >= 2, "security.yml must keep its two aggregate scans");
+        assertFalse(security.contains("-DhintsFile") || security.contains("-Dodc.hintsFile"),
+                "no invocation may replace the hints file the profiles load");
+
+        String verify = "- name: Verify that sqlite-jdbc is identified as the SQLite engine it embeds";
+        String check = section(security, verify, "- name: Upload dependency-check evidence");
+        assertTrue(security.indexOf("- name: Run OWASP Dependency-Check scan over build and test dependencies")
+                        < security.indexOf(verify),
+                "the identification check reads the product report once both scans have run");
+        assertTrue(check.contains("run: python3 scripts/check-dependency-check-sqlite-identification.py "
+                        + "target/d2-security/dependency-check-report.json"),
+                "the identification check must read the product report");
+        assertFalse(check.contains("if:"), "the identification check must run whenever the scans succeeded");
+
+        String script = Files.readString(root.resolve("scripts/check-dependency-check-sqlite-identification.py"));
+        assertTrue(script.contains("MORPHEUS_DEPENDENCY_CHECK_FAILURE=SQLITE_ENGINE_NOT_IDENTIFIED")
+                        && script.contains("ENGINE_CPE_PREFIX = \"cpe:2.3:a:sqlite:sqlite:\""),
+                "the check must name its failure and look for the engine CPE");
+    }
+
     private static String section(String workflow, String from, String to) {
         int start = workflow.indexOf(from);
         int end = workflow.indexOf(to);
         assertTrue(start >= 0 && end > start,
                 () -> "security.yml must keep the step \"" + from + "\" before the step \"" + to + "\"");
         return workflow.substring(start, end);
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
-            return current;
-        }
-        Path parent = current.getParent();
-        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml"))
-                && Files.isDirectory(parent.resolve("distribution"))) {
-            return parent;
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found from " + current);
     }
 }

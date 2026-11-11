@@ -23,8 +23,8 @@ import com.morpheus.domain.traceability.TraceabilityRelationType;
 import com.morpheus.domain.traceability.TraceabilityResolutionState;
 import com.morpheus.store.memory.MemorySpecificationKnowledgeStore;
 import com.morpheus.store.memory.MemoryTraceabilityStore;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
-import com.morpheus.store.sqlite.SqliteTraceabilityStore;
+import com.morpheus.store.sqlite.adapter.SqliteSpecificationKnowledgeStore;
+import com.morpheus.store.sqlite.adapter.SqliteTraceabilityStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -179,10 +179,12 @@ class TraceabilityTraversalContractTest {
         KnowledgeSnapshotId snapshotId = KnowledgeSnapshotId.generate();
         TraceabilityEntityRef start = ref(TraceabilityEntityKind.REQUIREMENT);
 
-        assertThrows(IllegalArgumentException.class, () -> service.traverse(
+        IllegalArgumentException zeroDepth = assertThrows(IllegalArgumentException.class, () -> service.traverse(
                 snapshotId, start, 0, TraceabilityTraversalDirection.OUTGOING, Set.of()));
-        assertThrows(IllegalArgumentException.class, () -> path(service,
+        assertEquals("maxDepth must be greater than zero", zeroDepth.getMessage());
+        IllegalArgumentException negativeDepth = assertThrows(IllegalArgumentException.class, () -> path(service,
                 snapshotId, start, start, -1, TraceabilityTraversalDirection.BIDIRECTIONAL, Set.of()));
+        assertEquals("maxDepth must be greater than zero", negativeDepth.getMessage());
     }
 
     @Test

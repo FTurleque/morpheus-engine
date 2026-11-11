@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.api.local.MorpheusHttpServer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -67,7 +68,7 @@ class MorpheusProjectSyncHttpRoutesContractTest {
             assertTrue(tooLarge.body().contains("maxAgeMinutes must be between 1 and "), tooLarge.body());
 
             String registrationBody = "{\"workspace\":"
-                    + http.jsonString(http.fixture("openspec-basic").toString()) + "}";
+                    + http.jsonString(RepositoryRoot.fixture("openspec-basic").toString()) + "}";
             ApiTestSupport.Response created = http.postJson(server, "/projects", registrationBody);
             assertEquals(201, created.status(), created.body());
             String projectId = http.field(created.body(), "projectId");

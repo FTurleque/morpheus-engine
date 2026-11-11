@@ -2,6 +2,10 @@ package com.morpheus.cli;
 
 import com.morpheus.application.operability.OperationalLogMode;
 import com.morpheus.application.operability.OperationalRuntime;
+import com.morpheus.cli.command.CliExitCode;
+import com.morpheus.cli.launch.ApiLaunchOptions;
+import com.morpheus.cli.launch.McpLaunchOptions;
+import com.morpheus.cli.launch.RemoteApiLaunchOptions;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.requirement.RequirementId;
@@ -31,9 +35,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Every option of every CLI parser, given an empty or blank value, is refused with exit code 2 and named.
  *
- * <p>The table is the inventory of the adapter's value-taking options outside {@link SimpleOptions} (covered by
- * {@link SimpleOptionsTest}). Each invocation runs in its own case directory, which holds its data directory and any
- * file an option points to; a refused invocation must leave that directory absent, i.e. write nothing at all.</p>
+ * <p>The table is the inventory of the adapter's value-taking options outside the policy, portfolio and query
+ * commands, whose options reach the shared parser unchanged (covered by {@code CommandOptionsTest}). Each invocation
+ * runs in its own case directory, which holds its data directory and any file an option points to; a refused
+ * invocation must leave that directory absent, i.e. write nothing at all.</p>
  *
  * <p>The blanks cover both halves of {@link OptionValue}'s definition: the em space U+2003 is blank for
  * {@link String#isBlank()} but survives {@link String#trim()}, the control character U+0001 is emptied by
@@ -58,7 +63,8 @@ class BlankOptionValueRefusalTest {
 
     @TestFactory
     Stream<DynamicTest> aBlankValueIsRefusedNamingItsOptionBeforeAnythingIsWritten() {
-        return invocations().stream().flatMap(invocation -> BLANKS.stream().map(blank -> DynamicTest.dynamicTest(
+        return GeneratedCases.nonEmpty("aBlankValueIsRefusedNamingItsOptionBeforeAnythingIsWritten",
+                invocations().stream().flatMap(invocation -> BLANKS.stream().map(blank -> DynamicTest.dynamicTest(
                 String.join(" ", invocation.template()).replace(B, shown(blank)),
                 () -> {
                     Path root = tempDirectory.resolve("case-" + cases.incrementAndGet());
@@ -68,7 +74,7 @@ class BlankOptionValueRefusalTest {
                     assertTrue(result.err().contains(invocation.option() + " requires a non-blank value"),
                             result.err());
                     assertFalse(Files.exists(root), "a refused invocation must write nothing: " + root);
-                })));
+                }))));
     }
 
     /** {@code projects add} opens the store before it checks its options; the refusal must still register nothing. */
@@ -102,7 +108,8 @@ class BlankOptionValueRefusalTest {
         commands.put(List.of("change-orchestration"), "change-orchestration requires action");
         commands.put(List.of("augmented-context"), "augmented-context requires subject");
         commands.put(List.of("external-references"), "external-references requires subcommand");
-        return commands.entrySet().stream().map(command -> DynamicTest.dynamicTest(
+        return GeneratedCases.nonEmpty("aNonBlankLayoutIsStillAcceptedByEveryParser",
+                commands.entrySet().stream().map(command -> DynamicTest.dynamicTest(
                 String.join(" ", command.getKey()),
                 () -> {
                     Path root = tempDirectory.resolve("case-" + cases.incrementAndGet());
@@ -117,7 +124,7 @@ class BlankOptionValueRefusalTest {
                     assertEquals(CliExitCode.USAGE.code(), result.exitCode(), result.err());
                     assertTrue(result.err().contains(command.getValue()), result.err());
                     assertFalse(Files.exists(root), "a usage error must write nothing: " + root);
-                }));
+                })));
     }
 
     /** Non-blank reasoning options still reach the analysis. */
@@ -172,9 +179,10 @@ class BlankOptionValueRefusalTest {
             launchers.add(new Launcher(option, args -> RemoteApiLaunchOptions.parse(args, Map.of(), properties()),
                     "api", "--remote"));
         }
-        return launchers.stream().flatMap(launcher -> BLANKS.stream().flatMap(blank -> Stream.of(
+        return GeneratedCases.nonEmpty("aLauncherRefusesABlankValueNamingItsOption",
+                launchers.stream().flatMap(launcher -> BLANKS.stream().flatMap(blank -> Stream.of(
                 launcherTest(launcher, launcher.option() + " " + shown(blank), launcher.option(), blank),
-                launcherTest(launcher, launcher.option() + "=" + shown(blank), launcher.option() + "=" + blank))));
+                launcherTest(launcher, launcher.option() + "=" + shown(blank), launcher.option() + "=" + blank)))));
     }
 
     /**
@@ -264,7 +272,7 @@ class BlankOptionValueRefusalTest {
 
     private static List<Invocation> invocations() {
         List<Invocation> invocations = new ArrayList<>();
-        // MorpheusCli.CommandOptions, and GlobalArgs for the three layout options.
+        // CommandOptions, and GlobalArgs for the three layout options.
         add(invocations, "--data-dir", "--data-dir", B, "paths");
         add(invocations, "--config-dir", "--data-dir", DATA, "--config-dir", B, "paths");
         add(invocations, "--db", "--data-dir", DATA, "--db", B, "paths");

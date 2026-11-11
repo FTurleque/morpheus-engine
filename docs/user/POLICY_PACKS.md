@@ -37,9 +37,9 @@ M25 accepte quatre types fermés :
 
 | Kind | Source de faits | Effet |
 |---|---|---|
-| `CONSTRAINT_GUARD` | évaluations de contraintes M16 | observe blocking/unknown, sans lire le texte comme code ; au-delà de 1 024 contraintes observées sans blocage, le fait est `UNKNOWN` (`EVALUATION_BUDGET_REACHED:1024`), jamais `PASS` (ADR-0108) |
+| `CONSTRAINT_GUARD` | évaluations de contraintes M16 | observe blocking/unknown, sans lire le texte comme code ; au-delà de 1 024 contraintes observées sans blocage, le fait est `UNKNOWN` (`EVALUATION_BUDGET_REACHED:1024`), jamais `PASS` (ADR-0093) |
 | `LIFECYCLE_GUARD` | transition-check read-only | observe ALLOWED/BLOCKED/UNKNOWN/REQUIRES_INPUT |
-| `QUALITY_THRESHOLD` | métriques qualité | compare une métrique déclarée à un seuil ; un ratio de couverture sur une population vide (aucune exigence, aucune tâche) est `UNKNOWN`, un comptage reste mesuré (ADR-0108) |
+| `QUALITY_THRESHOLD` | métriques qualité | compare une métrique déclarée à un seuil ; un ratio de couverture sur une population vide (aucune exigence, aucune tâche) est `UNKNOWN`, un comptage reste mesuré (ADR-0124) |
 | `QUERY_ASSERTION` | Query DSL M24 | compare `totalMatches` à un seuil |
 
 Il n’existe pas de règle JavaScript, Groovy, SQL, nom de classe ou script arbitraire.
@@ -152,6 +152,12 @@ morpheus --json policy activate \
   --reason "enable governance"
 ```
 
+Lister les activations d’un scope (`--project` ou `--portfolio`) :
+
+```bash
+morpheus --json policy activations --project <projectId>
+```
+
 Évaluer :
 
 ```bash
@@ -186,6 +192,19 @@ morpheus --json policy override put \
   --expected-revision 0 \
   --actor security-owner \
   --reason "temporary waiver"
+```
+
+Lister les overrides d’un scope, puis en retirer un (la révision attendue est celle de l’override, un retrait périmé échoue) :
+
+```bash
+morpheus --json policy override list --project <projectId>
+morpheus --json policy override remove \
+  --id <policyPackId> \
+  --rule <ruleId> \
+  --project <projectId> \
+  --expected-revision 1 \
+  --actor security-owner \
+  --reason "waiver expired"
 ```
 
 Audit :

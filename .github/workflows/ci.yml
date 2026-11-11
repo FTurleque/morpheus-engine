@@ -30,7 +30,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Java 21
-        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
           java-version: '21'
@@ -40,7 +40,7 @@ jobs:
       - name: Run one-command M21 gate on Linux
         if: runner.os == 'Linux'
         shell: bash
-        run: bash ./scripts/validate-m21.sh 1.2.1
+        run: bash ./scripts/validate-m21.sh 1.2.2
 
       # The scripts of scripts/ are what the gates are held by, and half of them are .ps1: their tests run on both
       # legs. Each leg runs the cases of its own interpreter -- the .ps1 cases need Windows PowerShell 5.1, the one
@@ -94,7 +94,7 @@ jobs:
       - name: Run full M28 gate on Windows (Setup.exe wizard, transactional upgrade, MCP smoke)
         if: runner.os == 'Windows'
         shell: powershell
-        run: .\scripts\validate-m28.ps1 -Version 1.2.1
+        run: .\scripts\validate-m28.ps1 -Version 1.2.2
 
       - name: Upload M21 integrity evidence
         if: always()
@@ -109,6 +109,9 @@ jobs:
             morpheus-coverage-report/target/site/jacoco-aggregate/jacoco.xml
             morpheus-architecture-tests/target/m21-per-module-coverage-summary.txt
             morpheus-architecture-tests/target/m21-aggregate-coverage-summary.txt
+            morpheus-architecture-tests/target/m21-borrowed-coverage-summary.txt
+            morpheus-architecture-tests/target/enforcement-composition-summary.txt
+            morpheus-architecture-tests/target/enforcement-verdict.txt
             target/m21-supply-chain/**
             validation-output/m21/validation-summary.txt
             validation-output/m21/diff-coverage.txt
@@ -147,7 +150,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Java 21
-        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           distribution: temurin
           java-version: '21'

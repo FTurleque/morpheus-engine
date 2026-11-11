@@ -1,0 +1,5 @@
+tool: get_sync_status
+arguments: {"projectId":"01920000-0000-7000-8000-0000000000ff"}
+isError: false
+text:
+{"ageSeconds":"unknown","currentSourceCount":0,"lastObservedChangeAt":"unknown","lastSuccessfulMode":"unknown","lastSuccessfulSyncAt":"unknown","pendingFullRebuildReason":"none","projectId":"01920000-0000-7000-8000-0000000000ff","sourceRevision":"unknown","state":"UNKNOWN"}

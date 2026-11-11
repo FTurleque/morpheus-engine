@@ -3,6 +3,8 @@
 ## Purpose
 Define what the operational log mode can be, and what happens when the configured value is none of them.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/operational-log-mode.md](../../../docs/developer/specifications/operational-log-mode.md).
+
 ## Requirements
 
 ### Requirement: The operational log mode SHALL be one of a closed list or a refusal

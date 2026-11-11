@@ -52,12 +52,13 @@ MorpheusOperabilityApiService.metrics()
 
 Chaque requête HTTP arrive sur un thread virtuel. Le pilote SQLite attend une base occupée dans du code natif, où un
 thread virtuel garde son porteur ; les porteurs sont aussi nombreux que les processeurs. Mesuré le 13/10/2026 : 64
-lectures en attente sur 16 processeurs retardaient une sonde `health` de treize secondes (ADR-0114).
+lectures en attente sur 16 processeurs retardaient une sonde `health` de treize secondes (ADR-0159).
 
 Le serveur local remet donc tout gestionnaire qui peut toucher la base à un pool borné de threads plateforme
-(`DatabaseWorkOffloadingHttpServer`, `DATABASE_WORKERS` : le nombre de processeurs, deux au minimum), et le thread
-virtuel de la requête se gare en attendant. La taille du pool est la concurrence de la base ; au-delà, les requêtes
-font la queue.
+(`DatabaseWorkOffloadingHttpServer`, sur `DatabaseCallWorkers`), et le thread virtuel de la requête se gare en
+attendant. La taille du pool, `DatabaseCallWorkers.DATABASE_WORKERS`, est la concurrence de la base : huit, quelle que
+soit la machine, parce qu'un travailleur attend un fichier SQLite et ne calcule pas. Au-delà, les requêtes font la
+queue.
 
 La queue est bornée dans le temps : une requête attend un travailleur dix secondes au plus (`ADMISSION_WAIT`), dans
 l'ordre d'arrivée, puis reçoit `429 LOCAL_SERVER_BUSY` avec `Retry-After: 1`. Les refus ne sont pas comptés.
@@ -68,6 +69,14 @@ attendent. `readiness` interroge la base et passe par le pool.
 
 Un nouveau contexte HTTP du serveur local s'enregistre à travers `databaseWork`, pas `httpServer` :
 `LocalHttpServerBootstrapArchitectureTest` refuse un second enregistrement direct.
+
+La façade distante relaie ses requêtes au serveur local par HTTP, où son thread virtuel se gare sur le réseau ; elle
+n'est donc pas décorée entière. Sa seule opération SQLite, la sauvegarde, passe par le même mécanisme, son propre pool
+de `DatabaseCallWorkers`, après l'authentification, le rôle `ADMIN` et la voie privilégiée : une sauvegarde qui
+n'obtient pas de travailleur dans `ADMISSION_WAIT` reçoit `429 DATABASE_WORKERS_BUSY`, et une sauvegarde qui dépasse
+le délai d'une écriture relayée (`BACKUP_DEADLINE`) reçoit `504 BACKUP_TIMEOUT` : son issue est inconnue, elle peut
+encore aboutir. `DatabaseWorkArchitectureTest` refuse un appel SQLite de l'adaptateur hors d'un `DatabaseCall`, un
+`DatabaseCall` exécuté ailleurs que par les travailleurs, et un second pool de threads plateforme.
 
 ## Logs structurés locaux
 
@@ -101,7 +110,7 @@ MORPHEUS_OPERATIONAL_LOGS=file
 ```
 
 Les mêmes lignes vont dans `morpheus-operational.jsonl` sous le répertoire de logs, et plus sur `stderr`
-(`RotatingOperationalLogFile`, ADR-0112). Le fichier courant est borné à 4 Mio ; quatre générations sont gardées, de
+(`RotatingOperationalLogFile`, ADR-0146). Le fichier courant est borné à 4 Mio ; quatre générations sont gardées, de
 `.1` à `.4`. Répertoire et fichiers sont privés au compte (`LocalWritePermissionHardener`). Rien n'est tenu ouvert
 entre deux événements : plusieurs processus du même compte écrivent dans le même journal.
 
@@ -126,7 +135,7 @@ Aucun transport réseau n'est créé.
 ### Ce que journalisent les bibliothèques embarquées
 
 Le SDK MCP et ses dépendances journalisent par SLF4J. Le produit embarque un seul binding, le sien
-(`OperationalSlf4jServiceProvider`, dans `morpheus-cli`, ADR-0111) :
+(`OperationalSlf4jServiceProvider`, dans `morpheus-cli`, ADR-0146) :
 
 ```text
 journal coupé   -> aucun niveau accepté, rien n'est écrit
@@ -145,7 +154,7 @@ Trois classes du produit journalisent par `System.Logger` (`BoundedStdioClientTr
 `BoundedStdioServerTransportProvider`, `SqliteTransactionRunner`). Elles ne passent pas par ce binding : leurs
 enregistrements `INFO` et au-dessus sortent en texte sur la sortie d'erreur, dans tous les modes. Avec le journal
 sur `stderr`, la sortie d'erreur mêle donc des lignes JSON et ce texte ; avec le journal en fichier, ce texte reste sur
-la sortie d'erreur et n'est pas dans le fichier (ADR-0112, décision 8).
+la sortie d'erreur et n'est pas dans le fichier (ADR-0146, décision 8).
 
 ## Redaction
 
@@ -229,12 +238,15 @@ qui revient au mainteneur.
 
 Deux modules ne comptent pas par eux-mêmes, et reçoivent ce qui compte de celui qui les construit :
 
-- `morpheus-mcp-transport` ne peut dépendre d'aucun autre paquet MORPHEUS. L'interruption d'une opération qui a
-  dépassé son délai lui est remise par la passerelle (`MinosMcpCodeGateway`, `NexusMcpContextGateway`) : c'est elle qui
-  l'enveloppe (`countingAbort`) et compte son échec avant de le laisser remonter. De même, le transport **signale** une
+- `morpheus-mcp-transport` ne peut dépendre d'aucun autre paquet MORPHEUS. Le cycle de vie d'un client de pair y
+  existe une fois (`McpPeerSession`), et chaque passerelle (`MinosMcpCodeGateway`, `NexusMcpContextGateway`) lui remet
+  à l'ouverture trois observateurs construits sur son enregistreur (`observers`) : l'interruption d'une opération qui
+  a dépassé son délai, ou une fermeture du pair qui échoue, est comptée sur le premier (`mcp-peer-shutdown`,
+  `Observers.countingAbort` compte l'échec de l'interruption avant de le laisser remonter), une copie vérifiée restée
+  sur le disque sur le deuxième (`staged-artifact-cleanup`). De même, le transport **signale** une
   énumération de descendants en échec, et un processus du pair - racine ou descendant retenu - qui refuse son signal
-  de terminaison, à un observateur (`Consumer<? super RuntimeException>`) que la passerelle lui passe à la
-  construction (`processTreeFailures`), et c'est elle qui compte (`mcp-peer-process-tree`). Le transport n'a pas
+  de terminaison, au troisième (`Consumer<? super RuntimeException>`), que la passerelle construit
+  (`processTreeFailures`), et c'est lui qui compte (`mcp-peer-process-tree`). Le transport n'a pas
   d'observateur par défaut : un signal refusé y était journalisé au niveau `DEBUG`, que le gestionnaire par défaut du
   JDK jette, et ne laissait donc aucune trace.
 - `morpheus-provider-sdk` ne lit pas le runtime du processus. `ProviderPluginService` prend son enregistreur par

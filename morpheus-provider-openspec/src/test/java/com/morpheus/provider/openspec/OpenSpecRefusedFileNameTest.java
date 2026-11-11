@@ -105,17 +105,6 @@ class OpenSpecRefusedFileNameTest {
 
     @Test
     @EnabledOnOs({OS.LINUX, OS.MAC})
-    void theRefusalOfTheWholeReadNamesTheSameFileAsItExists(@TempDir Path workspace) throws Exception {
-        writeSpecification(workspace, BACKSLASH_DIRECTORY, "just text, no heading\n");
-
-        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () ->
-                new OpenSpecProjectContentReader().read(workspace, ProjectSpecificationId.generate(), resolver()));
-
-        assertTrue(failure.getMessage().startsWith("openspec/specs/a\\b/spec.md: "), failure.getMessage());
-    }
-
-    @Test
-    @EnabledOnOs({OS.LINUX, OS.MAC})
     void theLocatorRecordedForTheSameFileIsStillNormalized(@TempDir Path workspace) throws Exception {
         writeSpecification(workspace, BACKSLASH_DIRECTORY, VALID_SPECIFICATION);
 

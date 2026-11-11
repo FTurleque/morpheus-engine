@@ -34,11 +34,14 @@ class TechnicalContextOptionsTest {
 
     @Test
     void rejectsImplicitProjectUnsupportedSourcesAndInvalidBudget() {
-        assertThrows(IllegalArgumentException.class,
+        IllegalArgumentException blankProject = assertThrows(IllegalArgumentException.class,
                 () -> new TechnicalContextOptions(" ", 2000, Set.of(), Map.of(), false));
-        assertThrows(IllegalArgumentException.class,
+        assertEquals("externalProject must not be blank", blankProject.getMessage());
+        IllegalArgumentException invalidBudget = assertThrows(IllegalArgumentException.class,
                 () -> new TechnicalContextOptions("project", 0, Set.of(), Map.of(), false));
-        assertThrows(IllegalArgumentException.class,
+        assertEquals("tokenBudget must be between 1 and 100000", invalidBudget.getMessage());
+        IllegalArgumentException unsupportedSource = assertThrows(IllegalArgumentException.class,
                 () -> new TechnicalContextOptions("project", 2000, Set.of("UNKNOWN"), Map.of(), false));
+        assertEquals("unsupported technical context sources: [UNKNOWN]", unsupportedSource.getMessage());
     }
 }

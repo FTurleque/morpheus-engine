@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
  * augmented-context MCP tools carried the same status object verbatim, three absolute server paths included. The
  * proposition is "every adapter that produces such a status calls the projection", which is a call that must
  * <em>exist</em> in a file, not a dependency that must be absent: a rule over compiled classes cannot see a call
- * that was never written (ADR-0103), so it is textual.</p>
+ * that was never written ({@code .claude/rules/architecture.md}), so it is textual.</p>
  */
 class IntegrationStatusProjectionArchitectureTest {
 
@@ -80,10 +80,9 @@ class IntegrationStatusProjectionArchitectureTest {
 
     @Test
     void theHttpViewIsATransformationOfTheSharedProjectionNotACopy() throws IOException {
-        String views = Files.readString(repoRoot().resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/IntegrationStatusViews.java"));
-        String projection = Files.readString(repoRoot().resolve(
-                "morpheus-application/src/main/java/com/morpheus/application/security/IntegrationStatusDisclosure.java"));
+        String views = Files.readString(ProductionSources.mainSource("morpheus-api", "IntegrationStatusViews"));
+        String projection = Files.readString(RepositoryRoot.locate().resolve(
+                "morpheus-application/src/main/java/com/morpheus/application/context/IntegrationStatusDisclosure.java"));
 
         assertTrue(views.contains(PROJECTION + ".project("), "the status route must use the shared projection");
         assertFalse(views.contains("namesAServerLocation"), "the HTTP view must not carry its own copy of the predicate");
@@ -117,24 +116,11 @@ class IntegrationStatusProjectionArchitectureTest {
     }
 
     private static List<Path> sources(String module) throws IOException {
-        try (Stream<Path> tree = Files.walk(repoRoot().resolve(module + "/src/main/java"))) {
+        try (Stream<Path> tree = Files.walk(RepositoryRoot.locate().resolve(module + "/src/main/java"))) {
             return tree.filter(path -> path.toString().endsWith(".java"))
                     .filter(path -> !path.getFileName().toString().equals("IntegrationStatusViews.java"))
                     .sorted()
                     .toList();
         }
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
-            return current;
-        }
-        Path parent = current.getParent();
-        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml"))
-                && Files.isDirectory(parent.resolve("distribution"))) {
-            return parent;
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found from " + current);
     }
 }

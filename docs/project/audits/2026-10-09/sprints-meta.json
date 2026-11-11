@@ -56,9 +56,7 @@
         "AUD-TRV-04",
         "AUD-SEC-04",
         "AUD-QUA-13",
-        "AUD-QUA-12",
-        "AUD-QUA-17",
-        "AUD-QUA-18"
+        "AUD-QUA-12"
       ]
     },
     {
@@ -70,8 +68,7 @@
         "AUD-PRF-18",
         "AUD-TRV-05",
         "AUD-PRF-03",
-        "AUD-PRF-09",
-        "AUD-PRF-19"
+        "AUD-PRF-09"
       ]
     },
     {
@@ -114,7 +111,7 @@
         "AUD-TST-08",
         "AUD-TST-09",
         "AUD-QUA-04",
-        "AUD-TST-18"
+        "AUD-TST-19"
       ]
     },
     {
@@ -143,8 +140,7 @@
         "AUD-QUA-11",
         "AUD-DEP-13",
         "AUD-DEP-14",
-        "AUD-ARC-07",
-        "AUD-ARC-15"
+        "AUD-ARC-07"
       ]
     },
     {
@@ -187,6 +183,47 @@
       "sortie": "Setup.exe et le launcher sont signés, et verify-release-provenance asserte présence et validité de la signature.",
       "constats": [
         "AUD-DEP-05"
+      ]
+    },
+    {
+      "numero": 15,
+      "titre": "Dérives apparues pendant les correctifs",
+      "pourquoi": "Ce sprint n'est pas du plan du 9 octobre : il rassemble les constats nés **après** l'audit, soit d'une scission quand la mesure du dépôt a montré que ma cause était fausse, soit d'un effet de bord d'un correctif, soit du changement de branche d'intégration du 18 octobre. Les ranger dans les sprints d'origine faisait croire que ceux-ci traînaient depuis le 9 octobre, ce qui est faux : ils sont soldés, et du travail neuf est apparu à côté. La passe du 26 octobre en ajoute quatre, tous nés de la grande restructuration des adaptateurs : l'élargissement de visibilité qu'elle a imposé, un test de garde qui ne garde rien, la liste d'ADR-0148 recopiée à la main dans son gate, et deux dérives de la trace de suivi. La contre-vérification du 28 octobre en ajoute trois : deux frontières d'espace de travail aux garanties opposées, et deux duplications que le sprint 9 a laissées hors de son périmètre. La contre-vérification du 28 octobre au soir en ajoute quatre : des gates qui parcourent tout l'arbre du dépôt et comptent les copies d'espaces de travail, un écart de détection CVE sur une base NVD reconstruite, un fichier de suppressions qu'aucune assertion ne tient, et une attente de créneau de réponse sans délai propre.",
+      "sortie": "Aucun constat né pendant les correctifs ne reste ouvert, et chacun a soit une règle exécutable qui l'empêche de revenir, soit une décision écrite qui l'assume.",
+      "constats": [
+        "AUD-ARC-15",
+        "AUD-ARC-16",
+        "AUD-ARC-17",
+        "AUD-ARC-18",
+        "AUD-ARC-19",
+        "AUD-ARC-20",
+        "AUD-ARC-21",
+        "AUD-DEP-23",
+        "AUD-DEP-24",
+        "AUD-DEP-25",
+        "AUD-DEP-26",
+        "AUD-DEP-27",
+        "AUD-DEP-28",
+        "AUD-DEP-29",
+        "AUD-PRF-19",
+        "AUD-PRF-20",
+        "AUD-QUA-17",
+        "AUD-QUA-18",
+        "AUD-QUA-19",
+        "AUD-QUA-20",
+        "AUD-QUA-21",
+        "AUD-QUA-22",
+        "AUD-QUA-23",
+        "AUD-SEC-17",
+        "AUD-SEC-18",
+        "AUD-TRV-08",
+        "AUD-TST-18",
+        "AUD-TST-20",
+        "AUD-TST-21",
+        "AUD-TST-22",
+        "AUD-TST-23",
+        "AUD-TST-24",
+        "AUD-TST-25"
       ]
     }
   ]

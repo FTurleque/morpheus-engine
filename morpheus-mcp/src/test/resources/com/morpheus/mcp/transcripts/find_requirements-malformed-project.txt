@@ -1,0 +1,5 @@
+tool: find_requirements
+arguments: {"projectId":"not-an-id","query":"session"}
+isError: true
+text:
+Invalid UUID string: not-an-id

@@ -32,7 +32,7 @@ couvre légèrement moins de lignes à nombre de tests identique.
 `CoverageScaleSeparationTest` fait échouer le build si un gate lit une clé, un rapport ou une
 preuve de l'autre échelle. **Ne jamais comparer un ratio par module à un seuil agrégé, ni
 l'inverse.** Le *pourquoi* est dans
-`docs/architecture/adr/0104-two-coverage-scales-share-one-population.md` : la lire avant de toucher à une
+`docs/architecture/adr/GEN-0166-deux-echelles-de-couverture-un-seuil-par-module-a-marge-proportionnelle-et-le-credit-emprunte.md` : la lire avant de toucher à une
 clé, à un plafond ou à la population mesurée.
 
 Conséquence pratique quand on écrit des tests pour faire monter l'échelle par module : un
@@ -40,12 +40,50 @@ rapport par module ne crédite que les tests **du module qui porte la ligne**. U
 `morpheus-application` exercé uniquement par des tests de `morpheus-api` y lit comme non
 couvert, et un test ajouté sous `morpheus-architecture-tests` n'y déplace rien du tout.
 
+## Le seuil d'un module : sous le cliquet total, un par module
+
+L'échelle par module a deux niveaux de seuil, à ne pas confondre :
+
+- le **cliquet total** `perModule*` (`config/m21-quality-ratchets.properties`), borné par son plafond ;
+- un **seuil par module**, dans `config/m21-per-module-coverage-floors.properties` (deux clés par
+  module : `<artifactId>.lineCoverageMinimum`, `<artifactId>.branchCoverageMinimum`), que le gate
+  compare au rapport propre du module. Le fichier est la seule source de ces valeurs.
+
+Un module sous son seuil se corrige par des tests **dans ce module**, jamais en baissant sa clé.
+Ajouter un module au réacteur exige ses deux clés au plancher D2 dans le même changement ; le retirer
+ou le renommer emporte ses clés.
+
+Relever le seuil d'un module est une décision, comme un ratchet, mais dans la fenêtre de **ce
+module** : au-dessus du plancher D2, `CoverageQualificationEvidenceTest#everyModuleFloorStaysInsideItsQualifiedWindow`
+exige que la preuve conservée porte les compteurs du module et que le seuil garde trois fois sa
+dispersion (la plus grande de son écart entre résumés conservés et de sa référence : celle de
+l'échelle multipliée par la part du module dans la population, arrondie à l'unité supérieure)
+sous sa plus basse mesure conservée, en lignes et en branches séparément. Lire ces compteurs dans
+les lignes `module.<artifactId>.*` des résumés sous `config/coverage-qualification/per-module/`.
+Un module absent de cette preuve reste au plancher D2 jusqu'à la prochaine requalification.
+
+## Le maximum du crédit emprunté se baisse, il ne se relève pas
+
+`borrowedLineCreditMaximum` / `borrowedBranchCreditMaximum` bornent le total de ce que les modules
+doivent aux tests des autres (`BorrowedCoverageGateTest`). La direction est l'inverse d'un ratchet :
+
+- la mesure qualifiée est la plus **haute** des runs exact-head Windows et Linux, citée dans le
+  gate avec son SHA et ses runs ;
+- le maximum se place **au-dessus**, d'au plus trois fois la dispersion de référence, en lignes et
+  en branches séparément ; le gate refuse un maximum sous la mesure qualifiée (une plateforme ne
+  pourrait pas le tenir) et un maximum au-delà de cette marge ;
+- le **baisser** dans cette fenêtre est une décision ; baisser la mesure qualifiée exige une
+  nouvelle mesure des deux plateformes. Le relever pour faire passer un build est interdit : le
+  remède est un test dans le module que la preuve nomme.
+
+Ces deux clés ne se calculent jamais à partir d'un ratchet de couverture, et inversement.
+
 ## Calculer la marge en lignes et en branches, jamais en points
 
 Un ratchet collé à la mesure transforme une variation ordinaire de runner en échec de build. La
 marge se calcule sur les populations réelles de lignes et de branches, pas en points de
 pourcentage : les deux clés ne se resserrent pas au même rythme, et la branche est la plus
-serrée des deux. Rien n'oblige à les faire bouger ensemble — ADR-0104 interdit seulement de les
+serrée des deux. Rien n'oblige à les faire bouger ensemble — ADR-0166 interdit seulement de les
 aligner sur une moyenne.
 
 ## Obtenir la moitié Linux d'une preuve
@@ -62,6 +100,30 @@ aligner sur une moyenne.
 
 Citer la preuve — SHA, plateforme, run — dans le commentaire du plafond. Un plafond sans preuve
 citée n'est pas qualifié.
+
+## Déposer la preuve d'une requalification
+
+Les artefacts expirent, donc la citation ne suffit pas : la qualification en vigueur est **gardée**
+dans `config/coverage-qualification/`, et `CoverageQualificationEvidenceTest` exige que chaque
+plafond soit égal au plus bas ratio de son échelle dans ces fichiers.
+
+1. Télécharger `m21-integrity-<OS>` des runs de la qualification (deux runs au moins par
+   plateforme, un seul commit) et garder, tels quels, `m21-per-module-coverage-summary.txt` et
+   `m21-aggregate-coverage-summary.txt`.
+2. Les ranger sous `per-module/<Plateforme>-<run>.txt` et `aggregate/<Plateforme>-<run>.txt`, et
+   remplacer les lignes de l'échelle requalifiée dans `evidence.tsv` (échelle, plateforme, run,
+   commit, fichier). Le commit se lit dans `gh run view <run> --json headSha`, pas dans le résumé.
+3. Changer les deux constantes du gate dans le même changement, et supprimer les résumés de
+   l'ensemble remplacé : Git garde l'ancien.
+4. Requalifier les **deux** échelles à la même tête : le test refuse deux échelles conservées à
+   deux têtes. Les résumés par module portent les compteurs de chaque module ; le test exige qu'ils
+   fassent les totaux et que tous portent le même ensemble de modules.
+5. Poser ensuite chaque seuil de module au plus haut millième de sa fenêtre, lignes et branches
+   séparément, valeur lue dans la preuve qui vient d'être conservée. Si un plafond baisse, le dire
+   dans la PR : la régression se corrige par des tests, jamais en baissant un cliquet.
+
+Un ensemble incomplet (plateforme absente, un seul run, deux commits, deux populations, résumé d'une
+autre échelle) est refusé par le test ; ne pas l'affaiblir pour le faire passer.
 
 ## Répercuter la hausse — ne pas se fier à une liste écrite à la main
 
@@ -96,6 +158,8 @@ Une **mesure datée** ne se réécrit pas. Seule une affirmation courante se met
 ```bash
 ./mvnw clean verify
 ./mvnw test -pl morpheus-architecture-tests -Dtest=CoverageQualityGateTest
+./mvnw test -pl morpheus-architecture-tests -Dtest=CoverageQualificationEvidenceTest
+./mvnw test -pl morpheus-architecture-tests -Dtest=CoverageScaleSeparationTest
 ./mvnw test -pl morpheus-coverage-report
 ```
 

@@ -27,8 +27,8 @@ import com.morpheus.domain.version.EntityVersionId;
 import com.morpheus.domain.version.SpecificationVersion;
 import com.morpheus.domain.version.SpecificationVersionId;
 import com.morpheus.store.memory.MemorySpecificationKnowledgeStore;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
-import com.morpheus.store.sqlite.SqliteVersionedRequirementStore;
+import com.morpheus.store.sqlite.adapter.SqliteSpecificationKnowledgeStore;
+import com.morpheus.store.sqlite.adapter.SqliteVersionedRequirementStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -175,9 +175,15 @@ class RequirementQueryContractTest {
 
     @Test
     void pageRequestRejectsUnboundedOrInvalidRangesAndMissingActiveIsExplicitlyEmpty() {
-        assertThrows(IllegalArgumentException.class, () -> new PageRequest(-1, 1));
-        assertThrows(IllegalArgumentException.class, () -> new PageRequest(0, 0));
-        assertThrows(IllegalArgumentException.class, () -> new PageRequest(0, PageRequest.MAX_LIMIT + 1));
+        IllegalArgumentException negativeOffset = assertThrows(
+                IllegalArgumentException.class, () -> new PageRequest(-1, 1));
+        assertEquals("offset must be greater than or equal to zero", negativeOffset.getMessage());
+        IllegalArgumentException zeroLimit = assertThrows(
+                IllegalArgumentException.class, () -> new PageRequest(0, 0));
+        assertEquals("limit must be between 1 and " + PageRequest.MAX_LIMIT, zeroLimit.getMessage());
+        IllegalArgumentException oversizedLimit = assertThrows(
+                IllegalArgumentException.class, () -> new PageRequest(0, PageRequest.MAX_LIMIT + 1));
+        assertEquals("limit must be between 1 and " + PageRequest.MAX_LIMIT, oversizedLimit.getMessage());
 
         var store = new MemorySpecificationKnowledgeStore();
         assertTrue(service(store, store)

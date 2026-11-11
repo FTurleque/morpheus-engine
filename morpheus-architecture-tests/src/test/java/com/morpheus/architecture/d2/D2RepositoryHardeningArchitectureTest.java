@@ -1,9 +1,12 @@
 package com.morpheus.architecture.d2;
 
+import com.morpheus.architecture.ProductionSources;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.morpheus.architecture.RepositoryRoot;
+import com.morpheus.architecture.RepositoryTree;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -42,10 +45,10 @@ class D2RepositoryHardeningArchitectureTest {
 
     @Test
     void dependencyAndQualityBaselineIsPinned() throws IOException {
-        String pom = Files.readString(repoRoot().resolve("pom.xml"));
-        assertTrue(pom.contains("<jackson.version>3.2.3</jackson.version>"));
-        assertTrue(pom.contains("<sqlite-jdbc.version>3.53.4.0</sqlite-jdbc.version>"));
-        assertTrue(pom.contains("<mcp-sdk.version>2.0.1</mcp-sdk.version>"));
+        String pom = Files.readString(RepositoryRoot.locate().resolve("pom.xml"));
+        assertTrue(pom.contains("<jackson.version>3.2.4</jackson.version>"));
+        assertTrue(pom.contains("<sqlite-jdbc.version>3.54.1.0</sqlite-jdbc.version>"));
+        assertTrue(pom.contains("<mcp-sdk.version>2.1.0</mcp-sdk.version>"));
         assertTrue(pom.contains("<dependency-check.maven.plugin.version>13.0.0</dependency-check.maven.plugin.version>"));
         assertTrue(pom.contains("<failOnWarning>true</failOnWarning>"));
         assertTrue(pom.contains("<id>d2-security</id>"));
@@ -61,7 +64,7 @@ class D2RepositoryHardeningArchitectureTest {
     void noModulePomStatesAVersionTheRootPomShouldDecide() throws IOException {
         List<String> modules = new ArrayList<>();
         Matcher module = Pattern.compile("<module>([^<]+)</module>")
-                .matcher(Files.readString(repoRoot().resolve("pom.xml")));
+                .matcher(Files.readString(RepositoryRoot.locate().resolve("pom.xml")));
         while (module.find()) {
             modules.add(module.group(1).trim());
         }
@@ -70,7 +73,7 @@ class D2RepositoryHardeningArchitectureTest {
         List<String> offenders = new ArrayList<>();
         for (String name : modules) {
             offenders.addAll(versionsStatedBy(name + "/pom.xml",
-                    Files.readString(repoRoot().resolve(name).resolve("pom.xml"))));
+                    Files.readString(RepositoryRoot.locate().resolve(name).resolve("pom.xml"))));
         }
         assertTrue(offenders.isEmpty(),
                 () -> "a module POM must leave every dependency and plugin version to the root POM "
@@ -132,14 +135,14 @@ class D2RepositoryHardeningArchitectureTest {
 
     @Test
     void activeMcpDocumentationMatchesPinnedSdkVersion() throws IOException {
-        String mcp = Files.readString(repoRoot().resolve("docs/developer/MCP.md"));
-        assertTrue(mcp.contains("Java MCP SDK 2.0.1"));
+        String mcp = Files.readString(RepositoryRoot.locate().resolve("docs/developer/MCP.md"));
+        assertTrue(mcp.contains("Java MCP SDK 2.1.0"));
         assertFalse(mcp.contains("Java MCP SDK 2.0.0"));
     }
 
     @Test
     void coverageRatchetCannotSilentlyReturnToTheD2Floor() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         Properties ratchets = m21Ratchets(root);
         // Both scales, because a floor that only one of them respects leaves the other free to return to it.
         for (String key : List.of("perModuleLineCoverageMinimum", "aggregateLineCoverageMinimum")) {
@@ -165,9 +168,10 @@ class D2RepositoryHardeningArchitectureTest {
 
     @Test
     void durableM21ScriptsKeepQualifiedPresenceAndCoverageRatchets() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         Properties ratchets = m21Ratchets(root);
         assertTrue(Integer.parseInt(ratchets.getProperty("testsMinimum")) >= 860);
+        assertTrue(Integer.parseInt(ratchets.getProperty("generatedTestsMinimum")) >= 1);
         assertTrue(Integer.parseInt(ratchets.getProperty("architectureTestsMinimum")) >= 265);
         assertTrue(Double.parseDouble(ratchets.getProperty("perModuleLineCoverageMinimum")) >= 0.510d);
         assertTrue(Double.parseDouble(ratchets.getProperty("perModuleBranchCoverageMinimum")) >= 0.435d);
@@ -178,8 +182,8 @@ class D2RepositoryHardeningArchitectureTest {
         String windows = Files.readString(root.resolve("scripts/validate-m21.ps1"));
         assertTrue(linux.contains("config/m21-quality-ratchets.properties"));
         assertTrue(windows.contains("config\\m21-quality-ratchets.properties"));
-        assertTrue(linux.contains("1.2.1"));
-        assertTrue(windows.contains("1.2.1"));
+        assertTrue(linux.contains("1.2.2"));
+        assertTrue(windows.contains("1.2.2"));
     }
 
     /**
@@ -196,9 +200,10 @@ class D2RepositoryHardeningArchitectureTest {
      */
     @Test
     void d2ScriptsReadThePresenceMinimumsFromTheLivingRatchetsAndKeepTheProductVersion() throws IOException {
-        Path root = repoRoot();
-        Pattern shellComparison = Pattern.compile("\\(\\(\\s*(ARCH_TESTS|TESTS)\\s*<\\s*([^\\s)]+)\\s*\\)\\)");
-        Pattern windowsComparison = Pattern.compile("\\$(architectureTests|tests)\\s+-lt\\s+([^\\s)]+)");
+        Path root = RepositoryRoot.locate();
+        Pattern shellComparison = Pattern.compile("\\(\\(\\s*(ARCH_TESTS|WRITTEN|GENERATED)\\s*<\\s*([^\\s)]+)\\s*\\)\\)");
+        Pattern windowsComparison = Pattern.compile(
+                "\\$(architectureTests|writtenTests|generatedTests)\\s+-lt\\s+([^\\s)]+)");
         Map<String, String> scripts = Map.of(
                 "scripts/validate-d2.sh", "config/m21-quality-ratchets.properties",
                 "scripts/validate-d2.ps1", "config\\m21-quality-ratchets.properties");
@@ -210,8 +215,8 @@ class D2RepositoryHardeningArchitectureTest {
             while (matcher.find()) {
                 operands.add(matcher.group(2));
             }
-            assertEquals(2, operands.size(),
-                    () -> entry.getKey() + " must compare the test total and the architecture total, once each");
+            assertEquals(3, operands.size(), () -> entry.getKey()
+                    + " must compare the written count, the generated count and the architecture count, once each");
             for (String operand : operands) {
                 assertFalse(operand.matches("[0-9][0-9._]*"),
                         () -> entry.getKey() + " compares an observed count with the literal " + operand
@@ -220,15 +225,17 @@ class D2RepositoryHardeningArchitectureTest {
             assertTrue(script.contains(entry.getValue()), () -> entry.getKey() + " must name " + entry.getValue());
             assertTrue(Pattern.compile("\\btestsMinimum\\b").matcher(script).find(),
                     () -> entry.getKey() + " must read the testsMinimum key");
+            assertTrue(Pattern.compile("\\bgeneratedTestsMinimum\\b").matcher(script).find(),
+                    () -> entry.getKey() + " must read the generatedTestsMinimum key");
             assertTrue(Pattern.compile("\\barchitectureTestsMinimum\\b").matcher(script).find(),
                     () -> entry.getKey() + " must read the architectureTestsMinimum key");
-            assertTrue(script.contains("1.2.1"), () -> entry.getKey() + " must still name the product version");
+            assertTrue(script.contains("1.2.2"), () -> entry.getKey() + " must still name the product version");
         }
     }
 
     @Test
     void activeWorkflowsUsePinnedNode24GenerationActions() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         for (String workflow : List.of("ci.yml", "security.yml", "codeql.yml", "nightly.yml")) {
             String text = Files.readString(root.resolve(".github/workflows").resolve(workflow));
             assertPinnedNode24(text, CHECKOUT_NODE24, "checkout", workflow);
@@ -276,7 +283,7 @@ class D2RepositoryHardeningArchitectureTest {
      */
     @Test
     void theMacosLaneStaysAdvisoryAndClaimsNoSupport() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String nightly = Files.readString(root.resolve(".github/workflows/nightly.yml"));
 
         assertTrue(nightly.contains("runs-on: macos-latest"),
@@ -326,7 +333,7 @@ class D2RepositoryHardeningArchitectureTest {
      */
     @Test
     void everyWorkflowAvoidsDeprecatedActionGenerationsAndTheHistoricalPreflightsStayRemoved() throws IOException {
-        Path root = repoRoot().resolve(".github/workflows");
+        Path root = RepositoryRoot.locate().resolve(".github/workflows");
         assertFalse(workflowFiles(root).isEmpty(), "no workflow found under .github/workflows");
         List<String> violations = deprecatedWorkflowViolations(root);
         assertTrue(violations.isEmpty(), () -> "workflows must pin every checkout and setup-java to the Node 24 "
@@ -412,7 +419,7 @@ class D2RepositoryHardeningArchitectureTest {
 
     @Test
     void dependencySecurityGateCoversPromotionAndDevelopUpdatesWithoutPrUpdatesOrCacheWrites() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String security = Files.readString(root.resolve(".github/workflows/security.yml"));
         String dependabot = Files.readString(root.resolve(".github/dependabot.yml"));
 
@@ -475,11 +482,7 @@ class D2RepositoryHardeningArchitectureTest {
                 "Dependency-Check database updates must be restricted to trusted events");
         assertTrue(trustedUpdateStep.contains("${{ secrets.NVD_API_KEY }}"),
                 "trusted Dependency-Check updates must use the configured NVD API key when available");
-        int firstUpdateOnly = security.indexOf("dependency-check-maven:13.0.0:update-only");
-        assertTrue(firstUpdateOnly >= trustedUpdateIndex && firstUpdateOnly < saveIndex,
-                "Dependency-Check update-only must remain inside the trusted-event update step");
-        assertTrue(security.indexOf("dependency-check-maven:13.0.0:update-only", firstUpdateOnly + 1) < 0,
-                "pull requests must consume the trusted cache and must not run a second anonymous NVD update");
+        assertEveryUpdateOnlyIsInside(security, trustedUpdateIndex, saveIndex);
 
         String saveStep = security.substring(saveIndex, scanIndex);
         assertTrue(saveStep.contains("if: github.event_name != 'pull_request'"),
@@ -495,6 +498,22 @@ class D2RepositoryHardeningArchitectureTest {
     }
 
     /**
+     * Every Dependency-Check update-only -- the API-key refresh and the data-feed refresh -- lies inside the
+     * trusted-event update step: pull requests consume the trusted cache and never refresh it.
+     */
+    private static void assertEveryUpdateOnlyIsInside(String security, int stepStart, int stepEnd) {
+        String goal = "dependency-check-maven:13.0.0:update-only";
+        int count = 0;
+        for (int at = security.indexOf(goal); at >= 0; at = security.indexOf(goal, at + 1)) {
+            count++;
+            assertTrue(at >= stepStart && at < stepEnd,
+                    "every Dependency-Check update-only must remain inside the trusted-event update step: pull "
+                            + "requests consume the trusted cache and never refresh it");
+        }
+        assertTrue(count >= 1, "the trusted-event update step must refresh the Dependency-Check database");
+    }
+
+    /**
      * What the build executes is scanned even though it is not what the build ships.
      *
      * <p>The product SBOM and the product scan exclude test scope deliberately: a JUnit artifact is never
@@ -505,7 +524,7 @@ class D2RepositoryHardeningArchitectureTest {
      */
     @Test
     void buildAndTestDependenciesAreScannedSeparatelyFromTheDistributedProduct() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String pom = Files.readString(root.resolve("pom.xml"));
         String security = Files.readString(root.resolve(".github/workflows/security.yml"));
 
@@ -539,7 +558,7 @@ class D2RepositoryHardeningArchitectureTest {
 
     @Test
     void codeQlSastIsVersionedAndUsesExtendedJavaSecurityQueries() throws IOException {
-        String codeql = Files.readString(repoRoot().resolve(".github/workflows/codeql.yml"));
+        String codeql = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/codeql.yml"));
         assertTrue(codeql.contains("branches: [main, develop]"));
         assertTrue(codeql.contains("security-events: write"));
         assertTrue(codeql.contains("languages: java-kotlin"));
@@ -550,45 +569,41 @@ class D2RepositoryHardeningArchitectureTest {
 
     @Test
     void untrustedJsonRemainsStrictAndDefaultTypingIsNotActivated() throws IOException {
-        Path root = repoRoot();
-        String server = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
-        String requestDecoder = Files.readString(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpRequestDecoder.java"));
+        Path root = RepositoryRoot.locate();
+        String server = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusHttpServer"));
+        String requestDecoder = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusHttpRequestDecoder"));
         assertTrue(server.contains("MAX_REQUEST_BODY_BYTES = 65_536"));
         assertTrue(server.contains("private final MorpheusHttpRequestDecoder requestDecoder;"));
         assertTrue(requestDecoder.contains("FAIL_ON_UNKNOWN_PROPERTIES"));
         assertTrue(requestDecoder.contains("FAIL_ON_TRAILING_TOKENS"));
         assertTrue(requestDecoder.contains("HttpRequestBodyReader.read("),
                 "the request decoder must read bodies through the shared bounded reader");
-        assertTrue(Files.readString(root.resolve("morpheus-api/src/main/java/com/morpheus/api/HttpRequestBodyReader.java"))
+        assertTrue(Files.readString(ProductionSources.mainSource("morpheus-api", "HttpRequestBodyReader"))
                         .contains("TimedBoundedInputReader.read("),
                 "the shared bounded reader must delegate to the deadline-aware primitive");
-        assertTrue(Files.isRegularFile(root.resolve(
-                "morpheus-api/src/test/java/com/morpheus/api/JacksonSecurityRegressionTest.java")));
+        assertTrue(Files.isRegularFile(ProductionSources.testSource("morpheus-api", "JacksonSecurityRegressionTest")));
 
-        try (var files = Files.walk(root, 16)) {
-            for (Path source : files.filter(path -> path.toString().endsWith(".java"))
-                    .filter(path -> path.toString().contains(
-                            "src" + java.io.File.separator + "main" + java.io.File.separator + "java"))
-                    .toList()) {
-                String text = Files.readString(source);
-                assertFalse(text.contains("activateDefaultTyping("), "default typing activation forbidden: " + source);
-                assertFalse(text.contains("enableDefaultTyping("), "default typing activation forbidden: " + source);
-            }
+        for (Path source : RepositoryTree.files(root).stream()
+                .filter(path -> path.toString().endsWith(".java"))
+                .filter(path -> path.toString().contains(
+                        "src" + java.io.File.separator + "main" + java.io.File.separator + "java"))
+                .toList()) {
+            String text = Files.readString(source);
+            assertFalse(text.contains("activateDefaultTyping("), "default typing activation forbidden: " + source);
+            assertFalse(text.contains("enableDefaultTyping("), "default typing activation forbidden: " + source);
         }
     }
 
     @Test
     void requestBodyBoundariesAdmitJsonByExactMediaTypeNotByPrefix() throws IOException {
-        Path api = repoRoot().resolve("morpheus-api/src/main/java/com/morpheus/api");
-        assertTrue(Files.isRegularFile(api.resolve("JsonMediaType.java")),
+        Path api = RepositoryRoot.locate().resolve("morpheus-api/src/main/java");
+        assertTrue(Files.isRegularFile(ProductionSources.mainSource("morpheus-api", "JsonMediaType")),
                 "the shared exact JSON media-type parser must exist");
 
-        assertTrue(Files.readString(api.resolve("MorpheusHttpRequestDecoder.java")).contains("JsonMediaType.isJson("),
+        assertTrue(ProductionSources.readMain("morpheus-api", "MorpheusHttpRequestDecoder").contains("JsonMediaType.isJson("),
                 "the request decoder must admit JSON through the shared exact media-type parser");
         List<Path> routers;
-        try (var files = Files.list(api)) {
+        try (var files = Files.walk(api)) {
             routers = files.filter(path -> path.getFileName().toString().endsWith("HttpRoutes.java")).toList();
         }
         assertFalse(routers.isEmpty(), "no *HttpRoutes.java found under " + api);
@@ -598,7 +613,7 @@ class D2RepositoryHardeningArchitectureTest {
                     () -> router.getFileName() + " must leave Content-Type admission to MorpheusHttpRequestDecoder");
         }
 
-        try (var files = Files.walk(api, 4)) {
+        try (var files = Files.walk(api)) {
             for (Path source : files.filter(path -> path.toString().endsWith(".java")).toList()) {
                 String text = Files.readString(source);
                 assertFalse(text.contains("startsWith(\"application/json\")"),
@@ -609,7 +624,7 @@ class D2RepositoryHardeningArchitectureTest {
 
     @Test
     void governanceSurfacesDocumentACveCommandThatActuallyInvokesTheScan() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String pom = Files.readString(root.resolve("pom.xml"));
         assertTrue(pom.contains("<id>d2-security</id>"), "the security profile must exist");
 
@@ -634,7 +649,7 @@ class D2RepositoryHardeningArchitectureTest {
 
     @Test
     void d2IsLocalOnlyAndHasDualPlatformValidationArtifacts() {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         assertTrue(Files.isRegularFile(root.resolve("scripts/validate-d2.ps1")));
         assertTrue(Files.isRegularFile(root.resolve("scripts/validate-d2.sh")));
         assertTrue(Files.isRegularFile(root.resolve("docs/project/roadmap/D2_EXECUTION.md")));
@@ -654,18 +669,5 @@ class D2RepositoryHardeningArchitectureTest {
                 () -> file + " must pin actions/" + action + " to a 40-char SHA from the Node 24 generation or newer");
         assertFalse(workflow.contains("uses: actions/" + action + "@v"),
                 () -> file + " must not use a mutable tag for actions/" + action);
-    }
-
-    private Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
-            return current;
-        }
-        Path parent = current.getParent();
-        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml"))
-                && Files.isDirectory(parent.resolve("distribution"))) {
-            return parent;
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found from " + current);
     }
 }

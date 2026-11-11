@@ -54,20 +54,25 @@ Ces frontières sont couvertes par `morpheus-architecture-tests` : **182/182 PAS
 ```text
 morpheus-domain
 morpheus-application
+morpheus-provider-sdk
+morpheus-provider-testkit
+morpheus-provider-reference
 morpheus-provider-openspec
 morpheus-provider-markdown
 morpheus-provider-synthetic
 morpheus-store-memory
 morpheus-store-sqlite
+morpheus-mcp-transport
 morpheus-integration-minos
 morpheus-integration-nexus
 morpheus-mcp
 morpheus-api
 morpheus-cli
 morpheus-architecture-tests
+morpheus-coverage-report
 ```
 
-Le gate M20 rapporte **14/14 modules SUCCESS**, parent inclus.
+La liste suit le bloc `<modules>` du `pom.xml` racine, qui fait foi.
 
 ## 4. Identité
 
@@ -235,6 +240,14 @@ La roadmap M21 introduit explicitement un objectif de **surface convergence** : 
 surface parity != same transport shape
 read surface != write capability
 ```
+
+Dans la CLI, chaque sous-commande partage le même socle d'arguments, dans `com.morpheus.cli.command` : `GlobalArgs`
+lit les options globales et le jeton de commande, `CommandOptions` analyse les options d'une sous-commande à partir de
+ce qu'elle déclare (options à une valeur, options répétées, drapeaux) et refuse de la même façon toute saisie mal
+formée, et `CliErrorLine` écrit la ligne d'erreur `MORPHEUS error [<code>]: <message>` et le texte d'un échec. Une
+sous-commande n'en garde pas de copie privée : `CliArgumentBaseArchitectureTest` et
+`CliOptionParsingRefusesUnknownOptionsTest` la refusent, et `CliOptionRefusalTableTest` exécute chaque saisie mal formée
+sur chaque sous-commande.
 
 ## 11. Persistance
 

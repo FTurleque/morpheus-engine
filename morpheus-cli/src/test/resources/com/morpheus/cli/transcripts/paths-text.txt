@@ -1,0 +1,9 @@
+args: paths
+exit: 0
+stdout:
+data=<temp>/data-paths-text
+config=<temp>/data-paths-text/config
+logs=<temp>/data-paths-text/logs
+database=<temp>/data-paths-text/morpheus.db
+
+stderr:

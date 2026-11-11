@@ -1,0 +1,5 @@
+tool: trace_requirement
+arguments: {"depth":21,"projectId":"01920000-0000-7000-8000-000000000101","requirementId":"01920000-0000-7000-8000-000000000103"}
+isError: true
+text:
+depth must be an integer between 1 and 20 when present

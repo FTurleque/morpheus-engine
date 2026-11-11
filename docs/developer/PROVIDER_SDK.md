@@ -91,7 +91,7 @@ Contraintes M22 :
 
 - `plugin.id` stable, minuscule, borné à 128 caractères ;
 - `provider.id` doit correspondre au provider **et** au content reader réellement créés ;
-- `provider.id` ne contient aucun caractère de contrôle : `ProviderId` le refuse, métadonnées comprises (ADR-0023, amendement PIT-AUD-5) ;
+- `provider.id` ne contient aucun caractère de contrôle : `ProviderId` le refuse, métadonnées comprises (ADR-0140) ;
 - `plugin.version`, min/max MORPHEUS utilisent une version `x.y.z` avec prerelease/build optionnels ;
 - `sdk.apiVersion` doit être exactement `1` pour M22.
 
@@ -147,6 +147,12 @@ La comparaison respecte l’ordre SemVer utile au contrat, y compris l’ordre n
 
 Un plugin incompatible reste visible avec ses diagnostics mais n’est pas activé.
 
+`sdk.apiVersion` vaut `1` depuis M22, y compris pour 1.2.1, qui a retiré des constructeurs publics de `Constraint` et
+de `NormalizedProjectContent` au profit de fabriques nommées. Un plugin qui appelle ces fabriques déclare
+`morpheus.minVersion=1.2.1`. Un plugin compilé contre 1.2.0 qui appelle un constructeur retiré passe le contrôle de
+compatibilité puis échoue au chargement (`NoSuchMethodError`) : il se reconstruit contre 1.2.1. Une rupture binaire
+ultérieure d’un type que le SDK expose fait monter `ProviderSdk.API_VERSION` dans le même changement.
+
 ## 7. Activation et isolation
 
 `ProviderPluginActivator` crée un `URLClassLoader` dédié au JAR, avec le classloader MORPHEUS/SDK comme parent. Le service est ensuite résolu explicitement via `ServiceLoader`.
@@ -169,7 +175,7 @@ La frontière de processus, elle, existe depuis M22 : le probe s’exécute dans
 n’est pas planifié — c’est une **sandbox du système d’exploitation**. Un plugin approuvé s’exécute
 sous le compte système MORPHEUS et dispose donc des mêmes droits fichiers et réseau que MORPHEUS. Le
 pin SHA-256 garantit que le code exécuté est exactement celui qui a été approuvé ; il ne dit rien de
-ce que ce code fait. Voir [ADR-0101](../architecture/adr/0101-external-code-is-trusted-code-not-sandboxed-code.md)
+ce que ce code fait. Voir [ADR-0129](../architecture/adr/SEC-0129-plugins-provider-code-de-confiance-hors-processus.md)
 pour le modèle de confiance complet, garanties et non-garanties.
 
 Pour exécuter du code tiers **non fiable**, isoler MORPHEUS ou le processus externe avec un
@@ -236,7 +242,7 @@ workspace, même si la primitive lit le chemin canonique.
 Un locator et le texte d'un refus n'obéissent pas à la même règle. `SourceLocator.file(...)` normalise (`\` devient
 `/`), pour que le même fichier porte le même locator sur toutes les plateformes ; le texte d'un refus nomme le fichier
 tel qu'il existe et passe par `WorkspaceRelativePathText`, sans rien substituer. Un refus ne se construit donc jamais à
-partir d'un locator (ADR-0028, amendement du 30 septembre 2026, PRV-6). Le paramètre `source` de chaque méthode de
+partir d'un locator (ADR-0028). Le paramètre `source` de chaque méthode de
 `ProviderIngestionBudget.Session` (`addBlocks`, `addEntities`, `addEvidenceFragment`, `requireAdditionalFiles`) est
 **le texte d'un refus** : un nom écrit par `WorkspaceRelativePathText`, une constante ou une étiquette de groupe, jamais la
 valeur d'un locator. `addEvidenceFragment(fragment)`, sans texte, attribue le fragment au dernier document lu par la
@@ -261,7 +267,7 @@ Un plugin ne doit pas fabriquer une identité MORPHEUS à partir d’un simple c
 
 Pour les données normalisées, la provenance doit conserver le `ProviderId`, la source et l’évidence réellement observée. Le template M22 montre ce flux avec une `Specification`, une `Evidence` et une `Provenance`.
 
-La racine du projet publié (`ProjectSpecification.rootLocator`) n’est pas une source : c’est la racine du workspace que le lecteur a reçue, obtenue par `ProviderProjectRoot.locator(request.workspaceRoot())` (`com.morpheus.application.read`). La publication la compare caractère par caractère avec la racine sous laquelle le projet a été enregistré ; un lecteur qui publie le fichier qu’il a lu, ou la racine normalisée autrement, rend sa propre publication impossible (ADR-0028, amendement PRV-1). Les évidences et provenances, elles, nomment le fichier où elles ont été observées.
+La racine du projet publié (`ProjectSpecification.rootLocator`) n’est pas une source : c’est la racine du workspace que le lecteur a reçue, obtenue par `ProviderProjectRoot.locator(request.workspaceRoot())` (`com.morpheus.application.read`). La publication la compare caractère par caractère avec la racine sous laquelle le projet a été enregistré ; un lecteur qui publie le fichier qu’il a lu, ou la racine normalisée autrement, rend sa propre publication impossible (ADR-0028). Les évidences et provenances, elles, nomment le fichier où elles ont été observées.
 
 ## 10. Test kit
 
@@ -326,18 +332,16 @@ morpheus --json provider-plugins discover --directory <plugins>
 morpheus --json provider-plugins probe --directory <plugins> --plugin <pluginId> --workspace <workspace> --sha256 <digest>
 ```
 
-MCP :
+MCP : `discover_provider_plugins`, servi seulement quand l'opérateur configure un répertoire de plugins au
+lancement du serveur MCP, et limité à ce répertoire. Le probe exécute du code tiers : il n'est jamais exposé au MCP.
 
-```text
-discover_provider_plugins
-probe_provider_plugin
-```
-
-Le paramètre optionnel `sha256` (CLI, API ou MCP) active une politique `trusted-only` pour cette
-activation. Le digest est lié au `pluginId` demandé et vérifié avant la création du `URLClassLoader` ;
-une valeur absente sur une surface qui l'exige, mal formée ou différente doit être traitée comme un refus et
-aucun code du plugin n'est exécuté. Le mode sans pin reste disponible uniquement pour les usages locaux
-historiques explicitement non approuvés.
+Le pin `sha256` est obligatoire pour toute activation : la seule entrée publique vers du code de plugin est
+`ProviderPluginService.probe`, qui prend le pin ; `ProviderPluginActivator` n'est pas public et n'active un
+plugin que dans le worker du probe, jamais dans le processus de l'hôte. Le
+digest est lié au `pluginId` demandé et vérifié avant la création du `URLClassLoader`, qui ne lit que la
+copie vérifiée du JAR. Un pin absent ou vide est refusé par son nom (« provider plugin probe requires a trusted
+SHA-256 pin »), un pin mal formé ou différent l'est aussi, et dans tous les cas aucun code du plugin
+n'est exécuté.
 
 Rotation : qualifier le nouveau JAR hors processus, calculer son SHA-256 depuis une source de confiance,
 remplacer le JAR et le pin ensemble, puis lancer `discover` et `probe --sha256`. Le nom du JAR et les
@@ -376,4 +380,4 @@ Le reactor/architecture gate charge le JAR externe, exécute son probe puis son 
 
 Avant août, la qualification M22 est locale exact-head uniquement ; le workflow GitHub Actions n’est pas utilisé comme preuve.
 
-ADR : [`../architecture/adr/0090-provider-sdk-plugin-discovery-platform.md`](../architecture/adr/0090-provider-sdk-plugin-discovery-platform.md).
+ADR : [`../architecture/adr/0090-provider-sdk-plugin-discovery-platform.md`](../architecture/adr/SEC-0129-plugins-provider-code-de-confiance-hors-processus.md).

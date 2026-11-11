@@ -63,6 +63,17 @@ CASES = (
      "testsMinimum", "integer", None, "Missing M21 quality ratchet: testsMinimum"),
     ("the first of two declarations is the one read", "testsMinimum=3820\ntestsMinimum=1\n",
      "testsMinimum", "integer", "3820", None),
+    ("the generated minimum is read beside the written one", "testsMinimum=2600\ngeneratedTestsMinimum=1570\n",
+     "generatedTestsMinimum", "integer", "1570", None),
+    ("the written minimum is not the generated one", "generatedTestsMinimum=1570\ntestsMinimum=2600\n",
+     "testsMinimum", "integer", "2600", None),
+    ("a missing generated minimum is refused by name and not replaced by the written one", "testsMinimum=2600\n",
+     "generatedTestsMinimum", "integer", None, "Missing M21 quality ratchet: generatedTestsMinimum"),
+    ("a generated minimum of zero is refused by name", "generatedTestsMinimum=0\n",
+     "generatedTestsMinimum", "integer", None, "M21 quality ratchet generatedTestsMinimum must be a positive integer"),
+    ("a generated minimum that is not a count is refused by name", "generatedTestsMinimum=many\n",
+     "generatedTestsMinimum", "integer", None,
+     "M21 quality ratchet generatedTestsMinimum must be a positive integer: 'many'"),
 )
 
 

@@ -1,6 +1,5 @@
 package com.morpheus.mcp;
 
-import com.morpheus.application.operability.ExhaustiveShutdown;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.policy.PolicyAuditPage;
 import com.morpheus.application.policy.PolicyBudgets;
@@ -30,7 +29,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /** Strict M25 MCP policy tools delegating all semantics to shared application services. */
-final class MorpheusPolicyMcpTools {
+public final class MorpheusPolicyMcpTools {
     static final String CREATE = "create_policy_pack";
     static final String LIST = "list_policy_packs";
     static final String GET = "get_policy_pack";
@@ -49,12 +48,12 @@ final class MorpheusPolicyMcpTools {
     private final CanonicalJsonSerializer json = new CanonicalJsonSerializer();
     private final QueryDefinitionCodec queryCodec = new QueryDefinitionCodec();
 
-    MorpheusPolicyMcpTools(Path databasePath, OperationalRecorder recorder) {
+    public MorpheusPolicyMcpTools(Path databasePath, OperationalRecorder recorder) {
         this.databasePath = Objects.requireNonNull(databasePath, "databasePath").toAbsolutePath().normalize();
         this.recorder = Objects.requireNonNull(recorder, "recorder");
     }
 
-    List<McpServerFeatures.SyncToolSpecification> specifications() {
+    public List<McpServerFeatures.SyncToolSpecification> specifications() {
         return List.of(
                 tool(CREATE, "Create one versioned provider-neutral policy pack.", createSchema()),
                 tool(LIST, "List policy pack identities and current registry metadata.", emptySchema()),

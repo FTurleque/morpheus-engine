@@ -7,6 +7,11 @@ consulter [`../governance/ROADMAP.md`](../governance/ROADMAP.md) et
 
 ## Index
 
+- [`AUDIT_SPECIFICATIONS_OPENSPEC_2026-11-03.md`](AUDIT_SPECIFICATIONS_OPENSPEC_2026-11-03.md) — inventaire des
+  specs et changements OpenSpec à la mise en place du schéma `detailed-uml`, `836fffa5`, 3 novembre 2026 : mesures,
+  incohérences, plan de lots, revue sémantique des lots « frontière HTTP » et « surfaces publiques » ;
+- [`AUDIT_ADR_2026-10-24.md`](AUDIT_ADR_2026-10-24.md) — revue et tri des 117 ADR avant leur passage au format
+  Archgate, `develop` @ `df101e46`, 24 octobre 2026 : recommandation par ADR, consolidations, écarts à trancher ;
 - [`2026-10-09/`](2026-10-09/README.md) — audit six axes de `20cf2e0`, 9 octobre 2026 : synthèse, constats
   (`findings.md`, `findings.json`), plan d'action et découpage en sprints ;
 - [`AUDIT_OUTILLE_2026-10-08.md`](AUDIT_OUTILLE_2026-10-08.md) — audit outillé (SpotBugs, PIT, ArchUnit,

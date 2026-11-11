@@ -215,7 +215,7 @@ Une trace ou un contexte de change observe au plus 1 000 nœuds et 5 000 liens. 
 d'avoir tout vu dans la profondeur demandée, la réponse le dit : `truncationReason` (`NODE_BUDGET_REACHED:1000`,
 `LINK_BUDGET_REACHED:5000` ou `DEPTH_BUDGET_REACHED:<depth>`) et `truncated: true` en JSON, une ligne
 `truncationReason=…` en sortie texte. `analyze-change` émet alors l'avertissement `TRACEABILITY_TRAVERSAL_TRUNCATED`
-(ADR-0108). En sortie texte, `analyze-change` imprime aussi une ligne `warningCodes=…` — un code par avertissement
+(ADR-0138). En sortie texte, `analyze-change` imprime aussi une ligne `warningCodes=…` — un code par avertissement
 compté par `warnings=`, dans l'ordre du résultat — puis une ligne `truncationReason=…` par raison distincte. Toute
 analyse porte au moins `ACCEPTANCE_CRITERIA_UNAVAILABLE` : les critères d'acceptation ne sont pas dans le modèle
 normalisé. Une traversée tronquée n'est pas un refus : le code de sortie reste `0`.
@@ -383,7 +383,7 @@ une erreur JSON-RPC portant le même `id` et l’état `MCP_RESPONSE_TOO_LARGE`,
 Le conseil qui l’accompagne est générique : les outils de lecture paginés acceptent `offset` et `limit`, et la
 première chose à faire est de relancer avec un `limit` plus petit, puis de paginer avec `offset`.
 `get_current_specification` en fait partie : sa page de spécifications est l'objet `specifications`, qui porte les
-mêmes clés que toute page (`offset`, `limit`, `totalMatches`, `hasMore`, `items` — ADR-0107).
+mêmes clés que toute page (`offset`, `limit`, `totalMatches`, `hasMore`, `items` — ADR-0151).
 La requête suivante est servie normalement.
 
 ## 19. Codes de sortie
@@ -424,5 +424,5 @@ Le contrat d’automatisation est : **code de sortie + JSON structuré**, pas la
 - [Intégrations optionnelles](INTEGRATIONS.md)
 - [API HTTP](../developer/API.md)
 - [MCP](../developer/MCP.md)
-- [ADR-0083](../architecture/adr/0083-controlled-lifecycle-write-operations.md)
-- [ADR-0084](../architecture/adr/0084-provider-neutral-multi-provider-composition.md)
+- [ADR-0083](../architecture/adr/BE-0083-controlled-lifecycle-write-operations.md)
+- [ADR-0084](../architecture/adr/ARCH-0084-provider-neutral-multi-provider-composition.md)

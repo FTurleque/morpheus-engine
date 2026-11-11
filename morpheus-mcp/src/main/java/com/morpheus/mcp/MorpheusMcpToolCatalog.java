@@ -1,5 +1,6 @@
 package com.morpheus.mcp;
 
+import com.morpheus.application.foundation.PayloadMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -17,58 +18,58 @@ public final class MorpheusMcpToolCatalog {
     private final List<ToolDefinition> tools = List.of(
             tool("get_current_specification",
                     "Return the ACTIVE snapshot of one project: its identifiers and entity counts, and one page of its specifications, each with its full description.",
-                    schema(required("projectId"), props(
+                    schema(required("projectId"), PayloadMap.of(
                             "projectId", stringId(),
                             "offset", integer(0, 1_000_000),
                             "limit", integer(1, MAX_LIMIT)))),
             tool("find_requirements", "Find CURRENT requirements in the ACTIVE snapshot using deterministic lexical search.",
-                    schema(required("projectId"), props(
+                    schema(required("projectId"), PayloadMap.of(
                             "projectId", stringId(),
                             "query", stringValue(),
                             "offset", integer(0, 1_000_000),
                             "limit", integer(1, MAX_LIMIT)))),
             tool("get_change", "Return one normalized change proposal from the ACTIVE snapshot.",
-                    schema(required("projectId", "changeId"), props("projectId", stringId(), "changeId", stringId()))),
+                    schema(required("projectId", "changeId"), PayloadMap.of("projectId", stringId(), "changeId", stringId()))),
             tool("list_changes", "List normalized change proposals from the ACTIVE snapshot.",
-                    schema(required("projectId"), props(
+                    schema(required("projectId"), PayloadMap.of(
                             "projectId", stringId(),
                             "offset", integer(0, 1_000_000),
                             "limit", integer(1, MAX_LIMIT)))),
             tool("get_constraints", "List constraints explicitly attached to one change.",
-                    schema(required("projectId", "changeId"), props(
+                    schema(required("projectId", "changeId"), PayloadMap.of(
                             "projectId", stringId(), "changeId", stringId(),
                             "offset", integer(0, 1_000_000), "limit", integer(1, MAX_LIMIT)))),
             tool("get_acceptance_criteria",
                     "List explicit persisted acceptance criteria for one change with verification status and evidence; never converts scenarios or test presence into acceptance facts.",
-                    schema(required("projectId", "changeId"), props(
+                    schema(required("projectId", "changeId"), PayloadMap.of(
                             "projectId", stringId(), "changeId", stringId(),
                             "offset", integer(0, 1_000_000), "limit", integer(1, MAX_LIMIT)))),
             tool("get_design_decisions", "List design decisions explicitly attached to one change.",
-                    schema(required("projectId", "changeId"), props(
+                    schema(required("projectId", "changeId"), PayloadMap.of(
                             "projectId", stringId(), "changeId", stringId(),
                             "offset", integer(0, 1_000_000), "limit", integer(1, MAX_LIMIT)))),
             tool("get_implementation_tasks", "List implementation tasks explicitly attached to one change.",
-                    schema(required("projectId", "changeId"), props(
+                    schema(required("projectId", "changeId"), PayloadMap.of(
                             "projectId", stringId(), "changeId", stringId(),
                             "offset", integer(0, 1_000_000), "limit", integer(1, MAX_LIMIT)))),
             tool("trace_requirement", "Return bounded deterministic traceability context for one CURRENT requirement.",
-                    schema(required("projectId", "requirementId"), props(
+                    schema(required("projectId", "requirementId"), PayloadMap.of(
                             "projectId", stringId(), "requirementId", stringId(),
                             "depth", integer(1, MAX_DEPTH)))),
             tool("get_change_context", "Return bounded deterministic context and traceability for one change.",
-                    schema(required("projectId", "changeId"), props(
+                    schema(required("projectId", "changeId"), PayloadMap.of(
                             "projectId", stringId(), "changeId", stringId(),
                             "depth", integer(1, MAX_DEPTH)))),
             tool("get_specification_context", "Return bounded CURRENT requirements and associated scenarios/changes for one specification.",
-                    schema(required("projectId", "specificationId"), props(
+                    schema(required("projectId", "specificationId"), PayloadMap.of(
                             "projectId", stringId(), "specificationId", stringId(),
                             "offset", integer(0, 1_000_000), "limit", integer(1, MAX_LIMIT)))),
             tool("get_change_status", "Return observable lifecycle facts without inferring a lifecycle state that is not persisted.",
-                    schema(required("projectId", "changeId"), props("projectId", stringId(), "changeId", stringId()))),
+                    schema(required("projectId", "changeId"), PayloadMap.of("projectId", stringId(), "changeId", stringId()))),
             tool("get_blocking_conditions", "Return deterministic completeness findings and observable blocker facts for one change.",
-                    schema(required("projectId", "changeId"), props("projectId", stringId(), "changeId", stringId()))),
+                    schema(required("projectId", "changeId"), PayloadMap.of("projectId", stringId(), "changeId", stringId()))),
             tool("get_sync_status", "Return persisted synchronization freshness for one project.",
-                    schema(required("projectId"), props(
+                    schema(required("projectId"), PayloadMap.of(
                             "projectId", stringId(),
                             "maxAgeMinutes", integer(1, MAX_MAX_AGE_MINUTES))))
     );
@@ -101,17 +102,6 @@ public final class MorpheusMcpToolCatalog {
 
     private static List<String> required(String... names) {
         return List.of(names);
-    }
-
-    private static Map<String, Object> props(Object... entries) {
-        if (entries.length % 2 != 0) {
-            throw new IllegalArgumentException("property entries must be name/schema pairs");
-        }
-        Map<String, Object> result = new LinkedHashMap<>();
-        for (int index = 0; index < entries.length; index += 2) {
-            result.put((String) entries[index], entries[index + 1]);
-        }
-        return Map.copyOf(result);
     }
 
     private static Map<String, Object> stringId() {

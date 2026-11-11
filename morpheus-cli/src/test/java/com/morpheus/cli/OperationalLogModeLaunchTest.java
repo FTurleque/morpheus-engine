@@ -1,6 +1,7 @@
 package com.morpheus.cli;
 
 import com.morpheus.application.operability.OperationalLogMode;
+import com.morpheus.cli.command.CliExitCode;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -41,7 +42,7 @@ class OperationalLogModeLaunchTest {
         assertEquals(CliExitCode.USAGE.code(), outcome.exitCode(), outcome::toString);
         List<String> lines = outcome.standardError().lines().filter(line -> !line.isBlank()).toList();
         assertEquals(1, lines.size(), outcome::toString);
-        assertTrue(lines.get(0).startsWith("MORPHEUS usage error: " + OperationalLogMode.REFUSAL), outcome::toString);
+        assertTrue(lines.get(0).startsWith("MORPHEUS error [2]: " + OperationalLogMode.REFUSAL), outcome::toString);
         assertFalse(outcome.standardError().contains("ExceptionInInitializerError"), outcome::toString);
         assertEquals("", outcome.standardOutput().strip(), "nothing may run before the refusal");
     }

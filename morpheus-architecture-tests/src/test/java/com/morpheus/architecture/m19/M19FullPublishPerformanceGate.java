@@ -1,6 +1,6 @@
 package com.morpheus.architecture.m19;
 
-import com.morpheus.application.ingestion.NormalizedProjectContent;
+import com.morpheus.application.read.NormalizedProjectContent;
 import com.morpheus.application.ingestion.ProjectSnapshotImportResult;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.application.store.SnapshotBusinessContent;
@@ -30,10 +30,10 @@ import com.morpheus.domain.scenario.ScenarioId;
 import com.morpheus.domain.source.SourceLocator;
 import com.morpheus.domain.specification.Specification;
 import com.morpheus.domain.specification.SpecificationId;
-import com.morpheus.store.sqlite.SqliteSnapshotBusinessContentStore;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
-import com.morpheus.store.sqlite.SqliteTraceabilityStore;
-import com.morpheus.store.sqlite.SqliteVersionedRequirementStore;
+import com.morpheus.store.sqlite.adapter.SqliteSnapshotBusinessContentStore;
+import com.morpheus.store.sqlite.adapter.SqliteSpecificationKnowledgeStore;
+import com.morpheus.store.sqlite.adapter.SqliteTraceabilityStore;
+import com.morpheus.store.sqlite.adapter.SqliteVersionedRequirementStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -136,7 +136,7 @@ class M19FullPublishPerformanceGate {
     /**
      * Reading back the business content of a large snapshot, in a database of its own.
      *
-     * <p>Budget declared on 13/10/2026, before the read was changed (ADR-0085, amendment of that day). The snapshot is
+     * <p>Budget declared on 13/10/2026, before the read was changed (ADR-0085). The snapshot is
      * published into its own file so that neither the publication time, nor the database size, nor the retention
      * growth measured above moves. Every child table of the projection is filled: a list left empty measures
      * nothing, and the guards below refuse a fixture that leaves one.</p>

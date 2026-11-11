@@ -1,0 +1,14 @@
+args: sync --project <project>
+exit: 0
+stdout:
+projectId=<project>
+snapshotId=<id-1>
+mode=INCREMENTAL
+fullRebuildReason=none
+sources=10
+requirements=0
+traceLinks=0
+diagnostics=0
+published=false
+
+stderr:

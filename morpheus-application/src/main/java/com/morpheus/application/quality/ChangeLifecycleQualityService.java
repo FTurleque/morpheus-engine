@@ -1,10 +1,9 @@
 package com.morpheus.application.quality;
 
-import com.morpheus.application.lifecycle.ChangeLifecycleFacts;
-import com.morpheus.application.lifecycle.ChangeLifecyclePolicy;
-import com.morpheus.application.lifecycle.ChangeLifecycleStateMachine;
-import com.morpheus.application.lifecycle.ChangeLifecycleTransitionDecision;
-import com.morpheus.application.lifecycle.ChangeLifecycleTransitionRequest;
+import com.morpheus.domain.change.lifecycle.ChangeLifecycleFacts;
+import com.morpheus.domain.change.lifecycle.ChangeLifecyclePolicy;
+import com.morpheus.domain.change.lifecycle.ChangeLifecycleTransitionDecision;
+import com.morpheus.domain.change.lifecycle.ChangeLifecycleTransitionRequest;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.SpecificationKnowledgeStore;
 import com.morpheus.domain.change.ChangeProposal;
@@ -28,15 +27,12 @@ import java.util.Optional;
 public final class ChangeLifecycleQualityService {
     private final SpecificationKnowledgeStore snapshotStore;
     private final ChangeCompletenessService completenessService;
-    private final ChangeLifecycleStateMachine stateMachine;
 
     public ChangeLifecycleQualityService(
             SpecificationKnowledgeStore snapshotStore,
-            ChangeCompletenessService completenessService,
-            ChangeLifecycleStateMachine stateMachine) {
+            ChangeCompletenessService completenessService) {
         this.snapshotStore = Objects.requireNonNull(snapshotStore, "snapshotStore");
         this.completenessService = Objects.requireNonNull(completenessService, "completenessService");
-        this.stateMachine = Objects.requireNonNull(stateMachine, "stateMachine");
     }
 
     public Optional<ChangeLifecycleQualityAssessment> assessDerivedActive(
@@ -105,12 +101,12 @@ public final class ChangeLifecycleQualityService {
         }
 
         ChangeLifecycleFacts materialized = facts.materializeForEvaluation(requiredFacts);
-        ChangeLifecycleTransitionDecision decision = stateMachine.evaluate(new ChangeLifecycleTransitionRequest(
+        ChangeLifecycleTransitionDecision decision = new ChangeLifecycleTransitionRequest(
                 source,
                 targetState,
                 materialized,
                 policy,
-                abandonmentReason));
+                abandonmentReason).decide();
         return evaluated(snapshot, completeness.change(), source, targetState,
                 LifecycleFactSource.DERIVED, facts, requiredFacts, decision);
     }
@@ -125,12 +121,12 @@ public final class ChangeLifecycleQualityService {
         validateInputs(source, targetState, policy, abandonmentReason);
         Objects.requireNonNull(explicitFacts, "explicitFacts");
         ChangeCompletenessAssessment completeness = completeness(snapshot.id(), source);
-        ChangeLifecycleTransitionDecision decision = stateMachine.evaluate(new ChangeLifecycleTransitionRequest(
+        ChangeLifecycleTransitionDecision decision = new ChangeLifecycleTransitionRequest(
                 source,
                 targetState,
                 explicitFacts,
                 policy,
-                abandonmentReason));
+                abandonmentReason).decide();
         return evaluated(snapshot, completeness.change(), source, targetState,
                 LifecycleFactSource.EXPLICIT,
                 ChangeLifecycleFactAssessment.explicit(explicitFacts),

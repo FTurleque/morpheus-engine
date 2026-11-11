@@ -138,7 +138,7 @@ La déterminisme observable ne dépend jamais de l’ordre SQLite, provider ou `
 
 `QueryPublicViews` convertit les résultats en records adaptés aux surfaces. Les adapters ne sérialisent pas directement les objets domaine ni les identités internes.
 
-Ce principe prolonge ADR-0047 :
+Ce principe prolonge ADR-0123 :
 
 ```text
 domain/application result
@@ -172,7 +172,7 @@ SavedViewConflictException
 Port :
 
 ```text
-com.morpheus.application.store.SavedViewStore
+com.morpheus.application.query.saved.SavedViewStore
 ```
 
 Adapters :
@@ -403,7 +403,7 @@ Une modification post-gate de code, POM, contrat runtime, packaging ou validateu
 
 ## Références
 
-- [`../architecture/adr/0092-provider-neutral-query-dsl-saved-views-reporting.md`](../architecture/adr/0092-provider-neutral-query-dsl-saved-views-reporting.md)
+- [`../architecture/adr/0092-provider-neutral-query-dsl-saved-views-reporting.md`](../architecture/adr/ARCH-0092-provider-neutral-query-dsl-saved-views-reporting.md)
 - [`../project/validation/VALIDATION_M24.md`](../project/validation/VALIDATION_M24.md)
 - [`../project/roadmap/M24_EXECUTION.md`](../project/roadmap/M24_EXECUTION.md)
 - [`reference/openapi/morpheus-v1-query-m24.yaml`](reference/openapi/morpheus-v1-query-m24.yaml)

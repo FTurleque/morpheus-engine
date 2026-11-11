@@ -41,15 +41,14 @@ MORPHEUS_MINOS_HOME
 MORPHEUS_MINOS_TIMEOUT_SECONDS
 ```
 
-`MORPHEUS_MINOS_JAVA` désigne l'exécutable Java qui lance MINOS. Il est facultatif : sans lui, MINOS tourne sur le
-runtime Java de MORPHEUS lui-même. S'il est renseigné, ce doit être le **chemin absolu** d'un fichier exécutable ;
+`MORPHEUS_MINOS_JAVA` désigne l'exécutable Java qui lance MINOS. **Sur une installation, il est obligatoire.** Sans
+lui, MINOS est lancé sur le runtime Java de MORPHEUS, un Java 21 réduit à ses propres besoins et non étendu pour MINOS :
+il ne porte pas les modules du JDK que MINOS emploie (dont `jdk.compiler` et `java.desktop`), donc MINOS ne démarre
+pas et `minos-status` l'annonce injoignable. Donner le chemin d'un JDK complet de la version pour laquelle le JAR MINOS
+est compilé (Java 21 ou plus). Ce doit être le **chemin absolu** d'un fichier exécutable ;
 `java` seul, ou un chemin relatif, est refusé et l'intégration passe à l'état invalide. Un lien symbolique est accepté :
 c'est le fichier vers lequel il pointe qui est lancé, et c'est lui que le statut affiche. Sous Windows, le suffixe
 `.exe` peut être omis. Quand plusieurs réglages sont refusés, le statut les cite tous, séparés par un point-virgule.
-
-Sur une installation, le runtime de MORPHEUS est un Java 21 réduit à ses propres besoins. Si le pair est compilé pour
-une version de Java plus récente, ou a besoin d'un module que ce runtime ne porte pas, il ne démarre pas dessus et le
-statut l'annonce injoignable : donner alors à la variable le chemin absolu d'un JDK complet de la version voulue.
 
 Vérifier :
 
@@ -76,7 +75,7 @@ REVISION_MISMATCH
 UNSUPPORTED
 ```
 
-`NOT_FOUND != UNAVAILABLE`. Une recherche de symboles dont la page est pleine (limite atteinte) sans correspondance exacte est `UNAVAILABLE` et non `NOT_FOUND` : elle a pu s'arrêter avant le symbole (ADR-0108). Une résolution live reste `persisted=false` et ne réécrit pas le snapshot.
+`NOT_FOUND != UNAVAILABLE`. Une recherche de symboles dont la page est pleine (limite atteinte) sans correspondance exacte est `UNAVAILABLE` et non `NOT_FOUND` : elle a pu s'arrêter avant le symbole (ADR-0145). Une résolution live reste `persisted=false` et ne réécrit pas le snapshot.
 
 # 3. NEXUS
 

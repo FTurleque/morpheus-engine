@@ -1,5 +1,6 @@
 package com.morpheus.application.sync;
 
+import com.morpheus.application.foundation.FailureText;
 import com.morpheus.application.operability.OperationalEventCode;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.domain.project.ProjectSpecificationId;
@@ -170,7 +171,8 @@ public final class LocalSourceInventoryScanner {
             failures.add(new SourceInventoryScanResult.Failure(
                     Optional.of(display(workspace, root)),
                     SourceInventoryScanResult.Failure.Code.WORKSPACE_BOUNDARY_ESCAPED,
-                    safeMessage(boundaryFailure)));
+                    FailureText.of(boundaryFailure)));
+            budget.exhaust();
             return;
         }
         try {
@@ -190,7 +192,7 @@ public final class LocalSourceInventoryScanner {
                         failures.add(new SourceInventoryScanResult.Failure(
                                 Optional.of(display(workspace, directory)),
                                 SourceInventoryScanResult.Failure.Code.WORKSPACE_BOUNDARY_ESCAPED,
-                                safeMessage(boundaryFailure)));
+                                FailureText.of(boundaryFailure)));
                         budget.exhaust();
                         return FileVisitResult.TERMINATE;
                     }
@@ -222,7 +224,7 @@ public final class LocalSourceInventoryScanner {
                         failures.add(new SourceInventoryScanResult.Failure(
                                 Optional.of(display(workspace, file)),
                                 SourceInventoryScanResult.Failure.Code.WORKSPACE_BOUNDARY_ESCAPED,
-                                safeMessage(boundaryFailure)));
+                                FailureText.of(boundaryFailure)));
                         budget.exhaust();
                         return FileVisitResult.TERMINATE;
                     }
@@ -291,11 +293,18 @@ public final class LocalSourceInventoryScanner {
                                     SourceInventoryScanResult.Failure.Code.SOURCE_OBSERVED_TWICE,
                                     "source observed twice with different content"));
                         }
+                    } catch (WorkspaceBoundaryEscapeException boundaryFailure) {
+                        failures.add(new SourceInventoryScanResult.Failure(
+                                Optional.of(display(workspace, file)),
+                                SourceInventoryScanResult.Failure.Code.WORKSPACE_BOUNDARY_ESCAPED,
+                                FailureText.of(boundaryFailure)));
+                        budget.exhaust();
+                        return FileVisitResult.TERMINATE;
                     } catch (IOException | RuntimeException exception) {
                         failures.add(new SourceInventoryScanResult.Failure(
                                 Optional.of(display(workspace, file)),
                                 SourceInventoryScanResult.Failure.Code.SOURCE_UNREADABLE,
-                                safeMessage(exception)));
+                                FailureText.of(exception)));
                     }
                     return budget.exhausted() ? FileVisitResult.TERMINATE : FileVisitResult.CONTINUE;
                 }
@@ -305,7 +314,7 @@ public final class LocalSourceInventoryScanner {
                     failures.add(new SourceInventoryScanResult.Failure(
                             Optional.of(display(workspace, file)),
                             SourceInventoryScanResult.Failure.Code.SOURCE_UNREADABLE,
-                            safeMessage(exception)));
+                            FailureText.of(exception)));
                     return FileVisitResult.CONTINUE;
                 }
             });
@@ -313,7 +322,7 @@ public final class LocalSourceInventoryScanner {
             failures.add(new SourceInventoryScanResult.Failure(
                     Optional.of(display(workspace, root)),
                     SourceInventoryScanResult.Failure.Code.SOURCE_UNREADABLE,
-                    safeMessage(exception)));
+                    FailureText.of(exception)));
         }
     }
 
@@ -336,11 +345,6 @@ public final class LocalSourceInventoryScanner {
                 Optional.of(display(workspace, path)),
                 SourceInventoryScanResult.Failure.Code.SCAN_LIMIT_EXCEEDED,
                 message);
-    }
-
-    private static String safeMessage(Throwable failure) {
-        String message = failure.getMessage();
-        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 
     private static String display(Path workspace, Path path) {

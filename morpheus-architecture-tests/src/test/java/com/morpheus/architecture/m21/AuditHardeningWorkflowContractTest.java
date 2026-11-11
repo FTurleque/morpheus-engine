@@ -1,5 +1,14 @@
 package com.morpheus.architecture.m21;
 
+import com.morpheus.architecture.ProductionSources;
+import com.morpheus.architecture.RepositoryRoot;
+import com.tngtech.archunit.base.DescribedPredicate;
+import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.domain.JavaMethod;
+import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.lang.ArchCondition;
+import com.tngtech.archunit.lang.ConditionEvents;
+import com.tngtech.archunit.lang.SimpleConditionEvent;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -10,10 +19,13 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AuditHardeningWorkflowContractTest {
+    private static final String MCP_TRANSPORT_PACKAGE = "com.morpheus.transport.mcp";
+    private static final String INBOUND_FAIL_CLOSED_SIGNAL = MCP_TRANSPORT_PACKAGE + ".MessageTooLargeException";
     private static final Pattern CACHE_AGE = Pattern.compile(
             "DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS:\\s*'([0-9]+)'");
     private static final Pattern RELEASE_TAG_TRIGGER = Pattern.compile(
@@ -21,7 +33,7 @@ class AuditHardeningWorkflowContractTest {
 
     @Test
     void dependencyCheckTrustedRefreshCannotAgePastPullRequestCacheWindow() throws IOException {
-        String workflow = Files.readString(repoRoot().resolve(".github/workflows/security.yml"));
+        String workflow = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/security.yml"));
         Matcher cacheAge = CACHE_AGE.matcher(workflow);
 
         assertTrue(cacheAge.find(), "Dependency-Check cache-age policy must be explicit");
@@ -38,7 +50,7 @@ class AuditHardeningWorkflowContractTest {
 
     @Test
     void releaseWorkflowPublishesAttestedNonOverwritableAssetsFromMain() throws IOException {
-        String workflow = Files.readString(repoRoot().resolve(".github/workflows/release.yml"));
+        String workflow = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/release.yml"));
 
         assertTrue(RELEASE_TAG_TRIGGER.matcher(workflow).find(),
                 "Release workflow must trigger on version tags on every supported platform");
@@ -64,7 +76,7 @@ class AuditHardeningWorkflowContractTest {
 
     @Test
     void pullRequestCoverageGateIncludesChangedBranches() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String workflow = Files.readString(root.resolve(".github/workflows/ci.yml"));
         String checker = Files.readString(root.resolve("scripts/check-diff-coverage.py"));
 
@@ -78,7 +90,7 @@ class AuditHardeningWorkflowContractTest {
 
     @Test
     void sonarAnalysisNeverRunsOnPullRequestsAndStaysOutOfTheRequiredVerifyJob() throws IOException {
-        String workflow = Files.readString(repoRoot().resolve(".github/workflows/ci.yml"));
+        String workflow = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/ci.yml"));
 
         assertFalse(requiredVerifyJob(workflow).contains("SONAR_TOKEN"),
                 "the required exact-head job must never carry SONAR_TOKEN in its environment");
@@ -140,7 +152,7 @@ class AuditHardeningWorkflowContractTest {
      */
     @Test
     void developIsAnalysedOnABoundedCadenceInAWorkflowNoPullRequestCanReach() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String nightly = Files.readString(root.resolve(".github/workflows/nightly.yml"));
 
         // A trigger key, not the words: the workflow explains in prose why it has no pull_request trigger, and a
@@ -200,13 +212,13 @@ class AuditHardeningWorkflowContractTest {
 
     @Test
     void mcpTransportDoesNotLogRawPeerControlledThrowables() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String client = Files.readString(root.resolve(
-                "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioClientTransport.java"));
+                "morpheus-mcp-transport/src/main/java/com/morpheus/transport/mcp/BoundedStdioClientTransport.java"));
         String server = Files.readString(root.resolve(
-                "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioServerTransportProvider.java"));
+                "morpheus-mcp-transport/src/main/java/com/morpheus/transport/mcp/BoundedStdioServerTransportProvider.java"));
         String redactor = Files.readString(root.resolve(
-                "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/McpDiagnosticRedactor.java"));
+                "morpheus-mcp-transport/src/main/java/com/morpheus/transport/mcp/McpDiagnosticRedactor.java"));
 
         assertTrue(client.contains("McpDiagnosticRedactor.describe(failure)"));
         assertTrue(server.contains("McpDiagnosticRedactor.describe(failure)"));
@@ -225,8 +237,8 @@ class AuditHardeningWorkflowContractTest {
      */
     @Test
     void mcpServerTransportAnswersAnOversizedResponseInsteadOfFailingClosed() throws IOException {
-        String server = Files.readString(repoRoot().resolve(
-                "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioServerTransportProvider.java"));
+        String server = Files.readString(RepositoryRoot.locate().resolve(
+                "morpheus-mcp-transport/src/main/java/com/morpheus/transport/mcp/BoundedStdioServerTransportProvider.java"));
 
         assertTrue(server.contains("\"MCP_RESPONSE_TOO_LARGE\""));
         int encodeStart = server.indexOf("private OutboundFrame encode(");
@@ -240,15 +252,15 @@ class AuditHardeningWorkflowContractTest {
     }
 
     /**
-     * ADR-0106, amendment of 23/09/2026: the principle holds in both transports. A client has no pending peer request
+     * ADR-0106: the principle holds in both transports. A client has no pending peer request
      * to answer, so its only outbound treatment is refusal to the local sender, and {@code sendMessage} must catch that
      * refusal before the {@code IOException} branch that fails the session closed. Text, for the same reason as the
      * server rule above.
      */
     @Test
     void mcpClientTransportRefusesAnOversizedOutboundFrameInsteadOfFailingClosed() throws IOException {
-        String client = Files.readString(repoRoot().resolve(
-                "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioClientTransport.java"));
+        String client = Files.readString(RepositoryRoot.locate().resolve(
+                "morpheus-mcp-transport/src/main/java/com/morpheus/transport/mcp/BoundedStdioClientTransport.java"));
 
         int encodeStart = client.indexOf("private OutboundFrame encode(");
         int encodeEnd = client.indexOf("private void failClosed(", encodeStart);
@@ -272,15 +284,54 @@ class AuditHardeningWorkflowContractTest {
     }
 
     /**
+     * ADR-0106, on the bytecode: the client's outbound encoding, {@code encode} and any lambda it declares, neither
+     * raises nor names {@code MessageTooLargeException}, the inbound fail-closed signal. The textual ban above sees the
+     * region of the source between {@code encode(} and {@code failClosed(}; this rule sees the method however the
+     * signal reaches it, through a call, a {@code throws} clause, a class literal or an {@code instanceof}.
+     * {@code MessageTooLargeException} declares no compile-time constant, so the rule has no blind spot.
+     *
+     * <p>Broken before acceptance, 06/11/2026: {@code if (encoded.length < 0) throw new MessageTooLargeException(0);}
+     * written into {@code encode}; this method failed and named the constructor call in {@code encode}.</p>
+     */
+    @Test
+    void mcpClientOutboundEncodingNeverRaisesTheInboundFailClosedSignal() {
+        JavaClasses transport = new ClassFileImporter().importPackages(MCP_TRANSPORT_PACKAGE);
+        noMethods()
+                .that().areDeclaredInClassesThat()
+                .haveFullyQualifiedName(MCP_TRANSPORT_PACKAGE + ".BoundedStdioClientTransport")
+                .and(DescribedPredicate.describe("are encode or a lambda declared in it",
+                        (JavaMethod method) -> method.getName().equals("encode")
+                                || method.getName().startsWith("lambda$encode$")))
+                .should(new ArchCondition<JavaMethod>("raise or name " + INBOUND_FAIL_CLOSED_SIGNAL) {
+                    @Override
+                    public void check(JavaMethod method, ConditionEvents events) {
+                        boolean touches = Stream.of(
+                                        method.getAccessesFromSelf().stream().map(access -> access.getTargetOwner()),
+                                        method.getThrowsClause().getTypes().stream(),
+                                        method.getReferencedClassObjects().stream()
+                                                .map(reference -> reference.getRawType()),
+                                        method.getInstanceofChecks().stream().map(check -> check.getRawType()))
+                                .flatMap(types -> types)
+                                .anyMatch(type -> type.getName().equals(INBOUND_FAIL_CLOSED_SIGNAL));
+                        events.add(new SimpleConditionEvent(method, touches,
+                                method.getFullName() + (touches ? " raises or names " : " leaves ")
+                                        + INBOUND_FAIL_CLOSED_SIGNAL));
+                    }
+                })
+                .because("an oversized outbound frame is MORPHEUS's own and is refused to its sender; failing the "
+                        + "session closed is the answer to a hostile inbound peer only (ADR-0106)")
+                .check(transport);
+    }
+
+    /**
      * The MCP transport module is shared by the MORPHEUS server and by the MINOS and NEXUS clients. Naming a tool of
      * the server catalog in it would leak the application into the transport; the guidance for an oversized response
-     * is supplied by the layer that owns the catalog (ADR-0106, amendment of 23/09/2026).
+     * is supplied by the layer that owns the catalog (ADR-0106).
      */
     @Test
     void mcpTransportNamesNoServerCatalogTool() throws IOException {
-        Path root = repoRoot();
-        String catalog = Files.readString(root.resolve(
-                "morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusMcpToolCatalog.java"));
+        Path root = RepositoryRoot.locate();
+        String catalog = Files.readString(ProductionSources.mainSource("morpheus-mcp", "MorpheusMcpToolCatalog"));
         List<String> tools = Pattern.compile("tool\\(\"([a-z_]+)\"").matcher(catalog).results()
                 .map(match -> match.group(1))
                 .toList();
@@ -301,7 +352,7 @@ class AuditHardeningWorkflowContractTest {
 
     @Test
     void remoteDiscoveryCannotRegressToChecksumOnlyOrClaimVerifiedTrust() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String manifest = Files.readString(root.resolve(
                 "morpheus-application/src/main/java/com/morpheus/application/product/UpdateManifest.java"));
         String discovery = Files.readString(root.resolve(
@@ -318,7 +369,7 @@ class AuditHardeningWorkflowContractTest {
 
     @Test
     void policyAdaptersCannotBypassBoundedQueryDefinitionCodec() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String codec = Files.readString(root.resolve(
                 "morpheus-application/src/main/java/com/morpheus/application/query/dsl/QueryDefinitionCodec.java"));
         String validator = Files.readString(root.resolve(
@@ -335,12 +386,9 @@ class AuditHardeningWorkflowContractTest {
         assertTrue(validator.contains("counters.exhausted"),
                 "QueryValidator must stop traversal after a structural budget is exceeded");
 
-        assertUsesBoundedQueryCodec(root.resolve(
-                "morpheus-api/src/main/java/com/morpheus/api/MorpheusPolicyApiService.java"));
-        assertUsesBoundedQueryCodec(root.resolve(
-                "morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusPolicyMcpTools.java"));
-        assertUsesBoundedQueryCodec(root.resolve(
-                "morpheus-cli/src/main/java/com/morpheus/cli/MorpheusPolicyCli.java"));
+        assertUsesBoundedQueryCodec(ProductionSources.mainSource("morpheus-api", "MorpheusPolicyApiService"));
+        assertUsesBoundedQueryCodec(ProductionSources.mainSource("morpheus-mcp", "MorpheusPolicyMcpTools"));
+        assertUsesBoundedQueryCodec(ProductionSources.mainSource("morpheus-cli", "MorpheusPolicyCli"));
     }
 
     private void assertUsesBoundedQueryCodec(Path adapter) throws IOException {
@@ -351,18 +399,5 @@ class AuditHardeningWorkflowContractTest {
                 adapter + " must decode persisted QUERY_ASSERTION payloads through QueryDefinitionCodec");
         assertFalse(source.contains("Base64.getUrlDecoder()"),
                 adapter + " must not implement an unbounded parallel query decoder");
-    }
-
-    private Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
-            return current;
-        }
-        Path parent = current.getParent();
-        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml"))
-                && Files.isDirectory(parent.resolve("distribution"))) {
-            return parent;
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found from " + current);
     }
 }

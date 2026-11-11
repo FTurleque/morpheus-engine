@@ -1,6 +1,6 @@
 package com.morpheus.architecture;
 
-import com.morpheus.store.sqlite.SqliteConnectionScope;
+import com.morpheus.store.sqlite.runtime.SqliteConnectionScope;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaField;
@@ -38,7 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * <ul>
  *   <li>{@code MorpheusMain} and {@code MorpheusCli} are the two entry points: they take the runtime of the process and
  *   hand it on;</li>
- *   <li>{@code OperationalSlf4jServiceProvider} is instantiated by the service loader (ADR-0111): nobody can hand it
+ *   <li>{@code OperationalSlf4jServiceProvider} is instantiated by the service loader (ADR-0146): nobody can hand it
  *   anything;</li>
  *   <li>{@code SqliteContentionMetrics} is the default of a connection opened outside a scope, whose opener named no
  *   recorder: a single store a class builds alone, such as the backup of {@code SqliteServerMaintenance};</li>
@@ -140,7 +140,7 @@ class StaticOperationalRuntimeUsersArchitectureTest {
     }
 
     private static Set<String> sourcesMentioning(String sourceRoot, String mention) throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         Set<String> found = new TreeSet<>();
         try (Stream<Path> modules = Files.list(root)) {
             for (Path module : modules.filter(Files::isDirectory).sorted().toList()) {
@@ -160,17 +160,5 @@ class StaticOperationalRuntimeUsersArchitectureTest {
             }
         }
         return found;
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 }

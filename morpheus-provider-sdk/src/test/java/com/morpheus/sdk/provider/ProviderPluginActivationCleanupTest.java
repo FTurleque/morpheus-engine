@@ -1,13 +1,17 @@
 package com.morpheus.sdk.provider;
 
 import com.morpheus.application.security.ExternalJarIntegrity;
+import com.morpheus.domain.provider.ProviderId;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.io.StringWriter;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
@@ -19,6 +23,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -106,11 +111,58 @@ class ProviderPluginActivationCleanupTest {
         assertNoStagedCopyLeaked(stagedBefore);
     }
 
+    @Test
+    void aPinnedActivationLoadsThePluginThroughItsStagedCopyAndCloseDeletesTheCopy() throws Exception {
+        Path jar = pluginJar(TestIsolatedProviderPlugin.class, "isolated-plugin", "isolated-provider");
+        ProviderPluginCandidate candidate = new ProviderPluginDiscovery().discover(directory).candidates().getFirst();
+        assertTrue(candidate.compatible(), candidate.diagnostics().toString());
+        String sha256 = ExternalJarIntegrity.sha256(jar);
+
+        Set<Path> stagedBefore = stagedPluginCopies();
+        ProviderPluginActivation activation = new ProviderPluginActivator().activate(candidate, sha256);
+        Set<Path> staged = stagedPluginCopies();
+        staged.removeAll(stagedBefore);
+
+        assertEquals(1, staged.size(), () -> "an activation holds exactly one staged copy: " + staged);
+        assertEquals(candidate, activation.candidate());
+        assertEquals("isolated-plugin", activation.plugin().metadata().pluginId());
+        assertEquals(new ProviderId("isolated-provider"), activation.provider().id());
+        assertEquals(new ProviderId("isolated-provider"), activation.contentReader().providerId());
+
+        activation.close();
+        assertNoStagedCopyLeaked(stagedBefore);
+    }
+
+    @Test
+    void closeReportsAStagedCopyItCannotDelete() throws Exception {
+        pluginJar(TestIsolatedProviderPlugin.class, "isolated-plugin", "isolated-provider");
+        ProviderPluginCandidate candidate = new ProviderPluginDiscovery().discover(directory).candidates().getFirst();
+        Path undeletable = Files.createDirectories(directory.resolve("staged-copy"));
+        Files.writeString(undeletable.resolve("held"), "held");
+        TestIsolatedProviderPlugin plugin = new TestIsolatedProviderPlugin();
+        ProviderPluginActivation activation = new ProviderPluginActivation(
+                candidate,
+                plugin,
+                plugin.createProvider(),
+                plugin.createContentReader(),
+                new URLClassLoader(new URL[0], getClass().getClassLoader()),
+                undeletable);
+
+        IllegalStateException refused = assertThrows(IllegalStateException.class, activation::close);
+
+        assertEquals("cannot delete trusted provider plugin staging copy", refused.getMessage());
+        assertInstanceOf(DirectoryNotEmptyException.class, refused.getCause());
+    }
+
     private Path pluginJar(Class<?> pluginClass) throws IOException {
+        return pluginJar(pluginClass, "manifest-plugin", "manifest-provider");
+    }
+
+    private Path pluginJar(Class<?> pluginClass, String pluginId, String providerId) throws IOException {
         Path jar = directory.resolve("cleanup-plugin.jar");
         Properties properties = new Properties();
-        properties.setProperty("plugin.id", "manifest-plugin");
-        properties.setProperty("provider.id", "manifest-provider");
+        properties.setProperty("plugin.id", pluginId);
+        properties.setProperty("provider.id", providerId);
         properties.setProperty("plugin.version", "1.0.0");
         properties.setProperty("sdk.apiVersion", Integer.toString(ProviderSdk.API_VERSION));
         properties.setProperty("morpheus.minVersion", "1.0.0");

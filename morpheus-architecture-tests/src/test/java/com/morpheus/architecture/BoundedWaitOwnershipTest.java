@@ -11,7 +11,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -32,12 +31,13 @@ import org.junit.jupiter.api.Test;
  * the way {@code CoverageScaleSeparationTest} does, because a helper that compiles perfectly well and simply
  * should not exist cannot be caught any other way.</p>
  */
+@CoherenceCheck
 class BoundedWaitOwnershipTest {
 
     /** The per-module owners. Deliberately two, not one: see {@link #theTwoOwnersStayInStep()}. */
     private static final List<Path> OWNERS = List.of(
-            Path.of("morpheus-api/src/test/java/com/morpheus/api/BoundedWait.java"),
-            Path.of("morpheus-mcp-transport/src/test/java/com/morpheus/integration/mcp/BoundedWait.java"));
+            ProductionSources.relativeTestSource("morpheus-api", "BoundedWait"),
+            Path.of("morpheus-mcp-transport/src/test/java/com/morpheus/transport/mcp/BoundedWait.java"));
 
     /**
      * A method declaration whose name opens with {@code await}: an indented line carrying at least one
@@ -101,7 +101,7 @@ class BoundedWaitOwnershipTest {
                         + "is exactly the sentence that made these failures unreadable");
 
         for (Path owner : OWNERS) {
-            String text = Files.readString(repoRoot().resolve(owner));
+            String text = Files.readString(RepositoryRoot.locate().resolve(owner));
             assertTrue(text.contains("Last observed state: "),
                     () -> owner + " must report the last observed state on expiry");
             assertTrue(text.contains("Actually elapsed: "),
@@ -154,11 +154,11 @@ class BoundedWaitOwnershipTest {
      */
     @Test
     void theTwoOwnersStayInStep() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         List<String> cores = new ArrayList<>();
         for (Path owner : OWNERS) {
             String text = Files.readString(root.resolve(owner));
-            int coreStart = text.indexOf("    static void until(");
+            int coreStart = text.indexOf("    public static void until(");
             assertTrue(coreStart > 0, () -> owner + " must declare the shared bounded-wait entry point");
             cores.add(text.substring(coreStart));
         }
@@ -175,7 +175,7 @@ class BoundedWaitOwnershipTest {
         assertTrue(sources.size() > 200,
                 () -> "the scan must cover the whole test tree, found only " + sources.size() + " sources");
 
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         for (Path owner : OWNERS) {
             assertTrue(Files.isRegularFile(root.resolve(owner)),
                     () -> "owner " + owner + " must exist where this test expects it");
@@ -220,28 +220,10 @@ class BoundedWaitOwnershipTest {
         return OWNERS.stream().anyMatch(owner -> source.endsWith(owner));
     }
 
-    private static List<Path> testSources() throws IOException {
-        Path root = repoRoot();
-        try (Stream<Path> tree = Files.walk(root)) {
-            return tree.filter(Files::isRegularFile)
-                    .filter(path -> path.getFileName().toString().endsWith(".java"))
-                    .filter(path -> path.toString().replace('\\', '/').contains("/src/test/java/"))
-                    .filter(path -> !path.toString().replace('\\', '/').contains("/target/"))
-                    .sorted()
-                    .toList();
-        }
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
-            return current;
-        }
-        Path parent = current.getParent();
-        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml"))
-                && Files.isDirectory(parent.resolve("distribution"))) {
-            return parent;
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found from " + current);
+    private static List<Path> testSources() {
+        return RepositoryTree.files(RepositoryRoot.locate()).stream()
+                .filter(path -> path.getFileName().toString().endsWith(".java"))
+                .filter(path -> path.toString().replace('\\', '/').contains("/src/test/java/"))
+                .toList();
     }
 }

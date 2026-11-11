@@ -20,7 +20,8 @@ import org.junit.jupiter.api.Test;
  * <p>The policy frontier used to hold the predicate in a private method, and the CLI published the 1.0 filler as a
  * measurement because it could not call it (CLI-4). The predicate is now public on the metrics record; a second copy
  * would drift, and the weaker copy is the one that publishes 1.0. The rule is textual -- the proposition is that a
- * comparison is not <em>written</em> elsewhere, which no dependency rule expresses (ADR-0103) -- and has two
+ * comparison is not <em>written</em> elsewhere, which no dependency rule expresses
+ * ({@code .claude/rules/architecture.md}) -- and has two
  * halves:</p>
  *
  * <ol>
@@ -134,7 +135,7 @@ class CoverageRatioHasOneEmptyPopulationPredicateTest {
     }
 
     private static Map<String, String> mainSources() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         Map<String, String> sources = new TreeMap<>();
         try (Stream<Path> modules = Files.list(root)) {
             for (Path module : modules.filter(path -> path.getFileName().toString().startsWith("morpheus-")).toList()) {
@@ -150,18 +151,5 @@ class CoverageRatioHasOneEmptyPopulationPredicateTest {
             }
         }
         return sources;
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("distribution"))) {
-            return current;
-        }
-        Path parent = current.getParent();
-        if (parent != null && Files.isRegularFile(parent.resolve("pom.xml"))
-                && Files.isDirectory(parent.resolve("distribution"))) {
-            return parent;
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found from " + current);
     }
 }

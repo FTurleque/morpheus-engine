@@ -1,7 +1,7 @@
 package com.morpheus.application.sync;
 
 import com.morpheus.application.operability.OperationalRecorder;
-import com.morpheus.application.store.SyncStateStore;
+import com.morpheus.application.query.PageRequest;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -31,9 +31,15 @@ class SourceSynchronizationCoreTest {
     @Test
     void sourcePathIsCanonicalAndCannotEscapeProjectRoot() {
         assertEquals("specs/a.md", new SourcePath("./specs\\a.md").toString());
-        assertThrows(IllegalArgumentException.class, () -> new SourcePath("../secret.md"));
-        assertThrows(IllegalArgumentException.class, () -> new SourcePath("C:\\secret.md"));
-        assertThrows(IllegalArgumentException.class, () -> new SourcePath("/secret.md"));
+        IllegalArgumentException traversal = assertThrows(
+                IllegalArgumentException.class, () -> new SourcePath("../secret.md"));
+        assertEquals("source path must not escape project root: ../secret.md", traversal.getMessage());
+        IllegalArgumentException driveLetter = assertThrows(
+                IllegalArgumentException.class, () -> new SourcePath("C:\\secret.md"));
+        assertEquals("source path must be relative: C:\\secret.md", driveLetter.getMessage());
+        IllegalArgumentException rooted = assertThrows(
+                IllegalArgumentException.class, () -> new SourcePath("/secret.md"));
+        assertEquals("source path must be relative: /secret.md", rooted.getMessage());
     }
 
     @Test
@@ -189,7 +195,7 @@ class SourceSynchronizationCoreTest {
         assertEquals(2, plan.archiveActions().size());
 
         service.complete(plan, T0.plusSeconds(12));
-        assertEquals(2, store.listArchives(projectId).size());
+        assertEquals(2, store.listArchives(projectId, PageRequest.first(1)).totalMatches());
         assertEquals(T0.plusSeconds(12), store.findSyncState(projectId).orElseThrow().lastObservedChangeAt().orElseThrow());
     }
 
@@ -353,8 +359,8 @@ class SourceSynchronizationCoreTest {
         }
 
         @Override
-        public List<SourceArchiveRecord> listArchives(ProjectSpecificationId projectId) {
-            return archives.getOrDefault(projectId, List.of()).stream().sorted().toList();
+        public SourceArchivePage listArchives(ProjectSpecificationId projectId, PageRequest pageRequest) {
+            return SourceArchivePage.of(archives.getOrDefault(projectId, List.of()).stream().sorted().toList(), pageRequest);
         }
 
         @Override

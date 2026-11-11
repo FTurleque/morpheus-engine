@@ -2,6 +2,7 @@ package com.morpheus.mcp;
 
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
+import com.morpheus.mcp.server.MorpheusMcpServer;
 import io.modelcontextprotocol.json.McpJsonDefaults;
 import io.modelcontextprotocol.json.schema.JsonSchemaValidator;
 import io.modelcontextprotocol.server.McpServerFeatures;
@@ -120,7 +121,7 @@ class McpFailureContractTest {
      */
     @Test
     void theServerArmsSchemaValidationForEveryToolItServes() throws Exception {
-        String source = Files.readString(Path.of("src/main/java/com/morpheus/mcp/MorpheusMcpServer.java"));
+        String source = Files.readString(Path.of("src/main/java/com/morpheus/mcp/server/MorpheusMcpServer.java"));
 
         assertTrue(source.contains(".validateToolInputs(true)"),
                 "MorpheusMcpServer must arm SDK input validation: it is what enforces additionalProperties:false "

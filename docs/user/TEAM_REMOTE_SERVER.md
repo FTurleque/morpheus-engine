@@ -47,7 +47,7 @@ MORPHEUS ne recopie pas ce secret. La JVM le détient déjà sous forme de `Stri
 
 **Ce n'est pas une promesse d'effacement.** Un secret présent dans l'environnement d'un processus reste lisible par tout ce qui peut inspecter ce processus. La mesure réduit le nombre et la durée de vie des copies, elle ne remplace pas un gestionnaire de secrets ni un compte OS dédié.
 
-L'environnement est la **seule** source acceptée. Une propriété JVM (`-Dmorpheus.server.tls.password=…`) est refusée au démarrage, avec un message qui nomme `MORPHEUS_SERVER_TLS_PASSWORD` : c'est un argument de ligne de commande, et sous Linux `/proc/<pid>/cmdline` est lisible par tous les comptes de la machine, là où `/proc/<pid>/environ` ne l'est que par le propriétaire du processus. MORPHEUS n'intègre pas de coffre de secrets ; ce qu'il protège, ce qu'il ne protège pas, et les conditions qui rouvriraient la question sont décrits dans [ADR-0105](../architecture/adr/0105-no-secret-vault-no-reusable-secret-at-rest.md).
+L'environnement est la **seule** source acceptée. Une propriété JVM (`-Dmorpheus.server.tls.password=…`) est refusée au démarrage, avec un message qui nomme `MORPHEUS_SERVER_TLS_PASSWORD` : c'est un argument de ligne de commande, et sous Linux `/proc/<pid>/cmdline` est lisible par tous les comptes de la machine, là où `/proc/<pid>/environ` ne l'est que par le propriétaire du processus. MORPHEUS n'intègre pas de coffre de secrets ; ce qu'il protège, ce qu'il ne protège pas, et les conditions qui rouvriraient la question sont décrits dans [ADR-0105](../architecture/adr/SEC-0105-no-secret-vault-no-reusable-secret-at-rest.md).
 
 ## 2. Créer et administrer les identités
 
@@ -310,7 +310,7 @@ Trois champs servent au diagnostic d'une mutation bloquée :
 | `oldestActivePrivilegedRequestMillis` | âge de l'opération privilégiée la plus ancienne encore en cours |
 | `throttledPrivilegedRequests` | refus imputables à la pression WRITE/ADMIN (sous-ensemble de `throttledRequests`) |
 
-Un `activePrivilegedRequests` saturé avec un `oldestActivePrivilegedRequestMillis` de quelques secondes est de la charge. Le même compteur saturé avec un âge qui ne cesse de croître est une mutation que rien ne terminera : c'est le signal d'intervention, MORPHEUS ne la tuera pas de lui-même (voir ci-dessous).
+Un `activePrivilegedRequests` saturé avec un `oldestActivePrivilegedRequestMillis` de quelques secondes est de la charge. Le même compteur saturé avec un âge qui approche cinq minutes est une mutation que le traitement interne ne termine pas : la façade l'abandonnera à son échéance (voir ci-dessous), mais l'opération interne peut continuer, et c'est le signal d'intervention.
 
 Lorsque le budget de concurrence est atteint, MORPHEUS répond explicitement :
 
@@ -319,11 +319,24 @@ HTTP 429 TOO_MANY_REQUESTS
 HTTP 429 PRIVILEGED_CONCURRENCY_LIMIT
 ```
 
-Aucune file non bornée n’est créée par M26. Les opérations read-only dont l'exécution est entièrement contrôlée par MORPHEUS disposent d’un timeout amont de 60 secondes. Les mutations ne reçoivent pas cette deadline arbitraire : le slot de concurrence reste détenu jusqu'à la réponse réelle du traitement interne.
+Aucune file non bornée n’est créée. Toute requête relayée au traitement interne a une échéance amont, fixée par le rôle que la route exige :
 
-La capacité privilégiée est plafonnée au quart du budget de requêtes (`maxConcurrentPrivilegedRequests`). Des mutations toutes bloquées ne peuvent donc jamais confisquer plus d'un quart de la capacité : les lectures conservent les trois quarts restants. **Risque résiduel assumé en 1.2.1** : une mutation réellement bloquée immobilise son slot jusqu'à sa fin réelle, et une saturation durable de la voie privilégiée refuse les mutations suivantes en `429` sans les mettre en file. MORPHEUS préfère ce refus explicite à une deadline qui rapporterait `504` pour un commit peut-être déjà durable.
+| Rôle de la route | Échéance amont | Réponse à l'échéance |
+|---|---|---|
+| READ | 60 secondes | `504 UPSTREAM_TIMEOUT` |
+| WRITE et ADMIN | 300 secondes | `504 UPSTREAM_WRITE_TIMEOUT`, ou `504 RESPONSE_BUDGET_WRITE_TIMEOUT` si le traitement interne a répondu mais qu'aucun créneau de réponse ne s'est libéré à temps |
 
-Le probe de plugin externe fait volontairement partie des exceptions au timeout façade, même s'il est sémantiquement read-only : il exécute du code tiers explicitement approuvé par ADMIN et ce code ne possède pas de contrat de cancellation coopérative. MORPHEUS ne renvoie donc pas un faux `504` en libérant le slot alors que le plugin pourrait continuer à tourner ; le slot reste détenu jusqu'à la fin réelle du probe. Un administrateur doit considérer un plugin bloquant comme un plugin défectueux et intervenir sur le processus si nécessaire.
+Les 300 secondes des écritures se lisent contre la seule durée que MORPHEUS fixe pour le travail le plus long qu'une écriture peut déclencher : le budget figé d'une publication complète sur sa grande fixture de performance, 60 secondes au 95e centile. L'échéance des écritures lui en laisse cinq fois.
+
+**Une écriture expirée a un résultat inconnu, pas un échec.** Le traitement interne ne sait pas annuler une opération commencée : à l'échéance, la façade abandonne l'attente, mais l'opération peut encore aboutir, voire avoir déjà abouti. C'est pourquoi `UPSTREAM_WRITE_TIMEOUT` est distinct de `UPSTREAM_TIMEOUT` : une lecture expirée se rejoue sans risque, une écriture expirée se **relit avant d'être rejouée**. Le message de la réponse le dit.
+
+**Une écriture répondue sans créneau de réponse a aussi un résultat inconnu.** Le serveur distant ne garde en mémoire qu'un nombre borné de réponses à la fois. Une lecture qui n'en trouve pas est refusée avant tout travail (`429 RESPONSE_BUDGET_EXHAUSTED`) ; une écriture, elle, attend son créneau une fois que le traitement interne a répondu, dans la même échéance de 300 secondes, comptée depuis son envoi. Si aucun créneau ne se libère à temps, elle reçoit `504 RESPONSE_BUDGET_WRITE_TIMEOUT` : l'opération a pu aboutir, la réponse interne n'est pas relayée, et la règle est la même que pour `UPSTREAM_WRITE_TIMEOUT` — **relire l'état avant de rejouer**. Un client ou un répartiteur placé devant le serveur se règle donc sur cette borne : la réponse à une écriture commence au plus tard 300 secondes après son envoi au traitement interne et se termine au plus tard 420 secondes après cet envoi, l'échéance des écritures puis la durée totale d'écriture d'une réponse (120 secondes, voir plus bas).
+
+**Le slot privilégié est rendu quand la façade abandonne.** La requête expirée libère son slot de requête et son slot privilégié, alors que l'opération interne peut tourner encore et tenir la base. Le plafond privilégié borne donc les requêtes que la façade attend, pas le travail en cours ; c'est le contrôle d'admission du serveur interne qui borne ce travail. Une mutation lancée derrière une mutation expirée mais encore active se trouve en concurrence avec elle sur la base, exactement comme deux mutations simultanées.
+
+La capacité privilégiée est plafonnée au quart du budget de requêtes (`maxConcurrentPrivilegedRequests`). Des mutations lentes ne confisquent donc jamais plus d'un quart de la capacité, et jamais au-delà de la borne d'une écriture décrite ci-dessus : les lectures conservent les trois quarts restants, et une saturation de la voie privilégiée refuse les mutations suivantes en `429` sans les mettre en file.
+
+Le probe de plugin externe est une route ADMIN : il a l'échéance des écritures. Son processus de sondage est par ailleurs borné à 45 secondes et terminé par MORPHEUS au-delà ; l'échéance de la façade n'est atteinte que si ce mécanisme lui-même ne répond pas. Un administrateur doit alors considérer le plugin comme défectueux et intervenir sur le processus si nécessaire.
 
 Un client doit traiter toute rupture réseau pendant une mutation comme un résultat à réconcilier avant retry.
 

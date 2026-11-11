@@ -7,7 +7,6 @@ import com.morpheus.application.query.dsl.QueryResult;
 import com.morpheus.application.query.dsl.QueryScope;
 import com.morpheus.application.query.dsl.QueryValidator;
 import com.morpheus.application.store.EntityNotFoundException;
-import com.morpheus.application.store.SavedViewStore;
 
 import java.time.Clock;
 import java.time.Instant;

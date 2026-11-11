@@ -56,7 +56,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@code SourceLocator}. It covers what the text misses, a dependency that is not spelled {@code SourceLocator.file(}
  * (a factory, a static import), and it covers the class even if it stopped calling {@code WorkspaceRelativePathText}
  * and left the discovered set. The text covers what the rule misses, every other module, including
- * {@code morpheus-provider-reference} that the ArchUnit classpath does not hold (ADR-0103).</p>
+ * {@code morpheus-provider-reference} that the ArchUnit classpath does not hold
+ * ({@code .claude/rules/architecture.md}).</p>
  *
  * <p><b>Not covered, stated rather than implied.</b></p>
  * <ul>
@@ -115,7 +116,7 @@ class RefusalPathTextArchitectureTest {
 
     @Test
     void aClassThatWritesARefusalPathThroughThePointDoesNotAlsoWriteItAsALocatorOrByThePlatform() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         Set<String> builders = new TreeSet<>();
         List<String> violations = new ArrayList<>();
 
@@ -143,7 +144,7 @@ class RefusalPathTextArchitectureTest {
 
     @Test
     void aBudgetCallIsNeverGivenALocatorAsTheTextOfItsRefusal() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         Set<String> modulesSeen = new TreeSet<>();
         List<String> violations = new ArrayList<>();
 
@@ -406,17 +407,6 @@ class RefusalPathTextArchitectureTest {
             }
         }
         return sources;
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("pom.xml")) && Files.isDirectory(current.resolve("docs/architecture/adr"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("MORPHEUS repository root not found");
     }
 
     private record Forbidden(String description, Pattern pattern) {

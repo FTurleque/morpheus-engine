@@ -21,41 +21,45 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
- * The workspace boundary of one scan: what it asks of the file system grows with the entries visited and not with
- * their depth, a segment replaced by a link while a file is read is still refused before the file is inventoried, and
- * nothing the scan remembered outlives it. The cost is a count of file-system queries, never a duration.
+ * The workspace boundary of one scan (ADR-0157): before an entry is read every segment of its path is tested for a
+ * link and none is resolved twice, a segment replaced by a link is refused before the next read and, while a file is
+ * read, before the file is inventoried, and nothing the scan remembered outlives it. The cost is a count of
+ * file-system queries, never a duration.
  */
 class ScanWorkspaceBoundaryTest {
     private static final Instant NOW = Instant.parse("2026-10-17T10:00:00Z");
     private static final int QUERIES_PER_SEGMENT = 4;
     private static final int QUERIES_ON_THE_WORKSPACE_ROOT = 3;
+    private static final int LINK_TEST_ON_THE_WORKSPACE_ROOT = 1;
 
     @TempDir
     Path temp;
 
     @Test
-    void deepeningATreeAddsAConstantPerDirectoryAndNothingPerFile() throws Exception {
+    void deepeningATreeAddsOneResolutionPerDirectoryAndOneLinkTestPerSegmentAboveEachEntry() throws Exception {
         long shallow = queriesBeforeReading(chainWithFiles("shallow", 4, 5));
         long deep = queriesBeforeReading(chainWithFiles("deep", 8, 5));
 
-        assertEquals(QUERIES_PER_SEGMENT * 4L, deep - shallow,
-                "four more directories must cost four queries each, whatever the files below them");
-        assertEquals(QUERIES_ON_THE_WORKSPACE_ROOT + QUERIES_PER_SEGMENT * (1 + 4 + 5), shallow,
-                "the workspace root once, its own empty segment as the source root, then one segment per directory "
-                        + "and per file");
+        assertEquals(expectedQueriesBeforeReading(4, 5), shallow,
+                "the workspace root once, its own empty segment as the source root, then for every directory and file "
+                        + "a link test on the root and on each segment above it, and the resolution of its own segment");
+        assertEquals(expectedQueriesBeforeReading(8, 5), deep,
+                "four more directories must add their own resolution and one link test per segment above each entry");
     }
 
     @Test
-    void aDirectoryIsValidatedOnceWhateverNumberOfFilesItHolds() throws Exception {
+    void aFileIsResolvedOnceAndOnlyLinkTestedAboveWhateverNumberOfFilesItsDirectoryHolds() throws Exception {
         long few = queriesBeforeReading(chainWithFiles("few", 6, 5));
         long many = queriesBeforeReading(chainWithFiles("many", 6, 50));
 
-        assertEquals(QUERIES_PER_SEGMENT * 45L, many - few,
-                "forty-five more files must cost one segment each, not one walk of the six directories above");
+        assertEquals(45L * (LINK_TEST_ON_THE_WORKSPACE_ROOT + 6 + QUERIES_PER_SEGMENT), many - few,
+                "forty-five more files must each cost their own segment and one link test per segment above it, "
+                        + "never a second resolution of the six directories above");
     }
 
     @Test
@@ -121,6 +125,77 @@ class ScanWorkspaceBoundaryTest {
     @DisabledOnOs(value = OS.WINDOWS, disabledReason = "a directory being walked is held open and cannot be moved")
     void anAncestorReplacedByALinkOutsideTheWorkspaceWhileAFileIsReadIsRefused() throws Exception {
         verifyAnAncestorReplacedWhileAFileIsRead("outside", false);
+    }
+
+    @Test
+    @DisabledOnOs(value = OS.WINDOWS, disabledReason = "a directory being walked is held open and cannot be moved")
+    void anAncestorReplacedByALinkInsideTheWorkspaceLeavesEveryOtherFileOfTheScanUnread() throws Exception {
+        Path workspace = Files.createDirectories(temp.resolve("unread"));
+        Path docs = Files.createDirectories(workspace.resolve("area/docs"));
+        Path elsewhere = Files.createDirectories(workspace.resolve("elsewhere/docs"));
+        for (String name : List.of("a.md", "b.md", "c.md")) {
+            Files.writeString(docs.resolve(name), name);
+            Files.writeString(elsewhere.resolve(name), name);
+        }
+        assumeTrue(createSymlink(temp.resolve("unread-probe"), elsewhere.getParent()),
+                "symbolic links cannot be created in this environment");
+
+        List<Path> read = new ArrayList<>();
+        LocalSourceInventoryScanner scanner = new LocalSourceInventoryScanner(
+                SourceScanPolicy.safeDefaults(),
+                (path, maxBytes) -> {
+                    read.add(path);
+                    if (read.size() == 1) {
+                        Files.move(workspace.resolve("area"), temp.resolve("unread-moved-area"));
+                        Files.createSymbolicLink(workspace.resolve("area"), elsewhere.getParent());
+                    }
+                    return SourceFingerprint.ofFile(path, maxBytes);
+                },
+                OperationalRecorder.noop());
+
+        SourceInventoryScanResult result = scanner.scan(
+                workspace, ProjectSpecificationId.generate(), Optional.empty(), NOW, List.of(Path.of("area/docs")));
+
+        assertEquals(1, read.size(), () -> "no file may be read once its ancestor became a link: " + read);
+        assertTrue(result.inventory().isEmpty(), "nothing read through the link may enter an inventory");
+        assertEquals(List.of(SourceInventoryScanResult.Failure.Code.WORKSPACE_BOUNDARY_ESCAPED),
+                result.failures().stream().map(SourceInventoryScanResult.Failure::code).toList(),
+                () -> "the escape must be refused under its own code and stop the scan: " + result.failures());
+    }
+
+    @Test
+    void aValidatedAncestorReplacedByALinkInsideTheWorkspaceIsRefusedBeforeTheNextEntryIsRead() throws Exception {
+        Path workspace = Files.createDirectories(temp.resolve("cached-ancestor"));
+        Path docs = Files.createDirectories(workspace.resolve("area/docs"));
+        Files.writeString(docs.resolve("doc.md"), "doc");
+        Path elsewhere = Files.createDirectories(workspace.resolve("elsewhere/docs"));
+        Files.writeString(elsewhere.resolve("doc.md"), "doc");
+        ScanWorkspaceBoundary boundary = enteredDown(workspace, docs);
+
+        Files.move(workspace.resolve("area"), temp.resolve("cached-ancestor-moved"));
+        assumeTrue(createSymlink(workspace.resolve("area"), elsewhere.getParent()),
+                "symbolic links cannot be created in this environment");
+
+        WorkspaceBoundaryEscapeException refusal = assertThrows(WorkspaceBoundaryEscapeException.class,
+                () -> boundary.requireContainedBeforeReading(docs.resolve("doc.md")));
+        assertEquals("source path crosses a symbolic link inside the workspace", refusal.getMessage());
+    }
+
+    @Test
+    void aWorkspaceRootReplacedByALinkDuringAScanIsRefusedBeforeTheNextEntryIsRead() throws Exception {
+        Path parent = Files.createDirectories(temp.resolve("swapped-root"));
+        Path workspace = Files.createDirectories(parent.resolve("workspace"));
+        Path docs = Files.createDirectories(workspace.resolve("area/docs"));
+        Files.writeString(docs.resolve("doc.md"), "doc");
+        ScanWorkspaceBoundary boundary = enteredDown(workspace, docs);
+
+        Files.move(workspace, parent.resolve("moved"));
+        assumeTrue(createSymlink(workspace, parent.resolve("moved")),
+                "symbolic links cannot be created in this environment");
+
+        WorkspaceBoundaryEscapeException refusal = assertThrows(WorkspaceBoundaryEscapeException.class,
+                () -> boundary.requireContainedBeforeReading(docs.resolve("doc.md")));
+        assertEquals("workspace root must not be a symbolic link", refusal.getMessage());
     }
 
     @Test
@@ -207,8 +282,23 @@ class ScanWorkspaceBoundaryTest {
         assertTrue(result.inventory().isEmpty(), "the file must not be in an inventory");
         assertTrue(result.failures().stream().anyMatch(failure ->
                         failure.source().equals(Optional.of("area/docs/doc.md"))
+                                && failure.code() == SourceInventoryScanResult.Failure.Code.WORKSPACE_BOUNDARY_ESCAPED
                                 && failure.message().contains("symbolic link")),
                 () -> "the replaced path must be reported as crossing a symbolic link: " + result.failures());
+    }
+
+    private static ScanWorkspaceBoundary enteredDown(Path workspace, Path directory) throws IOException {
+        ScanWorkspaceBoundary boundary = new ScanWorkspaceBoundary(workspace);
+        boundary.enterSourceRoot();
+        Path current = workspace;
+        boundary.requireContainedBeforeReading(current);
+        boundary.markEntered(current);
+        for (Path segment : workspace.relativize(directory)) {
+            current = current.resolve(segment);
+            boundary.requireContainedBeforeReading(current);
+            boundary.markEntered(current);
+        }
+        return boundary;
     }
 
     private LocalSourceInventoryScanner chainWithFiles(String name, int depth, int files) throws IOException {
@@ -227,6 +317,19 @@ class ScanWorkspaceBoundaryTest {
         assertTrue(result.complete(), () -> "scan failures: " + result.failures());
         assertEquals(files, result.inventory().orElseThrow().entries().size());
         return scanner;
+    }
+
+    /**
+     * The before-reading cost of {@link #chainWithFiles}: the workspace root walked in full as the source root, then
+     * every directory of the chain and every file at its bottom tests the root and each segment above it for a link,
+     * one query each, and resolves its own segment.
+     */
+    private static long expectedQueriesBeforeReading(int depth, int files) {
+        long total = QUERIES_ON_THE_WORKSPACE_ROOT + QUERIES_PER_SEGMENT;
+        for (int level = 0; level < depth; level++) {
+            total += LINK_TEST_ON_THE_WORKSPACE_ROOT + level + QUERIES_PER_SEGMENT;
+        }
+        return total + (long) files * (LINK_TEST_ON_THE_WORKSPACE_ROOT + depth + QUERIES_PER_SEGMENT);
     }
 
     private static long queriesBeforeReading(LocalSourceInventoryScanner scanner) {

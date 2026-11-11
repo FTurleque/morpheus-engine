@@ -1,5 +1,6 @@
 package com.morpheus.provider.synthetic;
 
+import com.morpheus.application.foundation.TextDigest;
 import com.morpheus.application.identity.EntityIdentityResolver;
 import com.morpheus.application.read.ProviderIngestionBudget;
 import com.morpheus.domain.change.ChangeId;
@@ -18,12 +19,8 @@ import com.morpheus.domain.provenance.Provenance;
 import com.morpheus.domain.source.SourceLocator;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -107,7 +104,7 @@ final class SyntheticConstraintSemanticsReader {
                         SyntheticSpecificationProvider.ID, "evidence", "evidence:" + externalId)),
                 source,
                 Optional.of(new SourceRange(1, sourceLines)),
-                Optional.of(sha256(sourceText)));
+                Optional.of(TextDigest.sha256(sourceText)));
     }
 
     private Evidence fileEvidence(
@@ -122,7 +119,7 @@ final class SyntheticConstraintSemanticsReader {
                         SyntheticSpecificationProvider.ID, "evidence", "evidence:" + externalId)),
                 SourceLocator.file(relativePath),
                 Optional.of(new SourceRange(1, lines)),
-                Optional.of(sha256(text)));
+                Optional.of(TextDigest.sha256(text)));
     }
 
     private <E extends Enum<E>> E enumValue(Class<E> type, String raw, String field) {
@@ -167,12 +164,4 @@ final class SyntheticConstraintSemanticsReader {
         return text.trim();
     }
 
-    private String sha256(String value) {
-        try {
-            return HexFormat.of().formatHex(
-                    MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException exception) {
-            throw new IllegalStateException("SHA-256 is unavailable", exception);
-        }
-    }
 }

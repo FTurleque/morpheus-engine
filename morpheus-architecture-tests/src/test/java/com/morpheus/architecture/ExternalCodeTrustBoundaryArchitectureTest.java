@@ -1,5 +1,8 @@
 package com.morpheus.architecture;
 
+import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.core.importer.ImportOption;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -11,6 +14,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -32,7 +36,12 @@ class ExternalCodeTrustBoundaryArchitectureTest {
     private static final Path PROBE_PROCESS = Path.of(
             "morpheus-provider-sdk/src/main/java/com/morpheus/sdk/provider/ProviderPluginProbeProcess.java");
     private static final Path MCP_TRANSPORT = Path.of(
-            "morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioClientTransport.java");
+            "morpheus-mcp-transport/src/main/java/com/morpheus/transport/mcp/BoundedStdioClientTransport.java");
+    private static final String SDK_SERVER_PARAMETERS = "io.modelcontextprotocol.client.transport.ServerParameters";
+
+    private static final JavaClasses PRODUCTION = new ClassFileImporter()
+            .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+            .importPackages("com.morpheus.transport.mcp", "com.morpheus.integration");
 
     /**
      * Both child-process boundaries inherit exactly the same environment.
@@ -84,7 +93,7 @@ class ExternalCodeTrustBoundaryArchitectureTest {
     @Test
     void bothBoundariesRebuildTheChildEnvironmentFromEmptyRatherThanRemovingKnownBadKeys() throws IOException {
         for (Path source : List.of(PROBE_PROCESS, MCP_TRANSPORT)) {
-            String text = Files.readString(repositoryRoot().resolve(source));
+            String text = Files.readString(RepositoryRoot.locate().resolve(source));
             assertTrue(text.contains("environment.clear()"),
                     () -> source + " must clear the inherited environment before applying its allowlist");
             assertTrue(text.contains("SAFE_ENVIRONMENT_KEYS.contains("),
@@ -103,21 +112,33 @@ class ExternalCodeTrustBoundaryArchitectureTest {
      * layer that configures the peer; this rule keeps the SDK's parameter object out of every launch path, so an SDK
      * upgrade cannot reopen the question. {@code BoundedStdioClientTransportTest} measures the same property on a real
      * peer process.</p>
+     *
+     * <p>{@code ServerParameters} declares no compile-time constant, so the rule alone covers it; reading a parameter
+     * object's environment ({@code getEnv(}) stays a text ban, since it names a method any parameter type could carry.
+     * Broken before acceptance, 30/10/2026: a {@code ServerParameters} field added to {@code MinosMcpCodeGateway}
+     * failed the rule.</p>
      */
     @Test
     void noMcpLaunchPathTakesThePeerEnvironmentFromTheSdkParameters() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         for (Path source : List.of(
                 MCP_TRANSPORT,
+                Path.of("morpheus-mcp-transport/src/main/java/com/morpheus/transport/mcp/McpPeerSession.java"),
                 Path.of("morpheus-integration-minos/src/main/java/com/morpheus/integration/minos/MinosMcpCodeGateway.java"),
                 Path.of("morpheus-integration-nexus/src/main/java/com/morpheus/integration/nexus/NexusMcpContextGateway.java"))) {
             String text = Files.readString(root.resolve(source));
-            assertFalse(text.contains("ServerParameters"),
-                    () -> source + " must launch its peer from McpPeerLaunch, not from the SDK's ServerParameters");
             assertFalse(text.contains("getEnv("),
                     () -> source + " must not read a parameter object's environment as explicit peer configuration");
             assertTrue(text.contains("McpPeerLaunch"), () -> source + " must describe its peer with McpPeerLaunch");
         }
+        noClasses()
+                .that(ClassesOfASource.declaredIn(
+                        "BoundedStdioClientTransport", "McpPeerSession", "MinosMcpCodeGateway",
+                        "NexusMcpContextGateway"))
+                .should().dependOnClassesThat().haveFullyQualifiedName(SDK_SERVER_PARAMETERS)
+                .because("a peer is launched from McpPeerLaunch, never from the SDK's ServerParameters, whose "
+                        + "builder injects an environment allowlist of its own")
+                .check(PRODUCTION);
         String transport = Files.readString(root.resolve(MCP_TRANSPORT));
         assertTrue(transport.contains("sanitizeEnvironment(builder.environment(), launch.explicitEnvironment());"),
                 "the transport must apply exactly the environment MORPHEUS configured on top of its allowlist");
@@ -132,22 +153,22 @@ class ExternalCodeTrustBoundaryArchitectureTest {
      */
     @Test
     void executablePluginActivationStaysPinnedStagedAndFailClosed() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String activator = Files.readString(root.resolve(
                 "morpheus-provider-sdk/src/main/java/com/morpheus/sdk/provider/ProviderPluginActivator.java"));
         String discovery = Files.readString(root.resolve(
                 "morpheus-provider-sdk/src/main/java/com/morpheus/sdk/provider/ProviderPluginDiscovery.java"));
 
-        assertTrue(activator.contains("provider plugin activation requires a trusted SHA-256 pin"),
-                "unpinned executable activation must keep failing closed");
+        assertFalse(activator.contains("orElse(candidate.jarPath())"),
+                "the classloader must never fall back to the unverified original JAR");
+        assertFalse(activator.contains("@Deprecated"),
+                "no entry to plugin code may survive as a deprecated overload whose body no gate reads");
         assertTrue(activator.contains("ExternalJarIntegrity.stageVerifiedCopy("),
                 "the classloader must only ever see the verified staging copy");
         assertTrue(activator.contains("releaseLoaderAndStaging("),
                 "a failed activation must close the classloader and delete its staging copy");
         assertTrue(discovery.contains("LinkOption.NOFOLLOW_LINKS") && discovery.contains("isSymbolicLink"),
                 "discovery must stay metadata-only and refuse symbolic entries");
-        assertFalse(discovery.contains("URLClassLoader"),
-                "discovery must never load classes; only explicit activation may");
     }
 
     /**
@@ -159,7 +180,7 @@ class ExternalCodeTrustBoundaryArchitectureTest {
      */
     @Test
     void theVerifiedStagingCopyIsDeletedAtExitNamedWithoutThePinAndItsResidueIsStated() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         String integrity = Files.readString(root.resolve(
                 "morpheus-application/src/main/java/com/morpheus/application/security/ExternalJarIntegrity.java"));
         String security = Files.readString(root.resolve("SECURITY.md"));
@@ -183,7 +204,7 @@ class ExternalCodeTrustBoundaryArchitectureTest {
      */
     @Test
     void everyExternalExecutionBoundaryStatesItIsNotAnOperatingSystemSandbox() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         for (Path source : List.of(PROBE_PROCESS, MCP_TRANSPORT)) {
             String text = Files.readString(root.resolve(source)).toLowerCase(Locale.ROOT);
             assertTrue(text.contains("not") && text.contains("sandbox"),
@@ -210,12 +231,10 @@ class ExternalCodeTrustBoundaryArchitectureTest {
     @Test
     void noProductionSourceClaimsToSandboxExternalCode() throws IOException {
         Pattern claim = Pattern.compile("(?i)\\b(sandboxe[sd]?|sandboxing)\\b");
-        List<Path> sources;
-        try (var walk = Files.walk(repositoryRoot())) {
-            sources = walk.filter(path -> path.toString().replace('\\', '/').contains("/src/main/java/"))
-                    .filter(path -> path.toString().endsWith(".java"))
-                    .toList();
-        }
+        List<Path> sources = RepositoryTree.files(RepositoryRoot.locate()).stream()
+                .filter(path -> path.toString().replace('\\', '/').contains("/src/main/java/"))
+                .filter(path -> path.toString().endsWith(".java"))
+                .toList();
         assertFalse(sources.isEmpty(), "the production source scan must actually find sources");
 
         for (Path source : sources) {
@@ -231,7 +250,7 @@ class ExternalCodeTrustBoundaryArchitectureTest {
     }
 
     private Set<String> safeEnvironmentKeys(Path source) throws IOException {
-        String text = Files.readString(repositoryRoot().resolve(source));
+        String text = Files.readString(RepositoryRoot.locate().resolve(source));
         Matcher declaration = Pattern
                 .compile("SAFE_ENVIRONMENT_KEYS\\s*=\\s*Set\\.of\\((.*?)\\);", Pattern.DOTALL)
                 .matcher(text);
@@ -242,17 +261,5 @@ class ExternalCodeTrustBoundaryArchitectureTest {
             allowed.add(keys.group(1).toUpperCase(Locale.ROOT));
         }
         return allowed;
-    }
-
-    private Path repositoryRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
     }
 }

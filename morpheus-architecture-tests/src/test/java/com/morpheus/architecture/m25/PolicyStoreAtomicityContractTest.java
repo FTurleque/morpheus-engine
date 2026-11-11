@@ -1,19 +1,19 @@
 package com.morpheus.architecture.m25;
 
-import com.morpheus.application.query.PageRequest;
 import com.morpheus.application.policy.PolicyBudgets;
 import com.morpheus.application.policy.PolicyConfiguration;
 import com.morpheus.application.policy.PolicyIds;
 import com.morpheus.application.policy.PolicyPackService;
 import com.morpheus.application.policy.PolicyRule;
 import com.morpheus.application.policy.PolicyScope;
-import com.morpheus.application.store.PolicyPackStore;
+import com.morpheus.application.query.PageRequest;
+import com.morpheus.application.policy.PolicyPackStore;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.store.memory.MemoryPolicyPackStore;
-import com.morpheus.store.sqlite.SqlitePolicyPackStore;
+import com.morpheus.store.sqlite.adapter.SqlitePolicyPackStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -93,7 +93,7 @@ class PolicyStoreAtomicityContractTest {
         int targetAuditCount = store.listAudit(target.packId(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches();
         int otherAuditCount = store.listAudit(other.packId(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches();
 
-        assertThrows(IllegalArgumentException.class, () -> store.compareAndSetActivation(
+        IllegalArgumentException wrongAction = assertThrows(IllegalArgumentException.class, () -> store.compareAndSetActivation(
                 scope,
                 target.packId(),
                 0,
@@ -105,8 +105,9 @@ class PolicyStoreAtomicityContractTest {
                         Optional.empty(),
                         Optional.of(scope),
                         "wrong action")));
+        assertEquals("policy audit target mismatch for ACTIVATE", wrongAction.getMessage());
 
-        assertThrows(IllegalArgumentException.class, () -> store.compareAndSetActivation(
+        IllegalArgumentException wrongPack = assertThrows(IllegalArgumentException.class, () -> store.compareAndSetActivation(
                 scope,
                 target.packId(),
                 0,
@@ -118,8 +119,9 @@ class PolicyStoreAtomicityContractTest {
                         Optional.empty(),
                         Optional.of(scope),
                         "wrong pack")));
+        assertEquals("policy audit target mismatch for ACTIVATE", wrongPack.getMessage());
 
-        assertThrows(IllegalArgumentException.class, () -> store.compareAndSetActivation(
+        IllegalArgumentException wrongScope = assertThrows(IllegalArgumentException.class, () -> store.compareAndSetActivation(
                 scope,
                 target.packId(),
                 0,
@@ -131,8 +133,9 @@ class PolicyStoreAtomicityContractTest {
                         Optional.empty(),
                         Optional.of(otherScope),
                         "wrong scope")));
+        assertEquals("policy audit target mismatch for ACTIVATE", wrongScope.getMessage());
 
-        assertThrows(IllegalArgumentException.class, () -> store.compareAndSetActivation(
+        IllegalArgumentException wrongVersion = assertThrows(IllegalArgumentException.class, () -> store.compareAndSetActivation(
                 scope,
                 target.packId(),
                 0,
@@ -144,6 +147,7 @@ class PolicyStoreAtomicityContractTest {
                         Optional.empty(),
                         Optional.of(scope),
                         "wrong version")));
+        assertEquals("policy audit version mismatch for ACTIVATE", wrongVersion.getMessage());
 
         assertFalse(store.findActivation(scope, target.packId()).isPresent());
         assertEquals(targetAuditCount, store.listAudit(target.packId(), PageRequest.first(PageRequest.MAX_LIMIT)).totalMatches());

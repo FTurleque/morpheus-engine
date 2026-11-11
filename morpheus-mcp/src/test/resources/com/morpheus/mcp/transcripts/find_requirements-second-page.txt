@@ -1,0 +1,5 @@
+tool: find_requirements
+arguments: {"limit":1,"offset":1,"projectId":"01920000-0000-7000-8000-000000000101","query":"session"}
+isError: false
+text:
+{"hasMore":false,"items":[{"id":"01920000-0000-7000-8000-000000000104","key":"auth-session/session-refresh","specificationId":"01920000-0000-7000-8000-000000000102","statement":"The system SHALL refresh the inactivity timer on a protected action.","title":"Session activity refresh"}],"limit":1,"offset":1,"query":"session","snapshotId":"<id-1>","totalMatches":2}

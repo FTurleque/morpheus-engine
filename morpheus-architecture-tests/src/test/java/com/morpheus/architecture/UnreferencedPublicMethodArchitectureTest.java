@@ -64,7 +64,7 @@ class UnreferencedPublicMethodArchitectureTest {
 
     @Test
     void everyPublicMethodOfAProductModuleIsNamedSomewhereElseOrSaysWhy() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         List<Path> sources = javaSources(root);
         assertTrue(sources.size() > 500, "too few Java sources read (" + sources.size() + ")");
 
@@ -257,17 +257,5 @@ class UnreferencedPublicMethodArchitectureTest {
             }
         }
         return sources;
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 }

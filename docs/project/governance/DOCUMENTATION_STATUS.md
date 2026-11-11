@@ -1,6 +1,6 @@
 # Statut et autorité de la documentation MORPHEUS
 
-Statut : **ACTIF — MORPHEUS 1.2.0 PUBLIÉ — BASELINE DÉVELOPPEMENT 1.2.1**
+Statut : **ACTIF — MORPHEUS 1.2.1 PUBLIÉ — BASELINE DÉVELOPPEMENT 1.2.2**
 
 Dernière mise à jour : 7 septembre 2026
 
@@ -122,16 +122,16 @@ dependency hygiene         blocking
 
 La règle « CI NOT USED » appartient exclusivement au protocole historique D2. Elle ne s’applique pas aux protections continues actuelles.
 
-## Baseline développement 1.2.1
+## Baseline développement 1.2.2
 
 ```text
-Version                    1.2.1
+Version                    1.2.2
 Java                       21
 Maven Wrapper              3.10.0
 Maven modules              18
-MCP SDK                    2.0.1
-SQLite JDBC                3.53.4.0
-Jackson                    3.2.3
+MCP SDK                    2.1.0
+SQLite JDBC                3.54.1.0
+Jackson                    3.2.4
 OWASP Dependency-Check     13.0.0
 ```
 
@@ -141,12 +141,13 @@ Qualité continue :
 MORPHEUS CI                exact-head Windows + Ubuntu
 MORPHEUS Security          OWASP Dependency-Check
 MORPHEUS CodeQL            security-extended
-Surefire ratchet           >= 3820
-Architecture ratchet       >= 585
-Aggregate line ratchet     >= 90.0%
-Aggregate branch ratchet   >= 75.7%
-Per-module line ratchet    >= 69.1%
-Per-module branch ratchet  >= 61.2%
+Surefire written ratchet   >= 3556
+Surefire generated ratchet >= 1819
+Architecture ratchet       >= 1058
+Aggregate line ratchet     >= 92.8%
+Aggregate branch ratchet   >= 81.1%
+Per-module line ratchet    >= 90.1%
+Per-module branch ratchet  >= 77.3%
 PR changed line coverage   >= 80%
 PR changed branch coverage >= 70%
 JaCoCo canonical report    morpheus-coverage-report/target/site/jacoco-aggregate/jacoco.xml
@@ -170,7 +171,7 @@ Le dispatcher actif est :
 Pour la baseline courante :
 
 ```powershell
-.\scripts\validate.cmd m21 -Version 1.2.1
+.\scripts\validate.cmd m21 -Version 1.2.2
 ```
 
 Les anciens wrappers `validate-*.cmd` à la racine ne font plus partie de la documentation active.
@@ -187,13 +188,14 @@ Les anciens wrappers `validate-*.cmd` à la racine ne font plus partie de la doc
 Les éléments suivants ne doivent pas être déclarés terminés sans preuve externe ou événement réel :
 
 ```text
-#185  qualifier le workflow de release attestée lors d'une vraie v1.2.1+ release
+RT-13 deux sources de rafraîchissement (NVD_API_KEY, flux JSON 2.0 du NVD) toutes deux publiées par le NVD ; adopter Dependency-Check 13.0.1+ (correctif amont #8716) à sa publication
 ```
 
 ## Suivis clos
 
 ```text
-#287  NVD_API_KEY configuré et accepté en 12.2.2 (main, run 35701902846) et 13.0.0 (develop, run 35744008694) — RT-13 clos le 22/09/2026
+#185  workflow de release attestée qualifié sur la release v1.2.1 — close le 17/10/2026
+#287  NVD_API_KEY configuré et accepté en 12.2.2 (main, run 35701902846) et 13.0.0 (develop, run 35744008694) — la clé est en service
 ```
 
 ## État fonctionnel
@@ -205,5 +207,6 @@ R1             ✅ 1.0.0 publié
 R2             ✅ 1.1.0 publié
 R3             ✅ 1.2.0 publié
 D2             ✅ qualifié / intégré
-1.2.1          🔧 baseline de développement active
+1.2.1          ✅ publié
+1.2.2          🔧 baseline de développement active
 ```

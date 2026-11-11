@@ -19,15 +19,15 @@ import static org.junit.jupiter.api.Assertions.fail;
  * The maximum page size of the MCP catalog and the one the application enforces are two constants in two modules,
  * and the text says they are one number.
  *
- * <p>The Javadoc of {@link PageArguments} and ADR-0107 (amendment of 29 September 2026 on MCP-2, Decision, point 2)
+ * <p>The Javadoc of {@link PageArguments} and ADR-0151 (Decision, point 4)
  * write that the maximum of {@code limit} is the catalog's and is also {@code PageRequest}'s. Nothing made it so:
  * each is a literal {@code 100}. This test holds the equality of the <em>maximum</em>, and it matters in one
- * direction more than the other. {@code MorpheusMcpToolService.page} builds a {@code PageRequest} from a
+ * direction more than the other. {@code McpCatalogTool.page} builds a {@code PageRequest} from a
  * {@code limit} bounded by {@code MorpheusMcpToolCatalog.MAX_LIMIT}, and the catalog schemas publish
  * {@code integer(1, MAX_LIMIT)}: if the catalog maximum rose above {@code PageRequest.MAX_LIMIT}, the catalog tools
  * would refuse a {@code limit} their own schema accepts (the defect class of MCP-3). Rewriting the sentence is no
  * remedy in that direction. No other test calls a catalog tool at its maximum {@code limit}
- * ({@code MorpheusMcpToolServiceTest} uses 1; {@code MorpheusMcpToolCatalogTest} pins the schema maximum to the
+ * ({@code CatalogueToolsAnswerTest} uses 1; {@code MorpheusMcpToolCatalogTest} pins the schema maximum to the
  * literal 100 without calling anything), so this equality is the only guard of it.</p>
  *
  * <p>It also holds the three tool descriptions that spell {@code default 50, maximum 100} by hand
@@ -51,9 +51,9 @@ class PageBoundsAgreementTest {
         assertEquals(PageRequest.MAX_LIMIT, MorpheusMcpToolCatalog.MAX_LIMIT,
                 "MorpheusMcpToolCatalog.MAX_LIMIT and PageRequest.MAX_LIMIT have parted. Two things are now false."
                         + " The sentence that the maximum limit of the MCP paged tools is the catalog's and is also"
-                        + " PageRequest's (Javadoc of PageArguments; ADR-0107, amendment on MCP-2, Decision, point 2)."
+                        + " PageRequest's (Javadoc of PageArguments; ADR-0151, Decision, point 4)."
                         + " And, if the catalog maximum is the larger, every catalog tool served by"
-                        + " MorpheusMcpToolService.page: its schema accepts a limit that its PageRequest refuses, so"
+                        + " McpCatalogTool.page: its schema accepts a limit that its PageRequest refuses, so"
                         + " rewriting the sentence is not enough. Bring the constants back together.");
     }
 

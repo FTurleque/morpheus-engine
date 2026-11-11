@@ -1,0 +1,6 @@
+args: paths --bogus x
+exit: 2
+stdout:
+
+stderr:
+MORPHEUS error [2]: unknown option: --bogus

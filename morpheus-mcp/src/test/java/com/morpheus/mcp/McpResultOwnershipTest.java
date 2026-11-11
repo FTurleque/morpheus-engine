@@ -51,7 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   <li>The owner itself. {@code McpToolFailure} is exempt from every rule but "sets {@code isError(true)} exactly
  *   once": it could build through the constructor, or through a static import, without failing anything.</li>
  *   <li>The "was something judged" check is loose in three ways. A class that only cites
- *   {@code McpToolFailure.safeMessage} counts as routed through the owner although it builds no result there;
+ *   a member of {@code McpToolFailure} counts as routed through the owner although it builds no result there;
  *   a method returning {@code Optional<CallToolResult>} or a lambda without a named method does not make its class
  *   count as one that returns a tool result, so the check does not look at it. The main rule is not weakened by
  *   either: it judges every builder in every file, whatever the file declares.</li>

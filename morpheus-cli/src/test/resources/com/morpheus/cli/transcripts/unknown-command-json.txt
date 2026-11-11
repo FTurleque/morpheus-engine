@@ -1,0 +1,6 @@
+args: --json does-not-exist
+exit: 2
+stdout:
+
+stderr:
+{"exitCode":2,"code":"USAGE","message":"unknown command: does-not-exist"}

@@ -1,0 +1,5 @@
+tool: find_requirements
+arguments: {"projectId":"01920000-0000-7000-8000-0000000000ff","query":"session"}
+isError: true
+text:
+project has no ACTIVE snapshot: 01920000-0000-7000-8000-0000000000ff

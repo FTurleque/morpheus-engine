@@ -1,0 +1,6 @@
+args: changes get --project <project> --change 01900000-0000-7000-8000-000000000001
+exit: 3
+stdout:
+
+stderr:
+MORPHEUS error [3]: change not found: 01900000-0000-7000-8000-000000000001

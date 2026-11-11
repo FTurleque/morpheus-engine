@@ -1,5 +1,6 @@
 package com.morpheus.application.ingestion;
 
+import com.morpheus.application.read.NormalizedProjectContent;
 import com.morpheus.application.operability.OperationalEventCode;
 import com.morpheus.application.operability.OperationalRecorder;
 

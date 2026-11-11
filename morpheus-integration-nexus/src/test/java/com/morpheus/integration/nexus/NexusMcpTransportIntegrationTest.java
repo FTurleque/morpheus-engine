@@ -54,7 +54,7 @@ class NexusMcpTransportIntegrationTest {
     void rejectsOversizedTextBeforeJsonDeserialization() {
         String oversized = "x".repeat(NexusMcpContextGateway.MAX_MCP_RESPONSE_BYTES + 1);
         assertThrows(NexusIntegrationException.class,
-                () -> NexusMcpContextGateway.requireBoundedResponse(oversized, "fixture"));
+                () -> NexusMcpContextGateway.PEER.requireBoundedResponse(oversized, "fixture"));
     }
 
     @Test
@@ -64,6 +64,14 @@ class NexusMcpTransportIntegrationTest {
                         NexusMcpContextGateway.MAX_CONTEXT_ITEMS + 1,
                         NexusMcpContextGateway.MAX_CONTEXT_ITEMS,
                         "context items"));
+    }
+
+    @Test
+    void aGatewayGivenNoCommandIsRefusedByNameBeforeAnyProcessStarts() {
+        IllegalArgumentException refused = assertThrows(IllegalArgumentException.class, () -> new NexusMcpContextGateway(
+                null, List.of(), Map.of(), Duration.ofSeconds(10), OperationalRecorder.noop()));
+
+        assertEquals("command must not be null or blank", refused.getMessage());
     }
 
     private String javaExecutable() {

@@ -6,7 +6,10 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Immutable audit record for a source removed from the current inventory. */
+/**
+ * Immutable audit record for a source removed from the current inventory. Archives are ordered by instant, path, reason
+ * and fingerprint: the four columns of the archive table's key beside the project, so the order is total within one.
+ */
 public record SourceArchiveRecord(
         ProjectSpecificationId projectId,
         SourceInventory.Entry source,
@@ -40,7 +43,11 @@ public record SourceArchiveRecord(
         if (path != 0) {
             return path;
         }
-        return reason.compareTo(other.reason);
+        int byReason = reason.compareTo(other.reason);
+        if (byReason != 0) {
+            return byReason;
+        }
+        return source.fingerprint().compareTo(other.source.fingerprint());
     }
 
     public enum ArchiveReason {

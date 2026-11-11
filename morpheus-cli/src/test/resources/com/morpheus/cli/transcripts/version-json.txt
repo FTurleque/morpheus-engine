@@ -1,0 +1,6 @@
+args: --json version
+exit: 0
+stdout:
+{"version":"<version>"}
+
+stderr:

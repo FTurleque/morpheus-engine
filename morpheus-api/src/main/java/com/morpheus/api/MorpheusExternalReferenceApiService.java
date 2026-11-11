@@ -1,5 +1,6 @@
 package com.morpheus.api;
 
+import com.morpheus.api.transport.ApiFailure;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.reference.ExternalIntegrationStatusProvider;
 import com.morpheus.application.reference.ExternalReferenceResolverRegistry;
@@ -17,13 +18,13 @@ import java.util.Map;
 import java.util.Objects;
 
 /** M12 HTTP DTO mapper over the generic application reference-resolution use case. */
-final class MorpheusExternalReferenceApiService {
+public final class MorpheusExternalReferenceApiService {
     private final Path databasePath;
     private final OperationalRecorder recorder;
     private final ExternalReferenceResolverRegistry resolverRegistry;
     private final ExternalIntegrationStatusProvider minosStatus;
 
-    MorpheusExternalReferenceApiService(
+    public MorpheusExternalReferenceApiService(
             Path databasePath, OperationalRecorder recorder,
             ExternalReferenceResolverRegistry resolverRegistry,
             ExternalIntegrationStatusProvider minosStatus) {
@@ -33,11 +34,11 @@ final class MorpheusExternalReferenceApiService {
         this.minosStatus = Objects.requireNonNull(minosStatus, "minosStatus");
     }
 
-    Object minosStatus() {
+    public Object minosStatus() {
         return IntegrationStatusViews.status(minosStatus.status());
     }
 
-    Object list(String projectIdValue, String ownerIdValue) {
+    public Object list(String projectIdValue, String ownerIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         DomainIdentity ownerId = DomainIdentity.parse(ownerIdValue);
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {
@@ -55,7 +56,7 @@ final class MorpheusExternalReferenceApiService {
         }
     }
 
-    Object resolve(String projectIdValue, String referenceIdValue) {
+    public Object resolve(String projectIdValue, String referenceIdValue) {
         ProjectSpecificationId projectId = ProjectSpecificationId.parse(projectIdValue);
         ExternalReferenceId referenceId = ExternalReferenceId.parse(referenceIdValue);
         try (ApiRuntime runtime = new ApiRuntime(databasePath, recorder)) {

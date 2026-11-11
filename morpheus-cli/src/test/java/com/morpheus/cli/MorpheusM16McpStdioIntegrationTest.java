@@ -4,12 +4,13 @@ import com.morpheus.application.identity.PersistentEntityIdentityResolver;
 import com.morpheus.application.ingestion.ProjectSnapshotImportService;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.read.ProviderReadRequest;
+import com.morpheus.cli.command.CliLayout;
+import com.morpheus.cli.command.CliRuntime;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.provider.synthetic.SyntheticSpecificationContentReader;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
@@ -61,7 +62,7 @@ class MorpheusM16McpStdioIntegrationTest {
         CliLayout layout = CliLayout.resolve(
                 Optional.empty(), Optional.empty(), Optional.of(database), Map.of(), properties);
         ProjectSpecificationId projectId = ProjectSpecificationId.generate();
-        Path fixture = fixture("synthetic-basic");
+        Path fixture = RepositoryRoot.fixture("synthetic-basic");
         try (CliRuntime runtime = CliRuntime.recovering(layout.databasePath(), OperationalRecorder.noop())) {
             var normalized = new SyntheticSpecificationContentReader()
                     .read(
@@ -87,18 +88,6 @@ class MorpheusM16McpStdioIntegrationTest {
         properties.setProperty("os.name", System.getProperty("os.name", "Windows"));
         properties.setProperty("user.home", tempDirectory.resolve("home").toString());
         return properties;
-    }
-
-    private Path fixture(String name) {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            Path candidate = current.resolve("experiments/m0/fixtures").resolve(name);
-            if (Files.isDirectory(candidate)) {
-                return candidate;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("M0 fixture not found: " + name);
     }
 
     private record Seed(String projectId, String changeId) {

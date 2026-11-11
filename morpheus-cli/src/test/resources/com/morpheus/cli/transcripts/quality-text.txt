@@ -1,0 +1,7 @@
+args: quality --project <project>
+exit: 0
+stdout:
+snapshotId=<id-1>
+findings=3 requirements=2 requirementCoverage=1.0 tasks=8 taskCoverage=1.0 acceptance=NO_CRITERIA
+
+stderr:

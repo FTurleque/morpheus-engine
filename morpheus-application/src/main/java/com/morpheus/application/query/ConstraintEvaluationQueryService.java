@@ -1,6 +1,5 @@
 package com.morpheus.application.query;
 
-import com.morpheus.application.constraint.ConstraintPolicyEvaluationService;
 import com.morpheus.application.store.KnowledgeStoreException;
 import com.morpheus.application.store.SnapshotBusinessContentStore;
 import com.morpheus.application.store.SpecificationKnowledgeStore;
@@ -25,7 +24,7 @@ public final class ConstraintEvaluationQueryService {
     public ConstraintEvaluationQueryService(
             SpecificationKnowledgeStore snapshotStore,
             SnapshotBusinessContentStore contentStore) {
-        this(snapshotStore, contentStore, new ConstraintPolicyEvaluationService()::evaluate);
+        this(snapshotStore, contentStore, Constraint::evaluateFor);
     }
 
     ConstraintEvaluationQueryService(

@@ -8,16 +8,43 @@ sources différentes du repo (`rules/testing.md`, `rules/governance.md`, `docs/R
 citaient chacune un chiffre différent au 31/08/2026. **Avant toute décision de gouvernance
 ou de coverage, relire le fichier properties, pas cette page.**
 
-Valeur constatée en lisant `config/m21-quality-ratchets.properties` (09/10/2026) :
+Valeur constatée en lisant `config/m21-quality-ratchets.properties` (07/11/2026) :
 
 | Clé | Valeur constatée |
 |---|---|
-| `testsMinimum` | 3820 |
-| `architectureTestsMinimum` | 585 |
-| `aggregateLineCoverageMinimum` | 0.900 (90.0%) |
-| `aggregateBranchCoverageMinimum` | 0.757 (75.7%) |
-| `perModuleLineCoverageMinimum` | 0.691 (69.1%) |
-| `perModuleBranchCoverageMinimum` | 0.612 (61.2%) |
+| `testsMinimum` | 3556 (exécutions de méthodes déclarées) |
+| `generatedTestsMinimum` | 1819 (exécutions générées par une fabrique) |
+| `architectureTestsMinimum` | 1058 (exécutions déclarées du module d'architecture) |
+| `aggregateLineCoverageMinimum` | 0.928 (92.8%) |
+| `aggregateBranchCoverageMinimum` | 0.811 (81.1%) |
+| `perModuleLineCoverageMinimum` | 0.901 (90.1%) |
+| `perModuleBranchCoverageMinimum` | 0.773 (77.3%) |
+
+## Deux mesures de présence : déclarées et générées
+
+Deux questions se posent à la présence des tests : des tests ont-ils été supprimés, et la matrice d'options de la CLI
+a-t-elle changé ? Un total Surefire ne peut répondre qu'à l'une des deux. Les validateurs comptent donc deux grandeurs,
+**de somme égale au total Surefire** (ADR-0089) :
+
+- une exécution **déclarée** est l'unique exécution d'une méthode de test : nom nu dans le rapport, borne `testsMinimum` ;
+- une exécution **générée** vient d'une fabrique (`@TestFactory`) ou de toute source à plusieurs invocations par méthode
+  (`@ParameterizedTest`, `@RepeatedTest`, `@TestTemplate`) : Surefire la nomme `méthode()[N]`, borne
+  `generatedTestsMinimum`. Aucune liste de classes n'est tenue : un test paramétré ajouté plus tard est compté comme
+  généré de lui-même.
+
+`validate-m21.*` et `validate-d2.*` comparent chaque compte à **sa** clé et nomment la clé dans le refus ; aucun ne se
+compare à l'autre clé ni à leur somme. `validate-m22.*` à `validate-m27.*` comparent le compte déclaré à `testsMinimum`.
+`architectureTestsMinimum` borne les exécutions déclarées du module d'architecture.
+
+**Gouvernance des deux clés.** `testsMinimum` ne fait que monter. `generatedTestsMinimum` suit la matrice d'options : il
+peut baisser dans le lot qui retire l'option ou la commande qui produisait ces exécutions, et ce lot le dit dans sa
+description de PR ; sinon il ne fait que monter lui aussi. Aucun test ne distingue une réduction justifiée d'une
+réduction injustifiée — ce que le build garantit est qu'elle est refusée sous son propre nom. Ne jamais compter un
+ratchet de présence par `grep -c '@Test'` : une annotation n'est pas une exécution.
+
+**Une fabrique qui ne génère rien échoue.** Chaque `@TestFactory` passe son flux par `GeneratedCases.nonEmpty` (module
+`morpheus-cli`, qui seul en porte), et `TestFactoryAssertsItsSourceTest` refuse une fabrique qui ne le fait pas. Une
+fabrique ajoutée ailleurs porte sa propre assertion `assertFalse(…isEmpty())` : la règle la reconnaît.
 
 ## Deux échelles de couverture, deux jeux de seuils
 
@@ -32,7 +59,26 @@ Deux gates mesurent la couverture et ne mesurent **pas la même grandeur**. Jusq
 
 **Même population, attribution différente.** Les deux échelles portent sur les mêmes modules — tout module du réacteur qui porte une classe sous `src/main/java`, **outillage de vérification compris** (`morpheus-store-memory`, `morpheus-provider-synthetic`, `morpheus-provider-testkit`, `morpheus-provider-reference`) — et ne diffèrent que par les exécutions autorisées à créditer une ligne. `AggregateCoverageGateTest` dérive cette population du POM racine, refuse un rapport agrégé qui en mesure une autre, et la nomme dans sa preuve (`population=`). Garder l'outillage dans le dénominateur est un choix : mesuré le 11/09/2026, il déplace le ratio agrégé de 0,15 point, et l'en retirer laisserait `AGGREGATE_QUALIFIED_*` plafonner une population sur laquelle il n'a jamais été mesuré.
 
-La décision et ses raisons — séparation des échelles, population commune, maintien de l'outillage, exigences d'une hausse de plafond — sont consignées dans **ADR-0104** (`docs/architecture/adr/0104-two-coverage-scales-share-one-population.md`). La lire avant de toucher à une clé, à un plafond qualifié ou à la population.
+La décision et ses raisons — séparation des échelles, population commune, maintien de l'outillage, exigences d'une hausse de plafond, crédit emprunté — sont consignées dans **ADR-0166** (`docs/architecture/adr/GEN-0166-deux-echelles-de-couverture-un-seuil-par-module-a-marge-proportionnelle-et-le-credit-emprunte.md`). La lire avant de toucher à une clé, à un plafond qualifié, à la population ou au maximum du crédit emprunté.
+
+### Un seuil propre à chaque module, à côté du cliquet total
+
+Le cliquet `perModule*` juge la **somme** des rapports : un module qui cesse de se tester s'y dilue. `CoverageQualityGateTest#everyModuleOfThePopulationHoldsItsOwnFloor` juge donc aussi le rapport propre de chaque module de la population contre `max(plancher D2, seuil du module)`, lignes et branches séparément, et refuse en une fois tous les modules en défaut avec le remède : un test **dans ce module**. Le cliquet total reste en vigueur, dans sa propre méthode.
+
+- **Source unique** : `config/m21-per-module-coverage-floors.properties`, deux clés par module (`<artifactId>.lineCoverageMinimum`, `<artifactId>.branchCoverageMinimum`). Ne recopier aucune valeur ailleurs.
+- **Population** : celle que le gate dérive du POM. Un module ajouté arrive avec ses deux clés au plancher D2 dans le même changement ; un module retiré ou renommé emporte ses clés. `theFloorFileDeclaresEveryModuleOfThePopulationAndNoOther` refuse une clé manquante ou orpheline sans build.
+- **Fenêtre** : `CoverageQualificationEvidenceTest#everyModuleFloorStaysInsideItsQualifiedWindow` admet le plancher D2, et au-dessus seulement un seuil qui garde trois fois la dispersion du module — la plus grande de son écart entre résumés conservés et de sa référence, celle de l'échelle multipliée par la part du module dans la population de la grandeur, arrondie à l'unité supérieure — sous sa plus basse mesure conservée. Un module que la preuve conservée ne porte pas, ou dont la fenêtre tombe sous le plancher D2, reste au plancher. Les ratchets et les plafonds d'échelle gardent la référence entière.
+- **Séparation** : seul le gate par module lit ce fichier ; `CoverageScaleSeparationTest` le refuse au gate agrégé et au gate du crédit emprunté.
+- **Jamais** baisser un seuil de module pour faire passer un build ; une baisse liée à du code retiré se justifie dans la PR.
+
+### Le crédit emprunté : une troisième grandeur, pas une échelle
+
+Pour chaque module de la population, `BorrowedCoverageGateTest` (`morpheus-coverage-report`) compte les lignes et les branches que le rapport agrégé couvre et que le rapport propre du module ne couvre pas : ce que sa couverture doit aux tests qui vivent ailleurs. Il écrit `target/m21-borrowed-coverage-summary.txt` (`coverageScope=borrowed-credit`, une ligne par module) et tient deux propriétés :
+
+- la liste **exacte** des classes entièrement empruntées (lignes exécutables, aucune couverte par le module, au moins une par l'agrégé) : une classe non listée échoue en se nommant, une classe listée qui a gagné un test de son module échoue jusqu'à ce que son entrée parte. La liste ne fait que rétrécir ;
+- un **maximum** du total, `borrowedLineCreditMaximum` / `borrowedBranchCreditMaximum`. C'est l'inverse d'un ratchet : il ne fait que **baisser**, il est qualifié sur la plus **haute** mesure exact-head des deux plateformes, et le gate refuse un maximum sous cette mesure comme un maximum à plus de trois fois la dispersion de référence au-dessus.
+
+Ce n'est pas une échelle : aucun seuil de couverture n'en est dérivé, et elle n'est dérivée d'aucun. `CoverageScaleSeparationTest` refuse qu'un gate lise les clés ou la preuve d'une autre grandeur. Faire baisser le crédit, c'est écrire un test **dans le module qui porte la ligne** ; un test sous `morpheus-architecture-tests` le fait monter.
 
 Chaque gate applique **deux** niveaux :
 
@@ -81,8 +127,11 @@ Windows   64,5952 % / 64,5987 % lignes   56,3942 % / 56,4040 % branches
 Linux     64,5143 % / 64,5495 % lignes   56,2964 % / 56,3453 % branches   <- plafond sur la plus basse
 ```
 
-Les runners CI sont une source recevable : ce sont les mêmes que ceux des checks requis, et la preuve reste
-consultable dans les artefacts. Le plafond précédent (62,5013 % / 53,7997 %, 08/09/2026) était dépassé
+Les runners CI sont une source recevable : ce sont les mêmes que ceux des checks requis. Leurs artefacts expirent :
+la preuve de la qualification en vigueur est donc **gardée dans `config/coverage-qualification/`** (un résumé par run
+et par échelle, `evidence.tsv` pour la plateforme, le run et le commit), et `CoverageQualificationEvidenceTest`
+exige que chaque plafond soit égal au plus bas ratio de son échelle dans ces fichiers. Relever un plafond remplace
+cet ensemble dans le même changement. Le plafond précédent (62,5013 % / 53,7997 %, 08/09/2026) était dépassé
 depuis le 09/09.
 
 Le **ratchet** se place délibérément *sous* le plafond, pas dessus : les deux runs Linux de ce SHA ont
@@ -91,7 +140,7 @@ ratchet collé à la mesure transformerait une variation ordinaire en échec de 
 `0.620 / 0.535`, laisse **146 lignes et 30 branches** de marge sur l'échelle par module — soit 6,1 fois la
 variation inter-plateforme en lignes, mais seulement 2,8 fois en branches. **C'est la branche qui est serrée,
 pas la ligne** : un relèvement ultérieur dans ce plafond doit traiter les deux clés séparément, et rien
-n'oblige à les faire bouger ensemble (ADR-0104 §4 interdit seulement de les aligner sur une moyenne). L'échelle agrégée compte une autre population
+n'oblige à les faire bouger ensemble (ADR-0166 interdit seulement de les aligner sur une moyenne). L'échelle agrégée compte une autre population
 de lignes et sa marge se lit dans `AggregateCoverageGateTest`.
 
 Le 22/09/2026 la seule clé ligne passe de `0.640` à `0.642`, dans le même plafond et sans mesure nouvelle :
@@ -130,27 +179,118 @@ fois : par module `0.691` (**97 lignes**) et `0.612` (**38 branches**), agrégé
 `0.757` (**42 branches**). Les ratchets de présence montent avec eux, `3820 / 585` pour 3 830 / 590
 exécutions identiques sur les quatre runs, la marge de 10 / 5 du 08/09.
 
+Le 28/10/2026, les **deux** plafonds sont requalifiés à `61198c68`, tête de la PR #570 (run `40604205899`
+`pull_request` et run `40604205079` `workflow_dispatch` de la même branche, mêmes populations sur les quatre :
+29 696 lignes, 10 112 branches) :
+
+```text
+par module  Windows  71,5147 % / 71,5113 % lignes   62,9055 % / 62,8956 % branches
+            Linux    71,4642 % / 71,4709 % lignes   62,8560 % / 62,8758 % branches   <- plafond
+agrégée     Windows  91,5275 % / 91,5275 % lignes   77,7690 % / 77,7690 % branches
+            Linux    91,4837 % / 91,4871 % lignes   77,7195 % / 77,7393 % branches   <- plafond
+```
+
+Dispersion : 15 lignes / 5 branches par module, 13 / 5 en agrégé, dans la référence 24 / 11. Chaque clé monte au plus
+haut millième qui en garde trois fois : par module `0.712` (**78 lignes**) et `0.625` (**36 branches**), agrégé `0.912`
+(**84 lignes**) et `0.773` (**42 branches**). `architectureTestsMinimum` passe à `813`, dix sous les 823 exécutions
+identiques des quatre runs.
+
+Le 29/10/2026, les trois ratchets de présence montent, sans toucher à la couverture : `2876 / 1819 / 836`, dix
+sous les 2 886 / 1 829 / 846 exécutions identiques des quatre runs de `develop` à `63e6f1cb` (run `40875102300`
+`push`, run `40870856270` `pull_request` de la PR #584, mêmes sources), Linux et Windows.
+
+Le 07/11/2026, `testsMinimum` et `architectureTestsMinimum` passent à `3556 / 1058`, dix sous les 3 566 / 1 068
+exécutions identiques des quatre runs de `dbd65062` (runs `42306627340` et `42311778667`, Linux et Windows) ;
+`generatedTestsMinimum` reste à `1819`, déjà dix sous les 1 829. Le cliquet d'architecture était resté 222 exécutions
+sous sa marge de dix : un plancher oublié.
+
+Le 30/10/2026, le seul plafond **par module** est requalifié à `d3580dc9`, tête de la PR #597 (run `41107774651`
+`pull_request` et run `41107784162` `workflow_dispatch`, mêmes populations sur les quatre : 29 922 lignes, 10 198
+branches), après les tests que `morpheus-application` a gagnés dans son propre module (AUD-TRV-02) :
+
+```text
+par module  Windows  90,2480 % / 90,2480 % lignes   77,4760 % / 77,4858 % branches
+            Linux    90,2012 % / 90,2045 % lignes   77,4564 % / 77,4564 % branches   <- plafond
+```
+
+Dispersion : 14 lignes / 3 branches, dans la référence 24 / 11. Ligne `0.899` (**90 lignes**), branche `0.771`
+(**36 branches**). L'échelle agrégée n'est pas requalifiée : sa clé et son plafond restent ceux du 28/10.
+
+Le 03/11/2026, le plafond **agrégé** est requalifié à la même tête `d3580dc9` que le par module, sur les mêmes runs
+`41107774651` et `41107784162` (mêmes populations sur les quatre : 29 922 lignes, 10 198 branches). Les deux échelles
+d'une qualification se mesurent à une seule tête, sans quoi leur écart additionne une dérive entre deux commits ;
+`CoverageQualificationEvidenceTest` refuse deux échelles conservées à deux têtes (AUD-TST-22) :
+
+```text
+agrégée     Windows  92,9216 % / 92,9216 % lignes   81,2022 % / 81,2120 % branches
+            Linux    92,8748 % / 92,8815 % lignes   81,1728 % / 81,1826 % branches   <- plafond
+```
+
+Dispersion : 14 lignes / 4 branches, dans la référence 24 / 11. Ligne `0.926` (**82 lignes**), branche `0.808`
+(**38 branches**). Le par module n'est pas touché.
+
+Le 07/11/2026, les **deux** plafonds sont requalifiés à `dbd65062`, merge de la PR #616, sur deux runs
+`workflow_dispatch` de `develop` (`42306627340`, `42311778667` ; le run `push` du même SHA a été annulé par le groupe de
+concurrence de `ci.yml`), mêmes populations sur les quatre : 29 900 lignes, 10 148 branches. Les résumés par module
+portent pour la première fois les compteurs de chaque module, et chaque seuil de module est posé dans sa fenêtre :
+
+```text
+par module  Windows  90,4348 % / 90,4448 % lignes   77,6902 % / 77,7099 % branches
+            Linux    90,4147 % / 90,4147 % lignes   77,6803 % / 77,6803 % branches   <- plafond
+agrégée     Windows  93,1171 % / 93,1271 % lignes   81,4643 % / 81,4840 % branches
+            Linux    93,0970 % / 93,0970 % lignes   81,4348 % / 81,4446 % branches   <- plafond
+```
+
+Dispersion : 9 lignes / 3 branches par module, 9 / 5 en agrégé, dans la référence 24 / 11. Chaque clé monte au plus
+haut millième qui en garde trois fois : par module `0.901` (**94 lignes**) et `0.773` (**38 branches**), agrégé `0.928`
+(**88 lignes**) et `0.811` (**33 branches**).
+
+**Cette marge est exécutable** : `CoverageQualificationEvidenceTest#everyCoverageRatchetKeepsThreeTimesTheSpreadUnderTheLowestKeptMeasurement`
+la calcule sur `config/coverage-qualification/` — plus basse mesure conservée moins ce qu'exige le ratchet, en lignes
+et en branches — et refuse un ratchet qui garde moins de trois fois la plus grande des deux dispersions, celle des runs
+conservés ou la référence 24 / 11. Au plus haut millième admis, la marge restante est nulle : la hausse suivante passe
+par une requalification. Les champs `lineRatchet`, `branchRatchet` et `qualified*Baseline` des résumés conservés sont
+ceux du commit mesuré ; aucun test ne les lit.
+
 Une session qui ne dispose que d'une plateforme ne peut relever que le ratchet, dans la marge
 déjà qualifiée ; elle ne touche pas au plafond.
+
+Une requalification garde tels quels les résumés écrits par les gates. Ceux de l'échelle par module portent les
+compteurs de chaque module (`module.<artifactId>.*`) : `CoverageQualificationEvidenceTest` exige qu'ils fassent les
+totaux et que chaque résumé porte le même ensemble de modules, puis lit dans ces compteurs la fenêtre de chaque seuil de
+module. Les deux échelles se requalifient à une seule tête ; les seuils de module se posent après les plafonds, chacun
+dans sa fenêtre.
 
 **Ne jamais baisser un ratchet pour faire passer un build.** Écrire les tests manquants.
 
 **Si tu modifies `config/m21-quality-ratchets.properties`** (hausse justifiée par une
-preuve reproductible), répercute immédiatement les nouvelles valeurs dans ce fichier,
-dans `rules/governance.md` et dans `docs/README.md` — les trois doivent rester identiques.
-Voir `rules/meta.md`.
+preuve reproductible), répercute immédiatement les nouvelles valeurs dans la table en tête de ce fichier — une
+ligne `` | `clé` | valeur | `` est comparée au fichier par `GovernanceSurfaceCoherenceTest`, qui échoue tant
+qu'elle ne suit pas — et dans `docs/README.md`. Voir `rules/meta.md`.
 
 ## TOUJOURS
 
 - Écrire un test de reproduction qui échoue **avant** de corriger un bug
 - JUnit 5 (Jupiter) exclusivement — le projet est sur `junit-bom` (voir `rules/build.md` pour la version exacte, elle évolue)
-- Utiliser `morpheus-store-memory` ou `morpheus-provider-synthetic` en test ; jamais SQLite en unitaire
+- Utiliser `morpheus-store-memory` ou `morpheus-provider-synthetic` en test ; jamais SQLite en unitaire. Exception : dans `morpheus-application`, dont ces deux modules dépendent, une dépendance de test serait un cycle du réacteur — ses tests implémentent à la main les ports qu'ils lisent, chaque double réduit à ce que son test lit
 - Utiliser les fixtures de `experiments/m0/fixtures/` (`openspec-basic`, `synthetic-basic`)
+- Trouver la racine du dépôt et une fixture M0 par la classe `RepositoryRoot` du module de test (`locate()`,
+  `fixture(name)`) : jamais de remontée privée depuis le répertoire de travail, quel que soit son nom.
+  `RepositoryRootOwnershipTest` refuse la copie et garde identiques les propriétaires des modules
+- Parcourir tout l'arbre du dépôt par `RepositoryTree.files(root)` (`morpheus-architecture-tests`), qui écarte les
+  sorties générées, `.claude/worktrees/` et tout répertoire portant son propre `.git` : une copie d'espace de travail
+  y faussait le compte des POM. `RepositoryTreeOwnershipTest` refuse un `Files.walk`/`find`/`walkFileTree` de la
+  racine ailleurs, dans les sources de test de tous les modules
 - Vérifier la parité de persistance quand un store change : les tests `*PersistenceParityTest`
   exigent un comportement identique entre `store-memory` et `store-sqlite`
 - Construire `morpheus-provider-reference` **avant** les tests d'architecture — M22 charge son JAR depuis `target/`
 - Tester un cas d'échec par `assertThrows` **et** une assertion sur le message ou le code de rejet — un échec
-  pour une autre raison ne doit pas faire passer le test
+  pour une autre raison ne doit pas faire passer le test. `RefusalTestEvidenceArchitectureTest` le tient pour tout
+  `assertThrows` sur un type que le dépôt ne déclare pas (`IllegalArgumentException`, `NullPointerException`,
+  `AssertionError`…) : le résultat doit être passé à un appel, retourné, ou lié à un nom que la méthode relit.
+  Ce que la règle prouve, c'est qu'une assertion a **pu** être écrite, pas qu'elle compare le bon message — la revue
+  le lit. Un type du projet n'est pas concerné (il porte sa raison), et une exception sans message (collection
+  immuable, JDK) s'assert par sa cause ou son origine, jamais par `null`
 
 ## JAMAIS
 

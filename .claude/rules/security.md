@@ -89,9 +89,9 @@ Supprimer une de ces chaînes casse le build.
 
 - `BoundedStdioClientTransport` ne doit **jamais** transmettre implicitement tout l'environnement MORPHEUS à MINOS/NEXUS.
 - L'environnement hérité est réduit à une allowlist de lancement (`PATH`, variables Windows d'exécution, temp et locale), puis complété par les variables **que MORPHEUS a explicitement configurées** pour ce pair (`McpPeerLaunch.explicitEnvironment`, construit par la passerelle) — **jamais** par ce qu'un objet de paramètres tiers aurait rempli par défaut.
-- Le `ServerParameters` du SDK n'entre dans aucun chemin de lancement et `getEnv()` n'y est jamais lu : son builder injecte sa propre allowlist, et un pair recevait ainsi sur Windows huit variables hors de celle de MORPHEUS (MCP-5). `ExternalCodeTrustBoundaryArchitectureTest#noMcpLaunchPathTakesThePeerEnvironmentFromTheSdkParameters` tient le texte, `BoundedStdioClientTransportTest#aPeerLaunchedWithoutExplicitEnvironmentReceivesOnlyTheLaunchAllowlist` mesure l'environnement d'un **vrai** processus pair.
+- Le `ServerParameters` du SDK n'entre dans aucun chemin de lancement et `getEnv()` n'y est jamais lu : son builder injecte sa propre allowlist, et un pair recevait ainsi sur Windows huit variables hors de celle de MORPHEUS (MCP-5). `ExternalCodeTrustBoundaryArchitectureTest#noMcpLaunchPathTakesThePeerEnvironmentFromTheSdkParameters` tient la dépendance (règle) et la lecture de `getEnv(` (texte), `BoundedStdioClientTransportTest#aPeerLaunchedWithoutExplicitEnvironmentReceivesOnlyTheLaunchAllowlist` mesure l'environnement d'un **vrai** processus pair.
 - Les variables sensibles comme `MORPHEUS_SERVER_TLS_PASSWORD` et les variables d'injection JVM ne sont jamais héritées implicitement.
-- Le lanceur Java d'un pair est un **chemin absolu** : par défaut celui du runtime de MORPHEUS (`java.home`), sinon la valeur configurée, résolue par `toRealPath()`. **Jamais** `java` nu, que le système chercherait dans le `PATH`. L'invariant est dans le constructeur compact de `MinosIntegrationSettings` et de `NexusIntegrationSettings` (`PeerLauncherArchitectureTest`).
+- Le lanceur Java d'un pair est un **chemin absolu** : par défaut celui du runtime de MORPHEUS (`java.home`), sinon la valeur configurée, résolue par `toRealPath()`. **Jamais** `java` nu, que le système chercherait dans le `PATH`. Les deux pairs sont résolus par une seule implémentation, `PeerLaunchSettingsResolver` (`morpheus-application`, à côté d'`ExternalJarIntegrity`) ; l'invariant est dans le constructeur compact de `PeerLaunchSettings`, que `MinosIntegrationSettings` et `NexusIntegrationSettings` construisent dans le leur et qui ne contiennent aucune résolution (`PeerLauncherArchitectureTest`, `McpPeerSettingsResolutionArchitectureTest`).
 - La sortie d'erreur d'un pair est un **diagnostic** : `BoundedStdioLineReader.diagnostics` la borne comme le reste mais y remplace un octet hors UTF-8 au lieu d'échouer. Les trames du protocole restent en UTF-8 strict (`StrictUtf8`). Ne pas réaligner les deux : un avertissement accentué écrit dans la page de codes de Windows fermait la liaison d'un pair qui répondait correctement.
 - Les descendants observés d'un peer MCP sont retenus par PID/`ProcessHandle` **tant que leur processus est vivant**, afin de pouvoir les terminer même si le parent sort avant `closeGracefully()`. Une poignée n'est libérée qu'une fois son processus mort — un processus mort ne peut plus être terminé — et la racine n'est jamais libérée (ADR-0106).
 - `ProviderPluginProbeWorker` (code MORPHEUS) termine **son propre sous-arbre avant de sortir** : c'est le seul endroit où ce sous-arbre est encore énumérable. Ne jamais revenir à un nettoyage assuré uniquement par le parent — l'observation périodique ne garantit rien pour un descendant créé puis orphelin dans le même intervalle.
@@ -100,8 +100,18 @@ Supprimer une de ces chaînes casse le build.
 
 ## Plugins providers (M22) — fail-closed
 
-- L'activation d'un plugin **exige un pin SHA-256 de confiance**
-  → `ProviderPluginActivator` : *"provider plugin activation requires a trusted SHA-256 pin"*
+- L'activation d'un plugin **exige un pin SHA-256 de confiance**. La seule entrée publique vers du code de plugin
+  est `ProviderPluginService.probe`, qui prend le pin ; `ProviderPluginActivator` et `ProviderPluginActivation` ne
+  sont pas publics, donc aucun hôte n'active un plugin dans son propre processus : le code du plugin ne tourne que dans
+  le worker du probe. `activate` n'a qu'une surcharge, avec pin, et aucune ne survit en `@Deprecated`
+  (`ProviderPluginTrustBoundaryContractTest#theOnlyPublicEntryToPluginCodeIsThePinnedProbe`, sur les classes compilées)
+- Un pin absent ou vide est refusé par nom, avant toute copie du JAR : *"provider plugin activation requires a
+  trusted SHA-256 pin"* à l'activation, *"provider plugin probe requires a trusted SHA-256 pin"* au probe, avant toute
+  lecture du répertoire ; un pin mal formé garde le refus de `ExternalJarIntegrity.normalizeSha256`
+  (`ProviderPluginActivatorTest`, `ProviderPluginServicePinTest`, et `ProviderPluginPlatformContractTest` sur le JAR de
+  référence)
+- Le `URLClassLoader` ne lit que la copie vérifiée (`stageVerifiedCopy`), jamais le JAR d'origine en repli
+  (`ExternalCodeTrustBoundaryArchitectureTest` refuse `orElse(candidate.jarPath())`)
 - La découverte est **métadonnées uniquement** : pas de classloading, pas de scan au démarrage
 - `ProviderPluginDiscovery` doit utiliser `LinkOption.NOFOLLOW_LINKS` + `Files.isSymbolicLink`
 - Ce qui est **refusé** : un répertoire de plugins qui est lui-même un lien symbolique (`PLUGIN_PATH_NOT_DIRECTORY`)
@@ -118,7 +128,7 @@ Supprimer une de ces chaînes casse le build.
   nom ne porte aucune partie du pin ; le résidu après `SIGKILL`/crash est documenté dans `SECURITY.md`, **jamais**
   balayé au démarrage (impossible de le distinguer de la copie vivante d'une autre instance)
 - Le probe (exécution de code tiers) est :
-  - **remote-only** + **ADMIN** (`PLUGIN_SHA256_REQUIRED`, `usesBoundedUpstreamTimeout`)
+  - **remote-only** + **ADMIN** (`PLUGIN_SHA256_REQUIRED`), avec l'échéance amont des écritures (`upstreamDeadline()`)
   - **jamais model-facing** → `EXPLICITLY_NOT_EXPOSED` côté MCP
   - refusé en local : *"provider-plugin probe is remote-only"*
 - `morpheus-cli/pom.xml` ne doit **jamais** embarquer `morpheus-provider-reference`
@@ -140,6 +150,28 @@ Supprimer une de ces chaînes casse le build.
   schéma par opération. Une portée ne s'imbrique pas : le refus est nommé (`SqliteConnectionScope.NESTED_REFUSAL`) et
   désigne un défaut de l'appelant, jamais un état de la base — un appelant qui traduit un échec d'ouverture doit le
   laisser passer
+
+## Signature Authenticode Windows
+
+- Le credential de signature Windows suit la règle de `NVD_API_KEY` et du mot de passe TLS : il arrive par une
+  **variable d'environnement** ou une identité fédérée, **jamais** par un argument, une directive du compilateur Inno
+  Setup ou un log. Le compilateur journalise en entier la commande de son outil de signature : elle ne contient qu'un
+  chemin de script et `$f`.
+- `distribution/windows/sign-windows-binary.ps1` est le **seul** appelant d'un outil de signature
+  (`Set-AuthenticodeSignature`, `signtool`…) ; il ne prend qu'un chemin de fichier
+  (`WindowsReleaseSigningContractTest`).
+- L'identité de release n'est nommée que par `release.yml` (environnement protégé, tags de version) : aucun workflow
+  qu'une pull request ou une planification peut lancer ne nomme son environnement, ses variables
+  `MORPHEUS_WINDOWS_SIGNING_*` ni l'état `release`. Aucun bloc `run:` d'un workflow ne développe une expression
+  `secrets.` : un secret se mappe sous `env:` de l'étape.
+- La signature est **demandée** (`-SigningState none|test|release`), jamais déduite de la présence d'un credential ; un
+  build qui doit signer et ne le peut pas échoue (`WINDOWS_SIGNING_FAILED`).
+- `distribution/windows/authenticode-signing.properties` est la **seule** source de l'éditeur attendu, de la première
+  version signée et de l'autorité d'horodatage. Aucun script de qualification ou de répétition ne porte un nom d'éditeur
+  MORPHEUS. La qualification vérifie l'identité (sujet exact), pas seulement la validité.
+- La répétition signe avec une identité auto-signée créée pour l'exécution et retirée de **tous** les magasins
+  (`New-SelfSignedCertificate` en dépose aussi une copie parmi les autorités intermédiaires) ; elle n'ajoute jamais de
+  certificat à un magasin racine (`GateReachabilityArchitectureTest`).
 
 ## Chaîne d'approvisionnement CI
 

@@ -1,6 +1,6 @@
 package com.morpheus.application.traceability;
 
-import com.morpheus.application.ingestion.NormalizedProjectContent;
+import com.morpheus.application.read.NormalizedProjectContent;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.constraint.Constraint;
@@ -128,9 +128,11 @@ class DeterministicTraceabilityDerivationServiceTest {
     void missingExplicitLinkIdentityFailsInsteadOfAllocatingOne() {
         Fixture fixture = fixture(false);
 
-        assertThrows(
+        IllegalArgumentException failure = assertThrows(
                 IllegalArgumentException.class,
                 () -> service.derive(fixture.content, key -> Optional.empty(), OBSERVED_AT));
+        assertTrue(failure.getMessage().startsWith("missing traceability link identity for derivation key: "),
+                failure::getMessage);
     }
 
     @Test
@@ -138,9 +140,11 @@ class DeterministicTraceabilityDerivationServiceTest {
         Fixture fixture = fixture(true);
         TraceabilityLinkId duplicate = TraceabilityLinkId.generate();
 
-        assertThrows(
+        IllegalArgumentException failure = assertThrows(
                 IllegalArgumentException.class,
                 () -> service.derive(fixture.content, key -> Optional.of(duplicate), OBSERVED_AT));
+        assertEquals("traceability link identity is assigned to multiple derivation keys: " + duplicate,
+                failure.getMessage());
     }
 
     @Test

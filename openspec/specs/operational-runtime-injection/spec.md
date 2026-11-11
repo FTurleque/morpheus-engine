@@ -3,6 +3,8 @@
 ## Purpose
 Define who owns the operational metrics and sink, and what a test may observe.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/operational-runtime-injection.md](../../../docs/developer/specifications/operational-runtime-injection.md).
+
 ## Requirements
 
 ### Requirement: The operational runtime SHALL be built by the process and handed to its users

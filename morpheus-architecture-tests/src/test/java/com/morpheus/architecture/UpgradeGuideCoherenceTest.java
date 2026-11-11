@@ -8,8 +8,10 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -31,7 +33,7 @@ class UpgradeGuideCoherenceTest {
     private static final Pattern MIGRATION_TOKEN = Pattern.compile("\\bV(\\d{3})\\b");
     private static final Pattern OPTIONAL_BACKUP = Pattern.compile("(?i)sauvegarde[^.\\n]*souhait");
     private static final String SCHEMA_MANAGER =
-            "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSchemaManager.java";
+            "morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/runtime/SqliteSchemaManager.java";
     private static final String FUTURE_SCHEMA_REFUSAL = "is newer than supported";
     private static final String BACKUP_HEADING = "## Sauvegarde obligatoire";
     private static final String INSTALLATION_HEADING = "## Installation";
@@ -39,7 +41,7 @@ class UpgradeGuideCoherenceTest {
 
     @Test
     void theLatestUpgradeGuideStatesTheSchemaVersionTheCodeSupports() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         Guide latest = latest(guides(root));
         int supported = supportedSchemaVersion(root);
 
@@ -56,8 +58,50 @@ class UpgradeGuideCoherenceTest {
     }
 
     @Test
+    void theReactorVersionIsTheVersionOfTheLatestGuideOnceTheSchemaMovedPastTheLastRelease() throws IOException {
+        Path root = RepositoryRoot.locate();
+        Guide latest = latest(guides(root));
+
+        assertEquals(List.of(), versionProblems(
+                ReleasedSchemaLevelsDeclarationTest.productVersion(root),
+                latest,
+                supportedSchemaVersion(root),
+                ReleasedSchemaLevelsDeclarationTest.declaredLevels(root)));
+    }
+
+    @Test
+    void aReactorThatKeepsTheLastReleasedVersionAfterAMigrationIsRefused() {
+        Map<String, Integer> released = Map.of("1.0.0", 12, "1.1.0", 15, "1.2.0", 15, "1.2.1", 20);
+        Guide next = new Guide("UPGRADE_1_2_2.md", List.of(1, 2, 2), "");
+
+        List<String> problems = versionProblems("1.2.1", next, 24, released);
+
+        assertTrue(problems.stream().anyMatch(problem -> problem.contains("UPGRADE_1_2_2.md")
+                && problem.contains("1.2.2") && problem.contains("1.2.1")
+                && problem.contains("has not opened")), problems.toString());
+        assertTrue(problems.stream().anyMatch(problem -> problem.contains("still carries 1.2.1")
+                && problem.contains("from schema level 20 to 24")), problems.toString());
+        assertEquals(List.of(), versionProblems("1.2.2", next, 24, released),
+                "the opened version with its own guide and a schema ahead of the last release is coherent");
+    }
+
+    @Test
+    void aMigrationSinceTheLastReleaseRequiresTheGuideOfTheReactorVersion() {
+        Map<String, Integer> released = Map.of("1.0.0", 12, "1.2.1", 20);
+        Guide previous = new Guide("UPGRADE_1_2_1.md", List.of(1, 2, 1), "");
+
+        List<String> problems = versionProblems("1.2.2", previous, 24, released);
+
+        assertEquals(1, problems.size(), problems.toString());
+        assertTrue(problems.getFirst().contains("UPGRADE_1_2_1.md") && problems.getFirst().contains("1.2.2")
+                && problems.getFirst().contains("UPGRADE_1_2_2.md"), problems.getFirst());
+        assertEquals(List.of(), versionProblems("1.2.2", previous, 20, released),
+                "without a migration since the last release, the previous guide stays the latest");
+    }
+
+    @Test
     void theLatestUpgradeGuideMakesTheBackupMandatoryBeforeInstallingAndSaysWhichProgramTakesIt() throws IOException {
-        Guide latest = latest(guides(repositoryRoot()));
+        Guide latest = latest(guides(RepositoryRoot.locate()));
         String guide = latest.content();
 
         int backup = guide.indexOf(BACKUP_HEADING);
@@ -82,7 +126,7 @@ class UpgradeGuideCoherenceTest {
 
     @Test
     void theLatestUpgradeGuideDescribesTheWayBackAndQuotesTheRefusalTheCodeGives() throws IOException {
-        Path root = repositoryRoot();
+        Path root = RepositoryRoot.locate();
         Guide latest = latest(guides(root));
         String guide = latest.content();
 
@@ -106,7 +150,7 @@ class UpgradeGuideCoherenceTest {
      */
     @Test
     void theGuideThatLeavesOneDotTwoDotZeroSaysThatReleaseDoesNotRefuseAMigratedDatabase() throws IOException {
-        String guide = Files.readString(repositoryRoot().resolve("docs/user/UPGRADE_1_2_1.md"));
+        String guide = Files.readString(RepositoryRoot.locate().resolve("docs/user/UPGRADE_1_2_1.md"));
 
         assertTrue(guide.contains("1.2.0 ne refuse pas une base migrée"),
                 "UPGRADE_1_2_1.md must say that 1.2.0 opens a migrated database without refusing it");
@@ -118,7 +162,7 @@ class UpgradeGuideCoherenceTest {
 
     @Test
     void anEarlierUpgradeGuideNamesItsReleaseAndPointsToTheLatestGuide() throws IOException {
-        List<Guide> guides = guides(repositoryRoot());
+        List<Guide> guides = guides(RepositoryRoot.locate());
         Guide latest = latest(guides);
         assertTrue(guides.size() >= 2, "expected the latest upgrade guide and at least one earlier guide");
 
@@ -142,6 +186,38 @@ class UpgradeGuideCoherenceTest {
 
         assertEquals(patch, latest(List.of(minor, patch)));
         assertEquals(ten, latest(List.of(ten, nine, patch, minor)));
+    }
+
+    /**
+     * Relates the three statements of one version: the reactor version (root POM), the schema it ships, and the latest
+     * upgrade guide. The last published version and its level come from {@code released-schema-levels.properties}.
+     * A guide never names a version the reactor has not opened; and once the schema has moved past the level the last
+     * release shipped, the reactor is a new version and its guide is the latest one.
+     */
+    private static List<String> versionProblems(
+            String productVersion, Guide latest, int supportedSchemaVersion, Map<String, Integer> released) {
+        List<String> problems = new ArrayList<>();
+        String guideVersion = latest.version().stream().map(String::valueOf).collect(Collectors.joining("."));
+        int guideOrder = ReleasedSchemaLevelsDeclarationTest.compareVersions(guideVersion, productVersion);
+        if (guideOrder > 0) {
+            problems.add(latest.name() + " describes the upgrade to " + guideVersion + ", a version the reactor ("
+                    + productVersion + ") has not opened; open the version in the POM, or the guide is premature");
+        }
+        Map.Entry<String, Integer> lastRelease = released.entrySet().stream()
+                .max((left, right) -> ReleasedSchemaLevelsDeclarationTest.compareVersions(left.getKey(), right.getKey()))
+                .orElseThrow(() -> new AssertionError("released-schema-levels.properties declares no version"));
+        if (supportedSchemaVersion > lastRelease.getValue()) {
+            if (ReleasedSchemaLevelsDeclarationTest.compareVersions(productVersion, lastRelease.getKey()) <= 0) {
+                problems.add("the reactor still carries " + productVersion + " while the schema moved from schema level "
+                        + lastRelease.getValue() + " to " + supportedSchemaVersion + " since " + lastRelease.getKey()
+                        + " was published; a schema version is a product version, so open the next version");
+            } else if (guideOrder < 0) {
+                problems.add(latest.name() + " is the latest upgrade guide, but the reactor " + productVersion
+                        + " migrates the schema from " + lastRelease.getValue() + " to " + supportedSchemaVersion
+                        + "; write UPGRADE_" + productVersion.replace('.', '_') + ".md");
+            }
+        }
+        return problems;
     }
 
     private record Guide(String name, List<Integer> version, String content) {
@@ -184,17 +260,5 @@ class UpgradeGuideCoherenceTest {
         Matcher declaration = SCHEMA_VERSION_DECLARATION.matcher(Files.readString(root.resolve(SCHEMA_MANAGER)));
         assertTrue(declaration.find(), "SqliteSchemaManager must declare SUPPORTED_SCHEMA_VERSION");
         return Integer.parseInt(declaration.group(1));
-    }
-
-    private static Path repositoryRoot() throws IOException {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IOException("cannot locate MORPHEUS repository root from " + Path.of("").toAbsolutePath());
     }
 }

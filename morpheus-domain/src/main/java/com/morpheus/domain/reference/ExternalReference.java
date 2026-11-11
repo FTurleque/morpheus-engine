@@ -54,6 +54,50 @@ public record ExternalReference(
                 List.of());
     }
 
+    public boolean isResolved() {
+        return resolutionState == ExternalReferenceResolutionState.RESOLVED;
+    }
+
+    /** Whether the target was ever found: the reference is resolved or stale now, or was resolved once. */
+    public boolean hasBeenResolved() {
+        return resolutionState == ExternalReferenceResolutionState.RESOLVED
+                || resolutionState == ExternalReferenceResolutionState.STALE
+                || history.stream().anyMatch(event -> event.newState() == ExternalReferenceResolutionState.RESOLVED);
+    }
+
+    public ExternalReference resolvedAs(ResolvedExternalTarget resolved, Instant occurredAt) {
+        return transition(
+                ExternalReferenceResolutionState.RESOLVED,
+                ExternalReferenceResolutionReason.RESOLVED,
+                Optional.of(Objects.requireNonNull(resolved, "resolved")),
+                occurredAt);
+    }
+
+    /** No resolver knows the target system: the reference stays unresolved, never stale. */
+    public ExternalReference withoutResolver(Instant occurredAt) {
+        return transition(
+                ExternalReferenceResolutionState.UNRESOLVED,
+                ExternalReferenceResolutionReason.NO_RESOLVER,
+                Optional.empty(),
+                occurredAt);
+    }
+
+    /**
+     * The resolver did not find the target: a reference that was ever resolved becomes {@code STALE} with the stale
+     * reason, any other becomes {@code UNRESOLVED} with the unresolved reason.
+     */
+    public ExternalReference notFound(
+            ExternalReferenceResolutionReason unresolvedReason,
+            ExternalReferenceResolutionReason staleReason,
+            Instant occurredAt) {
+        boolean resolvedOnce = hasBeenResolved();
+        return transition(
+                resolvedOnce ? ExternalReferenceResolutionState.STALE : ExternalReferenceResolutionState.UNRESOLVED,
+                Objects.requireNonNull(resolvedOnce ? staleReason : unresolvedReason, "reason"),
+                Optional.empty(),
+                occurredAt);
+    }
+
     public ExternalReference transition(
             ExternalReferenceResolutionState newState,
             ExternalReferenceResolutionReason reason,

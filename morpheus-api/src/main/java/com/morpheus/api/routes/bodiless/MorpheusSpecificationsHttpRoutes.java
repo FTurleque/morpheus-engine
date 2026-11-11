@@ -1,0 +1,56 @@
+package com.morpheus.api.routes.bodiless;
+
+import com.morpheus.api.MorpheusApiService;
+import com.morpheus.api.MorpheusSpecificationQueryApiService;
+import com.morpheus.api.transport.ApiFailure;
+import com.morpheus.api.transport.MorpheusHttpQuery;
+import com.morpheus.api.transport.MorpheusHttpRouteGuards;
+import com.morpheus.api.transport.MorpheusHttpRouteResponse;
+import com.morpheus.application.query.PageRequest;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+
+/** Owns local HTTP dispatch for specification reads. */
+public final class MorpheusSpecificationsHttpRoutes {
+    private final MorpheusSpecificationQueryApiService service;
+
+    public MorpheusSpecificationsHttpRoutes(MorpheusApiService facade) {
+        this(Objects.requireNonNull(facade, "facade").specificationQueryService());
+    }
+
+    MorpheusSpecificationsHttpRoutes(MorpheusSpecificationQueryApiService service) {
+        this.service = Objects.requireNonNull(service, "service");
+    }
+
+    public MorpheusHttpRouteResponse route(
+            String method,
+            List<String> segments,
+            MorpheusHttpQuery query,
+            String projectId) {
+        MorpheusHttpRouteGuards.requireMethod(method, "GET");
+        if (segments.size() == 3) {
+            return ok(service.listSpecifications(projectId, page(query)));
+        }
+        if (segments.size() == 4) {
+            query.rejectUnknown(Set.of());
+            return ok(service.specification(projectId, segments.get(3)));
+        }
+        if (segments.size() == 5 && segments.get(4).equals("context")) {
+            return ok(service.specificationContext(projectId, segments.get(3), page(query)));
+        }
+        throw ApiFailure.notFound("unknown specifications route");
+    }
+
+    private PageRequest page(MorpheusHttpQuery query) {
+        query.rejectUnknown(Set.of("offset", "limit"));
+        return new PageRequest(
+                query.intValue("offset", 0, 0, Integer.MAX_VALUE),
+                query.intValue("limit", MorpheusApiService.DEFAULT_LIMIT, 1, MorpheusApiService.MAX_LIMIT));
+    }
+
+    private MorpheusHttpRouteResponse ok(Object data) {
+        return new MorpheusHttpRouteResponse(200, data);
+    }
+}

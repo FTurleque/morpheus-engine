@@ -1,18 +1,21 @@
 package com.morpheus.architecture.m21;
 
+import com.morpheus.architecture.ProductionSources;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.morpheus.application.product.ProductMetadata;
-import com.morpheus.cli.CliExitCode;
-import com.morpheus.integration.mcp.BoundedStdioServerTransportProvider;
-import com.morpheus.integration.mcp.PeerOperationDeadline;
+import com.morpheus.architecture.RepositoryRoot;
+import com.morpheus.architecture.RepositoryTree;
+import com.morpheus.cli.command.CliExitCode;
 import com.morpheus.integration.minos.MinosIntegrationSettings;
 import com.morpheus.integration.minos.MinosMcpCodeGateway;
 import com.morpheus.integration.nexus.NexusIntegrationSettings;
 import com.morpheus.integration.nexus.NexusMcpContextGateway;
-import com.morpheus.mcp.MorpheusMcpServer;
+import com.morpheus.mcp.server.MorpheusMcpServer;
+import com.morpheus.transport.mcp.BoundedStdioServerTransportProvider;
+import com.morpheus.transport.mcp.PeerOperationDeadline;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -42,7 +45,7 @@ class ProductionIntegrityContractTest {
     }
 
     /**
-     * ADR-0106, amendment of 8 October 2026: the handler bound is a safety bound, so a handler waiting on a peer
+     * ADR-0106: the handler bound is a safety bound, so a handler waiting on a peer
      * that keeps every request within the longest timeout an operator may configure must still end by the
      * operation's bounded error. One operation is several requests in sequence, so the bound is composed from each
      * gateway's request count, not from one request: the previous rule, twice one timeout, gave 240 s against a
@@ -70,7 +73,7 @@ class ProductionIntegrityContractTest {
 
     @Test
     void publicSurfaceManifestIsCompleteExplicitAndBackedByAdapters() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         List<String[]> entries = PublicSurfaceManifest.rows(root);
         for (String[] columns : entries) {
             String line = String.join("\t", columns);
@@ -87,11 +90,11 @@ class ProductionIntegrityContractTest {
         assertTrue(manifest.contains("product.update-discovery\tREAD\tupdate-check --manifest\tcheck_product_update\tEXPLICITLY_NOT_EXPOSED"));
         assertTrue(manifest.contains("lifecycle.apply\tWRITE"));
 
-        String main = Files.readString(root.resolve("morpheus-cli/src/main/java/com/morpheus/cli/MorpheusMain.java"));
-        String productCli = Files.readString(root.resolve("morpheus-cli/src/main/java/com/morpheus/cli/MorpheusProductCli.java"));
-        String mcp = Files.readString(root.resolve("morpheus-mcp/src/main/java/com/morpheus/mcp/MorpheusProductMcpTools.java"));
-        String http = Files.readString(root.resolve("morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java"));
-        String rootHttp = Files.readString(root.resolve("morpheus-api/src/main/java/com/morpheus/api/MorpheusRootHttpRoutes.java"));
+        String main = Files.readString(ProductionSources.mainSource("morpheus-cli", "MorpheusMain"));
+        String productCli = Files.readString(ProductionSources.mainSource("morpheus-cli", "MorpheusProductCli"));
+        String mcp = Files.readString(ProductionSources.mainSource("morpheus-mcp", "MorpheusProductMcpTools"));
+        String http = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusHttpServer"));
+        String rootHttp = Files.readString(ProductionSources.mainSource("morpheus-api", "MorpheusRootHttpRoutes"));
         String compositionMcp = readJavaTree(root.resolve("morpheus-mcp/src/main/java"));
         String lifecycleCli = readJavaTree(root.resolve("morpheus-cli/src/main/java"));
 
@@ -109,28 +112,26 @@ class ProductionIntegrityContractTest {
 
     @Test
     void updateDiscoveryHasNoImplicitStartupEntryPoint() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         Path productionRoot = root.resolve("morpheus-application/src/main/java").getParent().getParent().getParent().getParent();
         List<Path> constructionSites = new ArrayList<>();
-        try (var files = Files.walk(root)) {
-            for (Path file : files
-                    .filter(path -> path.toString().contains("src" + java.io.File.separator + "main" + java.io.File.separator + "java"))
-                    .filter(path -> path.toString().endsWith(".java"))
-                    .toList()) {
-                if (Files.readString(file).contains("new UpdateDiscoveryService()")) {
-                    constructionSites.add(root.relativize(file));
-                }
+        for (Path file : RepositoryTree.files(root).stream()
+                .filter(path -> path.toString().contains("src" + java.io.File.separator + "main" + java.io.File.separator + "java"))
+                .filter(path -> path.toString().endsWith(".java"))
+                .toList()) {
+            if (Files.readString(file).contains("new UpdateDiscoveryService(")) {
+                constructionSites.add(root.relativize(file));
             }
         }
 
         assertEquals(1, constructionSites.size(), "update discovery must only be constructed by the explicit CLI operation");
-        assertTrue(constructionSites.contains(Path.of("morpheus-cli/src/main/java/com/morpheus/cli/MorpheusProductCli.java")));
+        assertTrue(constructionSites.contains(ProductionSources.relativeMainSource("morpheus-cli", "MorpheusProductCli")));
         assertTrue(Files.isDirectory(productionRoot), "repository production source tree must remain discoverable");
     }
 
     @Test
     void documentationReferencesMachineContractInsteadOfRedefiningIt() throws IOException {
-        Path root = repoRoot();
+        Path root = RepositoryRoot.locate();
         String publicSurfaces = Files.readString(root.resolve("docs/developer/reference/PUBLIC_SURFACES.md"));
         String integrity = Files.readString(root.resolve("docs/developer/PRODUCTION_INTEGRITY.md"));
         String userIntegrity = Files.readString(root.resolve("docs/user/PRODUCT_INTEGRITY.md"));
@@ -139,7 +140,10 @@ class ProductionIntegrityContractTest {
         assertTrue(publicSurfaces.contains("EXPLICITLY_NOT_EXPOSED"));
         Ratchets ratchets = Ratchets.load(root.resolve("config/m21-quality-ratchets.properties"));
         assertTrue(integrity.contains(ratchets.tests() + " PASS"),
-                "PRODUCTION_INTEGRITY.md must quote the normative Surefire ratchet " + ratchets.tests());
+                "PRODUCTION_INTEGRITY.md must quote the normative written Surefire ratchet " + ratchets.tests());
+        assertTrue(integrity.contains(ratchets.generatedTests() + " PASS"),
+                "PRODUCTION_INTEGRITY.md must quote the normative generated Surefire ratchet "
+                        + ratchets.generatedTests());
         assertTrue(integrity.contains(ratchets.architectureTests() + " PASS"),
                 "PRODUCTION_INTEGRITY.md must quote the normative architecture ratchet " + ratchets.architectureTests());
         // Both scales, each naming itself. The page used to quote one figure as "aggregate" while the number it
@@ -180,7 +184,7 @@ class ProductionIntegrityContractTest {
     }
 
     /** Reads the single normative source of the M21 ratchets so documentation gates can never pin stale numbers. */
-    private record Ratchets(String tests, String architectureTests,
+    private record Ratchets(String tests, String generatedTests, String architectureTests,
                             String aggregateLineCoverage, String aggregateBranchCoverage,
                             String perModuleLineCoverage, String perModuleBranchCoverage) {
         private static Ratchets load(Path path) throws IOException {
@@ -190,6 +194,7 @@ class ProductionIntegrityContractTest {
             }
             return new Ratchets(
                     properties.getProperty("testsMinimum"),
+                    properties.getProperty("generatedTestsMinimum"),
                     properties.getProperty("architectureTestsMinimum"),
                     percentage(properties.getProperty("aggregateLineCoverageMinimum")),
                     percentage(properties.getProperty("aggregateBranchCoverageMinimum")),
@@ -200,17 +205,5 @@ class ProductionIntegrityContractTest {
         private static String percentage(String decimal) {
             return String.format(Locale.ROOT, "%.1f", Double.parseDouble(decimal) * 100.0d);
         }
-    }
-
-    private Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            if (Files.isRegularFile(current.resolve("contracts/public-surfaces.tsv"))
-                    && Files.isRegularFile(current.resolve("pom.xml"))) {
-                return current;
-            }
-            current = current.getParent();
-        }
-        throw new IllegalStateException("cannot locate MORPHEUS repository root");
     }
 }

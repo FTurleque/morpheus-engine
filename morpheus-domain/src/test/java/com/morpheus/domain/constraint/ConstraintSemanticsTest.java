@@ -48,20 +48,23 @@ class ConstraintSemanticsTest {
 
     @Test
     void blockWhenViolatedRequiresLifecycleTarget() {
-        assertThrows(IllegalArgumentException.class, () -> new ConstraintBlockingPolicy(
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> new ConstraintBlockingPolicy(
                 ConstraintBlockingMode.BLOCK_WHEN_VIOLATED, List.of()));
+        assertEquals("BLOCK_WHEN_VIOLATED requires at least one lifecycle target", failure.getMessage());
     }
 
     @Test
     void nonBlockingPolicyCannotSmuggleLifecycleTarget() {
-        assertThrows(IllegalArgumentException.class, () -> new ConstraintBlockingPolicy(
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> new ConstraintBlockingPolicy(
                 ConstraintBlockingMode.NON_BLOCKING, List.of(ChangeLifecycleState.VERIFYING)));
+        assertEquals("NON_BLOCKING cannot declare lifecycle targets", failure.getMessage());
     }
 
     @Test
     void unknownPolicyCannotSmuggleLifecycleTarget() {
-        assertThrows(IllegalArgumentException.class, () -> new ConstraintBlockingPolicy(
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> new ConstraintBlockingPolicy(
                 ConstraintBlockingMode.UNKNOWN, List.of(ChangeLifecycleState.VERIFYING)));
+        assertEquals("UNKNOWN cannot declare lifecycle targets", failure.getMessage());
     }
 
     @Test
@@ -69,7 +72,7 @@ class ConstraintSemanticsTest {
         for (ConstraintSatisfaction satisfaction : List.of(
                 ConstraintSatisfaction.SATISFIED,
                 ConstraintSatisfaction.VIOLATED)) {
-            assertThrows(IllegalArgumentException.class, () -> new Constraint(
+            IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> new Constraint(
                     ConstraintId.generate(),
                     ChangeId.generate(),
                     "Constraint",
@@ -79,6 +82,7 @@ class ConstraintSemanticsTest {
                     ConstraintBlockingPolicy.nonBlocking(),
                     List.of(),
                     provenance()));
+            assertEquals("supporting evidence is required for constraint satisfaction state " + satisfaction, failure.getMessage());
         }
     }
 
@@ -100,7 +104,7 @@ class ConstraintSemanticsTest {
         assertEquals(List.of(first, second).stream().sorted().toList(), constraint.supportingEvidenceIds());
         assertTrue(constraint.hasExplicitSemantics());
 
-        assertThrows(IllegalArgumentException.class, () -> new Constraint(
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> new Constraint(
                 ConstraintId.generate(),
                 ChangeId.generate(),
                 "Constraint",
@@ -110,11 +114,12 @@ class ConstraintSemanticsTest {
                 ConstraintBlockingPolicy.blockWhenViolated(List.of(ChangeLifecycleState.VERIFYING)),
                 List.of(first, first),
                 provenance()));
+        assertTrue(failure.getMessage().contains("duplicate supporting evidence identity"), failure.getMessage());
     }
 
     @Test
     void notApplicableConstraintCannotDeclareBlockingPolicy() {
-        assertThrows(IllegalArgumentException.class, () -> new Constraint(
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> new Constraint(
                 ConstraintId.generate(),
                 ChangeId.generate(),
                 "Constraint",
@@ -124,11 +129,12 @@ class ConstraintSemanticsTest {
                 ConstraintBlockingPolicy.blockWhenViolated(List.of(ChangeLifecycleState.VERIFYING)),
                 List.of(),
                 provenance()));
+        assertEquals("NOT_APPLICABLE constraint cannot declare a blocking policy", failure.getMessage());
     }
 
     @Test
     void blockingEvaluationRequiresViolatedSatisfaction() {
-        assertThrows(IllegalArgumentException.class, () -> new ConstraintEvaluation(
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class, () -> new ConstraintEvaluation(
                 ConstraintId.generate(),
                 ChangeId.generate(),
                 ChangeLifecycleState.VERIFYING,
@@ -140,6 +146,7 @@ class ConstraintSemanticsTest {
                 "invalid",
                 List.of(),
                 EvidenceId.generate()));
+        assertEquals("BLOCKING evaluation requires VIOLATED satisfaction", failure.getMessage());
     }
 
     private static Provenance provenance() {

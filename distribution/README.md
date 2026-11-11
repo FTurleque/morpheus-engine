@@ -48,7 +48,7 @@ services application/domain
 Provider SDK + providers
 store SQLite + migrations V001→V015
 Jackson
-runtime Java minimal, avec son bin/java (probe isolé de plugin, ADR-0098)
+runtime Java minimal, avec son bin/java (probe isolé de plugin, ADR-0129)
 integration/configure-mcp-clients.ps1
 integration/configure-mcp-clients-setup.ps1
 integration/README.md
@@ -89,38 +89,74 @@ uninstall conservateur
 état persistant conservé par défaut
 ```
 
-## Build actif 1.2.1
+## Signature Authenticode Windows
+
+Un build Windows signe seulement quand son appelant le demande, par `-SigningState` (`build-portable.ps1`,
+`build-installer.ps1`, `build-release.ps1`) :
+
+```text
+none     rien n'est signé ; c'est la valeur par défaut, et le build l'imprime
+test     identité créée pour une exécution (répétition : validate-m20.ps1 -TestSigning), jamais approuvée
+release  identité de l'éditeur déclaré, horodatée par l'autorité déclarée
+```
+
+Un build ne signe pas parce qu'une clé est présente et ne saute pas la signature parce qu'elle manque. Un build à qui
+l'on demande de signer et qui ne peut pas signer un fichier attendu échoue (`WINDOWS_SIGNING_FAILED`, ou
+`WINDOWS_SIGNING_TIMESTAMP_FAILED`) ; il ne produit jamais un artefact non signé à la place.
+
+Ordre de signature :
+
+1. `build-portable.ps1` signe chaque exécutable de l'image hors du runtime embarqué (le lanceur `morpheus.exe`) juste
+   après `jpackage`, avant l'archive portable, puis relit la signature dans l'archive produite ;
+2. `build-installer.ps1` construit la charge utile depuis cette image signée et le vérifie, puis le compilateur
+   Inno Setup signe l'installeur et le désinstalleur (`#ifdef SignBuild` dans `MORPHEUS.iss`, `SignedUninstaller=yes`) ;
+3. `build-release.ps1` écrit dans le manifeste Windows la signature lue sur chaque binaire produit.
+
+Les binaires du runtime embarqué restent tels que le JDK les livre. L'installeur de smoke n'est jamais signé avec
+l'identité de release (`WINDOWS_SIGNING_REFUSED`).
+
+`distribution/windows/sign-windows-binary.ps1` est le seul appelant d'un outil de signature. Il reçoit un chemin de
+fichier et rien d'autre ; l'état et l'identité lui arrivent par l'environnement du processus, jamais par un argument :
+le compilateur journalise en entier la commande de l'outil, qui ne contient qu'un chemin de script et un fichier.
+
+`distribution/windows/authenticode-signing.properties` déclare l'éditeur attendu (sujet exact du certificat), la
+première version signée et l'autorité d'horodatage. Les trois champs sont vides tant que le certificat n'existe pas :
+les releases sont alors construites non signées, le manifeste le déclare (`"status": "unsigned"`) et la qualification
+le dit. À partir de la version de base déclarée, `build-release.ps1` refuse un état autre que `release`
+(`WINDOWS_SIGNING_REQUIRED`). L'état `release` échoue tant que le fournisseur de signature n'est pas configuré.
+
+## Build actif 1.2.2
 
 Portable Windows :
 
 ```powershell
-.\distribution\build-portable.ps1 -Version 1.2.1
+.\distribution\build-portable.ps1 -Version 1.2.2
 ```
 
 Setup Windows :
 
 ```powershell
-.\distribution\build-installer.ps1 -Version 1.2.1
+.\distribution\build-installer.ps1 -Version 1.2.2
 ```
 
 Portable Linux :
 
 ```bash
-bash distribution/build-portable.sh 1.2.1
+bash distribution/build-portable.sh 1.2.2
 ```
 
-Les builders portables/installateur utilisent `1.2.1` par défaut.
+Les builders portables/installateur utilisent `1.2.2` par défaut.
 
-## Release 1.2.1 — pas encore publiée
+## Release 1.2.2 — pas encore publiée
 
-Les builders de release actifs utilisent `1.2.1` par défaut mais sont fail-closed :
+Les builders de release actifs utilisent `1.2.2` par défaut mais sont fail-closed :
 
 ```powershell
-.\distribution\build-release.ps1 -Version 1.2.1 -ExpectedTag v1.2.1
+.\distribution\build-release.ps1 -Version 1.2.2 -ExpectedTag v1.2.2
 ```
 
 ```bash
-bash distribution/build-release.sh 1.2.1 v1.2.1
+bash distribution/build-release.sh 1.2.2 v1.2.2
 ```
 
 Ils refusent l'exécution si :
@@ -140,11 +176,11 @@ Le workflow `.github/workflows/release.yml` ajoute la chaîne de confiance GitHu
 
 Le fichier `.sha256` reste la preuve d'intégrité locale ; l'attestation GitHub ajoute la preuve d'origine liée au commit et au workflow de publication.
 
-Par conséquent, le simple bump de la baseline à `1.2.1` ne crée pas une release et ne peut pas écraser `v1.2.0`.
+Par conséquent, le simple bump de la baseline à `1.2.2` ne crée pas une release et ne peut pas écraser `v1.2.1`.
 
 ## Reproduction historique 1.2.0
 
-Pour reproduire exactement la release publiée, checkout le tag immuable `v1.2.0` puis utilisez les commandes/version présentes sur ce tag. Ne tentez pas de reconstruire le HEAD `1.2.1` avec `-Version 1.2.0`.
+Pour reproduire exactement la release publiée, checkout le tag immuable `v1.2.0` puis utilisez les commandes/version présentes sur ce tag. Ne tentez pas de reconstruire le HEAD `1.2.2` avec `-Version 1.2.0`.
 
 Preuve autoritative :
 
@@ -158,27 +194,28 @@ docs/project/validation/VALIDATION_R3.md
 Le gate durable M21 qualifie la baseline active :
 
 ```powershell
-.\scripts\validate.cmd m21 -Version 1.2.1
+.\scripts\validate.cmd m21 -Version 1.2.2
 ```
 
 ```bash
-bash ./scripts/validate-m21.sh 1.2.1
+bash ./scripts/validate-m21.sh 1.2.2
 ```
 
 Ratchets :
 
 ```text
-Surefire total       >= 3820
-architecture         >= 585
-aggregate line coverage    >= 90.0%
-aggregate branch coverage  >= 75.7%
-per-module line coverage   >= 69.1%
-per-module branch coverage >= 61.2%
+Surefire written     >= 3556
+Surefire generated   >= 1819
+architecture         >= 1058
+aggregate line coverage    >= 92.8%
+aggregate branch coverage  >= 81.1%
+per-module line coverage   >= 90.1%
+per-module branch coverage >= 77.3%
 changed-line         >= 80%
 changed-branch       >= 70%
 ```
 
-Le gate D2 spécialisé peut toujours être lancé en `1.2.1` sur un périmètre ne modifiant pas `.github/workflows/**`.
+Le gate D2 spécialisé peut toujours être lancé en `1.2.2` sur un périmètre ne modifiant pas `.github/workflows/**`.
 
 Le workflow `MORPHEUS Security` exécute OWASP Dependency-Check sur `main` et `develop`, avec refresh trusted quotidien et cache PR limité à 72 h. `.github/dependabot.yml` maintient les dépendances Maven/GitHub Actions via PR vers `develop`.
 

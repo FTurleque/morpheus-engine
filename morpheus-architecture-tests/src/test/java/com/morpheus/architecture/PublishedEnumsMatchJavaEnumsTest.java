@@ -63,7 +63,8 @@ import org.junit.jupiter.api.Test;
  * is derived from sealed {@code PolicyScope} records, {@code Error.code} from string literals in {@code ApiFailure});
  * enumerations spelled {@code const}, {@code oneOf} or in prose; and an enum-typed property that is written without
  * an {@code enum:} list. A block-style {@code enum:} is counted, so it must be classified, but a table row on it
- * fails to resolve until the locator learns the form. The read is textual by design (ADR-0103): no YAML parser dependency is added, and the
+ * fails to resolve until the locator learns the form. The read is textual by design
+ * ({@code .claude/rules/architecture.md}): no YAML parser dependency is added, and the
  * proposition -- these two lists of names are equal -- is about the text of the contract.</p>
  */
 class PublishedEnumsMatchJavaEnumsTest {
@@ -143,7 +144,7 @@ class PublishedEnumsMatchJavaEnumsTest {
     @Test
     void everyEnumWrittenInTheSixContractsIsEitherGuardedOrDeclaredExempt() throws IOException {
         List<String> failures = new ArrayList<>();
-        try (Stream<Path> contracts = Files.list(repoRoot().resolve("docs/developer/reference/openapi"))) {
+        try (Stream<Path> contracts = Files.list(RepositoryRoot.locate().resolve("docs/developer/reference/openapi"))) {
             List<String> onDisk = contracts.map(path -> path.getFileName().toString())
                     .filter(name -> name.endsWith(".yaml")).sorted().toList();
             assertEquals(FILES.stream().sorted().toList(), onDisk,
@@ -299,17 +300,6 @@ class PublishedEnumsMatchJavaEnumsTest {
     }
 
     private static String read(String file) throws IOException {
-        return Files.readString(repoRoot().resolve("docs/developer/reference/openapi").resolve(file));
-    }
-
-    private static Path repoRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null && !Files.exists(current.resolve("contracts/public-surfaces.tsv"))) {
-            current = current.getParent();
-        }
-        if (current == null) {
-            throw new IllegalStateException("repository root (contracts/public-surfaces.tsv) not found");
-        }
-        return current;
+        return Files.readString(RepositoryRoot.locate().resolve("docs/developer/reference/openapi").resolve(file));
     }
 }

@@ -164,7 +164,7 @@ supprimé. Le répertoire et les fichiers ne sont lisibles que par le compte qui
 MORPHEUS du même compte peuvent écrire dans le même journal.
 
 Si le répertoire de logs ne peut pas être créé, n'est pas réservé à ce compte ou n'accepte pas l'écriture, MORPHEUS ne
-démarre pas : il affiche une ligne qui commence par `MORPHEUS error: OPERATIONAL_LOG_FILE_UNUSABLE` et sort avec le
+démarre pas : il affiche une ligne qui commence par `MORPHEUS error [5]: OPERATIONAL_LOG_FILE_UNUSABLE` et sort avec le
 code 5. Il n'écrit jamais le journal ailleurs à la place. Désigner un autre répertoire avec `MORPHEUS_LOGS_DIR`, ou
 choisir un autre mode.
 
@@ -173,7 +173,7 @@ modes ; ils ne figurent pas dans le fichier.
 
 La casse et les espaces autour de la valeur ne comptent pas. Toute autre valeur — `true`, `1`, une faute de frappe —
 est refusée : MORPHEUS ne démarre pas, affiche sur la sortie d'erreur une ligne qui commence par
-`MORPHEUS usage error: OPERATIONAL_LOG_MODE_UNKNOWN` avec les valeurs acceptées, et sort avec le code 2. Une valeur
+`MORPHEUS error [2]: OPERATIONAL_LOG_MODE_UNKNOWN` avec les valeurs acceptées, et sort avec le code 2. Une valeur
 inconnue n'est jamais remplacée par « aucun journal ».
 
 Quand le journal est actif, il contient aussi les avertissements et les erreurs des bibliothèques que MORPHEUS
@@ -210,5 +210,40 @@ Linux :
 ```bash
 sha256sum -c morpheus-1.2.1-linux-x64.tar.gz.sha256
 ```
+
+## Signature de l'éditeur (Windows)
+
+L'installeur et le lanceur de MORPHEUS 1.2.1 **ne sont pas signés** par un certificat d'éditeur. Au lancement de
+l'installeur, Windows le présente comme provenant d'un **éditeur inconnu**, et SmartScreen peut demander une
+confirmation supplémentaire (« Informations complémentaires », puis « Exécuter quand même »). Ce n'est pas le signe d'un
+fichier altéré : c'est ce que Windows affiche pour tout exécutable non signé.
+
+Pour une release non signée, l'origine d'un fichier se vérifie **avant de le lancer**, en deux temps :
+
+1. la somme SHA-256 (section « Vérification SHA-256 » ci-dessus) dit que le fichier téléchargé est celui qui a été
+   publié ;
+2. l'attestation de provenance dit que ce fichier a été construit par le workflow de release de MORPHEUS, depuis le
+   commit tagué de la version. Elle se vérifie avec la [GitHub CLI](https://cli.github.com/) :
+
+```powershell
+gh attestation verify .\MORPHEUS-<version>-windows-x64-setup.exe --repo FTurleque/morpheus-engine
+```
+
+La commande échoue pour un fichier que le workflow de release n'a pas construit, même s'il porte le même nom. Le
+fichier `morpheus-<version>-windows-x64.attestation.jsonl` publié avec la release porte la même attestation, pour une
+vérification qui ne la redemande pas à GitHub (`--bundle`). La portée de cette preuve est décrite dans
+[PRODUCT_INTEGRITY.md](PRODUCT_INTEGRITY.md).
+
+Aucune signature d'éditeur n'est prévue pour les releases de MORPHEUS. Si une release venait à être signée, ses
+notes de version le diraient, et les versions antérieures resteraient telles qu'elles ont été publiées. L'état d'un
+fichier se lit dans l'onglet « Signatures numériques » de ses propriétés (clic droit, Propriétés), qui n'existe que pour
+un fichier signé, ou avec PowerShell :
+
+```powershell
+Get-AuthenticodeSignature .\MORPHEUS-<version>-windows-x64-setup.exe | Format-List Status, SignerCertificate
+```
+
+Même signé, un installeur nouvellement publié peut encore déclencher l'avertissement de réputation de SmartScreen : la
+réputation d'un éditeur s'acquiert dans la durée, quel que soit le type de certificat.
 
 La preuve de publication des douze assets de 1.2.1 (provenance, sommes de contrôle, inventaire) est conservée dans [`../project/validation/VALIDATION_RELEASE_1.2.1.md`](../project/validation/VALIDATION_RELEASE_1.2.1.md).

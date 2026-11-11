@@ -38,7 +38,8 @@ class ProviderIdTest {
             assertEquals("provider id must not contain control characters: \"open[U+%04X]spec\"".formatted((int) control),
                     refusal.getMessage());
         }
-        assertThrows(IllegalArgumentException.class, () -> new ProviderId("openspec\u007F"));
+        IllegalArgumentException trailingControlFailure = assertThrows(IllegalArgumentException.class, () -> new ProviderId("openspec\u007F"));
+        assertEquals("provider id must not contain control characters: \"openspec[U+007F]\"", trailingControlFailure.getMessage());
     }
 
     @Test

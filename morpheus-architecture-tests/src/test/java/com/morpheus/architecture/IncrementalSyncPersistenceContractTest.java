@@ -18,8 +18,8 @@ import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.source.SourceLocator;
 import com.morpheus.store.memory.MemorySpecificationKnowledgeStore;
 import com.morpheus.store.memory.MemorySyncStateStore;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
-import com.morpheus.store.sqlite.SqliteSyncStateStore;
+import com.morpheus.store.sqlite.adapter.SqliteSpecificationKnowledgeStore;
+import com.morpheus.store.sqlite.adapter.SqliteSyncStateStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -82,7 +82,7 @@ class IncrementalSyncPersistenceContractTest {
         try (var reopened = new SqliteSyncStateStore(database)) {
             assertEquals(before.state(), reopened.findSyncState(projectId).orElseThrow());
             assertEquals(before.inventory(), reopened.findCurrentInventory(projectId).orElseThrow());
-            assertEquals(before.archives(), reopened.listArchives(projectId));
+            assertEquals(before.archives(), JournalPages.allArchives(reopened, projectId));
             assertEquals(before.freshness(), new SyncFreshnessService(reopened)
                     .assess(projectId, T0.plusSeconds(20), Duration.ofMinutes(5)));
         }
@@ -159,7 +159,7 @@ class IncrementalSyncPersistenceContractTest {
 
     private RunResult runTwoSuccessfulSyncs(
             IncrementalSyncService service,
-            com.morpheus.application.store.SyncStateStore store,
+            com.morpheus.application.sync.SyncStateStore store,
             SourceInventory baseline,
             SourceInventory next) {
         SyncPlan initial = service.prepare(
@@ -172,7 +172,7 @@ class IncrementalSyncPersistenceContractTest {
                 second,
                 store.findSyncState(next.projectId()).orElseThrow(),
                 store.findCurrentInventory(next.projectId()).orElseThrow(),
-                store.listArchives(next.projectId()),
+                JournalPages.allArchives(store, next.projectId()),
                 new SyncFreshnessService(store).assess(next.projectId(), T0.plusSeconds(20), Duration.ofMinutes(5)));
     }
 
@@ -202,7 +202,7 @@ class IncrementalSyncPersistenceContractTest {
     }
 
     private static long attempt(
-            com.morpheus.application.store.SyncStateStore target,
+            com.morpheus.application.sync.SyncStateStore target,
             ProjectSpecificationId project,
             Instant attemptedAt,
             Optional<SyncPlan.FullRebuildReason> reason) {
@@ -210,7 +210,7 @@ class IncrementalSyncPersistenceContractTest {
     }
 
     private static long commit(
-            com.morpheus.application.store.SyncStateStore target,
+            com.morpheus.application.sync.SyncStateStore target,
             SourceInventory inventory,
             SyncPlan.SyncMode mode,
             Instant attemptedAt,
@@ -223,7 +223,7 @@ class IncrementalSyncPersistenceContractTest {
     }
 
     private static long currentRevision(
-            com.morpheus.application.store.SyncStateStore target, ProjectSpecificationId project) {
+            com.morpheus.application.sync.SyncStateStore target, ProjectSpecificationId project) {
         return target.findSyncState(project).map(ProjectSyncState::revision).orElse(0L);
     }
 }

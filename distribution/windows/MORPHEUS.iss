@@ -48,6 +48,13 @@ ChangesEnvironment=yes
 UninstallDisplayIcon={app}\morpheus.exe
 UsePreviousAppDir=yes
 UsePreviousTasks=yes
+; Compiled in only for a build asked to sign (-DSignBuild=1): the installer and the uninstaller it deploys are signed
+; by the tool "morpheus", which build-installer.ps1 defines on the compiler's command line as the signing entry point
+; (sign-windows-binary.ps1) and a file placeholder, with no credential. An unsigned build needs no tool at all.
+#ifdef SignBuild
+SignTool=morpheus
+SignedUninstaller=yes
+#endif
 
 [Tasks]
 Name: "addtopath"; Description: "Ajouter MORPHEUS au PATH utilisateur"; GroupDescription: "Intégration système :"; Flags: unchecked

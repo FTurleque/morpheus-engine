@@ -1,6 +1,6 @@
 package com.morpheus.application.composition;
 
-import com.morpheus.application.ingestion.NormalizedProjectContent;
+import com.morpheus.application.read.NormalizedProjectContent;
 import com.morpheus.domain.change.ChangeProposal;
 import com.morpheus.domain.provenance.Provenance;
 import com.morpheus.domain.requirement.Requirement;

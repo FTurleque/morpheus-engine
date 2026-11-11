@@ -7,6 +7,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProviderCapabilitySetTest {
 
@@ -39,7 +40,10 @@ class ProviderCapabilitySetTest {
     void theSetStaysImmutableAndEqualToAnySetOfTheSameCapabilities() {
         ProviderCapabilitySet set = ProviderCapabilitySet.of(ProviderCapability.READ_CHANGES, ProviderCapability.READ_HISTORY);
 
-        assertThrows(UnsupportedOperationException.class, () -> set.values().add(ProviderCapability.READ_ARCHIVES));
+        UnsupportedOperationException failure = assertThrows(UnsupportedOperationException.class, () -> set.values().add(ProviderCapability.READ_ARCHIVES));
+        assertEquals("add", failure.getStackTrace()[0].getMethodName());
+        assertTrue(failure.getStackTrace()[0].getClassName().startsWith("java.util.Collections$Unmodifiable"),
+                failure.getStackTrace()[0].getClassName());
         assertEquals(new ProviderCapabilitySet(Set.of(ProviderCapability.READ_HISTORY, ProviderCapability.READ_CHANGES)), set);
     }
 }

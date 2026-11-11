@@ -1,0 +1,14 @@
+args: sync --project <project>
+exit: 0
+stdout:
+projectId=<project>
+snapshotId=<id-1>
+mode=FULL_REBUILD
+fullRebuildReason=FORCED
+sources=10
+requirements=2
+traceLinks=16
+diagnostics=0
+published=true
+
+stderr:

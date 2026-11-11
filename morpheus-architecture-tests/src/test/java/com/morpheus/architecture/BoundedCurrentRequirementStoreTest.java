@@ -22,8 +22,8 @@ import com.morpheus.domain.version.EntityVersionId;
 import com.morpheus.domain.version.SpecificationVersion;
 import com.morpheus.domain.version.SpecificationVersionId;
 import com.morpheus.store.memory.MemorySpecificationKnowledgeStore;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
-import com.morpheus.store.sqlite.SqliteVersionedRequirementStore;
+import com.morpheus.store.sqlite.adapter.SqliteSpecificationKnowledgeStore;
+import com.morpheus.store.sqlite.adapter.SqliteVersionedRequirementStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -134,8 +134,9 @@ class BoundedCurrentRequirementStoreTest {
 
         assertEquals(expected, requirements.listCurrentRequirementVersions(snapshotId));
         assertEquals(expected.subList(0, 1), requirements.listCurrentRequirementVersions(snapshotId, 1));
-        assertThrows(IllegalArgumentException.class,
+        IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
                 () -> requirements.listCurrentRequirementVersions(snapshotId, 0));
+        assertEquals("limit must be positive", failure.getMessage());
     }
 
     private KnowledgeSnapshotMetadata readySnapshot(

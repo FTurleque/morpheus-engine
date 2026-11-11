@@ -22,7 +22,7 @@ class OpenSpecSpecificationProviderTest {
 
     @Test
     void probesBasicM0FixtureAndExposesOnlyEffectiveReadCapabilities() {
-        var result = provider.probe(fixture("openspec-basic"));
+        var result = provider.probe(RepositoryRoot.fixture("openspec-basic"));
 
         assertEquals(ProviderProbeStatus.SUPPORTED, result.status());
         assertEquals("spec-driven", result.schema().orElseThrow());
@@ -44,7 +44,7 @@ class OpenSpecSpecificationProviderTest {
 
     @Test
     void probesPartialM0FixtureWithoutInventingWriteOrAcceptanceCapabilities() {
-        var result = provider.probe(fixture("openspec-partial"));
+        var result = provider.probe(RepositoryRoot.fixture("openspec-partial"));
 
         assertEquals(ProviderProbeStatus.SUPPORTED, result.status());
         assertEquals("spec-driven", result.schema().orElseThrow());
@@ -59,7 +59,7 @@ class OpenSpecSpecificationProviderTest {
 
     @Test
     void rejectsUnknownOpenSpecSchemaExplicitly() {
-        var result = provider.probe(fixture("openspec-unsupported-schema"));
+        var result = provider.probe(RepositoryRoot.fixture("openspec-unsupported-schema"));
 
         assertEquals(ProviderProbeStatus.UNSUPPORTED, result.status());
         assertEquals("research-first", result.schema().orElseThrow());
@@ -112,20 +112,5 @@ class OpenSpecSpecificationProviderTest {
         Files.writeString(openspec.resolve("config.yaml"), "schema: \"spec-driven'\n");
 
         assertNotEquals(ProviderProbeStatus.SUPPORTED, provider.probe(workspace).status());
-    }
-
-    private Path fixture(String name) {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        Path fromRoot = current.resolve("experiments/m0/fixtures").resolve(name);
-        if (Files.isDirectory(fromRoot)) {
-            return fromRoot;
-        }
-
-        Path fromModule = current.resolve("../experiments/m0/fixtures").normalize().resolve(name);
-        if (Files.isDirectory(fromModule)) {
-            return fromModule;
-        }
-
-        throw new IllegalStateException("M0 fixture not found: " + name + " from " + current);
     }
 }

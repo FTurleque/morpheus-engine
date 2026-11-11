@@ -1,6 +1,6 @@
 package com.morpheus.api;
 
-import com.morpheus.application.operability.ExhaustiveShutdown;
+import com.morpheus.api.transport.PagedEnvelope;
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.policy.PolicyAuditPage;
 import com.morpheus.application.policy.PolicyBudgets;

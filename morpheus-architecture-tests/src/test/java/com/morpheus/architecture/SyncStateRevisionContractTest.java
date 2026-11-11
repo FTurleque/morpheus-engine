@@ -6,7 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.morpheus.application.operability.OperationalRecorder;
 import com.morpheus.application.store.ProjectStoreEntry;
-import com.morpheus.application.store.SyncStateStore;
+import com.morpheus.application.sync.SyncStateStore;
 import com.morpheus.application.sync.IncrementalSyncService;
 import com.morpheus.application.sync.ProjectSyncState;
 import com.morpheus.application.sync.SourceFingerprint;
@@ -19,8 +19,8 @@ import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.source.SourceLocator;
 import com.morpheus.store.memory.MemorySpecificationKnowledgeStore;
 import com.morpheus.store.memory.MemorySyncStateStore;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
-import com.morpheus.store.sqlite.SqliteSyncStateStore;
+import com.morpheus.store.sqlite.adapter.SqliteSpecificationKnowledgeStore;
+import com.morpheus.store.sqlite.adapter.SqliteSyncStateStore;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -33,8 +33,8 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * Synchronization state is written with the revision the writer read, and both adapters hold that invariant.
  *
- * <p>Two syncs on one project open one SQLite connection each, so the adapter's {@code synchronized} never
- * excluded them from each other. The write was a blind upsert: a writer that had read the state before another
+ * <p>Two syncs on one project open one SQLite connection each, so no monitor on an adapter instance excludes them
+ * from each other. The write was a blind upsert: a writer that had read the state before another
  * recorded {@code SCAN_INCOMPLETE} wrote {@code NULL} over that flag, and the next {@code prepare()} chose the
  * incremental path on an inventory the system knew was incomplete. The scenario is exercised on the memory store
  * and on SQLite, because the memory store is the one the unit tests always used and the defect was only visible

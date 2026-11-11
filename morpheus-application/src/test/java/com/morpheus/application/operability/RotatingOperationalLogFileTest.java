@@ -134,10 +134,12 @@ class RotatingOperationalLogFileTest {
 
     @Test
     void aBoundThatBoundsNothingIsNotAccepted() {
-        assertThrows(IllegalArgumentException.class,
+        IllegalArgumentException noSizeBound = assertThrows(IllegalArgumentException.class,
                 () -> RotatingOperationalLogFile.open(temporaryDirectory, 0, 1, metrics));
-        assertThrows(IllegalArgumentException.class,
+        assertEquals("a bounded log needs a positive size bound and generation count", noSizeBound.getMessage());
+        IllegalArgumentException noGeneration = assertThrows(IllegalArgumentException.class,
                 () -> RotatingOperationalLogFile.open(temporaryDirectory, 16, 0, metrics));
+        assertEquals("a bounded log needs a positive size bound and generation count", noGeneration.getMessage());
     }
 
     private Path generation(int number) {

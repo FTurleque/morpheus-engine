@@ -49,7 +49,9 @@ public interface VersionedRequirementStore {
      * than after loading historical/proposed versions into memory.
      *
      * <p>Unlike {@link #listCurrentRequirementVersions(KnowledgeSnapshotId, int)} this applies no row limit: it is
-     * for readers that need the whole CURRENT population, for instance to compute a total before paging.</p>
+     * for readers that compute over every CURRENT requirement. A reader that returns part of them asks for
+     * {@link #pageCurrentRequirementVersions}, and a reader that needs their number asks for
+     * {@link #countCurrentRequirementVersions}.</p>
      *
      * <p>The default implementation is the port's fallback: it answers the same question from
      * {@link #listRequirementVersions(KnowledgeSnapshotId)}, correctly and without pushing the predicate down.</p>
@@ -80,6 +82,53 @@ public interface VersionedRequirementStore {
                 .filter(record -> record.entityVersion().temporalState() == TemporalState.CURRENT)
                 .limit(limit)
                 .toList();
+    }
+
+    /**
+     * Returns one page of the CURRENT requirement versions of a snapshot that {@code criteria} matches, in
+     * {@code order}, with the number of versions the criteria match. The page and the total describe the same state.
+     * An offset at or beyond the total yields an empty page and the total.
+     *
+     * <p>The shipped stores evaluate the criteria, the order and the page themselves; the default is the port's
+     * fallback for other implementations, and answers the same question from
+     * {@link #listCurrentRequirementVersions(KnowledgeSnapshotId)}.</p>
+     */
+    default RequirementPage pageCurrentRequirementVersions(
+            KnowledgeSnapshotId snapshotId,
+            RequirementPageCriteria criteria,
+            RequirementPageOrder order,
+            int offset,
+            int limit) {
+        Objects.requireNonNull(snapshotId, "snapshotId");
+        Objects.requireNonNull(criteria, "criteria");
+        Objects.requireNonNull(order, "order");
+        requireValidPage(offset, limit);
+        List<RequirementVersionRecord> matches = listCurrentRequirementVersions(snapshotId).stream()
+                .filter(record -> criteria.matches(record.entityVersion().content()))
+                .sorted(order.comparator())
+                .toList();
+        int from = Math.min(offset, matches.size());
+        int to = (int) Math.min((long) from + limit, matches.size());
+        return new RequirementPage(matches.subList(from, to), matches.size());
+    }
+
+    /**
+     * Returns the number of CURRENT requirement versions of a snapshot without handing them to the caller. The
+     * shipped stores count in the backend; the default is the port's fallback.
+     */
+    default int countCurrentRequirementVersions(KnowledgeSnapshotId snapshotId) {
+        Objects.requireNonNull(snapshotId, "snapshotId");
+        return listCurrentRequirementVersions(snapshotId).size();
+    }
+
+    /** The bounds every implementation of {@link #pageCurrentRequirementVersions} enforces, refused by name. */
+    static void requireValidPage(int offset, int limit) {
+        if (offset < 0) {
+            throw new IllegalArgumentException("requirement page offset must be greater than or equal to zero");
+        }
+        if (limit < 1) {
+            throw new IllegalArgumentException("requirement page limit must be positive");
+        }
     }
 
     Optional<RequirementVersionRecord> currentRequirement(

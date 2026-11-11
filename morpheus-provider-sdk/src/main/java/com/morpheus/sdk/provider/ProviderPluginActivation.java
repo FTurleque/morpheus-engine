@@ -8,25 +8,15 @@ import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
-import java.util.Optional;
 
 /** Explicitly activated plugin/provider pair. Closing the handle releases its classloader and trusted staging copy. */
-public final class ProviderPluginActivation implements AutoCloseable {
+final class ProviderPluginActivation implements AutoCloseable {
     private final ProviderPluginCandidate candidate;
     private final MorpheusProviderPlugin plugin;
     private final SpecificationProvider provider;
     private final SpecificationContentReader contentReader;
     private final URLClassLoader classLoader;
-    private final Optional<Path> stagedJar;
-
-    ProviderPluginActivation(
-            ProviderPluginCandidate candidate,
-            MorpheusProviderPlugin plugin,
-            SpecificationProvider provider,
-            SpecificationContentReader contentReader,
-            URLClassLoader classLoader) {
-        this(candidate, plugin, provider, contentReader, classLoader, Optional.empty());
-    }
+    private final Path stagedJar;
 
     ProviderPluginActivation(
             ProviderPluginCandidate candidate,
@@ -34,14 +24,13 @@ public final class ProviderPluginActivation implements AutoCloseable {
             SpecificationProvider provider,
             SpecificationContentReader contentReader,
             URLClassLoader classLoader,
-            Optional<Path> stagedJar) {
+            Path stagedJar) {
         this.candidate = Objects.requireNonNull(candidate, "candidate");
         this.plugin = Objects.requireNonNull(plugin, "plugin");
         this.provider = Objects.requireNonNull(provider, "provider");
         this.contentReader = Objects.requireNonNull(contentReader, "contentReader");
         this.classLoader = Objects.requireNonNull(classLoader, "classLoader");
-        this.stagedJar = Objects.requireNonNull(stagedJar, "stagedJar")
-                .map(path -> path.toAbsolutePath().normalize());
+        this.stagedJar = Objects.requireNonNull(stagedJar, "stagedJar").toAbsolutePath().normalize();
     }
 
     public ProviderPluginCandidate candidate() {
@@ -68,15 +57,13 @@ public final class ProviderPluginActivation implements AutoCloseable {
         } catch (IOException closeFailure) {
             failure = new IllegalStateException("cannot close provider plugin classloader", closeFailure);
         }
-        if (stagedJar.isPresent()) {
-            try {
-                Files.deleteIfExists(stagedJar.orElseThrow());
-            } catch (IOException deleteFailure) {
-                IllegalStateException wrapped = new IllegalStateException(
-                        "cannot delete trusted provider plugin staging copy", deleteFailure);
-                if (failure == null) failure = wrapped;
-                else failure.addSuppressed(wrapped);
-            }
+        try {
+            Files.deleteIfExists(stagedJar);
+        } catch (IOException deleteFailure) {
+            IllegalStateException wrapped = new IllegalStateException(
+                    "cannot delete trusted provider plugin staging copy", deleteFailure);
+            if (failure == null) failure = wrapped;
+            else failure.addSuppressed(wrapped);
         }
         if (failure != null) throw failure;
     }

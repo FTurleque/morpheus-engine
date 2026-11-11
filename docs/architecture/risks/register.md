@@ -1,11 +1,17 @@
 # Registre des risques et de la dette — MORPHEUS ENGINE
 
 > Synthèse opérationnelle de [§11](../arc42/11-risques-dette.md).
-> Baseline active : MORPHEUS 1.2.1 corrective — branche de développement post-audit.
+> Baseline active : MORPHEUS 1.2.2 corrective — branche de développement post-audit.
 > Dernière release publiée : `v1.2.0`.
 > Mise à jour : **2026-09-04** (passes post-audit A-02..A-16 ; A-01 suivie séparément selon son cycle de qualification réelle — voir #185).
 >
 > **P** = probabilité, **I** = impact, **E** = exposition = P × I ; échelle 1 à 3.
+>
+> L'état d'une entrée se lit à sa place : une ligne du premier tableau de « Risques techniques » ou de « Dette
+> technique / documentaire » est ouverte, un identifiant cité entre accents graves dans un en-tête `###` de
+> requalification qui le dit position est une position, toute autre mention est close. Clore une entrée, c'est retirer
+> sa ligne du tableau. Un workflow ne renvoie qu'à une entrée ouverte ou à une position, et une ligne gardée au tableau
+> dont l'en-tête de détail dit « clos » est refusée : `RiskRegisterReferencesTest` le tient.
 
 ---
 
@@ -18,32 +24,76 @@
 | RT-03 | Limites de `jdk.httpserver` sous forte charge | 2 | 2 | **4** | Concurrence remote bornée, timeouts/budgets et inventaires filesystem bornés ; **harnais de charge reproductible** (`MorpheusRemoteLoadProfileTest`) et **critères objectifs de remplacement** documentés — mesurer avant substitution | Lors de load tests représentatifs |
 | RT-04 | Breaking change MCP SDK / clients MCP | 2 | 2 | **4** | Version épinglée, tests de contrat, budgets de frames/queues, cancellation serveur, cleanup fail-closed et diagnostics redacted | À chaque upgrade MCP |
 | RT-05 | Provider externe malformé, bloquant ou non fiable | 2 | 2 | **4** | Discovery metadata-only sans symlink avec revalidation d'identité avant/après lecture, activation explicite, SHA-256 obligatoire en remote, staging vérifié, budgets d'ingestion et environnement enfant minimisé | À chaque évolution du Provider SDK |
+| RT-13 | Le gate CVE dépend du NVD pour rafraîchir sa base : ses deux sources, l'API avec `NVD_API_KEY` et les flux de données JSON 2.0, sont publiées par le même service | 1 | 2 | **2** | Deux sources indépendantes de la clé l'une de l'autre (les flux ne demandent pas de clé et ne passent pas par le client API que casse l'amont #8715), sentinelle de fraîcheur fail-closed (`STALE_DATABASE` à 72 h), annotation `REFRESHED_FROM_DATA_FEED` quand la clé ne sert plus, alerte `REFRESH_KEY_UNUSABLE` quand les flux échouent aussi, alerte `REFRESH_OVERDUE` aux deux tiers du budget, rotation annuelle documentée dans [COLD_START_RECOVERY](../../developer/COLD_START_RECOVERY.md) | À chaque changement de version de Dependency-Check ou du format des flux du NVD, et à chaque rotation de la clé |
 | RT-12 | Peer MCP externe MINOS/NEXUS compromis | 2 | 2 | **4** | JAR optionnel/pinnable, environnement hérité réduit à une allowlist, descendants observés et terminés, frames/queues bornées, stderr et exceptions peer redacted ; la frontière n'est pas une sandbox OS | À chaque évolution du transport MCP |
+| RT-14 | Distribution Windows non signée : Windows présente l'installeur et le lanceur comme venant d'un éditeur inconnu, et l'utilisateur n'a aucun moyen natif de distinguer l'installeur officiel d'un substitut | 3 | 2 | **6** | Somme SHA-256 et attestation de provenance publiées avec chaque binaire ; la qualification refuse dès maintenant une signature invalide, non approuvée, d'un autre éditeur ou sans horodatage ; chemin de signature exercé chaque nuit avec une identité d'essai jetable ; `distribution/windows/authenticode-signing.properties` ne déclare encore ni éditeur ni version de base. **Risque accepté** par le mainteneur le 2026-10-31 : les releases restent non signées tant qu'aucun certificat gratuit n'est accessible | Si un certificat de signature sans coût devient accessible : la voie gratuite pour l'open source (SignPath Foundation) exige une licence approuvée par l'OSI, que la licence propriétaire de MORPHEUS n'est pas |
+| RT-15 | Expiration ou révocation du certificat de signature entre deux releases : le build de la release suivante échoue à l'étape de signature, le jour du tag. La répétition nocturne ne détient pas l'identité de release et ne peut pas le voir | 2 | 2 | **4** | Échec nommé (`WINDOWS_SIGNING_FAILED`) avant toute publication ; toute signature est horodatée, donc un binaire déjà publié reste vérifiable après l'expiration ; l'échéance du certificat est suivie par le mainteneur | À chaque renouvellement du certificat |
 | RT-06 | Diagnostic runtime limité par le logging silencieux | 2 | 2 | **4** | Health/metrics, erreurs structurées et diagnostics MCP sanitizés ; préserver stdout MCP | Permanent |
 | RT-09 | Drift documentaire entre sources historiques et HEAD | 2 | 2 | **4** | Hiérarchie des sources, séparation release publiée `1.2.0` / baseline active `1.2.1`, guides actifs réconciliés et contrats d'architecture sur les invariants CI | À chaque release/hardening |
 | RT-07 | Auth remote sans SSO/LDAP | 1 | 2 | **2** | Bearer auth + RBAC, mutations inter-processus sérialisées, live reload, audit secret-free roulant borné ; mot de passe TLS résolu tardivement en `char[]` et jamais retenu dans les options de lancement | Si besoin entreprise démontré |
 | RT-08 | macOS non qualifié | 2 | 1 | **2** | Support officiel Windows + Linux uniquement ; lane `macos-smoke` **advisory** (`continue-on-error`) de `nightly.yml`, sur cadence quotidienne bornée et non par pull request, qui exécute le reactor complet et publie les faits système observés — observation, pas qualification | Si support macOS décidé |
 
-### RT-13 — la base Dependency-Check n'avait plus de source de rafraîchissement (constaté le 09/09/2026, clos le 22/09/2026)
+### RT-13 — le gate CVE dépend du NVD pour rafraîchir sa base (constaté le 09/09/2026, ouvert)
 
-> **Clos le 22/09/2026.** Sortie n° 1 retenue : `NVD_API_KEY` est configuré. Posé le 17/09/2026, il a d'abord
-> été refusé par le NVD (run `35269719882` sur `develop`, 17/09/2026, « Invalid API Key », puis chaque
-> `schedule` de `main` jusqu'au run `35687241977` du 22/09/2026 04:32 UTC), avant d'être remplacé le
-> 22/09/2026 à 07:40 UTC. Il est accepté depuis, par les deux versions épinglées :
+> **Ouvert, réduit.** La base Dependency-Check se rafraîchit par **deux sources** sur une branche épinglée à 13.0.0 :
+> l'API du NVD avec `NVD_API_KEY`, puis, chaque fois que celle-ci n'a pas rafraîchi la base (clé absente, refusée ou
+> panne de l'API), les flux de données CVE JSON 2.0 que le NVD publie
+> (`https://nvd.nist.gov/feeds/json/cve/2.0/nvdcve-2.0-{0}.json.gz`, variable `NVD_DATAFEED_URL` de `security.yml`).
+> Les flux ne demandent pas de clé et passent par le chemin *data feed* de Dependency-Check, qui n'atteint pas le
+> client API que casse l'amont [#8715](https://github.com/dependency-check/DependencyCheck/issues/8715). Une clé
+> perdue ne fait donc plus échouer le gate. Le risque qui reste est que les deux sources viennent du même service : une
+> panne du NVD plus longue que le budget de 72 h arrête chaque scan en `STALE_DATABASE`, ce qui est voulu.
+>
+> **État de la clé.** Posée le 17/09/2026, d'abord refusée par le NVD (run `35269719882` sur `develop`,
+> « Invalid API Key », puis chaque `schedule` de `main` jusqu'au run `35687241977` du 22/09/2026 04:32 UTC),
+> remplacée le 22/09/2026 à 07:40 UTC et acceptée depuis :
 >
 > | Branche | Dependency-Check | Run | Constat |
 > |---|---|---|---|
-> | `main` | 12.2.2 | `35701902846` (`workflow_dispatch`, 22/09/2026) | `Wrote trusted Dependency-Check refresh sentinel (schema 5.6, plugin 12.2.2, via NVD API key refresh)` — `main` ne publie pas encore la ligne `Obtained via`, la preuve est la ligne du rédacteur de sentinelle |
+> | `main` | 12.2.2 | `35701902846` (`workflow_dispatch`, 22/09/2026) | `Wrote trusted Dependency-Check refresh sentinel (schema 5.6, plugin 12.2.2, via NVD API key refresh)` |
 > | `develop` | 13.0.0 | `35744008694` (`push`, merge de #345, 22/09/2026) | sentinelle écrite `via NVD API key refresh`, `obtained via NVD API key refresh: 0h 00m old`, aucune annotation `REFRESH_FAILED` |
 >
-> La panne annoncée ci-dessous — plus aucun rafraîchissement 72 h après la promotion — ne se produit donc
-> pas : les deux versions épinglées rafraîchissent par la clé.
+> Prochaine rotation au plus tard le **22/09/2027** ; procédure, détenteur et vérification dans
+> [COLD_START_RECOVERY §2](../../developer/COLD_START_RECOVERY.md).
 >
-> **Condition de réouverture** : un résumé de *MORPHEUS Security* publie un « Obtained via » autre que
-> `NVD API key refresh` sur une branche épinglée à 13.0.0 ou au-delà, une annotation
-> `MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESH_FAILED` apparaît, une alerte
-> `MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_OVERDUE` est levée, ou `gh secret list` ne retourne plus
-> `NVD_API_KEY`. Le texte ci-dessous est l'analyse du 09/09/2026, conservée telle quelle.
+> **Second chemin.** Exécuté avec Dependency-Check 13.0.0, sans clé, le 28/10/2026 (`update-only` avec
+> `-DnvdDatafeedUrl`, voir le relevé d'audit du jour) ; `security.yml` l'essaie après chaque échec du chemin par clé et
+> écrit alors la sentinelle `via NVD data feed refresh`. `scripts/tests/test_trusted_update_step.py` exécute l'étape
+> sur chaque issue des deux sources.
+>
+> **Surveillance.** Un run renouvelé par les seuls flux porte l'annotation
+> `MORPHEUS_DEPENDENCY_CHECK_REFRESH=REFRESHED_FROM_DATA_FEED`, qui nomme la raison pour laquelle la clé n'a pas servi.
+> Quand les deux sources échouent, une clé refusée ou absente lève `MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_KEY_UNUSABLE`
+> dès le premier run qui le constate ; sinon `MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_OVERDUE` part aux deux tiers du
+> budget. Les deux alertes font échouer le job « Dependency-Check refresh alert », hors des checks requis.
+>
+> **Ce qu'une base neuve change.** Une base construite de zéro par Dependency-Check 13.0.0, mesurée le 28/10/2026
+> avec les flux, classe `cpe:/a:sqlite:sqlite` dans l'écosystème natif ; la base de longue date du CI ne le fait pas.
+> Deux identifications en dépendent. `morpheus-store-sqlite` n'est plus associé à tort à SQLite : sa règle de
+> suppression porte `base="true"` (`config/dependency-check-suppressions.xml`), pour qu'une base neuve ne fasse pas
+> échouer le scan par une règle inutilisée. Et le JAR `sqlite-jdbc`, dépendance Java, n'est plus associé au SQLite natif
+> qu'il embarque : l'analyseur CPE écarte un CPE d'un autre écosystème que la dépendance, et une preuve `sqlite` ajoutée
+> au JAR n'y change rien, il en porte déjà par ses noms de paquets.
+>
+> **Le rattachement au moteur SQLite.** Il ne dépend plus de l'histoire de la base. `config/dependency-check-hints.xml`,
+> chargé par les profils `d2-security` et `d2-security-tests`, donne le vendeur et le produit `sqlite` et la version du
+> pilote aux bibliothèques natives que Dependency-Check extrait du JAR (`sqlite-jdbc-<version>.jar: sqlitejdbc.dll`),
+> qui ne sont pas des dépendances Java. L'étape « Verify that sqlite-jdbc is identified as the SQLite engine it embeds »
+> de `security.yml` lit le rapport produit après les deux scans et échoue sur
+> `MORPHEUS_DEPENDENCY_CHECK_FAILURE=SQLITE_ENGINE_NOT_IDENTIFIED` quand ni le JAR ni une bibliothèque extraite ne porte
+> `cpe:2.3:a:sqlite:sqlite:<version du pilote>` (`scripts/check-dependency-check-sqlite-identification.py`, exécuté par
+> `scripts/tests/test_check_dependency_check_sqlite_identification.py`). `DependencyCheckWorkflowContractTest` épingle
+> l'indice, son câblage, la version égale à `<sqlite-jdbc.version>` et l'étape. Mesuré le 03/11/2026 sur un poste de
+> développement, contre la base construite par les flux le 28/10/2026 : sans l'indice, le rapport produit ne porte aucun
+> identifiant `sqlite:sqlite` ; avec lui, la bibliothèque extraite porte `cpe:2.3:a:sqlite:sqlite:3.53.4.0`, et le scan
+> passe. Le rapport du CI du 28/10/2026, base de longue date et sans indice, porte cet identifiant sur le JAR, et la
+> vérification l'accepte. Sur la base du CI rafraîchie par les flux le 03/11/2026 (run `41718895786`), l'indice fait
+> apparaître sur la bibliothèque extraite de `sqlite-jdbc` 3.53.4.0 les CVE de SQLite antérieures à 3.54.0, dont quatre
+> au-dessus du seuil : le pilote passe à 3.54.1.0, qui embarque SQLite 3.54.1. Seule CVE-2026-119586 vise encore cette
+> version ; elle porte sur l'outil `sqlite3` en ligne de commande, que le pilote n'embarque pas, et sa suppression nommée
+> dans `config/dependency-check-suppressions.xml` ne vise qu'elle et que les bibliothèques extraites du pilote.
+>
+> Le texte ci-dessous est l'analyse du 09/09/2026, conservée telle quelle : elle date d'avant le second chemin.
 
 Ce risque n'est pas une hypothèse : c'est une panne **datée**, qui se déclenchera environ
 **72 heures après la promotion de 1.2.1 sur `main`**, et qu'aucune modification de workflow ne peut
@@ -131,7 +181,7 @@ réutilisation croisée est correcte et doit être *visible*, pas interdite). Pl
 passe par un mtime.
 
 **Un cache restauré sans sentinelle est traité comme périmé**, jamais comme frais : son âge est *inconnu*, et
-la règle tri-state de ce dépôt (ADR-0078, ADR-0093) interdit de convertir `UNKNOWN` en `PASS`.
+la règle tri-state de ce dépôt (ADR-0119, ADR-0093) interdit de convertir `UNKNOWN` en `PASS`.
 `DependencyCheckWorkflowContractTest` verrouille les cinq points.
 
 **Effet attendu et assumé de ce correctif :** le premier scan qui suit ne trouvera ni cache à la nouvelle clé,
@@ -143,10 +193,10 @@ pour raccourcir cette fenêtre.
 
 Trois sorties possibles, par ordre de préférence :
 
-1. **Configurer `NVD_API_KEY`** (clé gratuite auprès du NIST) — **retenue, voir la clôture ci-dessus**. C'est la seule qui restaure un vrai
-   rafraîchissement et la seule qui clôt RT-13.
-2. Attendre la publication de **13.0.1** et bumper le pin — remet la mise à jour anonyme en service, mais la
-   date de publication n'est pas maîtrisée.
+1. **Configurer `NVD_API_KEY`** (clé gratuite auprès du NIST) — **retenue, en service depuis le 22/09/2026**.
+   Elle restaure un vrai rafraîchissement mais reste une source unique : elle ne clôt pas RT-13.
+2. Attendre la publication de **13.0.1** et bumper le pin — remet la mise à jour anonyme en service comme
+   secours de la clé, et clôt RT-13 ; la date de publication n'est pas maîtrisée.
 3. Revenir à **12.2.2**. Réévalué le 09/09/2026 avec les deux vérifications qu'exige un tel retour, et
    **écarté sur la première** :
    - *Aucune déficience corrigée par 13.0.0 ?* **Faux.** 13.0.0 contient
@@ -183,14 +233,16 @@ Ils restent traçables dans l'historique Git et les issues #154/#166, mais ne do
 
 | ID | Dette | Domaine | Priorité | Action |
 |----|-------|---------|----------|--------|
-| DT-10 | Couverture historique globale encore modeste malgré un changed-code gate strict | Qualité | **Moyenne** | Ratchets M21 actifs à `3820 / 585`, couverture `90,0% / 75,7%` agrégée et `69,1% / 61,2%` par module (mesures exact-head dual-plateforme : échelle agrégée le 09/09/2026, plus basse des quatre 85,7263% lignes / 68,5246% branches sous Linux ; échelle par module requalifiée le 22/09/2026, voir la fin de cette ligne) ; #184 est clôturée, conserver la remontée progressive uniquement après nouvelle preuve exact-head reproductible. **Plafond par module requalifié le 15/09/2026** (ADR-0104 §4) : `PER_MODULE_QUALIFIED_*` passe de 62,5013 % / 53,7997 % (08/09/2026, dépassé depuis le 09/09) à **64,5143 % / 56,2964 %**, la plus basse de quatre mesures exact-head de `develop` à `a1fc0a8d` sur les runners GitHub — deux runs par plateforme, le `push` de `develop` et le `pull_request` de la PR de promotion #274, qui construisent le même SHA : Windows 64,5952 % / 64,5987 % lignes et 56,3942 % / 56,4040 % branches, Linux 64,5143 % / 64,5495 % et 56,2964 % / 56,3453 %, `reports=16`, 28 434 lignes et 10 228 branches sur les quatre. Les deux runs Linux diffèrent de 10 lignes et 5 branches, les plateformes de 24 lignes et 11 branches au plus : plus que les deux lignes du 08/09, à citer comme dispersion. **Le ratchet par module est relevé le 16/09/2026 de `0.620 / 0.535` à `0.640 / 0.560`** — le premier mouvement de ratchet depuis le 08/09/2026. Il reste **sous** le plafond requalifié du 15/09, ce qui est sa définition : aucune nouvelle mesure n'a été prise et le plafond n'est pas touché, car relever un ratchet à l'intérieur d'un plafond déjà qualifié est une décision, pas une mesure. **Marge résiduelle : 146 lignes et 30 branches** sur l'échelle par module, contre une dispersion inter-plateforme de 24 lignes et 11 branches — soit 6,1 fois la dispersion en lignes mais **2,8 fois seulement en branches**. *C'est la clé de branche qui est désormais serrée, pas celle de ligne* : un relèvement ultérieur doit traiter les deux clés séparément, rien n'obligeant à les faire bouger ensemble. **L'échelle agrégée n'est pas touchée** : autre population de lignes, autre plafond dans `AggregateCoverageGateTest`, autre marge ; les aligner referait le défaut qu'A-06 a corrigé. La répercussion a suivi la méthode de `rules/meta.md` — changer la valeur, lancer `RepositoryDocumentationCoherenceTest` et `ProductionIntegrityContractTest`, laisser les échecs énumérer les destinations — et non la liste de cette page, périssable par construction. Une mesure locale sous WSL au même SHA a échoué avant le rapport de couverture (`MorpheusQueryApiContractTest#savedViewUpdateUsesCasAndVersionsRemainReadable`, « updatedAt must not precede createdAt », très probablement un recul d'horloge de WSL) et n'entre pas dans la qualification. **Le 22/09/2026, la seule clé ligne par module est relevée de `0.640` à `0.642`**, dans le même plafond et sans mesure nouvelle : **marge résiduelle 89 lignes et 30 branches**, soit 3,7 fois la dispersion inter-plateforme en lignes et toujours 2,8 fois en branches. La clé branche ne bouge pas, précisément parce que c'est la clé serrée ; l'échelle agrégée non plus. La population par module a été relue le même jour sur les artefacts `m21-integrity-Linux` des runs `35756505624` (`push`) et `35756512657` (`pull_request`) de `develop` à `e8e0f0ca` : 28 352 lignes et 10 212 branches, 82 lignes de moins que la mesure du 15/09, ce qui ne déplace aucune des deux marges d'une unité ; la mesure réelle de ces runs (Linux 64,9302 % lignes, 57,2366 % branches au plus bas) reste au-dessus du plafond, qui n'est pas requalifié ici. **Plafond par module requalifié le 22/09/2026** : le plafond du 15/09 (64,5143 % / 56,2964 %) était **dépassé depuis le 22/09/2026** sur les deux clés, et bloquait les deux ratchets bien sous ce que le code couvre. Les quatre preuves `m21-per-module-coverage-summary.txt` des mêmes runs `35756505624` et `35756512657` à `e8e0f0ca` (première ligne `coverageScope=per-module`, `reports=16`, 28 352 lignes et 10 212 branches sur les quatre) donnent Windows 64,9831 % / 64,9831 % lignes et 57,3051 % / 57,3051 % branches, Linux 64,9302 % / 64,9302 % et 57,2464 % / 57,2366 % : `PER_MODULE_QUALIFIED_*` passe à **64,9302 % / 57,2366 %**, la plus basse par clé, les deux minima venant de Linux. Dispersion : 0 ligne et 1 branche entre les deux runs Linux, aucune entre les deux runs Windows, 15 lignes et 7 branches au plus entre plateformes — dans la dispersion du 15/09 (24 lignes, 11 branches), qui reste celle contre laquelle les marges se dimensionnent. Entre `e8e0f0ca` et la tête de `develop` seules des sources de `morpheus-architecture-tests` ont changé, module que cette échelle exclut. **Les deux ratchets par module sont relevés séparément** dans ce plafond, chacun au plus haut millième qui garde au moins trois fois la dispersion : ligne `0.642` → `0.691`, **marge 93 lignes** (3,9 fois) ; branche `0.560` → `0.612`, **marge 34 branches** (3,1 fois) — le premier mouvement de la clé branche depuis le 16/09/2026. Un millième de plus tomberait sous trois fois (65 lignes, 24 branches). L'échelle agrégée n'est pas touchée |
+| DT-10 | Couverture historique globale encore modeste malgré un changed-code gate strict | Qualité | **Moyenne** | Ratchets M21 actifs à `3556 / 1819 / 1058`, couverture `92,8% / 81,1%` agrégée et `90,1% / 77,3%` par module (plafonds `AGGREGATE_QUALIFIED_*` et `PER_MODULE_QUALIFIED_*` qualifiés tous deux à `dbd65062`, sur quatre mesures exact-head Linux et Windows conservées dans `config/coverage-qualification/` ; la suite de cette ligne relate les qualifications antérieures, datées) ; #184 est clôturée, conserver la remontée progressive uniquement après nouvelle preuve exact-head reproductible. **Plafond par module requalifié le 15/09/2026** (ADR-0104 §4) : `PER_MODULE_QUALIFIED_*` passe de 62,5013 % / 53,7997 % (08/09/2026, dépassé depuis le 09/09) à **64,5143 % / 56,2964 %**, la plus basse de quatre mesures exact-head de `develop` à `a1fc0a8d` sur les runners GitHub — deux runs par plateforme, le `push` de `develop` et le `pull_request` de la PR de promotion #274, qui construisent le même SHA : Windows 64,5952 % / 64,5987 % lignes et 56,3942 % / 56,4040 % branches, Linux 64,5143 % / 64,5495 % et 56,2964 % / 56,3453 %, `reports=16`, 28 434 lignes et 10 228 branches sur les quatre. Les deux runs Linux diffèrent de 10 lignes et 5 branches, les plateformes de 24 lignes et 11 branches au plus : plus que les deux lignes du 08/09, à citer comme dispersion. **Le ratchet par module est relevé le 16/09/2026 de `0.620 / 0.535` à `0.640 / 0.560`** — le premier mouvement de ratchet depuis le 08/09/2026. Il reste **sous** le plafond requalifié du 15/09, ce qui est sa définition : aucune nouvelle mesure n'a été prise et le plafond n'est pas touché, car relever un ratchet à l'intérieur d'un plafond déjà qualifié est une décision, pas une mesure. **Marge résiduelle : 146 lignes et 30 branches** sur l'échelle par module, contre une dispersion inter-plateforme de 24 lignes et 11 branches — soit 6,1 fois la dispersion en lignes mais **2,8 fois seulement en branches**. *C'est la clé de branche qui est désormais serrée, pas celle de ligne* : un relèvement ultérieur doit traiter les deux clés séparément, rien n'obligeant à les faire bouger ensemble. **L'échelle agrégée n'est pas touchée** : autre population de lignes, autre plafond dans `AggregateCoverageGateTest`, autre marge ; les aligner referait le défaut qu'A-06 a corrigé. La répercussion a suivi la méthode de `rules/meta.md` — changer la valeur, lancer `RepositoryDocumentationCoherenceTest` et `ProductionIntegrityContractTest`, laisser les échecs énumérer les destinations — et non la liste de cette page, périssable par construction. Une mesure locale sous WSL au même SHA a échoué avant le rapport de couverture (`MorpheusQueryApiContractTest#savedViewUpdateUsesCasAndVersionsRemainReadable`, « updatedAt must not precede createdAt », très probablement un recul d'horloge de WSL) et n'entre pas dans la qualification. **Le 22/09/2026, la seule clé ligne par module est relevée de `0.640` à `0.642`**, dans le même plafond et sans mesure nouvelle : **marge résiduelle 89 lignes et 30 branches**, soit 3,7 fois la dispersion inter-plateforme en lignes et toujours 2,8 fois en branches. La clé branche ne bouge pas, précisément parce que c'est la clé serrée ; l'échelle agrégée non plus. La population par module a été relue le même jour sur les artefacts `m21-integrity-Linux` des runs `35756505624` (`push`) et `35756512657` (`pull_request`) de `develop` à `e8e0f0ca` : 28 352 lignes et 10 212 branches, 82 lignes de moins que la mesure du 15/09, ce qui ne déplace aucune des deux marges d'une unité ; la mesure réelle de ces runs (Linux 64,9302 % lignes, 57,2366 % branches au plus bas) reste au-dessus du plafond, qui n'est pas requalifié ici. **Plafond par module requalifié le 22/09/2026** : le plafond du 15/09 (64,5143 % / 56,2964 %) était **dépassé depuis le 22/09/2026** sur les deux clés, et bloquait les deux ratchets bien sous ce que le code couvre. Les quatre preuves `m21-per-module-coverage-summary.txt` des mêmes runs `35756505624` et `35756512657` à `e8e0f0ca` (première ligne `coverageScope=per-module`, `reports=16`, 28 352 lignes et 10 212 branches sur les quatre) donnent Windows 64,9831 % / 64,9831 % lignes et 57,3051 % / 57,3051 % branches, Linux 64,9302 % / 64,9302 % et 57,2464 % / 57,2366 % : `PER_MODULE_QUALIFIED_*` passe à **64,9302 % / 57,2366 %**, la plus basse par clé, les deux minima venant de Linux. Dispersion : 0 ligne et 1 branche entre les deux runs Linux, aucune entre les deux runs Windows, 15 lignes et 7 branches au plus entre plateformes — dans la dispersion du 15/09 (24 lignes, 11 branches), qui reste celle contre laquelle les marges se dimensionnent. Entre `e8e0f0ca` et la tête de `develop` seules des sources de `morpheus-architecture-tests` ont changé, module que cette échelle exclut. **Les deux ratchets par module sont relevés séparément** dans ce plafond, chacun au plus haut millième qui garde au moins trois fois la dispersion : ligne `0.642` → `0.691`, **marge 93 lignes** (3,9 fois) ; branche `0.560` → `0.612`, **marge 34 branches** (3,1 fois) — le premier mouvement de la clé branche depuis le 16/09/2026. Un millième de plus tomberait sous trois fois (65 lignes, 24 branches). L'échelle agrégée n'est pas touchée |
 | DT-11 | Nouveau workflow de release attestée pas encore qualifié par une vraie release publiée | Release | **Moyenne** | Valider l'enchaînement tag -> Linux/Windows -> attestations -> assets -> GitHub Release lors de la prochaine vraie release `v1.2.1+` ; suivi #185. Atténuation depuis le 11/10/2026 : la moitié « build » est répétée sur les deux plateformes par la lane `Release rehearsal` de `nightly.yml`, chaque nuit dès que `main` porte cette lane et à la demande avant cela ; attestation, publication et relecture publique restent non exercées |
+| DT-19 | Interdits textuels de type sans intention écrite (`assertFalse(source.contains("UnType"))` sans message) : leur échec ne dit pas si c'est la mention ou la dépendance qui est refusée | Gouvernance des tests | Basse | Compteur : `UNEXPLAINED_TYPE_BAN_CEILING` dans `EnforcementMechanismAccountingTest`, égal à la mesure : la famille est vide et le plafond vaut 0, donc un interdit de type écrit sans message fait échouer le build. Un interdit dont la cible ne déclare aucune constante inlinable s'écrit en règle ArchUnit ; les autres portent leur message d'intention. La composition se lit dans `morpheus-architecture-tests/target/enforcement-composition-summary.txt` ; aucun chiffre n'est recopié ici |
 
 Les anciennes dettes `DT-06` (protection `main`) et `DT-09` (protection `develop`) sont résolues et retirées du tableau actif.
 
 Il ne reste qu'**une dette active qui attend un événement extérieur** : `DT-11`, qui ne se ferme qu'à la
 première vraie release publiée (#185). `DT-10` reste au tableau parce que son action est encore la nôtre — la
-remontée progressive des ratchets, dans le plafond qualifié de chaque échelle. `DT-13` en sort le 22/09/2026 :
+remontée progressive des ratchets, dans le plafond qualifié de chaque échelle. `DT-19` aussi : chaque interdit textuel
+de type qui reçoit son intention baisse son plafond. `DT-13` en sort le 22/09/2026 :
 voir la requalification ci-dessous.
 
 ### Requalification du 22/09/2026 — `DT-13` est une position, pas une dette
@@ -240,7 +292,7 @@ avait l'intention d'en sortir, ce qui était faux pour les trois. Chacune part l
 l'événement qui la rouvrira — une requalification qui ne nomme pas cet événement est une disparition, et le
 prochain audit recréerait la ligne sous un autre numéro.
 
-- **`DT-04` — SQLite unique backend persistant → [ADR-0018 §15](../adr/0018-sqlite-initial-persistent-store.md).**
+- **`DT-04` — SQLite unique backend persistant → [ADR-0018 §15](../adr/DATA-0018-sqlite-initial-persistent-store.md).**
   Son action se lisait « n'engager un backend alternatif qu'après besoin et ADR dédiés », c'est-à-dire *ne rien
   faire jusqu'à nouvel ordre*. Les critères de réouverture n'étaient pas à écrire : ADR-0018 §15 les porte déjà,
   au nombre de cinq (volume ou latence hors objectifs, concurrence multi-utilisateur prioritaire, traversées
@@ -255,7 +307,7 @@ prochain audit recréerait la ligne sous un autre numéro.
   liste des plateformes qualifiées reste `Windows` / `Linux`. **Événement de réouverture** : une décision
   produit de supporter macOS, qui appelle alors packaging et qualification dédiés — pas la simple accumulation
   de lanes smoke vertes, que §10.4 refuse explicitement comme preuve de support.
-- **`DT-12` — identités remote historiques à trois champs → [ADR-0094](../adr/0094-optional-team-remote-server-mode.md).**
+- **`DT-12` — identités remote historiques à trois champs → [ADR-0094](../adr/SEC-0094-optional-team-remote-server-mode.md).**
   Le tableau disait lui-même que retirer le format « reste une évolution explicitement incompatible, pas un
   patch 1.2.1 » : c'est la définition d'une position. Elle est verrouillée par test, visible par
   `server identity list` et migrable par `server identity migrate-legacy`. **Événement de réouverture** : une
@@ -289,6 +341,8 @@ C'est ce constat qui ferait revenir le sujet dans ce tableau, pas l'état d'une 
 **Condition de réouverture** : un nouveau budget de performance qui n'est pas atteignable depuis §10.3 — un gate ajouté sans être nommé, ou un budget déplacé hors des constantes de son gate sans que le renvoi suive.
 
 `DT-14` est **tranchée le 11/09/2026 et retirée du tableau actif** : les quatre workflows historiques `m9-validation.yml`, `m10-preflight.yml`, `m11-preflight.yml` et `m12-preflight.yml` sont supprimés, ce qui clôt aussi F-13 (audit du 09/09/2026). Les garder exigeait de nommer une preuve qu'ils portaient encore, et aucune ne tient : ils lançaient `mvnw clean test`, qui ne construit pas le JAR que `ProviderPluginPlatformContractTest` exige avant les tests d'architecture, donc ils échouaient sur l'arbre courant ; aucun tag M9–M12 ne permet de les rejouer sur leur état d'origine ; `ci.yml` exécute `clean verify` exact-head sous Linux et Windows. Le commit `b1edfffc` (24/07/2026) les gardait comme validation manuelle optionnelle ; depuis que les contrats M22 chargent ce JAR, ils ne peuvent plus remplir ce rôle. `D2RepositoryHardeningArchitectureTest#historicalPreflightsAvoidDeprecatedSetupJavaV4` est **remplacé, pas supprimé**, par `everyWorkflowAvoidsDeprecatedActionGenerationsAndTheHistoricalPreflightsStayRemoved`, plus strict : l'interdit d'un `checkout`/`setup-java` antérieur à Node 24 couvre désormais **tous** les workflows du répertoire au lieu d'une liste de trois noms, et les quatre noms historiques sont refusés. `docs/project/roadmap/DEPLOYMENT.md` §9 renvoie désormais à `ci.yml`.
+
+`DT-18` est **soldée le 28/10/2026 et retirée du tableau actif** : le cœur applicatif ne porte aucun transport réseau. La découverte de mise à jour lit son manifeste par le port `product.UpdateManifestSource`, que `UpdateManifestFetcher` (`morpheus-cli`, paquet `command`) implémente pour `file:` et `https:` ; `MorpheusProductCli` le câble explicitement. Le refus de `http:` et des autres schémas avant toute I/O, la borne de taille, le délai et l'analyse du manifeste restent dans `UpdateDiscoveryService`. `ApplicationTechnologyBoundaryArchitectureTest` refuse le réseau sortant et les fils d'exécution dans tout `com.morpheus.application..` ([ADR-0150](../adr/ARCH-0150-ce-que-le-coeur-applicatif-peut-toucher.md)). **Condition de réouverture** : une classe de l'application qui atteint de nouveau le réseau, ce que ce test refuse.
 
 `DT-15` est **livrée le 15/09/2026 et retirée du tableau actif** : le groupe 2 d'ADR-0103, la frontière transport/JSON des routeurs `*HttpRoutes`, est exprimé dans `HttpRoutesTransportBoundaryArchitectureTest`, classe distincte de `HttpRoutesFamilyArchitectureTest` parce que ses règles ne sont pas famille-larges. **Le découpage livré est 8/5/4, pas le 8/9 de l'amendement.** L'établissement littéral par littéral sur les dix-sept routeurs a montré que les neuf routeurs à corps forment deux groupes : cinq (`Changes`, `Portfolio`, `ProjectRoot`, `ProjectSync`, `Requirements`) lisent leur corps par `MorpheusHttpRequestDecoder` et ne touchent jamais Jackson ; quatre (`Policy`, `PolicyManagement`, `Query`, `Reasoning`) — les quatre qu'aucun test ne couvrait avant le groupe 1 — construisent leur propre `JsonMapper`, sérialisent par `CanonicalJsonSerializer` et lisent leur corps par `HttpRequestBodyReader`. Leurs protections sont celles du décodeur (même plafond de corps, même délai de lecture, mêmes `FAIL_ON_UNKNOWN_PROPERTIES` et `FAIL_ON_TRAILING_TOKENS`, même 415) : ce qu'ils dupliquent est une configuration, pas une protection manquante. D'où trois règles, chaque groupe listé par nom : les huit routeurs sans corps ne dépendent ni de `com.sun.net.httpserver..`, ni de `tools.jackson..`, ni du décodeur ; les cinq routeurs à décodeur ni de `tools.jackson..`, ni de `CanonicalJsonSerializer` ; et tout `JsonMapper.builder()` de `morpheus-api` active les deux features — règle **textuelle**, la configuration d'un builder n'étant pas une dépendance. Une quatrième méthode refuse un routeur classé dans aucun groupe, dans deux, ou disparu. `MorpheusHttpServer` ne figure dans aucun interdit : quatre routeurs n'en lisent que `API_PREFIX`, constante inlinée invisible à ArchUnit, deux en décodent des records imbriqués, visibles — ce n'est pas la frontière. Le texte est conservé là où le comptage de constantes l'impose (Jackson 3.2.2 : 110 constantes publiques inlinables dans `jackson-core`, 44 dans `jackson-databind` ; `CanonicalJsonSerializer.DEFAULT_MAX_UTF8_BYTES`) et omis là où il n'en trouve aucune (`jdk.httpserver`, `MorpheusHttpRequestDecoder`). Chaque règle a été cassée le 15/09/2026, résultat consigné dans son Javadoc : les deux violations par constante inlinée ont passé la règle ArchUnit et n'ont été attrapées que par le texte, sans qu'aucune suite par routeur ne les voie ; un champ `Headers` dans un routeur sans corps, un routeur non classé et un flag retiré d'un mapper n'étaient attrapés par aucune suite existante. La classification et la règle de configuration portent en plus une preuve résidente. Aucune assertion textuelle existante n'est retirée ; six méthodes `@Test` s'ajoutent. Faire passer les quatre routeurs à mapper propre par le décodeur partagé supprimerait quatre copies de configuration mais changerait le comportement de quatre surfaces d'écriture : ce n'est pas ce lot, et c'est une dette à nommer (DT-16) seulement si on le décide.
 
@@ -329,7 +383,7 @@ Ces deux constats ont traversé quatre révisions d'audit sans être ré-examin�
 
 | Constat | Traitement |
 |---|---|
-| **A-02** — une mutation remote bloquée retenait ses slots sans être observable, et `server/status` était admis par le sémaphore qu'il décrit : un serveur à son plafond répondait `429` à la seule question utile | status servi sur une **voie bornée dédiée** (hors budget de requêtes, toujours authentifié et autorisé) ; status expose `activePrivilegedRequests`, `maxConcurrentPrivilegedRequests`, `oldestActivePrivilegedRequestMillis`, `throttledPrivilegedRequests` ; tests adversariaux de saturation, de refus et de libération de tous les slots. **Résiduel assumé** : une mutation réellement bloquée retient son slot jusqu'à sa fin réelle — aucune deadline n'est ajoutée, car un `504` sur un commit peut-être déjà durable serait pire |
+| **A-02** — une mutation remote bloquée retenait ses slots sans être observable, et `server/status` était admis par le sémaphore qu'il décrit : un serveur à son plafond répondait `429` à la seule question utile | status servi sur une **voie bornée dédiée** (hors budget de requêtes, toujours authentifié et autorisé) ; status expose `activePrivilegedRequests`, `maxConcurrentPrivilegedRequests`, `oldestActivePrivilegedRequestMillis`, `throttledPrivilegedRequests` ; tests adversariaux de saturation, de refus et de libération de tous les slots. **Délai amont** : la façade abandonne une écriture ou un appel ADMIN après 300 s (60 s pour une lecture) et répond `504 UPSTREAM_WRITE_TIMEOUT`, un résultat inconnu à relire avant tout nouvel essai ; le slot est rendu alors que l'opération locale peut continuer, et c'est le contrôle d'admission du serveur local qui borne ce travail ([TEAM_REMOTE_SERVER](../../user/TEAM_REMOTE_SERVER.md)) |
 | **A-03** — la contention SQLite n'avait aucun signal en production ; `SqliteFailureClassifier` n'avait **aucun appelant** hors tests | compteurs process-local `sqlite.transaction.{started,committed,rolled_back}`, `sqlite.contention.{busy_or_locked,connection_open}` et timing `sqlite.transaction.duration`, exposés par `GET /api/v1/metrics` ; tests de stress multi-écrivain (aucune perte d'update, aucun doublon d'identité, aucun lease abandonné). **Portée déclarée** : transactions explicites et ouvertures de connexion, pas les écritures mono-instruction en autocommit |
 | **A-04** — les deux frontières d'exécution externe (probe plugin, pair MCP) avaient des allowlists d'environnement identiques **par coïncidence**, sans contrat | `ExternalCodeTrustBoundaryArchitectureTest` : allowlists asserties identiques, aucun secret MORPHEUS ni variable d'injection JVM, environnement reconstruit depuis vide, pin + staging vérifié, et scan de **toute** source de production interdisant une revendication de sandbox |
 | **A-05** — couverture historique globale modeste | tests ciblés sur les zones à risque (disponibilité remote, contention SQLite, migration d'identités, parsing fail-closed du fichier d'identités, cycle de vie du secret TLS, charge HTTP) ; ratchets relevés uniquement dans la marge déjà qualifiée sur les deux plateformes |
@@ -432,7 +486,7 @@ Les constats techniques démontrés le 13 août 2026 ont reçu des mitigations e
 | `Error` hors rollback SQLite | rollback best-effort sur `Error`, erreur primaire réémise, cleanup/rollback en suppressed |
 | Audit d'identités pouvant remplir 256 KiB | fenêtre roulante atomique des 512 derniers événements sans secret |
 | Discovery plugin suivant les symlinks | `NOFOLLOW_LINKS`, répertoire et JAR symboliques refusés |
-| Probe plugin retournant 504 sans cancellation garantie | aucune deadline façade sur le probe tiers ; slot remote détenu jusqu'à la fin réelle |
+| Probe plugin retournant 504 sans cancellation garantie | délai façade des appels ADMIN (300 s) ; à son terme `504 UPSTREAM_WRITE_TIMEOUT`, qui dit que le probe a pu aboutir et continuer ; le worker du probe termine son propre sous-arbre avant de sortir |
 | Query/CLI ouvrant plusieurs connexions physiques | `SqliteConnectionScope` partagé par opération/runtime |
 | Version 1.2.0 réutilisée après release publiée | reactor, gates et builders actifs en `1.2.1`; tag/release `v1.2.0` historique inchangé |
 | SCA uniquement manuel | workflow `MORPHEUS Security` + Dependabot |
@@ -457,12 +511,13 @@ Deux signaux tournent sur une **cadence bornée** plutôt que par pull request, 
 Ratchets actifs :
 
 ```text
-Surefire total          >= 3820
-architecture            >= 585
-aggregate line          >= 90.0%
-aggregate branch        >= 75.7%
-per-module line         >= 69.1%
-per-module branch       >= 61.2%
+Surefire written        >= 3556
+Surefire generated      >= 1819
+architecture            >= 1058
+aggregate line          >= 92.8%
+aggregate branch        >= 81.1%
+per-module line         >= 90.1%
+per-module branch       >= 77.3%
 changed-line            >= 80%
 changed-branch          >= 70%
 ```

@@ -1,0 +1,218 @@
+---
+id: ARCH-0150
+title: "Le cœur applicatif touche le disque local par des classes nommées, et jamais le réseau"
+domain: architecture
+rules: false
+---
+
+# Le cœur applicatif touche le disque local par des classes nommées, et jamais le réseau
+
+- Statut : **Acceptée**
+- Date : 2026-10-27
+- Remplace : ADR-0148
+
+## Context
+
+`morpheus-application` définit les ports, et aucun adaptateur ne lui est visible (`LayerDependencyTest`). Rien ne dit
+en revanche quelle **technologie** il peut toucher lui-même : seuls `application.reasoning` et `application.policy`
+portent un interdit, textuel (`m27/ReasoningPlatformArchitectureTest`, `m25/PolicyPlatformArchitectureTest`), et les
+autres paquets peuvent acquérir `java.sql` ou un second client HTTP sans qu'aucun gate ne réagisse. Le constat
+AUD-ARC-01 de l'audit du 09/10/2026 le relève ; AUD-ARC-02, AUD-ARC-03, AUD-ARC-06 et AUD-PRF-05 attendent la décision.
+
+### Mesure
+
+La mesure qui a fondé cette décision, prise le 25/10/2026 sur `develop` à `b60a9286`, est conservée telle qu'elle a
+été écrite dans un [relevé daté](../../project/research/mesure-frontiere-technologique-application-2026-10-25.md).
+Elle classe chaque usage de technologie de l'application par famille et nomme les classes qui l'atteignaient. Une
+famille est un ensemble de types ou d'appels, dont `ApplicationTechnologyBoundaryArchitectureTest` porte la liste
+complète. `java.nio.file.Path` seul est le vocabulaire d'un produit local-first, jusque dans les signatures de ports
+(`SpecificationProvider`, `ProviderReadRequest`, `ProviderProjectRoot`), pas un accès ; `java.time.Clock` est le port
+d'horloge, injecté par constructeur.
+
+### Options considérées
+
+- **A — un cœur pur.** Toutes les familles en usage sortent de l'application : un port y est déclaré, un adaptateur
+  l'implémente. Coût : toutes les classes d'accès fichier et tous les lecteurs d'environnement, dont des classes
+  épinglées par des assertions de sécurité textuelles qui doivent les suivre ; un foyer à trouver (un nouveau module
+  change la population de couverture d'ADR-0166, le classpath importé et la livraison ; un store ou un provider est le
+  mauvais propriétaire d'une frontière d'espace de travail) ; et `Path` reste dans les ports, donc « pur » voudrait dire
+  « sans accès », pas « sans `java.nio.file` ».
+- **B — une couche de service autorisée à faire de l'I/O locale.** Toutes les familles en usage restent, confinées aux
+  classes qui les atteignent ; les familles inutilisées sont refusées partout. Coût minimal ; le réseau sortant reste dans la
+  couche qui définit les ports, et le diagramme cesse de promettre un cœur sans technologie.
+- **C — exceptions nommées, chacune avec son sort.** La même règle que B, et chaque classe nommée **reste** ou **sort**.
+  Seul le transport réseau sort : c'est l'unique sortie réseau du cœur, une classe, un appelant (`MorpheusProductCli`),
+  et le refus de `http:` avant toute I/O comme l'analyse du manifeste restent dans l'application. L'accès local reste :
+  il est la matière d'un cas d'usage local-first, ces classes sont la frontière de sécurité de l'espace de travail et
+  des fichiers sensibles, et aucun défaut observé ne se corrige en les déplaçant. Les classes sans appelant de
+  production restent nommées tant qu'elles existent : leur retrait relève du code inatteignable. Un port d'horloge propre au
+  projet serait un second nom pour `java.time.Clock`. La réflexion est nommée usage par usage, ici par
+  `ApplicationTechnologyBoundaryArchitectureTest`, hors de l'application par
+  `ReflectionAndClassLoadingBoundaryArchitectureTest`. Les interdits textuels de `reasoning` et `policy` ne migrent pas vers une règle de
+  dépendance : ils refusent une mention, et interdisent `com.morpheus.application.store`,
+  `com.morpheus.application.lifecycle.mutation`, `ScriptEngine`, `SELECT * FROM`, `executeQuery(`. SQL étant refusé,
+  le runtime SQLite d'une opération ne peut pas entrer dans l'application ; le choix entre tenir son type dans les
+  racines de composition des transports ou un port de l'application qui le masque reste celui d'ADR-0162. Coût de C :
+  celui de B, plus une extraction dans un seul service. Retenu.
+
+### Le résolveur des réglages de lancement des pairs MCP
+
+`MinosIntegrationSettings` et `NexusIntegrationSettings` décident si MORPHEUS lance du code tiers : le JAR, son pin
+SHA-256, le lanceur Java, le répertoire de travail, la borne de temps. Le constat AUD-QUA-09 de l'audit du 09/10/2026
+les relève identiques à 90 %, et la copie porte du code de sécurité (le lanceur en chemin absolu, ADR-0128) écrit deux
+fois et tenu égal par un test textuel. La résolution existe une fois, paramétrée par le pair, dans
+`security.PeerLaunchSettingsResolver`, à côté de `ExternalJarIntegrity` qui vérifie le pin : c'est la même question
+(quel fichier externe peut être lancé, et vérifié comment), et les deux intégrations dépendent déjà de ce paquet. Elle
+lit le disque (le JAR est-il un fichier, le chemin réel du lanceur, le `bin/java` du runtime) et l'environnement du
+processus (`java.home`). Mesuré le 27/10/2026 par `ApplicationTechnologyBoundaryArchitectureTest` : le résolveur
+atteint ces deux familles et aucune autre ; le type de résultat partagé, `security.PeerLaunchSettings`, n'en atteint
+aucune.
+
+Écartés : `morpheus-mcp-transport`, qui ne dépend d'aucun paquet MORPHEUS et recevrait la vérification du pin comme
+une fonction, ce qui cache la dépendance qu'un lecteur de ce code doit voir ; une copie par intégration tenue égale
+par un test de parité, qui garde deux implémentations d'un chemin de confiance ; un nouveau module pour une classe.
+
+## Decision
+
+### 1. SQL, JSON, processus, réseau et fils d'exécution sont refusés dans toute l'application
+
+Aucune classe de `com.morpheus.application..` ne dépend de `java.sql`, de Jackson, de l'exécution de processus, du
+réseau sortant ni des fils d'exécution. La découverte de mise à jour lit son manifeste par le
+port `product.UpdateManifestSource`, implémenté par `UpdateManifestFetcher` dans `morpheus-cli` ; `UpdateDiscoveryService`
+garde le refus de `http:` avant toute I/O, la borne de taille, le délai et l'analyse du manifeste.
+
+### 2. Une famille en usage est confinée à des classes nommées, chacune avec son sort
+
+L'accès fichier, l'environnement du processus, les flux standard, l'horloge murale et la réflexion ne sont atteints
+que par les classes que nomme la table « Classes nommées » de la section *Compliance and Enforcement*, avec la famille
+et le sort de chacune. Toutes restent ; `LocalSourceWatcher`, `ProjectDiscoveryService` et `WorkspaceRootResolver`
+restent tant que la classe existe. Pour l'horloge, `java.time.Clock` est le port.
+
+- Une liste est exactement l'ensemble des classes qui atteignent la famille : elle rétrécit, et un nom ajouté exige un
+  ADR consolidé qui remplace celui-ci.
+- `Path`, `LinkOption`, `IOException` et les flux en mémoire sont du vocabulaire, pas un accès.
+
+### 3. Les interdits textuels de `reasoning` et `policy` restent
+
+Ils refusent aussi une mention, et davantage qu'une famille.
+
+### 4. Le runtime SQLite reste hors de l'application
+
+Ce qu'un transport tient de `SqliteOperationRuntime` et `SqliteServerMaintenance` relève d'ADR-0162.
+
+## Do's and Don'ts
+
+### Do
+
+- Faire passer par un port de l'application tout accès réseau dont un cas d'usage a besoin.
+- Lire et écrire l'espace de travail local par les classes nommées, en premier lieu `SafeWorkspaceFileResolver`.
+- Injecter l'horloge par `java.time.Clock`.
+- Retirer de la liste d'une famille une classe qui ne l'atteint plus.
+
+### Don't
+
+- Ne pas faire dépendre une classe de l'application de `java.sql`, de Jackson, de `ProcessBuilder` ni de `java.net.http`.
+- Ne pas ajouter de classe à la liste d'une famille confinée sans un ADR consolidé qui remplace celui-ci.
+- Ne pas présenter l'application comme une couche sans technologie : elle fait de l'accès local, par des classes
+  nommées.
+- Ne pas compter `Path` comme un accès fichier.
+
+## Consequences
+
+### Positives
+
+- Toute famille de technologie de l'application est écrite, et l'état présent est gelé : la décision porte sur ce qui
+  existe, pas sur ce qui s'ajoute pendant qu'elle est en attente.
+- La lecture du manifeste de mise à jour passe derrière un port, ce qui rend la découverte testable sans client HTTP
+  et range le transport dans le module qui possède le processus.
+- Les listes nommées sont le compteur d'une éventuelle option A, comme `COMPOSITION_ROOTS` l'est pour ADR-0162.
+
+### Négatives
+
+- Le cœur n'est pas purement hexagonal : des classes d'accès fichier, dont certaines sans appelant de production, et des
+  lecteurs d'environnement y restent, nommés par la table « Classes nommées ».
+- La règle ajoute des listes de noms, que l'audit voudrait moins nombreuses (AUD-ARC-06).
+
+### Risques
+
+- Les classes sans appelant de production restent nommées tant qu'aucune décision ne les retire.
+- Les invariants de sécurité de la découverte sont épinglés textuellement sur la classe qui les porte : une assertion
+  qui lirait un fichier vidé de son code garderait les gates verts sans plus rien surveiller.
+
+## Compliance and Enforcement
+
+- `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/ApplicationTechnologyBoundaryArchitectureTest.java`,
+  règles ArchUnit sur le bytecode, dont les listes de types et d'appels sont la source vivante des familles :
+  `aFamilyTheApplicationDoesNotUseIsRefusedInEveryPackage` (décision 1),
+  `aConfinedFamilyIsReachedOnlyByTheClassesNamedForIt` et `everyNamedClassStillReachesItsFamily` (décision 2, les deux
+  sens), `aPathUsedAsAValueIsNotAnAccess` (le vocabulaire).
+- Les listes de la décision 2 sont `ApplicationTechnologyBoundaryArchitectureTest.CONFINED_FAMILIES` et, pour la
+  réflexion, `ApplicationTechnologyBoundaryArchitectureTest.REFLECTION_AND_LOADING` : deux compteurs de dette que
+  `ProductionClassListsArchitectureTest` déclare sous cet ADR, dont la taille égale leur clé de
+  `config/debt-counter-ratchets.properties`. Le build compare les deux listes, nom pour nom, aux énumérations
+  délimitées ci-dessous (`ProductionClassListsArchitectureTest#everyListADecisionRecordEnumeratesEqualsItsEnumeration`),
+  et exige que chaque nom qualifié de cet ADR existe dans `morpheus-application`
+  (`ApplicationTechnologyBoundaryArchitectureTest#everyClassTheDecisionRecordNamesByAQualifiedNameExistsAtThatName`).
+
+  Classes nommées, relatives à `com.morpheus.application` :
+
+<!-- liste ApplicationTechnologyBoundaryArchitectureTest.CONFINED_FAMILIES -->
+| Classe | Familles | Sort |
+|---|---|---|
+| `files.SafeWorkspaceFileResolver` | fichier | reste |
+| `files.LocalWritePermissionHardener` | fichier, environnement | reste |
+| `sync.LocalSourceInventoryScanner` | fichier | reste |
+| `sync.ScanWorkspaceBoundary` | fichier | reste |
+| `sync.SourceFingerprint` | fichier | reste |
+| `security.ExternalJarIntegrity` | fichier | reste |
+| `security.PeerLaunchSettingsResolver` | fichier, environnement | reste |
+| `operability.RotatingOperationalLogFile` | fichier, flux standard | reste |
+| `sync.LocalSourceWatcher` | fichier | reste tant que la classe existe |
+| `discovery.ProjectDiscoveryService` | fichier | reste tant que la classe existe |
+| `discovery.WorkspaceRootResolver` | fichier | reste tant que la classe existe |
+| `operability.LocalOperationalRuntime` | environnement | reste |
+| `operability.SensitiveValueRedactor` | environnement | reste |
+| `product.ProductMetadata` | environnement | reste |
+| `operability.OperationalRuntime` | flux standard | reste |
+| `operability.LocalOperabilityService` | horloge murale | reste |
+| `operability.OperationalRecorder` | horloge murale | reste |
+| `lifecycle.mutation.ControlledChangeLifecycleMutationService` | horloge murale | reste |
+| `policy.PolicyPackService` | horloge murale | reste |
+| `portfolio.PortfolioRegistryService` | horloge murale | reste |
+| `query.saved.SavedViewService` | horloge murale | reste |
+| `query.compact.CanonicalJsonSerializer` | réflexion | reste |
+| `reasoning.ReasoningAdapterRegistry` | réflexion | reste |
+<!-- fin de liste -->
+
+  La réflexion a sa propre liste, qui nomme les mêmes classes que la ligne « réflexion » :
+<!-- liste ApplicationTechnologyBoundaryArchitectureTest.REFLECTION_AND_LOADING -->
+  `query.compact.CanonicalJsonSerializer`, `reasoning.ReasoningAdapterRegistry`.
+<!-- fin de liste -->
+
+- Décision 4 : la famille SQL de `aFamilyTheApplicationDoesNotUseIsRefusedInEveryPackage` interdit le runtime SQLite
+  dans l'application ; ce que les transports en tiennent est tenu par `AdapterCompositionRootArchitectureTest` et
+  `SqliteStorePackagesArchitectureTest` (ADR-0162).
+- `m27/ReasoningPlatformArchitectureTest` et `m25/PolicyPlatformArchitectureTest` : interdits textuels inchangés.
+- `LayerDependencyTest` : l'application ne dépend d'aucun adaptateur.
+- Découverte de mise à jour : `UpdateTrustBoundaryContractTest` et `AuditHardeningWorkflowContractTest` lisent la
+  classification de confiance et l'analyse du manifeste dans `UpdateDiscoveryService` ; `ProductionIntegrityContractTest`
+  exige que `MorpheusProductCli` soit le seul site de `new UpdateDiscoveryService(` ; `SilentCatchArchitectureTest`
+  nomme le `catch` de fermeture de `UpdateManifestFetcher.java` ; `UpdateManifestFetcherTest` (`morpheus-cli`) tient,
+  sur un vrai serveur TLS, la redirection refusée, le délai, la taille et l'interruption.
+- `McpPeerSettingsResolutionArchitectureTest` : les types de réglages des intégrations MINOS et NEXUS ne dépendent ni
+  de l'API fichier ni de la vérification du pin, et les deux pairs résolvent une même table d'entrées à l'identique ;
+  `PeerLauncherArchitectureTest` tient le lanceur en chemin absolu sur le résolveur et sur le type de résultat partagé.
+
+## References
+
+- [ADR-0162](ARCH-0162-racines-de-composition-nommees-paquets-sans-cycle-hors-une-paire-bornee-et-decisions-dans-le-domaine.md) — racines de composition nommées des
+  transports.
+- [ADR-0155](ARCH-0155-un-role-est-un-paquet-et-une-liste-de-classes-declare-sa-sorte.md) — rôles de l'adaptateur HTTP en paquets.
+- [ADR-0166](GEN-0166-deux-echelles-de-couverture-un-seuil-par-module-a-marge-proportionnelle-et-le-credit-emprunte.md) — population de couverture.
+- [ADR-0004](SEC-0004-local-first-no-llm-core.md) — cœur local-first.
+- [ADR-0128](ARCH-0128-pairs-minos-et-nexus-par-mcp-stdio.md) — pairs MINOS et NEXUS, lanceur en chemin absolu.
+- Changements OpenSpec `decide-what-technology-the-application-core-may-touch` et
+  `move-marked-technology-access-behind-application-ports`.
+- Changement OpenSpec `resolve-both-mcp-peers-through-one-settings-resolver`.
+- Audit du 09/10/2026, constats AUD-ARC-01 et AUD-QUA-09 : `docs/project/audits/2026-10-09/findings.md`.
+- `.claude/rules/architecture.md`

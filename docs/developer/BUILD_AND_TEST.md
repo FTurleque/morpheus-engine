@@ -1,6 +1,6 @@
 # Build, tests et validation
 
-Ce guide décrit l’environnement de développement et les gates actifs sur la baseline corrective **MORPHEUS 1.2.1**. La dernière release publiée est `v1.2.1` (16 octobre 2026), qualifiée par les scripts de relecture publique.
+Ce guide décrit l’environnement de développement et les gates actifs sur la baseline corrective **MORPHEUS 1.2.2**. La dernière release publiée est `v1.2.1` (16 octobre 2026), qualifiée par les scripts de relecture publique.
 
 ## Toolchain
 
@@ -14,7 +14,7 @@ Maven Enforcer = dependency convergence obligatoire
 
 ## Reactor Maven
 
-Le dépôt contient **17 modules enfants**, soit **18 projets Maven parent inclus** :
+Le reactor déclare les modules ci-dessous dans le bloc `<modules>` du `pom.xml` racine, dans son ordre. Le nombre ne s'écrit pas ici : il se compte dans le POM.
 
 ```text
 morpheus-domain
@@ -34,9 +34,10 @@ morpheus-mcp
 morpheus-api
 morpheus-cli
 morpheus-architecture-tests
+morpheus-coverage-report
 ```
 
-Les 18 POMs actifs portent la même version MORPHEUS `1.2.1`. Les preuves de release historiques `1.2.0` ne sont pas réécrites.
+Les POMs actifs du reactor, parent compris, portent tous la même version MORPHEUS `1.2.2`. Les preuves de release historiques `1.2.0` ne sont pas réécrites.
 
 ## Gate Maven canonique
 
@@ -59,21 +60,22 @@ Linux :
 Le workflow `MORPHEUS CI` exécute le même gate exact-head sur Windows et Ubuntu pour les pull requests ainsi que sur les pushes `main` et `develop`.
 
 ```text
-baseline Surefire totale       >= 3820
-baseline architecture          >= 585
-JaCoCo aggregate line ratchet     >= 90.0%
-JaCoCo aggregate branch ratchet   >= 75.7%
-JaCoCo per-module line ratchet    >= 69.1%
-JaCoCo per-module branch ratchet  >= 61.2%
+baseline Surefire écrits       >= 3556
+baseline Surefire générés     >= 1819
+baseline architecture          >= 1058
+JaCoCo aggregate line ratchet     >= 92.8%
+JaCoCo aggregate branch ratchet   >= 81.1%
+JaCoCo per-module line ratchet    >= 90.1%
+JaCoCo per-module branch ratchet  >= 77.3%
 D2 absolute line floor         40%
 D2 absolute branch floor       35%
 maven dependency analyze       failOnWarning=true
 maven dependency convergence   required
 CycloneDX SBOM                  JSON + XML
-product/package version         1.2.1
+product/package version         1.2.2
 ```
 
-La source normative des six ratchets M21 est `config/m21-quality-ratchets.properties`. Les deux échelles de couverture y sont déclarées séparément : `aggregate*` pour la mesure canonique (`morpheus-coverage-report/target/site/jacoco-aggregate/jacoco.xml`, qui fusionne aussi l'exécution cross-module des tests d'architecture) et `perModule*` pour la somme des rapports JaCoCo de chaque module pris isolément. `AggregateCoverageGateTest` et les deux validateurs `validate-m21.*` consomment la première, `CoverageQualityGateTest` la seconde ; aucun gate ne lit les clés de l'autre échelle, et `CoverageScaleSeparationTest` fait échouer le build si l'un d'eux s'y essaie. Les deux échelles portent sur la même population de modules — tout module du réacteur qui porte une classe sous `src/main/java`, outillage de vérification compris (`morpheus-store-memory`, `morpheus-provider-synthetic`, `morpheus-provider-testkit`, `morpheus-provider-reference`) — et ne diffèrent que par les exécutions autorisées à créditer une ligne : `AggregateCoverageGateTest` dérive cette population du POM racine et refuse un rapport agrégé qui en mesure une autre.
+La source normative des ratchets M21 et des deux maxima du crédit emprunté est `config/m21-quality-ratchets.properties`. Les deux échelles de couverture y sont déclarées séparément : `aggregate*` pour la mesure canonique (`morpheus-coverage-report/target/site/jacoco-aggregate/jacoco.xml`, qui fusionne aussi l'exécution cross-module des tests d'architecture) et `perModule*` pour la somme des rapports JaCoCo de chaque module pris isolément. `AggregateCoverageGateTest` et les deux validateurs `validate-m21.*` consomment la première, `CoverageQualityGateTest` la seconde ; aucun gate ne lit les clés de l'autre échelle, et `CoverageScaleSeparationTest` fait échouer le build si l'un d'eux s'y essaie. Les deux échelles portent sur la même population de modules — tout module du réacteur qui porte une classe sous `src/main/java`, outillage de vérification compris (`morpheus-store-memory`, `morpheus-provider-synthetic`, `morpheus-provider-testkit`, `morpheus-provider-reference`) — et ne diffèrent que par les exécutions autorisées à créditer une ligne : `AggregateCoverageGateTest` dérive cette population du POM racine et refuse un rapport agrégé qui en mesure une autre.
 
 Les floors sont des ratchets de présence : ils ne sont pas abaissés automatiquement, et toute hausse ultérieure doit être fondée sur une qualification exacte du même SHA sous Windows et Linux.
 
@@ -92,18 +94,51 @@ Cette garde différentielle complète le ratchet global : elle évite qu'une nou
 
 ## Qualité et ratchet JaCoCo
 
-La baseline courante est verrouillée à **90,0% lignes / 75,7% branches** sur l'échelle agrégée et **69,1% lignes / 61,2% branches** par module. Les deux chiffres mesurent des populations de lignes différentes : les comparer entre eux n'a pas de sens, et comparer l'un au seuil de l'autre est précisément le défaut que la séparation des clés supprime.
+La baseline courante est verrouillée à **92,8% lignes / 81,1% branches** sur l'échelle agrégée et **90,1% lignes / 77,3% branches** par module. Les deux chiffres mesurent des populations de lignes différentes : les comparer entre eux n'a pas de sens, et comparer l'un au seuil de l'autre est précisément le défaut que la séparation des clés supprime.
 
 Règle d’évolution :
 
-1. une baisse sous 90,0% lignes ou 75,7% branches agrégées, ou sous 69,1% lignes ou 61,2% branches par module, fait échouer le gate M21 ;
+1. une baisse sous 92,8% lignes ou 81,1% branches agrégées, ou sous 90,1% lignes ou 77,3% branches par module, fait échouer le gate M21 ;
 2. les floors D2 40% / 35% restent des minima absolus et ne peuvent jamais affaiblir le ratchet ;
 3. une amélioration de couverture ne relève le ratchet qu’après qualification du même SHA exact sur Windows et Linux ;
 4. le ratchet n’est jamais abaissé automatiquement ; une baisse nécessite une décision d’audit explicite et motivée ;
 5. les compteurs de tests sont eux aussi des ratchets de présence, pas une mesure de qualité autonome ;
 6. la couverture ne justifie pas des tests artificiels : les tests doivent conserver une valeur fonctionnelle, de contrat, de sécurité ou d’architecture indépendante du chiffre.
 
-Chaque gate écrit sa propre preuve, dont la première ligne déclare l'échelle mesurée : `CoverageQualityGateTest` écrit `morpheus-architecture-tests/target/m21-per-module-coverage-summary.txt` (`coverageScope=per-module`) et `AggregateCoverageGateTest` écrit `morpheus-architecture-tests/target/m21-aggregate-coverage-summary.txt` (`coverageScope=aggregate`). Les deux fichiers portent la couverture observée, la baseline qualifiée, le ratchet actif et les minima D2 ; la preuve agrégée nomme en outre les modules qu'elle a mesurés (`population=`). Les validateurs refusent de conclure sur une preuve dont l'échelle n'est pas celle qu'ils attendent.
+### Relever un ratchet, ou relever un plafond
+
+Ce sont deux gestes différents, et le premier ne donne aucun droit sur le second.
+
+- Un **ratchet** (`config/m21-quality-ratchets.properties`) se relève par décision, tant qu'il reste sous le plafond qualifié **de sa propre échelle** et garde la distance que la règle exige. Cette distance se compte en lignes et en branches couvertes, jamais en points de pourcentage : la plus basse mesure conservée de l'échelle, moins ce que le ratchet exige de la même population, doit valoir au moins **trois fois la dispersion** des runs conservés, et jamais moins de trois fois la dispersion de référence (24 lignes, 11 branches). `CoverageQualificationEvidenceTest#everyCoverageRatchetKeepsThreeTimesTheSpreadUnderTheLowestKeptMeasurement` la calcule sur `config/coverage-qualification/` et refuse un ratchet qui la consomme, en nommant la clé et le compte manquant. Une session qui ne dispose que d'une plateforme peut relever un ratchet dans cette limite.
+- Un **plafond** (`PER_MODULE_QUALIFIED_*_RATIO` dans `CoverageQualityGateTest`, `AGGREGATE_QUALIFIED_*_RATIO` dans `AggregateCoverageGateTest`) ne se relève que par une requalification : une mesure exact-head de l'échelle sur Windows **et** sur Linux, au moins deux runs par plateforme, qualifiée sur la plus basse. Les résumés de ces runs remplacent ceux de `config/coverage-qualification/` dans le même changement, et `CoverageQualificationEvidenceTest` exige que chaque plafond soit égal au plus bas ratio de son échelle dans ces fichiers.
+
+Toute hausse d'un ratchet au-delà de cette limite passe donc par une **requalification** du plafond de son échelle, que seuls les runners CI des deux plateformes peuvent fournir : écrire des tests ne suffit pas. Quand les ratchets sont posés au plus haut millième admis, la marge restante est nulle, et le prochain objectif de couverture se planifie avec sa requalification.
+
+Où lire ce qu'il reste : la preuve de chaque gate (`m21-per-module-coverage-summary.txt`, `m21-aggregate-coverage-summary.txt`, décrites ci-dessous) affiche côte à côte la mesure (`lineRatio`, `branchRatio`), le plafond (`qualifiedLineBaseline`, `qualifiedBranchBaseline`) et le ratchet actif (`lineRatchet`, `branchRatchet`). La distance se calcule sur ces valeurs et sur les compteurs de lignes et de branches du même fichier ; elle ne s'écrit pas dans cette page. Dans les résumés **conservés** sous `config/coverage-qualification/`, ces quatre champs sont ceux du commit mesuré, gardés tels quels : ils précèdent la requalification qui s'appuie sur eux et ne disent rien du plafond ni du ratchet en vigueur, qu'aucun test ne lit là. Seuls les compteurs et les ratios y font preuve.
+
+Chaque gate écrit sa propre preuve, dont la première ligne déclare l'échelle mesurée : `CoverageQualityGateTest` écrit `morpheus-architecture-tests/target/m21-per-module-coverage-summary.txt` (`coverageScope=per-module`) et `AggregateCoverageGateTest` écrit `morpheus-architecture-tests/target/m21-aggregate-coverage-summary.txt` (`coverageScope=aggregate`). Les deux fichiers portent la couverture observée, la baseline qualifiée, le ratchet actif et les minima D2 ; la preuve agrégée nomme en outre les modules qu'elle a mesurés (`population=`), et la preuve par module porte, après ses totaux, les compteurs de chaque module (`module.<artifactId>.lineCovered`, `.lineMissed`, `.branchCovered`, `.branchMissed`). Les validateurs refusent de conclure sur une preuve dont l'échelle n'est pas celle qu'ils attendent.
+
+### Le seuil propre à chaque module
+
+Le cliquet total de l'échelle par module compare la somme des rapports : un module qui cesse de se tester s'y dilue dans les lignes couvertes des autres. `CoverageQualityGateTest` compare donc aussi le rapport propre de **chaque** module de la population à `max(plancher D2, seuil du module)`, en lignes et en branches, et refuse en une fois tous les modules en défaut, chacun avec sa grandeur, son ratio, son seuil et le remède : écrire des tests dans ce module. Le cliquet total reste en vigueur à côté ; les deux contrôles sont deux méthodes distinctes.
+
+Les seuils vivent dans `config/m21-per-module-coverage-floors.properties`, seule source de leur valeur : deux clés par module, `<artifactId>.lineCoverageMinimum` et `<artifactId>.branchCoverageMinimum`. Le fichier suit la population dérivée du POM racine : ajouter un module qui porte une classe sous `src/main/java` exige ses deux clés, au plancher D2, dans le même changement ; retirer ou renommer un module retire ses clés. Une clé manquante ou orpheline fait échouer le build sans attendre de mesure (`theFloorFileDeclaresEveryModuleOfThePopulationAndNoOther`). Le gate agrégé et le gate du crédit emprunté ne lisent pas ce fichier (`CoverageScaleSeparationTest`).
+
+Un seuil ne quitte le plancher D2 que sur une preuve conservée qui porte les compteurs du module : `CoverageQualificationEvidenceTest#everyModuleFloorStaysInsideItsQualifiedWindow` refuse un seuil sous le plancher, et, au-dessus, un seuil qui ne garde pas trois fois la dispersion du module sous sa plus basse mesure conservée. Cette dispersion est la plus grande de l'écart observé pour le module entre les résumés conservés et de la dispersion de référence de l'échelle ; elle se compte en lignes et en branches du module. Poser ou relever un seuil de module est donc une décision dans cette fenêtre, comme un ratchet ; l'élargir passe par une requalification. Un seuil ne se baisse jamais pour faire passer un build ; une baisse liée à du code retiré ou à un module scindé se justifie dans la PR.
+
+Une **requalification** garde tels quels les résumés écrits par les gates : ceux de l'échelle par module portent alors les compteurs de chaque module, et c'est sur eux que se lit la fenêtre de chaque seuil. Les deux échelles se requalifient à une seule tête, et les seuils de module se posent après les plafonds, chacun dans sa fenêtre, lignes et branches séparément.
+
+### Le crédit emprunté aux tests des autres modules
+
+Les deux échelles comptent les mêmes lignes et les mêmes branches pour chaque module ; ce qui les sépare est ce que la couverture d'un module doit aux tests qui vivent ailleurs. `BorrowedCoverageGateTest` (`morpheus-coverage-report`, phase `verify`, après le rapport agrégé) le compte par module, en lignes et en branches, et l'écrit dans `morpheus-architecture-tests/target/m21-borrowed-coverage-summary.txt`, dont la première ligne est `coverageScope=borrowed-credit` : ce n'est ni une échelle ni une preuve de couverture, et les validateurs refusent d'y conclure. Le gate échoue :
+
+- quand une classe n'est couverte que par les tests d'autres modules sans figurer dans sa liste exacte, ou quand une classe listée a gagné un test de son propre module et que son entrée n'est pas retirée ;
+- quand le total dépasse `borrowedLineCreditMaximum` / `borrowedBranchCreditMaximum` (`config/m21-quality-ratchets.properties`), en nommant les modules dont le crédit a crû. Ce maximum ne fait que baisser ; il est qualifié sur la plus **haute** mesure des deux plateformes ;
+- quand les deux rapports d'un module ne comptent pas les mêmes lignes ou branches, quand le rapport propre couvre plus que l'agrégé, ou quand un rapport manque ou est périmé.
+
+Le remède est un test dans le module qui porte la ligne. `morpheus-application` ne peut pas dépendre de `morpheus-store-memory` ni de `morpheus-provider-synthetic`, qui dépendent de lui : ses tests implémentent à la main les ports qu'ils lisent. La décision est [ADR-0166](../architecture/adr/GEN-0166-deux-echelles-de-couverture-un-seuil-par-module-a-marge-proportionnelle-et-le-credit-emprunte.md).
+
+`EnforcementMechanismAccountingTest` écrit `morpheus-architecture-tests/target/enforcement-composition-summary.txt`, la composition de l'enforcement du module d'architecture : sa première ligne (`method=`) nomme la méthode de lecture, les suivantes donnent les classes de test, les déclarations de test, les règles évaluées sur le bytecode, les assertions textuelles selon ce que lit la classe qui les porte, et les interdits textuels de type avec et sans intention. C'est une lecture, pas un gate : seul le compte des interdits sans intention est borné, par `UNEXPLAINED_TYPE_BAN_CEILING`, qui ne fait que baisser. Les classes marquées `@CoherenceCheck`, qui ne lisent que des documents, des scripts, des workflows ou les sources de test, se lancent seules par `./mvnw test -pl morpheus-architecture-tests -Dgroups=coherence` ; la sélection par défaut de `clean verify` ne change pas. Un échec de ces classes et un échec d'une règle sur le code ne se lisent pas de la même façon : à chaque exécution du module, `EnforcementVerdictListener` imprime deux lignes `[enforcement verdict]` (désynchronisation documentaire, violation d'architecture) et écrit `morpheus-architecture-tests/target/enforcement-verdict.txt` — méthode en première ligne, nombre de classes et d'exécutions de chaque nature, puis les tests de chaque verdict, triés. Une exécution restreinte par `-Dtest` ou `-Dgroups` écrit le verdict de sa sélection. La CI publie ce fichier dans l'artefact `m21-integrity-<OS>`.
 
 ## Frontière HTTP des corps de requête
 
@@ -159,6 +194,15 @@ n'est pas SQLite, `io.github.fturleque:morpheus-cli` n'est pas GitHub CLI. Le vr
 `org.xerial:sqlite-jdbc` et toutes les dépendances tierces restent analysés. Le scan produit échoue
 si une de ces règles devient inutilisée, afin d'empêcher une suppression obsolète ou trop large.
 
+L'indice versionné dans `config/dependency-check-hints.xml`, chargé par les deux profils, fait l'inverse : il ajoute
+une association que la base peut perdre. `sqlite-jdbc` embarque le moteur SQLite natif, et une base reconstruite de zéro
+classe `cpe:/a:sqlite:sqlite` dans l'écosystème natif, que l'analyseur écarte pour un JAR. L'indice donne le vendeur, le
+produit `sqlite` et la version du pilote aux bibliothèques natives extraites du JAR ; sa version suit
+`<sqlite-jdbc.version>` (`DependencyCheckWorkflowContractTest`), donc une montée de version du pilote met l'indice à jour
+dans le même changement. `security.yml` vérifie après les scans que le rapport produit porte encore
+`cpe:2.3:a:sqlite:sqlite` à la version du pilote (`scripts/check-dependency-check-sqlite-identification.py`, échec
+`SQLITE_ENGINE_NOT_IDENTIFIED`).
+
 Le workflow **MORPHEUS Security** utilise une base Dependency-Check produite uniquement par des événements de confiance. Sa politique est :
 
 ```text
@@ -180,13 +224,13 @@ D2 reste un gate local spécialisé avec interdiction de modifier `.github/workf
 Windows :
 
 ```powershell
-.\scripts\validate.cmd d2 -Version 1.2.1 -BaseRef origin/develop
+.\scripts\validate.cmd d2 -Version 1.2.2 -BaseRef origin/develop
 ```
 
 Linux / WSL :
 
 ```bash
-MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.1
+MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.2
 ```
 
 D2 conserve ses minima absolus de couverture `40% / 35%`, exécute Dependency-Check et exige le portable de la plateforme pour une qualification finale sans skip.
@@ -196,19 +240,19 @@ D2 conserve ses minima absolus de couverture `40% / 35%`, exécute Dependency-Ch
 Windows portable :
 
 ```powershell
-.\distribution\build-portable.ps1 -Version 1.2.1
+.\distribution\build-portable.ps1 -Version 1.2.2
 ```
 
 Windows setup :
 
 ```powershell
-.\distribution\build-installer.ps1 -Version 1.2.1
+.\distribution\build-installer.ps1 -Version 1.2.2
 ```
 
 Linux portable :
 
 ```bash
-bash distribution/build-portable.sh 1.2.1
+bash distribution/build-portable.sh 1.2.2
 ```
 
 Les builders de release exigent un workspace propre et que le tag attendu pointe exactement sur HEAD avant de produire l'artefact et son checksum SHA-256.
@@ -241,6 +285,7 @@ Contrats de durcissement particulièrement importants :
 
 ```text
 morpheus-store-sqlite/.../SqliteTransactionRunnerTest.java
+morpheus-store-sqlite/.../ReleasedSchemaUpgradeTest.java
 morpheus-application/.../SyncReliabilityFallbackTest.java
 morpheus-api/.../MorpheusRemoteIdentityLifecycleTest.java
 morpheus-api/.../ApiRuntimeSqliteSessionTest.java
@@ -251,7 +296,28 @@ morpheus-architecture-tests/.../ProductReleaseContractTest.java
 morpheus-architecture-tests/.../AuditHardeningWorkflowContractTest.java
 ```
 
+`ReleasedSchemaUpgradeTest` ouvre avec le store courant une base construite par les seules migrations de chaque niveau de schéma publié, garnie de lignes dans toutes les tables qu'une migration ultérieure lit ou réécrit, puis relit ces lignes par les opérations des stores. Les niveaux sont déclarés une fois dans `morpheus-store-sqlite/src/test/resources/released-schema-levels.properties` ; une release y déclare son niveau dans la version qui la suit, et `ReleasedSchemaLevelsDeclarationTest` fait échouer le build tant qu'une version publiée dont les notes existent n'a pas sa ligne. Ces lignes sont écrites par le test, d'après les requêtes d'insertion des stores aux tags. Une seconde fabrique part des bases que les programmes publiés ont eux-mêmes écrites, une par niveau, sous `morpheus-store-sqlite/src/test/resources/published-databases/` (le `README.md` du répertoire dit quel tag, quel commit et quelle commande a produit chacune) : elle les fait monter, retrouve chaque ligne écrite à l'identique, hors la valeur que V020 renomme, et relit identités et historique par les stores. `validate-r2` exige un cas par niveau déclaré pour chaque fabrique, compte lu dans la déclaration.
+
 Windows et Linux doivent qualifier exactement le même SHA pour considérer une baseline M21 comme durable.
+
+## Parallélisme JUnit
+
+La règle est décidée par [ADR-0115](../architecture/adr/ARCH-0115-the-operational-runtime-is-a-value-the-launcher-hands-on.md) : le parallélisme JUnit n'est activé que dans un module dont aucun test ne partage un état de la JVM.
+
+Quatre modules l'activent : `morpheus-store-sqlite`, `morpheus-api`, `morpheus-mcp` et `morpheus-cli`. Chacun porte un `src/test/resources/junit-platform.properties` versionné qui rend concurrentes les méthodes et les classes, sur un pool fixe (`config.strategy=fixed`), pour qu'une course ne dépende pas du nombre de cœurs de la machine. Dans ces modules :
+
+- un test qui asserte sur des compteurs les lit sur le runtime ou le recorder qu'il a construit et remis au code testé (la portée de connexion compte sur le recorder de son ouvreur), jamais sur un état du processus ;
+- une portée se ferme dans un `finally`, jamais seulement après des assertions ;
+- une classe qui change un état lu par toute la JVM — locale ou fuseau par défaut, propriété système, flux standard, pilote de `DriverManager` — est `@Isolated`, dans tout module : `JvmMutatingTestsAreIsolatedArchitectureTest` le refuse sinon. `@ResourceLock` ne suffit pas, il n'ordonne que les tests qui déclarent le même verrou, et les lecteurs de ces valeurs n'en déclarent aucun ;
+- une classe qui sature une ressource exprès ou mesure une ressource de toute la JVM est `@Isolated` : `SqliteLocalSecurityContractTest` (sature SQLite), `SqliteDatabaseLeaseTest` (descripteurs de la JVM), `MorpheusRemoteAdversarialClientTest` (ses méthodes remplissent les créneaux d'une même façade), `MorpheusRemoteLoadProfileTest` (ses mesures de temps sont une preuve, et ses méthodes écrivent `target/remote-load-profile.txt`).
+
+Dans `morpheus-store-sqlite` seul, `NoSqliteScopeLeftBehindExtension`, enregistrée par `META-INF/services` et `junit.jupiter.extensions.autodetection.enabled`, lit après chaque test la portée encore attachée au thread (`SqliteConnectionScope.attachedToThisThread()`, visible du paquet seulement), la ferme, et fait échouer le test fautif par son nom. Les trois autres modules n'ouvrent de portée que par les runtimes de production (`ApiRuntime`, `MorpheusMcpRuntime`, `CliRuntime`), qui la ferment eux-mêmes ; l'accesseur n'est pas visible hors de son paquet, et l'extension n'y est pas reprise.
+
+Les tests générés d'une fabrique s'exécutent eux aussi en concurrence. Une classe dont les tests partagent un état posé en `@BeforeAll` le garde en lecture seule, ou est `@Isolated` : `CliCommandTranscriptTest` ne partage que l'espace de travail copié, chaque cas construisant sa base dans son propre répertoire, et `McpToolTranscriptTest` sert ses outils sur une base publiée une fois, sans capacité d'écriture.
+
+Les autres modules restent séquentiels. `MinosPeerLauncherResolutionTest` et `NexusPeerLauncherResolutionTest` posent `java.home` et sont `@Isolated` : activer le parallélisme dans leur module ne les trouverait pas en défaut. Aucun test n'écoute sur un port fixe. Les baux (`SqliteDatabaseLease`) et la quarantaine de l'exécuteur de transactions sont statiques mais indexés par base ou par connexion : deux tests sur deux bases temporaires n'y partagent rien.
+
+Activer le parallélisme dans un autre module est un changement à part, précédé d'exécutions parallèles propres répétées dans ce module.
 
 ## Preuves historiques
 
@@ -259,4 +325,4 @@ Windows et Linux doivent qualifier exactement le même SHA pour considérer une 
 - D2 historique : [`../project/validation/VALIDATION_D2.md`](../project/validation/VALIDATION_D2.md)
 - plan D2 : [`../project/roadmap/D2_EXECUTION.md`](../project/roadmap/D2_EXECUTION.md)
 
-Ces documents historiques conservent les commandes et versions réellement utilisées lors de leur qualification ; ils ne doivent pas être réécrits pour faire croire qu'ils validaient `1.2.1`.
+Ces documents historiques conservent les commandes et versions réellement utilisées lors de leur qualification ; ils ne doivent pas être réécrits pour faire croire qu'ils validaient `1.2.2`.

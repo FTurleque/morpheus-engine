@@ -43,8 +43,8 @@ import com.morpheus.domain.version.EntityVersionId;
 import com.morpheus.domain.version.SpecificationVersion;
 import com.morpheus.domain.version.SpecificationVersionId;
 import com.morpheus.store.memory.MemorySpecificationKnowledgeStore;
-import com.morpheus.store.sqlite.SqliteSpecificationKnowledgeStore;
-import com.morpheus.store.sqlite.SqliteVersionedRequirementStore;
+import com.morpheus.store.sqlite.adapter.SqliteSpecificationKnowledgeStore;
+import com.morpheus.store.sqlite.adapter.SqliteVersionedRequirementStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -134,7 +134,7 @@ class PublishedHistoryContractTest {
         HistoricalRequirementQueryService historical = new HistoricalRequirementQueryService(store, store);
         RequirementSnapshotComparisonService comparison = new RequirementSnapshotComparisonService(store, store);
 
-        assertThrows(PublishedHistoryException.class, () -> historical.requirements(candidateId));
+        assertThrows(PublishedHistoryException.class, () -> historical.requirements(candidateId, 0, 10));
         assertThrows(PublishedHistoryException.class,
                 () -> comparison.compare(fixture.snapshot2Id(), candidateId));
         assertEquals(2, new PublishedSnapshotHistoryService(store).lineage(fixture.projectId()).size());
@@ -202,8 +202,8 @@ class PublishedHistoryContractTest {
         assertEquals(KnowledgeSnapshotState.ACTIVE, lineage.get(1).state());
 
         HistoricalRequirementQueryService historical = new HistoricalRequirementQueryService(snapshots, requirements);
-        assertEquals(3, historical.requirements(fixture.snapshot1Id()).size());
-        assertEquals(3, historical.requirements(fixture.snapshot2Id()).size(),
+        assertEquals(3, historical.requirements(fixture.snapshot1Id(), 0, 10).items().size());
+        assertEquals(3, historical.requirements(fixture.snapshot2Id(), 0, 10).items().size(),
                 "PROPOSED occurrences must not leak into the published CURRENT projection");
         assertEquals("retain sessions for 30 minutes",
                 historical.requirement(fixture.snapshot1Id(), fixture.modifiedId().value())

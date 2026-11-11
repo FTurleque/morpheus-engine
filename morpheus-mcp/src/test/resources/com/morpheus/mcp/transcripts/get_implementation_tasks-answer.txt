@@ -1,0 +1,5 @@
+tool: get_implementation_tasks
+arguments: {"changeId":"01920000-0000-7000-8000-000000000106","projectId":"01920000-0000-7000-8000-000000000101"}
+isError: false
+text:
+{"hasMore":false,"items":[{"changeId":"01920000-0000-7000-8000-000000000106","completed":false,"id":"01920000-0000-7000-8000-000000000109","key":"TASK-1","title":"Define the persistent-session data model"}],"limit":50,"offset":0,"snapshotId":"<id-1>","totalMatches":1}

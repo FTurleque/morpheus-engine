@@ -2,7 +2,6 @@ package com.morpheus.application.policy;
 
 import com.morpheus.application.composition.CompositionStateStore;
 import com.morpheus.application.store.ExternalReferenceStore;
-import com.morpheus.application.store.PolicyPackStore;
 import com.morpheus.application.store.PortfolioStore;
 import com.morpheus.application.store.SnapshotBusinessContentStore;
 import com.morpheus.application.store.SpecificationKnowledgeStore;
@@ -12,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -52,9 +52,10 @@ class PolicyRuntimeServicesTest {
         ExternalReferenceStore externalReferences = unusedPort(ExternalReferenceStore.class);
         PortfolioStore portfolio = unusedPort(PortfolioStore.class);
 
-        assertThrows(NullPointerException.class, () -> PolicyRuntimeServices.from(
+        NullPointerException failure = assertThrows(NullPointerException.class, () -> PolicyRuntimeServices.from(
                 specifications, requirements, businessContent, traceability, externalReferences, portfolio, null,
                 unusedPort(CompositionStateStore.class)));
+        assertEquals("store", failure.getMessage());
     }
 
     @Test
@@ -71,8 +72,12 @@ class PolicyRuntimeServicesTest {
         PolicyEvaluationService evaluation = services.evaluation();
         PolicyPackService registry = services.registry();
 
-        assertThrows(NullPointerException.class, () -> new PolicyRuntimeServices(null, evaluation));
-        assertThrows(NullPointerException.class, () -> new PolicyRuntimeServices(registry, null));
+        NullPointerException missingRegistry = assertThrows(
+                NullPointerException.class, () -> new PolicyRuntimeServices(null, evaluation));
+        assertEquals("registry", missingRegistry.getMessage());
+        NullPointerException missingEvaluation = assertThrows(
+                NullPointerException.class, () -> new PolicyRuntimeServices(registry, null));
+        assertEquals("evaluation", missingEvaluation.getMessage());
     }
 
     /** A port that fails on any call: wiring is allowed to hold it, never to use it. */

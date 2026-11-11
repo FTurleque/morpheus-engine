@@ -4,12 +4,16 @@
 Define what an MCP client receives when a MORPHEUS tool cannot complete, and the bound on how long a tool call can
 last before MORPHEUS answers it.
 
+Documentation durable (vue consolidée, diagrammes, traçabilité) : [docs/developer/specifications/mcp-tool-failure-contract.md](../../../docs/developer/specifications/mcp-tool-failure-contract.md).
+
 ## Requirements
 
 ### Requirement: Tool failures are tool results
 
 A MORPHEUS MCP tool SHALL answer a failure it can reach with a tool result marked `isError` and carrying a message
-that names no server path, and MUST NOT turn such a failure into a JSON-RPC protocol error.
+that names no server path the caller did not supply, and MUST NOT turn such a failure into a JSON-RPC protocol error.
+A refusal that names a path given in the tool's arguments keeps that path: the server is local, reached over STDIO
+under the caller's account, and the path says what to correct.
 
 #### Scenario: The database is reserved by an offline maintenance
 
@@ -21,6 +25,11 @@ that names no server path, and MUST NOT turn such a failure into a JSON-RPC prot
 - **WHEN** a tool that reads the knowledge store is called and the SQLite driver fails to open the database
 - **THEN** the client receives a tool result with `isError: true` whose text contains no exception chain and no
   absolute path
+
+#### Scenario: A refusal names the path the caller supplied
+
+- **WHEN** a tool is called with a workspace path that is not a real directory
+- **THEN** the client receives a tool result with `isError: true` whose text names that path, unfiltered
 
 ### Requirement: A peer operation within its configured bound never closes the session
 

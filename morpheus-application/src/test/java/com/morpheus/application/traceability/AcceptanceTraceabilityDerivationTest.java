@@ -1,6 +1,6 @@
 package com.morpheus.application.traceability;
 
-import com.morpheus.application.ingestion.NormalizedProjectContent;
+import com.morpheus.application.read.NormalizedProjectContent;
 import com.morpheus.domain.acceptance.AcceptanceCriterion;
 import com.morpheus.domain.acceptance.AcceptanceCriterionId;
 import com.morpheus.domain.acceptance.VerificationStatus;

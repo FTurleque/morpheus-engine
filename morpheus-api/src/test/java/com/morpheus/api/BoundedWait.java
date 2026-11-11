@@ -32,7 +32,7 @@ import java.util.function.Supplier;
  * change made for a cosmetic reason. {@code BoundedWaitOwnershipTest} keeps the two in step and stops the
  * twelve hand-rolled helpers from growing back.</p>
  */
-final class BoundedWait {
+public final class BoundedWait {
 
     /**
      * Sampling interval for a state read over HTTPS from the facade under test.
@@ -40,14 +40,14 @@ final class BoundedWait {
      * <p>Each sample is a real request against the very server whose occupancy is being measured, so polling
      * faster does not observe sooner -- it adds load of its own to what is being observed.</p>
      */
-    static final Duration HTTPS_STATUS_POLL = Duration.ofMillis(25);
+    public static final Duration HTTPS_STATUS_POLL = Duration.ofMillis(25);
 
     /**
      * Sampling interval for a counter this process can read without touching the network.
      *
      * <p>Cheap to observe, so the interval only needs to stay well below the transition being watched for.</p>
      */
-    static final Duration LOCAL_COUNTER_POLL = Duration.ofMillis(20);
+    public static final Duration LOCAL_COUNTER_POLL = Duration.ofMillis(20);
 
     private BoundedWait() {
     }
@@ -65,7 +65,7 @@ final class BoundedWait {
     // observe by looking. The state belongs to an HTTPS facade that publishes its state and offers no latch,
     // so there is nothing to await; the deadline is what keeps a stuck peer a failure, not a hang.
     @SuppressWarnings("java:S2925")
-    static void until(
+    public static void until(
             String what,
             Duration budget,
             Duration pollInterval,
@@ -93,7 +93,7 @@ final class BoundedWait {
      */
     // java:S2925 -- category one of three: a bounded poll of external state, exactly as above.
     @SuppressWarnings("java:S2925")
-    static <T> T untilObserved(
+    public static <T> T untilObserved(
             String what,
             Duration budget,
             Duration pollInterval,
