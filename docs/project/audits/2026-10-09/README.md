@@ -8,6 +8,47 @@
 
 ---
 
+## État au 10 novembre 2026 — le carnet OpenSpec est vide, les trois constats actifs sont intacts
+
+Revérification sur `38a4079f` (`origin/develop`, PR #623), **17 commits et 31 fichiers** (+798 / −152) depuis
+`00ca1378`. Build : **vert** — 19 modules, **5 413 tests, 0 échec, 14 ignorés**, `BUILD SUCCESS` en **9 min 22**, verdict séparé `documentation drift: 0` / `architecture violation: 0`. Totaux par module identiques à ceux du 7 novembre au soir, ce qu'on attend d'une base où aucun fichier `.java` ne change. Détail dans **`reverification-2026-11-10.md`**.
+
+**Ce qui a changé n'est pas ce qu'on attendait.** Cinq pull requests : trois montées Dependabot (`setup-java` 6.2.0,
+`codeql-action` 4.39.3, PIT 1.30.2), les scripts de fumée MINOS et NEXUS portés sur les deux plateformes, et la
+publication de l'audit du 7 novembre. **Aucun fichier `.java` ne change** — mesuré, pas supposé : `git diff --name-only
+-- '*.java'` renvoie zéro. Les deux derniers changements OpenSpec en vol sont archivés, et `openspec/changes/` ne
+contient plus que son `archive/` : **94 changements archivés, zéro en cours**. Le carnet est vide pour la première
+fois depuis le début de la mission.
+
+**Les trois constats actifs sont donc intacts, et je les ai revérifiés un par un plutôt que de le déduire du diff.**
+`AUD-TRV-02` : six clés sur trente-deux toujours au plancher absolu, quatre seuils de couverture inchangés, preuve de
+qualification désormais à **25 commits** de la tête. `AUD-TST-25` : les deux plafonds valent toujours 0 sans aucune clé
+de cliquet — alors que le dépôt en a créé une septième le 7 novembre pour les suppressions CVE, donc le patron existe
+et n'a pas été repris. `AUD-ARC-21` : `tableOfFactsUnder` n'existe toujours pas, et `ARCH-0165` n'est cité par **aucun
+`.java`** trois jours après son acceptation.
+
+**Un constat neuf, trouvé dans la vague Dependabot.** `AUD-QUA-23` : trois cellules de tableau de
+`docs/developer/CODE_AUDIT.md` et `docs/developer/SPOTBUGS.md` écrivent une propriété du POM avec une valeur que le POM
+ne porte plus — `spotbugs.maven.plugin.version` à `4.10.4.1` pour `4.10.5.0`, dérive ouverte le **19 octobre** et
+passée sous quatre revérifications dont les miennes, et `pitest.maven.plugin.version` à `1.30.0` pour `1.30.2`, deux
+bumps de retard. Le gate qui sait comparer exactement cette forme existe ; sa portée déclarée est
+`.claude/` plus `.github/AI_GOVERNANCE.md`, et **tout `docs/` lui est invisible**. C'est la dérive pour laquelle
+`.claude/rules/meta.md` a été écrit, résolue d'un seul côté de la frontière.
+
+**130 constats : 99 corrigés · 1 partiel · 3 toujours valides · 4 caducs · 22 Info qui tiennent · 1 non vérifiable.**
+Les **4 constats actifs** sont 1 `Moyenne` et 3 `Faible`. Charge restante : **3,75 à 11 jours**. Moyenne inchangée à
+**98** : le constat neuf coûte un point à Qualité et un à Dépendances.
+
+| Axe | 7 nov. soir | 10 nov. |
+|---|---|---|
+| Sécurité | 100 | **100** |
+| Performance | 100 | **100** |
+| Dépendances | 100 | **99** |
+| Architecture | 98 | **98** |
+| Tests | 95 | **95** |
+| Qualité | 95 | **94** |
+| **Moyenne** | **98** | **98** |
+
 ## État au 7 novembre 2026, au soir — six clôtures, dont la plus ancienne, 96 → 98
 
 Revérification sur `00ca1378` (`origin/develop`, PR #618), **5 commits et 38 fichiers** (+1 855 / −331) depuis
