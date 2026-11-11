@@ -42,7 +42,9 @@ Le mainteneur a retenu l'option 3 le 2026-11-06 pour la CLI et l'adaptateur HTTP
    `com.morpheus.cli`, `ApiTechnologyBoundaryArchitectureTest` pour `com.morpheus.api`. Chaque famille du vocabulaire
    partagé `TechnologyFamily` y a un régime, avec sa raison : refusée, confinée aux classes nommées, libre, ou tenue par
    un autre gate nommé. Une famille ajoutée au vocabulaire exige un régime dans chaque gate de familles.
-3. **Les listes confinées d'un module de transport sont des tables de faits.** Chacune égale l'ensemble des classes qui
+3. **Les listes confinées d'un module de transport sont des tables de faits** :
+   `CliTechnologyBoundaryArchitectureTest.CONFINED_FAMILIES` et `ApiTechnologyBoundaryArchitectureTest.CONFINED_FAMILIES`.
+   Chacune égale l'ensemble des classes qui
    atteignent la famille, mesuré sur le bytecode, dans les deux sens. Une classe ajoutée s'y écrit avec sa raison, dans
    le changement qui l'introduit, sans ADR ; la description de la pull request la justifie comme toute modification d'un
    test d'architecture.
@@ -84,8 +86,9 @@ Le mainteneur a retenu l'option 3 le 2026-11-06 pour la CLI et l'adaptateur HTTP
 - `CliTechnologyBoundaryArchitectureTest` et `ApiTechnologyBoundaryArchitectureTest` : un régime par famille, refus
   d'une famille refusée, égalité stricte entre classes nommées et classes qui atteignent une famille confinée.
 - `ApplicationTechnologyBoundaryArchitectureTest` : le côté application, tenu par ADR-0150.
-- `ProductionClassListsArchitectureTest` : les listes confinées des deux modules de transport sont déclarées tables de
-  faits.
+- `ProductionClassListsArchitectureTest` : `CliTechnologyBoundaryArchitectureTest.CONFINED_FAMILIES` et
+  `ApiTechnologyBoundaryArchitectureTest.CONFINED_FAMILIES` sont déclarées tables de faits sous cet ADR, qui les nomme
+  sans énumérer leurs classes ; un ADR accepté qui les nomme est celui qu'elles déclarent.
 - Revue : une classe ajoutée à une liste confinée porte sa raison, et la pull request la justifie.
 
 ## References

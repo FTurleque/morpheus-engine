@@ -103,7 +103,7 @@ classes ; ni l'un ni l'autre ne dépend d'un autre store ou d'un provider.
 | R2 | A transport adapter reads a constant of the runtime | idem | idem | même classe, `#noMainSourceOutsideTheStoreNamesARuntimeClassBesideTheTwoNamedEntryPoints` |
 | R2 | The named exceptions keep working | idem | idem | mêmes tests (la règle passe) ; `#everyNamedEntryPointIsStillReachedFromOutsideTheStore` |
 | R3 | An entry point is no longer used | idem | idem | même classe, `#everyNamedEntryPointIsStillReachedFromOutsideTheStore` ; [`ProductionClassListsArchitectureTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/ProductionClassListsArchitectureTest.java)`#everyDebtCounterHoldsExactlyTheSizeItsRatchetAllows` |
-| R3 | An entry point is added | idem | idem | `ProductionClassListsArchitectureTest#everyDebtCounterHoldsExactlyTheSizeItsRatchetAllows`, `#everyDebtCounterIsNamedByTheAcceptedDecisionRecordItDeclares` |
+| R3 | An entry point is added | idem | idem | `ProductionClassListsArchitectureTest#everyDebtCounterHoldsExactlyTheSizeItsRatchetAllows`, `#everyListIsNamedByTheAcceptedDecisionRecordItDeclares` |
 | R4 | A runtime type becomes public | idem | idem | `SqliteStorePackagesArchitectureTest#theRuntimeDeclaresExactlyTheNamedPublicTypes` (ajout) |
 | R4 | A runtime type is no longer public | idem | idem | même test (retrait), plus `ProductionClassListsArchitectureTest#everyDebtCounterHoldsExactlyTheSizeItsRatchetAllows` |
 | R5 | A store borrows from the memory store | idem | idem | [`AdapterSiblingArchitectureTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/AdapterSiblingArchitectureTest.java)`#storesDoNotDependOnEachOther` |

@@ -108,12 +108,13 @@ les deux exigences du tableau.
 
 ## Stratégie de vérification
 
-| Exigence | Scénario | Preuve | État |
-|---|---|---|---|
-| Une table de faits … DOIT déclarer cet ADR | Les six types d'entrée / Un type d'entrée ajouté | `everyListADecisionRecordEnumeratesEqualsItsEnumeration`, `aNameAddedToTheGateAndNotToTheRecordIsNamedWithTheRecordAndTheList` | existant |
-| idem | Les listes confinées … sous ARCH-0165 | `everyListIsNamedByTheAcceptedDecisionRecordItDeclares` sur le dépôt réel | à écrire |
-| idem | déclare un ADR qui ne la nomme pas / ADR archivé | test sur registre temporaire | à écrire |
-| Un ADR accepté qui nomme une table … | les quatre scénarios | test sur registre temporaire + méthode sur le dépôt réel ; violation plantée : retirer la déclaration de `MAIN_USERS`, constater l'échec qui nomme `ARCH-0115` | à écrire |
+| Exigence | Scénario | Décision | Tâche | Preuve | État |
+|---|---|---|---|---|---|
+| Une table de faits … DOIT déclarer cet ADR | Les six types d'entrée / Un type d'entrée ajouté | — | — | `everyListADecisionRecordEnumeratesEqualsItsEnumeration`, `aNameAddedToTheGateAndNotToTheRecordIsNamedWithTheRecordAndTheList` | existant |
+| idem | Les listes confinées … sous ARCH-0165 | D1, D4 | 1.2, 1.3 | `everyListIsNamedByTheAcceptedDecisionRecordItDeclares` sur le dépôt réel | prouvé |
+| idem | déclare un ADR qui ne la nomme pas / ADR archivé | D2 | 1.1, 1.2 | `aTableOfFactsDeclaringARecordByReferenceIsRefusedByNameAndRecordUnlessTheAcceptedRecordNamesIt` (registre temporaire) ; violation plantée : `ONE_STORE_PER_OPERATION` sous `ARCH-0165` | prouvé |
+| Un ADR accepté qui nomme une table … | Une table nommée par un ADR et déclarée sans lui | D3, D4 | 2.2, 2.3, 2.4 | `everyTableOfFactsAnAcceptedRecordNamesDeclaresThatRecord` ; violation plantée : déclaration de `MAIN_USERS` retirée, refus qui nomme `ARCH-0115` | prouvé |
+| idem | deux ADR / classe de test seule / ADR retiré | D3 | 2.1 | `anAcceptedRecordNamingATableItDoesNotDeclareIsRefusedAndSoAreTwoRecordsNamingOneTable` (registre temporaire) | prouvé |
 
 ## Documentation durable et diagrammes à mettre à jour
 

@@ -41,7 +41,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *       accepted record it declares names it by {@code TestClass.FIELD}, and its size equals its key in
  *       {@code config/debt-counter-ratchets.properties}, a key that is only ever lowered;</li>
  *   <li>a <strong>table of facts</strong> -- exactly the classes a stated fact is true of, each entry with its reason
- *       or the whole table with one.</li>
+ *       or the whole table with one. A table that an accepted decision record states declares that record, whether the
+ *       record enumerates it or names it by {@code TestClass.FIELD} only, and an accepted record that names a table by
+ *       {@code TestClass.FIELD} is the one the table declares.</li>
  * </ul>
  *
  * <p>A class of any module with sources under {@code src/main/java} counts, so a list of the domain, the application,
@@ -66,6 +68,10 @@ class ProductionClassListsArchitectureTest {
 
         static Kind debtCounterEnumeratedBy(String decisionRecord, String packageRoot) {
             return new Kind(true, Optional.of(decisionRecord), Optional.of(packageRoot));
+        }
+
+        static Kind tableOfFactsUnder(String decisionRecord) {
+            return new Kind(false, Optional.of(decisionRecord), Optional.empty());
         }
 
         static Kind tableOfFactsEnumeratedBy(String decisionRecord, String packageRoot) {
@@ -97,7 +103,7 @@ class ProductionClassListsArchitectureTest {
     private static final Map<String, Kind> KINDS = Map.ofEntries(
             Map.entry("AdapterCompositionRootArchitectureTest.COMPOSITION_ROOTS", Kind.debtCounterUnder("ARCH-0162")),
             Map.entry("ApiEntryTypesArchitectureTest.ENTRY_TYPES", Kind.tableOfFactsEnumeratedBy("ARCH-0155", SIMPLE_NAMES)),
-            Map.entry("ApiTechnologyBoundaryArchitectureTest.CONFINED_FAMILIES", Kind.TABLE_OF_FACTS),
+            Map.entry("ApiTechnologyBoundaryArchitectureTest.CONFINED_FAMILIES", Kind.tableOfFactsUnder("ARCH-0165")),
             Map.entry("AppendOnlyJournalReadsArchitectureTest.JOURNAL_PAGES", Kind.TABLE_OF_FACTS),
             Map.entry("AppendOnlyJournalReadsArchitectureTest.JOURNAL_PORTS", Kind.TABLE_OF_FACTS),
             Map.entry("AppendOnlyJournalReadsArchitectureTest.JOURNAL_RECORDS", Kind.TABLE_OF_FACTS),
@@ -108,7 +114,7 @@ class ProductionClassListsArchitectureTest {
                     Kind.debtCounterEnumeratedBy("ARCH-0150", APPLICATION_ROOT)),
             Map.entry("CliArgumentBaseArchitectureTest.OTHER_PURPOSES", Kind.TABLE_OF_FACTS),
             Map.entry("CliOptionValueHasOneBlankDefinitionTest.OTHER_QUESTIONS", Kind.TABLE_OF_FACTS),
-            Map.entry("CliTechnologyBoundaryArchitectureTest.CONFINED_FAMILIES", Kind.TABLE_OF_FACTS),
+            Map.entry("CliTechnologyBoundaryArchitectureTest.CONFINED_FAMILIES", Kind.tableOfFactsUnder("ARCH-0165")),
             Map.entry("CurrentRequirementReaderArchitectureTest.FULL_HISTORY_READERS", Kind.TABLE_OF_FACTS),
             Map.entry("CurrentRequirementReaderArchitectureTest.WHOLE_CURRENT_READERS", Kind.TABLE_OF_FACTS),
             Map.entry("DispatchersHoldNoUseCaseArchitectureTest.CLI_ALLOWANCE", Kind.TABLE_OF_FACTS),
@@ -141,14 +147,15 @@ class ProductionClassListsArchitectureTest {
             Map.entry("SharedDomainProjectionArchitectureTest.SHARED_TYPES", Kind.TABLE_OF_FACTS),
             Map.entry("ShippedRequirementStoresPageThemselvesArchitectureTest.SHIPPED_STORES", Kind.TABLE_OF_FACTS),
             Map.entry("SilentCatchArchitectureTest.EXPLAINED", Kind.TABLE_OF_FACTS),
-            Map.entry("SqliteConnectionScopeUseArchitectureTest.ONE_STORE_PER_OPERATION", Kind.TABLE_OF_FACTS),
+            Map.entry("SqliteConnectionScopeUseArchitectureTest.ONE_STORE_PER_OPERATION",
+                    Kind.tableOfFactsUnder("ARCH-0162")),
             Map.entry("SqliteConnectionScopeUseArchitectureTest.SCOPE_OWNERS", Kind.TABLE_OF_FACTS),
             Map.entry("SqliteStoreAdapterHoldsNoMonitorArchitectureTest.RUNTIME_MONITORS", Kind.TABLE_OF_FACTS),
             Map.entry("SqliteStorePackagesArchitectureTest.ADAPTER_COLLABORATORS", Kind.TABLE_OF_FACTS),
             Map.entry("SqliteStorePackagesArchitectureTest.RUNTIME_ENTRY_POINTS",
                     Kind.debtCounterEnumeratedBy("ARCH-0158", SIMPLE_NAMES)),
             Map.entry("SqliteStorePackagesArchitectureTest.RUNTIME_PUBLIC_TYPES", Kind.debtCounterUnder("ARCH-0158")),
-            Map.entry("StaticOperationalRuntimeUsersArchitectureTest.MAIN_USERS", Kind.TABLE_OF_FACTS),
+            Map.entry("StaticOperationalRuntimeUsersArchitectureTest.MAIN_USERS", Kind.tableOfFactsUnder("ARCH-0115")),
             Map.entry("StaticOperationalRuntimeUsersArchitectureTest.PROCESS_RUNTIME_TAKERS", Kind.TABLE_OF_FACTS),
             Map.entry("TextDigestOwnershipArchitectureTest.DIGEST_SITES", Kind.TABLE_OF_FACTS),
             Map.entry("TextDigestOwnershipArchitectureTest.HELPER_OWNERS", Kind.TABLE_OF_FACTS));
@@ -183,18 +190,95 @@ class ProductionClassListsArchitectureTest {
                 + "Found: " + found);
     }
 
+    /**
+     * A list that declares a decision record without being enumerated by it -- a debt counter, or a table of facts its
+     * record states by reference -- is named by that record: the record is in the registry, accepted, and writes
+     * {@code TestClass.FIELD}. A record retired to the archive is not in the registry, so the list that still declares
+     * it fails here instead of resting on a withdrawn decision.
+     */
     @Test
-    void everyDebtCounterIsNamedByTheAcceptedDecisionRecordItDeclares() throws IOException {
-        Path records = RepositoryRoot.locate().resolve(DECISION_RECORDS);
-        List<String> refusals = new ArrayList<>();
-        for (Map.Entry<String, String> counter : debtCounters().entrySet()) {
-            Optional<String> text = acceptedRecord(records, counter.getKey(), counter.getValue(), refusals);
-            if (text.isPresent() && !text.get().contains(counter.getKey())) {
-                refusals.add(counter.getKey() + " declares " + counter.getValue() + ", which does not name it");
+    void everyListIsNamedByTheAcceptedDecisionRecordItDeclares() throws IOException {
+        Map<String, String> declared = new TreeMap<>();
+        KINDS.forEach((list, kind) -> {
+            if (kind.decision().isPresent() && kind.enumerationRoot().isEmpty()) {
+                declared.put(list, kind.decision().get());
+            }
+        });
+        assertTrue(declared.values().stream().distinct().count() > 1, "KINDS declares too few referenced records");
+
+        List<String> refusals = declaredRecordRefusals(RepositoryRoot.locate().resolve(DECISION_RECORDS), declared);
+
+        assertEquals(List.of(), refusals, "a list that declares a decision record rests on it: the record it declares "
+                + "is in " + DECISION_RECORDS + ", accepted, and names it by TestClass.FIELD");
+    }
+
+    /**
+     * The other direction: an accepted record of the registry that writes, in a code span, the {@code TestClass.FIELD} of
+     * a table of facts is the record that table declares. A table named by two accepted records is refused too, since a
+     * decision reads in one active record only. A span that holds the test class alone is prose, not a reference to a
+     * list, and a record of the archive is not read.
+     */
+    @Test
+    void everyTableOfFactsAnAcceptedRecordNamesDeclaresThatRecord() throws IOException {
+        Map<String, Optional<String>> tables = new TreeMap<>();
+        KINDS.forEach((list, kind) -> {
+            if (!kind.debtCounter()) {
+                tables.put(list, kind.decision());
+            }
+        });
+
+        List<String> refusals = undeclaredNamingRefusals(RepositoryRoot.locate().resolve(DECISION_RECORDS), tables);
+
+        assertEquals(List.of(), refusals, "an accepted decision record that names a table of facts by TestClass.FIELD "
+                + "states it: declare the table in KINDS under that record (Kind.tableOfFactsUnder or "
+                + "Kind.tableOfFactsEnumeratedBy), or write the test class without the field");
+    }
+
+    /** The tables of {@code tables} that accepted records of the registry name and that do not declare them alone. */
+    private static List<String> undeclaredNamingRefusals(Path records, Map<String, Optional<String>> tables)
+            throws IOException {
+        List<Path> files;
+        try (Stream<Path> listed = Files.list(records)) {
+            files = listed.filter(file -> DECISION_RECORD_FILE.matcher(file.getFileName().toString()).matches())
+                    .sorted().toList();
+        }
+        Map<String, TreeSet<String>> namedBy = new TreeMap<>();
+        for (Path record : files) {
+            String text = Files.readString(record);
+            if (!text.contains(ACCEPTED)) {
+                continue;
+            }
+            Matcher file = DECISION_RECORD_FILE.matcher(record.getFileName().toString());
+            String decision = file.matches() ? file.group(1) : "";
+            for (String span : codeSpans(text)) {
+                if (tables.containsKey(span)) {
+                    namedBy.computeIfAbsent(span, table -> new TreeSet<>()).add(decision);
+                }
             }
         }
-        assertEquals(List.of(), refusals, "a debt counter shrinks under the decision record that says so: the record "
-                + "it declares is in " + DECISION_RECORDS + ", accepted, and names it by TestClass.FIELD");
+        List<String> refusals = new ArrayList<>();
+        namedBy.forEach((table, decisions) -> {
+            Optional<String> declared = tables.get(table);
+            if (decisions.size() > 1) {
+                refusals.add(table + " is named by " + decisions + ": a table of facts declares one decision record");
+            } else if (!declared.equals(Optional.of(decisions.first()))) {
+                refusals.add(decisions.first() + " names " + table + ", which declares "
+                        + declared.orElse("no decision record"));
+            }
+        });
+        return refusals;
+    }
+
+    /** What keeps each list of {@code declared} from being named by the accepted record it declares in the registry. */
+    private static List<String> declaredRecordRefusals(Path records, Map<String, String> declared) throws IOException {
+        List<String> refusals = new ArrayList<>();
+        for (Map.Entry<String, String> list : new TreeMap<>(declared).entrySet()) {
+            Optional<String> text = acceptedRecord(records, list.getKey(), list.getValue(), refusals);
+            if (text.isPresent() && !text.get().contains(list.getKey())) {
+                refusals.add(list.getKey() + " declares " + list.getValue() + ", which does not name it");
+            }
+        }
+        return refusals;
     }
 
     /**
@@ -459,6 +543,54 @@ class ProductionClassListsArchitectureTest {
             assertTrue(refusals.stream().anyMatch(refusal -> refusal.contains("Facts.TYPES")
                     && refusal.contains(decision)), decision + " not named in " + refusals);
         }
+    }
+
+    @Test
+    void aTableOfFactsDeclaringARecordByReferenceIsRefusedByNameAndRecordUnlessTheAcceptedRecordNamesIt(
+            @TempDir Path registry) throws IOException {
+        Files.createDirectories(registry.resolve("archive"));
+        Files.writeString(registry.resolve("archive/ARCH-9000-retired.md"), "- " + ACCEPTED
+                + "\n\nThe facts are `Facts.TYPES`.\n");
+        Files.writeString(registry.resolve("ARCH-9001-proposed.md"), "- Statut : **Proposée**\n\n`Facts.TYPES`.\n");
+        Files.writeString(registry.resolve("ARCH-9002-silent.md"), "- " + ACCEPTED + "\n\nNo reference here.\n");
+        Files.writeString(registry.resolve("ARCH-9003-naming.md"), "- " + ACCEPTED + "\n\nThe facts are `Facts.TYPES`.\n");
+
+        List<String> refusals = declaredRecordRefusals(registry, Map.of("Facts.ARCHIVED", "ARCH-9000",
+                "Facts.PROPOSED", "ARCH-9001", "Facts.SILENT", "ARCH-9002", "Facts.TYPES", "ARCH-9003"));
+
+        assertEquals(3, refusals.size(), refusals::toString);
+        for (String list : List.of("Facts.ARCHIVED", "Facts.PROPOSED", "Facts.SILENT")) {
+            String decision = Map.of("Facts.ARCHIVED", "ARCH-9000", "Facts.PROPOSED", "ARCH-9001",
+                    "Facts.SILENT", "ARCH-9002").get(list);
+            assertTrue(refusals.stream().anyMatch(refusal -> refusal.contains(list) && refusal.contains(decision)),
+                    list + " and " + decision + " not named in " + refusals);
+        }
+        assertTrue(refusals.stream().noneMatch(refusal -> refusal.contains("ARCH-9003")), refusals::toString);
+    }
+
+    @Test
+    void anAcceptedRecordNamingATableItDoesNotDeclareIsRefusedAndSoAreTwoRecordsNamingOneTable(@TempDir Path registry)
+            throws IOException {
+        Files.createDirectories(registry.resolve("archive"));
+        Files.writeString(registry.resolve("ARCH-9001-names-undeclared.md"), "- " + ACCEPTED
+                + "\n\nThe users are `Facts.UNDECLARED`.\n");
+        Files.writeString(registry.resolve("ARCH-9002-first.md"), "- " + ACCEPTED + "\n\nSee `Facts.SHARED`.\n");
+        Files.writeString(registry.resolve("ARCH-9003-second.md"), "- " + ACCEPTED + "\n\nAlso `Facts.SHARED`.\n");
+        Files.writeString(registry.resolve("ARCH-9004-class-only.md"), "- " + ACCEPTED
+                + "\n\nThe gate is `Facts`, and Facts.CLASS_ONLY is written outside a code span.\n");
+        Files.writeString(registry.resolve("archive/ARCH-9005-retired.md"), "- " + ACCEPTED
+                + "\n\nIt named `Facts.RETIRED`.\n");
+        Files.writeString(registry.resolve("ARCH-9006-proposed.md"), "- Statut : **Proposée**\n\n`Facts.PROPOSED`.\n");
+
+        List<String> refusals = undeclaredNamingRefusals(registry, Map.of("Facts.UNDECLARED", Optional.empty(),
+                "Facts.SHARED", Optional.of("ARCH-9002"), "Facts.CLASS_ONLY", Optional.empty(),
+                "Facts.RETIRED", Optional.empty(), "Facts.PROPOSED", Optional.empty()));
+
+        assertEquals(2, refusals.size(), refusals::toString);
+        assertTrue(refusals.get(0).contains("Facts.SHARED") && refusals.get(0).contains("ARCH-9002")
+                && refusals.get(0).contains("ARCH-9003"), refusals.get(0));
+        assertTrue(refusals.get(1).contains("Facts.UNDECLARED") && refusals.get(1).contains("ARCH-9001"),
+                refusals.get(1));
     }
 
     @Test
