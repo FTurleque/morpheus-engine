@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$Version = '1.2.0',
-    [string]$BaseRef = 'origin/develop',
+    [string]$BaseRef = 'origin/main',
     [switch]$SkipPortable,
     [switch]$SkipInstaller
 )

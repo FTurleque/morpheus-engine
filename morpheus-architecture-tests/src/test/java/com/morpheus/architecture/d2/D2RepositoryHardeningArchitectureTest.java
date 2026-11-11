@@ -36,6 +36,8 @@ class D2RepositoryHardeningArchitectureTest {
      */
     private static final Pattern WORKFLOW_PULL_REQUEST_TRIGGER =
             Pattern.compile("(?m)^\\s*pull_request(?:_target)?:\\s*$");
+    private static final Pattern DEVELOP_BRANCH_WORD = Pattern.compile("\\bdevelop\\b");
+    private static final Pattern VALIDATOR_SCRIPT = Pattern.compile("validate-[a-z0-9-]+\\.(?:ps1|sh)");
     private static final Pattern CODEQL_V4 = Pattern.compile(
             "(?m)^\\s*(?:-\\s*)?uses: github/codeql-action/(?:init|analyze)@[0-9a-f]{40} # v4(?:\\.[0-9]+){1,2}\\s*$");
     private static final Pattern WORKFLOW_FILE = Pattern.compile(".+\\.ya?ml");
@@ -418,12 +420,13 @@ class D2RepositoryHardeningArchitectureTest {
     }
 
     @Test
-    void dependencySecurityGateCoversPromotionAndDevelopUpdatesWithoutPrUpdatesOrCacheWrites() throws IOException {
+    void dependencySecurityGateCoversMainAndDependabotUpdatesWithoutPrUpdatesOrCacheWrites() throws IOException {
         Path root = RepositoryRoot.locate();
         String security = Files.readString(root.resolve(".github/workflows/security.yml"));
         String dependabot = Files.readString(root.resolve(".github/dependabot.yml"));
 
-        assertTrue(security.contains("branches: [main, develop]"));
+        assertTrue(security.contains("branches: [main]"),
+                "main is the only long-lived branch: the security scan filters it alone");
         assertTrue(security.contains("timeout-minutes: 90"));
         assertTrue(security.contains("dependency-check-maven:13.0.0:update-only"));
         assertTrue(security.contains("dependency-check-maven:13.0.0:aggregate"));
@@ -494,7 +497,8 @@ class D2RepositoryHardeningArchitectureTest {
 
         assertTrue(dependabot.contains("package-ecosystem: maven"));
         assertTrue(dependabot.contains("package-ecosystem: github-actions"));
-        assertTrue(dependabot.contains("target-branch: develop"));
+        assertFalse(dependabot.contains("target-branch:"),
+                "Dependabot opens its pull requests against the default branch, main");
     }
 
     /**
@@ -552,6 +556,35 @@ class D2RepositoryHardeningArchitectureTest {
                 "the build-time scan must publish its evidence");
     }
 
+    /**
+     * {@code main} is the only long-lived branch, so no configuration that drives a pipeline or a validator names
+     * another. The word boundary leaves {@code developer} and {@code docs/developer/} alone; dated records are not
+     * read, since they describe what was true at their date.
+     */
+    @Test
+    void noVersionedConfigurationNamesAnIntegrationBranchOtherThanMain() throws IOException {
+        Path root = RepositoryRoot.locate();
+        List<Path> configuration = new ArrayList<>(workflowFiles(root.resolve(".github/workflows")));
+        configuration.add(root.resolve(".github/dependabot.yml"));
+        configuration.add(root.resolve(".archgate/config.json"));
+        try (var scripts = Files.list(root.resolve("scripts"))) {
+            scripts.filter(path -> VALIDATOR_SCRIPT.matcher(path.getFileName().toString()).matches())
+                    .sorted()
+                    .forEach(configuration::add);
+        }
+
+        List<String> offenders = new ArrayList<>();
+        for (Path file : configuration) {
+            if (DEVELOP_BRANCH_WORD.matcher(Files.readString(file)).find()) {
+                offenders.add(root.relativize(file).toString().replace('\\', '/'));
+            }
+        }
+        assertTrue(offenders.isEmpty(),
+                "main is the only long-lived branch; these files still name develop: " + offenders);
+        assertFalse(Files.readString(root.resolve(".github/dependabot.yml")).contains("target-branch:"),
+                "Dependabot targets the default branch, so no entry names a target branch");
+    }
+
     private static int countOccurrences(String text, String needle) {
         return text.split(Pattern.quote(needle), -1).length - 1;
     }
@@ -559,7 +592,8 @@ class D2RepositoryHardeningArchitectureTest {
     @Test
     void codeQlSastIsVersionedAndUsesExtendedJavaSecurityQueries() throws IOException {
         String codeql = Files.readString(RepositoryRoot.locate().resolve(".github/workflows/codeql.yml"));
-        assertTrue(codeql.contains("branches: [main, develop]"));
+        assertTrue(codeql.contains("branches: [main]"),
+                "main is the only long-lived branch: CodeQL filters it alone");
         assertTrue(codeql.contains("security-events: write"));
         assertTrue(codeql.contains("languages: java-kotlin"));
         assertTrue(codeql.contains("build-mode: manual"));

@@ -1,7 +1,7 @@
 # §4 — Stratégie de solution
 
 > **Sources actives** : `pom.xml`, `docs/architecture/adr/`, `contracts/public-surfaces.tsv`,
-> `morpheus-architecture-tests/` et code du HEAD `develop`.
+> `morpheus-architecture-tests/` et code du HEAD `main`.
 
 ---
 

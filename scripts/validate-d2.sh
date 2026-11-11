@@ -2,7 +2,7 @@
 set -euo pipefail
 
 VERSION="${1:-1.2.2}"
-BASE_REF="${MORPHEUS_D2_BASE_REF:-origin/develop}"
+BASE_REF="${MORPHEUS_D2_BASE_REF:-origin/main}"
 SKIP_SECURITY_SCAN="${MORPHEUS_D2_SKIP_SECURITY_SCAN:-false}"
 SKIP_PORTABLE="${MORPHEUS_D2_SKIP_PORTABLE:-false}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -31,11 +31,12 @@ if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
   exit 1
 fi
 
+REQUESTED_BASE_REF="$BASE_REF"
 if ! git rev-parse --verify "${BASE_REF}^{commit}" >/dev/null 2>&1; then
-  BASE_REF=develop
+  BASE_REF=main
 fi
 if ! git rev-parse --verify "${BASE_REF}^{commit}" >/dev/null 2>&1; then
-  echo 'D2 base ref not found and fallback develop is unavailable' >&2
+  echo "D2 base ref not found: ${REQUESTED_BASE_REF} (fallback main also missing)" >&2
   exit 1
 fi
 printf '%s\n' "D2 diff base: $BASE_REF"

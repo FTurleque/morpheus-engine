@@ -1,9 +1,8 @@
 """Behavioural tests of scripts/classify-sonar-quality-gate.sh, with SonarQube Cloud replaced by a stub `curl`.
 
-The script decides what a failed scanner run means. One answer of the service is neither a pass nor a failure: the
-analysis of a branch other than main is processed, and the read of its quality gate is refused (HTTP 403) because the
-organization has no access to branch data. These tests hold that this refusal is reported as an unknown verdict for
-such a branch only, and stays an error on main, when no branch is named, and for every other status.
+The script decides what a failed scanner run means. Only main is analysed, so a refusal to read the quality gate is an
+error that names its status, whatever branch name the environment happens to carry; a gate that passed or failed is
+reported as such.
 """
 
 from __future__ import annotations
@@ -75,43 +74,36 @@ class ClassifySonarQualityGateTest(unittest.TestCase):
                 environment["SONAR_BRANCH_NAME"] = branch
             return subprocess.run([self.bash, SCRIPT.as_posix()], env=environment, capture_output=True, text=True, check=False)
 
-    def test_a_gate_the_service_refuses_to_serve_for_another_branch_is_unknown_not_failed(self):
-        result = self.classify("403", branch="develop")
-
-        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-        self.assertIn("SONAR_QUALITY_GATE_UNREADABLE_OFF_MAIN", result.stdout)
-        self.assertIn("The verdict is unknown, not failed", result.stdout)
-        self.assertNotIn("quality gate: OK", result.stdout)
-
-    def test_the_same_refusal_on_main_stays_an_error(self):
-        result = self.classify("403", branch="main")
+    def test_a_refusal_to_serve_the_gate_is_an_error(self):
+        result = self.classify("403")
 
         self.assertEqual(1, result.returncode)
         self.assertIn("Unable to read the quality gate", result.stdout + result.stderr)
         self.assertIn("HTTP 403", result.stdout + result.stderr)
 
-    def test_the_same_refusal_without_a_named_branch_stays_an_error(self):
-        result = self.classify("403")
+    def test_a_branch_name_in_the_environment_does_not_turn_a_refusal_into_an_unknown_verdict(self):
+        result = self.classify("403", branch="feature")
 
         self.assertEqual(1, result.returncode)
         self.assertIn("HTTP 403", result.stdout + result.stderr)
+        self.assertNotIn("unknown, not failed", result.stdout + result.stderr)
 
-    def test_another_refusal_on_another_branch_stays_an_error(self):
-        result = self.classify("500", branch="develop")
+    def test_another_refusal_stays_an_error(self):
+        result = self.classify("500")
 
         self.assertEqual(1, result.returncode)
         self.assertIn("HTTP 500", result.stdout + result.stderr)
 
     def test_a_gate_that_passed_is_reported_as_passed(self):
-        result = self.classify("200", '{"projectStatus":{"status":"OK"}}', branch="develop")
+        result = self.classify("200", '{"projectStatus":{"status":"OK"}}')
 
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         self.assertIn("quality gate: OK", result.stdout)
 
-    def test_a_gate_that_failed_is_still_a_failure_on_another_branch(self):
+    def test_a_gate_that_failed_is_a_failure(self):
         body = ('{"projectStatus":{"status":"ERROR","conditions":[{"status":"ERROR","metricKey":"new_coverage",'
                 '"actualValue":"10","comparator":"LT","errorThreshold":"80"}]}}')
-        result = self.classify("200", body, branch="develop")
+        result = self.classify("200", body)
 
         self.assertEqual(1, result.returncode)
         self.assertIn("genuinely failed", result.stdout + result.stderr)

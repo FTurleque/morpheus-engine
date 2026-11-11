@@ -7,10 +7,10 @@ release publiée         MORPHEUS 1.2.1 / tag v1.2.1
 release commit           2a8b1ede9cdeb107244b04969726305afc672189
 release précédente       MORPHEUS 1.2.0 / tag v1.2.0 / 3ad9ebf030b58df97482e21e272c24feae6b9d86
 version du reactor       1.2.2
-branche d'intégration    develop
+branche d'intégration    main (seule branche longue)
 ```
 
-`v1.2.1` a été publiée le 16 octobre 2026 et qualifiée par les deux scripts de relecture publique ([`../project/validation/VALIDATION_RELEASE_1.2.1.md`](../project/validation/VALIDATION_RELEASE_1.2.1.md)). Les tags `v1.2.0` et `v1.2.1` sont immuables : le code qui avance sur `develop` ne doit pas être republié sous `1.2.1`. Le reactor porte `1.2.2`, ouverte parce que le schéma SQLite a avancé depuis `v1.2.1`.
+`v1.2.1` a été publiée le 16 octobre 2026 et qualifiée par les deux scripts de relecture publique ([`../project/validation/VALIDATION_RELEASE_1.2.1.md`](../project/validation/VALIDATION_RELEASE_1.2.1.md)). Les tags `v1.2.0` et `v1.2.1` sont immuables : le code qui avance sur `main` ne doit pas être republié sous `1.2.1`. Le reactor porte `1.2.2`, ouverte parce que le schéma SQLite a avancé depuis `v1.2.1`.
 
 ## Prérequis
 
@@ -82,7 +82,7 @@ Changed-branch gate        70%
 dependency analyze         failOnWarning=true
 ```
 
-Le SCA réseau n’est pas attaché au `clean verify` développeur ordinaire. Il est exécuté par `MORPHEUS Security` sur `main` et `develop`, avec refresh trusted quotidien et TTL PR de 72 h. Le profil local `d2-security` reste disponible pour une qualification spécialisée.
+Le SCA réseau n’est pas attaché au `clean verify` développeur ordinaire. Il est exécuté par `MORPHEUS Security` sur `main`, avec refresh trusted quotidien et TTL PR de 72 h. Le profil local `d2-security` reste disponible pour une qualification spécialisée.
 
 ## Gate Maven canonique
 
@@ -116,7 +116,7 @@ bash ./scripts/validate-m21.sh 1.2.2
 
 M21 exige le même SHA exact sur Windows et Ubuntu/Linux, vérifie les ratchets de tests/couverture, le SBOM, la provenance, le portable et la convergence de version CLI/API/update.
 
-La CI canonique exécute M21 sur les pull requests ainsi que sur les pushes `main` et `develop`. Les PR Java de production doivent en plus conserver `>= 80%` de changed-line coverage et `>= 70%` de changed-branch coverage.
+La CI canonique exécute M21 sur les pull requests ainsi que sur les pushes sur `main`. Les PR Java de production doivent en plus conserver `>= 80%` de changed-line coverage et `>= 70%` de changed-branch coverage.
 
 ## Audit de code : SpotBugs et PIT
 
@@ -130,13 +130,13 @@ dépannage, sources officielles) : [SpotBugs](SPOTBUGS.md).
 Windows :
 
 ```powershell
-.\scripts\validate.cmd d2 -Version 1.2.2 -BaseRef origin/develop
+.\scripts\validate.cmd d2 -Version 1.2.2 -BaseRef origin/main
 ```
 
 Linux / WSL :
 
 ```bash
-MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.2
+MORPHEUS_D2_BASE_REF=origin/main bash ./scripts/validate-d2.sh 1.2.2
 ```
 
 D2 conserve sa règle historique de périmètre local : il refuse une PR qui modifie `.github/workflows/**`. Il ne doit donc pas être utilisé comme preuve principale d'une PR dont l'objet est précisément de faire évoluer la CI ; M21 est le gate durable de ce cas.
@@ -172,13 +172,13 @@ Politique : CVSS >= 7.0 fait échouer la qualification ; test scope exclu ; erre
 Le workflow `.github/workflows/security.yml` exécute le même contrôle sur :
 
 ```text
-PR -> main, develop
-push -> main, develop
+PR -> main
+push -> main
 schedule -> quotidien 04:17 UTC
 workflow_dispatch
 ```
 
-`.github/dependabot.yml` ouvre en parallèle les mises à jour Maven et GitHub Actions vers `develop`. Les alertes de vulnérabilité Dependabot et Secret Scanning ont été vérifiées directement dans les réglages GitHub administrateur ; #154 est clôturée.
+`.github/dependabot.yml` ouvre en parallèle les mises à jour Maven et GitHub Actions vers `main`. Les alertes de vulnérabilité Dependabot et Secret Scanning ont été vérifiées directement dans les réglages GitHub administrateur ; #154 est clôturée.
 
 ## Packaging et release
 
@@ -201,7 +201,7 @@ Les distributions embarquent leur runtime Java, le MCP STDIO, l’API, les provi
 
 ## Gouvernance mono-développeur
 
-Le ruleset GitHub **Protect main & develop** protège désormais les deux branches :
+Le ruleset GitHub **Protect main** protège `main`, seule branche longue :
 
 ```text
 PR obligatoire

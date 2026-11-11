@@ -20,7 +20,7 @@ Quand une règle Archgate et un test divergent, le test a raison et la règle se
 
 ```text
 .archgate/
-  config.json                paths.adrs = docs/architecture/adr, domaine personnalisé security (SEC), branche de base origin/develop
+  config.json                paths.adrs = docs/architecture/adr, domaine personnalisé security (SEC), branche de base origin/main
   adrs/.gitkeep              exigé par la CLI pour reconnaître le projet ; rien d'autre n'y vit
   lint/                      réservé par Archgate aux règles de linter (vide)
   rules.d.ts                 généré, ignoré par Git

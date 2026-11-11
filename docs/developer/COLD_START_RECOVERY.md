@@ -64,7 +64,7 @@ la CI.
 
 | Secret / service | À quoi il sert | Ce qui casse sans lui |
 |---|---|---|
-| `SONAR_TOKEN` | Analyse SonarQube Cloud : job `sonar` de [`ci.yml`](../../.github/workflows/ci.yml) après un push sur `main`, job `sonar-develop` de `nightly.yml` sur cadence quotidienne | Ces deux jobs échouent. **Aucun merge n'est bloqué** : Sonar n'est délibérément pas un check requis, pour qu'une panne SonarCloud ne bloque pas une promotion dont les gates propres passent. À distinguer d'un refus qui n'est pas une panne : SonarQube Cloud ne sert pas le Quality Gate d'une branche autre que `main` à cette organisation (HTTP 403). Le job `sonar-develop` envoie donc son analyse, annonce `SONAR_QUALITY_GATE_UNREADABLE_OFF_MAIN` et passe **sans verdict** ; le verdict qui compte est celui de `main` après une promotion |
+| `SONAR_TOKEN` | Analyse SonarQube Cloud : job `sonar` de [`ci.yml`](../../.github/workflows/ci.yml) après chaque push sur `main`, c'est-à-dire chaque fusion | Ce job échoue. **Aucun merge n'est bloqué** : Sonar n'est délibérément pas un check requis, pour qu'une panne SonarCloud ne bloque pas une fusion dont les gates propres passent. Un refus de lire le Quality Gate (HTTP 403 ou autre) reste une erreur qui nomme son statut |
 | `NVD_API_KEY` | Rafraîchir la base de vulnérabilités OWASP Dependency-Check dans [`security.yml`](../../.github/workflows/security.yml) | **Configuré** (posé le 17/09/2026, remplacé le 22/09/2026, lecture prouvée le 22/09/2026) — voir ci-dessous comment le vérifier. Sans lui : plus aucun rafraîchissement, la base périme, et *toutes* les pull requests échouent sur `STALE_DATABASE` |
 | Attestations de release | Provenance signée des artefacts publiés ([`release.yml`](../../.github/workflows/release.yml), `actions/attest`) | Aucun secret à gérer : la signature passe par l'OIDC GitHub, via les permissions `id-token: write` et `attestations: write` déclarées par job. Retirer ces permissions supprime silencieusement la provenance des artefacts publiés |
 
@@ -94,14 +94,6 @@ résumé « Dependency-Check database freshness » :
 | Le job rouge « Dependency-Check refresh alert », annotation `MORPHEUS_DEPENDENCY_CHECK_ALERT=REFRESH_OVERDUE` | Aucune des deux sources n'a rafraîchi la base alors que la clé est configurée (panne du NVD, quota, réseau), et la base a consommé les deux tiers de son budget (48 h sur 72 h) : il reste environ un jour avant `STALE_DATABASE`. Le message nomme la cause. Un seul run manqué de ce type laisse la base à environ 24 h et ne déclenche rien ; c'est le deuxième manqué consécutif qui franchit le seuil |
 | Avertissement `NVD_API_KEY is not configured` | Le secret a disparu : le run passe directement aux flux. Suivi de `REFRESHED_FROM_DATA_FEED`, le gate reste frais ; sinon l'alerte `REFRESH_KEY_UNUSABLE` le nomme dans le même run |
 
-**Sur `main`, rien de ce tableau n'existe encore.** Son `security.yml` ne publie pas la section
-« Dependency-Check database freshness » et ne connaît ni `REFRESH_FAILED` ni `STALE_DATABASE` : il faut lire,
-dans le journal de l'étape « Update Dependency-Check vulnerability database (trusted events) », la ligne du
-rédacteur de sentinelle — `Wrote trusted Dependency-Check refresh sentinel (schema 5.6, plugin 12.2.2, via NVD API key refresh)`.
-Un libellé `via anonymous NVD refresh` y veut dire que la clé n'a pas été lue ; un rafraîchissement en échec
-fait échouer l'étape elle-même, sans repli sur le cache. L'écart disparaît à la promotion de 1.2.1, quand
-`main` prendra le workflow de `develop` ; le tableau ci-dessus vaudra alors pour les deux branches.
-
 `REFRESH_FAILED` porte l'une de deux causes, et le workflow les distingue désormais en lisant le journal de
 l'étape (constat CI-1 de l'audit du 22/09/2026, corrigé le même jour) :
 
@@ -124,8 +116,7 @@ clé est prouvée avant que l'ancienne cesse de servir.
    posée le 17/09/2026 a été refusée jusqu'à son remplacement le 22/09/2026.
 3. `gh secret set NVD_API_KEY --repo FTurleque/morpheus-engine`, en collant l'UUID seul, sans espace ni
    retour à la ligne. Ne jamais passer la clé en argument de commande ni la coller dans un ticket ou un log.
-4. Lancer *MORPHEUS Security* sur `develop` puis sur `main` (`gh workflow run security.yml --ref develop`,
-   puis `--ref main`) : un rafraîchissement attendu jusqu'au prochain `schedule` laisserait l'ancienne clé
+4. Lancer *MORPHEUS Security* sur `main` (`gh workflow run security.yml --ref main`) : un rafraîchissement attendu jusqu'au prochain `schedule` laisserait l'ancienne clé
    seule en service une nuit de plus.
 5. Vérifier chaque run (voir *Vérification d'un remplacement* ci-dessous), puis consigner la date de la
    rotation dans la ligne RT-13 du [registre des risques](../architecture/risks/register.md) et repousser
@@ -134,9 +125,9 @@ clé est prouvée avant que l'ancienne cesse de servir.
 **Qui, quoi, comment.**
 
 - *Détenteur* : le compte du propriétaire du dépôt (`FTurleque`). Il n'existe ni secret d'organisation ni environnement GitHub ; c'est cette personne qui remplace la clé.
-- *Détection* : les annotations `REFRESH_FAILED` et `REFRESHED_FROM_DATA_FEED`, l'avertissement `NVD_API_KEY is not configured`, et les alertes `REFRESH_KEY_UNUSABLE` et `REFRESH_OVERDUE` — un job séparé de `security.yml`, lancé après le scan et le dépôt de ses preuves, sur `push` et sur `schedule` seulement, jamais sur une pull request. Son nom n'est pas un check requis : il ne bloque aucune pull request, il fait seulement échouer le run planifié. Un `schedule` exécutant le workflow de la branche par défaut, l'alerte quotidienne n'existe qu'une fois ce workflow sur `main` ; avant cela elle se déclenche sur les `push` de `develop`.
+- *Détection* : les annotations `REFRESH_FAILED` et `REFRESHED_FROM_DATA_FEED`, l'avertissement `NVD_API_KEY is not configured`, et les alertes `REFRESH_KEY_UNUSABLE` et `REFRESH_OVERDUE` — un job séparé de `security.yml`, lancé après le scan et le dépôt de ses preuves, sur `push` et sur `schedule` seulement, jamais sur une pull request. Son nom n'est pas un check requis : il ne bloque aucune pull request, il fait seulement échouer le run planifié. Un `schedule` exécute le workflow de la branche par défaut, `main`.
 - *Livraison* : l'alerte est un run en échec, donc elle compte sur la notification GitHub d'un workflow planifié en échec, adressée à la personne qui a modifié en dernier la ligne `cron` du fichier, selon ses réglages (Actions : workflows en échec). Ce réglage est hors du dépôt ; le mainteneur a confirmé le 16 octobre 2026 qu'il reçoit ces notifications (le nocturne en échec du 12 au 16 octobre lui a été remis). Un changement d'auteur de la ligne `cron` change le destinataire : le revérifier à ce moment-là.
-- *Échéance de la clé* : le NVD n'annonce aucune durée de vie sur sa page de demande (https://nvd.nist.gov/developers/request-an-api-key, rendue côté client, lue le 11/10/2026), donc rien n'oblige à remplacer une clé qui fonctionne. Le dépôt fixe sa propre échéance : **une rotation par an, la prochaine au plus tard le 22/09/2027**, un an après la pose de la clé en service. Elle borne la durée d'exposition d'une clé qui aurait fuité sans se faire remarquer, et elle oblige à rejouer la procédure tant que son détenteur s'en souvient. La détection ci-dessus reste le filet entre deux échéances.
+- *Échéance de la clé* : le NVD n'annonce aucune durée de vie sur sa page de demande (https://nvd.nist.gov/developers/request-an-api-key, rendue côté client, lue le 11/10/2026), donc rien n'oblige à remplacer une clé qui fonctionne. Le dépôt fixe sa propre échéance : **une rotation par an, la prochaine au plus tard le 11/11/2027**, un an après la pose de la clé en service. Elle borne la durée d'exposition d'une clé qui aurait fuité sans se faire remarquer, et elle oblige à rejouer la procédure tant que son détenteur s'en souvient. La détection ci-dessus reste le filet entre deux échéances.
 - *Vérification d'un remplacement* : la ligne `Obtained via` du résumé « Dependency-Check database freshness » vaut `NVD API key refresh` et l'âge `0`, et l'alerte ne se déclenche plus.
 
 L'historique complet — la panne annoncée, la mesure de fraîcheur corrigée, les trois sorties évaluées —

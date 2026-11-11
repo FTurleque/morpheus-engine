@@ -138,10 +138,10 @@ class ValidateDispatcherTest(unittest.TestCase):
         self.assertEqual("SkipPackaging=False", self.received())
 
     def test_the_remaining_arguments_reach_the_validator_as_named_parameters(self) -> None:
-        result = self.dispatch("m1", "-Version", "1.2.3", "-BaseRef", "origin/develop", "-SkipPortable")
+        result = self.dispatch("m1", "-Version", "1.2.3", "-BaseRef", "origin/main", "-SkipPortable")
 
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-        self.assertEqual("Version=1.2.3;BaseRef=origin/develop;SkipPortable=True;Rest=", self.received())
+        self.assertEqual("Version=1.2.3;BaseRef=origin/main;SkipPortable=True;Rest=", self.received())
 
     def test_a_validator_that_exits_non_zero_fails_the_dispatcher(self) -> None:
         result = self.dispatch("m1", STUB_EXIT="3")

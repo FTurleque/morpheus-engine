@@ -1,7 +1,7 @@
 # §2 — Contraintes
 
 > **Sources actives** : `pom.xml`, `docs/architecture/adr/`, `docs/project/governance/`,
-> `docs/project/validation/`, tests d'architecture et code du HEAD `develop`.
+> `docs/project/validation/`, tests d'architecture et code du HEAD `main`.
 
 ---
 
@@ -50,7 +50,7 @@
 | ID | Contrainte | Nature | Preuve |
 |----|-----------|--------|--------|
 | CO-1 | Les décisions structurantes sont conservées comme ADR et accompagnées de preuves | **Imposée** | `docs/architecture/adr/` |
-| CO-2 | L'intégration suit la politique `feature/milestone → develop`, puis release qualifiée vers `main` | **Imposée** | `docs/project/governance/ROADMAP.md` |
+| CO-2 | L'intégration se fait par pull request vers `main`, seule branche longue ; une release est un tag `v*` posé sur `main` | **Imposée** | `docs/project/governance/ROADMAP.md` |
 | CO-3 | Les migrations SQLite appliquées ne sont pas réécrites ; une évolution ajoute une nouvelle migration | **Imposée** | Vérification de checksum du schéma |
 | CO-4 | Un ADR accepté n'est pas supprimé : il est remplacé explicitement si la décision évolue | **Imposée** | Convention ADR |
 | CO-5 | La documentation active est versionnée dans le dépôt avec le code et les preuves | **Préférence forte** | Dossier `docs/` |

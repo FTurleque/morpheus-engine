@@ -4,7 +4,7 @@ MORPHEUS treats its local API, remote HTTPS facade, provider plugins, MCP proces
 
 ## Supported code
 
-Security fixes are developed on `develop`, qualified by the repository CI gates, and promoted through `main` and published releases. Users should run the latest published release for production use. Development branches other than `develop` are not supported deployment targets.
+Security fixes are merged into `main` through pull requests qualified by the repository CI gates, and reach users through published releases, which are tags on `main`. Users should run the latest published release for production use. An unreleased commit of `main` or of any other branch is not a supported deployment target.
 
 ## Reporting a vulnerability
 

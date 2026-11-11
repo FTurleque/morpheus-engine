@@ -89,6 +89,7 @@ Vue commune : la séquence de la façade distante, dans [`remote-access-journal.
 | Capacité | Page | Spec de référence |
 |---|---|---|
 | `gate-reachability` | [atteignabilité des gates et des validateurs](gate-reachability.md) | [spec](../../../openspec/specs/gate-reachability/spec.md) |
+| `single-integration-branch` | [une seule branche longue, `main`](single-integration-branch.md) | `openspec/specs/single-integration-branch/spec.md`, créée à l'archivage de `retirer-la-branche-develop` |
 | `gate-verdict-currency` | [actualité du verdict d'un gate](gate-verdict-currency.md) | [spec](../../../openspec/specs/gate-verdict-currency/spec.md) |
 | `validator-self-test` | [auto-test des validateurs](validator-self-test.md) | [spec](../../../openspec/specs/validator-self-test/spec.md) |
 | `coverage-attribution-gap` | [crédit de couverture emprunté](coverage-attribution-gap.md) | [spec](../../../openspec/specs/coverage-attribution-gap/spec.md) |

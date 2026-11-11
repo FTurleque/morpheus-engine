@@ -293,7 +293,7 @@ class FabricatedCheckout:
         _write(home / "tools/bin/java", STUB_JAVA, executable=True)
         _write(home / "tools/bin/java.cmd", STUB_JAVA_CMD, newline="\r\n")
 
-        _git(root, "init", "--quiet", "--initial-branch=develop")
+        _git(root, "init", "--quiet", "--initial-branch=main")
         # The template is copied by several threads at once; an automatic maintenance that git starts in the
         # background after a commit writes and removes objects/maintenance.lock under those copies.
         _git(root, "config", "maintenance.auto", "false")
@@ -302,7 +302,8 @@ class FabricatedCheckout:
         if not WINDOWS:
             _git(root, "update-index", "--chmod=+x", "mvnw", "distribution/build-portable.sh")
         _git(root, "commit", "--quiet", "--message", "fabricated checkout")
-        _git(root, "branch", "main")
+        # The work happens on a branch of its own, as a pull request's does: main stays the base it is compared with.
+        _git(root, "switch", "--quiet", "--create", "feature")
 
         version = product_version()
         cls._surefire(root, "morpheus-architecture-tests", "fabricated.ArchitectureTest", FABRICATED_ARCHITECTURE_TESTS)

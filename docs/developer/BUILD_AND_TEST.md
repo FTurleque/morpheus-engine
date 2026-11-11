@@ -57,7 +57,7 @@ Linux :
 
 ## Gate durable M21
 
-Le workflow `MORPHEUS CI` exécute le même gate exact-head sur Windows et Ubuntu pour les pull requests ainsi que sur les pushes `main` et `develop`.
+Le workflow `MORPHEUS CI` exécute le même gate exact-head sur Windows et Ubuntu pour les pull requests ainsi que sur les pushes sur `main`.
 
 ```text
 baseline Surefire écrits       >= 3556
@@ -206,8 +206,8 @@ dans le même changement. `security.yml` vérifie après les scans que le rappor
 Le workflow **MORPHEUS Security** utilise une base Dependency-Check produite uniquement par des événements de confiance. Sa politique est :
 
 ```text
-pull_request -> main, develop        cache trusted uniquement, autoUpdate=false
-push         -> main, develop        refresh trusted + scan
+pull_request -> main                 cache trusted uniquement, autoUpdate=false
+push         -> main                 refresh trusted + scan
 schedule     -> tous les jours 04:17 UTC
 manual       -> workflow_dispatch
 cache max age on PR                  72 h
@@ -215,7 +215,7 @@ cache max age on PR                  72 h
 
 Le refresh quotidien est volontairement plus fréquent que le TTL de 72 h afin qu'un dépôt calme ne puisse pas entrer dans une fenêtre déterministe où toutes les PR échoueraient faute de base OWASP suffisamment fraîche. `AuditHardeningWorkflowContractTest` verrouille cette invariant.
 
-Un `.github/dependabot.yml` maintient en parallèle des PRs hebdomadaires Maven et GitHub Actions vers `develop`. L'activation des alertes de vulnérabilité Dependabot reste un réglage administrateur du dépôt et n'est pas supposée par ce fichier.
+Un `.github/dependabot.yml` maintient en parallèle des PRs hebdomadaires Maven et GitHub Actions vers `main`. L'activation des alertes de vulnérabilité Dependabot reste un réglage administrateur du dépôt et n'est pas supposée par ce fichier.
 
 ## Gate D2 spécialisé
 
@@ -224,13 +224,13 @@ D2 reste un gate local spécialisé avec interdiction de modifier `.github/workf
 Windows :
 
 ```powershell
-.\scripts\validate.cmd d2 -Version 1.2.2 -BaseRef origin/develop
+.\scripts\validate.cmd d2 -Version 1.2.2 -BaseRef origin/main
 ```
 
 Linux / WSL :
 
 ```bash
-MORPHEUS_D2_BASE_REF=origin/develop bash ./scripts/validate-d2.sh 1.2.2
+MORPHEUS_D2_BASE_REF=origin/main bash ./scripts/validate-d2.sh 1.2.2
 ```
 
 D2 conserve ses minima absolus de couverture `40% / 35%`, exécute Dependency-Check et exige le portable de la plateforme pour une qualification finale sans skip.

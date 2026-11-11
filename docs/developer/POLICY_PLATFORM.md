@@ -348,4 +348,4 @@ Linux :
 bash ./scripts/validate-m25.sh <version>
 ```
 
-Le gate M25 utilise `develop` comme base et exige le même SHA exécutable sur Windows + Linux avant acceptation d’ADR-0093 et merge dans `develop`.
+Le gate M25 compare à `origin/main` (repli `main`). Son acceptation, avec ADR-0093, a exigé le même SHA exécutable sur Windows + Linux.

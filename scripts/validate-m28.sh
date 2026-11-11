@@ -2,7 +2,7 @@
 set -euo pipefail
 
 VERSION="${1:-1.1.0}"
-BASE_REF="${MORPHEUS_M28_BASE_REF:-origin/develop}"
+BASE_REF="${MORPHEUS_M28_BASE_REF:-origin/main}"
 SKIP_PORTABLE="${MORPHEUS_M28_SKIP_PORTABLE:-false}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/python.sh"

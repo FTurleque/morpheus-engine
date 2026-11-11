@@ -1,7 +1,7 @@
 # §5 — Vue des blocs (structure statique)
 
 > **Sources actives** : reactor `pom.xml`, POM des modules, contrats publics,
-> tests d'architecture et code du HEAD `develop`.
+> tests d'architecture et code du HEAD `main`.
 
 ---
 

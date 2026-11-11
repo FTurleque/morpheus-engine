@@ -2,9 +2,9 @@ name: MORPHEUS Security
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
-    branches: [main, develop]
+    branches: [main]
   schedule:
     # Trusted refresh must run more frequently than DEPENDENCY_CHECK_MAX_CACHE_AGE_HOURS.
     - cron: '17 4 * * *'

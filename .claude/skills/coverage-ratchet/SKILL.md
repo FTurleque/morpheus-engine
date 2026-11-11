@@ -89,9 +89,9 @@ aligner sur une moyenne.
 ## Obtenir la moitié Linux d'une preuve
 
 1. **Artefacts CI d'abord.** Chaque run de `ci.yml` téléverse `m21-integrity-<OS>`, qui contient
-   la preuve de couverture et les `jacoco.xml` par module. Pour la tête de `develop`, le run
-   `push` et le run `pull_request` de la PR de promotion construisent le même SHA, ce qui donne
-   deux runs exact-head par plateforme sans rien construire :
+   la preuve de couverture et les `jacoco.xml` par module. Pour une tête de `main`, le run `push`
+   de la fusion et un run `workflow_dispatch` lancé sur `main` construisent le même SHA, ce qui
+   donne deux runs exact-head par plateforme sans rien construire localement :
    `gh run list --workflow ci.yml --commit <sha>` puis
    `gh run download <id> -n m21-integrity-Linux`. Déposer les `jacoco.xml` téléchargés dans un
    worktree suffit à faire tourner le gate sur de vrais rapports.

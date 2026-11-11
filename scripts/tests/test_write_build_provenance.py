@@ -34,7 +34,7 @@ class ProvenanceCases:
         run = self.write(self.checkout)
         self.assertEqual(0, run.returncode, run.output)
         values = self.properties()
-        self.assertEqual("develop", values["gitRef"])
+        self.assertEqual("feature", values["gitRef"])
         self.assertEqual(self.checkout.head(), values["gitSha"])
 
     def test_a_detached_head_without_a_tag_records_detached(self) -> None:
