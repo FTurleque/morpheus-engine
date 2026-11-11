@@ -19,7 +19,7 @@ n'est gouvernée par aucune des deux échelles.
   [`coverage-qualification-evidence.md`](coverage-qualification-evidence.md)) ; la péremption d'un rapport par module
   (voir [`gate-verdict-currency.md`](gate-verdict-currency.md)), dont la comparaison est ici recopiée.
 
-La décision est [ADR-0163](../../architecture/adr/GEN-0163-deux-echelles-de-couverture-un-seuil-par-module-et-le-credit-emprunte.md).
+La décision est [ADR-0166](../../architecture/adr/GEN-0166-deux-echelles-de-couverture-un-seuil-par-module-a-marge-proportionnelle-et-le-credit-emprunte.md).
 
 ## Exigences
 
@@ -175,7 +175,7 @@ Archive : `2026-10-30-shrink-the-coverage-a-module-borrows-from-its-neighbours`.
 ## Sources
 
 - Règles du dépôt : `.claude/rules/testing.md` (« Le crédit emprunté »), `.claude/rules/meta.md`.
-- Décision : [ADR-0163](../../architecture/adr/GEN-0163-deux-echelles-de-couverture-un-seuil-par-module-et-le-credit-emprunte.md).
+- Décision : [ADR-0166](../../architecture/adr/GEN-0166-deux-echelles-de-couverture-un-seuil-par-module-a-marge-proportionnelle-et-le-credit-emprunte.md).
 - Guide développeur : [`BUILD_AND_TEST.md`](../BUILD_AND_TEST.md) (remède : un test dans le module qui porte la ligne).
 - Pages liées : [`coverage-qualification-evidence.md`](coverage-qualification-evidence.md),
   [`gate-verdict-currency.md`](gate-verdict-currency.md).

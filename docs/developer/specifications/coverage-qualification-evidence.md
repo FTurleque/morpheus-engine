@@ -31,7 +31,7 @@ ne serait qu'une valeur écrite dans un test.
 | R4 | The developer guide SHALL distinguish a raise by decision from a requalification without stating a margin | le guide distingue relèvement par décision et requalification, sans chiffrer la distance restante | `[EXIGENCE]` |
 | R5 | Every scale of a qualification SHALL be measured at the same head | preuves agrégée et par module nomment un seul commit | `[EXIGENCE]` |
 | R6 | La preuve de l'échelle par module porte les compteurs de chaque module | lignes `module.<artifactId>.*` dont les sommes font les totaux, même ensemble de modules dans chaque résumé | `[EXIGENCE]` (spec delta) |
-| R7 | La dispersion d'un module se lit dans la preuve conservée | plus grande de l'écart observé pour le module et de la référence de l'échelle, jamais saisie à la main | `[EXIGENCE]` (spec delta) |
+| R7 | La dispersion d'un module se lit dans la preuve conservée | plus grande de l'écart observé pour le module et de la référence de l'échelle rapportée à la part du module, jamais saisie à la main | `[EXIGENCE]` (spec delta) |
 
 ## Comportement détaillé
 
@@ -71,8 +71,10 @@ reste acceptée : elle ne qualifie alors aucun seuil de module au-dessus du plan
 ### La dispersion d'un module
 
 `[EXISTANT VÉRIFIÉ]` Pour une grandeur d'un module, la dispersion retenue est la plus grande de l'écart, en lignes ou en
-branches couvertes, entre les résumés conservés pour ce module, et de la dispersion de référence de l'échelle
-(`REFERENCE_LINE_SPREAD`, `REFERENCE_BRANCH_SPREAD`). Un module stable n'a donc jamais une marge nulle. Le seuil d'un
+branches couvertes, entre les résumés conservés pour ce module, et de sa dispersion de référence : celle de l'échelle
+(`REFERENCE_LINE_SPREAD`, `REFERENCE_BRANCH_SPREAD`) multipliée par la part du module dans la population de la grandeur,
+lue dans le même résumé, arrondie à l'unité supérieure. Un module stable n'a donc jamais une marge nulle : au moins
+trois lignes ou trois branches. Les ratchets et les plafonds d'échelle gardent la référence entière. Le seuil d'un
 module au-dessus du plancher D2 doit garder trois fois cette dispersion sous la plus basse mesure conservée du module ;
 la règle et ses refus sont décrits dans [`per-module-coverage-floor.md`](per-module-coverage-floor.md).
 
@@ -188,7 +190,9 @@ Archives : `2026-10-21-keep-the-evidence-a-coverage-cap-was-qualified-on` et
 | R6 | Deux résumés d'une qualification nomment des modules différents | — | `#twoKeptSummariesThatNameDifferentModulesAreRefusedAndNameTheDifference` |
 | R6 | La preuve écrite par le gate porte ses lignes par module | séquence de [`per-module-coverage-floor.md`](per-module-coverage-floor.md) | écriture dans `CoverageQualityGateTest#perModuleCoverageDoesNotRegressBelowQualifiedBaseline` ; lignes `module.*` de la preuve réelle relues par `CoverageQualificationEvidenceTest#everyModuleFloorStaysInsideItsQualifiedWindow` (Écart 5) |
 | R7 | Un module plus instable que la référence | — | `#aModuleLessStableThanTheReferenceIsSizedAgainstItsOwnSpread` |
-| R7 | Un module stable | — | `#aStableModuleIsSizedAgainstTheReferenceSpreadNeverAgainstZero` |
+| R7 | Un module stable | — | `#aStableModuleIsSizedAgainstItsShareOfTheReferenceSpreadNeverAgainstZero` |
+| R7 | Un petit module stable | — | `#aSmallStableModuleKeepsAMarginOfThreeUnitsAndARefusalNamesItsShare` |
+| R7 | Les plafonds et les ratchets ne changent pas de marge | — | `#everyCoverageRatchetKeepsThreeTimesTheSpreadUnderTheLowestKeptMeasurement` |
 
 Contrôles du test hors scénarios de la spec : `#aSummaryWhoseRatioDisagreesWithItsCountsIsRefused`,
 `#aFileKeptOutsideTheManifestAndAManifestedFileThatIsAbsentAreRefused`, `#anEmptyEvidenceDirectoryIsRefusedBecauseTheCapsRestOnNothing`,
@@ -200,7 +204,7 @@ Contrôles du test hors scénarios de la spec : `#aSummaryWhoseRatioDisagreesWit
 
 - Règles du dépôt : `.claude/rules/testing.md` (« Pourquoi le ratchet plafonne sous la mesure réelle »),
   `.claude/rules/meta.md`.
-- Décision : [ADR-0163](../../architecture/adr/GEN-0163-deux-echelles-de-couverture-un-seuil-par-module-et-le-credit-emprunte.md).
+- Décision : [ADR-0166](../../architecture/adr/GEN-0166-deux-echelles-de-couverture-un-seuil-par-module-a-marge-proportionnelle-et-le-credit-emprunte.md).
 - Guide développeur : [`BUILD_AND_TEST.md`](../BUILD_AND_TEST.md).
 - Pages liées : [`per-module-coverage-floor.md`](per-module-coverage-floor.md),
   [`coverage-attribution-gap.md`](coverage-attribution-gap.md),
