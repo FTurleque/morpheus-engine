@@ -81,10 +81,12 @@ la preuve conservée de l'échelle par module :
 - un seuil égal au plancher D2 est toujours admis : le gate l'applique de toute façon ;
 - au-dessus du plancher, chaque résumé conservé doit porter les compteurs du module, et la plus basse mesure conservée
   du module, moins ce que le seuil exige de ses lignes ou de ses branches, doit garder trois fois la dispersion retenue.
-  Cette dispersion est la plus grande de l'écart observé pour ce module entre les résumés et de la dispersion de
-  référence de l'échelle (`REFERENCE_LINE_SPREAD`, `REFERENCE_BRANCH_SPREAD`) : jamais zéro, jamais saisie à la main.
+  Cette dispersion est la plus grande de l'écart observé pour ce module entre les résumés et de sa dispersion de
+  référence : celle de l'échelle (`REFERENCE_LINE_SPREAD`, `REFERENCE_BRANCH_SPREAD`) multipliée par la part du module
+  dans la population de la grandeur, arrondie à l'unité supérieure. Jamais zéro, jamais saisie à la main.
 
-Le refus nomme la clé, la valeur, la mesure et la marge exigée en lignes ou en branches.
+Le refus nomme la clé, la valeur, la mesure et la marge exigée en lignes ou en branches ; quand la référence décide, il
+nomme aussi la part du module et la référence de l'échelle.
 
 ### La séparation des grandeurs
 
@@ -148,10 +150,12 @@ renommé est un retrait plus un ajout.
 
 1. **Seuils posés sur la qualification du 2026-11-07.** `[EXISTANT VÉRIFIÉ]` La preuve conservée sous
    `config/coverage-qualification/per-module/` porte les compteurs de chaque module, mesurés par deux runs CI par
-   plateforme à `dbd65062`. Chaque seuil est au plus haut millième de sa fenêtre, lignes et branches séparément. Un
-   module trop petit pour garder trois fois la dispersion de référence au-dessus du plancher y reste
-   (`morpheus-provider-testkit`, `morpheus-provider-reference`, et les branches de `morpheus-integration-minos` et
-   `morpheus-integration-nexus`) : cette dispersion est celle de l'échelle entière, ce que pose la question D4.
+   plateforme à `dbd65062`. Chaque seuil est dans sa fenêtre, lignes et branches séparément ; ceux de
+   `morpheus-provider-testkit`, des lignes de `morpheus-provider-reference` et des branches de
+   `morpheus-integration-minos` et `morpheus-integration-nexus` sont au plus haut millième de la leur, les autres
+   peuvent monter dans la leur par la procédure de la skill `coverage-ratchet`. Seules
+   les branches de `morpheus-provider-reference` (6 couvertes sur 10) restent au plancher : leur fenêtre s'ouvre à
+   partir de 7 branches couvertes, ce qui demande un test dans ce module puis une requalification.
 2. **Un seuil au plancher admis sous la marge.** `[DÉCISION]` Un seuil égal au plancher D2 passe même quand la mesure
    du module est à moins de trois fois sa dispersion au-dessus : le refuser rendrait la configuration impossible pour
    un module mesuré près du plancher. La fenêtre de R4 s'applique au-dessus du plancher.
@@ -160,8 +164,9 @@ renommé est un retrait plus un ajout.
    (`.claude/rules/governance.md`). Preuve par la revue.
 4. **Le nom du fichier lu par le texte.** `[EXISTANT VÉRIFIÉ]` La séparation de R6 lit le texte des sources des gates ;
    un nom construit par concaténation y échapperait. La revue le tient.
-5. **Dispersion de référence commune.** `[QUESTION]` Adopter une dispersion de référence par module quand assez de
-   qualifications seront conservées (design du changement, D4) — peut attendre, sans changer la spec.
+5. **Dispersion de référence proportionnelle.** `[DÉCISION]` La référence d'un module est celle de l'échelle rapportée
+   à sa part de la population ([ADR-0166](../../architecture/adr/GEN-0166-deux-echelles-de-couverture-un-seuil-par-module-a-marge-proportionnelle-et-le-credit-emprunte.md),
+   changement `scale-the-module-floor-margin-to-the-module-size`).
 
 ## Traçabilité
 
@@ -181,9 +186,9 @@ Changement : `thresh-every-module-coverage-on-its-own-floor`. Fichiers de test, 
 | R2 | Un module sans classe principale n'a pas de seuil | états ; design D6 | 2.1 | même méthode (module `without-main-classes`) |
 | R3 | Un nouveau module déclare un seuil sans qualification | états ; design D5, D6 | 3.1, 3.2 | `CoverageQualificationEvidenceTest#aModuleTheEvidenceDoesNotCarryMayDeclareTheD2FloorAndNothingAbove` |
 | R3 | Un nouveau module au plancher | états | 3.1, 3.2 | même méthode |
-| R4 | Un seuil posé sur la mesure | design D3, D4 | 3.1, 3.2 | `CoverageQualificationEvidenceTest#aModuleLessStableThanTheReferenceIsSizedAgainstItsOwnSpread`, `#aStableModuleIsSizedAgainstTheReferenceSpreadNeverAgainstZero` (preuve synthétique) ; sur la preuve réelle : **preuve manquante** jusqu'à la requalification (3.4, 3.5) |
+| R4 | Un seuil posé sur la mesure | design D3, D4 | 3.1, 3.2 | `CoverageQualificationEvidenceTest#aModuleLessStableThanTheReferenceIsSizedAgainstItsOwnSpread`, `#aStableModuleIsSizedAgainstItsShareOfTheReferenceSpreadNeverAgainstZero`, `#aSmallStableModuleKeepsAMarginOfThreeUnitsAndARefusalNamesItsShare` (preuve synthétique) ; sur la preuve réelle : **preuve manquante** jusqu'à la requalification (3.4, 3.5) |
 | R4 | Un seuil sous le plancher D2 | design D3 | 3.1, 3.2 | `CoverageQualificationEvidenceTest#aModuleFloorUnderTheD2FloorIsRefusedAndNamesTheModuleAndTheKey` |
-| R4 | Un seuil dans la fenêtre | design D3 | 3.2, 3.5 | `CoverageQualificationEvidenceTest#everyModuleFloorStaysInsideItsQualifiedWindow` (vraie configuration, seuils posés dans leur fenêtre) ; un millième de plus sur `morpheus-api` est refusé (71 lignes de marge pour 72 exigées) |
+| R4 | Un seuil dans la fenêtre | design D3 | 3.2, 3.5 | `CoverageQualificationEvidenceTest#everyModuleFloorStaysInsideItsQualifiedWindow` (vraie configuration, seuils posés dans leur fenêtre) ; un millième de plus sur `morpheus-provider-testkit` en lignes est refusé (2 lignes de marge pour 3 exigées) |
 | R5 | Le message nomme le remède | séquence ; design D2 | 2.2 | `CoverageQualityGateTest#aModuleUnderItsOwnFloorIsRefusedWhileTheTotalStillHolds` (« write tests in … ») |
 | R5 | Une baisse de seuil se justifie | Écart 3 ; design D3 | — | revue de PR (`.claude/rules/governance.md`) ; pas de preuve exécutable |
 | R6 | Le gate agrégé lit les seuils par module | design D9 | 2.5 | `CoverageScaleSeparationTest#neitherCoverageGateReadsTheOtherScaleKeysReportOrEvidence`, `#theBorrowedCreditGateReadsNoCoverageKeyAndNeitherCoverageGateReadsIt` (violation plantée une fois, tâche 2.5) |
@@ -192,7 +197,7 @@ Changement : `thresh-every-module-coverage-on-its-own-floor`. Fichiers de test, 
 
 ## Sources
 
-- Décision : [ADR-0163](../../architecture/adr/GEN-0163-deux-echelles-de-couverture-un-seuil-par-module-et-le-credit-emprunte.md).
+- Décision : [ADR-0166](../../architecture/adr/GEN-0166-deux-echelles-de-couverture-un-seuil-par-module-a-marge-proportionnelle-et-le-credit-emprunte.md).
 - Règles du dépôt : `.claude/rules/testing.md` (« Deux échelles de couverture, deux jeux de seuils »), skill
   `coverage-ratchet`.
 - Guide développeur : [`BUILD_AND_TEST.md`](../BUILD_AND_TEST.md) (section « Le seuil propre à chaque module »).

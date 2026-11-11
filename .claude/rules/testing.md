@@ -59,7 +59,7 @@ Deux gates mesurent la couverture et ne mesurent **pas la même grandeur**. Jusq
 
 **Même population, attribution différente.** Les deux échelles portent sur les mêmes modules — tout module du réacteur qui porte une classe sous `src/main/java`, **outillage de vérification compris** (`morpheus-store-memory`, `morpheus-provider-synthetic`, `morpheus-provider-testkit`, `morpheus-provider-reference`) — et ne diffèrent que par les exécutions autorisées à créditer une ligne. `AggregateCoverageGateTest` dérive cette population du POM racine, refuse un rapport agrégé qui en mesure une autre, et la nomme dans sa preuve (`population=`). Garder l'outillage dans le dénominateur est un choix : mesuré le 11/09/2026, il déplace le ratio agrégé de 0,15 point, et l'en retirer laisserait `AGGREGATE_QUALIFIED_*` plafonner une population sur laquelle il n'a jamais été mesuré.
 
-La décision et ses raisons — séparation des échelles, population commune, maintien de l'outillage, exigences d'une hausse de plafond, crédit emprunté — sont consignées dans **ADR-0163** (`docs/architecture/adr/GEN-0163-deux-echelles-de-couverture-un-seuil-par-module-et-le-credit-emprunte.md`). La lire avant de toucher à une clé, à un plafond qualifié, à la population ou au maximum du crédit emprunté.
+La décision et ses raisons — séparation des échelles, population commune, maintien de l'outillage, exigences d'une hausse de plafond, crédit emprunté — sont consignées dans **ADR-0166** (`docs/architecture/adr/GEN-0166-deux-echelles-de-couverture-un-seuil-par-module-a-marge-proportionnelle-et-le-credit-emprunte.md`). La lire avant de toucher à une clé, à un plafond qualifié, à la population ou au maximum du crédit emprunté.
 
 ### Un seuil propre à chaque module, à côté du cliquet total
 
@@ -67,7 +67,7 @@ Le cliquet `perModule*` juge la **somme** des rapports : un module qui cesse de 
 
 - **Source unique** : `config/m21-per-module-coverage-floors.properties`, deux clés par module (`<artifactId>.lineCoverageMinimum`, `<artifactId>.branchCoverageMinimum`). Ne recopier aucune valeur ailleurs.
 - **Population** : celle que le gate dérive du POM. Un module ajouté arrive avec ses deux clés au plancher D2 dans le même changement ; un module retiré ou renommé emporte ses clés. `theFloorFileDeclaresEveryModuleOfThePopulationAndNoOther` refuse une clé manquante ou orpheline sans build.
-- **Fenêtre** : `CoverageQualificationEvidenceTest#everyModuleFloorStaysInsideItsQualifiedWindow` admet le plancher D2, et au-dessus seulement un seuil qui garde trois fois la dispersion du module — la plus grande de son écart entre résumés conservés et de la référence de l'échelle — sous sa plus basse mesure conservée. Un module que la preuve conservée ne porte pas reste au plancher.
+- **Fenêtre** : `CoverageQualificationEvidenceTest#everyModuleFloorStaysInsideItsQualifiedWindow` admet le plancher D2, et au-dessus seulement un seuil qui garde trois fois la dispersion du module — la plus grande de son écart entre résumés conservés et de sa référence, celle de l'échelle multipliée par la part du module dans la population de la grandeur, arrondie à l'unité supérieure — sous sa plus basse mesure conservée. Un module que la preuve conservée ne porte pas, ou dont la fenêtre tombe sous le plancher D2, reste au plancher. Les ratchets et les plafonds d'échelle gardent la référence entière.
 - **Séparation** : seul le gate par module lit ce fichier ; `CoverageScaleSeparationTest` le refuse au gate agrégé et au gate du crédit emprunté.
 - **Jamais** baisser un seuil de module pour faire passer un build ; une baisse liée à du code retiré se justifie dans la PR.
 
@@ -140,7 +140,7 @@ ratchet collé à la mesure transformerait une variation ordinaire en échec de 
 `0.620 / 0.535`, laisse **146 lignes et 30 branches** de marge sur l'échelle par module — soit 6,1 fois la
 variation inter-plateforme en lignes, mais seulement 2,8 fois en branches. **C'est la branche qui est serrée,
 pas la ligne** : un relèvement ultérieur dans ce plafond doit traiter les deux clés séparément, et rien
-n'oblige à les faire bouger ensemble (ADR-0163 interdit seulement de les aligner sur une moyenne). L'échelle agrégée compte une autre population
+n'oblige à les faire bouger ensemble (ADR-0166 interdit seulement de les aligner sur une moyenne). L'échelle agrégée compte une autre population
 de lignes et sa marge se lit dans `AggregateCoverageGateTest`.
 
 Le 22/09/2026 la seule clé ligne passe de `0.640` à `0.642`, dans le même plafond et sans mesure nouvelle :
