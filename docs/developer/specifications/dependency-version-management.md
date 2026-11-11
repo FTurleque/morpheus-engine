@@ -1,7 +1,7 @@
 # Gestion des versions de dépendances et de plugins (`dependency-version-management`)
 
 Spec de référence : [`openspec/specs/dependency-version-management/spec.md`](../../../openspec/specs/dependency-version-management/spec.md)
-· Relevé du 2026-11-04 sur `2913fc30` ; R4 relevé le 2026-11-06 sur `8c038add`, exigence portée par le changement actif `compare-every-document-that-states-a-fact-to-its-source` jusqu’à son archivage.
+· Relevé du 2026-11-04 sur `2913fc30` ; R4 relevé le 2026-11-06 sur `8c038add` ; R5 et R6 relevés le 2026-11-11 sur `d90592e4`.
 
 ## Objet et périmètre
 
@@ -10,7 +10,8 @@ importé, soit par une entrée gérée (`<dependencyManagement>`, `<pluginManage
 module l'emporte sans bruit sur celle du POM racine : le build la refuse.
 
 - **Acteurs** : auteur d'un POM de module ; mainteneur du POM racine ; build.
-- **Inclus** : les POM de tous les modules déclarés dans le POM racine ; la règle de build qui décrit le mécanisme.
+- **Inclus** : les POM de tous les modules déclarés dans le POM racine ; la règle de build qui décrit le mécanisme ; les
+  versions que les pages de gouvernance IA et les pages vivantes de `docs/` écrivent sous la forme d'une propriété du POM.
 - **Exclus** : les versions épinglées du POM racine (`D2RepositoryHardeningArchitectureTest#dependencyAndQualityBaselineIsPinned`),
   l'hygiène `dependency:analyze`, la politique des CVE.
 
@@ -21,7 +22,9 @@ module l'emporte sans bruit sur celle du POM racine : le build la refuse.
 | R1 | A module POM SHALL state no dependency or plugin version | aucun `<version>` sauf celle du `<parent>` et `${project.version}` ; module nouveau jugé sans autre changement | `[EXIGENCE]` |
 | R2 | Every third-party version SHALL be decided in the root POM | toute version tierce vient d'un BOM importé ou d'une entrée gérée ; un plugin vient de `pluginManagement` | `[EXIGENCE]` |
 | R3 | The build rule SHALL describe the mechanism as enforced | la règle de build énonce les deux formes admises et cite le test | `[EXIGENCE]` |
-| R4 | Une version qu'une page de gouvernance IA écrit sous la forme d'une propriété du POM DOIT égaler la valeur de cette propriété | élément XML ou affectation de propriété, sur toute page de gouvernance IA, comparé au POM racine ; propriété inconnue et scan vide refusés | `[PROPOSITION]` |
+| R4 | Une version qu'une page de gouvernance IA écrit sous la forme d'une propriété du POM DOIT égaler la valeur de cette propriété | élément XML ou affectation de propriété, sur toute page de gouvernance IA, comparé au POM racine ; propriété inconnue et scan vide refusés | `[EXIGENCE]` |
+| R5 | Une version qu'une page vivante de `docs/` écrit sous la forme d'une propriété du POM DOIT égaler la valeur de cette propriété | toute page Markdown suivie par Git sous `docs/`, hors relevés datés et blocs de code clôturés ; seule une propriété que le POM déclare est comparée | `[EXIGENCE]` |
+| R6 | Une version écrite en ligne de tableau ou en égalité de spans de code est une version écrite sous la forme d'une propriété | ligne de tableau (cellule du nom, puis cellule de la valeur, en spans de code) et `` `nom.version` = `valeur` `` ; un tableau qui nomme la propriété sans valeur n'est pas lu | `[EXIGENCE]` |
 
 ## Comportement détaillé
 
@@ -45,6 +48,16 @@ module l'emporte sans bruit sur celle du POM racine : le build la refuse.
   du premier bloc `<properties>` du POM racine. Il échoue en nommant la page, la propriété et les deux valeurs, ou la
   propriété que le POM ne déclare pas ; il échoue aussi quand il ne lit aucune version. Aucune liste de propriétés n'est
   tenue. Une version écrite en prose n'est pas lue : `.claude/rules/build.md` cite la propriété plutôt que sa valeur.
+- **R5** `[EXISTANT VÉRIFIÉ]` (`GovernanceSurfaceCoherenceTest#everyVersionALivingDocumentationPageWritesAsAPomPropertyEqualsThePom`) :
+  le test lit chaque page `.md` que `RepositoryTree.files` rend sous `docs/` et que `git ls-files` liste (classe
+  `TrackedFiles` des tests d'architecture), hors `docs/project/audits/`, `docs/project/validation/`,
+  `docs/project/roadmap/` et `docs/user/release-notes/`. Il retire le texte des blocs de code clôturés (au sens de CommonMark ; un bloc jamais fermé est refusé), lit les quatre
+  formes, ne garde que les propriétés que le POM racine déclare et échoue en nommant la page, la propriété et les deux
+  valeurs. Une page vivante peut n'écrire aucune version : le scan est tenu par le nombre de pages lues, qui ne peut être
+  nul. Hors d'un dépôt Git ou sans `git`, le test est ignoré avec sa raison, et échoue en CI.
+- **R6** `[EXISTANT VÉRIFIÉ]` : `statedVersions` lit, sur toute page, en plus de l'élément XML et de l'affectation, une
+  ligne de tableau dont une cellule est exactement le span de code d'un nom `*.version` et une cellule suivante
+  exactement le span de code d'une valeur commençant par un chiffre, et deux spans de code joints par `=`.
 
 ## Diagrammes
 
@@ -62,6 +75,28 @@ flowchart LR
     M -. "version écrite dans le module" .-> X["Refus : noModulePomStatesAVersionTheRootPomShouldDecide<br/>(sauf parent et project.version)"]
 ```
 
+### Quelle occurrence d'une page est comparée ?
+
+Existant. Exigences R4, R5 et R6.
+
+```mermaid
+flowchart TD
+    P[page Markdown] --> G{page de gouvernance IA ?}
+    G -- oui --> S[toutes les occurrences]
+    G -- non --> D{suivie par Git sous docs/,<br/>hors relevés datés ?}
+    D -- non --> X[non lue]
+    D -- oui --> F[retirer les blocs de code clôturés]
+    F --> S2[occurrences restantes]
+    S --> M["formes : élément XML, nom=valeur,<br/>ligne de tableau, `nom` = `valeur`"]
+    S2 --> M
+    M --> K{POM déclare la propriété ?}
+    K -- oui --> C{valeur = POM ?}
+    C -- non --> R[refus : page, propriété, deux valeurs]
+    C -- oui --> OK[accord]
+    K -- non, page IA --> R2[refus : propriété inconnue]
+    K -- non, page docs/ --> I[ignorée]
+```
+
 ## Écarts et questions ouvertes
 
 - `[EXISTANT VÉRIFIÉ]` **`${project.version}` admis partout** : la spec réserve `${project.version}` à un module du même
@@ -73,6 +108,10 @@ flowchart LR
   « A module resolves the version the root POM manages ») ; aucun test ne change `slf4j.version` pour constater que
   l'API et le backend de la CLI suivent (scénario « The logging backend follows the logging API »). Le test
   `ProductReleaseContractTest#releaseScriptsEnforcePerUserInstallExactTagChecksumsAndVerifiedToolBootstrap` vérifie seulement que le POM de la CLI déclare `slf4j-api` et n'embarque pas `slf4j-nop`.
+- `[DÉCISION]` **R5, clé inconnue ignorée** : dans `docs/`, une propriété retirée du POM et restée sur une page n'est
+  plus vue ; `docs/` décrit légitimement des clés d'autres artefacts (`data.version` de Dependency-Check, manifeste de
+  plugin). Un relevé daté rangé hors des quatre dossiers de relevés est lu : il écrit la propriété en prose ou dans un
+  bloc clôturé.
 - **Preuve manquante (R3)** : aucun test ne lit `.claude/rules/build.md` pour y chercher la phrase et le nom du test ;
   la concordance est tenue par la revue.
 
@@ -92,6 +131,14 @@ flowchart LR
 | R4 | Les deux formes sont lues | — | idem | `GovernanceSurfaceCoherenceTest#bothShapesOfAVersionAreComparedAndAPropertyThePomDoesNotDeclareIsRefused` |
 | R4 | Une propriété que le POM ne déclare plus | — | idem | idem |
 | R4 | Le contrôle a trouvé des versions à comparer | — | idem | `GovernanceSurfaceCoherenceTest#aVersionScanThatReadsNothingFailsInsteadOfPassing` |
+| R5 | Un bump qui ne touche que le POM | organigramme des occurrences | archive `2026-11-11-compare-every-living-developer-page-to-the-pom-properties` | `GovernanceSurfaceCoherenceTest#everyVersionALivingDocumentationPageWritesAsAPomPropertyEqualsThePom` (violation plantée dans `docs/developer/CODE_AUDIT.md`, vue rouge, retirée) ; `#onlyALivingTrackedPageOfDocsIsComparedAndOnlyOnAPropertyThePomDeclares` |
+| R5 | Un relevé daté n'est pas lu | idem | idem | `#onlyALivingTrackedPageOfDocsIsComparedAndOnlyOnAPropertyThePomDeclares` |
+| R5 | Une transcription dans un bloc de code clôturé | idem | idem | idem |
+| R5 | La clé d'un autre artefact | idem | idem | idem |
+| R5 | Un fichier local non suivi | idem | idem | idem |
+| R6 | La ligne de tableau d'origine du constat | idem | idem | `GovernanceSurfaceCoherenceTest#aTableRowAndAnEqualityOfCodeSpansAreReadWhileATableThatNamesThePropertyIsNot` (vu rouge avant les deux formes) |
+| R6 | L'égalité de deux spans de code | idem | idem | idem |
+| R6 | Un tableau qui nomme les propriétés sans valeur | idem | idem | idem |
 
 ## Sources
 

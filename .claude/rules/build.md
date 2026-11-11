@@ -80,11 +80,15 @@ Versions actuelles pilotées par propriété dans le POM racine : `junit.version
 `sqlite-jdbc.version=3.54.1.0`, `mcp-sdk.version=2.1.0`, `reactor-bom.version=2024.0.18`,
 `slf4j.version=2.0.20`, `jackson.version=3.2.4`, `jacoco.version=0.8.16`,
 `dependency-check.maven.plugin.version=13.0.0`.
-Toute version écrite sur une page de gouvernance IA sous la forme d'une propriété du POM, élément XML ou
-affectation, est comparée à `pom.xml` par
-`GovernanceSurfaceCoherenceTest#everyVersionAGovernancePageWritesAsAPomPropertyEqualsThePom` : un bump qui ne touche
-que le POM fait échouer le build jusqu'à ce que la page suive. Une version écrite en prose n'est comparée à rien :
-citer la propriété plutôt que sa valeur.
+Toute version écrite sous la forme d'une propriété du POM est comparée à `pom.xml` : un bump qui ne touche que le POM
+fait échouer le build jusqu'à ce que la page suive. Quatre formes sont lues — élément XML, affectation `nom=valeur`,
+ligne de tableau dont une cellule est le span de code du nom et une cellule suivante le span de code de la valeur, et
+deux spans de code joints par `=`. Sur une page de gouvernance IA
+(`GovernanceSurfaceCoherenceTest#everyVersionAGovernancePageWritesAsAPomPropertyEqualsThePom`), une propriété que le
+POM ne déclare pas est refusée. Sur une page Markdown suivie par Git sous `docs/`, hors relevés datés (`project/audits/`,
+`project/validation/`, `project/roadmap/`, `user/release-notes/`) et hors blocs de code clôturés
+(`#everyVersionALivingDocumentationPageWritesAsAPomPropertyEqualsThePom`), seule une propriété que le POM déclare est
+comparée. Une version écrite en prose n'est comparée à rien : citer la propriété plutôt que sa valeur.
 Un commentaire explique un couplage de versions non trivial quand il existe
 (ex. `reactor-bom` doit rester sur la même ligne de versions que celle que fixe `mcp-sdk.version` — voir le
 commentaire juste au-dessus de cette dépendance dans le POM).

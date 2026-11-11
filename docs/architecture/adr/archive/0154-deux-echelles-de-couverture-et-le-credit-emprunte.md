@@ -1,6 +1,6 @@
 # ADR-0154 — Deux échelles de couverture sur une population commune, et le crédit qu'un module emprunte à ses voisins
 
-> **Archivée.** Cette décision est consolidée dans [ADR-0163](../GEN-0163-deux-echelles-de-couverture-un-seuil-par-module-et-le-credit-emprunte.md), qui la reprend en entier et ajoute, sur l'échelle par module, un seuil de couverture propre à chaque module de la population. Ce texte n'est plus en vigueur et n'est pas tenu à jour.
+> **Archivée.** Cette décision est consolidée dans [ADR-0163](0163-deux-echelles-de-couverture-un-seuil-par-module-et-le-credit-emprunte.md), qui la reprend en entier et ajoute, sur l'échelle par module, un seuil de couverture propre à chaque module de la population. Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
 - Statut : **Remplacée par ADR-0163**
 - Date : 2026-10-29

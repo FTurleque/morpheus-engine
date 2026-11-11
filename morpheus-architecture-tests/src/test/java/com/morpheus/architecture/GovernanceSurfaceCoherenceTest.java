@@ -11,9 +11,12 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -67,6 +70,28 @@ class GovernanceSurfaceCoherenceTest {
     /** A version written as an assignment of the property: {@code jacoco.version=0.8.16}. */
     private static final Pattern VERSION_PROPERTY_ASSIGNMENT =
             Pattern.compile("(?<![\\w.{$-])([A-Za-z0-9_-][A-Za-z0-9_.-]*\\.version)=([^\\s`,;)<]+)");
+    /** A version written as two code spans joined by an equals sign: {@code `jacoco.version` = `0.8.16`}. */
+    private static final Pattern VERSION_PROPERTY_SPAN_EQUALITY =
+            Pattern.compile("`([A-Za-z0-9_-][A-Za-z0-9_.-]*\\.version)`[ \\t]*=[ \\t]*`([^`\\s]+)`");
+    /**
+     * A table cell that is exactly the code span of a property name. In a table row, a later cell that is exactly the
+     * code span of a value ({@link #VERSION_VALUE_CELL}) is the version written for it:
+     * {@code | `jacoco.version` | `0.8.16` | ... |}. A row that names the property and describes it holds no version.
+     */
+    private static final Pattern VERSION_PROPERTY_NAME_CELL =
+            Pattern.compile("`([A-Za-z0-9_-][A-Za-z0-9_.-]*\\.version)`");
+    private static final Pattern VERSION_VALUE_CELL = Pattern.compile("`(\\d[^`\\s]*)`");
+    /**
+     * A fence as CommonMark reads one: indented by three spaces at most, and for backticks with no backtick after the
+     * run -- {@code ```` ``` ````} at the start of a line is a code span, not a fence.
+     */
+    private static final Pattern CODE_FENCE = Pattern.compile("^ {0,3}(`{3,}(?=[^`]*$)|~{3,})");
+    /**
+     * The folders of {@code docs/} that hold dated records, as {@code .claude/rules/documentation.md} names them: a
+     * record cites the versions of its date and is never rewritten, so it is not compared to the POM.
+     */
+    private static final List<String> DATED_RECORD_DIRECTORIES = List.of("docs/project/audits/",
+            "docs/project/validation/", "docs/project/roadmap/", "docs/user/release-notes/");
     private static final Pattern POM_PROPERTY = Pattern.compile("<([A-Za-z0-9_.-]+)>([^<]*)</\\1>");
     /**
      * A statement of the <em>current</em> product version: one of five markers that only ever introduce the version
@@ -264,6 +289,77 @@ class GovernanceSurfaceCoherenceTest {
                 "a governance page writes no version in the shape of a root POM property: the scan reads nothing");
     }
 
+    /**
+     * A version a living page of {@code docs/} writes in the shape of a property the root POM declares equals that
+     * property's value.
+     *
+     * <p>{@code docs/developer/CODE_AUDIT.md} and {@code SPOTBUGS.md} gave SpotBugs and PIT versions that the POM had
+     * left behind: the governance scan above never read {@code docs/}. The pages are not listed: every Markdown page
+     * Git tracks under {@code docs/}, outside the dated records, is read. Unlike a governance page, a living page may
+     * write no version at all -- {@code .claude/rules/build.md} asks it to name the property -- so an empty scan is
+     * refused on the pages it reads, never on the versions it finds.</p>
+     *
+     * <p>Planted violation, 11/11/2026: the row {@code | `spotbugs.maven.plugin.version` | `4.10.4.1` |} put back in
+     * {@code docs/developer/CODE_AUDIT.md} failed this method naming the page, the property, {@code 4.10.4.1} and the
+     * POM's {@code 4.10.5.0}; reverted.</p>
+     */
+    @Test
+    void everyVersionALivingDocumentationPageWritesAsAPomPropertyEqualsThePom() throws Exception {
+        Path root = RepositoryRoot.locate();
+        Set<String> tracked = Set.copyOf(TrackedFiles.list(root));
+        assertFalse(livingDocumentationPages(root, tracked).isEmpty(),
+                "no living page of docs/ is read: the version scan would pass on nothing");
+        Map<String, String> pom = rootPomProperties(Files.readString(root.resolve("pom.xml")));
+        refuseDisagreements(statedLivingDocumentationVersions(root, tracked, pom), pom, "pom.xml");
+    }
+
+    @Test
+    void onlyALivingTrackedPageOfDocsIsComparedAndOnlyOnAPropertyThePomDeclares(@TempDir Path corpus)
+            throws IOException {
+        String stale = "`spotbugs.maven.plugin.version=4.10.4.1`\n";
+        Map<String, String> pages = new TreeMap<>(Map.of(
+                "docs/developer/LIVING.md", stale,
+                "docs/project/audits/AUDIT_2026-10-19.md", stale,
+                "docs/user/release-notes/RELEASE_NOTES_1.2.1.md", stale,
+                "docs/developer/TRANSCRIPT.md", "```properties\n" + stale + "```\n",
+                "docs/architecture/risks/register.md", "déclarent `data.version=5.6`.\n",
+                "docs/project/rapport-supervisor/rapport.md", stale));
+        for (Map.Entry<String, String> page : pages.entrySet()) {
+            Path file = corpus.resolve(page.getKey());
+            Files.createDirectories(file.getParent());
+            Files.writeString(file, page.getValue());
+        }
+        Set<String> tracked = pages.keySet().stream()
+                .filter(page -> !page.startsWith("docs/project/rapport-supervisor/"))
+                .collect(Collectors.toSet());
+        Map<String, String> pom = rootPomProperties("""
+                <project><properties>
+                    <spotbugs.maven.plugin.version>4.10.5.0</spotbugs.maven.plugin.version>
+                </properties></project>
+                """);
+
+        List<StatedValue> stated = statedLivingDocumentationVersions(corpus, tracked, pom);
+        assertEquals(List.of(new StatedValue("docs/developer/LIVING.md", "spotbugs.maven.plugin.version", "4.10.4.1")),
+                stated, "the dated records, the fenced block, the other artifact's key and the untracked report "
+                        + "are not read");
+
+        AssertionError refusal = assertThrows(AssertionError.class, () -> refuseDisagreements(stated, pom, "pom.xml"));
+        assertTrue(refusal.getMessage().contains(
+                "docs/developer/LIVING.md spotbugs.maven.plugin.version states 4.10.4.1, pom.xml says 4.10.5.0"),
+                refusal::getMessage);
+        assertEquals(stale, Files.readString(corpus.resolve("docs/developer/LIVING.md")),
+                "the check reads pages, it never writes them");
+
+        assertFalse(withoutFencedBlocks("page.md", "````\n~~~\n```\n" + stale + "````\n").contains("4.10.4.1"),
+                "a block closes only on a fence of its own character and at least its length");
+        assertTrue(withoutFencedBlocks("page.md", "  ```` ``` ```` ouvre un bloc.\n" + stale).contains("4.10.4.1"),
+                "a code span at the start of a line is not a fence");
+        AssertionError unclosed = assertThrows(AssertionError.class,
+                () -> withoutFencedBlocks("docs/developer/OPEN.md", "```\n" + stale));
+        assertTrue(unclosed.getMessage().startsWith("docs/developer/OPEN.md opens a fenced code block that it never "
+                + "closes"), unclosed::getMessage);
+    }
+
     @Test
     void bothShapesOfAVersionAreComparedAndAPropertyThePomDoesNotDeclareIsRefused() {
         Map<String, String> pom = rootPomProperties("""
@@ -289,6 +385,41 @@ class GovernanceSurfaceCoherenceTest {
                 refusal::getMessage);
 
         requireAgreement(statedVersions("page.md", "`jacoco.version=0.8.16`."), pom, "pom.xml", "nothing read");
+    }
+
+    @Test
+    void aTableRowAndAnEqualityOfCodeSpansAreReadWhileATableThatNamesThePropertyIsNot() {
+        Map<String, String> pom = rootPomProperties("""
+                <project><properties>
+                    <spotbugs.maven.plugin.version>4.10.5.0</spotbugs.maven.plugin.version>
+                    <pitest.maven.plugin.version>1.30.2</pitest.maven.plugin.version>
+                </properties></project>
+                """);
+        List<StatedValue> stated = statedVersions("docs/developer/CODE_AUDIT.md", """
+                | Propriété | Version | Rôle |
+                |---|---|---|
+                | `pitest.maven.plugin.version` | `1.30.0` | plugin Maven PIT |
+                | `spotbugs.maven.plugin.version` | `4.10.5.0` | plugin Maven SpotBugs |
+
+                | Version épinglée | `spotbugs.maven.plugin.version` = `4.10.4.1` |
+
+                | Propriété | Rôle |
+                |---|---|
+                | `spotbugs.maven.plugin.version` | plugin Maven SpotBugs |
+                | `pitest.maven.plugin.version` | [`pom.xml`](../../pom.xml), `<properties>` |
+                """);
+        assertEquals(3, stated.size(), () -> "the two rows with a value and the equality are read, the table that "
+                + "names the properties without a value is not: " + stated);
+
+        AssertionError refusal = assertThrows(AssertionError.class,
+                () -> requireAgreement(stated, pom, "pom.xml", "nothing read"));
+        assertTrue(refusal.getMessage().contains(
+                "docs/developer/CODE_AUDIT.md pitest.maven.plugin.version states 1.30.0, pom.xml says 1.30.2"),
+                refusal::getMessage);
+        assertTrue(refusal.getMessage().contains(
+                "docs/developer/CODE_AUDIT.md spotbugs.maven.plugin.version states 4.10.4.1, pom.xml says 4.10.5.0"),
+                refusal::getMessage);
+        assertFalse(refusal.getMessage().contains("states 4.10.5.0"), "a row that agrees with the POM is not refused");
     }
 
     @Test
@@ -417,13 +548,101 @@ class GovernanceSurfaceCoherenceTest {
 
     private static List<StatedValue> statedVersions(String page, String content) {
         List<StatedValue> stated = new ArrayList<>();
-        for (Pattern shape : List.of(VERSION_PROPERTY_ELEMENT, VERSION_PROPERTY_ASSIGNMENT)) {
+        for (Pattern shape : List.of(VERSION_PROPERTY_ELEMENT, VERSION_PROPERTY_ASSIGNMENT,
+                VERSION_PROPERTY_SPAN_EQUALITY)) {
             Matcher matcher = shape.matcher(content);
             while (matcher.find()) {
                 stated.add(new StatedValue(page, matcher.group(1), matcher.group(2).replaceAll("\\.+$", "")));
             }
         }
+        for (String line : content.split("\\R")) {
+            String row = line.strip();
+            if (row.startsWith("|")) {
+                statedVersionInTableRow(page, row).ifPresent(stated::add);
+            }
+        }
         return stated;
+    }
+
+    /** The version a table row writes: a cell that names a property, then a later cell that holds a value. */
+    private static Optional<StatedValue> statedVersionInTableRow(String page, String row) {
+        String property = null;
+        for (String cell : row.split("\\|")) {
+            String text = cell.strip();
+            if (property == null) {
+                Matcher name = VERSION_PROPERTY_NAME_CELL.matcher(text);
+                if (name.matches()) {
+                    property = name.group(1);
+                }
+            } else {
+                Matcher value = VERSION_VALUE_CELL.matcher(text);
+                if (value.matches()) {
+                    return Optional.of(new StatedValue(page, property, value.group(1)));
+                }
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * The versions the living pages of {@code docs/} write in the shape of a property the root POM declares. A key the
+     * POM does not declare belongs to another artifact -- Dependency-Check's {@code data.version}, a plugin manifest --
+     * and is not read; a fenced code block transcribes a console or an example file and is not read either.
+     */
+    private static List<StatedValue> statedLivingDocumentationVersions(Path root, Set<String> tracked,
+            Map<String, String> pom) throws IOException {
+        List<StatedValue> stated = new ArrayList<>();
+        for (Path page : livingDocumentationPages(root, tracked)) {
+            String name = relative(root, page);
+            for (StatedValue value : statedVersions(name, withoutFencedBlocks(name, Files.readString(page)))) {
+                if (pom.containsKey(value.key())) {
+                    stated.add(value);
+                }
+            }
+        }
+        return stated;
+    }
+
+    /**
+     * Every Markdown page under {@code docs/} that Git tracks, outside the dated records. The population is a rule,
+     * not a list: a page added under {@code docs/} is read without a change here, and a local report that Git ignores
+     * -- the code supervisor writes under {@code docs/project/rapport-supervisor/} -- is not part of the repository.
+     */
+    private static List<Path> livingDocumentationPages(Path root, Set<String> tracked) {
+        return RepositoryTree.files(root).stream()
+                .filter(file -> {
+                    String path = relative(root, file);
+                    return path.startsWith("docs/") && path.endsWith(".md") && tracked.contains(path)
+                            && DATED_RECORD_DIRECTORIES.stream().noneMatch(path::startsWith);
+                })
+                .toList();
+    }
+
+    /**
+     * The page without the text of its fenced code blocks. A block closes on a fence of the same character, at least as
+     * long as the one that opened it; a block left open would hide the rest of the page from the scan, so it is refused.
+     */
+    private static String withoutFencedBlocks(String page, String content) {
+        StringBuilder prose = new StringBuilder();
+        String opening = null;
+        for (String line : content.split("\\R", -1)) {
+            Matcher fence = CODE_FENCE.matcher(line);
+            boolean isFence = fence.find();
+            if (opening == null && isFence) {
+                opening = fence.group(1);
+            } else if (opening != null && isFence && fence.group(1).charAt(0) == opening.charAt(0)
+                    && fence.group(1).length() >= opening.length()) {
+                opening = null;
+            } else if (opening == null) {
+                prose.append(line);
+            }
+            prose.append('\n');
+        }
+        if (opening != null) {
+            throw new AssertionError(page + " opens a fenced code block that it never closes: the rest of the page "
+                    + "would be hidden from the version scan");
+        }
+        return prose.toString();
     }
 
     private static List<StatedValue> statedProductVersions(String page, String content) {
@@ -459,6 +678,11 @@ class GovernanceSurfaceCoherenceTest {
         if (stated.isEmpty()) {
             throw new AssertionError(emptyScan);
         }
+        refuseDisagreements(stated, source, sourceName);
+    }
+
+    /** Fails naming every page, key and pair of values that disagree; an empty list agrees. */
+    private static void refuseDisagreements(List<StatedValue> stated, Map<String, String> source, String sourceName) {
         List<String> disagreements = new ArrayList<>();
         for (StatedValue value : stated) {
             String expected = source.get(value.key());
@@ -471,7 +695,7 @@ class GovernanceSurfaceCoherenceTest {
             }
         }
         if (!disagreements.isEmpty()) {
-            throw new AssertionError("a governance page copies a value that its source no longer holds; update the "
+            throw new AssertionError("a page copies a value that its source no longer holds; update the "
                     + "page from " + sourceName + ", never the other way round:\n  "
                     + String.join("\n  ", disagreements));
         }
