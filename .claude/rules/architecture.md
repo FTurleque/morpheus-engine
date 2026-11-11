@@ -101,7 +101,9 @@ comme une phrase au lieu de `expected: <false> but was: <true>`. Les interdits s
 expliquée**, définie par l'expression que tient `EnforcementMechanismAccountingTest` (pas par une commande recopiée
 ici) : son compte doit **égaler** `UNEXPLAINED_TYPE_BAN_CEILING`. Un membre ajouté fait échouer le build ; un membre
 retiré aussi, tant que le plafond n'est pas baissé dans le même changement. Aucune raison connue ne justifie de
-relever le plafond.
+relever le plafond. Ce plafond et celui de `AWAITING_A_RULE_CEILING` égalent chacun leur clé de
+`config/enforcement-ceiling-ratchets.properties` : un relèvement touche ce fichier de gouvernance et se justifie dans la
+PR, une baisse abaisse la clé dans le même changement.
 
 Un interdit de type dont la cible ne déclare aucune constante inlinable s'écrit **en règle ArchUnit**, l'assertion
 textuelle pouvant rester à côté ; les autres portent leur message. `TypeBansAwaitingABytecodeRuleTest` tient cette

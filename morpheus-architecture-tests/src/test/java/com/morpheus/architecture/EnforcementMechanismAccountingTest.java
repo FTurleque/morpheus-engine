@@ -5,6 +5,9 @@ import com.morpheus.architecture.ArchitectureSuiteSources.TestClass;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.io.Reader;
+import java.io.StringReader;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,7 +15,9 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,8 +33,10 @@ import static org.junit.jupiter.api.Assertions.fail;
  * message, its failure reads {@code expected: <false> but was: <true>}. Those bans are the <em>unexplained family</em>:
  * an {@code assertFalse} whose single argument is {@code <identifier>.contains("<TypeIdentifier>")}, in the code of the
  * test sources of this module. Their count must equal {@link #UNEXPLAINED_TYPE_BAN_CEILING}: one more fails, one fewer
- * fails until the ceiling is lowered in the same change. A new textual ban of a type carries its intent as the
- * assertion's message, and so leaves the family by construction. No known reason justifies raising the ceiling.</p>
+ * fails until the ceiling is lowered in the same change. The ceiling equals its key in {@value #CEILING_RATCHETS},
+ * as does the ceiling of the bans awaiting a rule on the bytecode, so that raising either touches a governance file. A
+ * new textual ban of a type carries its intent as the assertion's message, and so leaves the family by construction.
+ * No known reason justifies raising the ceiling.</p>
  *
  * <p>The suite also publishes the composition of its enforcement in {@value #PROOF_FILE}, by the method its first line
  * names. Those counts are a reading, not a gate: nothing fails on them. Documents cite the file and its method, never
@@ -46,9 +53,19 @@ class EnforcementMechanismAccountingTest {
     /**
      * The textual bans of a type that state no intent: none. A ban of a type whose target declares no compile-time
      * constant is a rule on the bytecode, and one whose target declares such a constant, or whose intent is the
-     * mention itself, carries that intent as its message. Never raised.
+     * mention itself, carries that intent as its message. Never raised; equal to its key in {@value #CEILING_RATCHETS}.
      */
     static final int UNEXPLAINED_TYPE_BAN_CEILING = 0;
+
+    /**
+     * The governance file that holds each ceiling of a population of textual bans, one key per ceiling, keyed by
+     * {@code TestClass.FIELD}. A ceiling and its key move together: a raise touches this file, which the pull request
+     * template asks to justify, and a lowering lowers the key in the same change.
+     */
+    static final String CEILING_RATCHETS = "config/enforcement-ceiling-ratchets.properties";
+    static final String UNEXPLAINED_CEILING_KEY = "EnforcementMechanismAccountingTest.UNEXPLAINED_TYPE_BAN_CEILING";
+    static final String AWAITING_CEILING_KEY = "TypeBansAwaitingABytecodeRuleTest.AWAITING_A_RULE_CEILING";
+    private static final List<String> CEILING_KEYS = List.of(AWAITING_CEILING_KEY, UNEXPLAINED_CEILING_KEY);
 
     static final String PROOF_FILE = "morpheus-architecture-tests/target/enforcement-composition-summary.txt";
 
@@ -96,6 +113,50 @@ class EnforcementMechanismAccountingTest {
         assertEquals(UNEXPLAINED_TYPE_BAN_CEILING, measured,
                 "the textual bans of a type that state no intent fell to " + measured
                         + ": lower UNEXPLAINED_TYPE_BAN_CEILING to " + measured + " in this change");
+    }
+
+    @Test
+    void theUnexplainedCeilingEqualsItsRatchetKey() {
+        assertEquals(List.of(), ceilingRefusals(ceilingRatchets(), UNEXPLAINED_CEILING_KEY, UNEXPLAINED_TYPE_BAN_CEILING),
+                "the ceiling of the unexplained family is held by a governance file, not by this constant alone");
+    }
+
+    @Test
+    void theCeilingRatchetsDeclareTheKeyOfEachCeilingAndNoOther() {
+        assertEquals(List.of(), keyRefusals(ceilingRatchets()),
+                CEILING_RATCHETS + " declares one key per ceiling of a population of textual bans");
+    }
+
+    @Test
+    void aCeilingThatDiffersFromItsKeyIsRefusedInBothDirectionsWithItsRemedy() {
+        Properties declared = ratchets(UNEXPLAINED_CEILING_KEY + "=1");
+
+        List<String> lowered = ceilingRefusals(declared, UNEXPLAINED_CEILING_KEY, 0);
+        assertEquals(1, lowered.size(), () -> String.valueOf(lowered));
+        assertTrue(lowered.get(0).contains(UNEXPLAINED_CEILING_KEY + " is 0 in its test and 1 in " + CEILING_RATCHETS)
+                && lowered.get(0).contains("lower the key to 0"), lowered.get(0));
+
+        List<String> raised = ceilingRefusals(declared, UNEXPLAINED_CEILING_KEY, 2);
+        assertEquals(1, raised.size(), () -> String.valueOf(raised));
+        assertTrue(raised.get(0).contains(UNEXPLAINED_CEILING_KEY + " is 2 in its test and 1 in " + CEILING_RATCHETS)
+                && raised.get(0).contains("justified in the pull request"), raised.get(0));
+
+        assertEquals(List.of(), ceilingRefusals(declared, UNEXPLAINED_CEILING_KEY, 1));
+    }
+
+    @Test
+    void aMissingKeyAnOrphanKeyAndAValueThatIsNotACountAreRefusedByName() {
+        Properties declared = ratchets(UNEXPLAINED_CEILING_KEY + "=0", "SomeTest.RETIRED_CEILING=0");
+
+        List<String> missing = ceilingRefusals(declared, AWAITING_CEILING_KEY, 0);
+        assertEquals(List.of(AWAITING_CEILING_KEY + " is declared by no key of " + CEILING_RATCHETS), missing);
+
+        assertEquals(List.of(UNEXPLAINED_CEILING_KEY + " is \"1.0\" in " + CEILING_RATCHETS + ", which is not a count"),
+                ceilingRefusals(ratchets(UNEXPLAINED_CEILING_KEY + "=1.0"), UNEXPLAINED_CEILING_KEY, 1));
+
+        List<String> keys = keyRefusals(declared);
+        assertEquals(List.of(AWAITING_CEILING_KEY + " is declared by no key of " + CEILING_RATCHETS,
+                "SomeTest.RETIRED_CEILING is a key of " + CEILING_RATCHETS + " that no ceiling reads"), keys);
     }
 
     @Test
@@ -185,6 +246,57 @@ class EnforcementMechanismAccountingTest {
 
     private static void add(Map<String, Long> composition, String key, long value) {
         composition.merge(key, value, Long::sum);
+    }
+
+    static Properties ceilingRatchets() {
+        Properties declared = new Properties();
+        try (Reader reader = Files.newBufferedReader(RepositoryRoot.locate().resolve(CEILING_RATCHETS),
+                StandardCharsets.UTF_8)) {
+            declared.load(reader);
+        } catch (IOException failure) {
+            throw new UncheckedIOException(CEILING_RATCHETS + " must exist and be readable", failure);
+        }
+        return declared;
+    }
+
+    /** The refusals of a ceiling whose key is missing from {@code declared} or holds another value. */
+    static List<String> ceilingRefusals(Properties declared, String key, int ceiling) {
+        String value = declared.getProperty(key);
+        if (value == null) {
+            return List.of(key + " is declared by no key of " + CEILING_RATCHETS);
+        }
+        if (!value.trim().matches("\\d+")) {
+            return List.of(key + " is \"" + value + "\" in " + CEILING_RATCHETS + ", which is not a count");
+        }
+        int ratchet = Integer.parseInt(value.trim());
+        if (ceiling == ratchet) {
+            return List.of();
+        }
+        String difference = key + " is " + ceiling + " in its test and " + ratchet + " in " + CEILING_RATCHETS + ": ";
+        return List.of(ceiling < ratchet
+                ? difference + "lower the key to " + ceiling + " in this change, or the population could grow back to it"
+                : difference + "a ceiling is raised only with its key, a governance file whose change is justified in "
+                        + "the pull request");
+    }
+
+    /** The refusals of a missing key, and of a key no ceiling reads. */
+    static List<String> keyRefusals(Properties declared) {
+        List<String> refusals = new ArrayList<>();
+        CEILING_KEYS.stream().filter(key -> !declared.containsKey(key))
+                .forEach(key -> refusals.add(key + " is declared by no key of " + CEILING_RATCHETS));
+        new TreeSet<>(declared.stringPropertyNames()).stream().filter(key -> !CEILING_KEYS.contains(key))
+                .forEach(key -> refusals.add(key + " is a key of " + CEILING_RATCHETS + " that no ceiling reads"));
+        return refusals;
+    }
+
+    private static Properties ratchets(String... lines) {
+        Properties declared = new Properties();
+        try {
+            declared.load(new StringReader(String.join("\n", lines)));
+        } catch (IOException failure) {
+            throw new UncheckedIOException(failure);
+        }
+        return declared;
     }
 
     static long unexplainedTypeBans(String source) {
