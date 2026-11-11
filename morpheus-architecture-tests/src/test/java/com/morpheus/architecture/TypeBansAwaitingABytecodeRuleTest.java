@@ -30,7 +30,8 @@ import static org.junit.jupiter.api.Assertions.fail;
  * {@code src/main/java} of a module this suite imports, declares no non-private {@code static final} field of type
  * {@code String} or of a primitive type (any such field of an interface), and is named by no class of the suite that
  * evaluates rules on bytecode. The count of those bans equals {@link #AWAITING_A_RULE_CEILING}: one more fails with the
- * members by file, one fewer fails until the ceiling is lowered in the same change.</p>
+ * members by file, one fewer fails until the ceiling is lowered in the same change. The ceiling equals its key in
+ * {@code config/enforcement-ceiling-ratchets.properties}, so that raising it touches a governance file.</p>
  *
  * <p>The expression reads the code of the test classes, comments and text blocks blanked, string literals kept, with any
  * receiver before {@code .contains(}, with or without a message. A target named in two imported modules counts when
@@ -44,7 +45,10 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 class TypeBansAwaitingABytecodeRuleTest {
 
-    /** The textual bans of a type awaiting a rule on the bytecode. Lowered with each member that receives its rule; never raised. */
+    /**
+     * The textual bans of a type awaiting a rule on the bytecode. Lowered with each member that receives its rule, with
+     * its ratchet key; never raised.
+     */
     static final int AWAITING_A_RULE_CEILING = 0;
 
     private static final String SUITE_POM = "morpheus-architecture-tests/pom.xml";
@@ -90,6 +94,14 @@ class TypeBansAwaitingABytecodeRuleTest {
                 "the textual bans of a type awaiting a rule fell to " + measured
                         + ": lower AWAITING_A_RULE_CEILING to " + measured + " in this change. Members by file: "
                         + membersByFile);
+    }
+
+    @Test
+    void theCeilingEqualsItsRatchetKey() {
+        assertEquals(List.of(), EnforcementMechanismAccountingTest.ceilingRefusals(
+                        EnforcementMechanismAccountingTest.ceilingRatchets(),
+                        EnforcementMechanismAccountingTest.AWAITING_CEILING_KEY, AWAITING_A_RULE_CEILING),
+                "the ceiling of the bans awaiting a rule is held by a governance file, not by this constant alone");
     }
 
     @Test
