@@ -1,21 +1,18 @@
 package com.morpheus.architecture.d2;
 
 import com.morpheus.architecture.RepositoryRoot;
+import com.morpheus.architecture.TrackedFiles;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -59,7 +56,7 @@ class RepositoryCredentialHygieneTest {
     @Test
     void noTrackedFileIsAnIdentityFileOrKeyMaterial() throws IOException, InterruptedException {
         Path root = RepositoryRoot.locate();
-        List<String> tracked = trackedFiles(root);
+        List<String> tracked = TrackedFiles.list(root);
         assertTrue(tracked.size() > 100, "too few tracked files listed (" + tracked.size()
                 + "): the rule would pass on nothing");
 
@@ -97,12 +94,12 @@ class RepositoryCredentialHygieneTest {
                 "this file system cannot mark a file executable");
         String malformed = "\"quoted entry\"" + File.pathSeparator + "nul\0entry";
 
-        Optional<Path> found = gitExecutable(malformed + File.pathSeparator + directory);
+        Optional<Path> found = TrackedFiles.gitExecutable(malformed + File.pathSeparator + directory);
 
         assertTrue(found.isPresent(), "the entry after the malformed ones must still be searched");
         assertEquals(directory.toAbsolutePath(), found.orElseThrow().getParent());
-        assertEquals(Optional.empty(), gitExecutable(malformed));
-        assertEquals(Optional.empty(), gitExecutable(null));
+        assertEquals(Optional.empty(), TrackedFiles.gitExecutable(malformed));
+        assertEquals(Optional.empty(), TrackedFiles.gitExecutable(null));
     }
 
     private static Pattern ignoringCase(String expression) {
@@ -111,57 +108,5 @@ class RepositoryCredentialHygieneTest {
 
     private static boolean matchesAny(String path) {
         return CREDENTIALS.stream().anyMatch(credential -> credential.trackedPath().matcher(path).find());
-    }
-
-    /**
-     * The files Git tracks, by the names Git stores ({@code -z}: a name that is not ASCII is not quoted). Outside a
-     * checkout, or without Git, the check cannot conclude: on a developer's machine it is skipped with that reason
-     * rather than passed, and in a build that is judged it fails.
-     */
-    private static List<String> trackedFiles(Path root) throws IOException, InterruptedException {
-        boolean checkout = Files.exists(root.resolve(".git"));
-        Optional<Path> executable = gitExecutable(System.getenv("PATH"));
-        if (System.getenv("CI") != null) {
-            assertTrue(checkout && executable.isPresent(), "a build that is judged must list the tracked files: "
-                    + "checkout=" + checkout + ", git=" + executable.isPresent());
-        }
-        assumeTrue(checkout, "not a Git checkout: tracked files cannot be listed");
-        assumeTrue(executable.isPresent(), "git is not available: tracked files cannot be listed");
-        Process git = new ProcessBuilder(executable.orElseThrow().toString(), "ls-files", "-z")
-                .directory(root.toFile())
-                .redirectErrorStream(true)
-                .start();
-        String output = new String(git.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-        assertTrue(git.waitFor(60, TimeUnit.SECONDS) && git.exitValue() == 0,
-                () -> "git ls-files failed: " + output);
-        return Stream.of(output.split("\0")).filter(path -> !path.isEmpty()).toList();
-    }
-
-    /**
-     * The Git executable as an absolute path, found on the search path here rather than left to the operating system:
-     * the process is then started from a file this test named, not from whatever a bare command resolves to. An entry
-     * of the search path that is not a pathname -- quoted, as a Windows shell accepts -- is passed over like a directory
-     * that holds no Git.
-     */
-    private static Optional<Path> gitExecutable(String searchPath) {
-        if (searchPath == null) {
-            return Optional.empty();
-        }
-        for (String directory : searchPath.split(File.pathSeparator)) {
-            if (directory.isBlank()) {
-                continue;
-            }
-            for (String name : List.of("git.exe", "git")) {
-                try {
-                    Path candidate = Path.of(directory).resolve(name).toAbsolutePath();
-                    if (Files.isRegularFile(candidate) && Files.isExecutable(candidate)) {
-                        return Optional.of(candidate);
-                    }
-                } catch (InvalidPathException notAPathname) {
-                    break;
-                }
-            }
-        }
-        return Optional.empty();
     }
 }
