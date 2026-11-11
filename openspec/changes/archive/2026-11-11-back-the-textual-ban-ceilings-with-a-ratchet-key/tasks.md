@@ -33,7 +33,7 @@
   vérification : chaque scénario a une preuve existante ou est marqué « revue »
 - [x] 2.3 Lancer `./mvnw test -pl morpheus-architecture-tests` et lire `target/enforcement-verdict.txt` — vérification :
   verdicts vides, `architectureTestsMinimum` tenu
-- [ ] 2.4 Remplir dans la PR la section « Justification d'une modification de gouvernance » pour le nouveau fichier de
+- [x] 2.4 Remplir dans la PR la section « Justification d'une modification de gouvernance » pour le nouveau fichier de
   `config/` — vérification : section remplie
 
 ## Workflow follow-up
