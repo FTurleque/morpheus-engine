@@ -57,7 +57,7 @@ Release stable         1.2.1
 Baseline développement 1.2.2
 Persistent store       SQLite
 SQLite JDBC            3.54.1.0
-Jackson                3.2.4
+Jackson                3.3.0
 MCP SDK                Java MCP SDK 2.1.0
 HTTP local             JDK jdk.httpserver
 Remote HTTPS           JDK HttpsServer, opt-in

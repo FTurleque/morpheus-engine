@@ -5,7 +5,7 @@
 `D2RepositoryHardeningArchitectureTest#dependencyAndQualityBaselineIsPinned` exige la présence littérale de :
 
 ```xml
-<jackson.version>3.2.4</jackson.version>
+<jackson.version>3.3.0</jackson.version>
 <sqlite-jdbc.version>3.54.1.0</sqlite-jdbc.version>
 <dependency-check.maven.plugin.version>13.0.0</dependency-check.maven.plugin.version>
 <failOnWarning>true</failOnWarning>
@@ -78,7 +78,7 @@ n'a pas de `<version>` du tout, elle vient du `junit-bom` importé plus haut.
 
 Versions actuelles pilotées par propriété dans le POM racine : `junit.version=6.1.3`, `archunit.version=1.5.1`,
 `sqlite-jdbc.version=3.54.1.0`, `mcp-sdk.version=2.1.0`, `reactor-bom.version=2024.0.18`,
-`slf4j.version=2.0.20`, `jackson.version=3.2.4`, `jacoco.version=0.8.16`,
+`slf4j.version=2.0.20`, `jackson.version=3.3.0`, `jacoco.version=0.8.16`,
 `dependency-check.maven.plugin.version=13.0.0`.
 Toute version écrite sous la forme d'une propriété du POM est comparée à `pom.xml` : un bump qui ne touche que le POM
 fait échouer le build jusqu'à ce que la page suive. Quatre formes sont lues — élément XML, affectation `nom=valeur`,

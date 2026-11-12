@@ -84,7 +84,7 @@ contrats métier.
 | Java | Runtime et langage | 21 |
 | Maven Wrapper | Build multi-module | 3.10.0 |
 | SQLite JDBC | Persistance embarquée | 3.54.1.0 |
-| Jackson | Sérialisation / parsing JSON | BOM 3.2.4 |
+| Jackson | Sérialisation / parsing JSON | BOM 3.3.0 |
 | MCP SDK Java | MCP STDIO | 2.1.0 |
 | JUnit Jupiter | Tests | 6.1.3 |
 | ArchUnit | Tests d'architecture | 1.5.1 |
