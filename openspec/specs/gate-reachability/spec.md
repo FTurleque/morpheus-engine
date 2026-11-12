@@ -54,7 +54,7 @@ profile and the iteration protocol of `docs/project/roadmap/M19_PERFORMANCE_BUDG
 
 #### Scenario: A nightly run produces the evidence on both platforms
 
-- **WHEN** the nightly workflow runs on `develop`
+- **WHEN** the nightly workflow runs on a schedule, on the commit of the default branch `main`
 - **THEN** a Linux job and a Windows job each execute the five gates, and each uploads an artefact holding
   `validation-summary.txt` with the measured `M19_METRIC` values
 
@@ -210,7 +210,7 @@ A workflow MUST run the M20 release validator on Linux and on Windows on a sched
 #### Scenario: A rehearsal can be run on a branch before a merge
 
 - **WHEN** the workflow is dispatched manually on a branch
-- **THEN** it rehearses that branch's commit, not `develop`'s
+- **THEN** it rehearses that branch's commit, not the commit of the default branch `main`
 
 #### Scenario: The validator is given the current version
 

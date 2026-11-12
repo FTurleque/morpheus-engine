@@ -43,16 +43,16 @@ GitHub (groupe 6) vient après la fusion.
 
 ## 6. Bascule GitHub, après fusion
 
-- [ ] 6.1 Fermer la pull request #632 (back-merge devenu sans objet), avec l'accord du mainteneur — vérification : `gh pr view 632 --json state` vaut `CLOSED`
-- [ ] 6.2 Mainteneur : retirer `refs/heads/develop` du ruleset `20792822` et le renommer « Protect main » — exigence : `vulnerability-feed-freshness` › The alert SHALL come after the scan and SHALL NOT block by name ; vérification : `gh api repos/FTurleque/morpheus-engine/rulesets/20792822` montre `include: ["~DEFAULT_BRANCH"]`, les quatre checks requis et aucun nom de job d'alerte
-- [ ] 6.3 Mainteneur : supprimer la branche `develop` — vérification : `git ls-remote --heads origin develop` vide
-- [ ] 6.4 Constater le premier run planifié de `nightly.yml` sur `main` (budgets M19 et répétition de release sur les deux plateformes) et le job `sonar` du push de la fusion — exigence : `gate-reachability` › les deux exigences modifiées ; `single-integration-branch` › Chaque fusion dans main DOIT recevoir une analyse statique ; vérification : identifiants de run notés dans la PR ou dans la page durable
+- [x] 6.1 Fermer la pull request #632 (back-merge devenu sans objet), avec l'accord du mainteneur — vérification : `gh pr view 632 --json state` vaut `CLOSED`
+- [x] 6.2 Mainteneur : retirer `refs/heads/develop` du ruleset `20792822` et le renommer « Protect main » — exigence : `vulnerability-feed-freshness` › The alert SHALL come after the scan and SHALL NOT block by name ; vérification : `gh api repos/FTurleque/morpheus-engine/rulesets/20792822` montre `include: ["~DEFAULT_BRANCH"]`, les quatre checks requis et aucun nom de job d'alerte
+- [x] 6.3 Mainteneur : supprimer la branche `develop` — vérification : `git ls-remote --heads origin develop` vide
+- [x] 6.4 Constater le premier run planifié de `nightly.yml` sur `main` (budgets M19 et répétition de release sur les deux plateformes) et le job `sonar` du push de la fusion — exigence : `gate-reachability` › les deux exigences modifiées ; `single-integration-branch` › Chaque fusion dans main DOIT recevoir une analyse statique ; vérification : identifiants de run notés dans la PR ou dans la page durable
 
 ## 7. Vérification d'ensemble
 
 - [x] 7.1 Lancer `openspec validate retirer-la-branche-develop --strict` — vérification : aucun avertissement
 - [x] 7.2 Compléter la matrice de traçabilité de `docs/developer/specifications/single-integration-branch.md` (exigence → scénario → décision de `design.md` → tâche → preuve) — vérification : chaque exigence a une preuve existante ou est marquée « preuve manquante »
-- [ ] 7.3 Lancer `./mvnw test -pl morpheus-architecture-tests` puis laisser la CI de la pull request exécuter `./mvnw clean verify` sur Linux et Windows — vérification : verdict de `morpheus-architecture-tests/target/enforcement-verdict.txt` sans échec, checks requis verts, compte d'exécutions déclarées au moins égal à `architectureTestsMinimum`
+- [x] 7.3 Lancer `./mvnw test -pl morpheus-architecture-tests` puis laisser la CI de la pull request exécuter `./mvnw clean verify` sur Linux et Windows — vérification : verdict de `morpheus-architecture-tests/target/enforcement-verdict.txt` sans échec, checks requis verts, compte d'exécutions déclarées au moins égal à `architectureTestsMinimum`
 - [x] 7.4 Lancer `archgate check` — vérification : aucune violation, avertissements rapportés au mainteneur
 
 ## Workflow follow-up

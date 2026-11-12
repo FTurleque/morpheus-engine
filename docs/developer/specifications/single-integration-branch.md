@@ -1,7 +1,6 @@
 # Une seule branche longue (`single-integration-branch`)
 
-Spec de référence : `openspec/specs/single-integration-branch/spec.md`, créée à l'archivage du changement
-`retirer-la-branche-develop`. D'ici là, les exigences se lisent dans ce changement, sous `openspec/changes/`.
+Spec de référence : `openspec/specs/single-integration-branch/spec.md`.
 
 ## Objet et périmètre
 

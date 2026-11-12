@@ -1,7 +1,6 @@
 # Contrat du fichier de suppressions du gate CVE (`dependency-check-suppression-contract`)
 
-Spec de référence : `openspec/specs/dependency-check-suppression-contract/spec.md`, créée à l'archivage du changement
-`hold-the-dependency-check-suppressions-to-a-contract` (d'ici là, sa spec delta dans le dossier du changement)
+Spec de référence : `openspec/specs/dependency-check-suppression-contract/spec.md`.
 · Relevé du 2026-11-06 sur `8c038add`.
 
 ## Objet et périmètre
