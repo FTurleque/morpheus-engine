@@ -43,7 +43,7 @@ seuils vivent dans un fichier propre à l'échelle par module.
 
 **La marge d'un seuil de module.** Un seuil de module se pose sous la plus basse mesure conservée du module, d'au
 moins trois fois une dispersion. La dispersion de référence de l'échelle (`REFERENCE_LINE_SPREAD`,
-`REFERENCE_BRANCH_SPREAD` de `CoverageQualificationEvidenceTest`) mesure la variation de toute la population entre
+`REFERENCE_BRANCH_SPREAD` de `CoverageQualificationVerifier`) mesure la variation de toute la population entre
 plateformes, pour une trentaine de milliers de lignes. Imposée entière à un module de quelques dizaines de lignes, elle
 suppose que toute la variation de la population puisse s'y concentrer : la marge dépasse alors la taille du module, la
 fenêtre de son seuil est vide par construction et le seuil reste au plancher D2, où il ne mord pas. Trois options ont
@@ -158,10 +158,10 @@ de lui : une dépendance de test dans ce sens est un cycle du réacteur.
   preuve, module absent ou étranger refusé, refus `stale`.
 - `BorrowedCoverageGateTest` (`morpheus-coverage-report`) : crédit par module, liste exacte des classes entièrement
   empruntées, maximum entre la mesure qualifiée et trois fois la dispersion de référence au-dessus.
-- `CoverageQualificationEvidenceTest` : chaque plafond égal au plus bas ratio de sa preuve conservée, chaque ratchet
-  dans sa marge sur la référence entière de l'échelle, chaque seuil de module dans sa bande de trois à neuf dispersions
-  sur la référence proportionnelle (`MAXIMUM_HEADROOM_SPREADS`), compteurs de chaque module complets et égaux aux
-  totaux.
+- `CoverageQualificationEvidenceTest`, qui juge avec `CoverageQualificationVerifier` : chaque plafond égal au plus bas
+  ratio de sa preuve conservée, chaque ratchet dans sa marge sur la référence entière de l'échelle, chaque seuil de
+  module dans sa bande de trois à neuf dispersions sur la référence proportionnelle (`MAXIMUM_HEADROOM_SPREADS`),
+  compteurs de chaque module complets et égaux aux totaux.
 - `scripts/lib/Require-AggregateCoverageEvidence.ps1` et `scripts/lib/require-aggregate-coverage-evidence.sh` : garde
   partagé des validateurs sur la portée de la preuve.
 
