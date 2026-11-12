@@ -1,5 +1,5 @@
 {
-  "_doc": "Surcharges du superviseur de code pour MORPHEUS (le reste vient de la configuration globale). log_subdir : rapports et état de session sous docs/project/rapport-supervisor, à la racine Git (dossier local, auto-ignoré). quiet_paths : relevés datés que le superviseur ne relit pas. llm.convention_files remplace la liste globale.",
+  "_doc": "Surcharges du superviseur de code pour MORPHEUS (le reste vient de la configuration globale). log_subdir : rapports et état de session sous docs/project/rapport-supervisor, à la racine Git (dossier local, auto-ignoré). quiet_paths : relevés datés que le superviseur ne relit pas. llm.convention_files remplace la liste globale. accepted_findings : faux positifs écartés, chacun avec la raison qui prouve que le code est correct (code-supervisor 1.4.0 et suivants).",
   "log_subdir": "docs/project/rapport-supervisor",
   "llm": {
     "convention_files": [
@@ -13,5 +13,13 @@
     "docs/project/validation/*",
     "docs/project/roadmap/*",
     "Claude outputs/*"
+  ],
+  "accepted_findings": [
+    {
+      "rule": "BUG.DIV_ZERO",
+      "path": "morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m21/CoverageQualificationVerifier.java",
+      "symbol": "CoverageQualificationVerifier.windowProblem",
+      "reason": "La division par total n'est atteinte que si headroom > 9 * spread, avec spread >= 1 ; or headroom <= lowest <= total, donc total > 9. La division ceilDiv par population ne peut valoir zéro que si total l'est aussi, et lève alors ArithmeticException au lieu de rendre un résultat faux."
+    }
   ]
 }
