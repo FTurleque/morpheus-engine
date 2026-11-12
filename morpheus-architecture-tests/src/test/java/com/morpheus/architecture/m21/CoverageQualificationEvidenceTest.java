@@ -37,9 +37,9 @@ import org.junit.jupiter.api.io.TempDir;
  * shared by both scales, one population per scale.</p>
  *
  * <p>The per-module summaries also carry each module's own counters, which must make their totals, and each floor of
- * {@code config/m21-per-module-coverage-floors.properties} stays in the window they grant: the D2 floor, or at least
- * three times the module's spread under its lowest kept count, its reference spread being the scale's in
- * proportion to the module's share of the population (ADR-0166).</p>
+ * {@code config/m21-per-module-coverage-floors.properties} stays in the window they grant: between three and nine
+ * times the module's spread under its lowest kept count, or the D2 floor when no higher floor fits, its reference
+ * spread being the scale's in proportion to the module's share of the population (ADR-0167).</p>
  *
  * <p>Both bindings are textual because their subjects lie outside the compiled classpath: the constants are private
  * to gates in two different modules, and the evidence is data ({@code .claude/rules/architecture.md}). The rule is
@@ -63,6 +63,9 @@ class CoverageQualificationEvidenceTest {
     private static final double SIX_DIGIT_ROUNDING = 5.1e-7d;
     private static final String RATCHETS = "config/m21-quality-ratchets.properties";
     private static final long HEADROOM_SPREADS = 3L;
+    // A module floor leaves at most three times its margin under its lowest kept count (ADR-0167): further down, the
+    // module could lose most of its coverage before its own floor bites.
+    private static final long MAXIMUM_HEADROOM_SPREADS = 9L;
     // Widest spread of covered counts observed across the runs of one qualification, on either scale: 24 lines and
     // 11 branches, 15/09/2026 at a1fc0a8d (CoverageQualityGateTest cites the runs).
     private static final long REFERENCE_LINE_SPREAD = 24L;
@@ -383,9 +386,9 @@ class CoverageQualificationEvidenceTest {
                 file -> new long[] {file.equals("per-module/Linux-1.txt") ? 10_000L : 10_100L,
                         file.equals("per-module/Linux-1.txt") ? 10_000L : 9_900L, 6_000L, 2_000L});
 
-        assertEquals(List.of(), floorWindows(evidence, floors("morpheus-cli", 0.485d, 0.35d), 0.40d, 0.35d));
+        assertEquals(List.of(), floorWindows(evidence, floors("morpheus-cli", 0.485d, 0.748d), 0.40d, 0.35d));
 
-        List<String> problems = floorWindows(evidence, floors("morpheus-cli", 0.4851d, 0.35d), 0.40d, 0.35d);
+        List<String> problems = floorWindows(evidence, floors("morpheus-cli", 0.4851d, 0.748d), 0.40d, 0.35d);
         assertEquals(1, problems.size(), problems::toString);
         assertTrue(problems.get(0).contains("morpheus-cli.lineCoverageMinimum") && problems.get(0).contains("10000")
                 && problems.get(0).contains("needs 300") && problems.get(0).contains("spread of 100"), problems.get(0));
@@ -429,11 +432,43 @@ class CoverageQualificationEvidenceTest {
     }
 
     @Test
+    void aFloorAbandonedFarUnderItsMeasurementIsRefusedAndNamesTheLowestAdmittedFloor(@TempDir Path workspace)
+            throws IOException {
+        Path evidence = withModuleCounters(qualification(workspace, new double[] {0.60d, 0.70d, 0.65d, 0.75d}),
+                file -> new long[] {10_000L, 10_000L, 6_000L, 2_000L});
+
+        assertEquals(List.of(), floorWindows(evidence, floors("morpheus-cli", 0.498d, 0.748d), 0.40d, 0.35d));
+
+        List<String> problems = floorWindows(evidence, floors("morpheus-cli", 0.45d, 0.748d), 0.40d, 0.35d);
+        assertEquals(1, problems.size(), problems::toString);
+        assertTrue(problems.get(0).contains("morpheus-cli.lineCoverageMinimum") && problems.get(0).contains("leaves 1000")
+                && problems.get(0).contains("at most 45") && problems.get(0).contains("raise it to at least 0.498"),
+                problems.get(0));
+    }
+
+    @Test
+    void aFloorAtTheD2FloorIsRefusedWhenTheBandLiesAboveItAndAdmittedWhenTheWindowIsEmpty(@TempDir Path workspace)
+            throws IOException {
+        Path banded = withModuleCounters(
+                qualification(workspace.resolve("banded"), new double[] {0.60d, 0.70d, 0.65d, 0.75d}),
+                file -> new long[] {10_000L, 10_000L, 6_000L, 2_000L});
+        List<String> problems = floorWindows(banded, floors("morpheus-cli", 0.40d, 0.748d), 0.40d, 0.35d);
+        assertEquals(1, problems.size(), problems::toString);
+        assertTrue(problems.get(0).contains("morpheus-cli.lineCoverageMinimum")
+                && problems.get(0).contains("raise it to at least 0.498"), problems.get(0));
+
+        Path empty = withModuleCounters(
+                qualification(workspace.resolve("empty"), new double[] {0.60d, 0.70d, 0.65d, 0.75d}),
+                file -> new long[] {30L, 70L, 30L, 70L});
+        assertEquals(List.of(), floorWindows(empty, floors("morpheus-cli", 0.40d, 0.35d), 0.40d, 0.35d));
+    }
+
+    @Test
     void aModuleFloorUnderTheD2FloorIsRefusedAndNamesTheModuleAndTheKey(@TempDir Path workspace) throws IOException {
         Path evidence = withModuleCounters(qualification(workspace, new double[] {0.60d, 0.70d, 0.65d, 0.75d}),
                 file -> new long[] {10_000L, 10_000L, 6_000L, 2_000L});
 
-        List<String> problems = floorWindows(evidence, floors("morpheus-cli", 0.40d, 0.34d), 0.40d, 0.35d);
+        List<String> problems = floorWindows(evidence, floors("morpheus-cli", 0.498d, 0.34d), 0.40d, 0.35d);
 
         assertEquals(1, problems.size(), problems::toString);
         assertTrue(problems.get(0).contains("morpheus-cli.branchCoverageMinimum") && problems.get(0).contains("0.34")
@@ -465,13 +500,11 @@ class CoverageQualificationEvidenceTest {
                 unqualified::toString);
     }
 
-    /** The floors of one module, plus {@code morpheus-domain} at the D2 floor, which every window admits. */
+    /** The two floors of one module, the only keys the window under test reads. */
     private static Properties floors(String module, double line, double branch) {
         Properties floors = new Properties();
         floors.setProperty(module + LINE_FLOOR_SUFFIX, Double.toString(line));
         floors.setProperty(module + BRANCH_FLOOR_SUFFIX, Double.toString(branch));
-        floors.setProperty("morpheus-domain" + LINE_FLOOR_SUFFIX, "0.40");
-        floors.setProperty("morpheus-domain" + BRANCH_FLOOR_SUFFIX, "0.35");
         return floors;
     }
 
@@ -753,9 +786,10 @@ class CoverageQualificationEvidenceTest {
     }
 
     /**
-     * Window of each per-module floor: the D2 floor of its quantity is always admitted, since the gate applies it
-     * anyway; a floor above it needs the module's counters in every kept per-module summary, and leaves at least three
-     * times the module's spread -- the kept runs' or its reference, whichever is wider -- under its lowest kept count.
+     * Window of each per-module floor: never under the D2 floor of its quantity; a floor above it needs the module's
+     * counters in every kept per-module summary, and leaves at least three times the module's spread -- the kept runs'
+     * or its reference, whichever is wider -- under its lowest kept count. A floor of a module the evidence carries,
+     * the D2 floor included, leaves at most nine times that spread; a module the evidence does not carry stays at D2.
      * A module's reference is the scale's, times the module's share of the population of that quantity, rounded up:
      * the scale's reference is a spread of the whole population, which a module of a few dozen lines cannot carry.
      * A key of no known form is left to CoverageQualityGateTest, which refuses it.
@@ -782,28 +816,31 @@ class CoverageQualificationEvidenceTest {
                 problems.add(key + "=" + floor + " is below the D2 floor " + d2Floor + " of module " + module);
                 continue;
             }
-            if (floor <= d2Floor + RATIO_PRECISION) {
-                continue;
-            }
+            boolean atTheD2Floor = floor <= d2Floor + RATIO_PRECISION;
             List<Map<String, Long>> measured = kept.stream().map(summary -> moduleCounters(summary).get(module)).toList();
             if (measured.isEmpty() || measured.contains(null)) {
-                problems.add(key + "=" + floor + " is above the D2 floor " + d2Floor + " but the kept per-module evidence"
-                        + " carries no counters for " + module + " in every summary: a floor above the D2 floor needs a"
-                        + " Windows and Linux qualification that carries the module");
+                if (!atTheD2Floor) {
+                    problems.add(key + "=" + floor + " is above the D2 floor " + d2Floor + " but the kept per-module"
+                            + " evidence carries no counters for " + module + " in every summary: a floor above the D2"
+                            + " floor needs a Windows and Linux qualification that carries the module");
+                }
                 continue;
             }
-            windowProblem(key, module, counter, floor, measured, kept.get(0).values()).ifPresent(problems::add);
+            windowProblem(key, module, counter, floor, atTheD2Floor, measured, kept.get(0).values())
+                    .ifPresent(problems::add);
         }
         return problems;
     }
 
     /**
-     * The refusal of a floor above the D2 floor that leaves less than three times the module's spread under its lowest
-     * kept count, or nothing. The module's reference spread is the scale's times the module's share of the population
-     * of {@code counter}, read in the first kept summary, rounded up and never under one unit.
+     * The refusal of a floor that leaves less than three times the module's spread under its lowest kept count (the
+     * D2 floor excepted, which the gate applies anyway), or more than nine times, or nothing. The module's reference
+     * spread is the scale's times the module's share of the population of {@code counter}, read in the first kept
+     * summary, rounded up and never under one unit. A floor at the D2 floor leaves more than nine spreads only when a
+     * higher floor fits between three and nine: when the window is empty its headroom is under three spreads.
      */
     private static Optional<String> windowProblem(String key, String module, String counter, double floor,
-            List<Map<String, Long>> measured, Map<String, String> totals) {
+            boolean atTheD2Floor, List<Map<String, Long>> measured, Map<String, String> totals) {
         List<Long> covered = measured.stream().map(counters -> counters.get(counter + "Covered")).sorted().toList();
         long lowest = covered.get(0);
         long keptSpread = covered.get(covered.size() - 1) - lowest;
@@ -813,16 +850,23 @@ class CoverageQualificationEvidenceTest {
         long referenceSpread = Math.max(1L, Math.ceilDiv(scaleReference * total, population));
         long spread = Math.max(keptSpread, referenceSpread);
         long headroom = lowest - (long) Math.ceil(floor * total - SIX_DIGIT_ROUNDING);
-        if (headroom >= HEADROOM_SPREADS * spread) {
-            return Optional.empty();
-        }
         String source = keptSpread >= referenceSpread ? "the kept runs' spread of " + keptSpread
                 : "the reference spread of " + referenceSpread + ", the module's share (" + total + " of the "
                         + population + " " + counter + " units) of the scale reference " + scaleReference;
-        return Optional.of(key + "=" + floor + " leaves " + headroom + " covered " + counter + " units under"
-                + " the lowest kept measurement of " + module + " (" + lowest + " of " + total + "); it needs "
-                + HEADROOM_SPREADS * spread + ", " + HEADROOM_SPREADS + "x " + source
-                + " -- a higher floor needs a requalification");
+        String measurement = key + "=" + floor + " leaves " + headroom + " covered " + counter + " units under"
+                + " the lowest kept measurement of " + module + " (" + lowest + " of " + total + ")";
+        if (!atTheD2Floor && headroom < HEADROOM_SPREADS * spread) {
+            return Optional.of(measurement + "; it needs " + HEADROOM_SPREADS * spread + ", " + HEADROOM_SPREADS
+                    + "x " + source + " -- a higher floor needs a requalification");
+        }
+        if (headroom > MAXIMUM_HEADROOM_SPREADS * spread) {
+            double lowestAdmitted = Math.ceil((lowest - MAXIMUM_HEADROOM_SPREADS * spread) * 1000.0d / total
+                    - SIX_DIGIT_ROUNDING) / 1000.0d;
+            return Optional.of(measurement + "; a floor leaves at most " + MAXIMUM_HEADROOM_SPREADS * spread + ", "
+                    + MAXIMUM_HEADROOM_SPREADS + "x " + source + " -- raise it to at least "
+                    + String.format(Locale.ROOT, "%.3f", lowestAdmitted));
+        }
+        return Optional.empty();
     }
 
     private static Properties loadProperties(Path file) throws IOException {

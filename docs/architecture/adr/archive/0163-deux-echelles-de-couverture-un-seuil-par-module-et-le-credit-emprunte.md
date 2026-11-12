@@ -1,6 +1,6 @@
 # ADR-0163 — Deux échelles de couverture sur une population commune, un seuil propre à chaque module, et le crédit qu'un module emprunte à ses voisins
 
-> **Archivée.** Cette décision est consolidée dans [ADR-0166](../GEN-0166-deux-echelles-de-couverture-un-seuil-par-module-a-marge-proportionnelle-et-le-credit-emprunte.md), qui la reprend en entier et proportionne à la taille du module la marge de son seuil de couverture. Ce texte n'est plus en vigueur et n'est pas tenu à jour.
+> **Archivée.** Cette décision est consolidée dans [ADR-0166](0166-deux-echelles-de-couverture-un-seuil-par-module-a-marge-proportionnelle-et-le-credit-emprunte.md), qui la reprend en entier et proportionne à la taille du module la marge de son seuil de couverture. Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
 - Statut : **Remplacée par ADR-0166**
 - Date : 2026-11-06

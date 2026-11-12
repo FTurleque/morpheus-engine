@@ -118,7 +118,7 @@ Serveur distant, données, journaux, budgets et gouvernance.
 | Un plugin provider est du code de confiance, sondé hors du processus MORPHEUS | [ADR-0129](../adr/SEC-0129-plugins-provider-code-de-confiance-hors-processus.md) |
 | Aucun contenu de l'espace de travail n'est lu à travers un lien symbolique ni hors de sa frontière | [ADR-0157](../adr/SEC-0157-aucun-contenu-n-est-lu-a-travers-un-lien-ni-hors-de-l-espace-de-travail.md) |
 | Les releases Windows restent non signées tant qu'aucun certificat sans coût n'est accessible, et leur provenance est la somme SHA-256 et l'attestation | [ADR-0164](../adr/SEC-0164-les-releases-windows-restent-non-signees-tant-qu-aucun-certificat-sans-cout-n-est-accessible.md) |
-| Deux échelles de couverture sur une population commune, un seuil propre à chaque module dont la marge suit sa taille, et le crédit qu'un module emprunte à ses voisins | [ADR-0166](../adr/GEN-0166-deux-echelles-de-couverture-un-seuil-par-module-a-marge-proportionnelle-et-le-credit-emprunte.md) |
+| Deux échelles de couverture sur une population commune, un seuil propre à chaque module tenu dans une bande sous sa mesure, et le crédit qu'un module emprunte à ses voisins | [ADR-0167](../adr/GEN-0167-deux-echelles-de-couverture-un-seuil-par-module-tenu-dans-une-bande-et-le-credit-emprunte.md) |
 | Tenir le registre d'ADR au format Archgate, à l'emplacement arc42 | [ADR-0132](../adr/GEN-0132-tenir-le-registre-d-adr-au-format-archgate.md) |
 
 ---

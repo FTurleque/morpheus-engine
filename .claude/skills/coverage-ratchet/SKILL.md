@@ -32,7 +32,7 @@ couvre légèrement moins de lignes à nombre de tests identique.
 `CoverageScaleSeparationTest` fait échouer le build si un gate lit une clé, un rapport ou une
 preuve de l'autre échelle. **Ne jamais comparer un ratio par module à un seuil agrégé, ni
 l'inverse.** Le *pourquoi* est dans
-`docs/architecture/adr/GEN-0166-deux-echelles-de-couverture-un-seuil-par-module-a-marge-proportionnelle-et-le-credit-emprunte.md` : la lire avant de toucher à une
+`docs/architecture/adr/GEN-0167-deux-echelles-de-couverture-un-seuil-par-module-tenu-dans-une-bande-et-le-credit-emprunte.md` : la lire avant de toucher à une
 clé, à un plafond ou à la population mesurée.
 
 Conséquence pratique quand on écrit des tests pour faire monter l'échelle par module : un
@@ -55,10 +55,12 @@ ou le renommer emporte ses clés.
 
 Relever le seuil d'un module est une décision, comme un ratchet, mais dans la fenêtre de **ce
 module** : au-dessus du plancher D2, `CoverageQualificationEvidenceTest#everyModuleFloorStaysInsideItsQualifiedWindow`
-exige que la preuve conservée porte les compteurs du module et que le seuil garde trois fois sa
-dispersion (la plus grande de son écart entre résumés conservés et de sa référence : celle de
-l'échelle multipliée par la part du module dans la population, arrondie à l'unité supérieure)
-sous sa plus basse mesure conservée, en lignes et en branches séparément. Lire ces compteurs dans
+exige que la preuve conservée porte les compteurs du module et que le seuil laisse au moins trois
+et au plus neuf fois sa dispersion (la plus grande de son écart entre résumés conservés et de sa
+référence : celle de l'échelle multipliée par la part du module dans la population, arrondie à
+l'unité supérieure) sous sa plus basse mesure conservée, en lignes et en branches séparément. La
+borne basse vaut aussi au plancher D2 quand un seuil plus haut tient dans la bande : son refus
+nomme le plus petit seuil admis. Lire ces compteurs dans
 les lignes `module.<artifactId>.*` des résumés sous `config/coverage-qualification/per-module/`.
 Un module absent de cette preuve reste au plancher D2 jusqu'à la prochaine requalification.
 
@@ -83,7 +85,7 @@ Ces deux clés ne se calculent jamais à partir d'un ratchet de couverture, et i
 Un ratchet collé à la mesure transforme une variation ordinaire de runner en échec de build. La
 marge se calcule sur les populations réelles de lignes et de branches, pas en points de
 pourcentage : les deux clés ne se resserrent pas au même rythme, et la branche est la plus
-serrée des deux. Rien n'oblige à les faire bouger ensemble — ADR-0166 interdit seulement de les
+serrée des deux. Rien n'oblige à les faire bouger ensemble — ADR-0167 interdit seulement de les
 aligner sur une moyenne.
 
 ## Obtenir la moitié Linux d'une preuve
@@ -118,8 +120,9 @@ plafond soit égal au plus bas ratio de son échelle dans ces fichiers.
 4. Requalifier les **deux** échelles à la même tête : le test refuse deux échelles conservées à
    deux têtes. Les résumés par module portent les compteurs de chaque module ; le test exige qu'ils
    fassent les totaux et que tous portent le même ensemble de modules.
-5. Poser ensuite chaque seuil de module au plus haut millième de sa fenêtre, lignes et branches
-   séparément, valeur lue dans la preuve qui vient d'être conservée. Si un plafond baisse, le dire
+5. Poser ensuite chaque seuil de module dans sa bande, lignes et branches séparément, valeur lue
+   dans la preuve qui vient d'être conservée : un seuil que la nouvelle mesure laisse sous la bande
+   est refusé, et le refus nomme le plus petit millième admis. Si un plafond baisse, le dire
    dans la PR : la régression se corrige par des tests, jamais en baissant un cliquet.
 
 Un ensemble incomplet (plateforme absente, un seul run, deux commits, deux populations, résumé d'une
