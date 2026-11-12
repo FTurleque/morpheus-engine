@@ -1,9 +1,9 @@
 # Sprints de correction
-État au **10 novembre 2026** sur `38a4079f` (`origin/develop`, PR #623). Aucun fichier `.java` ne change depuis la passe précédente : cinq PR de dépendances, deux scripts de fumée et la publication de l'audit. L'ordre et le découpage sont ceux du 9 octobre ; seuls les statuts ont été réétablis, constat par constat, sur le code.
+État au **12 novembre 2026** sur `12cd8874` (`origin/main`). **`develop` a été retirée** : `main` est la seule branche longue. Le constat restant est inchangé ; les six PR de la veille sont poussées. L'ordre et le découpage sont ceux du 9 octobre ; seuls les statuts ont été réétablis, constat par constat, sur le code.
 
 **Plan du 9 octobre : 73 constats, 72 soldés, 1 restants.** Les onze premiers sprints restent soldés, et les trois encore ouverts — 12, 13 et 14 — ne gardent qu'**un constat chacun**. `AUD-TRV-02` est à un cheveu de la clôture : son gate par module existe, et ce qui reste tient à six clés sur trente-deux posées au plancher et à deux classes jamais testées. `AUD-TRV-03` garde la tête de son action **retirée comme prescription** — plafonner la part textuelle récompenserait les gestes que cet audit reproche ailleurs — et ne tient plus que sur ce qui reste mesurable. `AUD-DEP-05` est tenu par un blocage amont que le mainteneur a accepté par écrit, et ne progressera plus.
 
-**Sprint 15 — dérives : 33 constats, 3 restants.** Ce sprint n'est pas du plan d'origine : il rassemble les constats nés *après* l'audit, d'une scission, d'un effet de bord d'un correctif ou du changement de branche d'intégration. Les ranger dans les sprints d'origine faisait croire que ceux-ci traînaient depuis le 9 octobre ; ils sont soldés, et du travail neuf est apparu à côté.
+**Sprint 15 — dérives : 34 constats, 1 restant.** Ce sprint n'est pas du plan d'origine : il rassemble les constats nés *après* l'audit, d'une scission, d'un effet de bord d'un correctif ou du changement de branche d'intégration. Les ranger dans les sprints d'origine faisait croire que ceux-ci traînaient depuis le 9 octobre ; ils sont soldés, et du travail neuf est apparu à côté.
 
 ## Avancement
 
@@ -21,10 +21,10 @@
 | **10** ✓ | Dire la vérité dans les règles | 7 | 7 | 0 | — |
 | **11** ✓ | Trancher l'architecture | 4 | 4 | 0 | — |
 | **12** ✓ | Restructurer les adaptateurs | 3 | 3 | 0 | — |
-| **13** | Couverture et pagination | 2 | 1 | 1 | 3 à 8 j |
+| **13** ✓ | Couverture et pagination | 2 | 2 | 0 | — |
 | **14** ✓ | Signer la distribution | 1 | 1 | 0 | — |
-| **15** | Dérives apparues pendant les correctifs | 33 | 30 | 3 | 0.75 à 3 j |
-| | **Total** | **106** | **102** | **4** | **3.75 à 11 j** |
+| **15** | Dérives apparues pendant les correctifs | 34 | 33 | 1 | 0.25 à 1 j |
+| | **Total** | **107** | **106** | **1** | **0.25 à 1 j** |
 
 Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j · L 3 à 8 j). Un constat `partiel` compte pour son effort entier : ce qui reste d'un constat partiellement traité n'est pas proportionnel à ce qui en a été fait.
 
@@ -259,7 +259,7 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 
 ## Sprint 15 — Dérives apparues pendant les correctifs
 
-33 constats · 28 corrigé · 3 toujours valide · 2 caduc
+34 constats · 31 corrigé · 1 toujours valide · 2 caduc
 
 *Pourquoi ici* — Ce sprint n'est pas du plan du 9 octobre : il rassemble les constats nés **après** l'audit, soit d'une scission quand la mesure du dépôt a montré que ma cause était fausse, soit d'un effet de bord d'un correctif, soit du changement de branche d'intégration du 18 octobre. Les ranger dans les sprints d'origine faisait croire que ceux-ci traînaient depuis le 9 octobre, ce qui est faux : ils sont soldés, et du travail neuf est apparu à côté. La passe du 26 octobre en ajoute quatre, tous nés de la grande restructuration des adaptateurs : l'élargissement de visibilité qu'elle a imposé, un test de garde qui ne garde rien, la liste d'ADR-0148 recopiée à la main dans son gate, et deux dérives de la trace de suivi. La contre-vérification du 28 octobre en ajoute trois : deux frontières d'espace de travail aux garanties opposées, et deux duplications que le sprint 9 a laissées hors de son périmètre. La contre-vérification du 28 octobre au soir en ajoute quatre : des gates qui parcourent tout l'arbre du dépôt et comptent les copies d'espaces de travail, un écart de détection CVE sur une base NVD reconstruite, un fichier de suppressions qu'aucune assertion ne tient, et une attente de créneau de réponse sans délai propre.
 
@@ -277,6 +277,7 @@ Charge restante dérivée des efforts par constat (S 0,25 à 1 j · M 1 à 3 j �
 | `AUD-PRF-19` | corrigé | Moyenne | M | Le serveur remote sert toujours sur threads virtuels nus, et sa route de sauvegarde appelle SQLite directement |
 | `AUD-QUA-17` | corrigé | Moyenne | M | Le verrou du parallelisme JUnit se deplace : SqliteConnectionScope porte quatre compteurs statiques de processus lus en difference par les tests |
 | `AUD-QUA-23` | toujours valide | Faible | S | Deux pages développeur vivantes énoncent des versions du POM qui ont dérivé, et le gate qui compare ces tables s'arrête à .claude/ |
+| `AUD-TST-26` | toujours valide | Faible | S | Deux seuils de couverture par module restent 35 à 40 points sous la fenêtre que la marge proportionnelle leur ouvre |
 | `AUD-SEC-17` | corrigé | Moyenne | S | L'optimisation de la frontière du workspace a rétréci le contrôle avant lecture : un fichier peut être lu et empreinté avant d'être refusé |
 | `AUD-SEC-18` | corrigé | Moyenne | M | Deux frontières d'espace de travail coexistent dans morpheus-application avec des garanties opposées, et rien n'écrit laquelle est le contrat |
 | `AUD-TRV-08` | corrigé | Moyenne | S | Huit gates de morpheus-architecture-tests parcourent tout l'arbre du dépôt sans écarter .claude/ : une copie d'espace de travail sous .claude/worktrees fausse leur verdict |
