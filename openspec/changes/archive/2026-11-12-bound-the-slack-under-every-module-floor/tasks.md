@@ -40,11 +40,11 @@
   - Refus obtenu avec la valeur d'origine : « morpheus-integration-nexus.lineCoverageMinimum=0.473 leaves 72 covered
     line units under the lowest kept measurement of morpheus-integration-nexus (154 of 173); a floor leaves at most 9,
     9x the reference spread of 1, … -- raise it to at least 0.839 ».
-- [ ] 3.3 Prouver que les seuils relevés tiennent sur un réacteur complet — exigence : `per-module-coverage-floor` ›
+- [x] 3.3 Prouver que les seuils relevés tiennent sur un réacteur complet — exigence : `per-module-coverage-floor` ›
   Chaque module de la population est tenu par un seuil qui lui est propre ; vérification : `CoverageQualityGateTest`
   vert sur la CI Linux et Windows de la PR
   - Contre-mesure faite : l'artefact `m21-integrity-Windows` du run `43270298003` (`12cd8874`) met chacun des
-    vingt-trois modules au-dessus de son nouveau seuil. La CI des deux plateformes de la PR reste à constater.
+    vingt-trois modules au-dessus de son nouveau seuil. CI de la PR 636 verte, `exact-head` Linux et Windows compris.
 
 ## 4. Documentation
 
@@ -60,8 +60,9 @@
 - [x] 5.3 Lancer `./mvnw test -pl morpheus-architecture-tests` et `archgate check` — vérification : verdicts vides
   - `./mvnw -o test -pl morpheus-architecture-tests -am` local sans `clean verify` préalable : `architectureViolations=0` ;
     la seule dérive documentaire (citation de l'ADR archivé dans ce changement) est corrigée et relancée verte.
-- [ ] 5.4 Justifier dans la PR la modification du fichier de seuils et du test d'architecture — vérification : section
+- [x] 5.4 Justifier dans la PR la modification du fichier de seuils et du test d'architecture — vérification : section
   de gouvernance remplie
+  - Section « Justification d'une modification de gouvernance » de la PR 636.
 
 ## Workflow follow-up
 
