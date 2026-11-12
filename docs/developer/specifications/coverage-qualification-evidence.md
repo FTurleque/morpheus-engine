@@ -89,7 +89,7 @@ le guide la décrit et l'attribue à ce test. Elle est documentée dans `.claude
 
 ### Quand un plafond est-il accepté ?
 
-Existant vérifié, `CoverageQualificationEvidenceTest#verify` et ses cas fabriqués. Organigramme. Exigences R1, R2, R3, R5.
+Existant vérifié, `CoverageQualificationVerifier#verify` et les cas fabriqués de `CoverageQualificationEvidenceTest`. Organigramme. Exigences R1, R2, R3, R5.
 
 ```mermaid
 flowchart TD
@@ -167,7 +167,8 @@ flowchart LR
 Archives : `2026-10-21-keep-the-evidence-a-coverage-cap-was-qualified-on` et
 `2026-11-04-record-the-sprint-15-medium-decisions` (R5). Fichier de test :
 [`CoverageQualificationEvidenceTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m21/CoverageQualificationEvidenceTest.java)
-(classe `@CoherenceCheck`).
+(classe `@CoherenceCheck`), qui juge avec
+[`CoverageQualificationVerifier`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m21/CoverageQualificationVerifier.java).
 
 | Exigence | Scénario | Conception ou diagramme | Preuve |
 |---|---|---|---|

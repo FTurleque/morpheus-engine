@@ -56,6 +56,7 @@ ce paramétrage : elle reste entière.
 | Hooks | `.claude/hooks/pre-bash.ps1`, `.claude/hooks/post-edit.ps1` | `PreToolUse`/`PostToolUse`, déclarés dans `.claude/settings.json` | ✅ | Garde-fous fail-open (avertir/bloquer sans jamais bloquer tous les outils par bug interne) |
 | Permissions | `.claude/settings.json` | Claude Code | ✅ | Allow/deny partagés (force-push protégé, `rm -rf` non borné) |
 | Permissions locales | `.claude/settings.local.json` | Claude Code, machine du mainteneur | ❌ | Allow additionnel (commandes `rtk`) ; toute permission utile à tous va dans `settings.json` |
+| Superviseur de code | `.claude/supervisor.config.json` | plugin `code-supervisor`, installé dans le profil Claude Code de l'utilisateur, en fin de tour (`Stop`, `SubagentStop`) | ✅ | Surcharges de projet : dossier des rapports (`log_subdir`, sous `docs/project/rapport-supervisor/`, non versionné), relevés datés non relus (`quiet_paths`), fichiers de conventions du relecteur, et faux positifs acceptés, chacun avec la raison qui prouve le code correct (`accepted_findings`) |
 | Filtres RTK | `.rtk/filters.toml` | `rtk`, une fois la confiance accordée localement (`rtk trust`) | ❌ (ignoré par Git) | Filtre local de sortie des validateurs, avec ses propres tests inline ; non publié |
 
 ## Ce que les tests vérifient

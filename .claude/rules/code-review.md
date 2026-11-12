@@ -38,5 +38,8 @@ que le début : il reste court.
 - Aucun `<version>` dans un POM de module ; test de reproduction avant correctif.
 - Jamais baisser un ratchet, affaiblir un test d'architecture, ni `@Disabled` sans ticket.
 - Les `.ps1` restent en ASCII pur ; tout chiffre périssable renvoie à sa source vivante (`rules/meta.md`).
+- Un faux positif prouvé du superviseur s'accepte dans `accepted_findings` de `.claude/supervisor.config.json`,
+  avec la raison qui prouve le code correct : une décision du mainteneur, revue dans la PR, jamais un
+  contournement du code ni un ajout de l'agent seul.
 - Le superviseur ignore `.claude/` et ne lance pas Maven : la preuve d'un changement est
   `./mvnw test -pl morpheus-architecture-tests`.
