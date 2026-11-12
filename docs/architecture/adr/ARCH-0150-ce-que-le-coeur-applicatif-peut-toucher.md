@@ -34,7 +34,7 @@ d'horloge, injecté par constructeur.
 - **A — un cœur pur.** Toutes les familles en usage sortent de l'application : un port y est déclaré, un adaptateur
   l'implémente. Coût : toutes les classes d'accès fichier et tous les lecteurs d'environnement, dont des classes
   épinglées par des assertions de sécurité textuelles qui doivent les suivre ; un foyer à trouver (un nouveau module
-  change la population de couverture d'ADR-0166, le classpath importé et la livraison ; un store ou un provider est le
+  change la population de couverture d'ADR-0167, le classpath importé et la livraison ; un store ou un provider est le
   mauvais propriétaire d'une frontière d'espace de travail) ; et `Path` reste dans les ports, donc « pur » voudrait dire
   « sans accès », pas « sans `java.nio.file` ».
 - **B — une couche de service autorisée à faire de l'I/O locale.** Toutes les familles en usage restent, confinées aux
@@ -208,7 +208,7 @@ Ce qu'un transport tient de `SqliteOperationRuntime` et `SqliteServerMaintenance
 - [ADR-0162](ARCH-0162-racines-de-composition-nommees-paquets-sans-cycle-hors-une-paire-bornee-et-decisions-dans-le-domaine.md) — racines de composition nommées des
   transports.
 - [ADR-0155](ARCH-0155-un-role-est-un-paquet-et-une-liste-de-classes-declare-sa-sorte.md) — rôles de l'adaptateur HTTP en paquets.
-- [ADR-0166](GEN-0166-deux-echelles-de-couverture-un-seuil-par-module-a-marge-proportionnelle-et-le-credit-emprunte.md) — population de couverture.
+- [ADR-0167](GEN-0167-deux-echelles-de-couverture-un-seuil-par-module-tenu-dans-une-bande-et-le-credit-emprunte.md) — population de couverture.
 - [ADR-0004](SEC-0004-local-first-no-llm-core.md) — cœur local-first.
 - [ADR-0128](ARCH-0128-pairs-minos-et-nexus-par-mcp-stdio.md) — pairs MINOS et NEXUS, lanceur en chemin absolu.
 - Changements OpenSpec `decide-what-technology-the-application-core-may-touch` et

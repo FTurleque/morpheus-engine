@@ -204,7 +204,7 @@ Contrôles du test hors scénarios de la spec : `#aSummaryWhoseRatioDisagreesWit
 
 - Règles du dépôt : `.claude/rules/testing.md` (« Pourquoi le ratchet plafonne sous la mesure réelle »),
   `.claude/rules/meta.md`.
-- Décision : [ADR-0166](../../architecture/adr/GEN-0166-deux-echelles-de-couverture-un-seuil-par-module-a-marge-proportionnelle-et-le-credit-emprunte.md).
+- Décision : [ADR-0167](../../architecture/adr/GEN-0167-deux-echelles-de-couverture-un-seuil-par-module-tenu-dans-une-bande-et-le-credit-emprunte.md).
 - Guide développeur : [`BUILD_AND_TEST.md`](../BUILD_AND_TEST.md).
 - Pages liées : [`per-module-coverage-floor.md`](per-module-coverage-floor.md),
   [`coverage-attribution-gap.md`](coverage-attribution-gap.md),

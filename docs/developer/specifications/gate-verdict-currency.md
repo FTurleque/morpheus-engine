@@ -177,7 +177,7 @@ R3) et `2026-10-21-count-written-tests-apart-from-generated-ones` (R4, R5, R6).
 
 - Règles du dépôt : `.claude/rules/testing.md` (deux mesures de présence, deux échelles de couverture),
   `.claude/rules/meta.md` (chiffres périssables).
-- Décision : [ADR-0166](../../architecture/adr/GEN-0166-deux-echelles-de-couverture-un-seuil-par-module-a-marge-proportionnelle-et-le-credit-emprunte.md) ; comptage
+- Décision : [ADR-0167](../../architecture/adr/GEN-0167-deux-echelles-de-couverture-un-seuil-par-module-tenu-dans-une-bande-et-le-credit-emprunte.md) ; comptage
   écrit / généré : ADR-0089 (cité par `.claude/rules/testing.md`).
 - Pages liées : [`validator-self-test.md`](validator-self-test.md), [`gate-reachability.md`](gate-reachability.md),
   [`coverage-qualification-evidence.md`](coverage-qualification-evidence.md).
