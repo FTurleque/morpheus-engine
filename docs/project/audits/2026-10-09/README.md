@@ -8,6 +8,91 @@
 
 ---
 
+## État au 12 novembre 2026 — `develop` est retirée, `main` est la seule branche longue
+
+Revérification sur **`12cd8874`** (`origin/main`), **9 commits et 79 fichiers** (+1 114 / −390) depuis `555aa2e0`.
+Les six pull requests de la veille sont poussées, et `origin/develop` **n'existe plus** : `git ls-remote --heads` ne
+renvoie que `main`. Build : **vert** — 19 modules, **5 426 tests, 0 échec, 14 ignorés**, `BUILD SUCCESS` en **8 min 46**, verdict séparé `documentation drift: 0` / `architecture violation: 0`. Le module des gates déclare **1 091 exécutions** contre 1 090 la veille : la seule de plus est le test qui rejoue les fonctions de la répétition Windows sous leur mode strict. Détail dans **`reverification-2026-11-12.md`**.
+
+**Le changement de modèle de branches est fait, et il est tenu par un gate.** PR #633 fait de `main` la seule branche
+longue ; PR #635 archive le changement OpenSpec et fusionne ses spécifications.
+`D2RepositoryHardeningArchitectureTest#noVersionedConfigurationNamesAnIntegrationBranchOtherThanMain` refuse désormais
+toute configuration de pipeline ou de validateur qui nomme encore `develop` — workflows, `dependabot.yml`,
+`.archgate/config.json` et les `scripts/validate-*` — avec une frontière de mot qui laisse `developer` tranquille et
+sans lire les relevés datés. Vérifié : les cinq workflows filtrent `[main]`, Dependabot n'a plus de `target-branch`,
+les règles `.claude/` et les deux garde-fous suivent, et les mentions de `develop` qui subsistent sont toutes des
+mesures datées — y compris une section du registre des risques qui dit elle-même être « l'analyse du 09/09/2026,
+conservée telle quelle ».
+
+**Deux constats que j'avais déclarés caducs décrivaient exactement ce qui vient d'arriver.** Le 21 octobre, j'ai classé
+`AUD-DEP-23` et `AUD-DEP-24` caducs en écrivant que j'avais « pris une fenêtre de release pour un changement de
+modèle » — c'était juste à cette date, le modèle n'avait pas changé. Il a changé trois semaines plus tard, et les
+quatre volets qu'`AUD-DEP-24` énumérait (Dependabot, les validateurs, la documentation, les voies nocturnes) sont
+précisément ce que la PR #633 a dû traiter. Mon erreur portait sur la date, pas sur le contenu. Les deux constats
+restent caducs — un constat caduc ne se rouvre pas — mais le relevé le dit.
+
+**Le dépôt a trouvé et corrigé un défaut que son propre dispositif ne pouvait pas voir.** Le premier nightly planifié
+sur `main` a échoué à la dernière étape de la répétition de signature Windows : `Get-StoredCopies` rend un tableau
+vide, PowerShell le déroule en `$null`, et `.Count` lève sous `Set-StrictMode -Version Latest`. Le défaut datait du lot
+de signature et **n'avait jamais été exécuté**, la lane nocturne ne tournant que sur `main`, qui ne l'a reçu qu'à la
+promotion. Un test rejoue maintenant ces fonctions sous leur mode strict. C'est la démonstration, par l'incident, de ce
+que l'audit répète : un chemin qu'aucune exécution n'atteint n'est pas tenu.
+
+**Le constat restant est inchangé.** `AUD-TST-26` : le fichier des seuils par module n'est pas touché, les deux clés
+valent toujours 0,473 et 0,560 pour des bornes admissibles de 0,873 et 0,905, recalculées — **40,0 et 34,5 points de
+mou**, intacts.
+
+**131 constats : 103 corrigés · 22 Info qui tiennent · 4 caducs · 1 non vérifiable · 1 toujours valide.** Un seul
+constat actif, `Faible`, effort S. Charge restante : **0,25 à 1 jour**. Scores inchangés : Tests **99**, les cinq
+autres axes **100**, moyenne **99,8**.
+
+## État au 11 novembre 2026 — les quatre constats traités, un reste de portée, 98 → 99,8
+
+Revérification sur **`555aa2e0`**, qui n'est pas `origin/develop` : le `develop` local du mainteneur est **six pull
+requests en avance** (#625 à #630) et rien n'est poussé. L'audit porte donc sur un arbre qui n'existe que sur sa
+machine, propre et commité. Build : **vert** — 19 modules, **5 425 tests, 0 échec, 14 ignorés**, `BUILD SUCCESS` en **8 min 37**, verdict séparé `documentation drift: 0` / `architecture violation: 0`. Le module des gates déclare **1 090 exécutions** contre 1 078 le 10 novembre : les douze de plus sont les fixtures des trois gates neufs. C'est la **seule exécution** de ces six pull requests, que la CI n'a pas encore vues. Détail dans **`reverification-2026-11-11.md`**.
+
+**Les deux prompts du 10 novembre ont été exécutés, et les quatre constats actifs sont traités.** Un changement
+OpenSpec par constat (#626), puis quatre implémentations.
+
+**`AUD-TRV-02` se ferme — le dernier constat `Moyenne` de la mission.** `GEN-0166`, accepté, remplace `GEN-0163` et
+écrit la marge que le constat réclamait : la référence d'un seuil de module est celle de l'échelle **multipliée par la
+part du module** dans la population. J'ai **recalculé les trente-deux seuils** depuis les compteurs par module des
+quatre résumés conservés : les trente-deux valeurs du fichier sont exactement celles que la règle permet. Les clés au
+plancher absolu passent de **six à une**, et la dernière a une fenêtre vide par arithmétique — borne admissible 0,300
+sous un plancher D2 de 0,35 — ce que l'ADR écrit nommément.
+
+**`AUD-TST-25`** : `config/enforcement-ceiling-ratchets.properties`, une clé par plafond nommée `TestClass.CHAMP`,
+l'égalité assertée **dans les deux sens** et la clé orpheline refusée en plus. **`AUD-ARC-21`** : la fabrique
+`tableOfFactsUnder` existe, les deux listes la portent sous `ARCH-0165`, et la règle inverse ferme la porte par
+laquelle le défaut était entré — un ADR accepté qui nomme une liste que la liste ne déclare pas. **`AUD-QUA-23`** : la
+documentation d'abord (#624, poussée), le gate ensuite (#629), dans le seul ordre qui laisse le build vert ; et le
+dépôt a fait mieux que ma prescription — je demandais de corriger trois valeurs périmées, il a **retiré les valeurs**
+et laissé le nom de propriété pointant vers le POM. Une cellule sans nombre ne peut plus dériver.
+
+**Un constat neuf, et c'est un reste de portée, pas une dérive.** `AUD-TST-26` : la marge proportionnelle s'applique
+aux trente-deux clés, mais le changement ne visait que celles **posées au plancher** — il l'écrit dans sa proposition.
+Deux clés de lignes déjà au-dessus du plancher restent donc très loin sous leur fenêtre neuve :
+`integration-nexus` à 0,473 pour une borne de 0,873, `integration-minos` à 0,560 pour 0,905, soit **40,0 et 34,5 points
+de mou**. Ce n'est pas une violation de règle — rien n'oblige à poser un seuil au maximum — mais la protection que ces
+deux clés donnent est nominale, et un seuil très bas se lit comme un seuil juste dans le fichier.
+
+**131 constats : 103 corrigés · 22 Info qui tiennent · 4 caducs · 1 non vérifiable · 1 toujours valide.** Il reste
+**un seul constat actif**, `Faible`, effort S — **aucun `Moyenne`, `Élevée` ni `Critique`**. Charge restante :
+**0,25 à 1 jour**, contre 3,75 à 11. **Quatorze des quinze sprints** sont soldés.
+
+| Axe | 10 nov. | 11 nov. |
+|---|---|---|
+| Sécurité | 100 | **100** |
+| Performance | 100 | **100** |
+| Architecture | 98 | **100** |
+| Qualité | 94 | **100** |
+| Dépendances | 99 | **100** |
+| Tests | 95 | **99** |
+| **Moyenne** | **98** | **99,8** |
+
+La moyenne arrondit à 100 au barème ; je l'écris **99,8** pour qu'elle ne se lise pas comme « plus rien à faire ».
+
 ## État au 10 novembre 2026 — le carnet OpenSpec est vide, les trois constats actifs sont intacts
 
 Revérification sur `38a4079f` (`origin/develop`, PR #623), **17 commits et 31 fichiers** (+798 / −152) depuis

@@ -1,7 +1,7 @@
 # MORPHEUS — constats d'audit
-Audit du **9 octobre 2026** sur `20cf2e0`, revérifié quinze fois depuis, et le **10 novembre 2026** sur `38a4079f` (`origin/develop`, PR #623). Chaque constat porte son statut et la preuve qui l'établit.
+Audit du **9 octobre 2026** sur `20cf2e0`, revérifié dix-sept fois depuis, et le **12 novembre 2026** sur `12cd8874` (`origin/main`). **`develop` a été retirée le 12 novembre** : `main` est la seule branche longue, et c'est désormais la branche que cet audit lit — les passes antérieures lisaient `develop`. Chaque constat porte son statut et la preuve qui l'établit.
 
-**130 constats** — 99 corrigé, 1 partiel, 3 toujours valide, 4 caduc, 22 tient, 1 non vérifiable ici.
+**131 constats** — 103 corrigé, 1 toujours valide, 4 caduc, 22 tient, 1 non vérifiable ici.
 
 > **Plus aucun constat `Élevée` n'est ouvert.** La PR #580 ferme les deux derniers, `AUD-ARC-01` et `AUD-PRF-04`, et chacun a été rouvert dans le code avant d'être accepté. Il y en avait onze le 9 octobre.
 
@@ -18,7 +18,7 @@ Audit du **9 octobre 2026** sur `20cf2e0`, revérifié quinze fois depuis, et le
 ### AUD-ARC-01 — morpheus-application, la couche qui définit les ports, fait de l'I/O fichier et du HTTP sortant en direct
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Élevée |
 | **Axe** | Architecture |
 | **Effort** | L |
@@ -49,7 +49,7 @@ morpheus-application/src/main/java/com/morpheus/application/product/UpdateDiscov
 ### AUD-ARC-02 — Le chemin d'ingestion principal n'a aucun port : api et cli instancient directement le lecteur OpenSpec concret
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Élevée |
 | **Axe** | Architecture |
 | **Effort** | M |
@@ -80,7 +80,7 @@ morpheus-provider-openspec/src/main/java/com/morpheus/provider/openspec/OpenSpec
 ### AUD-TRV-05 — La politique de connexion SQLite est une propriété de chaque site de composition, pas du module : 12 sites, 3 ouvertures de scope
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Élevée |
 | **Axe** | Architecture |
 | **Effort** | M |
@@ -114,7 +114,7 @@ grep -rln 'new Sqlite' morpheus-api/src/main/java morpheus-mcp/src/main/java -> 
 ### AUD-TRV-04 — Le produit est muet : aucun journal applicatif, slf4j-nop comme seul binding, et un répertoire de logs publié sans aucun écrivain
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Élevée |
 | **Axe** | Qualité · Dépendances |
 | **Effort** | M |
@@ -149,7 +149,7 @@ Aucun emetteur cote MORPHEUS : grep -rln 'org.slf4j' --include=*.java sur les 65
 ### AUD-SEC-02 — Quatre routeurs HTTP qui enregistrent leur propre contexte renvoient le message d'exception brut, sans passer par le filtre de divulgation de chemins serveur
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Élevée |
 | **Axe** | Sécurité |
 | **Effort** | S |
@@ -180,7 +180,7 @@ Chainage etabli en relecture : morpheus-api/src/main/java/com/morpheus/api/Morph
 ### AUD-TST-01 — Les cinq budgets de performance M19 ne sont exécutés par aucun pipeline ni par clean verify
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Élevée |
 | **Axe** | Tests |
 | **Effort** | S |
@@ -211,7 +211,7 @@ morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m19/M19Perfo
 ### AUD-PRF-01 — N+1 SQL dans la lecture du contenu métier d'un snapshot : 7 requêtes filles par ligne parente
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Élevée |
 | **Axe** | Performance |
 | **Effort** | M |
@@ -243,7 +243,7 @@ morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSnapshotBusi
 ### AUD-PRF-02 — ChangeAnalysisService refait un BFS complet par nœud déjà découvert par la traversée
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Élevée |
 | **Axe** | Performance |
 | **Effort** | M |
@@ -277,7 +277,7 @@ morpheus-application/src/main/java/com/morpheus/application/analysis/ChangeAnaly
 ### AUD-PRF-04 — Trois tables en croissance monotone lues sans LIMIT ni pagination, dont une exposée en HTTP et en MCP
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Élevée |
 | **Axe** | Performance |
 | **Effort** | M |
@@ -309,7 +309,7 @@ morpheus-store-sqlite/.../SqlitePolicyPackStore.java:560-574 `SELECT ... FROM po
 ### AUD-PRF-18 — Épinglage des threads virtuels : 94 méthodes public synchronized faisant du JDBC bloquant, atteintes depuis les serveurs HTTP, sur une baseline Java 21
 | | |
 |---|---|
-| **Statut sur `develop`** | **CADUC** |
+| **Statut sur l'intégration** | **CADUC** |
 | **Sévérité** | Élevée |
 | **Axe** | Performance · Architecture |
 | **Effort** | M |
@@ -343,7 +343,7 @@ grep -rc 'public synchronized' morpheus-store-sqlite/src/main/java/com/morpheus/
 ### AUD-DEP-01 — La 1.2.1 non publiée ajoute 5 migrations SQLite (V016 à V020) et aucun document d'upgrade ou de retour arrière ne les couvre
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Élevée |
 | **Axe** | Dépendances |
 | **Effort** | M |
@@ -376,7 +376,7 @@ morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSchemaManage
 ### AUD-ARC-03 — morpheus-application contient une composante fortement connexe de 17 paquets sur 36
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Architecture |
 | **Effort** | L |
@@ -410,7 +410,7 @@ Analyse des `import` par paquet (script Tarjan sur morpheus-application/src/main
 ### AUD-ARC-06 — morpheus-api : 80 classes dans un unique paquet plat, aucune frontière intra-module exprimable
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Architecture |
 | **Effort** | M |
@@ -442,7 +442,7 @@ morpheus-api est passe de 80 classes dans un paquet plat a 90 classes en sept pa
 ### AUD-ARC-07 — Le module morpheus-mcp-transport livre le paquet com.morpheus.integration.mcp, donc le transport partagé est réglé comme une intégration
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Architecture |
 | **Effort** | M |
@@ -474,7 +474,7 @@ Contre-verifie sur 11bb1ccf. La cloture ne repose pas sur une reecriture de text
 ### AUD-ARC-08 — com.morpheus.sdk n'est sujet d'aucune règle ArchUnit, contrairement à ce qu'annonce le javadoc du test qui le nomme
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Architecture |
 | **Effort** | S |
@@ -506,7 +506,7 @@ morpheus-architecture-tests/src/test/java/com/morpheus/architecture/AdapterSibli
 ### AUD-ARC-09 — Découpage incohérent d'un adaptateur à l'autre : api décomposé par capacité, mcp et cli gardent un monolithe historique à côté
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Architecture |
 | **Effort** | L |
@@ -537,7 +537,7 @@ morpheus-api : 17 `*HttpRoutes` + 19 `*ApiService`, une classe par capacite. mor
 ### AUD-ARC-10 — Projection domaine vers payload public dupliquée à l'identique entre api et mcp, sans gate sur les payloads
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Architecture |
 | **Effort** | M |
@@ -570,7 +570,7 @@ Au parent de a8a6096cd puis a fbf58cac, methodes d'adaptateur a un parametre de 
 ### AUD-ARC-11 — Interdiction absolue de la réflexion dans les règles du dépôt, contredite par trois classes de production
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Architecture |
 | **Effort** | S |
@@ -602,7 +602,7 @@ Contre-verifie sur 11bb1ccf. `ReflectionAndClassLoadingBoundaryArchitectureTest.
 ### AUD-ARC-16 — La restructuration de morpheus-store-sqlite a élargi la surface publique du module : trois types et onze membres passés de package-private à public, la garde du compilateur remplacée par une règle
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Architecture |
 | **Effort** | M |
@@ -638,7 +638,7 @@ Le commit 8ffbd41f (24/10/2026) répartit les 27 classes de morpheus-store-sqlit
 ### AUD-QUA-02 — 73 copies du localisateur de racine de dépôt dans les tests, sous 3 noms et 7 implémentations divergentes
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Qualité |
 | **Effort** | M |
@@ -670,7 +670,7 @@ grep -rn "Path repositoryRoot()\|Path repoRoot()" --include=*.java . | grep /src
 ### AUD-QUA-04 — Dérive documentation/code sur le nombre de modules : 18 déclarés, 17 annoncés par quatre pages vivantes
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Qualité |
 | **Effort** | S |
@@ -702,7 +702,7 @@ grep -c "<module>" pom.xml -> 18 (le 18e est morpheus-coverage-report). docs/dev
 ### AUD-QUA-05 — 16 méthodes publiques ne sont référencées nulle part, tests compris
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Qualité |
 | **Effort** | S |
@@ -732,7 +732,7 @@ Scan : pour chaque declaration `public ... nom(` hors @Override, comptage du nom
 ### AUD-QUA-06 — Chaque sous-commande CLI reporte sa propre copie du même socle d'analyse d'arguments
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Qualité |
 | **Effort** | M |
@@ -764,7 +764,7 @@ Sur 28 classes de morpheus-cli : `private static String safeMessage(Throwable fa
 ### AUD-QUA-07 — Le constructeur de Map varargs est recopié 10 fois dans api et mcp, sous deux noms, avec un cast (String) non vérifié
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Qualité |
 | **Effort** | S |
@@ -798,7 +798,7 @@ Harmonise en relecture : 9 copies nommees map(Object... entries) (7 api, 2 mcp) 
 ### AUD-QUA-08 — sha256, slug, readAllLines et joinContent sont recopiés dans les providers, avec deux messages d'erreur divergents
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Qualité |
 | **Effort** | S |
@@ -830,7 +830,7 @@ Au parent de ac4d6a1d0 puis a fbf58cac, src/main : sha256(String) 7 -> 1 (morphe
 ### AUD-QUA-09 — MinosIntegrationSettings et NexusIntegrationSettings sont le même fichier à 90 %, avec une dérive déjà installée
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Qualité |
 | **Effort** | M |
@@ -863,7 +863,7 @@ diff apres normalisation du nom (s/Minos/XXX/ contre s/Nexus/XXX/) entre morpheu
 ### AUD-QUA-17 — Le verrou du parallelisme JUnit se deplace : SqliteConnectionScope porte quatre compteurs statiques de processus lus en difference par les tests
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Qualité · Tests |
 | **Effort** | M |
@@ -902,7 +902,7 @@ morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteConnectionSc
 ### AUD-TRV-01 — Les quatre validateurs M15 à M18 sont inexécutables, sans équivalent .sh, et les commandes documentées pour les rejouer n'existent pas
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Qualité · Tests · Dépendances |
 | **Effort** | M |
@@ -934,7 +934,7 @@ scripts/validate-m15.ps1:9 $Branch = 'm15/acceptance-verification-evidence' puis
 ### AUD-SEC-03 — Les segments de chemin HTTP sont décodés deux fois côté local, alors que l'autorisation remote les décode une seule fois
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Sécurité |
 | **Effort** | M |
@@ -964,7 +964,7 @@ morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpServer.java:223 passe ex
 ### AUD-SEC-04 — Aucune trace d'attribution : le principal authentifié d'une requête remote n'est enregistré nulle part
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Sécurité |
 | **Effort** | M |
@@ -995,7 +995,7 @@ morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServer.java:212-22
 ### AUD-SEC-17 — L'optimisation de la frontière du workspace a rétréci le contrôle avant lecture : un fichier peut être lu et empreinté avant d'être refusé
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Sécurité |
 | **Effort** | S |
@@ -1029,7 +1029,7 @@ Le correctif d'`AUD-PRF-08` met en cache les répertoires déjà validés pendan
 ### AUD-SEC-18 — Deux frontières d'espace de travail coexistent dans morpheus-application avec des garanties opposées, et rien n'écrit laquelle est le contrat
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Sécurité |
 | **Effort** | M |
@@ -1065,7 +1065,7 @@ SafeWorkspaceFileResolver (morpheus-application/.../files/SafeWorkspaceFileResol
 ### AUD-TRV-06 — Trois branches inatteignables sur des chemins de sécurité, dont deux sur l'exécution de code tiers
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Sécurité · Qualité |
 | **Effort** | S |
@@ -1096,30 +1096,25 @@ SafeWorkspaceFileResolver (morpheus-application/.../files/SafeWorkspaceFileResol
 ### AUD-TRV-02 — Écart de 2,7 points entre les deux échelles de couverture : six clés sur trente-deux restent au plancher absolu
 | | |
 |---|---|
-| **Statut sur `develop`** | **PARTIEL** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Tests · Qualité |
 | **Effort** | L |
 | **Sprint** | 13 — Couverture et pagination |
 | **Après** | AUD-TST-01 |
 | **Fusionne / issu de** | AUD-TST-07, AUD-QUA-10 |
-| **Vérifié le** | 2026-11-10 sur `38a4079f` |
+| **Vérifié le** | 2026-11-11 sur `555aa2e0` |
 
-**Constat de vérification** — PARTIEL maintenu, et la raison se réduit maintenant à **une seule** : les six clés sur trente-deux posées au plancher absolu, sur ~1,7 % des lignes, où la fenêtre de qualification est vide par construction — la marge exigée est absolue (72 lignes ou 33 branches) et dépasse la taille de ces modules. Une marge **proportionnelle** pour les petits modules fermerait ce constat.
+**Constat de vérification** — CORRIGÉ. Le constat énonçait lui-même son critère de clôture : « une marge proportionnelle pour les petits modules fermerait ce constat ». Elle existe, elle est accetée en ADR, elle est exacte au millième sur les trente-deux clés, et la seule clé encore au plancher l'est parce que sa fenêtre est vide par arithmétique, pas par oubli. Les deux autres clauses de l'action — couvrir les sept classes de comportement nommées, puis remplacer le seuil unique par un seuil de non-régression par module — étaient closes depuis le 7 novembre.
 
-La première clause de l'action est honorée en entier, la troisième l'était depuis le 7 novembre. La seconde demandait de suivre la **réduction** de l'écart : il ne bouge pas cette passe, ni dans un sens ni dans l'autre, et les plafonds n'ont pas été requalifiés — leur preuve vieillit de huit commits, ce qui n'est pas une dérive mais mérite d'être noté.
-
-**Titre et section `preuve` réécrits**, après l'avoir recommandé quatre passes de suite : le titre annonçait 20,9 points pour un écart mesuré à 2,68 et une lecture fausse d'un facteur huit. Le titre porte désormais l'écart réel et ce qui tient le constat ouvert ; la `preuve` est entièrement remesurée sur `00ca1378`. La mesure du 9 octobre n'est pas effacée, elle passe dans la section `impact` comme point de départ daté.
-
-**Revérifié le 10 novembre sur `38a4079f`** : inchangé, et cette fois sans ambiguïté — **aucun fichier `.java` ne change** entre `00ca1378` et cette tête. Les six clés au plancher sont relevées une à une dans un fichier que la PR ne touche pas, les 32 clés sont là, et les quatre seuils de couverture de `config/m21-quality-ratchets.properties` sont identiques. L'écart entre échelles n'a donc pas pu bouger ; sa preuve de qualification, toujours datée de `dbd65062`, s'éloigne de la tête de **25 commits**.
+Ce qui subsiste de la **substance** du constat ne tient plus à la marge mais à la portée du changement, qui ne visait que les clés posées au plancher : deux clés de lignes déjà au-dessus du plancher restent très loin sous leur fenêtre neuve. Cela part en constat neuf plutôt que de maintenir ouvert un constat dont l'action est faite. Un constat est corrigé quand son action est faite, pas quand son titre est épuisé.
 
 ```
-Revérifié sur `00ca1378`. **La première clause de l'action est close** : les sept classes de comportement qu'elle nommait en priorité ont toutes un test propre dans `morpheus-application/src/test`, les deux dernières arrivant avec cette PR — `QuerySchemaRegistryTest` (4 tests, registre fermé des champs : chaque famille d'entités a son schéma, dans un ordre stable qui est aussi la projection par défaut, et les opérateurs suivent le type du champ) et `WorkspacePathBoundaryTest` (4 tests). Le compte des classes sans test propre passe de **12 (412 lignes) à 9 (248 lignes)**, méthode du constat rejouée à l'identique.
-
-**Les six clés au plancher sont inchangées**, relevées une à une dans un fichier que la PR ne touche pas. **L'écart entre échelles est inchangé au millième** : les deux plafonds qualifiés sont les mêmes qu'au 7 novembre, leur preuve porte toujours le commit `dbd65062`, désormais à **8 commits** de la tête. Les quatre seuils de couverture ne bougent pas ; ce qui monte dans `config/m21-quality-ratchets.properties`, ce sont les comptes de tests — `testsMinimum` 2 876 → **3 556** et `architectureTestsMinimum` 836 → **1 058**, chacun dix sous une mesure datée du 07/11/2026 à `dbd65062`, annoncée identique sur Linux et Windows sur deux exécutions CI chacune. Je ne peux pas vérifier les exécutions CI ; je constate que la marge de dix que le fichier s'impose est rétablie, après l'avoir signalée oubliée de 232 unités.
+Vérifié sur `555aa2e0` (PR #628, changement `scale-the-module-floor-margin-to-the-module-size`, plus **`GEN-0166` accepté**, qui remplace `GEN-0163` archivé). La décision 5 de l'ADR écrit la marge que le constat réclamait : « la référence d'un seuil de module est celle de l'échelle multipliée par la part du module dans la population de la grandeur, arrondie à l'unité supérieure », lignes et branches séparément — et elle nomme le seul cas qui reste au plancher.
+**Recalcul indépendant des trente-deux seuils**, depuis les compteurs par module des quatre résumés conservés de `dbd65062` : part du module, référence proportionnelle, dispersion de ses runs, plus basse mesure, borne admissible. Les trente-deux valeurs du fichier sont **exactement** celles que la règle permet. Les clés au plancher absolu D2 passent de **six à une** : `testkit` 0,761 / 0,593, `provider-reference` lignes 0,842, `minos` branches 0,661, `nexus` branches 0,606. La seule restante, `morpheus-provider-reference.branchCoverageMinimum`, a une **fenêtre vide pour de bon** : 10 branches dans le module, part 0,00099, référence 1 branche, plus basse mesure 0,600, borne admissible **0,300** — sous le plancher D2 de 0,35. `GEN-0166` l'écrit nommément.
 ```
 
-**Ce qui reste** — **6 clés sur 32 au plancher absolu D2** (4 modules : `provider-testkit` et `provider-reference` entièrement, les branches d'`integration-minos` et d'`integration-nexus`), soit ~1,7 % des lignes sans seuil propre effectif ; la fenêtre y est vide tant que la marge exigée reste absolue — une marge proportionnelle la rendrait non vide et fermerait ce constat. Écart entre les deux échelles inchangé à **2,6823 pt** en lignes ; preuve de qualification à 8 commits de la tête. 9 classes de `morpheus-application` (248 lignes) sans test propre, contre 12 (412) la veille.
+**Décision de clôture** — Clos sur `555aa2e0` : marge proportionnelle décidée par `GEN-0166`, cinq des six clés sorties du plancher, la sixième gardée par une fenêtre vide démontrée ; le reliquat de portée part en constat neuf.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -1138,7 +1133,7 @@ Plafonds qualifiés lus dans les gates : `CoverageQualityGateTest:151` `PER_MODU
 ### AUD-TRV-03 — L'enforcement repose majoritairement sur des assertions textuelles et non sur la structure du code
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Tests · Architecture |
 | **Effort** | L |
@@ -1181,7 +1176,7 @@ Retire en relecture : l'absence d'un archunit.properties n'est pas une lacune - 
 ### AUD-TRV-07 — Les 44 scripts de scripts/ sont le dispositif d'enforcement du dépôt et aucun n'est testé, sauf le gate de couverture différentielle
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Tests · Dépendances |
 | **Effort** | M |
@@ -1215,7 +1210,7 @@ ls scripts/*.ps1 | wc -l -> 24 et ls scripts/*.sh | wc -l -> 20, soit 44 scripts
 ### AUD-TRV-08 — Huit gates de morpheus-architecture-tests parcourent tout l'arbre du dépôt sans écarter .claude/ : une copie d'espace de travail sous .claude/worktrees fausse leur verdict
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Tests · Qualité |
 | **Effort** | S |
@@ -1250,7 +1245,7 @@ Marches dont la racine est RepositoryRoot.locate() dans morpheus-architecture-te
 ### AUD-TST-02 — Le gate de couverture par module accepte un rapport JaCoCo périmé : aucun contrôle de fraîcheur
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Tests |
 | **Effort** | S |
@@ -1287,7 +1282,7 @@ Aucune comparaison de date avec `target/classes` ni marqueur d'invocation. La co
 ### AUD-TST-03 — 300 des 831 assertThrows n'assertent qu'un type d'exception JDK générique, sans message ni code de rejet
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Tests |
 | **Effort** | M |
@@ -1326,7 +1321,7 @@ Exemples : morpheus-api/src/test/java/com/morpheus/api/RemoteIdentityFileStoreTe
 ### AUD-TST-06 — La colonne cli du manifeste de convergence n'est vérifiée que pour sa non-vacuité, sans gate bidirectionnel, contrairement à http et mcp
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Tests |
 | **Effort** | M |
@@ -1358,7 +1353,7 @@ morpheus-architecture-tests/src/test/java/com/morpheus/architecture/m21/Producti
 ### AUD-TST-10 — Aucun test d'upgrade depuis une base réelle aux paliers de schéma 13 à 19 ; le seul vrai test d'upgrade part du palier 12
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Tests |
 | **Effort** | M |
@@ -1391,7 +1386,7 @@ morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteSchemaManage
 ### AUD-TST-18 — Le validateur de release R3 ne peut pas passer : il exige 17 POM dans le reacteur, le depot en compte 19
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Tests · Qualité |
 | **Effort** | S |
@@ -1424,7 +1419,7 @@ scripts/validate-r3.sh:41-42 `if len(poms) != 17: raise SystemExit(f'Unexpected 
 ### AUD-TST-19 — Le ratchet des tests d'architecture a cent huit exécutions de jeu : il est resté à 585 alors que la mesure du lot donnait 693
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Tests |
 | **Effort** | S |
@@ -1458,7 +1453,7 @@ config/m21-quality-ratchets.properties:12-16 : architectureTestsMinimum=813, dix
 ### AUD-TST-20 — Le test censé prouver que la règle anti-lecture-non-bornée voit ce qu'elle refuse reste vert même si la règle devient aveugle
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Tests · Architecture |
 | **Effort** | S |
@@ -1490,7 +1485,7 @@ AppendOnlyJournalReadsArchitectureTest:48-59 porte la règle ArchUnit qui refuse
 ### AUD-TST-22 — Les deux echelles de couverture ne sont plus qualifiees au meme commit, et leur ecart — l'indicateur que l'audit suit — n'est plus calculable
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Tests |
 | **Effort** | S |
@@ -1525,7 +1520,7 @@ Rouvert sur `30520bd3`. **L'instance et le mecanisme sont traites tous les deux.
 ### AUD-TST-23 — Le genre « compteur de dette » promet une liste qui ne fait que retrecir sous un ADR, et rien ne verifie ni le retrecissement ni l'ADR
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Tests · Qualité |
 | **Effort** | M |
@@ -1560,7 +1555,7 @@ Rouvert sur `30520bd3`. `config/debt-counter-ratchets.properties` existe et port
 ### AUD-PRF-03 — Serveur HTTP local sans contrôle d'admission : threads virtuels illimités, une connexion SQLite physique par requête, journal PERSIST
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Performance |
 | **Effort** | M |
@@ -1591,7 +1586,7 @@ morpheus-api/src/main/java/com/morpheus/api/MorpheusLocalHttpServerBootstrap.jav
 ### AUD-PRF-05 — Pagination de la recherche de requirements appliquée en mémoire après chargement intégral du snapshot
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Performance |
 | **Effort** | L |
@@ -1627,7 +1622,7 @@ Contre-preuve relevee en relecture : morpheus-architecture-tests/src/test/java/c
 ### AUD-PRF-06 — Écriture N+1 des liens de traçabilité : trois à quatre prepareStatement par lien, sans batch, dans une transaction unique
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Performance |
 | **Effort** | M |
@@ -1659,7 +1654,7 @@ Contre-preuve relevee en relecture : M19FullPublishPerformanceGate.java:40 PUBLI
 ### AUD-PRF-07 — Onze index redondants dupliquant l'index implicite d'une clé primaire (l'audit en annonçait six)
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Performance |
 | **Effort** | S |
@@ -1692,7 +1687,7 @@ V014__saved_views.sql:23 `PRIMARY KEY (saved_view_id, revision)` vs :27 `CREATE 
 ### AUD-PRF-08 — La vérification de frontière du workspace fait un toRealPath par segment, deux fois par fichier scanné
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Performance |
 | **Effort** | M |
@@ -1724,7 +1719,7 @@ morpheus-application/src/main/java/com/morpheus/application/sync/WorkspacePathBo
 ### AUD-PRF-09 — Le proxy remote n'impose aucun délai de lecture amont sur les routes WRITE et ADMIN
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Performance |
 | **Effort** | S |
@@ -1756,7 +1751,7 @@ morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteProxyTransport.java:75
 ### AUD-PRF-10 — Le seul SELECT paginé du module trie sur une colonne que son index ne couvre pas
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Performance |
 | **Effort** | S |
@@ -1790,7 +1785,7 @@ morpheus-store-sqlite/.../SqliteVersionedRequirementStore.java:308-314 : `SELECT
 ### AUD-PRF-19 — Le serveur remote sert toujours sur threads virtuels nus, et sa route de sauvegarde appelle SQLite directement
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Performance |
 | **Effort** | M |
@@ -1826,7 +1821,7 @@ morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteHttpServerBootstrap.ja
 ### AUD-DEP-02 — reactor-bom figé à 2024.0.0 : 18 correctifs de retard dans la ligne même que le POM impose, et dependabot ne peut pas proposer ce correctif
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Dépendances |
 | **Effort** | S |
@@ -1856,7 +1851,7 @@ pom.xml:53 `<reactor-bom.version>2024.0.0</reactor-bom.version>` ; pom.xml:109 `
 ### AUD-DEP-03 — La distribution d'un produit sous licence propriétaire n'embarque aucune attribution de licence tierce
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Dépendances |
 | **Effort** | S |
@@ -1887,7 +1882,7 @@ LICENSE:1 « MORPHEUS — PROPRIETARY SOURCE-AVAILABLE LICENSE », section 5 ren
 ### AUD-DEP-04 — La SBOM est produite à chaque verify et exigée par les validateurs, mais n'est jamais publiée avec la release
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Dépendances |
 | **Effort** | S |
@@ -1918,7 +1913,7 @@ pom.xml:237-253 cyclonedx-maven-plugin `makeAggregateBom` liee a `verify`, sorti
 ### AUD-DEP-05 — L'installeur Windows et les archives ne sont pas signés Authenticode, alors que le dépôt exige cette signature de son propre outillage
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Blocage** | **Amont** — attend une publication tierce, aucune action du dépôt ne le ferme |
 | **Sévérité** | Moyenne |
 | **Axe** | Dépendances |
@@ -1952,7 +1947,7 @@ Aucune occurrence de signtool/osslsigncode/codesign dans distribution/, .github/
 ### AUD-DEP-06 — validate-d2 ne lit pas le fichier de ratchets et code en dur un plancher de 820/258 tests, contrairement à ce que la règle du dépôt affirme
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Dépendances |
 | **Effort** | S |
@@ -1984,7 +1979,7 @@ Aggravation relevee en relecture : D2RepositoryHardeningArchitectureTest.java:11
 ### AUD-DEP-07 — Le gate CVE a un point de défaillance unique : Dependency-Check 13.0.0 ne peut pas rafraîchir la base NVD sans NVD_API_KEY
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Dépendances |
 | **Effort** | M |
@@ -2016,7 +2011,7 @@ Aggravation relevee en relecture : D2RepositoryHardeningArchitectureTest.java:11
 ### AUD-DEP-10 — MORPHEUS_OPERATIONAL_LOGS retombe silencieusement sur noop pour toute valeur non reconnue
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Dépendances |
 | **Effort** | S |
@@ -2055,7 +2050,7 @@ Le sink est construit une fois dans un initialiseur statique (:13), donc la deci
 ### AUD-DEP-12 — pom.xml à 1.2.1 sans tag v1.2.1 : la chaîne de release signée n'a pas tourné depuis 1 588 commits et 2,3 mois
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Dépendances |
 | **Effort** | M |
@@ -2089,7 +2084,7 @@ pom.xml:9 `<version>1.2.1</version>`. `git tag -l` -> v1.0.0, v1.1.0, v1.2.0. `g
 ### AUD-DEP-23 — Les huit voies nocturnes analysent `develop`, qui n'est pas la branche d'intégration, et que rien ne garantit à jour
 | | |
 |---|---|
-| **Statut sur `develop`** | **CADUC** |
+| **Statut sur l'intégration** | **CADUC** |
 | **Sévérité** | Moyenne |
 | **Axe** | Dépendances · Tests |
 | **Effort** | S |
@@ -2122,7 +2117,7 @@ La branche d'intégration est passée de `develop` à `main` le 18/10 : `git rev
 ### AUD-DEP-24 — Le basculement vers main n'est répercuté ni dans Dependabot, ni dans les sept validateurs, ni dans la documentation du modèle de branches
 | | |
 |---|---|
-| **Statut sur `develop`** | **CADUC** |
+| **Statut sur l'intégration** | **CADUC** |
 | **Sévérité** | Moyenne |
 | **Axe** | Dépendances · Qualité |
 | **Effort** | S |
@@ -2155,7 +2150,7 @@ La branche d'intégration est passée de `develop` à `main` le 18/10 : `git rev
 ### AUD-DEP-25 — Le produit s'annonce 1.2.1 alors qu'il migre la base en V022, et aucun gate ne relie la version du réacteur au schéma
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Dépendances |
 | **Effort** | S |
@@ -2188,7 +2183,7 @@ Rouvert sur `30520bd3`. `pom.xml:9` -> **1.2.2**, et **19 POM sur 19** la porten
 ### AUD-DEP-27 — Sur une base NVD reconstruite, sqlite-jdbc n'est plus associé au SQLite natif qu'il embarque : une CVE du moteur ne serait vue que par l'identification sqlite_jdbc, et rien ne le suit
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Dépendances · Sécurité |
 | **Effort** | M |
@@ -2224,7 +2219,7 @@ docs/architecture/risks/register.md:62-68 (RT-13, « Ce qu'une base neuve change
 ### AUD-DEP-28 — Le depot declare deux niveaux de schema pour la version 1.2.1, et le test cense le voir ne peut structurellement pas l'attraper
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Dépendances · Tests |
 | **Effort** | S |
@@ -2259,7 +2254,7 @@ Rouvert sur `30520bd3`. **La nouvelle assertion exige une egalite** : `ReleasedS
 ### AUD-DEP-29 — La page de regles que chaque session d'agent charge declare neuf versions de dependances, qu'aucun gate ne compare au POM — et l'une a deja derive
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Moyenne |
 | **Axe** | Dépendances · Qualité |
 | **Effort** | S |
@@ -2298,7 +2293,7 @@ Rouvert sur `f0fe88b7`. **`jacoco.version` est corrige** : `.claude/rules/build.
 ### AUD-ARC-13 — Domaine sans aucun type polymorphe : 59 records et 25 enums, zéro interface, pour 9,4 fois moins de lignes que l'application
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Architecture |
 | **Effort** | L |
@@ -2333,7 +2328,7 @@ Contre-verifiee le 31/10 sur `de748b38`, commande du constat d'origine rejouee :
 ### AUD-ARC-14 — Huit constructeurs de compatibilité rétroactive alors que les règles du dépôt les interdisent
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Architecture |
 | **Effort** | M |
@@ -2365,7 +2360,7 @@ Sur origin/develop apres fusion (PR #489) : un balayage des 472 records de `src/
 ### AUD-ARC-15 — Les 94 méthodes public synchronized de morpheus-store-sqlite n'ont aucune raison d'être documentée
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Architecture |
 | **Effort** | S |
@@ -2403,7 +2398,7 @@ Rouvert sur `f0fe88b7`. **96 -> 1** methode `public synchronized` dans `morpheus
 ### AUD-ARC-17 — La liste de onze classes d'ADR-0148 et les constantes du gate qui la tient sont deux listes recopiées à la main, que rien ne compare
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Architecture · Tests |
 | **Effort** | S |
@@ -2441,7 +2436,7 @@ ARCH-0148-ce-que-le-coeur-applicatif-peut-toucher.md porte une table de onze cla
 ### AUD-ARC-18 — Le transport sorti du cœur est arrivé dans morpheus-cli, qui n'a aucun gate de confinement technologique
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Architecture |
 | **Effort** | M |
@@ -2477,7 +2472,7 @@ La correction d'AUD-ARC-01 déplace le transport HTTP de `UpdateDiscoveryService
 ### AUD-ARC-19 — Le cycle query.dsl <-> query.saved survit a la cloture d'AUD-ARC-03, structurellement hors de la vue de la regle
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Architecture |
 | **Effort** | M |
@@ -2512,7 +2507,7 @@ Rouvert sur `f0fe88b7`. **La seconde regle au deuxieme niveau existe** : `Applic
 ### AUD-ARC-20 — La comparaison d'une énumération d'ADR à son gate est sur déclaration : 3 listes sur 54, et un ADR énumère déjà un compteur de dette hors de sa portée  *(constat neuf, 07/11)*
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Architecture |
 | **Effort** | S |
@@ -2543,23 +2538,21 @@ Vérifié sur `00ca1378`. **Le cas** : `ARCH-0158` écrit maintenant son énumé
 ### AUD-ARC-21 — ARCH-0165 fonde deux tables de faits qu'aucun code ne cite, et le genre déclaré ne sait pas porter un ADR sans énumération
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Architecture · Qualité |
 | **Effort** | S |
 | **Sprint** | 15 — Dérives apparues pendant les correctifs |
 | **Fusionne / issu de** | AUD-ARC-18, AUD-QUA-22 |
-| **Vérifié le** | 2026-11-10 sur `38a4079f` |
+| **Vérifié le** | 2026-11-11 sur `555aa2e0` |
 
-**Constat de vérification** — Constat neuf, conséquence directe de la clôture d'`AUD-ARC-18` — que `ARCH-0165` ferme à juste titre. Sévérité Faible : les deux listes sont exactes, leur garde d'exactitude dans les deux sens fonctionne, et l'ADR a un jour. Ce qui justifie de le suivre est que la règle du dépôt demande un lien que son propre mécanisme ne sait pas exprimer : tant que `tableOfFactsUnder` n'existe pas, toute table de faits fondée par un ADR qui ne l'énumère pas restera dans ce cas.
-
-**Revérifié le 10 novembre sur `38a4079f`** : inchangé. `tableOfFactsUnder` n'existe toujours pas dans le record `Kind`, les deux `CONFINED_FAMILIES` restent déclarées sans ADR, et `ARCH-0165` n'est cité par **aucun `.java`** du dépôt — trois jours après son acceptation.
+**Constat de vérification** — CORRIGÉ, et les deux directions sont tenues là où je n'en demandais qu'une et demie. Le constat relevait qu'une table de faits ne pouvait porter son ADR que si cet ADR l'énumérait ; la fabrique manquante existe, les deux listes la portent, et la règle inverse ferme la porte par laquelle le défaut était entré — un ADR qui nomme une liste sans que la liste le déclare. Le span qui ne porte que la classe de test reste de la prose, ce qui est la bonne borne.
 
 ```
-Ouvert et vérifié directement sur `00ca1378` : les quatre fabriques du record `Kind` lues dans la source, les deux entrées de `KINDS` relevées à leur ligne, les décisions 2 et 3 d'`ARCH-0165` lues dans le fichier accepté, la règle de `.claude/rules/architecture.md` lue à sa ligne, et la recherche des deux écritures `ARCH-0165` / `ADR-0165` passée sur l'ensemble des `.java` et des `.md` du dépôt hors relevés d'audit.
+Vérifié sur `555aa2e0` (PR #630, changement `declare-the-decision-record-of-every-stated-table-of-facts`). Le record `Kind` porte désormais quatre fabriques, dont **`tableOfFactsUnder(decisionRecord)`** symétrique de `debtCounterUnder` ; `KINDS` déclare `ApiTechnologyBoundaryArchitectureTest.CONFINED_FAMILIES` et `CliTechnologyBoundaryArchitectureTest.CONFINED_FAMILIES` sous `ARCH-0165`, et trois autres tables ont gagné leur ADR au passage (`ARCH-0162`, `ARCH-0115`). La règle existe **dans les deux sens** : celle qui exigeait qu'un compteur de dette repose sur un ADR accepté qui le nomme couvre maintenant les tables de faits, et `everyTableOfFactsAnAcceptedRecordNamesDeclaresThatRecord` prend l'autre direction — un ADR accepté qui écrit en span de code le `TestClass.CHAMP` d'une table est l'ADR que cette table déclare, une table nommée par deux ADR acceptés étant refusée puisqu'une décision se lit dans un seul ADR actif. `ARCH-0165` est désormais cité par du code.
 ```
 
-**Ce qui reste** — Les deux `CONFINED_FAMILIES` des modules de transport sont déclarées sans ADR alors qu'`ARCH-0165` les énonce ; le record `Kind` n'offre aucun `tableOfFactsUnder` ; `ARCH-0165` n'est cité par aucune source du dépôt.
+**Décision de clôture** — Clos sur `555aa2e0` : `tableOfFactsUnder` ajoutée, les deux listes déclarées sous `ARCH-0165`, et la vérification inverse ajoutée.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -2578,7 +2571,7 @@ Ouvert et vérifié directement sur `00ca1378` : les quatre fabriques du record 
 ### AUD-QUA-11 — Deux shims de compatibilité @Deprecated(forRemoval = true) vivent depuis deux mois sans plan de retrait
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Qualité |
 | **Effort** | S |
@@ -2610,7 +2603,7 @@ morpheus-provider-sdk/src/main/java/com/morpheus/sdk/provider/ProviderPluginActi
 ### AUD-QUA-12 — 47 @SuppressWarnings dont environ cinq portent une justification écrite, alors que les exclusions SpotBugs en exigent une
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Qualité |
 | **Effort** | S |
@@ -2640,7 +2633,7 @@ grep -rn '@SuppressWarnings' --include=*.java . -> 47 sites ; par motif : 26 "un
 ### AUD-QUA-13 — L'observabilité repose sur un singleton statique mutable qui interdit d'activer le parallélisme JUnit
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Qualité |
 | **Effort** | M |
@@ -2673,7 +2666,7 @@ morpheus-application/src/main/java/com/morpheus/application/operability/LocalOpe
 ### AUD-QUA-14 — SpotBugs et PIT sont épinglés, configurés et documentés mais lancés par aucun workflow
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Qualité |
 | **Effort** | S |
@@ -2703,7 +2696,7 @@ pom.xml:87-90 epingle spotbugs.maven.plugin.version=4.10.4.1, spotbugs.version=4
 ### AUD-QUA-18 — Le parallelisme JUnit est active sur le module ou une portee mal fermee empoisonne un thread du pool, sans aucun filet
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Qualité · Tests |
 | **Effort** | S |
@@ -2737,7 +2730,7 @@ morpheus-store-sqlite/src/main/java/com/morpheus/store/sqlite/SqliteConnectionSc
 ### AUD-QUA-19 — La règle qui a retiré safeMessage du CLI n'importe que com.morpheus.cli : sept copies survivent ailleurs, sous trois types de paramètre
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Qualité |
 | **Effort** | S |
@@ -2775,7 +2768,7 @@ CliArgumentBaseArchitectureTest.java:52 CLI = "com.morpheus.cli", :65-67 importP
 ### AUD-QUA-20 — Les passerelles MinosMcpCodeGateway et NexusMcpContextGateway portent l'essentiel de la duplication qui reste entre les deux modules d'intégration
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Qualité |
 | **Effort** | M |
@@ -2811,7 +2804,7 @@ morpheus-integration-minos/.../MinosMcpCodeGateway.java (372 lignes, 343 non vid
 ### AUD-QUA-21 — Un document OpenSpec vivant affirme au present un nom de paquet que le renommage a supprime, et rien ne le confronte au code
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Qualité |
 | **Effort** | S |
@@ -2846,7 +2839,7 @@ Apres le renommage `com.morpheus.integration.mcp` -> `com.morpheus.transport.mcp
 ### AUD-QUA-22 — Des documents vivants citent au présent un ADR archivé, et le contrôle neuf des citations ne voit que les noms de paquet  *(constat neuf, 07/11)*
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Qualité |
 | **Effort** | S |
@@ -2877,20 +2870,23 @@ Vérifié sur `00ca1378`. **Les quatre citations** sont corrigées en `ARCH-0162
 ### AUD-QUA-23 — Deux pages développeur vivantes énoncent des versions du POM qui ont dérivé, et le gate qui compare ces tables s'arrête à .claude/  *(constat neuf, 10/11)*
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Qualité · Dépendances |
 | **Effort** | S |
 | **Sprint** | 15 — Dérives apparues pendant les correctifs |
-| **Vérifié le** | 2026-11-10 sur `38a4079f` |
+| **Vérifié le** | 2026-11-11 sur `555aa2e0` |
 
-**Constat de vérification** — Constat neuf, né de la vague Dependabot des PR #619 à #621 — mais la dérive la plus ancienne date du 19 octobre et a survécu à quatre passes d'audit, la mienne comprise : je ne l'avais pas cherchée là. Sévérité Faible, et elle est méritée : les deux outils concernés sont opt-in, aucun gate ne dépend de ces valeurs, et le correctif du cas tient en trois cellules. Ce qui justifie de le suivre est la portée du gate, pas les trois cellules.
+**Constat de vérification** — CORRIGÉ, et les deux clauses de l'action le sont par deux pull requests distinctes — la documentation d'abord, le gate ensuite, dans cet ordre, qui est le seul qui laisse le build vert.
+
+Le dépôt a fait mieux que ma prescription sur un point : je demandais de corriger trois valeurs, il a supprimé les valeurs. Une cellule qui ne porte plus de nombre ne peut plus dériver — c'est la différence entre remettre un compteur à zéro et retirer le compteur.
 
 ```
-Ouvert et vérifié directement sur `38a4079f` : les trois cellules et les six mentions relevées à leur ligne, les valeurs du POM lues dans `pom.xml`, les deux commits de bump datés par `git log -S`, la portée du gate lue dans ses deux constantes, et le balayage de tout `docs/` rejoué pour établir qu'aucune autre page n'est en défaut.
+Vérifié sur `555aa2e0`, en deux temps. **PR #624** (`docs/align-documentation-on-live-sources`, poussée) ne corrige pas les valeurs : elle les **retire**, et laisse le seul nom de propriété pointant vers le POM — la doctrine du dépôt (« citer la propriété plutôt que sa valeur »). Les deux affirmations devenues fausses partent avec. Balayage de tout `docs/` par mon propre motif, relevés datés écartés : **zéro dérive**. Les mentions restantes de `4.10.4.1` sont des faits historiques — une rupture de configuration « depuis 4.10.4.1 », une transcription de console, l'URL du POM de ce plugin — et non des prétentions sur la version courante.
+**PR #629** (`compare-every-living-developer-page-to-the-pom-properties`) pose le gate : `everyVersionALivingDocumentationPageWritesAsAPomPropertyEqualsThePom` lit **toute page Markdown suivie par Git sous `docs/`**, hors des relevés datés, dont les quatre répertoires sont déclarés d'après `rules/documentation.md` (`docs/project/audits/`, `docs/project/validation/`, `docs/project/roadmap/`, `docs/user/release-notes/`). Une garde refuse un balayage qui ne lirait aucune page — « the version scan would pass on nothing ». Les fixtures plantent les deux sens, dont une page vivante périmée, un relevé daté qui la cite légitimement, une transcription en bloc de code et une propriété étrangère au POM. La javadoc porte la trace de la violation plantée : `CODE_AUDIT.md` a fait échouer la méthode en nommant la page, la propriété et `4.10.4.1`.
 ```
 
-**Ce qui reste** — `spotbugs.maven.plugin.version` écrit `4.10.4.1` dans deux pages vivantes pour `4.10.5.0` au POM, `pitest.maven.plugin.version` écrit `1.30.0` pour `1.30.2` ; le gate qui compare cette forme ne lit que `.claude/` et `.github/AI_GOVERNANCE.md`.
+**Décision de clôture** — Clos sur `555aa2e0` : valeurs retirées des pages vivantes (PR #624) et gate étendu à tout `docs/` hors relevés datés (PR #629).
 
 <details><summary>Constat d'origine (10 novembre)</summary>
 
@@ -2909,7 +2905,7 @@ Trois cellules de tableau écrivent une propriété du POM avec une valeur que l
 ### AUD-SEC-05 — La commande Java des pairs MCP est résolue via le PATH plutôt que par un chemin absolu
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Sécurité |
 | **Effort** | S |
@@ -2939,7 +2935,7 @@ morpheus-integration-minos/src/main/java/com/morpheus/integration/minos/MinosInt
 ### AUD-SEC-06 — En-têtes de sécurité incomplets : pas de X-Frame-Options ni de CSP sur les réponses de succès locales, pas de HSTS sur la façade remote
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Sécurité |
 | **Effort** | S |
@@ -2969,7 +2965,7 @@ morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpResponseWriter.java:33-3
 ### AUD-SEC-07 — Aucune règle .gitignore ne protège le fichier d'identités remote ni le keystore TLS, que SECURITY.md interdit de committer
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Sécurité |
 | **Effort** | S |
@@ -2999,7 +2995,7 @@ morpheus-api/src/main/java/com/morpheus/api/MorpheusHttpResponseWriter.java:33-3
 ### AUD-TST-08 — Le ratchet testsMinimum est dominé par la combinatoire : au moins 40 % des exécutions comptées viennent de 13 méthodes dans 3 fichiers
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Tests |
 | **Effort** | S |
@@ -3031,7 +3027,7 @@ Comptage sur les fichiers dont le nom satisfait les includes par defaut de Suref
 ### AUD-TST-09 — Les quatre ratchets de couverture sont à moins de 0,41 point de leur plafond qualifié : plus de marge sans requalification CI
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Tests |
 | **Effort** | S |
@@ -3063,7 +3059,7 @@ config/m21-quality-ratchets.properties:7-8 et :14-15 (perModule 0.691 / 0.612, a
 ### AUD-TST-11 — Nom de test périmé et version de schéma recopiée en dur trois fois dans le test de rejeu des migrations
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Tests |
 | **Effort** | S |
@@ -3093,7 +3089,7 @@ morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/SqliteSchemaMigrat
 ### AUD-TST-12 — La documentation M19 renvoie à un point d'entrée validate-m19.cmd qui n'existe pas
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Tests |
 | **Effort** | S |
@@ -3125,7 +3121,7 @@ docs/validation/VALIDATION_M19.md:89 `.\validate-m19.cmd` et docs/roadmap/M19_EX
 ### AUD-TST-21 — Le fichier de suppressions Dependency-Check n'est tenu par aucune assertion : une règle élargie ou ajoutée passerait sans que rien ne rougisse
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Tests · Dépendances |
 | **Effort** | S |
@@ -3161,7 +3157,7 @@ config/dependency-check-suppressions.xml : deux regles, chacune ancree sur un pa
 ### AUD-TST-24 — Le contrat des suppressions Dependency-Check borne la forme d'une règle, jamais le nombre ni la liste des détections éteintes  *(constat neuf, 07/11)*
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Tests · Dépendances |
 | **Effort** | S |
@@ -3190,23 +3186,23 @@ Vérifié sur `00ca1378` (PR #618). `config/dependency-check-suppression-ratchet
 ### AUD-TST-25 — Les deux plafonds qui bornent la migration des interdits textuels ne sont que des constantes Java : les relever passe le build
 | | |
 |---|---|
-| **Statut sur `develop`** | **TOUJOURS VALIDE** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Tests · Architecture |
 | **Effort** | S |
 | **Sprint** | 15 — Dérives apparues pendant les correctifs |
 | **Fusionne / issu de** | AUD-TRV-03 |
-| **Vérifié le** | 2026-11-10 sur `38a4079f` |
+| **Vérifié le** | 2026-11-11 sur `555aa2e0` |
 
-**Constat de vérification** — Constat neuf, reste inscrit d'`AUD-TRV-03` à sa clôture. Sévérité Faible, et elle est méritée : l'état courant est le meilleur possible (zéro de chaque côté), les deux plafonds sont assertés exactement, et seule la revue s'oppose à leur relèvement — ce qui est le régime de beaucoup de choses dans ce dépôt. Il existe parce que la promesse écrite sur la constante (« never raised ») n'est pas celle que le build tient, et que le dépôt sait faire la différence ailleurs.
+**Constat de vérification** — CORRIGÉ. L'action demandait une clé de cliquet par plafond et l'égalité assertée entre la constante et la clé, de sorte qu'un relèvement touche un fichier de gouvernance. Les deux sont là, dans un fichier de cliquets propre — la variante que l'action autorisait explicitement, sur le patron des suppressions CVE du 7 novembre — avec le refus dans les deux sens et la clé orpheline refusée en plus, ce que je n'avais pas demandé.
 
-**Revérifié le 10 novembre sur `38a4079f`** : inchangé. Les deux constantes valent toujours 0, aucune clé ne les adosse — `config/debt-counter-ratchets.properties` garde ses six clés, et la recherche des deux noms sur tout le dépôt ne sort d'aucun `.properties`. Le dépôt a pourtant créé une septième clé de cliquet le 7 novembre, pour les suppressions CVE : le patron existe et n'a pas été appliqué ici.
+La promesse « never raised » n'est toujours pas tenue par le build, et c'est irréductible : un cliquet ne peut pas s'interdire de monter, il peut seulement rendre la montée visible et coûteuse. C'est exactement ce que l'action demandait.
 
 ```
-Ouvert et vérifié directement sur `00ca1378` : les deux déclarations lues dans leur contexte, les six clés de `config/debt-counter-ratchets.properties` énumérées, recherche des deux noms de constante sur l'ensemble du dépôt (sources, `config/`, `.claude/`, `docs/` hors relevés d'audit) — aucune occurrence hors des deux classes qui les déclarent.
+Vérifié sur `555aa2e0` (PR #627, changement OpenSpec `back-the-textual-ban-ceilings-with-a-ratchet-key`, archivé). `config/enforcement-ceiling-ratchets.properties` est neuf : **une clé par plafond**, nommée `TestClass.CHAMP` — `EnforcementMechanismAccountingTest.UNEXPLAINED_TYPE_BAN_CEILING=0` et `TypeBansAwaitingABytecodeRuleTest.AWAITING_A_RULE_CEILING=0` — et l'en-tête écrit que ces clés ne font que baisser, qu'un relèvement touche un fichier de gouvernance et que la pull request dit pourquoi aucune règle sur le bytecode ni aucun message ne pouvait tenir l'interdit. `theCeilingRatchetsDeclareTheKeyOfEachCeilingAndNoOther` refuse une clé manquante **et** une clé qu'aucun plafond ne lit ; `aCeilingThatDiffersFromItsKeyIsRefusedInBothDirectionsWithItsRemedy` plante l'écart dans les deux sens et exige que le refus nomme le remède (« is 0 in its test and 1 in … », « lower the key to 0 »). Les deux constantes valent toujours 0 et portent en javadoc la référence à leur clé.
 ```
 
-**Ce qui reste** — `AWAITING_A_RULE_CEILING` et `UNEXPLAINED_TYPE_BAN_CEILING` valent 0, sont assertés par égalité, et ne sont adossés à aucune clé de cliquet ni à aucune comparaison à un état antérieur : les relever dans le même changement passe le build.
+**Décision de clôture** — Clos sur `555aa2e0` : `config/enforcement-ceiling-ratchets.properties`, une clé par plafond, égalité assertée dans les deux sens, clé orpheline refusée.
 
 <details><summary>Constat d'origine (9 octobre)</summary>
 
@@ -3222,10 +3218,44 @@ Ouvert et vérifié directement sur `00ca1378` : les deux déclarations lues dan
 
 </details>
 
+### AUD-TST-26 — Deux seuils de couverture par module restent 35 à 40 points sous la fenêtre que la marge proportionnelle leur ouvre  *(constat neuf, 11/11)*
+| | |
+|---|---|
+| **Statut sur l'intégration** | **TOUJOURS VALIDE** |
+| **Sévérité** | Faible |
+| **Axe** | Tests |
+| **Effort** | S |
+| **Sprint** | 15 — Dérives apparues pendant les correctifs |
+| **Vérifié le** | 2026-11-12 sur `12cd8874` |
+
+**Constat de vérification** — Constat neuf, reste de portée relevé à la clôture d'`AUD-TRV-02`. **Ce n'est pas une violation de règle** : `GEN-0166` borne un seuil par le haut et n'oblige nulle part à le poser au maximum, et le changement du 11 novembre a écrit sa portée avant de la tenir. Sévérité Faible : deux modules de moins de deux cents lignes chacun. Il existe parce que la protection que ces deux clés donnent est nominale, et parce que rien ne le signale — un seuil très bas et un seuil juste se lisent pareil dans le fichier.
+
+**Revérifié le 12 novembre sur `12cd8874`** : inchangé. `config/m21-per-module-coverage-floors.properties` n'est pas touché par les cinq PR de cette passe, les deux clés valent toujours 0,473 et 0,560, et les quatre résumés conservés sont les mêmes — les bornes admissibles restent donc 0,873 et 0,905, recalculées. Le mou est intact à 40,0 et 34,5 points.
+
+```
+Ouvert et vérifié directement sur `555aa2e0` : les trente-deux clés lues dans le fichier, les compteurs par module lus dans les quatre résumés conservés, et les bornes recalculées par la formule de la décision 5 de `GEN-0166` — le même calcul qui reproduit au millième les cinq clés que la PR #628 vient de poser, ce qui est ma vérification que la formule est la bonne. La portée délibérément limitée du changement est lue dans sa proposition et dans ses tâches.
+```
+
+**Ce qui reste** — `morpheus-integration-nexus.lineCoverageMinimum` = 0,473 pour une borne admissible de 0,873 et `morpheus-integration-minos.lineCoverageMinimum` = 0,560 pour 0,905 : 40,0 et 34,5 points de mou, qu'aucun contrôle ne signale.
+
+<details><summary>Constat d'origine (11 novembre)</summary>
+
+**Preuve**
+
+```
+La marge proportionnelle de `GEN-0166` s'applique aux **trente-deux** clés de `config/m21-per-module-coverage-floors.properties`, mais le changement qui l'a posée ne visait que celles qui étaient au plancher D2 : sa proposition écrit « les clés au plancher dont la fenêtre devient non vide sont posées au plus haut millième de leur fenêtre ». Les clés déjà au-dessus du plancher n'ont donc pas bougé. Recalcul des bornes sur les quatre résumés conservés de `dbd65062` : `morpheus-integration-nexus.lineCoverageMinimum` vaut **0,473** pour une borne admissible de **0,873** (plus basse mesure 0,890, part 0,00579, référence 1 ligne), et `morpheus-integration-minos.lineCoverageMinimum` vaut **0,560** pour **0,905** (plus basse mesure 0,920). Soit **40,0 et 34,5 points** de mou. Les deux autres clés de lignes de petits modules sont serrées (`provider-reference` 0,842 pour 0,885, `testkit` 0,761 pour 0,809), parce qu'elles viennent d'être posées dans leur fenêtre.
+```
+
+**Impact** — C'est ce qui reste de la substance d'`AUD-TRV-02` — « un module peut cesser de se tester sans qu'aucun gate ne le dise » — concentré sur deux clés au lieu de six. `morpheus-integration-nexus` peut perdre **quarante points** de couverture de lignes et `morpheus-integration-minos` trente-quatre sans qu'aucun seuil ne morde : le cliquet total les dilue dans la somme, et leur seuil propre est trop bas pour voir la chute. Les deux modules sont petits — 173 et 200 lignes — donc l'enjeu absolu est faible ; mais ce sont les deux adaptateurs qui parlent à MINOS et NEXUS, c'est-à-dire à du code tiers lancé en processus, et la frontière que ces tests gardent est celle d'`AUD-SEC-05` et d'`ARCH-0106`.
+
+**Action** — Poser les deux clés au plus haut millième de leur fenêtre, par la procédure de la skill `coverage-ratchet`, en lisant les bornes sur les résumés conservés plutôt qu'en les recalculant à la main. Puis fermer la porte plutôt que le cas : faire dire au gate, non plus seulement qu'un seuil **reste sous** sa fenêtre, mais qu'il n'est pas abandonné très loin en dessous — par exemple en refusant un seuil qui laisse plus de trois fois sa propre marge sous sa plus basse mesure conservée, ce qui transforme le mou en échec nommé au lieu d'un silence. La borne exacte est une décision : la poser dans `GEN-0166`, qui porte déjà la fenêtre.
+
+</details>
+
 ### AUD-PRF-11 — ORDER BY name COLLATE NOCASE sur saved_views ne peut pas utiliser l'index BINARY qui porte la colonne
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Performance |
 | **Effort** | S |
@@ -3258,7 +3288,7 @@ morpheus-store-sqlite/.../SqliteSavedViewStore.java:110-116 `... FROM saved_view
 ### AUD-PRF-12 — Le filtre de type de relation des liens de traçabilité est appliqué en Java alors que l'index le porte
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Performance |
 | **Effort** | S |
@@ -3294,7 +3324,7 @@ morpheus-store-sqlite/.../SqliteTraceabilityStore.java:145-148 (la clause WHERE 
 ### AUD-PRF-13 — Deux lectures triées en SQL puis retriées en Java
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Performance |
 | **Effort** | S |
@@ -3325,7 +3355,7 @@ morpheus-store-sqlite/.../SqliteSyncStateStore.java:94-98 `ORDER BY archived_at,
 ### AUD-PRF-14 — Aucun cache de lecture de document : chaque lecture reparcourt le texte deux fois de plus et consomme le budget
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Performance |
 | **Effort** | S |
@@ -3357,7 +3387,7 @@ morpheus-application/src/main/java/com/morpheus/application/read/ProviderIngesti
 ### AUD-PRF-20 — L'attente d'un créneau de réponse par une écriture du proxy remote n'a pas de délai propre : elle n'est bornée que par composition, et sa borne n'est écrite nulle part
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Performance |
 | **Effort** | S |
@@ -3393,7 +3423,7 @@ remote/MorpheusRemoteProxyTransport.java : une lecture prend son creneau par try
 ### AUD-DEP-13 — Version littérale 1.0.4 en dur dans un POM de module, contre la règle du dépôt
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Dépendances |
 | **Effort** | S |
@@ -3431,7 +3461,7 @@ Aucune entree correspondante dans le `<dependencyManagement>` du POM racine (pom
 ### AUD-DEP-14 — sqlite-jdbc et slf4j-nop sont versionnés par propriété dans le module au lieu du dependencyManagement racine
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Dépendances |
 | **Effort** | S |
@@ -3461,7 +3491,7 @@ morpheus-store-sqlite/pom.xml:27-31 `<artifactId>sqlite-jdbc</artifactId><versio
 ### AUD-DEP-15 — MORPHEUS_SERVER_PROVIDER_PLUGIN_DIR, qui désigne le répertoire de plugins exécutables du serveur remote, n'est documentée nulle part
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Dépendances |
 | **Effort** | S |
@@ -3491,7 +3521,7 @@ morpheus-cli/src/main/java/com/morpheus/cli/RemoteApiLaunchOptions.java:144 `.or
 ### AUD-DEP-16 — Aucune sauvegarde automatique avant migration de schéma : la procédure repose sur la discipline de l'opérateur
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Dépendances |
 | **Effort** | M |
@@ -3522,7 +3552,7 @@ morpheus-store-sqlite/.../SqliteSchemaManager.java:47-57 : `migrate` enveloppe l
 ### AUD-DEP-26 — La trace de suivi ne décrit plus l'état réelle des gates : un risque clos qui sert encore de renvoi, un guide d'upgrade pour une version que le réacteur ignore
 | | |
 |---|---|
-| **Statut sur `develop`** | **CORRIGÉ** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Dépendances · Qualité |
 | **Effort** | S |
@@ -3558,7 +3588,7 @@ Deux écarts mesurés le 26/10/2026. D'une part docs/architecture/risks/register
 ### AUD-QUA-15 — Info : 72 715 lignes de Markdown pour 65 181 lignes de Java main, dont 18 937 d'historique de milestones figé
 | | |
 |---|---|
-| **Statut sur `develop`** | **TIENT** |
+| **Statut sur l'intégration** | **TIENT** |
 | **Sévérité** | Info |
 | **Axe** | Qualité |
 | **Effort** | S |
@@ -3587,7 +3617,7 @@ find . -name "*.md" -not -path "./.git/*" | wc -l -> 378 fichiers, 72 715 lignes
 ### AUD-QUA-16 — Info : hygiène de base sans défaut mesurable — ni marqueur de dette, ni trace avalée classique, ni fonction démesurée
 | | |
 |---|---|
-| **Statut sur `develop`** | **TIENT** |
+| **Statut sur l'intégration** | **TIENT** |
 | **Sévérité** | Info |
 | **Axe** | Qualité |
 | **Effort** | S |
@@ -3616,7 +3646,7 @@ grep -rn "TODO\|FIXME\|HACK\|XXX" --include=*.java . | wc -l -> 1, et l'unique o
 ### AUD-SEC-09 — Info : aucun secret en clair dans le code, les tests, les workflows, les scripts ou l'historique git
 | | |
 |---|---|
-| **Statut sur `develop`** | **TIENT** |
+| **Statut sur l'intégration** | **TIENT** |
 | **Sévérité** | Info |
 | **Axe** | Sécurité |
 | **Effort** | S |
@@ -3645,7 +3675,7 @@ grep -rniE '(password|passwd|secret|api[_-]?key|token|credential|private[_-]?key
 ### AUD-SEC-10 — Info : aucune injection SQL — tout le SQL est paramétré et les rares identifiants dynamiques sont validés par expression régulière
 | | |
 |---|---|
-| **Statut sur `develop`** | **TIENT** |
+| **Statut sur l'intégration** | **TIENT** |
 | **Sévérité** | Info |
 | **Axe** | Sécurité |
 | **Effort** | S |
@@ -3674,7 +3704,7 @@ Aucun String.format ni .formatted sur du SQL dans */src/main/java ; les seules c
 ### AUD-SEC-11 — Info : autorisation remote fail-closed à couverture exacte, comparaison de jeton à temps constant et révocation immédiate
 | | |
 |---|---|
-| **Statut sur `develop`** | **TIENT** |
+| **Statut sur l'intégration** | **TIENT** |
 | **Sévérité** | Info |
 | **Axe** | Sécurité |
 | **Effort** | S |
@@ -3703,7 +3733,7 @@ morpheus-api/src/main/java/com/morpheus/api/MorpheusRemoteRoutePolicy.java:120-1
 ### AUD-SEC-12 — Info : le serveur local est protégé contre le DNS rebinding et le CSRF navigateur, et l'enveloppe de protection est fail-closed
 | | |
 |---|---|
-| **Statut sur `develop`** | **TIENT** |
+| **Statut sur l'intégration** | **TIENT** |
 | **Sévérité** | Info |
 | **Axe** | Sécurité |
 | **Effort** | S |
@@ -3732,7 +3762,7 @@ morpheus-api/src/main/java/com/morpheus/api/LoopbackRequestPolicy.java:27-45 exi
 ### AUD-SEC-13 — Info : aucune injection de commande — lancement par liste d'arguments sans shell, aucun interpréteur dynamique dans les scripts
 | | |
 |---|---|
-| **Statut sur `develop`** | **TIENT** |
+| **Statut sur l'intégration** | **TIENT** |
 | **Sévérité** | Info |
 | **Axe** | Sécurité |
 | **Effort** | S |
@@ -3761,7 +3791,7 @@ Deux seuls sites de lancement de processus en code de production : BoundedStdioC
 ### AUD-SEC-14 — Info : confinement des chemins fournis par l'utilisateur — allowlist canonicalisée, refus des liens symboliques, ré-vérification de la racine à chaque requête
 | | |
 |---|---|
-| **Statut sur `develop`** | **TIENT** |
+| **Statut sur l'intégration** | **TIENT** |
 | **Sévérité** | Info |
 | **Axe** | Sécurité |
 | **Effort** | S |
@@ -3790,7 +3820,7 @@ morpheus-api/src/main/java/com/morpheus/api/AllowedWorkspaceRoots.java:49-78 ref
 ### AUD-SEC-15 — Info : pas de SSRF — deux clients HTTP sortants seulement, sans suivi de redirection, et la découverte de mise à jour n'est pas exposée au modèle
 | | |
 |---|---|
-| **Statut sur `develop`** | **TIENT** |
+| **Statut sur l'intégration** | **TIENT** |
 | **Sévérité** | Info |
 | **Axe** | Sécurité |
 | **Effort** | S |
@@ -3819,7 +3849,7 @@ grep 'java.net.http' sur */src/main/java : trois fichiers, dont deux clients con
 ### AUD-SEC-16 — Info : chaîne d'approvisionnement CI verrouillée, et suppressions de sécurité minimales et justifiées
 | | |
 |---|---|
-| **Statut sur `develop`** | **TIENT** |
+| **Statut sur l'intégration** | **TIENT** |
 | **Sévérité** | Info |
 | **Axe** | Sécurité |
 | **Effort** | S |
@@ -3848,7 +3878,7 @@ Les 9 actions utilisees par les 5 workflows sont toutes pinnees par SHA 40 carac
 ### AUD-TST-13 — Info : hygiène de test remarquable — aucun test désactivé, aucun JUnit 4, aucun état statique mutable, aucun port fixe
 | | |
 |---|---|
-| **Statut sur `develop`** | **TIENT** |
+| **Statut sur l'intégration** | **TIENT** |
 | **Sévérité** | Info |
 | **Axe** | Tests |
 | **Effort** | S |
@@ -3877,7 +3907,7 @@ Revérifié comme neuf le 13/10 : `grep -rn "@Disabled|@Ignore" --include=*.java
 ### AUD-TST-14 — Info : les six chiffres normatifs sont identiques dans les onze destinations documentaires vérifiées
 | | |
 |---|---|
-| **Statut sur `develop`** | **TIENT** |
+| **Statut sur l'intégration** | **TIENT** |
 | **Sévérité** | Info |
 | **Axe** | Tests |
 | **Effort** | S |
@@ -3906,7 +3936,7 @@ Les six valeurs normatives relues dans config/m21-quality-ratchets.properties:2,
 ### AUD-TST-15 — Info : les vingt migrations SQLite sont épinglées par checksum golden, et le compte est lié à la constante de schéma
 | | |
 |---|---|
-| **Statut sur `develop`** | **TIENT** |
+| **Statut sur l'intégration** | **TIENT** |
 | **Sévérité** | Info |
 | **Axe** | Tests |
 | **Effort** | S |
@@ -3935,7 +3965,7 @@ morpheus-store-sqlite/src/test/java/com/morpheus/store/sqlite/SqliteMigrationChe
 ### AUD-TST-16 — Info : les chemins d'erreur HTTP sont assertés par code de statut sur plus de la moitié des assertions
 | | |
 |---|---|
-| **Statut sur `develop`** | **TIENT** |
+| **Statut sur l'intégration** | **TIENT** |
 | **Sévérité** | Info |
 | **Axe** | Tests |
 | **Effort** | S |
@@ -3964,7 +3994,7 @@ Recomptage 13/10 : `grep -rhoE "assertEquals\(([0-9]{3})," --include=*.java morp
 ### AUD-TST-17 — Info : les tests du gate de couverture différentielle sont le seul outillage exécutable sans Maven, et ils passent
 | | |
 |---|---|
-| **Statut sur `develop`** | **TIENT** |
+| **Statut sur l'intégration** | **TIENT** |
 | **Sévérité** | Info |
 | **Axe** | Tests |
 | **Effort** | S |
@@ -3993,7 +4023,7 @@ Recomptage 13/10 : `grep -rhoE "assertEquals\(([0-9]{3})," --include=*.java morp
 ### AUD-PRF-15 — Info : les bornes annoncées par le transport MCP sont effectivement appliquées
 | | |
 |---|---|
-| **Statut sur `develop`** | **TIENT** |
+| **Statut sur l'intégration** | **TIENT** |
 | **Sévérité** | Info |
 | **Axe** | Performance |
 | **Effort** | S |
@@ -4022,7 +4052,7 @@ morpheus-mcp-transport/src/main/java/com/morpheus/integration/mcp/BoundedStdioSe
 ### AUD-PRF-16 — Info : hygiène des ressources JDBC sans faille détectée, et écritures du projecteur correctement batchées
 | | |
 |---|---|
-| **Statut sur `develop`** | **TIENT** |
+| **Statut sur l'intégration** | **TIENT** |
 | **Sévérité** | Info |
 | **Axe** | Performance |
 | **Effort** | S |
@@ -4051,7 +4081,7 @@ recherche fraiche `grep -rn "executeQuery()" --include=*.java */src/main | grep 
 ### AUD-PRF-17 — Info : les parcours d'arborescence fournis par l'utilisateur sont bornés explicitement
 | | |
 |---|---|
-| **Statut sur `develop`** | **TIENT** |
+| **Statut sur l'intégration** | **TIENT** |
 | **Sévérité** | Info |
 | **Axe** | Performance |
 | **Effort** | S |
@@ -4080,7 +4110,7 @@ morpheus-application/.../sync/LocalSourceInventoryScanner.java:169 utilise Integ
 ### AUD-DEP-17 — Info : toutes les dépendances et plugins sauf reactor sont à la dernière version publiée à ce jour
 | | |
 |---|---|
-| **Statut sur `develop`** | **NON VÉRIFIABLE ICI** |
+| **Statut sur l'intégration** | **NON VÉRIFIABLE ICI** |
 | **Sévérité** | Info |
 | **Axe** | Dépendances |
 | **Effort** | S |
@@ -4112,7 +4142,7 @@ Reserve de relecture : la confrontation a mvnrepository n'est pas rejouable dans
 ### AUD-DEP-18 — Info : le build est entièrement épinglé et reproductible — aucune version flottante, aucun SNAPSHOT, aucun dépôt tiers, wrapper vérifié par empreinte
 | | |
 |---|---|
-| **Statut sur `develop`** | **TIENT** |
+| **Statut sur l'intégration** | **TIENT** |
 | **Sévérité** | Info |
 | **Axe** | Dépendances |
 | **Effort** | S |
@@ -4141,7 +4171,7 @@ Reserve de relecture : la confrontation a mvnrepository n'est pas rejouable dans
 ### AUD-DEP-19 — Info : chaîne CI/CD verrouillée — actions toutes épinglées par SHA 40, permissions minimales, secrets jamais exposés à du code non fusionné
 | | |
 |---|---|
-| **Statut sur `develop`** | **TIENT** |
+| **Statut sur l'intégration** | **TIENT** |
 | **Sévérité** | Info |
 | **Axe** | Dépendances |
 | **Effort** | S |
@@ -4170,7 +4200,7 @@ Reserve de relecture : la confrontation a mvnrepository n'est pas rejouable dans
 ### AUD-DEP-20 — Info : aucun Dockerfile ni compose dans le dépôt, conforme à la revendication « sans Docker »
 | | |
 |---|---|
-| **Statut sur `develop`** | **TIENT** |
+| **Statut sur l'intégration** | **TIENT** |
 | **Sévérité** | Info |
 | **Axe** | Dépendances |
 | **Effort** | S |
@@ -4199,7 +4229,7 @@ Reserve de relecture : la confrontation a mvnrepository n'est pas rejouable dans
 ### AUD-DEP-21 — Info : hygiène du dépôt — aucun artefact de build suivi par git, suppressions CVE et dérogations dependency:analyze toutes justifiées
 | | |
 |---|---|
-| **Statut sur `develop`** | **TIENT** |
+| **Statut sur l'intégration** | **TIENT** |
 | **Sévérité** | Info |
 | **Axe** | Dépendances |
 | **Effort** | S |
@@ -4228,7 +4258,7 @@ Reserve de relecture : la confrontation a mvnrepository n'est pas rejouable dans
 ### AUD-DEP-22 — Info : mesure de stabilité de ci.yml — 29 commits sur tout l'historique disponible, un seul sur les 200 derniers
 | | |
 |---|---|
-| **Statut sur `develop`** | **CADUC** |
+| **Statut sur l'intégration** | **CADUC** |
 | **Sévérité** | Info |
 | **Axe** | Dépendances |
 | **Effort** | S |
