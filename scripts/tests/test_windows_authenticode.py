@@ -23,9 +23,11 @@ from pathlib import Path
 
 from validator_harness import REPOSITORY, SCRIPTS, clean_environment, require_powershell
 
-SCRIPTS_UNDER_TEST = ("lib/MorpheusAuthenticode.ps1",)
+SCRIPTS_UNDER_TEST = ("lib/MorpheusAuthenticode.ps1", "validate-m20.ps1")
 
 VERIFICATION = SCRIPTS / "lib" / "MorpheusAuthenticode.ps1"
+REHEARSAL = SCRIPTS / "validate-m20.ps1"
+REHEARSAL_IDENTITY_FUNCTIONS = ("New-TestSigningIdentity", "Get-StoredCopies", "Remove-TestSigningIdentity")
 ENTRY_POINT = REPOSITORY / "distribution" / "windows" / "sign-windows-binary.ps1"
 MARKER = "marker-6f1d0c2e-never-printed"
 
@@ -239,6 +241,48 @@ class WindowsAuthenticodeTest(unittest.TestCase):
                 output = result.stdout + result.stderr
                 self.assertNotIn(MARKER, output)
                 self.assertNotIn(self.thumbprint, output)
+
+
+class RehearsalTestIdentityTest(unittest.TestCase):
+    """The identity the release rehearsal creates is removed by the rehearsal's own functions, under its strict mode."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.powershell = require_powershell()
+
+    def test_the_rehearsal_removes_its_test_identity_from_every_store_under_strict_mode(self) -> None:
+        names = ", ".join(quoted(name) for name in REHEARSAL_IDENTITY_FUNCTIONS)
+        # The functions are taken from the rehearsal as written and run under the strict mode it sets: whatever they
+        # leave behind is removed by thumbprint in the finally block, so a failing case leaves no identity either.
+        script = f"""
+            $ErrorActionPreference = 'Stop'
+            $ast = [System.Management.Automation.Language.Parser]::ParseFile({quoted(REHEARSAL)}, [ref]$null, [ref]$null)
+            $wanted = @({names})
+            $definitions = @($ast.FindAll({{ param($node)
+                $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $wanted -contains $node.Name
+            }}, $true))
+            if ($definitions.Count -ne $wanted.Count) {{ throw "rehearsal functions not found: $($definitions.Count)" }}
+            foreach ($definition in $definitions) {{ . ([scriptblock]::Create($definition.Extent.Text)) }}
+            Set-StrictMode -Version Latest
+            $thumbprint = $null
+            try {{
+                New-TestSigningIdentity | Out-Null
+                $thumbprint = $script:TestIdentity.Thumbprint
+                Remove-TestSigningIdentity
+            }} finally {{
+                if ($thumbprint) {{
+                    Get-ChildItem -Path 'Cert:\\' -Recurse -ErrorAction SilentlyContinue | Where-Object {{
+                        $_.PSObject.Properties['Thumbprint'] -and $_.Thumbprint -eq $thumbprint }} | ForEach-Object {{
+                        Remove-Item -LiteralPath $_.PSPath -DeleteKey -ErrorAction SilentlyContinue }}
+                }}
+            }}
+        """
+        result = subprocess.run([self.powershell, "-NoLogo", "-NoProfile", "-NonInteractive", "-ExecutionPolicy",
+                                 "Bypass", "-Command", script],
+                                capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
+                                env=clean_environment())
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertIn("Test signing identity removed from every certificate store", result.stdout)
 
 
 if __name__ == "__main__":

@@ -346,7 +346,7 @@ function Remove-TestSigningIdentity {
         if (Test-Path -LiteralPath $copy.PSPath) { Remove-Item -LiteralPath $copy.PSPath -ErrorAction SilentlyContinue }
     }
     Remove-Item Env:\MORPHEUS_WINDOWS_SIGNING_TEST_THUMBPRINT -ErrorAction SilentlyContinue
-    $left = Get-StoredCopies $thumbprint
+    $left = @(Get-StoredCopies $thumbprint)
     $script:TestIdentity = $null
     if ($left.Count -ne 0) {
         throw "The test signing identity outlived the run: $(@($left | ForEach-Object { $_.PSParentPath }) -join ', ')"
