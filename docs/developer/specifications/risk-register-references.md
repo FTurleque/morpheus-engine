@@ -1,7 +1,6 @@
 # Renvois des workflows vers le registre des risques (`risk-register-references`)
 
-Spec de référence : `openspec/specs/risk-register-references/spec.md`, créée à l'archivage du changement
-`refuse-a-workflow-that-points-at-a-closed-risk` · Relevé du 2026-11-06 sur `8c038add`.
+Spec de référence : `openspec/specs/risk-register-references/spec.md` · Relevé du 2026-11-06 sur `8c038add`.
 
 ## Objet et périmètre
 

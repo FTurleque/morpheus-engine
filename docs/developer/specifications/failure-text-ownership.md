@@ -1,7 +1,6 @@
 # Texte d'un échec formé par un seul propriétaire (`failure-text-ownership`)
 
-Spec de référence : `openspec/specs/failure-text-ownership/spec.md`, créée à l'archivage du changement
-`turn-every-failure-into-text-through-one-owner` (spec delta dans ce changement) · Relevé du 2026-11-06 sur `8c038add`.
+Spec de référence : `openspec/specs/failure-text-ownership/spec.md` · Relevé du 2026-11-06 sur `8c038add`.
 
 ## Objet et périmètre
 
