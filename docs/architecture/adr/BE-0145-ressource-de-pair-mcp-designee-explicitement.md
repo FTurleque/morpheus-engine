@@ -17,7 +17,7 @@ MORPHEUS joint deux pairs par MCP STDIO (ADR-0128) : MINOS, qui indexe des symbo
 un contexte technique pour un projet (ADR-0075).
 
 Une référence externe (ADR-0142) peut désigner un symbole de code indexé par MINOS. Une identité externe
-doit rester distincte d'une identité MORPHEUS, d'un locator et d'une version (ADR-0140). La recherche MINOS est
+doit rester distincte d'une identité MORPHEUS, d'un locator et d'une version (ADR-0168). La recherche MINOS est
 lexicale : un nom simple, un `qualifiedName`, un fichier ou un score ne suffit pas à désigner un symbole sans
 ambiguïté, et l'index MINOS évolue d'un snapshot à l'autre.
 
@@ -175,7 +175,7 @@ NEXUS. Le registre et l'index NEXUS restent administrés par NEXUS ou par un orc
 ## References
 
 - [ADR-0007](ARCH-0007-cross-engine-integration.md) — intégration entre moteurs.
-- [ADR-0140](DATA-0140-identite-de-domaine.md) — identité, version, locator et référence externe distincts.
+- [ADR-0168](DATA-0168-identite-de-domaine-generee-dans-l-ordre.md) — identité, version, locator et référence externe distincts.
 - [ADR-0142](DATA-0142-references-externes.md) — résolution optionnelle des références externes.
 - [ADR-0142](DATA-0142-references-externes.md) — références externes du snapshot.
 - [ADR-0075](ARCH-0075-morpheus-intent-vs-nexus-technical-context.md) — intention MORPHEUS et contexte technique

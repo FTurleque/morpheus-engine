@@ -78,6 +78,7 @@ Vue commune : la séquence de la façade distante, dans [`remote-access-journal.
 | `reflection-boundary` | [réflexion, chargement de classes et injection](reflection-boundary.md) | [spec](../../../openspec/specs/reflection-boundary/spec.md) |
 | `record-construction` | [construction d'un record du produit](record-construction.md) | [spec](../../../openspec/specs/record-construction/spec.md) |
 | `domain-value-decisions` | [décisions sur une valeur du domaine](domain-value-decisions.md) | [spec](../../../openspec/specs/domain-value-decisions/spec.md) |
+| `domain-identity-generation` | [ordre des identités de domaine générées](domain-identity-generation.md) | [spec](../../../openspec/changes/generate-domain-identities-in-order/specs/domain-identity-generation/spec.md) |
 | `constraint-blocking-decision` | [décision de blocage d'une contrainte](constraint-blocking-decision.md) | [spec](../../../openspec/specs/constraint-blocking-decision/spec.md) |
 | `operational-runtime-injection` | [injection du runtime opérationnel](operational-runtime-injection.md) | [spec](../../../openspec/specs/operational-runtime-injection/spec.md) |
 | `project-ingestion-port` | [ingestion d'un projet par le port de fournisseur](project-ingestion-port.md) | [spec](../../../openspec/specs/project-ingestion-port/spec.md) |

@@ -55,7 +55,7 @@ devient pas un critère d'acceptation sans règle explicite (ADR-0081).
 
 Trois notions restent distinctes :
 
-- `DomainIdentity` : identité MORPHEUS, UUIDv7 résolue et persistée par provider (ADR-0140) ;
+- `DomainIdentity` : identité MORPHEUS, UUIDv7 résolue et persistée par provider (ADR-0168) ;
 - `SourceLocator` : emplacement de la source ;
 - clé externe : identifiant provider-scoped à partir duquel l'identité est résolue.
 
@@ -205,9 +205,9 @@ Un provider compose des lecteurs séparés plutôt qu'un parser monolithique. Po
 
 - [ADR-0135](ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — domaine possédé par MORPHEUS.
 - [ADR-0136](ARCH-0136-etat-temporel-et-occurrences-versionnees.md) — distinction courant / proposé / historique.
-- [ADR-0140](DATA-0140-identite-de-domaine.md) — identité de domaine stable.
-- [ADR-0140](DATA-0140-identite-de-domaine.md) — identité UUIDv7.
-- [ADR-0140](DATA-0140-identite-de-domaine.md) — identité persistante scopée par provider.
+- [ADR-0168](DATA-0168-identite-de-domaine-generee-dans-l-ordre.md) — identité de domaine stable.
+- [ADR-0168](DATA-0168-identite-de-domaine-generee-dans-l-ordre.md) — identité UUIDv7.
+- [ADR-0168](DATA-0168-identite-de-domaine-generee-dans-l-ordre.md) — identité persistante scopée par provider.
 - [ADR-0136](ARCH-0136-etat-temporel-et-occurrences-versionnees.md) — projection temporelle explicite.
 - [ADR-0141](DATA-0141-contenu-metier-par-snapshot.md) — persistance versionnée des requirements.
 - [ADR-0035](BE-0035-explicit-requirement-delta-application-and-promotion.md) — application et promotion des deltas.

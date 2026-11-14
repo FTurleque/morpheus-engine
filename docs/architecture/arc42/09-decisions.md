@@ -20,7 +20,7 @@ Domaine, identité, états, persistance et socle technique.
 | L'état temporel est une donnée normalisée, portée par des occurrences versionnées | [ADR-0136](../adr/ARCH-0136-etat-temporel-et-occurrences-versionnees.md) |
 | Les intégrations cross-engine utilisent des contrats explicites et découplés | [ADR-0007](../adr/ARCH-0007-cross-engine-integration.md) |
 | Le cœur MORPHEUS est read-first ; l'écriture est une capacité séparée | [ADR-0008](../adr/SEC-0008-read-first-write-capability.md) |
-| Identité de domaine : opaque, UUIDv7, distincte du locator, persistée par clé scopée par provider | [ADR-0140](../adr/DATA-0140-identite-de-domaine.md) |
+| Identité de domaine : opaque, UUIDv7 générée dans l'ordre par processus, distincte du locator, persistée par clé scopée par provider | [ADR-0168](../adr/DATA-0168-identite-de-domaine-generee-dans-l-ordre.md) |
 | Normaliser le contenu des providers sans temporalité ni effet appliqué | [ADR-0121](../adr/ARCH-0121-modele-normalise-neutre-vis-a-vis-des-providers.md) |
 | Tracer par des liens typés selon une taxonomie contrôlée | [ADR-0118](../adr/ARCH-0118-tracabilite-typee-et-taxonomie-controlee.md) |
 | Évaluer le cycle de vie d'un changement par une machine d'état canonique et une transition tri-état | [ADR-0119](../adr/BE-0119-cycle-de-vie-des-changements-et-transition-tri-etat.md) |

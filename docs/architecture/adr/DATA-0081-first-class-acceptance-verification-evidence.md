@@ -191,7 +191,7 @@ aucun critère, plutôt que d'utiliser une heuristique.
 ## References
 
 - [ADR-0135](ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — domaine propre à MORPHEUS.
-- [ADR-0140](DATA-0140-identite-de-domaine.md) — identité de domaine stable.
+- [ADR-0168](DATA-0168-identite-de-domaine-generee-dans-l-ordre.md) — identité de domaine stable.
 - [ADR-0136](ARCH-0136-etat-temporel-et-occurrences-versionnees.md) — projection temporelle et versions.
 - [ADR-0141](DATA-0141-contenu-metier-par-snapshot.md) — projection du contenu métier d'un snapshot.
 - [ADR-0138](ARCH-0138-analyse-de-changement-derivee-et-bornee.md) — analyse de changement.

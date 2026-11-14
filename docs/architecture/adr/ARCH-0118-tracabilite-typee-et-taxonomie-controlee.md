@@ -233,7 +233,7 @@ physique n'a pas à être un graphe : la traversée dans les deux directions se 
 ## References
 
 - [ADR-0135](ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — domaine possédé par MORPHEUS.
-- [ADR-0140](DATA-0140-identite-de-domaine.md) — identité de domaine stable.
+- [ADR-0168](DATA-0168-identite-de-domaine-generee-dans-l-ordre.md) — identité de domaine stable.
 - [ADR-0136](ARCH-0136-etat-temporel-et-occurrences-versionnees.md) — projection temporelle explicite.
 - [ADR-0143](DATA-0143-snapshots-versionnes-et-concurrence-bornee.md) — snapshots versionnés et activation atomique.
 - [ADR-0038](DATA-0038-snapshot-scoped-traceability-persistence.md) — persistance de la traçabilité par snapshot.

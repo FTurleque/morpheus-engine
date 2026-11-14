@@ -293,7 +293,7 @@ com.morpheus.application -X-> SQLite
 ## References
 
 - [ADR-0136](ARCH-0136-etat-temporel-et-occurrences-versionnees.md) — état courant et proposé.
-- [ADR-0140](DATA-0140-identite-de-domaine.md) — identité stable.
+- [ADR-0168](DATA-0168-identite-de-domaine-generee-dans-l-ordre.md) — identité stable.
 - [ADR-0136](ARCH-0136-etat-temporel-et-occurrences-versionnees.md) — projection temporelle et version
   d'entité.
 - [ADR-0141](DATA-0141-contenu-metier-par-snapshot.md) — persistance versionnée des requirements.

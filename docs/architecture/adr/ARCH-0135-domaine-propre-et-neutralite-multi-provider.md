@@ -219,7 +219,7 @@ Ces coûts sont acceptés parce qu'ils protègent une frontière structurante.
 
 - [ADR-0002](ARCH-0002-openspec-reference-provider.md) — OpenSpec premier provider, sans verrouillage.
 - [ADR-0003](DATA-0003-specification-knowledge-store.md) — persistance derrière `SpecificationKnowledgeStore`.
-- [ADR-0140](DATA-0140-identite-de-domaine.md) — identité de domaine, scopée par provider, distincte de la version, du
+- [ADR-0168](DATA-0168-identite-de-domaine-generee-dans-l-ordre.md) — identité de domaine, scopée par provider, distincte de la version, du
   localisateur et de la référence externe.
 - [ADR-0011](BE-0011-provider-capability-negotiation.md) — négociation des capacités d'un provider.
 - [ADR-0028](BE-0028-unified-provider-read-contract.md) — contrat de lecture unifié des providers.

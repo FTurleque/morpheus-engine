@@ -1,15 +1,15 @@
 ---
-id: DATA-0140
-title: "Identité de domaine : opaque, UUIDv7, distincte du locator, persistée par clé scopée par provider"
+id: DATA-0168
+title: "Identité de domaine : opaque, UUIDv7 générée dans l'ordre par processus, distincte du locator, persistée par clé scopée par provider"
 domain: data
 rules: false
 ---
 
-# Identité de domaine : opaque, UUIDv7, distincte du locator, persistée par clé scopée par provider
+# Identité de domaine : opaque, UUIDv7 générée dans l'ordre par processus, distincte du locator, persistée par clé scopée par provider
 
 - Statut : **Acceptée**
-- Date : 2026-10-24
-- Remplace : ADR-0009, ADR-0015, ADR-0023
+- Date : 2026-11-14
+- Remplace : ADR-0140
 
 ## Context
 
@@ -76,6 +76,19 @@ Options écartées pour le format :
 - **Identifiant numérique local** : allocation liée au store, créations hors ligne ou multi-store compliquées.
 - **Hash du contenu ou du locator** : confond identité, version et emplacement.
 - **Format MORPHEUS propriétaire** : aucun besoin métier ne justifie un nouveau standard d'identifiant.
+
+Ordre de génération. L'application trie par identité de nombreuses listes visibles (`ProposedChangeSet`, analyse
+d'un changement, qualité des tâches, requêtes de contenu, pages SQLite `ORDER BY id`). Avec un `rand_a` tiré au hasard,
+deux identités créées dans la même milliseconde se comparent dans un ordre tiré au sort, et deux ingestions d'une même
+source rendent deux ordres différents : une transcription de la CLI (`analyze-change-json`) a ainsi échoué sur la CI
+Linux, deux tâches d'un même changement sortant inversées. Options considérées :
+
+- **Trier chaque liste visible par une clé métier** : `Constraint` et `DesignDecision` n'ont aucune clé, celle des
+  tâches et des deltas est facultative, et la pagination par identité serait à refaire.
+- **Compteur dans `rand_a`** (RFC 9562, section 6.2, méthode 1) : un tri par identité devient un tri par ordre de
+  génération dans un processus, sans changer le format.
+- **Précision d'horloge accrue** (méthode 3) : l'horloge murale de la JVM ne donne que la milliseconde.
+- **`rand_b` incrémenté d'un aléa** (méthode 2) : rend `rand_b` en partie prévisible.
 
 Un `providerId` fait partie de la clé et se range aussi en texte joint par `"\n"` (ensemble des fournisseurs d'une
 adhésion de portefeuille dans SQLite) : un caractère de contrôle interne rendrait la relecture ambiguë et ferait
@@ -148,14 +161,19 @@ Structure :
 
 `DomainIdentity` (`morpheus-domain`, `com.morpheus.domain.identity`) refuse dans son constructeur compact toute valeur
 dont la version n'est pas 7 ou la variante n'est pas celle de RFC 9562. `generate()` produit l'identifiant localement :
-horodatage courant, `rand_a` et `rand_b` tirés d'un `SecureRandom`. Aucun ordre n'est garanti entre deux identifiants
-créés dans la même milliseconde. `parse()` relit la forme canonique. Aucune bibliothèque tierce n'est utilisée.
+horodatage courant, `rand_a` porte un compteur de 12 bits et `rand_b` est tiré d'un `SecureRandom` (RFC 9562,
+section 6.2, méthode 1). `MonotonicTimestampSequence`, unique par processus, réensemence le compteur à chaque nouvelle
+milliseconde avec son bit de gauche à 0, l'incrémente dans la même milliseconde ou quand l'horloge recule, et avance
+l'horodatage d'une unité quand il déborde. Deux identités générées par un même processus se comparent donc dans
+l'ordre de leur génération ; aucun ordre n'est garanti entre deux processus. `parse()` relit la forme canonique. Aucune
+bibliothèque tierce n'est utilisée.
 
 Le domaine traite la valeur comme **opaque** :
 
 1. `DomainIdentity` est créé une fois puis conservé tant que la continuité logique est démontrée.
 2. UUIDv7 ne remplace pas `createdAt`.
-3. L'ordre des UUID ne remplace ni `EntityVersion` ni `SpecificationVersion`.
+3. L'ordre des UUID ne remplace ni `EntityVersion` ni `SpecificationVersion` ; il départage les éléments d'une liste
+   par ordre de génération, sans porter de sens métier.
 4. Le timestamp encodé ne détermine aucun état métier.
 5. Aucun provider, chemin, titre ou contenu n'est encodé dans l'identifiant.
 6. Un backend peut utiliser une représentation native ou binaire différente tant que le round-trip produit le même
@@ -255,7 +273,7 @@ recomposée.
 - Créer une identité par `DomainIdentity.generate()` et relire sa forme texte par `DomainIdentity.parse()`.
 - Sérialiser une identité sous sa forme UUID canonique en minuscules, et restituer exactement le même UUID après un
   aller-retour par un store.
-- Trier et dater les entités par des champs explicites (`createdAt`, `EntityVersion`, `SpecificationVersion`).
+- Dater et versionner les entités par des champs explicites (`createdAt`, `EntityVersion`, `SpecificationVersion`).
 - Inclure le `providerId` dans toute clé d'identité externe.
 - Conserver la même `DomainIdentity` quand la continuité est démontrable, avec un nouveau locator et une nouvelle
   version.
@@ -273,6 +291,8 @@ recomposée.
   score de similarité ou une position comme identité.
 - N'encoder ni provider, ni chemin, ni titre, ni contenu dans une identité.
 - Ne pas lire le timestamp d'une identité comme un fait métier ni comme `createdAt`.
+- Ne pas remplir `rand_a` au hasard, ni construire un UUIDv7 de production hors de `generate()`.
+- Ne pas supposer un ordre entre deux identités générées par deux processus distincts.
 - Ne pas recalculer un UUID à chaque ingestion.
 - Ne pas promouvoir automatiquement un identifiant externe en identité MORPHEUS.
 - Ne pas fusionner deux identités sur une correspondance heuristique sans politique explicite.
@@ -293,6 +313,7 @@ recomposée.
 - Les collisions sont visibles, et plusieurs sources peuvent coexister.
 - Standard UUID sur 128 bits, génération locale sans coordination centrale, sérialisation standard et compatibilité
   avec les types UUID des bases et des pilotes, localité temporelle.
+- Une liste triée par identité rend le même ordre à chaque exécution d'un même processus, celui de la génération.
 - Comportement identique mémoire/SQLite ; un ensemble de fournisseurs relu depuis SQLite est exactement celui
   enregistré.
 - Renommages d'external ID gérables explicitement, sans verrouillage OpenSpec.
@@ -304,8 +325,11 @@ recomposée.
   volontairement absentes.
 - Les cas ambigus sont difficiles, l'historique doit être conservé et les tests sont plus complexes.
 - L'identité est moins lisible pour l'humain qu'une clé naturelle, et sa représentation texte plus longue qu'un ULID.
-- Le temps approximatif de génération est observable dans l'identifiant, et l'ordre à l'intérieur d'une milliseconde
-  n'est pas garanti.
+- Le temps approximatif de génération est observable dans l'identifiant, et l'ordre de deux identités d'un même
+  processus aussi.
+- Une rafale de plus de 2048 identités dans une milliseconde fait devancer l'horloge à l'horodatage encodé, d'une
+  milliseconde par débordement ; un recul d'horloge fait de même jusqu'à ce que l'horloge rattrape.
+- L'ordre de deux identités créées par deux processus dans la même milliseconde reste non garanti.
 
 ### Risques
 
@@ -330,7 +354,10 @@ recomposée.
 ## Compliance and Enforcement
 
 - `morpheus-domain/src/test/java/com/morpheus/domain/identity/DomainIdentityTest.java` : génération conforme UUIDv7
-  RFC 9562, round-trip de la chaîne canonique, refus d'une valeur non UUIDv7, identifiants opaques et distincts.
+  RFC 9562, round-trip de la chaîne canonique, refus d'une valeur non UUIDv7, identifiants opaques et distincts,
+  identités d'une même milliseconde comparées dans l'ordre de génération, par `compareTo` et par leur texte.
+- `morpheus-domain/src/test/java/com/morpheus/domain/identity/MonotonicTimestampSequenceTest.java` : graine au bit de
+  gauche nul, incrément dans la milliseconde, recul d'horloge, débordement vers la milliseconde suivante.
 - Le constructeur compact de `DomainIdentity` refuse toute valeur hors version 7 / variante RFC 9562.
 - `morpheus-application/src/test/java/com/morpheus/application/identity/PersistentEntityIdentityResolverTest.java` :
   identité stable pour une même clé externe, namespaces de providers indépendants, alias explicite et ses refus,
@@ -356,6 +383,8 @@ recomposée.
 - [ADR-0133](GEN-0133-toolchain-java-21-et-maven-wrapper.md) — toolchain Java 21 de production.
 - [ADR-0021](DATA-0021-sqlite-schema-migrations-foundation.md) — migrations SQLite.
 - [ADR-0121](ARCH-0121-modele-normalise-neutre-vis-a-vis-des-providers.md) — modèle normalisé provider-neutral.
+- [ADR-0140](archive/0140-identite-de-domaine.md) — décision précédente, archivée.
+- RFC 9562, section 6.2 (*Monotonicity and Counters*).
 - [Étude du format d'identité](../../project/research/domain-identity-format.md)
 - [VALIDATION_M0](../../project/validation/VALIDATION_M0.md), [VALIDATION_M2](../../project/validation/VALIDATION_M2.md)
 - Fixture `experiments/m0/fixtures/identity-scenarios.json`

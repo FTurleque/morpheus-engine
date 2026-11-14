@@ -36,9 +36,10 @@ public record DomainIdentity(UUID value) implements Comparable<DomainIdentity> {
     }
 
     public static DomainIdentity generate() {
-        long unixMillis = System.currentTimeMillis() & 0x0000FFFFFFFFFFFFL;
-        long randomA = RANDOM.nextInt(1 << 12);
-        long mostSignificantBits = (unixMillis << 16) | (0x7L << 12) | randomA;
+        long timestampAndCounter = SEQUENCE.next(System.currentTimeMillis());
+        long unixMillis = timestampAndCounter >>> MonotonicTimestampSequence.COUNTER_BITS;
+        long counter = timestampAndCounter & ((1L << MonotonicTimestampSequence.COUNTER_BITS) - 1);
+        long mostSignificantBits = (unixMillis << 16) | (0x7L << 12) | counter;
 
         long randomB = RANDOM.nextLong() & 0x3FFFFFFFFFFFFFFFL;
         long leastSignificantBits = 0x8000000000000000L | randomB;
