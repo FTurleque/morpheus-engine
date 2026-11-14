@@ -93,3 +93,14 @@ l'écriture, comptée depuis son envoi : en 1.2.1, elle n'avait aucune borne pro
 créneau à temps reçoit `504 RESPONSE_BUDGET_WRITE_TIMEOUT`, dont le résultat est lui aussi **inconnu** : la réponse
 interne n'est pas relayée, et le client relit l'état avant de rejouer, comme pour `UPSTREAM_WRITE_TIMEOUT`. La réponse
 à une écriture commence donc au plus tard 300 secondes après son envoi et se termine au plus tard 420 secondes après.
+
+## Corrections
+
+### Installation Windows : l'intégration Claude Code est configurée
+
+En 1.2.1, l'installeur ne parvenait pas à enregistrer MORPHEUS dans Claude Code quand cette intégration était
+cochée : il signalait qu'une ou plusieurs intégrations MCP natives n'avaient pas pu être configurées, et le journal
+`%LOCALAPPDATA%\MORPHEUS\mcp-clients.log` contenait `Invalid environment variable format: morpheus`. Les autres
+intégrations, la CLI et le serveur MCP n'étaient pas touchés. L'installeur 1.2.2 enregistre le serveur `morpheus`
+dans la portée utilisateur de Claude Code. Une entrée `morpheus` créée à la main entre-temps est conservée telle
+quelle.

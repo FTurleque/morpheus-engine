@@ -153,18 +153,19 @@ copilot mcp remove morpheus
 
 ## 5. Claude Code
 
-Claude Code exige que les options de `mcp add` précèdent le nom du serveur :
+Le nom du serveur suit immédiatement `mcp add`. L'option `--env` accepte plusieurs valeurs : un nom écrit après elle
+serait lu comme une variable d'environnement de plus, et Claude Code refuserait la commande
+(`Invalid environment variable format: morpheus`).
 
 ```powershell
 $MorpheusExe = "$env:LOCALAPPDATA\Programs\MORPHEUS\morpheus.exe"
 $DataRoot = "$env:LOCALAPPDATA\MORPHEUS\data"
 $ConfigRoot = "$env:LOCALAPPDATA\MORPHEUS\config"
 
-claude mcp add `
+claude mcp add morpheus `
   --scope user `
   --env "MORPHEUS_DATA_DIR=$DataRoot" `
   --env "MORPHEUS_CONFIG_DIR=$ConfigRoot" `
-  morpheus `
   -- "$MorpheusExe" mcp --stdio
 ```
 

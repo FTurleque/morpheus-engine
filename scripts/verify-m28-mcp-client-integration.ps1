@@ -53,6 +53,11 @@ if /I "%~1"=="mcp" if /I "%~2"=="get" (
   exit /b 1
 )
 if /I "%~1"=="mcp" if /I "%~2"=="add" (
+  rem The real CLIs take --env as a variadic option: a server name written after it is read as one more variable.
+  if not "%~3"=="morpheus" (
+    echo Invalid environment variable format: the server name must follow 'mcp add' 1>&2
+    exit /b 1
+  )
   >"%STATE%" echo %*
   exit /b 0
 )
@@ -194,7 +199,7 @@ try {
         Assert-True ($CliState.Contains('--stdio')) "$ClientName did not receive --stdio."
     }
     $ClaudeCliState = Get-Content -Raw -LiteralPath (Join-Path $FakeBin 'claude.state')
-    Assert-True ($ClaudeCliState -match 'mcp add --scope user .* morpheus -- ') 'Claude Code options are not placed before the server name.'
+    Assert-True ($ClaudeCliState -match '^mcp add morpheus --scope user .*-- ') 'Claude Code server name must precede the scope and env options.'
     Assert-True ((Get-ChildItem -LiteralPath $BackupRoot -File -Recurse).Count -ge 2) 'Expected JSON configuration backups.'
 
     # Idempotent reinstall: configuration bytes and backup count stay stable.
@@ -298,7 +303,7 @@ try {
         -StatePath (Join-Path $Root 'cli-modify-state.json') -LogPath (Join-Path $Root 'cli-modify.log') `
         -BackupRoot (Join-Path $Root 'cli-modify-backups')
     $ClaudeStatePath2 = Join-Path $FakeBin 'claude.state'
-    Set-Content -LiteralPath $ClaudeStatePath2 -Value 'mcp add --scope user morpheus -- user-custom-morpheus.exe mcp --stdio' -Encoding ascii
+    Set-Content -LiteralPath $ClaudeStatePath2 -Value 'mcp add morpheus --scope user -- user-custom-morpheus.exe mcp --stdio' -Encoding ascii
     & $Manager -InstallRoot $InstallRoot -Action Uninstall `
         -DataRoot $DataRoot -ConfigRoot $ConfigRoot `
         -StatePath (Join-Path $Root 'cli-modify-state.json') -LogPath (Join-Path $Root 'cli-modify.log') `
