@@ -196,6 +196,11 @@ Le fichier Windows est :
 %APPDATA%\Claude\claude_desktop_config.json
 ```
 
+Quand Claude Desktop est installé depuis le Microsoft Store, son profil est celui du paquet,
+`%LOCALAPPDATA%\Packages\Claude_<identifiant>\LocalCache\Roaming\Claude\claude_desktop_config.json`. Ce profil n'est
+retenu que si le paquet est installé pour l'utilisateur : un dossier `Packages\Claude_*` laissé par une désinstallation
+ne compte pas, et c'est alors le fichier de `%APPDATA%\Claude` qui est configuré.
+
 Le gestionnaire fusionne uniquement `mcpServers.morpheus` :
 
 ```json

@@ -39,7 +39,19 @@ Après installation :
 & "$env:LOCALAPPDATA\Programs\MORPHEUS\morpheus.exe" paths
 ```
 
-Version attendue : `1.2.1`.
+Version attendue : `1.2.2`.
+
+Windows remet son environnement à un processus quand il démarre. Avec l'option « Ajouter MORPHEUS au PATH
+utilisateur », la commande `morpheus` est donc reconnue dans les terminaux ouverts après l'installation ; un terminal
+déjà ouvert, ou un terminal ouvert depuis une application déjà lancée (éditeur, client IA), garde l'ancien `PATH`.
+Ouvrir un terminal depuis le menu Démarrer, ou fermer puis relancer l'application qui l'héberge. Pour la session
+courante :
+
+```powershell
+$env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
+```
+
+Les clients IA configurés lisent leur configuration MCP au démarrage : les fermer complètement, puis les relancer.
 
 ## Données persistantes Windows
 

@@ -45,22 +45,34 @@ $LocalAppData = [Environment]::GetFolderPath('LocalApplicationData')
 $RoamingAppData = [Environment]::GetFolderPath('ApplicationData')
 
 # Claude Desktop ships both as a classic per-user installer (%APPDATA%\Claude) and, on some Windows machines,
-# as an MSIX/Store package whose real profile lives under a per-install %LOCALAPPDATA%\Packages\Claude_* GUID
-# directory. Checking only the classic path misreports a Store install as absent. Defined this early because
-# it must run before the parameter-defaulting block below, and PowerShell does not hoist function definitions.
-function Resolve-ClaudeDesktopConfigPath {
-    $PackagesDir = Join-Path $LocalAppData 'Packages'
+# as an MSIX/Store package whose real profile lives under %LOCALAPPDATA%\Packages\<package family>. Checking only
+# the classic path misreports a Store install as absent. A Packages\Claude_* directory outlives the uninstall of
+# its package, so its presence proves nothing: the MSIX profile is chosen only when its package family is
+# registered for the current user (one installed package under the AppModel repository family key). Defined this
+# early because it must run before the parameter-defaulting block below, and PowerShell does not hoist functions.
+$PackageFamiliesKey = 'HKCU:\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Families'
+
+function Resolve-ClaudeDesktopConfigPath(
+    [string] $LocalAppDataRoot,
+    [string] $RoamingAppDataRoot,
+    [string] $PackageFamiliesRoot
+) {
+    $PackagesDir = Join-Path $LocalAppDataRoot 'Packages'
     if (Test-Path -LiteralPath $PackagesDir -PathType Container) {
-        $MsixDir = Get-ChildItem -LiteralPath $PackagesDir -Directory -Filter 'Claude_*' -ErrorAction SilentlyContinue |
-            Select-Object -First 1
-        if ($null -ne $MsixDir) {
+        $Candidates = @(Get-ChildItem -LiteralPath $PackagesDir -Directory -Filter 'Claude_*' -ErrorAction SilentlyContinue |
+            Sort-Object -Property Name)
+        foreach ($MsixDir in $Candidates) {
+            $FamilyKey = Join-Path $PackageFamiliesRoot $MsixDir.Name
+            $Registered = (Test-Path -LiteralPath $FamilyKey) -and
+                (@(Get-ChildItem -LiteralPath $FamilyKey -ErrorAction SilentlyContinue).Count -gt 0)
+            if (-not $Registered) { continue }
             $MsixConfig = Join-Path $MsixDir.FullName 'LocalCache\Roaming\Claude\claude_desktop_config.json'
             if (Test-Path -LiteralPath (Split-Path -Parent $MsixConfig) -PathType Container) {
                 return $MsixConfig
             }
         }
     }
-    return Join-Path $RoamingAppData 'Claude\claude_desktop_config.json'
+    return Join-Path $RoamingAppDataRoot 'Claude\claude_desktop_config.json'
 }
 
 if ([string]::IsNullOrWhiteSpace($DataRoot)) {
@@ -85,7 +97,8 @@ if ([string]::IsNullOrWhiteSpace($CopilotJetBrainsConfigPath)) {
     $CopilotJetBrainsConfigPath = Join-Path $LocalAppData 'github-copilot\intellij\mcp.json'
 }
 if ([string]::IsNullOrWhiteSpace($ClaudeDesktopConfigPath)) {
-    $ClaudeDesktopConfigPath = Resolve-ClaudeDesktopConfigPath
+    $ClaudeDesktopConfigPath = Resolve-ClaudeDesktopConfigPath -LocalAppDataRoot $LocalAppData `
+        -RoamingAppDataRoot $RoamingAppData -PackageFamiliesRoot $PackageFamiliesKey
 }
 
 $StatePath = [System.IO.Path]::GetFullPath($StatePath)
@@ -505,7 +518,10 @@ function Stop-NativeProcessTree([System.Diagnostics.Process] $Process) {
     try { if ($Process.HasExited) { return } } catch { return }
     # taskkill's exit code is deliberately ignored, but a native call still writes the global $LASTEXITCODE, and
     # /T races children that exit during enumeration (128 when a process is already gone). Restore it, or a caller
-    # that reads $LASTEXITCODE after this script sees a failure that never happened.
+    # that reads $LASTEXITCODE after this script sees a failure that never happened. In a process where no native
+    # command has run yet the variable does not exist and strict mode refuses to read it; no native command has
+    # failed there, so it starts at 0.
+    if (-not (Test-Path -LiteralPath 'Variable:global:LASTEXITCODE')) { $global:LASTEXITCODE = 0 }
     $PreviousExitCode = $global:LASTEXITCODE
     try {
         $TaskKill = Join-Path ([Environment]::SystemDirectory) 'taskkill.exe'
