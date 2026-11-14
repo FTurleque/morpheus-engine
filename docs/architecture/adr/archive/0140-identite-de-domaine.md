@@ -1,13 +1,8 @@
----
-id: DATA-0140
-title: "Identité de domaine : opaque, UUIDv7, distincte du locator, persistée par clé scopée par provider"
-domain: data
-rules: false
----
+# ADR-0140 — Identité de domaine : opaque, UUIDv7, distincte du locator, persistée par clé scopée par provider
 
-# Identité de domaine : opaque, UUIDv7, distincte du locator, persistée par clé scopée par provider
+> **Archivée.** Cette décision est consolidée dans [ADR-0168](../DATA-0168-identite-de-domaine-generee-dans-l-ordre.md), qui la reprend en entier et place dans `rand_a` un compteur monotone par processus. Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
-- Statut : **Acceptée**
+- Statut : **Remplacée par ADR-0168**
 - Date : 2026-10-24
 - Remplace : ADR-0009, ADR-0015, ADR-0023
 
@@ -352,10 +347,10 @@ recomposée.
 
 ## References
 
-- [ADR-0135](ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — domaine indépendant des providers.
-- [ADR-0133](GEN-0133-toolchain-java-21-et-maven-wrapper.md) — toolchain Java 21 de production.
-- [ADR-0021](DATA-0021-sqlite-schema-migrations-foundation.md) — migrations SQLite.
-- [ADR-0121](ARCH-0121-modele-normalise-neutre-vis-a-vis-des-providers.md) — modèle normalisé provider-neutral.
-- [Étude du format d'identité](../../project/research/domain-identity-format.md)
-- [VALIDATION_M0](../../project/validation/VALIDATION_M0.md), [VALIDATION_M2](../../project/validation/VALIDATION_M2.md)
+- [ADR-0135](../ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — domaine indépendant des providers.
+- [ADR-0133](../GEN-0133-toolchain-java-21-et-maven-wrapper.md) — toolchain Java 21 de production.
+- [ADR-0021](../DATA-0021-sqlite-schema-migrations-foundation.md) — migrations SQLite.
+- [ADR-0121](../ARCH-0121-modele-normalise-neutre-vis-a-vis-des-providers.md) — modèle normalisé provider-neutral.
+- [Étude du format d'identité](../../../project/research/domain-identity-format.md)
+- [VALIDATION_M0](../../../project/validation/VALIDATION_M0.md), [VALIDATION_M2](../../../project/validation/VALIDATION_M2.md)
 - Fixture `experiments/m0/fixtures/identity-scenarios.json`

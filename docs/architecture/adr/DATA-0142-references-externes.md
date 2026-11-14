@@ -296,7 +296,7 @@ surveillance en tâche de fond.
 - [ADR-0118](ARCH-0118-tracabilite-typee-et-taxonomie-controlee.md) — traçabilité typée et taxonomie contrôlée.
 - [ADR-0121](ARCH-0121-modele-normalise-neutre-vis-a-vis-des-providers.md) — modèle normalisé.
 - [ADR-0128](ARCH-0128-pairs-minos-et-nexus-par-mcp-stdio.md) — pairs MINOS et NEXUS par MCP STDIO.
-- [ADR-0140](DATA-0140-identite-de-domaine.md) — identité de domaine, distincte d'une référence externe.
+- [ADR-0168](DATA-0168-identite-de-domaine-generee-dans-l-ordre.md) — identité de domaine, distincte d'une référence externe.
 - [ADR-0143](DATA-0143-snapshots-versionnes-et-concurrence-bornee.md) — snapshots versionnés et activation atomique.
 - [VALIDATION_M2](../../project/validation/VALIDATION_M2.md), [VALIDATION_M4](../../project/validation/VALIDATION_M4.md),
   [VALIDATION_M12](../../project/validation/VALIDATION_M12.md)

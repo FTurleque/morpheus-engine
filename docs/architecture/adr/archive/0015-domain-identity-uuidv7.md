@@ -1,6 +1,6 @@
 # ADR-0015 — Utiliser UUIDv7 comme format canonique de `DomainIdentity`
 
-> **Archivée.** Cette décision est consolidée dans [ADR-0140](../DATA-0140-identite-de-domaine.md). Ce texte n'est plus en vigueur et n'est pas tenu à jour.
+> **Archivée.** Cette décision est consolidée dans [ADR-0140](0140-identite-de-domaine.md). Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
 - Statut : **Remplacée par ADR-0140**
 - Date : 2026-07-22

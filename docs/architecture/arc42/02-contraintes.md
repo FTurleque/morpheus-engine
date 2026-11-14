@@ -28,7 +28,7 @@
 | CT-5 | Le serveur MCP natif utilise `io.modelcontextprotocol.sdk:mcp` 2.1.0 en STDIO | **Imposée** — ADR-0062 | `mcp-sdk.version` dans `pom.xml` |
 | CT-6 | Le stockage persistant initial est SQLite via `sqlite-jdbc` **3.54.1.0**, derrière des ports applicatifs | **Imposée** — ADR-0018 | `sqlite-jdbc.version` dans `pom.xml` |
 | CT-7 | Jackson est aligné sur la BOM **3.3.0** | **Imposée par la baseline D2** | `jackson.version` dans `pom.xml` |
-| CT-8 | L'identité métier est indépendante du chemin, de la version et des références externes | **Imposée** — ADR-0140 | Types domaine et tests d'identité |
+| CT-8 | L'identité métier est indépendante du chemin, de la version et des références externes | **Imposée** — ADR-0168 | Types domaine et tests d'identité |
 | CT-9 | Les distributions Windows/Linux embarquent le runtime Java | **Imposée** — ADR-0134 | Scripts de `distribution/` |
 | CT-10 | Les entrées externes sont bornées et validées avant ingestion | **Imposée par le hardening D2** | Budgets d'ingestion, validation JSON et confinement filesystem |
 

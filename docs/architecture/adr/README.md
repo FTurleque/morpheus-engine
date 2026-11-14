@@ -123,7 +123,6 @@ nouvel ADR qui remplace les précédents. Le cycle de vie complet est dans `.cla
 | [ADR-0137](ARCH-0137-lectures-et-recherche-sur-le-snapshot-publie.md) | Lectures métier et recherche sur le snapshot publié | **Acceptée** |
 | [ADR-0138](ARCH-0138-analyse-de-changement-derivee-et-bornee.md) | Analyse de changement dérivée, déterministe et bornée | **Acceptée** |
 | [ADR-0139](ARCH-0139-frontiere-morpheus-jarvis-en-lecture-seule.md) | Frontière MORPHEUS / JARVIS : un contrat machine en lecture seule | **Acceptée** |
-| [ADR-0140](DATA-0140-identite-de-domaine.md) | Identité de domaine : opaque, UUIDv7, distincte du locator, persistée par clé scopée par provider | **Acceptée** |
 | [ADR-0141](DATA-0141-contenu-metier-par-snapshot.md) | Contenu métier persisté par snapshot en tables typées | **Acceptée** |
 | [ADR-0142](DATA-0142-references-externes.md) | Références externes : persistées par snapshot, résolues sur demande, observées sans mutation | **Acceptée** |
 | [ADR-0143](DATA-0143-snapshots-versionnes-et-concurrence-bornee.md) | Snapshots versionnés, activation atomique, récupération et concurrence bornées | **Acceptée** |
@@ -141,6 +140,7 @@ nouvel ADR qui remplace les précédents. Le cycle de vie complet est dans `.cla
 | [ADR-0164](SEC-0164-les-releases-windows-restent-non-signees-tant-qu-aucun-certificat-sans-cout-n-est-accessible.md) | Les releases Windows restent non signées tant qu'aucun certificat sans coût n'est accessible, et leur provenance est la somme SHA-256 et l'attestation | **Acceptée** |
 | [ADR-0165](ARCH-0165-une-technologie-sortie-du-coeur-entre-dans-un-module-de-transport-qui-tient-sa-propre-table.md) | Une technologie sortie du cœur entre dans un module de transport, qui tient sa propre table des classes qui l'atteignent | **Acceptée** |
 | [ADR-0167](GEN-0167-deux-echelles-de-couverture-un-seuil-par-module-tenu-dans-une-bande-et-le-credit-emprunte.md) | Deux échelles de couverture sur une population commune, un seuil propre à chaque module tenu dans une bande sous sa mesure, et le crédit qu'un module emprunte à ses voisins | **Acceptée** |
+| [ADR-0168](DATA-0168-identite-de-domaine-generee-dans-l-ordre.md) | Identité de domaine : opaque, UUIDv7 générée dans l'ordre par processus, distincte du locator, persistée par clé scopée par provider | **Proposée** |
 
 Les preuves de qualification de chaque jalon sont dans [`../../project/validation/`](../../project/validation/README.md).
 

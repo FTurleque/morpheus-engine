@@ -233,7 +233,7 @@ est traçable, et MORPHEUS peut expliquer quel changement a introduit une exigen
 
 ## References
 
-- [ADR-0140](DATA-0140-identite-de-domaine.md) — identité de domaine stable.
+- [ADR-0168](DATA-0168-identite-de-domaine-generee-dans-l-ordre.md) — identité de domaine stable.
 - [ADR-0141](DATA-0141-contenu-metier-par-snapshot.md) — contenu métier par snapshot.
 - [ADR-0035](BE-0035-explicit-requirement-delta-application-and-promotion.md) — application et promotion explicites
   des deltas.

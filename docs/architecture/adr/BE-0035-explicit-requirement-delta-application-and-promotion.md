@@ -259,7 +259,7 @@ provider-neutral.
 ## References
 
 - [ADR-0136](ARCH-0136-etat-temporel-et-occurrences-versionnees.md) — état courant et changements proposés.
-- [ADR-0140](DATA-0140-identite-de-domaine.md) — identité de domaine stable.
+- [ADR-0168](DATA-0168-identite-de-domaine-generee-dans-l-ordre.md) — identité de domaine stable.
 - [ADR-0136](ARCH-0136-etat-temporel-et-occurrences-versionnees.md) — projection temporelle et versions
   d'entité.
 - [ADR-0141](DATA-0141-contenu-metier-par-snapshot.md) — persistance versionnée des requirements.
