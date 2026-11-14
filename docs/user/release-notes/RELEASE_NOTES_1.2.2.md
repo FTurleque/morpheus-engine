@@ -104,3 +104,20 @@ cochée : il signalait qu'une ou plusieurs intégrations MCP natives n'avaient p
 intégrations, la CLI et le serveur MCP n'étaient pas touchés. L'installeur 1.2.2 enregistre le serveur `morpheus`
 dans la portée utilisateur de Claude Code. Une entrée `morpheus` créée à la main entre-temps est conservée telle
 quelle.
+
+### Installation Windows : Claude Desktop est configuré dans le profil qu'il lit
+
+En 1.2.1, un dossier `%LOCALAPPDATA%\Packages\Claude_*` laissé par une ancienne installation de Claude Desktop depuis
+le Microsoft Store suffisait pour que l'installeur écrive l'entrée `morpheus` dans ce profil abandonné, alors que
+Claude Desktop, installé de façon classique, lit `%APPDATA%\Claude\claude_desktop_config.json` : le serveur MCP
+n'apparaissait pas. L'installeur 1.2.2 ne retient le profil du Store que si le paquet est installé pour l'utilisateur.
+Une installation déjà touchée se répare en relançant le setup 1.2.2.
+
+La détection des clients IA ne s'interrompt plus quand l'outil en ligne de commande d'un client dépasse son délai de
+réponse : en 1.2.1, ce cas faisait échouer la page « Clients IA » de l'assistant.
+
+### Installation Windows : la page de fin dit quand relancer un terminal ou un client IA
+
+Un terminal ouvert avant l'installation garde l'ancien `PATH` et ne reconnaît pas la commande `morpheus` ; un client IA
+déjà lancé ne charge le serveur MCP qu'à son prochain démarrage. La dernière page de l'assistant le dit quand l'ajout
+au `PATH` ou un client IA a été choisi.

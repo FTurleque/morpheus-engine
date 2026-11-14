@@ -503,18 +503,6 @@ begin
     Result := not IsAdvancedSetup();
 end;
 
-procedure CurPageChanged(CurPageID: Integer);
-begin
-  if CurPageID = ClientsPage.ID then
-  begin
-    RunDetect;
-    RefreshClientsPage;
-    DetectionHasRun := True;
-  end
-  else if CurPageID = SummaryPage.ID then
-    RefreshSummaryPage;
-end;
-
 function NativeMcpClientSelected(): Boolean;
 var
   I: Integer;
@@ -562,6 +550,51 @@ begin
       mbError,
       MB_OK);
   end;
+end;
+
+// Windows hands a process its environment when it starts: a terminal opened before this install, or one opened by
+// an application that was already running (editor, AI client), keeps the PATH it had. MCP clients likewise read
+// their configuration at start-up. The finish page says so, or the user meets "morpheus is not recognized" or an
+// absent MCP server with no explanation.
+procedure ShowFinishedNotice;
+var
+  Notice: String;
+  I: Integer;
+  ClientConfigured: Boolean;
+begin
+  Notice := '';
+  if WizardIsTaskSelected('addtopath') then
+    Notice := Notice + #13#10#13#10 +
+      'La commande morpheus est reconnue dans les terminaux ouverts après cette installation. ' +
+      'Un terminal déjà ouvert, ou l''application qui l''héberge (éditeur, client IA), garde l''ancien PATH : ' +
+      'ouvrez un terminal depuis le menu Démarrer, ou fermez puis relancez cette application.';
+  ClientConfigured := False;
+  for I := 0 to ClientCount - 1 do
+    if ClientCheckBoxes[I].Enabled and ClientCheckBoxes[I].Checked then
+      ClientConfigured := True;
+  if ClientConfigured then
+    Notice := Notice + #13#10#13#10 +
+      'Les clients IA configurés chargent le serveur MCP MORPHEUS à leur prochain démarrage : ' +
+      'fermez-les complètement, puis relancez-les.';
+  if Notice <> '' then
+  begin
+    WizardForm.FinishedLabel.Caption := WizardForm.FinishedLabel.Caption + Notice;
+    WizardForm.FinishedLabel.AdjustHeight;
+  end;
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  if CurPageID = ClientsPage.ID then
+  begin
+    RunDetect;
+    RefreshClientsPage;
+    DetectionHasRun := True;
+  end
+  else if CurPageID = SummaryPage.ID then
+    RefreshSummaryPage
+  else if CurPageID = wpFinished then
+    ShowFinishedNotice;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);

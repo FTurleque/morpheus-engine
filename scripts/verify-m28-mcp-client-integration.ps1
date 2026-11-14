@@ -561,8 +561,45 @@ exit /b 2
     Assert-ClientState $S12Report 'claude-code' 'Available' 'Scenario12-CliProbeTimeout'
     Assert-True ($S12Stopwatch.Elapsed.TotalSeconds -lt 30) 'CLI probe timeout did not bound total Detect duration; the child process tree may not have been killed.'
 
+    # Scenario 13: a Packages\Claude_* directory left behind by an uninstalled MSIX package must not divert the Claude
+    # Desktop configuration away from the classic profile; only a registered package family selects the MSIX profile.
+    $ManagerAst = [System.Management.Automation.Language.Parser]::ParseFile($Manager, [ref] $null, [ref] $null)
+    $ResolverAst = $ManagerAst.Find({
+        param($Node)
+        $Node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+            $Node.Name -eq 'Resolve-ClaudeDesktopConfigPath'
+    }, $true)
+    Assert-True ($null -ne $ResolverAst) 'Resolve-ClaudeDesktopConfigPath not found in the integration manager.'
+    . ([scriptblock]::Create($ResolverAst.Extent.Text))
+    $S13Root = Join-Path $Root2 'scenario13-claude-desktop-profile'
+    $S13Local = Join-Path $S13Root 'Local'
+    $S13Roaming = Join-Path $S13Root 'Roaming'
+    $S13Families = Join-Path $S13Root 'Families'
+    $S13Classic = Join-Path $S13Roaming 'Claude\claude_desktop_config.json'
+    $S13Family = 'Claude_pzs8sxrjxfjjc'
+    $S13MsixProfile = Join-Path $S13Local "Packages\$S13Family\LocalCache\Roaming\Claude"
+    New-Item -ItemType Directory -Force -Path $S13Families | Out-Null
+
+    function Assert-S13Profile([string] $Expected, [string] $Case) {
+        $Actual = Resolve-ClaudeDesktopConfigPath -LocalAppDataRoot $S13Local -RoamingAppDataRoot $S13Roaming `
+            -PackageFamiliesRoot $S13Families
+        Assert-True ($Actual -eq $Expected) "Scenario13 - $Case, got '$Actual'."
+    }
+
+    Assert-S13Profile $S13Classic 'without any package directory the classic profile must be chosen'
+
+    New-Item -ItemType Directory -Force -Path $S13MsixProfile | Out-Null
+    Assert-S13Profile $S13Classic 'a leftover MSIX directory of an unregistered package must not be chosen'
+
+    New-Item -ItemType Directory -Force -Path (Join-Path $S13Families $S13Family) | Out-Null
+    Assert-S13Profile $S13Classic 'a package family without an installed package must not be chosen'
+
+    $S13Package = Join-Path $S13Families "$S13Family\Claude_1.0.0.0_x64__pzs8sxrjxfjjc"
+    New-Item -ItemType Directory -Force -Path $S13Package | Out-Null
+    Assert-S13Profile (Join-Path $S13MsixProfile 'claude_desktop_config.json') 'a registered MSIX package must select its profile'
+
     Write-Host 'M28 MCP client preflight verification: PASS' -ForegroundColor Green
-    Write-Host 'scenarios=15 states=NotDetected,Available,AlreadyManaged,NeedsRepair,Conflict shim-rejection=PASS stale-repair=PASS timeout-bound=PASS'
+    Write-Host 'scenarios=16 states=NotDetected,Available,AlreadyManaged,NeedsRepair,Conflict shim-rejection=PASS stale-repair=PASS timeout-bound=PASS'
 }
 finally {
     $env:Path = $BasePath
