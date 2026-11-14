@@ -42,8 +42,10 @@ final class CoverageQualificationVerifier {
     private static final double RATIO_PRECISION = 1.0e-9d;
     private static final double SIX_DIGIT_ROUNDING = 5.1e-7d;
     static final String RATCHETS = "config/m21-quality-ratchets.properties";
+    // A ratchet, and a module floor above the D2 floor, leaves at least three times its spread under its lowest kept
+    // count (ADR-0167): closer, an ordinary variation between runs would fail the build.
     private static final long HEADROOM_SPREADS = 3L;
-    // A module floor leaves at most three times its margin under its lowest kept count (ADR-0167): further down, the
+    // A module floor leaves at most nine times its spread under its lowest kept count (ADR-0167): further down, the
     // module could lose most of its coverage before its own floor bites.
     private static final long MAXIMUM_HEADROOM_SPREADS = 9L;
     // Widest spread of covered counts observed across the runs of one qualification, on either scale: 24 lines and
