@@ -76,7 +76,7 @@ UTF-8 sans BOM. Un JSON invalide est rejeté sans modification.
 | Client | Commandes |
 |---|---|
 | Copilot CLI | `copilot mcp add/get/remove` |
-| Claude Code | `claude mcp add/get/remove --scope user` |
+| Claude Code | `claude mcp add --scope user`, `claude mcp get/remove` |
 | Codex | `codex mcp add/get/remove` |
 
 Les commandes sont non interactives, bornées par un timeout, capturent stdout et stderr, et terminent l'arbre de

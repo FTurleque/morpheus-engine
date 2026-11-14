@@ -1,7 +1,8 @@
 # Ordre des identités de domaine générées (`domain-identity-generation`)
 
-Spec de référence : [`openspec/changes/generate-domain-identities-in-order/specs/domain-identity-generation/spec.md`](../../../openspec/changes/generate-domain-identities-in-order/specs/domain-identity-generation/spec.md),
-spec du changement en cours ; elle rejoint `openspec/specs/domain-identity-generation/` à son archivage.
+Spec de référence : [`openspec/specs/domain-identity-generation/spec.md`](../../../openspec/specs/domain-identity-generation/spec.md),
+issue du changement archivé `generate-domain-identities-in-order`
+(`openspec/changes/archive/2026-11-14-generate-domain-identities-in-order/`).
 
 ## Objet et périmètre
 
