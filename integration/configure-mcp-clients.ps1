@@ -850,7 +850,7 @@ if ($Action -eq 'Install') {
     if ($ClaudeCode) {
         Install-CliClient -Id 'claude-code' -DisplayName 'Claude Code' -ToolName 'claude' `
             -GetArguments @('mcp', 'get', 'morpheus') `
-            -AddArguments @('mcp', 'add', '--scope', 'user', '--env', "MORPHEUS_DATA_DIR=$DataRoot", '--env', "MORPHEUS_CONFIG_DIR=$ConfigRoot", 'morpheus', '--', $MorpheusExe, 'mcp', '--stdio') `
+            -AddArguments @('mcp', 'add', 'morpheus', '--scope', 'user', '--env', "MORPHEUS_DATA_DIR=$DataRoot", '--env', "MORPHEUS_CONFIG_DIR=$ConfigRoot", '--', $MorpheusExe, 'mcp', '--stdio') `
             -RemoveArguments @('mcp', 'remove', 'morpheus')
     }
     if ($Codex) {
