@@ -7,7 +7,7 @@ rules: false
 
 # Identité de domaine : opaque, UUIDv7 générée dans l'ordre par processus, distincte du locator, persistée par clé scopée par provider
 
-- Statut : **Proposée**
+- Statut : **Acceptée**
 - Date : 2026-11-14
 - Remplace : ADR-0140
 

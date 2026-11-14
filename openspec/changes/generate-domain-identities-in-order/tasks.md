@@ -17,7 +17,7 @@
 - [x] 2.2 Archiver DATA-0140 (archivé) (`git mv` vers `archive/0140-…`, bandeau, « Remplacée par ADR-0168 »), mettre à jour
   l'index et `09-decisions.md`, repointer chaque lien vers son ancien chemin — vérification :
   `RepositoryDocumentationCoherenceTest`
-- [ ] 2.3 Passer DATA-0168 « Acceptée », par le mainteneur, avant la fusion — vérification : statut de l'ADR et de sa
+- [x] 2.3 Passer DATA-0168 « Acceptée », par le mainteneur, avant la fusion (acceptation du 14/11/2026) — vérification : statut de l'ADR et de sa
   ligne d'index
 
 ## 3. Documentation durable

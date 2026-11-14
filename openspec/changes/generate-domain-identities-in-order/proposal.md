@@ -53,7 +53,7 @@ Tout lecteur d'une liste triée par identité (CLI, MCP, HTTP) ; le mainteneur, 
 ## Impact
 
 `morpheus-domain` (`DomainIdentity`, nouvelle classe `MonotonicTimestampSequence`) ; ADR DATA-0140 (archivé) remplacé, DATA-0168
-proposé, liens des ADR et pages qui citaient DATA-0140 (archivé) ; `docs/developer/specifications/domain-identity-generation.md` ;
+accepté, liens des ADR et pages qui citaient DATA-0140 (archivé) ; `docs/developer/specifications/domain-identity-generation.md` ;
 l'exemple de `.claude/rules/code-style.md`. Aucun test d'architecture modifié.
 
 ## Questions ouvertes

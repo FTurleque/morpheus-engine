@@ -96,7 +96,7 @@ pas. Revenir en arrière ne casse aucune donnée ; l'ordre dans une milliseconde
   de comparateurs par identité, et la pagination SQLite par `id` serait à refaire.
 - **Compromis** : l'ordre entre deux processus dans la même milliseconde reste non garanti.
 - **ADR** : DATA-0168, qui remplace DATA-0140 (archivé), la décision de format changeant en partie. Option retenue par le
-  mainteneur le 14/11/2026 ; l'ADR reste « Proposée » jusqu'à ce qu'il l'accepte, avant la fusion.
+  mainteneur et ADR accepté par lui le 14/11/2026.
 
 ### D2 : méthode 1 de RFC 9562 (compteur de longueur fixe), graine au bit de gauche nul
 - **Nature** : [DÉCISION]
