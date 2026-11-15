@@ -121,7 +121,8 @@ class OpenSpecReadChargesEachFileOnceTest {
                 .findFirst()
                 .orElseThrow();
         assertEquals("ingestion-budget", refusal.details().get("group"));
-        assertTrue(refusal.message().contains("file count exceeds budget for openspec/changes: 4 > 3"),
+        assertTrue(refusal.message().contains("file count for the whole read exceeds the budget: "
+                + "4 > 3, reached while reading openspec/changes"),
                 refusal.message());
     }
 

@@ -40,15 +40,23 @@ class ProviderIngestionBudgetPrecisionTest {
 
         assertLimit("provider ingestion document bytes exceeds budget for doc: 11 > 10",
                 () -> budget.requireDocumentBytes(11, "doc"));
-        assertLimit("provider ingestion file count exceeds budget for corpus: 3 > 2",
+        assertLimit("provider ingestion file count for the whole read exceeds the budget: "
+                + "3 > 2, reached while reading corpus",
                 () -> budget.requireFiles(3, "corpus"));
-        assertLimit("provider ingestion aggregate bytes exceeds budget for corpus: 21 > 20",
+        assertLimit("provider ingestion aggregate bytes for the whole read exceeds the budget: "
+                + "21 > 20, reached while reading corpus",
                 () -> budget.requireAggregateBytes(21, "corpus"));
-        assertLimit("provider ingestion line count exceeds budget for doc: 4 > 3", () -> budget.requireLines(4, "doc"));
-        assertLimit("provider ingestion block count exceeds budget for doc: 5 > 4", () -> budget.requireBlocks(5, "doc"));
-        assertLimit("provider ingestion entity count exceeds budget for doc: 6 > 5",
+        assertLimit("provider ingestion line count for the whole read exceeds the budget: "
+                + "4 > 3, reached while reading doc",
+                () -> budget.requireLines(4, "doc"));
+        assertLimit("provider ingestion block count for the whole read exceeds the budget: "
+                + "5 > 4, reached while reading doc",
+                () -> budget.requireBlocks(5, "doc"));
+        assertLimit("provider ingestion entity count for the whole read exceeds the budget: "
+                + "6 > 5, reached while reading doc",
                 () -> budget.requireEntities(6, "doc"));
-        assertLimit("provider ingestion evidence bytes exceeds budget for doc: 7 > 6",
+        assertLimit("provider ingestion evidence bytes for the whole read exceeds the budget: "
+                + "7 > 6, reached while reading doc",
                 () -> budget.requireEvidenceBytes(7, "doc"));
     }
 
@@ -61,7 +69,7 @@ class ProviderIngestionBudgetPrecisionTest {
         assertLimit("provider ingestion document bytes exceeds budget for doc: 5 > 4",
                 () -> budget.requireUtf8Document("abc" + twoBytes, "doc"));
         ProviderIngestionBudget lines = new ProviderIngestionBudget(10, 1, 10, 2, 1, 1, 1);
-        assertLimit("provider ingestion line count exceeds budget for doc: 3 > 2",
+        assertLimit("provider ingestion document line count exceeds budget for doc: 3 > 2",
                 () -> lines.requireUtf8Document("a\nb\nc", "doc"));
     }
 
@@ -94,7 +102,8 @@ class ProviderIngestionBudgetPrecisionTest {
         session.readDocument(Path.of("a.md"));
         assertEquals("6", session.readDocument(Path.of("b.md")));
 
-        assertLimit("provider ingestion aggregate bytes exceeds budget for c.md: 7 > 6",
+        assertLimit("provider ingestion aggregate bytes for the whole read exceeds the budget: "
+                + "more than 6, reached while reading c.md",
                 () -> session.readDocument(Path.of("c.md")));
     }
 
@@ -108,7 +117,8 @@ class ProviderIngestionBudgetPrecisionTest {
         session.readEvidence(Path.of("a.txt"));
         assertEquals("5", session.readEvidence(Path.of("b.txt")));
 
-        assertLimit("provider ingestion evidence bytes exceeds budget for c.txt: 6 > 5",
+        assertLimit("provider ingestion evidence bytes for the whole read exceeds the budget: "
+                + "more than 5, reached while reading c.txt",
                 () -> session.readEvidence(Path.of("c.txt")));
         assertEquals(5, session.evidenceBytes());
     }
@@ -122,7 +132,8 @@ class ProviderIngestionBudgetPrecisionTest {
 
         session.readDocument(Path.of("a.md"));
 
-        assertLimit("provider ingestion aggregate bytes exceeds budget for b.md: 9 > 8",
+        assertLimit("provider ingestion aggregate bytes for the whole read exceeds the budget: "
+                + "more than 8, reached while reading b.md",
                 () -> session.readDocument(Path.of("b.md")));
         assertEquals(4, session.aggregateBytes());
     }
@@ -136,7 +147,8 @@ class ProviderIngestionBudgetPrecisionTest {
 
         session.readEvidence(Path.of("a.txt"));
 
-        assertLimit("provider ingestion evidence bytes exceeds budget for b.txt: 7 > 6",
+        assertLimit("provider ingestion evidence bytes for the whole read exceeds the budget: "
+                + "more than 6, reached while reading b.txt",
                 () -> session.readEvidence(Path.of("b.txt")));
     }
 
@@ -145,7 +157,7 @@ class ProviderIngestionBudgetPrecisionTest {
         write("big.txt", "123456");
         var session = new ProviderIngestionBudget(5, 10, 1_000, 10, 10, 10, 100).open(files());
 
-        assertLimit("provider ingestion document bytes exceeds budget for big.txt: 6 > 5",
+        assertLimit("provider ingestion document bytes exceeds budget for big.txt: more than 5",
                 () -> session.readEvidence(Path.of("big.txt")));
     }
 
@@ -158,8 +170,11 @@ class ProviderIngestionBudgetPrecisionTest {
         assertEquals(4, session.blockCount());
         assertEquals(5, session.entityCount());
         assertEquals(0, session.lineCount());
-        assertLimit("provider ingestion block count exceeds budget for doc: 5 > 4", () -> session.addBlocks(1, "doc"));
-        assertLimit("provider ingestion entity count exceeds budget for doc: 6 > 5",
+        assertLimit("provider ingestion block count for the whole read exceeds the budget: "
+                + "5 > 4, reached while reading doc",
+                () -> session.addBlocks(1, "doc"));
+        assertLimit("provider ingestion entity count for the whole read exceeds the budget: "
+                + "6 > 5, reached while reading doc",
                 () -> session.addEntities(1, "doc"));
         assertEquals(4, session.blockCount());
         assertEquals(5, session.entityCount());
@@ -168,7 +183,8 @@ class ProviderIngestionBudgetPrecisionTest {
 
         assertEquals(3, session.remainingFiles());
         assertDoesNotThrow(() -> session.requireAdditionalFiles(3, "listing"));
-        assertLimit("provider ingestion file count exceeds budget for listing: 4 > 3",
+        assertLimit("provider ingestion file count for the whole read exceeds the budget: "
+                + "4 > 3, reached while reading listing",
                 () -> session.requireAdditionalFiles(4, "listing"));
         assertRefused("file count must not be negative", () -> session.requireAdditionalFiles(-1, "listing"));
     }
@@ -208,8 +224,25 @@ class ProviderIngestionBudgetPrecisionTest {
         write("big.md", "123456");
         var session = new ProviderIngestionBudget(5, 10, 100, 10, 10, 10, 5).open(files());
 
-        assertLimit("provider ingestion document bytes exceeds budget for big.md: 6 > 5",
+        assertLimit("provider ingestion document bytes exceeds budget for big.md: more than 5",
                 () -> session.readDocument(Path.of("big.md")));
+    }
+
+    /**
+     * A bounded read that stops at its bound has not measured the document: the refusal says the total would be more
+     * than the maximum, and prints no value it does not have.
+     */
+    @Test
+    void aBoundedReadThatStopsEarlySaysMoreThanTheMaximum() throws Exception {
+        write("a.txt", "1");
+        write("b.txt", "234567890");
+        var session = new ProviderIngestionBudget(20, 10, 100, 10, 10, 10, 6).open(files());
+
+        session.readEvidence(Path.of("a.txt"));
+
+        assertLimit("provider ingestion evidence bytes for the whole read exceeds the budget: more than 6, "
+                        + "reached while reading b.txt",
+                () -> session.readEvidence(Path.of("b.txt")));
     }
 
     private void write(String name, String content) throws Exception {

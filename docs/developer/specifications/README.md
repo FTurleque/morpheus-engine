@@ -119,6 +119,7 @@ Vue commune : la séquence de la façade distante, dans [`remote-access-journal.
 | `third-party-log-capture` | [capture des journaux des bibliothèques embarquées](third-party-log-capture.md) | [spec](../../../openspec/specs/third-party-log-capture/spec.md) |
 | `suppressed-failure-trace` | [trace d'un échec écarté](suppressed-failure-trace.md) | [spec](../../../openspec/specs/suppressed-failure-trace/spec.md) |
 | `openspec-provider-reading` | [lecture des espaces OpenSpec par le provider](openspec-provider-reading.md) | [spec](../../../openspec/specs/openspec-provider-reading/spec.md) |
+| `provider-ingestion-budget` | [budget d'ingestion d'un provider et texte de ses refus](provider-ingestion-budget.md) | [spec](../../../openspec/specs/provider-ingestion-budget/spec.md) |
 | `provider-plugin-pinned-entry` | [entrée épinglée du code de plugin provider](provider-plugin-pinned-entry.md) | [spec](../../../openspec/specs/provider-plugin-pinned-entry/spec.md) |
 | `portfolio-provider-identity` | [fournisseurs mémorisés par une appartenance de portefeuille](portfolio-provider-identity.md) | [spec](../../../openspec/specs/portfolio-provider-identity/spec.md) |
 | `change-analysis-traversal-cost` | [coût de l'explication des dépendances d'un changement](change-analysis-traversal-cost.md) | [spec](../../../openspec/specs/change-analysis-traversal-cost/spec.md) |

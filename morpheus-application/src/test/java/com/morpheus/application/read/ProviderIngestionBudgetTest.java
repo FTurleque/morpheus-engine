@@ -34,24 +34,54 @@ class ProviderIngestionBudgetTest {
         assertEquals("provider ingestion document bytes exceeds budget for doc: 11 > 10", documentBytes.getMessage());
         IllegalArgumentException files = assertThrows(
                 IllegalArgumentException.class, () -> budget.requireFiles(3, "corpus"));
-        assertEquals("provider ingestion file count exceeds budget for corpus: 3 > 2", files.getMessage());
+        assertEquals("provider ingestion file count for the whole read exceeds the budget: "
+                + "3 > 2, reached while reading corpus", files.getMessage());
         IllegalArgumentException aggregateBytes = assertThrows(
                 IllegalArgumentException.class, () -> budget.requireAggregateBytes(21, "corpus"));
-        assertEquals("provider ingestion aggregate bytes exceeds budget for corpus: 21 > 20",
+        assertEquals("provider ingestion aggregate bytes for the whole read exceeds the budget: "
+                + "21 > 20, reached while reading corpus",
                 aggregateBytes.getMessage());
         IllegalArgumentException lines = assertThrows(
                 IllegalArgumentException.class, () -> budget.requireLines(4, "doc"));
-        assertEquals("provider ingestion line count exceeds budget for doc: 4 > 3", lines.getMessage());
+        assertEquals("provider ingestion line count for the whole read exceeds the budget: "
+                + "4 > 3, reached while reading doc", lines.getMessage());
         IllegalArgumentException blocks = assertThrows(
                 IllegalArgumentException.class, () -> budget.requireBlocks(5, "doc"));
-        assertEquals("provider ingestion block count exceeds budget for doc: 5 > 4", blocks.getMessage());
+        assertEquals("provider ingestion block count for the whole read exceeds the budget: "
+                + "5 > 4, reached while reading doc", blocks.getMessage());
         IllegalArgumentException entities = assertThrows(
                 IllegalArgumentException.class, () -> budget.requireEntities(6, "doc"));
-        assertEquals("provider ingestion entity count exceeds budget for doc: 6 > 5", entities.getMessage());
+        assertEquals("provider ingestion entity count for the whole read exceeds the budget: "
+                + "6 > 5, reached while reading doc", entities.getMessage());
         IllegalArgumentException evidenceBytes = assertThrows(
                 IllegalArgumentException.class, () -> budget.requireEvidenceBytes(7, "evidence"));
-        assertEquals("provider ingestion evidence bytes exceeds budget for evidence: 7 > 6",
+        assertEquals("provider ingestion evidence bytes for the whole read exceeds the budget: "
+                + "7 > 6, reached while reading evidence",
                 evidenceBytes.getMessage());
+    }
+
+    /**
+     * The six quantities counted over the whole session: the refusal states the total of the whole read, and names the
+     * source only as where the read stopped, never as the cause.
+     */
+    @Test
+    void everyCumulativeQuantityIsRefusedForTheWholeRead() {
+        ProviderIngestionBudget budget = new ProviderIngestionBudget(10, 2, 20, 3, 4, 5, 6);
+
+        assertWholeRead("file count", "3 > 2", () -> budget.requireFiles(3, "small.md"));
+        assertWholeRead("aggregate bytes", "21 > 20", () -> budget.requireAggregateBytes(21, "small.md"));
+        assertWholeRead("line count", "4 > 3", () -> budget.requireLines(4, "small.md"));
+        assertWholeRead("block count", "5 > 4", () -> budget.requireBlocks(5, "small.md"));
+        assertWholeRead("entity count", "6 > 5", () -> budget.requireEntities(6, "small.md"));
+        assertWholeRead("evidence bytes", "7 > 6", () -> budget.requireEvidenceBytes(7, "small.md"));
+    }
+
+    private static void assertWholeRead(
+            String metric, String totalAndMaximum, org.junit.jupiter.api.function.Executable check) {
+        ProviderIngestionLimitException refused = assertThrows(ProviderIngestionLimitException.class, check);
+        assertEquals("provider ingestion " + metric + " for the whole read exceeds the budget: " + totalAndMaximum
+                + ", reached while reading small.md", refused.getMessage());
+        assertFalse(refused.getMessage().contains("exceeds budget for small.md"), refused::getMessage);
     }
 
     @Test
@@ -94,7 +124,8 @@ class ProviderIngestionBudgetTest {
         ProviderIngestionLimitException refused = assertThrows(ProviderIngestionLimitException.class,
                 () -> session.readDocument(Path.of("b.md")));
 
-        assertEquals("provider ingestion file count exceeds budget for b.md: 2 > 1", refused.getMessage());
+        assertEquals("provider ingestion file count for the whole read exceeds the budget: "
+                + "2 > 1, reached while reading b.md", refused.getMessage());
         assertEquals(1, session.fileCount());
     }
 
@@ -110,7 +141,8 @@ class ProviderIngestionBudgetTest {
         ProviderIngestionLimitException refused = assertThrows(ProviderIngestionLimitException.class,
                 () -> session.readDocument(Path.of("b.md")));
 
-        assertEquals("provider ingestion line count exceeds budget for b.md: 4 > 3", refused.getMessage());
+        assertEquals("provider ingestion line count for the whole read exceeds the budget: "
+                + "4 > 3, reached while reading b.md", refused.getMessage());
         assertEquals(2, session.lineCount());
     }
 
@@ -213,7 +245,8 @@ class ProviderIngestionBudgetTest {
         ProviderIngestionLimitException failure = assertThrows(
                 ProviderIngestionLimitException.class, () -> session.readDocument(Path.of("docs", "big.md")));
 
-        assertTrue(failure.getMessage().contains("exceeds budget for docs/big.md:"), failure::getMessage);
+        assertEquals("provider ingestion document bytes exceeds budget for docs/big.md: more than 5",
+                failure.getMessage());
         assertFalse(ServerLocationDisclosure.namesAServerLocation(failure.getMessage()), failure::getMessage);
     }
 
@@ -232,7 +265,8 @@ class ProviderIngestionBudgetTest {
         ProviderIngestionLimitException failure = assertThrows(
                 ProviderIngestionLimitException.class, () -> session.addEvidenceFragment("abc"));
 
-        assertEquals("provider ingestion evidence bytes exceeds budget for docs/other.md: 5 > 4",
+        assertEquals("provider ingestion evidence bytes for the whole read exceeds the budget: "
+                + "5 > 4, reached while reading docs/other.md",
                 failure.getMessage());
         assertEquals(2, session.evidenceBytes(), "a refused fragment does not advance the counter");
     }
