@@ -32,7 +32,8 @@
 - **Exigences servies** : `provider-ingestion-budget` › A cumulative budget refusal names the whole read, not the file
   being read
 - **Choix** : `exceeded` reçoit la portée de la grandeur. Par élément : forme actuelle. Cumulative :
-  `provider ingestion <metric> for the whole read exceed the budget: <total> > <maximum>, reached while reading <source>`.
+  `provider ingestion <metric> for the whole read exceeds the budget: <total> > <maximum>, reached while reading <source>`
+  (le verbe s'accorde avec le libellé de la grandeur, comme dans la forme par élément).
   La vérification par document du nombre de lignes prend le libellé `document line count`, distinct du `line count`
   de la session.
 - **Alternatives écartées** : retirer le fichier du refus cumulatif (l'opérateur perd l'endroit où la lecture s'est
@@ -46,7 +47,13 @@
 - **Nature** : [DÉCISION]
 - **Exigences servies** : idem, scénario « A bounded read that stops before the total is known »
 - **Choix** : la branche `WorkspaceFileTooLargeException` écrit `more than <maximum>` au lieu de
-  `<maximum + 1> > <maximum>`.
+  `<maximum + 1> > <maximum>`, dans les deux formes ; il en va de même du refus posé avant la lecture quand le budget
+  de l'agrégat ou de l'évidence est déjà plein, dont la valeur n'était aussi qu'un minimum. Le cas « évidence » de la
+  troisième branche est inatteignable (une lecture dont la borne d'élément est la borne d'évidence a au plus cette
+  évidence de reste, et la deuxième branche la prend) : il est retiré.
+- **Conséquence sur le scénario par document** : la lecture d'un document trop gros s'arrête à sa borne, donc sa
+  taille n'est imprimée que lorsqu'elle est mesurée (`requireDocumentBytes`, `requireUtf8Document`) ; le scénario le
+  dit.
 - **Alternatives écartées** : relire le fichier pour mesurer sa taille (lecture non bornée, contraire au budget).
 - **Compromis** : aucun.
 - **ADR** : non concerné.
@@ -62,10 +69,10 @@
 
 | Exigence | Scénario | Preuve | État |
 |---|---|---|---|
-| A cumulative budget refusal names the whole read, not the file being read | Evidence accumulated over many small files | `OpenSpecRefusedFileNameTest#anEvidenceTotalReachedOnASmallFileDoesNotAccuseIt` | à écrire |
-| idem | One document larger than the per-document budget | `ProviderIngestionBudgetTest` (cas `document bytes`, texte relu) | existant, à ajuster |
-| idem | A bounded read that stops before the total is known | `ProviderIngestionBudgetPrecisionTest#aBoundedReadThatStopsEarlySaysMoreThanTheMaximum` | à écrire |
-| idem | (les six grandeurs cumulatives) | `ProviderIngestionBudgetTest#everyCumulativeQuantityIsRefusedForTheWholeRead` (paramétré par grandeur) | à écrire |
+| A cumulative budget refusal names the whole read, not the file being read | Evidence accumulated over many small files | `OpenSpecRefusedFileNameTest#anEvidenceTotalReachedOnASmallFileDoesNotAccuseIt` | écrit |
+| idem | One document larger than the per-document budget | `ProviderIngestionBudgetTest` (cas `document bytes`, texte relu) | ajusté |
+| idem | A bounded read that stops before the total is known | `ProviderIngestionBudgetPrecisionTest#aBoundedReadThatStopsEarlySaysMoreThanTheMaximum` | écrit |
+| idem | (les six grandeurs cumulatives) | `ProviderIngestionBudgetTest#everyCumulativeQuantityIsRefusedForTheWholeRead` (une assertion par grandeur) | écrit |
 
 ## Documentation durable et diagrammes à mettre à jour
 

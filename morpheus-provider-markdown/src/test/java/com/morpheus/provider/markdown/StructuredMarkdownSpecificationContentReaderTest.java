@@ -241,8 +241,8 @@ class StructuredMarkdownSpecificationContentReaderTest {
                 .read(ProviderReadRequest.all(workspace, ProjectSpecificationId.generate()), identities);
 
         assertTrue(result.content().isEmpty());
-        assertEquals("Structured Markdown normalization failed: provider ingestion line count exceeds budget for "
-                        + "morpheus/specification.md: 100001 > 100000",
+        assertEquals("Structured Markdown normalization failed: provider ingestion line count for the whole read "
+                        + "exceeds the budget: 100001 > 100000, reached while reading morpheus/specification.md",
                 result.diagnostics().getFirst().message());
     }
 

@@ -14,7 +14,8 @@ les variantes d'encodage courantes sont acceptées, et les sections Markdown se 
   catégorie), `OpenSpecCurrentSpecificationReader`, `OpenSpecChangeMetadataReader`, `OpenSpecRequirementDeltaReader`.
 - **Inclus** : le schéma déclaré par `openspec/config.yaml`, le statut de chaque catégorie lue, le diagnostic
   `INVALID_SOURCE` et sa source, le BOM UTF-8, le scalaire YAML entre guillemets, la frontière de section.
-- **Exclus** : le budget d'ingestion (`OpenSpecIngestionBudgets`), le confinement dans l'espace de travail (voir
+- **Exclus** : le budget d'ingestion (`OpenSpecIngestionBudgets`, voir
+  [`provider-ingestion-budget`](provider-ingestion-budget.md)), le confinement dans l'espace de travail (voir
   [`workspace-boundary-scan-cost`](workspace-boundary-scan-cost.md)), la diffusion du texte d'un échec à un appelant HTTP
   (voir [`http-failure-disclosure`](http-failure-disclosure.md)).
 

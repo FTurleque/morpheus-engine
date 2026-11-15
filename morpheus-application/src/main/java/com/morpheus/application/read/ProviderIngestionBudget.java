@@ -42,37 +42,38 @@ public record ProviderIngestionBudget(
     }
 
     public void requireDocumentBytes(long bytes, String source) {
-        requireWithin(bytes, maxDocumentBytes, "document bytes", source);
+        requireWithin(bytes, maxDocumentBytes, Scope.DOCUMENT, "document bytes", source);
     }
 
     public void requireFiles(long files, String source) {
-        requireWithin(files, maxFiles, "file count", source);
+        requireWithin(files, maxFiles, Scope.WHOLE_READ, "file count", source);
     }
 
     public void requireAggregateBytes(long bytes, String source) {
-        requireWithin(bytes, maxAggregateBytes, "aggregate bytes", source);
+        requireWithin(bytes, maxAggregateBytes, Scope.WHOLE_READ, "aggregate bytes", source);
     }
 
     public void requireLines(long lines, String source) {
-        requireWithin(lines, maxLines, "line count", source);
+        requireWithin(lines, maxLines, Scope.WHOLE_READ, "line count", source);
     }
 
     public void requireEntities(long entities, String source) {
-        requireWithin(entities, maxEntities, "entity count", source);
+        requireWithin(entities, maxEntities, Scope.WHOLE_READ, "entity count", source);
     }
 
     public void requireBlocks(long blocks, String source) {
-        requireWithin(blocks, maxBlocks, "block count", source);
+        requireWithin(blocks, maxBlocks, Scope.WHOLE_READ, "block count", source);
     }
 
     public void requireEvidenceBytes(long bytes, String source) {
-        requireWithin(bytes, maxEvidenceBytes, "evidence bytes", source);
+        requireWithin(bytes, maxEvidenceBytes, Scope.WHOLE_READ, "evidence bytes", source);
     }
 
+    /** Checks one text on its own: both quantities belong to that document, which a refusal names as the cause. */
     public void requireUtf8Document(String text, String source) {
         Objects.requireNonNull(text, "text");
         requireDocumentBytes(utf8Bytes(text), source);
-        requireLines(text.lines().count(), source);
+        requireWithin(text.lines().count(), maxLines, Scope.DOCUMENT, "document line count", source);
     }
 
     public Session open(SafeWorkspaceFileResolver files) {
@@ -85,8 +86,11 @@ public record ProviderIngestionBudget(
      * <p>The {@code source} parameter of every method is the text of a refusal, not a locator: it says where the
      * budget was exceeded, as the operator will find it, and it is written by {@code WorkspaceRelativePathText} when
      * it names a file, or is a group label such as {@code openspec/current}, or a constant a reader chooses. A value
-     * derived from a
-     * {@code SourceLocator} would rewrite a backslash, which is legal in a Linux file name, and name another file.</p>
+     * derived from a {@code SourceLocator} would rewrite a backslash, which is legal in a Linux file name, and name
+     * another file.</p>
+     *
+     * <p>Every quantity a session counts is a total of the whole read, so its refusal names {@code source} as where the
+     * read stopped, not as what exceeded the budget; only the size of one document is that document's own.</p>
      */
     public static final class Session {
         private final ProviderIngestionBudget budget;
@@ -118,11 +122,11 @@ public record ProviderIngestionBudget(
             budget.requireFiles(Math.addExact(fileCount, 1), source);
             long aggregateRemaining = budget.maxAggregateBytes - aggregateBytes;
             if (aggregateRemaining < 1) {
-                throw exceeded("aggregate bytes", source, Math.addExact(aggregateBytes, 1), budget.maxAggregateBytes);
+                throw unmeasured(Scope.WHOLE_READ, "aggregate bytes", source, budget.maxAggregateBytes);
             }
             long evidenceRemaining = evidence ? budget.maxEvidenceBytes - evidenceBytes : Long.MAX_VALUE;
             if (evidence && evidenceRemaining < 1) {
-                throw exceeded("evidence bytes", source, Math.addExact(evidenceBytes, 1), budget.maxEvidenceBytes);
+                throw unmeasured(Scope.WHOLE_READ, "evidence bytes", source, budget.maxEvidenceBytes);
             }
             long effectiveItemMaximum = Math.min(itemMaximum, evidenceRemaining);
             int readMaximum = (int) Math.min(Integer.MAX_VALUE, Math.min(effectiveItemMaximum, aggregateRemaining));
@@ -130,17 +134,14 @@ public record ProviderIngestionBudget(
             try {
                 document = files.readUtf8Document(relativePath, readMaximum);
             } catch (WorkspaceFileTooLargeException failure) {
+                // The read stopped at its bound: the size of the document is unknown, so the refusal says "more than".
                 if (aggregateRemaining <= effectiveItemMaximum) {
-                    throw exceeded("aggregate bytes", source, budget.maxAggregateBytes + 1, budget.maxAggregateBytes);
+                    throw unmeasured(Scope.WHOLE_READ, "aggregate bytes", source, budget.maxAggregateBytes);
                 }
                 if (evidence && evidenceRemaining <= itemMaximum) {
-                    throw exceeded("evidence bytes", source, budget.maxEvidenceBytes + 1, budget.maxEvidenceBytes);
+                    throw unmeasured(Scope.WHOLE_READ, "evidence bytes", source, budget.maxEvidenceBytes);
                 }
-                String metric = evidence && itemMaximum == budget.maxEvidenceBytes
-                        ? "evidence bytes"
-                        : "document bytes";
-                long maximum = metric.equals("evidence bytes") ? budget.maxEvidenceBytes : budget.maxDocumentBytes;
-                throw exceeded(metric, source, maximum + 1, maximum);
+                throw unmeasured(Scope.DOCUMENT, "document bytes", source, budget.maxDocumentBytes);
             }
             long bytes = document.utf8Bytes();
             long lines = document.lines();
@@ -208,18 +209,32 @@ public record ProviderIngestionBudget(
         public long evidenceBytes() { return evidenceBytes; }
     }
 
-    private static void requireWithin(long value, long maximum, String metric, String source) {
+    /**
+     * Whose quantity a refusal reports. The size of one document names that document as the cause; a total of the
+     * whole read names the file being read only as where the read stopped, since every file read before it counted.
+     */
+    private enum Scope { DOCUMENT, WHOLE_READ }
+
+    private static void requireWithin(long value, long maximum, Scope scope, String metric, String source) {
         if (value < 0) throw new IllegalArgumentException(metric + " must not be negative");
         if (value > maximum) {
-            throw exceeded(metric, source, value, maximum);
+            throw refusal(scope, metric, source, value + " > " + maximum);
         }
     }
 
-    private static ProviderIngestionLimitException exceeded(
-            String metric, String source, long value, long maximum) {
-        return new ProviderIngestionLimitException(
-                "provider ingestion " + metric + " exceeds budget for " + safeSource(source)
-                        + ": " + value + " > " + maximum);
+    private static ProviderIngestionLimitException unmeasured(
+            Scope scope, String metric, String source, long maximum) {
+        return refusal(scope, metric, source, "more than " + maximum);
+    }
+
+    private static ProviderIngestionLimitException refusal(
+            Scope scope, String metric, String source, String amount) {
+        String place = safeSource(source);
+        return new ProviderIngestionLimitException(switch (scope) {
+            case DOCUMENT -> "provider ingestion " + metric + " exceeds budget for " + place + ": " + amount;
+            case WHOLE_READ -> "provider ingestion " + metric + " for the whole read exceeds the budget: " + amount
+                    + ", reached while reading " + place;
+        });
     }
 
     static long utf8Bytes(String value) {

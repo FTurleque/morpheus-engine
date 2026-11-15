@@ -27,6 +27,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -135,15 +137,16 @@ class OpenSpecRefusedFileNameTest {
         ProviderIngestionLimitException deltas = assertThrows(ProviderIngestionLimitException.class, () ->
                 new OpenSpecRequirementDeltaReader().read(workspace, resolver(), tinyEvidenceBudget(workspace)));
 
-        assertTrue(current.getMessage().startsWith(
-                "provider ingestion evidence bytes exceeds budget for openspec/specs/a\\b/spec.md: "),
-                current.getMessage());
-        assertTrue(changes.getMessage().startsWith(
-                "provider ingestion evidence bytes exceeds budget for openspec/changes/a\\b/proposal.md: "),
-                changes.getMessage());
-        assertTrue(deltas.getMessage().startsWith(
-                "provider ingestion evidence bytes exceeds budget for openspec/changes/a\\b/specs/auth/spec.md: "),
-                deltas.getMessage());
+        assertStoppedWhileReading("openspec/specs/a\\b/spec.md", current);
+        assertStoppedWhileReading("openspec/changes/a\\b/proposal.md", changes);
+        assertStoppedWhileReading("openspec/changes/a\\b/specs/auth/spec.md", deltas);
+    }
+
+    private static void assertStoppedWhileReading(String file, ProviderIngestionLimitException refusal) {
+        String message = refusal.getMessage();
+        assertTrue(message.startsWith("provider ingestion evidence bytes for the whole read exceeds the budget: "),
+                message);
+        assertTrue(message.endsWith(", reached while reading " + file), message);
     }
 
     @Test
@@ -159,6 +162,38 @@ class OpenSpecRefusedFileNameTest {
         assertEquals(Optional.of("openspec/specs/a\\b/spec.md"), refusal.source());
         assertEquals("OpenSpec content reader failed for group current: InvalidOpenSpecSource", refusal.message(),
                 "the resolver's own refusal names the file with a backslash, so it is withheld the same way");
+    }
+
+    /**
+     * Evidence is a total of the whole read: the file being read when the total tips over is not the cause, and the
+     * refusal names it only as where the read stopped.
+     */
+    @Test
+    void anEvidenceTotalReachedOnASmallFileDoesNotAccuseIt(@TempDir Path workspace) throws Exception {
+        int evidenceBudget = 1_000;
+        for (String name : List.of("alpha", "beta", "gamma", "delta")) {
+            writeSpecification(workspace, name, VALID_SPECIFICATION);
+        }
+        ProviderIngestionBudget.Session budget = new ProviderIngestionBudget(
+                1024 * 1024, 2_000, 32L * 1024 * 1024, 100_000, 100_000, 100_000, evidenceBudget)
+                .open(SafeWorkspaceFileResolver.rootedAt(workspace));
+
+        ProviderReadResult result = new OpenSpecSpecificationContentReader().read(
+                new ProviderReadRequest(workspace, ProjectSpecificationId.generate(),
+                        EnumSet.of(ReadCategory.CURRENT_SPECIFICATIONS)),
+                resolver(),
+                budget);
+
+        assertTrue(result.content().isEmpty(), "nothing is published");
+        String message = singleInvalidSource(result).message();
+        Matcher refusal = Pattern.compile(
+                "provider ingestion evidence bytes for the whole read exceeds the budget: (\\d+) > 1000, "
+                        + "reached while reading (openspec/specs/[a-z]+/spec\\.md)").matcher(message);
+        assertTrue(refusal.find(), message);
+        assertTrue(Long.parseLong(refusal.group(1)) > evidenceBudget, message);
+        assertTrue(Files.size(workspace.resolve(refusal.group(2))) < evidenceBudget,
+                "the file named is smaller than the budget, so it cannot be the cause: " + message);
+        assertFalse(message.contains("exceeds budget for"), "no file is accused: " + message);
     }
 
     private static ProviderIngestionBudget.Session tinyEvidenceBudget(Path workspace) throws IOException {
