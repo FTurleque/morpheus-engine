@@ -171,7 +171,8 @@ class OpenSpecRefusedFileNameTest {
     @Test
     void anEvidenceTotalReachedOnASmallFileDoesNotAccuseIt(@TempDir Path workspace) throws Exception {
         int evidenceBudget = 1_000;
-        for (String name : List.of("alpha", "beta", "gamma", "delta")) {
+        // Each line is counted once, so the files together, not their citations, must exceed the budget.
+        for (String name : List.of("alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta")) {
             writeSpecification(workspace, name, VALID_SPECIFICATION);
         }
         ProviderIngestionBudget.Session budget = new ProviderIngestionBudget(

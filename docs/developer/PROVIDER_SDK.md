@@ -245,8 +245,9 @@ tel qu'il existe et passe par `WorkspaceRelativePathText`, sans rien substituer.
 partir d'un locator (ADR-0028). Le paramètre `source` de chaque méthode de
 `ProviderIngestionBudget.Session` (`addBlocks`, `addEntities`, `addEvidenceFragment`, `requireAdditionalFiles`) est
 **le texte d'un refus** : un nom écrit par `WorkspaceRelativePathText`, une constante ou une étiquette de groupe, jamais la
-valeur d'un locator. `addEvidenceFragment(fragment)`, sans texte, attribue le fragment au dernier document lu par la
-session : un lecteur cite les preuves d'un fichier juste après l'avoir lu.
+valeur d'un locator. `addEvidenceLines(lines, first, last)`, sans texte, attribue les lignes citées au dernier document
+lu par la session et compte chacune une fois par fichier lu : un lecteur cite les preuves d'un fichier juste après
+l'avoir lu.
 
 Chaque tentative d’ingestion ouvre en plus une session `ProviderIngestionBudget` partagée par tous les
 lecteurs du provider. Les limites par défaut, vérifiées avant publication du snapshot, sont :
@@ -254,7 +255,8 @@ lecteurs du provider. Les limites par défaut, vérifiées avant publication du 
 - 1 Mio par document ;
 - 2 000 fichiers et 32 Mio cumulés ;
 - 100 000 lignes, 100 000 blocs et 100 000 entités ;
-- 512 Kio par fragment d’évidence.
+- 4 Mio d’évidence cumulés, qualifiés sur des corpus mesurés (voir
+  [`provider-ingestion-budget`](specifications/provider-ingestion-budget.md)).
 
 La borne par document est appliquée pendant la lecture bornée, avant matérialisation d’une entrée non
 contrôlée. Les compteurs de corpus sont cumulatifs sur toute la tentative : fractionner une charge en de

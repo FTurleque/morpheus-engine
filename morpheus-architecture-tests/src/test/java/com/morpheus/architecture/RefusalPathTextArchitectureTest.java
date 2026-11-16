@@ -70,8 +70,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   own document names by the point, and only the second scan, which reads call sites, sees a caller that passes a
  *   locator. A caller that passes it through a variable or a helper ({@code String name = locator.value();}) is not
  *   seen by either.</li>
- *   <li>{@code addEvidenceFragment(String)}, which takes no text, is attributed by the session to the last document
- *   it read. A reader that cited a fragment from another file than the last one it read would be refused under the
+ *   <li>{@code addEvidenceLines(lines, first, last)}, which takes no text, is attributed by the session to the last
+ *   document it read. A reader that cited lines from another file than the last one it read would be refused under the
  *   wrong name; nothing here checks that order, which the readers keep by reading a file and citing it in one
  *   method.</li>
  *   <li>The scan is per class, not per method: a class that builds a locator in one method and a refusal in another

@@ -208,9 +208,10 @@ aucun diagnostic ; leur sortie est figée par un test.
 - Le texte d'un refus nomme le fichier tel qu'il est (`WorkspaceRelativePathText`) ; le locator enregistré dans les
   deltas, les spécifications et les preuves est `SourceLocator.file(...)`, qui réécrit `\` en `/`. Les deux s'accordent
   pour tout chemin sans `\`, ce qui est le cas de tout chemin que ces lecteurs produisent sous Windows.
-- Les trois lecteurs citent un fragment de preuve par `ProviderIngestionBudget.Session.addEvidenceFragment(String)`,
-  dans la méthode qui vient de lire le fichier : le refus de budget de preuve nomme alors le dernier document lu par la
-  session, sans passer par le locator.
+- Les trois lecteurs citent les lignes d'une preuve par
+  `ProviderIngestionBudget.Session.addEvidenceLines(lines, first, last)`, dans la méthode qui vient de lire le
+  fichier : le refus de budget de preuve nomme alors le dernier document lu par la session, sans passer par le
+  locator. Une ligne citée par la spécification, son exigence et son scénario n'est comptée qu'une fois par fichier lu.
 - `specificationKey` (`relativeParent.toString().replace('\\', '/')`) est une clé d'identité externe
   (`specification:<clé>`), pas un texte de refus.
 - La `source` des avertissements `UNRECOGNIZED_SECTION` et `PARTIAL_INGESTION` du lecteur de deltas, et de
