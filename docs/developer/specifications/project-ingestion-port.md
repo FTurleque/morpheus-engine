@@ -151,7 +151,7 @@ sequenceDiagram
 | R2 | The refusal over HTTP discloses no server path | séquence | idem | `MorpheusApiProjectSyncIntegrationTest#aSyncRefusedForInvalidContentIsTheDeclaredConflictThatNamesTheFileRelativeToTheWorkspace` (serveur local ; **preuve manquante** pour le serveur remote) |
 | R3 | A project is synced again without any source change | organigramme | idem | **Preuve manquante** pour la comparaison de deux publications (voir Écarts) |
 | R4 | A transport names the directory | séquence | idem | `TransportsReadAProjectThroughTheProviderPortTest#aTransportNamesNoDirectoryAProviderReads` |
-| R5 | A refusal whose provider reported an error with details | — | changement `relay-provider-error-details-on-a-refused-read` | `ProjectContentIngestionTest#theRefusalCarriesTheErrorDiagnosticsOfTheProviderWithTheirDetailsAndNoWarning` |
+| R5 | A refusal whose provider reported an error with details | — | archive `2026-11-16-relay-provider-error-details-on-a-refused-read` | `ProjectContentIngestionTest#theRefusalCarriesTheErrorDiagnosticsOfTheProviderWithTheirDetailsAndNoWarning` |
 | R5 | More errors than the text relays | — | idem | `ProjectContentIngestionTest#theRefusalRelaysAtMostFiveDistinctErrorsAndCountsTheRest` |
 | R5 | A refusal without any provider error | — | idem | `ProjectContentIngestionTest#aRefusalWithoutAnyProviderErrorCarriesNoDiagnostic` |
 
