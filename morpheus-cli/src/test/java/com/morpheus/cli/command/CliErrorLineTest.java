@@ -7,6 +7,7 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CliErrorLineTest {
 
@@ -81,6 +82,49 @@ class CliErrorLineTest {
 
         assertEquals("MORPHEUS error [2]: CliFailure" + System.lineSeparator(), line);
         assertEquals(CliExitCode.USAGE.code(), code[0]);
+    }
+
+    @Test
+    void aRefusedReadIsFollowedByOneLinePerDiagnosticInText() {
+        var diagnostics = com.morpheus.application.ingestion.BoundedDiagnostics.local(java.util.List.of(
+                com.morpheus.domain.diagnostic.Diagnostic.error(
+                        com.morpheus.domain.diagnostic.DiagnosticCode.UNSUPPORTED_PROVIDER_SCHEMA,
+                        "refused",
+                        java.util.Map.of("schema", "detailed-uml", "reason", "no-declared-parent"))));
+
+        assertEquals("MORPHEUS error [4]: incomplete" + System.lineSeparator()
+                        + "diagnostic=ERROR UNSUPPORTED_PROVIDER_SCHEMA - {reason=no-declared-parent, schema=detailed-uml} "
+                        + "refused" + System.lineSeparator(),
+                written(err -> CliErrorLine.write(err, false, CliExitCode.STATE_ERROR, "incomplete", diagnostics)));
+    }
+
+    @Test
+    void aRefusedReadIsOneJsonObjectThatCarriesItsDiagnostics() {
+        var diagnostics = com.morpheus.application.ingestion.BoundedDiagnostics.local(java.util.List.of(
+                com.morpheus.domain.diagnostic.Diagnostic.error(
+                        com.morpheus.domain.diagnostic.DiagnosticCode.UNSUPPORTED_PROVIDER_SCHEMA,
+                        "refused",
+                        java.util.Map.of("schema", "detailed-uml"))));
+
+        String json = written(err -> CliErrorLine.write(err, true, CliExitCode.STATE_ERROR, "incomplete", diagnostics));
+
+        assertEquals(1, json.lines().count(), json);
+        assertTrue(json.startsWith("{\"exitCode\":4,\"code\":\"STATE_ERROR\",\"message\":\"incomplete\",\"diagnostics\":{"),
+                json);
+        assertTrue(json.contains("\"code\":\"UNSUPPORTED_PROVIDER_SCHEMA\""), json);
+        assertTrue(json.contains("\"schema\":\"detailed-uml\""), json);
+        assertTrue(json.contains("\"truncated\":false,\"truncationReason\":null"), json);
+    }
+
+    @Test
+    void aRefusedReadWithoutAnyDiagnosticIsTheErrorLineAlone() {
+        var none = com.morpheus.application.ingestion.BoundedDiagnostics.local(java.util.List.of());
+
+        assertEquals("MORPHEUS error [4]: incomplete" + System.lineSeparator(),
+                written(err -> CliErrorLine.write(err, false, CliExitCode.STATE_ERROR, "incomplete", none)));
+        assertEquals("{\"exitCode\":4,\"code\":\"STATE_ERROR\",\"message\":\"incomplete\",\"diagnostics\":"
+                        + "{\"items\":[],\"truncated\":false,\"truncationReason\":null}}" + System.lineSeparator(),
+                written(err -> CliErrorLine.write(err, true, CliExitCode.STATE_ERROR, "incomplete", none)));
     }
 
     private static String written(java.util.function.Consumer<PrintStream> writer) {

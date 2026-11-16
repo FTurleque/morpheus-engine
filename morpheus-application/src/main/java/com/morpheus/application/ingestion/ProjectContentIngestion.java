@@ -90,10 +90,9 @@ public final class ProjectContentIngestion {
                 && report.diagnosticCodes().contains(DiagnosticCode.INVALID_SOURCE);
     }
 
-    private static List<String> errorsOf(ProviderReadResult result) {
+    private static List<Diagnostic> errorsOf(ProviderReadResult result) {
         return result.diagnostics().stream()
                 .filter(diagnostic -> diagnostic.severity() == DiagnosticSeverity.ERROR)
-                .map(Diagnostic::message)
                 .distinct()
                 .toList();
     }

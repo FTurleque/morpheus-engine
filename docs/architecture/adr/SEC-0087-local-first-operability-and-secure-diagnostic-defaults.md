@@ -16,6 +16,19 @@ MORPHEUS possède des diagnostics métier, mais l'exploitation exige des garanti
 compteurs et timings, distinction health / readiness, et absence de fuite de secrets ou de chemins sensibles. Cette
 observabilité ne doit pas introduire de télémétrie externe obligatoire.
 
+Les invariants que la décision tient :
+
+```text
+local observability != mandatory external telemetry
+structured event != unredacted secret/path dump
+health != readiness
+UNKNOWN/UNAVAILABLE != false success
+external link/symlink != followed by default
+ignored path policy != implicit incidental behavior
+write hardening unsupported != hardened
+MORPHEUS operability != JARVIS orchestration
+```
+
 ## Decision
 
 1. Les événements opérationnels ont un code machine-readable stable, un niveau et des attributs canoniques.
@@ -39,19 +52,6 @@ observabilité ne doit pas introduire de télémétrie externe obligatoire.
     symbolique est refusé.
 12. `UNSUPPORTED` pour un mécanisme de permissions du système de fichiers reste explicite et n'est jamais présenté
     comme `HARDENED`.
-
-Invariants :
-
-```text
-local observability != mandatory external telemetry
-structured event != unredacted secret/path dump
-health != readiness
-UNKNOWN/UNAVAILABLE != false success
-external link/symlink != followed by default
-ignored path policy != implicit incidental behavior
-write hardening unsupported != hardened
-MORPHEUS operability != JARVIS orchestration
-```
 
 ## Do's and Don'ts
 

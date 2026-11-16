@@ -1,6 +1,8 @@
 package com.morpheus.cli.command;
 
 import com.morpheus.application.foundation.FailureText;
+import com.morpheus.application.ingestion.BoundedDiagnostics;
+import com.morpheus.application.ingestion.IncompleteProjectReadException;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 import com.morpheus.application.store.KnowledgeStoreException;
 
@@ -19,7 +21,9 @@ import java.util.function.Function;
  *
  * <p>A {@link CliFailure} answers its own code; an {@link IllegalArgumentException} is a usage error; a
  * {@link KnowledgeStoreException} or an {@link IllegalStateException} a state error; any other runtime failure an
- * internal error. The line names the failure's message, or its type when it has none.</p>
+ * internal error. The line names the failure's message, or its type when it has none. An
+ * {@link IncompleteProjectReadException} is a state error whose line is followed by the error diagnostics of the
+ * provider, which carry what the message does not: the reason of a refusal and the values it read.</p>
  */
 public final class CliCommandRun {
     private static final CanonicalJsonSerializer JSON = new CanonicalJsonSerializer();
@@ -64,6 +68,10 @@ public final class CliCommandRun {
         } catch (IllegalArgumentException failure) {
             CliErrorLine.write(err, jsonOutput, CliExitCode.USAGE, FailureText.of(failure));
             return CliExitCode.USAGE.code();
+        } catch (IncompleteProjectReadException failure) {
+            CliErrorLine.write(err, jsonOutput, CliExitCode.STATE_ERROR, FailureText.of(failure),
+                    BoundedDiagnostics.local(failure.providerErrors()));
+            return CliExitCode.STATE_ERROR.code();
         } catch (KnowledgeStoreException | IllegalStateException failure) {
             CliErrorLine.write(err, jsonOutput, CliExitCode.STATE_ERROR, FailureText.of(failure));
             return CliExitCode.STATE_ERROR.code();

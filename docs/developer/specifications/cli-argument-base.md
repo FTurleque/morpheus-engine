@@ -23,6 +23,7 @@ ce qui refuse une sous-commande qui en garde sa propre copie.
 | R4 | The same malformed input SHALL be refused the same way by every sub-command | même refus partout, sauf différence déclarée et testée | `[EXIGENCE]` |
 | R5 | A private copy of the argument base SHALL be refused | le build refuse une copie des aides, une seconde écriture du format, un analyseur privé | `[EXIGENCE]` |
 | R6 | Aucune commande n'écrit son propre préfixe d'erreur | le build refuse un littéral `"MORPHEUS …error…` hors de `CliErrorLine.java` | `[EXIGENCE]` |
+| R7 | The error line of a refused project read SHALL relay the provider's error diagnostics | une lecture de projet refusée fait suivre la ligne d'erreur des diagnostics d'erreur du fournisseur, au format d'un `sync` publié ; les autres erreurs ne changent pas | `[EXIGENCE]` |
 
 ## Comportement détaillé
 
@@ -32,6 +33,12 @@ ce qui refuse une sous-commande qui en garde sa propre copie.
   `{"exitCode":…,"code":"…","message":"…"}`. Le texte d'un échec est son message, ou le nom simple de son type si le
   message est absent ou blanc, formé par `FailureText.of` (voir
   [`failure-text-ownership`](failure-text-ownership.md)), y compris pour une `CliFailure`.
+- **Lecture de projet refusée** (R7) : `CliCommandRun` rend une `IncompleteProjectReadException` par l'écriture de
+  `CliErrorLine` qui reçoit `BoundedDiagnostics.local(providerErrors())`. En texte, la ligne d'erreur est suivie d'une
+  ligne `diagnostic=<sévérité> <code> <source ou -> {détails triés} <message>` par diagnostic, puis de
+  `truncationReason=` s'il y en a une ; avec `--json`, l'objet unique porte en plus le membre `diagnostics`
+  (`items`, `truncated`, `truncationReason`). `CliDiagnosticLines` écrit ces lignes pour le refus comme pour un `sync`
+  publié. `sync` et `analyze change` sont servis par ce même cadre.
 - **Familles à correspondance propre** : `version`, `product-info`, `update-check`, `reason`, `provider-plugins`,
   `server`, les familles de gouvernance (`policy`, `portfolio`, `query`, `views`, `export`, `lifecycle`…) et les
   lanceurs `api`, `api --remote`, `mcp` gardent leur table entre type d'échec et code de sortie, mais écrivent la ligne
@@ -113,6 +120,9 @@ correspondance entre type d'échec et code de sortie diffère.
 | R1 | A command family that answered with its own prefix | séquence | archive `2026-11-04-report-every-cli-failure-through-one-error-line` | [`OneErrorLineForEveryFamilyTest`](../../../morpheus-cli/src/test/java/com/morpheus/cli/OneErrorLineForEveryFamilyTest.java)`#aRefusalWithoutJsonIsTheOneTextLineForEveryFamily` ; `CliOptionRefusalTableTest` |
 | R1 | A refused launch of a server | — | archive `2026-11-04-report-every-cli-failure-through-one-error-line` | `OneErrorLineForEveryFamilyTest#aRefusedLaunchOfEveryServerIsTheOneErrorLineWithTheUsageCode` |
 | R1 | A refusal under the JSON output | séquence | archive `2026-11-04-report-every-cli-failure-through-one-error-line` | `OneErrorLineForEveryFamilyTest#aRefusalUnderTheJsonOutputIsOneJsonObjectWithTheSameExitCode` ; `CliErrorLineTest#aRefusalIsTheTextLineUnlessTheInvocationAsksForJson` |
+| R7 | A sync refused for an unsupported schema, in text ; The same refusal under the JSON output | — | changement `relay-provider-error-details-on-a-refused-read` | `MorpheusCliTest#aSyncRefusedForAnUnsupportedSchemaRelaysTheDetailsOfItsDiagnostic` ; `CliErrorLineTest#aRefusedReadIsFollowedByOneLinePerDiagnosticInText`, `#aRefusedReadIsOneJsonObjectThatCarriesItsDiagnostics` |
+| R7 | A refused read whose provider reported no error | — | idem | `CliErrorLineTest#aRefusedReadWithoutAnyDiagnosticIsTheErrorLineAlone` |
+| R7 | Any other failure | — | idem | `CliErrorLineTest#theJsonLineCarriesTheExitCodeItsNameAndTheMessage` |
 | R6 | Un préfixe propre réintroduit ; Une ligne d'information n'est pas un préfixe d'erreur | — | archive `2026-11-04-report-every-cli-failure-through-one-error-line` | [`CliArgumentBaseArchitectureTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/CliArgumentBaseArchitectureTest.java)`#noCliSourceButTheWriterOfTheErrorLineSpellsAnErrorPrefix`, `#aFamilyPrefixIsAnErrorPrefixAndAnInformationLineIsNot` |
 | R2 | Global flags before the command | séquence | idem | **partielle** : [`BlankOptionValueRefusalTest`](../../../morpheus-cli/src/test/java/com/morpheus/cli/BlankOptionValueRefusalTest.java)`#aNonBlankLayoutIsStillAcceptedByEveryParser` ; `CliArgumentBaseArchitectureTest#noCliTypeButTheOwnerReadsTheCommandTokenFromTheRawArguments` ; aucun test unitaire de `GlobalArgs` |
 | R3 | An undeclared option | séquence | idem | [`CommandOptionsTest`](../../../morpheus-cli/src/test/java/com/morpheus/cli/command/CommandOptionsTest.java)`#anUndeclaredOptionIsRefusedByNameBeforeItsValueIsRead` ; `CliOptionRefusalTableTest` |

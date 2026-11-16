@@ -30,6 +30,7 @@ les variantes d'encodage courantes sont acceptées, et les sections Markdown se 
 | R3 | Encoding variants are accepted | BOM UTF-8 en tête de tout fichier lu, `schema:` écrit en scalaire YAML entre guillemets | `[EXIGENCE]` |
 | R4 | Section boundaries follow Markdown structure | une exigence finit à la prochaine exigence ou au prochain titre de niveau deux ; un titre dans un bloc de code ne compte pas | `[EXIGENCE]` |
 | R5 | A project schema is read only when it declares that it derives from spec-driven | un schéma autre que `spec-driven` n'est SUPPORTED que si sa définition déclare `derives: spec-driven` ; il reçoit alors les capacités de `spec-driven` ; tout autre schéma est refusé avec un motif nommé | `[EXIGENCE]` |
+| R6 | The refusal of a project schema says what would make it readable | le message du refus nomme le fichier de définition attendu et la déclaration `derives: spec-driven` ; il ne recopie le nom déclaré que s'il est un nom de schéma de 32 caractères au plus, et jamais le parent déclaré | `[EXIGENCE]` |
 
 ## Comportement détaillé
 
@@ -66,9 +67,18 @@ les variantes d'encodage courantes sont acceptées, et les sections Markdown se 
   suivi : un schéma qui dérive d'un schéma dérivé est refusé.
 - `[EXISTANT VÉRIFIÉ]` Une définition qui est un répertoire, un lien symbolique ou un fichier illisible rend `INVALID`
   et `INVALID_SOURCE`, dont la source est le chemin relatif `openspec/schemas/<schema>/schema.yaml`.
-- `[EXISTANT VÉRIFIÉ]` Les détails `reason` et `declaredParent` ne sont pas dans la liste de clés que la projection
-  distante relaie (`BoundedDiagnostics.REMOTE_DETAIL_KEYS`) : un appelant HTTP voit le code, le schéma et le schéma
-  supporté, la CLI voit aussi le motif.
+- `[EXISTANT VÉRIFIÉ]` Le message du refus est composé par motif (`refusalMessage`) :
+  `OpenSpec schema '<nom>' is not supported: openspec/schemas/<nom>/schema.yaml` suivi de
+  `must declare 'derives: spec-driven'.` (`no-declared-parent`), `must exist and declare 'derives: spec-driven'.`
+  (`schema-definition-missing`) ou `declares another parent; only 'derives: spec-driven' is read.`
+  (`unsupported-parent`). Un nom qui n'est pas un nom de schéma, ou qui dépasse `MAX_NAMED_SCHEMA_LENGTH`, n'est pas
+  recopié : le sujet est `The declared OpenSpec schema` et le fichier `openspec/schemas/<schema>/schema.yaml`. Le
+  parent déclaré n'entre jamais dans le message. Le nom et le parent sont du texte du workspace, et le texte d'une
+  lecture refusée n'est relayé hors de la machine que sous `ServerLocationDisclosure.MAX_RELAYED_LENGTH` et sans forme
+  de chemin ; toute valeur déclarée reste dans les détails.
+- `[EXISTANT VÉRIFIÉ]` Ce message atteint toutes les surfaces qui relaient le refus d'une lecture : la ligne d'erreur
+  de la CLI et le `409` HTTP. Les détails (`reason`, `schema`, `supportedSchema`, `declaredParent`) sont relayés par la
+  CLI sous la ligne d'erreur ([`cli-argument-base`](cli-argument-base.md)) ; la réponse HTTP ne porte que le message.
 
 ### Échecs attribués (R2)
 
@@ -166,6 +176,9 @@ stateDiagram-v2
 | R5 | A declared schema whose directory is missing | organigramme | idem | `OpenSpecSpecificationProviderTest#aDeclaredSchemaWithoutItsDefinitionStaysUnsupported` ; `#rejectsUnknownOpenSpecSchemaExplicitly` |
 | R5 | A schema that derives from an unknown parent | organigramme | idem | `OpenSpecSpecificationProviderTest#aSchemaThatDerivesFromAnUnknownParentStaysUnsupported` ; `#aSchemaThatDerivesFromADerivedSchemaStaysUnsupported` |
 | R5 | A schema definition that cannot be read | organigramme | idem | `OpenSpecSpecificationProviderTest#anUnreadableSchemaDefinitionIsInvalidAndNamed` ; `#aSymbolicSchemaDefinitionIsInvalidAndNamed` |
+| R6 | A schema that declares no parent ; A declared schema whose definition is missing ; A schema that derives from another parent | — | changement `relay-provider-error-details-on-a-refused-read` | `OpenSpecSpecificationProviderTest#aSchemaThatDeclaresNoParentStaysUnsupported`, `#aDeclaredSchemaWithoutItsDefinitionStaysUnsupported`, `#aSchemaThatDerivesFromAnUnknownParentStaysUnsupported` |
+| R6 | A declared name that is not a schema name, or is too long to repeat | — | idem | `OpenSpecSpecificationProviderTest#aSchemaNameThatIsNotASinglePathSegmentIsRefusedBeforeAnyRead` ; `OpenSpecSchemaRefusalStaysRelayableTest#aNameLongerThanTheBoundIsNotRepeatedAndStaysInTheDetails`, `#aNameThatIsNotASchemaNameIsNotRepeatedAndTheRefusedReadIsRelayable` |
+| R6 | The refused read stays relayable | — | idem | `OpenSpecSchemaRefusalStaysRelayableTest#theRefusedReadOfTheLongestNamedSchemaIsRelayableForEveryReason` ; `MorpheusApiProjectSyncIntegrationTest#aSyncRefusedForAnUnsupportedSchemaSaysWhatWouldMakeItReadable` |
 
 ## Sources
 

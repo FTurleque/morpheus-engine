@@ -26,7 +26,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
-import java.util.TreeMap;
 
 /**
  * The project family of the CLI: {@code projects list|add} and {@code sync}, which reads a workspace through the
@@ -193,23 +192,8 @@ public final class MorpheusProjectCli {
                 "traceLinks=" + view.traceabilityLinkCount(),
                 "diagnostics=" + view.diagnosticCount(),
                 "published=" + view.published()));
-        lines.addAll(diagnosticLines(view.diagnostics()));
+        lines.addAll(CliDiagnosticLines.of(view.diagnostics()));
         run.print(view, String.join(System.lineSeparator(), lines));
-    }
-
-    /**
-     * One line per relayed diagnostic, so the text output names what the count counts -- a skipped requirement is in
-     * its details -- then the truncation reason under the name the traversal commands already print.
-     */
-    static List<String> diagnosticLines(BoundedDiagnostics diagnostics) {
-        List<String> lines = new ArrayList<>();
-        diagnostics.items().forEach(diagnostic -> lines.add("diagnostic=" + diagnostic.severity()
-                + " " + diagnostic.code()
-                + " " + diagnostic.source().orElse("-")
-                + " " + new TreeMap<>(diagnostic.details())
-                + " " + diagnostic.message()));
-        diagnostics.truncationReason().ifPresent(reason -> lines.add("truncationReason=" + reason));
-        return lines;
     }
 
     private record ProjectView(String projectId, String workspace) {}
