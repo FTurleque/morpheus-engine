@@ -126,7 +126,7 @@ Ces coûts sont acceptés parce qu'ils protègent une frontière structurante.
 
 ## References
 
-- [ADR-0002](../ARCH-0002-openspec-reference-provider.md) — OpenSpec premier provider, sans verrouillage.
+- [ADR-0002](0002-openspec-reference-provider.md) — OpenSpec premier provider, sans verrouillage.
 - [ADR-0003](../DATA-0003-specification-knowledge-store.md) — persistance derrière `SpecificationKnowledgeStore`.
 - [ADR-0009](0009-stable-domain-identity.md) — identité, version, localisateur et référence externe distincts.
 - [ADR-0029](0029-second-provider-anti-lockin-proof.md) — preuve anti-verrouillage par un second provider.

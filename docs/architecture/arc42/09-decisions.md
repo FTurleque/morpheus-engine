@@ -14,7 +14,7 @@ Domaine, identité, états, persistance et socle technique.
 | Décision | ADR |
 |---|---|
 | Le domaine appartient à MORPHEUS, et sa neutralité se prouve sur plusieurs providers | [ADR-0135](../adr/ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) |
-| OpenSpec comme premier provider de référence, sans verrouillage du domaine | [ADR-0002](../adr/ARCH-0002-openspec-reference-provider.md) |
+| OpenSpec comme premier provider de référence, lu sous spec-driven ou sous un schéma qui déclare en dériver, sans verrouillage du domaine | [ADR-0169](../adr/ARCH-0169-openspec-provider-de-reference-et-schemas-qui-derivent-de-spec-driven.md) |
 | Isoler la persistance derrière `SpecificationKnowledgeStore` | [ADR-0003](../adr/DATA-0003-specification-knowledge-store.md) |
 | Le cœur MORPHEUS est local-first et ne dépend d'aucun LLM | [ADR-0004](../adr/SEC-0004-local-first-no-llm-core.md) |
 | L'état temporel est une donnée normalisée, portée par des occurrences versionnées | [ADR-0136](../adr/ARCH-0136-etat-temporel-et-occurrences-versionnees.md) |

@@ -104,6 +104,16 @@ completed=false
 
 `completed` est obligatoire et vaut `true` ou `false`. Un bloc `task` qui l’omet est refusé à la lecture (`missing 'completed' in task block at line N`) et le fichier ne contribue aucun contenu : MORPHEUS ne suppose pas qu’une tâche muette est inachevée. Jusqu’à 1.2.0 l’absence valait `false` ; voir [les notes de 1.2.1](release-notes/RELEASE_NOTES_1.2.1.md).
 
+OpenSpec lit le schéma que déclare `openspec/config.yaml` (`schema: …`). MORPHEUS lit le schéma officiel `spec-driven`, et un schéma de projet qui déclare en dériver dans sa définition, `openspec/schemas/<nom>/schema.yaml` :
+
+```yaml
+name: detailed-uml
+version: 1
+derives: spec-driven
+```
+
+Un tel schéma est lu exactement comme `spec-driven` : mêmes catégories, sous son propre nom ; ses artefacts supplémentaires (diagrammes, matrices) sont ignorés. Un seul niveau est suivi : le parent déclaré doit être `spec-driven` lui-même. Tout autre schéma est refusé, sans aucun contenu lu, avec le diagnostic `UNSUPPORTED_PROVIDER_SCHEMA`, dont le détail `reason` dit pourquoi : nom de schéma invalide (`invalid-schema-name`), définition absente (`schema-definition-missing`), aucun parent déclaré (`no-declared-parent`) ou parent autre que `spec-driven` (`unsupported-parent`) ; `morpheus sync` montre ce motif, l’API HTTP ne relaie que le code, le schéma et le schéma supporté. Une définition qui n’est pas un fichier ordinaire lisible, un lien symbolique par exemple, rend le workspace invalide (`INVALID_SOURCE`).
+
 ```mermaid
 flowchart LR
     W[Workspace] --> D[Découverte provider]

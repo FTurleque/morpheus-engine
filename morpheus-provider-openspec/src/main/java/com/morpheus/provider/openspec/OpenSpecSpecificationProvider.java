@@ -14,16 +14,21 @@ import com.morpheus.domain.source.SourceLocator;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Read-only M1 provider probe for OpenSpec projects using the {@code spec-driven} schema. */
+/**
+ * Read-only M1 provider probe for OpenSpec projects using the {@code spec-driven} schema, or a project schema whose
+ * definition declares that it derives from it (ADR-0169).
+ */
 public final class OpenSpecSpecificationProvider implements SpecificationProvider {
     public static final ProviderId ID = new ProviderId("openspec");
     public static final String PROVIDER_VERSION = "m1-v1";
@@ -31,9 +36,10 @@ public final class OpenSpecSpecificationProvider implements SpecificationProvide
     /** The directories of a workspace this provider reads, relative to the workspace root. */
     public static final List<Path> SOURCE_DIRECTORIES = List.of(Path.of("openspec"));
 
-    private static final Pattern SCHEMA_PATTERN = Pattern.compile(
-            "^schema:\\s*(?:"
-            + "\"([^\"#\\s]+)\"|'([^'#\\s]+)'|([^#\\s\"']+))(?:\\s|#|$)");
+    private static final Pattern SCHEMA_PATTERN = scalarDeclaration("schema");
+    private static final Pattern DERIVES_PATTERN = scalarDeclaration("derives");
+    /** A schema name is one path segment: it names the directory of its definition under {@code openspec/schemas}. */
+    private static final Pattern SCHEMA_NAME = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]*");
     private static final SourceLocator CONFIG_LOCATOR = SourceLocator.file("openspec/config.yaml");
 
     @Override
@@ -82,7 +88,7 @@ public final class OpenSpecSpecificationProvider implements SpecificationProvide
                             relativeConfig,
                             Math.toIntExact(ProviderIngestionBudget.DEFAULT.maxDocumentBytes()))
                     : budget.readDocument(relativeConfig);
-            schema = readSchema(configText);
+            schema = declaredValue(SCHEMA_PATTERN, configText);
         } catch (IOException | IllegalArgumentException exception) {
             return invalid(config, "OpenSpec config.yaml could not be read.");
         }
@@ -91,20 +97,12 @@ public final class OpenSpecSpecificationProvider implements SpecificationProvide
             return invalid(config, "OpenSpec config.yaml does not declare a schema.");
         }
 
-        if (!SUPPORTED_SCHEMA.equals(schema.orElseThrow())) {
-            Diagnostic diagnostic = Diagnostic.error(
-                    DiagnosticCode.UNSUPPORTED_PROVIDER_SCHEMA,
-                    "The OpenSpec schema is not supported by this MORPHEUS provider.",
-                    Map.of(
-                            "provider", ID.value(),
-                            "schema", schema.orElseThrow(),
-                            "supportedSchema", SUPPORTED_SCHEMA));
-            return result(
-                    ProviderProbeStatus.UNSUPPORTED,
-                    schema,
-                    Optional.of(CONFIG_LOCATOR),
-                    ProviderCapabilitySet.of(),
-                    List.of(diagnostic));
+        String declaredSchema = schema.orElseThrow();
+        if (!SUPPORTED_SCHEMA.equals(declaredSchema)) {
+            Optional<ProviderProbeResult> refusal = refuseUnlessDerivedFromSupportedSchema(root, declaredSchema, budget);
+            if (refusal.isPresent()) {
+                return refusal.orElseThrow();
+            }
         }
 
         return result(
@@ -113,6 +111,77 @@ public final class OpenSpecSpecificationProvider implements SpecificationProvide
                 Optional.of(CONFIG_LOCATOR),
                 detectCapabilities(openspecRoot),
                 List.of());
+    }
+
+    /**
+     * A project schema other than {@link #SUPPORTED_SCHEMA} is read as that schema only when its definition,
+     * {@code openspec/schemas/<schema>/schema.yaml}, declares {@code derives: spec-driven}; one level, one parent.
+     * Empty when the declaration holds, otherwise the named refusal.
+     */
+    private Optional<ProviderProbeResult> refuseUnlessDerivedFromSupportedSchema(
+            Path root, String schema, ProviderIngestionBudget.Session budget) {
+        if (!SCHEMA_NAME.matcher(schema).matches() || schema.contains("..")) {
+            return Optional.of(unsupportedSchema(schema, "invalid-schema-name", Optional.empty()));
+        }
+        String relativeDefinition = "openspec/schemas/" + schema + "/schema.yaml";
+        Path definition = Path.of(relativeDefinition);
+        if (!Files.exists(root.resolve(definition), LinkOption.NOFOLLOW_LINKS)) {
+            return Optional.of(unsupportedSchema(schema, "schema-definition-missing", Optional.empty()));
+        }
+
+        final Optional<String> parent;
+        try {
+            String definitionText = budget == null
+                    ? SafeWorkspaceFileResolver.rootedAt(root).readUtf8(
+                            definition,
+                            Math.toIntExact(ProviderIngestionBudget.DEFAULT.maxDocumentBytes()))
+                    : budget.readDocument(definition);
+            parent = declaredValue(DERIVES_PATTERN, definitionText);
+        } catch (IOException | IllegalArgumentException exception) {
+            return Optional.of(invalidDefinition(schema, relativeDefinition));
+        }
+
+        if (parent.isEmpty()) {
+            return Optional.of(unsupportedSchema(schema, "no-declared-parent", Optional.empty()));
+        }
+        if (!SUPPORTED_SCHEMA.equals(parent.orElseThrow())) {
+            return Optional.of(unsupportedSchema(schema, "unsupported-parent", parent));
+        }
+        return Optional.empty();
+    }
+
+    private ProviderProbeResult unsupportedSchema(String schema, String reason, Optional<String> declaredParent) {
+        Map<String, String> details = new TreeMap<>(Map.of(
+                "provider", ID.value(),
+                "schema", schema,
+                "supportedSchema", SUPPORTED_SCHEMA,
+                "reason", reason));
+        declaredParent.ifPresent(parent -> details.put("declaredParent", parent));
+        Diagnostic diagnostic = Diagnostic.error(
+                DiagnosticCode.UNSUPPORTED_PROVIDER_SCHEMA,
+                "The OpenSpec schema is not supported by this MORPHEUS provider.",
+                details);
+        return result(
+                ProviderProbeStatus.UNSUPPORTED,
+                Optional.of(schema),
+                Optional.of(CONFIG_LOCATOR),
+                ProviderCapabilitySet.of(),
+                List.of(diagnostic));
+    }
+
+    private ProviderProbeResult invalidDefinition(String schema, String relativeDefinition) {
+        Diagnostic diagnostic = new Diagnostic(
+                DiagnosticCode.INVALID_SOURCE,
+                com.morpheus.domain.diagnostic.DiagnosticSeverity.ERROR,
+                "OpenSpec schema definition is not a readable regular file.",
+                Map.of("provider", ID.value(), "schema", schema),
+                Optional.of(relativeDefinition));
+        return result(
+                ProviderProbeStatus.INVALID,
+                Optional.of(schema),
+                Optional.of(SourceLocator.file(relativeDefinition)),
+                ProviderCapabilitySet.of(),
+                List.of(diagnostic));
     }
 
     private ProviderCapabilitySet detectCapabilities(Path openspecRoot) {
@@ -139,16 +208,23 @@ public final class OpenSpecSpecificationProvider implements SpecificationProvide
         return ProviderCapabilitySet.copyOf(capabilities);
     }
 
-    private Optional<String> readSchema(String configText) {
-        return configText.lines()
-                .map(SCHEMA_PATTERN::matcher)
+    /** A top-level {@code key: value} line whose value is a plain, double- or single-quoted YAML scalar. */
+    private static Pattern scalarDeclaration(String key) {
+        return Pattern.compile(
+                "^" + key + ":\\s*(?:"
+                + "\"([^\"#\\s]+)\"|'([^'#\\s]+)'|([^#\\s\"']+))(?:\\s|#|$)");
+    }
+
+    private static Optional<String> declaredValue(Pattern declaration, String text) {
+        return text.lines()
+                .map(declaration::matcher)
                 .filter(Matcher::find)
-                .map(OpenSpecSpecificationProvider::schemaValue)
+                .map(OpenSpecSpecificationProvider::scalarValue)
                 .findFirst();
     }
 
     /** The declared value, unquoted when written as a double- or single-quoted YAML scalar. */
-    private static String schemaValue(Matcher matcher) {
+    private static String scalarValue(Matcher matcher) {
         String quoted = matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
         return quoted != null ? quoted : matcher.group(3);
     }

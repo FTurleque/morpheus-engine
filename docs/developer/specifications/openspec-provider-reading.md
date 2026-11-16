@@ -1,7 +1,8 @@
 # Lecture des espaces OpenSpec par le provider (`openspec-provider-reading`)
 
 Spec de référence : [`openspec/specs/openspec-provider-reading/spec.md`](../../../openspec/specs/openspec-provider-reading/spec.md)
-· Relevé du 2026-11-04 sur `2913fc30`.
+· Relevé du 2026-11-04 sur `2913fc30` ; R5 relevée le 2026-11-16 (changement
+`accept-a-declared-derived-openspec-schema`).
 
 ## Objet et périmètre
 
@@ -12,7 +13,8 @@ les variantes d'encodage courantes sont acceptées, et les sections Markdown se 
 
 - **Acteurs** : `OpenSpecSpecificationProvider` (sonde), `OpenSpecSpecificationContentReader` (lecture par
   catégorie), `OpenSpecCurrentSpecificationReader`, `OpenSpecChangeMetadataReader`, `OpenSpecRequirementDeltaReader`.
-- **Inclus** : le schéma déclaré par `openspec/config.yaml`, le statut de chaque catégorie lue, le diagnostic
+- **Inclus** : le schéma déclaré par `openspec/config.yaml` et, pour un autre schéma que `spec-driven`, sa définition
+  `openspec/schemas/<schema>/schema.yaml`, le statut de chaque catégorie lue, le diagnostic
   `INVALID_SOURCE` et sa source, le BOM UTF-8, le scalaire YAML entre guillemets, la frontière de section.
 - **Exclus** : le budget d'ingestion (`OpenSpecIngestionBudgets`, voir
   [`provider-ingestion-budget`](provider-ingestion-budget.md)), le confinement dans l'espace de travail (voir
@@ -27,15 +29,16 @@ les variantes d'encodage courantes sont acceptées, et les sections Markdown se 
 | R2 | Failures are attributed and contained | document mal formé : catégorie FAILED, diagnostic `INVALID_SOURCE` dont la source est le chemin relatif du document, aucune exception | `[EXIGENCE]` |
 | R3 | Encoding variants are accepted | BOM UTF-8 en tête de tout fichier lu, `schema:` écrit en scalaire YAML entre guillemets | `[EXIGENCE]` |
 | R4 | Section boundaries follow Markdown structure | une exigence finit à la prochaine exigence ou au prochain titre de niveau deux ; un titre dans un bloc de code ne compte pas | `[EXIGENCE]` |
+| R5 | A project schema is read only when it declares that it derives from spec-driven | un schéma autre que `spec-driven` n'est SUPPORTED que si sa définition déclare `derives: spec-driven` ; il reçoit alors les capacités de `spec-driven` ; tout autre schéma est refusé avec un motif nommé | `[EXIGENCE]` |
 
 ## Comportement détaillé
 
 ### Sonde et schéma (R1, R3)
 
-- `[EXISTANT VÉRIFIÉ]` La sonde (`OpenSpecSpecificationProvider.probe`) lit `openspec/config.yaml` et ne retient que le
-  schéma `SUPPORTED_SCHEMA` (`spec-driven`). Un autre schéma donne `UNSUPPORTED` et le diagnostic
-  `UNSUPPORTED_PROVIDER_SCHEMA` ; une configuration illisible ou sans schéma donne `INVALID` et `INVALID_SOURCE`. Un
-  espace sans `openspec/` ou sans `config.yaml` est `UNSUPPORTED` sans diagnostic.
+- `[EXISTANT VÉRIFIÉ]` La sonde (`OpenSpecSpecificationProvider.probe`) lit `openspec/config.yaml` et retient le
+  schéma `SUPPORTED_SCHEMA` (`spec-driven`), ou un schéma de projet qui déclare en dériver (voir ci-dessous, R5). Une
+  configuration illisible ou sans schéma donne `INVALID` et `INVALID_SOURCE`. Un espace sans `openspec/` ou sans
+  `config.yaml` est `UNSUPPORTED` sans diagnostic.
 - `[EXISTANT VÉRIFIÉ]` La déclaration du schéma est reconnue entre guillemets doubles, simples ou nue, avec un
   commentaire de fin de ligne (`SCHEMA_PATTERN`). Des guillemets dépareillés ne la reconnaissent pas.
 - `[EXISTANT VÉRIFIÉ]` Le BOM est retiré une seule fois, à la lecture, par `SafeWorkspaceFileResolver` (un second BOM
@@ -47,6 +50,25 @@ les variantes d'encodage courantes sont acceptées, et les sections Markdown se 
 - `[EXISTANT VÉRIFIÉ]` Les catégories `CONSTRAINTS` et `DESIGN_DECISIONS` d'un espace écrit avec les modèles de la CLI
   sont `ABSENT` : ce dialecte ne les structure pas (`OpenSpecSpecificationContentReaderTest#aWorkspaceProducedByTheOpenSpecCliIsRead`).
   Le dialecte des propositions est décrit dans [`../OPENSPEC_PROVIDER.md`](../OPENSPEC_PROVIDER.md#proposals--deux-dialectes).
+
+### Schéma de projet dérivé (R5)
+
+- `[EXISTANT VÉRIFIÉ]` Pour un schéma autre que `spec-driven`, la sonde valide d'abord son nom comme un segment de
+  chemin unique (lettres, chiffres, `.`, `_`, `-`, premier caractère alphanumérique, sans `..`), puis lit
+  `openspec/schemas/<schema>/schema.yaml` par `SafeWorkspaceFileResolver` ou la session du budget, et n'en extrait que
+  la valeur scalaire de `derives`, par la même analyse ligne à ligne que `schema:` (`DERIVES_PATTERN`).
+- `[EXISTANT VÉRIFIÉ]` `derives: spec-driven` rend `SUPPORTED`, le schéma sous son nom déclaré et les capacités que
+  `detectCapabilities` donne à `spec-driven`. Les artefacts propres au schéma dérivé ne créent aucune catégorie
+  (ADR-0169).
+- `[EXISTANT VÉRIFIÉ]` Tout autre cas rend `UNSUPPORTED`, aucune capacité, et le diagnostic
+  `UNSUPPORTED_PROVIDER_SCHEMA` dont le détail `reason` nomme le motif : `invalid-schema-name`,
+  `schema-definition-missing`, `no-declared-parent`, `unsupported-parent` (avec `declaredParent`). Un seul niveau est
+  suivi : un schéma qui dérive d'un schéma dérivé est refusé.
+- `[EXISTANT VÉRIFIÉ]` Une définition qui est un répertoire, un lien symbolique ou un fichier illisible rend `INVALID`
+  et `INVALID_SOURCE`, dont la source est le chemin relatif `openspec/schemas/<schema>/schema.yaml`.
+- `[EXISTANT VÉRIFIÉ]` Les détails `reason` et `declaredParent` ne sont pas dans la liste de clés que la projection
+  distante relaie (`BoundedDiagnostics.REMOTE_DETAIL_KEYS`) : un appelant HTTP voit le code, le schéma et le schéma
+  supporté, la CLI voit aussi le motif.
 
 ### Échecs attribués (R2)
 
@@ -77,12 +99,14 @@ les variantes d'encodage courantes sont acceptées, et les sections Markdown se 
 
 ### Que devient un fichier de l'espace de travail entre le disque et le diagnostic ?
 
-Existant vérifié par lecture des lecteurs. Organigramme, pas UML. Exigences R1 à R4.
+Existant vérifié par lecture des lecteurs. Organigramme, pas UML. Exigences R1 à R5.
 
 ```mermaid
 flowchart TD
     C["openspec/config.yaml"] --> P{"sonde : schéma spec-driven ?"}
-    P -- "non" --> U["UNSUPPORTED ou INVALID<br/>catégories demandées : FAILED, aucun contenu"]
+    P -- "non" --> Q{"définition du schéma<br/>déclare derives: spec-driven ?"}
+    Q -- "non, ou illisible" --> U["UNSUPPORTED (motif nommé) ou INVALID<br/>catégories demandées : FAILED, aucun contenu"]
+    Q -- "oui" --> D
     P -- "oui" --> D["lecture du document<br/>(un BOM de tête est retiré)"]
     D --> M["masque des blocs de code<br/>(les titres cités ne comptent pas)"]
     M --> S["découpage : exigence jusqu'à la suivante<br/>ou au prochain titre de niveau deux"]
@@ -91,7 +115,7 @@ flowchart TD
     K -- "non" --> F["catégorie FAILED ou PARTIAL<br/>INVALID_SOURCE, source = chemin relatif"]
 ```
 
-La sonde décide avant toute lecture de contenu (R1) ; le BOM et le masque agissent avant le découpage (R3, R4) ; un
+La sonde décide avant toute lecture de contenu (R1, R5) ; le BOM et le masque agissent avant le découpage (R3, R4) ; un
 échec garde le nom du fichier fautif (R2).
 
 ### Quels statuts une catégorie peut-elle prendre ?
@@ -137,10 +161,17 @@ stateDiagram-v2
 | R3 | A BOM before a specification title | organigramme | idem | `OpenSpecSpecificationContentReaderTest#aByteOrderMarkBeforeASpecificationTitleIsAccepted` |
 | R4 | A requirement example inside a code fence | organigramme | idem | [`OpenSpecCurrentSpecificationReaderTest`](../../../morpheus-provider-openspec/src/test/java/com/morpheus/provider/openspec/OpenSpecCurrentSpecificationReaderTest.java)`#aRequirementHeadingInsideACodeFenceIsNotARequirement` ; deltas : [`OpenSpecRequirementDeltaReaderTest`](../../../morpheus-provider-openspec/src/test/java/com/morpheus/provider/openspec/OpenSpecRequirementDeltaReaderTest.java)`#aLevelTwoLineInsideACodeFenceNeitherEndsTheSectionNorWarns` |
 | R4 | Notes after the last requirement | organigramme | idem | `OpenSpecCurrentSpecificationReaderTest#aLevelTwoSectionAfterTheLastRequirementIsNotPartOfIt` |
+| R5 | A derived schema that declares its parent | organigramme | `accept-a-declared-derived-openspec-schema` | `OpenSpecSpecificationProviderTest#aSchemaThatDeclaresItDerivesFromSpecDrivenIsReadAsSpecDriven` |
+| R5 | A schema that declares no parent | organigramme | idem | `OpenSpecSpecificationProviderTest#aSchemaThatDeclaresNoParentStaysUnsupported` |
+| R5 | A declared schema whose directory is missing | organigramme | idem | `OpenSpecSpecificationProviderTest#aDeclaredSchemaWithoutItsDefinitionStaysUnsupported` ; `#rejectsUnknownOpenSpecSchemaExplicitly` |
+| R5 | A schema that derives from an unknown parent | organigramme | idem | `OpenSpecSpecificationProviderTest#aSchemaThatDerivesFromAnUnknownParentStaysUnsupported` ; `#aSchemaThatDerivesFromADerivedSchemaStaysUnsupported` |
+| R5 | A schema definition that cannot be read | organigramme | idem | `OpenSpecSpecificationProviderTest#anUnreadableSchemaDefinitionIsInvalidAndNamed` ; `#aSymbolicSchemaDefinitionIsInvalidAndNamed` |
 
 ## Sources
 
 - ADR : [ADR-0028](../../architecture/adr/BE-0028-unified-provider-read-contract.md), contrat de lecture provider
-  unifié et résultats partiels explicites ; page développeur [`../OPENSPEC_PROVIDER.md`](../OPENSPEC_PROVIDER.md).
+  unifié et résultats partiels explicites ;
+  [ADR-0169](../../architecture/adr/ARCH-0169-openspec-provider-de-reference-et-schemas-qui-derivent-de-spec-driven.md),
+  provider de référence et schémas qui déclarent dériver de `spec-driven` ; page développeur [`../OPENSPEC_PROVIDER.md`](../OPENSPEC_PROVIDER.md).
 - Archive OpenSpec : `2026-10-09-align-openspec-provider-with-upstream-format`.
 - Pages liées : [`http-failure-disclosure.md`](http-failure-disclosure.md), [`workspace-boundary-scan-cost.md`](workspace-boundary-scan-cost.md).

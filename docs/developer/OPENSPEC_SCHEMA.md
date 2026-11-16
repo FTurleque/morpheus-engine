@@ -163,6 +163,12 @@ b6f28f305ab7f33b061949251bba82c79de66c82424cfed60582327db3f888f2  schema.yaml
 fa67d99fb4a93b12d702f89ea83e1838219d1cad1c90a4192c402278001cd30e  templates/tasks.md
 ```
 
+La clé `derives: spec-driven` de `schema.yaml` n'existe pas dans le schéma officiel : OpenSpec l'ignore, et le provider
+OpenSpec de MORPHEUS la lit pour traiter `detailed-uml` comme `spec-driven`
+([ADR-0169](../architecture/adr/ARCH-0169-openspec-provider-de-reference-et-schemas-qui-derivent-de-spec-driven.md)).
+Un portage la conserve ; la retirer rend ce dépôt illisible pour MORPHEUS (`UNSUPPORTED_PROVIDER_SCHEMA`,
+`reason=no-declared-parent`).
+
 Après une mise à jour d'OpenSpec :
 
 1. `openspec schema which spec-driven` donne le dossier du schéma officiel installé ; comparer les empreintes de ses

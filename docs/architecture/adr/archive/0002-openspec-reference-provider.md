@@ -1,14 +1,8 @@
----
-id: ARCH-0002
-title: "OpenSpec comme premier provider de référence, sans verrouillage du domaine"
-domain: architecture
-rules: true
-files: ["morpheus-provider-openspec/src/main/java/**/*.java"]
----
+# ADR-0002 — OpenSpec comme premier provider de référence, sans verrouillage du domaine
 
-# OpenSpec comme premier provider de référence, sans verrouillage du domaine
+> **Archivée.** Cette décision est consolidée dans [ADR-0169](../ARCH-0169-openspec-provider-de-reference-et-schemas-qui-derivent-de-spec-driven.md), qui la reprend en entier et admet en plus un schéma de projet qui déclare dériver de `spec-driven`. Sa règle Archgate a suivi ADR-0169. Ce texte n'est plus en vigueur et n'est pas tenu à jour.
 
-- Statut : **Acceptée avec contraintes**
+- Statut : **Remplacée par ADR-0169**
 - Date : 2026-07-22
 
 ## Context
@@ -85,7 +79,7 @@ scénarios, changements, décisions de design, tâches, historique et archives. 
 lecture de critères d'acceptation (`READ_ACCEPTANCE_CRITERIA`).
 
 La correspondance conceptuelle entre artefacts OpenSpec et concepts MORPHEUS est une donnée d'étude, tenue dans
-l'[étude du provider OpenSpec](../../project/research/openspec-provider-study.md) (§5) ; les règles précises sont
+l'[étude du provider OpenSpec](../../../project/research/openspec-provider-study.md) (§5) ; les règles précises sont
 documentées et testées dans le provider.
 
 OpenSpec est réévalué comme provider de référence si apparaissent : une instabilité de format incompatible avec une
@@ -147,10 +141,10 @@ domaine. Dans ce cas, la stratégie provider reste valide même si le provider d
 
 ## References
 
-- [ADR-0135](ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — le domaine appartient à MORPHEUS ; preuve
+- [ADR-0135](../ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — le domaine appartient à MORPHEUS ; preuve
   anti-verrouillage par un second provider.
-- [ADR-0136](ARCH-0136-etat-temporel-et-occurrences-versionnees.md) — état courant et état proposé.
-- [ADR-0028](BE-0028-unified-provider-read-contract.md) — contrat de lecture provider unifié.
-- [ADR-0083](BE-0083-controlled-lifecycle-write-operations.md) — écritures lifecycle contrôlées.
-- [VALIDATION_M0](../../project/validation/VALIDATION_M0.md)
-- [Étude du provider OpenSpec](../../project/research/openspec-provider-study.md)
+- [ADR-0136](../ARCH-0136-etat-temporel-et-occurrences-versionnees.md) — état courant et état proposé.
+- [ADR-0028](../BE-0028-unified-provider-read-contract.md) — contrat de lecture provider unifié.
+- [ADR-0083](../BE-0083-controlled-lifecycle-write-operations.md) — écritures lifecycle contrôlées.
+- [VALIDATION_M0](../../../project/validation/VALIDATION_M0.md)
+- [Étude du provider OpenSpec](../../../project/research/openspec-provider-study.md)

@@ -1,5 +1,7 @@
 name: detailed-uml
 version: 1
+# Lu par le provider OpenSpec de MORPHEUS (ADR-0169) : ce schéma garde la structure de spec-driven.
+derives: spec-driven
 description: Spécifications détaillées en français - proposal → specs → design → tasks, avec diagrammes et traçabilité
 artifacts:
   - id: proposal

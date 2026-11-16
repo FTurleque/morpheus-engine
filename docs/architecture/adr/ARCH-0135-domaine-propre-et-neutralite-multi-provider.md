@@ -15,7 +15,7 @@ files: ["morpheus-domain/src/main/java/**/*.java", "**/pom.xml"]
 ## Context
 
 MORPHEUS comprend des spécifications et des intentions qui viennent de plusieurs sources : OpenSpec, Markdown
-structuré, formats futurs ou systèmes externes. OpenSpec est le provider de référence (ADR-0002), ce qui crée un
+structuré, formats futurs ou systèmes externes. OpenSpec est le provider de référence (ADR-0169), ce qui crée un
 risque classique : concevoir les objets du domaine en reproduisant la structure du premier format disponible. Ce
 serait rapide au début, mais MORPHEUS deviendrait progressivement la façade d'un outil particulier et perdrait son
 indépendance, sa capacité à intégrer d'autres sources, la stabilité de ses contrats publics et sa valeur propre de
@@ -217,7 +217,7 @@ Ces coûts sont acceptés parce qu'ils protègent une frontière structurante.
 
 ## References
 
-- [ADR-0002](ARCH-0002-openspec-reference-provider.md) — OpenSpec premier provider, sans verrouillage.
+- [ADR-0169](ARCH-0169-openspec-provider-de-reference-et-schemas-qui-derivent-de-spec-driven.md) — OpenSpec premier provider, sans verrouillage.
 - [ADR-0003](DATA-0003-specification-knowledge-store.md) — persistance derrière `SpecificationKnowledgeStore`.
 - [ADR-0168](DATA-0168-identite-de-domaine-generee-dans-l-ordre.md) — identité de domaine, scopée par provider, distincte de la version, du
   localisateur et de la référence externe.
