@@ -7,11 +7,13 @@ import com.morpheus.application.read.NormalizedProjectContent;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.read.ProviderReadResult;
 import com.morpheus.application.read.ProviderIngestionBudget;
+import com.morpheus.application.read.ProviderIngestionLimitException;
 import com.morpheus.application.read.ProviderProjectRoot;
 import com.morpheus.application.read.ReadCategory;
 import com.morpheus.application.read.ReadCategoryReport;
 import com.morpheus.application.read.ReadCategoryStatus;
 import com.morpheus.application.read.SpecificationContentReader;
+import com.morpheus.application.security.ServerLocationDisclosure;
 import com.morpheus.domain.acceptance.AcceptanceCriterion;
 import com.morpheus.domain.acceptance.AcceptanceCriterionId;
 import com.morpheus.domain.acceptance.VerificationStatus;
@@ -52,6 +54,8 @@ import java.util.Optional;
 
 /** Strict normalization of provider-neutral records embedded in Markdown fenced blocks. */
 public final class StructuredMarkdownSpecificationContentReader implements SpecificationContentReader {
+    private static final String INGESTION_BUDGET_GROUP = "ingestion-budget";
+
     private final StructuredMarkdownSpecificationProvider provider;
     private final StructuredMarkdownBlockParser parser;
 
@@ -103,6 +107,8 @@ public final class StructuredMarkdownSpecificationContentReader implements Speci
                     normalized.evidence,
                     List.of());
             return new ProviderReadResult(providerId(), Optional.of(content), reports, List.of());
+        } catch (ProviderIngestionLimitException limit) {
+            return budgetRefusal(request, limit);
         } catch (IOException | IllegalArgumentException exception) {
             Diagnostic diagnostic = Diagnostic.error(
                     DiagnosticCode.INVALID_SOURCE,
@@ -122,6 +128,31 @@ public final class StructuredMarkdownSpecificationContentReader implements Speci
                             .toList(),
                     List.of(diagnostic));
         }
+    }
+
+    /** A refusal of the whole read: every category fails, and the refusal is not attributed to a file (ADR-0028). */
+    private ProviderReadResult budgetRefusal(ProviderReadRequest request, ProviderIngestionLimitException limit) {
+        Diagnostic diagnostic = Diagnostic.error(
+                DiagnosticCode.INVALID_SOURCE,
+                "Structured Markdown content reader failed for group " + INGESTION_BUDGET_GROUP + ": "
+                        + ServerLocationDisclosure.relayableText(limit),
+                Map.of(
+                        "provider", providerId().value(),
+                        "group", INGESTION_BUDGET_GROUP,
+                        "exception", limit.getClass().getSimpleName()));
+        return new ProviderReadResult(
+                providerId(),
+                Optional.empty(),
+                request.requestedCategories().stream()
+                        .sorted()
+                        .map(category -> new ReadCategoryReport(
+                                category,
+                                ReadCategoryStatus.FAILED,
+                                0,
+                                List.of(DiagnosticCode.INVALID_SOURCE),
+                                Optional.of("provider ingestion budget exceeded")))
+                        .toList(),
+                List.of(diagnostic));
     }
 
     private Normalization normalize(

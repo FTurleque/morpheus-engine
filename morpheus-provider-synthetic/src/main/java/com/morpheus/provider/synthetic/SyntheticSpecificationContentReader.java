@@ -7,11 +7,13 @@ import com.morpheus.application.read.NormalizedProjectContent;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.read.ProviderReadResult;
 import com.morpheus.application.read.ProviderIngestionBudget;
+import com.morpheus.application.read.ProviderIngestionLimitException;
 import com.morpheus.application.read.ProviderProjectRoot;
 import com.morpheus.application.read.ReadCategory;
 import com.morpheus.application.read.ReadCategoryReport;
 import com.morpheus.application.read.ReadCategoryStatus;
 import com.morpheus.application.read.SpecificationContentReader;
+import com.morpheus.application.security.ServerLocationDisclosure;
 import com.morpheus.domain.acceptance.AcceptanceCriterion;
 import com.morpheus.domain.acceptance.AcceptanceCriterionId;
 import com.morpheus.domain.acceptance.VerificationStatus;
@@ -46,6 +48,8 @@ import java.util.Optional;
 
 /** Normalizes the verification-only synthetic JSON source through the public read contract. */
 public final class SyntheticSpecificationContentReader implements SpecificationContentReader {
+    private static final String INGESTION_BUDGET_GROUP = "ingestion-budget";
+
     private final SyntheticSpecificationProvider provider;
     private final SyntheticConstraintSemanticsReader constraintReader = new SyntheticConstraintSemanticsReader();
 
@@ -113,6 +117,8 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
                     normalization.evidence(),
                     diagnostics);
             return new ProviderReadResult(providerId(), Optional.of(content), reports, diagnostics);
+        } catch (ProviderIngestionLimitException limit) {
+            return budgetRefusal(request, limit);
         } catch (IOException | IllegalArgumentException exception) {
             Diagnostic diagnostic = Diagnostic.error(
                     DiagnosticCode.INVALID_SOURCE,
@@ -127,6 +133,31 @@ public final class SyntheticSpecificationContentReader implements SpecificationC
                             .toList(),
                     List.of(diagnostic));
         }
+    }
+
+    /** A refusal of the whole read: every category fails, and the refusal is not attributed to a file (ADR-0028). */
+    private ProviderReadResult budgetRefusal(ProviderReadRequest request, ProviderIngestionLimitException limit) {
+        Diagnostic diagnostic = Diagnostic.error(
+                DiagnosticCode.INVALID_SOURCE,
+                "Synthetic content reader failed for group " + INGESTION_BUDGET_GROUP + ": "
+                        + ServerLocationDisclosure.relayableText(limit),
+                Map.of(
+                        "provider", providerId().value(),
+                        "group", INGESTION_BUDGET_GROUP,
+                        "exception", limit.getClass().getSimpleName()));
+        return new ProviderReadResult(
+                providerId(),
+                Optional.empty(),
+                request.requestedCategories().stream()
+                        .sorted()
+                        .map(category -> new ReadCategoryReport(
+                                category,
+                                ReadCategoryStatus.FAILED,
+                                0,
+                                List.of(DiagnosticCode.INVALID_SOURCE),
+                                Optional.of("provider ingestion budget exceeded")))
+                        .toList(),
+                List.of(diagnostic));
     }
 
     private Normalization normalize(
