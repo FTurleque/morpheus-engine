@@ -32,131 +32,35 @@ Options écartées :
 
 L'option retenue est un snapshot logique à activation atomique observable, dont le mécanisme interne reste libre.
 
-## Decision
-
-### 1. Snapshot et version métier
-
-Deux concepts distincts :
-
-- `SpecificationVersion` : version logique du contenu de spécification (ADR-0136) ;
-- `KnowledgeSnapshot` : état technique ingéré et normalisé par MORPHEUS pour un projet, dont les métadonnées sont
-  `KnowledgeSnapshotMetadata` (identité, projet, prédécesseur optionnel, état, révision source optionnelle, date de
-  création).
-
-```text
-SpecificationVersion != KnowledgeSnapshot
-KnowledgeSnapshotState != TemporalState
-KnowledgeSnapshotState != ChangeLifecycleState
-```
+### Ce que le mécanisme retenu garantit
 
 Deux snapshots techniques peuvent représenter la même version logique (mise à jour du provider, correction d'un
 mapping, reconstruction du store) : une réindexation technique ne modifie pas nécessairement la spécification métier.
-Une révision de la source (SHA Git, version de document, ETag, horodatage) est conservée comme provenance ; elle n'est
-l'identité ni du snapshot ni de la `SpecificationVersion`.
+Une révision de la source (SHA Git, version de document, ETag, horodatage) sert de provenance. Un snapshot peut
+contenir du contenu `CURRENT`, des éléments `PROPOSED` et des références historiques : sa cohérence signifie que ces
+dimensions sont correctement étiquetées, et une requête `CURRENT` filtre selon le domaine.
 
-Un snapshot peut contenir à la fois du contenu `CURRENT`, des éléments `PROPOSED` et des références historiques : sa
-cohérence signifie que ces dimensions sont correctement étiquetées, et une requête `CURRENT` filtre selon le domaine,
-indépendamment du snapshot technique.
-
-### 2. Snapshot logique
-
-La décision n'impose pas de copie physique complète. Une implémentation peut utiliser MVCC, colonnes de version,
-identifiants de génération, copy-on-write, tables de préparation puis activation, journal et vue matérialisée, ou
-snapshot natif du backend. L'invariant public reste le même : avant publication les consommateurs voient `Vn`, après
-publication ils voient `Vn+1`, jamais un état intermédiaire. Un état publié n'est observable que par un snapshot
-`ACTIVE` complet.
-
-### 3. États techniques
-
-`KnowledgeSnapshotState` compte six états : `BUILDING`, `VALIDATING`, `READY`, `ACTIVE`, `FAILED`, `RETIRED`. Ils
-décrivent le snapshot technique, pas le cycle métier d'un changement.
+Le snapshot logique admet MVCC, colonnes de version, identifiants de génération, copy-on-write, tables de préparation
+puis activation, journal et vue matérialisée, ou snapshot natif du backend. Avant publication les consommateurs voient
+`Vn`, après publication `Vn+1`. En SQLite, l'ancien `ACTIVE` est retiré et le nouveau activé dans la même transaction.
 
 ```text
 BUILDING -> VALIDATING -> READY -> ACTIVE -> RETIRED
                       \-> FAILED
-```
 
-| État | Visibilité |
-|---|---|
-| `BUILDING`, `VALIDATING`, `READY`, `FAILED` | invisibles comme état courant |
-| `ACTIVE` | seul état courant, lu par `activeSnapshot(projectId)` |
-| `RETIRED` | historique |
-
-Un candidat commence en `BUILDING`. `SpecificationKnowledgeStore` expose aussi un listing déterministe des snapshots
-par projet (`listSnapshots`) pour la récupération et les diagnostics.
-
-### 4. Transitions par compare-and-set
-
-`SpecificationKnowledgeStore` reste l'unique port de persistance des métadonnées de snapshot. Ses transitions passent
-par `transitionSnapshotState(snapshotId, expectedState, targetState)`, qui :
-
-- exige l'état source attendu et échoue par `SnapshotConflictException` si le snapshot a changé entre-temps ;
-- ne produit jamais `ACTIVE` ni `RETIRED`.
-
-`SnapshotLifecycleService` orchestre `BUILDING → VALIDATING`, puis `VALIDATING → READY` si le `SnapshotValidator` rend
-un résultat valide et `VALIDATING → FAILED` sinon. Une exception du validateur fait aussi passer le candidat à
-`FAILED`, puis remonte comme `SnapshotValidationException`. Le service ne contient aucune logique propre à un backend.
-
-Avant activation, la validation vérifie au minimum l'unicité des identités, la cohérence des références internes, le
-marquage `UNRESOLVED` des liens vers des cibles absentes, la présence de la version et de la provenance, l'absence de
-mélange non contrôlé entre `CURRENT` et `PROPOSED`, et les règles d'intégrité du store. Un snapshot porteur
-d'avertissements peut être publié ; un snapshot structurellement invalide ne l'est pas.
-
-### 5. Activation atomique, seule propriétaire d'ACTIVE
-
-`activateSnapshot(snapshotId, expectedActiveSnapshotId)` est la seule opération qui produit `ACTIVE` et `RETIRED` :
-
-```text
-Vn   ACTIVE
-Vn+1 READY (predecessor = Vn)
-        | activation atomique
+Vn   ACTIVE                         Vn   ACTIVE
+Vn+1 READY (predecessor = Vn)       Vn+1 BUILDING -> VALIDATING -> FAILED
+        | activation atomique       => Vn reste ACTIVE
 Vn   RETIRED
 Vn+1 ACTIVE
 ```
 
-Le store vérifie ensemble que la cible est `READY`, que son prédécesseur est l'actif attendu et que l'actif courant est
-l'actif attendu. Sinon il lève `SnapshotConflictException` sans modifier l'actif. Un projet a au plus un snapshot
-`ACTIVE`. En SQLite, l'ancien `ACTIVE` est retiré et le nouveau activé dans la même transaction.
+`KnowledgeSnapshotMetadata` porte l'identité, le projet, le prédécesseur optionnel, l'état, la révision source
+optionnelle et la date de création. Un candidat commence en `BUILDING`. Une exception du validateur fait passer le candidat à `FAILED`, puis remonte comme
+`SnapshotValidationException` ; `SnapshotLifecycleService` ne contient aucune logique propre à un backend.
 
-Sous concurrence :
-
-- deux commandes qui ciblent le même prédécesseur ne publient pas deux successeurs : une seule gagne, l'autre échoue
-  explicitement ; un snapshot construit sur un prédécesseur obsolète est détecté, et aucune activation n'écrase
-  silencieusement une version plus récente ;
-- les lecteurs concurrents observent l'ancien ou le nouveau `ACTIVE`, jamais une absence transitoire produite par
-  l'activation.
-
-Un échec avant activation laisse l'ancien actif en place, qui reste l'état de référence :
-
-```text
-Vn   ACTIVE
-Vn+1 BUILDING -> VALIDATING -> FAILED
-=> Vn reste ACTIVE
-```
-
-Un snapshot `RETIRED` n'est jamais réactivé ; l'historique publié est `RETIRED* -> ACTIVE`. La comparaison de
-snapshots, le rollback logique et la rétention relèvent d'ADR-0036.
-
-### 6. Récupération d'un candidat interrompu
-
-Un candidat `BUILDING` ou `VALIDATING` laissé par une interruption peut être récupéré vers `FAILED` uniquement s'il est
-plus ancien qu'un cutoff explicite. Le cutoff par défaut est de dix minutes (`SnapshotRecoveryPolicy`), afin qu'une
-récupération ne tue pas un candidat fraîchement détenu par une autre commande locale. `READY`, `ACTIVE`, `RETIRED` et
-`FAILED` ne sont jamais modifiés par cette récupération.
-
-### 7. Attente bornée sur une base verrouillée
-
-L'attente d'un verrou SQLite est bornée. Le défaut de production est de 5 000 ms ; les tests peuvent utiliser une
-borne plus courte sans changer le contrat de production. Après libération d'un verrou, le même store reprend les
-opérations normales.
-
-### 8. Reconstruction
-
-Le store est une projection reconstructible : vider le store dérivé, réingérer les sources et reconstruire le snapshot
-actif ne perd aucune information dérivable des sources. Toute information créée localement par MORPHEUS et absente de
-la source a une persistance clairement séparée avant que l'écriture soit activée.
-
-### Invariants
+Le cutoff de récupération empêche une commande de tuer un candidat fraîchement détenu par une autre commande locale.
+Les tests peuvent borner l'attente d'un verrou plus court sans changer le contrat de production.
 
 ```text
 failed candidate != ACTIVE
@@ -168,6 +72,29 @@ concurrent readers -> previous ACTIVE or next ACTIVE, never partial
 SQLite locked != indefinite hang
 stale recovery != overwrite of fresh concurrent work
 ```
+
+## Decision
+
+1. `KnowledgeSnapshot` (métadonnées `KnowledgeSnapshotMetadata`) est l'état technique ingéré, distinct de
+   `SpecificationVersion` (ADR-0136) ; `KnowledgeSnapshotState` n'est ni `TemporalState` ni `ChangeLifecycleState`.
+   Une révision de source est une provenance, jamais une identité.
+2. Le snapshot est logique, son mécanisme libre : un état publié n'est observable que par un `ACTIVE` complet.
+3. États : `BUILDING`, `VALIDATING`, `READY`, `ACTIVE`, `FAILED`, `RETIRED`. Seul `ACTIVE` est courant
+   (`activeSnapshot`) ; `listSnapshots` est déterministe.
+4. `SpecificationKnowledgeStore` est l'unique port. `transitionSnapshotState(id, expected, target)` est un
+   compare-and-set (`SnapshotConflictException`) qui ne produit ni `ACTIVE` ni `RETIRED`. Un candidat invalide, ou
+   dont le `SnapshotValidator` échoue, passe à `FAILED` et n'est jamais publié ; un avertissement ne l'empêche pas. La
+   validation porte au moins sur identités, références (`UNRESOLVED`), version, provenance, mélange
+   `CURRENT`/`PROPOSED` et règles d'intégrité du store.
+5. `activateSnapshot(id, expectedActive)` seul produit `ACTIVE` et `RETIRED`, atomiquement : cible `READY`, prédécesseur
+   et actif courant égaux à l'attendu, sinon `SnapshotConflictException` sans effet. Au plus un `ACTIVE` par projet, un
+   seul successeur gagnant, des lecteurs qui voient l'ancien ou le nouvel `ACTIVE`. Un `RETIRED` n'est jamais
+   réactivé ; un échec avant activation laisse l'actif en place. Comparaison, rollback, rétention : ADR-0036.
+6. Un `BUILDING` ou `VALIDATING` interrompu passe à `FAILED` seulement au-delà d'un cutoff explicite (dix minutes par
+   défaut, `SnapshotRecoveryPolicy`) ; aucun autre état n'est touché.
+7. L'attente d'un verrou SQLite est bornée (5 000 ms en production) ; le verrou libéré, le même store reprend.
+8. Le store est reconstructible depuis les sources ; une donnée locale absente de la source a sa persistance séparée
+   avant que son écriture soit activée.
 
 ## Do's and Don'ts
 

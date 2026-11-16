@@ -39,20 +39,7 @@ Options écartées :
 - **Paquets Linux `deb` ou `rpm`** : ils ajouteraient des prérequis de packaging propres aux distributions sans
   changer le moteur.
 
-## Decision
-
-### 1. Native seulement
-
-La distribution de MORPHEUS est **native seulement** : une archive portable autonome par plateforme, avec runtime
-Java embarqué, un installeur Windows, et un launcher natif unique qui route la CLI, le serveur MCP et l'API
-(ADR-0127).
-
-MORPHEUS ne publie aucune image Docker et ne requiert Docker pour aucun usage : ni la CLI, ni le serveur MCP, ni
-l'API, ni l'intégration des clients MCP, ni le build local de développement. `docker compose` n'est pas une
-dépendance de MORPHEUS ; aucune composition multi-service n'est fournie.
-
-Le même cœur (`domain`, `application`, stores, providers) sert tous les modes d'exécution, et aucune logique métier ne
-dépend du packaging. Les données persistantes et la configuration sont séparées de l'installation, selon ADR-0088.
+Principes que la distribution tient :
 
 ```text
 native CLI != Docker required
@@ -63,52 +50,32 @@ no cloud dependency
 MORPHEUS remains standalone
 ```
 
-### 2. JAR autonome
+Le JAR ombré fusionne les fichiers `META-INF/services` pour préserver la découverte JDBC de SQLite. Le runtime embarqué
+est produit par `jlink` à partir des options que passent `distribution/build-portable.ps1` et
+`distribution/build-portable.sh`. L'archive portable est la distribution de référence parce qu'elle ne dépend d'aucun
+outil d'installation présent chez l'utilisateur. L'installeur part de l'app-image pour hériter du même runtime.
 
-`morpheus-cli` produit un JAR ombré `morpheus-cli-<version>-all.jar` par Apache Maven Shade Plugin (classifier
-`all`). Les fichiers `META-INF/services` sont fusionnés (`ServicesResourceTransformer`) afin de préserver notamment
-la découverte JDBC de SQLite. La classe principale est `com.morpheus.cli.MorpheusMain`. Les plugins Maven sont
-versionnés dans le `<pluginManagement>` du POM racine.
+## Decision
 
-### 3. App-image portable
-
-L'artefact principal est une app-image `jpackage --type app-image` contenant :
-
-```text
-launcher natif
-JAR applicatif
-runtime Java embarqué, avec son propre bin/java
-```
-
-Le runtime est produit par `jlink` à partir des options que passent `distribution/build-portable.ps1` et
-`distribution/build-portable.sh`. Il garde `bin/java` ; les options `jlink` qui le garantissent et la vérification de
-sa présence sont fixées par ADR-0129.
-
-Chaque build exécute le launcher packagé avec `--version` et `--json version` avant archivage.
-
-### 4. Archives
-
-```text
-Windows x64 -> morpheus-<version>-windows-x64.zip
-Linux x64   -> morpheus-<version>-linux-x64.tar.gz
-```
-
-L'archive portable est la distribution de référence : elle ne dépend d'aucun outil d'installation présent chez
-l'utilisateur et ne requiert aucun JDK séparé. La cible Linux est le `tar.gz` autonome ; aucun paquet `deb` ou `rpm`
-n'est construit.
-
-### 5. Installeur Windows
-
-L'installeur Windows est construit avec Inno Setup par `distribution/build-installer.ps1`, à partir de la même
-app-image : il hérite du même runtime, sans invocation `jlink` propre. Le compilateur Inno Setup est résolu et vérifié
-par `distribution/ensure-inno-setup.ps1`. Cet outil est une dépendance du **build de l'installeur**, jamais de
-l'exécution par l'utilisateur final. Le comportement d'installation, de mise à jour et de désinstallation relève
-d'ADR-0088.
-
-### 6. Fins de ligne
-
-`.gitattributes` fige les fins de ligne des scripts multi-plateformes : `mvnw` et `*.sh` en LF, `mvnw.cmd` et `*.ps1`
-en CRLF.
+1. **Native seulement** : une archive portable autonome par plateforme, runtime Java embarqué, un installeur Windows,
+   et un launcher natif unique qui route la CLI, le serveur MCP et l'API (ADR-0127). Aucune image Docker n'est
+   publiée et Docker n'est requis pour aucun usage (CLI, serveur MCP, API, intégration des clients MCP, build local) ;
+   aucune composition multi-service n'est fournie.
+2. Le même cœur (`domain`, `application`, stores, providers) sert tous les modes ; aucune logique métier ne dépend du
+   packaging. Données persistantes et configuration sont séparées de l'installation (ADR-0088).
+3. `morpheus-cli` produit le JAR ombré `morpheus-cli-<version>-all.jar` (Maven Shade, classifier `all`,
+   `ServicesResourceTransformer`), de classe principale `com.morpheus.cli.MorpheusMain`. Les plugins Maven sont
+   versionnés dans le `<pluginManagement>` du POM racine.
+4. L'artefact principal est une app-image `jpackage --type app-image` : launcher natif, JAR, runtime `jlink` qui garde
+   `bin/java` (ADR-0129). Chaque build exécute le launcher packagé avec `--version` et `--json version` avant
+   archivage.
+5. Archives : `morpheus-<version>-windows-x64.zip` et `morpheus-<version>-linux-x64.tar.gz`, sans JDK séparé. Aucun
+   paquet `deb` ou `rpm` n'est construit.
+6. L'installeur Windows est construit avec Inno Setup par `distribution/build-installer.ps1` à partir de la même
+   app-image, sans `jlink` propre ; le compilateur est résolu par `distribution/ensure-inno-setup.ps1`. Inno Setup est
+   une dépendance du build de l'installeur, jamais de l'exécution. L'installation, la mise à jour et la
+   désinstallation relèvent d'ADR-0088.
+7. `.gitattributes` fige `mvnw` et `*.sh` en LF, `mvnw.cmd` et `*.ps1` en CRLF.
 
 ## Do's and Don'ts
 
