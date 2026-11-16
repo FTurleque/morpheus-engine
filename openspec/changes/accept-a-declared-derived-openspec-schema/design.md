@@ -89,7 +89,7 @@ Sans objet : lecture seule, sans état.
 de remontée), borné par `maxDocumentBytes` du budget, et seule la valeur scalaire de `derives` est extraite, par la même
 analyse ligne à ligne que `schema:` — aucun parseur YAML général n'entre dans le provider. Le nom de schéma lu dans
 `config.yaml` est validé comme un segment de chemin unique avant de construire `openspec/schemas/<schema>/` : lettres,
-chiffres, `.`, `_` et `-`, premier caractère alphanumérique, sans `..`. Un nom contenant `/`, `\`, `:` ou `..` est
+chiffres, `.`, `_` et `-`, premier caractère alphanumérique, dernier caractère autre que `.`, sans `..`. Un nom contenant `/`, `\`, `:` ou `..` est
 refusé (`UNSUPPORTED`, `reason = invalid-schema-name`), avant toute lecture.
 
 ## Gestion des erreurs et reprise

@@ -66,7 +66,9 @@ plusieurs fois.
 - `[EXISTANT VÉRIFIÉ]` La borne d'évidence de `DEFAULT` vaut 4 Mio, commune aux trois providers. Son commentaire écrit
   la mesure qui la fonde, sa date et la marge déclarée : **la moitié de la borne**. Un corpus qui cite plus de la moitié
   de la borne sort de ce qui a été qualifié ; au-delà de la borne, la lecture est refusée comme pour toute grandeur
-  cumulative. La lecture d'évidence d'un fichier entier reste bornée par la borne par document.
+  cumulative. La lecture d'évidence d'un fichier entier reste bornée par la borne par document : un fichier d'évidence
+  du Markdown structuré ou du provider synthétique est lu jusqu'au plus petit de `maxDocumentBytes` et de la borne
+  d'évidence, soit 1 Mio avec `DEFAULT`.
 - `[EXISTANT VÉRIFIÉ]` Mesure du 2026-11-16 (`OpenSpecEvidenceMeasurement`, outil de test ; arbres de travail lus en
   lecture seule, borne hors d'atteinte pour lire chaque corpus en entier) :
 

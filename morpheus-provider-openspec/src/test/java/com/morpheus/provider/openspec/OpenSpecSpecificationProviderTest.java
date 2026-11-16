@@ -213,7 +213,7 @@ class OpenSpecSpecificationProviderTest {
         copyFixture(RepositoryRoot.fixture("openspec-basic"), workspace);
         writeSchemaDefinition(workspace, "detailed-uml", "derives: spec-driven\n");
         Files.writeString(workspace.resolve("openspec/schema.yaml"), "derives: spec-driven\n");
-        for (String name : List.of("../schemas/detailed-uml", "detailed-uml/..", "..", ".", "a\\b", "C:x")) {
+        for (String name : List.of("../schemas/detailed-uml", "detailed-uml/..", "..", ".", "a\\b", "C:x", "detailed-uml.")) {
             declareSchema(workspace, name);
 
             var result = provider.probe(workspace);

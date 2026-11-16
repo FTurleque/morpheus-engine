@@ -54,7 +54,7 @@ les variantes d'encodage courantes sont acceptées, et les sections Markdown se 
 ### Schéma de projet dérivé (R5)
 
 - `[EXISTANT VÉRIFIÉ]` Pour un schéma autre que `spec-driven`, la sonde valide d'abord son nom comme un segment de
-  chemin unique (lettres, chiffres, `.`, `_`, `-`, premier caractère alphanumérique, sans `..`), puis lit
+  chemin unique (lettres, chiffres, `.`, `_`, `-`, premier caractère alphanumérique, dernier caractère autre que `.`, sans `..`), puis lit
   `openspec/schemas/<schema>/schema.yaml` par `SafeWorkspaceFileResolver` ou la session du budget, et n'en extrait que
   la valeur scalaire de `derives`, par la même analyse ligne à ligne que `schema:` (`DERIVES_PATTERN`).
 - `[EXISTANT VÉRIFIÉ]` `derives: spec-driven` rend `SUPPORTED`, le schéma sous son nom déclaré et les capacités que

@@ -5,6 +5,7 @@ import com.morpheus.application.files.SafeWorkspaceFileResolver;
 import com.morpheus.application.read.ProviderIngestionBudget;
 import com.morpheus.domain.diagnostic.Diagnostic;
 import com.morpheus.domain.diagnostic.DiagnosticCode;
+import com.morpheus.domain.diagnostic.DiagnosticSeverity;
 import com.morpheus.domain.provider.ProviderCapability;
 import com.morpheus.domain.provider.ProviderCapabilitySet;
 import com.morpheus.domain.provider.ProviderId;
@@ -39,7 +40,7 @@ public final class OpenSpecSpecificationProvider implements SpecificationProvide
     private static final Pattern SCHEMA_PATTERN = scalarDeclaration("schema");
     private static final Pattern DERIVES_PATTERN = scalarDeclaration("derives");
     /** A schema name is one path segment: it names the directory of its definition under {@code openspec/schemas}. */
-    private static final Pattern SCHEMA_NAME = Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]*");
+    private static final Pattern SCHEMA_NAME = Pattern.compile("[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9_-])?");
     private static final SourceLocator CONFIG_LOCATOR = SourceLocator.file("openspec/config.yaml");
 
     @Override
@@ -172,7 +173,7 @@ public final class OpenSpecSpecificationProvider implements SpecificationProvide
     private ProviderProbeResult invalidDefinition(String schema, String relativeDefinition) {
         Diagnostic diagnostic = new Diagnostic(
                 DiagnosticCode.INVALID_SOURCE,
-                com.morpheus.domain.diagnostic.DiagnosticSeverity.ERROR,
+                DiagnosticSeverity.ERROR,
                 "OpenSpec schema definition is not a readable regular file.",
                 Map.of("provider", ID.value(), "schema", schema),
                 Optional.of(relativeDefinition));
@@ -232,7 +233,7 @@ public final class OpenSpecSpecificationProvider implements SpecificationProvide
     private ProviderProbeResult invalid(Path source, String message) {
         Diagnostic diagnostic = new Diagnostic(
                 DiagnosticCode.INVALID_SOURCE,
-                com.morpheus.domain.diagnostic.DiagnosticSeverity.ERROR,
+                DiagnosticSeverity.ERROR,
                 message,
                 Map.of("provider", ID.value()),
                 Optional.of(source.toString()));
