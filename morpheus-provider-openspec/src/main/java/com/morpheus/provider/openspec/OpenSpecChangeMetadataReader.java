@@ -5,6 +5,7 @@ import com.morpheus.application.foundation.TextDigest;
 import com.morpheus.application.identity.EntityIdentityResolver;
 import com.morpheus.application.read.NormalizedProjectContent;
 import com.morpheus.application.read.ProviderIngestionBudget;
+import com.morpheus.application.read.ProviderIngestionLimitException;
 import com.morpheus.application.read.ProviderProjectRoot;
 import com.morpheus.domain.change.ChangeId;
 import com.morpheus.domain.change.ChangeProposal;
@@ -151,6 +152,8 @@ public final class OpenSpecChangeMetadataReader {
                 OpenSpecSourceAttribution.attribute(root, changeRoot.resolve("proposal.md"), () -> normalizeChange(
                         root, changeRoot, projectId, identityResolver,
                         changeProposals, changeConstraints, changeDecisions, changeTasks, changeEvidence, budget));
+            } catch (ProviderIngestionLimitException limit) {
+                throw limit;
             } catch (IllegalArgumentException | IllegalStateException | UncheckedIOException failure) {
                 if (!(failure instanceof OpenSpecSourceAttribution.AttributedFailure)) {
                     throw failure;

@@ -137,6 +137,10 @@ Options écartées :
   racine attendue.
 - Rattacher un échec de lecture au fichier qui l'a causé, à l'endroit où le lecteur le normalise, et garder le type de
   l'exception.
+- Attraper un refus de budget (`ProviderIngestionLimitException`) par une clause qui lui est propre, placée avant toute
+  clause d'`IllegalArgumentException` ou d'un de ses supertypes autour d'un appel qui peut l'atteindre. Un lecteur de
+  contenu le rend en échec de toutes les catégories demandées, avec un diagnostic `INVALID_SOURCE` de groupe
+  `ingestion-budget` et sans `source`.
 - Écrire le chemin d'un refus par `WorkspaceRelativePathText`, et passer ce texte (jamais un locator) aux méthodes de
   `ProviderIngestionBudget.Session`.
 - Citer les preuves d'un fichier par `addEvidenceLines(lines, first, last)` dans la méthode qui vient de lire ce fichier.
@@ -152,6 +156,9 @@ Options écartées :
   ailleurs que par le point unique.
 - Ne jamais faire sortir de `read()` une exception pour un contenu lu : un contenu invalide est un `FAILED` attribué.
 - Ne jamais attribuer à un fichier un défaut, un échec de collaborateur ou un dépassement de budget.
+- Ne jamais laisser une clause d'`IllegalArgumentException`, de `RuntimeException`, d'`Exception` ou de `Throwable`
+  recevoir un refus de budget : `ProviderIngestionLimitException` hérite d'`IllegalArgumentException`, et la clause
+  large le rendrait comme une source mal formée.
 - Ne jamais écrire le texte d'un refus à partir d'un locator (`SourceLocator.file(...).value()`, `.toString()`), ni
   par substitution de séparateur (`replace('\\', '/')`).
 - Ne jamais modifier la normalisation de `SourceLocator` sans migrer les locators persistés.
@@ -229,6 +236,11 @@ Options écartées :
 - `morpheus-provider-openspec/src/test/java/com/morpheus/provider/openspec/OpenSpecSpecificationContentReaderTest.java` :
   un échec attribué à un fichier fait échouer son groupe et nomme le fichier ; un échec qui n'est pas celui d'un
   fichier quitte la lecture inchangé (`aFailureThatIsNotTheFilesLeavesTheReadUnchangedAndFailsNoCategory`).
+- `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/ProviderIngestionLimitCatchArchitectureTest.java` :
+  dans les providers, un `try` qui peut atteindre la construction d'une `ProviderIngestionLimitException` et attrape
+  `IllegalArgumentException` ou un supertype l'attrape aussi par une clause propre ; règle sur le bytecode, prouvée par
+  des fixtures dans les deux sens. Les tests des lecteurs de contenu Markdown, synthétique et OpenSpec tiennent le
+  résultat `ingestion-budget`.
 - `morpheus-architecture-tests/src/test/java/com/morpheus/architecture/RefusalPathTextArchitectureTest.java` : une
   classe qui écrit un refus par `WorkspaceRelativePathText` ne l'écrit par aucune voie de locator ou de substitution ;
   aucun appel du budget ne reçoit un locator ; `OpenSpecSourceAttribution` ne dépend pas de `SourceLocator`.

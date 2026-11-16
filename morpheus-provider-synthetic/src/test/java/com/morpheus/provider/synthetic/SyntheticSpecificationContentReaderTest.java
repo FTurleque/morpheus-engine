@@ -11,6 +11,7 @@ import com.morpheus.domain.change.lifecycle.ChangeLifecycleState;
 import com.morpheus.domain.constraint.ConstraintBlockingMode;
 import com.morpheus.domain.constraint.ConstraintSatisfaction;
 import com.morpheus.domain.constraint.ConstraintSeverity;
+import com.morpheus.domain.diagnostic.DiagnosticCode;
 import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import org.junit.jupiter.api.Test;
@@ -22,6 +23,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -97,6 +99,68 @@ class SyntheticSpecificationContentReaderTest {
 
         assertTrue(result.content().isEmpty());
         assertFalse(result.diagnostics().isEmpty());
+    }
+
+    /**
+     * A budget refusal is a refusal of the whole read, not a malformed source: it fails every category under the
+     * {@code ingestion-budget} group, keeps the refusal text, and names no file, since the budget is not one file's.
+     */
+    @Test
+    void aBudgetRefusalFailsEveryCategoryUnderTheIngestionBudgetGroupWithoutAttribution() throws Exception {
+        Path workspace = Files.createDirectory(temp.resolve("budget-refusal"));
+        Files.copy(
+                RepositoryRoot.fixture("synthetic-basic").resolve(SyntheticSpecificationProvider.SOURCE_FILE),
+                workspace.resolve(SyntheticSpecificationProvider.SOURCE_FILE));
+        Files.createDirectories(workspace.resolve("reviews"));
+        Files.createDirectories(workspace.resolve("tests"));
+        Files.writeString(
+                workspace.resolve("reviews/security-review.txt"),
+                "x".repeat(Math.toIntExact(oneEvidenceFileBound() + 1)));
+        Files.writeString(workspace.resolve("reviews/documentation.txt"), "documented");
+        Files.writeString(workspace.resolve("tests/billing-retention.txt"), "verified");
+
+        var result = reader.read(
+                ProviderReadRequest.all(workspace, ProjectSpecificationId.generate()),
+                new InMemoryResolver());
+
+        assertTrue(result.content().isEmpty());
+        assertEquals(1, result.diagnostics().size());
+        var refusal = result.diagnostics().getFirst();
+        assertEquals(DiagnosticCode.INVALID_SOURCE, refusal.code());
+        assertEquals("ingestion-budget", refusal.details().get("group"));
+        assertEquals("ProviderIngestionLimitException", refusal.details().get("exception"));
+        assertTrue(refusal.source().isEmpty(), refusal.toString());
+        assertTrue(refusal.message().startsWith(
+                        "Synthetic content reader failed for group ingestion-budget: provider ingestion ")
+                        && refusal.message().contains("reviews/security-review.txt"),
+                refusal.message());
+        assertEquals(EnumSet.allOf(ReadCategory.class), EnumSet.copyOf(result.categoryReports().stream()
+                .map(report -> report.category())
+                .toList()));
+        result.categoryReports().forEach(report -> {
+            assertEquals(ReadCategoryStatus.FAILED, report.status(), report.toString());
+            assertEquals(Optional.of("provider ingestion budget exceeded"), report.detail(), report.toString());
+        });
+    }
+
+    /** A malformed source, unlike a budget refusal, fails every category as an invalid source with its cause. */
+    @Test
+    void aMalformedSourceFailsEveryCategoryAsAnInvalidSourceOutsideTheBudgetGroup() throws Exception {
+        Path workspace = Files.createDirectory(temp.resolve("malformed"));
+        Files.writeString(workspace.resolve(SyntheticSpecificationProvider.SOURCE_FILE), "{\"format_version\":1}");
+
+        var result = reader.read(
+                ProviderReadRequest.all(workspace, ProjectSpecificationId.generate()),
+                new InMemoryResolver());
+
+        assertTrue(result.content().isEmpty());
+        assertEquals(1, result.diagnostics().size());
+        var refusal = result.diagnostics().getFirst();
+        assertEquals(DiagnosticCode.INVALID_SOURCE, refusal.code());
+        assertEquals("Synthetic source read failed: current must be an object", refusal.message());
+        assertFalse(refusal.details().containsKey("group"), refusal.toString());
+        result.categoryReports().forEach(report ->
+                assertEquals(ReadCategoryStatus.FAILED, report.status(), report.toString()));
     }
 
     @Test
@@ -287,5 +351,11 @@ class SyntheticSpecificationContentReaderTest {
             String key = providerId + "|" + entityType + "|" + externalId;
             return identities.computeIfAbsent(key, ignored -> DomainIdentity.generate());
         }
+    }
+
+    /** One evidence file is bounded by the smaller of the document and evidence bounds. */
+    private static long oneEvidenceFileBound() {
+        return Math.min(
+                ProviderIngestionBudget.DEFAULT.maxDocumentBytes(), ProviderIngestionBudget.DEFAULT.maxEvidenceBytes());
     }
 }

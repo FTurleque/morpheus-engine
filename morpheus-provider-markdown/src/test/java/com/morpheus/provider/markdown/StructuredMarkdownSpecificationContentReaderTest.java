@@ -1,7 +1,13 @@
 package com.morpheus.provider.markdown;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
+import com.morpheus.application.read.ProviderIngestionBudget;
 import com.morpheus.application.read.ProviderReadRequest;
+import com.morpheus.application.read.ReadCategory;
+import com.morpheus.application.read.ReadCategoryReport;
+import com.morpheus.application.read.ReadCategoryStatus;
+import com.morpheus.domain.diagnostic.Diagnostic;
+import com.morpheus.domain.diagnostic.DiagnosticCode;
 import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.project.ProjectSpecificationId;
 import com.morpheus.domain.provider.ProviderCapability;
@@ -12,6 +18,9 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -241,9 +250,66 @@ class StructuredMarkdownSpecificationContentReaderTest {
                 .read(ProviderReadRequest.all(workspace, ProjectSpecificationId.generate()), identities);
 
         assertTrue(result.content().isEmpty());
-        assertEquals("Structured Markdown normalization failed: provider ingestion line count for the whole read "
-                        + "exceeds the budget: 100001 > 100000, reached while reading morpheus/specification.md",
+        assertEquals("Structured Markdown content reader failed for group ingestion-budget: provider ingestion line "
+                        + "count for the whole read exceeds the budget: 100001 > 100000, reached while reading "
+                        + "morpheus/specification.md",
                 result.diagnostics().getFirst().message());
+    }
+
+    /**
+     * A budget refusal is a refusal of the whole read, not a malformed source: it fails every category under the
+     * {@code ingestion-budget} group, keeps the refusal text, and names no file, since the budget is not one file's.
+     */
+    @Test
+    void aBudgetRefusalFailsEveryCategoryUnderTheIngestionBudgetGroupWithoutAttribution() throws Exception {
+        Path source = workspace.resolve(StructuredMarkdownSpecificationProvider.SOURCE_FILE);
+        Files.createDirectories(source.getParent());
+        Files.writeString(
+                workspace.resolve("verification.txt"), "x".repeat(Math.toIntExact(oneEvidenceFileBound() + 1)));
+        Files.writeString(source, """
+                ```morpheus specification
+                key=core
+                title=Core
+                ```
+                ```morpheus requirement
+                key=REQ-001
+                specification=core
+                title=Retain evidence
+                statement=The system retains source evidence.
+                ```
+                ```morpheus acceptance
+                key=AC-001
+                owner_type=requirement
+                owner_key=REQ-001
+                title=Evidence lookup succeeds
+                condition=Evidence is returned with its source.
+                verification_evidence=verification.txt
+                ```
+                """);
+
+        EntityIdentityResolver identities = (providerId, entityType, externalId) -> DomainIdentity.generate();
+        var result = new StructuredMarkdownSpecificationContentReader()
+                .read(ProviderReadRequest.all(workspace, ProjectSpecificationId.generate()), identities);
+
+        assertTrue(result.content().isEmpty());
+        assertEquals(1, result.diagnostics().size());
+        Diagnostic refusal = result.diagnostics().getFirst();
+        assertEquals(DiagnosticCode.INVALID_SOURCE, refusal.code());
+        assertEquals("ingestion-budget", refusal.details().get("group"));
+        assertEquals("ProviderIngestionLimitException", refusal.details().get("exception"));
+        assertTrue(refusal.source().isEmpty(), refusal.toString());
+        assertTrue(refusal.message().startsWith(
+                        "Structured Markdown content reader failed for group ingestion-budget: provider ingestion ")
+                        && refusal.message().contains("verification.txt"),
+                refusal.message());
+        assertEquals(EnumSet.allOf(ReadCategory.class), EnumSet.copyOf(result.categoryReports().stream()
+                .map(ReadCategoryReport::category)
+                .toList()));
+        result.categoryReports().forEach(report -> {
+            assertEquals(ReadCategoryStatus.FAILED, report.status(), report.toString());
+            assertEquals(List.of(DiagnosticCode.INVALID_SOURCE), report.diagnosticCodes(), report.toString());
+            assertEquals(Optional.of("provider ingestion budget exceeded"), report.detail(), report.toString());
+        });
     }
 
     private boolean createSymlink(Path link, Path target) {
@@ -253,5 +319,11 @@ class StructuredMarkdownSpecificationContentReaderTest {
         } catch (UnsupportedOperationException | java.io.IOException | SecurityException unsupported) {
             return false;
         }
+    }
+
+    /** One evidence file is bounded by the smaller of the document and evidence bounds. */
+    private static long oneEvidenceFileBound() {
+        return Math.min(
+                ProviderIngestionBudget.DEFAULT.maxDocumentBytes(), ProviderIngestionBudget.DEFAULT.maxEvidenceBytes());
     }
 }
