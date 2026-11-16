@@ -1,8 +1,8 @@
 # Lecture des espaces OpenSpec par le provider (`openspec-provider-reading`)
 
 Spec de référence : [`openspec/specs/openspec-provider-reading/spec.md`](../../../openspec/specs/openspec-provider-reading/spec.md)
-· Relevé du 2026-11-04 sur `2913fc30` ; R5 relevée le 2026-11-16 (changement
-`accept-a-declared-derived-openspec-schema`).
+· Relevé du 2026-11-04 sur `2913fc30` ; R5 relevée le 2026-11-16 (archive
+`2026-11-16-accept-a-declared-derived-openspec-schema`).
 
 ## Objet et périmètre
 
@@ -161,7 +161,7 @@ stateDiagram-v2
 | R3 | A BOM before a specification title | organigramme | idem | `OpenSpecSpecificationContentReaderTest#aByteOrderMarkBeforeASpecificationTitleIsAccepted` |
 | R4 | A requirement example inside a code fence | organigramme | idem | [`OpenSpecCurrentSpecificationReaderTest`](../../../morpheus-provider-openspec/src/test/java/com/morpheus/provider/openspec/OpenSpecCurrentSpecificationReaderTest.java)`#aRequirementHeadingInsideACodeFenceIsNotARequirement` ; deltas : [`OpenSpecRequirementDeltaReaderTest`](../../../morpheus-provider-openspec/src/test/java/com/morpheus/provider/openspec/OpenSpecRequirementDeltaReaderTest.java)`#aLevelTwoLineInsideACodeFenceNeitherEndsTheSectionNorWarns` |
 | R4 | Notes after the last requirement | organigramme | idem | `OpenSpecCurrentSpecificationReaderTest#aLevelTwoSectionAfterTheLastRequirementIsNotPartOfIt` |
-| R5 | A derived schema that declares its parent | organigramme | `accept-a-declared-derived-openspec-schema` | `OpenSpecSpecificationProviderTest#aSchemaThatDeclaresItDerivesFromSpecDrivenIsReadAsSpecDriven` |
+| R5 | A derived schema that declares its parent | organigramme | archive `2026-11-16-accept-a-declared-derived-openspec-schema` | `OpenSpecSpecificationProviderTest#aSchemaThatDeclaresItDerivesFromSpecDrivenIsReadAsSpecDriven` |
 | R5 | A schema that declares no parent | organigramme | idem | `OpenSpecSpecificationProviderTest#aSchemaThatDeclaresNoParentStaysUnsupported` |
 | R5 | A declared schema whose directory is missing | organigramme | idem | `OpenSpecSpecificationProviderTest#aDeclaredSchemaWithoutItsDefinitionStaysUnsupported` ; `#rejectsUnknownOpenSpecSchemaExplicitly` |
 | R5 | A schema that derives from an unknown parent | organigramme | idem | `OpenSpecSpecificationProviderTest#aSchemaThatDerivesFromAnUnknownParentStaysUnsupported` ; `#aSchemaThatDerivesFromADerivedSchemaStaysUnsupported` |

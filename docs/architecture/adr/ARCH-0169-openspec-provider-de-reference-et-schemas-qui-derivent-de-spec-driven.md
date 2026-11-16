@@ -152,7 +152,7 @@ schéma dérivé, et toute déclaration de dérivation hors de la définition du
 - [ADR-0136](ARCH-0136-etat-temporel-et-occurrences-versionnees.md) — état courant et état proposé.
 - [ADR-0028](BE-0028-unified-provider-read-contract.md) — contrat de lecture provider unifié.
 - [ADR-0083](BE-0083-controlled-lifecycle-write-operations.md) — écritures lifecycle contrôlées.
-- Changement OpenSpec `accept-a-declared-derived-openspec-schema` ; spécification
+- Changement OpenSpec archivé `openspec/changes/archive/2026-11-16-accept-a-declared-derived-openspec-schema/` ; spécification
   [`openspec-provider-reading`](../../developer/specifications/openspec-provider-reading.md).
 - [VALIDATION_M0](../../project/validation/VALIDATION_M0.md) ;
   [étude du provider OpenSpec](../../project/research/openspec-provider-study.md).

@@ -131,9 +131,6 @@ d'imbrication des citations.
 
 ## Écarts et questions ouvertes
 
-- Le corpus `openspec/` de ce dépôt (scénario « The specification corpus of this repository ») n'est lu par aucun test
-  tant que la sonde refuse son schéma déclaré, `detailed-uml` ; le changement `accept-a-declared-derived-openspec-schema`
-  le permet.
 - Les autres bornes de `DEFAULT` (fichiers, agrégat, lignes, blocs, entités) n'ont pas été qualifiées sur ces corpus ;
   elles y tiennent.
 
@@ -145,9 +142,9 @@ d'imbrication des citations.
 | R1 | One document larger than the per-document budget | organigramme | idem | [`ProviderIngestionBudgetPrecisionTest`](../../../morpheus-application/src/test/java/com/morpheus/application/read/ProviderIngestionBudgetPrecisionTest.java)`#aDocumentReadIsNeverAttributedToTheEvidenceBudget`, `#aWholeDocumentIsCheckedForItsEncodedBytesAndItsLines` |
 | R1 | A bounded read that stops before the total is known | organigramme | idem | `ProviderIngestionBudgetPrecisionTest#aBoundedReadThatStopsEarlySaysMoreThanTheMaximum` |
 | R1 | (les six grandeurs cumulatives) | organigramme | idem | [`ProviderIngestionBudgetTest`](../../../morpheus-application/src/test/java/com/morpheus/application/read/ProviderIngestionBudgetTest.java)`#everyCumulativeQuantityIsRefusedForTheWholeRead` |
-| R2 | The qualification corpus larger than the largest measured project | organigramme du comptage | `qualify-the-evidence-budget-on-real-corpora` | [`OpenSpecEvidenceBudgetQualificationTest`](../../../morpheus-provider-openspec/src/test/java/com/morpheus/provider/openspec/OpenSpecEvidenceBudgetQualificationTest.java)`#aCorpusLargerThanTheLargestMeasuredProjectIsRead` ; `ProviderIngestionBudgetTest#aLineCitedSeveralTimesFromTheSameDocumentIsCountedOnce` |
+| R2 | The qualification corpus larger than the largest measured project | organigramme du comptage | archive `2026-11-16-qualify-the-evidence-budget-on-real-corpora` | [`OpenSpecEvidenceBudgetQualificationTest`](../../../morpheus-provider-openspec/src/test/java/com/morpheus/provider/openspec/OpenSpecEvidenceBudgetQualificationTest.java)`#aCorpusLargerThanTheLargestMeasuredProjectIsRead` ; `ProviderIngestionBudgetTest#aLineCitedSeveralTimesFromTheSameDocumentIsCountedOnce` |
 | R2 | A corpus beyond the limit | organigramme du comptage | idem | `OpenSpecEvidenceBudgetQualificationTest#aCorpusBeyondTheLimitIsRefusedAndPublishesNothing` |
-| R2 | The specification corpus of this repository | — | idem | à écrire après `accept-a-declared-derived-openspec-schema` |
+| R2 | The specification corpus of this repository | — | idem | [`RepositorySpecificationCorpusFitsTheDefaultBudgetTest`](../../../morpheus-architecture-tests/src/test/java/com/morpheus/architecture/RepositorySpecificationCorpusFitsTheDefaultBudgetTest.java)`#theOpenSpecCorpusOfThisRepositoryIsProbedAndReadWithinTheDefaultBudget` |
 
 ## Sources
 
