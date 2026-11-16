@@ -168,6 +168,7 @@ class OpenSpecSpecificationProviderTest {
         var result = provider.probe(workspace);
 
         assertRefused(result, "detailed-uml", "no-declared-parent");
+        assertEquals("must declare 'derives: spec-driven'.", remedy(result));
         assertFalse(result.diagnostics().getFirst().details().containsKey("declaredParent"));
         assertNothingIsRead(workspace);
     }
@@ -183,6 +184,8 @@ class OpenSpecSpecificationProviderTest {
 
         assertRefused(withoutDirectory, "detailed-uml", "schema-definition-missing");
         assertRefused(withoutFile, "detailed-uml", "schema-definition-missing");
+        assertEquals("must exist and declare 'derives: spec-driven'.", remedy(withoutDirectory));
+        assertEquals("must exist and declare 'derives: spec-driven'.", remedy(withoutFile));
         assertNothingIsRead(workspace);
     }
 
@@ -196,6 +199,9 @@ class OpenSpecSpecificationProviderTest {
 
         assertRefused(result, "detailed-uml", "unsupported-parent");
         assertEquals("another-schema", result.diagnostics().getFirst().details().get("declaredParent"));
+        assertEquals("declares another parent; only 'derives: spec-driven' is read.", remedy(result));
+        assertFalse(result.diagnostics().getFirst().message().contains("another-schema"),
+                "a declared parent is free text read from a file: it stays in the details");
         assertNothingIsRead(workspace);
     }
 
@@ -308,6 +314,20 @@ class OpenSpecSpecificationProviderTest {
         assertEquals(schema, diagnostic.details().get("schema"), reason);
         assertEquals("spec-driven", diagnostic.details().get("supportedSchema"), reason);
         assertEquals(reason, diagnostic.details().get("reason"), reason);
+        assertTrue(diagnostic.message().contains("'derives: spec-driven'"), diagnostic.message());
+        if (reason.equals("invalid-schema-name")) {
+            assertEquals("The declared OpenSpec schema is not supported: its name is not a schema name; "
+                    + "openspec/schemas/<schema>/schema.yaml must exist and declare 'derives: spec-driven'.",
+                    diagnostic.message(), schema);
+        } else {
+            assertTrue(diagnostic.message().startsWith("OpenSpec schema '" + schema + "' is not supported: "
+                    + "openspec/schemas/" + schema + "/schema.yaml "), diagnostic.message());
+        }
+    }
+
+    private static String remedy(ProviderProbeResult result) {
+        String message = result.diagnostics().getFirst().message();
+        return message.substring(message.indexOf("schema.yaml ") + "schema.yaml ".length());
     }
 
     private static void assertInvalidDefinition(ProviderProbeResult result, String relativeSource) {

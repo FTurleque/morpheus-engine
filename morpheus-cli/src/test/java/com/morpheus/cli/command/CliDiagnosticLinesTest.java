@@ -11,7 +11,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class MorpheusProjectCliTest {
+class CliDiagnosticLinesTest {
 
     @Test
     void theSyncTextNamesTheTruncationReasonWhenTheDiagnosticsWereBounded() {
@@ -23,7 +23,7 @@ class MorpheusProjectCliTest {
                     Map.of("requirement", "Requirement " + index)));
         }
 
-        List<String> lines = MorpheusProjectCli.diagnosticLines(
+        List<String> lines = CliDiagnosticLines.of(
                 BoundedDiagnostics.local(many));
 
         assertEquals(BoundedDiagnostics.MAX_ITEMS + 1, lines.size());

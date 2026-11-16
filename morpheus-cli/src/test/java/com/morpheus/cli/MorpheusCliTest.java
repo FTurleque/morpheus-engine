@@ -599,6 +599,48 @@ class MorpheusCliTest {
         assertTrue(json.stdout().contains("\"truncated\":false,\"truncationReason\":null"), json.stdout());
     }
 
+    /**
+     * A schema one line away from being read: the refusal names the schema, the file and the declaration in its
+     * message, and the details of its diagnostic reach the error stream in both output modes, as they reach the output
+     * of a sync that published.
+     */
+    @Test
+    void aSyncRefusedForAnUnsupportedSchemaRelaysTheDetailsOfItsDiagnostic() throws Exception {
+        Path data = tempDir.resolve("undeclared-parent-data");
+        Path workspace = Files.createDirectories(tempDir.resolve("undeclared-parent"));
+        Files.createDirectories(workspace.resolve("openspec/schemas/detailed-uml"));
+        Files.writeString(workspace.resolve("openspec/config.yaml"), "schema: detailed-uml\n");
+        Files.writeString(workspace.resolve("openspec/schemas/detailed-uml/schema.yaml"), "name: detailed-uml\n");
+        Invocation add = invokeWithData(data, "projects", "add", "--workspace", workspace.toString());
+        assertEquals(0, add.exitCode(), add.stderr());
+        String projectId = value(add.stdout(), "projectId");
+        String sentence = "OpenSpec schema 'detailed-uml' is not supported: openspec/schemas/detailed-uml/schema.yaml "
+                + "must declare 'derives: spec-driven'.";
+
+        Invocation text = invokeWithData(data, "sync", "--project", projectId);
+
+        assertEquals(CliExitCode.STATE_ERROR.code(), text.exitCode(), text.stderr());
+        List<String> lines = text.stderr().lines().toList();
+        assertEquals(2, lines.size(), text.stderr());
+        assertTrue(lines.get(0).startsWith("MORPHEUS error [4]: project read is incomplete, nothing was published: "
+                + "provider openspec returned no content; unread categories "), lines.get(0));
+        assertTrue(lines.get(0).endsWith("; errors: " + sentence), lines.get(0));
+        assertEquals("diagnostic=ERROR UNSUPPORTED_PROVIDER_SCHEMA - {provider=openspec, reason=no-declared-parent, "
+                + "schema=detailed-uml, supportedSchema=spec-driven} " + sentence, lines.get(1));
+
+        Invocation json = invokeWithData(data, "--json", "sync", "--project", projectId, "--force");
+
+        assertEquals(CliExitCode.STATE_ERROR.code(), json.exitCode(), json.stderr());
+        assertEquals(1, json.stderr().lines().count(), json.stderr());
+        assertTrue(json.stderr().startsWith("{\"exitCode\":4,\"code\":\"STATE_ERROR\",\"message\":"), json.stderr());
+        assertTrue(json.stderr().contains("\"diagnostics\":{\"items\":[{\"code\":\"UNSUPPORTED_PROVIDER_SCHEMA\""),
+                json.stderr());
+        assertTrue(json.stderr().contains("\"reason\":\"no-declared-parent\""), json.stderr());
+        assertTrue(json.stderr().contains("\"schema\":\"detailed-uml\""), json.stderr());
+        assertTrue(json.stderr().contains("\"supportedSchema\":\"spec-driven\""), json.stderr());
+        assertTrue(json.stderr().contains("must declare 'derives: spec-driven'."), json.stderr());
+    }
+
     private Invocation invokeWithData(Path data, String... command) {
         String[] args = new String[command.length + 2];
         args[0] = "--data-dir";

@@ -24,6 +24,7 @@ complète, et laisse au module du fournisseur les répertoires qu'il lit.
 | R2 | An incomplete read SHALL NOT be published | refus nommé d'une lecture sans contenu, avec catégorie en échec ou rejetée, synchronisation enregistrée en échec, instantané actif inchangé ; autres cas publiés avec un diagnostic | `[EXIGENCE]` |
 | R3 | A complete read SHALL be published as the port returned it | lecture complète publiée avec exactement le contenu rendu ; un re-synchronisation identique ne montre aucune différence | `[EXIGENCE]` |
 | R4 | The scanned directories SHALL be stated by the provider module | les répertoires scannés sont énoncés une fois, dans le module du fournisseur ; un transport ne les nomme pas | `[EXIGENCE]` |
+| R5 | A refused read SHALL carry the error diagnostics of the provider | le refus porte chaque diagnostic `ERROR` distinct du fournisseur, avec son code, ses détails et sa source ; son texte ne relaie que les messages | `[EXIGENCE]` |
 
 ## Comportement détaillé
 
@@ -48,6 +49,12 @@ Un résultat sans contenu est refusé même si toutes les catégories sont rappo
 (`CATEGORIE=STATUT`, `UNREPORTED` si le fournisseur n'a rien rapporté), puis au plus cinq erreurs distinctes du
 fournisseur (`MAX_RELAYED_ERRORS`) et le compte du reste. Chaque surface la rend comme un échec d'état : HTTP `409`
 `STATE_CONFLICT`, CLI code de sortie `STATE_ERROR`.
+
+`[EXISTANT VÉRIFIÉ]` Le refus porte aussi les diagnostics eux-mêmes (R5) : `providerErrors()` rend chaque diagnostic
+`ERROR` distinct, dans l'ordre du fournisseur, sans borne propre. Le texte ne reçoit pas leurs détails : il est relayé
+par HTTP, où un détail ne passe que par la projection à liste de clés de `BoundedDiagnostics.remote`. La CLI relaie
+ces diagnostics sous sa ligne d'erreur par `BoundedDiagnostics.local` ([`cli-argument-base`](cli-argument-base.md)) ;
+la réponse HTTP d'un refus ne porte que le texte.
 
 ### L'échec enregistré et l'instantané actif (R2)
 
@@ -144,6 +151,9 @@ sequenceDiagram
 | R2 | The refusal over HTTP discloses no server path | séquence | idem | `MorpheusApiProjectSyncIntegrationTest#aSyncRefusedForInvalidContentIsTheDeclaredConflictThatNamesTheFileRelativeToTheWorkspace` (serveur local ; **preuve manquante** pour le serveur remote) |
 | R3 | A project is synced again without any source change | organigramme | idem | **Preuve manquante** pour la comparaison de deux publications (voir Écarts) |
 | R4 | A transport names the directory | séquence | idem | `TransportsReadAProjectThroughTheProviderPortTest#aTransportNamesNoDirectoryAProviderReads` |
+| R5 | A refusal whose provider reported an error with details | — | changement `relay-provider-error-details-on-a-refused-read` | `ProjectContentIngestionTest#theRefusalCarriesTheErrorDiagnosticsOfTheProviderWithTheirDetailsAndNoWarning` |
+| R5 | More errors than the text relays | — | idem | `ProjectContentIngestionTest#theRefusalRelaysAtMostFiveDistinctErrorsAndCountsTheRest` |
+| R5 | A refusal without any provider error | — | idem | `ProjectContentIngestionTest#aRefusalWithoutAnyProviderErrorCarriesNoDiagnostic` |
 
 Tests unitaires complémentaires de R2 : `ProjectContentIngestionTest` couvre aussi
 `#aCategoryPartialBecauseASourceWasRejectedRefusesThePublicationAndRelaysTheProviderErrors`,

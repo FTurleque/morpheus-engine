@@ -10,6 +10,7 @@ import com.morpheus.application.read.ReadCategoryStatus;
 import com.morpheus.application.read.SpecificationContentReader;
 import com.morpheus.domain.diagnostic.Diagnostic;
 import com.morpheus.domain.diagnostic.DiagnosticCode;
+import com.morpheus.domain.diagnostic.DiagnosticSeverity;
 import com.morpheus.domain.identity.DomainIdentity;
 import com.morpheus.domain.project.ProjectSpecification;
 import com.morpheus.domain.project.ProjectSpecificationId;
@@ -92,6 +93,39 @@ class ProjectContentIngestionTest {
     }
 
     @Test
+    void theRefusalCarriesTheErrorDiagnosticsOfTheProviderWithTheirDetailsAndNoWarning() {
+        Diagnostic error = new Diagnostic(
+                DiagnosticCode.UNSUPPORTED_PROVIDER_SCHEMA,
+                DiagnosticSeverity.ERROR,
+                "the schema is refused",
+                Map.of("schema", "detailed-uml", "reason", "no-declared-parent"),
+                Optional.of("openspec/config.yaml"));
+        Diagnostic warning = Diagnostic.warning(DiagnosticCode.PARTIAL_INGESTION, "a warning is not carried", Map.of());
+
+        IncompleteProjectReadException refused = assertThrows(IncompleteProjectReadException.class,
+                () -> new ProjectContentIngestion(reader(Optional.empty(), allPublished(ReadCategoryStatus.ABSENT),
+                        Map.of(), List.of(warning, error, error), null)).read(WORKSPACE, PROJECT, RESOLVER));
+
+        assertEquals(List.of(error), refused.providerErrors());
+        assertEquals("project read is incomplete, nothing was published: provider fake returned no content; "
+                + "errors: the schema is refused", refused.getMessage());
+    }
+
+    @Test
+    void aRefusalWithoutAnyProviderErrorCarriesNoDiagnostic() {
+        Map<ReadCategory, ReadCategoryStatus> statuses = allPublished(ReadCategoryStatus.READ);
+        statuses.put(ReadCategory.CHANGES, ReadCategoryStatus.FAILED);
+
+        IncompleteProjectReadException refused = assertThrows(IncompleteProjectReadException.class,
+                () -> new ProjectContentIngestion(reader(Optional.of(content(List.of())), statuses, null))
+                        .read(WORKSPACE, PROJECT, RESOLVER));
+
+        assertEquals(List.of(), refused.providerErrors());
+        assertEquals("project read is incomplete, nothing was published: provider fake did not read CHANGES=FAILED",
+                refused.getMessage());
+    }
+
+    @Test
     void aCategoryPartialForAnotherReasonIsPublishedWithItsDiagnostics() {
         Map<ReadCategory, ReadCategoryStatus> statuses = allPublished(ReadCategoryStatus.READ);
         statuses.put(ReadCategory.REQUIREMENT_DELTAS, ReadCategoryStatus.PARTIAL);
@@ -119,6 +153,7 @@ class ProjectContentIngestionTest {
 
         assertEquals("project read is incomplete, nothing was published: provider fake returned no content; "
                 + "errors: error 1; error 2; error 3; error 4; error 5; and 2 more", refused.getMessage());
+        assertEquals(errors, refused.providerErrors());
     }
 
     @Test

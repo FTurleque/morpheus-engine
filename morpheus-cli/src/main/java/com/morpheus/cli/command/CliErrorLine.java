@@ -1,6 +1,7 @@
 package com.morpheus.cli.command;
 
 import com.morpheus.application.foundation.FailureText;
+import com.morpheus.application.ingestion.BoundedDiagnostics;
 import com.morpheus.application.query.compact.CanonicalJsonSerializer;
 
 import java.io.PrintStream;
@@ -47,5 +48,21 @@ public final class CliErrorLine {
         }
     }
 
+    /**
+     * The line of a refused project read, then the error diagnostics its provider reported: the lines of
+     * {@link CliDiagnosticLines} in text, a {@code diagnostics} member of the one JSON object under {@code --json}. The
+     * message of a refusal names what was not read; the details say why and what to change.
+     */
+    public static void write(
+            PrintStream err, boolean json, CliExitCode code, String message, BoundedDiagnostics diagnostics) {
+        if (json) {
+            err.println(JSON.toJson(new RefusedReadView(code.code(), code.name(), message, diagnostics)));
+        } else {
+            write(err, false, code, message);
+            CliDiagnosticLines.of(diagnostics).forEach(err::println);
+        }
+    }
+
     private record ErrorView(int exitCode, String code, String message) {}
+    private record RefusedReadView(int exitCode, String code, String message, BoundedDiagnostics diagnostics) {}
 }

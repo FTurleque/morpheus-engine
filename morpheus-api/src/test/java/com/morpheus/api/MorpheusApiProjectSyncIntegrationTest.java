@@ -166,6 +166,33 @@ class MorpheusApiProjectSyncIntegrationTest {
     }
 
     @Test
+    void aSyncRefusedForAnUnsupportedSchemaSaysWhatWouldMakeItReadable() throws IOException {
+        Path database = tempDirectory.resolve("undeclared-parent.db");
+        Path workspace = Files.createDirectories(tempDirectory.resolve("undeclared-parent"));
+        Files.createDirectories(workspace.resolve("openspec/schemas/detailed-uml"));
+        Files.writeString(workspace.resolve("openspec/config.yaml"), "schema: detailed-uml\n", StandardCharsets.UTF_8);
+        Files.writeString(workspace.resolve("openspec/schemas/detailed-uml/schema.yaml"), "name: detailed-uml\n",
+                StandardCharsets.UTF_8);
+
+        try (MorpheusHttpServer server = MorpheusHttpServer.start(database, "127.0.0.1", 0)) {
+            ApiTestSupport.Response created = http.postJson(
+                    server, "/projects", "{\"workspace\":" + http.jsonString(workspace.toString()) + "}");
+            assertEquals(201, created.status(), created.body());
+            String projectId = http.field(created.body(), "projectId");
+
+            ApiTestSupport.Response refused = http.post(server, "/projects/" + projectId + "/sync");
+
+            assertEquals(409, refused.status(), refused.body());
+            assertTrue(refused.body().contains("\"code\":\"STATE_CONFLICT\""), refused.body());
+            assertTrue(refused.body().contains("provider openspec returned no content; unread categories "
+                    + "CURRENT_SPECIFICATIONS=FAILED"), refused.body());
+            assertTrue(refused.body().contains("OpenSpec schema 'detailed-uml' is not supported: "
+                    + "openspec/schemas/detailed-uml/schema.yaml must declare 'derives: spec-driven'."), refused.body());
+            assertFalse(refused.body().contains(workspace.toString()), refused.body());
+        }
+    }
+
+    @Test
     void aSyncWhoseChangesCannotBeReadIsRefusedByNameAndLeavesTheActiveSnapshot() throws IOException {
         Path database = tempDirectory.resolve("unreadable-changes.db");
         Path workspace = http.copyFixture("openspec-basic", tempDirectory.resolve("unreadable-changes"));
