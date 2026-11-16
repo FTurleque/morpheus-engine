@@ -158,7 +158,7 @@ contrôlées du cycle de vie).
 ## References
 
 - [ADR-0135](ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — domaine propre à MORPHEUS.
-- [ADR-0002](ARCH-0002-openspec-reference-provider.md) — OpenSpec, provider de référence.
+- [ADR-0169](ARCH-0169-openspec-provider-de-reference-et-schemas-qui-derivent-de-spec-driven.md) — OpenSpec, provider de référence.
 - [ADR-0011](BE-0011-provider-capability-negotiation.md) — négociation des capacités des providers.
 - [ADR-0028](BE-0028-unified-provider-read-contract.md) — contrat de lecture provider unifié.
 - [ADR-0083](BE-0083-controlled-lifecycle-write-operations.md) — mutations contrôlées du cycle de vie.

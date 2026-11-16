@@ -61,7 +61,6 @@ nouvel ADR qui remplace les précédents. Le cycle de vie complet est dans `.cla
 
 | ADR | Décision | Statut |
 |---|---|---|
-| [ADR-0002](ARCH-0002-openspec-reference-provider.md) | OpenSpec comme premier provider de référence, sans verrouillage du domaine | **Acceptée avec contraintes** |
 | [ADR-0003](DATA-0003-specification-knowledge-store.md) | Isoler la persistance derrière `SpecificationKnowledgeStore` | **Acceptée** |
 | [ADR-0004](SEC-0004-local-first-no-llm-core.md) | Le cœur MORPHEUS est local-first et ne dépend d'aucun LLM | **Acceptée** |
 | [ADR-0007](ARCH-0007-cross-engine-integration.md) | Les intégrations cross-engine utilisent des contrats explicites et découplés | **Acceptée** |
@@ -141,6 +140,7 @@ nouvel ADR qui remplace les précédents. Le cycle de vie complet est dans `.cla
 | [ADR-0165](ARCH-0165-une-technologie-sortie-du-coeur-entre-dans-un-module-de-transport-qui-tient-sa-propre-table.md) | Une technologie sortie du cœur entre dans un module de transport, qui tient sa propre table des classes qui l'atteignent | **Acceptée** |
 | [ADR-0167](GEN-0167-deux-echelles-de-couverture-un-seuil-par-module-tenu-dans-une-bande-et-le-credit-emprunte.md) | Deux échelles de couverture sur une population commune, un seuil propre à chaque module tenu dans une bande sous sa mesure, et le crédit qu'un module emprunte à ses voisins | **Acceptée** |
 | [ADR-0168](DATA-0168-identite-de-domaine-generee-dans-l-ordre.md) | Identité de domaine : opaque, UUIDv7 générée dans l'ordre par processus, distincte du locator, persistée par clé scopée par provider | **Acceptée** |
+| [ADR-0169](ARCH-0169-openspec-provider-de-reference-et-schemas-qui-derivent-de-spec-driven.md) | OpenSpec comme premier provider de référence, lu sous spec-driven ou sous un schéma qui déclare en dériver, sans verrouillage du domaine | **Acceptée** |
 
 Les preuves de qualification de chaque jalon sont dans [`../../project/validation/`](../../project/validation/README.md).
 
