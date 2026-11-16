@@ -28,7 +28,7 @@ import java.util.stream.Stream;
 
 /**
  * Measures, on a real OpenSpec workspace, what its evidence costs the ingestion budget: the qualification of the default
- * evidence bound rests on it (openspec change {@code qualify-the-evidence-budget-on-real-corpora}, task 1.1).
+ * evidence bound rests on it (archived openspec change {@code 2026-11-16-qualify-the-evidence-budget-on-real-corpora}, task 1.1).
  *
  * <p>A measuring tool, not a test: it reads the workspaces given as arguments, read-only, and prints one Markdown table.
  * It calls the three readers directly with a probe result it builds itself, so a workspace whose declared schema the
