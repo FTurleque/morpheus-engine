@@ -84,13 +84,7 @@ public final class OpenSpecSpecificationProvider implements SpecificationProvide
 
         final Optional<String> schema;
         try {
-            Path relativeConfig = Path.of("openspec/config.yaml");
-            String configText = budget == null
-                    ? SafeWorkspaceFileResolver.rootedAt(root).readUtf8(
-                            relativeConfig,
-                            Math.toIntExact(ProviderIngestionBudget.DEFAULT.maxDocumentBytes()))
-                    : budget.readDocument(relativeConfig);
-            schema = declaredValue(SCHEMA_PATTERN, configText);
+            schema = declaredValue(SCHEMA_PATTERN, readDocument(root, Path.of("openspec/config.yaml"), budget));
         } catch (ProviderIngestionLimitException limit) {
             throw limit;
         } catch (IOException | IllegalArgumentException exception) {
@@ -117,6 +111,15 @@ public final class OpenSpecSpecificationProvider implements SpecificationProvide
                 List.of());
     }
 
+    /** Reads a workspace document through the session's budget, or under the default document bound without one. */
+    private static String readDocument(Path root, Path relativePath, ProviderIngestionBudget.Session budget)
+            throws IOException {
+        return budget == null
+                ? SafeWorkspaceFileResolver.rootedAt(root).readUtf8(
+                        relativePath, Math.toIntExact(ProviderIngestionBudget.DEFAULT.maxDocumentBytes()))
+                : budget.readDocument(relativePath);
+    }
+
     /**
      * A project schema other than {@link #SUPPORTED_SCHEMA} is read as that schema only when its definition,
      * {@code openspec/schemas/<schema>/schema.yaml}, declares {@code derives: spec-driven}; one level, one parent.
@@ -135,12 +138,7 @@ public final class OpenSpecSpecificationProvider implements SpecificationProvide
 
         final Optional<String> parent;
         try {
-            String definitionText = budget == null
-                    ? SafeWorkspaceFileResolver.rootedAt(root).readUtf8(
-                            definition,
-                            Math.toIntExact(ProviderIngestionBudget.DEFAULT.maxDocumentBytes()))
-                    : budget.readDocument(definition);
-            parent = declaredValue(DERIVES_PATTERN, definitionText);
+            parent = declaredValue(DERIVES_PATTERN, readDocument(root, definition, budget));
         } catch (ProviderIngestionLimitException limit) {
             throw limit;
         } catch (IOException | IllegalArgumentException exception) {
