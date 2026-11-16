@@ -52,7 +52,7 @@ Preuve historique D2 : [`docs/project/validation/VALIDATION_D2.md`](docs/project
 
 ```text
 Java                   21
-Build                  Maven Wrapper 3.10.0
+Build                  Maven Wrapper 3.10.1
 Release stable         1.2.1
 Baseline développement 1.2.2
 Persistent store       SQLite

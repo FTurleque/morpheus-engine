@@ -158,7 +158,7 @@ Baseline 1.2.2 :
 
 ```text
 Java                  21
-Maven Wrapper         3.10.0
+Maven Wrapper         3.10.1
 sqlite-jdbc           3.54.1.0
 Jackson BOM           3.3.0
 MCP SDK Java          2.1.0
