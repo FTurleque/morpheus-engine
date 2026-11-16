@@ -428,7 +428,7 @@ public final class OpenSpecChangeMetadataReader {
             ProviderIngestionBudget.Session budget) {
         int normalizedEnd = Math.max(startLine, endLine);
         String excerpt = String.join("\n", lines.subList(startLine - 1, normalizedEnd));
-        budget.addEvidenceFragment(excerpt);
+        budget.addEvidenceLines(lines, startLine, normalizedEnd);
         EvidenceId evidenceId = new EvidenceId(identities.resolve(
                 OpenSpecSpecificationProvider.ID, "evidence", "evidence:" + externalId));
         return new Evidence(

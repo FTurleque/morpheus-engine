@@ -7,6 +7,8 @@ import com.morpheus.application.files.WorkspaceUtf8Document;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.BitSet;
+import java.util.List;
 import java.util.Objects;
 
 /** Shared fail-closed work budget for provider-owned specification ingestion. */
@@ -19,6 +21,15 @@ public record ProviderIngestionBudget(
         int maxEntities,
         int maxEvidenceBytes) {
 
+    /**
+     * The bounds every provider reads under.
+     *
+     * <p>The evidence bound is qualified on measured corpora. Measured on 2026-11-16 on three real OpenSpec workspaces,
+     * read in full with every cited line counted once per file, the largest cites 1 241 544 bytes (531 513 bytes of
+     * current specifications, the rest from 33 active changes): under a third of the bound. The declared margin is half
+     * of the bound: a corpus that cites more than half of it lies beyond what was qualified, and a read beyond the bound
+     * is refused.</p>
+     */
     public static final ProviderIngestionBudget DEFAULT = new ProviderIngestionBudget(
             1L * 1024 * 1024,
             2_000,
@@ -26,7 +37,7 @@ public record ProviderIngestionBudget(
             100_000,
             100_000,
             100_000,
-            512 * 1024);
+            4 * 1024 * 1024);
 
     public ProviderIngestionBudget {
         requirePositive(maxDocumentBytes, "maxDocumentBytes");
@@ -96,6 +107,7 @@ public record ProviderIngestionBudget(
         private final ProviderIngestionBudget budget;
         private final SafeWorkspaceFileResolver files;
         private String lastDocument;
+        private BitSet citedLinesOfLastDocument = new BitSet();
         private long fileCount;
         private long aggregateBytes;
         private long lineCount;
@@ -119,6 +131,7 @@ public record ProviderIngestionBudget(
         private String read(Path relativePath, long itemMaximum, boolean evidence) throws IOException {
             String source = WorkspaceRelativePathText.of(relativePath);
             lastDocument = source;
+            citedLinesOfLastDocument = new BitSet();
             budget.requireFiles(Math.addExact(fileCount, 1), source);
             long aggregateRemaining = budget.maxAggregateBytes - aggregateBytes;
             if (aggregateRemaining < 1) {
@@ -173,15 +186,32 @@ public record ProviderIngestionBudget(
         }
 
         /**
-         * Counts a fragment cited from the document this session last began to read, which a refusal then names as it names
-         * any document. The caller does not restate the file: a reader cites a file right after reading it, and the
+         * Counts the lines {@code firstLine} to {@code lastLine} (one-based, inclusive) of {@code lines}, the lines of the
+         * document this session last began to read, each line once: a line an earlier citation of that document already
+         * counted costs nothing, so a passage cited by a specification, its requirement and its scenario is counted once.
+         * A line costs its UTF-8 bytes and one for its end. A refusal names the document as it names any document, and
+         * counts nothing. The caller does not restate the file: a reader cites a file right after reading it, and the
          * name it would pass is the one this session already wrote for its own refusals.
          */
-        public void addEvidenceFragment(String fragment) {
+        public void addEvidenceLines(List<String> lines, int firstLine, int lastLine) {
+            Objects.requireNonNull(lines, "lines");
             if (lastDocument == null) {
-                throw new IllegalStateException("an evidence fragment is cited from a document this session has read");
+                throw new IllegalStateException("evidence lines are cited from a document this session has read");
             }
-            addEvidenceFragment(fragment, lastDocument);
+            if (firstLine < 1 || lastLine < firstLine || lastLine > lines.size()) {
+                throw new IllegalArgumentException("cited lines " + firstLine + " to " + lastLine
+                        + " are not lines of a document of " + lines.size() + " lines");
+            }
+            long bytes = 0;
+            for (int index = citedLinesOfLastDocument.nextClearBit(firstLine - 1);
+                    index < lastLine;
+                    index = citedLinesOfLastDocument.nextClearBit(index + 1)) {
+                bytes += utf8Bytes(lines.get(index)) + 1;
+            }
+            long nextEvidenceBytes = Math.addExact(evidenceBytes, bytes);
+            budget.requireEvidenceBytes(nextEvidenceBytes, lastDocument);
+            citedLinesOfLastDocument.set(firstLine - 1, lastLine);
+            evidenceBytes = nextEvidenceBytes;
         }
 
         public void addEvidenceFragment(String fragment, String source) {

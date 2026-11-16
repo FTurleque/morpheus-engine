@@ -134,7 +134,7 @@ que le reader n'invente ni titre de spécification ni action de scénario.
 ## References
 
 - [ADR-0001](0001-morpheus-owned-domain.md)
-- [ADR-0002](../ARCH-0002-openspec-reference-provider.md)
+- [ADR-0002](0002-openspec-reference-provider.md)
 - [ADR-0009](0009-stable-domain-identity.md)
 - [ADR-0011](../BE-0011-provider-capability-negotiation.md)
 - [ADR-0023](0023-persistent-provider-scoped-entity-identity.md)

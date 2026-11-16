@@ -88,8 +88,9 @@ Sans objet : lecture seule, sans état.
 `schema.yaml` est une entrée non fiable du workspace : lu par `SafeWorkspaceFileResolver` (pas de lien symbolique, pas
 de remontée), borné par `maxDocumentBytes` du budget, et seule la valeur scalaire de `derives` est extraite, par la même
 analyse ligne à ligne que `schema:` — aucun parseur YAML général n'entre dans le provider. Le nom de schéma lu dans
-`config.yaml` est validé comme un segment de chemin unique avant de construire `openspec/schemas/<schema>/` : un nom
-contenant `/`, `\`, `..` ou vide est refusé (`UNSUPPORTED`, `reason = invalid-schema-name`).
+`config.yaml` est validé comme un segment de chemin unique avant de construire `openspec/schemas/<schema>/` : lettres,
+chiffres, `.`, `_` et `-`, premier caractère alphanumérique, dernier caractère autre que `.`, sans `..`. Un nom contenant `/`, `\`, `:` ou `..` est
+refusé (`UNSUPPORTED`, `reason = invalid-schema-name`), avant toute lecture.
 
 ## Gestion des erreurs et reprise
 
@@ -112,20 +113,21 @@ Un workspace `spec-driven` est lu exactement comme avant. Retour arrière : reti
 ## Décisions
 
 ### D1 : la déclaration vit dans la définition du schéma
-- **Nature** : [PROPOSITION]
+- **Nature** : [DÉCISION] (mainteneur, 16/11/2026)
 - **Exigences servies** : `openspec-provider-reading` › A project schema is read only when it declares that it derives
   from spec-driven
 - **Choix** : `derives: spec-driven` dans `openspec/schemas/<schema>/schema.yaml`. Le schéma dit de qui il dérive ; la
   déclaration voyage avec lui dans les trois dépôts, et un projet ne peut pas se déclarer compatible sans porter la
   définition qu'il prétend dériver.
 - **Alternatives écartées** : `derives:` dans `openspec/config.yaml` (proposé par l'audit, toléré aussi par la CLI ;
-  écarté parce que la déclaration se détache du schéma qu'elle qualifie, mais à reprendre si le mainteneur le
-  préfère) ; une liste de schémas admis dans MORPHEUS (chaque schéma dérivé exigerait une version du produit, et le
+  écarté parce que la déclaration se détache du schéma qu'elle qualifie) ; une liste de schémas admis dans MORPHEUS (chaque schéma dérivé exigerait une version du produit, et le
   produit se prononcerait sur des schémas qu'il ne voit pas) ; déclarer `spec-driven` dans les projets et porter
   `detailed-uml` ailleurs (écarté par l'audit : le schéma pilote les gabarits et le workflow de rédaction amont).
 - **Compromis** : le provider lit un fichier de plus, et fait confiance à une déclaration ; c'est le lecteur, inchangé,
   qui refuse ensuite un contenu qui ne suit pas la structure (catégorie FAILED, diagnostic attribué).
-- **ADR** : ADR à proposer (numéro attribué à la rédaction, après relecture du registre et de l'archive).
+- **ADR** : ADR-0169, acceptée le 16/11/2026. Elle remplace ADR-0002 (archivé), dont la contrainte « un autre schéma est
+  refusé à la sonde » change en partie : la décision du provider de référence se lit dans un seul ADR actif
+  (`.claude/rules/adr.md`).
 
 ### D2 : dériver engage les catégories de `spec-driven`, et rien de plus
 - **Nature** : [DÉCISION]
@@ -135,7 +137,7 @@ Un workspace `spec-driven` est lu exactement comme avant. Retour arrière : reti
 - **Alternatives écartées** : lire `design.md` en `DESIGN_DECISIONS` pour `detailed-uml` (structure propre au schéma,
   hors de ce changement).
 - **Compromis** : MORPHEUS ne tire rien des diagrammes de `detailed-uml`.
-- **ADR** : même ADR que D1.
+- **ADR** : ADR-0169.
 
 ### D3 : un seul niveau, un seul parent
 - **Nature** : [DÉCISION]
@@ -143,7 +145,7 @@ Un workspace `spec-driven` est lu exactement comme avant. Retour arrière : reti
 - **Choix** : seul `derives: spec-driven` est accepté ; un schéma qui dérive d'un schéma dérivé est refusé.
 - **Alternatives écartées** : suivre une chaîne (boucles et profondeur à borner pour aucun besoin constaté).
 - **Compromis** : un écosystème à deux niveaux devra déclarer `spec-driven` directement.
-- **ADR** : même ADR que D1.
+- **ADR** : ADR-0169.
 
 ## Écarts constatés
 
@@ -155,18 +157,20 @@ Un workspace `spec-driven` est lu exactement comme avant. Retour arrière : reti
 
 | Exigence | Scénario | Preuve | État |
 |---|---|---|---|
-| A project schema is read only when it declares that it derives from spec-driven | A derived schema that declares its parent | `OpenSpecSpecificationProviderTest#aSchemaThatDeclaresItDerivesFromSpecDrivenIsReadAsSpecDriven` (copie temporaire d'`openspec-basic`) | à écrire |
-| idem | A schema that declares no parent | `OpenSpecSpecificationProviderTest#aSchemaThatDeclaresNoParentStaysUnsupported` | à écrire |
-| idem | A declared schema whose directory is missing | `OpenSpecSpecificationProviderTest#aDeclaredSchemaWithoutItsDefinitionStaysUnsupported` ; `rejectsUnknownOpenSpecSchemaExplicitly` reste vert | à écrire |
-| idem | A schema that derives from an unknown parent | `OpenSpecSpecificationProviderTest#aSchemaThatDerivesFromAnUnknownParentStaysUnsupported` | à écrire |
-| idem | A schema definition that cannot be read | `OpenSpecSpecificationProviderTest#anUnreadableSchemaDefinitionIsInvalidAndNamed` (lien symbolique, répertoire à la place du fichier) | à écrire |
+| A project schema is read only when it declares that it derives from spec-driven | A derived schema that declares its parent | `OpenSpecSpecificationProviderTest#aSchemaThatDeclaresItDerivesFromSpecDrivenIsReadAsSpecDriven` (copie temporaire d'`openspec-basic`) | écrit |
+| idem | A schema that declares no parent | `OpenSpecSpecificationProviderTest#aSchemaThatDeclaresNoParentStaysUnsupported` | écrit |
+| idem | A declared schema whose directory is missing | `OpenSpecSpecificationProviderTest#aDeclaredSchemaWithoutItsDefinitionStaysUnsupported` ; `rejectsUnknownOpenSpecSchemaExplicitly` reste vert | écrit |
+| idem | A schema that derives from an unknown parent | `OpenSpecSpecificationProviderTest#aSchemaThatDerivesFromAnUnknownParentStaysUnsupported` ; un parent dérivé : `#aSchemaThatDerivesFromADerivedSchemaStaysUnsupported` | écrit |
+| idem | A schema definition that cannot be read | `OpenSpecSpecificationProviderTest#anUnreadableSchemaDefinitionIsInvalidAndNamed` (répertoire à la place du fichier) ; `#aSymbolicSchemaDefinitionIsInvalidAndNamed` (lien symbolique) | écrit |
+| idem | (§Sécurité) nom de schéma hors segment unique | `OpenSpecSpecificationProviderTest#aSchemaNameThatIsNotASinglePathSegmentIsRefusedBeforeAnyRead` | écrit |
 
 ## Documentation durable et diagrammes à mettre à jour
 
-`docs/developer/specifications/openspec-provider-reading.md` (exigence R5, organigramme du probe, traçabilité) ; l'ADR
-proposé, `docs/architecture/adr/README.md`, `docs/architecture/arc42/09-decisions.md` ; le guide utilisateur qui dit
-quels schémas sont lus.
+`docs/developer/specifications/openspec-provider-reading.md` (exigence R5, organigramme du probe, traçabilité) ;
+ADR-0169, ADR-0002 (archivé), `docs/architecture/adr/README.md`, `docs/architecture/arc42/09-decisions.md`,
+`docs/developer/ARCHGATE.md` (la règle d'ADR-0002 (archivé) suit ADR-0169) ; le guide utilisateur qui dit quels schémas sont
+lus.
 
 ## Questions ouvertes
 
-- D1 : `schema.yaml` ou `config.yaml` ; le changement ne dépend pas du choix au-delà du chemin lu et des scénarios.
+Aucune : D1 est tranchée par le mainteneur (16/11/2026).

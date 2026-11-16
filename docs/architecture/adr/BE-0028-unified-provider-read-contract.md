@@ -101,8 +101,8 @@ Options écartées :
      `ProviderIngestionBudget` et l'attribution d'un échec de lecture passent par ce point.
    - Le paramètre `source` de chaque méthode de `ProviderIngestionBudget.Session` est le texte d'un refus (un nom écrit
      par `WorkspaceRelativePathText`, une étiquette de groupe, ou une constante de lecteur), jamais un locator ; il ne
-     sert qu'au message de `ProviderIngestionLimitException`. `Session.addEvidenceFragment(String)` attribue le
-     fragment au dernier document lu par la session ; elle refuse l'appel si la session n'a lu aucun document.
+     sert qu'au message de `ProviderIngestionLimitException`. `Session.addEvidenceLines(lines, first, last)` attribue
+     les lignes citées au dernier document lu par la session ; elle refuse l'appel si la session n'a lu aucun document.
 8. **Le refus de publication dit pourquoi.** `ProjectSnapshotImportService` inclut dans son refus les diagnostics
    bloquants, bornés à ce que `ServerLocationDisclosure` accepte de relayer : un diagnostic qui nomme un emplacement du
    serveur est retenu, pas nettoyé ; ceux qui ne tiennent pas dans la borne sont comptés ; les deux comptes sont écrits
@@ -139,7 +139,7 @@ Options écartées :
   l'exception.
 - Écrire le chemin d'un refus par `WorkspaceRelativePathText`, et passer ce texte (jamais un locator) aux méthodes de
   `ProviderIngestionBudget.Session`.
-- Citer les preuves d'un fichier par `addEvidenceFragment(String)` dans la méthode qui vient de lire ce fichier.
+- Citer les preuves d'un fichier par `addEvidenceLines(lines, first, last)` dans la méthode qui vient de lire ce fichier.
 - Exposer les diagnostics de `sync` par `BoundedDiagnostics.local` en CLI et `BoundedDiagnostics.remote` en HTTP.
 
 ### Don't
@@ -177,9 +177,9 @@ Options écartées :
   `ServerLocationDisclosure` pour un emplacement possible du serveur : la CLI `sync` nomme ce fichier exactement avec sa
   cause, mais la synchronisation HTTP (`BoundaryFailureMessage.safe`) et `composition sync` (diagnostic
   `INVALID_SOURCE`) réduisent le refus au type de l'exception.
-- `addEvidenceFragment(String)` repose sur un couplage implicite : un lecteur lit un fichier et cite ses preuves dans
-  la même méthode. Rien ne vérifie cet ordre ; un lecteur qui citerait un fragment d'un autre fichier que le dernier lu
-  serait refusé sous un mauvais nom.
+- `addEvidenceLines(lines, first, last)` repose sur un couplage implicite : un lecteur lit un fichier et cite ses
+  preuves dans la même méthode. Rien ne vérifie cet ordre ; un lecteur qui citerait les lignes d'un autre fichier que le
+  dernier lu serait refusé sous un mauvais nom.
 - Une valeur légitime qui ressemble à un chemin (un titre d'exigence contenant ` /admin`) est retirée de la projection
   remote des diagnostics ; la CLI la montre.
 - La projection locale des diagnostics ne borne la longueur d'une valeur que par le budget d'ingestion ; seule la
@@ -247,12 +247,12 @@ Options écartées :
   réelles de `sync`.
 - Revue : la séparation sonde/lecture, l'interdiction d'activer le JAR de référence depuis `morpheus-architecture-tests`
   (commentaire à côté de la dépendance dans `morpheus-architecture-tests/pom.xml`) et l'ordre « lire puis citer » dont
-  dépend `addEvidenceFragment(String)` ne sont tenus par aucun test.
+  dépend `addEvidenceLines(lines, first, last)` ne sont tenus par aucun test.
 
 ## References
 
 - [ADR-0135](ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — domaine possédé par MORPHEUS.
-- [ADR-0002](ARCH-0002-openspec-reference-provider.md) — OpenSpec, provider de référence.
+- [ADR-0169](ARCH-0169-openspec-provider-de-reference-et-schemas-qui-derivent-de-spec-driven.md) — OpenSpec, provider de référence.
 - [ADR-0011](BE-0011-provider-capability-negotiation.md) — négociation des capacités, que décrit la sonde.
 - [ADR-0121](ARCH-0121-modele-normalise-neutre-vis-a-vis-des-providers.md) — modèle normalisé neutre que les lecteurs
   produisent.

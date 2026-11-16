@@ -87,6 +87,24 @@ morpheus sync-status --project <projectId>
 
 Une synchronisation publiée est conservatrice : un candidat défaillant ne remplace pas l’ancien snapshot `ACTIVE`.
 
+La lecture d’un workspace est bornée en volume : taille d’un document, nombre de fichiers, octets lus, lignes, blocs,
+entités et évidence citée, comptés sur toute la lecture. Une ligne citée plusieurs fois dans un même fichier (par la
+spécification, son exigence et son scénario) ne compte qu’une fois. Les bornes sont fixes et ne se règlent pas.
+
+Au-delà d’une borne, la synchronisation est refusée en bloc : toutes les catégories demandées sont `FAILED`, rien
+n’est publié, et un diagnostic `INVALID_SOURCE` du groupe `ingestion-budget` dit quelle grandeur a dépassé sa borne.
+Son message prend l’une de deux formes :
+
+- `provider ingestion <grandeur> exceeds budget for <fichier>: <valeur> > <maximum>` : un seul document dépasse sa
+  borne, et ce fichier en est la cause ;
+- `provider ingestion <grandeur> for the whole read exceeds the budget: <total> > <maximum>, reached while reading <fichier>` :
+  un total de toute la lecture dépasse sa borne ; tous les fichiers lus y ont contribué, et le fichier nommé est
+  seulement celui qu’on lisait quand le total a été atteint.
+
+Quand la lecture s’arrête avant de connaître la taille exacte, le message dit `more than <maximum>` au lieu de
+`<valeur> > <maximum>`. Réduire le volume lu (par exemple archiver des changements terminés) fait passer le total sous
+la borne.
+
 ## 7. M18 — composition multi-provider
 
 Commandes officielles exactes :

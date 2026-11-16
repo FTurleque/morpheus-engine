@@ -71,7 +71,6 @@ signifie « aucune règle exécutée », pas « conforme ». Les avertissements 
 
 | ADR | Règles |
 |---|---|
-| [ADR-0002](../architecture/adr/ARCH-0002-openspec-reference-provider.md) | `openspec-provider-declares-no-write-capability` |
 | [ADR-0004](../architecture/adr/SEC-0004-local-first-no-llm-core.md) | `no-llm-client-dependency` |
 | [ADR-0018](../architecture/adr/DATA-0018-sqlite-initial-persistent-store.md) | `inner-layers-do-not-declare-sqlite` |
 | [ADR-0020](../architecture/adr/BE-0020-workspace-root-resolution.md) | `workspace-discovery-starts-no-process` |
@@ -95,6 +94,7 @@ signifie « aucune règle exécutée », pas « conforme ». Les avertissements 
 | [ADR-0139](../architecture/adr/ARCH-0139-frontiere-morpheus-jarvis-en-lecture-seule.md) | `no-jarvis-dependency` |
 | [ADR-0142](../architecture/adr/DATA-0142-references-externes.md) | `live-resolution-writes-no-reference` |
 | [ADR-0146](../architecture/adr/BE-0146-journal-operationnel-slf4j-et-fichier-borne.md) | `no-other-slf4j-provider`, `no-logger-finder` |
+| [ADR-0169](../architecture/adr/ARCH-0169-openspec-provider-de-reference-et-schemas-qui-derivent-de-spec-driven.md) | `openspec-provider-declares-no-write-capability` |
 
 ## Ajouter une règle
 

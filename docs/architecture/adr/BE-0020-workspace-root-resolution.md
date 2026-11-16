@@ -205,7 +205,7 @@ l'identité visible des chemins.
 ## References
 
 - [ADR-0135](ARCH-0135-domaine-propre-et-neutralite-multi-provider.md) — domaine propre à MORPHEUS.
-- [ADR-0002](ARCH-0002-openspec-reference-provider.md) — OpenSpec, provider de référence.
+- [ADR-0169](ARCH-0169-openspec-provider-de-reference-et-schemas-qui-derivent-de-spec-driven.md) — OpenSpec, provider de référence.
 - [ADR-0011](BE-0011-provider-capability-negotiation.md) — négociation des capacités des providers.
 - [ADR-0133](GEN-0133-toolchain-java-21-et-maven-wrapper.md) — fondation de build Maven.
 - [VALIDATION_M1](../../project/validation/VALIDATION_M1.md) — preuve du jalon M1.

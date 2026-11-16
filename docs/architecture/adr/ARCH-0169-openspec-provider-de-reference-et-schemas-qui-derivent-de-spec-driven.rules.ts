@@ -15,7 +15,7 @@ export default {
             message: `Capacité d'écriture ou de surveillance dans le provider OpenSpec : ${match.content.trim()}`,
             file: match.file,
             line: match.line,
-            fix: "Le provider de référence reste en lecture (ADR-0002, ADR-0008).",
+            fix: "Le provider de référence reste en lecture (ADR-0169, ADR-0008).",
           });
         }
       },
