@@ -8,6 +8,7 @@ import com.morpheus.application.security.ServerLocationDisclosure;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -251,36 +252,103 @@ class ProviderIngestionBudgetTest {
     }
 
     @Test
-    void anEvidenceFragmentIsRefusedUnderTheNameOfTheDocumentTheSessionReadLast(@TempDir Path workspace)
+    void citedEvidenceLinesAreRefusedUnderTheNameOfTheDocumentTheSessionReadLast(@TempDir Path workspace)
             throws Exception {
         Files.createDirectories(workspace.resolve("docs"));
-        Files.writeString(workspace.resolve("docs/spec.md"), "abc");
+        Files.writeString(workspace.resolve("docs/spec.md"), "ab");
         Files.writeString(workspace.resolve("docs/other.md"), "abc");
         var session = new ProviderIngestionBudget(5, 3, 30, 10, 10, 10, 4)
                 .open(SafeWorkspaceFileResolver.rootedAt(workspace));
 
         session.readDocument(Path.of("docs", "spec.md"));
-        session.addEvidenceFragment("ab");
+        session.addEvidenceLines(List.of("a"), 1, 1);
         session.readDocument(Path.of("docs", "other.md"));
         ProviderIngestionLimitException failure = assertThrows(
-                ProviderIngestionLimitException.class, () -> session.addEvidenceFragment("abc"));
+                ProviderIngestionLimitException.class, () -> session.addEvidenceLines(List.of("abc"), 1, 1));
 
         assertEquals("provider ingestion evidence bytes for the whole read exceeds the budget: "
-                + "5 > 4, reached while reading docs/other.md",
+                + "6 > 4, reached while reading docs/other.md",
                 failure.getMessage());
-        assertEquals(2, session.evidenceBytes(), "a refused fragment does not advance the counter");
+        assertEquals(2, session.evidenceBytes(), "refused lines do not advance the counter");
     }
 
     @Test
-    void anEvidenceFragmentWithoutADocumentReadByTheSessionIsRefusedAsAMisuse(@TempDir Path workspace)
+    void evidenceLinesWithoutADocumentReadByTheSessionAreRefusedAsAMisuse(@TempDir Path workspace)
             throws Exception {
         var session = new ProviderIngestionBudget(5, 3, 30, 10, 10, 10, 4)
                 .open(SafeWorkspaceFileResolver.rootedAt(workspace));
 
         IllegalStateException failure = assertThrows(
-                IllegalStateException.class, () -> session.addEvidenceFragment("a"));
+                IllegalStateException.class, () -> session.addEvidenceLines(List.of("a"), 1, 1));
 
-        assertEquals("an evidence fragment is cited from a document this session has read", failure.getMessage());
+        assertEquals("evidence lines are cited from a document this session has read", failure.getMessage());
+        assertEquals(0, session.evidenceBytes());
+    }
+
+    /**
+     * A specification cites the whole file, then each requirement, then each scenario: a scenario line is cited three
+     * times and counted once, at its bytes and one for its end.
+     */
+    @Test
+    void aLineCitedSeveralTimesFromTheSameDocumentIsCountedOnce(@TempDir Path workspace) throws Exception {
+        Files.writeString(workspace.resolve("spec.md"), "abc\ndé\nghi\n");
+        var session = new ProviderIngestionBudget(50, 3, 50, 10, 10, 10, 50)
+                .open(SafeWorkspaceFileResolver.rootedAt(workspace));
+        List<String> lines = session.readDocument(Path.of("spec.md")).lines().toList();
+
+        session.addEvidenceLines(lines, 2, 3);
+        session.addEvidenceLines(lines, 1, 3);
+        session.addEvidenceLines(lines, 3, 3);
+        session.addEvidenceLines(lines, 1, 2);
+
+        assertEquals((3 + 1) + (3 + 1) + (3 + 1), session.evidenceBytes(),
+                "three lines, each at its UTF-8 bytes and one for its end, whatever the citations");
+    }
+
+    @Test
+    void theNextDocumentReadStartsItsCitedLinesAnew(@TempDir Path workspace) throws Exception {
+        Files.writeString(workspace.resolve("a.md"), "abc\n");
+        Files.writeString(workspace.resolve("b.md"), "abc\n");
+        var session = new ProviderIngestionBudget(50, 3, 50, 10, 10, 10, 50)
+                .open(SafeWorkspaceFileResolver.rootedAt(workspace));
+
+        session.addEvidenceLines(session.readDocument(Path.of("a.md")).lines().toList(), 1, 1);
+        session.addEvidenceLines(session.readDocument(Path.of("b.md")).lines().toList(), 1, 1);
+
+        assertEquals(8, session.evidenceBytes(), "the same line of two documents is two cited lines");
+    }
+
+    @Test
+    void refusedLinesAreNotRememberedAsCited(@TempDir Path workspace) throws Exception {
+        Files.writeString(workspace.resolve("spec.md"), "abc\ndef\nghi\n");
+        var session = new ProviderIngestionBudget(50, 3, 50, 10, 10, 10, 9)
+                .open(SafeWorkspaceFileResolver.rootedAt(workspace));
+        List<String> lines = session.readDocument(Path.of("spec.md")).lines().toList();
+
+        session.addEvidenceLines(lines, 1, 1);
+        ProviderIngestionLimitException failure = assertThrows(
+                ProviderIngestionLimitException.class, () -> session.addEvidenceLines(lines, 1, 3));
+        assertEquals("provider ingestion evidence bytes for the whole read exceeds the budget: "
+                + "12 > 9, reached while reading spec.md", failure.getMessage());
+        session.addEvidenceLines(lines, 2, 2);
+
+        assertEquals(8, session.evidenceBytes(), "the second line was refused, not counted, and is counted when cited");
+    }
+
+    @Test
+    void citedLinesOutsideTheDocumentAreRefusedByName(@TempDir Path workspace) throws Exception {
+        Files.writeString(workspace.resolve("spec.md"), "abc\n");
+        var session = new ProviderIngestionBudget(50, 3, 50, 10, 10, 10, 50)
+                .open(SafeWorkspaceFileResolver.rootedAt(workspace));
+        List<String> lines = session.readDocument(Path.of("spec.md")).lines().toList();
+
+        IllegalArgumentException beyond = assertThrows(
+                IllegalArgumentException.class, () -> session.addEvidenceLines(lines, 1, 2));
+        IllegalArgumentException reversed = assertThrows(
+                IllegalArgumentException.class, () -> session.addEvidenceLines(lines, 1, 0));
+
+        assertEquals("cited lines 1 to 2 are not lines of a document of 1 lines", beyond.getMessage());
+        assertEquals("cited lines 1 to 0 are not lines of a document of 1 lines", reversed.getMessage());
         assertEquals(0, session.evidenceBytes());
     }
 

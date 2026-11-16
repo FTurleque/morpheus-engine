@@ -42,7 +42,8 @@ flowchart TD
     C --> B
 ```
 
-Cible : selon D1, chaque ligne citée compte une fois par fichier, et/ou la borne est relevée sur la mesure.
+Cible (D1) : chaque ligne citée compte une fois par fichier lu, et la borne est relevée sur la mesure ; l'organigramme
+du comptage cible est dans `docs/developer/specifications/provider-ingestion-budget.md`.
 
 ## Performance et stratégie de mesure
 
@@ -63,16 +64,34 @@ comptage ; un projet admis entre-temps redevient refusé à son prochain `sync`,
 ## Décisions
 
 ### D1 : le moyen d'admettre les corpus de qualification
-- **Nature** : [PROPOSITION], à trancher par le mainteneur sur la mesure de la tâche 1
+- **Nature** : [DÉCISION] du mainteneur (16/11/2026), appliquée sur la mesure de la tâche 1
 - **Exigences servies** : `provider-ingestion-budget` › The default evidence budget is qualified on measured corpora
-- **Choix proposé** : compter dans le budget chaque ligne citée **une fois par fichier** (plages fusionnées par
-  fichier), puis qualifier la borne sur la mesure avec la marge déclarée, sans la relever si le comptage suffit. Le
-  budget borne alors le travail de citation au lieu de la profondeur d'imbrication des extraits.
-- **Alternatives** : relever seule la borne (garde la triple charge : la borne utile croît avec la densité de scénarios,
-  pas avec le volume) ; supprimer le budget d'évidence au profit de l'agrégat (retire une borne fail-closed que les
-  autres providers consomment aussi, refusé sans ADR).
-- **Compromis** : le comptage par plages fusionnées ajoute un état par fichier dans la session.
-- **ADR** : non concerné tant que la borne reste une constante qualifiée ; D2 ou D3 en exigeraient un.
+- **Choix** : les lecteurs OpenSpec comptent chaque ligne citée **une fois par fichier lu** (plages fusionnées dans la
+  session, `ProviderIngestionBudget.Session#addEvidenceLines`) ; une ligne coûte ses octets UTF-8 plus un octet de fin
+  de ligne. La borne n'est relevée que parce que la mesure montre que ce comptage seul ne suffit pas : elle passe à
+  4 Mio, et la marge déclarée, écrite à côté de la borne avec la mesure qui la fonde et sa date, est **la moitié de la
+  borne** — un corpus qui cite plus de la moitié de la borne sort de ce qui a été qualifié.
+- **Ce que la mesure a montré** (16/11/2026, `OpenSpecEvidenceMeasurement`, arbres de travail en lecture seule) :
+
+  | Corpus | specs (o) | évidence par extrait (o) | évidence une fois par ligne (o) | dont changements actifs (o) |
+  |---|---|---|---|---|
+  | `morpheus-engine` | 408 613 | 1 027 637 | 427 285 | 26 619 (3) |
+  | `nexus-context-engine` | 163 850 | 462 533 | 214 502 | 53 180 (2) |
+  | `minos-code-intelligence` | 531 513 | 2 077 195 | 1 241 544 | 717 443 (33) |
+
+  Le comptage par extrait facture entre 1,7 et 2,4 fois le texte cité ; par exigence, le bloc et ses scénarios coûtent
+  1,6 fois le texte du bloc en médiane, 1,8 au plus, avant le fichier entier cité une fois de plus. Une ligne par
+  fichier, `morpheus-engine` occuperait 81 % de l'ancienne borne de 512 Kio et `minos-code-intelligence` 237 % : ses
+  33 changements actifs citent à eux seuls plus que la borne. Le comptage fusionné ne suffit donc pas ; avec 4 Mio, le
+  plus gros corpus en occupe moins d'un tiers.
+- **Alternatives écartées** : relever seule la borne (garde la triple charge : la borne utile croît avec la densité de
+  scénarios, pas avec le volume) ; supprimer le budget d'évidence au profit de l'agrégat (retire une borne fail-closed
+  que les autres providers consomment aussi, refusé sans ADR) ; une borne collée à la mesure (2,5 Mio laisserait la
+  moitié libre aujourd'hui, et rien pour la croissance des changements actifs).
+- **Compromis** : le comptage par plages fusionnées ajoute à la session l'ensemble des lignes citées du dernier fichier
+  lu. La borne étant commune aux trois providers (`ProviderAntiLockInTest`), une lecture d'évidence d'un fichier entier
+  (Markdown structuré, synthétique) n'est plus bornée par l'évidence en deçà de la borne par document (1 Mio).
+- **ADR** : non concerné, la borne reste une constante qualifiée ; D2 ou D3 en exigeraient un.
 
 ### D2 : budget réglable par l'opérateur
 - **Nature** : [QUESTION]
@@ -98,9 +117,9 @@ comptage ; un projet admis entre-temps redevient refusé à son prochain `sync`,
 
 | Exigence | Scénario | Preuve | État |
 |---|---|---|---|
-| The default evidence budget is qualified on measured corpora | The qualification corpus larger than the largest measured project | `OpenSpecEvidenceBudgetQualificationTest#aCorpusLargerThanTheLargestMeasuredProjectIsRead` (corpus généré, déterministe) | à écrire |
-| idem | The specification corpus of this repository | test du module `morpheus-architecture-tests` qui lit `openspec/` par `RepositoryRoot` (exige `accept-a-declared-derived-openspec-schema`) | à écrire |
-| idem | A corpus beyond the limit | `OpenSpecEvidenceBudgetQualificationTest#aCorpusBeyondTheLimitIsRefusedAndPublishesNothing` | à écrire |
+| The default evidence budget is qualified on measured corpora | The qualification corpus larger than the largest measured project | `OpenSpecEvidenceBudgetQualificationTest#aCorpusLargerThanTheLargestMeasuredProjectIsRead` (corpus généré, déterministe) | écrit, vert |
+| idem | The specification corpus of this repository | test du module `morpheus-architecture-tests` qui lit `openspec/` par `RepositoryRoot` (exige `accept-a-declared-derived-openspec-schema`) | à écrire après intégration (tâche 2.3) |
+| idem | A corpus beyond the limit | `OpenSpecEvidenceBudgetQualificationTest#aCorpusBeyondTheLimitIsRefusedAndPublishesNothing` | écrit, vert |
 
 ## Documentation durable et diagrammes à mettre à jour
 
@@ -109,5 +128,5 @@ comptage) ; le guide utilisateur qui décrit `sync` (`docs/user/CLI.md`).
 
 ## Questions ouvertes
 
-D1 se tranche à la fin de la tâche 1 et conditionne le groupe 2 ; D2 et D3 peuvent attendre sans changer ce
+D1 est tranchée (16/11/2026) ; D2 et D3 peuvent attendre sans changer ce
 changement.

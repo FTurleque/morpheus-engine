@@ -1,6 +1,7 @@
 package com.morpheus.provider.synthetic;
 
 import com.morpheus.application.identity.EntityIdentityResolver;
+import com.morpheus.application.read.ProviderIngestionBudget;
 import com.morpheus.application.read.ProviderProjectRoot;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.read.ReadCategory;
@@ -82,7 +83,11 @@ class SyntheticSpecificationContentReaderTest {
                 workspace.resolve(SyntheticSpecificationProvider.SOURCE_FILE));
         Files.createDirectories(workspace.resolve("reviews"));
         Files.createDirectories(workspace.resolve("tests"));
-        Files.writeString(workspace.resolve("reviews/security-review.txt"), "x".repeat((512 * 1024) + 1));
+        // One evidence file is bounded by the smaller of the document and evidence bounds.
+        long evidenceFileBound = Math.min(
+                ProviderIngestionBudget.DEFAULT.maxDocumentBytes(), ProviderIngestionBudget.DEFAULT.maxEvidenceBytes());
+        Files.writeString(
+                workspace.resolve("reviews/security-review.txt"), "x".repeat(Math.toIntExact(evidenceFileBound + 1)));
         Files.writeString(workspace.resolve("reviews/documentation.txt"), "documented");
         Files.writeString(workspace.resolve("tests/billing-retention.txt"), "verified");
 
