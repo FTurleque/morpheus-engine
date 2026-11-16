@@ -22,13 +22,14 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 final class RemoteHttpTestSupport {
     static final String KEYSTORE_PASSWORD = "changeit";
     private static final String CERTIFICATE_ALIAS = "morpheus-test";
+    static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(30);
 
     private RemoteHttpTestSupport() {
     }
 
     static HttpResponse<String> send(HttpClient client, URI uri, String method, String token, String body)
             throws Exception {
-        HttpRequest.Builder builder = HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(30));
+        HttpRequest.Builder builder = HttpRequest.newBuilder(uri).timeout(REQUEST_TIMEOUT);
         if (token != null) builder.header("Authorization", "Bearer " + token);
         if (body != null) builder.header("Content-Type", "application/json");
         builder.method(method, body == null
@@ -70,11 +71,17 @@ final class RemoteHttpTestSupport {
      * would pass. Trusting this one certificate keeps the handshake a real assertion -- and keeps a
      * trust-anything pattern out of a shared helper, where it would be copied into the next test that needs a
      * client.</p>
+     *
+     * <p>The connect timeout is the request's own budget. The JDK client stops its connect timer only once the TLS
+     * handshake is over, and the first handshake of a test JVM is cold: under the module's parallel test classes it
+     * has taken more than five seconds on a four-processor Windows runner, while every later one takes milliseconds
+     * ({@code TrustedClientHandshakeBudgetTest}). What these tests prove is what the facade answers, not how fast a
+     * cold JVM negotiates TLS; a facade that never completes the handshake still fails at the request budget.</p>
      */
     static HttpClient trustedClient(Path keyStore) throws Exception {
         return HttpClient.newBuilder()
                 .sslContext(trustedContext(keyStore))
-                .connectTimeout(Duration.ofSeconds(5))
+                .connectTimeout(REQUEST_TIMEOUT)
                 .build();
     }
 
