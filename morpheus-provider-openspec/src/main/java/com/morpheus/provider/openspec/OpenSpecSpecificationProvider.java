@@ -3,6 +3,7 @@ package com.morpheus.provider.openspec;
 import com.morpheus.application.provider.SpecificationProvider;
 import com.morpheus.application.files.SafeWorkspaceFileResolver;
 import com.morpheus.application.read.ProviderIngestionBudget;
+import com.morpheus.application.read.ProviderIngestionLimitException;
 import com.morpheus.domain.diagnostic.Diagnostic;
 import com.morpheus.domain.diagnostic.DiagnosticCode;
 import com.morpheus.domain.diagnostic.DiagnosticSeverity;
@@ -90,6 +91,8 @@ public final class OpenSpecSpecificationProvider implements SpecificationProvide
                             Math.toIntExact(ProviderIngestionBudget.DEFAULT.maxDocumentBytes()))
                     : budget.readDocument(relativeConfig);
             schema = declaredValue(SCHEMA_PATTERN, configText);
+        } catch (ProviderIngestionLimitException limit) {
+            throw limit;
         } catch (IOException | IllegalArgumentException exception) {
             return invalid(config, "OpenSpec config.yaml could not be read.");
         }
@@ -138,6 +141,8 @@ public final class OpenSpecSpecificationProvider implements SpecificationProvide
                             Math.toIntExact(ProviderIngestionBudget.DEFAULT.maxDocumentBytes()))
                     : budget.readDocument(definition);
             parent = declaredValue(DERIVES_PATTERN, definitionText);
+        } catch (ProviderIngestionLimitException limit) {
+            throw limit;
         } catch (IOException | IllegalArgumentException exception) {
             return Optional.of(invalidDefinition(schema, relativeDefinition));
         }

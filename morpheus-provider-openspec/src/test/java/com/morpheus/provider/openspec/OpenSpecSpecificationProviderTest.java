@@ -1,5 +1,8 @@
 package com.morpheus.provider.openspec;
 
+import com.morpheus.application.files.SafeWorkspaceFileResolver;
+import com.morpheus.application.read.ProviderIngestionBudget;
+import com.morpheus.application.read.ProviderIngestionLimitException;
 import com.morpheus.application.read.ProviderReadRequest;
 import com.morpheus.application.read.ProviderReadResult;
 import com.morpheus.application.read.ReadCategory;
@@ -29,6 +32,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OpenSpecSpecificationProviderTest {
@@ -206,6 +210,41 @@ class OpenSpecSpecificationProviderTest {
 
         assertRefused(result, "second-level", "unsupported-parent");
         assertEquals("detailed-uml", result.diagnostics().getFirst().details().get("declaredParent"));
+    }
+
+    @Test
+    void aBudgetRefusalOnTheSchemaDefinitionIsPropagatedRatherThanReportedAsAnUnreadableFile(@TempDir Path workspace)
+            throws Exception {
+        copyFixture(RepositoryRoot.fixture("openspec-basic"), workspace);
+        declareSchema(workspace, "detailed-uml");
+        writeSchemaDefinition(workspace, "detailed-uml", "derives: spec-driven\n" + "# padding line\n".repeat(20));
+        var budget = smallDocumentBudget(workspace);
+
+        ProviderIngestionLimitException refusal = assertThrows(
+                ProviderIngestionLimitException.class, () -> provider.probe(workspace, budget));
+
+        assertTrue(refusal.getMessage().contains("document bytes"), refusal::getMessage);
+        assertTrue(refusal.getMessage().contains("openspec/schemas/detailed-uml/schema.yaml"), refusal::getMessage);
+    }
+
+    @Test
+    void aBudgetRefusalOnTheConfigIsPropagatedRatherThanReportedAsAnUnreadableFile(@TempDir Path workspace)
+            throws Exception {
+        copyFixture(RepositoryRoot.fixture("openspec-basic"), workspace);
+        Files.writeString(workspace.resolve("openspec/config.yaml"),
+                "schema: spec-driven\n" + "# padding line\n".repeat(20));
+        var budget = smallDocumentBudget(workspace);
+
+        ProviderIngestionLimitException refusal = assertThrows(
+                ProviderIngestionLimitException.class, () -> provider.probe(workspace, budget));
+
+        assertTrue(refusal.getMessage().contains("document bytes"), refusal::getMessage);
+        assertTrue(refusal.getMessage().contains("openspec/config.yaml"), refusal::getMessage);
+    }
+
+    private static ProviderIngestionBudget.Session smallDocumentBudget(Path workspace) throws IOException {
+        return new ProviderIngestionBudget(100, 10, 1_000, 1_000, 1_000, 1_000, 1_000)
+                .open(SafeWorkspaceFileResolver.rootedAt(workspace));
     }
 
     @Test
