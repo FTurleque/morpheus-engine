@@ -16,7 +16,7 @@ branche d'intégration    main (seule branche longue)
 
 ```text
 Java   >= 21
-Maven  via Maven Wrapper 3.10.0 + SHA-256 vérifié
+Maven  via Maven Wrapper 3.10.1 + SHA-256 vérifié
 Git
 Windows PowerShell pour le gate Windows
 Linux/WSL pour le gate Linux
