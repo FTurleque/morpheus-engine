@@ -16,7 +16,7 @@
 - [x] 2.2 Appliquer D1 (comptage par plages fusionnées et/ou borne qualifiée, marge écrite à côté de la borne avec sa
   mesure et sa date) — même exigence ; vérification : tests de 2.1 verts, tests existants du budget inchangés ou
   renforcés
-- [ ] 2.3 Écrire le test qui lit `openspec/` de ce dépôt avec le budget par défaut, après l'archivage de
+- [x] 2.3 Écrire le test qui lit `openspec/` de ce dépôt avec le budget par défaut, après l'archivage de
   `accept-a-declared-derived-openspec-schema` (à écrire) — même exigence, scénario « The specification corpus of this
   repository » ; vérification : vert
 
@@ -31,9 +31,9 @@
 
 - [x] 4.1 Lancer `openspec validate qualify-the-evidence-budget-on-real-corpora --strict` — vérification : aucun
   avertissement
-- [ ] 4.2 Relancer `sync` sur des copies jetables de `morpheus-engine` et `minos-code-intelligence` — vérification :
+- [x] 4.2 Relancer `sync` sur des copies jetables de `morpheus-engine` et `minos-code-intelligence` — vérification :
   `published: true` (relevé manuel, dans la PR)
-- [ ] 4.3 Lancer `./mvnw test -pl morpheus-architecture-tests` et `archgate check` — vérification : verts
+- [x] 4.3 Lancer `./mvnw test -pl morpheus-architecture-tests` et `archgate check` — vérification : verts
 
 ## Workflow follow-up
 

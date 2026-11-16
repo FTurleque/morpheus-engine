@@ -31,7 +31,7 @@
 
 - [x] 4.1 Lancer `openspec validate accept-a-declared-derived-openspec-schema --strict` — vérification : aucun
   avertissement
-- [ ] 4.2 Ingérer une copie jetable de `nexus-context-engine/openspec` **sans** réécrire son schéma, une fois
+- [x] 4.2 Ingérer une copie jetable de `nexus-context-engine/openspec` **sans** réécrire son schéma, une fois
   `derives: spec-driven` ajouté à sa copie de `schema.yaml` — vérification : `published: true`, 0 diagnostic (relevé
   manuel, dans la PR)
 - [x] 4.3 Lancer `./mvnw test -pl morpheus-architecture-tests` et `archgate check` — vérification : verts
