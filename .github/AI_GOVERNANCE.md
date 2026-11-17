@@ -52,6 +52,7 @@ ce paramétrage : elle reste entière.
 | Règles | `.claude/CLAUDE.md` + `.claude/rules/*.md` | Claude Code, automatiquement | ✅ | Source détaillée unique |
 | Skills | `.claude/skills/<nom>/SKILL.md` | Claude Code, à la demande quand la description correspond à la tâche | ✅ | Procédures (« comment faire »), là où une règle dit « ce qui est interdit » |
 | Agents | `.claude/agents/*.md` | Invocables comme sub-agents (`architect`, `bug-investigator`, `contract-guardian`, `security-reviewer`) | ✅ | Revue spécialisée avec procédure et format de réponse stricts |
+| Mémoire d'agent | `.claude/agent-memory/<agent>/` (`MEMORY.md` et une fiche par constat) | l'agent `archgate:developer` du plugin Archgate, qui lit son index à chaque invocation | ✅ | Pièges et procédures que l'agent a constatés sur ce dépôt ; une fiche ne porte ni règle ni chiffre périssable : une contrainte qui doit tenir pour tous va dans `.claude/rules/` ou un test |
 | Commandes | `.claude/commands/*.md` | Invocables (`/governance`, `/security-audit`, `/test-gate`, `/validate`, `/milestone`, `/health`, `/bug-fix`) | ✅ | Workflows pas-à-pas |
 | Hooks | `.claude/hooks/pre-bash.ps1`, `.claude/hooks/post-edit.ps1` | `PreToolUse`/`PostToolUse`, déclarés dans `.claude/settings.json` | ✅ | Garde-fous fail-open (avertir/bloquer sans jamais bloquer tous les outils par bug interne) |
 | Permissions | `.claude/settings.json` | Claude Code | ✅ | Allow/deny partagés (force-push protégé, `rm -rf` non borné) |
