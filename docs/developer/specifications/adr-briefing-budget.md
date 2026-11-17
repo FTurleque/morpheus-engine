@@ -1,7 +1,6 @@
 # Borne du briefing des ADR remis aux agents (`adr-briefing-budget`)
 
-Spec de référence : `openspec/specs/adr-briefing-budget/spec.md` à l'archivage du changement
-`hold-the-adr-briefing-budget`, qui porte la capacité jusque-là · Relevé du 2026-11-17 sur `7d3b012d`.
+Spec de référence : `openspec/specs/adr-briefing-budget/spec.md` · Relevé du 2026-11-17 sur `de021878`.
 
 ## Objet et périmètre
 
@@ -59,7 +58,7 @@ flowchart LR
 
 | Exigence | Scénario | Conception ou diagramme | Changement | Preuve |
 |---|---|---|---|---|
-| R1 | Une section Decision qui dépasse la borne | organigramme | `hold-the-adr-briefing-budget` | `AdrBriefingBudgetTest#anOverrunNamesTheRecordTheSectionAndItsLengthWhileASectionAtTheBudgetPasses` |
+| R1 | Une section Decision qui dépasse la borne | organigramme | archive `2026-11-17-hold-the-adr-briefing-budget` | `AdrBriefingBudgetTest#anOverrunNamesTheRecordTheSectionAndItsLengthWhileASectionAtTheBudgetPasses` |
 | R1 | Une section à la borne exacte | idem | idem | idem |
 | R1 | Les sous-sections comptent | idem | idem | `AdrBriefingBudgetTest#aSectionRunsToTheNextLevelTwoHeadingAndMeasuresTheSameWhateverTheLineEndings` |
 | R1 | Les sections Do's and Don'ts sont bornées aussi | idem | idem | `AdrBriefingBudgetTest#everyRecordInForceKeepsEachBriefedSectionWithinTheBudget` |
