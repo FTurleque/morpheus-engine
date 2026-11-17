@@ -55,32 +55,7 @@ Options considérées :
 - **Explicit-first + fallback Git structurel** : retenue, elle protège les monorepos et reste locale, déterministe et
   sans dépendance externe.
 
-## Decision
-
-MORPHEUS adopte une stratégie **explicit-first avec fallback Git structurel**, portée par `WorkspaceRootResolver` et
-`ProjectDiscoveryService` (`com.morpheus.application.discovery`).
-
-### Chemin explicite
-
-Le chemin demandé est :
-
-```text
-requestedPath
-    -> toAbsolutePath()
-    -> normalize()
-```
-
-Il doit exister et être un répertoire ; sinon la discovery rend un diagnostic `INVALID_SOURCE`. MORPHEUS exécute
-d'abord la découverte des providers sur ce chemin normalisé.
-
-### Fallback Git
-
-Uniquement lorsqu'aucune source n'est reconnue au chemin explicite, MORPHEUS recherche vers les parents le premier
-répertoire contenant un marqueur `.git`. Le marqueur peut être un fichier ou un répertoire, afin de rester compatible
-avec les worktrees et certaines configurations Git. Aucune commande `git` n'est exécutée. Si une racine Git distincte
-est trouvée, les probes sont réessayés sur cette racine.
-
-### Priorité
+L'ordre de résolution retenu :
 
 ```text
 1. chemin explicite
@@ -88,58 +63,32 @@ est trouvée, les probes sont réessayés sur cette racine.
 3. échec déterministe
 ```
 
-Un provider valide découvert au chemin explicite gagne toujours sur une racine Git située plus haut.
+Le marqueur `.git` peut être un fichier pour rester compatible avec les worktrees et certaines configurations Git. La
+discovery distingue `workspace root`, `provider probe` et `specification source` ; le locator d'un provider explique
+pourquoi il a matché, par exemple pour OpenSpec `scheme = file`, `value = openspec/config.yaml`. Le séparateur `/`
+évite d'injecter les séparateurs Windows dans les contrats persistables, et la normalisation lexicale sans
+`toRealPath()` évite de modifier silencieusement l'identité visible des chemins.
 
-### Source reconnue mais invalide ou non supportée
+## Decision
 
-Le fallback Git ne masque pas une source explicitement reconnue mais invalide ou non supportée (configuration OpenSpec
-présente avec un schéma inconnu, ou illisible). Dans ces cas, MORPHEUS retourne les diagnostics du provider au chemin
-explicite au lieu de chercher silencieusement une autre source plus haut.
+Stratégie **explicit-first avec fallback Git structurel**, portée par `WorkspaceRootResolver` et
+`ProjectDiscoveryService` (`com.morpheus.application.discovery`). Git n'est pas une dépendance obligatoire du cœur.
 
-### Workspace sans Git
-
-Un workspace sans marqueur `.git` est valide : le chemin explicite normalisé est sa racine de discovery.
-
-### Inventaire des sources
-
-La discovery distingue :
-
-```text
-workspace root
-provider probe
-specification source
-```
-
-Un provider supporté expose un locator de source suffisamment précis pour expliquer pourquoi il a matché, par exemple
-pour OpenSpec :
-
-```text
-scheme = file
-value  = openspec/config.yaml
-```
-
-Les locators fichiers relatifs sont normalisés avec `/` comme séparateur logique, afin de ne pas injecter les
-séparateurs Windows dans les contrats persistables. La discovery ne parse ni exigences ni changements : elle inventorie
-uniquement les signatures de sources.
-
-### Liens symboliques
-
-La normalisation lexicale est la règle ; MORPHEUS ne canonicalise pas systématiquement les chemins par `toRealPath()`.
-Un comportement spécifique aux liens n'est ajouté que sur cas démontré, afin de ne pas modifier silencieusement
-l'identité visible des chemins.
-
-### Invariants
-
-1. Git n'est pas une dépendance obligatoire du cœur.
-2. Aucune commande Git n'est nécessaire à la discovery.
-3. Le chemin explicite est évalué avant tout fallback.
-4. Un provider valide au chemin explicite n'est jamais remplacé par un provider trouvé plus haut.
-5. Une source reconnue mais invalide ou non supportée n'est pas masquée par un fallback.
-6. Un workspace non-Git est supporté.
-7. Les providers restent propriétaires de leurs signatures de format.
-8. La couche discovery ne parse aucun concept métier OpenSpec.
-9. Les résultats exposent `requestedPath`, le `workspaceRoot` résolu et l'origine de cette résolution.
-10. Un locator n'est jamais une `DomainIdentity`.
+1. **Chemin explicite** : `requestedPath` passe par `toAbsolutePath().normalize()`, doit exister et être un
+   répertoire, sinon diagnostic `INVALID_SOURCE`. Les providers sont découverts d'abord sur ce chemin.
+2. **Fallback Git** : seulement si aucune source n'est reconnue au chemin explicite, recherche vers les parents du
+   premier répertoire portant un marqueur `.git`, fichier ou répertoire ; les probes sont réessayés sur une racine
+   distincte trouvée. Aucune commande `git` ni processus externe n'est exécuté ; sinon, échec déterministe.
+3. **Priorité** : un provider valide au chemin explicite n'est jamais remplacé par un provider trouvé plus haut.
+4. **Source reconnue mais invalide ou non supportée** (schéma OpenSpec inconnu, configuration illisible) : les
+   diagnostics du provider au chemin explicite sont rendus ; aucun fallback ne la masque.
+5. **Workspace sans Git** : valide, le chemin explicite normalisé est sa racine.
+6. **Inventaire** : les providers restent propriétaires de leurs signatures de format ; un provider supporté expose un
+   locator qui explique son match ; les locators fichiers relatifs utilisent `/`. La discovery ne parse ni exigence, ni
+   changement, ni aucun concept métier OpenSpec.
+7. **Liens symboliques** : normalisation lexicale ; pas de canonicalisation par `toRealPath()` sans cas démontré.
+8. **Résultat** : expose `requestedPath`, le `workspaceRoot` résolu et l'origine de la résolution. Un locator n'est
+   jamais une `DomainIdentity`.
 
 ## Do's and Don'ts
 

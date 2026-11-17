@@ -26,7 +26,7 @@ Options écartées :
 - **Sauter une saved view illisible dans une liste, ou la réparer au démarrage** : dégradation silencieuse, ou
   réécriture d'une donnée que le système ne sait pas lire.
 
-## Decision
+La plateforme que la décision fixe, dans le détail de ses mécanismes :
 
 ### Modèle
 
@@ -186,6 +186,29 @@ surface parity != same transport shape
 
 Les représentations transport peuvent différer ; validation, budgets, scope, CAS, tri et export restent définis dans
 l'application.
+
+## Decision
+
+AST de requête provider-neutral borné (`com.morpheus.application.query.dsl`), sans SQL ni type provider ou transport.
+
+1. **Scope** : `ProjectSpecificationId` ou `PortfolioId`, jamais un workspace, un dépôt, un provider ou une table ;
+   un résultat portfolio garde son `ProjectSpecificationId`.
+2. **Champs** : ceux de `QuerySchemaRegistry` seuls, typés, à opérateurs fermés (`QueryOperator`) ; combinaison
+   incompatible : diagnostic, pas d'exécution. Absence distincte du vide ; `EXISTS` sans coercition.
+3. **Ordre** : tri stable départagé par `projectId` puis `entityId` ; projection transport-safe gardant les
+   identités ; pages avec `totalMatches` et `hasMore`, page hors budget refusée.
+4. **Budgets et décodage** : constantes de `QueryBudgets`, dont le dépassement n'est jamais un résultat partiel
+   présenté complet. `QueryDefinitionCodec` seul décode : taille, décodage borné (nœuds, prédicats, valeurs,
+   profondeur), puis `QueryValidator`, arrêté au premier budget dépassé ; encodage déterministe, sans sérialisation
+   Java ni JSON arbitraire. Une borne vaut à l'écriture et à la relecture.
+5. **Saved views** : définition, jamais le résultat, exécutée contre la vérité publiée ; `SavedViewId` indépendant
+   du nom ; mise à jour sous `expectedRevision`, historique lisible ; migration additive `V014__saved_views.sql`.
+   `SavedViewStore.list` rend aussi les illisibles ; `SavedViewStore.archive` ne décode pas.
+6. **Export** read-only et déterministe (JSON canonique, CSV, Markdown), sous budgets de lignes et d'octets,
+   **complet** : `offset` et `limit` refusés sur les trois surfaces, page d'une saved view ignorée et dite. Au-delà
+   du cadre STDIO, MCP refuse (`MCP_RESPONSE_TOO_LARGE`) et `export_query` nomme les recours.
+7. **Surfaces** : mêmes services pour CLI, MCP et HTTP ; validation, budgets, scope, CAS, tri et export vivent dans
+   l'application.
 
 ## Do's and Don'ts
 

@@ -43,53 +43,27 @@ Options écartées :
 - **Borner chaque requête par le temps restant de l'opération** : impossible avec le client synchrone du SDK, dont
   le délai de requête est fixé à la construction.
 
-## Decision
+Les deux directions d'une même borne n'ont pas la même réaction. Entrante, la borne est défensive : un pair qui
+dépasse une limite déclarée est hostile ou cassé, et fermer la session est la bonne réponse ; `readLine(maxMessageBytes)`
+lève l'exception et la boucle de lecture échoue fermé. Sortante, la trame est celle de MORPHEUS : la dépasser est un
+défaut de MORPHEUS, et le client n'a pas à le payer de sa session. Le transport décrit ce qu'il a refusé et rien
+d'autre, et la requête suivante est servie. Le texte d'orientation est borné pour que le substitut garde une taille
+fixe ; celui de `MorpheusMcpServer` est générique : les outils de lecture paginés acceptent `offset` et `limit`, et le
+premier geste est de relancer avec un `limit` plus petit. Une seule fabrique construit le serveur, pour que le chemin
+de test et celui de production ne divergent pas. Une notification, une requête initiée par le serveur ou une réponse
+sans `id` n'a aucune requête en attente à laquelle répondre : le refus journalisé n'est pas une dégradation
+silencieuse. Un substitut qui dépasse lui-même la borne n'arrive que si le pair a choisi un `id` proche de la borne.
 
-### 1. Les deux directions d'une même borne n'ont pas la même réaction
+Côté client, seule la branche « sans `id` » a un sens : le client n'a aucune requête du pair en attente à laquelle
+substituer une réponse. `sendMessage` rattrape `OutboundMessageRefusedException` **avant** la branche `IOException`
+qui échoue fermé, et le pair continue de tourner. Le refus couvre aussi une réponse à une requête initiée par le pair :
+le client MORPHEUS n'enregistre aucune capacité (`roots`, `sampling`) qui en émettrait une ; si cela change, la
+substitution se décide avec la capacité. `get_current_specification` suit les mêmes bornes que les autres outils de
+lecture paginés ; une page d'une seule spécification dont la description dépasse à elle seule la borne reste refusée
+par `MCP_RESPONSE_TOO_LARGE`, et la session survit.
 
-**Entrante**, la borne est défensive : un pair qui dépasse une limite déclarée est hostile ou cassé, et fermer la
-session est la bonne réponse. `readLine(maxMessageBytes)` lève `MessageTooLargeException` et la boucle de lecture
-échoue fermé, côté serveur comme côté client.
-
-**Sortante**, la trame est celle de MORPHEUS : la dépasser est un défaut de MORPHEUS, et le client n'a pas à le payer
-de sa session. La borne n'est pas relevée.
-
-Côté serveur (`BoundedStdioServerTransportProvider`) :
-
-- une **réponse** JSON-RPC portant un `id` est remplacée par une réponse d'erreur portant **le même `id`**, avec
-  l'état de rejet nommé `MCP_RESPONSE_TOO_LARGE` (`RESPONSE_TOO_LARGE`), la taille produite et la borne. Le transport
-  décrit ce qu'il a refusé et rien d'autre. L'erreur ne contient **aucun fragment** du contenu qui a débordé. La
-  session survit et la requête suivante est servie ;
-- un texte d'orientation peut être fourni à la construction par la couche qui connaît le catalogue : vide par défaut,
-  borné à `MAX_GUIDANCE_CHARS` caractères pour que le substitut garde une taille fixe, jamais un fragment du contenu.
-  `MorpheusMcpServer` fournit `OVERSIZED_RESPONSE_GUIDANCE`, générique : les outils de lecture paginés acceptent
-  `offset` et `limit`, et le premier geste est de relancer avec un `limit` plus petit. Les chemins de construction du
-  serveur passent par une seule fabrique, pour que le chemin de test et celui de production ne divergent pas ;
-- une **notification**, une requête initiée par le serveur ou une réponse sans `id` n'a aucune requête en attente à
-  laquelle répondre : elle est journalisée en `WARNING` (nature, taille, borne) et refusée à son émetteur local par
-  `OutboundMessageRefusedException`. La session reste ouverte ; ce n'est pas une dégradation silencieuse ;
-- l'échec fermé ne reste sur la sortie que si l'erreur de substitution **elle-même** ne tient pas dans la borne, ce
-  qui n'arrive que si le pair a choisi un `id` proche de la borne.
-
-Côté client (`BoundedStdioClientTransport`), seule la branche « sans `id` » a un sens : le client n'a aucune requête
-du pair en attente à laquelle substituer une réponse. Une trame sortante hors borne est journalisée en `WARNING`
-(nature, taille, borne, jamais le message d'une exception), puis refusée à son émetteur local par
-`OutboundMessageRefusedException`, que `sendMessage` rattrape **avant** la branche `IOException` qui échoue fermé. Le
-pair continue de tourner. Le refus couvre aussi une réponse à une requête initiée par le pair : le client MORPHEUS
-n'enregistre aucune capacité (`roots`, `sampling`) qui en émettrait une ; si cela change, la substitution se décide
-avec la capacité.
-
-Aucun nom d'outil du catalogue serveur n'apparaît dans `morpheus-mcp-transport`.
-
-`get_current_specification` est paginé par `offset` et `limit`, aux mêmes bornes que les autres outils de lecture
-paginés ; la forme de sa page est décidée par ADR-0151 (§2). La page est ordonnée par identifiant de spécification et chaque
-spécification garde sa `description`. Une page d'une seule spécification dont la description dépasse à elle seule la
-borne reste refusée par `MCP_RESPONSE_TOO_LARGE`, et la session survit.
-
-### 2. Le code de sortie distingue la fin propre de l'arrêt en échec
-
-Le transport retient son issue terminale (`terminatedInFailure()`), sans exposer la cause : elle peut être contrôlée
-par le pair et elle est déjà journalisée par `McpDiagnosticRedactor`.
+Le transport retient son issue terminale sans exposer la cause : elle peut être contrôlée par le pair et elle est déjà
+journalisée par `McpDiagnosticRedactor`. Codes de sortie de `MorpheusMcpServer` :
 
 | Issue | Constante |
 |---|---|
@@ -99,49 +73,28 @@ par le pair et elle est déjà journalisée par `McpDiagnosticRedactor`.
 | borne d'un handler dépassée | `MorpheusMcpServer.EXIT_TRANSPORT_FAILURE` |
 
 L'interruption rend le code d'échec : le serveur n'a pas atteint la fin de son flux d'entrée, ce que le code de fin
-propre promet. Une réponse remplacée par `MCP_RESPONSE_TOO_LARGE` ne change pas le code de sortie.
+propre promet. `morpheus-mcp` ne peut pas importer `CliExitCode` : `morpheus-cli` dépend de `morpheus-mcp`, pas
+l'inverse. Les valeurs convergent sans dépendance (`EXIT_TRANSPORT_FAILURE` sur `CliExitCode.IO_ERROR`), et un test de
+`morpheus-architecture-tests`, seul module qui voit les deux, épingle l'égalité.
 
-`morpheus-mcp` ne peut pas importer `CliExitCode` : `morpheus-cli` dépend de `morpheus-mcp`, pas l'inverse. Les valeurs
-convergent sans dépendance, `EXIT_END_OF_INPUT` sur `CliExitCode.SUCCESS` et `EXIT_TRANSPORT_FAILURE` sur
-`CliExitCode.IO_ERROR`, et un test de `morpheus-architecture-tests`, seul module qui voit les deux, épingle l'égalité.
+Les descendants vivants d'un pair MCP restent retenus selon la garantie de `SECURITY.md` (« MCP peer descendants are
+best-effort »). Un processus mort ne peut pas être terminé, et ses enfants orphelins ne sont rattachables à lui par
+aucune poignée retenue. L'arrêt et la destruction de l'arbre partent de la racine. La règle ne touche ni au pas
+d'observation ni à `destroyObservedDescendants`.
 
-### 3. Une poignée de processus mort est libérée, une poignée vivante est retenue
+`BoundedStdioServerTransportProvider.DEFAULT_HANDLER_DEADLINE` est une borne de sécurité, pas un délai de service :
+elle n'existe que pour qu'un défaut se voie, et le constructeur la règle pour les tests, comme `maxFrameBytes`. Au
+dépassement, `MorpheusMcpServer` rend `EXIT_TRANSPORT_FAILURE`. Ce n'est pas une incohérence avec la substitution
+d'une trame sortante. Une trame sortante hors borne est un défaut **connu et contenu** : MORPHEUS sait ce qui a été
+refusé, rien ne tourne encore, et la substitution garde l'ordonnancement intact. Un handler hors borne a rompu
+l'invariant de la boucle séquentielle : annuler libère le lecteur sans prouver que le travail s'est arrêté, et la
+session a perdu sa garantie d'ordonnancement.
 
-Les descendants **vivants** d'un pair MCP restent retenus, selon la garantie documentée dans `SECURITY.md` (« MCP peer
-descendants are best-effort »). Une poignée est libérée une fois son processus mort : un processus mort ne peut pas
-être terminé, et ses enfants orphelins ne sont rattachables à lui par aucune poignée retenue. La racine n'est
-jamais libérée : l'arrêt et la destruction de l'arbre partent d'elle. Le pas d'observation et
-`destroyObservedDescendants` ne changent pas.
-
-### 4. Un handler a une borne de sécurité, et la dépasser ferme la session
-
-L'attente d'un handler est bornée par `BoundedStdioServerTransportProvider.DEFAULT_HANDLER_DEADLINE`. C'est une
-**borne de sécurité**, pas un délai de service : elle n'existe que pour qu'un défaut se voie, n'est pas réglable par
-le client, et se règle par le constructeur pour les tests, comme `maxFrameBytes`.
-
-Au dépassement, le handler est annulé, la session **échoue fermé** avec une cause nommée
-(`HandlerDeadlineExceededException`), la trace passe par `McpDiagnosticRedactor` comme tout échec de transport, et
-`MorpheusMcpServer` rend `EXIT_TRANSPORT_FAILURE`.
-
-Ce n'est pas une incohérence avec le §1. Une trame sortante hors borne est un défaut **connu et contenu** : MORPHEUS
-sait ce qui a été refusé, rien ne tourne encore, et la substitution garde l'ordonnancement intact. Un handler hors
-borne a rompu l'invariant de la boucle séquentielle : annuler libère le lecteur sans prouver que le travail s'est
-arrêté, et la session a perdu sa garantie d'ordonnancement.
-
-### 5. Une opération de pair a une échéance, et la borne du handler en est dérivée
-
-`PeerOperationDeadline` (`morpheus-mcp-transport`) déclare l'enveloppe que toute intégration de pair respecte : un
-délai de requête d'au plus `MAX_REQUEST_TIMEOUT` et au plus `MAX_SEQUENTIAL_REQUESTS` requêtes par opération.
-L'échéance d'une opération vaut délai × requêtes + `START_UP_ALLOWANCE` (lancement du processus et travail local) ;
-`PeerOperationDeadline.of` refuse tout ce qui sort de l'enveloppe.
-
-Chaque passerelle déclare `REQUESTS_PER_OPERATION` (`MinosMcpCodeGateway`, `NexusMcpContextGateway`), arme l'échéance
-à sa construction et la désarme à sa fermeture ; une passerelle ne sert qu'une opération. À l'échéance, une
-sentinelle ferme le client du SDK, ce qui fait échouer immédiatement la requête en attente, et la passerelle répond
-`… MCP operation exceeded its N ms deadline` au lieu d'une session rompue. La pagination de `tools/list` est bornée par
-la même horloge.
-
-La borne du handler est **calculée**, pas choisie :
+`PeerOperationDeadline` (`morpheus-mcp-transport`) déclare l'enveloppe que toute intégration de pair respecte ;
+`START_UP_ALLOWANCE` couvre le lancement du processus et le travail local. Les passerelles sont `MinosMcpCodeGateway`
+et `NexusMcpContextGateway` ; chacune arme l'échéance à sa construction et la désarme à sa fermeture. À l'échéance,
+une sentinelle ferme le client du SDK, ce qui fait échouer immédiatement la requête en attente, et la passerelle répond
+par l'erreur bornée au lieu d'une session rompue. La borne du handler est **calculée**, pas choisie :
 
 ```text
 DEFAULT_HANDLER_DEADLINE = PeerOperationDeadline.LONGEST_OPERATION
@@ -155,13 +108,35 @@ le transport et les pairs : l'opération de chaque passerelle est calculée depu
 `REQUESTS_PER_OPERATION`, doit tenir dans l'enveloppe, et la borne doit dépasser la plus longue augmentée de sa
 fermeture. Un pair ajouté, ou une requête de plus, repose la question.
 
-### 6. Chaque outil MCP servi a sa ligne dans le manifeste de convergence
+La règle d'une ligne du manifeste par outil MCP servi, avec des colonnes `cli` et `http` comparées aux commandes et
+routes réelles et une sentinelle pour toute absence, vaut pour chaque outil du câblage par défaut de
+`MorpheusMcpServer`. Les outils qui lancent à la demande un pair configuré par l'opérateur
+(`resolve_external_reference`, `get_augmented_requirement_context`, `get_augmented_change_context`) nomment l'outil
+dans la colonne `mcp`.
 
-La règle d'une ligne de `contracts/public-surfaces.tsv` par outil MCP servi, et de colonnes `cli` et `http` comparées
-aux commandes et routes réelles avec une sentinelle pour toute absence, est décidée par ADR-0089 (§5) ; elle vaut pour
-chaque outil servi par le câblage par défaut de `MorpheusMcpServer`. Les outils qui lancent à la demande un pair
-configuré par l'opérateur (`resolve_external_reference`, `get_augmented_requirement_context`,
-`get_augmented_change_context`) nomment l'outil dans la colonne `mcp`, et leurs notes disent qu'ils lancent ce pair.
+## Decision
+
+1. **Entrante** hors borne : `MessageTooLargeException`, échec fermé des deux côtés.
+2. **Sortante** : borne non relevée. Serveur (`BoundedStdioServerTransportProvider`) : une réponse à `id` devient une
+   erreur au même `id`, `MCP_RESPONSE_TOO_LARGE` (`RESPONSE_TOO_LARGE`), taille, borne, sans fragment ; la session
+   survit, sauf substitut trop grand. Autre trame, serveur ou client (`BoundedStdioClientTransport`) : `WARNING`
+   (nature, taille, borne, sans message d'exception) et `OutboundMessageRefusedException` à l'émetteur, session
+   ouverte.
+3. L'orientation vient du catalogue, vide par défaut, bornée à `MAX_GUIDANCE_CHARS` (`OVERSIZED_RESPONSE_GUIDANCE`,
+   fabrique unique de `MorpheusMcpServer`). Le transport ne nomme aucun outil.
+4. `get_current_specification` : `offset`/`limit` (ADR-0151 §2), tri par identifiant, `description` gardée.
+5. Sortie (`terminatedInFailure()`, cause non exposée) : `EXIT_END_OF_INPUT` (`CliExitCode.SUCCESS`) à l'EOF ;
+   `EXIT_TRANSPORT_FAILURE` (`IO_ERROR`) sur échec fermé, interruption ou borne de handler ; sans import ;
+   substitution sans effet.
+6. Poignées : descendant mort libéré ; vivant et racine retenus.
+7. Handler : `DEFAULT_HANDLER_DEADLINE` = `LONGEST_OPERATION + CLOSE_ALLOWANCE + HANDLER_LOCAL_WORK_MARGIN`, borne
+   de sécurité réglée au constructeur. Dépassée : annulation, échec fermé `HandlerDeadlineExceededException` via
+   `McpDiagnosticRedactor`.
+8. Pairs : `PeerOperationDeadline` admet ≤ `MAX_SEQUENTIAL_REQUESTS` requêtes de ≤ `MAX_REQUEST_TIMEOUT`,
+   échéance délai × requêtes + `START_UP_ALLOWANCE`. Une passerelle (une opération) déclare
+   `REQUESTS_PER_OPERATION`, arme son échéance (`tools/list` compris) et ferme à l'échéance le client du SDK :
+   `… MCP operation exceeded its N ms deadline`.
+9. Un outil servi a sa ligne de `contracts/public-surfaces.tsv` (ADR-0089, point 3) et dit en notes s'il lance un pair.
 
 ## Do's and Don'ts
 

@@ -33,14 +33,7 @@ Options considérées :
   directement.
 - **Contrats explicites et références externes** : retenue.
 
-## Decision
-
-Les moteurs restent autonomes et communiquent par des **contrats d'intégration explicites**. MORPHEUS ne référence
-pas directement les objets internes de domaine d'un autre moteur.
-
-Pour conserver un lien vers un système externe, MORPHEUS possède son propre concept de référence externe
-(`com.morpheus.domain.reference.ExternalReference`), dont la cible (`ExternalReferenceTarget`) porte des coordonnées
-neutres :
+La cible d'une référence externe porte des coordonnées neutres :
 
 ```text
 ExternalReferenceTarget
@@ -51,22 +44,29 @@ ExternalReferenceTarget
 └── revision       (optionnelle)
 ```
 
-Une relation cross-engine peut être portée par un lien de traçabilité dont la cible est externe.
+Une relation cross-engine peut être portée par un lien de traçabilité dont la cible est externe. Une référence externe
+peut devenir invalide si le système cible change ; ses états de résolution (`ExternalReferenceResolutionState`)
+relèvent d'ADR-0142. La séparation entre l'intention MORPHEUS et le contexte technique NEXUS est décidée par ADR-0075,
+le partage des responsabilités avec JARVIS par ADR-0139.
 
-**MINOS.** Une exigence peut être reliée à un symbole MINOS par une référence externe (`system = MINOS`). MORPHEUS
-conserve le lien même si MINOS n'est pas disponible au moment de la requête : la résolution live est une capacité
-d'intégration, pas une condition d'existence du lien.
+## Decision
 
-**NEXUS.** NEXUS consomme le contexte de spécification de MORPHEUS par un contrat ou un adaptateur ; la séparation
-entre l'intention MORPHEUS et le contexte technique NEXUS est décidée par ADR-0075. MORPHEUS ne connaît ni les budgets
-de tokens de NEXUS, ni ses stratégies de ranking, ni ses profils d'agents, ni ses algorithmes de compression.
+Les moteurs restent autonomes et communiquent par des **contrats d'intégration explicites**. MORPHEUS ne référence
+pas directement les objets internes de domaine d'un autre moteur.
 
-**JARVIS.** JARVIS appelle les opérations MORPHEUS, mais le cœur MORPHEUS ne contient aucun workflow JARVIS. Le
-partage des responsabilités entre les deux moteurs est décidé par ADR-0139.
+Un lien vers un système externe passe par la référence externe possédée par MORPHEUS,
+`com.morpheus.domain.reference.ExternalReference`, dont la cible `ExternalReferenceTarget` n'a que des coordonnées
+neutres.
 
-**Références obsolètes.** Une référence externe peut devenir invalide si le système cible change. Ses états de
-résolution (`ExternalReferenceResolutionState`), et le fait que la disparition d'une cible ne supprime ni la référence
-ni son historique, sont décidés par ADR-0142.
+**MINOS.** Une exigence se relie à un symbole MINOS par une référence externe (`system = MINOS`), conservée même si
+MINOS est indisponible : la résolution live est une capacité d'intégration, pas une condition d'existence du lien.
+
+**NEXUS.** NEXUS consomme le contexte de spécification par un contrat ou un adaptateur (ADR-0075). MORPHEUS ne connaît
+ni ses budgets de tokens, ni son ranking, ni ses profils d'agents, ni sa compression.
+
+**JARVIS.** JARVIS appelle les opérations MORPHEUS ; le cœur MORPHEUS ne contient aucun workflow JARVIS (ADR-0139).
+
+**Références obsolètes.** La disparition d'une cible ne supprime ni la référence ni son historique (ADR-0142).
 
 Invariants :
 

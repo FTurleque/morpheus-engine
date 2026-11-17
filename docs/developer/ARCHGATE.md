@@ -65,7 +65,9 @@ Un ADR dont l'en-tête porte `files:` n'est exécuté que si un fichier de cette
 s'exécutent seulement sur un arbre propre avec `--base HEAD` ; sur un arbre modifié, lancer la commande dans un
 `git worktree` détaché. Code de sortie : 0 conforme, 1 violation, 2 erreur d'une règle ; `total: 0` dans la sortie JSON
 signifie « aucune règle exécutée », pas « conforme ». Les avertissements `briefingWarnings` signalent une section
-`Decision` plus longue que ce que `review-context` résume ; ils n'échouent pas.
+`Decision` ou `Do's and Don'ts` de plus de 2 000 caractères, que `review-context` coupe ; ils n'échouent pas. Archgate
+ne reconnaît un titre de section que sur une ligne terminée par un saut de ligne seul : sur un arbre extrait en CRLF,
+il ne voit aucune section et ne signale rien. La borne est tenue par `AdrBriefingBudgetTest`, dans le build.
 
 ## Règles
 

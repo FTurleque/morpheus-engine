@@ -44,12 +44,7 @@ Options étudiées :
 | Définir une union de tous les formats connus | Rejetée | Produit un domaine guidé par les fournisseurs au lieu des cas d'usage |
 | Domaine MORPHEUS normalisé + métadonnées externes | Retenue | Préserve la sémantique MORPHEUS et conserve ce qu'il faut pour le round-trip ou le diagnostic |
 
-## Decision
-
-### 1. MORPHEUS possède son propre modèle de domaine
-
-Les concepts publics sont définis à partir des cas d'usage MORPHEUS, pas à partir des fichiers ou classes d'un
-provider. Le domaine porte notamment :
+Le domaine MORPHEUS porte notamment :
 
 ```text
 ProjectSpecification   Specification        Requirement         Scenario
@@ -58,40 +53,21 @@ ImplementationTask     SpecificationVersion Evidence            TraceabilityLink
 ExternalReference
 ```
 
-### 2. Un provider est un adaptateur derrière les ports de l'application
-
-Les providers sont placés derrière les ports `SpecificationProvider` et `SpecificationContentReader` de
-`morpheus-application`. Le flux de lecture est obligatoire :
+Le flux de lecture, des ports `SpecificationProvider` et `SpecificationContentReader` de `morpheus-application`
+jusqu'au domaine :
 
 ```text
 Format externe -> Provider / Adapter -> Ingestion / Normalisation -> Domaine MORPHEUS
 ```
 
-Un flux d'écriture vers un format externe passe, lui aussi, par un adaptateur explicite.
+Un identifiant externe peut être conservé ; une même clé externe dans deux providers ne constitue pas la même identité
+MORPHEUS, et la même fonction consomme chaque provider :
 
-### 3. Les invariants de la frontière
+```text
+(openspec, requirement, X) != (synthetic-json, requirement, X)
+```
 
-Ils s'imposent aux providers, à `SpecificationKnowledgeStore`, à la CLI, au MCP, à l'API et aux intégrations
-MINOS/NEXUS/JARVIS :
-
-1. Aucun type propre à un provider n'apparaît dans les interfaces du domaine, ni ne traverse un contrat de
-   l'application : aucun type de SDK ou de provider ne fuit dans `NormalizedProjectContent` ou `ProviderReadResult`.
-2. Aucun chemin de fichier spécifique à un provider ne devient une identité métier universelle sans justification.
-3. Les statuts propres à un provider sont mappés vers des concepts MORPHEUS ou conservés comme métadonnées externes.
-4. Les identifiants externes peuvent être conservés mais ne constituent pas automatiquement l'identité MORPHEUS.
-   L'identité externe est scopée par provider : une même clé externe dans deux providers ne constitue pas la même
-   identité MORPHEUS.
-
-   ```text
-   (openspec, requirement, X) != (synthetic-json, requirement, X)
-   ```
-
-5. Un test du domaine s'exécute sans OpenSpec ni autre provider installé.
-6. Un nouveau provider s'ajoute sans modifier le domaine ni les cas d'usage publics existants, sauf extension
-   légitime du domaine.
-7. Un consommateur de port ne branche pas sur l'identifiant du provider : la même fonction consomme chaque provider,
-   et le même vocabulaire `ReadCategory` s'applique à tous.
-8. Un provider ne déclare que les capacités qu'il normalise réellement.
+Principes que la frontière tient :
 
 ```text
 provider format != MORPHEUS domain
@@ -102,12 +78,8 @@ the same ReadCategory vocabulary applies to both providers
 external identity is provider-scoped
 ```
 
-Aucune décision ultérieure ne contourne cette frontière sans nouvel ADR explicite.
-
-### 4. Un second provider, de vérification, prouve la neutralité
-
-Le module `morpheus-provider-synthetic` est **verification-only** : il démontre l'architecture extensible, il n'est
-pas un provider produit supporté publiquement. Il implémente les mêmes ports que le provider OpenSpec :
+Le provider de vérification `morpheus-provider-synthetic` démontre l'architecture extensible ; il n'est pas un
+provider produit supporté publiquement. Il implémente les mêmes ports que le provider OpenSpec :
 
 ```text
 OpenSpec source ──> OpenSpec adapter ────┐
@@ -119,13 +91,9 @@ Synthetic JSON ─> Synthetic adapter ─────┘    ProviderReadResult
                                          NormalizedProjectContent
 ```
 
-Il lit `morpheus-spec.json` ; la fixture `experiments/m0/fixtures/synthetic-basic/morpheus-spec.json` est l'oracle du
-second format, et porte des métadonnées explicites (spécification, exigence, scénario, changement) afin que le reader
-n'invente ni titre de spécification ni action de scénario. Ses capacités sont celles que déclare
-`SyntheticSpecificationProvider`. Son parser JSON reste encapsulé dans `com.morpheus.provider.synthetic` et n'ajoute
-aucune dépendance externe. Il n'est qu'une dépendance de portée `test` des autres modules.
-
-Le provider synthétique doit permettre de vérifier que :
+Sa fixture `morpheus-spec.json` porte des métadonnées explicites (spécification, exigence, scénario, changement) afin
+que le reader n'invente ni titre de spécification ni action de scénario. Le provider synthétique permet de vérifier
+que :
 
 1. il est détecté via `SpecificationProvider` ;
 2. son reader implémente `SpecificationContentReader` ;
@@ -141,6 +109,31 @@ Le provider synthétique doit permettre de vérifier que :
 Hors périmètre : la publication du provider synthétique comme fonctionnalité utilisateur, la compatibilité
 ascendante de son schéma JSON, l'écriture du format synthétique, et un enrichissement fonctionnel au niveau
 d'OpenSpec.
+
+## Decision
+
+Les concepts publics de `morpheus-domain` naissent des cas d'usage MORPHEUS, jamais d'un provider. Toute lecture d'un
+format externe passe par un adaptateur derrière `SpecificationProvider` et `SpecificationContentReader`, puis par la
+normalisation ; une écriture vers un format externe passe par un adaptateur explicite. Invariants de la frontière,
+pour les providers, `SpecificationKnowledgeStore`, la CLI, le MCP, l'API et MINOS/NEXUS/JARVIS :
+
+1. Aucun type de provider ou de SDK dans le domaine ni dans un contrat de l'application (`NormalizedProjectContent`,
+   `ProviderReadResult`).
+2. Aucun chemin de fichier d'un provider ne devient une identité métier universelle sans justification.
+3. Un statut provider est mappé vers un concept MORPHEUS ou gardé en métadonnée externe.
+4. Un identifiant externe n'est pas l'identité MORPHEUS ; l'identité externe est scopée par provider.
+5. Un test du domaine s'exécute sans OpenSpec ni autre provider installé.
+6. Un provider s'ajoute sans modifier le domaine ni les cas d'usage publics, hors extension légitime du domaine.
+7. Un consommateur de port ne branche pas sur l'identifiant du provider ; `ReadCategory` est le même pour tous.
+8. Un provider ne déclare que les capacités qu'il normalise réellement.
+
+Aucune décision ultérieure ne contourne cette frontière sans nouvel ADR explicite.
+
+`morpheus-provider-synthetic` est **verification-only** et n'est qu'une dépendance de portée `test` : il implémente
+les mêmes ports qu'OpenSpec, lit `morpheus-spec.json` (oracle :
+`experiments/m0/fixtures/synthetic-basic/morpheus-spec.json`) sans inventer titre ni action, déclare les capacités de
+`SyntheticSpecificationProvider` et garde son parser JSON dans `com.morpheus.provider.synthetic`, sans dépendance
+externe. Il n'est ni une fonctionnalité utilisateur, ni un schéma à compatibilité garantie.
 
 ## Do's and Don'ts
 

@@ -107,6 +107,7 @@ Vue commune : la séquence de la façade distante, dans [`remote-access-journal.
 | `dependency-version-management` | [gestion des versions de dépendances et de plugins](dependency-version-management.md) | [spec](../../../openspec/specs/dependency-version-management/spec.md) |
 | `risk-register-references` | [renvois des workflows vers le registre des risques](risk-register-references.md) | [spec](../../../openspec/specs/risk-register-references/spec.md) |
 | `stated-fact-currency` | [actualité d'un fait recopié par un document vivant](stated-fact-currency.md) | [spec](../../../openspec/specs/stated-fact-currency/spec.md) |
+| `adr-briefing-budget` | [borne du briefing des ADR remis aux agents](adr-briefing-budget.md) | [spec](../../../openspec/changes/hold-the-adr-briefing-budget/specs/adr-briefing-budget/spec.md) |
 | `vulnerability-feed-freshness` | [fraîcheur de la base de vulnérabilités du gate CVE](vulnerability-feed-freshness.md) | [spec](../../../openspec/specs/vulnerability-feed-freshness/spec.md) |
 | `dependency-check-suppression-contract` | [contrat du fichier de suppressions du gate CVE](dependency-check-suppression-contract.md) | [spec](../../../openspec/specs/dependency-check-suppression-contract/spec.md) |
 

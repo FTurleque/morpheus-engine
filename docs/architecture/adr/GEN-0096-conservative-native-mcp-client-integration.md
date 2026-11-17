@@ -30,9 +30,7 @@ Alternatives rejetées :
 - configuration automatique sans opt-in : mutation silencieuse ;
 - configuration universelle : formats clients incompatibles.
 
-## Decision
-
-MORPHEUS fournit une couche d'intégration **native, explicite, opt-in et conservatrice** :
+Principes que l'intégration tient :
 
 ```text
 native MCP first
@@ -43,10 +41,7 @@ uninstall is state-driven
 manual changes are preserved
 ```
 
-Gestionnaire : `integration/configure-mcp-clients.ps1` (actions `Install`, `Uninstall`, `Detect`). Wrapper du setup :
-`integration/configure-mcp-clients-setup.ps1`.
-
-### Définition commune
+La définition écrite pour chaque client :
 
 ```json
 {
@@ -59,19 +54,14 @@ Gestionnaire : `integration/configure-mcp-clients.ps1` (actions `Install`, `Unin
 }
 ```
 
-Tous les clients utilisent les mêmes racines persistantes (ADR-0088).
-
-### Clients JSON
+Les clients JSON et le conteneur de l'entrée :
 
 | Client | Conteneur |
 |---|---|
 | Copilot JetBrains | `servers.morpheus` |
 | Claude Desktop | `mcpServers.morpheus` |
 
-Avant écriture, le JSON est validé, sauvegardé, fusionné en conservant les propriétés et serveurs tiers, puis écrit en
-UTF-8 sans BOM. Un JSON invalide est rejeté sans modification.
-
-### Clients CLI
+Les clients CLI et leurs commandes :
 
 | Client | Commandes |
 |---|---|
@@ -79,69 +69,28 @@ UTF-8 sans BOM. Un JSON invalide est rejeté sans modification.
 | Claude Code | `claude mcp add --scope user`, `claude mcp get/remove` |
 | Codex | `codex mcp add/get/remove` |
 
-Les commandes sont non interactives, bornées par un timeout, capturent stdout et stderr, et terminent l'arbre de
-processus en cas de dépassement.
+## Decision
 
-### Modèle de propriété
+Intégration **native, explicite, opt-in et conservatrice**, sans Docker, par `integration/configure-mcp-clients.ps1`
+(`Install`, `Uninstall`, `Detect`) et le wrapper `integration/configure-mcp-clients-setup.ps1`.
 
-Registre persistant : `%LOCALAPPDATA%\MORPHEUS\mcp-client-integrations.json`.
-
-```text
-managed      entrée créée par MORPHEUS
-preexisting  entrée observée comme déjà compatible
-```
-
-Le nom `morpheus` ne prouve jamais la propriété.
-
-### Upsert conservateur
-
-```text
-absent                       create managed
-compatible + no state        record preexisting
-compatible + managed state   idempotent keep
-incompatible + no state      preserve foreign entry
-preexisting changed          preserve
-managed changed              preserve
-invalid JSON                 fail before write
-missing optional CLI         warn or fail in strict mode
-```
-
-### Désinstallation
-
-La désinstallation parcourt uniquement le registre ; aucune recherche globale par nom ne remplace ce mécanisme.
-
-```text
-preexisting             remove state only
-managed unchanged       remove client entry
-managed modified        preserve client entry and state
-already absent          clean stale state
-CLI unavailable         preserve, warn
-```
-
-### Setup Windows
-
-Le setup présente une page « Clients IA » avec une case par client, alimentée par une détection réelle
-(`-Action Detect`, rapport INI) :
-
-- un client disponible est proposé décoché ;
-- une entrée déjà gérée par MORPHEUS est affichée cochée et non modifiable ;
-- une entrée gérée à réparer est proposée cochée ;
-- un client non détecté ou une entrée `morpheus` étrangère n'est jamais sélectionnable ;
-- si la détection échoue, aucune case n'est sélectionnable.
-
-Une installation sans interface sélectionne les clients par `/MORPHEUSMCPCLIENTS`, limité aux lignes que la détection
-laisse sélectionnables. Le wrapper vérifie que chaque sélection apparaît dans le registre. La désinstallation appelle
-le gestionnaire avant la suppression des fichiers du programme.
-
-### Linux
-
-La mutation des profils clients Linux n'est pas automatisée. L'archive TAR.GZ contient le guide et les scripts pour
-la parité de distribution.
-
-### Sécurité
-
-Cette intégration n'ajoute aucun listener réseau, secret, token, capacité `WRITE`, dépendance Docker ni mutation
-métier, et ne modifie aucun contrôle applicatif.
+1. **Définition** : `morpheus.exe mcp --stdio`, `MORPHEUS_DATA_DIR` et `MORPHEUS_CONFIG_DIR` sur les racines
+   d'ADR-0088, pour tous les clients.
+2. **Écriture** : JSON client validé, sauvegardé, fusionné en gardant le tiers, écrit en UTF-8 sans BOM, refusé
+   invalide ; commande CLI non interactive, sous timeout, stdout et stderr capturés, arbre tué au dépassement.
+3. **Propriété** dans `%LOCALAPPDATA%\MORPHEUS\mcp-client-integrations.json` : `managed` (créée par MORPHEUS) ou
+   `preexisting` (déjà compatible). Le nom `morpheus` ne la prouve jamais.
+4. **Upsert** : absente, créée `managed` ; compatible sans état, `preexisting` ; compatible et `managed`, gardée ;
+   incompatible sans état ou modifiée, préservée ; CLI optionnelle absente, avertissement (échec en strict).
+5. **Désinstallation** par le registre seul, jamais par le nom : `preexisting`, état retiré ; `managed` intacte,
+   entrée retirée ; `managed` modifiée, tout gardé ; déjà absente, état nettoyé ; CLI indisponible, gardée et
+   signalée.
+6. **Setup Windows** : page « Clients IA » issue de `-Action Detect` (rapport INI) ; client disponible décoché,
+   entrée gérée cochée (figée, sauf à réparer) ; rien de sélectionnable pour un client absent, une entrée `morpheus`
+   étrangère ou une détection en échec. `/MORPHEUSMCPCLIENTS` sélectionne sans interface dans ces limites ; le
+   wrapper retrouve chaque sélection au registre ; le désinstalleur appelle d'abord le gestionnaire.
+7. **Linux** : profils jamais modifiés automatiquement ; l'archive TAR.GZ porte guide et scripts.
+8. **Sécurité** : ni listener réseau, ni secret, ni token, ni `WRITE`, ni mutation métier, ni contrôle modifié.
 
 ## Do's and Don'ts
 

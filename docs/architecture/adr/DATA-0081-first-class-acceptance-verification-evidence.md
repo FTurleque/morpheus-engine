@@ -36,37 +36,7 @@ Options rejetées :
   doublon de type.
 - **Booléen `verified`** : insuffisant pour représenter `UNKNOWN`, partiel, échec et absence de vérification.
 
-## Decision
-
-`morpheus-domain` porte, dans `com.morpheus.domain.acceptance` :
-
-```text
-AcceptanceCriterionId
-VerificationStatus
-AcceptanceCriterion
-```
-
-### AcceptanceCriterionId
-
-Identité MORPHEUS-owned basée sur `DomainIdentity`, selon le même patron que `RequirementId` ou `TaskId`.
-
-### VerificationStatus
-
-Taxonomie canonique :
-
-```text
-NOT_VERIFIED
-PARTIALLY_VERIFIED
-VERIFIED
-FAILED
-UNKNOWN
-```
-
-Aucun état n'est déduit de la simple présence d'un test, d'une référence externe ou d'un scénario.
-
-### AcceptanceCriterion
-
-Forme canonique :
+Forme canonique d'un critère et liens de traçabilité qu'il ouvre :
 
 ```text
 AcceptanceCriterion
@@ -78,58 +48,38 @@ AcceptanceCriterion
 ├── verificationStatus
 ├── verificationEvidenceIds[]
 └── provenance
-```
 
-Au moins un des rattachements `requirementId` / `changeId` est présent. Un critère peut référencer les deux lorsque la
-source fournit explicitement les deux relations ; MORPHEUS ne complète pas le second rattachement par inférence
-textuelle.
-
-### Deux niveaux de preuve
-
-`provenance.evidenceId` et `verificationEvidenceIds` ont des responsabilités distinctes :
-
-- `criterion.provenance.evidenceId` répond à « d'où vient la définition de ce critère ? » ;
-- `criterion.verificationEvidenceIds` répond à « quelles preuves soutiennent l'état de vérification affirmé ? ».
-
-Cette séparation évite de considérer le texte qui définit le critère comme preuve que le critère est satisfait.
-
-### Invariant de preuve
-
-```text
-UNKNOWN              -> verification evidence optional
-NOT_VERIFIED         -> verification evidence optional
-PARTIALLY_VERIFIED   -> at least one verification evidence
-VERIFIED             -> at least one verification evidence
-FAILED               -> at least one verification evidence
-```
-
-La liste est canonique, non nulle, sans doublon et triée par `EvidenceId`. Un adaptateur qui ne dispose que d'un statut
-sans preuve exploitable conserve `UNKNOWN` ou `NOT_VERIFIED` selon les faits réellement observés, plutôt que fabriquer
-une preuve.
-
-### Traçabilité
-
-`TraceabilityEntityKind` porte `ACCEPTANCE_CRITERION` et `EVIDENCE`. Les relations sont dérivées uniquement des
-rattachements structurels explicites :
-
-```text
 Requirement          VERIFIED_BY AcceptanceCriterion
 ChangeProposal       VERIFIED_BY AcceptanceCriterion
 AcceptanceCriterion  VERIFIED_BY Evidence
 ```
 
-Le dernier lien ne concerne que les `verificationEvidenceIds`, jamais la seule provenance source du critère.
+Les deux niveaux de preuve répondent à deux questions : `criterion.provenance.evidenceId` à « d'où vient la définition
+de ce critère ? », `criterion.verificationEvidenceIds` à « quelles preuves soutiennent l'état de vérification
+affirmé ? ». Leur séparation évite de prendre le texte qui définit le critère pour la preuve qu'il est satisfait.
 
-### Couverture d'acceptance
+## Decision
 
-La couverture d'acceptance d'un snapshot publié est évaluée par `AcceptanceQualityService` selon ADR-0124 ; zéro
-critère y donne `NO_CRITERIA`, jamais « modèle indisponible ». L'analyse d'un changement proposé n'évalue pas cette
-couverture et rend le statut que fixe ADR-0138.
-
-### Providers
-
-Un provider sans structure d'acceptance explicite ne déclare pas la capacité `READ_ACCEPTANCE_CRITERIA` et ne produit
-aucun critère, plutôt que d'utiliser une heuristique.
+1. `morpheus-domain` porte, dans `com.morpheus.domain.acceptance`, `AcceptanceCriterionId` (identité MORPHEUS-owned
+   sur `DomainIdentity`, patron de `RequirementId`), `VerificationStatus` et `AcceptanceCriterion`
+   (`id`, `requirementId` et `changeId` optionnels, `title`, `condition`, `verificationStatus`,
+   `verificationEvidenceIds`, `provenance`).
+2. `VerificationStatus` vaut `NOT_VERIFIED`, `PARTIALLY_VERIFIED`, `VERIFIED`, `FAILED` ou `UNKNOWN`. Aucun état n'est
+   déduit de la seule présence d'un test, d'une référence externe ou d'un scénario.
+3. Au moins un des rattachements `requirementId` / `changeId` est présent ; les deux le sont seulement si la source
+   fournit explicitement les deux relations. Aucun rattachement n'est complété par inférence.
+4. `provenance.evidenceId` (origine de la définition) n'est jamais une preuve de vérification, que seuls portent les
+   `verificationEvidenceIds`.
+5. `PARTIALLY_VERIFIED`, `VERIFIED` et `FAILED` exigent au moins une preuve de vérification, optionnelle pour
+   `UNKNOWN` et `NOT_VERIFIED`. La liste est non nulle, sans doublon, triée par `EvidenceId`. Sans preuve exploitable,
+   un adaptateur garde `UNKNOWN` ou `NOT_VERIFIED` selon les faits observés.
+6. `TraceabilityEntityKind` porte `ACCEPTANCE_CRITERION` et `EVIDENCE`. Les liens `VERIFIED_BY` (requirement ou
+   changement vers critère, critère vers `Evidence`) ne dérivent que des rattachements explicites ; le second ne
+   vient que des `verificationEvidenceIds`.
+7. La couverture d'acceptance d'un snapshot publié est évaluée par `AcceptanceQualityService` (ADR-0124) ; zéro
+   critère donne `NO_CRITERIA`, jamais « modèle indisponible ». L'analyse d'un changement proposé n'évalue pas cette
+   couverture et rend le statut que fixe ADR-0138.
+8. Un provider sans structure d'acceptance explicite ne déclare pas `READ_ACCEPTANCE_CRITERIA` et ne produit aucun critère.
 
 ## Do's and Don'ts
 

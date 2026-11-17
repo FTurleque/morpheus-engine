@@ -23,9 +23,7 @@ binaire entre les deux dépôts, et sans que l'indisponibilité de MORPHEUS ne l
 MORPHEUS dans JARVIS créerait deux sources de vérité. Faire appeler JARVIS depuis MORPHEUS inverserait les
 responsabilités.
 
-## Decision
-
-### 1. Partage des responsabilités
+Partage des responsabilités :
 
 ```text
 MORPHEUS = facts + lifecycle rules + transition decisions
@@ -47,35 +45,22 @@ MORPHEUS écrit le lifecycle provider
 JARVIS recode la machine d'état MORPHEUS
 ```
 
-### 2. Un contrat machine en lecture seule, un use case, trois adaptateurs
+## Decision
 
-La frontière entre les deux moteurs est un contrat machine en lecture seule exposé par MORPHEUS et consommé par
-JARVIS. MORPHEUS expose le même use case d'orchestration par la CLI, MCP et HTTP : lire l'état d'orchestration d'un
-changement, et évaluer une transition. Les surfaces exactes sont les lignes `orchestration.state` et
-`orchestration.transition` de `contracts/public-surfaces.tsv`, toutes deux d'intention `READ`.
-
-Les outils MCP d'orchestration sont en lecture seule. L'évaluation d'une transition (`transition-check`) n'effectue
-aucune mutation : la route HTTP `POST .../transition-check` est une requête de calcul, et un verdict `ALLOWED` n'est
-pas appliqué. Les mutations de cycle de vie contrôlées relèvent d'ADR-0083 et passent par des surfaces distinctes des
-surfaces d'orchestration.
-
-### 3. Client JARVIS optionnel
-
-Le dépôt JARVIS porte un client HTTP optionnel qui :
-
-- ne connaît que l'URL de MORPHEUS et un `projectId` configurable ;
-- lit l'état d'orchestration ;
-- demande une évaluation de transition ;
-- ne recode aucune règle de cycle de vie ;
-- échoue ouvert lorsque MORPHEUS est désactivé ou indisponible.
-
-JARVIS ne dépend d'aucun type `com.morpheus.*` : il consomme du JSON via l'API HTTP locale, avec ses propres DTO. Les
-raisons d'abandon (observation, source, cible) sont transmises explicitement et séparément.
-
-### 4. Aucune dépendance entre les dépôts
-
-MORPHEUS ne dépend d'aucun type, artefact Maven ou runtime `com.jarvis.*`. Aucune dépendance Maven n'existe entre les
-deux dépôts. Aucun runtime JARVIS n'est embarqué dans MORPHEUS ; aucun runtime MORPHEUS n'est embarqué dans JARVIS.
+1. **Responsabilités** : MORPHEUS porte les faits, les règles de cycle de vie et les décisions de transition ; JARVIS,
+   le séquencement, l'orchestration et le choix de la prochaine action. MORPHEUS ne choisit pas l'action, ne déclenche
+   pas JARVIS et n'écrit pas le lifecycle provider ; JARVIS ne recode pas la machine d'état de MORPHEUS.
+2. **Contrat machine en lecture seule**, exposé par MORPHEUS et consommé par JARVIS : un même use case par la CLI, MCP
+   et HTTP, lire l'état d'orchestration d'un changement et évaluer une transition, aux lignes `orchestration.state` et
+   `orchestration.transition` de `contracts/public-surfaces.tsv`, d'intention `READ`. Les outils MCP sont en lecture
+   seule ; `transition-check` (`POST .../transition-check`) est un calcul sans mutation, et un verdict `ALLOWED` n'est
+   pas appliqué. Les mutations contrôlées du cycle de vie relèvent d'ADR-0083, par des surfaces distinctes.
+3. **Client JARVIS optionnel**, hors de ce dépôt : il ne connaît que l'URL de MORPHEUS et un `projectId`
+   configurable, lit l'état, demande une évaluation, ne recode aucune règle et échoue ouvert quand MORPHEUS est
+   désactivé ou indisponible. Il consomme du JSON par l'API HTTP locale avec ses propres DTO, sans type
+   `com.morpheus.*` ; les raisons d'abandon (observation, source, cible) sont transmises séparément.
+4. **Aucune dépendance entre les dépôts** : MORPHEUS ne dépend d'aucun type, artefact Maven ou runtime
+   `com.jarvis.*`, et aucun des deux n'embarque le runtime de l'autre.
 
 ## Do's and Don'ts
 

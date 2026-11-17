@@ -50,67 +50,45 @@ Options écartées :
 - **Build manuel ou par scripts** : insuffisant pour la gestion des dépendances, des tests et du packaging.
 - **Un workflow par jalon** : produit de la dette temporaire et rend la CI non durable.
 
-## Decision
-
-### 1. Java 21 est la baseline du code produit
+Principes de la toolchain :
 
 ```text
 Language                 = Java
 Source / bytecode        = Java 21
 JDK de build             = JDK 21
 Maven compiler release   = 21
+Build tool               = Apache Maven, par le Maven Wrapper versionné
+Version Maven            = celle de .mvn/wrapper/maven-wrapper.properties, dans [3.9.16,4.0.0) (Enforcer)
+JDK admis                = [21,22) (Enforcer)
+Gate local               = ./mvnw clean verify
+CI                       = requise, exact-head Linux et Windows (.github/workflows/ci.yml)
 ```
 
-Le code produit n'utilise que les API et fonctionnalités Java SE 21, sans preview feature. Le build compile avec
-`javac --release 21` : le POM racine déclare `maven.compiler.release` à `21` et le `maven-compiler-plugin` le passe en
-`<release>`. Activer une preview feature ou migrer la baseline exige une nouvelle décision explicite.
+Le build compile ainsi avec `javac --release 21`. L'exécution `enforce-foundation` appartient au
+`maven-enforcer-plugin`. Le workflow de CI est générique ; les validateurs locaux restent supportés, et le workflow est
+une preuve reproductible supplémentaire, pas un remplacement des invariants produit. Pour les modules, l'invariant
+important est la direction des dépendances, pas le nombre de POMs.
 
-Les outils et spikes de recherche peuvent utiliser d'autres langages tant qu'ils restent hors du runtime produit ; les
-spikes Python restent des preuves et ne deviennent pas une seconde implémentation produit.
+## Decision
 
-Java 21 ne signifie pas Spring ni Quarkus : le domaine ne dépend d'aucun framework Java, les providers et les stores
-restent des adaptateurs, et les contrats restent sérialisables indépendamment de la JVM. Cette décision ne choisit ni
-framework web, ni injection de dépendances, ni bibliothèque CLI.
-
-### 2. Maven, par le Wrapper versionné
-
-```text
-Build tool       = Apache Maven, par le Maven Wrapper versionné
-Version Maven    = celle de .mvn/wrapper/maven-wrapper.properties, dans [3.9.16,4.0.0) (Enforcer)
-JDK de build     = [21,22) (Enforcer)
-Gate local       = ./mvnw clean verify
-CI               = requise, exact-head Linux et Windows (.github/workflows/ci.yml)
-```
-
-Le dépôt porte `mvnw` / `mvnw.cmd` et `.mvn/wrapper/maven-wrapper.properties` (Wrapper `only-script`, distribution
-épinglée par somme SHA-256) : la version de Maven est celle que ce fichier désigne. Le POM racine borne le build par
-`maven-enforcer-plugin`, exécution `enforce-foundation` : `requireMavenVersion` `[3.9.16,4.0.0)`,
-`requireJavaVersion` `[21,22)` (un JDK plus récent est refusé), `dependencyConvergence`.
-
-Maven 4 n'est adopté qu'après sa GA et une vérification de compatibilité du build MORPHEUS, par une modification de
-l'Enforcer et une nouvelle décision.
-
-### 3. Un seul chemin de build, local et CI
-
-Le gate local est `./mvnw clean verify` sous Unix et `.\mvnw.cmd clean verify` sous Windows. La CI est requise : le
-workflow `.github/workflows/ci.yml` exécute le gate sur la tête exacte de la PR, sous Linux et sous Windows, pour
-chaque pull request et chaque push sur `main`, avec un JDK 21. Elle appelle le même Wrapper et ne crée pas de second
-chemin de build divergent.
-
-Ce workflow est générique : aucun workflow n'est propre à un jalon. Les validateurs locaux restent supportés ; le
-workflow est une preuve reproductible supplémentaire, pas un remplacement des invariants produit.
-
-### 4. Invariants de build
-
-1. Les tests unitaires sont exécutés par défaut.
-2. Les tests d'architecture sont exécutés par le build standard.
-3. Les versions de dépendances sont explicites ou centralisées.
-4. Aucun dépôt Maven privé n'est requis pour compiler le cœur local : le build ne dépend que de Maven Central.
-5. Aucun secret n'est requis pour les tests.
-6. Le build principal fonctionne hors réseau une fois les dépendances en cache.
-
-La liste des modules est celle des `<module>` du `pom.xml` racine. L'invariant important est la direction des
-dépendances, pas le nombre de POMs.
+1. **Java 21** : le code produit n'utilise que Java SE 21, sans preview feature ; le POM racine déclare
+   `maven.compiler.release` à `21`, passé en `<release>` au `maven-compiler-plugin`. Une preview ou une autre baseline
+   exige une nouvelle décision. D'autres langages ne servent qu'aux outils et spikes hors runtime produit ; les spikes
+   Python restent des preuves, jamais une seconde implémentation produit.
+2. Aucun framework Java (Spring, Quarkus…) dans le domaine ou la fondation ; providers et stores restent des
+   adaptateurs, les contrats sérialisables indépendamment de la JVM. Ce choix ne fixe ni framework web, ni injection,
+   ni bibliothèque CLI.
+3. **Maven par le Wrapper** : `mvnw` / `mvnw.cmd` et `.mvn/wrapper/maven-wrapper.properties` (`only-script`,
+   distribution épinglée par SHA-256) fixent la version. L'Enforcer `enforce-foundation` du POM racine impose
+   `requireMavenVersion` `[3.9.16,4.0.0)`, `requireJavaVersion` `[21,22)` (un JDK plus récent est refusé) et
+   `dependencyConvergence`. Maven 4 attend sa GA, une vérification de compatibilité, une modification de l'Enforcer et
+   une nouvelle décision.
+4. **Un seul chemin de build** : `./mvnw clean verify` (`.\mvnw.cmd` sous Windows). La CI requise,
+   `.github/workflows/ci.yml`, le lance par le même Wrapper avec un JDK 21 sur la tête exacte, Linux et Windows, à
+   chaque pull request et push sur `main`, sans second chemin de build. Aucun workflow propre à un jalon.
+5. **Invariants** : tests unitaires et d'architecture dans le build standard ; versions explicites ou centralisées ;
+   Maven Central seul, sans dépôt privé ; aucun secret pour tester ; build hors réseau une fois le cache rempli. Les
+   modules sont les `<module>` du POM racine.
 
 ## Do's and Don'ts
 

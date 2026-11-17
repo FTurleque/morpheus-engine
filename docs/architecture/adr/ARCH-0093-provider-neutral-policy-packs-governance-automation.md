@@ -18,12 +18,7 @@ provider-neutral (ADR-0092). Ces capacités sont codées comme contrats applicat
 versionner des ensembles de politiques de gouvernance ne doit introduire ni un second moteur de vérité, ni du texte,
 du SQL ou du code arbitraire rendu exécutable.
 
-## Decision
-
-L'application porte des **policy packs** provider-neutral (`com.morpheus.application.policy`) : versions
-immuables, activation explicite, overrides auditables et évaluation read-only.
-
-Invariants :
+Invariants que les policy packs tiennent, et rôle de leurs identifiants (`PolicyIds`, `PolicyPack`) :
 
 ```text
 constraint text != executable policy
@@ -35,11 +30,7 @@ policy override != provenance erasure
 dry-run != mutation
 policy evaluation != lifecycle mutation
 pack activation != domain truth mutation
-```
 
-**Identité et version** (`PolicyIds`, `PolicyPack`) :
-
-```text
 PolicyIds.PackId     identité stable du pack
 PolicyIds.VersionId  identité immuable d'une version
 PolicyIds.RuleId     identité stable de règle dans le pack
@@ -47,74 +38,43 @@ revision             CAS de la configuration courante du pack
 versionNumber        numéro monotone immuable de version publiée
 ```
 
-Le nom d'un pack n'est pas son identité. Une mise à jour crée une nouvelle version ; elle ne modifie jamais le contenu
-d'une version historique.
+Chaque type de règle consomme un contrat existant. Une garde de contraintes lit les `ConstraintEvaluation` du moteur
+de contraintes et peut tester la présence de décisions explicitement bloquantes pour une cible lifecycle déclarée. Une
+garde lifecycle lit l'évaluation read-only de transition et recommande `BLOCK`, `WARN`, `PASS` ou `UNKNOWN`. Un seuil
+de qualité compare une métrique du registre fermé `PolicyRule.QualityMetric` à un seuil numérique explicite. Une
+assertion de requête réutilise `QueryDefinition` / `QueryExecutionService` et compare `totalMatches` à un opérateur de
+comptage fermé ; le DSL de requête reste la seule grammaire de sélection métier.
 
-**Règles fermées et typées.** `PolicyRule.Kind` est fermé :
+`PolicyBudgets` borne notamment les règles par pack, les packs actifs et les overrides par scope, la longueur du nom de
+pack et de la description de règle, et les règles évaluées par un dry-run. Le budget d'une garde de contraintes compte
+une entrée d'evidence par évaluation : il borne l'observation sans refuser la configuration. Une page d'évaluations de
+contraintes (`ConstraintEvaluationQueryService`) filtre et trie toutes les contraintes du change, d'où le total et
+l'ordre déterministe, puis n'évalue que la tranche de la page. Les actions d'audit couvrent création, mise à jour de
+version, activation, désactivation, pose et retrait d'override. La parité des surfaces est d'intention, pas de forme
+transport.
 
-```text
-CONSTRAINT_GUARD
-LIFECYCLE_GUARD
-QUALITY_THRESHOLD
-QUERY_ASSERTION
-```
+## Decision
 
-Chaque type a une configuration typée (`PolicyRule.Config`, interface scellée). Aucun moteur de script, expression
-libre, SQL passthrough, nom de classe, code de plugin ou gabarit LLM n'est accepté comme règle.
-
-- *Constraint guard* : consomme les `ConstraintEvaluation` du moteur de contraintes ; peut tester la présence de
-  décisions explicitement bloquantes pour une cible lifecycle déclarée ; n'analyse jamais `Constraint.statement()`.
-- *Lifecycle guard* : consomme l'évaluation read-only de transition ; peut recommander `BLOCK`, `WARN`, `PASS` ou
-  `UNKNOWN`, sans déclencher aucune mutation.
-- *Quality threshold* : compare une métrique déclarée dans un registre fermé (`PolicyRule.QualityMetric`) à un seuil
-  numérique explicite.
-- *Query assertion* : réutilise `QueryDefinition` / `QueryExecutionService` et compare `totalMatches` à un opérateur
-  de comptage fermé. Le DSL de requête reste la seule grammaire de sélection métier ; aucune syntaxe provider ou SQL
-  n'est ajoutée.
-
-**Scope.** Une activation porte un scope explicite, projet ou portfolio (`PolicyScope`) : les identités sont
-`ProjectSpecificationId` / `PortfolioId`, jamais workspace, dépôt, provider ou chemin.
-
-**Applicabilité et décisions** (`PolicyEvaluation`). Applicabilité : `APPLICABLE`, `NOT_APPLICABLE`, `UNKNOWN`.
-Décision : `PASS`, `WARN`, `BLOCK`, `UNKNOWN`. Une absence d'information produit `UNKNOWN`. Seule une règle explicite
-ou un override explicite peut produire `BLOCK`.
-
-**Overrides.** Un override (`PolicyConfiguration.Override`) est de premier ordre et auditable : règle, scope, mode,
-raison, acteur, révision et instant. Modes (`PolicyConfiguration.OverrideMode`) : `DISABLE`, `FORCE_WARN`,
-`FORCE_BLOCK`. L'évaluation conserve toujours la décision originale et l'override appliqué ; un override ne supprime
-ni provenance, ni evidence, ni raison source.
-
-**Activation.** L'activation sélectionne explicitement `(PackId, VersionId)` sur un scope, sous CAS. Elle n'est ni
-une publication de snapshot, ni une mutation lifecycle, ni un remplacement de la vérité provider.
-
-**Dry-run.** Le dry-run peut évaluer une version non active sur un scope. Il est strictement read-only : aucune
-activation, aucun override, aucun audit de mutation métier ni écriture lifecycle. Seule une réponse transport-safe
-est produite.
-
-**Audit.** Chaque opération de configuration de gouvernance (`PolicyConfiguration.AuditAction` : création, mise à
-jour de version, activation, désactivation, pose et retrait d'override) produit un `PolicyConfiguration.AuditRecord`
-append-only. L'audit de configuration de policy est distinct de l'audit des mutations lifecycle (ADR-0083).
-
-**Budgets.** Les bornes sont les constantes de `PolicyBudgets`, dont : règles par pack, packs actifs par scope,
-overrides par scope, longueur du nom de pack, longueur de la description de règle, règles évaluées par un dry-run.
-Tout dépassement est rejeté explicitement avant toute exécution partielle.
-
-**Budget d'évaluation d'une garde de contraintes.** `PolicyBudgets.MAX_CONSTRAINT_EVALUATIONS_PER_FACT` borne le
-parcours d'une garde de contraintes, et donc son evidence, qui compte une entrée par évaluation ; ce budget ne refuse
-pas la configuration, il borne l'observation. Si une contrainte reste à observer au-delà du budget, le fait rend
-`UNKNOWN` avec la raison `EVALUATION_BUDGET_REACHED:<budget> …`, jamais `PASS`. Un change dont toutes les contraintes
-sont observées dans le budget rend `PASS` ; une contrainte `BLOCKING` rencontrée dans le budget rend `FAIL`
-immédiatement.
-
-Une page d'évaluations de contraintes (`ConstraintEvaluationQueryService`) filtre et trie l'ensemble des contraintes du
-change, ce qui donne le total et l'ordre déterministe, puis n'évalue que la tranche de la page.
-
-**Persistance.** Port `PolicyPackStore`, adaptateurs mémoire et SQLite. La migration SQLite est additive
-(`V015__policy_packs.sql`), avec versions et audit append-only ; aucune migration antérieure n'est réécrite.
-
-**Surfaces.** CLI, MCP et HTTP exposent les mêmes intentions applicatives de registre, versionnement, activation,
-override, évaluation et audit. La parité d'intention n'impose pas la même forme transport ; elle se lit dans
-`contracts/public-surfaces.tsv`.
+1. Policy packs provider-neutral dans `com.morpheus.application.policy`. Le nom n'est pas l'identité ; une mise à
+   jour crée une version (`versionNumber` monotone), sans modifier une version publiée ; `revision` est le CAS.
+2. `PolicyRule.Kind` fermé (`CONSTRAINT_GUARD`, `LIFECYCLE_GUARD`, `QUALITY_THRESHOLD`, `QUERY_ASSERTION`),
+   configuration scellée `PolicyRule.Config`. Ni script, expression libre, SQL, nom de classe, code de plugin ou
+   gabarit LLM comme règle, ni analyse de `Constraint.statement()`, ni syntaxe ajoutée au DSL.
+3. `PolicyScope` : `ProjectSpecificationId` ou `PortfolioId`, jamais workspace, dépôt, provider ou chemin.
+4. Applicabilité `APPLICABLE` / `NOT_APPLICABLE` / `UNKNOWN`, décision `PASS` / `WARN` / `BLOCK` / `UNKNOWN`.
+   Information absente : `UNKNOWN`. Seule une règle ou un override explicite produit `BLOCK`.
+5. `PolicyConfiguration.Override` (règle, scope, mode `DISABLE` / `FORCE_WARN` / `FORCE_BLOCK`, raison, acteur,
+   révision, instant) garde décision originale, provenance, evidence et raison source.
+6. Activation de `(PackId, VersionId)` sur un scope sous CAS. Le dry-run d'une version non active n'active,
+   n'override ni n'audite rien et rend une réponse transport-safe. Rien ne publie de snapshot ni ne mute lifecycle ou
+   vérité provider.
+7. Chaque `PolicyConfiguration.AuditAction` écrit un `PolicyConfiguration.AuditRecord` append-only, hors audit
+   lifecycle (ADR-0083).
+8. Dépassement de `PolicyBudgets` rejeté avant exécution partielle. Au-delà de
+   `PolicyBudgets.MAX_CONSTRAINT_EVALUATIONS_PER_FACT`, une garde rend `UNKNOWN`
+   (`EVALUATION_BUDGET_REACHED:<budget> …`), jamais `PASS` ; tout observé : `PASS` ; `BLOCKING` vue : `FAIL`.
+9. Port `PolicyPackStore` (mémoire, SQLite) ; `V015__policy_packs.sql` additive, sans réécrire de migration. CLI, MCP
+   et HTTP exposent les mêmes intentions (`contracts/public-surfaces.tsv`).
 
 ## Do's and Don'ts
 

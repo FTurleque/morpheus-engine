@@ -33,9 +33,7 @@ Options écartées :
 - **Absence de sémantique => non bloquant** : cela convertirait `UNKNOWN` en `false`.
 - **Politique propre à un provider dans le domaine** : MORPHEUS conserve un modèle provider-neutral.
 
-## Decision
-
-Une contrainte peut porter une sémantique provider-neutral explicite :
+La structure d'une contrainte et le détail de sa sémantique :
 
 ```text
 Constraint
@@ -177,6 +175,31 @@ base lifecycle decision ALLOWED
 
 Une évaluation de contrainte `UNKNOWN` ne devient jamais un blocker ; elle rend le fait de blocage indisponible
 lorsque ce fait est requis pour décider.
+
+## Decision
+
+Une `Constraint` peut porter une sémantique provider-neutral explicite ; son texte n'est jamais une politique.
+
+1. **Applicabilité** : `ConstraintApplicability` (`APPLICABLE`, `NOT_APPLICABLE`, `UNKNOWN`) ; `UNKNOWN` ne devient
+   jamais `APPLICABLE`.
+2. **Sévérité** : `ConstraintSeverity` (`INFO`, `WARNING`, `ERROR`, `CRITICAL`, `UNKNOWN`) ne décide jamais seule
+   d'un blocage.
+3. **Satisfaction** : `ConstraintSatisfaction` (`SATISFIED`, `VIOLATED`, `UNKNOWN`) ; `SATISFIED` et `VIOLATED`
+   exigent au moins une preuve de support, sinon `UNKNOWN`.
+4. **Politique** : `ConstraintBlockingPolicy` a un mode, `NON_BLOCKING` ou `UNKNOWN` sans cible, ou
+   `BLOCK_WHEN_VIOLATED` avec au moins une cible lifecycle explicite. Jamais de blocage par texte ni par sévérité.
+5. **Évaluation** : `Constraint.evaluateFor` (domaine) rend un `ConstraintEvaluation` pour un état cible, dans cet
+   ordre : `NOT_APPLICABLE` → `NOT_APPLICABLE` ; applicabilité ou politique `UNKNOWN` → `UNKNOWN` ; `NON_BLOCKING` ou
+   cible hors politique → `NON_BLOCKING` ; satisfaction `UNKNOWN` → `UNKNOWN`, `SATISFIED` → `NON_BLOCKING`,
+   `VIOLATED` → `BLOCKING`. L'évaluation expose état, raison et preuves ; l'application la demande au domaine et ne
+   lit aucune constante d'applicabilité, de mode ou de satisfaction.
+6. **Sans sémantique** : une contrainte historique ou OpenSpec qui n'en fournit pas reste `UNKNOWN` sur les quatre
+   axes, visible et requêtable, jamais bloquante.
+7. **Persistance** : `store-memory` et `store-sqlite` produisent la même projection, cibles et preuves ordonnées
+   comprises, y compris après réouverture.
+8. **Lifecycle** : une décision structurelle `ALLOWED` plus une contrainte `BLOCKING` pour la cible donne `BLOCKED`
+   expliqué par la contrainte. Une évaluation `UNKNOWN` ne devient jamais un blocker ; elle rend le fait de blocage
+   indisponible quand il est requis.
 
 ## Do's and Don'ts
 

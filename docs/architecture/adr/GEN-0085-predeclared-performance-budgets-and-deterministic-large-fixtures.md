@@ -16,41 +16,12 @@ Une couverture fonctionnelle forte ne dit rien de la capacité. Définir les seu
 de validation et ne permettrait pas de distinguer une régression d'une simple variation de machine. Un budget écrit
 après la correction qu'il juge mesurerait la correction, pas le besoin.
 
-## Decision
-
-1. Les volumes et seuils sont versionnés avant toute optimisation dans
-   `docs/project/roadmap/M19_PERFORMANCE_BUDGETS.md`.
-2. Les fixtures de volume sont générées de façon déterministe depuis un seed et un manifeste stable.
-3. Les gates mesurent le même profil `M19-LARGE-GATE-1` sur Windows et sur Linux lorsqu'une preuve de plateforme
-   existe.
-4. Les latences sont mesurées après warmup, sur cinq itérations, au p95 nearest-rank.
-5. Les budgets temporels, mémoire et taille SQLite ne sont bloquants que sur un environnement satisfaisant le minimum
-   de référence documenté ; le validateur refuse une machine en dessous au lieu de rendre un verdict.
-6. Les résultats par phase sont observables localement ; aucune télémétrie externe obligatoire n'est introduite.
-7. Une hausse de seuil après observation d'un échec n'est pas une optimisation : c'est un changement de contrat qui
-   exige une justification explicite et une nouvelle décision.
-
-**Où les budgets s'exécutent.** Les classes de gate (`M19*PerformanceGate`) ne correspondent à aucun motif Surefire :
-`clean verify` ne les exécute pas. Elles s'exécutent chaque nuit, sur Linux et sur Windows, par la lane
-`M19 performance budgets` de `.github/workflows/nightly.yml`, qui lance `scripts/validate-m19.sh` et
-`scripts/validate-m19.ps1` ; un budget manqué fait échouer la lane. Un déclencheur `schedule` exécute le workflow tel
-qu'il existe sur la branche par défaut ; ailleurs, la lane se lance par `workflow_dispatch`. Cette lane est un
-**signal de régression**, un job d'un workflow générique : elle n'est ni la preuve de qualification de M19, ni un
-remplacement des validateurs locaux. Tout gate déclaré doit être atteignable par un validateur qu'un workflow lance.
-
-**Ajouter un budget après le gel.** Un budget peut être ajouté quand un coût est trouvé sans budget :
-
-1. il est daté, et déclaré **avant** que le code qu'il jugera ne soit modifié : la ligne précède son gate et sa
-   correction dans l'historique ;
-2. sa valeur vient de ce à quoi sert l'opération, pas d'une exécution ; la première mesure se fait sur le code non
-   corrigé, un échec est la reproduction dont la correction part, un succès est consigné comme tel et la correction se
-   justifie alors par sa preuve de comptage ;
-3. il ne modifie aucune ligne existante : ni seuil, ni fixture, ni protocole, ni tas ; une mesure qui a besoin de
-   lignes que la fixture du gel ne contient pas les publie dans une base à elle ;
-4. un budget de la lane nocturne est une preuve tardive par construction : une correction qu'il juge porte aussi, dans
-   la suite ordinaire, une preuve déterministe, un compte qui ne croît pas avec les données.
-
-Les budgets ajoutés après le gel vivent dans la section 4 bis de `docs/project/roadmap/M19_PERFORMANCE_BUDGETS.md`.
+Une hausse de seuil après un échec n'est pas une optimisation. Un déclencheur `schedule` exécute le workflow nocturne
+tel qu'il existe sur la branche par défaut ; ailleurs, la lane se lance par `workflow_dispatch`, job d'un workflow
+générique. Un budget s'ajoute après le gel quand un coût est trouvé sans budget : sa ligne précède son gate et sa
+correction dans l'historique, et sa valeur vient de ce à quoi sert l'opération. Une mesure qui a besoin de lignes que
+la fixture du gel ne contient pas les publie dans une base à elle. Un budget de la lane nocturne est une preuve tardive
+par construction : la preuve déterministe de la suite ordinaire est un compte qui ne croît pas avec les données.
 
 Invariants :
 
@@ -61,6 +32,27 @@ same baseline + same query -> same ordering
 Windows proof != Linux proof
 performance failure != permission to move threshold
 ```
+
+## Decision
+
+1. Volumes et seuils sont versionnés avant toute optimisation dans `docs/project/roadmap/M19_PERFORMANCE_BUDGETS.md`.
+2. Les fixtures de volume sont générées de façon déterministe depuis un seed et un manifeste stable.
+3. Les gates mesurent le profil `M19-LARGE-GATE-1` sur Windows et sur Linux quand une preuve de plateforme existe.
+4. Latences mesurées après warmup, sur cinq itérations, au p95 nearest-rank.
+5. Les budgets de temps, de mémoire et de taille SQLite ne bloquent que sur l'environnement de référence minimal
+   documenté ; en dessous, le validateur refuse au lieu de rendre un verdict.
+6. Résultats par phase observables localement, sans télémétrie externe obligatoire.
+7. Relever un seuil après un échec est un changement de contrat : justification explicite et nouvelle décision.
+8. **Exécution** : les classes `M19*PerformanceGate` restent hors des motifs Surefire et de `clean verify` ; la lane
+   `M19 performance budgets` de `.github/workflows/nightly.yml` les lance chaque nuit, Linux et Windows, par
+   `scripts/validate-m19.sh` et `scripts/validate-m19.ps1`, et échoue sur un budget manqué. C'est un signal de
+   régression, ni la preuve de qualification de M19 ni un remplacement des validateurs locaux. Tout gate déclaré est
+   atteignable par un validateur qu'un workflow lance.
+9. **Budget ajouté après le gel**, dans la section 4 bis du document des budgets : daté et déclaré avant toute
+   modification du code qu'il juge ; valeur tirée de l'usage, pas d'une exécution ; première mesure sur le code non
+   corrigé, un échec en étant la reproduction, un succès consigné, la correction justifiée alors par sa preuve de
+   comptage ; aucune ligne existante modifiée (seuil, fixture, protocole, tas), une base à lui s'il faut d'autres
+   lignes ; une correction qu'il juge porte aussi une preuve déterministe dans la suite ordinaire.
 
 ## Do's and Don'ts
 

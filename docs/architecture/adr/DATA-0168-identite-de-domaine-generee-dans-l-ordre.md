@@ -97,61 +97,25 @@ diverger les stores mémoire et SQLite. Options écartées sur ce point : refuse
 points) ; encoder l'ensemble en tableau JSON (supprime l'ambiguïté sans rien refuser, mais coûte une migration de
 colonne pour accepter des identifiants qu'aucun fournisseur livré ne produit).
 
-## Decision
-
-### 1. Quatre valeurs distinctes
-
-MORPHEUS distingue explicitement :
-
-```text
-DomainIdentity
-EntityVersion
-SourceLocator
-ExternalReference
-```
+Les quatre valeurs que la décision distingue :
 
 - **`DomainIdentity`** : identité logique opaque possédée par MORPHEUS (conceptuellement `RequirementId`,
-  `SpecificationId`, `ChangeId`, `ConstraintId`…). Elle n'expose aucune structure dépendante du provider dans les
-  contrats publics.
-- **`EntityVersion`** : identifie un état de l'entité dans un snapshot ou une version de spécification.
-- **`SourceLocator`** : décrit où l'élément a été observé (fichier, section, ligne ou plage, JSON pointer, autre
-  locator de provider).
-- **`ExternalReference`** : conserve l'identifiant ou la clé du système source lorsqu'il existe.
+  `SpecificationId`, `ChangeId`, `ConstraintId`…), sans structure dépendante du provider dans les contrats publics.
+- **`EntityVersion`** : un état de l'entité dans un snapshot ou une version de spécification.
+- **`SourceLocator`** : où l'élément a été observé (fichier, section, ligne ou plage, JSON pointer, autre locator de
+  provider).
+- **`ExternalReference`** : l'identifiant ou la clé du système source lorsqu'il existe.
 
-Une clé lisible peut exister comme `key`, mais elle reste distincte de `id`. Invariant :
-`DomainIdentity != SourceLocator != externalId`.
+Invariants du modèle : `DomainIdentity != SourceLocator != externalId` ; une même identité logique peut apparaître dans
+plusieurs versions et changer de locator ; l'identité finale est persistable indépendamment du provider. Titre, chemin,
+énoncé, hash de contenu ou de locator, score de similarité et position dans le document peuvent servir d'indices ou de
+preuves, sans jamais fusionner silencieusement deux entités.
 
-Invariants du modèle :
-
-1. un chemin de fichier seul ne constitue jamais une identité logique suffisante ;
-2. un numéro de ligne ne constitue jamais une identité logique ;
-3. un identifiant externe peut aider à résoudre l'identité mais ne devient pas automatiquement l'identité MORPHEUS ;
-4. une même identité logique peut apparaître dans plusieurs versions ;
-5. une même identité logique peut changer de locator ;
-6. deux entités ambiguës ne sont jamais fusionnées silencieusement ;
-7. une collision produit un diagnostic ;
-8. l'identité finale est persistable indépendamment du provider.
-
-Ne participent jamais implicitement à l'identité :
-
-```text
-title    file path / SourceLocator    statement text    content hash    similarity score    position in document
-```
-
-Ces informations peuvent servir d'indices ou de preuves, mais ne fusionnent jamais silencieusement deux entités.
-
-### 2. Format : UUIDv7 opaque
-
-**UUIDv7** (RFC 9562) est le format canonique de `DomainIdentity`. Représentation publique : la forme UUID canonique,
-en minuscules :
+Forme et structure d'un UUIDv7 :
 
 ```text
 xxxxxxxx-xxxx-7xxx-yxxx-xxxxxxxxxxxx
-```
 
-Structure :
-
-```text
 48 bits  Unix timestamp en millisecondes
 4 bits   version = 7
 12 bits  rand_a
@@ -159,148 +123,107 @@ Structure :
 62 bits  rand_b
 ```
 
-`DomainIdentity` (`morpheus-domain`, `com.morpheus.domain.identity`) refuse dans son constructeur compact toute valeur
-dont la version n'est pas 7 ou la variante n'est pas celle de RFC 9562. `generate()` produit l'identifiant localement :
-horodatage courant, `rand_a` porte un compteur de 12 bits et `rand_b` est tiré d'un `SecureRandom` (RFC 9562,
-section 6.2, méthode 1). `MonotonicTimestampSequence`, unique par processus, réensemence le compteur à chaque nouvelle
-milliseconde avec son bit de gauche à 0, l'incrémente dans la même milliseconde ou quand l'horloge recule, et avance
-l'horodatage d'une unité quand il déborde. Deux identités générées par un même processus se comparent donc dans
-l'ordre de leur génération ; aucun ordre n'est garanti entre deux processus. `parse()` relit la forme canonique. Aucune
-bibliothèque tierce n'est utilisée.
+`DomainIdentity` vit dans `com.morpheus.domain.identity`. `generate()` applique RFC 9562, section 6.2, méthode 1 :
+`MonotonicTimestampSequence` réensemence le compteur à chaque nouvelle milliseconde avec son bit de gauche à 0,
+l'incrémente dans la même milliseconde ou quand l'horloge recule, et avance l'horodatage d'une unité quand il déborde.
+Deux identités d'un même processus se comparent donc dans l'ordre de leur génération. Opacité : UUIDv7 ne remplace pas
+`createdAt` ; l'ordre des UUID ne remplace ni `EntityVersion` ni `SpecificationVersion` et départage seulement les
+éléments d'une liste ; le timestamp encodé ne détermine aucun état métier ; un backend peut garder une représentation
+native ou binaire tant que le round-trip rend le même UUID canonique ; un identifiant n'est jamais un mécanisme
+d'autorisation. Ce format ne fixe pas celui des identifiants externes des providers.
 
-Le domaine traite la valeur comme **opaque** :
+Niveaux de résolution : A, une source fournit un identifiant stable déjà associé (`externalId -> DomainIdentity`) ; B,
+sans identifiant stable, une règle documentée fait correspondre sans ambiguïté (clé de spécification + clé d'exigence,
+namespace logique + key, identifiant composite normalisé) ; C, titre, contenu ou voisinage suggèrent une continuité
+sans la prouver, et aucune fusion de deux identités permanentes n'est automatique ; D, aucune correspondance fiable.
 
-1. `DomainIdentity` est créé une fois puis conservé tant que la continuité logique est démontrée.
-2. UUIDv7 ne remplace pas `createdAt`.
-3. L'ordre des UUID ne remplace ni `EntityVersion` ni `SpecificationVersion` ; il départage les éléments d'une liste
-   par ordre de génération, sans porter de sens métier.
-4. Le timestamp encodé ne détermine aucun état métier.
-5. Aucun provider, chemin, titre ou contenu n'est encodé dans l'identifiant.
-6. Un backend peut utiliser une représentation native ou binaire différente tant que le round-trip produit le même
-   UUID canonique.
-7. Un identifiant n'est jamais un secret ni un mécanisme d'autorisation.
-
-Ce format ne fixe pas celui des identifiants externes fournis par les providers.
-
-### 3. Résolution par niveaux de confiance
-
-- **Niveau A — correspondance explicite.** Une source fournit un identifiant stable et non ambigu déjà associé à une
-  identité MORPHEUS (`externalId -> DomainIdentity`). Résolution : `RESOLVED`.
-- **Niveau B — correspondance structurelle déterministe.** Sans identifiant stable, un ensemble de propriétés permet
-  une correspondance non ambiguë selon une règle documentée (clé de spécification + clé d'exigence, namespace logique
-  + key, identifiant composite normalisé). Résolution : `RESOLVED` ou `PARTIALLY_RESOLVED` selon la règle.
-- **Niveau C — correspondance heuristique.** Titre, contenu ou voisinage suggèrent une continuité sans la prouver.
-  Résolution : `HEURISTIC`. Elle ne fusionne jamais automatiquement deux identités permanentes sans politique
-  explicite.
-- **Niveau D — nouvelle identité.** Aucune correspondance suffisamment fiable n'existe : une nouvelle identité MORPHEUS
-  est créée.
-
-### 4. Clé persistée scopée par provider
-
-La clé est provider-scoped :
-
-```text
-EntityIdentityKey = (providerId, entityType, externalId)
-```
-
-et le binding persisté est `EntityIdentityKey -> DomainIdentity (UUIDv7)`. Le resolver de production est
-`PersistentEntityIdentityResolver`, appuyé sur le port `EntityIdentityStore`, implémenté par le store mémoire et par
-SQLite. Un external ID n'est jamais supposé global à MORPHEUS :
+La clé est `EntityIdentityKey = (providerId, entityType, externalId)` et le binding persisté
+`EntityIdentityKey -> DomainIdentity (UUIDv7)`. `EntityIdentityStore` est implémenté par le store mémoire et par SQLite.
+Un external ID n'est jamais supposé global :
 
 ```text
 openspec  + requirement + R-1 -> UUID A
 synthetic + requirement + R-1 -> UUID B
 ```
 
-**Résolution normale.** `resolve(providerId, entityType, externalId)` retourne le binding existant ; sinon il génère un
-nouveau `DomainIdentity` UUIDv7 et le persiste. La contrainte persistante est l'arbitre final : deux résolutions
-concurrentes sur la même clé peuvent générer deux UUID candidats, seul le premier binding inséré gagne, et le perdant
-relit le binding persistant et retourne l'identité gagnante.
+`resolve(providerId, entityType, externalId)` génère et persiste un nouveau `DomainIdentity` faute de binding ; deux
+résolutions concurrentes peuvent générer deux candidats, seul le premier binding inséré gagne, le perdant relit et rend
+l'identité gagnante. `continueIdentity(providerId, entityType, previousExternalId, newExternalId)` crée un alias vers le
+même `DomainIdentity` ; plusieurs external IDs peuvent pointer vers la même identité. `IDENTITY_COLLISION` est un
+`DiagnosticCode` ; une collision d'alias vers une autre identité reste une erreur. La table SQLite
+`entity_identity_bindings` (`V003__entity_identity_bindings.sql`, migration selon ADR-0021) porte `provider_id`,
+`entity_type`, `external_id`, `domain_identity`, avec `PRIMARY KEY(provider_id, entity_type, external_id)` et un index
+non unique sur `domain_identity` qui admet plusieurs alias ; ce n'est pas une table d'entités métier. Hors périmètre du
+resolver : résolution par similarité, auto-détection de renommage ou de déplacement, fusion automatique de doublons.
 
-**Continuité explicite.** Un changement d'external ID n'est jamais rapproché automatiquement. La continuité se déclare
-par `continueIdentity(providerId, entityType, previousExternalId, newExternalId)`, qui crée un nouvel alias vers le même
-`DomainIdentity`, uniquement si l'ancien external ID possède déjà un binding. Plusieurs external IDs peuvent donc
-pointer vers la même identité.
-
-**Collision.** Le triplet `(providerId, entityType, externalId)` est unique. S'il est déjà lié à une autre identité,
-MORPHEUS lève `IdentityCollisionException` ; le code machine associé est `IDENTITY_COLLISION` (`DiagnosticCode`). Une
-collision d'alias vers une identité différente reste une erreur et n'est jamais transformée en succès.
-
-**Persistance SQLite.** La migration suit ADR-0021. La table `entity_identity_bindings`
-(`V003__entity_identity_bindings.sql`) porte `provider_id`, `entity_type`, `external_id`, `domain_identity`, avec
-`PRIMARY KEY(provider_id, entity_type, external_id)` et un index non unique sur `domain_identity` qui admet plusieurs
-alias vers la même identité. Elle n'est pas une table d'entités métier.
-
-Hors périmètre du resolver : résolution par similarité, auto-détection de renommage ou de déplacement, fusion
-automatique de doublons.
-
-### 5. Identifiant de provider
-
-`ProviderId` refuse tout caractère de contrôle ISO (`Character.isISOControl` : U+0000–U+001F et U+007F–U+009F) qui
-reste après le retrait des blancs d'extrémité, par une `IllegalArgumentException` dont le message nomme l'identifiant,
-caractères de contrôle écrits `[U+XXXX]` :
+Le refus de `ProviderId` porte sur U+0000–U+001F et U+007F–U+009F, par une `IllegalArgumentException` :
 
 ```text
 provider id must not contain control characters: "openspec[U+000A]markdown"
 ```
 
-La notation ne porte pas de barre oblique inverse : les frontières HTTP lisent une barre oblique inverse comme un
-chemin Windows (`ServerLocationDisclosure`) et remplaceraient tout le message par le nom de l'exception. La règle vit
-dans le constructeur compact : elle vaut pour chaque chemin qui fabrique un identifiant — HTTP, MCP, CLI,
-`provider.id` des métadonnées de plugin et du codec de probe, relecture des stores. Une ligne stockée qui porterait un
-identifiant à caractère de contrôle, ou un segment vide, est refusée à la relecture par un message nommé, jamais
-recomposée.
+La notation évite la barre oblique inverse parce que les frontières HTTP la lisent comme un chemin Windows
+(`ServerLocationDisclosure`) et remplaceraient tout le message par le nom de l'exception. Placée dans le constructeur
+compact, la règle vaut pour HTTP, MCP, CLI, `provider.id` des métadonnées de plugin et du codec de probe, et la
+relecture des stores, où une ligne fautive est refusée par un message nommé, jamais recomposée.
 
-### 6. Renommage, déplacement, suppression, plusieurs providers
+Mouvements : un déplacement de fichier d'un élément à identité explicite stable garde la `DomainIdentity` avec un
+nouveau `SourceLocator` et une nouvelle `EntityVersion` ; le titre est une propriété versionnée ; un renommage de clé
+externe ambigu n'entraîne aucune fusion. L'élément supprimé peut garder son état historique et ses liens historiques
+explicables, la version courante ne le présente plus comme actif, et sa réapparition n'est rapprochée de l'ancienne
+identité que par une règle explicite. Deux providers qui décrivent la même réalité (une exigence OpenSpec et une issue
+de tracker) se rapprochent par un `TraceabilityLink`, une `ExternalReference` ou une relation d'équivalence explicite ;
+la fusion d'identité reste une opération contrôlée et explicable.
 
-- Déplacement de fichier d'un élément à identité explicite stable : même `DomainIdentity`, nouveau `SourceLocator`,
-  nouvelle `EntityVersion`.
-- Renommage de titre : le titre est une propriété versionnée, pas l'identité.
-- Renommage de clé externe : si la source fournit une relation de renommage, l'identité est conservée ; sinon une
-  règle de résolution s'applique ; en cas d'ambiguïté, aucune fusion automatique.
-- Suppression : l'identité d'un élément disparu n'est pas réutilisée, son état historique peut être conservé, ses liens
-  historiques restent explicables, et la version courante ne le présente plus comme actif. Une réapparition n'est
-  rapprochée de l'ancienne identité que selon une règle de résolution explicite.
-- Deux providers qui décrivent la même réalité logique (une exigence OpenSpec et une issue de tracker) ne deviennent pas
-  automatiquement une seule entité. Le rapprochement passe par un `TraceabilityLink`, une `ExternalReference` ou une
-  relation d'équivalence explicite ; la fusion d'identité reste une opération contrôlée et explicable.
+## Decision
+
+1. **Valeurs** : `DomainIdentity`, `EntityVersion`, `SourceLocator`, `ExternalReference` distinctes, `key` distincte
+   de `id`. Ni chemin, ligne, titre, énoncé, hash, score de similarité, position, ni d'office un identifiant externe
+   ne font l'identité ; aucune fusion silencieuse, une collision produit un diagnostic.
+2. **UUIDv7** (RFC 9562) en minuscules ; le constructeur compact de `DomainIdentity` refuse version ou variante autre.
+   `generate()` : compteur 12 bits dans `rand_a` (`MonotonicTimestampSequence`, un par processus), `rand_b` par
+   `SecureRandom` ; ordre garanti dans un processus seul. `parse()` relit ; sans bibliothèque tierce.
+3. **Opacité** : stable tant que la continuité est démontrée ; on n'en lit ni `createdAt`, ni version, ni état
+   métier, rien n'y est encodé ; un backend rend le même UUID ; ni secret ni droit.
+4. **Résolution** : `RESOLVED` si explicite (A) ou structurelle documentée (B, ou `PARTIALLY_RESOLVED`) ;
+   `HEURISTIC` (C), sans fusion hors politique explicite ; sinon nouvelle identité (D).
+5. **Clé scopée** : `(providerId, entityType, externalId)` -> `DomainIdentity` (`PersistentEntityIdentityResolver`,
+   `EntityIdentityStore`). `resolve` rend ou persiste le binding ; la contrainte persistante arbitre, le perdant
+   relit. Seul `continueIdentity` relie deux external IDs (alias d'un ID lié). Un triplet lié ailleurs lève
+   `IdentityCollisionException` (`IDENTITY_COLLISION`).
+6. **`ProviderId`** refuse en constructeur compact tout `Character.isISOControl` après retrait des blancs, en nommant
+   l'identifiant (`[U+XXXX]`, sans barre oblique inverse), et à la relecture une ligne fautive ou à segment vide.
+7. **Mouvements** : déplacement et titre gardent l'identité, une clé externe renommée seulement par relation de la
+   source ou règle ; une identité disparue n'est jamais réutilisée ; deux providers ne fusionnent jamais d'office.
 
 ## Do's and Don'ts
 
 ### Do
 
 - Porter identité, version, emplacement et identifiant externe par quatre valeurs distinctes.
-- Créer une identité par `DomainIdentity.generate()` et relire sa forme texte par `DomainIdentity.parse()`.
-- Sérialiser une identité sous sa forme UUID canonique en minuscules, et restituer exactement le même UUID après un
-  aller-retour par un store.
-- Dater et versionner les entités par des champs explicites (`createdAt`, `EntityVersion`, `SpecificationVersion`).
-- Inclure le `providerId` dans toute clé d'identité externe.
-- Conserver la même `DomainIdentity` quand la continuité est démontrable, avec un nouveau locator et une nouvelle
-  version.
-- Déclarer explicitement par `continueIdentity` toute continuité entre deux external IDs.
-- Laisser la contrainte persistante arbitrer une course d'insertion, et relire le binding gagnant.
-- Signaler toute collision par un diagnostic.
-- Construire tout identifiant de provider par `ProviderId`, y compris à la relecture d'un store.
-- Exposer une `key` lisible à côté de l'`id` opaque quand c'est utile à l'humain.
-- Rapprocher deux providers par un lien ou une référence explicite.
+- Créer une identité par `DomainIdentity.generate()`, la relire par `DomainIdentity.parse()`, la sérialiser en UUID
+  canonique minuscule et restituer le même UUID après un aller-retour par un store.
+- Dater et versionner par `createdAt`, `EntityVersion`, `SpecificationVersion`.
+- Inclure le `providerId` dans toute clé d'identité externe ; construire tout identifiant de provider par
+  `ProviderId`, qui refuse un caractère de contrôle, relecture d'un store comprise.
+- Garder la même `DomainIdentity` quand la continuité est démontrable (nouveaux locator et version), et déclarer par
+  `continueIdentity` toute continuité entre deux external IDs.
+- Laisser la contrainte persistante arbitrer une course d'insertion, puis relire le binding gagnant.
+- Signaler toute collision par un diagnostic, jamais par un succès.
+- Exposer une `key` lisible à côté de l'`id` opaque ; rapprocher deux providers par un lien explicite.
 
 ### Don't
 
-- N'accepter dans `DomainIdentity` aucun UUID dont la version n'est pas 7 ou la variante n'est pas RFC 9562.
-- Ne pas utiliser un chemin de fichier, un numéro de ligne, un titre, un texte, un hash de contenu ou de locator, un
-  score de similarité ou une position comme identité.
-- N'encoder ni provider, ni chemin, ni titre, ni contenu dans une identité.
-- Ne pas lire le timestamp d'une identité comme un fait métier ni comme `createdAt`.
+- N'accepter dans `DomainIdentity` qu'un UUID de version 7 et de variante RFC 9562.
+- Ne pas faire l'identité d'un chemin, d'une ligne, d'un titre, d'un texte, d'un hash, d'un score ou d'une position.
+- N'encoder ni provider, ni chemin, ni titre, ni contenu dans une identité, ni l'exposer avec un type de provider.
+- Ne pas lire le timestamp d'une identité comme fait métier ni `createdAt`.
 - Ne pas remplir `rand_a` au hasard, ni construire un UUIDv7 de production hors de `generate()`.
-- Ne pas supposer un ordre entre deux identités générées par deux processus distincts.
-- Ne pas recalculer un UUID à chaque ingestion.
-- Ne pas promouvoir automatiquement un identifiant externe en identité MORPHEUS.
-- Ne pas fusionner deux identités sur une correspondance heuristique sans politique explicite.
-- Ne pas transformer une collision d'identité en succès.
+- Ne pas supposer d'ordre entre identités de deux processus.
+- Ne pas recalculer un UUID à chaque ingestion, ni promouvoir d'office un identifiant externe en identité, ni
+  fusionner sur une correspondance heuristique sans politique explicite.
 - Ne pas réutiliser l'identité d'un élément disparu.
-- Ne pas exposer de type ou de structure propre à un provider dans l'identité publique.
-- Ne pas accepter un caractère de contrôle dans un identifiant de provider.
-- Ne pas utiliser une identité comme secret ou comme preuve d'autorisation.
+- Ne pas utiliser une identité comme secret ou preuve d'autorisation.
 
 ## Consequences
 
@@ -336,8 +259,8 @@ recomposée.
 - Faux rapprochement : atténué par les niveaux de résolution, l'ambiguïté explicite et l'absence de fusion heuristique
   silencieuse.
 - Fusion heuristique : le modèle d'identité admet une fusion sur correspondance heuristique sous « politique
-  explicite » (§3, niveau C), alors que le resolver persistant n'en fait aucune et exclut la fusion automatique de
-  doublons de son périmètre (§4). Aucune telle politique n'existe ; les deux formulations sont conservées telles
+  explicite » (`Decision`, point 4, niveau C), alors que le resolver persistant n'en fait aucune et exclut la fusion
+  automatique de doublons de son périmètre (`Decision`, point 5). Aucune telle politique n'existe ; les deux formulations sont conservées telles
   qu'écrites par les décisions sources.
 - Explosion d'identités après renommage : atténuée par l'usage des identifiants externes stables et des règles
   déterministes avant toute création.

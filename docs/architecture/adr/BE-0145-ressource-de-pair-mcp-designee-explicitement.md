@@ -24,11 +24,7 @@ ambiguïté, et l'index MINOS évolue d'un snapshot à l'autre.
 Un projet MORPHEUS et un projet NEXUS n'ont pas la même identité, et rien ne permet de déduire sûrement l'un de
 l'autre. Le registre et l'index de NEXUS ont leur propre cycle de vie, coûteux à reconstruire.
 
-## Decision
-
-### 1. Un symbole MINOS se désigne par son `symbolKey` exact
-
-Une cible de code MINOS utilise :
+Forme d'une cible de code MINOS, et table de résolution qui en découle :
 
 ```text
 system       = MINOS
@@ -36,72 +32,35 @@ resourceType = SYMBOL
 project      = identifiant ou nom unique MINOS
 externalId   = symbolKey MINOS exact
 revision     = activeSnapshotId MINOS attendu, optionnel
-```
 
-`project` et `externalId` sont obligatoires ; une cible sans projet n'est pas résolue.
-
-Le resolver peut utiliser la recherche lexicale MINOS comme mécanisme de récupération, mais la promotion en `FOUND`
-est exclusivement :
-
-```text
-result.symbolKey.equals(target.externalId)
-```
-
-Puis :
-
-```text
 0 exact  -> NOT_FOUND, ou UNAVAILABLE si la recherche bornée a pu être tronquée
 1 exact  -> FOUND
 >1 exact -> AMBIGUOUS
 ```
 
-Une recherche qui a rendu une page pleine ne prouve rien sur ce qui se trouve au-delà : l'absence de correspondance
-exacte n'y vaut `NOT_FOUND` que si la recherche était exhaustive. `MinosCodeGateway.findSymbols` rend un
-`SymbolSearch(symbols, possiblyTruncated)` : MINOS ne fournissant ni total, ni drapeau, ni curseur, une page qui
-atteint la limite demandée est déclarée possiblement tronquée. Une troncature n'est jamais présentée comme un symbole
-supprimé.
+Une recherche qui a rendu une page pleine ne prouve rien sur ce qui se trouve au-delà. MINOS ne fournit ni total, ni
+drapeau, ni curseur : seule une page qui atteint la limite demandée peut signaler une troncature possible.
 
-Aucun nom simple, `qualifiedName`, fichier, module ou score lexical ne constitue seul une identité suffisante.
+## Decision
 
-### 2. La révision MINOS attendue est vérifiée avant la résolution
-
-Si `target.revision` est présente :
-
-```text
-minos_index_status.activeSnapshotId == target.revision
-```
-
-est obligatoire avant la résolution. Sinon : `REVISION_MISMATCH`. Une révision différente n'est jamais masquée.
-
-La cible persistée est conservée telle quelle : la révision et l'identité canonique observées chez MINOS
-(`activeSnapshotId`, `symbolKey`, projet) sont portées par les attributs du résultat résolu, jamais réécrites dans la
-cible.
-
-### 3. Un projet NEXUS se désigne par un identifiant explicite
-
-Chaque demande de contexte technique transporte explicitement :
-
-```text
-nexusProject = UUID ou nom unique du projet NEXUS
-```
-
-MORPHEUS ne déduit pas ce mapping depuis le chemin du workspace, le nom du projet MORPHEUS ou une heuristique, et
-transmet `nexusProject` tel quel à NEXUS. Un projet NEXUS absent ou non indexé est rendu comme une indisponibilité ou
-une erreur externe explicite.
-
-### 4. MORPHEUS ne mute pas NEXUS
-
-MORPHEUS n'appelle aucun workflow NEXUS de mutation :
-
-```text
-project add
-index
-rebuild
-remove
-```
-
-La passerelle NEXUS (`NexusMcpContextGateway`) n'appelle aucun outil hors des outils requis qu'énumère ADR-0128 pour
-NEXUS. Le registre et l'index NEXUS restent administrés par NEXUS ou par un orchestrateur externe.
+1. **Cible MINOS** : une cible `MINOS`/`SYMBOL` porte `project` (identifiant ou nom unique MINOS) et `externalId`
+   (`symbolKey` MINOS exact), obligatoires, et une `revision` optionnelle (`activeSnapshotId` attendu). Une cible
+   sans projet n'est pas résolue.
+2. **Promotion exacte** : la recherche lexicale MINOS peut servir de récupération, mais la promotion en `FOUND` est
+   exclusivement `result.symbolKey.equals(target.externalId)`. Zéro exact donne `NOT_FOUND`, ou `UNAVAILABLE` si la
+   recherche bornée a pu être tronquée ; un exact donne `FOUND` ; plusieurs donnent `AMBIGUOUS`. Aucun nom simple,
+   `qualifiedName`, fichier, module ou score lexical ne constitue seul une identité suffisante.
+3. **Troncature** : `MinosCodeGateway.findSymbols` rend un `SymbolSearch(symbols, possiblyTruncated)`, vrai pour une
+   page qui atteint la limite demandée ; une troncature n'est jamais présentée comme un symbole supprimé.
+4. **Révision** : une `target.revision` présente est comparée à `minos_index_status.activeSnapshotId` avant la
+   résolution ; un écart rend `REVISION_MISMATCH`, jamais masqué. La cible persistée reste telle quelle : la révision
+   et l'identité observées (`activeSnapshotId`, `symbolKey`, projet) vont dans les attributs du résultat résolu.
+5. **Projet NEXUS explicite** : chaque demande de contexte technique transporte `nexusProject` (UUID ou nom unique),
+   transmis tel quel, jamais déduit du chemin du workspace, du nom du projet MORPHEUS ou d'une heuristique. Un projet
+   NEXUS absent ou non indexé est une indisponibilité ou une erreur externe explicite.
+6. **NEXUS non muté** : aucun workflow NEXUS de mutation (`project add`, `index`, `rebuild`, `remove`) n'est appelé,
+   et `NexusMcpContextGateway` n'appelle aucun outil hors des outils requis qu'énumère ADR-0128 pour NEXUS : registre
+   et index restent administrés par NEXUS ou un orchestrateur externe.
 
 ## Do's and Don'ts
 

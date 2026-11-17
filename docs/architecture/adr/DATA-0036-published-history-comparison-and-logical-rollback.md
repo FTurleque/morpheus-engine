@@ -34,9 +34,7 @@ snapshot -> SpecificationVersion binding
 snapshot -> RequirementVersionRecord[]
 ```
 
-## Decision
-
-Cinq notions sont séparées :
+Les cinq notions que la décision sépare :
 
 ```text
 published history
@@ -46,67 +44,15 @@ logical rollback plan
 retention policy
 ```
 
-Elles restent distinctes de :
-
-```text
-TemporalState
-ChangeLifecycleState
-RequirementDeltaKind
-KnowledgeSnapshot activation
-```
-
-### Historique publié
-
-L'historique publié d'un projet est la lignée obtenue en partant du snapshot `ACTIVE` et en suivant `predecessorId`
-jusqu'à la racine.
-
-```text
-exactement un ACTIVE : la tête
-0..N RETIRED          : les prédécesseurs publiés
-```
-
-Les snapshots `BUILDING`, `VALIDATING`, `READY` et `FAILED` ne font jamais partie de l'historique publié.
-
-La reconstruction de lignée rejette explicitement :
-
-- un predecessor absent ;
-- un predecessor appartenant à un autre projet ;
-- un cycle ;
-- un predecessor publié dont l'état n'est pas `RETIRED` ;
-- une tête qui n'est pas `ACTIVE`.
-
-### Sémantique de requête historique
-
-Une requête historique est toujours adressée à un `KnowledgeSnapshotId` explicite et n'est autorisée que pour :
-
-```text
-ACTIVE
-RETIRED
-```
-
-La vue métier d'un snapshot publié ne retourne que ses occurrences `TemporalState.CURRENT`.
-
-Une occurrence `CURRENT` d'un snapshot `RETIRED` reste `CURRENT` relativement à cette projection historique :
+L'historique publié compte exactement un `ACTIVE`, la tête, et 0..N `RETIRED`, les prédécesseurs publiés. Une
+occurrence `CURRENT` d'un snapshot `RETIRED` reste `CURRENT` relativement à cette projection historique : la dimension
+historique est portée par le snapshot publié adressé, pas par une mutation rétroactive des occurrences persistées.
 
 ```text
 snapshot state RETIRED != occurrence TemporalState.HISTORICAL
 ```
 
-La dimension historique est portée par le snapshot publié adressé, pas par une mutation rétroactive des occurrences
-persistées.
-
-### Comparaison de snapshots
-
-La taxonomie est strictement :
-
-```text
-ADDED
-MODIFIED
-REMOVED
-UNCHANGED
-```
-
-Elle utilise `DomainIdentity` comme clé de continuité logique. Pour une comparaison `from -> to` :
+La comparaison `from -> to` utilise `DomainIdentity` comme clé de continuité logique :
 
 ```text
 absent from, présent to             => ADDED
@@ -115,58 +61,21 @@ présent des deux, contenu différent => MODIFIED
 présent des deux, contenu identique => UNCHANGED
 ```
 
-Le contenu comparé est le `Requirement` normalisé complet. Les métadonnées d'occurrence suivantes n'entrent pas dans
-la classification :
-
-```text
-EntityVersionId
-SpecificationVersionId
-KnowledgeSnapshotId
-TemporalState
-```
-
 La provenance et l'evidence font partie du `Requirement` normalisé et restent donc observables dans une modification.
+`MOVED` et `RENAMED` attendent une taxonomie dédiée.
 
-`MOVED` et `RENAMED` ne sont pas introduits implicitement. Un changement de clé, de titre ou de rattachement de
-spécification reste `MODIFIED` tant qu'une taxonomie dédiée n'est pas décidée.
-
-L'ordre de sortie est déterministe par `DomainIdentity`.
-
-### Rollback logique
-
-Un rollback n'est jamais la réactivation d'un snapshot `RETIRED` :
+Le rollback logique transforme la baseline `ACTIVE` actuelle vers le contenu métier de la cible historique. La
+comparaison et l'applicabilité du rollback sont deux contrats distincts : ADR-0035 impose qu'un
+`RequirementDelta.MODIFIED` se résolve vers la même `SpecificationId` que la baseline courante, et une reconstruction
+cross-specification attend une politique explicite `MOVED`/reparenting au lieu d'affaiblir ADR-0035.
 
 ```text
 RETIRED -X-> ACTIVE
-```
-
-Le lifecycle des snapshots reste inchangé : seuls les snapshots `READY` peuvent être activés.
-
-Le rollback logique cible un snapshot `RETIRED` de la lignée publiée courante et construit un plan de deltas qui
-transforme la baseline `ACTIVE` actuelle vers le contenu métier de cette cible historique. Pour la comparaison
-`ACTIVE current -> RETIRED target`, le plan produit :
-
-```text
-ADDED     => RequirementDelta.ADDED avec le contenu historique cible
-MODIFIED  => RequirementDelta.MODIFIED avec le contenu historique cible
-REMOVED   => RequirementDelta.REMOVED pour l'élément absent de la cible
-UNCHANGED => aucun delta
-```
-
-La comparaison et l'applicabilité du rollback restent deux contrats distincts. Un requirement dont la
-`DomainIdentity` reste stable mais dont la `SpecificationId` change est comparable comme `MODIFIED`, mais le rollback
-rejette ce cas : ADR-0035 impose qu'un `RequirementDelta.MODIFIED` se résolve vers la même `SpecificationId` que la
-baseline courante.
-
-```text
 cross-specification MODIFIED => comparable
 cross-specification MODIFIED -X-> rollback
 ```
 
-Une reconstruction cross-specification attend une politique explicite `MOVED`/reparenting au lieu d'affaiblir
-ADR-0035.
-
-Le résultat est destiné au pipeline d'application et de promotion des deltas (ADR-0035) :
+Le plan suit le pipeline d'application et de promotion des deltas :
 
 ```text
 rollback plan
@@ -176,56 +85,24 @@ rollback plan
     -> PROMOTE explicite
     -> READY
     -> ACTIVATE explicite
-```
 
-Donc :
-
-```text
 logical rollback != reactivate RETIRED
 logical rollback != APPLY
 logical rollback != PROMOTE
 logical rollback != ACTIVATE
 ```
 
-La reconstruction crée de nouvelles occurrences `EntityVersionId` ; elle ne réutilise jamais les occurrences
-historiques, et l'historique source reste inchangé.
+Le `ChangeId` représente l'intention de rollback ; la résolution `SpecificationId -> specificationKey` sert le contrat
+`RequirementDelta`, et la résolution inverse `specificationKey -> SpecificationId` est réutilisable par
+`RequirementDeltaApplicationPlan`. Le rollback ne prétend pas reconstruire d'autres familles métier que `Requirement`.
 
-### Identités et absence de génération cachée
+La rétention couvre tous les snapshots publiés de la lignée `ACTIVE/RETIRED`, leurs bindings de
+`SpecificationVersion` et leurs `RequirementVersionRecord`. Une autre politique devra préserver explicitement
+rollback, provenance, audit et traçabilité avant d'être autorisée.
 
-Le plan de rollback reçoit explicitement :
-
-- un `ChangeId` représentant l'intention de rollback ;
-- un `RequirementDeltaId` pour chaque identité effectivement modifiée ;
-- la résolution `SpecificationId -> specificationKey` nécessaire au contrat `RequirementDelta`.
-
-Le service ne génère aucun identifiant en cachette et n'effectue aucun fuzzy matching. Le plan expose également la
-résolution inverse `specificationKey -> SpecificationId` réutilisable par `RequirementDeltaApplicationPlan`.
-
-### Périmètre de la reconstruction
-
-Le rollback logique reconstruit le vertical slice `Requirement` persisté par `VersionedRequirementStore`. Ses deltas
-portent une liste de scénarios vide : il ne prétend pas reconstruire d'autres familles métier.
-
-### Rétention
-
-La politique est explicitement représentée par `PublishedHistoryRetentionPolicy.KEEP_ALL_PUBLISHED` : tous les
-snapshots publiés de la lignée `ACTIVE/RETIRED`, leurs bindings de `SpecificationVersion` et leurs
-`RequirementVersionRecord` sont conservés.
-
-Il n'existe ni TTL, ni limite de cardinalité, ni purge destructive, ni compactage, ni suppression physique d'un
-snapshot publié. Une autre politique devra préserver explicitement rollback, provenance, audit et traçabilité avant
-d'être autorisée.
-
-### Persistance
-
-L'historique, la comparaison et le rollback n'ont pas de table propre : ils lisent `knowledge_snapshots`,
-`specification_versions`, `snapshot_specification_versions` et `requirement_versions`. Après fermeture et réouverture
-SQLite, l'`ACTIVE` reste observable, le `RETIRED` reste requêtable et la comparaison reste identique.
-
-### Frontières
-
-Les services vivent dans `morpheus-application` (`com.morpheus.application.history`) et ne dépendent que du domaine
-MORPHEUS, de `SpecificationKnowledgeStore` et de `VersionedRequirementStore`.
+L'historique, la comparaison et le rollback lisent `knowledge_snapshots`, `specification_versions`,
+`snapshot_specification_versions` et `requirement_versions`. Après fermeture et réouverture SQLite, l'`ACTIVE` reste
+observable, le `RETIRED` reste requêtable et la comparaison reste identique. Les frontières tenues :
 
 ```text
 com.morpheus.domain      -X-> provider
@@ -233,6 +110,30 @@ com.morpheus.domain      -X-> SQLite
 com.morpheus.application -X-> provider implementation
 com.morpheus.application -X-> SQLite
 ```
+
+## Decision
+
+1. **Notions séparées** : historique, requête historique, comparaison, rollback logique et rétention, distincts de
+   `TemporalState`, `ChangeLifecycleState`, `RequirementDeltaKind` et de l'activation.
+2. **Historique** : l'unique `ACTIVE`, ses prédécesseurs `RETIRED` par `predecessorId` ; jamais `BUILDING`,
+   `VALIDATING`, `READY`, `FAILED`. Rejetés : predecessor absent, d'un autre projet ou non `RETIRED`, cycle, tête non
+   `ACTIVE`.
+3. **Requête historique** : sur un `KnowledgeSnapshotId` explicite `ACTIVE` ou `RETIRED`, ne rend que ses occurrences
+   `TemporalState.CURRENT`, sans en muter aucune.
+4. **Comparaison** : `ADDED`, `MODIFIED`, `REMOVED`, `UNCHANGED` par `DomainIdentity` sur le `Requirement` normalisé,
+   hors `EntityVersionId`, `SpecificationVersionId`, `KnowledgeSnapshotId`, `TemporalState`, triée par
+   `DomainIdentity` ; ni `MOVED` ni `RENAMED`.
+5. **Rollback** : jamais la réactivation d'un `RETIRED` (seul un `READY` s'active). Il cible un `RETIRED` de la lignée
+   et traduit `ACTIVE -> cible` en `RequirementDelta` (`ADDED`, `MODIFIED` au contenu cible, `REMOVED`, rien pour
+   `UNCHANGED`) ; un `MODIFIED` qui change de `SpecificationId` est refusé (ADR-0035). APPLY, PROMOTE, ACTIVATE
+   explicites ; nouvelles `EntityVersionId`, historique ni réutilisé ni modifié.
+6. **Identités** : l'appelant fournit le `ChangeId`, un `RequirementDeltaId` par identité modifiée et
+   `SpecificationId -> specificationKey` ; aucun identifiant généré, aucun fuzzy matching.
+7. **Périmètre** : `Requirement` de `VersionedRequirementStore`, deltas sans scénario.
+8. **Rétention** : `PublishedHistoryRetentionPolicy.KEEP_ALL_PUBLISHED` ; ni TTL, ni limite, ni purge, ni compactage,
+   ni suppression physique.
+9. **Frontières** : aucune table propre ; `com.morpheus.application.history` ne dépend que du domaine, de
+   `SpecificationKnowledgeStore` et `VersionedRequirementStore`.
 
 ## Do's and Don'ts
 

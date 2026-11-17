@@ -33,59 +33,54 @@ Options écartées :
 - **Activer le parallélisme JUnit partout** : les états de JVM encore partagés entre tests (décrits dans
   [BUILD_AND_TEST](../../developer/BUILD_AND_TEST.md#parallélisme-junit)) le refusent.
 
+Le câblage que la décision suppose :
+
+- les troncs reçoivent le recorder de leurs services, outils et commandes, qui le prennent de leur point d'entrée ;
+  il descend ainsi jusqu'aux routeurs (`UnforeseenFailureTrace.record(recorder, échec)` n'a pas d'état), au journal
+  d'accès remote, à la readiness, au raisonnement, à la synchronisation, à la récupération des instantanés, au
+  contexte augmenté, à la résolution des références externes et aux intégrations MINOS et NEXUS ;
+- les deux enveloppes de connexion, celle du bail et celle de la portée, portent le recorder, et l'exécuteur de
+  transactions le demande à la connexion : un store construit dans une portée est observé par qui a ouvert la portée,
+  et une connexion remplacée après un échec de nettoyage garde le recorder de sa portée. La portée compte par le même
+  porteur que les compteurs de contention (`SqliteContentionMetrics`) ;
+- le défaut statique subsiste pour ce qui n'a pas d'ouvreur ou que personne ne construit : la connexion ouverte hors
+  portée (`SqliteContentionMetrics`), le bail par base (`SqliteDatabaseLease`, dont la libération n'appartient à aucun
+  ouvreur), `ExternalJarIntegrity`, qui sert aussi l'activateur de plugins exécuté dans la JVM du worker de sonde et
+  dans le service de plugins, sans runtime à lui remettre, et `OperationalSlf4jServiceProvider`, instancié par le
+  `ServiceLoader` (ADR-0146). C'est pourquoi le défaut ne disparaît pas quand la liste de ses utilisateurs se vide de
+  tout le reste ; chacun y est motivé dans le test qui la tient.
+
+Configuration et garde-fous du parallélisme : [BUILD_AND_TEST](../../developer/BUILD_AND_TEST.md#parallélisme-junit).
+
 ## Decision
 
-1. **Le runtime est une valeur.** `OperationalRuntime` porte les compteurs, le sink, le recorder et la destination du
-   journal en fichier. Deux runtimes ne partagent rien.
+1. **Valeur** : `OperationalRuntime` porte compteurs, sink, recorder et journal en fichier ; deux runtimes ne
+   partagent rien.
 
-2. **Le lanceur le prend une fois et le remet.** `MorpheusMain` prend le runtime du processus
-   (`LocalOperationalRuntime.process()`), y nomme le répertoire du journal (ADR-0146), et le remet par constructeur au
-   serveur local, au serveur remote, au serveur MCP et à chaque commande. `MorpheusCli.main`, second point d'entrée,
-   fait de même. Aucune injection par annotation, aucun conteneur : le câblage reste explicite.
+2. **Remise** : seuls `MorpheusMain` et `MorpheusCli.main` prennent `LocalOperationalRuntime.process()` ; ils y
+   nomment le journal (ADR-0146) et le remettent par constructeur aux serveurs et commandes, sans conteneur ni second runtime.
 
-3. **Les troncs remettent le recorder qu'ils ont reçu.** `ApiRuntime`, `CliRuntime` et `MorpheusMcpRuntime` le
-   prennent par constructeur, de leurs services, outils et commandes, qui le prennent de leur point d'entrée. Il
-   descend ainsi jusqu'aux routeurs (`UnforeseenFailureTrace.record(recorder, échec)` n'a pas d'état), au journal
-   d'accès remote, à la readiness, au raisonnement, à la synchronisation, à la récupération des instantanés, au
-   contexte augmenté, à la résolution des références externes et aux intégrations MINOS et NEXUS. Il n'existe aucun
-   constructeur de commodité qui lirait le défaut : un test passe son propre recorder, ou `OperationalRecorder.noop()`
-   quand il n'observe rien.
+3. **Troncs** : `ApiRuntime`, `CliRuntime`, `MorpheusMcpRuntime` prennent le recorder par constructeur et le
+   descendent ; nul constructeur de commodité ne lit le défaut (un test passe le sien ou `OperationalRecorder.noop()`).
 
-4. **Dans le store, le recorder voyage avec la connexion.** Qui ouvre une portée la nomme avec son recorder :
-   `SqliteConnectionScope.open(chemin, recorder)` et `SqliteOperationRuntime.open(chemin, recorder)` sont les seules
-   ouvertures. Les deux enveloppes de connexion — celle du bail, celle de la portée — portent le recorder, et
-   l'exécuteur de transactions le demande à la connexion. Aucun paramètre n'est ajouté aux constructeurs des stores :
-   un store construit dans une portée est observé par qui a ouvert la portée. Une connexion remplacée après un échec
-   de nettoyage garde le recorder de sa portée.
+4. **Store** : le recorder voyage avec la connexion ; `SqliteConnectionScope.open(chemin, recorder)` et
+   `SqliteOperationRuntime.open(chemin, recorder)` sont les seules ouvertures ; aucun store n'en prend.
 
-5. **La portée compte sur le recorder de son ouvreur.** Elle compte la connexion physique qu'elle ouvre
-   (`sqlite.scope.connection.opened`), celle qu'elle libère (`sqlite.scope.connection.closed`) et la vérification de
-   schéma qu'elle exécute (`sqlite.scope.schema.checked`), par le même porteur que les compteurs de contention
-   (`SqliteContentionMetrics`). `SqliteConnectionScope` ne garde aucun compteur statique.
+5. **Portée** : elle compte `sqlite.scope.connection.opened`, `sqlite.scope.connection.closed` et
+   `sqlite.scope.schema.checked` sur ce recorder, sans compteur statique.
 
-6. **Le défaut statique subsiste, et il est le runtime du processus.** `LocalOperationalRuntime` garde un runtime pour
-   le processus : c'est celui que le lanceur prend, et le lanceur ne construit pas de second runtime. Écrivent dans ce
-   défaut une connexion ouverte hors portée (`SqliteContentionMetrics`), le bail par base (`SqliteDatabaseLease`, dont
-   la libération n'appartient à aucun ouvreur), et `ExternalJarIntegrity`, qui sert aussi l'activateur de plugins
-   exécuté dans la JVM du worker de sonde et dans le service de plugins, qui n'ont pas de runtime à lui remettre.
-   Un serveur HTTP local démarré sans runtime (les surcharges courtes de `MorpheusHttpServer.start`) construit le sien,
-   que sa route `metrics` sert ; un serveur MCP construit sans recorder ne compte nulle part et ne sert aucun compteur.
+6. **Défaut** : le runtime statique est celui du processus ; y écrivent connexion hors portée, bail, intégrité des
+   JAR externes et binding SLF4J. `MorpheusHttpServer.start` sans runtime en construit un, servi par `metrics` ; un
+   serveur MCP sans recorder ne compte rien.
 
-7. **La liste des utilisateurs du défaut est nommée et ne fait que rétrécir.** Les classes de production qui mentionnent
-   `LocalOperationalRuntime` sont exactement celles de `StaticOperationalRuntimeUsersArchitectureTest.MAIN_USERS`,
-   chacune motivée dans ce test. Aucun test ne mentionne le défaut. Seuls les deux points d'entrée prennent le runtime
-   du processus comme valeur.
+7. **Utilisateurs nommés** : les classes de production qui mentionnent `LocalOperationalRuntime` sont exactement
+   `StaticOperationalRuntimeUsersArchitectureTest.MAIN_USERS`, liste qui ne fait que rétrécir ; aucun test ne le
+   mentionne.
 
-8. **Le binding SLF4J reste sur le défaut.** `OperationalSlf4jServiceProvider` est instancié par le `ServiceLoader`
-   (ADR-0146) : personne ne le construit, donc personne ne peut rien lui remettre. C'est pourquoi le défaut statique
-   ne disparaît pas quand la liste se vide de tout le reste.
-
-9. **Le parallélisme JUnit n'est activé que dans un module dont aucun test ne partage un état de la JVM** :
-   `morpheus-store-sqlite`, `morpheus-api`, `morpheus-mcp` et `morpheus-cli`, chacun par un
-   `junit-platform.properties` versionné dans ses ressources de test. Un test qui change un état lu par toute la JVM
-   (locale, propriété système, flux standard, pilote JDBC) est `@Isolated`, dans tout module. Les autres modules
-   restent séquentiels ; en activer un est un changement à part, précédé d'exécutions parallèles propres répétées.
-   Configuration et garde-fous : [BUILD_AND_TEST](../../developer/BUILD_AND_TEST.md#parallélisme-junit).
+8. **Parallélisme JUnit** seulement dans `morpheus-store-sqlite`, `morpheus-api`, `morpheus-mcp` et `morpheus-cli`,
+   par un `junit-platform.properties` versionné. Un test qui change un état lu par toute la JVM (locale, propriété
+   système, flux standard, pilote JDBC) est `@Isolated`, partout. Activer un autre module est un changement à part,
+   précédé d'exécutions parallèles propres répétées.
 
 ## Do's and Don'ts
 

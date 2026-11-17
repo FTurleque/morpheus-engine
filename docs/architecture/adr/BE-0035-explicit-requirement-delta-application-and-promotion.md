@@ -42,10 +42,7 @@ COMPLETED != promotion
 COMPLETED != activation
 ```
 
-## Decision
-
-Trois opérations distinctes, portées par `com.morpheus.application.delta` (`RequirementDeltaApplicationService`,
-`RequirementDeltaPromotionService`) et par `SnapshotLifecycleService` :
+Les trois opérations sont portées par `com.morpheus.application.delta` et par `SnapshotLifecycleService` :
 
 ```text
 APPLY
@@ -67,53 +64,29 @@ snapshot READY
     -> nouveau snapshot devient ACTIVE
 ```
 
-`APPLY`, `PROMOTE` et `ACTIVATE` ne sont jamais des alias.
+Le plan d'application contient le projet, la nouvelle `SpecificationVersion`, le `KnowledgeSnapshotMetadata` candidat
+en `BUILDING`, les `RequirementDelta` normalisés, la résolution `specificationKey -> SpecificationId` nécessaire aux
+nouveaux requirements, les nouveaux `EntityVersionId` de toutes les occurrences `CURRENT` du candidat et une
+`EvidenceId` qui identifie la preuve de l'action d'application. Les identités techniques sont fournies par le plan
+plutôt que générées par le service : deux exécutions avec le même état et le même plan produisent la même projection
+logique et les mêmes identifiants.
 
-### Application explicite
-
-L'application reçoit un plan entièrement explicite contenant :
-
-- le projet ;
-- la nouvelle `SpecificationVersion` ;
-- le `KnowledgeSnapshotMetadata` candidat en `BUILDING` ;
-- les `RequirementDelta` normalisés ;
-- la résolution explicite `specificationKey -> SpecificationId` nécessaire aux nouveaux requirements ;
-- les nouveaux `EntityVersionId` de toutes les occurrences `CURRENT` du candidat ;
-- une `EvidenceId` identifiant la preuve de l'action d'application.
-
-Les identités techniques sont fournies par le plan au lieu d'être générées implicitement par le service : deux
-exécutions avec le même état et le même plan produisent la même projection logique et les mêmes identifiants.
-
-Avant toute écriture, le service construit et valide la projection candidate complète en mémoire.
-
-### Sémantique ADDED / MODIFIED / REMOVED
-
-**ADDED.** `RequirementDelta.requirementId` est l'identité logique déjà normalisée (ADR-0121). L'application exige
-que cette identité soit absente de la baseline `CURRENT`, n'effectue aucun rapprochement fuzzy, ne rapproche jamais
-par titre, chemin, contenu ou similarité, et crée une nouvelle occurrence `EntityVersion` dans le candidat avec
-l'identité logique du delta.
-
-**MODIFIED.** L'application exige que l'identité existe dans la baseline `CURRENT`. Invariant :
+`RequirementDelta.requirementId` est l'identité logique déjà normalisée (ADR-0121) ; un `ADDED` crée une nouvelle
+occurrence `EntityVersion` dans le candidat avec cette identité, sans aucun rapprochement fuzzy. Invariant d'un
+`MODIFIED`, dont le contenu normalisé est construit à partir du delta :
 
 ```text
 candidate.DomainIdentity == baseline.DomainIdentity
 candidate.EntityVersionId != baseline.EntityVersionId
 ```
 
-Le contenu normalisé du candidat est construit à partir du delta et conserve sa provenance source.
-
-**REMOVED.** L'application exige que l'identité existe dans la baseline `CURRENT`. La suppression signifie
-uniquement :
+Un `REMOVED` signifie uniquement :
 
 ```text
 absence de cette identité dans les RequirementVersionRecord du candidat
 ```
 
-Aucune ligne ni occurrence du snapshot `ACTIVE` n'est supprimée ou modifiée.
-
-### Conflits et déterminisme
-
-Un lot est rejeté avant écriture lorsqu'il contient notamment :
+Les conflits qui font rejeter un lot avant écriture sont notamment :
 
 - plusieurs deltas pour la même `RequirementId` logique ;
 - plusieurs occurrences du même `RequirementDeltaId` ;
@@ -124,14 +97,9 @@ Un lot est rejeté avant écriture lorsqu'il contient notamment :
 - une `SpecificationVersion` qui n'a pas pour predecessor la version liée au snapshot `ACTIVE` ;
 - un snapshot candidat qui n'est pas `BUILDING` ou dont le predecessor n'est pas l'`ACTIVE` observé.
 
-L'ordre d'entrée des deltas n'a aucune sémantique. Une dépendance à l'ordre est un conflit et est rejetée plutôt
-qu'interprétée implicitement.
-
-### Baseline et propositions
-
-`APPLY` lit exclusivement les occurrences `CURRENT` du snapshot `ACTIVE` pour construire la nouvelle baseline
-candidate. Les occurrences `PROPOSED` éventuellement présentes dans l'ancien `ACTIVE` restent stockées et inchangées ;
-elles ne sont ni fusionnées ni promues implicitement. Ainsi :
+Une dépendance à l'ordre des deltas est un conflit, rejeté plutôt qu'interprété. Les occurrences `PROPOSED` de
+l'ancien `ACTIVE` restent stockées et inchangées, de sorte que coexistent sans fuite dans
+`CurrentRequirementQueryService` :
 
 ```text
 ACTIVE CURRENT baseline
@@ -139,45 +107,24 @@ ACTIVE PROPOSED occurrences
 BUILDING candidate CURRENT baseline
 ```
 
-coexistent sans fuite dans `CurrentRequirementQueryService`.
-
-### Promotion explicite et preuve
-
-La promotion est une commande applicative séparée. Elle exige le résultat exact de l'application et une preuve de
-promotion explicite (`RequirementPromotionEvidence` : `EvidenceId`, raison non vide, instant de décision).
-
-La promotion valide que le snapshot candidat contient exactement les `RequirementVersionRecord` attendus par le
-résultat d'application, tous `CURRENT`, et qu'ils appartiennent à la nouvelle `SpecificationVersion`.
+La promotion est une commande applicative séparée ; les enregistrements qu'elle vérifie appartiennent à la nouvelle
+`SpecificationVersion`, et ses transitions sont :
 
 ```text
 validation réussie : BUILDING -> VALIDATING -> READY
 validation échouée : BUILDING -> VALIDATING -> FAILED
 ```
 
-La promotion ne déclenche jamais `activateSnapshot()`.
-
 Les receipts d'application et de promotion conservent la preuve de décision. Les occurrences `ADDED` et `MODIFIED`
-conservent la provenance et l'evidence du delta, les occurrences inchangées conservent la provenance de la baseline,
-et un `REMOVED` conserve la provenance et l'evidence du delta dans le receipt d'application même s'il n'existe plus
-dans la projection candidate.
+conservent la provenance et l'evidence du delta, les occurrences inchangées la provenance de la baseline, et un
+`REMOVED` conserve la provenance et l'evidence du delta dans le receipt d'application même s'il n'existe plus dans la
+projection candidate. Un journal générique durable de décisions ou d'actions se décide séparément.
 
-Ces opérations n'introduisent aucun journal générique durable de décisions ou d'actions. Un tel journal se décide
-séparément ; il n'est jamais détourné dans `sourceRevision` ou dans une payload JSON.
+L'activation est exclusivement celle d'ADR-0143, `SnapshotLifecycleService.activate(candidateSnapshotId)`. Avant
+activation, `CurrentRequirementQueryService` lit l'ancien `ACTIVE` et l'ancien `CURRENT` ; après activation atomique, il
+lit le nouveau.
 
-### Activation
-
-L'activation reste exclusivement celle d'ADR-0143 :
-
-```text
-SnapshotLifecycleService.activate(candidateSnapshotId)
-```
-
-Avant activation, `CurrentRequirementQueryService` lit l'ancien `ACTIVE` et l'ancien `CURRENT` ; après activation
-atomique, il lit le nouveau. Un candidat `FAILED` ne peut pas évincer l'ancien `ACTIVE`.
-
-### Persistance
-
-Ces opérations réutilisent les tables de la persistance versionnée des requirements (ADR-0141) :
+Les tables réutilisées de la persistance versionnée des requirements (ADR-0141) sont :
 
 ```text
 specification_versions
@@ -185,18 +132,10 @@ snapshot_specification_versions
 requirement_versions
 ```
 
-et n'exigent aucune migration propre.
-
-Les métadonnées de snapshot et les occurrences métier peuvent être écrites par deux ports distincts sans transaction
-de construction globale : un candidat partiellement construit reste `BUILDING`, donc non observable. La promotion
-vérifie la projection complète avant `READY`, et seule l'activation publie atomiquement.
-
-### Périmètre
-
-`APPLY` n'applique que la projection persistée `Requirement`. `RequirementDelta.scenarios` reste du contenu normalisé
-et n'est pas persisté par cette opération ; elle ne généralise pas la persistance à d'autres familles métier.
-
-### Frontières
+Les métadonnées de snapshot et les occurrences métier peuvent être écrites par deux ports distincts : un candidat
+partiellement construit reste `BUILDING`, donc non observable ; la promotion vérifie la projection complète avant
+`READY`, et seule l'activation publie atomiquement. `RequirementDelta.scenarios` reste du contenu normalisé, et ces
+opérations ne généralisent pas la persistance à d'autres familles métier. Frontières tenues :
 
 ```text
 com.morpheus.domain      -X-> provider
@@ -204,8 +143,29 @@ com.morpheus.domain      -X-> SQLite
 com.morpheus.application -X-> provider implementation
 ```
 
-Les services d'application et de promotion dépendent uniquement des ports applicatifs et du domaine
-provider-neutral.
+## Decision
+
+1. **Trois opérations, jamais des alias** : `APPLY` (`RequirementDeltaApplicationService`) crée une
+   `SpecificationVersion` et un candidat `BUILDING` ; `PROMOTE` (`RequirementDeltaPromotionService`) le mène par
+   `VALIDATING` à `READY` ou `FAILED` ; seul `ACTIVATE` (`SnapshotLifecycleService`, ADR-0143) change la baseline lue,
+   jamais pour un `FAILED`. `COMPLETED` n'en déclenche aucune.
+2. Le plan fournit toutes les identités du candidat (versions, snapshot, `EntityVersionId`,
+   `specificationKey -> SpecificationId`, `EvidenceId`) ; le service n'en génère aucune et valide tout en mémoire
+   avant d'écrire.
+3. `ADDED` exige l'identité absente du `CURRENT`, sans rapprochement par titre, chemin, contenu ou similarité ;
+   `MODIFIED` l'exige présente, même `DomainIdentity`, nouvel `EntityVersionId` ; `REMOVED` l'exige présente et n'est
+   que son absence du candidat, sans toucher l'`ACTIVE`.
+4. Un lot ambigu ou incohérent (doublon, kind contraire à la baseline, résolution, identifiant ou predecessor
+   incohérent, candidat non `BUILDING`) est rejeté avant écriture. L'ordre des deltas n'a aucun sens.
+5. `APPLY` ne lit que le `CURRENT` de l'`ACTIVE` ; les `PROPOSED` ne sont ni fusionnées ni promues.
+6. `PROMOTE` exige le résultat exact d'`APPLY` et une `RequirementPromotionEvidence` (`EvidenceId`, raison non vide,
+   instant), vérifie les enregistrements attendus, exacts et tous `CURRENT`, et n'appelle jamais
+   `activateSnapshot()`.
+7. Les receipts gardent preuve, provenance et evidence des deltas, `REMOVED` compris ; aucun journal générique
+   durable, ni via `sourceRevision` ni dans une payload JSON.
+8. Tables d'ADR-0141, sans migration ; écritures sans transaction globale, un candidat partiel reste `BUILDING`.
+   Seule la projection `Requirement` est écrite, pas `RequirementDelta.scenarios`.
+9. Services : ports applicatifs et domaine provider-neutral seulement.
 
 ## Do's and Don'ts
 

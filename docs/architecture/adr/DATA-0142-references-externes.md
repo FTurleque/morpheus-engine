@@ -26,11 +26,7 @@ Une cible externe (un symbole MINOS, par exemple) peut évoluer, et l'utilisateu
 or la référence est immuable dans un snapshot et un `TraceabilityLink` conserve sa résolution au moment de
 l'observation.
 
-## Decision
-
-### 1. Le domaine porte la référence, l'application porte une résolution optionnelle
-
-Le domaine porte la référence et son état, sans connaître aucun système cible (`com.morpheus.domain.reference`) :
+Les types du domaine (`com.morpheus.domain.reference`) :
 
 ```text
 ExternalReferenceId
@@ -42,7 +38,7 @@ ExternalReferenceResolutionEvent
 ResolvedExternalTarget
 ```
 
-L'application porte la résolution, optionnelle (`com.morpheus.application.reference`) :
+Les types de la résolution applicative (`com.morpheus.application.reference`) et leur chaîne :
 
 ```text
 ExternalReferenceResolver
@@ -63,10 +59,7 @@ ExternalReferenceResolverRegistry
 resolver adapter externe
 ```
 
-Un resolver expose `system()` et `resolve(target)`. Le registre n'accepte qu'un resolver par système : un second
-resolver pour le même système est refusé. Aucune dépendance de compilation à MINOS n'est introduite.
-
-Invariants :
+Les invariants que la décision tient :
 
 ```text
 DomainIdentity != ExternalReference
@@ -76,11 +69,15 @@ resolver indisponible != panne MORPHEUS
 cible supprimée != suppression de la référence
 historique de résolution conservé
 provenance conservée
+MINOS absent/unavailable != MORPHEUS unavailable
+NO_RESOLVER              != suppression du lien
+TARGET_NOT_FOUND         != suppression du lien
+TARGET_UNAVAILABLE       != suppression du lien
+STALE                    != suppression du lien
+référence persistée dans le snapshot  !=  observation live de sa cible
 ```
 
-### 2. États et transitions de résolution
-
-Une référence connaît quatre états : `UNVALIDATED`, `UNRESOLVED`, `RESOLVED`, `STALE`.
+Les transitions de résolution :
 
 ```text
 UNVALIDATED -- no resolver --> UNRESOLVED / NO_RESOLVER
@@ -90,47 +87,24 @@ RESOLVED    -- missing -----> STALE / TARGET_REMOVED
 STALE       -- found -------> RESOLVED
 ```
 
-Un échec de résolution ne produit `STALE` que pour une référence déjà résolue au moins une fois ; une référence
-jamais résolue reste `UNRESOLVED`. Une indisponibilité temporaire produit `TARGET_UNAVAILABLE`. Les autres échecs
-rendus par un resolver gardent chacun leur raison (`TARGET_NOT_FOUND`, `TARGET_AMBIGUOUS`,
-`TARGET_REVISION_MISMATCH`, `TARGET_TYPE_UNSUPPORTED`) et suivent la même règle `UNRESOLVED` / `STALE`.
-
-### 3. Persistance par snapshot
+Le port de persistance et sa règle d'immuabilité dans un snapshot :
 
 ```text
 ExternalReferenceStore
   putReference(snapshotId, reference)
   findReference(snapshotId, referenceId)
   findByOwner(snapshotId, ownerId)
-```
 
-Adaptateurs : `MemoryExternalReferenceStore`, `SqliteExternalReferenceStore`, de même sémantique.
-
-La clé logique est `ExternalReferenceId`. Dans un snapshot donné, la même identité est immuable :
-
-```text
 same snapshot + same id + same value       -> idempotent
 same snapshot + same id + different value -> collision explicite
 ```
 
-Le même `ExternalReferenceId` peut apparaître dans plusieurs snapshots avec un état de résolution différent.
+La ligne principale de `snapshot_external_references` conserve le snapshot, l'identité de la référence, celle de son
+propriétaire, les coordonnées (`system`, `project`, `resource_type`, `external_id`, `revision`), l'état et la raison
+de résolution, la cible résolue et la provenance éventuelles ; `snapshot_external_reference_attributes` tient en
+clé/valeur les attributs de `ResolvedExternalTarget`.
 
-La migration SQLite V006 est normalisée, sans JSON générique :
-
-```text
-snapshot_external_references
-snapshot_external_reference_attributes
-snapshot_external_reference_history
-```
-
-La ligne principale conserve le snapshot, l'identité de la référence, l'identité de son propriétaire, les
-coordonnées (`system`, `project`, `resource_type`, `external_id`, `revision`), l'état et la raison de résolution, la
-cible résolue éventuelle et la provenance éventuelle. Les attributs de `ResolvedExternalTarget` sont stockés en table
-clé/valeur. L'historique de résolution est ordonné par `event_index`.
-
-### 4. Lien de traçabilité vers une référence externe
-
-La fabrique applicative provider-neutral `ExternalTraceabilityLinkFactory` reçoit explicitement :
+Les entrées de `ExternalTraceabilityLinkFactory` :
 
 ```text
 TraceabilityLinkId
@@ -143,46 +117,13 @@ EvidenceId set
 observedAt
 ```
 
-et produit une arête vers `TraceabilityEntityKind.EXTERNAL_REFERENCE` / `ExternalReference.id.value`. Aucun
-identifiant de lien n'est généré ou hashé implicitement. Relations externes autorisées : `LINKS_TO_CODE`,
-`LINKS_TO_TEST`, `VERIFIED_BY`, `SATISFIES`. `ExternalReference.ownerId` doit correspondre à `source.identity`.
+La fabrique produit une arête vers `TraceabilityEntityKind.EXTERNAL_REFERENCE` / `ExternalReference.id.value`.
+`TraceabilityResolutionState` décrit l'état de l'arête au moment de l'observation, `ExternalReferenceResolutionState`
+l'état observé de la cible ; `HEURISTIC` reste une sémantique de lien explicite distincte. Une
+`ExternalTraceabilityView` signale `BROKEN_REFERENCE` quand l'arête snapshot-scoped existe mais que la référence
+manque dans ce snapshot : l'arête reste visible et explicable.
 
-`TraceabilityResolutionState` décrit l'état de résolution de l'arête au moment de l'observation ;
-`ExternalReferenceResolutionState` décrit l'état observé de la cible externe. Projection au moment de l'observation :
-
-```text
-UNVALIDATED -> TraceabilityResolutionState.UNRESOLVED
-UNRESOLVED  -> TraceabilityResolutionState.UNRESOLVED
-RESOLVED    -> TraceabilityResolutionState.RESOLVED
-STALE       -> TraceabilityResolutionState.PARTIALLY_RESOLVED
-```
-
-`HEURISTIC` n'est jamais synthétisé à partir d'une indisponibilité externe : il reste une sémantique de lien explicite
-distincte. Une résolution ultérieure d'une `ExternalReference` ne mute jamais un `TraceabilityLink` déjà observé.
-
-`ExternalTraceabilityQueryService` rend une `ExternalTraceabilityView` qui conserve toujours le `TraceabilityLink`
-canonique et expose sa disponibilité (`ExternalTraceabilityAvailability`) : `REFERENCE_UNVALIDATED`,
-`REFERENCE_UNRESOLVED`, `REFERENCE_RESOLVED`, `REFERENCE_STALE`, `BROKEN_REFERENCE`. `BROKEN_REFERENCE` signifie que
-l'arête snapshot-scoped existe mais que l'`ExternalReference` correspondante manque dans ce snapshot. L'arête reste
-visible et explicable ; elle n'est jamais supprimée silencieusement.
-
-```text
-MINOS absent/unavailable != MORPHEUS unavailable
-NO_RESOLVER              != suppression du lien
-TARGET_NOT_FOUND         != suppression du lien
-TARGET_UNAVAILABLE       != suppression du lien
-STALE                    != suppression du lien
-```
-
-### 5. Observation live sans mutation du snapshot publié
-
-```text
-référence persistée dans le snapshot  !=  observation live de sa cible
-```
-
-Une résolution live (`ExternalReferenceResolutionService.resolve`) produit une copie transitionnée de la référence et
-une vue de résultat, mais n'écrit jamais dans le snapshot publié : elle n'appelle pas `putReference`, et le service ne
-détient aucun store.
+Le chemin d'une résolution live :
 
 ```text
 ACTIVE snapshot reference
@@ -192,51 +133,66 @@ ACTIVE snapshot reference
        -X-> mutation ACTIVE
 ```
 
-Le résultat live est visible sans être persisté. Une cible indisponible (aucun résolveur, ou pair externe absent)
-produit une observation non résolue, avec le même comportement sur la référence publiée. Seule une publication
-ultérieure peut persister un nouvel état de référence, dans un nouveau snapshot.
+Une cible indisponible (aucun résolveur, ou pair externe absent) produit une observation non résolue, avec le même
+comportement sur la référence publiée.
 
-### 6. Hors de cette décision
+`TARGET_UNAVAILABLE` nomme une indisponibilité temporaire. Les adaptateurs du store sont
+`MemoryExternalReferenceStore` et `SqliteExternalReferenceStore` ; la migration V006 crée
+`snapshot_external_references`, `snapshot_external_reference_attributes` et `snapshot_external_reference_history`.
+`ExternalTraceabilityAvailability` vaut `REFERENCE_UNVALIDATED`, `REFERENCE_UNRESOLVED`, `REFERENCE_RESOLVED`,
+`REFERENCE_STALE` ou `BROKEN_REFERENCE`. Le resolver concret MINOS est `MinosMcpExternalReferenceResolver` ; la
+surveillance en tâche de fond est exclue au même titre que le retry.
 
-Le resolver concret MINOS (`MinosMcpExternalReferenceResolver`) et son transport relèvent d'ADR-0128 et d'ADR-0145 ;
-les liens de traçabilité en général, d'ADR-0118. Restent exclus : la résolution réseau obligatoire, le retry et la
-surveillance en tâche de fond.
+## Decision
+
+1. **Couches** : le domaine porte la référence sans connaître de système cible ; l'application, une résolution
+   optionnelle. Un resolver (`system()`, `resolve(target)`) par système ; aucune dépendance de compilation à MINOS ;
+   `DomainIdentity` n'est pas une `ExternalReference`.
+2. **États** : `UNVALIDATED`, `UNRESOLVED`, `RESOLVED`, `STALE`. Sans resolver : `UNRESOLVED` / `NO_RESOLVER`, pas
+   une panne. Un échec garde sa raison (`TARGET_REMOVED`, `TARGET_UNAVAILABLE`, `TARGET_NOT_FOUND`,
+   `TARGET_AMBIGUOUS`, `TARGET_REVISION_MISMATCH`, `TARGET_TYPE_UNSUPPORTED`) : `STALE` si déjà résolue, sinon
+   `UNRESOLVED`. Historique (`ExternalReferenceResolutionEvent`) et provenance conservés.
+3. **Persistance** : `ExternalReferenceStore` par snapshot, même sémantique en mémoire et SQLite ;
+   `ExternalReferenceId` immuable dans un snapshot (identique : idempotent, différent : collision). V006 normalisée,
+   sans JSON générique, historique ordonné par `event_index`.
+4. **Lien** : `ExternalTraceabilityLinkFactory` reçoit tout, ne génère ni ne hashe d'identifiant ; seules
+   `LINKS_TO_CODE`, `LINKS_TO_TEST`, `VERIFIED_BY`, `SATISFIES` ; `ownerId` = `source.identity`. Projection :
+   `UNVALIDATED`/`UNRESOLVED` → `UNRESOLVED`, `RESOLVED` → `RESOLVED`, `STALE` → `PARTIALLY_RESOLVED`, jamais
+   `HEURISTIC`. Un `TraceabilityLink` observé n'est jamais muté.
+5. **Vue** : `ExternalTraceabilityQueryService` garde le lien et expose `ExternalTraceabilityAvailability`, dont
+   `BROKEN_REFERENCE`. Ni lien ni référence n'est supprimé faute de resolver ou de cible.
+6. **Live** : `ExternalReferenceResolutionService.resolve` rend une copie, sans store ni `putReference` ; seule une
+   publication persiste un état. Lire une référence publiée ne dépend pas de sa cible.
+7. **Hors décision** : resolver MINOS (ADR-0128, ADR-0145), liens (ADR-0118), réseau obligatoire, retry, surveillance.
 
 ## Do's and Don'ts
 
 ### Do
 
 - Créer une `ExternalReference` en `UNVALIDATED` sans exiger la présence du système cible.
-- Rendre `UNRESOLVED / NO_RESOLVER` quand aucun resolver n'est enregistré pour le système de la cible.
-- Traiter l'indisponibilité d'un resolver comme un résultat (`TARGET_UNAVAILABLE`), jamais comme une panne de
-  MORPHEUS.
-- Conserver l'historique des transitions (`ExternalReferenceResolutionEvent`) et la provenance de la référence.
-- Passer à `STALE` une référence déjà résolue dont la cible disparaît, sans supprimer la référence.
-- Scoper chaque `ExternalReference` persistée par snapshot.
-- Traiter une réécriture identique comme idempotente et une valeur différente sous la même identité comme une collision
-  explicite.
-- Fournir explicitement l'identifiant de lien, l'origine, la confiance, les preuves et l'instant d'observation.
-- Exiger que le propriétaire de la référence soit la source du lien.
-- Garder visible une arête dont la référence manque, sous `BROKEN_REFERENCE`.
-- Retourner une copie transitionnée de la référence pour toute résolution live.
-- Persister un nouvel état de référence uniquement par une nouvelle publication de snapshot.
-- Garder la même sémantique dans `store-memory` et `store-sqlite`.
+- Rendre `UNRESOLVED / NO_RESOLVER` sans resolver, et `TARGET_UNAVAILABLE` comme un résultat, jamais une panne.
+- Conserver l'historique (`ExternalReferenceResolutionEvent`) et la provenance de la référence.
+- Passer à `STALE`, sans la supprimer, une référence déjà résolue dont la cible disparaît.
+- Scoper chaque référence persistée par snapshot : réécriture identique idempotente, valeur différente sous la même
+  identité en collision explicite.
+- Fournir explicitement identifiant de lien, origine, confiance, preuves et instant d'observation, et exiger que le
+  propriétaire de la référence soit la source du lien.
+- Garder visible sous `BROKEN_REFERENCE` une arête sans référence.
+- Rendre une copie transitionnée pour toute résolution live ; persister un nouvel état par une nouvelle publication.
+- Tenir la même sémantique dans `store-memory` et `store-sqlite`.
 
 ### Don't
 
-- Ne faire dépendre `com.morpheus.domain` d'aucune classe MINOS ou NEXUS, d'aucun SDK GitHub, d'aucun client Jira, et
-  ne pas dépendre de MINOS à la compilation.
-- Ne pas confondre `DomainIdentity` et `ExternalReference`.
-- Ne pas enregistrer deux resolvers pour le même système.
-- Ne pas supprimer une référence ou un lien parce que le resolver est absent ou que la cible est introuvable,
-  indisponible, périmée ou disparue.
-- Ne pas stocker une référence externe en JSON générique.
-- Ne pas générer ni hasher implicitement un identifiant de lien.
+- Ne faire dépendre `com.morpheus.domain` d'aucune classe MINOS ou NEXUS, d'aucun SDK GitHub ni client Jira, ni le
+  produit de MINOS à la compilation.
+- Ne pas confondre `DomainIdentity` et `ExternalReference`, ni enregistrer deux resolvers pour un système.
+- Ne pas supprimer une référence ou un lien faute de resolver, ou parce que la cible est introuvable, indisponible,
+  périmée ou disparue.
+- Ne pas stocker une référence en JSON générique, ni générer ou hasher implicitement un identifiant de lien.
 - Ne pas créer un lien externe hors de `LINKS_TO_CODE`, `LINKS_TO_TEST`, `VERIFIED_BY` et `SATISFIES`.
 - Ne pas synthétiser `HEURISTIC` depuis une indisponibilité externe.
-- Ne pas muter un `TraceabilityLink` observé, ni son `TraceabilityResolutionState`, lors d'une résolution ultérieure ou
-  live.
-- Ne pas appeler `putReference` depuis une résolution live.
+- Ne pas muter un `TraceabilityLink` observé ni son `TraceabilityResolutionState`, ni appeler `putReference`, lors
+  d'une résolution ultérieure ou live.
 - Ne pas faire dépendre la lecture d'une référence publiée de la disponibilité de sa cible.
 
 ## Consequences

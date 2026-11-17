@@ -22,56 +22,51 @@ une condition de démarrage de MORPHEUS.
 Le lanceur Java d'un pair est un choix de sécurité : une commande nue (`java`) est résolue par le système dans le
 `PATH` du processus MORPHEUS, où un autre exécutable de ce nom peut être placé en tête.
 
+MORPHEUS joint les pairs avec le client MCP Java. Commandes de lancement, dont la copie du JAR est vérifiée avant
+lancement :
+
+```text
+MINOS : <lanceur Java> [-Dminos.home=<home>] -cp <copie vérifiée du JAR> com.minos.mcp.MinosMcpServer
+NEXUS : <lanceur Java> [-Dnexus.home=<home>] -jar <copie vérifiée du JAR>
+```
+
+Un pair est lancé pour la résolution d'une référence externe, le statut de l'intégration ou la construction d'un
+contexte ; un statut non disponible n'empêche ni le démarrage ni les autres surfaces. Réglages, `<pair>` valant `minos`
+ou `nexus` : `morpheus.<pair>.jar` / `MORPHEUS_<PAIR>_JAR`, `morpheus.<pair>.jar.sha256` /
+`MORPHEUS_<PAIR>_JAR_SHA256`, `morpheus.<pair>.java` / `MORPHEUS_<PAIR>_JAVA`, `morpheus.<pair>.home` /
+`MORPHEUS_<PAIR>_HOME`, `morpheus.<pair>.timeoutSeconds` / `MORPHEUS_<PAIR>_TIMEOUT_SECONDS`. La résolution, ses refus
+et ses bornes existent une fois, paramétrés par le pair, dans `PeerLaunchSettingsResolver`, du module
+`morpheus-application`. Le lanceur par défaut est celui du runtime qui exécute MORPHEUS ; l'absence de `bin/java` ne
+rend invalide qu'une intégration configurée. Un lien symbolique est résolu plutôt que refusé : le fichier réel est
+celui qui est lancé et celui que le statut local affiche. Les deux types de réglages construisent `PeerLaunchSettings`
+dans leur propre constructeur.
+
+Les capacités en lecture sont `external-reference.list`, `external-reference.resolve`, `integration.minos.status`,
+`augmented-context.requirement`, `augmented-context.change` et `integration.nexus.status` ; le manifeste dit leur
+exposition sur chaque transport. Aucune surface ne réimplémente la résolution ni la construction du contexte.
+
 ## Decision
 
-1. **Processus externe, aucun import.** MORPHEUS parle à MINOS et à NEXUS uniquement par MCP STDIO
-   inter-processus, au moyen du client MCP Java et du transport borné de `morpheus-mcp-transport`. Aucune classe de
-   MORPHEUS n'importe `com.minos..` ni `com.nexus..`, et la distribution n'embarque aucune de leurs classes : elle
-   embarque les adaptateurs (`morpheus-integration-minos`, `morpheus-integration-nexus`), jamais les moteurs ni leurs
-   JAR. Les deux adaptateurs ne dépendent pas l'un de l'autre.
-2. **Commande de lancement.**
-
-   ```text
-   MINOS : <lanceur Java> [-Dminos.home=<home>] -cp <copie vérifiée du JAR> com.minos.mcp.MinosMcpServer
-   NEXUS : <lanceur Java> [-Dnexus.home=<home>] -jar <copie vérifiée du JAR>
-   ```
-
-   Le JAR d'un pair n'est lancé que s'il est épinglé par son SHA-256 et vérifié avant lancement (ADR-0129).
-3. **Outils requis.** Après `initialize`, l'adaptateur liste les outils du pair et le déclare incompatible s'il en
-   manque un : `minos_index_status` et `minos_find_symbols` pour MINOS (`MinosMcpCodeGateway`), `list_projects`,
-   `build_context` et `explain_context` pour NEXUS (`NexusMcpContextGateway`).
-4. **Lancement à la demande.** Aucun pair n'est démarré au démarrage de MORPHEUS. Un pair est lancé pour l'opération
-   qui le demande (résolution d'une référence externe, statut de l'intégration, construction d'un contexte), puis
-   fermé avec son processus.
-5. **Indisponibilité non fatale.** Le statut d'une intégration est `DISABLED` quand aucun JAR n'est configuré (aucun
-   resolver MINOS n'est alors enregistré), `INVALID` quand la configuration est refusée, `UNAVAILABLE` quand le pair ne
-   démarre pas, ne répond pas à temps ou est incompatible, `AVAILABLE` sinon. Aucun de ces états n'empêche MORPHEUS de
-   démarrer ni de servir ses autres surfaces.
-6. **Configuration.** Chaque pair se règle par propriété Java ou variable d'environnement, la propriété l'emportant sur
-   la variable, la variable sur le défaut : `morpheus.<pair>.jar` / `MORPHEUS_<PAIR>_JAR`,
-   `morpheus.<pair>.jar.sha256` / `MORPHEUS_<PAIR>_JAR_SHA256`, `morpheus.<pair>.java` / `MORPHEUS_<PAIR>_JAVA`,
-   `morpheus.<pair>.home` / `MORPHEUS_<PAIR>_HOME`, `morpheus.<pair>.timeoutSeconds` /
-   `MORPHEUS_<PAIR>_TIMEOUT_SECONDS`, avec `<pair>` valant `minos` ou `nexus`. Les noms sont les constantes de
-   `MinosIntegrationSettings` et `NexusIntegrationSettings` ; la résolution, ses refus et ses bornes existent une
-   fois, paramétrés par le pair, dans `PeerLaunchSettingsResolver` (`morpheus-application`, ADR-0150).
-7. **Timeout borné.** Le timeout de requête vaut `DEFAULT_TIMEOUT_SECONDS` par défaut et doit être compris entre 1 et
-   `MAX_TIMEOUT_SECONDS` secondes ; une valeur hors bornes rend la configuration invalide. Une opération entière est
-   bornée par `PeerOperationDeadline` (ADR-0106).
-8. **Lanceur Java en chemin absolu.** Par défaut, le lanceur est celui du runtime qui exécute MORPHEUS,
-   `<java.home>/bin/java` ; si ce runtime n'en porte aucun et qu'un pair est configuré, l'intégration est invalide.
-   Une valeur configurée doit être le chemin absolu d'un fichier exécutable ; un nom nu ou un chemin relatif rend
-   l'intégration invalide et rien n'est lancé. Sous Windows, le suffixe `.exe` peut être omis. Un lien symbolique est
-   résolu, pas refusé : le fichier réel est celui qui est lancé et celui que le statut local affiche. L'invariant est
-   dans le constructeur compact de `PeerLaunchSettings`, que les deux types de réglages construisent dans le leur.
-9. **Environnement réduit.** Le pair ne reçoit pas l'environnement de MORPHEUS : `BoundedStdioClientTransport` le
-   réduit à une allowlist de lancement (dont `PATH`), complétée des seules variables que MORPHEUS a explicitement
-   configurées pour ce pair. Les variables sensibles, comme `MORPHEUS_SERVER_TLS_PASSWORD`, ne sont jamais
-   transmises.
-10. **Surfaces.** Les surfaces MINOS et NEXUS sont des lectures : capacités `external-reference.list`,
-    `external-reference.resolve`, `integration.minos.status`, `augmented-context.requirement`,
-    `augmented-context.change` et `integration.nexus.status` de `contracts/public-surfaces.tsv`, qui dit leur
-    exposition sur chaque transport. Toutes les surfaces d'une capacité délèguent au même use case applicatif ; aucune
-    ne réimplémente la résolution ni la construction du contexte, et aucune ne fait muter MINOS ou NEXUS.
+1. **Processus externe, aucun import** : MINOS et NEXUS ne sont joints que par MCP STDIO (transport de
+   `morpheus-mcp-transport`). Aucune classe n'importe `com.minos..` ni `com.nexus..` ; la distribution embarque
+   `morpheus-integration-minos` et `morpheus-integration-nexus`, sans dépendance mutuelle, jamais les moteurs.
+2. Seule la copie vérifiée d'un JAR épinglé par SHA-256 est lancée (ADR-0129).
+3. Après `initialize`, un outil requis absent rend le pair incompatible : `minos_index_status`, `minos_find_symbols`
+   (`MinosMcpCodeGateway`) ; `list_projects`, `build_context`, `explain_context` (`NexusMcpContextGateway`).
+4. Aucun pair au démarrage : lancé pour l'opération qui le demande, fermé ensuite.
+5. Statut `DISABLED` sans JAR (aucun resolver MINOS), `INVALID` sur configuration refusée, `UNAVAILABLE` si le pair ne
+   démarre pas, tarde ou est incompatible, `AVAILABLE` sinon ; aucun n'arrête MORPHEUS.
+6. Propriété `morpheus.<pair>.*`, puis variable `MORPHEUS_<PAIR>_*`, puis défaut ; noms dans
+   `MinosIntegrationSettings` et `NexusIntegrationSettings`, résolus par le seul `PeerLaunchSettingsResolver`
+   (ADR-0150).
+7. Timeout `DEFAULT_TIMEOUT_SECONDS`, de 1 à `MAX_TIMEOUT_SECONDS`, sinon invalide ; opération bornée par
+   `PeerOperationDeadline` (ADR-0106).
+8. Lanceur (`PeerLaunchSettings`, constructeur compact) : `<java.home>/bin/java`, invalide s'il manque, ou un chemin
+   absolu d'exécutable configuré (`.exe` facultatif) ; nom nu ou relatif invalide, rien lancé ; lien symbolique résolu.
+9. `BoundedStdioClientTransport` réduit l'environnement à une allowlist (dont `PATH`) plus les variables configurées
+   pour ce pair ; jamais `MORPHEUS_SERVER_TLS_PASSWORD` ni autre variable sensible.
+10. Les capacités `external-reference.*`, `integration.*.status` et `augmented-context.*` du manifeste sont des
+    lectures déléguant au même use case, sans faire muter le pair.
 
 ## Do's and Don'ts
 

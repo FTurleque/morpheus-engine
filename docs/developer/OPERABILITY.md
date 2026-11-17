@@ -154,7 +154,7 @@ Trois classes du produit journalisent par `System.Logger` (`BoundedStdioClientTr
 `BoundedStdioServerTransportProvider`, `SqliteTransactionRunner`). Elles ne passent pas par ce binding : leurs
 enregistrements `INFO` et au-dessus sortent en texte sur la sortie d'erreur, dans tous les modes. Avec le journal
 sur `stderr`, la sortie d'erreur mêle donc des lignes JSON et ce texte ; avec le journal en fichier, ce texte reste sur
-la sortie d'erreur et n'est pas dans le fichier (ADR-0146, décision 8).
+la sortie d'erreur et n'est pas dans le fichier (ADR-0146, décision 9).
 
 ## Redaction
 

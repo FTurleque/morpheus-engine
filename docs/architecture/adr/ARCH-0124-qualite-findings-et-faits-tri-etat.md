@@ -36,7 +36,7 @@ Options écartées :
 - un tri-état pour `ImplementationTask.completed` : changement du modèle publié (schéma, trois transports, contexte
   augmenté), à reconsidérer seulement si un provider ne peut structurellement pas dire l'achèvement.
 
-## Decision
+Le détail de la décision, service par service, que la section `Decision` résume :
 
 1. **Un finding est un résultat dérivé et explicable.** `QualityFinding` porte un code `QualityFindingCode`, une
    gravité `DiagnosticSeverity`, une nature de preuve `QualityEvidenceKind`, un sujet `TraceabilityEntityRef`, un
@@ -141,6 +141,29 @@ Options écartées :
     pour le provider Markdown structuré, `completed` d'un bloc `morpheus task`, obligatoire comme `key`, `change` et
     `title` et contraint à `true`/`false`. Un défaut qui est un état du modèle n'est pas une valeur inventée :
     `verification_status` d'un bloc `acceptance` garde son défaut `UNKNOWN`.
+
+## Decision
+
+1. **Findings** : `QualityFinding`, trié par sujet, code puis message, jamais persisté ; les services de qualité ne
+   rendent que du `DETERMINISTIC`.
+2. **Snapshot** : `ACTIVE` par projet (`Optional.empty()` sans lui), `ACTIVE` ou `RETIRED` explicite, exigences
+   `CURRENT` seules ; un snapshot sans projection métier échoue (ADR-0137).
+3. **Couverture** : exigence sans lien direct → `ORPHAN_REQUIREMENT` ; tâche couverte seulement par un `AFFECTS`
+   publié vers une exigence `CURRENT`, sinon `IMPLEMENTATION_TASK_WITHOUT_REQUIREMENT` ; un finding par critère non
+   vérifié selon son `VerificationStatus` ; aucun `Scenario` converti en critère.
+4. **Population vide** : le ratio `1.0` n'est pas une mesure ; `CoverageRatioStatus.UNDEFINED_EMPTY_POPULATION` en
+   est le seul prédicat ; les comptes restent de vrais zéros.
+5. **Faits tri-état** : les neuf faits du cycle de vie (ADR-0119) valent `TRUE`, `FALSE` ou `UNAVAILABLE`, dérivés
+   du seul snapshot ; `designRequired` et les deux faits de critère bloquant valent toujours `UNAVAILABLE`.
+6. **Cycle de vie** : reçu, jamais reconstruit ; un fait requis `UNAVAILABLE` donne
+   `LIFECYCLE_REQUIRED_FACT_UNAVAILABLE`, un bloqueur `LIFECYCLE_TRANSITION_BLOCKED` ; en mode explicite, les faits
+   fournis passent tels quels.
+7. **Décisions et références** : `DESIGN_DECISION_WITHOUT_TRACE` sans `DECIDED_BY`, justification
+   `UNAVAILABLE_IN_NORMALIZED_MODEL`, un code par état dégradé de référence, sans nouvelle résolution.
+8. **Rapport agrégé** : une divergence de snapshot est une erreur ; aucun code réinterprété ; cycle de vie non agrégé
+   (`REQUIRES_EXPLICIT_LIFECYCLE_INPUT`) ; mêmes findings en mémoire et en SQLite.
+9. **Ce qui n'est pas observé est dit**, au-delà de la qualité (ADR-0040, 0092, 0093, 0130, 0145) : jamais complet
+   si tronqué, jamais mesuré sans mesure.
 
 ## Do's and Don'ts
 

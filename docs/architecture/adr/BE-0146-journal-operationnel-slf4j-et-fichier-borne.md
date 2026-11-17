@@ -53,72 +53,51 @@ Options écartées pour le fichier :
 - **Tenir le fichier ouvert et compter les octets en mémoire** : plus rapide, faux dès que deux processus écrivent, et
   la rotation d'un fichier ouvert échoue sous Windows.
 
+Ce que la décision tient, et pourquoi :
+
+- Refuser les niveaux sous `WARN` à la source épargne à la bibliothèque tout formatage ; journal coupé, le fournisseur
+  se comporte comme `slf4j-nop`.
+- Le puits opérationnel masque un secret qu'une bibliothèque aurait placé dans son message comme dans tout autre
+  événement. La sortie standard est le flux de protocole du serveur MCP.
+- Le mode `file` s'ajoute aux autres modes, qui gardent leur comportement.
+- Le journal occupe au plus `KEPT_GENERATIONS + 1` fois la borne ; un événement plus grand qu'elle est écrit seul
+  plutôt que perdu. Le durcissement des permissions est celui de la base et de la configuration.
+- Le lanceur décide du puits, dans la même direction que le runtime opérationnel qu'il transmet (ADR-0115), sans
+  exiger davantage qu'une destination nommée une fois.
+- Un répertoire inutilisable ne retombe ni sur la sortie d'erreur ni sur « aucun journal ». Une écriture perdue plus
+  tard est seulement comptée : le journal ne peut pas rapporter sa propre panne et le produit ne s'arrête pas pour
+  elle.
+- Relire la taille et rouvrir le fichier à chaque événement laisse plusieurs processus MORPHEUS d'un même compte écrire
+  dans le même journal. Deux processus qui franchissent la borne au même instant peuvent tourner deux fois ; le journal
+  reste borné et aucune ligne n'est coupée, mais une génération peut être plus courte que la borne.
+- Router `System.Logger` exigerait un `System.LoggerFinder`, qui capte aussi ce que le JDK journalise pour lui-même et
+  remplace, journal coupé, un comportement que l'opérateur observe. Le mode `file` ne contient donc pas ces classes,
+  et la documentation le dit ; les échecs qu'elles signalent et qui comptent pour l'exploitation passent par les
+  compteurs `failure.suppressed.*`, pas par leur texte.
+
 ## Decision
 
-### 1. Le binding SLF4J est celui de MORPHEUS
-
-`morpheus-cli` déclare `slf4j-api` en portée de compilation (version gérée par le POM racine) et fournit
-`OperationalSlf4jServiceProvider`, enregistré par `META-INF/services/org.slf4j.spi.SLF4JServiceProvider`. Le produit
-n'embarque aucun autre fournisseur SLF4J, `slf4j-nop` compris.
-
-### 2. Avertissements et erreurs seulement
-
-Un enregistrement SLF4J de niveau `WARN` ou `ERROR` devient un événement `THIRD_PARTY_LOG` portant le nom du logger,
-le message formaté et, s'il y en a un, le **type** de l'échec joint. Les niveaux inférieurs sont refusés à la source
-(`isInfoEnabled()` rend faux) : la bibliothèque ne formate rien. Quand le journal opérationnel est coupé, le
-fournisseur n'accepte aucun niveau et n'écrit rien : le comportement de `slf4j-nop`.
-
-### 3. Même puits, même rédaction
-
-L'événement passe par le puits opérationnel du processus, donc par `SensitiveValueRedactor` : un secret qu'une
-bibliothèque aurait placé dans son message y est masqué comme dans tout autre événement. Le message est borné à
-`OperationalSlf4jServiceProvider.MAX_MESSAGE_CHARACTERS`. Rien n'est écrit sur la sortie standard, qui est le flux de
-protocole du serveur MCP.
-
-### 4. Un mode `file`, choisi par l'opérateur
-
-`MORPHEUS_OPERATIONAL_LOGS=file` (`OperationalLogMode.FILE`) écrit les événements, un objet JSON par ligne, dans
-`morpheus-operational.jsonl` (`RotatingOperationalLogFile.FILE_NAME`) sous le répertoire de logs. Le journal n'écrit
-alors rien sur la sortie d'erreur. Les autres modes gardent leur comportement.
-
-### 5. Un fichier borné en taille et en nombre, privé au compte
-
-Le fichier courant ne dépasse pas `RotatingOperationalLogFile.MAX_FILE_BYTES` : l'événement qui franchirait la borne
-ouvre un nouveau fichier, et les précédents sont gardés de `.1` (le plus récent) à `.<KEPT_GENERATIONS>`, le plus
-ancien étant supprimé. Le journal occupe donc au plus `KEPT_GENERATIONS + 1` fois la borne. Un événement plus grand
-que la borne est écrit seul plutôt que perdu.
-
-Le répertoire et chaque fichier passent par `LocalWritePermissionHardener`, comme la base et la configuration.
-
-### 6. Le lanceur nomme le répertoire, une fois
-
-`MorpheusMain` lit le mode, résout le répertoire comme la commande `paths` le fait pour les mêmes arguments, et le
-donne au runtime (`OperationalRuntime.writeLogFileIn`, ADR-0115) avant toute autre action. Le puits du mode `file` est
-différé (`DeferredOperationalEventSink`) : sa destination se nomme une seule fois, une seconde est refusée. Le lanceur
-décide du puits ; c'est la même direction que le runtime opérationnel transmis par le lanceur (ADR-0115), sans exiger
-davantage qu'une destination nommée une fois.
-
-### 7. Un répertoire inutilisable est un refus, une écriture perdue est comptée
-
-Si le répertoire ne peut pas être créé, n'est pas privé au compte ou si le fichier ne peut pas être écrit, le
-processus s'arrête avec `OPERATIONAL_LOG_FILE_UNUSABLE` et le code de sortie d'entrée-sortie
-(`CliExitCode.IO_ERROR`), avant d'avoir rien fait. Il ne retombe ni sur la sortie d'erreur ni sur « aucun journal ».
-
-Une écriture qui échoue ensuite est comptée : le journal ne peut pas rapporter sa propre panne et le produit ne
-s'arrête pas pour elle ; l'événement est perdu et le compteur `operational.log.write.failed` monte.
-
-### 8. Rien n'est tenu ouvert
-
-La taille est relue et le fichier rouvert à chaque événement : plusieurs processus MORPHEUS d'un même compte peuvent
-écrire dans le même journal. Deux processus qui franchissent la borne au même instant peuvent tourner deux fois ; le
-journal reste borné et aucune ligne n'est coupée, mais une génération peut être plus courte que la borne.
-
-### 9. Les utilisateurs de `System.Logger` restent sur la sortie d'erreur
-
-Ils ne passent ni par le binding SLF4J ni par le fichier. Les router exigerait un `System.LoggerFinder`, qui capte
-aussi ce que le JDK journalise pour lui-même et remplace, journal coupé, un comportement que l'opérateur observe. Le
-mode `file` ne les contient donc pas, et la documentation le dit. Les échecs que ces classes signalent et qui comptent
-pour l'exploitation passent par les compteurs `failure.suppressed.*`, pas par leur texte.
+1. **Binding** : `morpheus-cli` déclare `slf4j-api` (portée compilation, version du POM racine) et fournit
+   `OperationalSlf4jServiceProvider` par `META-INF/services/org.slf4j.spi.SLF4JServiceProvider` ; aucun autre
+   fournisseur SLF4J, `slf4j-nop` compris.
+2. **Niveaux** : `WARN` et `ERROR` deviennent un événement `THIRD_PARTY_LOG` (logger, message formaté, **type** de
+   l'échec joint). Les niveaux inférieurs sont refusés à la source (`isInfoEnabled()` faux) ; journal coupé, aucun.
+3. **Puits** : le puits opérationnel, donc `SensitiveValueRedactor`, message borné à
+   `OperationalSlf4jServiceProvider.MAX_MESSAGE_CHARACTERS`, rien sur la sortie standard.
+4. **Mode `file`** : `MORPHEUS_OPERATIONAL_LOGS=file` (`OperationalLogMode.FILE`) écrit du JSON par ligne dans
+   `morpheus-operational.jsonl` (`RotatingOperationalLogFile.FILE_NAME`) sous le répertoire de logs, et rien sur la
+   sortie d'erreur.
+5. **Rotation** : fichier courant borné par `RotatingOperationalLogFile.MAX_FILE_BYTES`, générations `.1` (la plus
+   récente) à `.<KEPT_GENERATIONS>`, la plus ancienne supprimée ; un événement plus grand que la borne est écrit seul.
+   Répertoire et fichiers passent par `LocalWritePermissionHardener`.
+6. **Lanceur** : `MorpheusMain` résout le répertoire comme `paths` et le donne au runtime
+   (`OperationalRuntime.writeLogFileIn`, ADR-0115) avant toute action ; `DeferredOperationalEventSink` refuse une
+   seconde destination.
+7. **Échecs** : répertoire non créable ou non privé, ou fichier non inscriptible : arrêt avant toute action par
+   `OPERATIONAL_LOG_FILE_UNUSABLE` et `CliExitCode.IO_ERROR`, sans repli. Une écriture perdue ensuite fait monter
+   `operational.log.write.failed`.
+8. **Rien d'ouvert** : taille relue et fichier rouvert à chaque événement.
+9. **`System.Logger`** : reste sur la sortie d'erreur, hors binding et hors fichier ; aucun `System.LoggerFinder`.
 
 ## Do's and Don'ts
 

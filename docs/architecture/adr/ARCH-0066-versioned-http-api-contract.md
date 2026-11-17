@@ -17,12 +17,7 @@ l'application (requêtes, historique publié, qualité, synchronisation) et doit
 réponse, une grammaire d'erreur et une règle d'évolution stables. Elle ne doit pas redéfinir les concepts MORPHEUS ni
 inventer des faits métier dans le mapping HTTP.
 
-## Decision
-
-**Préfixe versionné.** La surface HTTP stable est préfixée par `/api/v1` (`MorpheusHttpRouteTable.API_PREFIX`).
-
-**Enveloppe.** Les réponses sont en JSON UTF-8 et encapsulées explicitement, avec la version d'API
-(`ProductMetadata.API_VERSION`) :
+Formes des deux enveloppes :
 
 ```json
 {"apiVersion":"v1","data":{}}
@@ -32,42 +27,34 @@ inventer des faits métier dans le mapping HTTP.
 {"apiVersion":"v1","error":{"code":"NOT_FOUND","message":"...","details":{}}}
 ```
 
-**Codes et erreurs.** Une erreur porte un statut HTTP et un code stable dans l'enveloppe d'erreur. La liste des
-statuts et des codes n'est pas fermée : chaque opération déclare les siens dans l'OpenAPI
-(`docs/developer/reference/openapi/`), qui fait foi. Une erreur ne renvoie jamais de stacktrace.
+La liste des statuts et des codes d'erreur n'est pas fermée, parce que chaque opération a les siens. Le résolveur de
+cible du proxy distant garde son propre parseur de query string parce qu'il lève une erreur d'enveloppe distante.
+`HttpQueryBudget` borne le nombre de paramètres et la longueur des noms, des valeurs et de la query. Le serveur local,
+les routeurs qui enregistrent leur propre contexte et la politique de rôles distante tirent tous leurs segments de
+`MorpheusHttpPathParser`.
 
-**Sémantique.** L'API ne redéfinit pas les concepts MORPHEUS : les états `ACTIVE` / `CURRENT` sont conservés, un
-`Scenario` n'est pas un `AcceptanceCriterion`, la traçabilité est celle des liens persistés et des services existants,
-l'historique publié et la qualité sont ceux des services de l'application. Un fait que le modèle publié ne porte pas
-est rendu par un statut explicite au lieu d'être inféré : l'état de cycle de vie d'un changement absent du snapshot
-publié est rendu `UNAVAILABLE_REQUIRES_EXPLICIT_LIFECYCLE_INPUT`.
+## Decision
 
-**Bornes.** Les paramètres de pagination et de parcours sont bornés : `offset >= 0`, `limit` entre 1 et le maximum de
-la route (`MorpheusApiService.MAX_LIMIT` pour les routes qui partagent la pagination commune), `depth` entre 1 et
-`MorpheusApiService.MAX_DEPTH`, `maxAgeMinutes` entre 1 et `MorpheusApiService.MAX_MAX_AGE_MINUTES`. Les paramètres de
-requête inconnus sont rejetés sur les routes qui déclarent un contrat fermé.
-
-**Requête JSON.** Les `POST` utilisent `application/json` et rejettent les champs inconnus, les champs requis
-manquants, le JSON malformé, un type de contenu non supporté et un corps au-delà de la limite configurée
-(`MorpheusHttpServer.MAX_REQUEST_BODY_BYTES`).
-
-**Lecture du chemin.** Le chemin d'une requête a un seul lecteur, `MorpheusHttpPathParser` : il découpe le chemin
-brut, tel qu'envoyé, puis décode chaque segment une fois, sans transformer `+`. Le serveur local, les routeurs qui
-enregistrent leur propre contexte et la politique de rôles distante obtiennent leurs segments de lui. Aucune classe de
-l'adaptateur ne lit le chemin décodé par `getRequestURI().getPath()` ni ne compare le chemin comme du texte. Un routeur
-que le serveur porte reçoit ses segments du serveur ; seuls les routeurs qui enregistrent leur propre contexte les
-demandent à `MorpheusHttpRequestDecoder.pathSegments*`.
-
-**Lecture de la query string.** Toute route lit sa query string par `MorpheusHttpQuery`, sous le budget partagé
-`HttpQueryBudget` (nombre de paramètres, longueur des noms, des valeurs et de la query). Le résolveur de cible du proxy
-distant garde son propre parseur, parce qu'il lève une erreur d'enveloppe distante, et applique le même budget. Un
-segment vide ne porte aucune clé ; un nom vide et un paramètre en double sont refusés.
-
-**Énumérés publiés.** Un énuméré écrit dans un contrat OpenAPI (`enum:`) est égal, dans les deux sens, à l'énuméré
-Java qu'il publie ; un énuméré qui n'a pas d'équivalent Java est une exemption déclarée avec sa raison.
-
-**Stabilité.** Un changement incompatible de route, de schéma ou de sémantique ne remplace pas silencieusement
-`/api/v1` : il requiert une nouvelle version de surface ou une décision explicite compatible.
+1. Surface stable sous `/api/v1` (`MorpheusHttpRouteTable.API_PREFIX`) ; réponses JSON UTF-8 en enveloppe
+   `apiVersion` (`ProductMetadata.API_VERSION`) plus `data` ou `error` (`code`, `message`, `details`).
+2. Une erreur porte statut HTTP et code stable, déclarés par opération dans l'OpenAPI
+   (`docs/developer/reference/openapi/`), qui fait foi ; pas de stacktrace.
+3. Aucun concept n'est redéfini (`ACTIVE` / `CURRENT`, `Scenario` ≠ `AcceptanceCriterion`, traçabilité, historique
+   et qualité de l'application). Un fait absent du modèle publié a un statut explicite, jamais inféré (cycle de vie
+   hors snapshot : `UNAVAILABLE_REQUIRES_EXPLICIT_LIFECYCLE_INPUT`).
+4. Bornes : `offset >= 0`, `limit` de 1 au maximum de la route (`MorpheusApiService.MAX_LIMIT` en pagination
+   commune), `depth` ≤ `MorpheusApiService.MAX_DEPTH`, `maxAgeMinutes` ≤ `MorpheusApiService.MAX_MAX_AGE_MINUTES`,
+   tous deux ≥ 1 ; paramètre inconnu rejeté si la route a un contrat fermé.
+5. Un `POST` JSON rejette champ inconnu ou requis absent, JSON malformé, autre type que `application/json`, corps
+   au-delà de `MorpheusHttpServer.MAX_REQUEST_BODY_BYTES`.
+6. `MorpheusHttpPathParser` est le seul lecteur du chemin (brut, segments décodés une fois, `+` intact) ; jamais
+   `getRequestURI().getPath()` ni comparaison textuelle. Seuls les routeurs à contexte propre demandent leurs
+   segments à `MorpheusHttpRequestDecoder.pathSegments*` ; les autres les reçoivent du serveur.
+7. Query string lue par `MorpheusHttpQuery` sous `HttpQueryBudget` (le proxy distant : son parseur, même budget).
+   Segment vide sans clé ; nom vide, doublon refusés.
+8. Un `enum:` d'OpenAPI égale dans les deux sens l'énuméré Java publié, sauf exemption motivée.
+9. Un changement incompatible (route, schéma, sémantique) exige une nouvelle version de surface ou une décision
+   explicite compatible, jamais un remplacement silencieux.
 
 ## Do's and Don'ts
 

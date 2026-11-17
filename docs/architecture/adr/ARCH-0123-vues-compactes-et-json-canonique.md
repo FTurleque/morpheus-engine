@@ -30,63 +30,64 @@ Options écartées :
   absentes dépendraient de sa configuration ;
 - persister le JSON des vues : la vue est une exposition, la vérité reste dans les stores.
 
+Forme des vues que la décision encadre :
+
+- Les records vivent dans `application.query.compact`, `application.analysis.compact` et
+  `application.quality.compact`, construits par `CompactQueryViewService`, `CompactChangeAnalysisViewService` et
+  `CompactQualityReportService`. Identités, `SourceLocator` et `Instant` (ISO-8601) y sont convertis en chaînes, les
+  enums en leur `name()`.
+- Les opérations sont `find_requirements`, `trace_requirement`, `get_change_context`, `analyze_change` et
+  `get_quality_report`. Une vue adossée à un snapshot porte aussi ses métadonnées (identifiant, projet, état,
+  prédécesseur et révision source facultatifs, date de création). `find_requirements` porte le texte de recherche
+  normalisé et la page (`offset`, `limit`, `totalMatches`, `hasMore`) ; comme `RequirementSearchPage` conserve la
+  requête normalisée qui l'a produite, une page ne peut pas être présentée avec un autre texte de recherche.
+- Une exigence compacte garde son identité stable, l'identifiant de l'occurrence versionnée, la version de
+  spécification, l'état temporel, la spécification, la clé facultative, le titre, l'énoncé et la provenance. Les vues
+  de changement, contrainte, décision et tâche gardent identités, rattachements métier, contenu utile et provenance.
+- La provenance compacte garde fournisseur, version de fournisseur facultative, source, identifiant externe et
+  révision source facultatifs, et `evidenceId` ; les evidence sont triées par identifiant.
+- Le graphe de trace expose des nœuds (type, identité) et des liens (identifiant, source, relation, cible, origine,
+  résolution, identifiants d'evidence triés), sans nouvelle traversée. Une référence externe compacte garde l'identité
+  portée par le lien même quand la `ExternalReference` n'existe pas. `PathStepView` porte aussi le lien tel que
+  persisté, indispensable pour une traversée entrante.
+- Un avertissement n'est jamais du texte libre. Les vues de requête utilisent `CompactWarningCode` ;
+  `AnalysisWarningView` admet une exigence facultative. Les faits observables sont un changement absent, une cible
+  `AFFECTS` sans occurrence `CURRENT`, la disponibilité d'une référence externe, une evidence absente.
+
+Contrat de `CanonicalJsonSerializer` : il accepte record, `String`, `char`, `URI`, booléen, nombre fini, enum,
+`Optional`, collection, tableau, `Map` à clés `String` et `null`. Champs d'un record dans l'ordre de déclaration, clés
+de map en ordre lexicographique, collections dans l'ordre que fixe le DTO, `Optional` vide rendu `null`, enum par
+`name()`, aucune mise en forme, échappement strict des guillemets, barres obliques inverses, caractères de contrôle et
+demi-codets de substitution. Même DTO, même chaîne ; même chaîne, mêmes octets UTF-8. Le plafond d'octets de `toUtf8`
+s'applique pendant le rendu. Sa réflexion se limite à `Class.getRecordComponents()`, à l'accesseur de chaque
+`RecordComponent` et à `java.lang.reflect.Array` ; il ne charge aucune classe par son nom et n'interprète jamais un
+objet métier.
+
+Jackson 3 (version gérée par le `pom.xml` racine) sert `morpheus-api`, les passerelles `morpheus-integration-minos` et
+`morpheus-integration-nexus`, et, par `mcp-json-jackson3`, `morpheus-mcp` et `morpheus-mcp-transport`.
+
 ## Decision
 
-1. **Vues compactes typées.** Chaque vue exposée est un record de `morpheus-application`
-   (`application.query.compact`, `application.analysis.compact`, `application.quality.compact`), construit par son
-   service de projection (`CompactQueryViewService`, `CompactChangeAnalysisViewService`,
-   `CompactQualityReportService`). Aucun objet de domaine ni de store n'est sérialisé directement : identités,
-   `SourceLocator` et `Instant` (ISO-8601) sont convertis en chaînes, les enums en leur `name()`.
-2. **Métadonnées de requête.** Toute vue compacte porte `QueryMetadata(schemaVersion, operation)` : `schemaVersion`
-   strictement positif, fixé par une constante `SCHEMA_VERSION` du service de projection, et `operation` non vide
-   (`find_requirements`, `trace_requirement`, `get_change_context`, `analyze_change`, `get_quality_report`). Une vue
-   adossée à un snapshot porte aussi ses métadonnées (identifiant, projet, état, prédécesseur et révision source
-   facultatifs, date de création). `find_requirements` porte le texte de recherche normalisé et la page (`offset`,
-   `limit`, `totalMatches`, `hasMore`) ; la vue ne reçoit que `RequirementSearchPage`, qui conserve la
-   `RequirementSearchQuery` normalisée ayant produit la page, de sorte qu'une page ne peut pas être présentée avec un
-   autre texte de recherche.
-3. **Identité et temporalité visibles.** Une exigence compacte garde son identité stable, l'identifiant de
-   l'occurrence versionnée, la version de spécification, l'état temporel, la spécification, la clé facultative, le
-   titre, l'énoncé et la provenance : la compacité ne confond ni `DomainIdentity` et `EntityVersionId`, ni version de
-   spécification et snapshot. Les vues de changement, contrainte, décision et tâche gardent identités, rattachements
-   métier, contenu utile et provenance.
-4. **Provenance et evidence.** La provenance compacte garde fournisseur, version de fournisseur facultative, source,
-   identifiant externe et révision source facultatifs, et `evidenceId`. Une vue n'inclut que les evidence
-   effectivement référencées par ce qu'elle expose, dédupliquées et triées par identifiant. Une evidence référencée
-   absente de la projection laisse la donnée visible et produit l'avertissement `EVIDENCE_NOT_FOUND` ; l'absence de
-   toute projection reste un échec (ADR-0137).
-5. **Trace compacte.** Le graphe expose des nœuds (type, identité) et des liens (identifiant, source, relation,
-   cible, origine, résolution, identifiants d'evidence triés), sans nouvelle traversée ni arête ajoutée ; la troncature
-   du sous-graphe est rendue par `truncated` et `truncationReason` (ADR-0040). Une référence externe compacte garde
-   l'identité portée par le lien, même quand la `ExternalReference` n'existe pas (`BROKEN_REFERENCE`). Dans l'analyse
-   de changement, chaque étape de chemin (`PathStepView`) porte le sens de traversée (`from`, `into`) et le lien tel
-   que persisté, indispensable pour une traversée entrante.
-6. **Avertissements structurés.** Un avertissement est un objet (code, sévérité, message, détails), jamais du texte
-   libre. Les vues de requête utilisent `CompactWarningCode` et n'admettent que la sévérité `WARNING`
-   (`WarningView`) ; l'analyse de changement a son propre DTO (`AnalysisWarningView`), qui admet `INFO` et `WARNING`
-   et une exigence facultative. Les avertissements ne dérivent que de faits observables (changement absent, cible
-   `AFFECTS` sans occurrence `CURRENT`, disponibilité d'une référence externe, evidence absente), sont dédupliqués et
-   ordonnés ; une référence externe `REFERENCE_RESOLVED` n'en produit aucun.
-7. **`CanonicalJsonSerializer` est le seul sérialiseur des vues.** Il accepte record, `String`, `char`, `URI`,
-   booléen, nombre fini, enum, `Optional`, collection, tableau, `Map` à clés `String` et `null`, et refuse tout autre
-   type, une clé non `String`, `NaN` et l'infini. Contrat : champs d'un record dans l'ordre de déclaration, clés de map
-   en ordre lexicographique, collections dans l'ordre que fixe le DTO, `Optional` vide rendu `null`, enum par
-   `name()`, aucune mise en forme, échappement strict des guillemets, barres obliques inverses, caractères de
-   contrôle et demi-codets de substitution. Même DTO, même chaîne ; même chaîne, mêmes octets UTF-8. La sérialisation
-   est bornée : `toUtf8` applique un plafond d'octets UTF-8 (`CanonicalJsonSerializer.DEFAULT_MAX_UTF8_BYTES` par
-   défaut) pendant le rendu. Aucune projection ne génère d'horodatage ni d'empreinte d'exécution ; aucun JSON de vue
-   n'est persisté.
-8. **Réflexion bornée du sérialiseur.** `CanonicalJsonSerializer` lit les composants d'un record par réflexion
-   (`Class.getRecordComponents()` et l'accesseur de chaque `RecordComponent`) et les éléments d'un tableau par
-   `java.lang.reflect.Array`. Il n'instancie aucun type, ne charge aucune classe par son nom et n'interprète jamais un
-   objet métier.
-9. **Jackson 3 pour le JSON des adaptateurs.** Le JSON qui n'est pas une vue est lu et écrit par Jackson 3
-   (`tools.jackson`, version gérée par le `pom.xml` racine), dans les adaptateurs seulement : `morpheus-api`, les
-   passerelles `morpheus-integration-minos` et `morpheus-integration-nexus`, et, par `mcp-json-jackson3`,
-   `morpheus-mcp` et `morpheus-mcp-transport`. `morpheus-domain` et `morpheus-application` ne dépendent pas de
-   Jackson. Un corps de requête HTTP est décodé par le seul `JsonMapper` de `morpheus-api`,
-   `MorpheusHttpRequestDecoder`, avec `FAIL_ON_UNKNOWN_PROPERTIES` et `FAIL_ON_TRAILING_TOKENS`. Aucune source de
-   production n'appelle `activateDefaultTyping(` ni `enableDefaultTyping(`.
+1. **Vues typées** : une vue exposée est un record de `application.{query,analysis,quality}.compact` construit par son
+   service de projection ; aucun objet de domaine ni de store n'est sérialisé.
+2. **Métadonnées** : `QueryMetadata(schemaVersion, operation)` sur toute vue, `schemaVersion` positif (constante
+   `SCHEMA_VERSION` du service), `operation` non vide. `find_requirements` ne reçoit qu'une `RequirementSearchPage`,
+   avec sa `RequirementSearchQuery`.
+3. **Identité** : une vue distingue `DomainIdentity` et `EntityVersionId`, version de spécification et snapshot.
+4. **Evidence** : référencées seulement, dédupliquées, triées ; une absente laisse la donnée visible avec
+   `EVIDENCE_NOT_FOUND`, l'absence de projection échoue (ADR-0137).
+5. **Trace** : rien d'ajouté au graphe ; troncature par `truncated` et `truncationReason` (ADR-0040) ;
+   `BROKEN_REFERENCE` garde l'identité du lien ; `PathStepView` porte le sens (`from`, `into`).
+6. **Avertissements** : objets (code, sévérité, message, détails), issus de faits observables, dédupliqués, ordonnés ;
+   `WarningView` n'admet que `WARNING`, `AnalysisWarningView` aussi `INFO` ; `REFERENCE_RESOLVED` n'en donne aucun.
+7. **Sérialiseur** : `CanonicalJsonSerializer` seul, qui refuse type hors liste, clé non `String`, `NaN`, infini ;
+   même DTO, mêmes octets UTF-8 ; `toUtf8` borné par `CanonicalJsonSerializer.DEFAULT_MAX_UTF8_BYTES`. Ni horodatage
+   ni empreinte en projection, aucun JSON de vue persisté. Sa réflexion lit records et tableaux, sans instancier ni
+   charger de classe.
+8. **Jackson 3** (`tools.jackson`) : JSON hors vue, adaptateurs seuls, jamais `morpheus-domain` ni
+   `morpheus-application`. Un corps HTTP passe par le seul `JsonMapper` de `morpheus-api`, `MorpheusHttpRequestDecoder`
+   (`FAIL_ON_UNKNOWN_PROPERTIES`, `FAIL_ON_TRAILING_TOKENS`). Aucun `activateDefaultTyping(` ni
+   `enableDefaultTyping(`.
 
 ## Do's and Don'ts
 
@@ -128,7 +129,7 @@ Options écartées :
 - Un DTO qui contiendrait une `Map` ou une collection non triée en amont garderait l'ordre de sa source pour une
   collection : seul l'ordre des clés de map est imposé par le sérialiseur.
 - Les passerelles MINOS et NEXUS construisent leur `JsonMapper` avec `FAIL_ON_UNKNOWN_PROPERTIES` désactivé pour lire
-  la réponse d'un pair configuré : la règle stricte de la décision 9 vaut pour les corps HTTP reçus, pas pour elles.
+  la réponse d'un pair configuré : la règle stricte de la décision 8 vaut pour les corps HTTP reçus, pas pour elles.
 
 ## Compliance and Enforcement
 

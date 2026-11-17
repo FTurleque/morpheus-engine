@@ -46,82 +46,35 @@ Options écartées :
 - **Ne rien documenter, puisque le code est correct** : l'invariant porté ici est une absence de garantie, et une
   absence ne se déduit pas du code.
 
-## Decision
+Le SPI `MorpheusProviderPlugin` dépend des contrats provider-neutral de MORPHEUS et fournit `ProviderPluginMetadata`,
+un `SpecificationProvider` qui sonde et négocie les capacités (`ProviderCapability`) et un `SpecificationContentReader`
+qui lit par `ProviderReadRequest` / `ProviderReadResult`. Le manifeste porte au minimum `plugin.id`, `provider.id`,
+`plugin.version`, `sdk.apiVersion` et `morpheus.minVersion` ; `morpheus.maxVersion` est facultatif. Le parent vérifie
+le pin avant de lancer la JVM enfant, qu'il arrête au délai gracieusement puis de force ; un `plugin.id` déclaré par
+plusieurs JAR n'en active aucun. Les refus d'activation et de probe sont des diagnostics bornés au plugin, qui ne font
+jamais tomber MORPHEUS.
+`morpheus-provider-reference` sert de modèle vérifiable ; `morpheus-provider-testkit` fournit aux auteurs de providers
+des assertions réutilisables (cohérence des identités, déterminisme du probe, présence du reader). La découverte
+s'appuie sur `LinkOption.NOFOLLOW_LINKS` et `Files.isSymbolicLink`, et résout un ancêtre lié par `toRealPath()`. La
+compatibilité compare les versions en ordre SemVer, identifiants de prerelease comparés numériquement.
 
-### 1. Un SDK dédié, dont le domaine et l'application ignorent tout
+Le `URLClassLoader` dédié du JAR est parent-first vers les contrats MORPHEUS. Les scripts du build portable passent à
+`jpackage` les options `jlink` par défaut moins `--strip-native-commands` (`--strip-debug --no-man-pages
+--no-header-files`) ; l'installeur Windows réutilise l'app-image validée et hérite de ce runtime. L'absence réelle de
+JVM enfant reste un échec explicite du probe. L'environnement de l'enfant est reconstruit, jamais filtré depuis celui du
+parent. Intégrer un plugin à un workflow métier est une décision explicite de l'hôte.
 
-Le module `morpheus-provider-sdk` expose l'API publique de plugin. Il dépend des contrats provider-neutral de MORPHEUS ;
-`morpheus-domain` et `morpheus-application` ne dépendent jamais du SDK ni du plugin de référence, jusque dans leurs POM.
-Le SPI `MorpheusProviderPlugin` fournit `ProviderPluginMetadata`, un `SpecificationProvider` (sondage et négociation de
-capacités) et un `SpecificationContentReader` (lecture normalisée par `ProviderReadRequest` / `ProviderReadResult`).
-
-`morpheus-provider-reference` sert de modèle vérifiable et n'est jamais une dépendance d'exécution du launcher ;
-`morpheus-provider-testkit` fournit aux auteurs de providers des assertions réutilisables (cohérence des identités,
-déterminisme du probe, présence du reader).
-
-### 2. La découverte lit des métadonnées et n'exécute rien
-
-Chaque JAR porte `META-INF/morpheus-provider.properties` avec au minimum `plugin.id`, `provider.id`, `plugin.version`,
-`sdk.apiVersion` et `morpheus.minVersion` ; `morpheus.maxVersion` est facultatif. La découverte lit cette seule entrée :
-aucun `ClassLoader`, `ServiceLoader`, constructeur ni code de plugin n'est exécuté, et aucun processus n'est lancé.
-Elle ne suit pas les liens symboliques (`LinkOption.NOFOLLOW_LINKS`, `Files.isSymbolicLink`) : un répertoire de plugins
-qui est lui-même un lien est refusé, un JAR symbolique est ignoré. Un ancêtre lié du répertoire est résolu
-(`toRealPath()`) et la résolution est déclarée par le diagnostic `PLUGIN_DIRECTORY_PATH_RESOLVED`. Aucun répertoire de
-plugins n'est parcouru au démarrage : la découverte est une opération explicite.
-
-### 3. La compatibilité est explicite
-
-Un plugin n'est activable que si son `sdk.apiVersion` est exactement celle que porte `ProviderSdk.API_VERSION`, si la
-version courante de MORPHEUS satisfait l'intervalle déclaré (ordre SemVer, identifiants de prerelease comparés
-numériquement) et si son manifeste est valide. Un plugin incompatible reste visible dans les diagnostics et n'est
-jamais chargé.
-
-### 4. L'activation exige un pin SHA-256 et se fait dans une JVM enfant
-
-Activer un plugin est une opération distincte de la découverte, et elle **exige un pin SHA-256 de confiance** :
-sans pin, `ProviderPluginActivator` refuse (« provider plugin activation requires a trusted SHA-256 pin »). Le parent
-vérifie le pin, puis lance une **JVM enfant** qui le revérifie elle-même avant tout chargement. Seule une copie de
-staging vérifiée, accessible au seul propriétaire, est exposée au `URLClassLoader` dédié du JAR, parent-first vers les
-contrats MORPHEUS, puis résolue par `ServiceLoader<MorpheusProviderPlugin>`.
-
-L'activation exige exactement un service par JAR, et l'égalité entre les métadonnées du manifeste et
-`plugin.metadata()`, entre `provider.id` et `SpecificationProvider.id()`, et entre `provider.id` et
-`SpecificationContentReader.providerId()`. Plusieurs JAR qui déclarent le même `plugin.id` sont une ambiguïté nommée
-(`PLUGIN_ID_AMBIGUOUS`) : aucun n'est activé. Un échec de chargement ou de probe devient un diagnostic borné au plugin
-et ne fait jamais tomber MORPHEUS.
-
-La JVM enfant est résolue **exclusivement** depuis le runtime de MORPHEUS, `java.home/bin/java`, jamais par le `PATH`.
-Le runtime embarqué de la distribution garde donc ce launcher : `distribution/build-portable.ps1` et
-`distribution/build-portable.sh` passent à `jpackage` les options `jlink` par défaut moins `--strip-native-commands`
-(`--strip-debug --no-man-pages --no-header-files`) et échouent si le launcher Java du runtime manque. L'installeur
-Windows réutilise l'app-image validée et hérite de ce runtime. L'absence réelle de JVM enfant reste un échec explicite
-du probe.
-
-L'enfant hérite d'un environnement reconstruit depuis une liste blanche, jamais filtré depuis celui du parent :
-`MORPHEUS_SERVER_TLS_PASSWORD` et les variables d'injection JVM ne lui sont jamais transmises. Son exécution est bornée
-(`ProviderPluginProbeProcess.DEFAULT_TIMEOUT`), terminée gracieusement puis de force. Le worker, code MORPHEUS, termine
-son propre sous-arbre avant de sortir, et le parent termine les descendants qu'il a observés.
-
-### 5. Compatibilité, capacité et lecture restent distinctes
-
-La compatibilité d'un plugin ne vaut pas capacité métier. Après activation, seules les `ProviderCapability` que
-`SpecificationProvider.probe(...)` rend pour la source sont tenues pour observées. Une capacité de lecture annoncée
-n'est pas le contenu : la lecture passe par le `SpecificationContentReader`. Un plugin découvert ne remplace jamais le
-flux `sync` en silence ; l'intégrer à un workflow métier est une décision explicite de l'hôte.
-
-### 6. Exposition : jamais au modèle, et le serveur choisit le répertoire
+L'exposition par transport :
 
 | Capacité | CLI | MCP | HTTP |
 |---|---|---|---|
 | `provider.plugins.discover` | `provider-plugins discover` | `EXPLICITLY_NOT_EXPOSED` | `GET /api/v1/provider-plugins/discover` |
 | `provider.plugins.probe` | `provider-plugins probe` (pin exigé) | `EXPLICITLY_NOT_EXPOSED` | `POST /api/v1/provider-plugins/probe`, remote seulement, rôle `ADMIN` |
 
-Le probe est refusé sur la façade HTTP locale (« provider-plugin probe is remote-only »). En remote, le répertoire de
-plugins et les workspaces autorisés sont imposés par le serveur, et la réponse est une projection sur liste blanche,
-jamais un modèle interne filtré : un texte écrit par le plugin ne peut pas révéler un emplacement du serveur. Le
-câblage MCP par défaut ne sert aucun outil de plugin, et un appelant MCP ne choisit jamais un répertoire.
+La projection remote sur liste blanche, jamais un modèle interne filtré, empêche un texte écrit par le plugin de
+révéler un emplacement du serveur. Le câblage MCP par défaut ne sert aucun outil de plugin.
 
-### 7. Le modèle de confiance est nommé, et il est binaire
+Le modèle de confiance est binaire :
 
 ```text
 un plugin provider activé explicitement    = code de confiance
@@ -156,12 +109,33 @@ PAS une garantie de terminaison des descendants d'un pair MCP (best-effort)
 ```
 
 Un classloader n'est pas une frontière de sécurité. La terminaison des descendants est garantie pour un probe de
-plugin, parce que le worker est du code MORPHEUS et termine son sous-arbre quand celui-ci est encore énumérable ; elle
-reste best-effort pour un pair MCP, qui n'est pas du code MORPHEUS.
+plugin parce que le worker est du code MORPHEUS et termine son sous-arbre quand celui-ci est encore énumérable ; un
+pair MCP n'est pas du code MORPHEUS. Une véritable sandbox OS serait explicite, testée, fail-closed, portable ou
+documentée comme limitée à une plateforme.
 
-MORPHEUS n'ajoute aucun mécanisme qui ressemble à une sandbox sans en être une. Une véritable sandbox OS serait
-explicite, testée, fail-closed, portable ou documentée comme limitée à une plateforme, et ferait l'objet de sa propre
-décision d'architecture.
+## Decision
+
+1. **SDK** : `morpheus-provider-sdk` expose le SPI `MorpheusProviderPlugin`. Ni `morpheus-domain`, ni
+   `morpheus-application` (POM compris), ni le launcher ne dépendent du SDK ou de `morpheus-provider-reference`.
+2. **Découverte** : explicite, jamais au démarrage ; lit le seul `META-INF/morpheus-provider.properties`, sans
+   classloading ni processus ; répertoire lié refusé, JAR lié ignoré, ancêtre lié déclaré
+   (`PLUGIN_DIRECTORY_PATH_RESOLVED`).
+3. **Compatibilité** : `sdk.apiVersion` = `ProviderSdk.API_VERSION`, version dans l'intervalle, manifeste valide,
+   sinon non chargé.
+4. **Activation** : pin SHA-256 exigé (« provider plugin activation requires a trusted SHA-256 pin »), revérifié par
+   la JVM enfant ; seule la copie de staging vérifiée (propriétaire seul) va au `URLClassLoader` dédié, puis à
+   `ServiceLoader<MorpheusProviderPlugin>`. Un service ; manifeste, `plugin.metadata()`, `SpecificationProvider.id()`
+   et `SpecificationContentReader.providerId()` concordent ; `plugin.id` en double : `PLUGIN_ID_AMBIGUOUS`.
+5. **JVM enfant** : `java.home/bin/java` (gardé dans le build portable), jamais le `PATH`. Environnement en
+   liste blanche sans `MORPHEUS_SERVER_TLS_PASSWORD` ni injection JVM ; délai
+   `ProviderPluginProbeProcess.DEFAULT_TIMEOUT` ; le worker tue son sous-arbre, le parent l'arbre observé.
+6. **Capacités** : observées par `probe(...)` seul ; lecture par `SpecificationContentReader` ; `sync` jamais
+   remplacé.
+7. **Exposition** : rien en MCP ; probe remote, `ADMIN` (« provider-plugin probe is remote-only ») ; répertoire et
+   workspaces imposés par le serveur ; réponse en liste blanche.
+8. **Confiance** : plugin activé, pair MCP configuré = code de confiance ; frontière de processus et
+   d'environnement, sans limite fichiers ni réseau ; descendants d'un pair MCP en best-effort. Rien qui imite une
+   sandbox OS, qui exigerait son propre ADR.
 
 ## Do's and Don'ts
 

@@ -35,9 +35,7 @@ Options écartées :
 - **workflow entièrement configurable sans état canonique** : trop complexe et difficile à consommer par des agents.
 
 L'option retenue est une machine d'état canonique, évaluée en lecture seule, dont les faits manquants restent
-explicites.
-
-## Decision
+explicites. Le détail de cette machine suit.
 
 ### États canoniques
 
@@ -158,6 +156,28 @@ est déclaré manquant que si le fait correspondant vaut `FALSE` ; un fait `UNAV
 jamais comme manquant. Ses transitions sont celles de l'évaluation tri-état ci-dessus, depuis l'état fourni par
 l'appelant. Les champs de la vue et leur comportement sont spécifiés par
 [`change-orchestration-state`](../../../openspec/specs/change-orchestration-state/spec.md).
+
+## Decision
+
+1. **États** : `ChangeLifecycleState` a dix états : `DRAFT → PROPOSED → SPECIFIED → DESIGNED → PLANNED →
+   IMPLEMENTING → VERIFYING → COMPLETED → ARCHIVED`, et `ABANDONED`, seul à porter une `ChangeAbandonmentReason`.
+2. **Dimensions** : le cycle n'est ni `TemporalState`, ni état de snapshot, ni résolution, ni vérification ; aucune
+   transition ne touche une projection temporelle et une tâche cochée ne fait pas avancer le cycle.
+3. **Machine** : `ChangeLifecycleTransitionRequest.decide()` rend une `ChangeLifecycleTransitionDecision` scellée,
+   `Allowed` ou `Blocked` par des `ChangeLifecycleBlocker` nommés, sans modifier de source. Un pas avant manquant
+   d'une précondition est bloqué ; `SPECIFIED → PLANNED` exige un design non requis et un plan.
+4. **Retours, abandon** : un pas arrière exige `allowBackwardTransitions`, `COMPLETED → VERIFYING` aussi
+   `allowCompletedReopen` (défaut `ChangeLifecyclePolicy.forwardOnly()`). `DRAFT` à `VERIFYING` peuvent passer à
+   `ABANDONED` ; seule réouverture `ABANDONED → PROPOSED`, jamais `ARCHIVED`. Toute autre transition, vers l'état
+   courant compris, est `INVALID_TRANSITION`.
+5. **Provenance** : aucun état n'est déduit d'un chemin, d'une archive, d'un horodatage ou d'une tâche hors convention
+   documentée du provider ; un mapping garde l'état source et est testé. `ChangeLifecycleObservation` : absent
+   `UNAVAILABLE`, fourni `CALLER_SUPPLIED`.
+6. **Tri-état** : `ChangeTransitionEvaluationService` rend `ALLOWED`, `BLOCKED`, `UNKNOWN` (fait `UNAVAILABLE` ou
+   sémantique bloquante inconnue) ou `REQUIRES_INPUT` (entrée de l'appelant manquante), et délègue à `decide()` quand
+   les faits sont connus. Il ne persiste rien ; `ALLOWED` ne vaut pas mutation (ADR-0083).
+7. **Orchestration** : `ChangeOrchestrationStateService` lit `ChangeOrchestrationState` en lecture seule ; son
+   constructeur refuse `persisted=true`.
 
 ## Do's and Don'ts
 

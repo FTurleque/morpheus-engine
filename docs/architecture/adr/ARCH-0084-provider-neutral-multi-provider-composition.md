@@ -43,74 +43,48 @@ Options écartées :
   identités de deux providers, ce qu'ADR-0168 interdit. Une sélection exige une décision sur la corrélation
   inter-provider que cet ADR ne prend pas.
 
-## Decision
-
-La composition est une responsabilité de l'application, exécutée sur des contributions déjà normalisées :
+Chaîne de composition et invariants d'identité qu'elle tient :
 
 ```text
 provider adapter
     -> normalized ProviderContribution
     -> MultiProviderCompositionService
     -> ComposedProjectContent + CompositionConflict*
-```
 
-**Contribution.** Chaque contribution expose au minimum : `ProviderId`, priorité explicite, contenu normalisé,
-provenance de lecture, diagnostics provider, caractère requis ou optionnel.
-
-**La composition est une union.** Chaque observation de chaque contribution est publiée comme une entité distincte.
-Aucune valeur n'est sélectionnée au détriment d'une autre ; la priorité est **enregistrée**, jamais appliquée.
-
-**Identité.** Le rapprochement entre providers se fait uniquement sur une clé logique provider-neutral explicitement
-disponible dans le contenu normalisé. Le chemin source, l'ordre de lecture ou un texte similaire ne créent jamais une
-identité.
-
-```text
 provider identifier != DomainIdentity
 source path != identity
 similar text != same entity
 ```
 
-Une contrainte, une décision ou un critère sans `externalId` n'a pour clé logique que son identité scopée par
-provider : il n'est pas rapproché d'un provider à l'autre.
+La valeur candidate de `rootLocator` est une empreinte parce qu'un conflit est publié sur des surfaces distantes, où un
+chemin d'hôte ne figure pas. Un ratio de politique devient `UNKNOWN` sur des clés dupliquées parce qu'un ratio ne se
+calcule pas sur une population qu'on sait dupliquée.
 
-**Conflits.** Une clé logique observée par plusieurs providers produit un `CompositionConflict` explicite, même quand
-les valeurs s'accordent. Une clé observée par un seul provider n'en produit aucun. Le conflit contient : type
-d'entité, clé logique, champ, candidats et provenance, priorité, et une résolution `CompositionResolution` :
+`CompositionEntityType` énumère projet, spécification, exigence, scénario, changement, contrainte, décision de design,
+tâche, critère d'acceptation et identité ; les conflits couvrent ainsi le contenu, l'ownership et le type / l'identité.
+Le domaine porte les identités et les faits métier canoniques, les stores l'état de composition.
 
-| Résolution | Sens |
-|---|---|
-| `IDENTICAL` | tous les providers s'accordent |
-| `PRECEDENCE_RECORDED` | les providers de plus haute priorité s'accordent ; le provider qui prime est enregistré, chaque observation reste publiée |
-| `UNRESOLVED` | les providers de plus haute priorité divergent ; une résolution explicite est requise |
+## Decision
 
-`CompositionEntityType` couvre tout ce qui est publié : projet, spécification, exigence, scénario, changement,
-contrainte, décision de design, tâche, critère d'acceptation, identité. Pour le projet, la valeur candidate de
-`rootLocator` est l'empreinte SHA-256 du localisateur : un conflit est publié sur des surfaces distantes, et un
-chemin d'hôte n'y figure pas.
-
-Les conflits de contenu, d'ownership et de type / identité sont représentés explicitement. Une valeur absente face à
-une valeur présente reste une observation valide et requêtable. Il n'existe aucun last-write-wins silencieux.
-
-**Population dupliquée.** Un fait de politique `QUALITY_THRESHOLD` portant sur un ratio
-(`REQUIREMENT_COVERAGE_PERCENT`, `TASK_COVERAGE_PERCENT`) est `UNKNOWN` quand l'état de composition du snapshot actif
-porte des clés dupliquées de ce type : un ratio ne se calcule pas sur une population qu'on sait dupliquée. Les
-comptages restent des comptages d'entités publiées, doublons compris.
-
-**Optionalité.** Un provider optionnel absent ou non compatible produit un diagnostic de composition mais ne fait pas
-échouer le projet si au moins une contribution requise et valide reste disponible. Un provider requis absent échoue
-explicitement.
-
-**Persistance.** L'état de composition est scopé par snapshot et persisté séparément du contenu provider. Les stores
-mémoire et SQLite conservent contributions observées, provenance, priorité et conflits (migrations
-`V012__multi_provider_composition.sql` et `V020__composition_precedence_recorded.sql` de `morpheus-store-sqlite`).
-
-**Frontières.**
-
-- adaptateurs : formats et parsing ;
-- application : composition, priorité, conflit, optionalité ;
-- domaine : identités et faits métier canoniques ;
-- stores : persistance de l'état de composition ;
-- CLI, MCP, HTTP : projection JSON-safe uniquement.
+1. La composition (priorité, conflit, optionalité) est de l'application, sur des contributions normalisées ; les
+   adaptateurs ne font que formats et parsing, CLI, MCP et HTTP qu'une projection JSON-safe.
+2. Une contribution porte au moins `ProviderId`, priorité, contenu normalisé, provenance, diagnostics, caractère
+   requis ou optionnel.
+3. **Union** : chaque observation est publiée comme entité distincte ; la priorité est enregistrée, jamais appliquée.
+4. Rapprochement inter-provider sur une clé logique provider-neutral explicite seulement ; jamais par chemin source,
+   ordre de lecture ou texte similaire. Sans `externalId`, une contrainte, décision ou critère n'est pas rapproché.
+5. Une clé vue par plusieurs providers produit un `CompositionConflict`, même valeurs égales (type, clé, champ,
+   candidats et provenance, priorité) ; vue par un seul, aucun. Sa `CompositionResolution` : `IDENTICAL` (accord de
+   tous), `PRECEDENCE_RECORDED` (accord des plus prioritaires, primant enregistré, chaque observation publiée),
+   `UNRESOLVED` (divergence, résolution explicite requise). Une valeur absente face à une présente reste une
+   observation ; aucun last-write-wins silencieux.
+6. `CompositionEntityType` couvre tout le publié ; candidat `rootLocator` : empreinte SHA-256 du localisateur.
+7. Un fait `QUALITY_THRESHOLD` de ratio (`REQUIREMENT_COVERAGE_PERCENT`, `TASK_COVERAGE_PERCENT`) est `UNKNOWN` si la
+   composition du snapshot actif a des clés dupliquées de ce type ; un comptage inclut les doublons.
+8. Provider optionnel absent ou incompatible : diagnostic, sans échec s'il reste une contribution requise valide ;
+   provider requis absent : échec.
+9. L'état de composition (contributions, provenance, priorité, conflits) est scopé par snapshot, persisté à part en
+   mémoire et en SQLite (`V012__multi_provider_composition.sql`, `V020__composition_precedence_recorded.sql`).
 
 ## Do's and Don'ts
 

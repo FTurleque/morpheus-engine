@@ -26,7 +26,7 @@ Options rejetées :
 | Capacité d'écriture déduite de la lecture | `read capability != write capability` |
 | Réessayer sans idempotency | Risque de double mutation et de double audit |
 
-## Decision
+Le détail du chemin d'écriture retenu :
 
 1. **Évaluation et mutation sont séparées.**
 
@@ -80,6 +80,29 @@ Options rejetées :
 10. **Surfaces séparées.** Les surfaces de mutation sont distinctes des surfaces d'évaluation ; un outil ou un handler
     read-only reste read-only. Les surfaces d'écriture sont déclarées `WRITE` dans `contracts/public-surfaces.tsv`
     (ligne `lifecycle.apply`).
+
+## Decision
+
+1. **Évaluation et mutation séparées** : évaluer une transition est une décision read-only ; l'appliquer exige une
+   commande de mutation explicite. `ALLOWED != applied`.
+2. **État opérationnel versionné** : `ChangeLifecycleOperationalState`, hors du snapshot publié, porte une révision
+   monotone de compare-and-set, au moins 1 une fois persisté (0 : état initial virtuel, sans métadonnée de mutation).
+3. **Commande explicite** : `ChangeLifecycleMutationCommand` porte notamment `idempotencyKey`, `expectedRevision` et
+   la confirmation ; MORPHEUS n'en invente aucune valeur.
+4. **Concurrence** : une `expectedRevision` périmée donne `CONFLICT` ; aucun last-write-wins.
+5. **Idempotency** : une `idempotencyKey` déjà appliquée à la même empreinte rend `ALREADY_APPLIED` et le résultat
+   original, sans audit ni révision ; à une autre commande, `CONFLICT` déterministe.
+6. **Capacité** : écrire exige `WRITE_CHANGE` observée pour le provider du projet, sinon `NOT_AUTHORIZED` ;
+   `READ_CHANGES != WRITE_CHANGE`. OpenSpec reste read-only tant que son adaptateur ne la déclare pas.
+7. **Confirmation** : exigée par `ChangeLifecycleMutationPolicy`, son absence rend `REQUIRES_CONFIRMATION`, sans
+   écriture ni audit d'application.
+8. **Validation avant écriture** : l'évaluation lifecycle et contraintes est réutilisée ; seul `ALLOWED` est éligible,
+   `BLOCKED`, `UNKNOWN` et `REQUIRES_INPUT` donnent `REJECTED`.
+9. **Audit append-only** : exactement un `ChangeLifecycleMutationAuditRecord` par mutation appliquée, durable après
+   redémarrage SQLite. Une cible `ABANDONED` exige une `ChangeAbandonmentReason` explicite, dans la tentative et dans
+   l'audit ; aucune autre cible n'en admet.
+10. **Surfaces séparées** : une surface d'évaluation reste read-only ; les surfaces d'écriture sont déclarées `WRITE`
+    dans `contracts/public-surfaces.tsv` (ligne `lifecycle.apply`).
 
 ## Do's and Don'ts
 

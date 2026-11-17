@@ -41,12 +41,7 @@ Options écartées :
 - **Convertir le type de l'échec d'ouverture du store** : aucun défaut observable ne le justifie, puisque le chemin
   d'ouverture MCP le convertit déjà (décision 7).
 
-## Decision
-
-### 1. Un format de message canonique
-
-Le message nomme l'**argument fautif en premier**, puis ce qui était attendu, et distingue une **omission** d'une
-**valeur malformée**, parce que la réparation n'est pas la même :
+Le format canonique distingue une omission d'une valeur malformée parce que la réparation n'est pas la même :
 
 ```text
 absent                          <nom> is required and must be <attendu>
@@ -54,17 +49,12 @@ présent mais inutilisable       <nom> must be <attendu>
 optionnel présent, inutilisable <nom> must be <attendu> when present
 ```
 
-où `<attendu>` est l'un de : `a non-blank string` · `an integer` · `an integer between <min> and <max>` ·
-`a boolean` · `a finite number`.
-
 C'est le format vers lequel convergent les deux autres surfaces : le CLI dit `--<key> must be an integer`,
 l'adaptateur HTTP `<name> must be an integer` (`MorpheusHttpQuery`). La forme requise est celle des outils du
-catalogue (`McpCatalogTool` et les classes qui servent ces outils). La forme `missing required MCP argument: <nom>` est écartée : elle ne dit pas à
-quoi ressemble une valeur valide et place le nom en fin de phrase.
+catalogue (`McpCatalogTool` et les classes qui servent ces outils). La forme `missing required MCP argument: <nom>`
+est écartée : elle ne dit pas à quoi ressemble une valeur valide et place le nom en fin de phrase.
 
-`McpArguments` est le seul endroit du paquet où ce format est écrit, et le seul qui lit un argument d'outil.
-
-### 2. L'ensemble d'exceptions mappées est dérivé de ce que le handler peut lever
+Les exceptions qu'un handler mappe, selon ce qu'il fait :
 
 | Ce que le handler fait | Ce qu'il mappe |
 |---|---|
@@ -73,74 +63,63 @@ quoi ressemble une valeur valide et place le nom en fin de phrase.
 | délègue à un service qui refuse un état (policy, query DSL, saved views) | `+ IllegalStateException` |
 | compose des policies | `+ PolicyConflictException` |
 
-Un handler ne déclare pas une exception qu'il ne peut pas atteindre, et n'en omet pas une qu'il peut atteindre.
 `MorpheusReasoningMcpTools` n'ouvre aucun store : il ne mappe pas `KnowledgeStoreException`. `MorpheusProductMcpTools`
 ne lit aucun argument et n'ouvre rien.
 
-### 3. `MorpheusProviderPluginMcpTools` est une frontière de rédaction
+Le `catch (RuntimeException)` de `MorpheusProviderPluginMcpTools` n'est pas un filet trop large : les exceptions de
+système de fichiers rendent souvent leur pathname comme message et cette surface est model-facing ; élargir le
+`catch` garantit qu'aucun message arbitraire ne sorte.
 
-Ce handler garde un `catch (RuntimeException)`. Ce n'est pas un filet trop large : il ne renvoie jamais le message de
-l'exception, mais le code stable `PROVIDER_PLUGIN_DISCOVERY_FAILED`, parce que les exceptions de système de fichiers
-rendent souvent leur pathname comme message et que cette surface est model-facing. Élargir le `catch` garantit
-qu'aucun message arbitraire ne sorte. Le commentaire qui le motive reste dans le code. Chaque refus de ce fichier porte
-le code stable et passe par `McpToolFailure.refusal`.
-
-### 4. Les arguments inconnus sont refusés avant le handler
-
-La promesse `additionalProperties: false` est tenue par le validateur du SDK, armé par `.validateToolInputs(true)` dans
-`MorpheusMcpServer`, et non par une copie dans chaque handler. Le drapeau est épinglé par un test : le retirer casse le
-build au lieu de désarmer silencieusement les schémas.
-
-Le message d'un argument inconnu est produit par le SDK, pas par MORPHEUS. Il est localisé par la bibliothèque networknt
-selon la locale par défaut de la JVM. Le format de la décision 1 ne gouverne que les messages que MORPHEUS écrit
-lui-même ; les tests assertent le refus, ni le texte du SDK ni sa langue.
-
-### 5. Un refus rendu comme valeur se lit comme un refus
+Épingler `.validateToolInputs(true)` par un test fait casser le build au lieu de désarmer silencieusement les schémas.
+Le message d'un argument inconnu est produit par le SDK, pas par MORPHEUS, et localisé par la bibliothèque networknt
+selon la locale par défaut de la JVM : le format canonique ne gouverne que les messages que MORPHEUS écrit lui-même.
 
 Un service peut rendre son refus dans un résultat au lieu de lever : `ControlledChangeLifecycleMutationService.apply`
-rend `CONFLICT`, `NOT_AUTHORIZED`, `REQUIRES_CONFIRMATION` ou `REJECTED`. Pour ces outils, `isError` se décide sur l'état
-du résultat :
-
-- succès : `APPLIED` et `ALREADY_APPLIED` ; tout le reste est une erreur ;
-- le corps ne change pas : l'état, la raison, `lifecycleState` et `audit` restent présents. Le drapeau ajoute un fait,
-  il n'en retire aucun ;
-- la partition s'écrit à un seul endroit, `ChangeLifecycleMutationResultState.successful()`, un `switch` qui nomme
-  chaque constante **sans `default`** : un nouvel état ne compile pas tant que personne n'a décidé de son côté. Le CLI
-  (code de sortie), MCP (`isError`) et l'invariant de `ChangeLifecycleMutationResult` (seul un succès porte un
-  enregistrement d'audit) la consomment.
-
-`McpToolFailure` est le **seul** endroit du module qui pose `isError(true)` : `refusal(String body)` construit le
-résultat d'erreur à partir d'un corps déjà structuré, `result(RuntimeException)` y délègue avec le message de
-l'exception. Tout autre résultat d'outil écrit lui-même son `isError`, au littéral `false`.
+rend `CONFLICT`, `NOT_AUTHORIZED`, `REQUIRES_CONFIRMATION` ou `REJECTED`, tous des erreurs. Le corps garde l'état, la
+raison, `lifecycleState` et `audit` : le drapeau ajoute un fait, il n'en retire aucun. Le `switch` de
+`ChangeLifecycleMutationResultState.successful()` nomme chaque constante, donc un nouvel état ne compile pas tant que
+personne n'a décidé de son côté ; le CLI en tire son code de sortie, MCP son `isError`, et
+`ChangeLifecycleMutationResult` son invariant (seul un succès porte un enregistrement d'audit). Dans
+`McpToolFailure`, `refusal(String body)` construit le résultat d'erreur à partir d'un corps déjà structuré, et
+`result(RuntimeException)` y délègue avec le message de l'exception.
 
 Un verdict n'est pas un refus : `evaluate_change_transition` rend le verdict d'une évaluation (`ALLOWED`,
-`BLOCKED`…), `evaluate_policies` et `dry_run_policy_pack` rendent une décision (`BLOCK` et `UNKNOWN` comprises), et le
-statut `FAILED` d'un adaptateur de raisonnement est une exécution partielle déclarée ; tous rendent `isError(false)`.
-Un statut d'intégration, un `resolutionState` ou un conflit de composition sont des observations déclarées dans la
-réponse (ADR-0124), pas le refus d'une opération.
+`BLOCKED`…), `evaluate_policies` et `dry_run_policy_pack` rendent une décision, le statut `FAILED` d'un adaptateur de
+raisonnement est une exécution partielle déclarée, et un statut d'intégration, un `resolutionState` ou un conflit de
+composition sont des observations déclarées dans la réponse, pas le refus d'une opération. Le contrat d'export
+(complet sur les trois surfaces, paramètre de page refusé, limite du cadre STDIO MCP et ses recours) est celui
+d'ADR-0092. `SqliteStoreConnection.open` convertit notamment le refus du bail de maintenance et l'échec du pilote ;
+la règle des exceptions atteignables suffit donc pour l'échec d'ouverture du store. Ce contrat ne dit rien de la
+sémantique des échecs métier : un conflit de composition reste explicite.
 
-### 6. Un schéma d'entrée ne déclare que ce que le handler honore
+## Decision
 
-Un paramètre publié est honoré ou refusé, jamais accepté puis ignoré. L'export en est l'application : son contrat
-— complet sur les trois surfaces, paramètre de page refusé, limite du cadre STDIO MCP et ses recours — est décidé par
-ADR-0092.
-
-### 7. L'échec d'ouverture du store est un refus
-
-Aucun handler MCP n'ouvre de `SqliteConnectionScope` ; chaque store qu'il ouvre passe par `SqliteStoreConnection.open`,
-qui convertit toute `RuntimeException` (refus du bail de maintenance, échec du pilote) en `KnowledgeStoreException`.
-La règle de la décision 2 suffit donc : tout handler qui atteint un store répond par un refus `isError`, sans chaîne
-d'exception ni chemin absolu.
-
-Ce contrat ne dit rien de la **sémantique** des échecs métier : `UNKNOWN` n'est pas `BLOCKED` (ADR-0093), un conflit de
-composition reste explicite, et un résultat en erreur reste un refus, jamais une dégradation silencieuse.
+1. **Format** : nom fautif d'abord, puis l'attendu : `<nom> is required and must be <attendu>` (absent),
+   `<nom> must be <attendu>` (malformé), `<nom> must be <attendu> when present` (optionnel) ; `<attendu>` vaut
+   `a non-blank string`, `an integer`, `an integer between <min> and <max>`, `a boolean` ou `a finite number`. Seul
+   `McpArguments` l'écrit et lit un argument.
+2. **Mapping exact**, rien d'autre : lire des arguments, `IllegalArgumentException` ; ouvrir un
+   `MorpheusMcpRuntime` ou un store, `KnowledgeStoreException` ; un service qui refuse un état,
+   `IllegalStateException` ; composer des policies, `PolicyConflictException`.
+3. **Rédaction** : `MorpheusProviderPluginMcpTools` garde son `catch (RuntimeException)` motivé dans le code et
+   refuse par `McpToolFailure.refusal` avec `PROVIDER_PLUGIN_DISCOVERY_FAILED`, sans relayer le message.
+4. **Inconnus** refusés avant le handler par le validateur du SDK (`.validateToolInputs(true)` dans
+   `MorpheusMcpServer`, épinglé par un test), sans copie par handler ; on n'asserte ni texte ni langue du SDK.
+5. **Refus comme valeur** : `isError` d'une mutation de cycle de vie = `ChangeLifecycleMutationResultState.successful()`
+   (`APPLIED`, `ALREADY_APPLIED` ; `switch` sans `default`, partagé avec le CLI), corps inchangé. Seul
+   `McpToolFailure` pose `isError(true)` ; tout autre résultat (verdict, décision `BLOCK` ou `UNKNOWN`, `FAILED` de
+   raisonnement, observation d'ADR-0124) écrit `isError(false)`.
+6. **Schéma honoré** : un paramètre publié est honoré ou refusé, jamais ignoré (export : ADR-0092).
+7. **Store** : aucun handler n'ouvre de `SqliteConnectionScope` ; `SqliteStoreConnection.open` convertit toute
+   `RuntimeException` en `KnowledgeStoreException`, refusée `isError` sans chaîne d'exception ni chemin absolu.
+   `UNKNOWN` n'est pas `BLOCKED` (ADR-0093) ; un refus n'est jamais une dégradation silencieuse.
 
 ## Do's and Don'ts
 
 ### Do
 
 - Lire tout argument d'outil par `McpArguments`, et produire les messages au format de la décision 1.
-- Mapper exactement les exceptions que le handler peut atteindre, selon le tableau de la décision 2.
+- Mapper exactement les exceptions que le handler peut atteindre, selon la décision 2.
 - Construire tout résultat d'erreur par `McpToolFailure` ; écrire `isError(false)` explicitement sur tout autre
   résultat.
 - Décider `isError` d'une mutation de cycle de vie par `ChangeLifecycleMutationResultState.successful()`, en gardant le

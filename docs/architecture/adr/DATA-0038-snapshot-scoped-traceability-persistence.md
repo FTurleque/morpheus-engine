@@ -16,11 +16,7 @@ rules: false
 générations de connaissance et sans réintroduire une sémantique de graphe dans les adaptateurs, et sans gonfler
 artificiellement `SpecificationKnowledgeStore` ou `VersionedRequirementStore`.
 
-## Decision
-
-### Port
-
-Un port applicatif dédié, indépendant de SQLite et de tout moteur de graphe :
+Le port et ses opérations :
 
 ```text
 TraceabilityStore
@@ -31,48 +27,16 @@ TraceabilityStore
   incoming(snapshotId, target, relationTypes)
 ```
 
-Il est implémenté par `MemoryTraceabilityStore` et `SqliteTraceabilityStore`, qui s'appuient sur la fondation
-snapshot existante. `putLinks` écrit un lot snapshot-scoped en tout ou rien : un lien déjà défini à l'identique
-rejoint le snapshot sans être réécrit, un lien listé deux fois à l'identique est stocké une fois, et une définition
-différente sous une identité déjà utilisée — dans le store ou plus tôt dans le lot — refuse tout le lot par une
-`KnowledgeStoreException` qui nomme l'identité.
-
-### Définition du lien distincte du membership
+Les invariants de définition et de déduplication :
 
 ```text
 TraceabilityLink identity/definition != KnowledgeSnapshot membership
-```
-
-Un `TraceabilityLinkId` identifie une définition immuable. Le même lien peut appartenir à plusieurs snapshots si sa
-définition est strictement identique. Réutiliser un `TraceabilityLinkId` avec un contenu différent est rejeté
-explicitement.
-
-### Snapshot obligatoire
-
-Toute écriture exige un `KnowledgeSnapshotId` déjà connu du store. Le snapshot n'a pas à être `ACTIVE` : les liens
-peuvent être préparés dans un candidat `BUILDING`, `VALIDATING` ou `READY` avant activation. L'isolation vient du
-membership explicite : `snapshot A links != snapshot B links`.
-
-### Déduplication
-
-```text
+snapshot A links != snapshot B links
 same snapshot + same TraceabilityLinkId + same definition -> idempotent
 same TraceabilityLinkId + different definition            -> collision
 ```
 
-Deux `TraceabilityLinkId` distincts ne sont jamais fusionnés, même si leurs endpoints et leur relation sont
-identiques : l'identité explicite du lien est préservée.
-
-### Requêtes directes
-
-`outgoing` et `incoming` sont des primitives de stockage indexables, pas un moteur de traversée. Elles sont
-snapshot-scoped, filtrables par ensemble de `TraceabilityRelationType` (un ensemble vide signifie « toutes les
-relations »), déterministes et triées par `TraceabilityLinkId`, sans matérialisation d'une arête inverse. La traversée
-multi-niveaux relève d'ADR-0040.
-
-### SQLite
-
-La migration `V005__snapshot_traceability_persistence.sql` crée un schéma normalisé, sans JSON générique :
+Le schéma SQLite de la migration `V005__snapshot_traceability_persistence.sql` :
 
 | Table | Contenu | Clé |
 |---|---|---|
@@ -80,31 +44,41 @@ La migration `V005__snapshot_traceability_persistence.sql` crée un schéma norm
 | `traceability_link_evidence` | preuves du lien | `(link_id, evidence_id)` |
 | `snapshot_traceability_links` | membership, rattaché aux snapshots par clé étrangère | `(snapshot_id, link_id)` |
 
-Index :
+Ses index :
 
 ```text
 traceability_links(source_kind, source_identity_id, relation_type, link_id)
 traceability_links(target_kind, target_identity_id, relation_type, link_id)
 ```
 
-La recherche du membership d'un snapshot est servie par la clé primaire `(snapshot_id, link_id)` ; aucun index
-secondaire ne la répète. La requête directe joint le membership à la définition ; aucun endpoint n'est dupliqué dans la
-table de membership.
+`outgoing` et `incoming` sont des primitives de stockage indexables, déterministes, pas un moteur de traversée ; en
+SQLite elles joignent le membership à la définition. SQLite reconstruit exactement endpoints typés, relation,
+`origin`, `resolution`, `confidence`, identifiants de preuves et `observedAt`.
 
-SQLite reconstruit exactement endpoints typés, relation, `origin`, `resolution`, `confidence`, identifiants de preuves
-et `observedAt` ; fermer puis rouvrir le fichier ne modifie aucune de ces valeurs.
+`MemoryTraceabilityStore` tient une table des définitions (`TraceabilityLinkId -> TraceabilityLink`) et une table des
+memberships (`KnowledgeSnapshotId -> Set<TraceabilityLinkId>`).
 
-### Mémoire
+## Decision
 
-`MemoryTraceabilityStore` implémente le même port avec une table des définitions (`TraceabilityLinkId ->
-TraceabilityLink`) et une table des memberships (`KnowledgeSnapshotId -> Set<TraceabilityLinkId>`). Il reçoit le
-`SpecificationKnowledgeStore` comme dépendance pour vérifier l'existence du snapshot et reste l'adaptateur de
-référence sémantique.
-
-### Hors de cette décision
-
-Traversée, dérivation depuis `NormalizedProjectContent`, mapping provider, résolution MINOS, fuzzy matching,
-invalidation incrémentale complète.
+1. **Port** : `TraceabilityStore` (`putLink`, `putLinks`, `findLink`, `outgoing`, `incoming`), indépendant de SQLite
+   et de tout moteur de graphe, implémenté par `MemoryTraceabilityStore` et `SqliteTraceabilityStore` sur la fondation
+   snapshot, au même contrat.
+2. **Lot** : `putLinks` écrit en tout ou rien ; un lien identique déjà défini rejoint le snapshot sans réécriture, un
+   doublon identique du lot est stocké une fois ; une définition différente sous une identité déjà utilisée (store ou
+   lot) refuse tout le lot par une `KnowledgeStoreException` qui nomme l'identité.
+3. **Définition et membership** : un `TraceabilityLinkId` identifie une définition immuable, partageable entre
+   snapshots si strictement identique ; réutilisé avec un autre contenu, il est rejeté. Deux `TraceabilityLinkId`
+   distincts ne sont jamais fusionnés, même à endpoints et relation identiques.
+4. **Snapshot obligatoire** : toute écriture exige un `KnowledgeSnapshotId` connu, pas forcément `ACTIVE` (`BUILDING`,
+   `VALIDATING`, `READY` admis) ; l'isolation vient du membership explicite.
+5. **Requêtes directes** : `outgoing`/`incoming` sont snapshot-scoped, filtrables par `TraceabilityRelationType`
+   (ensemble vide = toutes), triées par `TraceabilityLinkId`, sans arête inverse ; la traversée relève d'ADR-0040.
+6. **SQLite** : schéma normalisé de `V005__snapshot_traceability_persistence.sql`, sans JSON générique ; le
+   membership `snapshot_traceability_links` (clé `(snapshot_id, link_id)`, sans index qui la répète) ne duplique aucun
+   endpoint. Toutes les valeurs du lien survivent à la réouverture du fichier.
+7. **Mémoire** : vérifie le snapshot par `SpecificationKnowledgeStore` ; adaptateur de référence.
+8. **Hors décision** : traversée, dérivation depuis `NormalizedProjectContent`, mapping provider, résolution MINOS,
+   fuzzy matching, invalidation incrémentale complète.
 
 ## Do's and Don'ts
 

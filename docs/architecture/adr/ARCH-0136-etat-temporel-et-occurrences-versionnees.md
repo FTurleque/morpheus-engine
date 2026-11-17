@@ -49,35 +49,14 @@ Options écartées :
   temporalité qu'ils ne connaissent pas toujours, casserait la frontière du modèle normalisé (ADR-0121) et
   dupliquerait les mêmes champs sur toutes les entités.
 
-## Decision
-
-### 1. Courant, proposé et historique sont représentés séparément
-
-Le modèle MORPHEUS représente séparément l'état courant de la spécification, les changements proposés ou en cours, et
-l'historique archivé ou supersédé. Cette distinction n'est pas déduite du chemin de fichier lors des requêtes : elle
-est normalisée dans le modèle.
-
-### 2. Des dimensions orthogonales, jamais une enum unique
+Les trois dimensions que la décision garde séparées, et les champs d'une occurrence versionnée
+(`com.morpheus.domain.version.EntityVersion`) :
 
 | Dimension | Type | Valeurs |
 |---|---|---|
 | Position par rapport à l'état courant | `com.morpheus.domain.temporal.TemporalState` | `CURRENT`, `PROPOSED`, `HISTORICAL` |
 | Cycle de vie d'un changement | `com.morpheus.domain.change.lifecycle.ChangeLifecycleState` | celles d'ADR-0119 |
 | Qualité / résolution de l'information | `com.morpheus.domain.traceability.TraceabilityResolutionState` | `RESOLVED`, `PARTIALLY_RESOLVED`, `UNRESOLVED`, `HEURISTIC` |
-
-Les seuls états temporels sont `CURRENT`, `PROPOSED` et `HISTORICAL`. `TemporalState` reste orthogonal à
-`ChangeLifecycleState`, à `KnowledgeSnapshotState`, à la résolution et à la vérification.
-
-Le statut externe d'un provider est conservé dans la provenance ; quand aucune équivalence MORPHEUS n'est sûre,
-MORPHEUS expose `UNKNOWN` ou un diagnostic plutôt qu'une équivalence inventée.
-
-### 3. L'occurrence versionnée enveloppe le contenu normalisé
-
-Cinq concepts portent la temporalité : `TemporalState`, `EntityVersionId`, `SpecificationVersionId`,
-`EntityVersion<T>` et `SpecificationVersion`. L'occurrence versionnée **enveloppe** le contenu normalisé sans le
-modifier ; aucun record du modèle normalisé ne porte `TemporalState`.
-
-Une occurrence versionnée (`com.morpheus.domain.version.EntityVersion`) contient :
 
 | Champ | Rôle |
 |---|---|
@@ -87,71 +66,50 @@ Une occurrence versionnée (`com.morpheus.domain.version.EntityVersion`) contien
 | `TemporalState` | état temporel explicite |
 | contenu | contenu normalisé |
 
-Invariant : `EntityVersionId != DomainIdentity`. Une même `DomainIdentity` peut avoir plusieurs occurrences
-versionnées.
+Une reconstruction technique peut produire un nouvel `EntityVersionId` en réutilisant explicitement la même version
+métier : une réingestion n'impose pas intrinsèquement une nouvelle version (ADR-0143). La politique de la publication
+complète officielle est un choix applicatif, non une identité entre `KnowledgeSnapshot` et `SpecificationVersion` ;
+d'autres orchestrations peuvent réutiliser explicitement une version.
 
-### 4. Version métier et snapshot technique sont distincts
-
-`SpecificationVersion` représente une version logique du contenu de spécification : `SpecificationVersionId`,
-`ProjectSpecificationId`, `sequence` optionnelle et strictement positive, `providerVersion` et `sourceRevision`
-optionnels, `createdAt`, `predecessor` optionnel et explicite. Une version ne peut pas être son propre prédécesseur.
-
-Invariant : `SpecificationVersion != KnowledgeSnapshot`.
-
-Le modèle autorise une reconstruction technique à produire un nouvel `EntityVersionId` tout en réutilisant
-explicitement le même `SpecificationVersionId` :
+`com.morpheus.application.temporal.TemporalProjection<T>` fournit `all()`, `current()`, `proposed()`, `historical()`,
+`byState(state)`, `forEntity(identity)` et `currentFor(identity)`.
 
 ```text
 snapshot/reingestion A -> EntityVersionId A -> SpecificationVersionId V1
 snapshot/reingestion B -> EntityVersionId B -> SpecificationVersionId V1
-```
 
-Une réingestion technique n'impose donc pas intrinsèquement une nouvelle version métier (ADR-0143). La décision de
-créer une nouvelle `SpecificationVersionId` appartient à une politique explicite. Le chemin officiel de publication
-complète (`ProjectSnapshotImportService.publishFull()`, ADR-0144) applique la politique suivante, qui est un choix
-applicatif et non une identité entre `KnowledgeSnapshot` et `SpecificationVersion` :
-
-```text
 full publish attempt -> new SpecificationVersionId + unique project-local sequence
 FAILED candidate     -> version remains durable and consumes its sequence
 successful retry     -> allocates the next sequence
 predecessor          -> remains the previously ACTIVE published version
-```
 
-D'autres orchestrations peuvent réutiliser explicitement une version ; la publication complète officielle choisit de
-ne pas le faire.
-
-### 5. La vue courante ne filtre que sur l'état temporel
-
-`com.morpheus.application.temporal.TemporalProjection<T>` fournit `all()`, `current()`, `proposed()`, `historical()`,
-`byState(state)`, `forEntity(identity)` et `currentFor(identity)`. La vue `CURRENT` filtre exclusivement sur
-`TemporalState == CURRENT` ; aucune autre propriété ne provoque de promotion implicite.
-
-Dans une projection observable donnée, une `DomainIdentity` a au plus une occurrence `CURRENT`. Deux occurrences
-`CURRENT` pour la même identité logique rendent la projection ambiguë et sont rejetées. Plusieurs occurrences
-`PROPOSED` concurrentes sont autorisées :
-
-```text
 same DomainIdentity
-├── CURRENT   30 minutes
+├── CURRENT   30 minutes      <- la vue courante reste 30 minutes
 ├── PROPOSED  60 minutes
 └── PROPOSED  15 minutes
 ```
 
-La vue courante reste `30 minutes`.
+## Decision
 
-`get_current_specification` répond sans incorporer silencieusement les deltas de changements actifs. Une vue de type
-`preview_specification_after(changeId)` est permise, mais elle est identifiée comme simulation ou projection.
-
-### 6. Changements concurrents, archivage et supersession
-
-Plusieurs changements peuvent être actifs simultanément. MORPHEUS ne suppose pas qu'ils sont automatiquement
-compatibles et ne les fusionne pas silencieusement. Il conserve pour chacun son identité, sa base de référence, les
-spécifications affectées, les dépendances entre changements et les conflits explicites détectables.
-
-Lorsqu'un changement est terminé, son historique reste disponible, sa relation à la nouvelle spécification courante
-est traçable, et MORPHEUS peut expliquer quel changement a introduit une exigence lorsque la source le permet. Un
-élément supersédé ne disparaît pas de l'historique comme s'il n'avait jamais existé.
+1. **Séparation** : courant, proposé ou en cours, historique archivé ou supersédé sont normalisés à part,
+   jamais déduits d'un chemin, d'un dossier `archive`, d'une checkbox ou d'un lifecycle.
+2. **Orthogonalité** : `TemporalState` (`CURRENT`, `PROPOSED`, `HISTORICAL` seuls) reste distinct de
+   `ChangeLifecycleState`, `KnowledgeSnapshotState`, `TraceabilityResolutionState` et de la vérification, sans
+   enum unique. Le statut externe du provider reste en provenance ; sans équivalence sûre : `UNKNOWN` ou
+   diagnostic.
+3. **Occurrence** : `EntityVersion<T>` enveloppe le contenu normalisé sans le modifier, avec `EntityVersionId`
+   (`!= DomainIdentity`), `SpecificationVersionId` et `TemporalState` ; aucun record normalisé ne porte
+   `TemporalState`. Une identité admet plusieurs occurrences.
+4. **Version métier** : `SpecificationVersion` (`ProjectSpecificationId`, `sequence` optionnelle > 0,
+   `providerVersion`, `sourceRevision`, `createdAt`, `predecessor` optionnel explicite, jamais elle-même) n'est pas un
+   `KnowledgeSnapshot` ; créer ou réutiliser une version relève d'une politique explicite.
+   `ProjectSnapshotImportService.publishFull()` (ADR-0144) crée par tentative une version à séquence locale unique,
+   gardée par un candidat `FAILED` (une reprise prend la suivante), de prédécesseur la version `ACTIVE` précédente.
+5. **Vue courante** : `current()` et `currentFor` de `TemporalProjection<T>` filtrent sur `TemporalState == CURRENT`
+   seul ; deux `CURRENT` d'une identité sont rejetés, plusieurs `PROPOSED` admis. `get_current_specification`
+   n'incorpore aucun delta actif ; `preview_specification_after(changeId)` se déclare simulation.
+6. **Concurrence** : des changements actifs ne sont ni supposés compatibles ni fusionnés ; chacun garde identité,
+   base, spécifications affectées, dépendances, conflits. Archives et éléments supersédés restent interrogeables.
 
 ## Do's and Don'ts
 
@@ -159,7 +117,6 @@ est traçable, et MORPHEUS peut expliquer quel changement a introduit une exigen
 
 - Porter la position temporelle (courant, proposé, historique) comme une donnée normalisée du modèle, dans une
   `EntityVersion` qui enveloppe le contenu normalisé.
-- Garder séparées la position temporelle, l'état de cycle de vie et l'état de résolution.
 - Donner à chaque occurrence un `EntityVersionId` distinct de sa `DomainIdentity`.
 - Conserver séparément plusieurs propositions concurrentes pour la même identité logique.
 - Rejeter une projection qui porte deux occurrences `CURRENT` pour la même identité.
@@ -180,7 +137,7 @@ est traçable, et MORPHEUS peut expliquer quel changement a introduit une exigen
   la vue de l'état courant.
 - Ne pas promouvoir implicitement une occurrence en `CURRENT` sur une autre propriété que son état temporel.
 - Ne pas fusionner silencieusement plusieurs changements actifs ni les supposer compatibles.
-- Ne pas mélanger plusieurs dimensions dans une seule enum.
+- Ne pas mélanger position temporelle, cycle de vie et résolution dans une seule enum.
 - Ne pas confondre `SpecificationVersion` et `KnowledgeSnapshot`.
 - Ne pas déclarer une `SpecificationVersion` comme son propre prédécesseur.
 - Ne pas inventer une équivalence entre un statut provider et un état MORPHEUS.

@@ -29,115 +29,63 @@ d'identifiant. Utiliser son texte comme identité ferait varier l'identité à c
 Une `CURRENT` baseline et un delta `PROPOSED MODIFIED` du même requirement doivent coexister sans que l'ingestion du
 delta remplace silencieusement la baseline.
 
+Les invariants que la décision tient :
+
+```text
+provider facts                   != MORPHEUS domain
+content normalization            != temporal projection
+Scenario                         != AcceptanceCriterion
+DomainIdentity                   != SourceLocator != externalId
+change structure                 != temporal projection
+source checkbox                  != ChangeLifecycleState
+RequirementDeltaId               != RequirementId
+RequirementDeltaKind             != TemporalState
+normalized delta                 != applied delta
+structural ownership by ChangeId != traceability graph
+```
+
+Un provider peut garder dans ses faits internes toute information utile à la projection temporelle, sans qu'elle
+devienne une propriété publique du domaine. Le booléen `completed` d'une tâche est un fait source minimal, pas le
+cycle de vie du changement.
+
+`RequirementDelta` porte un `RequirementDeltaId`, son `ChangeId`, un `RequirementDeltaKind`, la clé de la spécification
+concernée, le `RequirementId` logique, une clé métier optionnelle, un titre, un énoncé, ses scénarios et sa
+provenance. `RequirementDeltaId` identifie l'occurrence « le changement X modifie le requirement Y » ; `RequirementId`
+identifie le requirement logique Y. `NormalizedProjectContent` réunit spécifications, requirements, scénarios
+courants, changements, deltas, contraintes, décisions, tâches, critères d'acceptation, preuves et diagnostics ; à la
+construction, elle vérifie que chaque spécification et chaque changement appartiennent au projet, que chaque
+sous-entité et chaque delta référencent un changement connu, que chaque requirement et chaque scénario courant
+référencent une entité connue, et que chaque provenance, scénarios de delta compris, référence une preuve présente. Un
+requirement courant et un delta `MODIFIED` y partagent légitimement le même `RequirementId`.
+
+Le provider OpenSpec emploie les clés `constraint:<changeKey>:<ordinal>`, `task:<changeKey>:<ordinal>`,
+`requirement:<specificationKey>/<slug>` et `requirement-delta:<changeKey>:<kind>:<requirementKey>`. Ses lecteurs
+`OpenSpecCurrentSpecificationReader`, `OpenSpecChangeMetadataReader` et `OpenSpecRequirementDeltaReader` alimentent
+`OpenSpecSpecificationContentReader`, le lecteur du port, qui produit le `NormalizedProjectContent`. Conséquence
+assumée de la clé structurelle : réordonner des éléments anonymes peut changer leur clé.
+
 ## Decision
 
-### Contenu normalisé sans temporalité
-
-Le contenu structurel d'un projet est normalisé en concepts provider-neutral : `ProjectSpecification`,
-`Specification`, `Requirement`, `Scenario`, `ChangeProposal`, `RequirementDelta`, `Constraint`, `DesignDecision`,
-`ImplementationTask`, `AcceptanceCriterion`, `Provenance`, `Evidence` et `ExternalReference`.
-
-Les records du modèle normalisé ne portent pas `TemporalState`. La temporalité est projetée par une occurrence
-versionnée qui enveloppe le contenu sans le modifier (ADR-0136). Un provider peut garder dans ses faits internes toute
-information utile à cette projection, sans qu'elle devienne une propriété publique du domaine.
-
-```text
-provider facts         != MORPHEUS domain
-content normalization  != temporal projection
-Scenario               != AcceptanceCriterion
-DomainIdentity         != SourceLocator != externalId
-```
-
-Une position dans l'arborescence d'un provider ne suffit pas à définir un état temporel MORPHEUS. Un scénario ne
-devient pas un critère d'acceptation sans règle explicite (ADR-0081).
-
-### Identité, locator et clé externe
-
-Trois notions restent distinctes :
-
-- `DomainIdentity` : identité MORPHEUS, UUIDv7 résolue et persistée par provider (ADR-0168) ;
-- `SourceLocator` : emplacement de la source ;
-- clé externe : identifiant provider-scoped à partir duquel l'identité est résolue.
-
-Deux providers qui emploient la même clé externe produisent des identités différentes. Le texte source ne devient
-jamais une identité MORPHEUS.
-
-### Changement, sous-entités et cycle de vie
-
-`ChangeProposal`, `Constraint`, `DesignDecision` et `ImplementationTask` ont des identités typées (`ChangeId`,
-`ConstraintId`, `DesignDecisionId`, `TaskId`). Chaque sous-entité référence explicitement son `ChangeId`. Ce
-rattachement est structurel ; les relations de traçabilité génériques relèvent d'ADR-0118.
-
-Le contenu normalisé d'un changement ne porte ni état de cycle de vie, ni transition, ni promotion `CURRENT`
-(ADR-0119). Une `ImplementationTask` peut conserver le seul booléen `completed`, lorsqu'il est encodé explicitement par
-une case à cocher : c'est un fait source minimal, pas le cycle de vie du changement.
-
-```text
-change structure != temporal projection
-source checkbox  != ChangeLifecycleState
-```
-
-### Clé structurelle des éléments anonymes
-
-Quand la source ne fournit pas d'identifiant à un élément, le provider génère une **clé externe structurelle**
-provider-scoped, fondée sur la position de l'élément et jamais sur son texte. Le provider OpenSpec emploie
-`constraint:<changeKey>:<ordinal>` et `task:<changeKey>:<ordinal>`. Une décision de conception, qui a un titre de
-section explicite, reçoit une clé dérivée du `changeKey` et de ce titre.
-
-Conséquence assumée : réordonner des éléments anonymes peut changer leur clé structurelle. La continuité se déclare
-alors explicitement ; aucune fusion par texte ou par similarité n'est permise.
-
-### Deltas de requirements
-
-`RequirementDelta` porte un `RequirementDeltaId`, son `ChangeId`, un `RequirementDeltaKind` (`ADDED`, `MODIFIED`,
-`REMOVED`), la clé de la spécification concernée, le `RequirementId` logique, une clé métier optionnelle, un titre, un
-énoncé, ses scénarios et sa provenance.
-
-```text
-RequirementDeltaId != RequirementId
-```
-
-`RequirementDeltaId` identifie l'occurrence « le changement X modifie le requirement Y » ; `RequirementId` identifie le
-requirement logique Y. Le requirement logique d'un delta est résolu par la même clé externe que le requirement
-courant, si bien qu'un `MODIFIED` partage le `RequirementId` de sa baseline tout en gardant un contenu séparé ;
-l'occurrence de delta a sa propre clé externe. Le provider OpenSpec emploie `requirement:<specificationKey>/<slug>` pour
-le requirement et `requirement-delta:<changeKey>:<kind>:<requirementKey>` pour l'occurrence.
-
-- `ADDED` : le requirement logique reçoit une nouvelle identité stable ; il n'entre pas dans la baseline courante.
-- `MODIFIED` : le requirement réutilise son `RequirementId` courant quand la clé externe est connue ; baseline et delta
-  restent deux contenus séparés.
-- `REMOVED` : le delta peut exister sans énoncé si la source ne donne que l'identité ou le titre de l'élément supprimé ;
-  `ADDED` et `MODIFIED` exigent un énoncé.
-
-Les scénarios d'un delta restent des `Scenario` provider-neutral, embarqués dans `RequirementDelta.scenarios` et
-rattachés au `RequirementId` du delta ; ils n'entrent pas dans la collection des scénarios courants.
-
-```text
-RequirementDeltaKind                   != TemporalState
-normalized delta                       != applied delta
-structural ownership by ChangeId       != traceability graph
-```
-
-Un delta normalisé n'est pas un delta appliqué : l'application, la promotion et la suppression effective d'un
-requirement de la projection courante relèvent d'ADR-0035.
-
-### Enveloppe normalisée
-
-`NormalizedProjectContent` réunit les spécifications, requirements, scénarios courants, changements, deltas,
-contraintes, décisions, tâches, critères d'acceptation, preuves et diagnostics d'un projet. À la construction, elle
-vérifie que chaque spécification et chaque changement appartiennent au projet, que chaque sous-entité et chaque delta
-référencent un changement connu, que chaque requirement et chaque scénario courant référencent une entité connue, que
-chaque identité est unique dans sa famille, et que chaque provenance (scénarios de delta compris) référence une preuve
-présente. Un requirement courant et un delta `MODIFIED` partagent légitimement le même `RequirementId`.
-
-Chaque entité normalisée porte une `Provenance` : un `SourceLocator` et un `EvidenceId` vers une `Evidence` (plage et
-SHA-256).
-
-### Composition des lecteurs
-
-Un provider compose des lecteurs séparés plutôt qu'un parser monolithique. Pour OpenSpec :
-`OpenSpecCurrentSpecificationReader`, `OpenSpecChangeMetadataReader` et `OpenSpecRequirementDeltaReader` alimentent
-`OpenSpecSpecificationContentReader`, le lecteur du port, qui produit le `NormalizedProjectContent`.
+1. **Contenu sans temporalité** : concepts provider-neutral (`ProjectSpecification`, `Specification`, `Requirement`,
+   `Scenario`, `ChangeProposal`, `RequirementDelta`, `Constraint`, `DesignDecision`, `ImplementationTask`,
+   `AcceptanceCriterion`, `Provenance`, `Evidence`, `ExternalReference`), sans `TemporalState` ; la temporalité est
+   une occurrence versionnée qui les enveloppe (ADR-0136), jamais déduite de l'arborescence du provider. Un scénario
+   n'est critère d'acceptation que par règle (ADR-0081).
+2. **Identité** : `DomainIdentity` (UUIDv7 par provider, ADR-0168), `SourceLocator` et clé externe provider-scoped
+   sont distincts ; même clé, deux providers : deux identités ; le texte n'est jamais une identité.
+3. **Changement** : `ChangeId`, `ConstraintId`, `DesignDecisionId`, `TaskId` ; chaque sous-entité référence son
+   `ChangeId` (traçabilité : ADR-0118). Ni cycle de vie ni promotion `CURRENT` (ADR-0119) ; une tâche garde
+   seulement `completed`, s'il vient d'une case à cocher.
+4. **Anonymes** : clé structurelle par position, jamais par texte (décision titrée : `changeKey` et titre) ; la
+   continuité se déclare, aucune fusion par texte ou similarité.
+5. **Deltas** : `RequirementDelta` (`ADDED`, `MODIFIED`, `REMOVED`) a sa propre clé ; son `RequirementId` vient de la
+   clé du requirement courant. `ADDED` : nouvelle identité hors baseline ; `MODIFIED` : même `RequirementId`, contenu
+   séparé ; seul `REMOVED` se passe d'énoncé. Scénarios dans `RequirementDelta.scenarios`, hors courants. Application :
+   ADR-0035.
+6. **Enveloppe** : `NormalizedProjectContent` refuse une entité hors projet, une référence inconnue, une identité en
+   double dans sa famille, une provenance sans preuve. Chaque entité a une `Provenance` (`SourceLocator`, `EvidenceId`
+   vers une `Evidence` : plage, SHA-256).
+7. **Lecteurs** : lecteurs séparés, pas de parser monolithique.
 
 ## Do's and Don'ts
 

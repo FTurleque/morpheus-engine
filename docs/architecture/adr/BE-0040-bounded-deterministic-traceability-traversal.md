@@ -16,109 +16,51 @@ Le modèle `TraceabilityLink`, sa persistance snapshot-scoped (ADR-0038) et sa d
 normalisé (ADR-0039) rendent les liens disponibles. Il faut les rendre navigables sans introduire de backend graphe,
 sans matérialiser d'arêtes inverses et sans transformer une traversée en nouvelle preuve sémantique.
 
-## Decision
-
-Un service applicatif neutre vis-à-vis des providers et des stores, `TraceabilityTraversalService`
-(`morpheus-application`), s'appuie sur `TraceabilityStore.outgoing` et `TraceabilityStore.incoming` :
+Forme du service, de ses directions et de l'ordre des voisins :
 
 ```text
 TraceabilityTraversalDirection
-  OUTGOING
-  INCOMING
-  BIDIRECTIONAL
+  OUTGOING      suit source -> target
+  INCOMING      parcourt target -> source
+  BIDIRECTIONAL peut emprunter les deux vues
 
 TraceabilityTraversalService
   direct(...)
   traverse(...)
   traverseExplained(...)
-```
 
-Résultats explicites : `TraceabilitySubgraph`, `ExplainedTraversal`, `TraceabilityPath`, `TraceabilityPathStep`.
-La traversée ne demande aucune table SQLite propre.
-
-**Snapshot comme frontière obligatoire.** Toute requête porte un `KnowledgeSnapshotId` explicite et ne lit que les liens
-de ce snapshot, par le port de persistance de la traçabilité. Aucune fusion entre snapshots n'est autorisée.
-
-```text
+ordre des voisins : next TraceabilityEntityRef, relation type, TraceabilityLinkId
 traversal(snapshot A) != traversal(snapshot B)
 ```
 
-**Direction.** La direction est une propriété de la requête :
+Qu'une relation soit traversable n'affirme aucune transitivité sémantique : `A -R1-> B -R2-> C` peut produire un chemin
+de longueur 2, mais jamais un lien `A -> C`. Parce que `TraceabilityPathStep` garde le lien persisté et le sens de
+l'étape, un chemin bidirectionnel peut emprunter une arête à rebours sans falsifier son sens de preuve. Avec l'ordre
+canonique, le plus court chemin reconstruit depuis l'étape de découverte est le premier plus court chemin du parcours
+en largeur, choisi de façon déterministe. Les vues compactes de `trace_requirement` et `get_change_context` sont le
+chemin commun de MCP, de HTTP et du JSON de la CLI.
 
-```text
-OUTGOING      suit source -> target
-INCOMING      parcourt target -> source
-BIDIRECTIONAL peut emprunter les deux vues
-```
+## Decision
 
-Même en parcours inverse, le `TraceabilityLink` retourné conserve sa direction canonique persistée. Une vue inverse ne
-crée jamais une seconde arête ni une seconde preuve. Les requêtes directes réutilisent les primitives du port :
-`outgoing` est la vue directe canonique, `incoming` la vue inverse sur l'arête persistée ; les résultats sont triés et
-restent dans le snapshot.
-
-**Profondeur.** `maxDepth` est obligatoire et strictement positif ; `maxDepth <= 0` est rejeté explicitement. Le nœud
-de départ est à la profondeur 0 ; une arête n'est explorée que depuis un nœud de profondeur strictement inférieure à
-`maxDepth`.
-
-**Budgets et troncature.** La profondeur appartient à l'appelant, bornée par les transports ; les nœuds et les liens
-sont bornés par le service, par `TraceabilityTraversalService.MAX_NODES` et `TraceabilityTraversalService.MAX_LINKS`,
-aux valeurs du portefeuille (ADR-0091). Une traversée qui s'arrête avant d'avoir observé tout ce que sa profondeur
-admet le dit dans `TraceabilitySubgraph.truncationReason()` et `truncated()`, avec les raisons du portefeuille :
-`NODE_BUDGET_REACHED:<n>`, `LINK_BUDGET_REACHED:<n>`, `DEPTH_BUDGET_REACHED:<n>`.
-
-- Un lien n'est pas retenu s'il mène à un nœud refusé par le budget.
-- `DEPTH_BUDGET_REACHED` n'est déclaré que si un lien reste réellement non observé au-delà de la frontière : un nœud
-  plus profond, ou un lien entre deux nœuds de la frontière.
-
-Les vues compactes de `trace_requirement` et `get_change_context`, chemin commun de MCP, de HTTP et du JSON de la CLI,
-portent la même paire, `truncationReason` (chaîne ou `null`) et `truncated` (ADR-0123).
-
-**Cycles.** La traversée est un parcours en largeur borné, avec suivi explicite des nœuds découverts. Un cycle reste
-visible dans le sous-graphe lorsque ses arêtes appartiennent à la frontière explorée, mais aucun cycle ne provoque
-d'exploration infinie.
-
-**Déterminisme.** Les voisins sont ordonnés canoniquement par :
-
-```text
-next TraceabilityEntityRef
-relation type
-TraceabilityLinkId
-```
-
-Les nœuds et arêtes du sous-graphe sont retournés dans un ordre stable. `traverseExplained` rend, pour chaque nœud
-atteint, le plus court chemin depuis le départ, reconstruit depuis l'étape qui a découvert ce nœud : avec le même ordre,
-c'est le premier plus court chemin du parcours en largeur, choisi de façon déterministe. `ExplainedTraversal`
-n'explique, sans relancer de recherche, que les nœuds que le sous-graphe rapporte : un nœud non atteint n'a pas de
-chemin et n'est pas présenté comme « sans chemin ».
-
-**Filtres.** Le filtre est un `Set<TraceabilityRelationType>` explicite ; l'ensemble vide signifie toutes les
-relations. Aucun type hors de l'énumération n'est accepté.
-
-**Chemin explicable.** `TraceabilityPathStep` conserve le lien persisté réel et le sens de parcours de l'étape
-(`from`, `into`). Un chemin bidirectionnel peut donc emprunter une arête à rebours sans falsifier son sens de preuve.
-
-**Traversée n'est pas transitivité.** Qu'une relation soit traversable n'affirme aucune transitivité sémantique :
-
-```text
-A -R1-> B -R2-> C
-```
-
-peut produire un chemin de longueur 2, mais jamais un lien `A -> C`. Aucun `TraceabilityLink` synthétique n'est
-produit.
-
-**Hors du service de traversée** :
-
-```text
-external resolution
-LINKS_TO_CODE / LINKS_TO_TEST enrichment
-fuzzy matching
-link derivation
-link persistence mutation
-transitive edge materialization
-graph database
-```
-
-Les références externes relèvent d'ADR-0142.
+1. **Service** : `TraceabilityTraversalService` (`morpheus-application`), neutre envers providers et stores, lit
+   `TraceabilityStore.outgoing` et `incoming`, rend `TraceabilitySubgraph`, `ExplainedTraversal`, `TraceabilityPath`,
+   `TraceabilityPathStep`, sans table SQLite.
+2. **Snapshot** : chaque requête porte un `KnowledgeSnapshotId` explicite, ne lit que ses liens, sans fusion.
+3. **Direction** : `OUTGOING`, `INCOMING` ou `BIDIRECTIONAL`, par requête. Le lien rendu garde sa direction
+   persistée ; une vue inverse ne crée ni seconde arête ni preuve.
+4. **Profondeur** : à l'appelant, bornée par les transports ; `maxDepth <= 0` rejeté ; une arête n'est explorée que
+   depuis une profondeur `< maxDepth`, départ à 0.
+5. **Budgets** : `TraceabilityTraversalService.MAX_NODES` et `MAX_LINKS` (ADR-0091). Une traversée incomplète
+   renseigne `truncationReason()` et `truncated()` : `NODE_BUDGET_REACHED:<n>`, `LINK_BUDGET_REACHED:<n>`,
+   ou `DEPTH_BUDGET_REACHED:<n>` si un lien reste non observé au-delà de la frontière. Un lien vers un nœud refusé
+   est écarté. Les vues compactes ont `truncationReason` (chaîne ou `null`) et `truncated` (ADR-0123).
+6. **Cycles et ordre** : largeur bornée avec nœuds découverts suivis ; un cycle de la frontière reste visible, sans
+   boucle infinie. Voisins par entité suivante, relation, `TraceabilityLinkId` ; sortie stable.
+7. **Chemins** : `traverseExplained` rend à chaque nœud atteint son plus court chemin, issu de l'étape de découverte,
+   et ne dit aucun nœud non atteint « sans chemin ». Une étape garde lien persisté et sens (`from`, `into`).
+8. **Filtre** : `Set<TraceabilityRelationType>` explicite, vide = tout ; hors énumération refusé.
+9. **Exclu** : lien transitif synthétique, résolution externe (ADR-0142), enrichissement `LINKS_TO_CODE` /
+   `LINKS_TO_TEST`, correspondance floue, dérivation ou mutation de lien, base graphe.
 
 ## Do's and Don'ts
 

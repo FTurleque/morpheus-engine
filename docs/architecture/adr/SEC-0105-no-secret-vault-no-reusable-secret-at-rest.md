@@ -37,75 +37,48 @@ Options écartées :
 | Identifiants systemd (`LoadCredentialEncrypted=`) | Solution serveur crédible, mais propre à systemd ; demanderait d'accepter un fichier de mot de passe. L'opérateur peut s'en approcher sans changement de MORPHEUS, via un fichier d'environnement protégé |
 | Accepter le mot de passe en propriété JVM, en le documentant | Contredit la règle « jamais un argument de ligne de commande » : une propriété `-D` en est un, et la documenter inscrirait dans le contrat une fuite vers les autres comptes |
 
-## Decision
+Raisons que la décision tient :
 
-### 1. Pas de coffre
-
-MORPHEUS n'intègre aucun coffre de secrets, sur aucune plateforme.
-
-### 2. Invariant : aucun secret réutilisable au repos
-
-MORPHEUS ne persiste jamais un secret qui permettrait, lu tel quel, de s'authentifier. Les jetons sont persistés sous
-forme d'empreinte SHA-256 d'une valeur de 32 octets tirée par `SecureRandom`
-(`RemoteIdentityCredentialService.TOKEN_BYTES`) : l'empreinte ne permet ni de s'authentifier ni, en pratique, de
-retrouver le jeton. C'est cet invariant qui rend un coffre sans objet : il protégerait des empreintes.
-
-Cette propriété tient **parce que les jetons sont générés, jamais choisis**. Une empreinte SHA-256 non salée d'un
-secret choisi par un humain serait attaquable par dictionnaire ; celle d'un secret de 256 bits aléatoires ne l'est
-pas.
-
-### 3. Le mot de passe TLS ne vient que de l'environnement
-
-Le mot de passe du keystore TLS est lu dans la variable d'environnement `MORPHEUS_SERVER_TLS_PASSWORD`, et nulle part
-ailleurs : jamais d'un argument MORPHEUS (`--tls-password`), jamais d'une propriété JVM (`-D`). Les deux sont des
-arguments de ligne de commande, et `/proc/<pid>/cmdline` est lisible par tous les comptes d'un Linux par défaut, là
-où `/proc/<pid>/environ` n'est lisible que par le propriétaire du processus (et root).
-
-C'est le seul réglage du mode remote sans repli propriété : le keystore, le fichier d'identités, les racines de
-workspace et la concurrence acceptent une propriété `morpheus.server.*`, parce qu'aucun d'eux n'est un secret. Le mot
-de passe ne s'aligne pas sur eux.
-
-Un lancement qui ne fournit pas la variable — y compris un lancement qui fournit le mot de passe par `-D` — est refusé
-**au démarrage**, avec un message qui nomme `MORPHEUS_SERVER_TLS_PASSWORD` : jamais un serveur qui démarre sans le
-secret attendu. `TlsKeystorePassword` ne retient pas la valeur : il la relit au moment d'ouvrir le keystore, en un
-`char[]` que l'appelant écrase.
-
-### 4. Modèle de menace
-
-**Protège contre** les **autres comptes** de la machine. `remote-auth.txt` est en `rw-------`, son répertoire en
-`rwx------` (POSIX et ACL Windows), tout accès se fait sans suivre les liens symboliques, et le fichier temporaire est
-durci avant le déplacement atomique. Le mot de passe TLS vit dans un environnement de processus qu'un autre compte ne
-lit pas.
-
-**Ne protège pas contre**, et ne prétend pas le faire :
-
-- la compromission du **compte** qui exécute MORPHEUS : ce compte lit son propre environnement et ses propres
-  fichiers. Un coffre ne changerait rien : un code malveillant sous ce compte utilise la clé depuis le coffre aussi
-  bien que depuis l'environnement ;
-- un **administrateur / root** de la machine ;
-- une **sauvegarde** du profil ou un disque non chiffré contenant le keystore ;
-- la manière dont l'**opérateur** conserve le mot de passe hors de MORPHEUS (script de démarrage, fichier
-  d'environnement) : c'est sa responsabilité, et la documentation opérateur lui recommande un compte de service
-  dédié ;
-- les copies que la **JVM** détient déjà sous forme de `String` dès la lecture de l'environnement : MORPHEUS n'en
-  fabrique pas d'autre, il ne peut pas effacer celle-là.
+- l'absence de tout secret réutilisable au repos rend un coffre sans objet : il protégerait des empreintes, qui ne
+  permettent ni de s'authentifier ni, en pratique, de retrouver le jeton. Cela tient **parce que les jetons sont
+  générés, jamais choisis** : une empreinte SHA-256 non salée d'un secret choisi par un humain serait attaquable par
+  dictionnaire, celle d'un secret de 256 bits aléatoires ne l'est pas ;
+- un argument MORPHEUS et une propriété `-D` sont tous deux des arguments de ligne de commande, et
+  `/proc/<pid>/cmdline` est lisible par tous les comptes d'un Linux par défaut, là où `/proc/<pid>/environ` ne l'est
+  que par le propriétaire du processus (et root). Le keystore, le fichier d'identités, les racines de workspace et la
+  concurrence acceptent une propriété `morpheus.server.*` parce qu'aucun d'eux n'est un secret ; le mot de passe ne
+  s'aligne pas sur eux, et un serveur ne démarre jamais sans le secret attendu ;
+- le compte qui exécute MORPHEUS lit son propre environnement et ses propres fichiers : un coffre ne changerait rien,
+  un code malveillant sous ce compte utilise la clé depuis le coffre aussi bien que depuis l'environnement. La
+  conservation du mot de passe hors de MORPHEUS (script de démarrage, fichier d'environnement) est la responsabilité
+  de l'opérateur, à qui la documentation recommande un compte de service dédié. La JVM détient une copie `String` du
+  mot de passe dès la lecture de l'environnement : MORPHEUS n'en fabrique pas d'autre et ne peut pas effacer
+  celle-là.
 
 Non vérifiés : le comportement de `/proc/<pid>/cmdline` sur un système monté avec `hidepid`, et la visibilité de la
 ligne de commande d'un autre compte sous Windows. L'argument tient sur un Linux par défaut, ce qui suffit à rendre la
 propriété JVM incompatible avec ce modèle de menace.
 
-### 5. Conditions de réouverture
+## Decision
 
-Cette décision est à reconsidérer si l'une de ces conditions devient vraie :
-
-1. MORPHEUS doit **stocker lui-même** un secret réutilisable (clé d'API d'un fournisseur, jeton d'un service tiers,
-   secret partagé) — l'invariant du §2 tomberait ;
-2. le mode remote est déployé **sur des machines partagées** par plusieurs utilisateurs, ou sous un compte non dédié ;
-3. une exigence de **conformité** impose un coffre ou une clé non exportable ;
-4. un jeton devient **choisi** plutôt que généré — l'empreinte non salée deviendrait attaquable (§2).
-
-Le candidat privilégié en cas de réouverture est le magasin de certificats Windows (`Windows-MY`) et, sous Linux, un
-fichier de mot de passe compatible avec les identifiants systemd.
+1. **Pas de coffre** de secrets, sur aucune plateforme.
+2. **Aucun secret réutilisable au repos** : MORPHEUS ne persiste jamais un secret qui, lu tel quel, authentifie. Un
+   jeton est généré, jamais choisi : 32 octets tirés par `SecureRandom` (`RemoteIdentityCredentialService.TOKEN_BYTES`),
+   persistés en empreinte SHA-256 seulement.
+3. **Mot de passe TLS par l'environnement seul** : lu dans `MORPHEUS_SERVER_TLS_PASSWORD`, jamais d'un argument
+   (`--tls-password`) ni d'une propriété JVM (`-D`) ; c'est le seul réglage du mode remote sans repli propriété
+   `morpheus.server.*`. Un lancement sans la variable, mot de passe en `-D` compris, est refusé au démarrage par
+   un message qui nomme `MORPHEUS_SERVER_TLS_PASSWORD`. `TlsKeystorePassword` ne retient pas la valeur : il la
+   relit à l'ouverture du keystore en un `char[]` que l'appelant écrase.
+4. **Modèle de menace** : protège contre les autres comptes de la machine — `remote-auth.txt` en `rw-------`, son
+   répertoire en `rwx------` (POSIX et ACL Windows), aucun lien symbolique suivi, fichier temporaire durci avant le
+   déplacement atomique, mot de passe dans un environnement qu'un autre compte ne lit pas. Ne protège pas, et ne le
+   prétend pas, contre la compromission du compte qui exécute MORPHEUS, un administrateur (root), une sauvegarde ou
+   un disque non chiffré, la conservation du mot de passe par l'opérateur, ni les copies `String` que la JVM détient.
+5. **Réouverture** si MORPHEUS doit stocker lui-même un secret réutilisable (clé d'API, jeton tiers, secret
+   partagé), si le mode remote est déployé sur des machines partagées ou sous un compte non dédié, si une conformité
+   impose un coffre ou une clé non exportable, ou si un jeton devient choisi. Candidats privilégiés : `Windows-MY`
+   sous Windows, un fichier de mot de passe compatible avec les identifiants systemd sous Linux.
 
 ## Do's and Don'ts
 
