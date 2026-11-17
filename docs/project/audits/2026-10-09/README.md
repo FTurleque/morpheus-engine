@@ -8,6 +8,329 @@
 
 ---
 
+## État au 17 novembre 2026 — le registre tient la borne du briefing, et plus rien n'est ouvert
+
+Revérification sur **`ad47046c`**, quatre commits depuis `7d3b012d`, 73 fichiers (+2 648 / −3 209). Deux PR :
+**#655** (tenir les sections remises aux agents sous la borne du briefing) et #656 (archivage).
+Build : **vert**, `BUILD SUCCESS` en **16 min 02 s** — **5 475 tests** (14 ignorés) dont **1 100 gates**, les deux
+verdicts d'enforcement à **0**. Les **trois tests de plus** qu'à la passe précédente sont dans le seul module des
+gates, et ce sont exactement les trois méthodes du gate neuf : `AdrBriefingBudgetTest` tourne bien dans
+`clean verify` (3 tests, 0 échec, relevé dans le journal). Aucun autre total par module ne bouge, ce qui est
+l'empreinte attendue d'un changement de documentation qui ajoute une seule classe de test.
+
+**`AUD-QUA-26` se ferme, et le correctif va plus loin que le constat.** Les 80 ADR en vigueur, réénumérés et
+remesurés avec la lecture que le constat avait tranchée : **zéro dépassement**. `Decision` plafonne à **2 000**
+caractères (`SEC-0004`, admis — la règle dit « au plus ») pour une médiane de 1 884, contre 56 dépassements et
+10 279 au plus long la veille. Trois ajouts que je n'avais pas demandés : la borne couvre aussi
+**`Do's and Don'ts`**, que `archgate review-context` remet également et que mon constat n'avait pas regardée
+(maximum 1 906) ; une section briefée **vide** échoue, ce qui ferme le piège d'un gate dont l'extraction ne
+trouverait rien et passerait tout le registre ; et la limite d'`archgate check` est écrite — il ne reconnaît un
+titre que sur un simple saut de ligne, donc **sous Windows, sur un arbre CRLF, il n'est pas une preuve**. C'est
+la réponse à la dernière phrase de mon action : le contrôle est maintenant dans le build, sur toutes les
+plateformes.
+
+**J'ai cherché le défaut propre à ce genre de correctif, et il n'est pas là.** Resserrer 56 sections peut tenir la
+borne en **supprimant** des règles au lieu de déplacer les raisons vers `Context` — ce que la règle elle-même
+interdit. Mesure : `Decision` perd 163 829 caractères, `Context` en gagne 149 206, les fichiers entiers ne perdent
+que **2 %**, aucune section de titre `##` n'a disparu, un seul ADR perd plus de 2 000 caractères nets. Deux
+recherches plus fines ont **sur-signalé**, et je le dis plutôt que de publier leurs chiffres : un test sur le
+vocabulaire a désigné 38 règles « perdues » dont la plupart survivent reformulées, un test sur les identifiants en a
+désigné 10 dont huit sont encore nommés sous une autre forme ou tenus par un test. Les deux seuls réellement
+orphelins n'existent plus dans aucune source : les retirer était une correction. **Aucune règle perdue que je sache
+démontrer** — avec la limite que cela vaut pour ce que des mesures ciblées établissent, pas pour une relecture
+humaine des 56 sections.
+
+Deux sources de production changent dans cette vague étiquetée `docs` : deux renvois Javadoc de
+`morpheus-mcp-transport` passent de `ADR-0106, §4` à `ADR-0106, point 7`, parce que l'aplatissement a supprimé la
+numérotation des sous-sections. C'est la bonne conséquence, et elle a été suivie partout : les quatre renvois vivants
+à un point numéroté d'ADR résolvent tous (ADR-0089 point 3, ADR-0018 point 5, ADR-0151 §2, et `ADR-0104 §4` dans un
+relevé daté dont l'ADR est archivé). Rien ne surveille ces renvois dans le build — mais aucun n'est cassé, donc je
+n'ouvre pas de constat : un constat se démontre, il ne s'anticipe pas.
+
+**Score global 100, aucun constat ouvert, sprint 17 soldé.** Ce chiffre dit qu'**aucun écart que je sache démontrer
+ne reste ouvert** — pas que le code est sans défaut. Et il mérite une réserve : chacune des trois dernières passes a
+ouvert un constat né de la précédente, et les deux derniers sont nés d'un geste que je n'avais pas à faire — exécuter
+le produit, puis vérifier la règle qu'un constat invoquait plutôt que sa seule clôture.
+
+---
+
+## État au 16 novembre 2026, nuit — le sprint 16 est soldé, et une convention du dépôt ne tient pas
+
+Revérification sur **`7d3b012d`**, cinq commits depuis `a4880f95`. Deux PR : **#653** (relayer les détails d'une
+erreur de provider) et #654 (archivage) ; le commit `003199fd` resserre au passage la section `Decision` de trois ADR.
+Build : **vert**, `BUILD SUCCESS` en **11 min 06 s** — **5 472 tests** (14 ignorés) dont **1 097 gates**, les deux verdicts d'enforcement à **0**. Les **10 tests de plus** qu'à la passe du soir tombent dans les quatre modules que #653 a touchés, et dans aucun autre : **CLI +4** (le relais sur la surface de sortie), **OpenSpec Provider +3** (la phrase du refus et sa borne de divulgation), **Application +2** (`IncompleteProjectReadException` qui porte les diagnostics), **API +1** (son propre chemin d'échec). Le compte de gates ne bouge pas — 1 097 — ce qui est l'empreinte attendue d'un correctif qui ajoute des tests unitaires et aucune règle d'architecture.
+
+**`AUD-QUA-25` se ferme, éprouvé là où un correctif de message est dangereux.** Sur `nexus-context-engine`, le dépôt
+réel qui est le cas du constat, la phrase rendue est désormais : `OpenSpec schema 'detailed-uml' is not supported:
+openspec/schemas/detailed-uml/schema.yaml must declare 'derives: spec-driven'.` — le schéma lu, le fichier attendu,
+la ligne à écrire. Les détails du diagnostic atteignent les deux modes de sortie. Et le correctif a ajouté ce que le
+constat n'avait pas demandé : une borne de divulgation sur la valeur déclarée, que j'ai éprouvée sur quatre valeurs —
+une traversée de chemin, un nom de 63 caractères, une injection de ponctuation, un nom bien formé. La valeur n'est
+recopiée dans la phrase que dans le dernier cas ; ailleurs la phrase passe au gabarit `<schema>` et le motif dit
+pourquoi.
+
+**`AUD-QUA-26` s'ouvre (Moyenne), et il vient du commit que je n'avais pas à vérifier.** `003199fd` met trois ADR sous
+les 2 000 caractères que `rules/adr.md` énonce pour la section `Decision` — vérifié, `GEN-0134` tient 1 743 et
+`SEC-0087` 1 712. J'ai mesuré les autres : **56 des 80 ADR en vigueur dépassent la borne**, les cinq plus longs à
+10 279, 9 000, 8 459, 8 416 et 7 949 caractères. `DATA-0168` (9 000) a été écrit la veille. La règle ne dit pas si les
+sous-sections comptent — et la lecture qui les exclut donnerait 0 caractère pour `DATA-0168`, donc un briefing vide,
+ce qui la disqualifie. Rien ne surveille cette borne : `archgate` n'est nommé par aucun workflow ni aucun script, et
+la règle le dit elle-même — « hors CI ».
+
+**État** : **138 constats** — 110 corrigés, 22 Info qui tiennent, 4 caducs, 1 non vérifiable, **1 toujours valide**.
+Qualité **96**, les cinq autres axes à **100** — moyenne **99,3**. **Sprint 16 soldé** : les quatre constats nés de
+l'exécution du produit sur les projets de son auteur sont fermés en deux jours. **Sprint 17** ouvert, d'un genre
+différent — une règle que le dépôt énonce, que son corpus ne tient pas, et qu'aucun gate ne lit. Reste **1 à 3 jours**.
+
+Deux passes de suite, le constat neuf est venu d'un geste qui n'était pas demandé : hier lancer le produit sur les
+dépôts réels, aujourd'hui vérifier si un commit qui corrige trois cas avait laissé les autres. Vérifier la clôture d'un
+constat et vérifier la règle que ce constat invoque sont deux gestes différents, et c'est le second qui trouve.
+
+---
+
+## État au 16 novembre 2026, soir — MORPHEUS ingère le projet de MORPHEUS
+
+Revérification sur **`a4880f95`**, 23 commits et 66 fichiers (+2 234 / −212) depuis `968431af`. Cinq PR : #648
+(Maven 3.10.1), **#649** (schéma dérivé **et** budget d'évidence), #650 et #651 (propagation d'un refus de budget),
+#652 (archivage).
+Build : **vert**, `BUILD SUCCESS` en **9 min 51 s** — **5 462 tests** (14 ignorés) dont **1 097 gates**, les deux verdicts d'enforcement à **0**. Les **25 tests de plus** qu'à la passe du matin tombent tous dans les modules que la vague a touchés, et dans aucun autre : **OpenSpec Provider +12** (schéma dérivé, outil de mesure, test de qualification, propagation du refus pendant la sonde), **Application +4** (comptage unique et qualification de la borne), **Architecture Tests +4** (le gate de la clause propre d'un refus de budget), **Synthetic +2** et **Markdown +1** (#650, le refus rendu sous le groupe `ingestion-budget`), **API +2** (#651, le budget de la poignée de main TLS). Les douze autres modules rendent des totaux identiques.
+
+**Les deux constats `Élevée` sont soldés, démontrés en lançant le produit sur les dépôts réels, sans rien y modifier :**
+
+```
+projects add --workspace N:\workspace-dev\morpheus-engine     (dépôt réel, non modifié)
+sync  →  sourceCount 636, requirementCount 363, traceabilityLinkCount 1304,
+         diagnosticCount 0, published true                      exit=0
+```
+
+Hier la lecture s'arrêtait à 52 % ; avant-hier le schéma était refusé d'entrée. La boucle de retour que le sprint 16
+réclamait est fermée.
+
+- **`AUD-ARC-22`** — le provider lit un schéma qui **déclare** dériver (`derives: spec-driven` dans
+  `openspec/schemas/<nom>/schema.yaml`), un schéma muet reste refusé : le fail-closed est conservé et c'est la
+  déclaration qui ouvre la porte, l'option recommandée. `ADR-0169` consolide. Vérifié aussi sur le plus gros corpus —
+  `minos-code-intelligence` avec la seule ligne ajoutée s'ingère entièrement : 921 sources, 441 exigences, 2 290
+  liens, 0 diagnostic.
+- **`AUD-ARC-23`** — les **deux** moitiés de l'action sont livrées, ce que la dernière revérification exigeait
+  ensemble : chaque ligne citée est comptée **une fois par fichier**, et la borne passe à **4 Mio**, qualifiée sur les
+  trois corpus réels (le plus gros cite 1 241 544 octets, sous le tiers) avec une **marge déclarée de la moitié de la
+  borne** écrite à côté de la valeur. Un outil de mesure et un test de qualification sont livrés avec.
+- **`AUD-QUA-25` (Moyenne) s'ouvre** — le refus d'un schéma non supporté rend une phrase nue dans les deux modes de
+  sortie, alors que le diagnostic porte `schema`, `supportedSchema`, `reason` et `declaredParent`.
+  `IncompleteProjectReadException` ne relaie que les messages, et la surface qui sait imprimer les détails n'est
+  appelée que sur un `sync` réussi. **Deux des trois projets du mainteneur sont dans cet état ce soir** : il leur
+  manque une ligne `derives:`, et la phrase rendue ne permet pas de le découvrir.
+
+**État** : **137 constats** — 109 corrigés, 22 Info qui tiennent, 4 caducs, 1 non vérifiable, **1 toujours valide**.
+Qualité **96**, les cinq autres axes à **100** — moyenne **99,3**. Reste **0,25 à 1 jour**.
+
+Trois passes consécutives l'ont confirmé dans les deux sens : ce qui se prouve en exécutant ne se prouve pas en lisant.
+Un diff lu aurait montré que le schéma dérivé fonctionne ; il n'aurait pas montré que son refus est devenu muet.
+
+---
+
+## État au 16 novembre 2026, matin — le plus petit des trois constats est soldé, et le triple comptage est mesuré
+
+Revérification sur **`968431af`**, trois commits depuis `1b5fe93d` : la PR **#646** propose les changements des trois
+constats du 15 novembre, la PR **#647** implémente et archive le plus petit.
+Build : **vert**, `BUILD SUCCESS` en **10 min 42 s** — **5 437 tests** (14 ignorés) dont **1 093 gates**, les deux verdicts d'enforcement à **0**. Les **trois tests de plus** qu'au 15 novembre tombent exactement là où #647 en a ajouté : **+2 dans `MORPHEUS Application`** (789 → 791) et **+1 dans `MORPHEUS OpenSpec Provider`** (84 → 85). Les seize autres modules rendent des totaux identiques à l'octet près.
+
+**`AUD-QUA-24` se ferme, vérifié en relançant ce qui l'avait produit.** `ProviderIngestionBudget` porte désormais une
+énumération `Scope { DOCUMENT, WHOLE_READ }` : une grandeur cumulative rend « for the whole read exceeds the budget:
+<valeur>, reached while reading <fichier> », une taille de document garde « exceeds budget for <fichier> ». J'ai
+reconstruit la CLI et relancé l'ingestion de `minos-code-intelligence` : mêmes chiffres, même fichier, attribution
+inversée. Le correctif a réparé en plus une confusion que je n'avais pas vue — le compte de lignes d'un document
+passait par la grandeur que la session cumule — et la règle est désormais écrite dans une spécification OpenSpec.
+
+**`AUD-ARC-23` — la question que je laissais ouverte est tranchée, et par la mesure.** Le 15 novembre je refusais de
+choisir entre « plafond trop bas » et « évidence comptée en excès ». Le mainteneur a trouvé le mécanisme :
+`OpenSpecCurrentSpecificationReader` facture l'évidence à trois niveaux — la spécification entière, chaque exigence
+avec ses scénarios, chaque scénario — et l'extrait entier, sans troncature, alors qu'`Evidence` n'en garde que
+l'empreinte. Vérifié dans le code, puis mesuré sur `openspec/specs/` de ce dépôt : **400 666 octets de fichiers
+facturés 1 001 318, soit 2,50×**, budget épuisé après **52 %** de la lecture. **À facturation unique, les trois corpus
+passent** (164, 401 et 503 Kio sous 512 Kio) : le plafond n'était pas le fautif, et le titre du constat est corrigé en
+conséquence. `minos` serait toutefois à 96 % du budget, donc la marge reste à qualifier.
+
+**Mesure étendue aux trois corpus, et deux de mes chiffres corrigés.** Le multiplicateur est **stable** — il tient à
+la structure du lecteur, pas aux données :
+
+| corpus | fichiers `specs/` | facturé | multiplicateur | budget épuisé à |
+|---|---:|---:|---:|---:|
+| `nexus-context-engine` | 161 287 | 409 407 | **2,54×** | 128 % (passe) |
+| `morpheus-engine` | 400 581 | 1 001 063 | **2,50×** | 52 % |
+| `minos-code-intelligence` | 524 079 | 1 368 367 | **2,61×** | 38 % |
+
+En rapportant au budget ce qui est réellement **facturé** plutôt que la taille des fichiers, deux affirmations que
+j'avais publiées tombent : `nexus` n'est pas « à 40 % du plafond » mais consomme **78 %** du budget, et à facturation
+unique `minos` ne serait pas « à 96 % » mais à **99,96 % — 209 octets de marge**. J'avais deux fois rapporté une
+grandeur au budget sans la facturer : exactement l'erreur que ce constat reproche au message de refus.
+**Conséquence pour l'action : compter une fois est nécessaire mais ne suffit pas.** La borne doit être requalifiée
+dans le même changement, sinon le premier scénario ajouté à minos rouvre le constat.
+
+**`AUD-ARC-22` — inchangé dans le code**, mais porté par le changement `accept-a-declared-derived-openspec-schema`,
+qui retient l'option recommandée et garde le fail-closed : c'est la déclaration `derives: spec-driven` qui ouvre la
+porte, pas une liste de noms admis. Dix tâches, aucune faite.
+
+**État** : **136 constats** — 107 corrigés, 22 Info qui tiennent, 4 caducs, 1 non vérifiable, **2 toujours valides**,
+les deux `Élevée` portés par un changement en vol. Architecture **80**, les cinq autres axes à **100** — moyenne
+**96,7**. Reste **2 à 6 jours**.
+
+Pour la deuxième fois en trois jours, le correctif du mainteneur a réparé quelque chose que mon constat n'avait pas vu,
+et sur `AUD-ARC-23` c'est lui qui a trouvé le triple comptage que j'avais renoncé à chercher. Mon apport s'est limité à
+le vérifier et à le chiffrer.
+
+---
+
+## État au 15 novembre 2026 — trois constats trouvés en exécutant le produit sur les projets de son auteur
+
+Revérification sur **`1b5fe93d`** (`origin/main`). **Cette passe n'est pas ordinaire** : le mainteneur a demandé
+comment utiliser MORPHEUS et comment y faire entrer OpenSpec, puis a nommé ses deux autres dépôts. Les trois
+partagent un même standard — arc42, OpenSpec dérivé en `detailed-uml` pour porter les diagrammes et
+l'interopérabilité Archgate. Y répondre obligeait à faire ce qu'aucune des vingt passes précédentes n'avait fait :
+**exécuter MORPHEUS sur de vrais corpus**. Aucun dépôt n'a été modifié — copie de `openspec/` dans `%TEMP%`, schéma
+changé dans la copie seule, bases jetables.
+
+Build : **vert**, `BUILD SUCCESS` en **9 min 00 s** — **5 434 tests** (14 ignorés) dont **1 093 gates**, les deux
+verdicts d'enforcement à **0**. Totaux par module identiques aux deux passes du 14 : #645 ne touche qu'un script et
+de la documentation.
+
+| Projet | `openspec/specs/` | `sync` |
+|---|---:|---|
+| `nexus-context-engine` | 163 850 o | **publié** — 237 sources, 168 exigences, 579 liens, 0 diagnostic |
+| `morpheus-engine` | 406 550 o | **refusé** — `524777 > 524288` |
+| `minos-code-intelligence` | 503 209 o | **refusé** — `557385 > 524288` |
+
+- **`AUD-ARC-22` (Élevée)** — le provider n'accepte que `schema: spec-driven` ; les trois projets déclarent
+  `detailed-uml`, inconnu du code de production. **Nexus s'ingère entièrement dès que cette seule ligne change** :
+  le provider sait lire ces corpus, il refuse de les regarder. Ouvert `Moyenne`, relevé `Élevée` le même jour quand
+  la portée est passée d'un dépôt à trois. L'option « déclarer `spec-driven` et porter `detailed-uml` ailleurs » est
+  écartée : le schéma pilote le workflow de rédaction et Archgate dans les trois dépôts.
+- **`AUD-ARC-23` (Élevée)** — le budget d'évidence vaut **512 Kio cumulés**, réglable par rien, et plafonne le volume
+  de `openspec/specs/` à environ **400 Kio**. Deux projets sur trois sont inatteignables ; le troisième est à 40 % du
+  plafond et le franchira en grandissant. L'échec est total, sans troncature déclarée. **Preuve corrigée le jour
+  même** : j'avais écrit que le corpus dépassait le budget « de 5,6 fois », et nexus — 1,16 Mio de corpus, publié —
+  l'a réfuté. La grandeur n'est pas le corpus mais les spécifications courantes.
+- **`AUD-QUA-24` (Moyenne)** — le refus du budget cumulatif nomme un fichier innocent. Deux instances : un fichier de
+  **2 005 octets** et un de **74 122** annoncés dépassant 524 288. La seconde est pire — le fichier accusé est
+  réellement le plus gros du dépôt, donc le diagnostic paraît confirmé. Le dépôt porte déjà la règle qui l'interdit,
+  dans `OpenSpecSourceAttribution` : « naming a file there would accuse an innocent one ».
+
+**État** : **136 constats** — 106 corrigés, 22 Info qui tiennent, 4 caducs, 1 non vérifiable, **3 toujours valides**.
+Architecture **80**, Qualité **96**, les quatre autres axes à **100** — moyenne **96**. Sprint 16 ouvert,
+**2,25 à 7 jours**.
+
+Le 100 d'hier soir a tenu vingt-quatre heures. Il était exact dans ses termes — « aucun écart que je sais démontrer » —
+et c'est sa limite que cette passe illustre : il mesurait ce que j'avais cherché, pas ce que le produit fait. Second
+enseignement, contre moi : ma première preuve d'`AUD-ARC-23` comparait deux grandeurs sans rapport, et seul le
+troisième projet l'a montré. Un audit qui mesure un cas et généralise fait ce qu'il reproche au code.
+
+---
+
+## État au 14 novembre 2026, soir — plus aucun constat ouvert
+
+Revérification sur **`e33c877a`** (`origin/main`), un seul changement depuis `cb63896a` : la PR **#644**, deux lignes
+de `docs/developer/BUILD_AND_TEST.md` et le change OpenSpec qui les porte.
+Build : **vert**, `BUILD SUCCESS` en **9 min 10 s** sur `e33c877a` — **5 434 tests** (14 ignorés) dont **1 093 gates**, et les deux verdicts d'enforcement à **0**. Les dix-huit totaux par module sont **identiques, un à un**, à ceux de la passe de l'après-midi sur `cb63896a` : c'est la preuve la plus simple que le changement n'a touché aucun comportement. `morpheus-mcp-transport` repasse pour la troisième fois d'affilée depuis son échec unique du matin.
+
+**`AUD-TST-28` se ferme, et le correctif a vu plus loin que le constat.** La phrase énonce maintenant les deux bornes,
+le sort du plancher D2, celui d'un module absent de la preuve, et la référence proportionnelle ; j'ai relu chaque
+clause contre `CoverageQualificationVerifier.windowProblem`, chacune a son équivalent. Au passage, la PR a réparé un
+**second** défaut de la même phrase, que mon constat n'avait pas relevé : elle définissait la dispersion d'un module
+par la référence de l'échelle entière, là où le vérificateur la multiplie par la part du module. J'avais cité la source
+qui donne la bonne formule et je l'avais moi-même appliquée le matin en recalculant les bandes — je tenais les deux
+bouts et je ne les ai pas comparés. La faute est à moi, elle est écrite dans la note de la passe.
+
+**Recalcul indépendant des trente-deux bandes**, puisque cette passe ferme le dernier constat : 4 résumés conservés,
+16 modules, **32 clés, zéro refus, aucune clé orpheline**. Deux faits qu'un build vert ne montre pas :
+`morpheus-integration-minos.lineCoverageMinimum` est posé **exactement** sur son bord haut (mou de 9 pour une borne de
+9, zéro unité de marge), et quatre autres clés exactement à `3×` leur dispersion. Conséquence à connaître : la
+prochaine amélioration de couverture de ce module fera sortir sa clé par le haut et exigera une hausse de seuil dans
+le même changement. C'est ce que la bande sert à provoquer, pas un défaut.
+
+**État** : **133 constats** — 106 corrigés, 22 Info qui tiennent, 4 caducs, 1 non vérifiable, **aucun ouvert**. Les six
+axes à **100**, et les quinze sprints soldés. J'écris 100 après avoir écrit 99,8 toute la journée : le 99,8 était le
+refus d'afficher un 100 pendant qu'un constat restait ouvert, il n'y en a plus. Ce 100 dit qu'aucun écart que je sais
+démontrer ne reste ouvert — pas que le code est sans défaut. Les trois dernières passes ont chacune ouvert un constat
+né de la précédente ; la prédiction honnête est que la prochaine vague en produira un autre.
+
+---
+
+## État au 14 novembre 2026, après-midi — le dernier constat du matin est soldé, et l'identité de domaine devient ordonnée
+
+Revérification sur **`cb63896a`** (`origin/main`), **12 commits et 46 fichiers** (+1 175 / −56) depuis `d35e7466`.
+Quatre PR : **#640** (ordre des arguments de `claude mcp add`), **#641** (le commentaire de la borne du mou),
+**#642** (génération ordonnée des identités de domaine, `DATA-0168`), **#643** (archivage).
+Build : **vert**, `BUILD SUCCESS` en **8 min 25 s** sur `cb63896a` — **5 434 tests** (14 ignorés) dont **1 093 gates**, et les deux verdicts d'enforcement à **0** (documentation drift, architecture violation). Les **six tests de plus** qu'au matin sont tous dans `morpheus-domain` (167 → 173) : ce sont ceux de la génération ordonnée des identités. **`morpheus-mcp-transport` repasse** — l'échec non reproduit du premier passage de ce matin ne s'est pas manifesté une troisième fois.
+
+**`AUD-TST-27` se ferme, et plus largement que le constat.** Je signalais un mot dans un commentaire ; la ligne 48 et
+le Javadoc de la méthode qui applique la règle (`:297`) ont été repris tous les deux, et le changement est passé par un
+change OpenSpec en règle — pour un mot. Recompté sur le dépôt vivant : plus aucune occurrence de « at most three »
+appliquée au maximum de la bande ; les six énoncés de la règle disent neuf. Aucune constante n'a bougé, ce qui est
+l'issue correcte : c'était le commentaire qui mentait.
+
+**L'identité de domaine est désormais générée dans l'ordre, et je l'ai vérifiée en l'exécutant.** `DATA-0168`, accepté,
+remplace `DATA-0140` : `rand_a` porte un compteur monotone par processus (RFC 9562, section 6.2, méthode 1). Plutôt que
+de lire le code, j'ai compilé `DomainIdentity` et `MonotonicTimestampSequence` hors du dépôt et je les ai fait tourner —
+**20 000 tirages sous une horloge figée** restent strictement croissants en n'empruntant que **9 ms** d'horodatage futur ;
+un recul d'horloge de 10 s puis de 24 h ne casse pas la croissance ; **200 000 identités réelles** sortent triées,
+toutes distinctes, toutes en version 7 et variante 2, et mélangées puis retriées elles retrouvent exactement l'ordre de
+génération ; **l'ordre du texte est celui de `compareTo`**, donc un `ORDER BY` SQL sur l'identité rend le même ordre que
+le domaine ; et **8 fils × 25 000** produisent 200 000 identités distinctes, croissantes dans chaque fil. La limite est
+dite par l'ADR elle-même — aucun ordre entre deux processus — et elle est sans effet sur le défaut d'origine, une
+transcription de la CLI qui échouait sur la CI dans **un seul** processus.
+
+**`AUD-TST-28` s'ouvre** (Faible, S, sprint 15), et c'est la même famille que celui qui vient de se fermer :
+`docs/developer/BUILD_AND_TEST.md:127` décrit la fenêtre d'un seuil de module par sa **seule borne basse** — « trois
+fois la dispersion » — et conclut « une décision dans cette fenêtre », alors que la borne haute de neuf dispersions est
+en vigueur depuis `GEN-0167` et qu'elle est précisément ce qui a fait monter 22 clés sur 32. Le mot « neuf » est absent
+de toute la section. Les cinq autres énoncés de la règle portent les deux bornes. Rien n'est faux à l'exécution et le
+refus du gate rattrape le lecteur ; le coût est un cycle perdu, sur une page que `rules/meta.md` désigne comme
+destination d'une hausse de seuil.
+
+**Vérifié au passage, sans constat.** Le correctif `claude mcp add` est un vrai correctif avec sa reproduction : le
+faux CLI du vérificateur **refusait** d'abord le nom de serveur placé après `--env`, et l'assertion précédente
+(`'mcp add --scope user .* morpheus -- '`) **épinglait l'ordre cassé** — un gate qui tenait le défaut. Les trois
+clients CLI mettent maintenant `morpheus` juste après `mcp add`, et seul `claude` porte `--scope user`. Côté ADR :
+`DATA-0140` part en archive avec un bandeau qui nomme `DATA-0168`, l'index et arc42 suivent, **80 ADR en vigueur et
+86 archivés**, aucun doublon de numéro, plus haut numéro `0168`. La chaîne `0009/0015/0023 → 0140 → 0168` fait deux
+sauts : c'est légal, borné, et le bandeau de `0140` mène directement à la décision en vigueur.
+
+**État** : **133 constats** — 105 corrigés, 22 Info qui tiennent, 4 caducs, 1 non vérifiable, **1 toujours valide**.
+Tests 99, les cinq autres axes à 100, moyenne **99,8**. Quatorze sprints sur quinze soldés, reste 0,25 à 1 jour.
+
+---
+
+## État au 14 novembre 2026, matin — le mou sous les seuils est borné pour les trente-deux clés
+
+Revérification sur **`d35e7466`** (`origin/main`), **10 commits et 34 fichiers** (+1 731 / −721) depuis `12cd8874`.
+Build : **rouge au premier passage, vert au second**. Le premier `clean verify` a échoué dans `morpheus-mcp-transport` ; le second, relancé machine au repos, est **vert** : `BUILD SUCCESS` en **9 min 27 s**, **5 428 tests** (14 ignorés), dont **1 093 gates**, et les deux verdicts d'enforcement à **0** (documentation drift, architecture violation). La classe fautive y passe en **1,974 s**. Détail dans **`reverification-2026-11-14.md`**.
+
+**`AUD-TST-26` se ferme, et le correctif est plus général que le constat.** Je demandais de poser deux clés dans leur
+fenêtre ; le dépôt a **décidé la borne d'abord** — `GEN-0167`, accepté, remplace `GEN-0166` : un seuil de module laisse
+sous sa plus basse mesure conservée au moins trois et **au plus neuf** fois sa dispersion retenue — puis a reposé les
+**vingt-deux clés sur trente-deux** que cette borne rendait non conformes. **Recalcul indépendant des trente-deux
+seuils** sur les quatre résumés conservés : les trente-deux sont dans la bande, et la seule restée au plancher D2 y est
+parce que sa borne haute vaut 0,300, sous le plancher. Les deux clés que je nommais montent exactement comme la bande
+l'impose : `integration-nexus` **0,473 → 0,839**, `integration-minos` **0,560 → 0,875**. Le refus nomme désormais le
+plus petit seuil admis — un seuil trop bas n'est plus un silence, c'est un échec avec son remède chiffré.
+
+**Un constat neuf, et c'est un mot.** `AUD-TST-27` : le commentaire qui documente la borne du mou, trois lignes
+au-dessus d'elle, écrit « at most **three** times its margin » quand la constante vaut **neuf**. L'ADR, la
+spécification, la page de règles et le message de refus du vérificateur disent tous neuf ; seul ce commentaire dit
+trois, et la justification qu'il donne est bien celle du maximum. Rien n'est faux à l'exécution. Je l'ouvre parce que
+cet audit a ouvert un constat pour trois cellules de tableau périmées, et parce que le lecteur de cette phrase est
+exactement celui qui viendra modifier la borne.
+
+**Le build de cette passe est rouge, puis vert, et je le raconte plutôt que de choisir.** Le premier
+`./mvnw clean verify` a échoué dans `morpheus-mcp-transport` : deux tests de cycle de vie qui lancent de vrais
+processus pairs n'ont **rien vu progresser du tout** — aucun lancement enregistré en 20 s, aucun fil de transport
+terminé en 10 s. Rejouée seule, la classe passe ses six tests en **1,979 s**. Et **aucun fichier de ce module n'a
+changé** depuis le dernier build vert. Faute de reproduction, je ne l'impute pas au code ; je ne l'efface pas non plus.
+
+**132 constats : 104 corrigés · 22 Info qui tiennent · 4 caducs · 1 non vérifiable · 1 toujours valide.** Un seul
+constat actif, `Faible`, effort S. Scores inchangés : Tests **99**, les cinq autres axes **100**, moyenne **99,8** —
+un constat `Faible` en remplace un autre sur le même axe.
+
 ## État au 12 novembre 2026 — `develop` est retirée, `main` est la seule branche longue
 
 Revérification sur **`12cd8874`** (`origin/main`), **9 commits et 79 fichiers** (+1 114 / −390) depuis `555aa2e0`.
