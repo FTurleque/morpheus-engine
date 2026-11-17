@@ -224,7 +224,30 @@
         "AUD-TST-23",
         "AUD-TST-24",
         "AUD-TST-25",
-        "AUD-TST-26"
+        "AUD-TST-26",
+        "AUD-TST-27",
+        "AUD-TST-28"
+      ]
+    },
+    {
+      "numero": 16,
+      "titre": "Le produit face aux projets de son auteur",
+      "pourquoi": "Ce sprint n'est pas du plan du 9 octobre, et il ne vient pas d'un correctif : il rassemble les constats nés de l'**usage** du produit. Le 15 novembre, le mainteneur demande comment utiliser MORPHEUS et comment y faire entrer OpenSpec. Répondre honnêtement obligeait à le faire tourner sur un vrai corpus — ce qu'aucune des vingt passes précédentes n'avait tenté, toutes ayant lu le code et lancé les gates. Le mainteneur a ensuite nommé ses deux autres dépôts, `nexus-context-engine` et `minos-code-intelligence`, qui partagent le même standard de rédaction : arc42, OpenSpec dérivé en `detailed-uml` pour porter les diagrammes et l'interopérabilité Archgate. Les trois projets ont été mesurés et ingérés. Deux sont refusés, un passe, et le diagnostic du refus désigne un fichier innocent. Vingt passes de lecture n'avaient vu aucun des trois constats : ils ne sont visibles qu'en exécutant.",
+      "sortie": "MORPHEUS ingère les corpus OpenSpec des trois projets de son auteur — atteint pour `morpheus-engine` le 16 novembre, et démontré sur `minos-code-intelligence` ; les deux autres dépôts attendent une ligne `derives:` dans leur propre schéma. Un refus de provider dit à l'opérateur ce qu'il a vu et ce qui le débloquerait.",
+      "constats": [
+        "AUD-ARC-22",
+        "AUD-ARC-23",
+        "AUD-QUA-24",
+        "AUD-QUA-25"
+      ]
+    },
+    {
+      "numero": 17,
+      "titre": "Une convention énoncée que le corpus ne tient pas",
+      "pourquoi": "Ce sprint tient les constats d'un genre précis : une règle que le dépôt énonce, que son corpus ne tient pas, et qu'aucun gate ne lit. Le premier est né le 16 novembre en vérifiant un commit qui resserrait la section Decision de trois ADR sous la borne de 2 000 caractères — borne que 56 des 80 ADR en vigueur dépassent, dont le plus récent. Ce n'est pas une dérive apparue pendant un correctif (sprint 15) ni un constat d'usage (sprint 16) : c'est un écart entre une convention écrite et le corpus qu'elle régit, invisible parce que son seul contrôle vit hors CI.",
+      "sortie": "Chaque convention chiffrée du dépôt dit ce qu'elle compte, et soit le corpus la tient, soit elle est requalifiée sur ce que le corpus porte, soit elle est retirée. Dans tous les cas un contrôle du dépôt la lit, plutôt qu'un outil hors CI.",
+      "constats": [
+        "AUD-QUA-26"
       ]
     }
   ]

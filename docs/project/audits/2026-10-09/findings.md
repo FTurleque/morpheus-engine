@@ -1,7 +1,7 @@
 # MORPHEUS — constats d'audit
-Audit du **9 octobre 2026** sur `20cf2e0`, revérifié dix-sept fois depuis, et le **12 novembre 2026** sur `12cd8874` (`origin/main`). **`develop` a été retirée le 12 novembre** : `main` est la seule branche longue, et c'est désormais la branche que cet audit lit — les passes antérieures lisaient `develop`. Chaque constat porte son statut et la preuve qui l'établit.
+Audit du **9 octobre 2026** sur `20cf2e0`, revérifié vingt-cinq fois depuis, et le **17 novembre 2026** sur `ad47046c` (`origin/main`). `develop` a été retirée le 12 novembre : `main` est la seule branche longue, et c'est la branche que cet audit lit. Chaque constat porte son statut et la preuve qui l'établit.
 
-**131 constats** — 103 corrigé, 1 toujours valide, 4 caduc, 22 tient, 1 non vérifiable ici.
+**138 constats** — 111 corrigé, 4 caduc, 22 tient, 1 non vérifiable ici. **Aucun n'est ouvert.**
 
 > **Plus aucun constat `Élevée` n'est ouvert.** La PR #580 ferme les deux derniers, `AUD-ARC-01` et `AUD-PRF-04`, et chacun a été rouvert dans le code avant d'être accepté. Il y en avait onze le 9 octobre.
 
@@ -14,6 +14,188 @@ Audit du **9 octobre 2026** sur `20cf2e0`, revérifié dix-sept fois depuis, et 
 `tient` ne s'applique qu'aux constats *Info* : ils n'affirment pas un défaut mais une propriété, et le statut dit si elle tient encore. Les constats nés après l'audit sont rassemblés dans le sprint 15.
 
 ## Sévérité : Élevée
+
+### AUD-QUA-26 — La borne de 2 000 caractères sur la section Decision d'un ADR n'est tenue que par 24 ADR sur 80, et ne dit pas ce qu'elle compte  *(constat neuf, 16/11)*
+| | |
+|---|---|
+| **Statut sur l'intégration** | **CORRIGÉ** |
+| **Sévérité** | Moyenne |
+| **Axe** | Qualité |
+| **Effort** | M |
+| **Sprint** | 17 — Une convention énoncée que le corpus ne tient pas |
+| **Vérifié le** | 2026-11-17 sur `ad47046c` |
+
+**Constat de vérification** — Clôturé. J'ai vérifié la clôture par la mesure qui avait ouvert le constat, relancée sur la nouvelle tête, et non par la relecture du diff. J'ai aussi cherché le défaut propre à ce genre de correction : resserrer 56 sections peut tenir la borne en **supprimant** des règles au lieu de déplacer les raisons vers `Context`, ce que la règle elle-même interdit (« `Decision` garde toutes les règles »). Bilan sur les 56 ADR modifiés : `Decision` perd 163 829 caractères, `Context` en gagne 149 206, et les fichiers entiers ne perdent que 16 738 — 2 %. Aucune section de titre `##` n'a disparu ; un seul ADR perd plus de 2 000 caractères nets. Deux recherches plus fines ont **sur-signalé** et je les écarte en le disant : un test sur le vocabulaire des lignes supprimées a désigné 38 règles « perdues » dont la plupart survivent reformulées (ARCH-0066 garde `getRequestURI().getPath()`, BE-0040 garde `maxDepth`, ARCH-0093 garde ses six mentions de dry-run, DATA-0168 garde `HEURISTIC` et `PARTIALLY_RESOLVED`) ; un test sur les identifiants cités a désigné 10 orphelins, dont BE-0040 qui garde `MAX_LINKS` sous sa forme courte et SEC-0129 qui garde en entier la règle du pin et de la copie vérifiée exposée au seul `URLClassLoader` — seul le nom `ProviderPluginActivator` a quitté le texte. Les deux seuls identifiants réellement orphelins, `TraceabilityStore.incoming` et `ExternalReference.ownerId`, n'existent plus dans aucune source : les retirer était une correction, pas une perte. **Aucune règle perdue que je sache démontrer.** Je note la limite : cette conclusion vaut pour ce que des mesures et des recherches ciblées peuvent établir, pas pour une relecture humaine des 56 sections.
+
+```
+Corrigé sur `ad47046c` (PR #655, puis #656 qui archive le changement `hold-the-adr-briefing-budget`). Les trois branches de l'action sont faites, et la correction va au-delà du constat.
+**Mesure.** Les 80 ADR en vigueur réénumérés par `glob` (`*-[0-9][0-9][0-9][0-9]-*.md`), section prise de son titre `##` au `##` suivant et mesurée après `strip()`, soit la lecture que le constat avait tranchée : **zéro dépassement** sur les deux sections remises aux agents. `Decision` : maximum **2 000** (`SEC-0004-local-first-no-llm-core.md`), médiane 1 884 — contre 56 dépassements et 10 279 au plus long sur `7d3b012d`. `Do's and Don'ts` : maximum **1 906**, et aucun ADR ne manque l'une des deux sections. L'ADR à exactement 2 000 est admis : la règle dit « 2 000 caractères **au plus** » et `archgate review-context` « coupe chacune à 2 000 ».
+**La règle dit ce qu'elle compte** — `.claude/rules/adr.md:57-60` : « Une section court de son titre `##` au titre `##` suivant, sous-sections `###` comprises, mesurée sans les blancs de bord », et nomme les deux sections remises plus leur raison (« il coupe chacune à 2 000 »). C'était le premier point de l'action, celui sans lequel aucune mesure n'était vérifiable.
+**Un gate du dépôt la lit** — `AdrBriefingBudgetTest` (`morpheus-architecture-tests`, `@CoherenceCheck`), source relue : `BRIEFING_BUDGET = 2_000`, `BRIEFED_SECTIONS = List.of("Decision", "Do's and Don'ts")`, registre énuméré comme je l'énumère (`^[A-Z]+-\d{4}-.*\.md$` sur `docs/architecture/adr`, archive exclue), et trois tests : la borne sur tout le registre, le découpage (une sous-section `###` appartient à sa section, et la mesure est identique en LF et en CRLF), et le message de refus (il nomme l'ADR, la section et sa longueur ; une section pile à la borne passe, une à borne+1 échoue).
+**Deux ajouts que le constat n'avait pas demandés.** D'abord la borne couvre `Do's and Don'ts`, que je n'avais pas regardée alors qu'`archgate review-context` la remet aussi : mon constat ne portait que sur `Decision`. Ensuite une section briefée **vide** échoue, ce qui ferme le piège d'un gate dont l'extraction ne trouverait rien et passerait tout le registre.
+**Limite d'`archgate check`, désormais écrite.** `rules/adr.md:74-77` et le Javadoc du test disent qu'Archgate ne reconnaît un titre que sur une ligne terminée par un simple saut : sur un arbre extrait en CRLF il ne voit aucune section et ne signale aucun dépassement — « sous Windows, il n'est pas une preuve ». C'est la réponse à la dernière phrase de mon action : le contrôle est maintenant dans le build, sur toutes les plateformes. Je ne vérifie pas ce comportement d'Archgate, qui vit hors du dépôt : je le rapporte comme ce que le dépôt déclare de son propre outil.
+```
+
+**Ce qui reste** — Rien pour ce constat : la borne est tenue par les 80 ADR sur les deux sections briefées, la règle dit ce qu'elle compte, et un gate du build la lit. Deux observations hors périmètre, que je n'ouvre pas en constat faute d'écart démontrable. (1) **Rien ne surveille les renvois à un point numéroté d'ADR.** L'aplatissement des sous-sections a invalidé deux renvois Javadoc de `morpheus-mcp-transport`, corrigés à la main dans la même PR (`ADR-0106, §4` → `point 7`) ; les quatre renvois vivants résolvent tous aujourd'hui, mais aucune assertion ne le vérifiera à la prochaine renumérotation. (2) **La conclusion « aucune règle perdue » a la portée de ses mesures**, pas d'une relecture humaine des 56 sections `Decision` réécrites.
+
+**Décision de clôture** — Clos sur `ad47046c` : la borne est tenue par les 80 ADR en vigueur sur les **deux** sections remises aux agents, la règle dit enfin ce qu'elle compte, et un gate du dépôt la lit sur toutes les plateformes. Le correctif dépasse le constat sur trois points — la seconde section briefée, le refus d'une section vide, et la limite d'`archgate check` sur un arbre CRLF, écrite noir sur blanc.
+
+<details><summary>Constat d'origine (16 novembre)</summary>
+
+**Preuve**
+
+`.claude/rules/adr.md:57` énonce : « Sa section `Decision` tient sous **2 000 caractères** : c'est elle qu'Archgate remet aux agents, et `archgate check` signale au-delà un `briefingWarnings` sans échouer. » Le commit `003199fd` (dans la vague du 16/11) resserre trois ADR sous cette borne — vérifié : `GEN-0134` tient 1 743 caractères, `SEC-0087` en tient 1 712.
+Mesuré sur les **80 ADR en vigueur** de `7d3b012d`, section `## Decision` prise jusqu'au `##` suivant : **56 dépassent 2 000 caractères**, les cinq plus longs étant `ARCH-0124` (10 279), `DATA-0168` (9 000), `BE-0106` (8 459), `ARCH-0092` (8 416), `SEC-0129` (7 949). `DATA-0168` a été écrit **la veille**.
+La règle ne dit pas ce que « sa section Decision » compte, et les deux lectures possibles ne se valent pas : prise jusqu'au `##` suivant, elle inclut les sous-sections `###`, et c'est le chiffre ci-dessus ; prise jusqu'au premier `###`, elle vaut **0 caractère** pour `DATA-0168`, dont la section commence directement par `### 1.`. La seconde lecture ferait remettre aux agents un briefing vide pour cet ADR, ce qui contredit la raison d'être que la règle énonce — c'est donc la première qui vaut, et c'est elle que je mesure.
+Rien ne surveille cette borne : `archgate` n'est nommé par aucun workflow de `.github/workflows/` ni par aucun script de `scripts/`, et `rules/adr.md` le dit — « `archgate check`, hors CI ».
+
+**Impact** — Ce que le dépôt remet aux agents n'est pas ce que le dépôt dit leur remettre. La section `Decision` est la pièce qu'Archgate sert comme briefing : à 10 279 caractères elle fait cinq fois la taille prévue, et l'intention de la borne — tenir le briefing court pour qu'il soit lu — est perdue sur deux tiers du registre. L'effet n'est pas un défaut d'exécution : c'est une dilution de la gouvernance documentaire, sur le mécanisme même qui sert à cadrer le travail des agents sur ce dépôt. Et l'écart grandit : l'ADR le plus récent est le deuxième plus long. Aucun gate ne peut le signaler, puisque le seul contrôle vit hors CI.
+
+**Action** — **Trancher d'abord ce que la borne compte**, et l'écrire dans `rules/adr.md` : la section entière, sous-sections comprises. Sans cette phrase, toute mesure est discutable et aucune correction n'est vérifiable.
+Puis choisir, et la décision est une vraie décision, pas un nettoyage : **(1) tenir la borne** — déplacer vers `Context` les raisons et les options que 56 sections `Decision` portent aujourd'hui, ce qui est le sens de la règle (« Les raisons et les options vont dans `Context` ») mais représente un travail sur les deux tiers du registre ; **(2) requalifier la borne** sur ce que le corpus porte réellement, en disant pourquoi 2 000 n'était pas la bonne valeur — et dans ce cas la mesurer, comme la borne d'évidence vient de l'être ; **(3) assumer l'écart** et retirer la borne de `rules/adr.md`, parce qu'une règle que deux tiers du corpus ignorent et qu'aucun gate ne lit n'est pas une règle.
+Quelle que soit l'option, **rendre le contrôle visible** : un test de cohérence du dépôt sait compter des caractères dans un fichier Markdown, et `RepositoryDocumentationCoherenceTest` en compte déjà d'autres. Laisser cette borne au seul `archgate check` hors CI, c'est la laisser dériver sans témoin — ce qu'elle a fait.
+
+</details>
+
+### AUD-QUA-25 — Le refus d'un schéma non supporté ne dit ni ce qu'il a vu, ni ce qui le débloquerait, alors que le code le sait
+| | |
+|---|---|
+| **Statut sur l'intégration** | **CORRIGÉ** |
+| **Sévérité** | Moyenne |
+| **Axe** | Qualité |
+| **Effort** | S |
+| **Sprint** | 16 — Le produit face aux projets de son auteur |
+| **Vérifié le** | 2026-11-16 sur `7d3b012d` |
+
+**Constat de vérification** — Solde, et de la façon la plus utile : la phrase ne dit plus seulement ce qui ne va pas, elle dit **quoi écrire et où**. Le correctif a fait les deux choses que l'action laissait au choix, et il a ajouté ce que le constat n'avait pas demandé — une borne de divulgation sur la valeur déclarée. C'est l'endroit exact où un correctif de message crée un risque : interpoler dans une phrase une chaîne que n'importe quel `config.yaml` fournit. Je l'ai éprouvée sur quatre valeurs, dont une traversée de chemin et une injection de ponctuation, et elle tient : la valeur n'est recopiée que si c'est un nom de schéma court et bien formé, sinon la phrase passe au gabarit `<schema>` et le motif dit pourquoi. La valeur brute reste dans le champ structuré, ce qui est sa place.
+
+```
+Corrigé par la PR #653 (`ff3b6da1`), change OpenSpec archivé par #654. Les **deux** formes que l'action proposait sont livrées : le refus compose sa phrase avec ses propres faits, **et** `IncompleteProjectReadException` porte désormais les diagnostics du provider (`providerErrors`).
+**Vérifié en exécutant sur `nexus-context-engine`**, le dépôt réel qui est exactement le cas du constat. Phrase rendue, identique dans les deux modes : `OpenSpec schema 'detailed-uml' is not supported: openspec/schemas/detailed-uml/schema.yaml must declare 'derives: spec-driven'.` — elle nomme le schéma lu, le fichier attendu et la ligne à ajouter. En mode `--json` un bloc `diagnostics` porte en plus la carte complète (`provider`, `reason=no-declared-parent`, `schema`, `supportedSchema`) ; en mode texte la ligne `diagnostic=ERROR UNSUPPORTED_PROVIDER_SCHEMA {…}` s'imprime, par la surface qui ne servait qu'au succès.
+**Borne de divulgation éprouvée** sur quatre valeurs déclarées, sur copies de la fixture : `../../../etc/passwd` → phrase sans la valeur, `<schema>` en gabarit, motif `invalid-schema-name` ; nom bien formé de 63 caractères → phrase sans la valeur, motif `schema-definition-missing` ; `detailed-uml'; DROP TABLE x; --` → refus plus en amont (`INVALID_SOURCE`, « config.yaml does not declare a schema »), la valeur n'atteint aucun message ; `detailed-uml` → valeur recopiée et chemin complet. Le code borne cela explicitement (`SCHEMA_NAME` refuse `..`, `MAX_NAMED_SCHEMA_LENGTH = 32`, et `declaredParent` ne va jamais dans la phrase, seulement dans `details`).
+```
+
+**Décision de clôture** — Clos sur `7d3b012d` : le refus nomme le schéma lu, le fichier attendu et la déclaration à ajouter, les détails du diagnostic atteignent les deux modes de sortie, et la recopie de la valeur déclarée est bornée — éprouvée sur une traversée de chemin, un nom trop long et une injection de ponctuation.
+
+<details><summary>Constat d'origine (16 novembre)</summary>
+
+**Preuve**
+
+`OpenSpecSpecificationProvider.unsupportedSchema` construit un diagnostic riche (`:157-167`) : `provider`, `schema`, `supportedSchema`, `reason`, et `declaredParent` quand un parent est déclaré. Aucun de ces détails n'atteint l'opérateur sur le chemin d'échec. Mesuré sur `nexus-context-engine` avec la CLI de `a4880f95`, les deux modes de sortie rendent la même phrase nue :
+- `--json sync` : `… errors: The OpenSpec schema is not supported by this MORPHEUS provider.`
+- mode texte : `MORPHEUS error [4]: … errors: The OpenSpec schema is not supported by this MORPHEUS provider.`
+`IncompleteProjectReadException` ne relaie que les **messages** des erreurs (`:53`), pas leurs détails. La surface qui sait les imprimer, `MorpheusProjectCli.diagnosticLines` (`:204-213`), n'est appelée que sur la vue d'un `sync` **réussi** (`view.diagnostics()`) : un refus de probe n'y passe jamais.
+
+**Impact** — Le refus ne nomme ni le schéma lu (`detailed-uml`), ni celui qui est supporté (`spec-driven`), ni la raison, ni le remède — une ligne `derives: spec-driven` dans `openspec/schemas/<nom>/schema.yaml`. Le cas n'est pas hypothétique : deux des trois projets du mainteneur sont dans cet état aujourd'hui, et la phrase qu'ils rendent ne permet pas de le découvrir. Un opérateur conclut que son workspace n'est pas supporté, alors qu'il l'est à une ligne près. C'est la même famille qu'`AUD-QUA-24`, qui vient d'être soldé : un diagnostic exact dans ses données et muet à l'écran, qui fait conclure de travers au lieu de faire agir.
+
+**Action** — Relayer les détails d'un diagnostic d'erreur sur le chemin d'échec, comme ils le sont déjà sur le chemin de succès. Deux formes possibles : `IncompleteProjectReadException` porte les diagnostics et pas seulement leurs messages, ou le refus du probe compose sa phrase avec ses propres détails — « schema `detailed-uml` is not supported; it is read as `spec-driven` only when `openspec/schemas/detailed-uml/schema.yaml` declares `derives: spec-driven` ». La seconde est la plus courte et ne touche qu'un message ; la première sert tous les refus de provider, pas seulement celui du schéma, et c'est elle que la cohérence avec le chemin de succès suggère. Le remède tient en une phrase : le code a déjà les quatre faits qui la composent.
+
+</details>
+
+### AUD-ARC-23 — Le budget d'évidence refuse deux des trois corpus parce qu'il facture jusqu'à trois fois le même texte, et n'est réglable par rien
+| | |
+|---|---|
+| **Statut sur l'intégration** | **CORRIGÉ** |
+| **Sévérité** | Élevée |
+| **Axe** | Architecture |
+| **Effort** | M |
+| **Sprint** | 16 — Le produit face aux projets de son auteur |
+| **Vérifié le** | 2026-11-16 sur `a4880f95` |
+
+**Constat de vérification** — Solde, et le correctif a fait les deux choses que la dernière revérification demandait ensemble — le comptage **et** la borne. C'était le point sur lequel j'avais insisté après avoir corrigé mes propres chiffres : compter une fois aurait laissé minos à 209 octets du plafond, donc la borne devait être requalifiée dans le même changement. Elle l'est, sur une mesure des trois corpus, avec une marge déclarée (la moitié de la borne) écrite à côté de la valeur — pas choisie a priori. La qualification est exécutable, pas seulement documentée. Je note que la borne reste **non réglable** par une option ou une configuration : ce n'était pas l'objet du constat, dont l'action portait sur le comptage et la qualification, et avec le plus gros corpus à 30 % de la borne le besoin n'est plus actuel. Si un corpus approche la moitié de la borne, c'est la qualification qui se refait.
+
+```
+Corrigé par la PR #649 (`286e9299`), change OpenSpec archivé par #652. Les **deux** moitiés de l'action sont livrées, ce que le constat exigeait explicitement.
+**Le comptage** : la session compte chaque ligne citée **une fois par fichier lu** (`addEvidenceLines`), là où les lecteurs citent la spécification entière, chaque exigence et chaque scénario. Le multiplicateur de 2,50× à 2,61× que j'avais mesuré disparaît.
+**La borne** : `maxEvidenceBytes` passe de 512 Kio à **4 Mio**, et sa qualification est écrite à côté d'elle (`ProviderIngestionBudget:24-32`) — mesurée le 16/11 sur les trois workspaces réels, lus en entier avec chaque ligne comptée une fois, le plus gros cite **1 241 544 octets** (531 513 de spécifications courantes, le reste de 33 changements actifs), « under a third of the bound ». La **marge déclarée est la moitié de la borne** : un corpus qui cite plus que la moitié sort de ce qui a été qualifié. Un outil de mesure (`OpenSpecEvidenceMeasurement`) et un test de qualification (`OpenSpecEvidenceBudgetQualificationTest`) sont livrés avec.
+**Vérifié en exécutant sur le pire corpus** — `minos-code-intelligence`, qui dépassait l'ancienne borne de 11,4 fois : copie avec la seule ligne `derives:` ajoutée, `sync` rend `{"sourceCount":921,"requirementCount":441,"traceabilityLinkCount":2290,"diagnosticCount":0,"published":true}`, code 0. Et sur ce dépôt, où la lecture s'arrêtait à 52 % : 636 sources, 0 diagnostic.
+```
+
+**Décision de clôture** — Clos sur `a4880f95` : chaque ligne citée est comptée une fois par fichier, la borne passe à 4 Mio qualifiée sur les trois corpus réels avec une marge déclarée de la moitié de la borne, et les deux corpus qui étaient refusés s'ingèrent entièrement — 921 sources pour minos, 636 pour ce dépôt, zéro diagnostic.
+
+<details><summary>Constat d'origine (15 novembre)</summary>
+
+**Preuve**
+
+`ProviderIngestionBudget.DEFAULT` fixe `maxEvidenceBytes = 512 * 1024` (524 288). Le compteur est **cumulatif sur toute la session** : `Session.addEvidenceFragment` additionne les octets de chaque fragment d'évidence extrait et refuse dès que le total dépasse le budget (`ProviderIngestionBudget:186-191`). Les quatre lecteurs de production ouvrent tous `DEFAULT` ; aucune construction d'un autre budget hors des tests, **aucune option CLI, aucune clé de configuration, rien dans `docs/user/`**. L'opérateur n'a aucun levier.
+Mesuré en exécutant `sync` sur les trois projets du mainteneur (copies `%TEMP%`, schéma passé à `spec-driven`, bases jetables), la grandeur qui décide est le volume de **`openspec/specs/`**, pas celui du corpus :
+- `nexus-context-engine` — specs **163 850** octets sur 35 fichiers → **publié** : 237 sources, 168 exigences, 579 liens, 0 diagnostic ;
+- `morpheus-engine` — specs **406 550** octets sur 84 fichiers → **refusé** à `524777 > 524288` ;
+- `minos-code-intelligence` — specs **503 209** octets sur 22 fichiers → **refusé** à `557385 > 524288`.
+Le corpus OpenSpec complet ne prédit rien : nexus en porte 1 162 205 octets et passe, morpheus 2 966 619 et échoue. Le plafond pratique se situe donc autour de **400 Kio de spécifications courantes**, les fragments cités totalisant un peu plus que le texte des exigences dont ils sont tirés. L'échec est **total** : les huit catégories en `FAILED`, aucune publication partielle, puis `sync-status` en `REBUILD_REQUIRED` / `BASELINE_INCONSISTENT`, `currentSourceCount: 0`.
+
+**Impact** — Deux des trois projets du mainteneur sont inatteignables, et le troisième est à 40 % du plafond : nexus passera la limite en grandissant, sans que rien ne l'annonce. Un moteur dont la raison d'être est d'indexer des spécifications s'arrête donc à un volume qu'un projet sérieux atteint en quelques mois. Les huit catégories échouent ensemble ; cette propriété est cohérente avec la doctrine du produit — un candidat qui échoue ne remplace pas l'`ACTIVE`, l'échec explicite vaut mieux que la dégradation silencieuse — mais combinée à un plafond non réglable elle ne laisse aucune issue : ni ingestion partielle, ni budget relevé, ni priorisation. MORPHEUS borne déjà ses traversées **en exposant une raison de troncature** ; ici il n'expose rien et s'arrête. Le seuil n'est pas documenté, donc il se découvre en s'y cognant, après l'enregistrement du projet.
+
+**Action** — La mesure a tranché sur la cause : **compter chaque ligne citée une fois**. Le texte d'un scénario est facturé jusqu'à trois fois — multiplicateur mesuré 2,50× à 2,61× sur les trois corpus — pour des octets qu'`Evidence` ne conserve pas : seules l'empreinte et la plage de lignes sont gardées. Deux moyens possibles, et c'est la décision du mainteneur : facturer une plage de lignes une seule fois par fichier, ou ne facturer que ce qui est conservé (l'empreinte, de taille fixe), ce qui revient à borner le nombre d'évidences plutôt que leur volume.
+**Mais corriger le comptage ne suffit pas, et c'est le point à ne pas rater** : à facturation unique, `minos-code-intelligence` tiendrait à **209 octets** du plafond (524 079 sur 524 288). La borne doit donc être **requalifiée dans le même changement**, sur une mesure des corpus réels et avec une marge déclarée, et le budget rendu réglable — sans quoi le premier scénario ajouté à minos rouvre le constat. Reste enfin à décider du mode d'échec : refuser en bloc, ou publier ce qui a été lu en déclarant la troncature, comme le fait déjà toute traversée bornée du produit.
+
+</details>
+
+### AUD-ARC-22 — Le provider OpenSpec refuse le schéma des trois projets du mainteneur, dont il ingère parfaitement le contenu une fois la ligne changée
+| | |
+|---|---|
+| **Statut sur l'intégration** | **CORRIGÉ** |
+| **Sévérité** | Élevée |
+| **Axe** | Architecture |
+| **Effort** | M |
+| **Sprint** | 16 — Le produit face aux projets de son auteur |
+| **Vérifié le** | 2026-11-16 sur `a4880f95` |
+
+**Constat de vérification** — Solde, et démontré de la seule manière qui compte pour ce constat : en lançant le produit sur le dépôt réel, sans rien y modifier. Le correctif retient l'option que le constat recommandait et garde le fail-closed. **Un point pratique qui n'est pas un défaut du produit** : `nexus-context-engine` et `minos-code-intelligence` n'ont pas encore la ligne `derives: spec-driven` dans leur `openspec/schemas/detailed-uml/schema.yaml`, et restent donc refusés — c'est exactement ce que la conception prévoit, un schéma qui ne déclare rien n'est pas lu. Une ligne par dépôt les débloque, et je l'ai prouvé sur minos.
+
+```
+Corrigé par la PR #649 (`4e14d734`, `35585ecc`), change OpenSpec archivé par #652. `OpenSpecSpecificationProvider` lit désormais un schéma de projet qui **déclare** dériver : un schéma autre que `spec-driven` est lu comme `spec-driven` seulement si `openspec/schemas/<nom>/schema.yaml` porte `derives: spec-driven` — « one level, one parent » (`:124-151`). Un schéma muet ou au parent inconnu reste refusé sous `UNSUPPORTED_PROVIDER_SCHEMA` : le fail-closed est conservé, c'est la déclaration qui ouvre la porte. `ADR-0169` consolide la décision.
+**Vérifié en exécutant, sur le dépôt réel et non modifié** — ni copie, ni ligne changée : CLI reconstruite depuis `a4880f95`, `projects add --workspace N:\workspace-dev\morpheus-engine` puis `sync` rendent `{"mode":"FULL_REBUILD","sourceCount":636,"requirementCount":363,"traceabilityLinkCount":1304,"diagnosticCount":0,"published":true}`, code de sortie 0. **MORPHEUS ingère le projet de MORPHEUS.** `openspec/schemas/detailed-uml/schema.yaml` de ce dépôt porte la ligne `derives: spec-driven`.
+Vérifié aussi sur le plus gros corpus : une copie de `minos-code-intelligence` à laquelle la seule ligne `derives: spec-driven` est ajoutée s'ingère entièrement — 921 sources, 441 exigences, 2 290 liens, 0 diagnostic.
+```
+
+**Décision de clôture** — Clos sur `a4880f95` : le provider lit un schéma qui déclare dériver de `spec-driven`, un schéma muet reste refusé, et MORPHEUS ingère son propre dépôt non modifié (636 sources, 363 exigences, 1 304 liens, 0 diagnostic). Les deux autres projets du mainteneur attendent une ligne `derives:` dans leur propre schéma — leur configuration, pas le produit.
+
+<details><summary>Constat d'origine (15 novembre)</summary>
+
+**Preuve**
+
+`OpenSpecSpecificationProvider.SUPPORTED_SCHEMA` vaut `"spec-driven"`, comparé par égalité stricte : tout autre schéma rend `UNSUPPORTED` / `UNSUPPORTED_PROVIDER_SCHEMA`. Mesuré le 15 novembre sur la machine du mainteneur, **les trois projets déclarent `schema: detailed-uml`** et portent chacun `openspec/schemas/detailed-uml/`, `.archgate/` et `docs/architecture/arc42/` : `nexus-context-engine`, `minos-code-intelligence`, `morpheus-engine`. Ce n'est pas la particularité d'un dépôt, c'est le standard de rédaction de l'écosystème, et il existe parce qu'il porte les diagrammes et l'interopérabilité Archgate que le schéma officiel ne couvre pas. `detailed-uml` est inconnu du code de production : zéro occurrence dans les `.java` du réacteur. **Démonstration que le refus ne porte que sur la chaîne** : une copie de `nexus-context-engine/openspec` dans `%TEMP%` dont la seule ligne `schema:` passe à `spec-driven` est ingérée **entièrement** — `{"mode":"FULL_REBUILD","sourceCount":237,"requirementCount":168,"traceabilityLinkCount":579,"diagnosticCount":0,"published":true}`, code de sortie 0. Rien d'autre n'a été modifié : ni un fichier de spécification, ni un gabarit, ni un marqueur.
+
+**Impact** — MORPHEUS ne peut ingérer **aucun** des trois projets de son auteur, alors qu'il sait en lire le contenu : la démonstration sur nexus publie 237 sources, 168 exigences et 579 liens de traçabilité sans un seul diagnostic. Le produit perd la boucle de retour la plus efficace qu'un moteur d'indexation de spécifications puisse avoir — tourner sur les corpus pour lesquels il a été écrit — et aucun test ne le signale, les suites tournant sur des fixtures `spec-driven`. Tout projet qui dérive le schéma officiel pour y ajouter des diagrammes ou une intégration d'outil est refusé de la même façon, sans égard au fait que sa structure soit exactement celle que le provider lit.
+
+**Action** — **Accepter un schéma dérivé dont la structure est celle que le provider lit.** Deux formes possibles : le probe reconnaît une liste de schémas admis, ou — plus durable — le schéma déclare celui dont il dérive (`derives: spec-driven` dans `openspec/config.yaml`) et le provider lit cette déclaration. La seconde garde le fail-closed : un schéma qui ne déclare rien reste refusé. Dans les deux cas la décision porte sur ce que « dériver » engage — quelles capacités restent garanties quand le schéma ajoute des artefacts — donc un ADR. **L'option envisagée d'abord, déclarer `spec-driven` et porter `detailed-uml` ailleurs, est écartée** : le schéma pilote le workflow de rédaction, ses gabarits et l'interopérabilité Archgate dans les trois dépôts ; en changer le nom déplacerait le problème dans l'outillage amont pour l'enlever du produit. Noter que lever ce constat ne suffit pas pour `minos-code-intelligence` ni pour `morpheus-engine` : `AUD-ARC-23` les bloque ensuite. Il suffit pour `nexus-context-engine`, démonstration faite.
+
+</details>
+
+### AUD-QUA-24 — Le refus d'un budget cumulatif désigne le fichier en cours de lecture, qui est innocent
+| | |
+|---|---|
+| **Statut sur l'intégration** | **CORRIGÉ** |
+| **Sévérité** | Moyenne |
+| **Axe** | Qualité |
+| **Effort** | S |
+| **Sprint** | 16 — Le produit face aux projets de son auteur |
+| **Vérifié le** | 2026-11-16 sur `968431af` |
+
+**Constat de vérification** — Solde, et le correctif va plus loin que le constat — comme celui du 14 novembre. Je signalais la forme d'une phrase ; la PR a séparé la **portée** de chaque grandeur dans le type lui-même, et réparé au passage une seconde confusion que je n'avais pas vue : `requireUtf8Document` passait le compte de lignes d'**un** document à `requireLines`, la grandeur que la session cumule (`Session:152`), donc deux quantités différentes sortaient sous le même nom « line count ». Le document a maintenant sa propre grandeur, « document line count », en `Scope.DOCUMENT`. Une spécification OpenSpec neuve (`openspec/specs/provider-ingestion-budget/spec.md`) et une page de documentation portent la règle, qui ne vivait nulle part.
+
+```
+Corrigé par la PR #647 (`e655be27`), dont le change OpenSpec est archivé (`openspec/changes/archive/2026-11-15-name-a-cumulative-budget-refusal-as-a-session-total/`). `ProviderIngestionBudget` porte désormais une énumération `Scope { DOCUMENT, WHOLE_READ }` et deux formes de phrase (`:230-238`) : `DOCUMENT` garde « provider ingestion <grandeur> exceeds budget for <fichier> », `WHOLE_READ` rend « provider ingestion <grandeur> **for the whole read** exceeds the budget: <valeur>, **reached while reading** <fichier> ». Les six grandeurs cumulatives passent `Scope.WHOLE_READ` (`:49-69`), la seule taille de document garde `Scope.DOCUMENT` (`:45`). **Vérifié en exécutant**, sur le corpus qui avait produit le constat : CLI reconstruite depuis `968431af`, `sync` sur la copie de `minos-code-intelligence` rend « provider ingestion evidence bytes for the whole read exceeds the budget: 557385 > 524288, reached while reading openspec/specs/frontieres-de-modules/spec.md ». Mêmes chiffres, même fichier, attribution inversée : il est nommé comme l'endroit où la lecture s'est arrêtée.
+```
+
+**Décision de clôture** — Clos sur `968431af` : les six grandeurs cumulatives nomment leur fichier comme l'endroit où la lecture s'est arrêtée, la taille d'un document reste attribuée à ce document, et la distinction est écrite dans une spécification. Vérifié en relançant l'ingestion qui avait produit le constat.
+
+<details><summary>Constat d'origine (15 novembre)</summary>
+
+**Preuve**
+
+Deux refus observés le 15 novembre, chacun nommant un fichier qui n'est pas la cause.
+- `morpheus-engine` : `evidence bytes exceeds budget for openspec/specs/operational-runtime-injection/spec.md: 524777 > 524288`. Ce fichier pèse **2 005 octets** ; le plus gros `spec.md` du dépôt pèse 16 275 octets.
+- `minos-code-intelligence` : `… for openspec/specs/frontieres-de-modules/spec.md: 557385 > 524288`. Ce fichier pèse **74 122 octets** — le plus gros du dépôt, ce qui rend l'accusation encore plus crédible, et tout aussi fausse : il manque 483 263 octets pour atteindre le chiffre annoncé.
+Dans les deux cas le chiffre est le **total cumulé** de la session et le fichier nommé est celui que le lecteur traitait quand le compteur a basculé — `addEvidenceFragment(String fragment)` attribue au champ `lastDocument` (`ProviderIngestionBudget:176-184`). La forme de la phrase, `exceeds budget **for** <fichier>: 557385 > 524288`, se lit comme une propriété de ce fichier.
+Le dépôt porte la doctrine contraire, écrite : le Javadoc d'`OpenSpecSourceAttribution` exclut délibérément les refus de budget de l'attribution à un fichier, au motif que « naming a file there would accuse an innocent one », en expliquant qu'un refus de budget « already names its source relatively ». Pour une grandeur cumulative, cette source *est* le fichier innocent.
+
+**Impact** — Le message envoie l'opérateur corriger le mauvais fichier, et le cas de minos montre le pire scénario : le fichier nommé **est** le plus gros du dépôt, donc le diagnostic paraît confirmé et l'opérateur le découpe — sans rien changer au total. Ce n'est pas une hypothèse : en vérifiant ce constat j'ai moi-même commencé par mesurer la taille du fichier nommé, convaincu qu'il faisait 524 777 octets, avant de trouver 2 005. Un opérateur sans accès au code n'a aucun moyen de faire cette correction. Quatre grandeurs de `ProviderIngestionBudget` sont cumulatives (agrégat, lignes, entités, évidence) et partagent la même forme de refus : le défaut n'est pas propre à l'évidence.
+
+**Action** — Distinguer dans le texte du refus une grandeur par élément d'une grandeur cumulative. Pour une grandeur cumulative, dire que le total de la session est atteint et nommer le fichier comme l'endroit **où** la lecture s'est arrêtée, pas comme la cause : « evidence bytes for the whole read reached 524777 of 524288, while reading <fichier> » plutôt que « exceeds budget for <fichier> ». La distinction existe déjà dans le code — le paramètre `source` est documenté comme « where the budget was exceeded, as the operator will find it » — elle manque seulement dans la phrase rendue.
+
+</details>
 
 ### AUD-ARC-01 — morpheus-application, la couche qui définit les ports, fait de l'I/O fichier et du HTTP sortant en direct
 | | |
@@ -3221,22 +3403,23 @@ Vérifié sur `555aa2e0` (PR #627, changement OpenSpec `back-the-textual-ban-cei
 ### AUD-TST-26 — Deux seuils de couverture par module restent 35 à 40 points sous la fenêtre que la marge proportionnelle leur ouvre  *(constat neuf, 11/11)*
 | | |
 |---|---|
-| **Statut sur l'intégration** | **TOUJOURS VALIDE** |
+| **Statut sur l'intégration** | **CORRIGÉ** |
 | **Sévérité** | Faible |
 | **Axe** | Tests |
 | **Effort** | S |
 | **Sprint** | 15 — Dérives apparues pendant les correctifs |
-| **Vérifié le** | 2026-11-12 sur `12cd8874` |
+| **Vérifié le** | 2026-11-14 sur `d35e7466` |
 
-**Constat de vérification** — Constat neuf, reste de portée relevé à la clôture d'`AUD-TRV-02`. **Ce n'est pas une violation de règle** : `GEN-0166` borne un seuil par le haut et n'oblige nulle part à le poser au maximum, et le changement du 11 novembre a écrit sa portée avant de la tenir. Sévérité Faible : deux modules de moins de deux cents lignes chacun. Il existe parce que la protection que ces deux clés donnent est nominale, et parce que rien ne le signale — un seuil très bas et un seuil juste se lisent pareil dans le fichier.
+**Constat de vérification** — CORRIGÉ, et le correctif est plus général que le constat. Je demandais de poser deux clés dans leur fenêtre, puis de réfléchir à borner le mou ; le dépôt a fait l'inverse, dans le bon ordre : il a **décidé la borne d'abord** — neuf dispersions, inscrites dans un ADR qui remplace le précédent — puis reposé les vingt-deux clés que cette borne rendait non conformes. Le mou n'est plus une propriété de deux clés oubliées, c'est une grandeur bornée pour les trente-deux.
 
-**Revérifié le 12 novembre sur `12cd8874`** : inchangé. `config/m21-per-module-coverage-floors.properties` n'est pas touché par les cinq PR de cette passe, les deux clés valent toujours 0,473 et 0,560, et les quatre résumés conservés sont les mêmes — les bornes admissibles restent donc 0,873 et 0,905, recalculées. Le mou est intact à 40,0 et 34,5 points.
+Le refus qui nomme le plus petit seuil admis est ce qui fait la différence à l'usage : un seuil trop bas n'est plus une absence de signal, c'est un échec avec son remède chiffré.
 
 ```
-Ouvert et vérifié directement sur `555aa2e0` : les trente-deux clés lues dans le fichier, les compteurs par module lus dans les quatre résumés conservés, et les bornes recalculées par la formule de la décision 5 de `GEN-0166` — le même calcul qui reproduit au millième les cinq clés que la PR #628 vient de poser, ce qui est ma vérification que la formule est la bonne. La portée délibérément limitée du changement est lue dans sa proposition et dans ses tâches.
+Vérifié sur `d35e7466` (PR #636, changement `bound-the-slack-under-every-module-floor`, archivé ; **`GEN-0167` accepté**, qui remplace `GEN-0166`). La fenêtre devient une **bande** : un seuil de module laisse sous sa plus basse mesure conservée au moins trois et **au plus neuf** fois sa dispersion retenue — `CoverageQualificationVerifier.MAXIMUM_HEADROOM_SPREADS = 9`, et le refus **nomme le plus petit seuil admis** (« raise it to at least 0.839 »). Le plancher D2 reste admis quand aucun seuil plus haut ne tient dans la bande.
+**Recalcul indépendant des trente-deux clés** sur les quatre résumés conservés, inchangés : les trente-deux sont **dans la bande**, et la seule au plancher D2 — `provider-reference` en branches — y est parce que sa borne haute vaut 0,300, sous le plancher. Les deux clés du constat montent exactement comme la bande l'impose : `integration-nexus` en lignes **0,473 → 0,839** pour une bande [0,8382 ; 0,8728], `integration-minos` **0,560 → 0,875** pour [0,8750 ; 0,9050]. **Vingt-deux clés sur trente-deux** sont relevées, pas seulement les deux que je nommais.
 ```
 
-**Ce qui reste** — `morpheus-integration-nexus.lineCoverageMinimum` = 0,473 pour une borne admissible de 0,873 et `morpheus-integration-minos.lineCoverageMinimum` = 0,560 pour 0,905 : 40,0 et 34,5 points de mou, qu'aucun contrôle ne signale.
+**Décision de clôture** — Clos sur `d35e7466` : la bande [3×, 9×] décidée par `GEN-0167`, les trente-deux clés recalculées et vérifiées dedans, et le refus qui nomme le seuil à poser.
 
 <details><summary>Constat d'origine (11 novembre)</summary>
 
@@ -3249,6 +3432,70 @@ La marge proportionnelle de `GEN-0166` s'applique aux **trente-deux** clés de `
 **Impact** — C'est ce qui reste de la substance d'`AUD-TRV-02` — « un module peut cesser de se tester sans qu'aucun gate ne le dise » — concentré sur deux clés au lieu de six. `morpheus-integration-nexus` peut perdre **quarante points** de couverture de lignes et `morpheus-integration-minos` trente-quatre sans qu'aucun seuil ne morde : le cliquet total les dilue dans la somme, et leur seuil propre est trop bas pour voir la chute. Les deux modules sont petits — 173 et 200 lignes — donc l'enjeu absolu est faible ; mais ce sont les deux adaptateurs qui parlent à MINOS et NEXUS, c'est-à-dire à du code tiers lancé en processus, et la frontière que ces tests gardent est celle d'`AUD-SEC-05` et d'`ARCH-0106`.
 
 **Action** — Poser les deux clés au plus haut millième de leur fenêtre, par la procédure de la skill `coverage-ratchet`, en lisant les bornes sur les résumés conservés plutôt qu'en les recalculant à la main. Puis fermer la porte plutôt que le cas : faire dire au gate, non plus seulement qu'un seuil **reste sous** sa fenêtre, mais qu'il n'est pas abandonné très loin en dessous — par exemple en refusant un seuil qui laisse plus de trois fois sa propre marge sous sa plus basse mesure conservée, ce qui transforme le mou en échec nommé au lieu d'un silence. La borne exacte est une décision : la poser dans `GEN-0166`, qui porte déjà la fenêtre.
+
+</details>
+
+### AUD-TST-28 — Le guide de build décrit la fenêtre d'un seuil de module par sa seule borne basse, et laisse croire qu'un seuil haut est toujours admis
+| | |
+|---|---|
+| **Statut sur l'intégration** | **CORRIGÉ** |
+| **Sévérité** | Faible |
+| **Axe** | Tests |
+| **Effort** | S |
+| **Sprint** | 15 — Dérives apparues pendant les correctifs |
+| **Vérifié le** | 2026-11-14 sur `e33c877a` |
+
+**Constat de vérification** — Solde, et le correctif va plus loin que mon constat : la même phrase portait un **second** défaut que je n'avais pas vu. Elle définissait la dispersion d'un module par « la dispersion de référence de l'échelle », entière, là où le vérificateur la multiplie par la part du module dans la population et l'arrondit à l'unité supérieure. La proposition de la PR le dit sans détour : « Écart trouvé en relisant la phrase du constat ». C'est une faute de ma part, pas une trouvaille de bonus : j'avais cité `.claude/rules/testing.md:70`, qui énonce la bonne formule, et j'avais moi-même recalculé les bandes le matin avec `ceil(référence × part)` — je tenais les deux bouts et je n'ai pas comparé la définition du guide à celle que j'appliquais. Vérifié depuis : les cinq autres énoncés de la règle donnent tous la référence proportionnelle ; le défaut était bien confiné à cette page.
+
+```
+Corrigé par la PR #644 (`f62cf6cb`, « docs(build): énoncer toute la fenêtre d'un seuil de module »), seul changement depuis `cb63896a` : deux lignes de `BUILD_AND_TEST.md` et le change OpenSpec qui le porte. La phrase de `:127` relue clause par clause contre `CoverageQualificationVerifier.windowProblem` sur `e33c877a` : « au moins trois fois » ↔ `headroom < HEADROOM_SPREADS * spread` (3) ; « plus de neuf fois … plancher D2 compris » ↔ `headroom > MAXIMUM_HEADROOM_SPREADS * spread` (9), **sans** garde `atTheD2Floor`, donc la borne haute mord bien aussi au plancher ; « le plancher n'y est admis que quand aucun seuil plus haut ne tient dans cette bande » ↔ Javadoc `:346` et la propriété que, la bande vide, le mou du plancher est sous trois dispersions ; « un module que la preuve ne porte pas reste au plancher » ↔ la branche `measured.isEmpty() || contains(null)` ; « le refus nomme le plus petit seuil admis » ↔ `raise it to at least %.3f`. Recalculé par ailleurs, sans lire le code du dépôt, que les **32 clés** en vigueur tiennent dans leur bande (4 résumés conservés, 16 modules, aucune clé orpheline) : **zéro refus**.
+```
+
+**Décision de clôture** — Clos sur `e33c877a` : la phrase énonce les deux bornes, le sort du plancher D2, celui d'un module absent de la preuve et la référence proportionnelle ; chaque clause a son équivalent dans `windowProblem`. Le correctif a également réparé une seconde erreur de la même phrase, que le constat n'avait pas relevée.
+
+<details><summary>Constat d'origine (14 novembre)</summary>
+
+**Preuve**
+
+```
+`docs/developer/BUILD_AND_TEST.md:127` décrit la règle que tient `CoverageQualificationEvidenceTest#everyModuleFloorStaysInsideItsQualifiedWindow` ainsi : « refuse un seuil sous le plancher, et, au-dessus, un seuil qui ne garde pas trois fois la dispersion du module sous sa plus basse mesure conservée », puis conclut « Poser ou relever un seuil de module est donc une décision dans cette fenêtre ». La borne haute n'y figure pas : le mot « neuf » est absent de toute la section « Le seuil propre à chaque module » (lignes 120-132), alors que la méthode nommée refuse depuis GEN-0167 un seuil qui laisse **plus de neuf** dispersions sous cette mesure. Les quatre autres énoncés de la règle portent les deux bornes : `.claude/rules/testing.md:70` « au moins trois et au plus neuf fois sa dispersion », `docs/developer/specifications/per-module-coverage-floor.md:23` et `:38` « entre trois et neuf dispersions », `GEN-0167:86` et `:117`, et `.claude/skills/coverage-ratchet/SKILL.md:59`. `docs/developer/specifications/coverage-qualification-evidence.md:78` ne cite que la borne basse mais renvoie explicitement à `per-module-coverage-floor.md` pour « la règle et ses refus » : cette page-là est complète par délégation, le guide de build ne l'est pas.
+```
+
+**Impact** — Aucun effet à l'exécution, et le build protège le lecteur : un seuil posé au-delà de la bande est refusé par un message qui nomme le plus petit seuil admis. Le coût est un cycle perdu, et une mauvaise inférence possible — `rules/meta.md` nomme `BUILD_AND_TEST.md` parmi les destinations à mettre à jour quand un seuil bouge, donc c'est une des pages qu'on relit en relevant un seuil, et elle dit aujourd'hui qu'il n'y a qu'un plancher à respecter. C'est exactement la moitié de la règle : celle qui existait avant GEN-0167. La hausse du 14 novembre a relevé 22 clés sur 32 précisément parce que la borne haute est entrée en vigueur ; la page n'a pas suivi ce changement.
+
+**Action** — Compléter la phrase de `BUILD_AND_TEST.md:127` avec la borne haute et le cas du plancher D2, en reprenant les termes de `.claude/rules/testing.md:70` : au moins trois et au plus neuf fois la dispersion retenue, le plancher D2 admis quand aucun seuil plus haut ne tient dans la bande. Ne pas recopier les valeurs des seuils : la page renvoie déjà à `config/m21-per-module-coverage-floors.properties`.
+
+</details>
+
+### AUD-TST-27 — Le commentaire qui documente la borne du mou annonce trois dispersions là où la constante en vaut neuf
+| | |
+|---|---|
+| **Statut sur l'intégration** | **CORRIGÉ** |
+| **Sévérité** | Faible |
+| **Axe** | Tests |
+| **Effort** | S |
+| **Sprint** | 15 — Dérives apparues pendant les correctifs |
+| **Vérifié le** | 2026-11-14 sur `cb63896a` |
+
+**Constat de vérification** — Solde, et solde complet : le correctif ne s'est pas arrêté au mot signalé. La ligne 48 et le Javadoc de la méthode qui applique la règle (`:297`) ont été reformulés tous les deux, là où le constat n'en citait qu'un. Le changement est passé par un change OpenSpec en règle (`2026-11-14-fix-module-floor-headroom-comment`, archivé par la PR #643) pour un mot — la discipline est tenue même sur le plus petit constat de l'audit. Aucune constante n'a été touchée, ce qui est l'issue correcte : c'était le commentaire qui mentait, pas le code.
+
+```
+Corrigé par la PR #641 (`fe5dbe14`, « test(coverage): faire dire neuf dispersions au commentaire de la borne du mou »). Relu sur `cb63896a` : `CoverageQualificationVerifier.java:48` écrit désormais « A module floor leaves at most **nine** times its spread under its lowest kept count (ADR-0167) », et la constante de la ligne 50 vaut toujours `9L`. Le Javadoc de la méthode voisine (`:297`) dit lui aussi « at most nine times that spread ». Recompté sur l'ensemble du dépôt, hors changements OpenSpec archivés : plus aucune occurrence de « at most three » ni de « trois fois » appliquée au **maximum** de la bande ; les cinq énoncés de la règle (ADR GEN-0167:86 et :117, `openspec/specs/per-module-coverage-floor/spec.md`, `docs/developer/specifications/per-module-coverage-floor.md:23` et `:84`, `.claude/rules/testing.md:70`, le message de refus du vérificateur) disent neuf.
+```
+
+**Décision de clôture** — Clos sur `cb63896a` : le commentaire de la ligne 48 et le Javadoc de `:297` disent neuf, la constante vaut toujours `9L`, et plus aucune occurrence de « at most three » ne survit dans le dépôt vivant. Le correctif est passé par un change OpenSpec archivé, pour un mot.
+
+<details><summary>Constat d'origine (14 novembre)</summary>
+
+**Preuve**
+
+```
+`CoverageQualificationVerifier.java:46-48` écrit, juste au-dessus de la constante qui borne le mou : « A module floor leaves at most **three** times its margin under its lowest kept count (ADR-0167): further down, the module could lose most of its coverage before its own floor bites », puis déclare `private static final long MAXIMUM_HEADROOM_SPREADS = 9L`. La justification donnée est bien celle du **maximum** — c'est le mou, pas la marge minimale, qui laisse un module perdre sa couverture — donc le commentaire documente la constante du dessous et en annonce le tiers. Les quatre autres énoncés de la même règle disent neuf : `GEN-0167:86` « au moins trois et au plus neuf dispersions retenues », `openspec/specs/per-module-coverage-floor/spec.md:82` et ses trois scénarios, `.claude/rules/testing.md` « au moins trois et au plus neuf fois sa dispersion », et le message de refus du vérificateur lui-même, qui calcule avec `MAXIMUM_HEADROOM_SPREADS`. La constante voisine `HEADROOM_SPREADS = 3L`, elle, n'a aucun commentaire.
+```
+
+**Impact** — Aucun effet à l'exécution : la constante décide, le commentaire ne décide rien, et les trente-deux seuils sont dans la bande. Le coût est pour le lecteur de cette classe, qui est précisément celui qui viendra modifier la borne : il y lira que la bande est trois fois plus étroite qu'elle n'est, et pourrait « corriger » les seuils vers une valeur que le gate refuse, ou pire, baisser la constante en croyant rétablir l'accord. C'est la forme la plus discrète de ce que cet audit a suivi tout du long — une phrase vraie nulle part, dans un fichier que personne ne relit — et elle apparaît cette fois **dans le mécanisme construit la veille pour fermer le constat précédent**.
+
+**Action** — Corriger le mot : « at most **nine** times ». Puis, si la famille mérite un gate, comparer le nombre écrit en toutes lettres dans le commentaire d'une constante à la valeur de cette constante est faisable sur ce fichier — mais la généralisation est douteuse, et une relecture suffit ici. Le constat n'en demande pas plus.
 
 </details>
 
