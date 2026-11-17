@@ -37,60 +37,24 @@ Options écartées :
 - **Un code distinct pour `UNKNOWN`** : `4` dit déjà « résultat métier non applicable » ; un code de plus change le
   contrat public sans nécessité.
 
-## Decision
+Un chemin de commande est la suite de mots qui précède la première option (`portfolio list`, `policy pack create`) ;
+`MorpheusMain.run` le refuse avant de consulter une sous-commande, si bien qu'une action ajoutée au `switch` d'un
+adaptateur sans être déclarée est inatteignable. Le pré-parseur des options globales (`--json`, `--data-dir`,
+`--config-dir`, `--db`) lit le vecteur brut d'arguments et laisse au sous-parseur de la commande les jetons qu'il ne lit
+pas. Aucune option ne donne à une valeur vide un sens que l'omission n'a pas déjà. Le blanc réunit ce que `trim()`
+retire (`<= ' '`) et ce que `isBlank()` retient (`Character.isWhitespace`), point de code par point de code ; il est
+vérifié après la clé pour qu'une option inconnue passée vide reçoive le refus d'option inconnue, et pour les options
+de disposition dans chacune de leurs orthographes. `nonBlank` rend la valeur telle que donnée ; le répertoire courant
+s'écrit `.`. `OptionOccurrence.once` enregistre le nom de l'option, jamais le jeton ; les drapeaux de commande qu'un
+parseur refuse en double le restent. Les commandes qui ne lisent pas la disposition la vérifient pour que le même
+préfixe `morpheus --data-dir "$D"` échoue partout de la même façon.
 
-### 1. Les chemins de commande sont déclarés une fois
+Les tables d'options par action sont `MorpheusPortfolioCli.ACTION_OPTIONS`, `MorpheusPolicyCli.ACTION_OPTIONS`,
+`MorpheusQueryCli.EXECUTE_OPTIONS`, `VIEW_ACTION_OPTIONS` et `EXPORT_ACTION_OPTIONS` ; un refus d'usage précède donc une
+erreur d'ouverture du store. Les refus qui ont besoin de la valeur (option obligatoire absente, identifiant mal formé,
+entier invalide, portée absente ou donnée deux fois) peuvent venir après l'ouverture.
 
-Un chemin de commande est la suite de mots qui précède la première option (`portfolio list`, `policy pack create`).
-`CliCommandPaths` est la seule déclaration des chemins servis. `MorpheusMain.run` refuse tout autre chemin comme commande
-inconnue avant de consulter une sous-commande : une action ajoutée au `switch` d'un adaptateur sans être déclarée est
-inatteignable. La colonne `cli` de `contracts/public-surfaces.tsv` et l'aide embarquée sont comparées à cette liste.
-
-### 2. Une option inconnue est refusée
-
-Une sous-commande déclare ses options à un seul parseur, `CommandOptions`, au moment où elle les analyse ; il refuse,
-code `2` et en nommant le jeton, un mot qui n'est pas une option, une option non déclarée (`unknown option: --x`), une
-répétition, une option sans valeur et une valeur blanche. Aucun parseur n'accepte toute clé pour la vérifier ensuite.
-Un `switch` d'options a une branche `default` qui lève ; seul un pré-parseur des options globales (`--json`,
-`--data-dir`, `--config-dir`, `--db`) sur le vecteur brut d'arguments transmet un jeton qu'il ne lit pas, pour le
-sous-parseur de la commande. Un parseur de lancement nomme l'argument inconnu.
-
-### 3. Une valeur vide ou blanche est refusée, avec une seule définition du blanc
-
-Aucune option ne donne à une valeur vide un sens que l'omission n'a pas déjà. Une option passée avec une valeur vide ou
-blanche est refusée, code `2`, avec le message `--x requires a non-blank value; omit the option to leave it unset`.
-Une valeur est blanche si **chacun de ses points de code** est `<= ' '` (ce que `trim()` retire) ou
-`Character.isWhitespace` (ce que `isBlank()` retient). Cette définition a une seule implémentation,
-`OptionValue.nonBlank`, et `OptionValue.path` pour une option qui désigne un chemin ; toutes les familles l'appellent
-au point d'entrée de leurs valeurs, y compris pour les options de disposition (`--data-dir`, `--config-dir`, `--db`),
-dans chacune de leurs orthographes. Le parseur la vérifie après le contrôle de la clé, pour qu'une option
-inconnue passée vide reçoive le refus d'option inconnue. `nonBlank` rend la valeur telle que donnée. Le répertoire
-courant a une orthographe explicite, `.`.
-
-Les variables d'environnement ne sont pas concernées : une variable vide vaut une variable absente.
-
-### 4. Une option à valeur répétée est refusée
-
-Une option à valeur unique donnée plus d'une fois est refusée, code `2`, avec `duplicate option: --x`, avant la lecture
-de sa valeur. Les parseurs à table refusent la seconde clé ; les autres passent par `OptionOccurrence.once`, qui
-enregistre le **nom** de l'option, jamais le jeton : `--x v` et `--x=v` sont une seule option. `--workspace-root`, qui
-nomme une liste de racines, accumule. Les drapeaux sans valeur (`--json`, `--stdio`, `--remote`) répétés sont acceptés ;
-les drapeaux de commande qu'un parseur refuse en double le restent. Les commandes qui ne lisent pas la disposition la
-vérifient quand même, pour que le même préfixe `morpheus --data-dir "$D"` échoue de la même façon partout.
-
-### 5. Rien n'est créé avant que l'invocation soit acceptée
-
-Une commande reconnaît son action et refuse une option inconnue, vide ou répétée **avant** d'ouvrir le store ; un
-lanceur refuse avant d'ouvrir un port ou le transport STDIO. Les adaptateurs à plusieurs actions déclarent pour cela
-les options de chaque action dans une table lue avant l'ouverture
-(`MorpheusPortfolioCli.ACTION_OPTIONS`, `MorpheusPolicyCli.ACTION_OPTIONS`, `MorpheusQueryCli.EXECUTE_OPTIONS`,
-`VIEW_ACTION_OPTIONS`, `EXPORT_ACTION_OPTIONS`). Un refus d'usage précède donc une erreur d'ouverture du store. Les refus
-qui ont besoin de la valeur (option obligatoire absente, identifiant mal formé, entier invalide, portée absente ou
-donnée deux fois) peuvent venir après l'ouverture.
-
-### 6. Le code de sortie dit ce qui a été observé
-
-Les codes sont ceux que déclare `CliExitCode` et que publie `docs/user/CLI.md` (§19) :
+Les codes que `CliExitCode` déclare :
 
 | Code | Nom | Sens |
 |---:|---|---|
@@ -101,27 +65,37 @@ Les codes sont ceux que déclare `CliExitCode` et que publie `docs/user/CLI.md` 
 | 5 | `IO_ERROR` | erreur d'entrée-sortie classifiée |
 | 10 | `INTERNAL_ERROR` | erreur inattendue |
 
-Les services et les stores mémoire et SQLite lèvent `EntityNotFoundException` (`3`) ou `EntityStateException` (`4`),
-déclarées dans `com.morpheus.application.store`. Elles restent des `IllegalArgumentException`, donc HTTP et MCP les
-traitent comme toute autre `IllegalArgumentException` ; les adaptateurs CLI les interceptent **avant** `IllegalArgumentException`.
+`EntityNotFoundException` et `EntityStateException` sont levées par les services et les stores mémoire et SQLite ;
+restées des `IllegalArgumentException`, HTTP et MCP les traitent comme toute autre. Une observation partielle n'est
+pas un refus. La sortie texte ne compte pas sans nommer ce qu'elle compte : `warningCodes=…` donne un code par
+avertissement dans l'ordre du résultat, et la sélection des raisons de troncature se fait sur la présence du détail
+`ChangeAnalysisWarning.TRUNCATION_REASON`, constante partagée par le service et la CLI, pas sur une liste de codes.
+La garde de l'aide développe chaque ligne d'usage en invocations (groupes facultatifs retirés, chaque branche d'une
+alternative gardée, marqueurs remplis) et les exécute chacune contre son propre store vide ; les lignes qui démarrent
+un serveur vont à leur parseur de lancement, et un marqueur qu'elle ne sait pas remplir la fait échouer.
 
-Une décision de policy atteint le code de sortie : `policy evaluate` et `policy dry-run` rendent `0` pour `PASS` et
-`WARN`, `4` pour `BLOCK` et `UNKNOWN`, par la seule méthode `MorpheusPolicyCli.exitCodeOf`, et impriment toujours la
-décision. Une observation partielle n'est pas un refus : `analyze-change` rend `0` même quand sa traversée est tronquée.
+## Decision
 
-### 7. La sortie texte dit ce que dit la sortie machine
-
-La sortie texte ne compte pas sans nommer ce qu'elle compte. `analyze-change` ajoute en texte une ligne
-`warningCodes=…` (un code par avertissement, dans l'ordre du résultat) et une ligne `truncationReason=…` par raison
-distincte portée par un avertissement. La sélection se fait sur la présence du détail
-`ChangeAnalysisWarning.TRUNCATION_REASON`, constante que le service et la CLI partagent, pas sur une liste de codes.
-
-### 8. L'aide embarquée est exécutée contre son parseur
-
-Aucune invocation que l'aide documente n'est refusée comme erreur d'usage. Les lignes d'usage de `morpheus help` et de
-`morpheus reason help` sont développées en invocations — groupes facultatifs retirés, chaque branche d'une alternative
-gardée, marqueurs remplis — et exécutées, chacune contre son propre store vide ; les lignes qui démarrent un serveur
-sont confiées à leur parseur de lancement. Un marqueur que la garde ne sait pas remplir la fait échouer.
+1. `CliCommandPaths` déclare seul les chemins de commande ; `MorpheusMain.run` refuse tout autre chemin d'emblée.
+   Manifeste (colonne `cli`) et aide lui sont comparés.
+2. Options lues par `CommandOptions` ; aucun parseur n'accepte toute clé, un `switch` lève en `default`, seul
+   le pré-parseur global transmet un jeton non lu. Refus code `2`, jeton nommé : mot hors option ; option non déclarée
+   (`unknown option: --x`) ou sans valeur ; valeur blanche, après la clé (`--x requires a non-blank value; omit the
+   option to leave it unset`) ; valeur unique répétée, avant lecture (`duplicate option: --x`). Un parseur de
+   lancement nomme l'argument inconnu.
+3. Blanc : tout point de code `<= ' '` ou `Character.isWhitespace`, testé par `OptionValue.nonBlank` (ou
+   `OptionValue.path`) seul, disposition comprise. Variable d'environnement vide : absente.
+4. Répétition vue par table ou `OptionOccurrence.once`, sur le nom (`--x v` = `--x=v`) ; `--workspace-root` accumule,
+   `--json`, `--stdio`, `--remote` se répètent. Toute commande vérifie la disposition.
+5. Rien n'est ouvert (store, port, STDIO) avant d'accepter action et options, lues dans la table d'options par
+   action ; seul un refus lisant la valeur suit l'ouverture.
+6. Codes de `CliExitCode` (`docs/user/CLI.md` §19) : `2` appel mal formé seul, `3` identifiant introuvable
+   (`EntityNotFoundException`), `4` état refusé (`EntityStateException`), deux `IllegalArgumentException` de
+   `com.morpheus.application.store` que la CLI intercepte en premier.
+7. `policy evaluate` / `policy dry-run` : `0` si `PASS` / `WARN`, `4` si `BLOCK` / `UNKNOWN`
+   (`MorpheusPolicyCli.exitCodeOf`), décision imprimée. `analyze-change` tronqué rend `0`, imprime `warningCodes=…`
+   et un `truncationReason=…` par raison (`ChangeAnalysisWarning.TRUNCATION_REASON`).
+8. Toute invocation de `morpheus help`, `morpheus reason help` passe son parseur.
 
 ## Do's and Don'ts
 

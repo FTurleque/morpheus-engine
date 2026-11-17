@@ -38,39 +38,39 @@ Options écartées :
 | Remplacer `jdk.httpserver` par Jetty ou Netty | Décision de dépendance majeure pour une seule propriété ; les critères de remplacement sont dans le guide opérateur et aucun n'est franchi |
 | Renvoyer une enveloppe d'erreur au client coupé | Impossible : la connexion qui la porterait est précisément la ressource récupérée |
 
+Deux budgets parce que « lent » et « arrêté » ne sont pas la même chose : un budget total seul ferait du débit du
+client une condition de service et couperait un client honnête sur une mauvaise liaison ; un budget de stall seul
+autoriserait un client à accepter un bloc par fenêtre indéfiniment. Le chemin de l'enveloppe est couvert comme celui
+du corps, parce que l'enveloppe est ce que tout refus et toute erreur empruntent.
+
+La deadline s'appuie sur un contrat spécifié : interrompre un thread bloqué sur un
+`java.nio.channels.InterruptibleChannel` ferme ce canal et lève `ClosedByInterruptException`, contrat documenté de
+`java.nio.channels`, et `jdk.httpserver` écrit à travers un `SocketChannel` bloquant.
+
+```text
+deadline -> interrupt(thread écrivain) -> canal fermé -> écriture débloquée -> finally -> slots rendus
+```
+
+Écrire sur un thread emprunté ferait courir `exchange.close()` après le moniteur du flux de réponse contre un écrivain
+encore bloqué ; écrire sur le thread du handler coûte un thread démon de surveillance par façade, pas un par requête.
+Un timeout de requête est un client qui a cessé d'**envoyer** ; un timeout d'écriture, un client qui a cessé de
+**recevoir**, et seul le second retient un slot tant qu'il reste connecté.
+
 ## Decision
 
-**1. Deux budgets, parce que « lent » et « arrêté » ne sont pas la même chose.** Toute écriture de réponse de la
-façade remote, enveloppe JSON **et** corps proxifié, passe par `TimedBoundedResponseWriter`, qui applique :
+1. **Deux budgets** : toute écriture de réponse de la façade remote, enveloppe JSON **et** corps proxifié, passe par
+   `TimedBoundedResponseWriter`, qui applique :
 
 | Budget | Constante | Ce qu'il borne |
 |---|---|---|
 | Stall | `TimedBoundedResponseWriter.RESPONSE_STALL_TIMEOUT` | temps **sans progression**, réarmé à chaque bloc réellement écrit vers le client |
 | Total | `TimedBoundedResponseWriter.RESPONSE_TOTAL_TIMEOUT` | durée complète d'une réponse, quelle que soit la progression |
 
-Un budget total seul ferait du débit du client une condition de service et couperait un client honnête sur une
-mauvaise liaison ; un budget de stall seul autoriserait un client à accepter un bloc par fenêtre indéfiniment. Le
-chemin de l'enveloppe est couvert comme celui du corps, parce que l'enveloppe est ce que tout refus et toute erreur
-empruntent.
-
-**2. La deadline s'appuie sur un contrat spécifié, pas sur une propriété interne.** La deadline interrompt le thread
-écrivain. Interrompre un thread bloqué sur un `java.nio.channels.InterruptibleChannel` ferme ce canal et lève
-`ClosedByInterruptException` : c'est le contrat documenté de `java.nio.channels`, et `jdk.httpserver` écrit à travers
-un `SocketChannel` bloquant.
-
-```text
-deadline -> interrupt(thread écrivain) -> canal fermé -> écriture débloquée -> finally -> slots rendus
-```
-
-MORPHEUS ne s'appuie pas sur `sun.net.httpserver.maxRspTime`, et aucun code de production ne la positionne.
-
-**3. L'écriture reste sur le thread appelant.** La réponse est écrite par le thread du handler, pas par un thread
-emprunté : sinon `exchange.close()` courrait après le moniteur du flux de réponse contre un écrivain encore bloqué. Le
-coût est un thread démon de surveillance par façade, pas un par requête.
-
-**4. L'événement est compté à part.** `GET /api/v1/server/status` expose `responseWriteTimeouts`, distinct de
-`requestTimeouts`. Un timeout de requête est un client qui a cessé d'**envoyer** ; celui-ci est un client qui a cessé
-de **recevoir**, et seul le second retient un slot tant qu'il reste connecté.
+2. **Deadline par interruption** : la deadline interrompt le thread écrivain, ce qui ferme le canal interruptible et
+   débloque l'écriture. MORPHEUS ne s'appuie pas sur `sun.net.httpserver.maxRspTime`, et aucun code de production ne
+   la positionne.
+3. **Écriture sur le thread appelant** : la réponse est écrite par le thread du handler, pas par un thread emprunté.
+4. **Compteur à part** : `GET /api/v1/server/status` expose `responseWriteTimeouts`, distinct de `requestTimeouts`.
 
 ## Do's and Don'ts
 

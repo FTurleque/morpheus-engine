@@ -27,49 +27,41 @@ Options écartées :
 - **Tout refuser, lectures comprises.** Un disque plein rendrait le serveur muet, y compris pour la route de statut
   qui dit pourquoi.
 - **Consigner le chemin brut.** Il porte des identifiants et son contenu est choisi par l'appelant.
-- **Consigner les 401.** Voir le point 4 de la décision.
+- **Consigner les 401.** Le 401 n'a pas de principal : un journal qu'un appelant non authentifié peut remplir est un
+  journal qu'il peut faire tourner jusqu'à en chasser ce qui compte ; il reste un compteur. Le 403, lui, a un
+  principal, et c'est ce qu'une enquête cherche.
 - **Étendre l'audit du fichier d'identités.** Il est borné à un nombre d'événements et réécrit avec le fichier : le
   trafic y chasserait les mutations d'identifiants, et chaque requête réécrirait le fichier qui authentifie.
 - **Une route pour lire le journal.** C'est une surface de plus, avec sa ligne au manifeste et son rôle ; une décision
   séparée. Le journal est un fichier que l'opérateur lit.
 
+Raisons des règles retenues. Une ligne d'écriture produite seulement après la réponse manquerait pour la requête qui
+a fait tomber le serveur, d'où la ligne `accepted` avant le service. Une route d'administration consultée en `GET`
+(comme les métriques) compte comme une lecture : la refuser faute de journal retirerait à l'opérateur le compteur
+`remote.access.journal.lost` au moment où il en a besoin. Une écriture de fichier placée entre la réponse et la
+fermeture laisse le serveur HTTP du JDK fermer une connexion dont le corps de requête n'a pas été lu (après un 403
+rendu sans lire le corps), et la requête suivante du client part sur une connexion en cours de fermeture. Attribuer une
+mutation est la raison d'être du journal, d'où le refus d'une écriture qu'il ne peut consigner.
+
 ## Decision
 
-1. **Un journal d'accès, fichier à part.** `morpheus-remote-access.jsonl` (`RemoteAccessJournal.FILE_NAME`), dans le
-   répertoire du fichier d'identités, jamais dans ce fichier ni dans son audit. Un objet JSON par ligne, privé au
-   compte, borné en taille et en nombre de générations gardées (`RemoteAccessJournal.MAX_FILE_BYTES`,
-   `RemoteAccessJournal.KEPT_GENERATIONS`) : il reprend l'écrivain et la discipline d'écriture du journal
-   opérationnel en fichier (ADR-0146).
-
-2. **Ce qu'un enregistrement contient.** L'instant, l'identifiant de requête, le principal, le rôle détenu, le rôle
-   exigé, la méthode, le **gabarit** de route, le statut. Rien d'autre.
-
-3. **Rien que l'appelant ait choisi, aucun jeton sous aucune forme.** Le gabarit vient de la table des routes
-   (`projects/{projectId}/sync`, jamais l'identifiant) ; la méthode est une de celles que la table a acceptées. Ni
-   chemin, ni requête, ni en-tête, ni corps, ni jeton, ni empreinte de jeton. Le rédacteur passe sur chaque champ.
-
-4. **Un refus de rôle est consigné ; un échec d'authentification ne l'est pas.** Le 403 a un principal, et c'est ce
-   qu'une enquête cherche. Le 401 n'en a pas : un journal qu'un appelant non authentifié peut remplir est un journal
-   qu'il peut faire tourner jusqu'à en chasser ce qui compte ; il reste un compteur. Une requête authentifiée pour une
-   route qui n'existe pas (404) ou une méthode refusée (405) n'a pas été autorisée et n'est pas consignée non plus.
-
-5. **Une écriture ou une administration laisse deux lignes.** `accepted` avant d'être servie, `completed` avec son
-   statut. Une ligne écrite seulement après la réponse manquerait pour la requête qui a fait tomber le serveur. Une
-   lecture laisse une ligne, à la fin. La consultation d'une route d'administration (`GET`, comme les métriques)
-   compte comme une lecture, par le même critère que la concurrence privilégiée (`usesPrivilegedConcurrency`) :
-   refuser cette route faute de journal retirerait à l'opérateur le compteur `remote.access.journal.lost` au moment
-   où il en a besoin.
-
-6. **L'issue est écrite à un seul endroit.** Le `finally` de `serve`, par lequel passent toutes les sorties : servie
-   par la façade, relayée, refusée, en échec. Le statut y est lu sur l'échange ; une réponse jamais envoyée est
-   consignée `unsent`. L'ordre est : lire le statut, fermer l'échange, **puis** écrire l'enregistrement. Une écriture
-   de fichier placée entre la réponse et la fermeture laisse le serveur HTTP du JDK fermer une connexion dont le corps
-   de requête n'a pas été lu (après un 403 rendu sans lire le corps), et la requête suivante du client part sur une
-   connexion en cours de fermeture.
-
-7. **Quand un enregistrement ne peut pas être écrit.** Une requête d'écriture ou d'administration dont la ligne
-   `accepted` ne s'écrit pas est refusée, `503 ACCESS_JOURNAL_UNAVAILABLE`, avant d'être servie : attribuer une
-   mutation est la raison d'être du journal. Une lecture est servie. Dans les deux cas le compteur
+1. **Fichier à part** : `morpheus-remote-access.jsonl` (`RemoteAccessJournal.FILE_NAME`), dans le répertoire du
+   fichier d'identités, jamais dans ce fichier ni dans son audit. Un objet JSON par ligne, privé au compte, borné en
+   taille et en générations gardées (`RemoteAccessJournal.MAX_FILE_BYTES`, `RemoteAccessJournal.KEPT_GENERATIONS`),
+   avec l'écrivain et la discipline d'écriture du journal opérationnel en fichier (ADR-0146).
+2. **Contenu** : l'instant, l'identifiant de requête, le principal, le rôle détenu, le rôle exigé, la méthode, le
+   **gabarit** de route (`projects/{projectId}/sync`, issu de la table des routes), le statut. Rien d'autre : ni
+   chemin, ni requête, ni en-tête, ni corps, ni jeton, ni empreinte de jeton ; le rédacteur passe sur chaque champ.
+3. **Quoi consigner** : un 403 est consigné ; un 401 ne l'est pas (il reste un compteur), ni un 404 ou un 405 d'un
+   appelant authentifié.
+4. **Deux lignes pour une mutation** : une écriture ou une administration laisse `accepted` avant d'être servie, puis
+   `completed` avec son statut ; une lecture laisse une ligne, à la fin. Une route d'administration en `GET` est une
+   lecture, par le critère de `usesPrivilegedConcurrency`.
+5. **Un seul endroit** : l'issue s'écrit dans le `finally` de `serve`, par lequel passent toutes les sorties. Ordre :
+   lire le statut sur l'échange, fermer l'échange, **puis** écrire ; une réponse jamais envoyée est consignée
+   `unsent`.
+6. **Échec d'écriture** : une écriture ou une administration dont la ligne `accepted` ne s'écrit pas est refusée,
+   `503 ACCESS_JOURNAL_UNAVAILABLE`, avant d'être servie ; une lecture est servie ; dans les deux cas
    `remote.access.journal.lost` monte. Un serveur dont le journal ne peut pas être ouvert ne démarre pas.
 
 ## Do's and Don'ts

@@ -31,9 +31,7 @@ provenance, et sert d'oracle à la séparation `CURRENT` / `PROPOSED` : il porte
 Les autres familles du contenu normalisé (`Specification`, `Scenario`, `ChangeProposal`, `Constraint`,
 `DesignDecision`, `ImplementationTask`, `AcceptanceCriterion`, `Evidence`) ont des identités métier stables et une
 provenance, mais pas de `TemporalState` ni d'`EntityVersionId` de production : leur persistance ne doit pas leur
-inventer une temporalité artificielle.
-
-## Decision
+inventer une temporalité artificielle. Le modèle de persistance retenu, en détail :
 
 ### 1. Version logique et snapshot technique séparés
 
@@ -123,6 +121,29 @@ Le store mémoire applique les mêmes règles d'unicité, d'ownership et de coll
 et `VersionedRequirementStore` pour réutiliser les mêmes règles d'ownership. SQLite reconstruit exactement la
 projection après fermeture et réouverture.
 
+## Decision
+
+1. **Version et snapshot** : une `SpecificationVersion` peut avoir plusieurs `KnowledgeSnapshot` ; la relation
+   est stockée à part ; un snapshot n'est jamais une identité métier.
+2. **`Requirement` versionné** : persisté par occurrence dans `VersionedRequirementStore`. L'identité de l'occurrence
+   est celle de l'exigence (`RequirementVersionRecord`), et la version liée au snapshot celle de l'occurrence.
+3. **Unicité `CURRENT`** : au plus une occurrence `CURRENT` par identité et snapshot ; `PROPOSED` multiples permis.
+   `CurrentRequirementQueryService` résout le snapshot actif puis l'occurrence `CURRENT`, jamais un choix arbitraire.
+4. **Idempotence** : `putSpecificationVersion`, `bindSnapshotVersion`, `putRequirementVersion` et
+   `putSnapshotContent` sont idempotents à définition égale, sinon lèvent `KnowledgeStoreException` ; un binding
+   incompatible est rejeté.
+5. **Projection** : `SnapshotBusinessContentStore` persiste les autres familles en un `SnapshotBusinessContent` complet
+   et immuable, au plus un par `KnowledgeSnapshotId`, sans `Requirement`. Elles gardent leurs identités métier, sans
+   `DomainIdentity`, `EntityVersion` ni `TemporalState` inventés.
+6. **Ownership** : avant écriture, le snapshot existe et est lié à la version du contenu ; `Specification` et
+   `ChangeProposal` sont du projet du snapshot.
+7. **Intégrité** : collections ordonnées et identités uniques par famille ; un changement nommé par une contrainte,
+   une décision, une tâche ou un critère est dans la projection ; toute `Provenance` référence un `EvidenceId`
+   présent. SQLite reconstruit tout à l'identique après réouverture.
+8. **Tables typées** : une table par famille, listes ordonnées par `ordinal` ; ni payload JSON métier, ni ORM, ni
+   FTS ; SQLite reste hors du domaine. `store-memory` et `store-sqlite` appliquent les mêmes règles d'unicité,
+   d'ownership et de collision.
+
 ## Do's and Don'ts
 
 ### Do
@@ -146,6 +167,7 @@ projection après fermeture et réouverture.
 - Ne pas remplacer silencieusement une définition ou une projection existante par une définition différente.
 - Ne pas attribuer de `TemporalState` ni d'`EntityVersionId` aux familles de la projection.
 - Ne pas persister `Requirement` dans la projection.
+- Ne pas fabriquer de lien de remplacement pour `Scenario.requirementId`, qui reste une référence typée.
 
 ## Consequences
 

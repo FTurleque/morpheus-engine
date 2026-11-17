@@ -37,18 +37,8 @@ Options étudiées :
 | Détection par capacités | Retenue | Correspond aux cas d'usage et permet l'extension |
 | Composer plusieurs providers pour une même source | Hors de cet ADR | Introduit identité, fusion et provenance : décidé par ADR-0084 |
 
-## Decision
-
-La sélection repose sur les types `SpecificationProvider`, `SpecificationProviderRegistry` et
-`ProviderSelectionPolicy` (`morpheus-application`), `ProviderCapability` et `ProviderCapabilitySet`
-(`morpheus-domain`).
-
-Un provider expose un ensemble de capacités **effectives** pour une source donnée. Une capacité déclarée en général
-mais inexerçable sur une version ou une source donnée n'en fait pas partie : le résultat du probe ou de la découverte
-porte les capacités effectives.
-
 La sélection part de la source détectée, de la version de format, des capacités requises, des contraintes de
-configuration et de la politique de fallback :
+configuration et de la politique de fallback, dans cet ordre :
 
 ```text
 1. probe candidate providers
@@ -60,32 +50,35 @@ configuration et de la politique de fallback :
 7. report degraded optional capabilities
 ```
 
-**Taxonomie.** Les capacités sont l'énumération `ProviderCapability`. Elle reste stable et contrôlée, extensible par
-évolution du contrat, et centrée sur des catégories d'information ou des opérations génériques plutôt que sur chaque
-détail d'un provider.
+Par exemple, lire un changement exige `READ_CHANGES` et préfère `READ_DESIGN_DECISIONS`, `READ_ACCEPTANCE_CRITERIA`,
+`READ_IMPLEMENTATION_TASKS`. Le ranking peut considérer la préférence configurée, la fidélité connue, la version
+supportée, la performance, local ou distant, read-only ou writer, la capacité incrémentale. Un provider distant n'est
+pas retenu sans opt-in même s'il offre davantage de fonctionnalités, et un provider read-only reste préférable pour de
+nombreux usages.
 
-**Requises et préférées.** Un cas d'usage définit `requiredCapabilities` et `preferredCapabilities`. Par exemple,
-lire un changement exige `READ_CHANGES` et préfère `READ_DESIGN_DECISIONS`, `READ_ACCEPTANCE_CRITERIA`,
-`READ_IMPLEMENTATION_TASKS`. Une capacité préférée manquante laisse la réponse possible mais expose une dégradation ;
-une capacité requise manquante fait échouer l'opération explicitement ou demande un autre provider.
+## Decision
 
-**Ranking.** Il reste déterministe et explicable. Il peut considérer la préférence configurée, la fidélité connue, la
-version supportée, la performance, local ou distant, read-only ou writer, la capacité incrémentale.
+La sélection repose sur les types `SpecificationProvider`, `SpecificationProviderRegistry` et
+`ProviderSelectionPolicy` (`morpheus-application`), `ProviderCapability` et `ProviderCapabilitySet`
+(`morpheus-domain`).
 
-**Préférence locale.** À capacités équivalentes, un provider local l'emporte sur un provider distant, sauf
-configuration explicite contraire. Un provider distant n'est jamais retenu sans opt-in, même s'il offre davantage de
-fonctionnalités.
-
-**Provider explicite.** Une configuration peut imposer un provider (`provider = openspec`) ; le moteur vérifie tout de
-même ses capacités et sa version, et une incompatibilité ne devient jamais un succès silencieux.
-
-**Écriture.** La séparation des capacités de lecture et d'écriture, et l'interdit d'en déduire une écriture, sont
-décidés par ADR-0008. Pour la sélection, un provider read-only reste valide et préférable pour de nombreux usages.
-
-**Diagnostics de négociation.** La sélection nomme son issue par un code : `NO_PROVIDER_FOUND`,
-`UNSUPPORTED_SOURCE`, `UNSUPPORTED_FORMAT_VERSION`, `MISSING_REQUIRED_CAPABILITY`,
-`OPTIONAL_CAPABILITY_UNAVAILABLE`, `MULTIPLE_PROVIDER_MATCHES`, `EXPLICIT_PROVIDER_INCOMPATIBLE`,
-`REMOTE_PROVIDER_REQUIRES_OPT_IN`. Ces diagnostics ont vocation à être visibles par CLI, API et MCP.
+1. **Capacités effectives** : le résultat du probe ou de la découverte porte les capacités effectives d'un provider
+   pour une source et une version ; une capacité inexerçable sur cette source n'en fait pas partie.
+2. **Sélection** : filtre sur les capacités requises, ranking, gagnant déterministe, dégradations rapportées.
+3. **Taxonomie** : l'énumération `ProviderCapability`, stable, extensible par évolution du contrat, faite de
+   catégories d'information ou d'opérations génériques.
+4. **Requises et préférées** : chaque cas d'usage définit `requiredCapabilities` et `preferredCapabilities`. Une
+   préférée manquante expose une dégradation ; une requise manquante fait échouer l'opération explicitement ou demande
+   un autre provider.
+5. **Ranking** : déterministe et explicable.
+6. **Préférence locale** : à capacités équivalentes, un provider local l'emporte sauf configuration contraire ; un
+   provider distant n'est jamais retenu sans opt-in.
+7. **Provider explicite** : imposé par configuration (`provider = openspec`), il voit tout de même ses capacités et sa
+   version vérifiées ; une incompatibilité n'est jamais un succès silencieux.
+8. **Écriture** : décidée par ADR-0008 ; un provider read-only reste valide pour la sélection.
+9. **Diagnostics** : l'issue porte un code, `NO_PROVIDER_FOUND`, `UNSUPPORTED_SOURCE`, `UNSUPPORTED_FORMAT_VERSION`,
+   `MISSING_REQUIRED_CAPABILITY`, `OPTIONAL_CAPABILITY_UNAVAILABLE`, `MULTIPLE_PROVIDER_MATCHES`,
+   `EXPLICIT_PROVIDER_INCOMPATIBLE`, `REMOTE_PROVIDER_REQUIRES_OPT_IN`, visible par CLI, API et MCP.
 
 **Composition.** Cet ADR choisit un provider par source. La composition de plusieurs providers relève d'ADR-0084.
 

@@ -24,81 +24,35 @@ Options écartées :
   et, pour les statuts d'intégration, obligerait à changer un record applicatif partagé par trois adaptateurs là où la
   sortie fautive est une ligne de la CLI.
 
+L'ordre d'une restitution est déclaré par le code qui la produit parce que l'ordre des collections immuables du JDK
+part d'un sel tiré par JVM, et que `CanonicalJsonSerializer` trie les clés de map mais pas les collections. Les détails
+d'un statut d'intégration sont triés par clé, l'ordre que le JSON canonique emploie déjà ; l'ordre de
+`ProviderCapabilitySet` est fixé dans le domaine parce que la collection atteint aussi le JSON, qui ne la trie pas.
+
+Les chemins servis vont de `help`, `version`, `paths` à `projects list`, `sync`, `requirements find`… Le regroupement
+sous `--data-dir` (ou `MORPHEUS_DATA_DIR`) permet un mode portable.
+
 ## Decision
 
-### Launcher et adaptateur
-
-Le launcher officiel est `com.morpheus.cli.MorpheusMain`. L'adaptateur CLI s'appuie sur `MorpheusCli`, `CliRuntime`,
-`CliLayout` et `CliExitCode`. La CLI câble les ports, stores et services existants ; les règles de requête, de
-qualité, de traçabilité et d'analyse restent dans `morpheus-application`.
-
-### Commandes
-
-La liste des commandes n'est pas tenue dans cet ADR : `CliCommandPaths` déclare une fois pour toutes les chemins de
-commande servis (`help`, `version`, `paths`, `projects list`, `sync`, `requirements find`…), et
-`contracts/public-surfaces.tsv` les rattache aux capacités publiques. Une commande ajoutée à la CLI est déclarée dans
-`CliCommandPaths` et documentée dans l'aide embarquée.
-
-### Sorties
-
-Par défaut, la sortie est humaine, stable et compacte. Avec `--json`, ce sont des records déterministes sérialisés
-par `CanonicalJsonSerializer` ou les vues compactes existantes.
-
-```text
-stdout = résultat normal
-stderr = erreurs et diagnostics d'exécution
-```
-
-La CLI ne mélange pas d'erreur structurée dans un flux JSON de succès.
-
-**Une restitution a un ordre déclaré, jamais celui d'une structure.** Une sortie, texte ou JSON, ne dépend pas de
-l'ordre d'itération de la collection qui porte ses valeurs (l'ordre des collections immuables du JDK part d'un sel
-tiré par JVM, et `CanonicalJsonSerializer` trie les clés de map mais pas les collections). L'ordre est déclaré par le
-code qui produit la restitution :
-
-- `MorpheusServerCli` rend chaque identité selon `IDENTITY_FIELDS` ;
-- `minos-status` et `nexus-status` rendent les détails d'un statut d'intégration par clé triée, l'ordre que le JSON
-  canonique emploie déjà ;
-- `ProviderCapabilitySet` itère dans l'ordre de déclaration de `ProviderCapability` (`EnumSet` non modifiable) ;
-  l'ordre est fixé dans le domaine parce que la collection atteint aussi le JSON, que le JSON canonique ne trie pas.
-
-### Codes de sortie
-
-```text
-0  SUCCESS
-2  USAGE
-3  NOT_FOUND
-4  STATE_ERROR
-5  IO_ERROR
-10 INTERNAL_ERROR
-```
-
-Ces valeurs, déclarées par `CliExitCode`, sont un contrat pour les scripts. Ce que chaque code signifie et quand il
-s'applique relève d'ADR-0130.
-
-### Disposition locale
-
-Priorité :
-
-```text
-option CLI > variable MORPHEUS_* > défaut de l'OS
-```
-
-Options globales : `--data-dir`, `--config-dir`, `--db`. Variables : `MORPHEUS_DATA_DIR`, `MORPHEUS_CONFIG_DIR`,
-`MORPHEUS_DB`, ainsi que `MORPHEUS_LOGS_DIR` et `MORPHEUS_BACKUPS_DIR`. Les défauts par OS sont ceux d'ADR-0088.
-Un `--data-dir` explicite (ou `MORPHEUS_DATA_DIR`) regroupe par défaut configuration, logs,
-sauvegardes et base sous ce répertoire, ce qui permet un mode portable. `CliLayout` est la seule résolution.
-
-### Persistance
-
-Toutes les opérations d'une invocation ouvrent la base sur **le même chemin**. Chaque ressource est fermée
-explicitement à la fin de l'invocation. La construction des stores d'une opération suit ADR-0162.
-
-### Frontières
-
-La CLI ne contient ni règle de couverture, ni algorithme de trace, ni comparaison d'analyse de changement, ni parsing
-métier OpenSpec, ni lifecycle de snapshot, ni politique de qualité : elle orchestre les services existants. Elle
-n'utilise pas de framework CLI externe.
+1. **Launcher** : `com.morpheus.cli.MorpheusMain`, sur `MorpheusCli`, `CliRuntime`, `CliLayout` et `CliExitCode`.
+   La CLI câble les ports, stores et services existants, sans framework CLI externe.
+2. **Frontières** : la CLI ne porte ni règle de couverture, ni algorithme de trace, ni comparaison d'analyse de changement, ni parsing
+   métier OpenSpec, ni lifecycle de snapshot, ni politique de qualité (`morpheus-application`).
+3. **Commandes** : `CliCommandPaths` déclare les chemins servis, `contracts/public-surfaces.tsv` les rattache aux
+   capacités ; une commande ajoutée y est déclarée et documentée dans l'aide.
+4. **Sorties** : humaine, stable et compacte par défaut ; `--json` sérialise par `CanonicalJsonSerializer` ou une vue
+   compacte. Résultat sur `stdout`, erreurs et diagnostics sur `stderr` ; aucune erreur structurée dans un JSON de
+   succès.
+5. **Ordre déclaré** : une sortie, texte ou JSON, ne suit jamais l'ordre d'itération d'une collection ; son code le
+   déclare. `MorpheusServerCli` rend une identité selon `IDENTITY_FIELDS` ; `minos-status` et `nexus-status` trient
+   les détails par clé ; `ProviderCapabilitySet` suit l'ordre de `ProviderCapability` (`EnumSet` non modifiable).
+6. **Codes de sortie** : `0 SUCCESS`, `2 USAGE`, `3 NOT_FOUND`, `4 STATE_ERROR`, `5 IO_ERROR`, `10 INTERNAL_ERROR`,
+   de `CliExitCode`, sont un contrat ; leur sens relève d'ADR-0130.
+7. **Disposition** : option CLI > variable `MORPHEUS_*` > défaut de l'OS (ADR-0088). Options `--data-dir`,
+   `--config-dir`, `--db` ; variables `MORPHEUS_DATA_DIR`, `MORPHEUS_CONFIG_DIR`, `MORPHEUS_DB`, `MORPHEUS_LOGS_DIR`,
+   `MORPHEUS_BACKUPS_DIR`. `--data-dir` (ou `MORPHEUS_DATA_DIR`) regroupe par défaut configuration, logs, sauvegardes
+   et base. `CliLayout` seul résout.
+8. **Persistance** : une invocation ouvre la base sur un seul chemin et ferme chaque ressource (stores : ADR-0162).
 
 ## Do's and Don'ts
 

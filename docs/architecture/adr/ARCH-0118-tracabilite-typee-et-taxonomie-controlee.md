@@ -35,11 +35,7 @@ Options écartées :
 
 L'option retenue est un lien générique mais typé, dont le type est pris dans une énumération fermée.
 
-## Decision
-
-### Le lien est un concept de premier ordre
-
-`com.morpheus.domain.traceability.TraceabilityLink` est un record immuable et provider-neutral qui porte :
+Champs de `TraceabilityLink` :
 
 | Champ | Rôle |
 |---|---|
@@ -52,32 +48,20 @@ L'option retenue est un lien générique mais typé, dont le type est pris dans 
 | `evidenceIds` | ensemble immuable et non vide d'`EvidenceId` |
 | `observedAt` | instant où MORPHEUS a observé ou produit le lien |
 
-`TraceabilityLinkId` n'est ni un hachage de `(source, relation, target)`, ni un `EntityVersionId`, ni un
-`KnowledgeSnapshotId`. Le domaine ne dérive jamais l'identité d'un lien du contenu de l'arête : deux observations
-sémantiquement proches peuvent garder deux identités distinctes. La déduplication relève de la persistance par snapshot
-(ADR-0038) et de la dérivation déterministe (ADR-0039).
+Deux observations sémantiquement proches peuvent garder deux identités de lien distinctes : la déduplication relève de
+la persistance par snapshot (ADR-0038) et de la dérivation déterministe (ADR-0039), et l'appartenance d'un lien à un
+snapshot est explicite (ADR-0038). Le `EntityVersionId` et le `KnowledgeSnapshotId` ne servent donc jamais d'identité
+de lien, et `observedAt` est seulement l'instant où MORPHEUS a observé ou produit le lien.
 
-`observedAt` ne remplace ni `SpecificationVersion`, ni `KnowledgeSnapshot`, ni `TemporalState` : l'appartenance d'un
-lien à un snapshot est explicite et relève d'ADR-0038.
+Les extrémités sont typées par `TraceabilityEntityKind` : `PROJECT`, `SPECIFICATION`, `REQUIREMENT`, `SCENARIO`,
+`CHANGE`, `REQUIREMENT_DELTA`, `CONSTRAINT`, `DESIGN_DECISION`, `IMPLEMENTATION_TASK`, `ACCEPTANCE_CRITERION`,
+`EVIDENCE` et `EXTERNAL_REFERENCE`. `ACCEPTANCE_CRITERION` et `EVIDENCE` participent à la traçabilité parce que
+critères et preuves de vérification sont des entités de production (ADR-0081). Les couples source/cible admis par une
+relation ne sont pas des contraintes du domaine ; les cardinalités typiques (une exigence a plusieurs critères, un
+changement plusieurs tâches) se contrôlent par diagnostics, pas par des contraintes de stockage.
 
-### Types d'entités traçables
-
-Les extrémités d'un lien sont typées par `TraceabilityEntityKind` : `PROJECT`, `SPECIFICATION`, `REQUIREMENT`,
-`SCENARIO`, `CHANGE`, `REQUIREMENT_DELTA`, `CONSTRAINT`, `DESIGN_DECISION`, `IMPLEMENTATION_TASK`,
-`ACCEPTANCE_CRITERION`, `EVIDENCE` et `EXTERNAL_REFERENCE`. Une même `DomainIdentity` sous deux types différents donne
-deux références distinctes. `ACCEPTANCE_CRITERION` et `EVIDENCE` participent à la traçabilité parce que critères et
-preuves de vérification sont des entités de production (ADR-0081). Un type d'entité n'est ajouté que pour une entité
-normalisée de production.
-
-Les couples source/cible admis par une relation ne sont pas des contraintes du domaine : `TraceabilityLink` n'en
-vérifie aucun. Les cardinalités typiques (une exigence a plusieurs critères, un changement plusieurs tâches) se
-contrôlent par diagnostics, pas par des contraintes de stockage.
-
-### Taxonomie fermée
-
-`TraceabilityRelationType` est une énumération fermée ; aucune relation libre de type `String` n'entre dans
-`TraceabilityLink`. Chaque relation porte une classe sémantique, une politique de transitivité et le nom de sa vue
-inverse.
+La taxonomie de `TraceabilityRelationType`, avec la classe sémantique, la transitivité et le nom inverse de chaque
+relation :
 
 | Relation | Classe sémantique | Transitivité | Nom inverse |
 |---|---|---|---|
@@ -109,21 +93,9 @@ Exemples de direction canonique : `Scenario REFINES Requirement`, `Constraint CO
 `Change DECIDED_BY DesignDecision`, `ImplementationTask IMPLEMENTS Requirement`, `Change AFFECTS Requirement`,
 `AcceptanceCriterion VALIDATES Requirement`.
 
-### Direction, inverse et transitivité
-
-La direction du lien stocké est significative. Une relation inverse est une **vue de requête** : son nom est exposé
-par `inverseQueryName()`, elle n'est jamais persistée comme seconde arête et ne compte jamais comme une seconde preuve
-indépendante.
-
-Il n'existe que deux politiques de transitivité, `NON_TRANSITIVE` et `CONTEXTUAL`. Aucune relation n'est transitive de
-façon universelle : qu'une chaîne soit traversable ne permet pas d'affirmer une nouvelle arête métier, et le moteur de
-requête n'applique jamais la transitivité au seul motif que la relation est stockée dans un graphe. La traversée
-bornée relève d'ADR-0040.
-
-### Trois dimensions orthogonales au type
-
-Le type de relation ne code ni la provenance, ni la résolution, ni la confiance. `HEURISTIC_IMPLEMENTS` est
-interdit ; on écrit `IMPLEMENTS` avec `origin = HEURISTIC`, `resolution = HEURISTIC` et une confiance.
+Qu'une chaîne soit traversable ne permet pas d'affirmer une nouvelle arête métier ; la traversée bornée relève
+d'ADR-0040. Un lien heuristique s'écrit `IMPLEMENTS` avec `origin = HEURISTIC`, `resolution = HEURISTIC` et une
+confiance. Les trois dimensions orthogonales au type :
 
 | Dimension | Valeurs | Question |
 |---|---|---|
@@ -135,36 +107,34 @@ interdit ; on écrit `IMPLEMENTS` avec `origin = HEURISTIC`, `resolution = HEURI
 - `DERIVED` : calculé de façon déterministe à partir de faits fiables ;
 - `HEURISTIC` : hypothèse utile mais non certaine.
 
-Une confiance est obligatoire dès que l'origine ou la résolution vaut `HEURISTIC`. Un lien heuristique n'est jamais
-présenté comme explicite.
+Plusieurs preuves d'une même observation forment un ensemble immuable : deux liens d'apparence identique peuvent avoir
+des provenances différentes (déclaration du provider, convention de structure, inférence MORPHEUS) et le consommateur
+doit pouvoir les distinguer. Une proposition d'extension de la taxonomie par ADR vaut pour un besoin générique. Le
+stockage physique n'a pas à être un graphe : la traversée dans les deux directions se fait par requête. Persistance (ADR-0038), dérivation (ADR-0039), traversée (ADR-0040) et
+références externes (ADR-0142) sont décidées à part.
 
-### Preuve et liens non résolus
+## Decision
 
-Tout lien porte au moins un `EvidenceId` ; plusieurs preuves d'une même observation forment un ensemble immuable sans
-doublon. Deux liens d'apparence identique peuvent avoir des provenances différentes (déclaration du provider,
-convention de structure, inférence MORPHEUS) et le consommateur doit pouvoir les distinguer.
-
-Un lien dont la cible n'a pas pu être résolue reste visible avec `resolution = UNRESOLVED` ; il n'est jamais supprimé
-silencieusement. Un lien que la source ne porte plus est invalidé lors de la synchronisation. Les liens vers des
-références externes (cross-engine) sont distingués des liens internes par le type `EXTERNAL_REFERENCE` de leur
-extrémité (ADR-0142).
-
-### Relations propres à un provider
-
-Un provider qui rencontre une relation sans équivalent MORPHEUS :
-
-1. la mappe vers une relation existante si la sémantique est réellement équivalente ;
-2. sinon la conserve en métadonnées ;
-3. ou propose une extension de la taxonomie par ADR si le besoin est générique.
-
-Un provider n'injecte jamais de nouveau `TraceabilityRelationType` public. Une relation n'est ajoutée à la taxonomie
-que si un cas d'usage concret l'exige.
-
-### Frontière du domaine
-
-Le domaine de traçabilité ne dépend d'aucun provider, store, transport, ni de MINOS, NEXUS ou JARVIS. Le stockage
-physique n'a pas à être un graphe : la traversée dans les deux directions se fait par requête. Persistance
-(ADR-0038), dérivation (ADR-0039), traversée (ADR-0040) et références externes (ADR-0142) sont décidées à part.
+1. **Lien** : `com.morpheus.domain.traceability.TraceabilityLink`, record immuable et provider-neutral. Son
+   `TraceabilityLinkId` ne dérive ni du contenu de l'arête, ni d'une version, ni d'un snapshot ; `observedAt` ne
+   remplace ni version, ni snapshot, ni `TemporalState`.
+2. **Extrémités** : `TraceabilityEntityKind` + `DomainIdentity` ; une identité sous deux types : deux références. Un
+   type n'entre que pour une entité normalisée de production. Aucun couple source/cible n'est vérifié.
+3. **Taxonomie fermée** : `TraceabilityRelationType` ; chaque relation a sa classe sémantique, sa transitivité et son
+   nom inverse. Pas de relation `String`. La direction stockée compte ; l'inverse est une vue de requête
+   (`inverseQueryName()`), jamais persistée ni comptée comme seconde preuve.
+4. **Transitivité** : `NON_TRANSITIVE` ou `CONTEXTUAL`, jamais universelle ni déduite du stockage en graphe.
+5. **Orthogonalité** : le type ne code ni origine (`TraceabilityLinkOrigin`), ni résolution
+   (`TraceabilityResolutionState`), ni confiance (`HEURISTIC_IMPLEMENTS` interdit). `TraceabilityConfidence`,
+   bornée à `[0.0, 1.0]`, est obligatoire si origine ou résolution vaut `HEURISTIC` ; un tel lien n'est jamais présenté
+   comme explicite.
+6. **Preuve** : au moins un `EvidenceId`, sans doublon. Un lien non résolu reste visible en `UNRESOLVED`, jamais
+   supprimé silencieusement ; un lien que la source ne porte plus est invalidé à la synchronisation ; une extrémité
+   `EXTERNAL_REFERENCE` marque un lien cross-engine.
+7. **Providers** : une relation propre est mappée si sa sémantique est équivalente, sinon gardée en métadonnées ou
+   proposée par ADR ; aucun provider n'ajoute de type public. Une relation n'entre que pour un besoin concret ;
+   `RELATED_TO` n'est jamais une preuve forte.
+8. **Frontière** : le domaine ignore providers, stores, transports, MINOS, NEXUS et JARVIS.
 
 ## Do's and Don'ts
 

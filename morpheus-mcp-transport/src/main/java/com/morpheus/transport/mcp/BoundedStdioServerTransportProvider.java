@@ -49,7 +49,7 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  * <p>Each handler must complete within {@link #DEFAULT_HANDLER_DEADLINE}. The deadline is a safety bound, not a
  * service timeout: it sits far above any healthy handler, and a handler past it fails the session closed, because
- * cancelling it frees the reader without proving the work stopped (ADR-0106, §4).</p>
+ * cancelling it frees the reader without proving the work stopped (ADR-0106, point 7).</p>
  */
 public final class BoundedStdioServerTransportProvider implements McpServerTransportProvider {
     public static final int DEFAULT_MAX_FRAME_BYTES = 1024 * 1024;

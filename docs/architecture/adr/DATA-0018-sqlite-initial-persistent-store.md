@@ -48,67 +48,41 @@ Alternatives écartées :
   requêtes structurées et les migrations.
 - **Store mémoire seul** : rejeté comme backend utilisateur, conservé comme implémentation de référence et de test.
 
-## Decision
-
-SQLite est le **backend persistant de production** derrière le port `SpecificationKnowledgeStore` et les ports de
-persistance de `morpheus-application`, par un adaptateur JDBC (`morpheus-store-sqlite`) et le driver Xerial SQLite
-JDBC (`org.xerial:sqlite-jdbc`), dont la version est verrouillée dans le `pom.xml` racine (propriété
-`sqlite-jdbc.version`) et suivie par la maintenance normale. Le driver peut être remplacé sans modifier le domaine.
-
-SQLite n'est visible ni dans le domaine, ni dans les services applicatifs, ni dans les DTO publics, ni dans les
-contrats MCP et API. Les stores concrets sont construits par les racines de composition (ADR-0162).
+L'absence de second backend persistant est un choix, pas une dette. La répartition qui en résulte :
 
 ```text
 Graph model = yes
 Graph database mandatory = no
-```
 
-```text
 Persistent backend = SQLite
 Memory backend     = contract test / reference
 Dedicated graph store = not required
 Storage boundary   = SpecificationKnowledgeStore
 ```
 
-### Schéma
+## Decision
 
-Un payload JSON monolithique n'est pas le schéma de production. Le schéma de production distingue au
-minimum les familles : projets, snapshots de connaissance, spécifications, requirements, changements, contraintes,
-scénarios, décisions de conception, critères d'acceptation, tâches d'implémentation, liens de traçabilité, références
-externes, provenance et preuves.
+SQLite est le **backend persistant de production** derrière `SpecificationKnowledgeStore` et les ports de
+persistance de `morpheus-application`, par l'adaptateur JDBC `morpheus-store-sqlite` et le driver
+`org.xerial:sqlite-jdbc`, version verrouillée dans le `pom.xml` racine (`sqlite-jdbc.version`), remplaçable sans
+toucher au domaine.
 
-### Migrations
-
-Le schéma de production est versionné : migration explicite, migration testée sur copie, version de schéma stockée,
-rollback ou restauration documentés selon le type de migration, reconstruction depuis les sources toujours possible
-pour les données dérivées. Le mécanisme relève d'ADR-0021 ; la copie conservée avant qu'un schéma avance relève
-d'ADR-0110.
-
-### Invariants
-
-Les invariants de l'adaptateur SQLite et des migrations sont ceux d'ADR-0021 ; la frontière du port de persistance
-est celle d'ADR-0003. S'y ajoutent :
-
-1. Le snapshot actif est atomique au niveau observable.
-2. `DomainIdentity` est conservée exactement.
-3. Les liens de traçabilité sont associés au snapshot.
-4. Les références non résolues sont conservées.
-5. Le fonctionnement ne requiert pas de réseau.
-6. Un graph store reste réévaluable sans refonte du domaine.
-
-### Un seul backend, par choix
-
-L'absence de second backend persistant est un choix, pas une dette : elle tient tant qu'aucun critère de réouverture
-ci-dessous n'est rempli. `morpheus-store-memory` est le store de contrat et de test, pas un backend de production en
-attente de promotion.
-
-Critères de réouverture :
-
-- volume ou latence au-delà des objectifs ;
-- concurrence multi-utilisateur devenue prioritaire ;
-- traversées complexes devenues dominantes ;
-- distribution du driver devenue problématique ;
-- mode serveur central devenu le déploiement principal.
+1. **Frontière** : SQLite n'apparaît ni dans le domaine, ni dans les services applicatifs, ni dans les DTO publics,
+   ni dans les contrats MCP et API ; les stores concrets sont construits par les racines de composition (ADR-0162).
+   Le modèle est un graphe, sans graph database.
+2. **Schéma** : pas de payload JSON monolithique ; au minimum projets, snapshots, spécifications, requirements,
+   changements, contraintes, scénarios, décisions de conception, critères d'acceptation, tâches, liens de
+   traçabilité, références externes, provenance et preuves.
+3. **Migrations** : schéma versionné et version stockée, migration explicite testée sur copie, rollback ou
+   restauration documentés, données dérivées reconstructibles depuis les sources (mécanisme : ADR-0021 ; copie avant
+   migration : ADR-0110).
+4. **Invariants**, outre ceux d'ADR-0021 et d'ADR-0003 : snapshot actif atomique au niveau observable ;
+   `DomainIdentity` conservée exactement ; liens de traçabilité liés au snapshot ; références non résolues
+   conservées ; aucun réseau requis ; un graph store reste réévaluable sans refonte du domaine.
+5. **Un seul backend persistant** tant qu'aucun critère de réouverture n'est rempli : volume ou latence hors
+   objectifs, concurrence multi-utilisateur prioritaire, traversées complexes dominantes, distribution du driver
+   problématique, serveur central devenu le déploiement principal. `morpheus-store-memory` est un store de contrat et
+   de test, pas un backend en attente de promotion.
 
 ## Do's and Don'ts
 

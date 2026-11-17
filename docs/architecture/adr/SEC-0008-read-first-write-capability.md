@@ -39,69 +39,25 @@ Options considérées :
 
 ## Decision
 
-Le contrat provider est **read-first**. Les capacités de lecture et de découverte forment le socle :
-
-```text
-DISCOVER_PROJECT
-READ_CURRENT_SPECIFICATIONS
-READ_CHANGES
-READ_REQUIREMENTS
-READ_CONSTRAINTS
-READ_SCENARIOS
-READ_DESIGN_DECISIONS
-READ_ACCEPTANCE_CRITERIA
-READ_IMPLEMENTATION_TASKS
-READ_HISTORY
-READ_ARCHIVES
-```
-
-Les capacités de mutation sont séparées :
-
-```text
-WRITE_CHANGE
-WRITE_TASK_STATE
-ARCHIVE_CHANGE
-```
-
-Ces capacités sont des valeurs de `com.morpheus.domain.provider.ProviderCapability`. Un provider valide peut être
-entièrement read-only. Aucun service métier de lecture ne dépend de la présence des capacités d'écriture. ADR-0011
-définit la négociation de ces capacités et leur caractère effectif selon la source et la version du format.
-
-La forme exacte de l'API d'écriture (capacités déclarées par un provider, ou ports de lecture et d'écriture séparés)
-n'est pas fixée par cette décision ; l'invariant est que **l'écriture n'est jamais obligatoire**.
-
-### Invariants
-
-1. Une lecture ne modifie jamais la source.
-2. `READ_CHANGES` n'implique jamais `WRITE_CHANGE`.
-3. `READ_IMPLEMENTATION_TASKS` n'implique jamais `WRITE_TASK_STATE`.
-4. `READ_ARCHIVES` n'implique jamais `ARCHIVE_CHANGE`.
-5. Un provider read-only satisfait l'ensemble des cas d'usage de compréhension : découverte, ingestion, requêtes,
-   traçabilité, reconstruction courant / proposé et lecture de l'historique disponible.
-6. Toute mutation requiert une intention explicite et des permissions.
-7. Un succès d'écriture est confirmable par la source ou une preuve adaptée.
-
-Une écriture expérimentale reste isolée et ne devient une dépendance d'aucun service de lecture.
-
-### Garde-fous de toute écriture
-
-Toute capacité d'écriture considère :
-
-- l'intention explicite de l'utilisateur ou d'un orchestrateur autorisé ;
-- une précondition sur la version source ;
-- la détection de conflit ;
-- la validation MORPHEUS avant écriture ;
-- une capacité provider explicite ;
-- une écriture atomique lorsque possible ;
-- un diff ou une preview observable ;
-- un rollback via Git ou un mécanisme provider lorsque disponible ;
-- la journalisation de la mutation sans fuite de secrets ;
-- la resynchronisation après succès ;
-- la confirmation de l'état réellement observé.
-
-L'autorisation de lire n'implique jamais l'autorisation d'écrire. Toute activation fonctionnelle de l'écriture fait
-l'objet d'un ADR qui précise permissions, concurrence, conflits, confirmation et rollback (ADR-0083 pour les mutations
-contrôlées du cycle de vie).
+1. **Read-first** : les capacités de lecture et de découverte forment le socle — `DISCOVER_PROJECT`,
+   `READ_CURRENT_SPECIFICATIONS`, `READ_CHANGES`, `READ_REQUIREMENTS`, `READ_CONSTRAINTS`, `READ_SCENARIOS`,
+   `READ_DESIGN_DECISIONS`, `READ_ACCEPTANCE_CRITERIA`, `READ_IMPLEMENTATION_TASKS`, `READ_HISTORY`, `READ_ARCHIVES`.
+   Les capacités de mutation sont séparées : `WRITE_CHANGE`, `WRITE_TASK_STATE`, `ARCHIVE_CHANGE`. Toutes sont des
+   valeurs de `com.morpheus.domain.provider.ProviderCapability` ; leur négociation relève d'ADR-0011.
+2. Un provider valide peut être entièrement read-only et satisfait alors tous les cas d'usage de compréhension
+   (découverte, ingestion, requêtes, traçabilité, courant / proposé, historique).
+3. **L'écriture n'est jamais obligatoire** (forme de son API non fixée ici). Aucun service de lecture ne dépend d'une
+   capacité d'écriture ; une écriture expérimentale reste isolée.
+4. Une lecture ne modifie jamais la source. `READ_CHANGES` n'implique jamais `WRITE_CHANGE`,
+   `READ_IMPLEMENTATION_TASKS` jamais `WRITE_TASK_STATE`, `READ_ARCHIVES` jamais `ARCHIVE_CHANGE`.
+5. L'autorisation de lire n'implique jamais celle d'écrire. Toute mutation requiert une intention explicite (utilisateur
+   ou orchestrateur autorisé), des permissions et une capacité provider explicite ; son succès est confirmable par la
+   source ou une preuve adaptée.
+6. **Garde-fous** de toute écriture : précondition sur la version source, détection de conflit, validation MORPHEUS
+   préalable, atomicité si possible, diff ou preview observable, rollback (Git ou provider) si disponible,
+   journalisation sans secret, resynchronisation après succès, confirmation de l'état réellement observé.
+7. Toute activation fonctionnelle de l'écriture a son ADR (permissions, concurrence, conflits, confirmation,
+   rollback) : ADR-0083 pour les mutations contrôlées du cycle de vie.
 
 ## Do's and Don'ts
 

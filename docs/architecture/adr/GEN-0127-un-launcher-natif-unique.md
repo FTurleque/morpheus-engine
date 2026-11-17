@@ -23,38 +23,38 @@ données entre transports.
 En mode MCP STDIO, la sortie standard porte le protocole JSON-RPC : un octet qui n'est pas une trame (aide, bannière,
 log, message de démarrage) casse la session du client.
 
+Les trois formes d'appel du launcher :
+
+```text
+morpheus <commande CLI>
+morpheus mcp --stdio
+morpheus api --host <hôte> --port <port>
+```
+
+La liste et le nombre d'outils MCP se lisent dans `contracts/public-surfaces.tsv`. Les dépendances de `morpheus-cli`
+vers `morpheus-mcp` et `morpheus-api` font que le JAR ombré et l'app-image embarquent le serveur MCP, son SDK et l'API
+sans runtime externe.
+
 ## Decision
 
-1. **Un seul launcher, trois modes.** `MorpheusMain` route selon la commande :
-
-   ```text
-   morpheus <commande CLI>
-   morpheus mcp --stdio
-   morpheus api --host <hôte> --port <port>
-   ```
-
-   L'hôte et le port par défaut de l'API sont `MorpheusHttpServer.DEFAULT_HOST` et `MorpheusHttpServer.DEFAULT_PORT` ;
-   l'adresse locale reste soumise à la politique loopback. Le mode serveur distant est routé par le même launcher et
-   relève d'ADR-0094.
-2. **Un seul layout.** Les trois modes acceptent les options globales `--data-dir`, `--config-dir` et `--db` et les
-   variables `MORPHEUS_DATA_DIR`, `MORPHEUS_CONFIG_DIR` et `MORPHEUS_DB`, résolues par `CliLayout` selon le contrat de
-   la CLI (ADR-0059). Le serveur MCP et l'API ouvrent la même base SQLite que la CLI.
-3. **Discipline des flux en MCP.** En mode `mcp --stdio`, la sortie standard est réservée aux trames MCP JSON-RPC et
-   la sortie d'erreur aux diagnostics du runtime. Aucune aide, bannière, log ni message de démarrage n'est écrit sur la
-   sortie standard ; `--json` est refusé dans ce mode.
-4. **Contrat des outils MCP.** Les outils déclarés `READ` dans `contracts/public-surfaces.tsv` sont en lecture seule
-   (ADR-0063). Les outils déclarés `WRITE` relèvent d'ADR-0083 (confirmation explicite, révision attendue). La liste et
-   le nombre d'outils se lisent dans le manifeste.
-5. **Cycle de vie de l'API.** Le mode `api` démarre le serveur, écrit ses diagnostics de démarrage sur la sortie
-   d'erreur et jamais dans les réponses, bloque le processus jusqu'à interruption et ferme le serveur à l'arrêt.
-6. **Packaging.** `morpheus-mcp` et `morpheus-api` sont des dépendances de `morpheus-cli`, de sorte que le JAR ombré et
-   l'app-image embarquent le serveur MCP, le SDK MCP et l'API sans runtime externe. Le runtime embarqué ajoute
-   explicitement `jdk.httpserver` aux modules que `jpackage` passe à `jlink`. Avant `jpackage`, le build portable
-   vérifie la présence dans le JAR ombré des classes de sa liste `$requiredEntries` (`distribution/build-portable.ps1`,
-   liste équivalente dans `distribution/build-portable.sh`), dont `com/morpheus/mcp/server/MorpheusMcpServer.class`,
-   `io/modelcontextprotocol/server/McpServer.class` et `com/morpheus/api/local/MorpheusHttpServer.class`. Il lance ensuite
-   le launcher packagé (`--version`, `--json version`) et l'API packagée, dont `GET /api/v1/health` doit répondre `200`.
-   Aucun JDK séparé n'est requis côté utilisateur final.
+1. **Un seul launcher, trois modes** : `MorpheusMain` route la CLI, `mcp --stdio` et `api`. Hôte et port par défaut
+   de l'API : `MorpheusHttpServer.DEFAULT_HOST` et `MorpheusHttpServer.DEFAULT_PORT`, sous la politique loopback. Le
+   mode serveur distant passe par le même launcher et relève d'ADR-0094.
+2. **Un seul layout** : les trois modes acceptent `--data-dir`, `--config-dir`, `--db` et `MORPHEUS_DATA_DIR`,
+   `MORPHEUS_CONFIG_DIR`, `MORPHEUS_DB`, résolus par `CliLayout` (ADR-0059) ; MCP et API ouvrent la base SQLite de la
+   CLI.
+3. **Flux en MCP** : en `mcp --stdio`, la sortie standard est réservée aux trames MCP JSON-RPC, la sortie d'erreur aux
+   diagnostics ; ni aide, ni bannière, ni log, ni message de démarrage sur la sortie standard ; `--json` est refusé.
+4. **Outils MCP** : un outil `READ` de `contracts/public-surfaces.tsv` est en lecture seule (ADR-0063), un outil
+   `WRITE` relève d'ADR-0083 (confirmation explicite, révision attendue).
+5. **Cycle de vie de l'API** : `api` démarre le serveur, écrit ses diagnostics de démarrage sur la sortie d'erreur,
+   jamais dans les réponses, bloque jusqu'à interruption et ferme le serveur à l'arrêt.
+6. **Packaging** : `morpheus-mcp` et `morpheus-api` sont des dépendances de `morpheus-cli` ; le runtime embarqué
+   ajoute `jdk.httpserver` aux modules passés à `jlink`. Avant `jpackage`, le build portable exige dans le JAR ombré
+   les classes de `$requiredEntries` (`distribution/build-portable.ps1`, équivalent dans `build-portable.sh`), dont
+   `com/morpheus/mcp/server/MorpheusMcpServer.class`, `io/modelcontextprotocol/server/McpServer.class` et
+   `com/morpheus/api/local/MorpheusHttpServer.class`, puis lance `--version`, `--json version` et l'API packagée
+   (`GET /api/v1/health` → `200`). Aucun JDK séparé n'est requis chez l'utilisateur final.
 
 ## Do's and Don'ts
 

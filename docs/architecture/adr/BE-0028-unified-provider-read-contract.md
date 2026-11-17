@@ -42,7 +42,7 @@ Options écartées :
 - relayer, dans le diagnostic d'une lecture en échec, la cause sans le nom du fichier : la synchronisation HTTP n'y
   passe pas, elle filtre le message de l'exception elle-même.
 
-## Decision
+Fonctionnement détaillé du contrat que la décision fixe, point par point :
 
 1. **La sonde et la lecture sont séparées.** `SpecificationProvider.probe()` décrit la compatibilité et les capacités ;
    `SpecificationContentReader.read()` décrit ce qui a réellement été produit. Le contrat applicatif
@@ -126,46 +126,61 @@ Options écartées :
     conventions du provider OpenSpec, tenues dans [`docs/developer/OPENSPEC_PROVIDER.md`](../../developer/OPENSPEC_PROVIDER.md).
     Elles appliquent cette décision sans y déroger.
 
+`ProviderIngestionLimitException` hérite d'`IllegalArgumentException` : une clause large la rendrait comme une source
+mal formée. Dans `morpheus-architecture-tests`, le plugin de référence est sur le classpath de test : `ServiceLoader`
+y trouverait le service chargé par le classpath, et la copie vérifiée par SHA-256 ne s'exécuterait jamais.
+
+## Decision
+
+1. `SpecificationProvider.probe()` dit les capacités, `SpecificationContentReader.read()` ce qui est produit ; le
+   contrat `com.morpheus.application.read` (`ProviderReadRequest`, `ProviderReadResult`, `ReadCategory`,
+   `ReadCategoryStatus`, `ReadCategoryReport`) ne porte aucun type de provider.
+2. Statut de toute catégorie demandée : `READ`, `ABSENT` (pas une erreur), `UNSUPPORTED`
+   (`OPTIONAL_CAPABILITY_UNAVAILABLE`), `FAILED` (`INVALID_SOURCE` ou diagnostic de sonde), `PARTIAL`
+   (`PARTIAL_INGESTION`) ; une collection vide n'est jamais un succès ambigu.
+3. Groupes lus indépendamment ; source mal formée : `FAILED`, sans exception sortante ; sonde incompatible : aucun
+   contenu. Aucun `Scenario` ne devient `AcceptanceCriterion`.
+4. Racine publiée : `ProviderProjectRoot.locator(Path)` sur la racine reçue, telle quelle ; tout constructeur de
+   `ProjectSpecification` a un test de `rootLocator()` dans son module ou passe par
+   `ProviderPluginContractAssertions.verifyRead`.
+5. Un échec causé par un fichier est un `INVALID_SOURCE` qui le nomme relatif au workspace, attribué à la source, type
+   d'exception gardé ; une cause nommant un emplacement serveur (`ServerLocationDisclosure`) cède à son type. Défaut,
+   collaborateur ou budget restent non attribués.
+6. `SourceLocator` garde sa normalisation ; un texte de refus vient de `WorkspaceRelativePathText`, seul accepté par
+   `ProviderIngestionBudget.Session`, dont `addEvidenceLines` exige un document lu.
+7. Le refus de `ProjectSnapshotImportService` écrit les diagnostics bloquants relayables et compte les autres.
+8. `sync` borne ses diagnostics par `BoundedDiagnostics` (`MAX_ITEMS`, `DIAGNOSTIC_LIMIT_REACHED:<borne>`) : `local`
+   en CLI, `remote` en HTTP ; `com.morpheus.api..` n'appelle jamais `local`.
+9. Les conventions OpenSpec (`docs/developer/OPENSPEC_PROVIDER.md`) appliquent cette décision.
+
 ## Do's and Don'ts
 
 ### Do
 
-- Rendre un `ReadCategoryReport` pour chaque catégorie demandée, avec un des cinq statuts et ses diagnostics.
-- Rendre `PARTIAL` avec `PARTIAL_INGESTION` quand du contenu valide est conservé et que du contenu a été sauté.
-- Publier la racine de projet par `ProviderProjectRoot.locator(...)` appliqué à la racine reçue, telle quelle.
-- Écrire, pour tout lecteur qui construit un `ProjectSpecification`, un test qui lit `rootLocator()` et le compare à la
-  racine attendue.
-- Rattacher un échec de lecture au fichier qui l'a causé, à l'endroit où le lecteur le normalise, et garder le type de
-  l'exception.
-- Attraper un refus de budget (`ProviderIngestionLimitException`) par une clause qui lui est propre, placée avant toute
-  clause d'`IllegalArgumentException` ou d'un de ses supertypes autour d'un appel qui peut l'atteindre. Un lecteur de
-  contenu le rend en échec de toutes les catégories demandées, avec un diagnostic `INVALID_SOURCE` de groupe
-  `ingestion-budget` et sans `source`.
-- Écrire le chemin d'un refus par `WorkspaceRelativePathText`, et passer ce texte (jamais un locator) aux méthodes de
-  `ProviderIngestionBudget.Session`.
-- Citer les preuves d'un fichier par `addEvidenceLines(lines, first, last)` dans la méthode qui vient de lire ce fichier.
-- Exposer les diagnostics de `sync` par `BoundedDiagnostics.local` en CLI et `BoundedDiagnostics.remote` en HTTP.
+- Rendre un `ReadCategoryReport` par catégorie demandée ; `PARTIAL` (`PARTIAL_INGESTION`) quand du contenu valide
+  est gardé et du contenu sauté.
+- Publier la racine par `ProviderProjectRoot.locator(...)` sur la racine reçue, et la tester par `rootLocator()`.
+- Rattacher un échec à son fichier là où le lecteur le normalise, type d'exception gardé.
+- Attraper `ProviderIngestionLimitException` par une clause propre, avant toute clause d'`IllegalArgumentException`
+  ou d'un supertype ; un lecteur de contenu la rend en échec de toutes les catégories demandées, `INVALID_SOURCE` de
+  groupe `ingestion-budget`, sans `source`.
+- Passer à `ProviderIngestionBudget.Session` le texte de `WorkspaceRelativePathText`, jamais un locator ; citer les
+  preuves par `addEvidenceLines(lines, first, last)` dans la méthode qui vient de lire le fichier.
+- Exposer les diagnostics de `sync` par `BoundedDiagnostics.local` en CLI, `BoundedDiagnostics.remote` en HTTP.
 
 ### Don't
 
-- Ne jamais traiter une collection vide comme un succès, ni une catégorie `ABSENT` comme une erreur.
-- Ne jamais convertir un `Scenario` en `AcceptanceCriterion`.
-- Ne jamais placer un type d'un provider dans le contrat applicatif de lecture.
-- Ne jamais faire dépendre un provider intégré de `morpheus-provider-sdk`.
-- Ne jamais publier comme racine de projet le fichier lu, un parent, un sous-répertoire ou une racine normalisée
-  ailleurs que par le point unique.
-- Ne jamais faire sortir de `read()` une exception pour un contenu lu : un contenu invalide est un `FAILED` attribué.
-- Ne jamais attribuer à un fichier un défaut, un échec de collaborateur ou un dépassement de budget.
-- Ne jamais laisser une clause d'`IllegalArgumentException`, de `RuntimeException`, d'`Exception` ou de `Throwable`
-  recevoir un refus de budget : `ProviderIngestionLimitException` hérite d'`IllegalArgumentException`, et la clause
-  large le rendrait comme une source mal formée.
-- Ne jamais écrire le texte d'un refus à partir d'un locator (`SourceLocator.file(...).value()`, `.toString()`), ni
-  par substitution de séparateur (`replace('\\', '/')`).
+- Ne jamais placer un type de provider dans le contrat de lecture, ni faire dépendre un provider intégré de
+  `morpheus-provider-sdk`.
+- Ne jamais publier comme racine le fichier lu, un parent, un sous-répertoire ou une racine normalisée ailleurs.
+- Ne jamais faire sortir de `read()` une exception pour un contenu lu, ni attribuer à un fichier un défaut, un échec
+  de collaborateur ou un dépassement de budget.
+- Ne jamais laisser une clause d'`IllegalArgumentException`, `RuntimeException`, `Exception` ou `Throwable` recevoir
+  un refus de budget.
+- Ne jamais écrire un refus depuis un locator (`.value()`, `.toString()`) ni par `replace('\\', '/')`.
 - Ne jamais modifier la normalisation de `SourceLocator` sans migrer les locators persistés.
 - Ne jamais servir à un appelant HTTP la projection locale des diagnostics.
-- Ne jamais activer le JAR du plugin de référence depuis un test de `morpheus-architecture-tests` : le plugin y est
-  sur le classpath de test, `ServiceLoader` y trouverait le service chargé par le classpath et la copie vérifiée par
-  SHA-256 ne s'exécuterait jamais.
+- Ne jamais activer le JAR du plugin de référence depuis un test de `morpheus-architecture-tests`.
 
 ## Consequences
 

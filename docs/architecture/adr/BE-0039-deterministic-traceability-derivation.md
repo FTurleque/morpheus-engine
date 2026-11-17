@@ -18,9 +18,7 @@ files: ["morpheus-application/src/main/java/**/DeterministicTraceabilityDerivati
 entre entités. MORPHEUS doit produire des liens de traçabilité à partir de ces seules relations, sans
 rapprochement approximatif et sans inventer d'identité.
 
-## Decision
-
-L'application porte une dérivation provider-neutral, dans `com.morpheus.application.traceability` :
+La dérivation provider-neutral de `com.morpheus.application.traceability` se compose de :
 
 ```text
 TraceabilityDerivationKey
@@ -28,9 +26,7 @@ TraceabilityLinkIdentityResolver
 DeterministicTraceabilityDerivationService
 ```
 
-Le service ne connaît ni OpenSpec, ni SQLite, ni MINOS, ni un format de fichier.
-
-**Relations dérivées.** Uniquement les relations structurelles explicitement encodées dans le contenu normalisé :
+Les relations structurelles dérivées, avec le fait source qui les encode et l'evidence conservée :
 
 | Relation | Fait source (`fact`) | Evidence conservée |
 |---|---|---|
@@ -43,16 +39,9 @@ Le service ne connaît ni OpenSpec, ni SQLite, ni MINOS, ni un format de fichier
 | `Change VERIFIED_BY AcceptanceCriterion` | `ACCEPTANCE_CRITERION` | `AcceptanceCriterion.provenance` |
 | `AcceptanceCriterion VERIFIED_BY Evidence` | `EVIDENCE` | l'evidence de vérification elle-même |
 
-Un scénario ne produit `REFINES` que s'il porte explicitement l'identité de son exigence ; les scénarios imbriqués
-dans un `RequirementDelta` suivent la même règle. Les relations `VERIFIED_BY` suivent les critères d'acceptation et
-leurs evidences de vérification (ADR-0081).
-
-**Aucun rapprochement approximatif.** Sont interdits : matching par titre, par énoncé, par chemin, par proximité
-textuelle, LLM, embedding, heuristique de nom, et tout lien `Task -> Requirement` sans fait source explicite.
-L'absence de référence structurelle signifie **aucun lien dérivé**.
-
-**Identité explicite du lien.** Une identité cachée dérivée de `(source, relation, target)` est interdite
-(ADR-0118). Le service n'appelle jamais `TraceabilityLinkId.generate()` ; il reçoit un resolver explicite :
+Les relations `VERIFIED_BY` suivent les critères d'acceptation et leurs evidences de vérification (ADR-0081). Une
+identité cachée dérivée de `(source, relation, target)` est interdite par ADR-0118 ; le service reçoit donc un resolver
+explicite :
 
 ```text
 TraceabilityLinkIdentityResolver
@@ -69,27 +58,34 @@ relationType: TraceabilityRelationType
 target: TraceabilityEntityRef
 ```
 
-Le `fact` est une référence typée vers l'entité qui encode le fait (colonne « Fait source » ci-dessus). La clé n'est
-jamais transformée en identifiant par hachage : elle sert uniquement à demander une identité au resolver.
+Le `fact` est une référence typée vers l'entité qui encode le fait (colonne « Fait source » ci-dessus) ; la clé sert
+uniquement à demander une identité au resolver. Deux faits distincts restent deux observations même si leurs
+extrémités sont identiques. L'ordre des listes en entrée ne modifie pas l'ordre du résultat : le service est
+déterministe pour un même contenu, un même instant d'observation et un même mapping d'identité. La traversée relève
+d'ADR-0040 et la résolution externe d'ADR-0142.
 
-- Si aucune identité n'est fournie pour une relation dérivée, la dérivation échoue explicitement.
-- Une même `TraceabilityLinkId` ne peut pas être fournie pour deux clés de dérivation différentes dans une même
-  matérialisation : la dérivation échoue explicitement.
-- Deux faits explicites distincts produisent deux observations distinctes, même si leurs extrémités sont identiques.
-- Une déduplication n'a lieu que pour une **même clé de dérivation exacte** ; les evidences de ce fait exact sont
-  agrégées. Aucune similarité sémantique n'est utilisée.
+## Decision
 
-**Origine, résolution, confiance.** Les liens dérivés sont `origin = DERIVED`, `resolution = RESOLVED`, confiance
-absente. La dérivation n'utilise jamais `HEURISTIC`.
+`DeterministicTraceabilityDerivationService` (`com.morpheus.application.traceability`) dérive des liens sans connaître
+OpenSpec, SQLite, MINOS ni aucun format de fichier.
 
-**Déterminisme.** L'ordre des listes en entrée ne modifie pas l'ordre du résultat : les faits sont rangés dans un
-ordre canonique avant la résolution des identités et la matérialisation. Le service est déterministe pour un même
-contenu, un même instant d'observation et un même mapping d'identité. `observedAt` est fourni explicitement ; aucun
-`Instant.now()` caché n'est autorisé dans le cœur de dérivation.
-
-**Périmètre.** Le service retourne les `TraceabilityLink` ; il n'écrit pas lui-même dans `TraceabilityStore`. Il ne
-fait ni traversée (ADR-0040), ni résolution externe (ADR-0142), ni liens vers le code ou les tests
-(`LINKS_TO_CODE`, `LINKS_TO_TEST`), ni invalidation incrémentale.
+1. **Relations dérivées** : seulement `Requirement DERIVES_FROM Specification`, `Scenario REFINES Requirement`,
+   `Constraint CONSTRAINS Change`, `Change DECIDED_BY DesignDecision`, `Change AFFECTS Requirement` et
+   `VERIFIED_BY` de `Requirement` ou `Change` vers `AcceptanceCriterion` et d'`AcceptanceCriterion` vers `Evidence`.
+   Le fait source est l'entité qui encode la relation, et son evidence est conservée. Un scénario, imbriqué ou non
+   dans un `RequirementDelta`, ne produit `REFINES` que s'il porte l'identité de son exigence.
+2. **Aucun rapprochement** : ni titre, ni énoncé, ni chemin, ni proximité textuelle, ni LLM, ni embedding, ni
+   heuristique de nom, ni `Task -> Requirement` sans fait source. Sans référence structurelle, aucun lien.
+3. **Identité explicite** : jamais `TraceabilityLinkId.generate()` ; chaque identité est demandée au
+   `TraceabilityLinkIdentityResolver` par une `TraceabilityDerivationKey`, jamais hachée. Une identité absente, ou
+   fournie pour deux clés d'une même matérialisation, fait échouer la dérivation.
+4. **Déduplication** : deux faits distincts donnent deux observations ; seule une même clé exacte est dédupliquée, ses
+   evidences agrégées ; aucune similarité sémantique.
+5. **Qualification** : `origin = DERIVED`, `resolution = RESOLVED`, confiance absente, jamais `HEURISTIC`.
+6. **Déterminisme** : faits rangés en ordre canonique avant résolution et matérialisation ; `observedAt` fourni
+   explicitement, aucun `Instant.now()` caché.
+7. **Périmètre** : le service retourne les liens sans écrire dans `TraceabilityStore` ; ni traversée, ni résolution
+   externe, ni `LINKS_TO_CODE` / `LINKS_TO_TEST`, ni invalidation incrémentale.
 
 ## Do's and Don'ts
 

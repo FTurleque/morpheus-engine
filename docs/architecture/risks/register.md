@@ -293,9 +293,9 @@ avait l'intention d'en sortir, ce qui était faux pour les trois. Chacune part l
 l'événement qui la rouvrira — une requalification qui ne nomme pas cet événement est une disparition, et le
 prochain audit recréerait la ligne sous un autre numéro.
 
-- **`DT-04` — SQLite unique backend persistant → [ADR-0018 §15](../adr/DATA-0018-sqlite-initial-persistent-store.md).**
+- **`DT-04` — SQLite unique backend persistant → [ADR-0018, point 5](../adr/DATA-0018-sqlite-initial-persistent-store.md).**
   Son action se lisait « n'engager un backend alternatif qu'après besoin et ADR dédiés », c'est-à-dire *ne rien
-  faire jusqu'à nouvel ordre*. Les critères de réouverture n'étaient pas à écrire : ADR-0018 §15 les porte déjà,
+  faire jusqu'à nouvel ordre*. Les critères de réouverture n'étaient pas à écrire : ADR-0018, point 5 les porte déjà,
   au nombre de cinq (volume ou latence hors objectifs, concurrence multi-utilisateur prioritaire, traversées
   complexes dominantes, distribution du driver problématique, mode serveur central devenu déploiement principal).
   La ligne n'a jamais décrit autre chose que cette section.

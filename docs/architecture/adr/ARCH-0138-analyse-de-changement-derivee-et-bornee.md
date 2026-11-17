@@ -30,11 +30,7 @@ dans le graphe en relation métier inventée. MORPHEUS dispose d'une taxonomie d
 d'une traversée déterministe limitée à un snapshot publié (ADR-0118, ADR-0038, ADR-0040) ; la seule relation
 autorisée pour cette explication est `TraceabilityRelationType.DEPENDS_ON`.
 
-## Decision
-
-### 1. Une analyse dérivée, non persistée
-
-La couche application porte l'analyse dans `com.morpheus.application.analysis` :
+Les types que porte `com.morpheus.application.analysis` :
 
 ```text
 ProposedChangeSet
@@ -46,11 +42,10 @@ ChangeAnalysisSummary
 ChangeAnalysisWarning
 ```
 
-`ProposedChangeSet` est extrait d'un `NormalizedProjectContent` pour un `ChangeId` et contient uniquement les objets
-appartenant explicitement au changement : `ChangeProposal`, `RequirementDelta`, `Constraint`, `DesignDecision` et
-`ImplementationTask`.
-
-L'analyse n'introduit aucune table, migration ou projection persistée :
+`ProposedChangeSet` est extrait d'un `NormalizedProjectContent` et ne contient que les objets appartenant
+explicitement au changement : `ChangeProposal`, `RequirementDelta`, `Constraint`, `DesignDecision` et
+`ImplementationTask`. La baseline est lue par les ports existants, implémentés par le store mémoire et le store
+SQLite ; l'analyse n'introduit aucune table, migration ou projection persistée :
 
 ```text
 analysis = derived view
@@ -58,11 +53,7 @@ analysis != published state
 analysis != promotion
 ```
 
-La baseline est lue par les ports existants, implémentés par le store mémoire et le store SQLite.
-
-### 2. Snapshot de référence
-
-L'analyse confronte le contenu proposé à un snapshot publié :
+Les états de snapshot :
 
 ```text
 ACTIVE  -> autorisé
@@ -70,67 +61,26 @@ RETIRED -> autorisé explicitement
 BUILDING / VALIDATING / READY / FAILED -> rejeté
 ```
 
-`analyzeActive` rend l'absence de snapshot `ACTIVE` comme une absence de résultat ; elle n'invente pas une baseline
-vide. Une analyse qui traverse deux projets est rejetée.
-
-### 3. Comparaison des requirements
-
-Chaque `RequirementDelta` produit exactement un `RequirementChangeImpact`.
-
-**ADDED**
+La comparaison des requirements, par type de delta :
 
 ```text
-baseline absente -> PRESENCE modifiée
-baseline présente -> ADDED_REQUIREMENT_ALREADY_CURRENT
+ADDED    baseline absente  -> PRESENCE modifiée
+ADDED    baseline présente -> ADDED_REQUIREMENT_ALREADY_CURRENT
+MODIFIED dimensions        -> SPECIFICATION, KEY, TITLE, STATEMENT, SCENARIOS
+REMOVED  baseline présente -> PRESENCE modifiée
+REMOVED  baseline absente  -> REMOVED_REQUIREMENT_BASELINE_MISSING
 ```
 
 Un requirement uniquement proposé ne possède pas encore de nœud publié sur lequel démontrer une traçabilité limitée
-au snapshot : l'analyse expose alors `PROPOSED_ONLY_REQUIREMENT_TRACEABILITY_UNAVAILABLE`. Elle n'essaie pas de faire
-correspondre son texte à un nœud existant, et aucun lien n'est synthétisé.
-
-**MODIFIED**
-
-Si la baseline `CURRENT` existe, les dimensions normalisées suivantes sont comparées :
-
-```text
-SPECIFICATION
-KEY
-TITLE
-STATEMENT
-SCENARIOS
-```
-
-Les scénarios sont comparés par leur contenu comportemental normalisé : titre, préconditions, action et résultat
-attendu. Leur identité d'occurrence et leur provenance ne transforment pas à elles seules un scénario en changement
-fonctionnel.
-
-Sans baseline `CURRENT` : `MODIFIED_REQUIREMENT_BASELINE_MISSING`.
-Sans changement documentaire observable : `MODIFIED_WITHOUT_DOCUMENTARY_CHANGE`.
-
-**REMOVED**
-
-```text
-baseline présente -> PRESENCE modifiée
-baseline absente  -> REMOVED_REQUIREMENT_BASELINE_MISSING
-```
-
-Le contenu supprimé reste celui de la baseline ; aucun statement absent n'est reconstruit.
-
-### 4. Contraintes, décisions et tâches
-
-Les `Constraint`, `DesignDecision` et `ImplementationTask` du `ProposedChangeSet` sont exposés comme faits explicites
-appartenant au changement. L'analyse ne crée pas de relation supplémentaire entre ces objets et les requirements.
-
-### 5. Critères d'acceptation
-
-ADR-0124 reste normative :
-
-```text
-Scenario != AcceptanceCriterion
-```
+au snapshot : l'analyse n'essaie pas de faire correspondre son texte à un nœud existant, aucun lien n'est synthétisé,
+et il n'a pas d'impact de dépendance. Les scénarios sont comparés par leur contenu comportemental normalisé : titre,
+préconditions, action et résultat attendu ; leur identité d'occurrence et leur provenance ne transforment pas à elles
+seules un scénario en changement fonctionnel. `MODIFIED_REQUIREMENT_BASELINE_MISSING` signale l'absence de baseline
+`CURRENT`, `MODIFIED_WITHOUT_DOCUMENTARY_CHANGE` l'absence de changement documentaire observable. Le contenu supprimé
+reste celui de la baseline : aucun statement absent n'est reconstruit.
 
 Le modèle normalisé porte des `AcceptanceCriterion` (ADR-0081), mais le `ProposedChangeSet` n'en extrait aucun et
-l'analyse de changement n'évalue pas la couverture d'acceptance. Chaque `ChangeAnalysisResult` porte :
+l'analyse de changement n'évalue pas la couverture d'acceptance ; chaque `ChangeAnalysisResult` porte donc :
 
 ```text
 AcceptanceCoverageStatus.UNAVAILABLE_IN_NORMALIZED_MODEL
@@ -140,32 +90,20 @@ ChangeAnalysisWarningCode.ACCEPTANCE_CRITERIA_UNAVAILABLE
 Ce statut signifie que l'analyse de changement ne démontre pas cette dimension ; il ne signifie pas que la source ne
 possède aucun critère. L'évaluation des critères d'acceptation relève d'ADR-0081, pas de cette analyse.
 
-### 6. Impacts de dépendance par `DEPENDS_ON`
-
-Pour chaque requirement directement affecté par un `RequirementDelta` et possédant une occurrence `CURRENT` dans la
-baseline publiée, l'analyse explore uniquement les liens persistés `DEPENDS_ON`, dans deux directions :
+Les impacts de dépendance, sur un exemple :
 
 ```text
 OUTGOING DEPENDS_ON -> DEPENDENCY
 INCOMING DEPENDS_ON -> DEPENDENT
-```
 
-Exemple :
-
-```text
 A --DEPENDS_ON--> B --DEPENDS_ON--> C
 D --DEPENDS_ON--> A
-```
 
-Pour un changement direct sur A :
-
-```text
+changement direct sur A :
 B = DEPENDENCY depth 1
 C = DEPENDENCY depth 2
 D = DEPENDENT  depth 1
 ```
-
-Un `ADDED` absent de la baseline n'a pas d'impact de dépendance (point 3).
 
 Chaque `ChangeDependencyImpact` contient :
 
@@ -177,85 +115,74 @@ TraceabilityPath
 ```
 
 Le chemin est obtenu par la traversée BFS déterministe de traçabilité et représente le plus court chemin observé dans
-la direction demandée. Aucun chemin n'est créé si le graphe persistant ne permet pas de le démontrer. La relation
-`DEPENDS_ON` reste typée par le graphe de traçabilité : l'analyse expose le `TraceabilityEntityRef` réellement
-atteint et ne force pas toute cible à être un `Requirement`.
+la direction demandée. La relation `DEPENDS_ON` reste typée par le graphe de traçabilité : l'analyse expose le
+`TraceabilityEntityRef` réellement atteint. `maxDepth = 1` limite aux voisins directs, `maxDepth = 2` à deux
+relations `DEPENDS_ON` ; il n'existe ni profondeur implicite, ni profondeur illimitée. Les budgets de nœuds et de
+liens sont ceux de `TraceabilityTraversalService` : la troncature est signalée au lieu de présenter la liste des
+impacts comme complète. Les liens `PARTIALLY_RESOLVED`, `UNRESOLVED` ou `HEURISTIC` restent visibles et le chemin
+qui en contient un est conservé avec l'état de résolution de chaque lien.
 
-### 7. Profondeur et troncature
+Le déterminisme se lit ainsi : deltas canoniquement ordonnés ; scénarios `CURRENT` et proposés ordonnés pour
+l'exposition ; warnings structurés et ordonnés ; filtre fixe `DEPENDS_ON`, traversée bornée, ordre canonique des
+voisins hérité de la traversée de traçabilité, plus court chemin déterministe ; aucune inférence sémantique.
 
-`maxDepth` est obligatoire et strictement positif :
-
-```text
-maxDepth = 1 -> voisins directs uniquement
-maxDepth = 2 -> jusqu'à deux relations DEPENDS_ON
-```
-
-Il n'existe ni profondeur implicite, ni profondeur illimitée. La traversée porte en outre les budgets de nœuds et de
-liens de `TraceabilityTraversalService` (ADR-0040) : quand elle s'arrête avant d'avoir tout observé dans la profondeur
-demandée, l'analyse émet `TRACEABILITY_TRAVERSAL_TRUNCATED` avec la raison de troncature, au lieu de présenter la
-liste des impacts comme complète.
-
-### 8. Résolution partielle
-
-Les liens `PARTIALLY_RESOLVED`, `UNRESOLVED` ou `HEURISTIC` restent visibles. Ils ne sont ni supprimés ni promus en
-faits certains. Si un chemin contient au moins un lien `resolution != RESOLVED`, l'analyse émet
-`TRACEABILITY_PATH_PARTIALLY_RESOLVED` et conserve le chemin avec l'état de résolution de chaque lien.
-
-### 9. Déterminisme
-
-- deltas canoniquement ordonnés ;
-- scénarios `CURRENT` et proposés ordonnés pour l'exposition ;
-- comparaison des scénarios indépendante de l'ordre source ;
-- warnings structurés et ordonnés ;
-- filtre fixe `DEPENDS_ON`, traversée bornée, ordre canonique des voisins hérité de la traversée de traçabilité, plus
-  court chemin déterministe ;
-- impacts de dépendance triés par requirement origine, direction, cible et profondeur ;
-- aucune lecture d'horloge ;
-- aucun LLM, embedding, fuzzy matching, semantic matching ni inférence sémantique.
-
-### 10. Frontières
-
-L'analyse ne fait pas : promotion de `RequirementDelta`, mutation d'un snapshot, conversion
-`Scenario -> AcceptanceCriterion`, matching sémantique, invention de relations de trace ou persistance du résultat
-d'analyse. Elle ne parcourt ni AST, ni call graph, ni index SCIP, ni graphe de symboles :
+L'analyse ne fait ni promotion de `RequirementDelta`, ni mutation d'un snapshot, ni conversion
+`Scenario -> AcceptanceCriterion`, ni invention de relations de trace. Le partage avec MINOS :
 
 ```text
 MORPHEUS -> dépendances de spécification/intention explicitement tracées
 MINOS    -> structure, symboles, références et impact de code
 ```
 
+## Decision
+
+1. **Dérivée** : `ChangeAnalysisService` (`com.morpheus.application.analysis`) confronte à la baseline le
+   `ProposedChangeSet` d'un `ChangeId`, réduit aux objets du changement. Rien n'est persisté, promu ni
+   muté ; contraintes, décisions et tâches sont exposées sans relation ajoutée.
+2. **Snapshot** `ACTIVE` ou `RETIRED`, sinon rejet, comme deux projets ; sans `ACTIVE`, `analyzeActive` ne rend
+   rien, sans baseline vide.
+3. **Requirements**, un `RequirementChangeImpact` par delta : `ADDED` en `PRESENCE` (alors
+   `PROPOSED_ONLY_REQUIREMENT_TRACEABILITY_UNAVAILABLE`, sans rapprochement, lien ni impact) ou
+   `ADDED_REQUIREMENT_ALREADY_CURRENT` ; `MODIFIED` sur `SPECIFICATION`, `KEY`, `TITLE`, `STATEMENT`, `SCENARIOS`
+   (contenu comportemental), ou `MODIFIED_REQUIREMENT_BASELINE_MISSING`, `MODIFIED_WITHOUT_DOCUMENTARY_CHANGE` ;
+   `REMOVED` en `PRESENCE` (contenu de la baseline) ou `REMOVED_REQUIREMENT_BASELINE_MISSING`.
+4. **Acceptation** : `Scenario != AcceptanceCriterion` (ADR-0124) ; tout résultat porte
+   `UNAVAILABLE_IN_NORMALIZED_MODEL` et `ACCEPTANCE_CRITERIA_UNAVAILABLE`.
+5. **Dépendances** : seuls les liens persistés `DEPENDS_ON` d'un requirement affecté `CURRENT` (sortants
+   `DEPENDENCY`, entrants `DEPENDENT`) ; un impact porte origine, direction, entité atteinte (pas forcément un
+   `Requirement`) et le plus court `TraceabilityPath` démontré.
+6. **Bornes** : `maxDepth` > 0 obligatoire, budgets d'ADR-0040 ; arrêt anticipé :
+   `TRACEABILITY_TRAVERSAL_TRUNCATED` et sa raison.
+7. **Partiel** : lien non `RESOLVED` visible, jamais promu ; son chemin émet `TRACEABILITY_PATH_PARTIALLY_RESOLVED`.
+8. **Déterminisme** : sorties ordonnées (impacts par origine, direction, cible, profondeur), comparaison
+   indépendante de l'ordre source ; ni horloge, LLM, embedding ni matching flou ou sémantique.
+9. **Frontière** : ni AST, call graph, SCIP ni symboles (MINOS).
+
 ## Do's and Don'ts
 
 ### Do
 
 - Produire exactement un `RequirementChangeImpact` par `RequirementDelta`.
-- N'analyser que contre un snapshot `ACTIVE` ou `RETIRED`, et rejeter tout autre état.
-- Rendre l'absence de snapshot `ACTIVE` comme une absence de résultat.
+- N'analyser que contre un snapshot `ACTIVE` ou `RETIRED` ; sans `ACTIVE`, rendre une absence de résultat.
 - Signaler par un warning nommé chaque incohérence de delta (baseline absente, requirement déjà courant, modification
   sans changement documentaire).
 - Comparer les scénarios par leur contenu comportemental normalisé, indépendamment de l'ordre source.
-- Porter `UNAVAILABLE_IN_NORMALIZED_MODEL` et le warning `ACCEPTANCE_CRITERIA_UNAVAILABLE` dans chaque résultat.
-- Ne suivre que les liens persistés `DEPENDS_ON` du snapshot publié de référence.
-- Exiger un `maxDepth` strictement positif et le refuser sinon.
-- Associer à chaque impact de dépendance son requirement d'origine, sa direction (`DEPENDENCY` ou `DEPENDENT`),
-  l'entité atteinte et le plus court chemin qui la démontre.
-- Émettre `TRACEABILITY_PATH_PARTIALLY_RESOLVED` dès qu'un chemin contient un lien non `RESOLVED`, en gardant le
-  chemin.
-- Émettre `TRACEABILITY_TRAVERSAL_TRUNCATED`, avec sa raison, quand la traversée est tronquée par un budget.
-- Trier les impacts de dépendance par requirement origine, direction, cible puis profondeur.
+- Porter `UNAVAILABLE_IN_NORMALIZED_MODEL` et `ACCEPTANCE_CRITERIA_UNAVAILABLE` dans chaque résultat.
+- Ne suivre que les liens persistés `DEPENDS_ON` du snapshot de référence, sous un `maxDepth` strictement positif.
+- Donner à chaque impact son origine, sa direction, l'entité atteinte et le plus court chemin qui la démontre, triés
+  par origine, direction, cible puis profondeur.
+- Émettre `TRACEABILITY_PATH_PARTIALLY_RESOLVED` pour un chemin qui contient un lien non `RESOLVED`, et
+  `TRACEABILITY_TRAVERSAL_TRUNCATED` avec sa raison pour une traversée tronquée par un budget.
 
 ### Don't
 
-- Ne pas promouvoir un delta ni muter un snapshot pour l'analyser.
+- Ne pas promouvoir un delta, muter un snapshot ni persister le résultat d'une analyse.
 - Ne pas inventer une baseline vide, un statement supprimé ni un lien de traçabilité.
 - Ne pas convertir un scénario en critère d'acceptation.
-- Ne pas persister le résultat d'une analyse.
 - Ne pas lire l'horloge ni recourir à un LLM, un embedding ou un matching flou.
 - Ne pas analyser à travers deux projets.
-- Ne pas déduire une dépendance d'une autre relation de traçabilité, d'une proximité de graphe ou d'une similarité
-  textuelle.
-- Ne pas calculer d'impact de dépendance pour un requirement `ADDED` absent de la baseline, ni faire correspondre son
-  texte à un nœud existant.
+- Ne pas déduire une dépendance d'une autre relation, d'une proximité de graphe ou d'une similarité textuelle.
+- Ne pas calculer d'impact pour un requirement `ADDED` absent de la baseline, ni rapprocher son texte d'un nœud.
 - Ne pas supprimer ni promouvoir en fait certain un lien partiellement résolu, non résolu ou heuristique.
 - Ne pas forcer une entité atteinte à être un `Requirement`.
 - Ne pas parcourir de structure de code (AST, call graph, symboles) : c'est le domaine de MINOS.

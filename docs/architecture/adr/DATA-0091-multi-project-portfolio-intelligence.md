@@ -16,9 +16,7 @@ MORPHEUS raisonne sur un projet et un snapshot. Raisonner sur plusieurs projets 
 explicite : une agrégation naïve par chemin de workspace, URL de repository ou identifiant provider confondrait
 localisation technique et identité métier.
 
-## Decision
-
-Le portfolio repose sur un modèle provider-neutral, dont les types sont dans `com.morpheus.domain.portfolio` :
+Le modèle du portfolio, dans `com.morpheus.domain.portfolio` :
 
 ```text
 PortfolioId
@@ -28,7 +26,7 @@ CrossProjectReference(source, target, relation, evidence, provenance)
 PortfolioFreshness(projectId, observedAt, revision, state)
 ```
 
-Invariants :
+Les invariants que la décision tient :
 
 ```text
 cross-project identity != source path
@@ -45,55 +43,28 @@ freshness != full destructive rescan
 local-first remains default
 ```
 
-### Registry
+## Decision
 
-Le registry conserve une identité de portfolio stable et des adhésions par `ProjectSpecificationId`. Un workspace, un
-repository ou un provider est une observation attachée à l'adhésion, jamais sa clé métier.
-
-Une observation absente marque le projet `MISSING` mais ne supprime ni l'identité du projet, ni ses références
-historiques.
-
-### Cross-project references
-
-Une référence relie deux `PortfolioEntityRef`. Elle conserve relation, provenance, evidence et timestamps. Plusieurs
-observations concurrentes restent visibles ; aucune stratégie last-write-wins silencieuse n'est autorisée.
-
-### Queries
-
-Les requêtes sont explicitement :
-
-```text
-project-scoped
-portfolio-scoped
-```
-
-Un résultat portfolio conserve toujours le `ProjectSpecificationId` de chaque élément.
-
-### Traversal
-
-Le traversal inter-projets est un BFS déterministe avec budgets explicites : profondeur, nombre de nœuds et nombre de
-liens, chacun plafonné par une constante de `PortfolioTraversalService` (`MAX_DEPTH`, `MAX_NODES`, `MAX_LINKS`). Le
-résultat expose les liens visités, les profondeurs et la raison de troncature.
-
-L'ordre observable des nœuds est l'ordre de découverte BFS. Il est préservé indépendamment de l'ordre lexical des
-UUID de projet ou d'entité. Les voisins sont ordonnés déterministiquement avant exploration ; le résultat ne réordonne
-pas ensuite les nœuds par identité.
-
-### Freshness
-
-La fraîcheur est enregistrée par projet. Mettre à jour un projet ne réécrit pas les autres adhésions. Une révision
-inchangée produit une mise à jour idempotente.
-
-### Persistence
-
-Un port `PortfolioStore` est implémenté en mémoire et en SQLite. SQLite le porte par une migration additive,
-`V013__portfolio_intelligence.sql`.
-
-### Surfaces
-
-CLI, MCP et HTTP exposent les mêmes intentions : registry, overview, references, traversal et freshness. Les
-transports peuvent différer de forme, pas de sémantique. `contracts/public-surfaces.tsv` fait foi pour chaque
-capacité `portfolio.*` et déclare explicitement toute absence d'un transport.
+1. **Modèle** : provider-neutral, types dans `com.morpheus.domain.portfolio` ; le mode local-first reste le défaut.
+2. **Registry** : identité de portfolio stable, adhésions par `ProjectSpecificationId`. Workspace, repository et
+   provider sont des observations de l'adhésion, jamais sa clé ; l'adhésion ne vaut pas propriété des sources. Une
+   observation absente marque le projet `MISSING` sans supprimer son identité ni ses références historiques.
+3. **Références inter-projets** : relient deux `PortfolioEntityRef`, conservent relation, provenance, evidence et
+   timestamps, et ne sont pas une preuve de traçabilité. Les observations concurrentes restent visibles : aucun
+   last-write-wins silencieux, et une précédence n'efface pas la provenance.
+4. **Requêtes** : explicitement `project-scoped` ou `portfolio-scoped` ; un résultat portfolio garde le
+   `ProjectSpecificationId` de chaque élément.
+5. **Traversal** : BFS déterministe borné en profondeur, nœuds et liens par `PortfolioTraversalService` (`MAX_DEPTH`,
+   `MAX_NODES`, `MAX_LINKS`) ; le résultat expose liens visités, profondeurs et raison de troncature. Les voisins sont
+   ordonnés déterministiquement avant exploration ; les nœuds restent dans l'ordre de découverte BFS, jamais
+   réordonnés par identité ni par UUID.
+6. **Freshness** : enregistrée par projet, sans réécrire les autres adhésions ni rescan destructif complet ;
+   idempotente pour une révision inchangée.
+7. **Persistance** : port `PortfolioStore` en mémoire et en SQLite, migration additive
+   `V013__portfolio_intelligence.sql`.
+8. **Surfaces** : CLI, MCP et HTTP exposent les mêmes intentions (registry, overview, references, traversal,
+   freshness), de forme libre, de sémantique identique ; `contracts/public-surfaces.tsv` fait foi pour chaque capacité
+   `portfolio.*` et déclare toute absence d'un transport.
 
 ## Do's and Don'ts
 

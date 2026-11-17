@@ -35,15 +35,7 @@ Options considérées :
   historique, mais MORPHEUS a besoin de requêtes normalisées et rapides.
 - **Ports possédés par MORPHEUS** : retenu.
 
-## Decision
-
-La persistance est isolée derrière des ports possédés par MORPHEUS, déclarés dans `morpheus-application`
-(`com.morpheus.application.store`). `SpecificationKnowledgeStore` porte les projets et le cycle de vie des snapshots
-de connaissance ; les autres contenus (exigences versionnées, contenu métier d'un snapshot, traçabilité, références
-externes, états de synchronisation, portfolios, vues sauvegardées, policy packs) ont chacun leur port dans le même
-paquet.
-
-Chaque contrat est défini à partir des cas d'usage du moteur, jamais comme copie de l'API d'une base de données.
+Les services métier voient les ports, et chaque backend les implémente :
 
 ```text
 Domaine / Services MORPHEUS
@@ -56,15 +48,27 @@ Ports de com.morpheus.application.store
 store-memory   store-sqlite
 ```
 
+Le backend mémoire sert à tester le domaine et les services, à vérifier que le contrat n'est pas couplé au backend
+persistant, à fournir des fixtures rapides et à tester les providers.
+
+## Decision
+
+La persistance est isolée derrière des ports possédés par MORPHEUS, déclarés dans `morpheus-application`
+(`com.morpheus.application.store`). `SpecificationKnowledgeStore` porte les projets et le cycle de vie des snapshots
+de connaissance ; les autres contenus (exigences versionnées, contenu métier d'un snapshot, traçabilité, références
+externes, états de synchronisation, portfolios, vues sauvegardées, policy packs) ont chacun leur port dans le même
+paquet.
+
+Chaque contrat est défini à partir des cas d'usage du moteur, jamais comme copie de l'API d'une base de données.
+
 Le contrat public d'un port n'impose ni SQL, ni Cypher, ni Gremlin, ni JSONPath, ni index propre à un moteur, ni
 transaction propre à un produit, ni type de driver, ni identifiant physique du backend. Des options spécialisées
 peuvent exister dans un adaptateur, sans contaminer les services métier. Une capacité avancée s'expose par une
 opération explicite, jamais par une API générique `query(String)`.
 
-**Backend mémoire de référence.** `morpheus-store-memory` implémente les ports. Il sert à tester le domaine et les
-services, à vérifier que le contrat n'est pas couplé au backend persistant, à fournir des fixtures rapides et à tester
-les providers. Il n'a pas à offrir les performances d'un backend de production, mais respecte la même sémantique
-fonctionnelle pour les opérations couvertes. Le backend persistant est SQLite (ADR-0018).
+**Backend mémoire de référence.** `morpheus-store-memory` implémente les ports avec la même sémantique fonctionnelle
+que le backend persistant pour les opérations couvertes, sans exigence de performance de production. Le backend
+persistant est SQLite (ADR-0018).
 
 **Qui dépend d'un store concret.** Aucune classe de `morpheus-application` ni de `morpheus-domain` ne dépend d'un
 store concret. Dans `morpheus-api` et `morpheus-mcp`, seules les racines de composition nommées d'ADR-0162 construisent

@@ -20,9 +20,7 @@ cycle de vie.
 La difficulté principale n'est pas de produire du texte : elle consiste à conserver une frontière vérifiable entre ce
 que MORPHEUS sait, ce qu'un adaptateur déduit et ce qu'il suggère.
 
-## Decision
-
-Un noyau provider-neutral vit dans `morpheus-application` (`com.morpheus.application.reasoning`) :
+Structure du noyau de `morpheus-application` :
 
 ```text
 Evidence
@@ -42,7 +40,7 @@ Claim
   provenance
 ```
 
-`PUBLISHED_FACT` est une catégorie d'`Evidence`, jamais une catégorie de `Claim`.
+Principes que le noyau tient :
 
 ```text
 facts != inference
@@ -50,28 +48,7 @@ inference != suggestion
 heuristic != published fact
 ```
 
-### Enveloppe d'évidence
-
-Les catégories d'évidence sont fermées :
-
-```text
-PUBLISHED_FACT
-SOURCE_EXCERPT
-POLICY_RESULT
-EXTERNAL_CONTEXT
-OBSERVATION
-```
-
-Chaque élément possède une identité stable dans la requête et une provenance explicite. Toute claim acceptée cite au
-moins une identité d'évidence présente dans la même enveloppe. Une citation inconnue invalide la sortie de
-l'adaptateur concerné.
-
-La liste `facts` du résultat correspond exactement, dans le même ordre, aux éléments `PUBLISHED_FACT` de l'enveloppe.
-Elle n'est jamais reconstruite à partir d'une claim.
-
-### Confiance
-
-Chaque claim contient un score fini borné dans `[0.0, 1.0]` et une bande cohérente :
+L'identité d'un élément d'évidence est stable dans la requête. Bandes de confiance :
 
 ```text
 [0.00, 0.20) VERY_LOW
@@ -81,75 +58,57 @@ Chaque claim contient un score fini borné dans `[0.0, 1.0]` et une bande cohér
 [0.85, 1.00] VERY_HIGH
 ```
 
-La confiance n'est ni une probabilité de vérité publiée, ni une autorisation de promotion. Une bande incohérente avec
-le score est rejetée.
-
-### Adaptateurs optionnels
-
-`ReasoningAdapter` est un SPI applicatif read-only. Les adaptateurs disponibles peuvent être découverts, mais leur
-exécution exige toujours un identifiant explicitement sélectionné dans la requête.
+La confiance n'est pas une probabilité de vérité publiée. Principes des adaptateurs, chacun exécuté séparément, et de
+la frontière de mutation :
 
 ```text
 adapter discovery != adapter execution
 empty adapterIds => facts-only result
 adapter absence != MORPHEUS failure
 adapter failure != fact loss
-```
-
-Le registre standard fournit un adaptateur déterministe local, `builtin-evidence-synthesis-v1`
-(`EvidenceSynthesisReasoningAdapter`), sans accès réseau ni LLM. Des providers du classpath peuvent être découverts
-via `ServiceLoader` ; un provider invalide, indisponible ou dupliqué est isolé et ne peut pas empêcher le
-fonctionnement facts-only.
-
-### Isolation des erreurs
-
-Chaque adaptateur est exécuté séparément. Une exception, un dépassement de budget, une identité de claim dupliquée, un
-`adapterId` mensonger ou une citation inconnue produit une exécution `FAILED` sans supprimer ni modifier les preuves
-et faits fournis. Les claims d'un adaptateur défaillant ne sont pas partiellement acceptées.
-
-### Frontière de mutation
-
-Le résultat contient obligatoirement `mutated = false` ; le constructeur du contrat rejette toute valeur `true`. Le
-raisonnement ne fournit aucune commande ni route `apply`, `promote`, `activate`, `override` ou de cycle de vie.
-
-```text
 reasoning execution != lifecycle mutation
 reasoning execution != policy override
 inference never overwrites published facts
 ```
 
-Une promotion éventuelle d'une claim exige une décision d'architecture distincte, avec capability d'écriture,
-confirmation, CAS, acteur, raison et audit.
+Un provider isolé ne peut pas empêcher le fonctionnement facts-only. La décision qui promouvrait une claim porterait
+capability d'écriture, confirmation, CAS, acteur, raison et audit. Les constantes de `ReasoningContracts` (valeurs à
+lire dans la classe) bornent les éléments d'évidence (`MAX_EVIDENCE`), les adaptateurs sélectionnés (`MAX_ADAPTERS`),
+les claims acceptées (`MAX_CLAIMS`), les références d'évidence par claim (`MAX_EVIDENCE_REFERENCES`), les entrées de
+provenance (`MAX_PROVENANCE_ENTRIES`) et de paramètres (`MAX_PARAMETER_ENTRIES`), la longueur d'une question
+(`MAX_QUESTION_CHARS`) et d'un énoncé (`MAX_STATEMENT_CHARS`) ; aucune troncature silencieuse n'est présentée comme
+une analyse complète.
 
-### Budgets
-
-Les bornes sont des constantes (valeurs à lire dans les classes) : celles de `ReasoningContracts` couvrent les
-éléments d'évidence (`MAX_EVIDENCE`), les adaptateurs sélectionnés (`MAX_ADAPTERS`), les claims acceptées
-(`MAX_CLAIMS`), les références d'évidence par claim (`MAX_EVIDENCE_REFERENCES`), les entrées de provenance
-(`MAX_PROVENANCE_ENTRIES`) et de paramètres (`MAX_PARAMETER_ENTRIES`), la longueur d'une question
-(`MAX_QUESTION_CHARS`) et d'un énoncé (`MAX_STATEMENT_CHARS`) ; le corps HTTP est borné par
-`MorpheusHttpServer.MAX_REQUEST_BODY_BYTES`.
-
-Un dépassement échoue explicitement ; aucune troncature silencieuse n'est présentée comme une analyse complète.
-
-### Surfaces
-
-Le raisonnement expose deux capacités, la découverte des adaptateurs et l'analyse, sur la CLI, MCP et HTTP ; leurs
-surfaces exactes sont les lignes `reasoning.adapters` et `reasoning.analyze` de `contracts/public-surfaces.tsv`, toutes
-deux d'intention `READ`. La façade remote classe explicitement
-`POST /api/v1/reasoning/analyze` comme un POST de rôle `READ` (`MorpheusRemoteRoutePolicy`) ; un principal `READ` peut
-l'appeler. Une route absente de la politique remote est refusée (`404 NOT_FOUND`), une méthode non déclarée pour une
-route l'est aussi (`405 METHOD_NOT_ALLOWED`).
-
-### Persistance
-
-Le raisonnement n'ajoute ni store, ni table, ni migration SQLite. Les demandes et résultats sont des vues calculées
-éphémères :
+Les deux capacités sont la découverte des adaptateurs et l'analyse ; un principal remote `READ` peut appeler
+l'analyse. Une route absente de la politique remote est refusée (`404 NOT_FOUND`), une méthode non déclarée pour une
+route l'est aussi (`405 METHOD_NOT_ALLOWED`). Les demandes et résultats sont des vues calculées :
 
 ```text
 reasoning result != materialized truth
 reasoning execution != audit mutation
 ```
+
+## Decision
+
+1. **Noyau provider-neutral** dans `com.morpheus.application.reasoning` : `Evidence` et `Claim`, de kind `INFERENCE` |
+   `HEURISTIC` | `SUGGESTION`. `PUBLISHED_FACT` est une catégorie d'`Evidence`, jamais de `Claim`.
+2. Évidence : catégories fermées `PUBLISHED_FACT`, `SOURCE_EXCERPT`, `POLICY_RESULT`, `EXTERNAL_CONTEXT`,
+   `OBSERVATION` ; identité stable et provenance explicite. Une claim acceptée cite au moins une évidence de la même
+   enveloppe. `facts` égale, dans l'ordre, les `PUBLISHED_FACT` de l'enveloppe, jamais reconstruits d'une claim.
+3. Confiance : score fini dans `[0.0, 1.0]` et bande cohérente aux seuils 0,20 / 0,40 / 0,65 / 0,85 (`VERY_LOW`
+   à `VERY_HIGH`), sinon rejet ; elle n'autorise aucune promotion.
+4. Adaptateurs : `ReasoningAdapter`, SPI read-only ; découverte libre, exécution du seul identifiant sélectionné,
+   facts-only sans sélection. `builtin-evidence-synthesis-v1` (`EvidenceSynthesisReasoningAdapter`), local, sans
+   réseau ni LLM ; un provider `ServiceLoader` invalide, indisponible ou dupliqué est isolé.
+5. Isolation : exception, budget dépassé, claim dupliquée, `adapterId` mensonger ou citation inconnue rendent
+   l'exécution `FAILED`, sans toucher aux faits ni accepter une partie de ses claims.
+6. Mutation : `mutated = false`, `true` rejeté au constructeur ; aucune commande ni route `apply`, `promote`,
+   `activate`, `override` ou de cycle de vie. Promouvoir une claim exige un ADR distinct.
+7. Budgets : les constantes `MAX_*` de `ReasoningContracts` et `MorpheusHttpServer.MAX_REQUEST_BODY_BYTES` ; un
+   dépassement échoue sans tronquer.
+8. Surfaces : lignes `reasoning.adapters` et `reasoning.analyze` de `contracts/public-surfaces.tsv`, `READ` sur CLI,
+   MCP et HTTP ; `MorpheusRemoteRoutePolicy` classe `POST /api/v1/reasoning/analyze` en rôle `READ`.
+9. Ni store, ni table, ni migration : demandes et résultats sont des vues éphémères.
 
 ## Do's and Don'ts
 

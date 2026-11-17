@@ -24,7 +24,8 @@ Faits vérifiés (`fichier:ligne`, tests, mesures), contraintes, options consid�
 
 ## Decision
 
-Ce qui est décidé, au présent ; ce qui est exclu.
+Ce qui est décidé, au présent ; ce qui est exclu. Toutes les règles, en 2 000 caractères au plus, sous-sections
+comprises : les raisons, les options, les diagrammes et les exemples vont dans `Context`.
 
 ## Do's and Don'ts
 

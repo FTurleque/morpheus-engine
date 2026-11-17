@@ -54,8 +54,10 @@ Avant de créer un ADR, répondre aux trois. Un seul « non » suffit : ce n'est
 
 - Rédigé **au présent** : il dit ce qui est décidé aujourd'hui, sans récit du chantier, ni « auparavant »,
   « désormais » ou « mis à jour pour… ». L'historique est dans Git et dans les relevés datés de `docs/project/`.
-- Sa section `Decision` tient sous **2 000 caractères** : c'est elle qu'Archgate remet aux agents, et `archgate check`
-  signale au-delà un `briefingWarnings` sans échouer. Les raisons et les options vont dans `Context`.
+- Ses sections `Decision` et `Do's and Don'ts` tiennent chacune en **2 000 caractères** au plus : ce sont elles
+  qu'`archgate review-context` remet aux agents, et il coupe chacune à 2 000. Une section court de son titre `##` au
+  titre `##` suivant, sous-sections `###` comprises, mesurée sans les blancs de bord. `Decision` garde toutes les
+  règles ; les raisons, les options, les diagrammes et les exemples vont dans `Context`.
 - Il porte des **Do's and Don'ts vérifiables**. Une contrainte qui se lit dans le code ou les fichiers a sa règle
   exécutable — un test sous `morpheus-architecture-tests/` (le mécanisme du dépôt, cf. `rules/architecture.md`) ou une
   règle Archgate compagnon ; sinon, la section de conformité dit comment elle est tenue (test, revue, gate de CI).
@@ -68,6 +70,11 @@ Tenus par `AdrIndexCoherenceTest` : numéro unique entre le registre et l'archiv
 d'index par ADR du registre et réciproquement, statut de l'ADR et de sa ligne d'index concordants et pris dans le
 vocabulaire que l'index déclare, aucun ADR `Remplacée` ou `Rejetée` dans le registre, rien d'autre dans l'archive, et
 un ADR remplacé qui nomme un successeur existant (`Statut : **Remplacée par ADR-NNNN**`).
+
+Tenu par `AdrBriefingBudgetTest` : les sections `Decision` et `Do's and Don'ts` de chaque ADR du registre, non vides et
+de 2 000 caractères au plus, mesurées quelles que soient les fins de ligne. `archgate check` signale le même dépassement
+(`briefingWarnings`) sans échouer, mais ne voit aucun titre de section sur un arbre extrait en CRLF : sous Windows, il
+n'est pas une preuve.
 
 Tenus par la règle Archgate d'ADR-0132 (`archgate check`, hors CI) : fichier `{PRÉFIXE}-{NNNN}-{slug}.md` avec un
 en-tête YAML en ligne 1 et un `id` égal, préfixe conforme au domaine, titre `#` égal au `title` et à la ligne d'index,

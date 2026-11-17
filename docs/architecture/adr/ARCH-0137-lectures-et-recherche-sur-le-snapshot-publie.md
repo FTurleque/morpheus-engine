@@ -41,11 +41,9 @@ Options écartées :
   déterministe, contraire à ADR-0004 ;
 - pour la recherche : recherche sémantique, classement pondéré, FTS SQLite, index Lucene, stemming, fuzzy matching.
 
-## Decision
+Fonctionnement détaillé des lectures que la décision fixe, point par point :
 
-### 1. Sélection du snapshot
-
-Une lecture métier a deux formes possibles :
+**1. Sélection du snapshot.** Une lecture métier a deux formes possibles :
 
 - la forme par projet, que toute lecture offre, lit exclusivement le snapshot `ACTIVE` du projet ;
 - la forme par snapshot explicite, offerte quand la lecture donne accès à l'historique (recherche d'exigences, trace
@@ -56,7 +54,7 @@ Une lecture métier a deux formes possibles :
 Un snapshot `RETIRED` se lit sans être réactivé. Un snapshot technique non publié n'est pas une source de requête
 métier.
 
-### 2. Pas d'`ACTIVE` n'est pas une entité absente
+**2. Pas d'`ACTIVE` n'est pas une entité absente.**
 
 La forme par projet rend `Optional.empty()` quand le projet n'a pas de snapshot `ACTIVE`. Quand le snapshot publié
 est trouvé, le résultat porte ses métadonnées (`KnowledgeSnapshotMetadata`) et l'absence de l'entité y est
@@ -65,12 +63,12 @@ changement, page vide avec `totalMatches = 0` pour une liste filtrée par un `Ch
 fabriqué. `trace(requirement)` fait exception : son résultat est vide aussi quand l'exigence n'a pas d'occurrence
 `CURRENT` (point 5).
 
-### 3. Projection manquante = échec explicite
+**3. Projection manquante = échec explicite.**
 
 Un snapshot publié sans projection `SnapshotBusinessContent` lève une `KnowledgeStoreException` (« published snapshot
 has no business-content projection »).
 
-### 4. Getters et listes
+**4. Getters et listes.**
 
 `BusinessContentQueryService` porte les getters et les listes. Une spécification est adressée par son
 `SpecificationId`, un projet pouvant en porter plusieurs. Les listes (changements ; contraintes, décisions de
@@ -78,7 +76,7 @@ conception, tâches d'un changement ; critères d'acceptation du projet, d'un ch
 filtrées, triées par identité de domaine, puis paginées (point 9). Un `Scenario` n'est jamais présenté comme un
 critère d'acceptation : les critères sont ceux du modèle (ADR-0081).
 
-### 5. `trace(requirement)`
+**5. `trace(requirement)`.**
 
 `TraceRequirementService` porte la trace, exposée par `TraceRequirementQueryService` qui lui délègue sans rien
 ajouter. La racine est toujours `REQUIREMENT` + `RequirementId`, et la trace n'a lieu que si une occurrence `CURRENT`
@@ -88,7 +86,7 @@ liens entrants et sortants sans persister d'arête inverse. Le résultat porte l
 sous-graphe et une vue externe (`ExternalTraceabilityView`) par lien du sous-graphe qui cible une
 `EXTERNAL_REFERENCE`, triée par `TraceabilityLinkId`. Aucun lien n'est modifié.
 
-### 6. Contexte d'un changement
+**6. Contexte d'un changement.**
 
 `ChangeContextQueryService` agrège, pour un seul snapshot publié, le changement, ses liens `AFFECTS` **directs
 sortants** vers une exigence, les exigences `CURRENT` que ces liens résolvent (jamais `PROPOSED`, jamais par
@@ -99,13 +97,13 @@ reste visible. Les exigences affectées sont calculées par `AFFECTS` même si l
 exclut `AFFECTS` : ce filtre gouverne le sous-graphe, pas les faits de l'agrégat. Une tâche n'est jamais reliée au
 changement par une arête synthétique.
 
-### 7. Références externes
+**7. Références externes.**
 
 Une lecture réutilise `ExternalTraceabilityQueryService.inspect(...)` et ne déclenche aucune résolution externe :
 `REFERENCE_UNVALIDATED`, `REFERENCE_UNRESOLVED`, `REFERENCE_RESOLVED`, `REFERENCE_STALE` et `BROKEN_REFERENCE`
 restent visibles tels quels (ADR-0142).
 
-### 8. Recherche lexicale des exigences
+**8. Recherche lexicale des exigences.**
 
 `RequirementQueryService` (`com.morpheus.application.query`), neutre vis-à-vis des providers et des backends, offre
 les deux formes du point 1 :
@@ -134,7 +132,7 @@ findSnapshot(snapshotId, query, pageRequest)
   index ni table de recherche : le prédicat lexical filtre les lignes `CURRENT` du snapshot, atteintes dans l'ordre de
   la page par un index d'ordre, et son coût est borné par leur nombre.
 
-### 9. Pagination
+**9. Pagination.**
 
 `PageRequest(offset, limit)` exige `offset >= 0` et `1 <= limit <= PageRequest.MAX_LIMIT`. La pagination est
 appliquée **après** filtrage et tri déterministe. `SnapshotPage` porte le snapshot, les éléments, la requête de page,
@@ -142,7 +140,7 @@ appliquée **après** filtrage et tri déterministe. `SnapshotPage` porte le sna
 et refuse à la construction un `hasMore` incohérent avec les bornes et le total. Le vocabulaire de page exposé par les
 transports suit ADR-0151.
 
-### 10. Déterminisme et parité
+**10. Déterminisme et parité.**
 
 Toute collection rendue est triée explicitement par identité (`RequirementId`, `ConstraintId`, `DesignDecisionId`,
 `TaskId`, `TraceabilityLinkId`), dans l'ordre de `UUID.compareTo`. La logique de lecture est définie dans
@@ -151,6 +149,30 @@ Toute collection rendue est triée explicitement par identité (`RequirementId`,
 compris après fermeture et réouverture de la base.
 
 La même politique de snapshot gouverne l'analyse de changement (ADR-0138) et les analyses de qualité (ADR-0124).
+
+## Decision
+
+1. Forme par projet : le seul snapshot `ACTIVE`. Forme par snapshot explicite : `ACTIVE` ou `RETIRED` (sans
+   réactivation) ; `BUILDING`, `VALIDATING`, `READY`, `FAILED` ou inconnu lèvent une `KnowledgeStoreException` qui
+   nomme snapshot et état. Idem pour ADR-0138 et ADR-0124.
+2. Pas d'`ACTIVE` : `Optional.empty()`. Entité absente : résultat avec `KnowledgeSnapshotMetadata`, rien de fabriqué
+   (`trace` : vide sans occurrence `CURRENT`).
+3. Snapshot publié sans `SnapshotBusinessContent` : `KnowledgeStoreException`, pas de résultat vide.
+4. `BusinessContentQueryService` : spécification par `SpecificationId`, listes filtrées, triées, paginées ; un
+   `Scenario` n'est pas un critère d'acceptation (ADR-0081).
+5. `TraceRequirementService` : racine `REQUIREMENT` + `RequirementId` `CURRENT`, profondeur > 0 validée d'abord,
+   traversée `BIDIRECTIONAL` bornée (ADR-0040) sans arête inverse persistée, une `ExternalTraceabilityView` par lien
+   externe.
+6. `ChangeContextQueryService` : exigences affectées par les seuls `AFFECTS` directs sortants résolus en `CURRENT`,
+   quel que soit le filtre ; jamais par texte, titre ou clé ; liens bruts gardés ; nulle arête synthétique.
+7. Une lecture ne résout aucune référence externe, ne modifie aucun lien.
+8. `RequirementQueryService` : occurrences `CURRENT` seules, corpus `key`, `title`, `statement`, normalisation
+   `RequirementSearchQuery` commune, tous les termes en sous-chaîne, ordre `RequirementId` ; ni score, stemming,
+   fuzzy ni index.
+9. Page par `VersionedRequirementStore.pageCurrentRequirementVersions` (éléments et total d'un état), selon
+   `RequirementPageCriteria` et `RequirementPageOrder` ; ni `lower()` ni `LIKE` en SQLite.
+10. `PageRequest` : `offset >= 0`, `1 <= limit <= PageRequest.MAX_LIMIT`, après tri.
+11. Tri par identité (`UUID.compareTo`) ; mémoire et SQLite donnent le même résultat, réouverture comprise.
 
 ## Do's and Don'ts
 

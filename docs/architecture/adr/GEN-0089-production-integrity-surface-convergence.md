@@ -36,96 +36,7 @@ Options rejetées :
   d'option. **Faire de l'aide la source** : elle peut omettre une commande servie. **Une liste tenue par le seul test** :
   une seconde liste qui peut mentir comme le manifeste.
 
-## Decision
-
-### 1. CI durable et non liée aux jalons
-
-La CI requise, son workflow générique et son rapport aux validateurs locaux relèvent d'ADR-0133.
-
-### 2. Couverture mesurée et bornée
-
-JaCoCo instrumente les modules Java. Les seuils de couverture, leurs deux échelles et leurs plafonds qualifiés relèvent
-d'ADR-0167 ; leurs valeurs vivent dans `config/m21-quality-ratchets.properties` et ne se recopient pas ici. Un seuil ne
-constitue pas une affirmation de couverture suffisante par domaine.
-
-### 3. Présence des tests : deux mesures
-
-Le ratchet de présence compte des exécutions telles que Surefire les rapporte, en deux comptes — exécutions déclarées
-et exécutions générées — bornés chacun par sa propre clé de `config/m21-quality-ratchets.properties`. La convention de
-comptage, la comparaison faite par chaque validateur et la gouvernance des deux clés sont celles de
-`.claude/rules/testing.md` (« Deux mesures de présence : déclarées et générées »). `validate-m21.*` et `validate-d2.*`
-écrivent les deux comptes dans `validation-summary.txt`, et aucune source génératrice n'admet
-`allowZeroInvocations = true`.
-
-### 4. Métadonnées produit convergentes
-
-La version produit est résolue par une primitive unique, `ProductMetadata.version()` : la version d'implémentation
-empaquetée, sinon la propriété `morpheus.project.version`, sinon le marqueur explicite `development`. CLI, MCP et HTTP
-délèguent à `ProductMetadata` et n'entretiennent aucune version codée indépendamment.
-
-### 5. Manifeste public de surfaces
-
-`contracts/public-surfaces.tsv` est la source machine lisible des capacités publiques et de leur intention READ /
-WRITE. Une capacité peut avoir des formes de transport différentes. Une absence sur un transport est déclarée par un
-sentinelle explicite, jamais implicite.
-
-Chaque colonne est comparée à ce que son transport sert, dans les deux sens :
-
-- **`http`** : à `MorpheusHttpRouteTable` et aux opérations des documents OpenAPI ; toute route servie a sa ligne, hors
-  les routes du seul serveur remote et les sondes d'exploitation, exclusions motivées dans le test ;
-- **`mcp`** : aux outils que le serveur sert ; chaque outil servi apparaît dans exactement une ligne ;
-- **`cli`** : à `CliCommandPaths`, la déclaration unique des chemins de commande. Un chemin est la suite de mots qui
-  sélectionne un comportement avant toute option (`version`, `portfolio list`, `policy pack create`).
-  `MorpheusMain.run` refuse comme commande inconnue tout chemin non déclaré, avant d'interroger une sous-commande : une
-  action ajoutée au seul `switch` d'une sous-commande n'est pas atteignable tant qu'elle n'est pas déclarée. Un chemin
-  interrompu avant un chemin déclaré (`portfolio`, `policy pack`) est laissé à sa commande, qui dit l'action qui manque.
-  Toute cellule `cli` qui n'est pas un sentinelle nomme, par les mots qui précèdent sa première option, un chemin
-  déclaré ; tout chemin déclaré est nommé par exactement une ligne ou par une exclusion écrite avec sa raison. Les
-  exclusions sont les points d'entrée du processus (`help`, `paths`, les lanceurs `api` et `mcp`) et les formes dont la
-  capacité porte une autre ligne ; une exclusion pour un chemin non déclaré, ou déjà nommé par une ligne, est refusée.
-  Un sentinelle ne cache pas une commande servie. L'aide embarquée documente chaque chemin déclaré, hors les formes par
-  lesquelles on l'atteint (`help`, `reason help`).
-
-Le côté manifeste se vérifie en lisant le texte, un `.tsv` ne se lisant pas autrement ; le côté CLI se vérifie par
-exécution : chaque chemin déclaré est lancé sans option contre un store vide et n'est pas refusé comme inconnu, un
-chemin non déclaré l'est.
-
-### 6. Documentation single-source-of-truth
-
-La documentation humaine explique le manifeste mais ne redéfinit pas un second contrat normatif. Des tests de
-cohérence vérifient version, manifeste et références documentaires critiques.
-
-### 7. Chaîne d'approvisionnement vérifiable
-
-Le build produit un SBOM CycloneDX. Les artefacts de release sont accompagnés de leur SHA-256 et d'un manifeste de
-provenance contenant au minimum version, commit, référence source et environnement de build. Un checksum n'est jamais
-présenté comme une signature. Une signature cryptographique n'est exigée que lorsqu'une identité de signature réelle
-est configurée ; elle n'est jamais simulée.
-
-La CI elle-même est une chaîne d'approvisionnement :
-
-- toute action GitHub non locale est épinglée par un SHA de commit de 40 caractères, jamais par un tag mutable ;
-- l'analyse OWASP Dependency-Check échoue à partir du score `failBuildOnCVSS` fixé dans le POM racine (7.0) ;
-- CodeQL est versionné dans `.github/workflows/codeql.yml` et exécute les requêtes Java `security-extended` ;
-- la clé `NVD_API_KEY` n'est lue que par variable d'environnement (`-DnvdApiKeyEnvironmentVariable=NVD_API_KEY`) et
-  réservée aux événements de confiance ; le chemin `pull_request` n'utilise aucun secret du dépôt.
-
-### 8. Découverte de mise à jour explicite et read-only
-
-La découverte d'une version disponible est un service read-only, exécuté uniquement sur demande explicite avec une
-URI de manifeste fournie par l'appelant. Aucun accès réseau n'est effectué au démarrage. Le service valide version,
-channel, URI d'artefact et SHA-256, puis compare la version cible à la version courante. Il ne télécharge, n'installe
-et ne remplace aucun binaire.
-
-- Le service lit un manifeste `file:` ou `https:`. Un manifeste `http:` est refusé avant toute requête réseau
-  (« insecure update manifest scheme »), tout autre schéma aussi (« unsupported update manifest scheme »).
-- Un manifeste `https:` est accepté sous un contrat fail-closed : `artifactUri` en `https:`, `attestationUri` présent et
-  en `https:` (`UpdateManifest.requireRemoteDiscoveryContract`).
-- Un manifeste `file:` reste utilisable sans attestation, pour les tests, la qualification packagée et les diagnostics
-  explicites. Il ne rend aucun artefact installable, et l'URI d'artefact qu'il annonce n'est jamais en `http:` ni dans
-  un autre schéma que `file:` ou `https:`.
-
-### Invariants
+Principes que la décision tient :
 
 ```text
 surface parity != same transport shape
@@ -137,6 +48,57 @@ checksum != signature
 CI evidence != business source of truth
 local-first remains default
 ```
+
+La CI requise et son workflow générique relèvent d'ADR-0133. JaCoCo instrumente les modules Java ; un seuil de
+couverture n'affirme pas une couverture suffisante par domaine. La convention de comptage de la présence des tests, la
+comparaison faite par chaque validateur et la gouvernance des deux clés sont celles de `.claude/rules/testing.md`
+(« Deux mesures de présence : déclarées et générées »).
+
+Un chemin de commande CLI est la suite de mots qui sélectionne un comportement avant toute option (`version`,
+`portfolio list`, `policy pack create`). Parce que `MorpheusMain.run` refuse un chemin non déclaré avant d'interroger
+une sous-commande, une action ajoutée au seul `switch` d'une sous-commande n'est pas atteignable tant qu'elle n'est pas
+déclarée. Le côté manifeste se vérifie en lisant le texte, un `.tsv` ne se lisant pas autrement ; le côté CLI se
+vérifie par exécution, chaque chemin déclaré lancé sans option contre un store vide. Un manifeste de mise à jour `file:`
+sert aux tests, à la qualification packagée et aux diagnostics explicites.
+
+Détail des règles de convergence et de livraison que la décision résume :
+
+- `ProductMetadata.version()` rend la version d'implémentation empaquetée, sinon la propriété
+  `morpheus.project.version`, sinon le marqueur explicite `development`.
+- Colonne `http` : les exclusions motivées sont les routes du seul serveur remote et les sondes d'exploitation.
+  Colonne `mcp` : chaque outil servi apparaît dans exactement une ligne.
+- Colonne `cli` : une cellule qui n'est pas un sentinelle nomme un chemin déclaré par les mots qui précèdent sa
+  première option. Les exclusions sont les points d'entrée du processus (`help`, `paths`, les lanceurs `api` et `mcp`)
+  et les formes dont la capacité porte une autre ligne ; une exclusion pour un chemin non déclaré, ou déjà nommé par
+  une ligne, est refusée. L'aide documente chaque chemin déclaré, hors les formes par lesquelles on l'atteint (`help`,
+  `reason help`). Un chemin interrompu avant un chemin déclaré va à sa commande, qui dit l'action qui manque.
+- Les tests de cohérence documentaire vérifient version, manifeste et références documentaires critiques.
+- Le manifeste de provenance contient au minimum version, commit, référence source et environnement de build ; une
+  signature cryptographique n'est exigée que lorsqu'une identité de signature réelle est configurée. Le score
+  `failBuildOnCVSS` du POM racine vaut 7.0.
+- La découverte de mise à jour valide version, channel, URI d'artefact et SHA-256, puis compare la version cible à la
+  version courante. L'URI d'artefact d'un manifeste `file:` n'est jamais en `http:` ni dans un autre schéma que
+  `file:` ou `https:`.
+
+## Decision
+
+1. **Tests** : seuils selon ADR-0167, valeurs dans `config/m21-quality-ratchets.properties`, jamais recopiées ;
+   exécutions déclarées et générées, chacune sous sa clé, écrites par `validate-m21.*` et `validate-d2.*` dans
+   `validation-summary.txt` ; pas d'`allowZeroInvocations = true`.
+2. **Version** : `ProductMetadata.version()` seule ; CLI, MCP et HTTP y délèguent.
+3. **Manifeste** : `contracts/public-surfaces.tsv`, seul contrat machine des capacités (intention READ / WRITE),
+   que la documentation explique sans redéfinir ; une absence est un sentinelle, qui ne cache rien de servi. Chaque
+   colonne est comparée dans les deux sens à son transport (`http` : `MorpheusHttpRouteTable` et OpenAPI ; `mcp` :
+   outils servis ; `cli` : `CliCommandPaths`) ; une surface servie a une ligne exactement, ou une exclusion motivée.
+4. **CLI** : `MorpheusMain.run` refuse un chemin non déclaré, laisse à sa commande un chemin interrompu (`portfolio`,
+   `policy pack`) ; une exclusion vise un chemin déclaré non nommé ; l'aide documente chaque chemin déclaré.
+5. **Approvisionnement** : SBOM CycloneDX ; release avec SHA-256 et provenance ; checksum jamais dit signature,
+   signature non simulée. Actions par SHA de 40 caractères ; OWASP au `failBuildOnCVSS` du POM ; CodeQL
+   `security-extended` (`.github/workflows/codeql.yml`) ; `NVD_API_KEY` par
+   `-DnvdApiKeyEnvironmentVariable=NVD_API_KEY`, événements de confiance seuls, aucun secret sur `pull_request`.
+6. **Mise à jour** : read-only, sur demande, URI fournie, jamais au démarrage ; rien téléchargé, installé, remplacé. Refus avant réseau de `http:` (« insecure update manifest scheme ») et de tout schéma hors `file:` /
+   `https:` (« unsupported update manifest scheme »). `https:` exige `artifactUri` et `attestationUri` en `https:`
+   (`UpdateManifest.requireRemoteDiscoveryContract`) ; `file:` admis sans attestation ni artefact installable.
 
 ## Do's and Don'ts
 

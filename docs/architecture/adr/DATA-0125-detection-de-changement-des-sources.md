@@ -32,56 +32,58 @@ un instant), un upsert conditionnel dont le résultat n'est pas inspecté (il ne
 `java.nio.file.WatchService` peut perdre des événements (`OVERFLOW`) et n'observe que le processus qui l'ouvre : il ne
 peut pas être la preuve de l'état des sources.
 
+Les raisons de reconstruction complète couvrent l'absence de baseline, un inventaire incomplet ou en échec,
+l'`OVERFLOW` du watcher, un déplacement ambigu, une même `sourceRevision` avec un inventaire différent, une
+`sourceRevision` présente puis perdue, une baseline incohérente, une reconstruction précédente en attente, un échec
+d'exécution et une demande explicite ; la liste exacte est l'énumération `FullRebuildReason`. Un déplacement ambigu
+n'est jamais deviné.
+
+Un `ProjectSyncState` porte la dernière tentative, le dernier succès et son mode, le dernier changement observé, la
+`sourceRevision`, la raison de reconstruction en attente, le nombre de sources et la révision. Un plan écrit contre sa
+propre révision, `SyncPlan.stateRevision`, la révision après l'enregistrement de la tentative, pour qu'un plan dépassé
+ne réécrive pas l'état d'un plus récent ; la panne de stockage réessayée ne change pas la révision. En SQLite, la
+création est un `INSERT … ON CONFLICT DO NOTHING` et la mise à jour un `UPDATE … WHERE project_id = ? AND revision = ?`
+dont le nombre de lignes est vérifié ; la révision s'écrit dans la même transaction que l'inventaire et les archives,
+dans les tables `sync_state`, `sync_inventory_entries` et `sync_source_archives`.
+
+La fraîcheur est calculée, jamais lue d'une horloge cachée. Ses états :
+
+| État | Condition |
+|---|---|
+| `UNKNOWN` | aucune synchronisation réussie et aucune reconstruction en attente |
+| `FRESH` | âge depuis le dernier succès inférieur ou égal à l'âge maximal |
+| `STALE` | âge depuis le dernier succès supérieur à l'âge maximal |
+| `REBUILD_REQUIRED` | une raison de reconstruction en attente est présente |
+
+`REBUILD_REQUIRED` domine `FRESH` et `STALE` : une baseline récente n'est pas présentée comme saine quand une tentative
+plus récente a établi qu'une reconstruction complète est requise. Le watcher est une optimisation locale ; ses signaux
+normalisés sont `CREATE`, `MODIFY`, `DELETE` et `OVERFLOW`.
+
+Un `SourceInventory` porte le projet, l'instant de capture et une `sourceRevision` facultative. Les classes du diff
+sont `ADDED`, `MODIFIED`, `DELETED`, `MOVED` et `UNCHANGED`.
+`ProjectSyncState.revision` vaut 0 avant la première écriture et augmente de un à chaque écriture.
+
 ## Decision
 
-1. **Inventaire.** L'état observable des sources d'un projet est un `SourceInventory` : projet, instant de capture,
-   `sourceRevision` facultative et entrées triées par chemin relatif normalisé (`SourcePath`). Chaque entrée porte son
-   empreinte `SourceFingerprint`, SHA-256 des octets du fichier, et sa taille.
-2. **Révision de source opaque.** MORPHEUS compare l'égalité de deux `sourceRevision` et n'invente aucun ordre entre
-   elles.
-3. **Diff conservateur.** `SourceInventoryDiffer` classe chaque source en `ADDED`, `MODIFIED`, `DELETED`, `MOVED` ou
-   `UNCHANGED` (`SourceInventoryDiff.ChangeKind`), dans un ordre stable par chemin. Un déplacement n'est reconnu que
-   lorsqu'un contenu supprimé (empreinte et taille) correspond à exactement un contenu ajouté ; toute correspondance
-   multiple est ambiguë, n'est jamais devinée et impose la reconstruction complète.
-4. **Reconstruction complète en cas de doute.** Toute condition qui empêche de démontrer la sûreté de l'incrémental
-   planifie `SyncPlan.SyncMode.FULL_REBUILD` avec une raison `SyncPlan.FullRebuildReason` : aucune baseline,
-   inventaire incomplet ou en échec, `OVERFLOW` du watcher, déplacement ambigu, même `sourceRevision` avec un
-   inventaire différent, `sourceRevision` présente puis perdue, baseline incohérente, reconstruction précédente en
-   attente, échec d'exécution, demande explicite. La liste exacte est l'énumération `FullRebuildReason`. Une
-   reconstruction complète n'est jamais silencieuse : elle porte sa raison.
-5. **État de synchronisation persisté.** Le port `SyncStateStore` conserve, par projet, un `ProjectSyncState`
-   (dernière tentative, dernier succès et son mode, dernier changement observé, `sourceRevision`, raison de
-   reconstruction en attente, nombre de sources, révision), l'inventaire courant et des `SourceArchiveRecord`
-   immuables et ordonnés pour les sources supprimées ou déplacées. Le stockage mémoire et le stockage SQLite ont le
-   même comportement. SQLite les garde dans des tables spécialisées (`sync_state`, `sync_inventory_entries`,
-   `sync_source_archives`), sans JSON métier générique. Les invalidations sont explicites dans le plan de
-   synchronisation ; elles ne suppriment ni historique publié ni snapshot.
-6. **État d'autorité sous révision attendue.** `ProjectSyncState.revision` vaut 0 avant la première écriture et
-   augmente de un à chaque écriture. `recordAttempt` et `commitSuccessfulSync` prennent la révision lue et rendent la
-   nouvelle ; une divergence lève `SyncStateConflictException`, type nommé distinct d'une panne de stockage. En SQLite,
-   la création est un `INSERT … ON CONFLICT DO NOTHING` et la mise à jour un `UPDATE … WHERE project_id = ? AND
-   revision = ?` dont le nombre de lignes est vérifié ; la révision s'écrit dans la même transaction que l'inventaire
-   et les archives. Le stockage mémoire applique la même garde sous son moniteur.
-7. **Un plan écrit contre sa propre révision.** `SyncPlan.stateRevision` est la révision après l'enregistrement de la
-   tentative ; `IncrementalSyncService.complete` et `fail` écrivent contre elle. Sur un conflit, `complete` ne réessaie
-   pas et ne pose pas `BASELINE_INCONSISTENT` : un plan dépassé ne réécrit pas l'état d'un plus récent. Une panne de
-   stockage reste réessayée une fois, sans changer la révision.
-8. **Fraîcheur calculée, jamais lue d'une horloge cachée.** `SyncFreshnessService.assess` reçoit `now` et un âge
-   maximal explicites et rend un `SyncFreshness.State` :
-
-   | État | Condition |
-   |---|---|
-   | `UNKNOWN` | aucune synchronisation réussie et aucune reconstruction en attente |
-   | `FRESH` | âge depuis le dernier succès inférieur ou égal à l'âge maximal |
-   | `STALE` | âge depuis le dernier succès supérieur à l'âge maximal |
-   | `REBUILD_REQUIRED` | une raison de reconstruction en attente est présente |
-
-   `REBUILD_REQUIRED` domine `FRESH` et `STALE` : une baseline récente n'est pas présentée comme saine quand une
-   tentative plus récente a établi qu'une reconstruction complète est requise.
-9. **Le watcher n'est qu'un déclencheur.** `LocalSourceWatcher` est une optimisation locale et facultative. Il produit
-   des `SourceWatchSignal` normalisés (`CREATE`, `MODIFY`, `DELETE`, `OVERFLOW`) qui ne servent qu'à déclencher ou
-   borner un nouveau scan ; le scan SHA-256 reste la seule preuve de l'état des sources. Un appel manuel de scan et de
-   synchronisation prend exactement les mêmes décisions que le watcher suivi d'un scan.
+1. **Inventaire** : `SourceInventory`, entrées triées par `SourcePath`, chacune avec sa taille et son
+   `SourceFingerprint`, SHA-256 des octets.
+2. **Révision opaque** : deux `sourceRevision` ne se comparent que par égalité.
+3. **Diff** : `SourceInventoryDiffer` classe chaque source par `SourceInventoryDiff.ChangeKind`, par chemin. `MOVED`
+   exige un unique ajout de même empreinte et taille qu'une suppression ; plusieurs candidats : reconstruction complète.
+4. **Doute** : toute sûreté incrémentale non démontrée planifie `SyncPlan.SyncMode.FULL_REBUILD` avec sa
+   `SyncPlan.FullRebuildReason`, jamais en silence.
+5. **État** : `SyncStateStore` garde par projet un `ProjectSyncState`, l'inventaire et des `SourceArchiveRecord`
+   immuables et ordonnés des sources supprimées ou déplacées ; mémoire et SQLite à l'identique, tables dédiées sans
+   JSON générique. Les invalidations, explicites dans le plan, ne suppriment ni historique publié ni snapshot.
+6. **Révision attendue** : `recordAttempt` et `commitSuccessfulSync` prennent la `ProjectSyncState.revision` lue et
+   rendent la suivante ; un écart lève `SyncStateConflictException`, distinct d'une panne. Révision et inventaire
+   s'écrivent ensemble (transaction SQLite, moniteur en mémoire).
+7. **Plan** : `IncrementalSyncService.complete` et `fail` écrivent contre `SyncPlan.stateRevision`. Sur conflit,
+   `complete` ne réessaie pas et ne pose pas `BASELINE_INCONSISTENT` ; une panne est réessayée une fois.
+8. **Fraîcheur** : `SyncFreshnessService.assess` reçoit `now` et l'âge maximal ; `REBUILD_REQUIRED` si une raison de
+   reconstruction attend, sinon `UNKNOWN` sans succès, `FRESH` jusqu'à l'âge maximal, `STALE` au-delà.
+9. **Watcher** : `LocalSourceWatcher`, facultatif, émet des `SourceWatchSignal` qui déclenchent ou bornent un scan ;
+   seul le scan SHA-256 prouve l'état. Un scan manuel décide comme watcher plus scan.
 
 ## Do's and Don'ts
 

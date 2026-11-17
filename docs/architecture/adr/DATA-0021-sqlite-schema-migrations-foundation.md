@@ -31,13 +31,7 @@ Options considérées :
 - **Framework de migration externe (Flyway, Liquibase)** : différé. Un runner SQL déterministe interne suffit ; il
   pourra être réévalué si le nombre ou la complexité des migrations le rend disproportionné.
 
-## Decision
-
-Le schéma SQLite évolue par migrations SQL explicites, ordonnées et immuables après application.
-
-### Ledger de migrations
-
-SQLite conserve :
+Le registre des migrations a la forme suivante, et l'identité se distingue du locator :
 
 ```text
 schema_migrations
@@ -45,69 +39,37 @@ schema_migrations
 - name TEXT NOT NULL
 - checksum TEXT NOT NULL
 - applied_at TEXT NOT NULL
-```
 
-Le checksum identifie le **texte** d'une migration, pas les octets d'un checkout : c'est le SHA-256 du script dont les
-fins de ligne sont normalisées en LF. C'est la valeur enregistrée pour toute migration appliquée.
-
-Pour une migration déjà enregistrée, deux valeurs sont acceptées, pas plus : le checksum canonique et celui du même
-texte en CRLF. Toute autre valeur est une divergence d'historique et provoque un échec explicite. Une valeur acceptée
-reste telle qu'enregistrée : MORPHEUS ne réécrit jamais l'histoire du schéma. Accepter la variante CRLF accepte aussi
-une modification qui ne toucherait que les fins de ligne, qui ne peut pas changer le SQL exécuté.
-
-`.gitattributes` fixe `*.sql text eol=lf`, pour que les builds embarquent les mêmes octets quel que soit le système.
-
-La restauration d'une sauvegarde confronte chaque ligne de son registre (version, nom, checksum) à cette même règle
-**avant** de mettre la base vivante en quarantaine ; un registre refusé l'est avec la raison « backup migration history
-is not accepted by this runtime for version N », et la base vivante reste en place.
-
-### Migrations et familles métier
-
-La migration initiale `V001__foundation.sql` crée uniquement `projects` et `knowledge_snapshots`, avec les index et
-contraintes de leurs invariants, sans payload JSON métier générique. Chaque famille métier reçoit sa propre migration
-lorsque son contrat Java est stabilisé. La liste des migrations fait foi dans `SqliteSchemaManager` et dans
-`morpheus-store-sqlite/src/main/resources/db/migration/` ; la version de schéma supportée est la constante
-`SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION`.
-
-### Identités
-
-Les identités MORPHEUS sont stockées sous leur représentation texte canonique UUIDv7 (ADR-0168).
-
-```text
 DomainIdentity != SourceLocator
 ```
 
-Un locator de source est persisté dans des colonnes distinctes de l'identité.
+Le checksum identifie le **texte** d'une migration, pas les octets d'un checkout. Accepter la variante CRLF accepte
+aussi une modification qui ne toucherait que les fins de ligne, qui ne peut pas changer le SQL exécuté. La règle
+`.gitattributes` fait embarquer aux builds les mêmes octets quel que soit le système. Les mêmes scénarios de contrat
+tournent sur mémoire et SQLite pour qu'aucune sémantique propre à JDBC ne devienne implicitement la sémantique
+MORPHEUS.
 
-### Snapshots
+## Decision
 
-Les snapshots sont persistés par leurs **métadonnées** : identifiant, projet, predecessor optionnel, état, révision
-source optionnelle, date de création. Le contenu métier d'un snapshot relève des migrations de ses familles.
-
-### Stratégie de migration
-
-Le chemin normal est **forward-only**. Pour les données dérivées et reconstructibles, la reconstruction depuis les
-sources reste la stratégie de secours privilégiée plutôt qu'un système de down-migrations. Le retour à un programme
-antérieur repose sur la copie de la base prise avant que son schéma n'avance (ADR-0110). Toute migration destructive
-documente explicitement sauvegarde, restauration et stratégie de reconstruction.
-
-### Invariants
-
-1. SQLite reste un adaptateur ;
-2. aucune API SQL ne fuit dans `com.morpheus.domain` ou les services applicatifs ;
-3. toute évolution de schéma passe par une migration versionnée ;
-4. une migration appliquée est immuable par checksum ;
-5. rejouer les migrations est idempotent ;
-6. aucun blob JSON générique ne représente le domaine ;
-7. les identités UUIDv7 et les locators restent séparés ;
-8. une seule version `ACTIVE` est observable par projet ;
-9. les foreign keys SQLite sont activées par l'adaptateur ;
-10. le store reste reconstructible depuis les sources.
-
-### Backend mémoire
-
-Le backend mémoire reste la référence des tests contractuels. Les mêmes scénarios de contrat sont exécutés sur mémoire
-et SQLite, pour qu'aucune sémantique propre à JDBC ne devienne implicitement la sémantique MORPHEUS.
+1. **Migrations** : SQL explicites, ordonnées, versionnées, immuables une fois appliquées, idempotentes au rejeu,
+   listées par `SqliteSchemaManager` et `morpheus-store-sqlite/src/main/resources/db/migration/` ; version supportée :
+   `SqliteSchemaManager.SUPPORTED_SCHEMA_VERSION`.
+2. **Checksum** : `schema_migrations` enregistre le SHA-256 du script normalisé en LF. Une migration enregistrée
+   n'accepte que ce checksum ou celui du même texte en CRLF ; toute autre valeur est une divergence d'historique, en
+   échec explicite. Une valeur acceptée reste telle quelle. `.gitattributes` fixe `*.sql text eol=lf`.
+3. **Restauration** : le registre d'une sauvegarde (version, nom, checksum) suit cette règle, vérifiée **avant** la
+   quarantaine de la base vivante, qui reste en place sur un refus « backup migration history is not accepted by
+   this runtime for version N ».
+4. **Familles** : `V001__foundation.sql` ne crée que `projects` et `knowledge_snapshots`, avec index et contraintes ;
+   une famille métier a sa migration quand son contrat Java est stabilisé. Aucun blob JSON générique pour le domaine.
+5. **Identités et snapshots** : identités en texte canonique UUIDv7 (ADR-0168), locators en colonnes distinctes ;
+   snapshots persistés par leurs métadonnées (identifiant, projet, predecessor et révision source optionnels, état,
+   création) ; une seule version `ACTIVE` observable par projet.
+6. **Forward-only** : pas de down-migration ; secours par reconstruction, retour arrière par la copie prise avant que
+   le schéma n'avance (ADR-0110). Une migration destructive documente sauvegarde, restauration et reconstruction.
+7. **Adaptateur** : aucune API SQL dans `com.morpheus.domain` ni les services applicatifs ; foreign keys activées par
+   l'adaptateur ; store reconstructible depuis les sources ; tests contractuels de référence sur le backend mémoire,
+   rejoués sur SQLite.
 
 ## Do's and Don'ts
 

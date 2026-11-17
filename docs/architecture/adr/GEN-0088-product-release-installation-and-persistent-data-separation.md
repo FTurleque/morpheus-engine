@@ -19,46 +19,26 @@ désinstallation ne doit jamais effacer implicitement les données persistantes.
 
 ## Decision
 
-**1. Programme et état persistant sont séparés.** Sans réglage explicite, les emplacements sont :
-
-```text
-Windows
-  programme   %LOCALAPPDATA%\Programs\MORPHEUS
-  état        %LOCALAPPDATA%\MORPHEUS\{data,config,logs,backups}
-
-Linux
-  data        ${XDG_DATA_HOME:-$HOME/.local/share}/morpheus
-  config      ${XDG_CONFIG_HOME:-$HOME/.config}/morpheus
-  logs        ${XDG_STATE_HOME:-$HOME/.local/state}/morpheus/logs
-  backups     ${XDG_STATE_HOME:-$HOME/.local/state}/morpheus/backups
-```
-
-Les options de la CLI et les variables d'environnement (`MORPHEUS_DATA_DIR`, `MORPHEUS_CONFIG_DIR`, `MORPHEUS_DB`,
-`MORPHEUS_LOGS_DIR`, `MORPHEUS_BACKUPS_DIR`) restent prioritaires (`morpheus-cli/.../CliLayout.java`).
-
-**2. Le setup Windows est par utilisateur.** Il ne demande pas d'élévation et installe par défaut dans
-`%LOCALAPPDATA%\Programs\MORPHEUS`. Une tâche explicite, décochée par défaut, ajoute le répertoire programme au `PATH`
-utilisateur ; la désinstallation retire cette entrée lorsqu'elle a été ajoutée.
-
-**3. La désinstallation ne possède pas le knowledge store.** Le désinstalleur retire les fichiers programme et ne
-supprime pas `%LOCALAPPDATA%\MORPHEUS`. La suppression des données est une opération distincte, explicite, hors du
-contrat de désinstallation par défaut. Le retrait des entrées de clients MCP que MORPHEUS gère relève d'ADR-0096.
-
-**4. Mise à jour en place.** Un `AppId` stable identifie MORPHEUS 1.x. Une nouvelle installation remplace les fichiers
-programme sans toucher aux données ni à la configuration persistantes.
-
-**5. Artefacts.** Une release publie un setup Windows, une archive portable Windows (ZIP) et une archive portable
-Linux (`tar.gz`), chacun avec son SHA-256 compagnon (`.sha256`), ainsi que l'inventaire des composants du commit
-étiqueté avec son SHA-256 compagnon. La liste exacte des assets est celle qu'attend `.github/workflows/release.yml`.
-Le runtime Java est embarqué dans tous les artefacts d'exécution. Les archives portables restent supportées.
-
-**6. Checksums vérifiés.** La chaîne de build calcule le SHA-256 de chaque artefact qu'elle accompagne d'un `.sha256`
-et le vérifie après écriture.
-
-**7. Release depuis un tag.** La publication stable part d'un tag Git `v<version>` qui pointe sur un SHA qualifié,
-dans un espace de travail Git propre. Les artefacts sont reconstructibles depuis ce tag avec les scripts versionnés.
-Le gate de release est conclu par les validateurs versionnés (`scripts/validate-m20.ps1`, `scripts/validate-m20.sh`) ;
-GitHub Actions n'en est pas la preuve autoritative.
+1. **Programme et état séparés** : sans réglage explicite, le programme Windows est dans
+   `%LOCALAPPDATA%\Programs\MORPHEUS` et l'état dans `%LOCALAPPDATA%\MORPHEUS\{data,config,logs,backups}` ; sous
+   Linux, `morpheus` sous `$XDG_DATA_HOME` (data), `$XDG_CONFIG_HOME` (config) et `$XDG_STATE_HOME` (`logs`,
+   `backups`), replis XDG `~/.local/share`, `~/.config`, `~/.local/state`. Les options de la CLI et
+   `MORPHEUS_DATA_DIR`, `MORPHEUS_CONFIG_DIR`, `MORPHEUS_DB`, `MORPHEUS_LOGS_DIR`, `MORPHEUS_BACKUPS_DIR` restent
+   prioritaires (`CliLayout`).
+2. **Setup Windows par utilisateur**, sans élévation ; l'ajout au `PATH` utilisateur est une tâche explicite
+   décochée par défaut, retirée à la désinstallation si elle a été ajoutée.
+3. **La désinstallation ne possède pas le knowledge store** : elle retire les fichiers programme, jamais
+   `%LOCALAPPDATA%\MORPHEUS` ; supprimer les données est une opération distincte et explicite. Le retrait des entrées
+   de clients MCP relève d'ADR-0096.
+4. **Mise à jour en place** : un `AppId` stable identifie MORPHEUS 1.x ; une installation remplace les fichiers
+   programme sans toucher aux données ni à la configuration.
+5. **Artefacts** : setup Windows, archives portables Windows (ZIP) et Linux (`tar.gz`), inventaire des composants du
+   commit étiqueté, chacun avec son `.sha256`, calculé et vérifié après écriture par la chaîne de build ; la liste
+   exacte est celle qu'attend `.github/workflows/release.yml`. Tout artefact d'exécution embarque le runtime Java ;
+   les archives portables restent supportées.
+6. **Release depuis un tag** `v<version>` sur un SHA qualifié, dans un espace de travail Git propre ; les artefacts
+   en sont reconstructibles par les scripts versionnés. Le gate est conclu par `scripts/validate-m20.ps1` et
+   `scripts/validate-m20.sh`, jamais par GitHub Actions.
 
 ## Do's and Don'ts
 

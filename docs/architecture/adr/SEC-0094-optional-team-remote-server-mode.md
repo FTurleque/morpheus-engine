@@ -16,86 +16,69 @@ MORPHEUS est local-first et son API HTTP écoute par défaut sur la boucle local
 possible sans transformer cette API locale en service réseau implicitement exposé, ni déplacer l'autorité des faits
 provider vers un control plane serveur.
 
-## Decision
-
-Deux modes explicites :
+Les deux modes et les invariants que la décision tient :
 
 ```text
 LOCAL   loopback uniquement, HTTP local, authentification non imposée
 REMOTE  opt-in, TLS obligatoire, authentification obligatoire, RBAC obligatoire
-```
 
-Le mode local reste la baseline produit. Un bind non-loopback est refusé en mode local
-(`LoopbackHostPolicy`).
-
-**Frontière TLS.** Le mode REMOTE utilise le serveur HTTPS du JDK, en TLSv1.3 et TLSv1.2, avec un keystore PKCS12
-fourni explicitement. Le mot de passe du keystore est lu comme le fixe ADR-0105 ; il n'est ni sérialisé, ni
-retourné dans un statut ou des métriques.
-
-```text
 remote != plaintext HTTP
 remote startup without TLS material => FAIL
-```
-
-**Authentification.** Le provider de référence est local et portable : un fichier d'identités porte, par principal, son
-rôle, l'empreinte de son jeton et, s'il en a une, son expiration ; la forme persistée d'un jeton et sa comparaison
-relèvent d'ADR-0105. L'en-tête attendu est `Authorization: Bearer <token>`. Un `principal` fourni dans un corps ou un paramètre de requête ne constitue jamais une
-authentification.
-
-**Identités au format historique à trois champs.** Elles n'expirent pas, et c'est un engagement de compatibilité, pas
-un défaut à résorber. `server identity list` le rend visible (`nonExpiring` par entrée, total
-`nonExpiringIdentities`), et `server identity migrate-legacy` leur donne une expiration sans rotation de jeton, avec
-`--dry-run`, écriture atomique verrouillée, audit `EXPIRY_MIGRATED` et refus complet d'un lockout ADMIN.
-`server identity create` et `server identity rotate` acceptent `--expires-at`, une date ISO-8601 ou `never`, qui rend
-l'identité permanente par un choix nommé. Cette position se rouvre sur une version majeure qui assume la rupture de
-compatibilité, ou sur la constatation qu'une identité historique non expirante a servi à un accès non légitime, qui
-est alors un incident.
-
-**Autorisation.** Rôles fermés, ordonnés `READ < WRITE < ADMIN` (`MorpheusRemoteRole`) :
-
-- READ : opérations métier en lecture seule, y compris les POST explicitement en lecture seule (exécution de requête,
-  dry-run et évaluation de policy, transition-check, contexte augmenté) ;
-- WRITE : mutations métier et de configuration ;
-- ADMIN : surface serveur, backups et métriques remote.
-
-L'autorisation est fail-closed : une route inconnue n'obtient jamais WRITE ni ADMIN par défaut.
-
-**Concurrence.** Le serveur remote applique une limite explicite de requêtes concurrentes. Une surcharge produit HTTP
-`429` et ne met pas en file une quantité non bornée de travail. SQLite conserve ses transactions, son busy timeout et
-ses CAS ; le mode remote n'introduit aucun last-write-wins silencieux. Le listen backlog HTTPS est distinct de la limite
-de concurrence applicative, pour qu'une saturation soit observée et rejetée par le contrôle applicatif plutôt que par un
-refus TCP prématuré. Les deux budgets restent bornés.
-
-**Observabilité.** Le statut remote ne porte que des compteurs locaux au processus (`MorpheusRemoteRuntimeState`), dont
-`startedAt`, `uptimeSeconds`, `activeRequests`, `maxConcurrentRequests`, `totalRequests`, `authenticationFailures`,
-`authorizationFailures` et `throttledRequests`. Aucun jeton, empreinte, mot de passe, en-tête `Authorization` ni
-contenu métier n'y est exposé.
-
-**Statut d'une intégration.** Le statut d'une intégration optionnelle (MINOS, NEXUS) porte l'emplacement du JAR, du
-répertoire personnel et de la JVM du serveur. Une seule projection, `IntegrationStatusDisclosure`
-(`morpheus-application`, à côté de `ServerLocationDisclosure`), s'applique à toute frontière distante ou orientée
-modèle : la route de statut d'intégration (dont `IntegrationStatusViews` n'est que la mise en forme), les deux routes
-`augmented-context` et les deux outils MCP `get_augmented_*_context`. Un emplacement est rapporté comme *configuré*,
-jamais nommé ; les alias NEXUS `jar` et `home` sont ramenés sur `jarPath` et `homeDirectory` **avant** l'examen de la
-valeur. Une clé `…Configured` absente reste l'absence de réglage. La CLI ne projette pas : c'est là qu'un opérateur
-corrige les réglages. Ni `AugmentedContextService`, partagé avec la CLI, ni un filtre par transport ne porte cette
-projection.
-
-**Backup et restauration.** Un backup SQLite est une copie cohérente produite par SQLite (`VACUUM INTO`) vers une
-destination explicite qui n'est pas un lien symbolique. Chaque backup est vérifié par `PRAGMA integrity_check` et par
-la version du ledger `schema_migrations`. La restauration est **offline** : elle n'est jamais exécutée par un endpoint
-sur la base active. Elle exige une confirmation explicite, vérifie intégrité et version, copie vers un fichier
-temporaire puis remplace atomiquement la base cible lorsque c'est possible. Une base plus récente que le schéma
-supporté est rejetée ; une base plus ancienne peut être restaurée puis migrée par le mécanisme normal au démarrage
-suivant, sans réécrire aucune migration historique.
-
-```text
 backup != live restore
 restore != implicit migration
 ```
 
-**État serveur.** Les identités remote, limites de concurrence, TLS et backups relèvent de la configuration et de
-l'opérabilité. Ils ne deviennent jamais source de vérité des spécifications, snapshots, providers ou portfolios.
+Le provider d'authentification de référence est local et portable. Le rôle READ couvre aussi les POST explicitement en
+lecture seule : exécution de requête, dry-run et évaluation de policy, transition-check, contexte augmenté. Le listen
+backlog HTTPS est distinct de la limite de concurrence pour qu'une saturation soit observée et rejetée par le contrôle
+applicatif plutôt que par un refus TCP prématuré. Les compteurs du statut remote comprennent `startedAt`,
+`uptimeSeconds`, `activeRequests`, `maxConcurrentRequests`, `totalRequests`, `authenticationFailures`,
+`authorizationFailures` et `throttledRequests`.
+
+READ porte les opérations métier en lecture seule, WRITE les mutations métier et de configuration. Le serveur remote
+conserve les transactions, le busy timeout et les CAS de SQLite.
+
+La non-expiration des identités historiques à trois champs est un engagement de compatibilité, pas un défaut à
+résorber ; `--expires-at never` rend une identité permanente par un choix nommé. `server identity list` porte
+`nonExpiring` par entrée et le total `nonExpiringIdentities` ; `server identity migrate-legacy` offre `--dry-run`, une
+écriture atomique verrouillée, l'audit `EXPIRY_MIGRATED` et le refus complet d'un lockout ADMIN. Cette position se rouvre sur une
+version majeure qui assume la rupture de compatibilité, ou sur la constatation qu'une identité historique non
+expirante a servi à un accès non légitime, qui est alors un incident.
+
+Le statut d'une intégration optionnelle (MINOS, NEXUS) porte l'emplacement du JAR, du répertoire personnel et de la
+JVM du serveur. `IntegrationStatusDisclosure` vit dans `morpheus-application`, à côté de `ServerLocationDisclosure` ;
+`IntegrationStatusViews` n'est que la mise en forme de la route de statut. Une clé `…Configured` absente reste
+l'absence de réglage. La CLI ne projette pas parce que c'est là qu'un opérateur corrige les réglages, et
+`AugmentedContextService` est partagé avec elle.
+
+La restauration copie vers un fichier temporaire avant le remplacement atomique, quand il est possible ; une base plus
+ancienne restaurée est migrée par le mécanisme normal, sans réécrire aucune migration historique. L'état serveur
+(identités remote, limites de concurrence, TLS, backups) ne devient jamais source de vérité des spécifications,
+snapshots, providers ou portfolios.
+
+## Decision
+
+1. **Modes** : `LOCAL` (baseline, loopback seul, autre bind refusé par `LoopbackHostPolicy`) ; `REMOTE` (opt-in,
+   TLS, authentification, RBAC).
+2. **TLS** : HTTPS du JDK, TLSv1.3/1.2, keystore PKCS12 explicite, sinon pas de démarrage ; mot de passe selon
+   ADR-0105, jamais sérialisé ni exposé.
+3. **Authentification** : fichier d'identités (rôle, empreinte du jeton, expiration ; jeton : ADR-0105),
+   `Authorization: Bearer <token>` ; un `principal` de corps ou de paramètre n'authentifie jamais.
+4. **Identités à trois champs** : sans expiration ; `server identity list` les signale (`nonExpiring`),
+   `server identity migrate-legacy` les date sans rotation ni lockout ADMIN, `create`/`rotate` prennent
+   `--expires-at` (ISO-8601 ou `never`).
+5. **Rôles** : `READ < WRITE < ADMIN` (`MorpheusRemoteRole`) ; ADMIN pour serveur, backups, métriques. Une route
+   inconnue n'a jamais WRITE ni ADMIN.
+6. **Concurrence** : limite et backlog bornés, surcharge en `429` ; CAS SQLite gardés, aucun last-write-wins.
+7. **Statut remote** : compteurs de `MorpheusRemoteRuntimeState`, sans jeton, empreinte, secret ni contenu métier.
+8. **Intégrations** : seule `IntegrationStatusDisclosure` projette, sur la route de statut, les routes
+   `augmented-context` et les outils `get_augmented_*_context` ; un emplacement est dit *configuré*, jamais nommé
+   (`jar`/`home` lus comme `jarPath`/`homeDirectory` avant examen). Ni CLI, ni `AugmentedContextService`, ni filtre.
+9. **Backup** : `VACUUM INTO` vers une destination non symbolique, vérifié (`PRAGMA integrity_check`,
+   `schema_migrations`).
+10. **Restauration** : offline, confirmée, vérifiée, remplacement atomique ; jamais par endpoint ni sur la base active ;
+    base plus récente refusée, plus ancienne migrée au démarrage.
+11. **État serveur** : configuration, jamais source de vérité métier.
 
 ## Do's and Don'ts
 
