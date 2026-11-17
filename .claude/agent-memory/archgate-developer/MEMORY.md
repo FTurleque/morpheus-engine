@@ -1,0 +1,2 @@
+- [Local build and shell traps](local-build-and-shell-traps.md) — no Bash heredoc with apostrophes; no edit during clean verify (coverage gates refuse stale reports).
+- [Condensing ADR Decision sections](condensing-adr-decision-sections.md) — keep rules briefed, check lost literals, fix renumbered `§N` pointers repo-wide.
